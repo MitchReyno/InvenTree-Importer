@@ -59,7 +59,7 @@ Settings › Agents SHALL hold every setting that shapes agent behaviour, in sub
 - a default model;
 - its credential panel.
 
-Below the cards, "Default provider" SHALL choose one provider that is on. At least one provider SHALL be on to save.
+Below the cards, "Default provider" SHALL choose one provider that is on. Providers and "Provider and model per step" SHALL save together with one Save, which needs at least one provider on. The other subsections SHALL save on their own, even while no provider is on.
 
 A provider card SHALL show the same status as its credential panel at all times:
 
@@ -147,6 +147,12 @@ The cards SHALL keep the existing personal Claude credential (save, replace, rem
 - **GIVEN** Codex is off
 - **WHEN** the operator turns Claude off too and presses Save
 - **THEN** the form says at least one provider must be on, and nothing is sent
+
+#### Scenario: Other settings before any provider
+
+- **GIVEN** a fresh setup with no saved settings and no provider on
+- **WHEN** the operator writes new-batch instructions and saves Instructions
+- **THEN** the instructions save, both providers stay off, and Processing still can't start sessions until a provider is on
 
 #### Scenario: Instructions copied once
 

@@ -152,8 +152,8 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - PR delivery: PR-A.
 - Outcome: The Dev mode pill opens a dialog popover with the debug switch, readiness summary, tools and Developer link.
 - Scope:
-  - `masthead/DevBadge.tsx` becomes `DevModeButton.tsx`, used in `Masthead.tsx`;
-  - the `ConnectionDetails.tsx` pill stays static;
+  - a new `masthead/DevModeButton.tsx` replaces `DevBadge` in `Masthead.tsx`;
+  - `masthead/DevBadge.tsx` stays as the static pill in `ConnectionDetails.tsx`;
   - the popover content uses `Popover` with role `dialog` and the readiness query, enabled only while open.
 - Prerequisites: Task 2.
 - Acceptance: debug-mode › "Dev mode popover" and "Dev mode popover is accessible" (all scenarios); access-identity › "Access development-key bootstrap" › "Masthead mode badge".
@@ -184,7 +184,7 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
   - split `AgentsSection` into `components/settings/agents/*` subsection components;
   - move `DescriptionsSection` in;
   - remove the tag switch from `BatchDefaultsSection`;
-  - a route-keyed scroll-and-focus Effect.
+  - subsection headings rendered at once, with each body showing its own loading state, and a route-keyed scroll-and-focus Effect that records the last subsection focused in a ref.
 - Prerequisites: None. If PR-A merged first, the Developer section already exists; otherwise this PR adds only its nav entry when present.
 - Acceptance: app-settings › "Settings page and navigation" (all scenarios) and "Deferred settings are disabled and explained".
 - TDD approach: RED tests for the sub-nav links and routes, the redirect, focus on the subsection heading, the current marking, and the moved rows rendered in Agents and absent elsewhere.
@@ -212,7 +212,7 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
     - `agent_provider_settings` filled from existing rows;
     - the new `agent_settings` columns, keeping the old selection columns for rollback;
     - `batch_defaults` for task 7;
-    - grants in `processing/grants.ts`;
+    - grants in `processing/grants.ts`, and the Capture read grants in `capture/grants.ts`;
   - `agents/schema.ts` and `agents/settings.ts`, which keep writing the default provider's values into the old columns;
   - `contracts/src/agents.ts` (replace `selection`) and the generated client;
   - every reader and writer of `selection`:
@@ -220,14 +220,15 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
     - the Agents page summary;
     - the current `frontend/src/components/agents/AgentSettingsForm.tsx`, its tests, `settings/AgentsSection.test.tsx` and the `settings/fixtures/SettingsProof.tsx` fixture. These are adapted to the new shape, still editing only the default provider, until task 9 replaces the form, so PR-C passes typecheck, tests and build on its own;
   - a pure `resolveSelection(settings, stage)` used by those three callers;
-  - validation that returns `invalid_agent_settings`, with models checked against the ID pattern only;
+  - validation that returns `invalid_agent_settings`, with models checked against the ID pattern only, and "no provider on" accepted when there's no default and no step choice;
+  - the legacy rollback columns written from the default provider, or kept, or set to the first-save fallback when no provider is on;
   - the style sealed as text in the session input (`contracts/src/processing.ts`, `processing/session-attempts.ts`) and appended to the opening message by `openingText()` in `agents/session/session-runner.ts`.
 - Prerequisites: None.
 - Acceptance: provider-runtime (all scenarios, including "Steps on different providers" and "Existing settings carried over"); processing-agent-sessions › "Part description style delivered to sessions"; the app-settings server-side scenarios (stale revision; description style too long, enforced server-side at 500; no provider on).
 - TDD approach:
   - RED tests:
     - `resolveSelection` unit cases: the step's choice, Default, a step on a provider that is off, the default provider off;
-    - Postgres-tier tests: round-trip and conflict, each `invalid_agent_settings` case, the migration of a single-selection row (including a model outside the presets), a Research attempt sealed on Codex with its own sign-in method beside a Claude Images attempt, the style sealed at queue time and unchanged by a save while queued, the style delivered only in the opening message with the profile digest unchanged, and style over 500 characters refused.
+    - Postgres-tier tests: round-trip and conflict, each `invalid_agent_settings` case, a first save with no provider on (for example only Instructions) accepted, the legacy columns staying valid, the migration of a single-selection row (including a model outside the presets), a Research attempt sealed on Codex with its own sign-in method beside a Claude Images attempt, the style sealed at queue time and unchanged by a save while queued, the style delivered only in the opening message with the profile digest unchanged, and style over 500 characters refused.
   - Each fails because the tables, columns and logic don't exist yet.
 - Verification: The intake-server test tiers, the contracts generation check, `pnpm lint:readability`, and the full frontend checks (`pnpm typecheck`, `pnpm lint:frontend`, `pnpm test:frontend`, `pnpm build`).
 - Risks:
@@ -254,7 +255,9 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
   - A batch-free catalogue read lets Settings pick existing locations and companies.
 - Scope (server paths under `intake-server/src/`):
   - `batch_defaults` repository and routes;
-  - a public single-record lookup on `CatalogueReader` (`capture/catalogue.ts`), used before the creation transaction, and a batch-free search for the Settings pickers;
+  - a public single-record lookup on `CatalogueReader` (`capture/catalogue.ts`), used before the creation transaction and by `GET /api/v1/batch-defaults` to return each saved record's label and `found`, `not_found` or `unavailable` status;
+  - batch-free catalogue routes for both `candidates` and `search`, for the Settings pickers;
+  - `SELECT` grants on the agent settings tables, and grants on `batch_defaults` and `creation_notices`, in `capture/grants.ts`, checked by the Capture-only Postgres suites;
   - `capture/repository.ts` `create()`:
     - catalogue observations for the resolved records;
     - the default location through the existing default-location write;
@@ -318,7 +321,7 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - Scope:
   - the `components/settings/agents/*` subsections from task 5, with the provider cards wrapping the existing credential panels;
   - `BatchDefaultsSection.tsx` with pickers on the batch-free catalogue;
-  - React Hook Form per subsection;
+  - React Hook Form per subsection, except that Providers and "Provider and model per step" share one form and one Save, so turning a provider off resets its steps before saving;
   - navigation-guard reporting from input events;
   - the reset note when a provider is turned off.
 - Prerequisites: Tasks 5, 6 and 7.
@@ -332,7 +335,7 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
   - the provider card status scenarios, which still hold.
 - TDD approach: RED tests for each subsection's save and reload, conflict with the draft kept, the provider-off reset, no provider on, grouped step options, length limits, the missing location shown, and the dirty guard.
 - Verification: The full frontend checks, and a browser pass of every Settings page against canvas v67.
-- Risks: One revision is shared across agent subsections. A save in one subsection must send the loaded values for the others, not stale form state.
+- Risks: One revision is shared across agent subsections. A save in one form must send the loaded values for fields it doesn't own, not another form's unsaved state. On a fresh setup, saving any other subsection before a provider is on must succeed.
 
 - [ ] 9.1 Confirm the PR-B structure and the PR-C contracts are merged, and set the baseline.
 - [ ] 9.2 RED: write the form tests.

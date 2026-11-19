@@ -64,9 +64,16 @@ It has no revision of its own: it is written in the same transaction as its pare
 
 `selection` is removed, and every reader is updated in the same PR.
 
-**Saving.** One revision covers every agent subsection. Each subsection's Save sends the whole loaded settings object with only its fields changed, exactly as the form does today.
+**Saving.** One revision covers every agent subsection, sent as the whole loaded settings object.
 
-**New `batch_defaults` table.** It has the same key, a `revision`, `location_pk` and `supplier_pk`. It is served by `GET`/`PUT /api/v1/batch-defaults` with the same revision conflict (412).
+- **Providers and steps save together.** Providers and "Provider and model per step" are one form with one Save, because turning a provider off resets that provider's steps to Default in the same form. A save never sends a step on a provider that is off.
+- **Other subsections save on their own.** Sessions, Instructions, Descriptions and naming, and Tag suggestions each have their own Save. Each sends the loaded values for the fields it doesn't own, not another form's unsaved state.
+
+**New `batch_defaults` table.** It has the same key, a `revision`, `location_pk` and `supplier_pk`.
+
+- `PUT /api/v1/batch-defaults` saves it with the same revision conflict (412).
+- `GET /api/v1/batch-defaults` resolves each saved PK through the catalogue single-record lookup. For each it returns `{pk, label, status: 'found' | 'not_found' | 'unavailable'}`, so the pickers can show the saved record's name, or say it wasn't found or couldn't be checked. Absence from the bounded candidate list (`CATALOGUE_CANDIDATE_LIMIT`, `capture/catalogue.ts`) is never taken as "not found".
+- The Settings pickers use new batch-free catalogue routes for both `candidates` and `search`, matching what `useCatalogue` calls inside a batch.
 
 **Rejected:**
 
@@ -88,12 +95,14 @@ A pure `resolveSelection(settings, stage)` returns the existing `AgentSelection`
 
 All three callers switch from reading `settings.selection` to calling `resolveSelection`. The sealed manifest field keeps its `AgentSelection` shape, so the worker and the provider adapters are unchanged. The lead Examine attempt uses the `examine` key.
 
-**Validation on save.** A save fails with `invalid_agent_settings` (422) when:
+**Validation on save.** No provider being on is a valid saved state, so the other subsections can be saved on a fresh setup before any provider is set up; sessions then can't be queued, as today with no default. A save fails with `invalid_agent_settings` (422) when:
 
-- no provider is on;
-- the default provider is off;
-- a default model or step model doesn't match the existing model ID pattern (`contracts/src/agent-selection.ts`);
+- a provider is on but the default provider is missing or off;
+- no provider is on but a default provider or a step choice is set;
+- a provider that is on, or a step choice, has a model that doesn't match the existing model ID pattern (`contracts/src/agent-selection.ts`);
 - a step names a provider that is off.
+
+A provider that is off may keep an empty default model.
 
 Models stay free text, as today. The form's suggestion lists (`PRESETS` in `frontend/src/components/agents/AgentSettingsForm.tsx:51`) move into the per-provider card unchanged, and the server doesn't restrict models to them. So existing values such as test model IDs keep working.
 
@@ -103,8 +112,13 @@ Models stay free text, as today. The form's suggestion lists (`PRESETS` in `fron
 
 - The new text columns are `NOT NULL DEFAULT ''`.
 - `auto_tags_default` defaults to `false`.
-- `default_provider` is nullable, and null only while no settings were ever saved.
-- An actor with no saved settings reads `revision: '0'`, both providers off, no default provider, every step Default and empty texts, matching today's `selection: null` case.
+- `default_provider` is nullable, and null exactly when no provider is on.
+- An actor with no saved settings has no row. It reads `revision: '0'`, both providers off with the first model of their suggestion lists as default models, no default provider, every step Default and empty texts, matching today's `selection: null` case.
+- The legacy `provider`, `authentication` and `model` columns (`NOT NULL`, with checks, migration 0011) keep a valid value for rollback:
+  - the default provider's values while one is on;
+  - otherwise their previous values, or Claude, subscription and its first suggested model on a first save.
+
+  Accepted trade-off: after a rollback, code from before this change would treat that fallback as a configured default, even though the newer settings had no provider on.
 
 **Slots and pausing.** Sessions at once stays one shared limit (`agents/session/slots.ts`), and Pause all is unchanged.
 
@@ -226,7 +240,11 @@ PR-A therefore includes this small contract and projection change, beside its fr
 
 **Nav.** `SettingsNav` gains optional `children` per section, rendered as nested links with `aria-current="location"` for the current subsection.
 
-**Scrolling to a subsection.** It is driven by the route. An Effect keyed on the subsection scrolls the heading into view and focuses it. It runs when the route changes, which is the external system (location hash) it syncs with.
+**Scrolling to a subsection.** It is driven by the route.
+
+- Subsection headings render at once, while each body shows its own loading state, so a direct link such as `#settings/descriptions` finds its heading before the settings read finishes.
+- An Effect keyed on the subsection scrolls the heading into view and focuses it. It runs when the route changes, which is the external system (location hash) it syncs with.
+- A ref records the last subsection focused, so a refetch never steals focus again.
 
 **Component split.** `AgentsSection` splits into one component per subsection under `components/settings/agents/`. `DescriptionsSection.tsx` becomes the Descriptions subsection, and `DeveloperSection.tsx` is added.
 
@@ -234,7 +252,7 @@ PR-A therefore includes this small contract and projection change, beside its fr
 
 ### Dev mode popover
 
-`DevBadge` becomes `DevModeButton`, a `Popover` trigger with role `dialog`. Its content component holds:
+A new `masthead/DevModeButton.tsx` replaces `DevBadge` in `Masthead.tsx`: a `Popover` trigger with role `dialog`. `masthead/DevBadge.tsx` stays as the static pill inside `ConnectionDetails.tsx`. The popover's content component holds:
 
 - the debug switch;
 - a readiness summary using the existing readiness query, enabled only while open;
@@ -258,7 +276,15 @@ The `ConnectionDetails` copy of the badge stays a static pill, as the server men
 | Connection observation | the server cache per target context | `observed_at` | one in-flight probe; at most one every 5 s; `unauthorized` kept apart from other failures |
 | Debug mode | browser `localStorage` | none | storage errors fall back to memory, off |
 
-**Authority.** Every new route uses the existing binding (actor, target, context), CSRF on writes and strict decoding. Column grants are added in `processing/grants.ts`.
+**Authority.** Every new route uses the existing binding (actor, target, context), CSRF on writes and strict decoding. Grants are added for every role that touches the new tables:
+
+- **`processing/grants.ts`:** read and write on `agent_settings` and `agent_provider_settings`.
+- **`capture/grants.ts`:**
+  - `SELECT` on `agent_settings` and `agent_provider_settings`, because batch creation reads them;
+  - `SELECT, INSERT, UPDATE` on `batch_defaults`;
+  - `UPDATE` on the new `capture_batch.creation_notices` column.
+
+The Capture and Media Postgres suites run under a Capture-only role (`grantFoundation` plus `grantCapture`), so they catch a missing grant.
 
 **Secret handling.** The replacement token is accepted only on `PUT`. It is never echoed, logged, included in errors or copied into debug info. The secrets directory and file are created owner-only, and startup refuses a saved file that other users can read (`secret_file_permissions`).
 

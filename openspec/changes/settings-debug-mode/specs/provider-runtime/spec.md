@@ -15,10 +15,12 @@ Later settings changes SHALL neither rewrite nor invalidate a sealed attempt.
 
 **Settings writes.** Writes SHALL compare the expected revision and fail with `revision_conflict` (412) when it moved on. A write SHALL fail with `invalid_agent_settings` (422) and change nothing when any of these holds:
 
-- no provider is on;
-- the default provider is off;
-- a default model or step model doesn't match the model ID pattern;
+- a provider is on but the default provider is missing or off;
+- no provider is on but a default provider or a step choice is set;
+- a provider that is on, or a step choice, has a model that doesn't match the model ID pattern;
 - a step names a provider that is off.
+
+Saved settings with no provider on are valid, and queuing then fails as with no saved default.
 
 #### Scenario: No default saved
 
