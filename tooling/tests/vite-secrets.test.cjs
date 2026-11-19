@@ -1,6 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { mkdtemp, rm, symlink, writeFile } = require('node:fs/promises')
+const { mkdir, mkdtemp, rm, symlink, writeFile } = require('node:fs/promises')
 const { createRequire } = require('node:module')
 const { join, resolve } = require('node:path')
 const { pathToFileURL } = require('node:url')
@@ -20,6 +20,11 @@ test('the frontend dev server never serves a saved read token from inside the wo
   const rootLink = join(frontend, `.secrets-link-${process.pid}.txt`)
   await symlink(join(directory, 'inventory-read-token'), rootLink)
   t.after(() => rm(rootLink, { force: true }))
+  // A page directory whose index is a link to the token, reached by the HTML fallback.
+  const page = join(frontend, `secrets-page-${process.pid}`)
+  await mkdir(page)
+  t.after(() => rm(page, { recursive: true, force: true }))
+  await symlink(join(directory, 'inventory-read-token'), join(page, 'index.html'))
   const vitePath = createRequire(join(frontend, 'package.json')).resolve('vite')
   const { createServer } = await import(pathToFileURL(vitePath).href)
   const vite = await createServer({
@@ -38,11 +43,14 @@ test('the frontend dev server never serves a saved read token from inside the wo
   const temporary = await served('.inventory-read-token.1234.tmp')
   const aliased = await served('innocent.txt')
   const underRoot = await fetch(new URL(`/.secrets-link-${process.pid}.txt`, base))
+  const rewritten = await fetch(new URL(`/secrets-page-${process.pid}/`, base), {
+    headers: { accept: 'text/html' },
+  })
 
   // The control file proves /@fs reaches this directory at all.
   assert.equal(control.status, 200)
   assert.equal(vite.config.publicDir, '', 'no public directory is served or copied')
-  for (const response of [token, temporary, aliased, underRoot]) {
+  for (const response of [token, temporary, aliased, underRoot, rewritten]) {
     assert.equal(response.status, 403)
     assert.ok(!(await response.text()).includes(PLANTED))
   }

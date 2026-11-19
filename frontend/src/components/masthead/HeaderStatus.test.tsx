@@ -54,8 +54,12 @@ test('Check connection now sends one check, shows it running, and a refused toke
   await user.click(running)
   expect(api.checkConnection).toHaveBeenCalledTimes(1)
   const refused = connection()
-  settle?.({ ...refused, target: { ...refused.target, failure_code: 'unauthorized' } })
-  expect(await within(panel).findByText(/refused the read token/)).toBeVisible()
+  settle?.({
+    ...refused,
+    target: { ...refused.target, failure_code: 'unauthorized', credential_source: 'saved' },
+  })
+  // The advice names the token that was refused: here the one saved in Settings.
+  expect(await within(panel).findByText(/refused the token saved in Settings/)).toBeVisible()
   expect(screen.getAllByText('InvenTree refused the token').length).toBeGreaterThan(0)
 })
 

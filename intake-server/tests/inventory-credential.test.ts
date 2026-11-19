@@ -37,7 +37,7 @@ import {
   type InventoryCredentialRoutes,
 } from '#/inventory/credential-routes.ts'
 import { configureReadTarget } from '#/inventory/read-target.ts'
-import { inventoryTransport } from '#/inventory/transport.ts'
+import { inventoryTransport, withoutEcho } from '#/inventory/transport.ts'
 
 const ENVIRONMENT_TOKEN = 'environment-token-synthetic'
 // Planted so every response and log line can be searched for it.
@@ -548,6 +548,57 @@ test('a read already sent keeps its token, and the next read uses the replacemen
   await transport.probe(target)
 
   assert.deepEqual(sent, [`Token ${ENVIRONMENT_TOKEN}`, `Token ${PLANTED}`])
+})
+
+test('a target that echoes the token it was sent ends that read with an error, never the token', async () => {
+  const holder = new CredentialHolder(ENVIRONMENT_TOKEN, null)
+  holder.replace({ token: 'echo"token\\', savedAt: '2026-11-19T00:00:00.000Z' })
+  const echoed = JSON.stringify({ pk: 7, name: 'Drawer', description: 'echo"token\\' })
+  const bodies = [
+    // Raw, split across two chunks.
+    ['{"description":"echo"to', 'ken\\"}'],
+    // As a JSON string, which escapes the quote and the backslash.
+    [echoed.slice(0, 30), echoed.slice(30)],
+  ]
+  const transport = inventoryTransport(
+    {
+      kind: 'protected-read-only',
+      origin: TARGET.origin,
+      targetId: binding.targetId,
+      contextId: binding.targetContextId,
+      protectedOrigins: [TARGET.origin],
+      credential: ENVIRONMENT_TOKEN,
+    },
+    async () => {
+      const chunks = bodies.shift()!
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          for (const chunk of chunks) {
+            controller.enqueue(new TextEncoder().encode(chunk))
+          }
+          controller.close()
+        },
+      })
+      return new Response(stream, { headers: { 'content-type': 'application/json' } })
+    },
+    () => holder.current(),
+  )
+  const target = { targetId: binding.targetId, contextId: binding.targetContextId }
+
+  for (let read = 0; read < 2; read += 1) {
+    const response = await transport.read(target, { kind: 'get_location', pk: '7' })
+    await assert.rejects(response.text(), { code: 'target_echoed_token' })
+  }
+})
+
+test('a response without the token passes through unchanged', async () => {
+  const response = withoutEcho(
+    new Response('{"name":"Drawer 4"}', { headers: { 'content-type': 'application/json' } }),
+    PLANTED,
+  )
+
+  assert.deepEqual(await response.json(), { name: 'Drawer 4' })
+  assert.equal(response.headers.get('content-type'), 'application/json')
 })
 
 test('a reset ends the forced-check window and an older probe never lands', async () => {
