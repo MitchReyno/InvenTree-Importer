@@ -32,7 +32,7 @@ import {
   wakePendingSessions,
 } from './session-execution.ts'
 import { deliverMissingInstructions } from '#/agents/instructions.ts'
-import { localDatabaseUrl, schedulerDatabaseUrl } from './database-urls.ts'
+import { localDatabaseUrl, schedulerDatabaseUrl, schedulerReachable } from './database-urls.ts'
 
 /**
  * The paired VM bridge this worker starts, or undefined without one. Checked before any
@@ -98,6 +98,8 @@ async function main() {
         protectedHosts: vmBridge.protectedHosts,
       })
     }
+    // The scheduler takes over recovered work, so it must accept a connection first.
+    await schedulerReachable(schedulerUrl)
     // This process now owns the actor, so no other worker can be running these turns.
     await interruptRunningSessions(db.pool, config)
     const store = process.env.INTAKE_BLOB_ROOT

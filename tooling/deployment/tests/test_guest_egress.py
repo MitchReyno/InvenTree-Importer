@@ -1435,6 +1435,42 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(egress.public_tunnels, 0)
         self.assertEqual(egress.PROTECTION.tunnels, set())
 
+    async def test_refused_protected_subdomain_blocks_its_own_addresses(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        stream, remote, client, writer = await self.held_tunnel("www.ti.com:443")
+        # The subdomain lives on a different public address from its parent.
+        table = {"inventory.example.com": ["8.8.8.8"], "api.inventory.example.com": [PUBLIC],
+                 "www.ti.com": [PUBLIC], "alias.example.net": [PUBLIC]}
+        self.guest_dns = Mock(side_effect=dns(table))
+        with patch.object(socket, "getaddrinfo", self.guest_dns), \
+                patch.object(egress.asyncio, "open_connection",
+                             AsyncMock(return_value=(remote, writer))):
+            tunnel = asyncio.create_task(egress.handle(stream, client))
+            await self.until_open(client, tunnel)
+            refused = await self.handle("api.inventory.example.com:443")
+            await asyncio.wait_for(tunnel, 2)
+            alias = await self.handle("alias.example.net:443")
+        self.assertIn(b"X-Bench-Refusal: protected_destination\r\n", refused)
+        # The open tunnel to that address is dropped, and a new alias of it is refused.
+        writer.transport.abort.assert_called_once()
+        self.assertIn(b"X-Bench-Refusal: protected_destination\r\n", alias)
+
+    async def test_provider_tunnels_have_their_own_bound(self):
+        self.write_policy(public_pages=False)
+        stream, remote, client, writer = await self.held_tunnel("api.anthropic.com:443")
+        self.guest_dns = Mock(side_effect=dns({"api.anthropic.com": [OTHER_PUBLIC]}))
+        with patch.object(egress, "MAX_PROVIDER_TUNNELS", 1), \
+                patch.object(socket, "getaddrinfo", self.guest_dns), \
+                patch.object(egress.asyncio, "open_connection",
+                             AsyncMock(return_value=(remote, writer))):
+            held = asyncio.create_task(egress.handle(stream, client))
+            await self.until_open(client, held)
+            beyond = await self.handle("api.anthropic.com:443")
+            remote.feed_eof()
+            await asyncio.wait_for(held, 2)
+        self.assertIn(b"X-Bench-Refusal: too_many_connections\r\n", beyond)
+        self.assertEqual(egress.provider_tunnels, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

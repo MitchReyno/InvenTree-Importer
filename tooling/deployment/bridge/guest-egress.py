@@ -46,6 +46,9 @@ MAX_ANSWERS = 32
 # Public tunnels open at once, and how long one may sit without data before it closes. Provider
 # tunnels have neither limit: model streams can pause for long stretches.
 MAX_PUBLIC_TUNNELS = 32
+# Provider tunnels have their own, larger budget: far above what a provider CLI opens at once,
+# but enough to stop held connections exhausting the egress container's memory and files.
+MAX_PROVIDER_TUNNELS = 64
 # Every address protected names answer with stays blocked for the turn; past this many the
 # turn fails closed rather than grow without bound.
 MAX_PROTECTED_ADDRESSES = 1024
@@ -295,6 +298,12 @@ def protected_names(protected):
     return sorted(entry for entry in protected if literal_address(entry) is None)
 
 
+def protecting_name(host, protected):
+    """The protected entry `host` falls under; the longest, when several do."""
+    return max((entry for entry in protected if host == entry or host.endswith("." + entry)),
+               key=len)
+
+
 async def provider_addresses(host, protected):
     """The provider host's checked addresses, or Refused.
 
@@ -367,6 +376,9 @@ async def public_addresses(host, port, protected):
                 addresses = await target
             except Refused as error:
                 refusal = error
+                if error.found:
+                    # The refused subdomain's answers block aliases and open tunnels too.
+                    PROTECTION.publish(protecting_name(host, protected), error.found)
     finally:
         # The destination lookup belongs to this request alone.
         if target is not None and not target.done():
@@ -471,6 +483,7 @@ async def idle_watch(activity, timeout):
 # Public CONNECTs being set up or tunnelling, and connections still sending their header; the
 # egress serves them on one event loop.
 public_tunnels = 0
+provider_tunnels = 0
 pending_headers = 0
 
 
@@ -543,23 +556,28 @@ def abort(writer):
 
 
 async def handle(reader, client):
-    global public_tunnels
+    global public_tunnels, provider_tunnels
     upstream = None
     tunnel = None
     tasks = []
     counted = False
+    counted_provider = False
     drop = False
     try:
         host, port = await read_request(reader)
         provider = host in HOSTS and port == 443
         policy, protected = current_protection()
         if provider:
+            if provider_tunnels >= MAX_PROVIDER_TUNNELS:
+                raise Refused("too_many_connections")
+            provider_tunnels += 1
+            counted_provider = True
             addresses = await provider_addresses(host, protected)
         else:
             check_public_request(host, port, policy, protected)
             PROTECTION.check_latches(True)
             # Counted before any DNS work, so idle or slow public tunnels can't crowd out the
-            # provider, which is never counted.
+            # provider, which has its own budget.
             if public_tunnels >= MAX_PUBLIC_TUNNELS:
                 raise Refused("too_many_connections")
             public_tunnels += 1
@@ -609,6 +627,8 @@ async def handle(reader, client):
                 PROTECTION.release(tunnel)
             if counted:
                 public_tunnels -= 1
+            if counted_provider:
+                provider_tunnels -= 1
 
 
 async def main():

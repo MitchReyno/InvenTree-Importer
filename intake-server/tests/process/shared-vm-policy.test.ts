@@ -389,7 +389,11 @@ interface Misconfiguration {
   /** The refusal code the worker reports. */
   code: string
   /** Environment overrides, after any files or listeners the case needs. */
-  prepare: (root: string, t: TestContext) => Promise<Record<string, string>>
+  prepare: (
+    root: string,
+    t: TestContext,
+    fixture: Awaited<ReturnType<typeof processingFixture>>,
+  ) => Promise<Record<string, string>>
 }
 
 const misconfigurations: Misconfiguration[] = [
@@ -536,6 +540,20 @@ const misconfigurations: Misconfiguration[] = [
       }
     },
   },
+  {
+    label: 'whose scheduler database rejects its credentials',
+    code: 'session_agent_startup_refused',
+    prepare: async (root, _t, fixture) => {
+      await pairedCertificates(root)
+      const rejected = new URL(fixture.scheduler.url)
+      rejected.password = 'not-the-password'
+      return {
+        INTAKE_AGENT_PROTECTED_ORIGINS: validOrigins,
+        INTAKE_VM_PAIR: join(root, 'bench-coordinator'),
+        INTAKE_AGENT_SCHEDULER_DATABASE_URL: rejected.toString(),
+      }
+    },
+  },
 ]
 
 for (const misconfiguration of misconfigurations) {
@@ -584,7 +602,7 @@ for (const misconfiguration of misconfigurations) {
       root = await mkdtemp(join(tmpdir(), 'bench-worker-origins-'))
       const stateRoot = join(root, 'state')
       await mkdir(stateRoot, { mode: 0o700 })
-      const overrides = await misconfiguration.prepare(root, t)
+      const overrides = await misconfiguration.prepare(root, t, fixture)
       const spawned = spawn(
         process.execPath,
         [

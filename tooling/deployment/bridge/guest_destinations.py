@@ -57,11 +57,15 @@ def permitted_addresses(answers, protected):
 
 
 class Refused(Exception):
-    """A public-access refusal whose reason the egress proxy reports to the agent."""
+    """A public-access refusal whose reason the egress proxy reports to the agent.
 
-    def __init__(self, reason):
+    `found` holds the public addresses a refused protected subdomain resolved to, so the
+    egress can block them too."""
+
+    def __init__(self, reason, found=None):
         super().__init__(reason)
         self.reason = reason
+        self.found = found
 
 
 def normalized(value):
@@ -116,18 +120,22 @@ def public_target(host, port, protected):
     The caller answers an exact protected name from its own refresh, and compares the result
     with every protected name's addresses."""
     check_public_form(host, port, protected)
+    protected_subdomain = protected_name(host, protected)
     try:
         addresses = resolved_addresses(host)
     except Refused:
         # A protected subdomain without its own record is still protected.
-        if protected_name(host, protected):
+        if protected_subdomain:
             raise Refused("protected_destination") from None
         raise
+    # A protected subdomain's public answers are protected addresses too.
+    found = ({address for address in map(normalized, addresses) if public(str(address))}
+             if protected_subdomain else None)
     # A private answer reports not_public even under a protected name.
     if not addresses or not all(public(address) for address in addresses):
-        raise Refused("not_public")
-    if protected_name(host, protected):
-        raise Refused("protected_destination")
+        raise Refused("not_public", found)
+    if protected_subdomain:
+        raise Refused("protected_destination", found)
     return connection_order(addresses)
 
 

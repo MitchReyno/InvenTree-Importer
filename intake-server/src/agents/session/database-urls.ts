@@ -63,3 +63,22 @@ export function schedulerDatabaseUrl(value: string | undefined) {
   }
   return checked
 }
+
+/** The scheduler refuses a connection within this long when its server is unreachable. */
+const SCHEDULER_CONNECT_TIMEOUT_MS = 5000
+
+/**
+ * Connects to the scheduler database once and disconnects, so stale credentials or an
+ * unreachable server stop startup before recovery changes any retained session.
+ */
+export async function schedulerReachable(url: string) {
+  const client = new Client({
+    connectionString: url,
+    connectionTimeoutMillis: SCHEDULER_CONNECT_TIMEOUT_MS,
+  })
+  try {
+    await client.connect()
+  } finally {
+    await client.end().catch(() => undefined)
+  }
+}
