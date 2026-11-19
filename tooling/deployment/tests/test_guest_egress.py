@@ -1471,6 +1471,30 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         self.assertIn(b"X-Bench-Refusal: too_many_connections\r\n", beyond)
         self.assertEqual(egress.provider_tunnels, 0)
 
+    async def test_protected_subdomain_answer_is_published_before_a_stalled_refresh_lands(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        stream, remote, client, writer = await self.held_tunnel("www.ti.com:443")
+        table = {"inventory.example.com": ["8.8.8.8"], "api.inventory.example.com": [PUBLIC],
+                 "www.ti.com": [PUBLIC]}
+        held = threading.Event()
+        self.addCleanup(held.set)
+        self.guest_dns = Mock(side_effect=dns(table))
+        with patch.object(socket, "getaddrinfo", self.guest_dns), \
+                patch.object(egress.asyncio, "open_connection",
+                             AsyncMock(return_value=(remote, writer))):
+            tunnel = asyncio.create_task(egress.handle(stream, client))
+            await self.until_open(client, tunnel)
+            # The parent's next refresh stalls while the subdomain's own lookup answers.
+            self.guest_dns.side_effect = dns(table, stalled={"inventory.example.com": held})
+            refused = asyncio.create_task(self.handle("api.inventory.example.com:443"))
+            self.addAsyncCleanup(self.cancelled, refused)
+            await asyncio.wait_for(tunnel, 2)
+            self.assertFalse(refused.done())
+            writer.transport.abort.assert_called_once()
+            held.set()
+            written = await asyncio.wait_for(refused, 2)
+        self.assertIn(b"X-Bench-Refusal: protected_destination\r\n", written)
+
 
 if __name__ == "__main__":
     unittest.main()

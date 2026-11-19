@@ -43,6 +43,15 @@ exit 0
 '''
 
 
+def exposes(source, policy):
+    """Whether binding `source` would expose `policy`: the same path, a parent of it or a
+    path inside it, compared after resolving `..`, `.` and symbolic links as the engine would."""
+    source = os.path.realpath(source)
+    policy = os.path.realpath(policy)
+    return (source == policy or policy.startswith(source.rstrip("/") + "/")
+            or source.startswith(policy + "/"))
+
+
 class ToolTurnMounts(unittest.TestCase):
     def run_turn(self, provider="claude"):
         # One root per run, so a test can run a turn for each provider.
@@ -114,15 +123,23 @@ class ToolTurnMounts(unittest.TestCase):
         self.assertIsNotNone(read, egress)
         # The egress reads the very directory the supervisor writes.
         policy = written.group(1)
-        self.assertEqual(policy, read.group(1))
-        # No worker bind exposes that directory, a parent of it, or anything inside it.
+        self.assertEqual(os.path.realpath(policy), os.path.realpath(read.group(1)))
+        # No worker bind exposes that directory, a parent of it, or anything inside it, under
+        # any destination name.
         sources = self.bind_sources(f"bench-tool-{RUN_ID}")
         self.assertTrue(sources, "the worker's binds were not found")
         for source in sources:
-            inside = source.startswith(policy.rstrip("/") + "/")
-            parent = policy.startswith(source.rstrip("/") + "/")
-            self.assertFalse(source == policy or inside or parent, f"worker mounts {source}")
+            self.assertFalse(exposes(source, policy), f"worker mounts {source}")
         self.assertNotIn("/run/policy", worker)
+
+    def test_exposure_check_sees_through_equivalent_paths(self):
+        policy = os.path.join(self.directory.name, "turn", "policy")
+        os.makedirs(policy)
+        for source in (policy, policy + "/../policy", os.path.dirname(policy),
+                       os.path.join(policy, "policy.json"), policy + "/./"):
+            with self.subTest(source=source):
+                self.assertTrue(exposes(source, policy))
+        self.assertFalse(exposes(os.path.join(self.directory.name, "turn", "rpc"), policy))
 
     def test_egress_no_longer_receives_protected_hosts_from_the_environment(self):
         egress = self.container(self.run_turn(), "-egress")

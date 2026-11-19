@@ -298,6 +298,16 @@ def protected_names(protected):
     return sorted(entry for entry in protected if literal_address(entry) is None)
 
 
+def publish_found(lookup, host, protected):
+    """Publishes the public answers a refused protected subdomain resolved to, so aliases and
+    open tunnels to them are blocked too."""
+    if lookup.cancelled():
+        return
+    error = lookup.exception()
+    if isinstance(error, Refused) and error.found:
+        PROTECTION.publish(protecting_name(host, protected), error.found)
+
+
 def protecting_name(host, protected):
     """The protected entry `host` falls under; the longest, when several do."""
     return max((entry for entry in protected if host == entry or host.endswith("." + entry)),
@@ -363,6 +373,10 @@ async def public_addresses(host, port, protected):
     exact = refreshes.get(host)
     target = None if exact else asyncio.ensure_future(
         PUBLIC_DNS.run(public_target, host, port, protected))
+    if target is not None:
+        # A refused protected subdomain's answers are published the moment its lookup lands,
+        # not after the refreshes this request also waits on.
+        target.add_done_callback(lambda done: publish_found(done, host, protected))
     overdue = set()
     addresses = None
     refusal = None
@@ -376,9 +390,6 @@ async def public_addresses(host, port, protected):
                 addresses = await target
             except Refused as error:
                 refusal = error
-                if error.found:
-                    # The refused subdomain's answers block aliases and open tunnels too.
-                    PROTECTION.publish(protecting_name(host, protected), error.found)
     finally:
         # The destination lookup belongs to this request alone.
         if target is not None and not target.done():

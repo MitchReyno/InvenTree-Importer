@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { once } from 'node:events'
-import { mkdir, mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { connect as netConnect, createServer, type AddressInfo, type Socket } from 'node:net'
@@ -411,6 +411,18 @@ const misconfigurations: Misconfiguration[] = [
     label: 'without its pairing files',
     code: 'session_agent_startup_refused',
     prepare: async () => ({ INTAKE_AGENT_PROTECTED_ORIGINS: validOrigins }),
+  },
+  {
+    label: 'whose pairing CA is not a certificate',
+    code: 'session_agent_startup_refused',
+    prepare: async (root) => {
+      await pairedCertificates(root)
+      await writeFile(join(root, 'bench-coordinator', 'ca.pem'), 'not a certificate\n')
+      return {
+        INTAKE_AGENT_PROTECTED_ORIGINS: validOrigins,
+        INTAKE_VM_PAIR: join(root, 'bench-coordinator'),
+      }
+    },
   },
   {
     label: 'whose bridge port is already in use',
