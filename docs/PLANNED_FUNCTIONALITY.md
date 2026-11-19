@@ -104,6 +104,16 @@ Build the backend for the design-refresh controls that BI-014 shipped disabled, 
 - Prerequisites: BI-014 (`apply-design-refresh`) ships the disabled controls first. BI-014 is Done (satisfied).
 - OpenSpec: [complete-design-refresh-backend](../openspec/changes/complete-design-refresh-backend/)
 
+#### BI-017 — Simple web access and setup for VM agents
+
+Agents in the shared VM get provider web search (Claude WebSearch, Codex web search), Claude WebFetch, and Glob, Grep and TodoWrite. A per-session "Allow public web pages" setting, on by default, is enforced by each turn's egress proxy. Protected hostnames are worked out automatically, so no web settings go in the environment. The `bench-web` command and the separate document reader are removed. A rerunnable `pnpm vm:setup` replaces the README's manual VM steps, and `pnpm dev` rebuilds and reloads a stale runner image. This item takes over BI-015's web research switches.
+
+- Change: `simplify-vm-agent-web-and-setup`
+- Status: Proposed
+- Size: L — provider tool admission, the egress proxy policy, a sealed agent setting, launcher setup automation and documentation.
+- Prerequisites: BI-016 (`settings-debug-mode`) for the Settings › Agents structure and agent-setting sealing (not yet merged). Read BI-010 before changing the Codex tool surface. Requalifying needs Mitch's fresh go-ahead for a live provider run.
+- OpenSpec: [simplify-vm-agent-web-and-setup](../openspec/changes/simplify-vm-agent-web-and-setup/)
+
 ## Fixes
 
 ### High
