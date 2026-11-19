@@ -1622,6 +1622,28 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         written, upstream = await self.connect("www.ti.com:443", table)
         self.assert_refused(written, upstream, "protected_destination")
 
+    async def test_cancelled_close_aborts_what_is_still_open_before_its_slot_is_freed(self):
+        self.write_policy()
+        stream, remote, client, writer = await self.held_tunnel("www.ti.com:443")
+        closing = asyncio.Event()
+
+        async def stalled_close():
+            closing.set()
+            await asyncio.sleep(5)
+
+        client.wait_closed = AsyncMock(side_effect=stalled_close)
+        remote.feed_eof()
+        self.guest_dns = Mock(side_effect=dns({"www.ti.com": [PUBLIC]}))
+        with patch.object(socket, "getaddrinfo", self.guest_dns), \
+                patch.object(egress.asyncio, "open_connection",
+                             AsyncMock(return_value=(remote, writer))):
+            tunnel = asyncio.create_task(egress.handle(stream, client))
+            await asyncio.wait_for(closing.wait(), 2)
+            self.assertEqual(egress.public_tunnels, 1)
+            await self.cancelled(tunnel)
+        client.transport.abort.assert_called_once()
+        self.assertEqual(egress.public_tunnels, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

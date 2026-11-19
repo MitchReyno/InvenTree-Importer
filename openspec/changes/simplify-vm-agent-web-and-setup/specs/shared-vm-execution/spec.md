@@ -186,7 +186,7 @@ A protected name that resolves only to non-public addresses SHALL be skipped, be
 
 - **GIVEN** the app at `http://127.0.0.1:4330` and a tailnet name resolving to `100.64.0.0/10`
 - **WHEN** the turn's protected hosts are worked out
-- **THEN** neither name blocks public access, and connections to them are still refused as `not_public`
+- **THEN** neither name blocks public access; a connection to the app's IP literal is refused as `destination_refused`, and one to the tailnet name as `not_public`
 
 #### Scenario: Protected name lookup fails
 

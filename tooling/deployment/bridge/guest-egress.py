@@ -630,6 +630,12 @@ async def close_tunnel(writers, revoked, drop):
         for writer in writers:
             if writer in stuck:
                 abort(writer)
+    except asyncio.CancelledError:
+        # A cancelled close still leaves no stream open behind the slot it gives back.
+        for writer in writers:
+            if writer not in finished and not (writer in closes and closes[writer].done()):
+                abort(writer)
+        raise
     finally:
         leftovers = [*closes.values(), *([aborted] if aborted is not None else [])]
         for task in leftovers:
