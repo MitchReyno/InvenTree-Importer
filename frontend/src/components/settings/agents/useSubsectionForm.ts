@@ -97,8 +97,10 @@ export function useSubsectionForm<V extends FieldValues>({
     busy: saving.busy,
     markDirty: () => {
       const start = base ?? loaded
-      // An edit undone back to its start is no longer unsaved.
-      if (JSON.stringify(write(form.getValues())) === owned(start)) {
+      saving.edited()
+      // An edit undone back to its start is no longer unsaved, unless a save's outcome is still
+      // unknown: then only a Reload shows what is saved.
+      if (!saving.unsettled && JSON.stringify(write(form.getValues())) === owned(start)) {
         setBase(undefined)
         reportDirty(id, false)
         return

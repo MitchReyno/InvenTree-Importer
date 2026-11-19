@@ -6,6 +6,7 @@ import { useApiClients, useServerScope } from '#/context'
 import type { BatchDefaultsDto } from '@invimport/contracts'
 import { BatchDefaultsForm } from './BatchDefaultsForm'
 import { SettingsCard } from './SettingsCard'
+import { newestRevision } from './newest-revision'
 import { SettingsSection } from './SettingsSection'
 
 /** Settings › Batch defaults: the location and supplier each new batch starts with. */
@@ -26,18 +27,22 @@ export function BatchDefaultsSection({
     refetchOnWindowFocus: false,
   })
 
-  // The form opens only on a read that succeeded this visit, never on cached defaults.
-  const [mountedAt] = useState(Date.now)
-  const loaded = saved.data && saved.dataUpdatedAt >= mountedAt ? saved.data : undefined
+  // The form opens only once a read has succeeded this visit, never on cached defaults; a later
+  // failed refresh keeps it, and its choice, open.
+  const [readThisVisit, setReadThisVisit] = useState(false)
+  if (!readThisVisit && saved.isFetchedAfterMount && saved.isSuccess) {
+    setReadThisVisit(true)
+  }
+  const loaded = readThisVisit ? saved.data : undefined
 
   /**
    * Publishes confirmed defaults and answers with the newest known. A read already running, or a
    * reload older than what a refresh loaded meanwhile, never replaces newer defaults.
    */
   function adopt(confirmed: BatchDefaultsDto) {
-    const cached = queryClient.getQueryData<BatchDefaultsDto>(key)
-    if (cached && BigInt(cached.revision) > BigInt(confirmed.revision)) {
-      return cached
+    const latest = newestRevision(confirmed, queryClient.getQueryData<BatchDefaultsDto>(key))
+    if (latest !== confirmed) {
+      return latest
     }
     void queryClient
       .cancelQueries({ queryKey: key })

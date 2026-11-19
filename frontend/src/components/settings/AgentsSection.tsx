@@ -12,6 +12,7 @@ import { PersonalClaudeCredential } from '#/components/agents/PersonalClaudeCred
 import { useChatGPTSignIn } from '#/components/agents/useChatGPTSignIn'
 import { usePersonalClaudeCredential } from '#/components/agents/usePersonalClaudeCredential'
 import { SettingsCard } from './SettingsCard'
+import { newestRevision } from './newest-revision'
 import { SettingsSection } from './SettingsSection'
 import { AgentSubsection, subsectionHeadingId } from './agents/AgentSubsection'
 import { DescriptionsCard } from './agents/DescriptionsCard'
@@ -55,10 +56,13 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
     queryFn: () => client.sessions(),
     refetchInterval: poll === false ? 10000 : poll,
   })
-  // Forms open only on a read that succeeded this visit, never on cached settings after a failed
-  // one; a later failed refresh keeps them, and their drafts, open.
-  const [mountedAt] = useState(Date.now)
-  const loaded = settings.data && settings.dataUpdatedAt >= mountedAt && settings.data
+  // Forms open only once a read has succeeded this visit, never on cached settings after a
+  // failed one; a later failed refresh keeps them, and their drafts, open.
+  const [readThisVisit, setReadThisVisit] = useState(false)
+  if (!readThisVisit && settings.isFetchedAfterMount && settings.isSuccess) {
+    setReadThisVisit(true)
+  }
+  const loaded = readThisVisit && settings.data
   const ready = Boolean(loaded)
   const focused = useRef<AgentSubsectionId | undefined>(undefined)
   const reportDirty = useDirtyForms(onDirtyChange)
@@ -95,12 +99,11 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
     if (source === 'save') {
       localSaves.current.add(confirmed.revision)
     }
-    const latest = [newest.current, queryClient.getQueryData<AgentSettingsDto>(settingsKey)]
-      .filter((settings) => settings !== undefined)
-      .reduce(
-        (best, settings) => (BigInt(settings.revision) > BigInt(best.revision) ? settings : best),
-        confirmed,
-      )
+    const latest = newestRevision(
+      confirmed,
+      newest.current,
+      queryClient.getQueryData<AgentSettingsDto>(settingsKey),
+    )
     if (latest !== confirmed) {
       return latest
     }

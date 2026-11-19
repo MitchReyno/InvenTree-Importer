@@ -624,6 +624,30 @@ test('a save answering after leaving Agents never releases the guard', async () 
   expect(dirty).not.toHaveBeenCalledWith(false)
 })
 
+test('after an unconfirmed save, undoing the edit keeps the guard and Reload', async () => {
+  const dirty = vi.fn()
+  const api = client()
+  api.saveSettings.mockRejectedValue(new Error('offline'))
+  await renderAgents(api, dirty)
+  const instructions = screen.getByRole('textbox', { name: 'Instructions for every new batch' })
+  fireEvent.change(instructions, { target: { value: 'Mine' } })
+  fireEvent.click(within(card('Instructions')).getByRole('button', { name: 'Save' }))
+  expect(await screen.findByText(/wasn’t confirmed/)).toBeVisible()
+  fireEvent.change(instructions, { target: { value: '' } })
+  expect(dirty).toHaveBeenLastCalledWith(true)
+  expect(screen.getByRole('button', { name: 'Reload' })).toBeVisible()
+})
+
+test('Saved clears once the subsection is edited again', async () => {
+  await renderAgents()
+  const instructions = screen.getByRole('textbox', { name: 'Instructions for every new batch' })
+  fireEvent.change(instructions, { target: { value: 'Mine' } })
+  fireEvent.click(within(card('Instructions')).getByRole('button', { name: 'Save' }))
+  expect(await screen.findByText(/start with these instructions/)).toBeVisible()
+  fireEvent.change(instructions, { target: { value: 'Mine, again' } })
+  expect(screen.queryByText(/start with these instructions/)).toBeNull()
+})
+
 test('Suggest tags for new batches saves on its own', async () => {
   const api = await renderAgents()
   fireEvent.click(screen.getByRole('checkbox', { name: 'Suggest tags for new batches' }))

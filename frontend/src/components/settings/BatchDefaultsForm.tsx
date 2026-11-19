@@ -53,9 +53,18 @@ export function BatchDefaultsForm({
     }
     const start = edit?.base ?? loaded
     const next = { ...(edit?.draft ?? draftOf(loaded)), [field]: record }
-    setState('idle')
-    // A choice undone back to the saved records is no longer unsaved.
-    if (next.location?.pk === start.location?.pk && next.supplier?.pk === start.supplier?.pk) {
+    // An unconfirmed save or a conflict stays reported, with Reload, until a Reload settles it.
+    const unsettled = state === 'failed' || state === 'conflict' || state === 'reloadFailed'
+    if (!unsettled) {
+      setState('idle')
+    }
+    // A choice undone back to the saved records is no longer unsaved, unless what is saved is
+    // still unknown.
+    if (
+      !unsettled &&
+      next.location?.pk === start.location?.pk &&
+      next.supplier?.pk === start.supplier?.pk
+    ) {
       setEdit(null)
       onDirtyChange(false)
       return

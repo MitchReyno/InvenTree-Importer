@@ -93,6 +93,10 @@ export function useSettingsSave({
     reload,
     /** A conflict found before sending: these fields changed elsewhere since the edit began. */
     refuse: () => setState('conflict'),
+    /** "Saved" describes the values shown; a new edit makes it untrue. */
+    edited: () => setState((current) => (current === 'saved' ? 'idle' : current)),
+    /** Whether what is saved is unknown or contested, so the edit must stay until a Reload. */
+    unsettled: state === 'failed' || state === 'conflict' || state === 'reloadFailed',
     busy: state === 'saving' || state === 'reloading',
   }
 }
