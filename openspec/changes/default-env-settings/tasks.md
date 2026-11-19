@@ -95,7 +95,7 @@ One PR carries tasks 1–4: the defaults, the template that documents them and t
   - [x] 4.1.4 The developer's `.env` resolves to the same managed plan as before with nothing defaulted, and passes the pairing check against its real pairing.
   - [ ] 4.1.5 The developer's `.env` starts real VM agents in full on this branch (waits until the developer's running app releases the VM and its tunnel ports).
 - [x] 4.2 Run the full gate.
-- [ ] 4.3 Independent review rounds until one is clean, at the reviewed head.
+- [x] 4.3 Independent review rounds until one is clean, at the reviewed head.
 - [ ] 4.4 Open the PR against `interactive-app` with the evidence.
 - [ ] 4.5 Selected CI green.
 - [ ] 4.6 Merge.
