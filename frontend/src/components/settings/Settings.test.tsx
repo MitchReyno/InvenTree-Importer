@@ -11,7 +11,12 @@ import { HeaderObservationsProvider } from '#/context'
 import { MASTHEAD_STORAGE_KEY, mastheadStyleController } from '#/theme/masthead-style'
 import { THEME_STORAGE_KEY, themeController } from '#/theme/theme'
 import { Settings } from './Settings'
-import type { SettingsSectionId } from '#/navigation/app-route'
+import {
+  settingsSection,
+  settingsSubsection,
+  type AgentSubsectionId,
+  type SettingsSectionId,
+} from '#/navigation/app-route'
 
 const batchId = '10000000-0000-4000-8000-000000000001'
 const identity = {
@@ -88,14 +93,37 @@ function renderSettings(
   {
     returnTo,
     client = agents(),
+    subsection,
+  }: {
+    returnTo?: string
+    client?: ReturnType<typeof agentsClient>
+    subsection?: AgentSubsectionId
+  } = {},
+) {
+  return render(settingsElement(section, subsection, { returnTo, client }))
+}
+
+/** The Settings page as the app mounts it; `rerender` with another route keeps it mounted. */
+function settingsElement(
+  section: SettingsSectionId,
+  subsection: AgentSubsectionId | undefined,
+  {
+    returnTo,
+    client = agents(),
   }: { returnTo?: string; client?: ReturnType<typeof agentsClient> } = {},
 ) {
-  return render(
+  return (
     <HeaderObservationsProvider client={header}>
       <CachedBatch title="Mouser 3381-22">
-        <Settings section={section} returnTo={returnTo} agents={client} onDirtyChange={vi.fn()} />
+        <Settings
+          section={section}
+          subsection={subsection}
+          returnTo={returnTo}
+          agents={client}
+          onDirtyChange={vi.fn()}
+        />
       </CachedBatch>
-    </HeaderObservationsProvider>,
+    </HeaderObservationsProvider>
   )
 }
 
@@ -113,16 +141,17 @@ afterEach(() => {
 test('the section nav lists every section, marks the current one and the Agents item carries the AI mark', async () => {
   renderSettings('agents')
   const nav = screen.getByRole('navigation', { name: 'Settings' })
+  const subsections = within(nav).getByLabelText('Agents sections')
   const items = within(nav)
     .getAllByRole('link')
     .slice(1)
+    .filter((link) => !subsections.contains(link))
     .map((link) => [link.textContent, link.getAttribute('href')])
 
   expect(items).toEqual([
     ['Agents', '#settings/agents'],
     ['InvenTree', '#settings/inventree'],
     ['Batch defaults', '#settings/defaults'],
-    ['Descriptions and naming', '#settings/descriptions'],
     ['Appearance', '#settings/appearance'],
     ['Developer', '#settings/developer'],
   ])
@@ -162,13 +191,20 @@ test('InvenTree shows the observed server, its last check and Open InvenTree wit
 })
 
 const DEFERRED: [SettingsSectionId, string[]][] = [
-  ['agents', ['Model per step', 'Instructions for every new batch', 'Web research']],
+  [
+    'agents',
+    [
+      'Model per step',
+      'Instructions for every new batch',
+      'Fill descriptions for',
+      'Part description style',
+      'Supplier part descriptions',
+      'Suggest tags automatically',
+      'Web research',
+    ],
+  ],
   ['inventree', ['API token', 'Import reference prefix']],
   ['defaults', ['Default location', 'Default supplier', 'Tags']],
-  [
-    'descriptions',
-    ['Fill descriptions for', 'Part description style', 'Supplier part descriptions'],
-  ],
 ]
 
 for (const [section, rows] of DEFERRED) {
@@ -293,4 +329,74 @@ test('without an agents client the Agents section says so and the other sections
     'href',
     '#settings/appearance',
   )
+})
+
+test('Agents lists its subsections under its nav link, each linking to its own route', () => {
+  renderSettings('agents')
+  const group = screen.getByLabelText('Agents sections')
+
+  expect(
+    within(group)
+      .getAllByRole('link')
+      .map((link) => [link.textContent, link.getAttribute('href')]),
+  ).toEqual([
+    ['Providers', '#settings/agents/providers'],
+    ['Sessions', '#settings/agents/sessions'],
+    ['Provider and model per step', '#settings/agents/models'],
+    ['Instructions', '#settings/agents/instructions'],
+    ['Descriptions and naming', '#settings/agents/descriptions'],
+    ['Tag suggestions', '#settings/agents/tags'],
+    ['Web research', '#settings/agents/research'],
+  ])
+  // Headings show before the saved settings load, so a link always has somewhere to land.
+  expect(screen.getByRole('heading', { level: 3, name: 'Web research' })).toBeInTheDocument()
+})
+
+test('a subsection link focuses its heading and marks the link current', () => {
+  renderSettings('agents', { subsection: 'descriptions' })
+
+  const heading = screen.getByRole('heading', { level: 3, name: 'Descriptions and naming' })
+  expect(heading).toHaveFocus()
+  expect(
+    within(screen.getByLabelText('Agents sections')).getByRole('link', {
+      name: 'Descriptions and naming',
+    }),
+  ).toHaveAttribute('aria-current', 'location')
+})
+
+test('the old Descriptions and naming link opens that Agents subsection', () => {
+  const route = 'settings/descriptions'
+  renderSettings(settingsSection(route), { subsection: settingsSubsection(route) })
+
+  expect(screen.getByRole('heading', { level: 2, name: 'Agents' })).toBeInTheDocument()
+  expect(screen.getByRole('heading', { level: 3, name: 'Descriptions and naming' })).toHaveFocus()
+  const fill = screen.getByRole('group', { name: 'Fill descriptions for' })
+  // Agents already write Part descriptions, so only that switch shows on.
+  expect(within(fill).getByRole('switch', { name: 'Parts · up to 250' })).toBeChecked()
+  expect(within(fill).getByRole('switch', { name: 'Companies · up to 500' })).not.toBeChecked()
+})
+
+test('going back to Agents and then to the same subsection focuses its heading again', () => {
+  const client = agents()
+  const view = renderSettings('agents', { subsection: 'descriptions', client })
+  const heading = screen.getByRole('heading', { level: 3, name: 'Descriptions and naming' })
+  expect(heading).toHaveFocus()
+  heading.blur()
+
+  view.rerender(settingsElement('agents', undefined, { client }))
+  view.rerender(settingsElement('agents', 'descriptions', { client }))
+
+  expect(heading).toHaveFocus()
+})
+
+test('tag suggestions moved to Agents, leaving batch-name tags in Batch defaults', () => {
+  const agentsView = renderSettings('agents')
+  expect(screen.getByRole('group', { name: 'Suggest tags automatically' })).toBeInTheDocument()
+  agentsView.unmount()
+
+  renderSettings('defaults')
+  expect(screen.queryByText('Suggest tags automatically')).toBeNull()
+  expect(
+    screen.getByRole('switch', { name: 'Tag every Part with its batch name' }),
+  ).toBeInTheDocument()
 })

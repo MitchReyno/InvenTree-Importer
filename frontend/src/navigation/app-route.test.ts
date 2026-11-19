@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appPage, routeBatchId, settingsSection } from './app-route'
+import { appPage, routeBatchId, settingsSection, settingsSubsection } from './app-route'
 
 const batchId = '10000000-0000-4000-8000-000000000001'
 
@@ -24,8 +24,18 @@ describe('settings sections', () => {
   it('opens Agents for a bare or unknown section and each named section by its id', () => {
     expect(settingsSection('settings')).toBe('agents')
     expect(settingsSection('settings/unknown')).toBe('agents')
-    for (const section of ['agents', 'inventree', 'defaults', 'descriptions', 'appearance']) {
+    for (const section of ['agents', 'inventree', 'defaults', 'appearance', 'developer']) {
       expect(settingsSection(`settings/${section}`)).toBe(section)
     }
+  })
+
+  it('reads an Agents subsection from its route, and the old descriptions link as one', () => {
+    expect(settingsSection('settings/agents/models')).toBe('agents')
+    expect(settingsSubsection('settings/agents/models')).toBe('models')
+    expect(settingsSubsection('settings/agents/unknown')).toBeUndefined()
+    expect(settingsSubsection('settings/agents')).toBeUndefined()
+    expect(settingsSection('settings/descriptions')).toBe('agents')
+    expect(settingsSubsection('settings/descriptions')).toBe('descriptions')
+    expect(settingsSubsection('settings/inventree')).toBeUndefined()
   })
 })

@@ -1,7 +1,5 @@
-import styled from 'styled-components'
 import { SettingRow, Switch } from '#/components/ui'
 import { Select } from '#/forms'
-import { space } from '#/theme/generated/tokens'
 import { SettingsCard } from './SettingsCard'
 import { SettingsSection } from './SettingsSection'
 
@@ -37,32 +35,21 @@ export function BatchDefaultsSection() {
             </Select>
           )}
         </SettingRow>
-        <SettingRow label="Tags" disabledReason={NOT_STORED}>
+        <SettingRow
+          label="Tags"
+          help="Tag suggestions are under Agents › Tag suggestions."
+          disabledReason={NOT_STORED}
+        >
           {({ disabled }) => (
-            <Column>
-              <Switch
-                label="Suggest tags automatically"
-                checked={false}
-                onChange={() => {}}
-                {...disabled}
-              />
-              <Switch
-                label="Tag every Part with its batch name"
-                checked={false}
-                onChange={() => {}}
-                {...disabled}
-              />
-            </Column>
+            <Switch
+              label="Tag every Part with its batch name"
+              checked={false}
+              onChange={() => {}}
+              {...disabled}
+            />
           )}
         </SettingRow>
       </SettingsCard>
     </SettingsSection>
   )
 }
-
-const Column = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: ${space[3]};
-`

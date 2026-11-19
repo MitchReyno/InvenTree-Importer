@@ -31,7 +31,7 @@ import styled from 'styled-components'
 import { color, typeVar } from './theme/generated/tokens'
 import { Main, PageContent } from './components/AppLayout'
 import { pageWidthFor } from './navigation/batch-route'
-import { appPage, routeBatchId, settingsSection } from './navigation/app-route'
+import { appPage, routeBatchId, settingsSection, settingsSubsection } from './navigation/app-route'
 import { HeaderStatus } from './components/masthead/HeaderStatus'
 import { AppMasthead } from './components/masthead/AppMasthead'
 import { MastheadBackdrop } from './components/masthead/MastheadBackdrop'
@@ -174,6 +174,7 @@ export default function App() {
     content = (
       <Settings
         section={settingsSection(route)}
+        subsection={settingsSubsection(route)}
         returnTo={settingsReturn}
         agents={agents}
         onDirtyChange={onDirtyChange}
