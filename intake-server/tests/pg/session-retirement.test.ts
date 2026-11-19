@@ -8,6 +8,7 @@ import { processingFixture } from '../support/processing.ts'
 import { lotSession } from '../support/sessions.ts'
 import { queueSessionResume, runSessionTurn } from '#/agents/session/session-runner.ts'
 import { pendingSessionInbox, submitSessionInbox } from '#/agents/tools/inbox.ts'
+import { latestSessionFailures } from '#/agents/failures.ts'
 import { transaction } from '#/db/database.ts'
 
 const retiredProfile = {
@@ -52,9 +53,12 @@ async function settledSession(
   const slots = await fixture.db.pool.query('SELECT 1 FROM agent_slot WHERE attempt_id=$1', [
     attempt,
   ])
+  // What the Agents list and session timeline show for the attempt.
+  const shown = (await latestSessionFailures(fixture.db.pool, [attempt])).get(attempt)
   return {
     state: session.rows[0].session_state,
     failures: failures.rows.map((row) => row.diagnostic),
+    shown,
     slotHeld: slots.rowCount !== 0,
   }
 }
@@ -73,7 +77,7 @@ test('a shared-vm-agent/2 attempt queued before the upgrade fails as retired wit
   assert.equal(settled.slotHeld, false)
   assert.equal(settled.failures.length, 1)
   assert.equal(settled.failures[0].code, 'agent_profile_retired')
-  assert.match(settled.failures[0].recovery, /Run the step again/)
+  assert.match(settled.shown?.recovery ?? '', /Run the step again/)
 })
 
 test('a message to a finished shared-vm-agent/2 session fails the requeued attempt as retired', async (t) => {
@@ -108,6 +112,7 @@ test('a message to a finished shared-vm-agent/2 session fails the requeued attem
     settled.failures.map((failure) => [failure.code, failure.turn]),
     [['agent_profile_retired', '2']],
   )
+  assert.match(settled.shown?.recovery ?? '', /Run the step again/)
   // The message stays for a new attempt, and the session's own record is kept.
   const pending = await transaction(fixture.runner.pool, (client) =>
     pendingSessionInbox(client, finished.job),

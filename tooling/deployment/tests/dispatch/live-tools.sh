@@ -46,6 +46,6 @@ relay=$!
 inspect_fixture python3 -c '
 from pathlib import Path
 assert Path("/fixture/qualification.py").stat().st_size > 0
-text = Path("/fixture/rfc.txt").read_text()
-assert "ISSN: 2070-1721" in text and "HTTP Semantics" in text and len(text) > 100000
-print("Verified the agent-created script and saved public document.")'
+text = Path("/fixture/web.txt").read_text()
+assert "X-Bench-Refusal: destination_refused" in text and "ISSN: 2070-1721" not in text
+print("Verified the agent-created script and the refused public page.")'

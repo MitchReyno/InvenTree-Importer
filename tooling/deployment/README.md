@@ -167,7 +167,7 @@ For ChatGPT-backed sessions, start a second relay with `INTAKE_VM_CODEX_SUBSCRIP
 
 Agents use their native shell, file and image tools and provider web search; Claude sessions also have `WebFetch`. `curl` and `WebFetch` reach the web through the turn's egress proxy (`HTTPS_PROXY`). It always allows the provider's hosts. It allows public HTTPS hosts only when the turn's sealed policy turns public pages on, and only on port 443 to names whose every DNS answer is public and none protected. A refusal is `403` with the reason in `X-Bench-Refusal`. Public websites receive any data the operator or agent puts in a permitted URL.
 
-For live qualification on an already linked test deployment, run the following once with `provider=claude` and once with `provider=codex`. The harness uses host Docker for a disposable PostgreSQL instance and Lima for agent execution. It stages a random image in a unique guest directory, checks the app status against its answer, and verifies the saved Python script and public document after the turn.
+For live qualification on an already linked test deployment, run the following once with `provider=claude` and once with `provider=codex`. The harness uses host Docker for a disposable PostgreSQL instance and Lima for agent execution. It stages a random image in a unique guest directory, checks the app status against its answer, and verifies the saved Python script and that the proxy refused a public page, since the attempt seals no web setting.
 
 ```sh
 bash tooling/deployment/tests/dispatch/live-tools.sh \
