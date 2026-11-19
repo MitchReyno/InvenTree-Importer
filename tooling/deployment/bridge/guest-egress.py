@@ -99,6 +99,8 @@ class ProtectedLookups:
         self.lock = threading.Lock()
         self.known = {}
         self.in_flight = {}
+        # Open provider tunnels: their connected address and the event that drops them.
+        self.tunnels = {}
 
     def resolve(self, name):
         """Fresh addresses for `name`, or None when the lookup fails."""
@@ -108,9 +110,28 @@ class ProtectedLookups:
             addresses = None
         with self.lock:
             self.in_flight.pop(name, None)
+            # A failed refresh keeps the last addresses this name was known to have.
             if addresses is not None:
                 self.known[name] = addresses
+            hit = [(loop, event) for address, loop, event in self.tunnels.values()
+                   if addresses and address in addresses]
+        for loop, event in hit:
+            loop.call_soon_threadsafe(event.set)
         return addresses
+
+    def watch(self, address):
+        """An event set once any protected lookup shows `address` is protected, and a function
+        that stops watching. Register before the last check, so no update falls between them."""
+        event = asyncio.Event()
+        key = object()
+        with self.lock:
+            self.tunnels[key] = (normalized(address), asyncio.get_running_loop(), event)
+
+        def stop():
+            with self.lock:
+                self.tunnels.pop(key, None)
+
+        return event, stop
 
     def refresh(self, name):
         """The name's last known addresses and its refresh in flight."""
@@ -136,8 +157,7 @@ class ProtectedLookups:
         for known, waiter in refreshes:
             fresh = waiter.result() if waiter.done() else None
             blocked |= fresh if fresh is not None else known
-        late = [waiter for _known, waiter in refreshes if not waiter.done()]
-        return blocked, late
+        return blocked
 
     def latest(self, protected):
         """Every address a protected name is known to have now, including lookups that
@@ -223,24 +243,14 @@ async def provider_addresses(host, protected):
     except BaseException:
         deny.cancel()
         raise
-    blocked, late = await deny
+    blocked = await deny
     # Lookups that finished after the budget, while the provider lookup ran, still count.
     blocked |= PROTECTED_LOOKUPS.latest(protected)
     if not addresses or not all(public(address) for address in addresses):
         raise Refused("not_public")
     if any(normalized(address) in blocked for address in addresses):
         raise Refused("protected_destination")
-    return connection_order(addresses), late
-
-
-async def protected_watch(late, address, protected):
-    """Returns once a protected lookup still running at admission shows `address` is protected;
-    otherwise waits until the tunnel ends."""
-    for finished in asyncio.as_completed(late):
-        await finished
-        if normalized(address) in PROTECTED_LOOKUPS.latest(protected):
-            return
-    await asyncio.get_running_loop().create_future()
+    return connection_order(addresses)
 
 
 def provider_guard(protected):
@@ -265,15 +275,13 @@ def check_public_request(host, port, policy, protected):
 
 
 async def checked_addresses(host, port, provider, protected):
-    """Addresses to try, in order, all of them checked; a recheck to run around each dial; and
-    the protected lookups still running, which must not confirm the connected address. Or
-    Refused."""
+    """Addresses to try, in order, all of them checked, and a recheck to run around each dial;
+    or Refused."""
     if provider:
-        addresses, late = await provider_addresses(host, protected)
-        return addresses, provider_guard(protected), late
+        return await provider_addresses(host, protected), provider_guard(protected)
     try:
         # public_target resolved every protected name for this request; nothing to recheck.
-        return await PUBLIC_DNS.run(public_target, host, port, protected), None, []
+        return await PUBLIC_DNS.run(public_target, host, port, protected), None
     except Refused as refusal:
         # A protected name stays protected when its lookup runs out of time or slots.
         if refusal.reason == "resolution_failed" and protected_name(host, protected):
@@ -380,6 +388,8 @@ async def handle(reader, client):
     tasks = []
     counted = False
     drop = False
+    protected_now = None
+    stop_watching = None
     try:
         host, port = await read_request(reader)
         provider = host in HOSTS and port == 443
@@ -392,8 +402,17 @@ async def handle(reader, client):
                 raise Refused("too_many_connections")
             public_tunnels += 1
             counted = True
-        addresses, guard, late = await checked_addresses(host, port, provider, protected)
+        addresses, guard = await checked_addresses(host, port, provider, protected)
         remote, upstream, address = await open_first(addresses, guard)
+        if provider:
+            # Watch from now on, then check once more, so a protected lookup finishing at any
+            # point drops the tunnel.
+            protected_now, stop_watching = PROTECTED_LOOKUPS.watch(address)
+            try:
+                guard(address)
+            except Refused:
+                abort(upstream)
+                raise
         client.write(b"HTTP/1.1 200 Connection Established\r\n\r\n")
         await client.drain()
         activity = Activity()
@@ -402,8 +421,8 @@ async def handle(reader, client):
         watches = []
         if not provider:
             watches.append(asyncio.create_task(idle_watch(activity, PUBLIC_IDLE_TIMEOUT_S)))
-        if late:
-            watches.append(asyncio.create_task(protected_watch(late, address, protected)))
+        if protected_now is not None:
+            watches.append(asyncio.create_task(protected_now.wait()))
         tasks += watches
         done, _running = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
         # An idle tunnel, or one to an address now known to be protected, is dropped at once.
@@ -414,6 +433,8 @@ async def handle(reader, client):
             asyncio.TimeoutError):
         pass
     finally:
+        if stop_watching:
+            stop_watching()
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)

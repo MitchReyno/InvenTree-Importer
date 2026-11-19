@@ -17,21 +17,24 @@ for egress in /run/egress/*.sock; do
 import pathlib
 import socket
 import sys
+import time
 egress = sys.argv[1]
 provider = {"claude.sock": "api.anthropic.com", "codex.sock": "chatgpt.com"}[pathlib.Path(egress).name]
 
 
 def connect(host):
-    """The proxy's response header, read through its terminator within 10 s and 8 KiB."""
+    """The proxy's complete response header, within 10 s and 8 KiB, or an assertion error."""
+    deadline = time.monotonic() + 10
     reply = b""
     with socket.socket(socket.AF_UNIX) as tunnel:
-        tunnel.settimeout(10)
         tunnel.connect(egress)
         tunnel.sendall(f"CONNECT {host}:443 HTTP/1.1\r\n\r\n".encode())
-        while b"\r\n\r\n" not in reply and len(reply) < 8192:
-            chunk = tunnel.recv(4096)
-            if not chunk:
-                break
+        while b"\r\n\r\n" not in reply:
+            remaining = deadline - time.monotonic()
+            assert remaining > 0 and len(reply) < 8192, reply
+            tunnel.settimeout(remaining)
+            chunk = tunnel.recv(8192 - len(reply))
+            assert chunk, reply
             reply += chunk
     return reply
 

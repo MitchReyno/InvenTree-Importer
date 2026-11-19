@@ -623,6 +623,25 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         writer.transport.abort.assert_called_once()
         client.transport.abort.assert_called_once()
 
+    async def test_open_provider_tunnel_is_dropped_when_a_later_lookup_protects_its_address(self):
+        self.write_policy(public_pages=False, protected_hosts=["inventory.example.com"])
+        stream, remote, client, writer = await self.held_tunnel("api.anthropic.com:443")
+        # The protected name doesn't resolve while the first tunnel opens.
+        table = {"api.anthropic.com": [OTHER_PUBLIC]}
+        self.guest_dns = Mock(side_effect=dns(table))
+        with patch.object(socket, "getaddrinfo", self.guest_dns), \
+                patch.object(egress.asyncio, "open_connection",
+                             AsyncMock(return_value=(remote, writer))):
+            first = asyncio.create_task(egress.handle(stream, client))
+            while not client.write.called:
+                await asyncio.sleep(0.01)
+            table["inventory.example.com"] = [OTHER_PUBLIC]
+            second = await self.handle("api.anthropic.com:443")
+            await asyncio.wait_for(first, 2)
+        self.assertIn(b"X-Bench-Refusal: protected_destination\r\n", second)
+        writer.transport.abort.assert_called_once()
+        client.transport.abort.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

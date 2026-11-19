@@ -31,7 +31,8 @@ async function pairedToolTurn(
   const root = await mkdtemp(join(tmpdir(), 'bench-policy-'))
   t.after(() => rm(root, { recursive: true, force: true }))
   await pairedCertificates(root)
-  const sessionsRoot = join(root, 'sessions')
+  // Apart from the host runner's own sessions directory under the same root.
+  const sessionsRoot = join(root, 'guest-sessions')
   await mkdir(join(root, 'reap'))
   await mkdir(join(root, 'policy'))
   const fixture = await processingFixture({ profileId: 'shared-vm-agent/2' })
@@ -134,6 +135,79 @@ test(
     assert.equal(result, 'failed')
     assert.equal(sessionState, 'failed')
     assert.equal(slotHeld, false)
+  },
+)
+
+test(
+  'a malformed protected-host list is refused before the supervisor writes anything',
+  { timeout: 60000 },
+  async (t) => {
+    const root = await mkdtemp(join(tmpdir(), 'bench-bad-hosts-'))
+    t.after(() => rm(root, { recursive: true, force: true }))
+    await pairedCertificates(root)
+    // Apart from the host runner's own sessions directory under the same root.
+    const sessionsRoot = join(root, 'guest-sessions')
+    await mkdir(join(root, 'reap'))
+    await mkdir(join(root, 'policy'))
+    const fixture = await processingFixture({ profileId: 'shared-vm-agent/2' })
+    t.after(() => fixture.dispose())
+    const port = await freePort()
+    // The coordinator passes its list through; the supervisor is the one that must refuse it.
+    const bridge = await startSessionBridge(join(root, 'bench-coordinator'), port, {
+      protectedHosts: ['Not A Host'],
+    })
+    t.after(() => bridge.close())
+    const capture = await fixture.seedCapture()
+    const { attempt } = await lotSession(fixture, capture, capture.packetA, {
+      state: 'queued',
+      profile: {
+        id: 'shared-vm-agent/2',
+        agent: { provider: 'claude', authentication: 'subscription', model: 'haiku' },
+        settingsRevision: '1',
+      },
+    })
+    const stop = new AbortController()
+    const session = runSessionTurn(
+      {
+        pool: fixture.runner.pool,
+        config: fixture.config,
+        host: { stateRoot: root, env: {}, claudeExecutable: '/unused', codexExecutable: '/unused' },
+        toolUrl: 'http://127.0.0.1:1',
+        drivers: { 'shared-vm-agent/2': bridge.driver },
+      },
+      attempt,
+      AbortSignal.any([stop.signal, AbortSignal.timeout(30000)]),
+    )
+    const socket = connect({
+      ...(await pairing(join(root, 'bench-guest'))),
+      port,
+      host: '127.0.0.1',
+      servername: 'bench-coordinator',
+    })
+    t.after(() => socket.destroy())
+    await once(socket, 'secureConnect')
+    let starts = 0
+    await assert.rejects(
+      serveGuestTurn(socket, {
+        provider: 'claude',
+        isolated: true,
+        reapProof: true,
+        sessionsRoot,
+        reapPath: join(root, 'reap', 'turn'),
+        policyPath: join(root, 'policy', 'policy.json'),
+        runNative: async () => {
+          starts++
+        },
+      }),
+      /invalid_turn/,
+    )
+    assert.equal(starts, 0)
+    assert.deepEqual(await readdir(join(root, 'policy')), [])
+    assert.deepEqual(await readdir(join(root, 'reap')), [])
+    assert.equal(await readdir(sessionsRoot).catch(() => 'absent'), 'absent')
+    // The guest side is what this test checks; stop the coordinator's wait for a reconnect.
+    stop.abort()
+    await session.catch(() => undefined)
   },
 )
 
