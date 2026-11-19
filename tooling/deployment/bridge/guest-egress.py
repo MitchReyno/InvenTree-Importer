@@ -462,11 +462,20 @@ async def open_first(addresses, guard, public_request):
             return remote, upstream, revocation, stop_watching
         # A protected answer found during the last dial keeps its refusal reason.
         check()
-        raise failure
+        raise DialFailed() from failure
     finally:
         for index, (_revocation, stop) in enumerate(watches):
             if index != kept:
                 stop()
+
+
+class DialFailed(Exception):
+    """Every checked address failed to connect."""
+
+
+async def bad_gateway(client):
+    client.write(b"HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n")
+    await client.drain()
 
 
 async def refuse(client, reason):
@@ -597,6 +606,9 @@ async def handle(reader, client):
         drop = any(watch in done for watch in watches)
     except Refused as refusal:
         await refuse(client, refusal.reason)
+    except DialFailed:
+        # Not a policy decision, so no refusal reason: the destination didn't answer.
+        await bad_gateway(client)
     except (OSError, ValueError, asyncio.IncompleteReadError, asyncio.LimitOverrunError,
             asyncio.TimeoutError):
         pass

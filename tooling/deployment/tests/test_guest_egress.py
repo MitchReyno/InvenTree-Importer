@@ -1268,6 +1268,39 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
                 table = {"api.anthropic.com": [answer], "inventory.example.com": ["9.9.9.1"]}
                 written, upstream = await self.connect("api.anthropic.com:443", table)
                 self.assert_refused(written, upstream, "resolution_failed")
+                self.assertEqual(self.lookups, 0)
+    async def test_overflow_published_during_provider_dns_reports_resolution_failed(self):
+        self.write_policy(public_pages=False, protected_hosts=["inventory.example.com"])
+        stalled = {"api.anthropic.com": threading.Event()}
+        self.addCleanup(stalled["api.anthropic.com"].set)
+        table = {"api.anthropic.com": ["10.0.0.1"], "inventory.example.com": ["9.9.9.1"]}
+        with patch.object(egress, "MAX_PROTECTED_ADDRESSES", 1), \
+                self.fake_network(table, stalled=stalled) as upstream:
+            provider = asyncio.create_task(self.handle("api.anthropic.com:443"))
+            deadline = time.monotonic() + 2
+            while not any(call.args[0].startswith("api.") for call in
+                          self.guest_dns.call_args_list):
+                self.assertLess(time.monotonic(), deadline, "provider DNS never started")
+                await asyncio.sleep(0.01)
+            await self.publish("inventory.example.com", "9.9.9.2", "9.9.9.3")
+            stalled["api.anthropic.com"].set()
+            written = await asyncio.wait_for(provider, 2)
+        self.assertIn(b"X-Bench-Refusal: resolution_failed\r\n", written)
+        upstream.assert_not_called()
+
+    async def test_exhausted_dials_answer_bad_gateway(self):
+        self.write_policy()
+
+        def refused(_remote, _writer):
+            async def dial(_address, _port):
+                raise ConnectionRefusedError("refused")
+            return dial
+
+        written, upstream = await self.connect("www.ti.com:443", {"www.ti.com": [PUBLIC]},
+                                               open_results=refused)
+        self.assertTrue(written.startswith(b"HTTP/1.1 502 Bad Gateway\r\n"), written)
+        self.assertNotIn(b"X-Bench-Refusal", written)
+
 
 if __name__ == "__main__":
     unittest.main()
