@@ -38,9 +38,12 @@ function localDatabaseUrl(value: string | undefined) {
     throw new Error('agent_database_required')
   }
   const url = new URL(value)
+  // `pg` lets a `host` or `hostaddr` parameter override the authority checked here.
   if (
     !['postgres:', 'postgresql:'].includes(url.protocol) ||
-    !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)
+    !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) ||
+    url.searchParams.has('host') ||
+    url.searchParams.has('hostaddr')
   ) {
     throw new Error('local_agent_database_required')
   }

@@ -820,18 +820,32 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         self.assertIn(b"X-Bench-Refusal: protected_destination\r\n", written)
         self.assertEqual(dialled, [PUBLIC])
 
-    async def test_late_older_answer_never_replaces_a_newer_protected_address(self):
+    async def test_every_answer_a_protected_name_gave_this_turn_stays_blocked(self):
         self.write_policy(public_pages=False, protected_hosts=["inventory.example.com"])
-        lookups = egress.PROTECTED_LOOKUPS
-        older, newer = lookups.ticket(), lookups.ticket()
-        lookups.publish("inventory.example.com", {egress.normalized(OTHER_PUBLIC)}, newer)
-        lookups.publish("inventory.example.com", {egress.normalized("8.8.8.8")}, older)
-        # The next refresh times out, so the provider check uses the newest known answer.
+        # Two lookups finish in either order; the next refresh times out.
+        await self.publish("inventory.example.com", OTHER_PUBLIC)
+        await self.publish("inventory.example.com", "8.8.8.8")
         stalled = {"inventory.example.com": threading.Event()}
         self.addCleanup(stalled["inventory.example.com"].set)
-        table = {"api.anthropic.com": [OTHER_PUBLIC], "inventory.example.com": ["8.8.8.8"]}
-        with patch.object(egress, "PROTECTED_LOOKUP_BUDGET_S", 0.05):
-            written, upstream = await self.connect("api.anthropic.com:443", table, stalled=stalled)
+        for address in (OTHER_PUBLIC, "8.8.8.8"):
+            table = {"api.anthropic.com": [address], "inventory.example.com": ["9.9.9.9"]}
+            with patch.object(egress, "PROTECTED_LOOKUP_BUDGET_S", 0.05):
+                written, upstream = await self.connect(
+                    "api.anthropic.com:443", table, stalled=stalled)
+            self.assert_refused(written, upstream, "protected_destination")
+
+    async def test_answer_published_between_the_dns_check_and_the_dial_refuses(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC]}
+        checked = egress.checked_addresses
+
+        async def then_published(*args):
+            result = await checked(*args)
+            await self.publish("inventory.example.com", PUBLIC)
+            return result
+
+        with patch.object(egress, "checked_addresses", then_published):
+            written, upstream = await self.connect("www.ti.com:443", table)
         self.assert_refused(written, upstream, "protected_destination")
 
     async def test_only_address_protected_during_its_failed_dial_keeps_the_reason(self):
