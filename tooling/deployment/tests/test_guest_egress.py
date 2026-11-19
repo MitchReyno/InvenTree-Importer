@@ -922,18 +922,18 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         writer.transport.abort.assert_called_once()
         client.transport.abort.assert_called_once()
 
-    async def test_answer_published_as_setup_settles_refuses_the_host(self):
+    async def test_unused_answer_protected_before_the_acknowledgement_refuses_the_host(self):
         self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
         table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC, OTHER_PUBLIC]}
-        settle = egress.PROTECTED_LOOKUPS.settle
+        acknowledge = egress.PROTECTED_LOOKUPS.acknowledge
 
-        def published_first(revocations, kept, public_request):
-            # The unused second answer becomes protected just before setup settles.
+        def published_first(*args):
+            # The unused second answer becomes protected after the dial, before the 200.
             egress.PROTECTED_LOOKUPS.publish("inventory.example.com",
                                              {egress.normalized(OTHER_PUBLIC)})
-            return settle(revocations, kept, public_request)
+            return acknowledge(*args)
 
-        with patch.object(egress.PROTECTED_LOOKUPS, "settle", published_first):
+        with patch.object(egress.PROTECTED_LOOKUPS, "acknowledge", published_first):
             written, upstream = await self.connect("www.ti.com:443", table)
         self.assertNotIn(b"200 Connection Established", written)
         self.assertIn(b"X-Bench-Refusal: protected_destination\r\n", written)
@@ -1546,22 +1546,35 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         # The overdue refresh still published its answer when it landed.
         self.assertTrue(egress.PROTECTED_LOOKUPS.known.get("inventory.example.com"))
 
-    async def test_answer_landing_before_the_acknowledgement_is_refused(self):
+    async def test_verdict_and_acknowledgement_are_one_locked_step(self):
         self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
-        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC]}
-        settle = egress.PROTECTED_LOOKUPS.settle
+        stream, remote, client, writer = await self.held_tunnel("www.ti.com:443")
+        remote.feed_eof()
+        self.guest_dns = Mock(side_effect=dns({"inventory.example.com": ["8.8.8.8"],
+                                               "www.ti.com": [PUBLIC]}))
         lookups = egress.PROTECTED_LOOKUPS
+        lock = PublishOnRelease(lookups.lock)
+        acknowledged_first = []
+        acknowledge = lookups.acknowledge
 
-        def then_protected(*args):
-            result = settle(*args)
-            # The match is published after setup settles, before the CONNECT is answered.
+        def publish():
+            written = b"".join(call.args[0] for call in client.write.call_args_list)
+            acknowledged_first.append(b"200 Connection Established" in written)
             lookups.publish("inventory.example.com", {egress.normalized(PUBLIC)})
-            return result
 
-        with patch.object(lookups, "settle", then_protected):
-            written, upstream = await self.connect("www.ti.com:443", table)
-        self.assertNotIn(b"200 Connection Established", written)
-        self.assertIn(b"X-Bench-Refusal: protected_destination\r\n", written)
+        def armed(*args):
+            # The next release ends the acknowledgement's locked step.
+            lock.then = publish
+            return acknowledge(*args)
+
+        with patch.object(socket, "getaddrinfo", self.guest_dns), \
+                patch.object(egress.asyncio, "open_connection",
+                             AsyncMock(return_value=(remote, writer))), \
+                patch.object(lookups, "lock", lock), \
+                patch.object(lookups, "acknowledge", armed):
+            await asyncio.wait_for(egress.handle(stream, client), 2)
+        # A publication waiting on the lock lands only after the 200 has been written.
+        self.assertEqual(acknowledged_first, [True])
 
 
 if __name__ == "__main__":

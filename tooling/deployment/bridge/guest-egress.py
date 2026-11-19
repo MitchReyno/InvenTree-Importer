@@ -228,11 +228,14 @@ class ProtectedLookups:
         with self.lock:
             self.verdict(revocations, public_request)
 
-    def settle(self, revocations, kept, public_request):
-        """The setup verdict, then stops watching every answer but `kept`. One step under the
-        publication lock, so nothing is published in between."""
+    def acknowledge(self, revocations, kept, public_request, client):
+        """The last verdict over every answer, then the 200, then stops watching every answer
+        but `kept`: one step under the publication lock, so no answer lands in between. A
+        refused client never joins the tunnel, so it keeps its stream for the 403."""
         with self.lock:
             self.verdict(revocations, public_request)
+            kept.streams.append(client)
+            client.write(b"HTTP/1.1 200 Connection Established\r\n\r\n")
             for revocation in revocations:
                 if revocation is not kept:
                     self.tunnels.pop(revocation, None)
@@ -469,10 +472,10 @@ async def checked_addresses(host, port, provider, protected):
 async def open_first(addresses, guard, public_request):
     """Connects to the first reachable checked address, trying at most a few.
 
-    Every answer is watched from before the first dial until setup ends, and the connected
-    one until the tunnel closes, so a protected lookup finishing at any point refuses the
-    host, even when it names an address whose dial failed. Returns the streams, the
-    Revocation that drops them and the function that stops watching.
+    Every answer is watched from before the first dial until the CONNECT is acknowledged, and
+    the connected one until the tunnel closes, so a protected lookup finishing at any point
+    refuses the host, even when it names an address whose dial failed. Returns the streams,
+    the connected answer's Revocation and every answer's watch, which the caller stops.
     """
     # A latched failure or overflow reports itself ahead of the answer limit.
     with PROTECTED_LOOKUPS.lock:
@@ -486,7 +489,7 @@ async def open_first(addresses, guard, public_request):
             guard(address)
         PROTECTED_LOOKUPS.check([watched for watched, _stop in watches], public_request)
 
-    kept = None
+    handed_over = False
     try:
         failure = OSError("no checked address")
         for index, address in enumerate(addresses[:MAX_CONNECT_ATTEMPTS]):
@@ -497,24 +500,22 @@ async def open_first(addresses, guard, public_request):
             except (OSError, asyncio.TimeoutError) as error:
                 failure = error
                 continue
-            revocation, stop_watching = watches[index]
+            revocation, _stop = watches[index]
             revocation.streams.append(upstream)
             try:
                 check()
-                PROTECTED_LOOKUPS.settle([watched for watched, _stop in watches], revocation,
-                                         public_request)
             except Refused:
                 abort(upstream)
                 upstream.close()
                 raise
-            kept = index
-            return remote, upstream, revocation, stop_watching
+            handed_over = True
+            return remote, upstream, revocation, watches
         # A protected answer found during the last dial keeps its refusal reason.
         check()
         raise DialFailed() from failure
     finally:
-        for index, (_revocation, stop) in enumerate(watches):
-            if index != kept:
+        if not handed_over:
+            for _revocation, stop in watches:
                 stop()
 
 
@@ -584,16 +585,26 @@ async def close_tunnel(writers, revoked, drop):
         return revoked is not None and revoked.event.is_set()
 
     if revoked is not None and revoked.is_set():
+        deadline = time.monotonic() + CLOSE_TIMEOUT_S
         try:
             await asyncio.wait_for(revoked.wait(), CLOSE_TIMEOUT_S)
         except asyncio.TimeoutError:
             for writer in writers:
                 abort(writer)
             return
-        # A client refused before it joined the tunnel still has its refusal to deliver.
-        for writer in writers:
-            if writer not in revoked.streams:
-                writer.close()
+        # A client refused before it joined the tunnel still has its refusal to deliver; it
+        # closes within what is left of the same budget, so the slot never outlives it.
+        refused = [writer for writer in writers if writer not in revoked.streams]
+        for writer in refused:
+            writer.close()
+        try:
+            await asyncio.wait_for(
+                asyncio.gather(*(writer.wait_closed() for writer in refused),
+                               return_exceptions=True),
+                max(0, deadline - time.monotonic()))
+        except asyncio.TimeoutError:
+            for writer in refused:
+                abort(writer)
         return
     if drop:
         for writer in writers:
@@ -630,7 +641,7 @@ async def handle(reader, client):
     counted = False
     drop = False
     revoked = None
-    stop_watching = None
+    answer_watches = []
     try:
         host, port = await read_request(reader)
         provider = host in HOSTS and port == 443
@@ -648,13 +659,10 @@ async def handle(reader, client):
                 public_tunnels += 1
                 counted = True
         addresses, guard = await checked_addresses(host, port, provider, protected)
-        remote, upstream, revoked, stop_watching = await open_first(addresses, guard, not provider)
-        # The last verdict and the acknowledgement are one step under the publication lock, so
-        # a protected answer can't land between them; a refused client keeps its stream for 403.
-        with PROTECTED_LOOKUPS.lock:
-            PROTECTED_LOOKUPS.verdict([revoked], not provider)
-            revoked.streams.append(client)
-            client.write(b"HTTP/1.1 200 Connection Established\r\n\r\n")
+        remote, upstream, revoked, answer_watches = await open_first(
+            addresses, guard, not provider)
+        PROTECTED_LOOKUPS.acknowledge([watched for watched, _stop in answer_watches], revoked,
+                                      not provider, client)
         await client.drain()
         activity = Activity()
         tasks = [asyncio.create_task(copy(reader, upstream, activity, revoked)),
@@ -681,8 +689,8 @@ async def handle(reader, client):
         # The address stays watched until both streams are closed or aborted, and a public
         # tunnel keeps its slot until then, so neither outlives a socket still flushing.
         await close_tunnel([writer for writer in (upstream, client) if writer], revoked, drop)
-        if stop_watching:
-            stop_watching()
+        for _revocation, stop in answer_watches:
+            stop()
         if counted:
             public_tunnels -= 1
 
