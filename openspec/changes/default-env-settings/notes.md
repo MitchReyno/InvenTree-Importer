@@ -1,6 +1,6 @@
 # Implementation notes
 
-Defaults for the behavioural env settings, VM management on by default, the importer's local-InvenTree fallback, US DigiKey defaults and one `.env.example`. Delivered in one PR; in progress.
+Defaults for the behavioural env settings, VM management on by default, the importer's local-InvenTree fallback, US DigiKey defaults and one `.env.example`. Planned in #213 and delivered in #215. Still open: task 0 (archiving the two launcher changes, needs the developer's authorization) and task 4.1.5 (a full start of the developer's `.env` with real VM agents).
 
 ## Changes to the plan
 
