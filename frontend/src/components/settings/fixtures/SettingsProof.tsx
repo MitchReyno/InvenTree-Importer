@@ -194,7 +194,13 @@ const batchDefaults = {
   save: async ({ expected_revision, location_pk, supplier_pk }: BatchDefaultsUpdateDto) => {
     const named = (list: CatalogueRecordDto[], pk: string | null) => {
       const record = list.find((item) => item.pk === pk)
-      return pk && record ? { pk, label: record.name, status: 'found' as const } : null
+      if (!pk) {
+        return null
+      }
+      // A saved record InvenTree no longer has stays saved, reported as not found.
+      return record
+        ? { pk, label: record.name, status: 'found' as const }
+        : { pk, label: null, status: 'not_found' as const }
     }
 
     savedDefaults = {

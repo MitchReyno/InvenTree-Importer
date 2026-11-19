@@ -8,6 +8,10 @@ import type { Draft } from './BatchDefaultsForm'
 
 const NOUN = { location: 'location', supplier: 'supplier' } as const
 
+/** A saved record InvenTree didn't name; the picker adds its number. */
+const unnamed = (record: BatchDefaultRecordDto) =>
+  record.status === 'not_found' ? 'Not found' : 'Not checked'
+
 /** What Settings knows about a saved record that isn't usable now. */
 function recordNote(field: keyof Draft, record: BatchDefaultRecordDto | null) {
   if (record?.status === 'not_found') {
@@ -49,7 +53,7 @@ export function BatchDefaultRow({
         <SearchableReferencePicker
           label={label}
           noun={`${NOUN[field]}s`}
-          value={value ? { pk: value.pk, label: value.label ?? `#${value.pk}` } : null}
+          value={value ? { pk: value.pk, label: value.label ?? unnamed(value) } : null}
           candidates={catalogue.candidates}
           coverage={catalogue.coverage}
           status={catalogue.status}

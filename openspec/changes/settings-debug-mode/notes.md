@@ -1,6 +1,6 @@
 # Implementation notes
 
-PR-A (debug mode and the Dev mode popover) merged in #225 and PR-B (the Settings structure) in #226. PR-C (server storage, sealing, batch defaults and the connection check) is in progress; PR-D and PR-E remain.
+PR-A (debug mode and the Dev mode popover) merged in #225, PR-B (the Settings structure) in #226 and PR-C (server storage, sealing, batch defaults and the connection check) in #227. PR-D (the Settings forms) is in progress; PR-E (Replace token) remains.
 
 ## Changes to the plan
 
@@ -21,11 +21,18 @@ PR-A (debug mode and the Dev mode popover) merged in #225 and PR-B (the Settings
 
 - **2026-11-19, review round 3 (PR-C):** Turning both providers off is now a valid save, so a stable identity published by a running Examine lead could no longer queue its Research and Images successors. Queuing them threw and rolled back the proposal with it. `onLeadIdentity` now keeps the proposal and queues only the stages a provider resolves for (`waiting` when none). Successors left unqueued that way aren't queued automatically once a provider is turned back on.
 
+- **2026-11-19, task 9 (PR-D):** Providers and "Provider and model per step" are one form with one Save, but Sessions sits between them on the page. `ProvidersAndSteps` renders both subsections around the Sessions subsection it is given, and shows the same Save under the default provider and under the steps. The sessions stepper moved from the provider form to Sessions, with its own Save.
+- **2026-11-19, task 9 (PR-D):** The provider On control, "Suggest tags for new batches" and the step choices are a checkbox and selects, not a `Switch`: the design system keeps `Switch` for settings that apply at once, and these wait for Save. A step's model is a text field with the provider's presets as suggestions, so a model outside them can be typed.
+
 ## Unexpected challenges
+
+- **2026-11-19, task 9 (PR-D):** React Hook Form 7.91's `reset()` drops its field refs, so an uncontrolled textarea kept showing the old text after Reload until it re-registered. `useSubsectionForm` sets each field after the reset.
 
 - **2026-11-19T14:40+11:00, task 2:** pnpm refuses nested workspace scripts (`pnpm typecheck`) when `node_modules` is a symlink to the main checkout (`ERR_PNPM_UNSAFE_TASK_RUN_STATE_PATH`). The worktree uses its own `pnpm install --frozen-lockfile` instead; the lockfile is unchanged.
 
 ## Decisions made during implementation
+
+- **2026-11-19, task 9 (PR-D):** Every agent subsection's form goes through `useSubsectionForm`: it follows a newer load while untouched, keeps an edit through another subsection's save, and sends the loaded value for every field it doesn't own. `useDirtyForms` holds the one navigation guard while any form is edited.
 
 - **2026-11-19, task 6 (PR-C):** The model suggestion lists moved to contracts (`AGENT_MODEL_SUGGESTIONS`), because the server needs each provider's first suggestion for unsaved settings and the migration backfill.
 - **2026-11-19, task 6 (PR-C):** An over-long description style or instruction text is refused by the contract (400) before the settings checks run. `invalid_agent_settings` (422) covers the provider and step rules, any model over 128 characters, and text PostgreSQL can't store unchanged (NUL or an unpaired surrogate).

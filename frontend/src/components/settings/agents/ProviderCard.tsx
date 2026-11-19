@@ -69,7 +69,7 @@ export function ProviderCard({
       <Small>
         <SignInHelp provider={provider} authentication={settings.authentication} />
       </Small>
-      <label>
+      <ModelField>
         Default model
         <Model
           {...register(`providers.${provider}.default_model`, {
@@ -82,7 +82,7 @@ export function ProviderCard({
           autoComplete="off"
           placeholder="Choose a model or enter its exact ID"
         />
-      </label>
+      </ModelField>
       <datalist id={listId}>
         {AGENT_MODEL_SUGGESTIONS[provider].map((model) => (
           <option key={model} value={model} />
@@ -105,12 +105,6 @@ const Card = styled.div`
   border: 1px solid ${color.lineStrong};
   border-radius: ${radius.btn};
   background: ${color.surface};
-  label {
-    display: flex;
-    flex-direction: column;
-    gap: ${space[2]};
-    width: 100%;
-  }
   code {
     overflow-wrap: anywhere;
   }
@@ -124,6 +118,13 @@ const Head = styled.div`
   align-items: baseline;
   justify-content: space-between;
   gap: ${space[4]};
+  width: 100%;
+`
+
+const ModelField = styled.label`
+  display: flex;
+  flex-direction: column;
+  gap: ${space[2]};
   width: 100%;
 `
 
