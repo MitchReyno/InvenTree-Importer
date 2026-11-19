@@ -91,7 +91,7 @@ One PR carries tasks 1–6. The preference, the scene layout, the layouts and th
   - New `frontend/src/components/masthead/MastheadField.tsx`.
   - `Masthead.tsx`: style-dependent ground and bar; mask stops published on the root for C.
   - `App.tsx`: the field host before the content.
-  - `GlobalStyle.tsx`: the body ground under `window` styles, limited to the root.
+  - `GlobalStyle.tsx`: the dotted ground on the root element under `window`.
   - `components/ui/primitives.tsx`: the `onField` patch mixin and a `$onField` opt-in on the heading primitives (never on by default); card shadow under `window`.
   - `components/masthead/MastheadBackdrop.tsx`: picks the field host by style, keyed by it.
   - `components/ui/field.ts`: the ground, patch and raised-card mixins.
@@ -101,14 +101,14 @@ One PR carries tasks 1–6. The preference, the scene layout, the layouts and th
 - Acceptance: ui-design-system "Behind the whole window", "Behind the whole window in the dark theme", "Headings inside surfaces get no patch", "Compact width keeps its dimming", "Fading down", "No WebGL 2 or reduced motion" and "Style changes in place".
 - TDD: component tests with a stubbed `WebGL2RenderingContext` and a mocked scene module. They assert which host mounts for each `data-masthead` value, that the scene receives `layout: 'field'` for B and C, and that switching style (A→B, B→C, C→B, and once while the lazy import is pending, under StrictMode) disposes the old scene once and leaves one canvas and one live scene. A primitive test asserts that a `PageTitle` with `$onField` carries the patch only under `window`, and that the setup panel's `PageTitle` and a `Heading` in a `Panel` never do. A test asserts that under `fade` the content edges reach the field's mask. They fail because neither the field host nor the patch exists. Visual layout cannot be asserted in jsdom; task 5 covers it manually.
 - Verification: the masthead test files; `pnpm lint:frontend` (the literal and contrast checks must pass with token values only); `pnpm build`.
-- Risks: a missed patch on some screen (task 5's sweep catches it). `mask-composite` support for C's combined mask (supported in current evergreen browsers; confirm in the manual run). `backdrop-filter` cost over the canvas.
+- Risks: a missed patch on some screen (task 5's sweep catches it). C's nested masks (confirm in the manual run). `backdrop-filter` cost over the canvas.
 
 - [x] 3.1 Baseline: run the masthead tests and record the result.
 - [x] 3.2 RED: add the host-selection, layout-option, disposal-on-switch and patch tests; confirm they fail.
 - [x] 3.3 GREEN: make the layouts render.
   - [x] 3.3.1 Add `MastheadField` with the `window` and `fade` canvas boxes and C's mask (fade, bar text gap with its compact dimming, content-column cut-out computed from the route's page-width token).
   - [x] 3.3.2 Make the `Masthead` bar and ground depend on the style, and publish its text-gap stops on the root.
-  - [x] 3.3.3 Add the body ground and card elevation under the `window` styles.
+  - [x] 3.3.3 Add the root ground and card elevation under the `window` style.
   - [x] 3.3.4 Add the `onField` patch mixin and the `$onField` opt-in, and opt in the loose headings and text placed on the field on each screen.
   - [x] 3.3.5 Mount the field host from `App.tsx`, chosen during render from `useMastheadStyle()` and keyed by the style, at `z-index: -1` with no wrapper or new layer token.
 - [x] 3.4 Refactor; run `pnpm format`, `pnpm lint:frontend` and `pnpm build`.

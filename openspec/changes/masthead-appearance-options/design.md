@@ -45,7 +45,7 @@ Two hosts render `ElectronicsCurrent`:
 | --- | --- | --- | --- |
 | `bar` | `Masthead` (as today) | the bar | horizontal text gap (existing) |
 | `window` | new `MastheadField` in the app shell, before the content | `position: fixed; inset: 0`, behind content (stacking below) | none: legibility comes from heading patches (D3) |
-| `fade` | `MastheadField` | `position: absolute`, top of the page, 420px tall, scrolls with the page | vertical fade (opaque to 140px, clear at 420px), intersected (`mask-composite: intersect`) with the bar's text-gap mask within the bar's height and, below the bar, a cut-out over the main content column |
+| `fade` | `MastheadField` | `position: absolute`, top of the page, 420px tall, scrolls with the page | two nested masks, which multiply: the band's vertical fade (opaque to 140px, clear at 420px), and inside it a mask whose two layers add up: the bar's text-gap mask within the bar's height, and below the bar a cut-out over the main content column |
 
 Stacking uses no new token and no wrapper. The field host sits at `z-index: -1`, which paints above the root's background (the dotted ground under B) and below every in-flow and positioned element: the masthead bar, pages, the condensed phone row, popovers, dialogs and toasts. No element around the app gains a stacking context, so toasts still render above body-portalled menus through the existing `raised`, `popover` and `toast` layers, and no absolute descendant changes its containing block. The field never takes pointer events.
 
@@ -54,7 +54,7 @@ The host is picked during render from `useMastheadStyle()` by `MastheadBackdrop`
 Ground and chrome by style, all in styled-components keyed off `[data-masthead]` on the root:
 
 - **`bar`:** unchanged.
-- **`window`:** the dotted ground (`masthead-ground` / `masthead-dot`) moves to `body`. The bar is `surface` at 70% via `color-mix`, with `backdrop-filter: blur` and its bottom rule. `Panel` and card primitives take the `shadow` token.
+- **`window`:** the dotted ground (`masthead-ground` / `masthead-dot`) moves to the root element (`:root`, fixed attachment), whose background paints below the field's negative layer. The bar is `surface` at 70% via `color-mix`, with `backdrop-filter: blur` and its bottom rule. Cards that sit on the page take the `shadow` token through `raisedOnField`; tables inside them do not.
 - **`fade`:** the bar loses its ground and rule; the page keeps `bg`. The field draws the dotted ground inside its masked band.
 
 Rejected:
