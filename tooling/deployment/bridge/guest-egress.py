@@ -117,17 +117,17 @@ class ProtectedLookups:
     def publish(self, name, addresses):
         """Records a successful answer for `name`, from either path, and drops every open
         provider tunnel connected to one of its addresses. A failed lookup publishes nothing,
-        so the last known addresses stay."""
+        so the last known addresses stay. Wake-ups are queued under the lock, so a later
+        answer can't replace this one before its watchers are woken."""
         with self.lock:
             self.known[name] = addresses
-            hit = [(loop, event) for address, loop, event in self.tunnels.values()
-                   if address in addresses]
-        for loop, event in hit:
-            loop.call_soon_threadsafe(event.set)
+            for address, loop, event in self.tunnels.values():
+                if address in addresses:
+                    loop.call_soon_threadsafe(event.set)
 
     def watch(self, address):
         """An event set once any protected lookup shows `address` is protected, and a function
-        that stops watching. Register before the last check, so no update falls between them."""
+        that stops watching. Register before the first check, so no update falls between them."""
         event = asyncio.Event()
         key = object()
         with self.lock:
@@ -297,30 +297,39 @@ async def checked_addresses(host, port, provider, protected):
         raise
 
 
-async def open_first(addresses, guard=None):
+async def open_first(addresses, guard):
     """Connects to the first reachable checked address, trying at most a few.
 
-    `guard` rechecks an address before it is dialled and again once connected, so a protected
-    lookup that finishes during the dial still stops the tunnel before any byte is relayed.
+    Each address is watched from before its first check until the tunnel closes, so a
+    protected lookup finishing at any point stops it before or while it relays. Returns the
+    streams, the event that drops them and the function that stops watching.
     """
     failure = OSError("no checked address")
     for address in addresses[:MAX_CONNECT_ATTEMPTS]:
-        if guard:
-            guard(address)
+        revoked, stop_watching = PROTECTED_LOOKUPS.watch(address)
         try:
+            guard(address)
             remote, upstream = await asyncio.wait_for(
                 asyncio.open_connection(address, 443), CONNECT_TIMEOUT_S)
         except (OSError, asyncio.TimeoutError) as error:
+            stop_watching()
             failure = error
             continue
-        if guard:
-            try:
-                guard(address)
-            except Refused:
-                abort(upstream)
-                upstream.close()
-                raise
-        return remote, upstream, address
+        except BaseException:
+            stop_watching()
+            raise
+        # Lets wake-ups queued by lookups that finished during the dial run first.
+        await asyncio.sleep(0)
+        try:
+            if revoked.is_set():
+                raise Refused("protected_destination")
+            guard(address)
+        except BaseException:
+            stop_watching()
+            abort(upstream)
+            upstream.close()
+            raise
+        return remote, upstream, revoked, stop_watching
     raise failure
 
 
@@ -372,15 +381,28 @@ async def read_request(reader):
     return connect_target(headers.split(b"\r\n", 1)[0])
 
 
-async def close_within(writer):
-    """Closes a stream, giving it CLOSE_TIMEOUT_S to flush before aborting it."""
-    if writer is None:
+async def close_tunnel(writers, revoked, drop):
+    """Closes the streams, giving them CLOSE_TIMEOUT_S to flush. Aborts them at once when
+    `drop` is set, at the deadline, or as soon as `revoked` shows their address is protected."""
+    if drop or (revoked is not None and revoked.is_set()):
+        for writer in writers:
+            abort(writer)
         return
-    writer.close()
-    try:
-        await asyncio.wait_for(writer.wait_closed(), CLOSE_TIMEOUT_S)
-    except (OSError, asyncio.TimeoutError):
-        abort(writer)
+    for writer in writers:
+        writer.close()
+    closing = asyncio.ensure_future(asyncio.gather(
+        *(writer.wait_closed() for writer in writers), return_exceptions=True))
+    waits = [closing]
+    if revoked is not None:
+        waits.append(asyncio.create_task(revoked.wait()))
+    done, pending = await asyncio.wait(waits, timeout=CLOSE_TIMEOUT_S,
+                                       return_when=asyncio.FIRST_COMPLETED)
+    for waiter in pending:
+        waiter.cancel()
+    await asyncio.gather(*pending, return_exceptions=True)
+    if closing not in done or (revoked is not None and revoked.is_set()):
+        for writer in writers:
+            abort(writer)
 
 
 def abort(writer):
@@ -396,7 +418,7 @@ async def handle(reader, client):
     tasks = []
     counted = False
     drop = False
-    protected_now = None
+    revoked = None
     stop_watching = None
     try:
         host, port = await read_request(reader)
@@ -411,25 +433,15 @@ async def handle(reader, client):
             public_tunnels += 1
             counted = True
         addresses, guard = await checked_addresses(host, port, provider, protected)
-        remote, upstream, address = await open_first(addresses, guard)
-        # Watch from now on, then check once more, so a protected lookup finishing at any point
-        # drops the tunnel, public or provider.
-        protected_now, stop_watching = PROTECTED_LOOKUPS.watch(address)
-        try:
-            guard(address)
-        except Refused:
-            abort(upstream)
-            raise
+        remote, upstream, revoked, stop_watching = await open_first(addresses, guard)
         client.write(b"HTTP/1.1 200 Connection Established\r\n\r\n")
         await client.drain()
         activity = Activity()
         tasks = [asyncio.create_task(copy(reader, upstream, activity)),
                  asyncio.create_task(copy(remote, client, activity))]
-        watches = []
+        watches = [asyncio.create_task(revoked.wait())]
         if not provider:
             watches.append(asyncio.create_task(idle_watch(activity, PUBLIC_IDLE_TIMEOUT_S)))
-        if protected_now is not None:
-            watches.append(asyncio.create_task(protected_now.wait()))
         tasks += watches
         done, _running = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
         # An idle tunnel, or one to an address now known to be protected, is dropped at once.
@@ -440,24 +452,16 @@ async def handle(reader, client):
             asyncio.TimeoutError):
         pass
     finally:
-        if stop_watching:
-            stop_watching()
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
-        if drop:
-            abort(upstream)
-            abort(client)
+        # The address stays watched until both streams are closed or aborted, and a public
+        # tunnel keeps its slot until then, so neither outlives a socket still flushing.
+        await close_tunnel([writer for writer in (upstream, client) if writer], revoked, drop)
+        if stop_watching:
+            stop_watching()
         if counted:
-            # A public tunnel keeps its slot until both streams are closed or aborted, so the
-            # slot never outlives an open socket, even one flushing to a stalled peer.
-            await close_within(upstream)
-            await close_within(client)
             public_tunnels -= 1
-        else:
-            if upstream:
-                upstream.close()
-            client.close()
 
 
 async def main():

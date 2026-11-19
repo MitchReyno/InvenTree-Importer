@@ -537,12 +537,12 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
 
     async def test_connections_waiting_for_a_header_are_bounded(self):
         waiting = asyncio.StreamReader()
-        first = Mock()
+        first = stream_writer()
         with patch.object(egress, "MAX_PENDING_HEADERS", 1), \
                 patch.object(egress, "HEADER_TIMEOUT_S", 0.3):
             held = asyncio.create_task(egress.handle(waiting, first))
             await asyncio.sleep(0.05)
-            extra = Mock()
+            extra = stream_writer()
             await asyncio.wait_for(egress.handle(asyncio.StreamReader(), extra), 0.1)
             extra.write.assert_not_called()
             extra.close.assert_called_once()
@@ -704,6 +704,57 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
             table["inventory.example.com"] = [PUBLIC]
             await self.handle("api.anthropic.com:443")
             await asyncio.wait_for(public, 2)
+        writer.transport.abort.assert_called_once()
+        client.transport.abort.assert_called_once()
+
+    async def publish(self, name, *addresses):
+        """A protected lookup's answer, published from a resolver thread."""
+        await asyncio.to_thread(egress.PROTECTED_LOOKUPS.publish, name,
+                                {egress.normalized(address) for address in addresses})
+
+    async def test_dial_is_refused_when_a_protected_answer_is_replaced_before_it_completes(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC]}
+        dialling = asyncio.Event()
+
+        def slow_dial(remote, writer):
+            async def dial(_address, _port):
+                dialling.set()
+                await asyncio.sleep(0.3)
+                return remote, writer
+            return dial
+
+        with self.fake_network(table, open_results=slow_dial):
+            public = asyncio.create_task(self.handle("www.ti.com:443"))
+            await asyncio.wait_for(dialling.wait(), 2)
+            # The name briefly answers with the dialled address, then moves away again.
+            await self.publish("inventory.example.com", PUBLIC)
+            await self.publish("inventory.example.com", "8.8.8.8")
+            written = await asyncio.wait_for(public, 2)
+        self.assertNotIn(b"200 Connection Established", written)
+        self.assertIn(b"X-Bench-Refusal: protected_destination\r\n", written)
+
+    async def test_closing_tunnel_is_aborted_when_its_address_becomes_protected(self):
+        self.write_policy(public_pages=False, protected_hosts=["inventory.example.com"])
+        stream, remote, client, writer = await self.held_tunnel("api.anthropic.com:443")
+
+        async def stalled_close():
+            await asyncio.sleep(5)
+
+        client.wait_closed = AsyncMock(side_effect=stalled_close)
+        remote.feed_data(b"tail of a response")
+        remote.feed_eof()
+        self.guest_dns = Mock(side_effect=dns({"api.anthropic.com": [OTHER_PUBLIC]}))
+        with patch.object(egress, "CLOSE_TIMEOUT_S", 3), \
+                patch.object(socket, "getaddrinfo", self.guest_dns), \
+                patch.object(egress.asyncio, "open_connection",
+                             AsyncMock(return_value=(remote, writer))):
+            closing = asyncio.create_task(egress.handle(stream, client))
+            await self.until_open(client, closing)
+            await asyncio.sleep(0.1)
+            client.transport.abort.assert_not_called()
+            await self.publish("inventory.example.com", OTHER_PUBLIC)
+            await asyncio.wait_for(closing, 1)
         writer.transport.abort.assert_called_once()
         client.transport.abort.assert_called_once()
 
