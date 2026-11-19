@@ -73,7 +73,7 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - [x] 1.2 Narrow BI-015 and the `complete-design-refresh-backend` README to the rows this change leaves deferred.
 - [x] 1.3 Resolve the remaining "requirement text very long" validation warnings by moving lists into scenarios where that reads better.
 - [x] 1.4 Run validation and the overlap check, and fix the findings.
-- [ ] 1.5 Independent read-only review of the plan, fixing findings until a round finds nothing new.
+- [x] 1.5 Independent read-only review of the plan, fixing findings until a round finds nothing new.
 - [ ] 1.6 Open PR-P with no reviewers and merge once review is clean and CI is green.
 
 ## 2. Debug mode foundation and Settings › Developer
