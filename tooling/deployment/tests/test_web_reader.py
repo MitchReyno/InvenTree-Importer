@@ -59,3 +59,8 @@ class PublicWeb(unittest.TestCase):
             raw = sock.return_value.__enter__.return_value
             raw.connect.assert_called_once_with(("1.1.1.1", 443))
             tls.return_value.wrap_socket.assert_called_once_with(raw, server_hostname="example.com")
+
+    def test_reader_keeps_its_own_address_rule(self):
+        # 192.0.0.9 passes the reader's rule; the egress refuses all of 192.0.0.0/24.
+        answer = [(2, 1, 6, "", ("192.0.0.9", 443))]
+        self.assertTrue(reader.permitted_addresses(answer, set()))

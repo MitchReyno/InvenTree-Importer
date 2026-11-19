@@ -41,10 +41,19 @@ def public(value):
             and not any(address in network for network in NON_GLOBAL_V6))
 
 
+def reader_public(value):
+    """The document reader's address rule, kept unchanged while the reader remains."""
+    address = ipaddress.ip_address(value)
+    return (address.is_global and not address.is_multicast and
+            (address.version == 4 or address in ipaddress.ip_network("2000::/3"))
+            and not getattr(address, "sixtofour", None) and not getattr(address, "teredo", None))
+
+
 def permitted_addresses(answers, protected):
     blocked = {address[4][0] for host in protected
                for address in socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)}
-    return bool(answers) and all(public(answer[4][0]) and answer[4][0] not in blocked for answer in answers)
+    return bool(answers) and all(reader_public(answer[4][0]) and answer[4][0] not in blocked
+                                 for answer in answers)
 
 
 class Refused(Exception):

@@ -376,6 +376,9 @@ async def checked_addresses(host, port, provider, protected):
             public_target, host, port, protected, PROTECTED_LOOKUPS.publish)
         return addresses, protection_guard(protected, True)
     except Refused as refusal:
+        # Once a protected lookup has failed, every public refusal reports that first.
+        if PROTECTED_LOOKUPS.has_failed():
+            raise Refused("resolution_failed") from None
         # A protected name stays protected when its lookup runs out of time or slots.
         if refusal.reason == "resolution_failed" and protected_name(host, protected):
             raise Refused("protected_destination") from None

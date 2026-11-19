@@ -52,6 +52,23 @@ def dns(table, stalled=None, delays=None):
     return lookup
 
 
+
+class PublishOnRelease:
+    """Wraps the publication lock: the first release after `then` is set runs it."""
+
+    def __init__(self, lock):
+        self.lock = lock
+        self.then = None
+
+    def __enter__(self):
+        self.lock.acquire()
+
+    def __exit__(self, *_exc):
+        self.lock.release()
+        then, self.then = self.then, None
+        if then:
+            then()
+
 class EgressPolicy(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.directory = TemporaryDirectory()
@@ -918,8 +935,9 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
     async def test_failed_lookup_of_a_protected_name_itself_refuses_the_turn(self):
         self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
         table = {"www.ti.com": [PUBLIC], "api.anthropic.com": [OTHER_PUBLIC]}
+        # The failed lookup latches the turn, so even this request reports it.
         written, upstream = await self.connect("inventory.example.com:443", table)
-        self.assert_refused(written, upstream, "protected_destination")
+        self.assert_refused(written, upstream, "resolution_failed")
         table["inventory.example.com"] = ["8.8.8.8"]
         written, upstream = await self.connect("www.ti.com:443", table)
         self.assert_refused(written, upstream, "resolution_failed")
@@ -1036,6 +1054,41 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
             return guard(address, protected, public_request)
 
         with patch.object(egress.PROTECTED_LOOKUPS, "guard", published_first):
+            written, upstream = await self.connect("www.ti.com:443", table)
+        self.assert_refused(written, upstream, "resolution_failed")
+
+    async def test_failure_published_before_a_dns_refusal_reports_resolution_failed(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": ["10.0.0.1"]}
+        target = egress.public_target
+
+        def failed_meanwhile(*args):
+            try:
+                return target(*args)
+            finally:
+                egress.PROTECTED_LOOKUPS.publish("inventory.example.com", None)
+
+        with patch.object(egress, "public_target", failed_meanwhile):
+            written, upstream = await self.connect("www.ti.com:443", table)
+        self.assert_refused(written, upstream, "resolution_failed")
+
+    async def test_guard_reads_the_latch_and_addresses_in_one_locked_step(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC]}
+        lookups = egress.PROTECTED_LOOKUPS
+        lock = PublishOnRelease(lookups.lock)
+        guard = lookups.guard
+
+        def publish_on_release(address, protected, public_request):
+            def publish():
+                lookups.publish("inventory.example.com", {egress.normalized(PUBLIC)})
+                lookups.publish("inventory.example.com", None)
+            # A guard that released the lock between its two reads would see the address.
+            lock.then = publish
+            return guard(address, protected, public_request)
+
+        with patch.object(lookups, "lock", lock), \
+                patch.object(lookups, "guard", publish_on_release):
             written, upstream = await self.connect("www.ti.com:443", table)
         self.assert_refused(written, upstream, "resolution_failed")
 
