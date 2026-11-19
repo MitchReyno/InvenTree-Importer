@@ -91,39 +91,6 @@ def resolved_addresses(host):
     return [answer[4][0] for answer in answers]
 
 
-def protected_addresses(protected, on_resolved=None):
-    """Public addresses of the protected entries.
-
-    A name that resolves only to non-public addresses adds nothing: the public-address rule
-    already refuses them. A name that doesn't resolve leaves its addresses unknown, so this
-    raises and the caller refuses public access for the turn, but only after every other name
-    is refreshed. `on_resolved(name, addresses)` receives each name's answer as soon as it
-    arrives, or None when its lookup fails.
-    """
-    blocked = set()
-    failure = None
-    for entry in sorted(protected):
-        literal = literal_address(entry)
-        if literal is not None:
-            if public(str(literal)):
-                blocked.add(literal)
-            continue
-        try:
-            answers = resolved_addresses(entry)
-        except Refused as error:
-            if on_resolved:
-                on_resolved(entry, None)
-            failure = failure or error
-            continue
-        addresses = {address for address in map(normalized, answers) if public(str(address))}
-        if on_resolved:
-            on_resolved(entry, addresses)
-        blocked |= addresses
-    if failure is not None:
-        raise failure
-    return blocked
-
-
 def check_public_syntax(host, port):
     """Refuses a public CONNECT to a port other than 443 or to something not a DNS name."""
     if port != 443 or not dns_name(host) or not host.split(".")[-1].isalpha():

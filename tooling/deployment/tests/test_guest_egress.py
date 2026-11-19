@@ -1385,6 +1385,13 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         self.assert_refused(written, upstream, "destination_refused")
         watch.assert_not_called()
 
+    async def test_protected_name_with_a_mixed_answer_reports_not_public(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        table = {"inventory.example.com": [PUBLIC, "10.0.0.2"]}
+        written, upstream = await self.connect("inventory.example.com:443", table)
+        self.assert_refused(written, upstream, "not_public")
+        self.assertEqual(self.lookups, 1)
+
 
 if __name__ == "__main__":
     unittest.main()
