@@ -589,6 +589,11 @@ async def close_tunnel(writers, revoked, drop):
         except asyncio.TimeoutError:
             for writer in writers:
                 abort(writer)
+            return
+        # A client refused before it joined the tunnel still has its refusal to deliver.
+        for writer in writers:
+            if writer not in revoked.streams:
+                writer.close()
         return
     if drop:
         for writer in writers:
@@ -644,8 +649,12 @@ async def handle(reader, client):
                 counted = True
         addresses, guard = await checked_addresses(host, port, provider, protected)
         remote, upstream, revoked, stop_watching = await open_first(addresses, guard, not provider)
-        revoked.streams.append(client)
-        client.write(b"HTTP/1.1 200 Connection Established\r\n\r\n")
+        # The last verdict and the acknowledgement are one step under the publication lock, so
+        # a protected answer can't land between them; a refused client keeps its stream for 403.
+        with PROTECTED_LOOKUPS.lock:
+            PROTECTED_LOOKUPS.verdict([revoked], not provider)
+            revoked.streams.append(client)
+            client.write(b"HTTP/1.1 200 Connection Established\r\n\r\n")
         await client.drain()
         activity = Activity()
         tasks = [asyncio.create_task(copy(reader, upstream, activity, revoked)),

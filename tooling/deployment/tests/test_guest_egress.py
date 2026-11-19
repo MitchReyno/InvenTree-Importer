@@ -1546,6 +1546,23 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         # The overdue refresh still published its answer when it landed.
         self.assertTrue(egress.PROTECTED_LOOKUPS.known.get("inventory.example.com"))
 
+    async def test_answer_landing_before_the_acknowledgement_is_refused(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC]}
+        settle = egress.PROTECTED_LOOKUPS.settle
+        lookups = egress.PROTECTED_LOOKUPS
+
+        def then_protected(*args):
+            result = settle(*args)
+            # The match is published after setup settles, before the CONNECT is answered.
+            lookups.publish("inventory.example.com", {egress.normalized(PUBLIC)})
+            return result
+
+        with patch.object(lookups, "settle", then_protected):
+            written, upstream = await self.connect("www.ti.com:443", table)
+        self.assertNotIn(b"200 Connection Established", written)
+        self.assertIn(b"X-Bench-Refusal: protected_destination\r\n", written)
+
 
 if __name__ == "__main__":
     unittest.main()
