@@ -777,6 +777,49 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         writer.transport.abort.assert_called_once()
         client.transport.abort.assert_called_once()
 
+    async def test_ready_relay_writes_nothing_once_an_answer_is_published(self):
+        self.write_policy(public_pages=False, protected_hosts=["inventory.example.com"])
+        stream, remote, client, writer = await self.held_tunnel("api.anthropic.com:443")
+        self.guest_dns = Mock(side_effect=dns({"api.anthropic.com": [OTHER_PUBLIC]}))
+        with patch.object(socket, "getaddrinfo", self.guest_dns), \
+                patch.object(egress.asyncio, "open_connection",
+                             AsyncMock(return_value=(remote, writer))):
+            tunnel = asyncio.create_task(egress.handle(stream, client))
+            await self.until_open(client, tunnel)
+            # The relay is runnable with data before the answer's abort callback is queued.
+            remote.feed_data(b"response after protection")
+            egress.PROTECTED_LOOKUPS.publish("inventory.example.com",
+                                             {egress.normalized(OTHER_PUBLIC)})
+            await asyncio.wait_for(tunnel, 2)
+        relayed = b"".join(call.args[0] for call in client.write.call_args_list)
+        self.assertNotIn(b"response after protection", relayed)
+        client.transport.abort.assert_called_once()
+
+    async def test_host_is_refused_when_a_failed_dials_address_becomes_protected(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC, OTHER_PUBLIC]}
+        dialling = asyncio.Event()
+        release = asyncio.Event()
+
+        def first_fails(remote, writer):
+            async def dial(address, _port):
+                if address == PUBLIC:
+                    dialling.set()
+                    await release.wait()
+                    raise ConnectionRefusedError("unreachable")
+                return remote, writer
+            return dial
+
+        with self.fake_network(table, open_results=first_fails) as upstream:
+            public = asyncio.create_task(self.handle("www.ti.com:443"))
+            await asyncio.wait_for(dialling.wait(), 2)
+            await self.publish("inventory.example.com", PUBLIC)
+            release.set()
+            written = await asyncio.wait_for(public, 2)
+            dialled = [call.args[0] for call in upstream.call_args_list]
+        self.assertIn(b"X-Bench-Refusal: protected_destination\r\n", written)
+        self.assertEqual(dialled, [PUBLIC])
+
 
 if __name__ == "__main__":
     unittest.main()

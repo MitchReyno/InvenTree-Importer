@@ -86,12 +86,22 @@ PROTECTED_LOOKUP_BUDGET_S = 2
 
 
 class Revocation:
-    """Fires once a protected lookup shows a tunnel's address is protected. Firing aborts the
-    tunnel's streams there and then, so no copy task relays another byte."""
+    """Marks a tunnel's address protected. Marking takes effect as the resolver publishes, and
+    every relay write checks it under the same lock, so no byte is relayed after an answer is
+    published. The streams are then aborted on the event loop."""
 
     def __init__(self):
+        self.loop = asyncio.get_running_loop()
+        self.lock = threading.Lock()
+        self.revoked = False
         self.event = asyncio.Event()
         self.streams = []
+
+    def mark(self):
+        """Revokes the tunnel; called from any thread."""
+        with self.lock:
+            self.revoked = True
+        self.loop.call_soon_threadsafe(self.fire)
 
     def fire(self):
         self.event.set()
@@ -99,7 +109,16 @@ class Revocation:
             abort(writer)
 
     def is_set(self):
-        return self.event.is_set()
+        with self.lock:
+            return self.revoked
+
+    def write(self, target, data):
+        """Writes `data` unless the tunnel is revoked; returns whether it wrote."""
+        with self.lock:
+            if self.revoked:
+                return False
+            target.write(data)
+            return True
 
     async def wait(self):
         await self.event.wait()
@@ -141,9 +160,9 @@ class ProtectedLookups:
         answer can't replace this one before its watchers are woken."""
         with self.lock:
             self.known[name] = addresses
-            for address, loop, revocation in self.tunnels.values():
+            for address, revocation in self.tunnels.values():
                 if address in addresses:
-                    loop.call_soon_threadsafe(revocation.fire)
+                    revocation.mark()
 
     def watch(self, address):
         """A Revocation fired once any protected lookup shows `address` is protected, and a
@@ -152,7 +171,7 @@ class ProtectedLookups:
         revocation = Revocation()
         key = object()
         with self.lock:
-            self.tunnels[key] = (normalized(address), asyncio.get_running_loop(), revocation)
+            self.tunnels[key] = (normalized(address), revocation)
 
         def stop():
             with self.lock:
@@ -321,38 +340,45 @@ async def checked_addresses(host, port, provider, protected):
 async def open_first(addresses, guard):
     """Connects to the first reachable checked address, trying at most a few.
 
-    Each address is watched from before its first check until the tunnel closes, so a
-    protected lookup finishing at any point stops it before or while it relays. Returns the
-    streams, the Revocation that drops them and the function that stops watching.
+    Every answer is watched from before the first dial until setup ends, and the connected
+    one until the tunnel closes, so a protected lookup finishing at any point refuses the
+    host, even when it names an address whose dial failed. Returns the streams, the
+    Revocation that drops them and the function that stops watching.
     """
-    failure = OSError("no checked address")
-    for address in addresses[:MAX_CONNECT_ATTEMPTS]:
-        revoked, stop_watching = PROTECTED_LOOKUPS.watch(address)
-        try:
+    watches = [PROTECTED_LOOKUPS.watch(address) for address in addresses]
+
+    def check():
+        if any(revocation.is_set() for revocation, _stop in watches):
+            raise Refused("protected_destination")
+        for address in addresses:
             guard(address)
-            remote, upstream = await asyncio.wait_for(
-                asyncio.open_connection(address, 443), CONNECT_TIMEOUT_S)
-        except (OSError, asyncio.TimeoutError) as error:
-            stop_watching()
-            failure = error
-            continue
-        except BaseException:
-            stop_watching()
-            raise
-        revoked.streams.append(upstream)
-        # Lets wake-ups queued by lookups that finished during the dial run first.
-        await asyncio.sleep(0)
-        try:
-            if revoked.is_set():
-                raise Refused("protected_destination")
-            guard(address)
-        except BaseException:
-            stop_watching()
-            abort(upstream)
-            upstream.close()
-            raise
-        return remote, upstream, revoked, stop_watching
-    raise failure
+
+    kept = None
+    try:
+        failure = OSError("no checked address")
+        for index, address in enumerate(addresses[:MAX_CONNECT_ATTEMPTS]):
+            check()
+            try:
+                remote, upstream = await asyncio.wait_for(
+                    asyncio.open_connection(address, 443), CONNECT_TIMEOUT_S)
+            except (OSError, asyncio.TimeoutError) as error:
+                failure = error
+                continue
+            revocation, stop_watching = watches[index]
+            revocation.streams.append(upstream)
+            try:
+                check()
+            except Refused:
+                abort(upstream)
+                upstream.close()
+                raise
+            kept = index
+            return remote, upstream, revocation, stop_watching
+        raise failure
+    finally:
+        for index, (_revocation, stop) in enumerate(watches):
+            if index != kept:
+                stop()
 
 
 async def refuse(client, reason):
@@ -373,10 +399,9 @@ class Activity:
 
 async def copy(source, target, activity, revoked):
     while data := await source.read(65536):
-        if revoked.is_set():
+        if not revoked.write(target, data):
             return
         activity.touch()
-        target.write(data)
         await target.drain()
 
 
