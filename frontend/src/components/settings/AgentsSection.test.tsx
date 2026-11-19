@@ -472,6 +472,63 @@ test('a Reload that fails keeps the conflict, the edit and the Reload action', a
   expect(instructions).toHaveValue('Mine')
 })
 
+test('a refresh never mixes into a Providers draft, and saving it is a conflict', async () => {
+  const api = client()
+  api.settings.mockResolvedValueOnce(bothOn).mockResolvedValueOnce({
+    ...bothOn,
+    revision: '9',
+    providers: {
+      ...bothOn.providers,
+      claude: { ...bothOn.providers.claude, enabled: false },
+    },
+    default_provider: 'codex',
+    stage_selections: {},
+  })
+  await renderAgents(api)
+  const claude = within(screen.getByRole('group', { name: 'Claude' }))
+  const codex = within(screen.getByRole('group', { name: 'Codex' }))
+  fireEvent.click(codex.getByRole('checkbox', { name: 'On' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Read settings again' }))
+  await waitFor(() => expect(api.settings).toHaveBeenCalledTimes(2))
+  await new Promise((done) => setTimeout(done, 20))
+  expect(claude.getByRole('checkbox', { name: 'On' })).toBeChecked()
+  fireEvent.click(within(card('Default provider')).getByRole('button', { name: 'Save' }))
+  // Both of the form's Save bars report it.
+  expect((await screen.findAllByText(/changed in another tab/))[0]).toBeVisible()
+  expect(api.saveSettings).not.toHaveBeenCalled()
+})
+
+test('a Reload answering after a newer save never brings back older settings', async () => {
+  const api = client()
+
+  let answer: (value: AgentSettingsDto) => void = () => undefined
+
+  api.saveSettings.mockRejectedValueOnce(new IntakeRequestError(412, 'revision_conflict'))
+  api.settings
+    .mockResolvedValueOnce(initial)
+    .mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)))
+  await renderAgents(api)
+  expect(await screen.findByText('3 of 3 in use · 1 queued')).toBeVisible()
+  fireEvent.change(screen.getByRole('textbox', { name: 'Instructions for every new batch' }), {
+    target: { value: 'Mine' },
+  })
+  fireEvent.click(within(card('Instructions')).getByRole('button', { name: 'Save' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Reload' }))
+  await waitFor(() => expect(api.settings).toHaveBeenCalledTimes(2))
+  fireEvent.click(
+    within(screen.getAllByRole('group', { name: 'Sessions at once' }).at(-1)!).getByRole('button', {
+      name: 'One fewer',
+    }),
+  )
+  fireEvent.click(within(card('Sessions')).getByRole('button', { name: 'Save' }))
+  expect(await screen.findByText('3 of 2 in use · 1 queued')).toBeVisible()
+  await act(async () => {
+    answer(initial)
+    await new Promise((done) => setTimeout(done, 20))
+  })
+  expect(screen.getByText('3 of 2 in use · 1 queued')).toBeVisible()
+})
+
 test('Suggest tags for new batches saves on its own', async () => {
   const api = await renderAgents()
   fireEvent.click(screen.getByRole('checkbox', { name: 'Suggest tags for new batches' }))

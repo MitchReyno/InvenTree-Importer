@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import type { BatchDefaultRecordDto, BatchDefaultsDto } from '@invimport/contracts'
 import { SettingRow, Small } from '#/components/ui'
@@ -39,9 +39,10 @@ export function BatchDefaultsForm({
   onDirtyChange: (dirty: boolean) => void
 }) {
   const mounted = useMountedRef()
-  const [draft, setDraft] = useState<Draft>(() => draftOf(loaded))
-  // The revision the current choice started from, while there is one.
-  const base = useRef<string | undefined>(undefined)
+  // An edit holds the defaults it was made over with its choices, so values and revision match.
+  // Until the first edit the form shows the latest load.
+  const [edit, setEdit] = useState<{ base: BatchDefaultsDto; draft: Draft } | null>(null)
+  const draft = edit?.draft ?? draftOf(loaded)
   const [state, setState] = useState<SaveState | 'missing' | 'unchecked'>('idle')
   const busy = state === 'saving' || state === 'reloading'
 
@@ -49,16 +50,17 @@ export function BatchDefaultsForm({
     if (busy) {
       return
     }
-    base.current ??= loaded.revision
-    setDraft((current) => ({ ...current, [field]: record }))
+    setEdit((current) => ({
+      base: current?.base ?? loaded,
+      draft: { ...(current?.draft ?? draftOf(loaded)), [field]: record },
+    }))
     setState('idle')
     onDirtyChange(true)
   }
 
   function adopt(saved: BatchDefaultsDto) {
-    base.current = undefined
     onLoaded(saved)
-    setDraft(draftOf(saved))
+    setEdit(null)
     onDirtyChange(false)
   }
 
@@ -70,7 +72,7 @@ export function BatchDefaultsForm({
     try {
       const saved = await client.save({
         // The revision this choice was made over, so a newer save elsewhere is a conflict.
-        expected_revision: base.current ?? loaded.revision,
+        expected_revision: (edit?.base ?? loaded).revision,
         location_pk: draft.location?.pk ?? null,
         supplier_pk: draft.supplier?.pk ?? null,
       })
@@ -105,7 +107,8 @@ export function BatchDefaultsForm({
       }
     } catch {
       if (mounted.current) {
-        setState('failed')
+        // Reload stays offered: the choice is kept and what is saved is still unknown.
+        setState('reloadFailed')
       }
     }
   }

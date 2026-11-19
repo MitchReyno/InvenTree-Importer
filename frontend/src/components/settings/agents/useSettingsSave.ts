@@ -27,8 +27,11 @@ export function useSettingsSave({
 }: {
   client: ReturnType<typeof agentsClient>
   loaded: AgentSettingsDto
-  /** Hears the settings each confirmed save or reload returns. */
-  onLoaded: (settings: AgentSettingsDto) => void
+  /**
+   * Publishes the settings a confirmed save or reload returns, and answers with what is current:
+   * a reload older than a save confirmed meanwhile is not adopted.
+   */
+  onLoaded: (settings: AgentSettingsDto) => AgentSettingsDto
 }) {
   const mounted = useMountedRef()
   const [state, setState] = useState<SaveState>('idle')
@@ -43,8 +46,8 @@ export function useSettingsSave({
         expected_revision: revision,
       })
       if (mounted.current) {
-        onLoaded(saved)
         setState('saved')
+        return onLoaded(saved)
       }
       return saved
     } catch (caught) {
@@ -68,13 +71,14 @@ export function useSettingsSave({
     try {
       const current = await client.settings()
       if (mounted.current) {
-        onLoaded(current)
         setState('idle')
+        return onLoaded(current)
       }
       return current
     } catch {
       if (mounted.current) {
-        setState(after === 'conflict' || after === 'reloadFailed' ? 'reloadFailed' : 'failed')
+        // Reload stays offered: the edit is kept and what is saved is still unknown.
+        setState(after === 'idle' || after === 'saved' ? 'failed' : 'reloadFailed')
       }
       return undefined
     }

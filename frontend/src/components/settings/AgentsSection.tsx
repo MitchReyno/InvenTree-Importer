@@ -59,6 +59,8 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
   const ready = Boolean(loaded)
   const focused = useRef<AgentSubsectionId | undefined>(undefined)
   const reportDirty = useDirtyForms(onDirtyChange)
+  // The newest settings a save or reload confirmed, ahead of the cache while it is updated.
+  const newest = useRef<AgentSettingsDto | undefined>(undefined)
 
   // Syncs the page with the route's location hash. Headings render before the settings load, so
   // the target exists on the first run; the ref keeps a refetch from moving focus again.
@@ -80,10 +82,25 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
     focused.current = subsection
   }, [subsection, ready])
 
-  /** A read already running is older than the confirmed settings, so it must not replace them. */
-  async function adoptLoaded(confirmed: AgentSettingsDto) {
-    await queryClient.cancelQueries({ queryKey: settingsKey })
-    queryClient.setQueryData(settingsKey, confirmed)
+  /**
+   * Publishes confirmed settings and answers with what is current. A read that was already
+   * running, or a reload older than a save confirmed meanwhile, never replaces newer settings.
+   */
+  function adoptLoaded(confirmed: AgentSettingsDto) {
+    const current = [newest.current, queryClient.getQueryData<AgentSettingsDto>(settingsKey)]
+      .filter((settings) => settings !== undefined)
+      .find((settings) => BigInt(settings.revision) > BigInt(confirmed.revision))
+    if (current) {
+      return current
+    }
+    newest.current = confirmed
+    void queryClient.cancelQueries({ queryKey: settingsKey }).then(() => {
+      // Only the newest of several confirmations in flight is published.
+      if (newest.current === confirmed) {
+        queryClient.setQueryData(settingsKey, confirmed)
+      }
+    })
+    return confirmed
   }
 
   const unavailable = (settings.isError || settings.fetchStatus === 'paused') && (
@@ -101,7 +118,7 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
   const form = loaded && {
     client,
     loaded: settings.data,
-    onLoaded: (confirmed: AgentSettingsDto) => void adoptLoaded(confirmed),
+    onLoaded: adoptLoaded,
     reportDirty,
   }
   const sessionsSubsection = (

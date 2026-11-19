@@ -46,7 +46,6 @@ export function ProvidersAndSteps({
   const [reset, setReset] = useState<readonly AgentSettingsStage[]>([])
   const [noProvider, setNoProvider] = useState(false)
   const values = form.watch()
-  const on = PROVIDERS.filter((provider) => values.providers[provider].enabled)
 
   function setEnabled(provider: AgentProviderId, enabled: boolean) {
     const current = form.getValues()
@@ -62,13 +61,15 @@ export function ProvidersAndSteps({
   }
 
   function submit() {
-    // At least one provider must be on for this form; the other subsections save without one.
-    if (!on.length) {
-      setNoProvider(true)
-      return
-    }
-    setReset([])
-    save()
+    save((current) => {
+      // At least one provider must be on for this form; the other subsections save without one.
+      if (!PROVIDERS.some((provider) => current.providers[provider].enabled)) {
+        setNoProvider(true)
+        return false
+      }
+      setReset([])
+      return true
+    })
   }
 
   const bar = (

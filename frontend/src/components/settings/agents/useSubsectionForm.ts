@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import {
   useForm,
   type DefaultValues,
@@ -13,7 +13,8 @@ import { useSettingsSave } from './useSettingsSave'
 export type SubsectionFormProps = {
   client: ReturnType<typeof agentsClient>
   loaded: AgentSettingsDto
-  onLoaded: (settings: AgentSettingsDto) => void
+  /** Publishes confirmed settings and answers with what is current. */
+  onLoaded: (settings: AgentSettingsDto) => AgentSettingsDto
   /** Reports this form's unsaved input to the shared navigation guard. */
   reportDirty: (form: string, dirty: boolean) => void
 }
@@ -41,14 +42,14 @@ export function useSubsectionForm<V extends FieldValues>({
   write: (values: V) => Owned
 }) {
   const saving = useSettingsSave({ client, loaded, onLoaded })
+  // The settings the current edit started from, while there is one. The form stays on them, so a
+  // newer load never mixes into an edit; it follows newer loads only while untouched.
+  const [base, setBase] = useState<AgentSettingsDto | undefined>(undefined)
   const values = useMemo(() => read(loaded), [read, loaded])
   const form = useForm<V>({
     defaultValues: values as DefaultValues<V>,
-    values,
-    resetOptions: { keepDirtyValues: true },
+    values: base ? undefined : values,
   })
-  // The settings the current edit started from, while there is one.
-  const base = useRef<AgentSettingsDto | undefined>(undefined)
   // Held from a press of Save until it settles, so validation can't let a second press through.
   const pending = useRef(false)
 
@@ -62,7 +63,7 @@ export function useSubsectionForm<V extends FieldValues>({
       for (const [name, value] of Object.entries(next)) {
         form.setValue(name as Path<V>, value as PathValue<V, Path<V>>)
       }
-      base.current = undefined
+      setBase(undefined)
       reportDirty(id, false)
     }
   }
@@ -72,10 +73,11 @@ export function useSubsectionForm<V extends FieldValues>({
     state: saving.state,
     busy: saving.busy,
     markDirty: () => {
-      base.current ??= loaded
+      setBase((current) => current ?? loaded)
       reportDirty(id, true)
     },
-    save: () => {
+    /** `check` runs after the conflict check, for rules beyond the fields' own validation. */
+    save: (check?: (values: V) => boolean) => {
       if (pending.current || saving.busy) {
         return
       }
@@ -84,8 +86,11 @@ export function useSubsectionForm<V extends FieldValues>({
         .handleSubmit(async (current) => {
           // Another subsection's save moves the revision on harmlessly; a change to these
           // fields from elsewhere is a conflict this edit hasn't seen.
-          if (base.current && owned(base.current) !== owned(loaded)) {
+          if (base && owned(base) !== owned(loaded)) {
             saving.refuse()
+            return
+          }
+          if (check && !check(current)) {
             return
           }
           settle(await saving.save(write(current)))

@@ -9,6 +9,11 @@ const CONFLICT =
 const MESSAGE: Partial<Record<SaveState, string>> = {
   saved: 'Saved. Sessions queued from now on use it; queued and running ones keep theirs.',
   invalid: 'The server refused these settings. Check the fields above and save again.',
+}
+
+/** States where what is saved is unknown or contested, so Reload is offered. */
+const RELOAD: Partial<Record<SaveState, string>> = {
+  conflict: CONFLICT,
   failed:
     'The save wasn’t confirmed: the server didn’t answer. Your edit is kept here; Reload shows what was saved.',
   reloadFailed: 'The saved settings couldn’t be loaded. Your edit is kept here; try Reload again.',
@@ -36,20 +41,25 @@ export function SaveBar({
 
   return (
     <Bar>
-      <Button type="button" variant="primary" aria-disabled={busy || undefined} onClick={onSave}>
+      <Button
+        type="button"
+        variant="primary"
+        aria-disabled={busy || undefined}
+        onClick={() => onSave()}
+      >
         {state === 'saving' ? 'Saving…' : label}
       </Button>
-      {(state === 'conflict' || state === 'reloadFailed') && (
+      {RELOAD[state] && (
         <div role="alert">
           <Banner
             tone="warn"
             action={
-              <Button type="button" aria-disabled={busy || undefined} onClick={onReload}>
+              <Button type="button" aria-disabled={busy || undefined} onClick={() => onReload()}>
                 Reload
               </Button>
             }
           >
-            {CONFLICT}
+            {RELOAD[state]}
           </Banner>
         </div>
       )}
