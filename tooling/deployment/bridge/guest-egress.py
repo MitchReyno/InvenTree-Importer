@@ -185,15 +185,24 @@ class ProtectedLookups:
 
         return revocation, stop
 
+    def verdict(self, revocations, public_request):
+        """Refuses a public request once a protected lookup has failed, then any request whose
+        answers were revoked during setup. Call with the publication lock held."""
+        if public_request and self.failed:
+            raise Refused("resolution_failed")
+        if any(revocation.is_set() for revocation in revocations):
+            raise Refused("protected_destination")
+
+    def check(self, revocations, public_request):
+        """The setup verdict, decided under the publication lock so its reason is consistent."""
+        with self.lock:
+            self.verdict(revocations, public_request)
+
     def settle(self, revocations, kept, public_request):
-        """Refuses if any answer was revoked during setup, or a public request once a protected
-        lookup has failed; otherwise stops watching every answer but `kept`. One step under the
+        """The setup verdict, then stops watching every answer but `kept`. One step under the
         publication lock, so nothing is published in between."""
         with self.lock:
-            if public_request and self.failed:
-                raise Refused("resolution_failed")
-            if any(revocation.is_set() for revocation in revocations):
-                raise Refused("protected_destination")
+            self.verdict(revocations, public_request)
             for revocation in revocations:
                 if revocation is not kept:
                     self.tunnels.pop(revocation, None)
@@ -382,8 +391,7 @@ async def open_first(addresses, guard, public_request):
     def check():
         for address in addresses:
             guard(address)
-        if any(revocation.is_set() for revocation, _stop in watches):
-            raise Refused("protected_destination")
+        PROTECTED_LOOKUPS.check([watched for watched, _stop in watches], public_request)
 
     kept = None
     try:

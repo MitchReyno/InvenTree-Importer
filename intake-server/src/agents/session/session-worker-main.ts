@@ -36,23 +36,29 @@ import { deliverMissingInstructions } from '#/agents/instructions.ts'
 
 /**
  * A PostgreSQL URL for a loopback server, as the `pg` driver will read it. The driver lets
- * query parameters override the host, so the host it resolves is the one checked.
+ * query parameters override the host and port, so the values it resolves are the ones checked.
  */
 function localDatabaseUrl(value: string | undefined) {
   if (!value) {
     throw new Error('agent_database_required')
   }
   let host = ''
+  let port = 0
   try {
     const url = new URL(value)
     if (!['postgres:', 'postgresql:'].includes(url.protocol) || url.searchParams.has('hostaddr')) {
       throw new Error('local_agent_database_required')
     }
-    host = new Client({ connectionString: value }).host
+    ;({ host, port } = new Client({ connectionString: value }))
   } catch {
     throw new Error('local_agent_database_required')
   }
-  if (!['127.0.0.1', 'localhost', '::1'].includes(host)) {
+  if (
+    !['127.0.0.1', 'localhost', '::1'].includes(host) ||
+    !Number.isInteger(port) ||
+    port < 1 ||
+    port > 65535
+  ) {
     throw new Error('local_agent_database_required')
   }
   return value

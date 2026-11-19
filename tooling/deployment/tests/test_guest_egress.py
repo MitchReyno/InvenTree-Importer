@@ -983,6 +983,20 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
     async def publish_failure(self, name):
         await asyncio.to_thread(egress.PROTECTED_LOOKUPS.publish, name, None)
 
+    async def test_failure_published_as_setup_decides_reports_resolution_failed(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC]}
+        check = egress.PROTECTED_LOOKUPS.check
+
+        def failed_first(revocations, public_request):
+            # The failure also revokes this request's watch; the latch decides the reason.
+            egress.PROTECTED_LOOKUPS.publish("inventory.example.com", None)
+            return check(revocations, public_request)
+
+        with patch.object(egress.PROTECTED_LOOKUPS, "check", failed_first):
+            written, upstream = await self.connect("www.ti.com:443", table)
+        self.assert_refused(written, upstream, "resolution_failed")
+
 
 if __name__ == "__main__":
     unittest.main()
