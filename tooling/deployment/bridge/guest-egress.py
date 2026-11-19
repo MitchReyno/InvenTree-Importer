@@ -110,14 +110,20 @@ class ProtectedLookups:
             addresses = None
         with self.lock:
             self.in_flight.pop(name, None)
-            # A failed refresh keeps the last addresses this name was known to have.
-            if addresses is not None:
-                self.known[name] = addresses
+        if addresses is not None:
+            self.publish(name, addresses)
+        return addresses
+
+    def publish(self, name, addresses):
+        """Records a successful answer for `name`, from either path, and drops every open
+        provider tunnel connected to one of its addresses. A failed lookup publishes nothing,
+        so the last known addresses stay."""
+        with self.lock:
+            self.known[name] = addresses
             hit = [(loop, event) for address, loop, event in self.tunnels.values()
-                   if addresses and address in addresses]
+                   if address in addresses]
         for loop, event in hit:
             loop.call_soon_threadsafe(event.set)
-        return addresses
 
     def watch(self, address):
         """An event set once any protected lookup shows `address` is protected, and a function
@@ -281,7 +287,8 @@ async def checked_addresses(host, port, provider, protected):
         return await provider_addresses(host, protected), provider_guard(protected)
     try:
         # public_target resolved every protected name for this request; nothing to recheck.
-        return await PUBLIC_DNS.run(public_target, host, port, protected), None
+        return await PUBLIC_DNS.run(
+            public_target, host, port, protected, PROTECTED_LOOKUPS.publish), None
     except Refused as refusal:
         # A protected name stays protected when its lookup runs out of time or slots.
         if refusal.reason == "resolution_failed" and protected_name(host, protected):

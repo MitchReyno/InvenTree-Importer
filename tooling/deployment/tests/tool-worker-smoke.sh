@@ -26,13 +26,19 @@ def connect(host):
     """The proxy's complete response header, within 10 s and 8 KiB, or an assertion error."""
     deadline = time.monotonic() + 10
     reply = b""
+    def remaining():
+        left = deadline - time.monotonic()
+        assert left > 0, reply
+        return left
+
     with socket.socket(socket.AF_UNIX) as tunnel:
+        tunnel.settimeout(remaining())
         tunnel.connect(egress)
+        tunnel.settimeout(remaining())
         tunnel.sendall(f"CONNECT {host}:443 HTTP/1.1\r\n\r\n".encode())
         while b"\r\n\r\n" not in reply:
-            remaining = deadline - time.monotonic()
-            assert remaining > 0 and len(reply) < 8192, reply
-            tunnel.settimeout(remaining)
+            assert len(reply) < 8192, reply
+            tunnel.settimeout(remaining())
             chunk = tunnel.recv(8192 - len(reply))
             assert chunk, reply
             reply += chunk

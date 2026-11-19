@@ -354,7 +354,18 @@ for (const misconfiguration of misconfigurations) {
       )
       let output = ''
       worker.stderr.on('data', (bytes: Buffer) => (output += bytes.toString()))
-      const [code] = await once(worker, 'exit')
+      const exited = once(worker, 'exit')
+      let code: unknown
+      try {
+        ;[code] = await exited
+      } finally {
+        // A worker that didn't refuse is stopped and reaped here, before the fixture's
+        // database is dropped by the after hooks.
+        if (worker.exitCode === null && worker.signalCode === null) {
+          worker.kill('SIGKILL')
+          await exited
+        }
+      }
       assert.equal(code, 1)
       assert.match(output, new RegExp(`"code":"${misconfiguration.code}"`))
       assert.equal(before, 'running')

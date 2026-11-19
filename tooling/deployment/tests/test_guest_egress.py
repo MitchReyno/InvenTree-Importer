@@ -435,6 +435,19 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
                 delays={"inventory.example.com": 0.3, "api.anthropic.com": 0.6})
         self.assert_refused(written, upstream, "protected_destination")
 
+    async def until_open(self, client, task):
+        """Waits up to two seconds for `task` to reply to `client`, and cancels it at cleanup."""
+        self.addAsyncCleanup(self.cancelled, task)
+        deadline = time.monotonic() + 2
+        while not client.write.called:
+            self.assertFalse(task.done(), "the handler ended before replying")
+            self.assertLess(time.monotonic(), deadline, "the handler never replied")
+            await asyncio.sleep(0.01)
+
+    async def cancelled(self, task):
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
     async def held_tunnel(self, target):
         """A public tunnel that stays open until its streams are ended."""
         stream = asyncio.StreamReader()
@@ -454,8 +467,7 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
                 patch.object(egress.asyncio, "open_connection",
                              AsyncMock(return_value=(remote, writer))):
             held = asyncio.create_task(egress.handle(stream, client))
-            while not client.write.called:
-                await asyncio.sleep(0.01)
+            await self.until_open(client, held)
             second = await self.handle("www.ti.com:443")
             wrong_port = await self.handle("www.ti.com:22")
             private_suffix = await self.handle("other.internal:443")
@@ -589,8 +601,7 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
                 patch.object(egress.asyncio, "open_connection",
                              AsyncMock(return_value=(remote, writer))):
             held = asyncio.create_task(egress.handle(stream, client))
-            while not client.write.called:
-                await asyncio.sleep(0.01)
+            await self.until_open(client, held)
             protected = await self.handle("inventory.internal:443")
             remote.feed_eof()
             await held
@@ -633,12 +644,28 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
                 patch.object(egress.asyncio, "open_connection",
                              AsyncMock(return_value=(remote, writer))):
             first = asyncio.create_task(egress.handle(stream, client))
-            while not client.write.called:
-                await asyncio.sleep(0.01)
+            await self.until_open(client, first)
             table["inventory.example.com"] = [OTHER_PUBLIC]
             second = await self.handle("api.anthropic.com:443")
             await asyncio.wait_for(first, 2)
         self.assertIn(b"X-Bench-Refusal: protected_destination\r\n", second)
+        writer.transport.abort.assert_called_once()
+        client.transport.abort.assert_called_once()
+
+    async def test_protected_answer_from_a_public_request_drops_an_open_provider_tunnel(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        stream, remote, client, writer = await self.held_tunnel("api.anthropic.com:443")
+        table = {"api.anthropic.com": [OTHER_PUBLIC], "www.ti.com": [PUBLIC]}
+        self.guest_dns = Mock(side_effect=dns(table))
+        with patch.object(socket, "getaddrinfo", self.guest_dns), \
+                patch.object(egress.asyncio, "open_connection",
+                             AsyncMock(return_value=(remote, writer))):
+            provider = asyncio.create_task(egress.handle(stream, client))
+            await self.until_open(client, provider)
+            table["inventory.example.com"] = [OTHER_PUBLIC]
+            # A public request resolves the protected name for its own check.
+            await self.handle("www.ti.com:443")
+            await asyncio.wait_for(provider, 2)
         writer.transport.abort.assert_called_once()
         client.transport.abort.assert_called_once()
 
