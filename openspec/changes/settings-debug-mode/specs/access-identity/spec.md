@@ -29,3 +29,40 @@ Bootstrap SHALL report the single-operator development-key mode with its server-
 - **GIVEN** the application shell is open
 - **WHEN** the masthead renders
 - **THEN** it shows a "Dev mode" pill beside the wordmark, as a button whose accessible name says it opens developer tools, and activating it opens the Dev mode popover.
+
+### Requirement: Access server-only credentials
+
+The development API key SHALL be supplied only by explicit server-side injection (`INTAKE_DEV_API_KEY` with a credential reference matching `^[a-zA-Z0-9_-]{1,128}$`). Runtime entry points MUST NOT discover an environment file, fall back to a username and password, or place any credential in bootstrap, readiness, error or log output; only the explicit development launchers load their selected env file.
+
+**Replacement read token.** The InvenTree read token MAY be replaced through Settings by a write-only request. The server SHALL:
+
+- check the candidate against the target before saving it;
+- save it only in a server-owned secret file under an explicitly configured secrets directory, with owner-only permissions, replaced whole;
+- use it for inventory reads in place of the injected key;
+- never return it in any response.
+
+Without a configured secrets directory, replacement SHALL be refused with `secret_store_unavailable`. Bootstrap's development-key status SHALL keep depending only on the injected key.
+
+#### Scenario: Invalid credential reference
+
+- **GIVEN** a credential reference containing characters outside the allowed set
+- **WHEN** the server configuration is loaded
+- **THEN** startup fails with `invalid_credential_reference`.
+
+#### Scenario: Replacement never leaves the server
+
+- **GIVEN** a saved replacement token
+- **WHEN** settings, connection status, readiness, Copy debug info and error responses are read, and the server logs are inspected
+- **THEN** none contains the token
+
+#### Scenario: Saved replacement survives a restart
+
+- **GIVEN** a saved replacement token
+- **WHEN** the server restarts
+- **THEN** inventory reads use the saved token, and bootstrap still reports the development-key status from the injected key
+
+#### Scenario: No secrets directory
+
+- **GIVEN** no secrets directory is configured
+- **WHEN** a replacement is submitted
+- **THEN** it fails with `secret_store_unavailable`, nothing is written, and Settings explains that the server must be configured for it

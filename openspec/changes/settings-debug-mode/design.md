@@ -28,22 +28,43 @@ The change spans all three packages but adds no new architecture. Each part exte
   - Never expose credentials.
   - Leave digest-verified profile instruction bytes untouched.
   - Follow the frontend Effects rules: preferences through `useSyncExternalStore`, actions in handlers.
-- **Design:** canvas v65, D32 to D35.
+- **Design:** canvas v67, D32 to D35.
 
 ## Decisions and alternatives
 
 ### Extend `agent_settings` for agent rows; a separate `batch_defaults` row
 
-**New `agent_settings` columns.** Add these nullable or defaulted columns:
+**New `agent_provider_settings` table.** One row per provider under the `agent_settings` key, with these columns:
+
+| Column | Type |
+| --- | --- |
+| `provider` | `claude` or `codex` |
+| `enabled` | boolean |
+| `authentication` | text |
+| `default_model` | text |
+
+It has no revision of its own: it is written in the same transaction as its parent row and covered by the parent's `revision`.
+
+**`agent_settings` columns.** The single `provider`, `authentication` and `model` columns are replaced by the per-provider rows. These columns are added:
 
 | Column | Type and default |
 | --- | --- |
-| `stage_models` | `jsonb`, default `{}`, keys `examine`, `research`, `images` and `inventory` |
+| `default_provider` | text |
+| `stage_selections` | `jsonb`, default `{}`; keys `examine`, `research`, `images` and `inventory`; each value `{provider, model}` or absent for Default |
 | `new_batch_instructions` | `text` |
 | `part_description_style` | `text` |
 | `auto_tags_default` | `boolean`, default `false` |
 
-They go in the existing contract and `PUT`, so one revision covers every agent subsection. Each subsection's Save sends the whole loaded settings object with only its fields changed, exactly as the form does today.
+**Contract.** `AgentSettings` and `AgentSettingsUpdate` carry:
+
+- `providers: {claude, codex}`, each `{enabled, authentication, default_model}`;
+- `default_provider`;
+- `stage_selections`;
+- `session_concurrency` and the new text and boolean fields.
+
+`selection` is removed, and every reader is updated in the same PR.
+
+**Saving.** One revision covers every agent subsection. Each subsection's Save sends the whole loaded settings object with only its fields changed, exactly as the form does today.
 
 **New `batch_defaults` table.** It has the same key, a `revision`, `location_pk` and `supplier_pk`. It is served by `GET`/`PUT /api/v1/batch-defaults` with the same revision conflict (412).
 
@@ -54,13 +75,34 @@ They go in the existing contract and `PUT`, so one revision covers every agent s
 
 **Accepted:** two Saves on two pages can't conflict with each other, which is correct.
 
-### Resolve and seal the per-step model at queue time
+### Independent providers, resolved and sealed per step at queue time
 
-`session-attempts.ts` replaces `settings.selection` with `{...selection, model: stage_models[job.stage] ?? selection.model}` before sealing. The lead Examine attempt uses the `examine` key.
+A pure `resolveSelection(settings, stage)` returns the existing `AgentSelection` shape (`{provider, authentication, model}`):
 
-The server validates each per-step model against the provider's offered models with the same list the form uses (`contracts/src/agent-selection.ts`). A mismatch fails with `invalid_stage_model` (422).
+- **Step choice:** when the step has a selection whose provider is on, use that provider's authentication and the step's model.
+- **Otherwise:** the default provider's authentication and default model.
+- **Nothing usable:** when the default provider is off or missing, it returns none, and queuing fails with `agent_default_required` as today.
 
-Rejected: resolving at run time. It would break "sealed at queue time" and let a later save change a queued attempt.
+`session-attempts.ts` seals that selection, so the manifest shape, the worker and the provider adapters are unchanged. The lead Examine attempt uses the `examine` key.
+
+**Validation on save.** A save fails with `invalid_agent_settings` (422) when:
+
+- no provider is on;
+- the default provider is off;
+- a default model or step model isn't in that provider's model list (the list the form uses, `contracts/src/agent-selection.ts`);
+- a step names a provider that is off.
+
+**Migration.** The existing `provider`, `authentication` and `model` become one enabled provider row and `default_provider`. The other provider gets a disabled row with its first listed model and subscription sign-in. Every step starts on Default, and the revision is unchanged.
+
+**Slots and pausing.** Sessions at once stays one shared limit (`agents/session/slots.ts`), and Pause all is unchanged.
+
+**Rejected:**
+
+- **Keep one provider and add per-step providers that must share its sign-in.** That doesn't let Claude and Codex each keep their own sign-in method.
+- **Per-provider session limits.** Not requested, and they would change the slot scheduler.
+- **Resolve at run time.** That breaks "sealed at queue time".
+
+**Accepted:** Codex steps carry BI-010's `native_unverified` label. Settings doesn't hide Codex because of it.
 
 ### Snapshot defaults into a batch at creation
 
@@ -93,6 +135,32 @@ The new route is `POST /api/v1/connection-status/check`, CSRF-protected like oth
 A 401 or 403 from the target maps to a new `unauthorized` failure code. Other failures keep their codes. The result replaces the cached observation, so the masthead read sees it.
 
 Rejected: a query flag on the GET. It would let a cache refetch force probes, and it breaks GET safety.
+
+### Replace the read token with a stored, swappable credential
+
+**Where it lives.** The token is kept in a server-owned file under `INTAKE_SECRETS_DIR`. The development launcher defaults that to a `secrets/` directory in the development state directory, created owner-only.
+
+**Routes.**
+
+- `PUT /api/v1/inventory-credential` takes `{token}`. It is CSRF-protected, limited to 4 KiB of printable ASCII, and never logged; request logging redacts its body.
+- `DELETE /api/v1/inventory-credential` reverts to the environment token.
+- The Settings row reads its state from connection status as `credential_source: 'environment' | 'saved'` plus `saved_at`. The token itself is never returned.
+
+**Check, then save.** On `PUT` the server:
+
+1. probes the target with the candidate, using the existing bounded read transport and deadline;
+2. on acceptance, writes a temporary file with mode `0600` and renames it over the saved one;
+3. swaps the credential in a `CredentialHolder` that the read transport reads on each request.
+
+Reads already in flight finish with the old value. A refused or failed probe writes nothing. Startup loads a saved file when one exists, and otherwise uses `INTAKE_DEV_API_KEY`.
+
+**Untouched.** Bootstrap's `configured` status, the approval runner and its credential profile.
+
+**Rejected:**
+
+- **Storing the token in Postgres.** Database backups and dumps would then carry it.
+- **An encryption library or OS keychain.** It adds a dependency and doesn't protect against the same local user who can already read `.env`.
+- **Restarting the server to apply it.** That breaks live sessions and the open UI.
 
 ### Debug mode as a device-local controller plus two components
 
@@ -145,7 +213,8 @@ The `ConnectionDetails` copy of the badge stays a static pill, as the server men
 
 | State | Owner | Revision or identity | Failure behavior |
 | --- | --- | --- | --- |
-| Agent settings, including the new fields | intake-server `agent_settings` | the existing `revision` | 412 conflict keeps the edit and offers Reload; `invalid_stage_model` (422) is a field error |
+| Agent settings, including provider rows and the new fields | intake-server `agent_settings` and `agent_provider_settings` | the existing `revision` on the parent row | 412 conflict keeps the edit and offers Reload; `invalid_agent_settings` (422) is a field error |
+| Replacement read token | an owner-only secret file plus the in-memory `CredentialHolder` | the file's `saved_at` | written only after the target accepts it; a failed write leaves the old file and holder unchanged; a missing secrets directory gives `secret_store_unavailable` |
 | Batch defaults | intake-server `batch_defaults` | its own `revision` | the same conflict handling; a missing record is shown on load and skipped at creation |
 | Attempt selection | the attempt manifest | the sealed settings revision | unchanged by later saves |
 | Batch's copied defaults | capture tables at revision 1 | a batch-scoped revision | no link back to the app-level values |
@@ -154,13 +223,25 @@ The `ConnectionDetails` copy of the badge stays a static pill, as the server men
 
 **Authority.** Every new route uses the existing binding (actor, target, context), CSRF on writes and strict decoding. Column grants are added in `processing/grants.ts`.
 
+**Secret handling.** The replacement token is accepted only on `PUT`. It is never echoed, logged, included in errors or copied into debug info. The secrets directory and file are created owner-only, and startup refuses a saved file that other users can read (`secret_file_permissions`).
+
 **Debug output.** It shows only data already sent to the browser. Copy debug info excludes tokens, keys and record content.
 
 ## Verification strategy
 
 - **intake-server (Vitest with Postgres tiers):**
-  - settings round-trip and conflict for the new fields, plus `invalid_stage_model`;
-  - per-stage sealing, with an Images attempt sealed with S and others with M;
+  - settings round-trip and conflict for the provider rows and new fields;
+  - each `invalid_agent_settings` case;
+  - the migration of an existing single selection;
+  - per-stage sealing across providers: a Research attempt on Codex with its own sign-in method, the others on the default provider;
+  - Replace token:
+    - the probe runs before saving, and a refusal writes nothing;
+    - the file is written atomically with mode `0600`;
+    - reads in flight keep the old credential;
+    - a restart loads the saved token;
+    - Revert deletes it;
+    - no secrets directory gives `secret_store_unavailable`;
+    - the token is absent from every response and log line, checked with a planted value;
   - `create()` snapshot, including a missing location;
   - batch-defaults route conflict;
   - description style delivered once in the first instruction message, with the digest unchanged;
@@ -169,7 +250,8 @@ The `ConnectionDetails` copy of the badge stays a static pill, as the server men
 - **frontend (Vitest and Testing Library):**
   - routes and sub-nav, including the `#settings/descriptions` redirect;
   - each subsection's Save and conflict;
-  - provider change resetting a step model;
+  - the provider cards, with a provider turned off resetting its steps, and a save with no provider on refused;
+  - Replace token: field cleared, Refused and Unavailable messages, and Revert confirmation;
   - batch-defaults pickers with a missing record;
   - Check now states;
   - the debug-mode controller with throwing storage;
@@ -185,12 +267,15 @@ The `ConnectionDetails` copy of the badge stays a static pill, as the server men
 **Migration.** One forward migration (`0032_settings_debug_mode.sql`):
 
 - adds the `agent_settings` columns with defaults that reproduce today's behaviour;
+- creates `agent_provider_settings` and fills it from each existing row's `provider`, `authentication` and `model`;
 - creates `batch_defaults`;
 - adds grants.
 
 Existing attempts and batches are untouched.
 
-**Rollback.** Revert the app code. The extra columns and the table are ignored by older code because reads select named columns. There is no inventory effect, and the import reference is unchanged.
+The old `provider`, `authentication` and `model` columns are kept. Saves keep writing the default provider's values into them. A later change drops them once this ships.
+
+**Rollback.** Revert the app code. Older code still reads valid `provider`, `authentication` and `model` columns and ignores the new columns and tables. A saved replacement token is ignored by older code, which falls back to `INTAKE_DEV_API_KEY`. There is no inventory effect, and the import reference is unchanged.
 
 **Rollout.** Debug mode starts off on every device, so the first load after deploy hides the developer details. Switching it on restores them.
 
@@ -199,4 +284,8 @@ Existing attempts and batches are untouched.
 - **Hidden details while developing.** Developers lose at-a-glance IDs until they switch debug mode on. Mitigation: the switch is one click from the Dev mode pill.
 - **Description style quality is model-dependent.** The style is guidance, not validation, so agents may drift from it. Validation stays the same.
 - **BI-015 overlap.** `complete-design-refresh-backend` must be narrowed in the same planning PR so the two changes don't claim the same rows.
-- **Open decision:** which rows are built now (proposal, "Open decisions and assumptions"). The rest were decided by Mitch on 2026-11-19.
+- **Codex steps run unverified.** BI-010 keeps Codex sessions labelled `native_unverified`, so a step set to Codex inherits that limitation.
+- **The token is protected only by file permissions.** The same local user who can read `.env` can read the saved token. This is accepted for a single-operator local server.
+- **Assumptions to confirm:**
+  - Replace token covers only the read token, not the approval runner's write credential.
+  - Sessions at once stays one limit shared by both providers.

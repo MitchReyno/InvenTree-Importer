@@ -4,11 +4,21 @@
 
 ### Requirement: Provider default sealed at queue time
 
-No provider or model SHALL be selected implicitly: queuing a `native-agent/1` attempt without a saved Agent settings default MUST fail with `agent_default_required`.
+No provider or model SHALL be selected implicitly: queuing a `native-agent/1` attempt without a saved Agent settings default MUST fail with `agent_default_required`. The saved default is a default provider that is on.
 
-**Sealing.** Each attempt SHALL seal what it read: the provider, the authentication mode, the model resolved for its stage and the settings revision. The resolved model is the stage's own model when Models per step sets one, and otherwise the default model. Later settings changes SHALL neither rewrite nor invalidate a sealed attempt.
+**Resolution.** Each attempt SHALL seal the provider, authentication mode and model resolved for its stage, plus the settings revision it read:
 
-**Settings writes.** Settings writes SHALL compare the expected revision and fail with `revision_conflict` (412) when it moved on. A saved per-step model SHALL be one offered for the saved provider. A write that pairs a per-step model with a provider that doesn't offer it SHALL fail with `invalid_stage_model` (422).
+- **The step's own choice.** Used when the step names a provider that is on and one of that provider's models. The authentication mode is the one saved for that provider.
+- **Otherwise the default.** The default provider, with its authentication mode and default model.
+
+Later settings changes SHALL neither rewrite nor invalidate a sealed attempt.
+
+**Settings writes.** Writes SHALL compare the expected revision and fail with `revision_conflict` (412) when it moved on. A write SHALL fail with `invalid_agent_settings` (422) and change nothing when any of these holds:
+
+- no provider is on;
+- the default provider is off;
+- a provider's default model isn't one of its models;
+- a step names a provider that is off, or a model that provider doesn't offer.
 
 #### Scenario: No default saved
 
@@ -22,14 +32,20 @@ No provider or model SHALL be selected implicitly: queuing a `native-agent/1` at
 - **WHEN** the default changes to Claude
 - **THEN** the queued attempt still runs with Codex and model M, and only new attempts use Claude.
 
-#### Scenario: Per-step model sealed
+#### Scenario: Steps on different providers
 
-- **GIVEN** the default model M and Images set to model S
-- **WHEN** an Images attempt and a Research attempt are queued
-- **THEN** the Images attempt is sealed with S and the Research attempt with M, each with the same settings revision
+- **GIVEN** Claude on with subscription sign-in and default model M, Codex on with API-key sign-in, the default provider Claude, and Research set to Codex model G
+- **WHEN** a Research attempt and an Images attempt are queued
+- **THEN** the Research attempt is sealed with Codex, API key and G, the Images attempt with Claude, subscription and M, and both with the same settings revision
 
-#### Scenario: Mismatched per-step model
+#### Scenario: Invalid settings refused
 
-- **GIVEN** a settings write with provider Codex and a Claude model for Examine
+- **GIVEN** a settings write with Codex off and Examine set to a Codex model
 - **WHEN** it reaches the server
-- **THEN** it fails with `invalid_stage_model`, and the saved settings and revision are unchanged
+- **THEN** it fails with `invalid_agent_settings`, and the saved settings and revision are unchanged
+
+#### Scenario: Existing settings carried over
+
+- **GIVEN** settings saved before this change with provider Claude, subscription and model M
+- **WHEN** the migration runs
+- **THEN** Claude is on with subscription and default model M, Codex is off, Claude is the default provider, every step is "Default", and the revision is unchanged

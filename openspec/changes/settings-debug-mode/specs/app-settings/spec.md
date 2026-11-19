@@ -8,8 +8,9 @@ The masthead SHALL end with an icon-only Settings button (`aria-label` "Settings
 
 **Section nav.** Settings SHALL show a section nav: Agents, InvenTree, Batch defaults, Appearance, Developer. Under the Agents link it SHALL list sub-nav links to the Agents subsections:
 
-- Sessions and sign-in
-- Models per step
+- Providers
+- Sessions
+- Provider and model per step
 - Instructions
 - Descriptions and naming
 - Tag suggestions
@@ -51,12 +52,14 @@ Each subsection link SHALL have its own route, `#settings/agents/<subsection>`. 
 
 Settings › Agents SHALL hold every setting that shapes agent behaviour, in subsections. Each subsection SHALL save through one explicit Save with the existing revision check. Running turns SHALL finish with the settings they started with. Values saved here SHALL apply only to sessions queued, or batches created, after the save.
 
-**Sessions and sign-in.** SHALL edit the stored agent settings:
+**Providers.** SHALL show one card for Claude and one for Codex, each set up on its own. Each card holds:
 
-- provider (Claude or Codex), as option cards showing each provider's sign-in status;
+- an On switch;
 - authentication (subscription or API key; keys are never shown), as a segmented control;
-- model;
-- sessions at once, as a stepper from 1 to 8 with the current slot use.
+- a default model;
+- its credential panel.
+
+Below the cards, "Default provider" SHALL choose one provider that is on. At least one provider SHALL be on to save.
 
 A provider card SHALL show the same status as its credential panel at all times:
 
@@ -65,9 +68,11 @@ A provider card SHALL show the same status as its credential panel at all times:
 - for Codex, "Connected", "Signing in", "Not connected" or "Declined";
 - "Check failed" while the panel shows its error.
 
-It SHALL keep the existing personal Claude credential (save, replace, remove) and ChatGPT sign-in controls. It SHALL offer Pause all agents through the existing pause command used by the Agents page, and read slot use from the existing agent sessions read.
+The cards SHALL keep the existing personal Claude credential (save, replace, remove) and ChatGPT sign-in controls.
 
-**Models per step.** SHALL offer, for Examine, Research, Images and Inventory, "Same as Model" or a model offered for the selected provider. Changing the provider SHALL reset any per-step choice the new provider doesn't offer to "Same as Model", and say so before saving.
+**Sessions.** SHALL hold sessions at once, as a stepper from 1 to 8 with the current slot use, shared by both providers. It SHALL offer Pause all agents through the existing pause command used by the Agents page, and read slot use from the existing agent sessions read.
+
+**Provider and model per step.** For each of Examine, Research, Images and Inventory, a step SHALL offer "Default" (the default provider's default model) or any model of a provider that is on, grouped by provider. Turning a provider off SHALL show its steps as "Default", with a note that their choice was reset, before saving.
 
 **Instructions.** SHALL hold "Instructions for every new batch", up to the batch instruction length limit, copied into each batch created after saving.
 
@@ -125,17 +130,23 @@ It SHALL keep the existing personal Claude credential (save, replace, remove) an
 - **WHEN** the operator runs it in a provider's credential panel
 - **THEN** that provider card reads "Check failed" and the panel shows its existing error message
 
-#### Scenario: Model per step
+#### Scenario: Mixing providers across steps
 
-- **GIVEN** Model is Claude Opus 5.5 and Images is set to Claude Sonnet 5.5
+- **GIVEN** both providers are on, the default provider is Claude with Opus 5.5, Research is set to Codex GPT 6 and Images to Claude Sonnet 5.5
 - **WHEN** the settings are saved and a batch is processed
-- **THEN** new Images sessions run with Sonnet, every other step runs with Opus, and sessions already queued keep the models they were sealed with
+- **THEN** new Research sessions run on Codex with GPT 6 and Codex's sign-in method, Images on Claude Sonnet, Examine and Inventory on Claude Opus, and sessions already queued keep what they were sealed with
 
-#### Scenario: Provider change drops a per-step model
+#### Scenario: Turning a provider off
 
-- **GIVEN** Images is set to a Claude model
-- **WHEN** the operator switches the provider to Codex
-- **THEN** Images shows "Same as Model" with a note that its choice was reset, and nothing is saved until Save
+- **GIVEN** Research is set to a Codex model
+- **WHEN** the operator turns Codex off
+- **THEN** Research shows "Default" with a note that its choice was reset, Codex can't be the default provider, and nothing is saved until Save
+
+#### Scenario: No provider on
+
+- **GIVEN** Codex is off
+- **WHEN** the operator turns Claude off too and presses Save
+- **THEN** the form says at least one provider must be on, and nothing is sent
 
 #### Scenario: Instructions copied once
 
@@ -156,8 +167,7 @@ These controls SHALL render disabled, each with a one-line `DisabledFeature` exp
 - web research switches;
 - the "Fill descriptions for" switches for records other than Parts (the Parts switch shows on and can't be changed);
 - the supplier part description source;
-- "Tag every Part with its batch name";
-- Replace token.
+- "Tag every Part with its batch name".
 
 #### Scenario: Disabled control is honest
 
@@ -171,6 +181,7 @@ These controls SHALL render disabled, each with a one-line `DisabledFeature` exp
 
 - show the existing server label, connection state, last check time and an Open InvenTree link, without showing credentials;
 - show the API token's last known status (Accepted, Refused or Unavailable) and its check time, with a working Check now;
+- show whether reads use the environment token or a token saved here, and offer Replace token: a write-only field whose value is checked against InvenTree before it is saved, plus "Use the environment token" when a saved token exists. Approvals keep the runner's own credential, and the row says so;
 - show the import reference format read-only, with an example, and no edit control.
 
 **Settings › Batch defaults** SHALL edit, with one explicit Save and a revision check:
@@ -192,7 +203,25 @@ Each batch created after a save SHALL start with them.
 
 - **GIVEN** the server's InvenTree token is no longer accepted by the target
 - **WHEN** the operator presses Check now
-- **THEN** the row reads Refused with the check time and says to check the token in the server's environment, and no credential is shown
+- **THEN** the row reads Refused with the check time and offers Replace token, and no credential is shown
+
+#### Scenario: Replace the token
+
+- **GIVEN** a working read token from the server's environment
+- **WHEN** the operator pastes a new token into Replace token and chooses Check and save
+- **THEN** the server checks it against InvenTree, saves it only when it is accepted, and switches reads to it; the field clears, the row reads "Using the token saved here" with the date, and the token is never shown or returned
+
+#### Scenario: Replacement refused
+
+- **GIVEN** a pasted token that InvenTree refuses, or InvenTree unreachable during the check
+- **WHEN** Check and save runs
+- **THEN** nothing is saved, the current token stays in use, and the row says why
+
+#### Scenario: Go back to the environment token
+
+- **GIVEN** a saved replacement token
+- **WHEN** the operator chooses "Use the environment token" and confirms
+- **THEN** the saved token is deleted, reads use the environment token again, and the row says so
 
 #### Scenario: Check now while a check is running
 

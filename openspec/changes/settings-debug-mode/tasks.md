@@ -15,7 +15,7 @@
   - `specs/access-identity`.
 - **Reuse:** extend existing storage, delivery and preference patterns, with no new dependency (proposal, "Reuse and dependency assessment").
 - **Linked items:** BI-015 (Settings part, narrowed in task 1). A new BI item for debug mode and the Dev mode popover is allocated in task 1.
-- **Design:** canvas v65, D32 to D35.
+- **Design:** canvas v67, D32 to D35.
 
 ## Completion and commit ordering
 
@@ -33,11 +33,12 @@
 | 3. Gate developer details and add Debug panels | Frontend behaviour | 2 | debug-mode: Developer details hidden, Debug panel per screen; processing-agent-sessions; ui-design-system; header-connection-status: diagnostics only in debug mode |
 | 4. Dev mode popover | Frontend behaviour | 2 | debug-mode: Dev mode popover; access-identity: Masthead mode badge |
 | 5. Settings structure and Agents subsections | Frontend behaviour | None | app-settings: Settings page and navigation; Deferred settings |
-| 6. Agent settings storage, per-step sealing and style delivery | Backend and contracts | None | app-settings: Agent settings section (server side); provider-runtime; processing-agent-sessions: Part description style |
+| 6. Independent providers, agent settings storage, per-step sealing and style delivery | Backend and contracts | None | app-settings: Agent settings section (server side); provider-runtime; processing-agent-sessions: Part description style |
 | 7. Batch defaults storage and new-batch snapshot | Backend and contracts | 6 (shared migration) | capture-batch-settings; app-settings: InvenTree and appearance sections (batch defaults) |
 | 8. Forced connection check | Backend, contracts and frontend | None | header-connection-status: Connection check on demand; app-settings: Check now scenarios |
 | 9. Settings forms for the new rows | Frontend behaviour | 5, 6, 7 | app-settings: Agent settings section, InvenTree and appearance sections |
 | 10. Documentation and notes | Docs | Each PR's own tasks | Architecture and README accuracy |
+| 11. Replace the read token | Backend, contracts and frontend | 8 | access-identity: Access server-only credentials; app-settings: Replace token scenarios |
 
 ## PR delivery map
 
@@ -49,7 +50,8 @@ All PRs target `interactive-app`.
 | PR-A | Debug mode, its gating, Debug panels and the Dev mode popover | 2, 3, 4 | One frontend capability with one preference; no server change | After PR-P | `feat/settings-debug-mode-debug` · `feat(settings-debug-mode): add debug mode and dev tools popover` | Frontend checks, demo recording, independent review, green CI |
 | PR-B | Settings nav with Agents subsections and Descriptions moved | 5 | Pure frontend restructure, separately reviewable; rows stay deferred | After PR-P; independent of PR-A | `feat/settings-debug-mode-structure` · `feat(settings-debug-mode): group agent settings under Agents` | Frontend checks, demo recording, review, CI |
 | PR-C | Server and contracts for new settings, per-step sealing, style delivery, batch defaults, creation snapshot and the forced check | 6, 7, 8 | One migration and one contract regeneration; server tests cover them together | After PR-P | `feat/settings-debug-mode-server` · `feat(settings-debug-mode): store app settings and check the connection on demand` | intake-server suites, contracts generation check, review, CI |
-| PR-D | Working Settings rows and docs | 9, 10 | Needs PR-B's structure and PR-C's contracts | After PR-B and PR-C | `feat/settings-debug-mode-forms` · `feat(settings-debug-mode): make the deferred settings work` | Full frontend checks, demo recording, review, CI |
+| PR-D | Working Settings rows, including the provider cards and per-step providers, and docs | 9, 10 | Needs PR-B's structure and PR-C's contracts | After PR-B and PR-C | `feat/settings-debug-mode-forms` · `feat(settings-debug-mode): make the deferred settings work` | Full frontend checks, demo recording, review, CI |
+| PR-E | Replace the InvenTree read token | 11 | Its own security boundary (secret storage, a credential swap, redaction) deserves a focused review | After PR-C; independent of PR-D | `feat/settings-debug-mode-token` · `feat(settings-debug-mode): replace the InvenTree read token from Settings` | Server and frontend checks, planted-secret test, manual token swap, independent review, CI |
 
 Task 8's frontend part, the Check now and Check connection now buttons, ships in PR-C. It is small and keeps the whole task in one PR. The Settings › InvenTree row's surrounding layout is already in place.
 
@@ -188,36 +190,48 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - [ ] 5.4 Refactor, then run the frontend checks.
 - [ ] 5.5 Record a demo of the sub-nav and attach it to PR-B.
 
-## 6. Agent settings storage, per-step sealing and style delivery
+## 6. Independent providers, agent settings storage, per-step sealing and style delivery
 
 - PR delivery: PR-C.
 - Outcome:
-  - Agent settings store `stage_models`, `new_batch_instructions`, `part_description_style` and `auto_tags_default` under one revision.
-  - Attempts seal the per-step model.
+  - Claude and Codex are stored separately, each with on or off, a sign-in method and a default model, plus a default provider.
+  - Each step stores a provider and model, or Default.
+  - New fields: `new_batch_instructions`, `part_description_style` and `auto_tags_default`, all under one revision.
+  - Attempts seal the resolved provider, sign-in method and model.
   - Sessions receive the description style as guidance.
+  - Existing settings migrate to their one provider.
 - Scope:
-  - migration `0032_settings_debug_mode.sql` (columns, plus `batch_defaults` for task 7, plus grants in `processing/grants.ts`);
-  - `agents/schema.ts` and `agents/settings.ts`;
-  - `contracts/src/agents.ts` and the generated client;
-  - `processing/session-attempts.ts` (resolve the stage model);
-  - validation that returns `invalid_stage_model`;
+  - migration `0032_settings_debug_mode.sql`:
+    - `agent_provider_settings` filled from existing rows;
+    - the new `agent_settings` columns, keeping the old selection columns for rollback;
+    - `batch_defaults` for task 7;
+    - grants in `processing/grants.ts`;
+  - `agents/schema.ts` and `agents/settings.ts`, which keep writing the default provider's values into the old columns;
+  - `contracts/src/agents.ts` (replace `selection`) and the generated client;
+  - every server and frontend reader of `selection`, including the Agents page summary;
+  - a pure `resolveSelection(settings, stage)` used by `processing/session-attempts.ts`;
+  - validation that returns `invalid_agent_settings`;
   - the instruction delivery path for the style (`agents/instructions.ts` or the session runner's first message), sealed by settings revision.
 - Prerequisites: None.
-- Acceptance: provider-runtime (all scenarios); processing-agent-sessions › "Part description style delivered to sessions"; the app-settings server-side scenarios (stale revision; description style too long, enforced server-side at 500).
+- Acceptance: provider-runtime (all scenarios, including "Steps on different providers" and "Existing settings carried over"); processing-agent-sessions › "Part description style delivered to sessions"; the app-settings server-side scenarios (stale revision; description style too long, enforced server-side at 500; no provider on).
 - TDD approach:
-  - RED Postgres-tier tests: round-trip and conflict; `invalid_stage_model`; an Images attempt sealed with S and a Research attempt with M; style delivered once and the profile digest unchanged; style over 500 characters refused.
-  - Each fails because the columns and the logic don't exist yet.
-- Verification: The intake-server test tiers, the contracts generation check, `pnpm lint:readability`.
-- Risks: Grants missing for new columns, which the test tier catches.
+  - RED tests:
+    - `resolveSelection` unit cases: the step's choice, Default, a step on a provider that is off, the default provider off;
+    - Postgres-tier tests: round-trip and conflict, each `invalid_agent_settings` case, the migration of a single-selection row, a Research attempt sealed on Codex with its own sign-in method beside a Claude Images attempt, style delivered once with the profile digest unchanged, and style over 500 characters refused.
+  - Each fails because the tables, columns and logic don't exist yet.
+- Verification: The intake-server test tiers, the contracts generation check, `pnpm lint:readability`, and the frontend typecheck for `selection` readers.
+- Risks:
+  - Grants missing for new columns or tables, which the test tier catches.
+  - A missed `selection` reader, which the typecheck catches.
 
-- [ ] 6.1 Confirm the settings, sealing and delivery code paths as the baseline.
-- [ ] 6.2 RED: write the server tests.
-- [ ] 6.3 GREEN: add the migration and grants.
-- [ ] 6.4 GREEN: extend the contracts and regenerate the client.
-- [ ] 6.5 GREEN: add the settings read and write and the validation.
-- [ ] 6.6 GREEN: resolve the per-stage model.
+- [ ] 6.1 Confirm the settings, sealing and delivery code paths and every `selection` reader as the baseline.
+- [ ] 6.2 RED: write the resolver and server tests.
+- [ ] 6.3 GREEN: add the migration, the backfill and the grants.
+- [ ] 6.4 GREEN: replace `selection` in the contracts, regenerate the client and update every reader.
+- [ ] 6.5 GREEN: add the settings read and write, the old-column mirror and the validation.
+- [ ] 6.6 GREEN: resolve and seal each stage's provider and model.
 - [ ] 6.7 GREEN: deliver the style.
-- [ ] 6.8 Refactor, then run the server suites and the readability checks.
+- [ ] 6.8 Refactor, then run the server suites, the frontend typecheck and the readability checks.
 
 ## 7. Batch defaults storage and new-batch snapshot
 
@@ -254,7 +268,7 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - Scope:
   - `header/connection.ts` and `header/routes.ts`;
   - contracts and client;
-  - `masthead/ConnectionDetails.tsx` and `settings/InvenTreeSection.tsx` (status row; Replace token stays deferred; the import reference shown read-only).
+  - `masthead/ConnectionDetails.tsx` and `settings/InvenTreeSection.tsx` (status row; the import reference shown read-only; Replace token is task 11).
 - Prerequisites: None.
 - Acceptance: header-connection-status › "Connection check on demand" (all scenarios); app-settings › "Check now with a refused token" and "Check now while a check is running".
 - TDD approach:
@@ -271,17 +285,33 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 ## 9. Settings forms for the new rows
 
 - PR delivery: PR-D.
-- Outcome: Models per step, new-batch instructions, Part description style, Suggest tags for new batches, and Batch defaults all save and reload with conflict handling. "Coming later" remains only on the rows the spec lists.
+- Outcome: These all save and reload with conflict handling:
+  - the provider cards, each with on or off, sign-in and default model;
+  - the default provider;
+  - provider and model per step;
+  - new-batch instructions;
+  - Part description style;
+  - Suggest tags for new batches;
+  - Batch defaults.
+
+  "Coming later" remains only on the rows the spec lists.
 - Scope:
-  - the `components/settings/agents/*` subsections from task 5;
+  - the `components/settings/agents/*` subsections from task 5, with the provider cards wrapping the existing credential panels;
   - `BatchDefaultsSection.tsx` with pickers on the batch-free catalogue;
   - React Hook Form per subsection;
   - navigation-guard reporting from input events;
-  - the provider-change reset note.
+  - the reset note when a provider is turned off.
 - Prerequisites: Tasks 5, 6 and 7.
-- Acceptance: app-settings › "Agent settings section" (Model per step; Provider change drops a per-step model; Instructions copied once; Description style too long; Stale settings revision) and "InvenTree and appearance sections" (batch-default scenarios).
-- TDD approach: RED tests for each subsection's save and reload, conflict with the draft kept, the provider reset, length limits, the missing location shown, and the dirty guard.
-- Verification: The full frontend checks, and a browser pass of every Settings page against canvas v65.
+- Acceptance: app-settings › "Agent settings section" and "InvenTree and appearance sections" (batch-default scenarios):
+  - Mixing providers across steps;
+  - Turning a provider off;
+  - No provider on;
+  - Instructions copied once;
+  - Description style too long;
+  - Stale settings revision;
+  - the provider card status scenarios, which still hold.
+- TDD approach: RED tests for each subsection's save and reload, conflict with the draft kept, the provider-off reset, no provider on, grouped step options, length limits, the missing location shown, and the dirty guard.
+- Verification: The full frontend checks, and a browser pass of every Settings page against canvas v67.
 - Risks: One revision is shared across agent subsections. A save in one subsection must send the loaded values for the others, not stale form state.
 
 - [ ] 9.1 Confirm the PR-B structure and the PR-C contracts are merged, and set the baseline.
@@ -299,7 +329,7 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
   - `docs/PLANNED_FUNCTIONALITY.md` status;
   - the design log statuses, D32 to D35 set to Built with PR links;
   - `notes.md`.
-- Prerequisites: Tasks 2 to 9 implemented.
+- Prerequisites: Tasks 2 to 9 implemented. PR-E updates its own docs for task 11.
 - Acceptance: Docs claims re-checked against the code.
 - TDD approach: Docs only. Use reference and consistency checks.
 - Verification: Link checks; each claim checked against the code before pushing.
@@ -308,6 +338,50 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - [ ] 10.1 Update the architecture docs and READMEs.
 - [ ] 10.2 Update the index and design log statuses.
 - [ ] 10.3 Write `notes.md` with the final open items.
+
+## 11. Replace the read token
+
+- PR delivery: PR-E.
+- Outcome:
+  - Settings › InvenTree replaces the app server's InvenTree read token without a restart. The new token is checked against InvenTree first, saved owner-only, and never shown again.
+  - "Use the environment token" reverts.
+  - Approvals and bootstrap are unchanged.
+- Scope:
+  - `INTAKE_SECRETS_DIR` in `intake-server/src/config.ts`, plus a launcher default under the development state directory (`tooling/dev/settings.cjs`) and the env template;
+  - a `CredentialHolder` read by `inventory/transport.ts` on each request;
+  - startup loading in `main.ts`, refusing a file readable by other users;
+  - `PUT` and `DELETE /api/v1/inventory-credential`, with check-then-save and an atomic `0600` write;
+  - request-log redaction;
+  - `credential_source` and `saved_at` in connection status;
+  - contracts and client;
+  - the Settings › InvenTree row: write-only field, Check and save, and Revert with confirmation.
+- Prerequisites: Task 8, for the status row and the probe it reuses.
+- Acceptance:
+  - access-identity › "Access server-only credentials" (all scenarios);
+  - app-settings › "Replace the token", "Replacement refused", "Go back to the environment token".
+- TDD approach:
+  - RED server tests:
+    - the probe runs before the write, and a refusal or unreachable target writes nothing;
+    - the file mode is `0600` and the write is atomic;
+    - a read in flight finishes with the old credential, and the next uses the new one;
+    - a restart loads the saved file, and bootstrap is unchanged;
+    - Revert deletes the file;
+    - no secrets directory gives `secret_store_unavailable`;
+    - a world-readable file refuses startup;
+    - a planted token is absent from every response and log line.
+  - RED frontend tests: the field clears after saving, the Refused and Unavailable messages show, Revert asks for confirmation, and the field is never filled from the server.
+- Verification: The intake-server suites, the frontend checks, and a manual check against the local development InvenTree with a revoked and a fresh token. Record the results in the PR without the token.
+- Risks:
+  - Logging the request body by accident. The redaction test with a planted value covers it.
+  - Coordinating with `default-env-settings`, which also edits the env template and launcher.
+
+- [ ] 11.1 Confirm the transport credential path, startup order and request logging as the baseline.
+- [ ] 11.2 RED: write the server and frontend tests.
+- [ ] 11.3 GREEN: build the secrets directory setting, the holder, startup loading and the permissions check.
+- [ ] 11.4 GREEN: build the routes, check-then-save, revert, redaction and status fields.
+- [ ] 11.5 GREEN: build the Settings › InvenTree row.
+- [ ] 11.6 Refactor, run the server and frontend checks, and do the manual token swap check.
+- [ ] 11.7 Update the intake-server README and architecture docs and the env template notes for `INTAKE_SECRETS_DIR`.
 
 ## Delivery evidence and lifecycle follow-up
 
@@ -324,3 +398,4 @@ Then update the BI items to their actual status; Done only after PR-D merges. Sy
 - [ ] PR-B reviewed, published and merged
 - [ ] PR-C reviewed, published and merged
 - [ ] PR-D reviewed, published and merged
+- [ ] PR-E reviewed, published and merged
