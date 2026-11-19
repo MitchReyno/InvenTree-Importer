@@ -88,8 +88,8 @@ One PR carries tasks 1–4: the defaults, the template that documents them and t
 - Verification: a fresh-clone run (temporary clone, copied template, `pnpm dev` reaches ready with the mock inventory and scripted agents); the developer's own `.env` still starts real VM agents unchanged; a fresh `INTAKE_DEV_STATE` with real VM agents refuses with `vm_pairing_missing` before boot; an importer command with no settings uses the local InvenTree and names it.
 - Local follow-up outside the repository, with the developer's agreement: add `DIGIKEY_LOCALE_SITE=AU` and `DIGIKEY_LOCALE_CURRENCY=AUD` to the developer's `.env`.
 
-- [ ] 4.1 Run the manual qualification and record the outcomes for the PR.
-- [ ] 4.2 Run the full gate.
+- [x] 4.1 Run the manual qualification and record the outcomes for the PR.
+- [x] 4.2 Run the full gate.
 - [ ] 4.3 Independent review rounds until one is clean, at the reviewed head.
 - [ ] 4.4 Open the PR against `interactive-app` with the evidence.
 - [ ] 4.5 Selected CI green.

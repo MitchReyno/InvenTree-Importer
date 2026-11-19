@@ -187,3 +187,19 @@ def test_a_copied_template_still_falls_back_to_the_local_instance(
     assert apply_local_inventree_default(os.environ, report=messages.append)
     assert os.environ["INVENTREE_URL"] == LOCAL_DEV_ORIGIN
     assert len(messages) == 1
+
+
+def test_a_connecting_command_without_a_server_prints_both_ways_to_configure_one(
+    monkeypatch, tmp_path, capsys
+):
+    from invimport.__main__ import cli
+    from invimport.inventree import api
+
+    for name in local_dev.INVENTREE_SETTINGS:
+        monkeypatch.setenv(name, "")
+        monkeypatch.delenv(name)
+    monkeypatch.setattr(api, "client", lambda *a, **k: pytest.fail("must not build an SDK client"))
+    assert cli(["--env-file", str(tmp_path / "absent.env"), "categories"]) == 1
+    err = capsys.readouterr().err
+    assert "INVENTREE_URL" in err
+    assert "pnpm inventree:dev up" in err
