@@ -42,8 +42,10 @@ test('protected hosts come from every configured origin in a standard form', () 
   )
 })
 
-test('localhost names are dropped because the egress refuses them anyway', () => {
-  assert.deepEqual(protectedHosts('http://localhost:8000,http://inventree.localhost'), [])
+test('bare localhost is dropped; dotted localhost names are kept for the guest to classify', () => {
+  assert.deepEqual(protectedHosts('http://localhost:8000,http://inventree.localhost'), [
+    'inventree.localhost',
+  ])
 })
 
 test('an origin that cannot be represented is refused, never dropped', () => {
@@ -54,6 +56,7 @@ test('an origin that cannot be represented is refused, never dropped', () => {
     'ftp://inventory.example.com',
     'https://inventree',
     'https://inventory_example.com',
+    `https://${['a'.repeat(63), 'a'.repeat(63), 'a'.repeat(63), 'a'.repeat(63)].join('.')}`,
   ]) {
     assert.throws(
       () => protectedHosts(origins),

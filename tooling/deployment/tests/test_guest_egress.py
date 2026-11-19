@@ -70,13 +70,14 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         async def loop_lookup(host, port, **kwargs):
             return lookup(host, port, **kwargs)
 
-        with patch.object(socket, "getaddrinfo", side_effect=lookup), \
-                patch.object(loop, "getaddrinfo", side_effect=loop_lookup), \
+        with patch.object(socket, "getaddrinfo", side_effect=lookup) as guest_dns, \
+                patch.object(loop, "getaddrinfo", side_effect=loop_lookup) as provider_dns, \
                 patch.object(egress.asyncio, "open_connection",
                              AsyncMock(return_value=(remote, upstream_writer))) as upstream:
             await egress.handle(stream, client)
         written = b"".join(call.args[0] for call in client.write.call_args_list)
         client.close.assert_called_once()
+        self.lookups = guest_dns.call_count + provider_dns.call_count
         return written, upstream
 
     def assert_refused(self, written, upstream, reason):
@@ -132,7 +133,8 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
     async def test_non_public_answers_are_refused(self):
         self.write_policy()
         for private in ("10.0.0.1", "100.64.0.1", "169.254.169.254", "::1", "fd00::1", "fe80::1",
-                        "224.0.0.1", "::ffff:127.0.0.1", "2002:7f00:1::1", "203.0.113.10"):
+                        "224.0.0.1", "::ffff:127.0.0.1", "2002:7f00:1::1", "203.0.113.10",
+                        "3fff::1"):
             with self.subTest(address=private):
                 written, upstream = await self.connect("mixed.example.com:443",
                                                        {"mixed.example.com": [PUBLIC, private]})
@@ -141,11 +143,12 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
     async def test_malformed_targets_are_refused_before_dns(self):
         self.write_policy()
         for target in ("example.com:22", "127.0.0.1:443", "[::1]:443", "inventory.internal:443",
-                       "host.lima.local:443", "Example.com:443", "example:443", "example.com:abc"):
-            with self.subTest(target=target), patch.object(socket, "getaddrinfo") as lookup:
+                       "host.lima.local:443", "Example.com:443", "example:443", "example.com:abc",
+                       ".".join(["a" * 63] * 4) + ":443"):
+            with self.subTest(target=target):
                 written, upstream = await self.connect(target, {})
                 self.assert_refused(written, upstream, "destination_refused")
-                lookup.assert_not_called()
+                self.assertEqual(self.lookups, 0)
 
     async def test_protected_names_and_their_subdomains_are_refused(self):
         self.write_policy(protected_hosts=["inventory.example.com"])
@@ -227,6 +230,17 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         written, upstream = await self.connect("www.ti.com:443", {"www.ti.com": [PUBLIC]})
         # The policy loaded: its unresolvable protected names stop public access for the turn.
         self.assert_refused(written, upstream, "resolution_failed")
+
+    async def test_provider_host_under_a_protected_name_is_refused(self):
+        self.write_policy(protected_hosts=["anthropic.com"])
+        table = {"anthropic.com": [PUBLIC], "api.anthropic.com": [OTHER_PUBLIC]}
+        written, upstream = await self.connect("api.anthropic.com:443", table)
+        self.assert_refused(written, upstream, "protected_destination")
+
+    async def test_overlong_protected_name_makes_the_policy_invalid(self):
+        self.write_policy(protected_hosts=[".".join(["a" * 63] * 4)])
+        written, upstream = await self.connect("www.ti.com:443", {"www.ti.com": [PUBLIC]})
+        self.assert_refused(written, upstream, "destination_refused")
 
 
 if __name__ == "__main__":

@@ -47,12 +47,35 @@ function localDatabaseUrl(value: string | undefined) {
   return value
 }
 
+/**
+ * The paired VM bridge this worker starts, or undefined without one. Checked before any
+ * effect, so a misconfigured worker refuses before it recovers or touches retained sessions.
+ */
+function vmBridgeConfiguration(env: NodeJS.ProcessEnv, profileId: string) {
+  const vmProfile = profileId === 'shared-vm-agent/1' || profileId === 'shared-vm-agent/2'
+  if (!env.INTAKE_VM_PAIR) {
+    if (vmProfile) {
+      throw new Error('session_agent_configuration_required')
+    }
+    return undefined
+  }
+  if (!vmProfile && profileId !== 'synthetic-session/1') {
+    throw new Error('session_agent_configuration_required')
+  }
+  return {
+    pair: env.INTAKE_VM_PAIR,
+    port: Number(env.INTAKE_VM_PORT),
+    protectedHosts: bridgeProtectedHosts(env, profileId),
+  }
+}
+
 /** Explicit supervised process for the session profiles. The web process never launches it. */
 async function main() {
   const config = processingConfig(devConfig(process.env), process.env)
   if (!config.profileId || !isSessionProfile(config.profileId) || !config.channelSecret) {
     throw new Error('session_agent_configuration_required')
   }
+  const vmBridge = vmBridgeConfiguration(process.env, config.profileId)
   const host = nativeAgentHost(process.env)
   await privateDirectory(host.stateRoot)
   const db = database(localDatabaseUrl(process.env.INTAKE_AGENT_DATABASE_URL))
@@ -92,26 +115,10 @@ async function main() {
       config,
       store,
     })
-    if (
-      (config.profileId === 'shared-vm-agent/1' || config.profileId === 'shared-vm-agent/2') &&
-      !process.env.INTAKE_VM_PAIR
-    ) {
-      throw new Error('session_agent_configuration_required')
-    }
-    if (process.env.INTAKE_VM_PAIR) {
-      if (
-        config.profileId !== 'synthetic-session/1' &&
-        config.profileId !== 'shared-vm-agent/1' &&
-        config.profileId !== 'shared-vm-agent/2'
-      ) {
-        throw new Error('session_agent_configuration_required')
-      }
-      const protectedHosts = bridgeProtectedHosts(process.env, config.profileId)
-      bridge = await startSessionBridge(
-        process.env.INTAKE_VM_PAIR,
-        Number(process.env.INTAKE_VM_PORT),
-        { protectedHosts },
-      )
+    if (vmBridge) {
+      bridge = await startSessionBridge(vmBridge.pair, vmBridge.port, {
+        protectedHosts: vmBridge.protectedHosts,
+      })
     }
     const deps: SessionRunnerDeps = {
       pool: db.pool,

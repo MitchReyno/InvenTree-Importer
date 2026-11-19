@@ -10,12 +10,13 @@ import socket
 from pathlib import Path
 
 from guest_destinations import (
-    DNS_NAME,
     Refused,
     configured_hosts,
+    dns_name,
     literal_address,
     normalized,
     protected_addresses,
+    protected_name,
     public,
     public_target,
 )
@@ -36,8 +37,7 @@ CONNECT_TIMEOUT_S = 10
 
 
 def protected_entry(value):
-    return isinstance(value, str) and (DNS_NAME.fullmatch(value) is not None
-                                       or literal_address(value) is not None)
+    return isinstance(value, str) and (dns_name(value) or literal_address(value) is not None)
 
 
 def unique_object(pairs):
@@ -101,6 +101,8 @@ def provider_protected_addresses(protected):
 
 
 async def provider_address(host, protected):
+    if protected_name(host, protected):
+        raise Refused("protected_destination")
     answers = await asyncio.get_running_loop().getaddrinfo(
         host, 443, family=socket.AF_INET, type=socket.SOCK_STREAM)
     blocked = await asyncio.to_thread(provider_protected_addresses, protected)

@@ -3,6 +3,9 @@ import { isIP } from 'node:net'
 /** The guest egress accepts at most this many protected entries per turn. */
 export const MAX_PROTECTED_HOSTS = 32
 
+/** The DNS limit for a whole name; the guest egress applies the same one. */
+const MAX_DNS_NAME_BYTES = 253
+
 /** Lowercase DNS names with at least two labels, the form the guest egress accepts. */
 export const PROTECTED_DNS_NAME =
   /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/
@@ -13,14 +16,14 @@ function configurationRequired(): never {
 
 /** True for a DNS name or IP literal in the form the guest egress accepts. */
 export function protectedEntry(value: unknown): value is string {
-  return typeof value === 'string' && (PROTECTED_DNS_NAME.test(value) || isIP(value) !== 0)
+  if (typeof value !== 'string') {
+    return false
+  }
+  const dnsName = value.length <= MAX_DNS_NAME_BYTES && PROTECTED_DNS_NAME.test(value)
+  return dnsName || isIP(value) !== 0
 }
 
-function isLocalhost(host: string) {
-  return host === 'localhost' || host.endsWith('.localhost')
-}
-
-/** The host of one configured origin in standard form, or undefined for a localhost name. */
+/** The host of one configured origin in standard form, or undefined for bare `localhost`. */
 function originHost(origin: string): string | undefined {
   let url: URL
   try {
@@ -34,7 +37,9 @@ function originHost(origin: string): string | undefined {
   // WHATWG hosts are already lowercase with international names in punycode.
   const bracketless = url.hostname.replace(/^\[(.*)\]$/, '$1')
   const host = bracketless.endsWith('.') ? bracketless.slice(0, -1) : bracketless
-  if (isLocalhost(host)) {
+  // A single-label name the egress never accepts as a target; it resolves to loopback.
+  // Dotted `.localhost` names are kept, so the guest can classify what they resolve to.
+  if (host === 'localhost') {
     return undefined
   }
   if (!protectedEntry(host)) {

@@ -7,6 +7,9 @@ import socket
 LABEL = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
 DNS_NAME = re.compile(rf"{LABEL}(?:\.{LABEL})+")
 PRIVATE_SUFFIXES = (".localhost", ".internal", ".local", ".lan", ".arpa", ".onion", ".test", ".invalid")
+MAX_DNS_NAME_BYTES = 253
+# IANA's IPv6 documentation range inside 2000::/3; not globally reachable.
+DOCUMENTATION_V6 = ipaddress.ip_network("3fff::/20")
 
 
 def configured_hosts(name):
@@ -16,10 +19,16 @@ def configured_hosts(name):
     return names
 
 
+def dns_name(value):
+    """A lowercase DNS name of at least two labels within the 253-byte limit."""
+    return len(value) <= MAX_DNS_NAME_BYTES and DNS_NAME.fullmatch(value) is not None
+
+
 def public(value):
     address = ipaddress.ip_address(value)
     return (address.is_global and not address.is_multicast and
-            (address.version == 4 or address in ipaddress.ip_network("2000::/3"))
+            (address.version == 4 or (address in ipaddress.ip_network("2000::/3")
+                                      and address not in DOCUMENTATION_V6))
             and not getattr(address, "sixtofour", None) and not getattr(address, "teredo", None))
 
 
@@ -80,7 +89,7 @@ def protected_addresses(protected):
 
 def public_target(host, port, protected):
     """The checked address to connect to for a public CONNECT, or Refused with its reason."""
-    target_name = (DNS_NAME.fullmatch(host) and host.split(".")[-1].isalpha()
+    target_name = (dns_name(host) and host.split(".")[-1].isalpha()
                    and not host.endswith(PRIVATE_SUFFIXES))
     if port != 443 or not target_name:
         raise Refused("destination_refused")
