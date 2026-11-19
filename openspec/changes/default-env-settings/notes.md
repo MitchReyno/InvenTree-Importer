@@ -26,5 +26,7 @@ None.
 
 ## Open items
 
+- Task 4.1.5: a full start of the developer's `.env` with real VM agents on this branch, once the developer's own running app releases the VM and the credential-tunnel ports. Its settings resolution and pairing check (4.1.4) already pass.
+
 - Task 0 (archiving `split-dev-profile-settings` and `launch-vm-agents-with-dev`) waits for the developer's authorization. Tasks 1–4 do not depend on it; this change's own archive does.
 - Tooling `.cjs` files are not linted for undefined names (`no-undef`), which let the missing default above pass ESLint; worth a separate lint change.
