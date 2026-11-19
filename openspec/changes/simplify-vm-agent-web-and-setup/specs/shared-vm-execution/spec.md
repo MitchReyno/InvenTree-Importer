@@ -4,7 +4,7 @@
 
 ### Requirement: Scoped guest execution and tool access
 
-The guest SHALL provide a distinct working directory per session, shell, script execution, readable images and PDFs, and a clean browser profile. Only authenticated attempt-scoped bridge operations SHALL reach application data. The deployed network policy SHALL restrict private destinations and host mounts independently of provider configuration. A session's only network route SHALL be its turn's egress proxy, which allows the selected provider's hosts and, only when the attempt was sealed with public web access, public destinations. Jobs running as the same guest user share a trust domain and may read files or credentials accessible to that user.
+The guest SHALL provide a distinct working directory per session, shell, script execution, readable images and PDFs, and a clean browser profile. Only authenticated attempt-scoped bridge operations SHALL reach application data. The deployed network policy SHALL restrict private destinations and host mounts independently of provider configuration. A `shared-vm-agent/3` tool session's only network route SHALL be its turn's egress proxy, which allows the selected provider's hosts and, only when the attempt was sealed with public web access, public destinations. `shared-vm-agent/1` sessions keep their provider-only egress. Jobs running as the same guest user share a trust domain and may read files or credentials accessible to that user.
 
 #### Scenario: Research a component
 

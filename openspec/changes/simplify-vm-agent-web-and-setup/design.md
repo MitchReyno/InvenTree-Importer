@@ -11,7 +11,7 @@ This change crosses five boundaries, but each one extends an existing pattern. T
 | Egress policy | `bridge/claude-egress.py`, `guest_destinations.py` | Provider-only CONNECT allowlist, IPv4 answers only, connects to `addresses[0]` |
 | Turn delivery | Coordinator to peer over paired TLS | `shared-vm/coordinator.ts:138-155` sends `manifest`, `tools`, `text`, `instructions`. `guest-main.ts:73` validates `ProcessingInputV6`. `:127-139` writes the reap receipt to `/run/reap`, visible only to the peer and `tool-turn.sh`. |
 | CLI proxying | `agents/environment.ts:66-78` | Sets `HTTPS_PROXY=http://127.0.0.1:14316` for subscription routes. `shared-vm/provider-proxy.ts` forwards it to `/run/egress/<provider>.sock`. |
-| Settings and sealing | Agent settings (`agents/settings.ts`) and `processing/session-attempts.ts` | `settings-debug-mode` (BI-016, unmerged, `docs/settings-debug-mode` at `f44736ef`) restructures Settings › Agents. It also seals per-step selections and the Part description style into the attempt input. |
+| Settings and sealing | Agent settings (`agents/settings.ts`) and `processing/session-attempts.ts` | `settings-debug-mode` (BI-016, unmerged, `docs/settings-debug-mode` at `ff96529c`) restructures Settings › Agents. It also seals per-step selections and the Part description style into the attempt input. |
 | Instructions | `processing_profile` rows, read by `agents/session/session-runner.ts` | Each profile's fixed instruction bytes and digest are inserted by a migration. `shared-vm-agent/2` comes from `migrations/0026_shared_vm_tools.sql:11`, and its text tells agents to use `bench-web` on three listed sites. Attempts seal `instruction_sha256`, and the runner refuses a mismatch (`session-runner.ts:457-461`). A worker leaves attempts of another VM profile waiting (`:445-455`). |
 | Setup | README and `bridge/*.sh`; `tooling/dev/vm.cjs` | `pair.sh` needs new directories. `personal-claude.sh` and `personal-codex.sh` use `docker run --name` and fail if the container exists. Each management container takes one `INTAKE_OPERATOR_ORIGIN`. |
 
@@ -247,7 +247,7 @@ The VM is stopped at the end only if this run started it, unless `INTAKE_VM_KEEP
 
 - **WebFetch preflight.** Claude Code may check a domain with an Anthropic endpoint before fetching. If that endpoint isn't `api.anthropic.com`, `WebFetch` fails until it is added to the provider allowlist or the preflight is turned off. This is found in the smoke or live run, and recorded in `notes.md`.
 - **Provider search hosts.** Search is expected to run inside the provider's API. If either provider needs another host, it is added to that provider's allowlist after review.
-- **`settings-debug-mode` drift.** The `app-settings` delta and sealing code are written against `f44736ef`. Rebase both when it merges.
+- **`settings-debug-mode` drift.** The `app-settings` delta and sealing code are written against `ff96529c`. Rebase both when it merges.
 - **Other `app-settings` changes.** `pnpm openspec:overlap` warns that active change `masthead-appearance-options` also changes `app-settings`. The requirements don't overlap, but the sync order needs confirming before either change syncs.
 - **Pairing certificates expire after 365 days** (`pair.sh`). This is out of scope, recorded as an open item.
 - **Decisions:** none open. Mitch settled them on 2026-11-19, as listed in the proposal.
