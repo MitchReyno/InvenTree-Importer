@@ -1,6 +1,10 @@
 import { useId, useState, type ReactNode } from 'react'
 import { IntakeRequestError, type agentsClient } from '@invimport/contracts/client'
-import type { AgentSelectionDto, AgentSettingsDto } from '@invimport/contracts'
+import {
+  AGENT_MODEL_SUGGESTIONS,
+  type AgentSelectionDto,
+  type AgentSettingsDto,
+} from '@invimport/contracts'
 import { useForm } from 'react-hook-form'
 import styled from 'styled-components'
 import {
@@ -48,20 +52,51 @@ const AUTHENTICATION: { id: Authentication; label: string }[] = [
   { id: 'api_key', label: 'API key' },
 ]
 
-const PRESETS: Record<Provider, string[]> = {
-  codex: ['gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-astra', 'gpt-6-luna'],
-  claude: ['sonnet', 'opus', 'haiku'],
-}
-
 const CONFLICT =
   'These settings changed in another tab, so this save was refused. Your edit is kept here; Reload to see the saved settings.'
 
 type FormValues = AgentSelectionDto & { session_concurrency: number }
 
+// Until the per-provider cards arrive, this form edits the default provider only.
+function defaultSelection(settings: AgentSettingsDto): AgentSelectionDto {
+  if (!settings.default_provider) {
+    return EMPTY
+  }
+  const provider = settings.providers[settings.default_provider]
+  return {
+    provider: settings.default_provider,
+    authentication: provider.authentication,
+    model: provider.default_model,
+  }
+}
+
 const formValues = (settings: AgentSettingsDto): FormValues => ({
-  ...(settings.selection ?? EMPTY),
+  ...defaultSelection(settings),
   session_concurrency: settings.session_concurrency,
 })
+
+/** The loaded settings with the chosen provider on as the default; other fields keep their values. */
+function withDefault(
+  loaded: AgentSettingsDto,
+  selection: AgentSelectionDto,
+  sessionConcurrency: number,
+) {
+  const { revision, ...fields } = loaded
+  return {
+    ...fields,
+    expected_revision: revision,
+    providers: {
+      ...loaded.providers,
+      [selection.provider]: {
+        enabled: true,
+        authentication: selection.authentication,
+        default_model: selection.model,
+      },
+    },
+    default_provider: selection.provider,
+    session_concurrency: sessionConcurrency,
+  }
+}
 
 function signInHelp(provider: Provider, authentication: Authentication) {
   if (authentication === 'api_key') {
@@ -104,7 +139,7 @@ export function AgentSettingsForm({
   const modelHelpId = `${fieldId}-model-help`
   const modelErrorId = `${fieldId}-model-error`
   const mounted = useMountedRef()
-  const [revision, setRevision] = useState(initial.revision)
+  const [loaded, setLoaded] = useState(initial)
   const [message, setMessage] = useState('')
   const [conflict, setConflict] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -138,15 +173,13 @@ export function AgentSettingsForm({
     setMessage('')
     setConflict(false)
     try {
-      const saved = await client.saveSettings({
-        expected_revision: revision,
-        selection,
-        session_concurrency: Number(session_concurrency),
-      })
+      const saved = await client.saveSettings(
+        withDefault(loaded, selection, Number(session_concurrency)),
+      )
       if (!mounted.current) {
         return
       }
-      setRevision(saved.revision)
+      setLoaded(saved)
       reset(formValues(saved))
       onLoaded?.(saved)
       onDirtyChange(false)
@@ -179,7 +212,7 @@ export function AgentSettingsForm({
       if (!mounted.current) {
         return
       }
-      setRevision(current.revision)
+      setLoaded(current)
       reset(formValues(current))
       onLoaded?.(current)
       setConflict(false)
@@ -212,7 +245,15 @@ export function AgentSettingsForm({
                     aria-label={option.label}
                     aria-describedby={`${fieldId}-${option.id}-status`}
                     {...register('provider', {
-                      onChange: () => setValue('model', '', { shouldDirty: true }),
+                      // Each provider keeps its own sign-in and model; a provider that is off
+                      // starts with no model chosen.
+                      onChange: (event) => {
+                        const saved = loaded.providers[event.target.value as Provider]
+                        setValue('authentication', saved.authentication, { shouldDirty: true })
+                        setValue('model', saved.enabled ? saved.default_model : '', {
+                          shouldDirty: true,
+                        })
+                      },
                     })}
                   />
                   <span>
@@ -259,7 +300,7 @@ export function AgentSettingsForm({
                 placeholder="Choose a model or enter its exact ID"
               />
               <datalist id="agent-models">
-                {PRESETS[provider].map((model) => (
+                {AGENT_MODEL_SUGGESTIONS[provider].map((model) => (
                   <option key={model} value={model} />
                 ))}
               </datalist>

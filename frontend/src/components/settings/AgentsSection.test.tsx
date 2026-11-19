@@ -1,7 +1,11 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, test, vi, type Mock } from 'vitest'
-import type { AgentSessionListDto, AgentSettingsDto } from '@invimport/contracts'
+import type {
+  AgentSessionListDto,
+  AgentSettingsDto,
+  AgentSettingsUpdateDto,
+} from '@invimport/contracts'
 import { IntakeRequestError, type agentsClient } from '@invimport/contracts/client'
 import { useQueryClient } from '@tanstack/react-query'
 import { fixtureScope, render } from '#/test/render'
@@ -9,12 +13,13 @@ import { serverQueryKey } from '#/queries/scope'
 import type { SettingsSectionId } from '#/navigation/app-route'
 import { Settings } from './Settings'
 import { resetRunnerQueue } from '#/components/agents/useChatGPTSignIn'
+import { agentSettings, agentSettingsUpdate } from '#/test/agent-settings'
 
-const initial: AgentSettingsDto = {
-  revision: '7',
-  selection: { provider: 'claude', authentication: 'subscription', model: 'sonnet' },
-  session_concurrency: 3,
-}
+const initial: AgentSettingsDto = agentSettings('7', {
+  provider: 'claude',
+  authentication: 'subscription',
+  model: 'sonnet',
+})
 
 type Session = AgentSessionListDto['sessions'][number]
 
@@ -43,13 +48,12 @@ function client() {
   return {
     settings: vi.fn(async () => initial),
     saveSettings: vi.fn(
-      async (input: {
-        selection: AgentSettingsDto['selection']
-        session_concurrency: number
-      }): Promise<AgentSettingsDto> => ({
+      async ({
+        expected_revision: _,
+        ...fields
+      }: AgentSettingsUpdateDto): Promise<AgentSettingsDto> => ({
+        ...fields,
         revision: '8',
-        selection: input.selection,
-        session_concurrency: input.session_concurrency,
       }),
     ),
     sessions: vi.fn(
@@ -299,11 +303,20 @@ test('provider is an option card, sign-in a segmented control, and the stepper s
   fireEvent.click(within(sessions).getByRole('button', { name: 'One fewer' }))
   fireEvent.click(screen.getByRole('button', { name: 'Save' }))
   await waitFor(() =>
-    expect(api.saveSettings).toHaveBeenCalledWith({
-      expected_revision: '7',
-      selection: { provider: 'codex', authentication: 'api_key', model: 'gpt-6-luna' },
-      session_concurrency: 2,
-    }),
+    // The form edits the default provider only; Claude stays on until the provider cards arrive.
+    expect(api.saveSettings).toHaveBeenCalledWith(
+      agentSettingsUpdate(
+        '7',
+        { provider: 'codex', authentication: 'api_key', model: 'gpt-6-luna' },
+        {
+          session_concurrency: 2,
+          providers: {
+            claude: { enabled: true, authentication: 'subscription', default_model: 'sonnet' },
+            codex: { enabled: true, authentication: 'api_key', default_model: 'gpt-6-luna' },
+          },
+        },
+      ),
+    ),
   )
 })
 

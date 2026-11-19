@@ -9,7 +9,9 @@ import {
   type CaptureListQueryDto,
   type CaptureObserveDto,
   type InventoryMappingDto,
+  type BatchDefaultsUpdateDto,
 } from '@invimport/contracts'
+import { readBatchDefaults, resolveCreationDefaults, saveBatchDefaults } from './batch-defaults.ts'
 import { pathId, commandKey } from '#/api/request.ts'
 import { bootstrap, type DevConfig } from '#/config.ts'
 import { captureRepository } from './repository.ts'
@@ -42,6 +44,14 @@ export function registerCapture(
 ) {
   const repo = captureRepository(pool, config)
   const configured = bootstrap(config).status === 'configured'
+
+  async function currentCatalogue(): Promise<CatalogueReader> {
+    await requireCurrentTargetContext(pool, config)
+    if (!catalogue) {
+      fail('catalogue_unavailable', 503)
+    }
+    return catalogue
+  }
 
   /** Scope, archive and target-context checks all precede any catalogue traffic. */
   async function authorizeCatalogue(id: string): Promise<CatalogueReader> {
@@ -91,7 +101,51 @@ export function registerCapture(
     scope.post<{ Body: { title: string; note: string } }>(
       '/api/v1/batches',
       { schema: { body: schemas.BatchCreate, response: { 201: schemas.CaptureSnapshot } } },
-      async (req, reply) => reply.code(201).send(await repo.create(commandKey(req), req.body)),
+      async (req, reply) => {
+        // A bad key or a replay never reaches InvenTree for the defaults.
+        const key = commandKey(req)
+        const retained = await repo.retainedCreate(key, req.body)
+        if (retained) {
+          return reply.code(201).send(retained)
+        }
+        const defaults = await resolveCreationDefaults(pool, config, catalogue)
+        return reply.code(201).send(await repo.create(key, req.body, defaults))
+      },
+    )
+    scope.get(
+      '/api/v1/batch-defaults',
+      { schema: { response: { 200: schemas.BatchDefaults } } },
+      () => readBatchDefaults(pool, config, catalogue),
+    )
+    scope.put<{ Body: BatchDefaultsUpdateDto }>(
+      '/api/v1/batch-defaults',
+      { schema: { body: schemas.BatchDefaultsUpdate, response: { 200: schemas.BatchDefaults } } },
+      (req) => saveBatchDefaults(pool, config, req.body, catalogue),
+    )
+    // Batch-free pickers for Settings, with the same reads and bounds as a batch's pickers.
+    scope.get<{ Querystring: { q: string } }>(
+      '/api/v1/catalogue/:model',
+      {
+        schema: { querystring: schemas.CatalogueQuery, response: { 200: schemas.CatalogueSearch } },
+      },
+      async (req) => {
+        const model = catalogueModel(req)
+        const reader = await currentCatalogue()
+        const result = await reader.search(model, req.query.q)
+        await requireCurrentTargetContext(pool, config)
+        return result
+      },
+    )
+    scope.get(
+      '/api/v1/catalogue/:model/candidates',
+      { schema: { response: { 200: schemas.CatalogueCandidates } } },
+      async (req) => {
+        const model = catalogueModel(req)
+        const reader = await currentCatalogue()
+        const result = await reader.candidates(model)
+        await requireCurrentTargetContext(pool, config)
+        return result
+      },
     )
     scope.post<{ Body: CaptureEditDto }>(
       '/api/v1/batches/:id/edits',

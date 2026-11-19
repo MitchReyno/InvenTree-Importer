@@ -11,6 +11,9 @@ import { checkJobCapacity, queueJob } from './jobs.ts'
 import { reserveProcessingMedia, reservedMediaFor } from './media.ts'
 import { processingAttempts, processingJobs, processingProposalStale } from './schema.ts'
 import { SUCCESSOR_STAGES } from './supersede.ts'
+import { isSessionProfile } from './session-policy.ts'
+import { readAgentSettings } from '#/agents/settings.ts'
+import { resolveSelection } from '#/agents/resolve-selection.ts'
 
 export { SUCCESSOR_STAGES } from './supersede.ts'
 
@@ -65,7 +68,7 @@ export async function onLeadIdentity(
   snapshot: CaptureSnapshotDto,
   proposal: ProcessingProposalV5Dto,
   proposalId: string,
-): Promise<'queued' | 'revised' | 'not_stable' | null> {
+): Promise<'queued' | 'revised' | 'waiting' | 'not_stable' | null> {
   const version = reliedObservationSet(proposal)
   if (version === null) {
     return null
@@ -137,13 +140,33 @@ export async function onLeadIdentity(
   if (!toQueue.length) {
     return 'revised'
   }
-  await checkJobCapacity(client, snapshot.id, [lotId], [...toQueue])
-  for (const stage of toQueue) {
+  // One read decides what to queue and is sealed into every successor, so a save landing
+  // meanwhile can neither roll back this proposal nor split the successors across revisions.
+  const settings = await settingsForSuccessors(client, config)
+  const queueable = settings
+    ? toQueue.filter((stage) => resolveSelection(settings, stage))
+    : [...toQueue]
+  if (!queueable.length) {
+    // With no provider on, the identity proposal still stands; its successors aren't queued.
+    return 'waiting'
+  }
+  await checkJobCapacity(client, snapshot.id, [lotId], [...queueable])
+  for (const stage of queueable) {
     await queueJob(client, config, snapshot, lotId, stage, [], media, [proposalId], {
       lockSettings: false,
+      settings,
     })
   }
   return 'queued'
+}
+
+/** The agent settings successors seal; none for profiles that need no provider. */
+async function settingsForSuccessors(client: PoolClient, config: ProcessingConfig) {
+  const profile = config.profileId
+  if (!profile || !isSessionProfile(profile) || profile === 'synthetic-session/1') {
+    return undefined
+  }
+  return readAgentSettings(client, config)
 }
 
 /** Claim-time check: every identity a successor was pinned to is still current. */

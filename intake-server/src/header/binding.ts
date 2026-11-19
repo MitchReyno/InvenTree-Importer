@@ -3,6 +3,7 @@ import type { Pool, PoolClient } from 'pg'
 import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { targets } from '#/db/schema.ts'
 import { fail } from '#/capture/model.ts'
+import type { ConnectionStatusDto } from '@invimport/contracts'
 import type { DevConfig } from '#/config.ts'
 import { connectionStatus } from './connection.ts'
 
@@ -41,11 +42,14 @@ export function scopedConnectionStatus(
   version?: () => Promise<Response>,
 ) {
   const scope = statusBinding(binding)
-  const read = connectionStatus(scope, origin, probe, Date.now, version)
-  return async () => {
+  const status = connectionStatus(scope, origin, probe, Date.now, version)
+
+  const fenced = (run: () => Promise<ConnectionStatusDto>) => async () => {
     await requireHeaderContext(pool, scope)
-    const result = await read()
+    const result = await run()
     await requireHeaderContext(pool, scope)
     return result
   }
+
+  return Object.assign(fenced(status), { check: fenced(status.check) })
 }

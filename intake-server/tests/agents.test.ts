@@ -11,6 +11,7 @@ import { agentEnvironment, nativeAgentHost } from '#/agents/environment.ts'
 import { runCodex } from '#/agents/codex.ts'
 import { runClaude } from '#/agents/claude.ts'
 import { decodeNativeResult } from '#/agents/result.ts'
+import { unsavedAgentSettings } from '#/agents/settings.ts'
 
 async function fixture(mode = 'success') {
   const root = await mkdtemp(join(tmpdir(), 'native-agent-test-'))
@@ -152,12 +153,21 @@ test('authentication environment never inherits an application key, provider tok
 })
 
 test('settings contracts and structured outcomes refuse credentials, missing models and ambiguous results', () => {
-  validate('AgentSettings', { revision: '0', selection: null, session_concurrency: 3 })
+  validate('AgentSettings', unsavedAgentSettings())
+  const { revision, ...fields } = unsavedAgentSettings()
+  const update = { ...fields, expected_revision: revision }
+  validate('AgentSettingsUpdate', update)
   assert.throws(() =>
     validate('AgentSettingsUpdate', {
-      expected_revision: '0',
-      selection: { provider: 'claude', authentication: 'subscription', model: '' },
+      ...update,
+      providers: {
+        ...update.providers,
+        claude: { ...update.providers.claude, api_key: 'private' },
+      },
     }),
+  )
+  assert.throws(() =>
+    validate('AgentSettingsUpdate', { ...update, part_description_style: 'x'.repeat(501) }),
   )
   assert.throws(() =>
     validate('AgentSelection', {

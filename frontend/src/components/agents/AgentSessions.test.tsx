@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { render } from '#/test/render'
 import { AgentSessions } from './AgentSessions'
 import { debugModeController } from '#/debug/debug-mode'
+import { agentSettings } from '#/test/agent-settings'
 import type { AgentSessionListDto, SessionFailureDto } from '@invimport/contracts'
 
 const selection = {
@@ -88,7 +89,7 @@ function client(list: Partial<AgentSessionListDto> = {}) {
       sessions_supported: true,
       ...list,
     })),
-    settings: vi.fn(async () => ({ revision: '1', selection, session_concurrency: 3 })),
+    settings: vi.fn(async () => agentSettings('1', selection)),
     saveSettings: vi.fn(),
   }
 }
@@ -228,7 +229,7 @@ test('a setup without agent sessions says the server profile runs none', async (
 test('history failure is visible and does not start a session or hide it as a successful empty queue', async () => {
   const failing = {
     sessions: vi.fn().mockRejectedValue(new Error('offline')),
-    settings: vi.fn(async () => ({ revision: '1', selection, session_concurrency: 3 })),
+    settings: vi.fn(async () => agentSettings('1', selection)),
     saveSettings: vi.fn(),
   }
   render(<AgentSessions client={failing} batches={batches} />)

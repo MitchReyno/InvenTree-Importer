@@ -93,7 +93,48 @@ export const clientOperations = new Map<string, ClientOperation>([
     }
   ],
   [
+    "GET /api/v1/catalogue/{model}",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "CatalogueSearch"
+    }
+  ],
+  [
+    "GET /api/v1/catalogue/{model}/candidates",
+    {
+      "timeoutMs": 20000,
+      "errorMode": "typed",
+      "responseSchema": "CatalogueCandidates"
+    }
+  ],
+  [
+    "GET /api/v1/batch-defaults",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "BatchDefaults"
+    }
+  ],
+  [
+    "PUT /api/v1/batch-defaults",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "BatchDefaults",
+      "requestSchema": "BatchDefaultsUpdate"
+    }
+  ],
+  [
     "GET /api/v1/connection-status",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "ConnectionStatus"
+    }
+  ],
+  [
+    "POST /api/v1/connection-status/check",
     {
       "timeoutMs": 10000,
       "errorMode": "typed",

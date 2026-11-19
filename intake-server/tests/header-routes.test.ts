@@ -10,13 +10,16 @@ const config = devConfig({
   INTAKE_DEV_API_KEY: 'synthetic-only',
 })
 
+/** A connection reader whose forced check reads the same way. */
+const reader = <T>(read: () => Promise<T>) => Object.assign(read, { check: read })
+
 test('header reads use the existing host/origin gate and serialize only scoped contracts', async () => {
   const app = createServer(config)
   let calls = 0
   registerHeader(
     app,
     config,
-    async () => {
+    reader(async () => {
       calls += 1
       return {
         actor_id: config.actorId,
@@ -31,7 +34,7 @@ test('header reads use the existing host/origin gate and serialize only scoped c
           failure_code: null,
         },
       }
-    },
+    }),
     async () => ({
       actor_id: config.actorId,
       target_id: config.targetId,
@@ -82,7 +85,7 @@ test('incomplete development configuration returns unconfigured without invoking
     registerHeader(
       app,
       incomplete,
-      async () => {
+      reader(async () => {
         probes += 1
         return {
           actor_id: config.actorId,
@@ -97,7 +100,7 @@ test('incomplete development configuration returns unconfigured without invoking
             failure_code: null,
           },
         }
-      },
+      }),
       async () => {
         throw new Error('unconfigured_work_read_refused')
       },
@@ -121,5 +124,62 @@ test('incomplete development configuration returns unconfigured without invoking
     } finally {
       await app.close()
     }
+  }
+})
+
+test('Check connection now forces the reader through a CSRF-protected command', async () => {
+  const app = createServer(config)
+  const counts = { read: 0, check: 0 }
+  const observation = {
+    actor_id: config.actorId,
+    target_id: config.targetId,
+    target_context_id: config.targetContextId,
+    target: {
+      state: 'unavailable',
+      freshness: 'fresh',
+      observed_at: '2026-11-03T00:00:00Z',
+      navigation_url: 'https://inventory.example.invalid/',
+      label: 'inventory.example.invalid',
+      failure_code: 'unauthorized',
+    },
+  }
+  registerHeader(
+    app,
+    config,
+    Object.assign(
+      async () => {
+        counts.read += 1
+        return observation
+      },
+      {
+        check: async () => {
+          counts.check += 1
+          return observation
+        },
+      },
+    ),
+    async () => {
+      throw new Error('unused')
+    },
+  )
+  try {
+    const headers = { host: '127.0.0.1:4333' }
+    const refused = await app.inject({
+      method: 'POST',
+      url: '/api/v1/connection-status/check',
+      headers: { ...headers, origin: config.origin },
+    })
+    assert.equal(refused.statusCode, 403)
+    const token = (await app.inject({ url: '/api/v1/bootstrap', headers })).json().csrf_token
+    const checked = await app.inject({
+      method: 'POST',
+      url: '/api/v1/connection-status/check',
+      headers: { ...headers, origin: config.origin, 'x-intake-csrf': token },
+    })
+    assert.equal(checked.statusCode, 200)
+    assert.equal(checked.json().target.failure_code, 'unauthorized')
+    assert.deepEqual(counts, { read: 0, check: 1 })
+  } finally {
+    await app.close()
   }
 })

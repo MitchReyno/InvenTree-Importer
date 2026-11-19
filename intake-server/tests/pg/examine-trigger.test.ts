@@ -1,4 +1,5 @@
 import { test } from 'node:test'
+import { saveAgentSettings, unsavedAgentSettings } from '#/agents/settings.ts'
 import assert from 'node:assert/strict'
 import { processingFixture } from '../support/processing.ts'
 import { seedPhoto } from '../support/sessions.ts'
@@ -196,6 +197,16 @@ test('a batch whose lead manifest would be too large is skipped, not retried eve
     assert.deepEqual(
       (await triggerExamine(fixture.writer.pool, fixture.config, { quietMs: 0, skipped })).failed,
       [],
+    )
+    // A settings save, such as a shorter description style, makes the batch eligible again.
+    const { revision, ...fields } = unsavedAgentSettings()
+    await saveAgentSettings(fixture.api.pool, fixture.config, {
+      ...fields,
+      expected_revision: revision,
+    })
+    assert.deepEqual(
+      (await triggerExamine(fixture.writer.pool, fixture.config, { quietMs: 0, skipped })).failed,
+      [batchId],
     )
   } finally {
     await fixture.dispose()

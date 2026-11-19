@@ -6,6 +6,7 @@ import { useState, type ReactNode } from 'react'
 import type { ConnectionStatusDto } from '@invimport/contracts'
 import type { agentsClient } from '@invimport/contracts/client'
 import { fixtureScope, render } from '#/test/render'
+import { agentSettings } from '#/test/agent-settings'
 import { serverQueryKey } from '#/queries/scope'
 import { HeaderObservationsProvider } from '#/context'
 import { MASTHEAD_STORAGE_KEY, mastheadStyleController } from '#/theme/masthead-style'
@@ -27,11 +28,9 @@ const identity = {
 
 function agents() {
   return {
-    settings: vi.fn(async () => ({
-      revision: '7',
-      selection: { provider: 'claude', authentication: 'subscription', model: 'sonnet' },
-      session_concurrency: 3,
-    })),
+    settings: vi.fn(async () =>
+      agentSettings('7', { provider: 'claude', authentication: 'subscription', model: 'sonnet' }),
+    ),
     saveSettings: vi.fn(),
     sessions: vi.fn(async () => ({
       sessions: [],
@@ -64,6 +63,7 @@ function connection(): ConnectionStatusDto {
 
 const header = {
   connection: vi.fn(async () => connection()),
+  checkConnection: vi.fn(async () => connection()),
   work: vi.fn(async () => ({
     ...identity,
     observed_at: new Date().toISOString(),
@@ -190,6 +190,49 @@ test('InvenTree shows the observed server, its last check and Open InvenTree wit
   expect(screen.queryByText(/token=/i)).toBeNull()
 })
 
+test('the API token row shows Refused after Check now, and the import reference is read-only', async () => {
+  const user = userEvent.setup()
+  const refused = connection()
+  header.checkConnection.mockResolvedValueOnce({
+    ...refused,
+    target: { ...refused.target, state: 'unavailable', failure_code: 'unauthorized' },
+  })
+  renderSettings('inventree')
+  const token = screen.getByRole('group', { name: 'API token' })
+  expect(await within(token).findByText('Accepted')).toBeVisible()
+  await user.click(within(token).getByRole('button', { name: 'Check now' }))
+  expect(await within(token).findByText('Refused')).toBeVisible()
+  expect(header.checkConnection).toHaveBeenCalledTimes(1)
+  const reference = screen.getByRole('group', { name: 'Import reference' })
+  expect(reference).toHaveTextContent('bi1:‹batch source›:‹lot›')
+  expect(within(reference).queryByRole('textbox')).toBeNull()
+})
+
+test('the API token row never shows a stale or failed read as current', async () => {
+  const old = connection()
+  header.connection.mockResolvedValueOnce({
+    ...old,
+    target: {
+      ...old.target,
+      freshness: 'stale',
+      observed_at: new Date(Date.now() - 120_000).toISOString(),
+    },
+  })
+  const view = renderSettings('inventree')
+  const token = screen.getByRole('group', { name: 'API token' })
+  // Once the stale observation has loaded, its check time shows beside Unavailable.
+  expect(await within(token).findByText(/checked/)).toBeVisible()
+  expect(within(token).getByText('Unavailable')).toBeVisible()
+  view.unmount()
+
+  header.connection.mockRejectedValueOnce(new Error('offline'))
+  renderSettings('inventree')
+  await screen.findByText('InvenTree unreachable')
+  expect(
+    within(screen.getByRole('group', { name: 'API token' })).getByText('Unavailable'),
+  ).toBeVisible()
+})
+
 const DEFERRED: [SettingsSectionId, string[]][] = [
   [
     'agents',
@@ -203,7 +246,7 @@ const DEFERRED: [SettingsSectionId, string[]][] = [
       'Web research',
     ],
   ],
-  ['inventree', ['API token', 'Import reference prefix']],
+  ['inventree', ['API token']],
   ['defaults', ['Default location', 'Default supplier', 'Tags']],
 ]
 

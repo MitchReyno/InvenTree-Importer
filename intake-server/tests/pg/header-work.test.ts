@@ -7,6 +7,7 @@ import { processingFixture } from '../support/processing.ts'
 import { headerWork } from '#/header/work.ts'
 import { scopedConnectionStatus } from '#/header/binding.ts'
 import { nativeProfileId } from '#/agents/policy.ts'
+import { singleProvider } from '../support/agent-settings.ts'
 import { saveAgentSettings } from '#/agents/settings.ts'
 import { manualFixture } from '../support/manual.ts'
 import { grantProcessing } from '#/processing/grants.ts'
@@ -19,10 +20,14 @@ test('header retains physically occupied cancelled sessions and fences foreign s
   try {
     await grantManual(fixture.db.pool, fixture.api.name, 'api')
     const capture = await fixture.seedCapture()
-    await saveAgentSettings(fixture.api.pool, fixture.config, {
-      expected_revision: '0',
-      selection: { provider: 'codex', authentication: 'subscription', model: 'synthetic-only' },
-    })
+    await saveAgentSettings(
+      fixture.api.pool,
+      fixture.config,
+      singleProvider({
+        expected_revision: '0',
+        selection: { provider: 'codex', authentication: 'subscription', model: 'synthetic-only' },
+      }),
+    )
     const request = {
       schema_version: 'bench-intake-processing/1' as const,
       expected_capture_revision: capture.batch.revision,

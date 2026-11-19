@@ -18,6 +18,7 @@ import { CaptureWorkspace } from './components/capture/CaptureWorkspace'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { ApiClientsProvider, BatchCommandsProvider } from './context'
 import { batchCommands } from './test/batch-commands'
+import { agentSettings } from '#/test/agent-settings'
 
 /** The revision behind a "<label>: Saved" status; the number is kept off the visible text. */
 function savedRevision(label: string) {
@@ -1222,11 +1223,11 @@ test('a settings section route opens that Settings section and never reads a bat
 
 test('Settings opened from Agents goes back to it across sections, and the guard holds unsaved settings', async () => {
   history.replaceState(null, '', '#agents')
-  const settings = {
-    revision: '7',
-    selection: { provider: 'claude', authentication: 'subscription', model: 'sonnet' },
-    session_concurrency: 3,
-  }
+  const settings = agentSettings('7', {
+    provider: 'claude',
+    authentication: 'subscription',
+    model: 'sonnet',
+  })
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
     const path = new URL(String(input)).pathname
     if (path.endsWith('/agent-settings')) {
@@ -1275,11 +1276,9 @@ test('a refused browser Back from unsaved settings keeps the return route for a 
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
     const path = new URL(String(input)).pathname
     if (path.endsWith('/agent-settings')) {
-      return response({
-        revision: '7',
-        selection: { provider: 'claude', authentication: 'subscription', model: 'sonnet' },
-        session_concurrency: 3,
-      })
+      return response(
+        agentSettings('7', { provider: 'claude', authentication: 'subscription', model: 'sonnet' }),
+      )
     }
     if (path.endsWith('/agent-sessions')) {
       return response({ sessions: [], next_before: null, sessions_supported: true })

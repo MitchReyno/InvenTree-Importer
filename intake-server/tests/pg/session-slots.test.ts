@@ -5,6 +5,7 @@ import { lotSession } from '../support/sessions.ts'
 import { transaction } from '#/db/database.ts'
 import { claimSessionSlot, releaseSessionSlot } from '#/agents/session/slots.ts'
 import { acquireAgentSupervisor } from '#/agents/worker.ts'
+import { singleProvider } from '../support/agent-settings.ts'
 import { saveAgentSettings } from '#/agents/settings.ts'
 
 type Fixture = Awaited<ReturnType<typeof processingFixture>>
@@ -53,11 +54,15 @@ const occupied = async (fixture: Fixture) =>
 
 async function limit(fixture: Fixture, value: number) {
   const current = await fixture.http('/agent-settings')
-  await saveAgentSettings(fixture.api.pool, fixture.config, {
-    expected_revision: (current.value as { revision: string }).revision,
-    selection: { provider: 'claude', authentication: 'api_key', model: 'claude-sonnet-5-5' },
-    session_concurrency: value,
-  })
+  await saveAgentSettings(
+    fixture.api.pool,
+    fixture.config,
+    singleProvider({
+      expected_revision: (current.value as { revision: string }).revision,
+      selection: { provider: 'claude', authentication: 'api_key', model: 'claude-sonnet-5-5' },
+      session_concurrency: value,
+    }),
+  )
 }
 
 test('with a limit of 3 the fourth session waits, then starts when a slot frees', async () => {

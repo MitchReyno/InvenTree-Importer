@@ -231,7 +231,34 @@ async function main() {
         ],
         get: get('CatalogueCandidates', CATALOGUE_SNAPSHOT_TIMEOUT_MS),
       },
+      '/api/v1/catalogue/{model}': {
+        parameters: [
+          { name: 'model', in: 'path', required: true, schema: schemas.CatalogueModel },
+        ],
+        get: {
+          ...get('CatalogueSearch', CAPTURE_TIMEOUT_MS),
+          parameters: [
+            { name: 'q', in: 'query', required: true, schema: schemas.CatalogueQuery.properties.q },
+          ],
+        },
+      },
+      '/api/v1/catalogue/{model}/candidates': {
+        parameters: [
+          { name: 'model', in: 'path', required: true, schema: schemas.CatalogueModel },
+        ],
+        get: get('CatalogueCandidates', CATALOGUE_SNAPSHOT_TIMEOUT_MS),
+      },
+      '/api/v1/batch-defaults': {
+        get: get('BatchDefaults', CAPTURE_TIMEOUT_MS),
+        put: post('BatchDefaultsUpdate', 'BatchDefaults', '200', CAPTURE_TIMEOUT_MS),
+      },
       '/api/v1/connection-status': { get: get('ConnectionStatus', CAPTURE_TIMEOUT_MS) },
+      '/api/v1/connection-status/check': {
+        post: {
+          'x-intake-client': { timeoutMs: CAPTURE_TIMEOUT_MS, errorMode: 'typed' },
+          responses: commandResponses('ConnectionStatus'),
+        },
+      },
       '/api/v1/header-work': {
         get: {
           ...get('HeaderWork', CAPTURE_TIMEOUT_MS),

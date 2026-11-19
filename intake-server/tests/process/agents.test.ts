@@ -8,6 +8,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { setTimeout as delay } from 'node:timers/promises'
 import { processingFixture } from '../support/processing.ts'
+import { singleProvider } from '../support/agent-settings.ts'
 import { saveAgentSettings } from '#/agents/settings.ts'
 import { listAgentSessions } from '#/agents/session/sessions.ts'
 import { nativeProfileId } from '#/agents/policy.ts'
@@ -82,14 +83,18 @@ for (const provider of ['codex', 'claude'] as const) {
           await delay(50)
         }
         assert.match(output, /supervisor ready/)
-        await saveAgentSettings(fixture.api.pool, fixture.config, {
-          expected_revision: '0',
-          selection: {
-            provider,
-            authentication: 'api_key',
-            model: `controlled-${provider}-model`,
-          },
-        })
+        await saveAgentSettings(
+          fixture.api.pool,
+          fixture.config,
+          singleProvider({
+            expected_revision: '0',
+            selection: {
+              provider,
+              authentication: 'api_key',
+              model: `controlled-${provider}-model`,
+            },
+          }),
+        )
         const started = await fixture.http(`/batches/${capture.batch.id}/processing`, {
           schema_version: 'bench-intake-processing/1',
           expected_capture_revision: capture.batch.revision,

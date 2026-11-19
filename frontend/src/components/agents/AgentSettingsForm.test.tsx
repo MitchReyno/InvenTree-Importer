@@ -3,12 +3,10 @@ import { expect, test, vi } from 'vitest'
 import { render } from '#/test/render'
 import { AgentSettingsForm } from './AgentSettingsForm'
 import type { agentsClient } from '@invimport/contracts/client'
+import { agentSettings, agentSettingsUpdate } from '#/test/agent-settings'
 
-const initial = {
-  revision: '7',
-  selection: { provider: 'claude', authentication: 'subscription', model: 'sonnet' },
-  session_concurrency: 3,
-} as const
+const sonnet = { provider: 'claude', authentication: 'subscription', model: 'sonnet' } as const
+const initial = agentSettings('7', sonnet)
 
 const status = { providerStatus: { claude: 'Not checked', codex: 'Not checked' } } as const
 
@@ -33,11 +31,9 @@ test('saving the global default pins the loaded revision and clears the dirty gu
   expect(api.saveSettings).not.toHaveBeenCalled()
   fireEvent.click(screen.getByRole('button', { name: 'Save' }))
   await waitFor(() =>
-    expect(api.saveSettings).toHaveBeenCalledWith({
-      expected_revision: '7',
-      selection: { provider: 'claude', authentication: 'subscription', model: 'opus' },
-      session_concurrency: 3,
-    }),
+    expect(api.saveSettings).toHaveBeenCalledWith(
+      agentSettingsUpdate('7', { ...sonnet, model: 'opus' }),
+    ),
   )
   await screen.findByText(/New attempts use this selection/)
   expect(dirty).toHaveBeenLastCalledWith(false)
@@ -51,11 +47,9 @@ test('the running-session limit is saved with the loaded revision', async () => 
   fireEvent.click(within(sessions).getByRole('button', { name: 'One more' }))
   fireEvent.click(screen.getByRole('button', { name: 'Save' }))
   await waitFor(() =>
-    expect(api.saveSettings).toHaveBeenCalledWith({
-      expected_revision: '7',
-      selection: { provider: 'claude', authentication: 'subscription', model: 'sonnet' },
-      session_concurrency: 5,
-    }),
+    expect(api.saveSettings).toHaveBeenCalledWith(
+      agentSettingsUpdate('7', sonnet, { session_concurrency: 5 }),
+    ),
   )
 })
 
@@ -96,6 +90,31 @@ test('switching providers requires choosing a new model and shows host authentic
   fireEvent.click(screen.getByRole('button', { name: 'API key' }))
   expect(screen.getByText('OPENAI_API_KEY')).toBeVisible()
   expect(screen.queryByLabelText('API key')).not.toBeInTheDocument()
+})
+
+test("switching between two configured providers keeps each one's own sign-in and model", async () => {
+  const api = client()
+  const both = agentSettings('7', sonnet, {
+    providers: {
+      claude: { enabled: true, authentication: 'subscription', default_model: 'sonnet' },
+      codex: { enabled: true, authentication: 'api_key', default_model: 'gpt-6-luna' },
+    },
+  })
+  render(<AgentSettingsForm initial={both} client={api} onDirtyChange={vi.fn()} {...status} />)
+  fireEvent.click(screen.getByRole('radio', { name: 'Codex' }))
+  expect(screen.getByRole('combobox', { name: 'Model' })).toHaveValue('gpt-6-luna')
+  expect(screen.getByRole('button', { name: 'API key' })).toHaveAttribute('aria-pressed', 'true')
+  fireEvent.click(screen.getByRole('radio', { name: 'Claude' }))
+  fireEvent.click(screen.getByRole('radio', { name: 'Codex' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  await waitFor(() =>
+    expect(api.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        default_provider: 'codex',
+        providers: both.providers,
+      }),
+    ),
+  )
 })
 
 for (const action of ['Save', 'Discard and reload']) {

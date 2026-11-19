@@ -73,6 +73,7 @@ export function HeaderStatusProof() {
   const [selected, setSelected] = useState<Scenario>('cancelled')
   const [tab, setTab] = useState('Capture')
   const client: HeaderClient = {
+    checkConnection: () => client.connection(),
     connection: async () => {
       if (scenario.current === 'offline') {
         throw new Error('owned_fixture_offline')

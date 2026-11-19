@@ -667,6 +667,219 @@
         }
       }
     },
+    "/api/v1/catalogue/{model}": {
+      "parameters": [
+        {
+          "name": "model",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "x-intake-client": {
+          "timeoutMs": 10000,
+          "errorMode": "typed"
+        },
+        "responses": {
+          "200": {
+            "description": "CatalogueSearch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogueSearch"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[^\\u0000-\\u001f\\u007f]*$",
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/catalogue/{model}/candidates": {
+      "parameters": [
+        {
+          "name": "model",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "x-intake-client": {
+          "timeoutMs": 20000,
+          "errorMode": "typed"
+        },
+        "responses": {
+          "200": {
+            "description": "CatalogueCandidates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogueCandidates"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/batch-defaults": {
+      "get": {
+        "x-intake-client": {
+          "timeoutMs": 10000,
+          "errorMode": "typed"
+        },
+        "responses": {
+          "200": {
+            "description": "BatchDefaults",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchDefaults"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "x-intake-client": {
+          "timeoutMs": 10000,
+          "errorMode": "typed"
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchDefaultsUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "BatchDefaults",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchDefaults"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/connection-status": {
       "get": {
         "x-intake-client": {
@@ -680,6 +893,86 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ConnectionStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/connection-status/check": {
+      "post": {
+        "x-intake-client": {
+          "timeoutMs": 10000,
+          "errorMode": "typed"
+        },
+        "responses": {
+          "200": {
+            "description": "ConnectionStatus",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
                 }
               }
             }
@@ -12443,6 +12736,44 @@
               ]
             }
           },
+          "creation_notices": {
+            "maxItems": 2,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "field",
+                "code"
+              ],
+              "properties": {
+                "field": {
+                  "anyOf": [
+                    {
+                      "const": "location",
+                      "type": "string"
+                    },
+                    {
+                      "const": "supplier",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "code": {
+                  "anyOf": [
+                    {
+                      "const": "default_not_found",
+                      "type": "string"
+                    },
+                    {
+                      "const": "default_unavailable",
+                      "type": "string"
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "parts": {
             "type": "array",
             "items": {
@@ -18152,6 +18483,10 @@
                       },
                       {
                         "const": "unavailable",
+                        "type": "string"
+                      },
+                      {
+                        "const": "unauthorized",
                         "type": "string"
                       }
                     ]
@@ -26301,6 +26636,11 @@
                   "type": "string"
                 }
               },
+              "part_description_style": {
+                "minLength": 1,
+                "maxLength": 500,
+                "type": "string"
+              },
               "profile_id": {
                 "const": "native-agent/2",
                 "type": "string"
@@ -26844,6 +27184,11 @@
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                   "type": "string"
                 }
+              },
+              "part_description_style": {
+                "minLength": 1,
+                "maxLength": 500,
+                "type": "string"
               },
               "profile_id": {
                 "const": "native-agent/2",
@@ -28594,6 +28939,11 @@
                   "type": "string"
                 }
               },
+              "part_description_style": {
+                "minLength": 1,
+                "maxLength": 500,
+                "type": "string"
+              },
               "profile_id": {
                 "const": "shared-vm-agent/1",
                 "type": "string"
@@ -29137,6 +29487,11 @@
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                   "type": "string"
                 }
+              },
+              "part_description_style": {
+                "minLength": 1,
+                "maxLength": 500,
+                "type": "string"
               },
               "profile_id": {
                 "const": "shared-vm-agent/1",
@@ -30887,6 +31242,11 @@
                   "type": "string"
                 }
               },
+              "part_description_style": {
+                "minLength": 1,
+                "maxLength": 500,
+                "type": "string"
+              },
               "profile_id": {
                 "const": "shared-vm-agent/2",
                 "type": "string"
@@ -31430,6 +31790,11 @@
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                   "type": "string"
                 }
+              },
+              "part_description_style": {
+                "minLength": 1,
+                "maxLength": 500,
+                "type": "string"
               },
               "profile_id": {
                 "const": "shared-vm-agent/2",
@@ -33179,6 +33544,11 @@
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                   "type": "string"
                 }
+              },
+              "part_description_style": {
+                "minLength": 1,
+                "maxLength": 500,
+                "type": "string"
               },
               "profile_id": {
                 "const": "synthetic-session/1",
@@ -33683,6 +34053,11 @@
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                   "type": "string"
                 }
+              },
+              "part_description_style": {
+                "minLength": 1,
+                "maxLength": 500,
+                "type": "string"
               },
               "profile_id": {
                 "const": "synthetic-session/1",
@@ -74117,8 +74492,13 @@
         "type": "object",
         "required": [
           "revision",
-          "selection",
-          "session_concurrency"
+          "providers",
+          "default_provider",
+          "stage_selections",
+          "session_concurrency",
+          "new_batch_instructions",
+          "part_description_style",
+          "auto_tags_default"
         ],
         "properties": {
           "revision": {
@@ -74126,14 +74506,102 @@
             "format": "int64",
             "type": "string"
           },
-          "selection": {
+          "providers": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "claude",
+              "codex"
+            ],
+            "properties": {
+              "claude": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "enabled",
+                  "authentication",
+                  "default_model"
+                ],
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "authentication": {
+                    "anyOf": [
+                      {
+                        "const": "api_key",
+                        "type": "string"
+                      },
+                      {
+                        "const": "subscription",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "default_model": {
+                    "type": "string"
+                  }
+                }
+              },
+              "codex": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "enabled",
+                  "authentication",
+                  "default_model"
+                ],
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "authentication": {
+                    "anyOf": [
+                      {
+                        "const": "api_key",
+                        "type": "string"
+                      },
+                      {
+                        "const": "subscription",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "default_model": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "default_provider": {
             "anyOf": [
               {
+                "anyOf": [
+                  {
+                    "const": "codex",
+                    "type": "string"
+                  },
+                  {
+                    "const": "claude",
+                    "type": "string"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stage_selections": {
+            "additionalProperties": false,
+            "type": "object",
+            "properties": {
+              "examine": {
                 "additionalProperties": false,
                 "type": "object",
                 "required": [
                   "provider",
-                  "authentication",
                   "model"
                 ],
                 "properties": {
@@ -74149,6 +74617,145 @@
                       }
                     ]
                   },
+                  "model": {
+                    "type": "string"
+                  }
+                }
+              },
+              "research": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "provider",
+                  "model"
+                ],
+                "properties": {
+                  "provider": {
+                    "anyOf": [
+                      {
+                        "const": "codex",
+                        "type": "string"
+                      },
+                      {
+                        "const": "claude",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "model": {
+                    "type": "string"
+                  }
+                }
+              },
+              "images": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "provider",
+                  "model"
+                ],
+                "properties": {
+                  "provider": {
+                    "anyOf": [
+                      {
+                        "const": "codex",
+                        "type": "string"
+                      },
+                      {
+                        "const": "claude",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "model": {
+                    "type": "string"
+                  }
+                }
+              },
+              "inventory": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "provider",
+                  "model"
+                ],
+                "properties": {
+                  "provider": {
+                    "anyOf": [
+                      {
+                        "const": "codex",
+                        "type": "string"
+                      },
+                      {
+                        "const": "claude",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "model": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "session_concurrency": {
+            "minimum": 1,
+            "maximum": 8,
+            "type": "integer"
+          },
+          "new_batch_instructions": {
+            "maxLength": 8192,
+            "type": "string"
+          },
+          "part_description_style": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "auto_tags_default": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AgentSettingsUpdate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_revision",
+          "providers",
+          "default_provider",
+          "stage_selections",
+          "session_concurrency",
+          "new_batch_instructions",
+          "part_description_style",
+          "auto_tags_default"
+        ],
+        "properties": {
+          "expected_revision": {
+            "pattern": "^(0|[1-9][0-9]{0,18})(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "providers": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "claude",
+              "codex"
+            ],
+            "properties": {
+              "claude": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "enabled",
+                  "authentication",
+                  "default_model"
+                ],
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
                   "authentication": {
                     "anyOf": [
                       {
@@ -74161,49 +74768,45 @@
                       }
                     ]
                   },
-                  "model": {
-                    "minLength": 1,
-                    "maxLength": 128,
-                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
+                  "default_model": {
                     "type": "string"
                   }
                 }
               },
-              {
-                "type": "null"
+              "codex": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "enabled",
+                  "authentication",
+                  "default_model"
+                ],
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "authentication": {
+                    "anyOf": [
+                      {
+                        "const": "api_key",
+                        "type": "string"
+                      },
+                      {
+                        "const": "subscription",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "default_model": {
+                    "type": "string"
+                  }
+                }
               }
-            ]
+            }
           },
-          "session_concurrency": {
-            "minimum": 1,
-            "maximum": 8,
-            "type": "integer"
-          }
-        }
-      },
-      "AgentSettingsUpdate": {
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "expected_revision",
-          "selection"
-        ],
-        "properties": {
-          "expected_revision": {
-            "pattern": "^(0|[1-9][0-9]{0,18})(?![\\s\\S])",
-            "format": "int64",
-            "type": "string"
-          },
-          "selection": {
-            "additionalProperties": false,
-            "type": "object",
-            "required": [
-              "provider",
-              "authentication",
-              "model"
-            ],
-            "properties": {
-              "provider": {
+          "default_provider": {
+            "anyOf": [
+              {
                 "anyOf": [
                   {
                     "const": "codex",
@@ -74215,23 +74818,114 @@
                   }
                 ]
               },
-              "authentication": {
-                "anyOf": [
-                  {
-                    "const": "api_key",
-                    "type": "string"
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stage_selections": {
+            "additionalProperties": false,
+            "type": "object",
+            "properties": {
+              "examine": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "provider",
+                  "model"
+                ],
+                "properties": {
+                  "provider": {
+                    "anyOf": [
+                      {
+                        "const": "codex",
+                        "type": "string"
+                      },
+                      {
+                        "const": "claude",
+                        "type": "string"
+                      }
+                    ]
                   },
-                  {
-                    "const": "subscription",
+                  "model": {
                     "type": "string"
                   }
-                ]
+                }
               },
-              "model": {
-                "minLength": 1,
-                "maxLength": 128,
-                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
-                "type": "string"
+              "research": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "provider",
+                  "model"
+                ],
+                "properties": {
+                  "provider": {
+                    "anyOf": [
+                      {
+                        "const": "codex",
+                        "type": "string"
+                      },
+                      {
+                        "const": "claude",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "model": {
+                    "type": "string"
+                  }
+                }
+              },
+              "images": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "provider",
+                  "model"
+                ],
+                "properties": {
+                  "provider": {
+                    "anyOf": [
+                      {
+                        "const": "codex",
+                        "type": "string"
+                      },
+                      {
+                        "const": "claude",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "model": {
+                    "type": "string"
+                  }
+                }
+              },
+              "inventory": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "provider",
+                  "model"
+                ],
+                "properties": {
+                  "provider": {
+                    "anyOf": [
+                      {
+                        "const": "codex",
+                        "type": "string"
+                      },
+                      {
+                        "const": "claude",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "model": {
+                    "type": "string"
+                  }
+                }
               }
             }
           },
@@ -74239,6 +74933,71 @@
             "minimum": 1,
             "maximum": 8,
             "type": "integer"
+          },
+          "new_batch_instructions": {
+            "maxLength": 8192,
+            "type": "string"
+          },
+          "part_description_style": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "auto_tags_default": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AgentProviderSettings": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "enabled",
+          "authentication",
+          "default_model"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "authentication": {
+            "anyOf": [
+              {
+                "const": "api_key",
+                "type": "string"
+              },
+              {
+                "const": "subscription",
+                "type": "string"
+              }
+            ]
+          },
+          "default_model": {
+            "type": "string"
+          }
+        }
+      },
+      "AgentStageSelection": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "provider",
+          "model"
+        ],
+        "properties": {
+          "provider": {
+            "anyOf": [
+              {
+                "const": "codex",
+                "type": "string"
+              },
+              {
+                "const": "claude",
+                "type": "string"
+              }
+            ]
+          },
+          "model": {
+            "type": "string"
           }
         }
       },
@@ -74759,6 +75518,242 @@
             "minimum": 0,
             "maximum": 100000,
             "type": "integer"
+          }
+        }
+      },
+      "BatchDefaultRecord": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "pk",
+          "label",
+          "status"
+        ],
+        "properties": {
+          "pk": {
+            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "anyOf": [
+              {
+                "const": "found",
+                "type": "string"
+              },
+              {
+                "const": "not_found",
+                "type": "string"
+              },
+              {
+                "const": "unavailable",
+                "type": "string"
+              }
+            ]
+          }
+        }
+      },
+      "BatchDefaults": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "revision",
+          "location",
+          "supplier"
+        ],
+        "properties": {
+          "revision": {
+            "pattern": "^(0|[1-9][0-9]{0,18})(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "pk",
+                  "label",
+                  "status"
+                ],
+                "properties": {
+                  "pk": {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  },
+                  "label": {
+                    "anyOf": [
+                      {
+                        "minLength": 1,
+                        "maxLength": 256,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "status": {
+                    "anyOf": [
+                      {
+                        "const": "found",
+                        "type": "string"
+                      },
+                      {
+                        "const": "not_found",
+                        "type": "string"
+                      },
+                      {
+                        "const": "unavailable",
+                        "type": "string"
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "supplier": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "pk",
+                  "label",
+                  "status"
+                ],
+                "properties": {
+                  "pk": {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  },
+                  "label": {
+                    "anyOf": [
+                      {
+                        "minLength": 1,
+                        "maxLength": 256,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "status": {
+                    "anyOf": [
+                      {
+                        "const": "found",
+                        "type": "string"
+                      },
+                      {
+                        "const": "not_found",
+                        "type": "string"
+                      },
+                      {
+                        "const": "unavailable",
+                        "type": "string"
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "BatchDefaultsUpdate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_revision",
+          "location_pk",
+          "supplier_pk"
+        ],
+        "properties": {
+          "expected_revision": {
+            "pattern": "^(0|[1-9][0-9]{0,18})(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "location_pk": {
+            "anyOf": [
+              {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "supplier_pk": {
+            "anyOf": [
+              {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "CaptureCreationNotice": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "field",
+          "code"
+        ],
+        "properties": {
+          "field": {
+            "anyOf": [
+              {
+                "const": "location",
+                "type": "string"
+              },
+              {
+                "const": "supplier",
+                "type": "string"
+              }
+            ]
+          },
+          "code": {
+            "anyOf": [
+              {
+                "const": "default_not_found",
+                "type": "string"
+              },
+              {
+                "const": "default_unavailable",
+                "type": "string"
+              }
+            ]
           }
         }
       },

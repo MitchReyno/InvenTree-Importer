@@ -34,6 +34,31 @@ function connection(): ConnectionStatusDto {
   }
 }
 
+test('Check connection now sends one check, shows it running, and a refused token in the menu', async () => {
+  const user = userEvent.setup()
+  const api = client()
+  let settle: ((value: ConnectionStatusDto) => void) | undefined
+  api.checkConnection = vi.fn(
+    () =>
+      new Promise<ConnectionStatusDto>((resolve) => {
+        settle = resolve
+      }),
+  )
+  render(<HeaderStatus client={api} batchId={batchId} />)
+  await screen.findByText('InvenTree unreachable')
+  await user.click(screen.getByRole('button', { name: 'Connection status' }))
+  const panel = screen.getByRole('dialog', { name: 'Connection details' })
+  await user.click(within(panel).getByRole('button', { name: 'Check connection now' }))
+  const running = within(panel).getByRole('button', { name: 'Checking…' })
+  expect(running).toHaveAttribute('aria-disabled', 'true')
+  await user.click(running)
+  expect(api.checkConnection).toHaveBeenCalledTimes(1)
+  const refused = connection()
+  settle?.({ ...refused, target: { ...refused.target, failure_code: 'unauthorized' } })
+  expect(await within(panel).findByText(/refused the read token/)).toBeVisible()
+  expect(screen.getAllByText('InvenTree refused the token').length).toBeGreaterThan(0)
+})
+
 function work(): HeaderWorkDto {
   return {
     ...scope,
@@ -47,7 +72,11 @@ function work(): HeaderWorkDto {
 }
 
 function client(): HeaderClient {
-  return { connection: vi.fn(async () => connection()), work: vi.fn(async () => work()) }
+  return {
+    connection: vi.fn(async () => connection()),
+    checkConnection: vi.fn(async () => connection()),
+    work: vi.fn(async () => work()),
+  }
 }
 
 afterEach(() => {
@@ -496,7 +525,7 @@ test('a session shows its latest status line, and a waiting session holds no slo
   }
 })
 
-test('the server menu holds the dev badge, a disabled connection check and server settings, and no theme', async () => {
+test('the server menu holds the dev badge, a connection check and server settings, and no theme', async () => {
   const user = userEvent.setup()
   render(<HeaderStatus client={client()} batchId={batchId} />)
   await screen.findByText('InvenTree unreachable')
@@ -504,9 +533,7 @@ test('the server menu holds the dev badge, a disabled connection check and serve
   const panel = screen.getByRole('dialog', { name: 'Connection details' })
 
   expect(within(panel).getByText('Dev mode')).toBeVisible()
-  const check = within(panel).getByRole('button', { name: 'Check connection now' })
-  expect(check).toHaveAttribute('aria-disabled', 'true')
-  expect(check).toHaveAccessibleDescription(/not available yet/i)
+  expect(within(panel).getByRole('button', { name: 'Check connection now' })).toBeEnabled()
   expect(within(panel).getByRole('link', { name: 'Server settings' })).toHaveAttribute(
     'href',
     '#settings/inventree',
@@ -1138,4 +1165,37 @@ test('the server menu says where approvals write for a live target too', async (
   expect(screen.getByRole('dialog', { name: 'Connection details' })).toHaveTextContent(
     'Approvals write to this InvenTree, your live inventory.',
   )
+})
+
+test('a background read that started before a check never replaces its result', async () => {
+  const user = userEvent.setup()
+  const api = client()
+  render(<HeaderStatus client={api} batchId={batchId} />)
+  await screen.findByText('InvenTree unreachable')
+  let finishRead: ((value: ConnectionStatusDto) => void) | undefined
+  vi.mocked(api.connection).mockImplementation(
+    () =>
+      new Promise<ConnectionStatusDto>((resolve) => {
+        finishRead = resolve
+      }),
+  )
+  // The page regains focus: a read starts and is still running when the check answers.
+  act(() => {
+    window.dispatchEvent(new Event('focus'))
+  })
+  const reachable = connection()
+  api.checkConnection = vi.fn(async () => ({
+    ...reachable,
+    target: { ...reachable.target, state: 'reachable', failure_code: null },
+  }))
+  await user.click(screen.getByRole('button', { name: 'Connection status' }))
+  const panel = screen.getByRole('dialog', { name: 'Connection details' })
+  await user.click(within(panel).getByRole('button', { name: 'Check connection now' }))
+  expect(await screen.findAllByText('inventory.example.test')).not.toHaveLength(0)
+  expect(finishRead, 'the background read is running').toBeDefined()
+  await act(async () => {
+    finishRead?.(connection())
+    await new Promise((done) => setTimeout(done, 50))
+  })
+  expect(screen.queryByText('InvenTree unreachable')).toBeNull()
 })

@@ -8,7 +8,9 @@ import { triggerExamine } from '#/processing/examine-trigger.ts'
 import { onLeadIdentity } from '#/processing/stable-identity.ts'
 import { lockCaptureForInputSettlement } from '#/capture/repository.ts'
 import { claimSessionSlot } from '#/agents/session/slots.ts'
-import { saveAgentSettings } from '#/agents/settings.ts'
+import { singleProvider } from '../support/agent-settings.ts'
+import { saveAgentSettings, unsavedAgentSettings } from '#/agents/settings.ts'
+import { decodeSessionInput } from '#/processing/session-input.ts'
 import { queueSessionResume, runSessionTurn } from '#/agents/session/session-runner.ts'
 
 test('a stable identity queues the lot’s Research and Images, pinned to it, as agent_writer', async (t) => {
@@ -230,11 +232,15 @@ test('Research and Images take slots alongside the running lead session', async 
 test('a resumed lead session starts ahead of older queued per-lot sessions', async (t) => {
   const { fixture, leadJob, leadAttempt, lot, successors } = await formedBatch(t)
   const current = await fixture.http('/agent-settings')
-  await saveAgentSettings(fixture.api.pool, fixture.config, {
-    expected_revision: (current.value as { revision: string }).revision,
-    selection: { provider: 'claude', authentication: 'api_key', model: 'claude-sonnet-5-5' },
-    session_concurrency: 1,
-  })
+  await saveAgentSettings(
+    fixture.api.pool,
+    fixture.config,
+    singleProvider({
+      expected_revision: (current.value as { revision: string }).revision,
+      selection: { provider: 'claude', authentication: 'api_key', model: 'claude-sonnet-5-5' },
+      session_concurrency: 1,
+    }),
+  )
   await transaction(fixture.runner.pool, (client) => queueSessionResume(client, leadJob))
   const [first] = await successors((await lot('led 0603 red')).id)
   // Nothing holds a slot, so only queue order decides.
@@ -351,10 +357,55 @@ test('on native-agent/2, a stable identity queues successors as agent_writer wit
     )
   })
   assert.equal(outcome, 'queued')
-  for (const row of await successors(crystal.id)) {
+  const queued = await successors(crystal.id)
+  for (const row of queued) {
     assert.equal(row.attempt_state, 'queued')
     assert.deepEqual(pinned(row), [identity.id])
   }
+  // Both successors seal one settings read: the same revision and selection.
+  const sealed = queued.map((row) => decodeSessionInput(row.input_bytes, row.input_digest))
+  assert.equal(new Set(sealed.map((input) => input.settings_revision)).size, 1)
+  assert.equal(new Set(sealed.map((input) => JSON.stringify(input.agent))).size, 1)
+})
+
+test('with no provider on, a stable identity stands and queues no successors', async (t) => {
+  const { fixture, batchId, lot, successors, identities } = await formedBatch(t)
+  const crystal = await lot('16 mhz crystal')
+  const before = await successors(crystal.id)
+  await fixture.db.pool.query(
+    "UPDATE processing_attempt SET state='cancelled' WHERE id = ANY($1::uuid[])",
+    [before.map((row) => row.attempt_id)],
+  )
+  // Both providers turned off while the lead session runs.
+  const current = await fixture.http('/agent-settings')
+  const { revision: _revision, ...off } = unsavedAgentSettings()
+  await saveAgentSettings(fixture.api.pool, fixture.config, {
+    ...off,
+    expected_revision: (current.value as { revision: string }).revision,
+  })
+  const [identity] = await identities(crystal.id)
+  const native = { ...fixture.config, profileId: 'native-agent/2' as const }
+  const outcome = await transaction(fixture.writer.pool, async (client) => {
+    const capture = await lockCaptureForInputSettlement(client, native, batchId)
+    return onLeadIdentity(
+      client,
+      native,
+      capture.snapshot,
+      identityFor(crystal.id, crystal.observation_set_version!),
+      identity.id,
+    )
+  })
+  assert.equal(outcome, 'waiting')
+  const after = await successors(crystal.id)
+  assert.deepEqual(
+    after.map((row) => row.attempt_id).sort(),
+    before.map((row) => row.attempt_id).sort(),
+    'no new attempts',
+  )
+  const kept = await fixture.db.pool.query('SELECT 1 FROM processing_proposal WHERE id=$1', [
+    identity.id,
+  ])
+  assert.equal(kept.rowCount, 1)
 })
 
 test('a republished identity replaces a successor that has not started', async (t) => {
@@ -404,11 +455,15 @@ test('a gated Inventory never holds back the Research and Images it waits for', 
   })
   assert.equal(started.status, 202)
   const current = await fixture.http('/agent-settings')
-  await saveAgentSettings(fixture.api.pool, fixture.config, {
-    expected_revision: (current.value as { revision: string }).revision,
-    selection: { provider: 'claude', authentication: 'api_key', model: 'claude-sonnet-5-5' },
-    session_concurrency: 1,
-  })
+  await saveAgentSettings(
+    fixture.api.pool,
+    fixture.config,
+    singleProvider({
+      expected_revision: (current.value as { revision: string }).revision,
+      selection: { provider: 'claude', authentication: 'api_key', model: 'claude-sonnet-5-5' },
+      session_concurrency: 1,
+    }),
+  )
   // Only the LED lot is in play: the crystal's queued successors are set aside.
   const crystal = await lot('16 mhz crystal')
   await fixture.db.pool.query(
@@ -449,11 +504,15 @@ test('a gated Inventory never holds back another lot’s ready Inventory', async
     [crystalResearch.attempt_id],
   )
   const current = await fixture.http('/agent-settings')
-  await saveAgentSettings(fixture.api.pool, fixture.config, {
-    expected_revision: (current.value as { revision: string }).revision,
-    selection: { provider: 'claude', authentication: 'api_key', model: 'claude-sonnet-5-5' },
-    session_concurrency: 1,
-  })
+  await saveAgentSettings(
+    fixture.api.pool,
+    fixture.config,
+    singleProvider({
+      expected_revision: (current.value as { revision: string }).revision,
+      selection: { provider: 'claude', authentication: 'api_key', model: 'claude-sonnet-5-5' },
+      session_concurrency: 1,
+    }),
+  )
   const inventory = async (lotId: string) =>
     (
       await fixture.db.pool.query<{ current_attempt_id: string }>(

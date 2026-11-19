@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { processingFixture } from '../support/processing.ts'
+import { singleProvider } from '../support/agent-settings.ts'
 import { saveAgentSettings } from '#/agents/settings.ts'
 
 for (const route of ['claude', 'codex', 'personal-subscription', 'chatgpt-subscription'] as const) {
@@ -30,13 +31,17 @@ for (const route of ['claude', 'codex', 'personal-subscription', 'chatgpt-subscr
         await rm(stateRoot, { recursive: true, force: true })
       })
       const capture = await fixture.seedCapture()
-      await saveAgentSettings(fixture.api.pool, fixture.config, {
-        expected_revision: '0',
-        selection: live
-          ? { provider, authentication: 'subscription', model: chatgpt ? 'gpt-6.1-sol' : 'haiku' }
-          : { provider, authentication: 'api_key', model: 'fake-' + provider + '-model' },
-        session_concurrency: 1,
-      })
+      await saveAgentSettings(
+        fixture.api.pool,
+        fixture.config,
+        singleProvider({
+          expected_revision: '0',
+          selection: live
+            ? { provider, authentication: 'subscription', model: chatgpt ? 'gpt-6.1-sol' : 'haiku' }
+            : { provider, authentication: 'api_key', model: 'fake-' + provider + '-model' },
+          session_concurrency: 1,
+        }),
+      )
       const worker = spawn(
         process.execPath,
         ['--import', 'tsx', 'src/agents/session/session-worker-main.ts'],

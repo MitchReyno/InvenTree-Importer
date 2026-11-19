@@ -1,8 +1,9 @@
 import { processingProfiles } from './policy.ts'
 import { createSessionAttempt } from './session-attempts.ts'
 import { isSessionProfile } from './session-policy.ts'
-import type { ProcessingInputDto } from '@invimport/contracts'
+import type { AgentSettingsDto, ProcessingInputDto } from '@invimport/contracts'
 import { readAgentSettings } from '#/agents/settings.ts'
+import { resolveSelection } from '#/agents/resolve-selection.ts'
 import { agentSessions } from '#/agents/schema.ts'
 import { nativeProfileId } from '#/agents/policy.ts'
 import { randomUUID, createHmac } from 'node:crypto'
@@ -54,7 +55,14 @@ export async function createAttempt(
   parentId: string | null = null,
   answerId: string | null = null,
   pinnedProposalIds: readonly string[] = [],
-  { lockSettings = true }: { lockSettings?: boolean } = {},
+  {
+    lockSettings = true,
+    settings,
+  }: {
+    lockSettings?: boolean
+    /** Settings already read in this transaction, so several attempts seal the same read. */
+    settings?: AgentSettingsDto
+  } = {},
 ) {
   const selectedProfile = config.profileId ?? mediaProfileId
   if (isSessionProfile(selectedProfile)) {
@@ -70,7 +78,7 @@ export async function createAttempt(
       number,
       media,
       parentId,
-      { pinnedProposalIds, lockSettings },
+      { pinnedProposalIds, lockSettings, settings },
     )
   }
   const attemptId = randomUUID()
@@ -92,7 +100,10 @@ export async function createAttempt(
   let manifestValue: ProcessingInputDto
   if (native) {
     const settings = await readAgentSettings(client, config, true)
-    manifestValue = nativeInputManifest(...argumentsForInput, settings)
+    manifestValue = nativeInputManifest(...argumentsForInput, {
+      revision: settings.revision,
+      selection: resolveSelection(settings, job.stage),
+    })
   } else if (restricted) {
     manifestValue = researchInputManifest(...argumentsForInput, config.approvedSourceUrls ?? [])
   } else {

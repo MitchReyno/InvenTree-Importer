@@ -1,6 +1,10 @@
 import { useState } from 'react'
 import styled from 'styled-components'
-import type { AgentSettingsDto, ConnectionStatusDto } from '@invimport/contracts'
+import type {
+  AgentSettingsDto,
+  AgentSettingsUpdateDto,
+  ConnectionStatusDto,
+} from '@invimport/contracts'
 import type { agentsClient } from '@invimport/contracts/client'
 import { createServerQueryClient } from '#/queries/client'
 import { serverQueryKey } from '#/queries/scope'
@@ -28,8 +32,16 @@ const batchId = '10000000-0000-4000-8000-000000000001'
 
 let saved: AgentSettingsDto = {
   revision: '7',
-  selection: { provider: 'claude', authentication: 'subscription', model: 'opus' },
+  providers: {
+    claude: { enabled: true, authentication: 'subscription', default_model: 'opus' },
+    codex: { enabled: false, authentication: 'subscription', default_model: 'gpt-6.1-sol' },
+  },
+  default_provider: 'claude',
+  stage_selections: {},
   session_concurrency: 3,
+  new_batch_instructions: '',
+  part_description_style: '',
+  auto_tags_default: false,
 }
 
 function session(index: number, running: boolean) {
@@ -56,16 +68,8 @@ function session(index: number, running: boolean) {
  */
 const agents = {
   settings: async () => saved,
-  saveSettings: async (input: {
-    expected_revision: string
-    selection: AgentSettingsDto['selection']
-    session_concurrency: number
-  }) => {
-    saved = {
-      revision: String(Number(saved.revision) + 1),
-      selection: input.selection,
-      session_concurrency: input.session_concurrency,
-    }
+  saveSettings: async ({ expected_revision, ...fields }: AgentSettingsUpdateDto) => {
+    saved = { ...fields, revision: String(Number(expected_revision) + 1) }
     return saved
   },
   sessions: async () => ({
@@ -81,19 +85,27 @@ const agents = {
   deliverInstructions: async () => ({ sessions: 0 }),
 } as unknown as ReturnType<typeof agentsClient>
 
+// Staged for the demo: once checked, InvenTree has refused the token, and later reads say so.
+let tokenRefused = false
+
 const header: HeaderClient = {
+  checkConnection: async () => {
+    await new Promise((resolve) => setTimeout(resolve, 900))
+    tokenRefused = true
+    return header.connection()
+  },
   connection: async (): Promise<ConnectionStatusDto> =>
     ({
       ...identity,
       target: {
         kind: 'owned_test',
-        state: 'reachable',
+        state: tokenRefused ? 'unavailable' : 'reachable',
         freshness: 'fresh',
         observed_at: new Date().toISOString(),
-        failure_code: null,
+        failure_code: tokenRefused ? 'unauthorized' : null,
         navigation_url: 'https://inventory.example.test/',
         label: 'Bench test InvenTree',
-        version: '1.1.0',
+        version: tokenRefused ? null : '1.1.0',
       },
     }) as ConnectionStatusDto,
   work: async () => ({

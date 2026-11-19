@@ -101,6 +101,9 @@ export function targetStatus(
     }
     return { summary: 'InvenTree connected', tone: 'ok', short: 'Connected' }
   }
+  if (target.state === 'unavailable' && target.failure_code === 'unauthorized') {
+    return { summary: 'InvenTree refused the token', tone: 'bad', short: 'Refused' }
+  }
   if (target.state === 'unavailable') {
     return UNAVAILABLE
   }

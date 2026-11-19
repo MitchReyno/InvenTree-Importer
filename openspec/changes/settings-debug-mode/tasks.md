@@ -235,15 +235,15 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
   - Grants missing for new columns or tables, which the test tier catches.
   - A missed `selection` reader, which the typecheck catches.
 
-- [ ] 6.1 Confirm the settings, sealing and delivery code paths and every `selection` reader as the baseline.
-- [ ] 6.2 RED: write the resolver and server tests.
-- [ ] 6.3 GREEN: add the migration, the backfill and the grants.
-- [ ] 6.4 GREEN: replace `selection` in the contracts, regenerate the client and update every reader.
-- [ ] 6.5 GREEN: add the settings read and write, the old-column mirror and the validation.
-- [ ] 6.6 GREEN: resolve and seal each stage's provider and model.
-- [ ] 6.7 GREEN: deliver the style.
-- [ ] 6.8 GREEN: adapt the current form, its tests and the fixture to the new shape.
-- [ ] 6.9 Refactor, then run the server suites, the full frontend checks and the readability checks.
+- [x] 6.1 Confirm the settings, sealing and delivery code paths and every `selection` reader as the baseline.
+- [x] 6.2 RED: write the resolver and server tests.
+- [x] 6.3 GREEN: add the migration, the backfill and the grants.
+- [x] 6.4 GREEN: replace `selection` in the contracts, regenerate the client and update every reader.
+- [x] 6.5 GREEN: add the settings read and write, the old-column mirror and the validation.
+- [x] 6.6 GREEN: resolve and seal each stage's provider and model.
+- [x] 6.7 GREEN: deliver the style.
+- [x] 6.8 GREEN: adapt the current form, its tests and the fixture to the new shape.
+- [x] 6.9 Refactor, then run the server suites, the full frontend checks and the readability checks.
 
 ## 7. Batch defaults storage and new-batch snapshot
 
@@ -276,10 +276,10 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - Verification: The server suites, the contracts check, and the frontend checks for the banner.
 - Risks: The catalogue lookup sits outside the creation transaction, so a record deleted between the lookup and the insert is accepted. That is acceptable, because the batch later reconciles through the existing review freshness.
 
-- [ ] 7.1 Confirm the `create()` and catalogue reader paths as the baseline.
-- [ ] 7.2 RED: write the route and snapshot tests.
-- [ ] 7.3 GREEN: build the routes, the catalogue lookups, the snapshot through the existing writes, `creation_notices` and the Capture banner.
-- [ ] 7.4 Refactor, then run the server suites.
+- [x] 7.1 Confirm the `create()` and catalogue reader paths as the baseline.
+- [x] 7.2 RED: write the route and snapshot tests.
+- [x] 7.3 GREEN: build the routes, the catalogue lookups, the snapshot through the existing writes, `creation_notices` and the Capture banner.
+- [x] 7.4 Refactor, then run the server suites.
 
 ## 8. Forced connection check
 
@@ -300,10 +300,10 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - Verification: The server suites and the frontend checks.
 - Risks: A probe deadline longer than the click rate, which in-flight reuse covers.
 
-- [ ] 8.1 Confirm the cache and failure-code paths as the baseline.
-- [ ] 8.2 RED: write the server and frontend tests.
-- [ ] 8.3 GREEN: build the route and cache sharing, the `unauthorized` code, and both UI entry points.
-- [ ] 8.4 Refactor, then run the server and frontend checks.
+- [x] 8.1 Confirm the cache and failure-code paths as the baseline.
+- [x] 8.2 RED: write the server and frontend tests.
+- [x] 8.3 GREEN: build the route and cache sharing, the `unauthorized` code, and both UI entry points.
+- [x] 8.4 Refactor, then run the server and frontend checks.
 
 ## 9. Settings forms for the new rows
 
