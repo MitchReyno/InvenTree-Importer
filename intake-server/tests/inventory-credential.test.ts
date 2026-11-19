@@ -26,9 +26,11 @@ import { bootstrap, devConfig } from '#/config.ts'
 import { connectionStatus } from '#/header/connection.ts'
 import { CredentialHolder } from '#/inventory/credential.ts'
 import {
+  claimStore,
   CREDENTIAL_FILE,
   deleteCredential,
   loadSavedCredential,
+  requireStableAncestors,
   requireUnpublished,
   saveCredential,
 } from '#/inventory/credential-store.ts'
@@ -304,6 +306,39 @@ test('repeated resets never hold a status request: it answers unobserved and the
   await new Promise((resolve) => setImmediate(resolve))
   releases.shift()?.()
   assert.equal((await next).target.state, 'reachable')
+})
+
+test('a secrets directory under an ancestor others can write to is refused', async (t) => {
+  const parent = await mkdtemp(join(tmpdir(), 'intake-ancestors-'))
+  t.after(() => rm(parent, { recursive: true, force: true }))
+  const shared = join(parent, 'shared')
+  await mkdir(shared)
+  await chmod(shared, 0o777)
+  const sticky = join(parent, 'sticky')
+  await mkdir(sticky)
+  await chmod(sticky, 0o1777)
+
+  await assert.rejects(requireStableAncestors(join(shared, 'secrets')), {
+    code: 'secret_file_permissions',
+  })
+  // A sticky directory, like /tmp, lets only an entry's owner replace it.
+  await requireStableAncestors(join(sticky, 'secrets'))
+  await requireStableAncestors(join(parent, 'secrets'))
+})
+
+test('one running server owns a store; a lock left by an exited one is replaced', async (t) => {
+  const directory = await secretsDir(t)
+
+  const release = await claimStore(directory)
+  await assert.rejects(claimStore(directory), { code: 'secret_store_in_use' })
+  await release()
+  const again = await claimStore(directory)
+  await again()
+
+  // A process that has exited no longer holds the store.
+  await writeFile(join(directory, '.inventory-read-token.lock'), '999999999', { mode: 0o600 })
+  const reclaimed = await claimStore(directory)
+  await reclaimed()
 })
 
 test('a saved token is used only for the InvenTree and target context it was checked against', async (t) => {

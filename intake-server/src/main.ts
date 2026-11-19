@@ -31,7 +31,12 @@ import {
   type ReadOperation,
   type TargetBinding,
 } from './inventory/transport.ts'
-import { loadSavedCredential, requireUnpublished } from './inventory/credential-store.ts'
+import {
+  claimStore,
+  loadSavedCredential,
+  requireStableAncestors,
+  requireUnpublished,
+} from './inventory/credential-store.ts'
 import { registerFrontendAssets } from './api/frontend-assets.ts'
 import { configureReadTarget, readTargetBinding } from './inventory/read-target.ts'
 import { registerInventoryCredential } from './inventory/credential-routes.ts'
@@ -68,6 +73,7 @@ function startupFailureCode(error: unknown) {
     'secret_file_permissions',
     'secret_file_invalid',
     'invalid_secrets_directory',
+    'secret_store_in_use',
   ]
   return error instanceof Error && safe.includes(error.message)
     ? error.message
@@ -105,18 +111,24 @@ async function main() {
     }
   }
 
+  // Releases this process's claim on the secrets directory; nothing to release until claimed.
+  let releaseStore: () => Promise<void> = async () => undefined
+
   let server: ReturnType<typeof createServer> | undefined
   try {
     // A saved replacement other users could reach refuses startup, with or without a database.
     const readOrigin = process.env.INTAKE_READ_ORIGIN
     // The checkout too: the frontend dev server may serve any file in it.
     await requireUnpublished(config.secretsDir, [FRONTEND_ASSETS, REPOSITORY_ROOT])
+    await requireStableAncestors(config.secretsDir)
+    releaseStore = await claimStore(config.secretsDir)
     const saved = await loadSavedCredential(
       config.secretsDir,
       readTargetBinding(config, readOrigin),
     )
     const mediaStore = await configuredMediaStore(process.env, db?.pool)
     server = createServer(config, { mediaEnabled: mediaStore !== undefined })
+    server.addHook('onClose', releaseStore)
     registerReadiness(server, db?.pool, config, mediaStore !== undefined)
     if (db) {
       if (!(await compatibleSchema(db.pool))) {
@@ -221,6 +233,7 @@ async function main() {
     )
   } catch (error) {
     await server?.close().catch(() => undefined)
+    await releaseStore().catch(() => undefined)
     await closeDatabase()
     const code = startupFailureCode(error)
     throw new Error(code)

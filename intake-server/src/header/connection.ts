@@ -129,6 +129,10 @@ export type ConnectionStatusReader = (() => Promise<ConnectionStatusDto>) & {
    * running with the old token can no longer become the observation.
    */
   reset: () => void
+  /** Counts resets; an answer begun under another generation describes an older token. */
+  generation: () => number
+  /** The current answer without probing: the observation, or unobserved after a reset. */
+  latest: () => ConnectionStatusDto
 }
 
 /** One fixed profile owns one bounded cached observation and one coalesced probe. */
@@ -300,5 +304,11 @@ export function connectionStatus(
     lastForced = undefined
   }
 
-  return Object.assign(read, { check, reset })
+  return Object.assign(read, {
+    check,
+    reset,
+    generation: () => generation,
+    // Without probing: what a caller holding an older answer should return instead.
+    latest: () => unconfigured() ?? latest(),
+  })
 }

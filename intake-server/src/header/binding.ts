@@ -47,11 +47,18 @@ export function scopedConnectionStatus(
   const status = connectionStatus(scope, origin, probe, Date.now, version, undefined, credential)
 
   const fenced = (run: () => Promise<ConnectionStatusDto>) => async () => {
+    const generation = status.generation()
     await requireHeaderContext(pool, scope)
     const result = await run()
     await requireHeaderContext(pool, scope)
-    return result
+    // The token changed while the context was checked: that answer describes the old one.
+    return status.generation() === generation ? result : status.latest()
   }
 
-  return Object.assign(fenced(status), { check: fenced(status.check), reset: status.reset })
+  return Object.assign(fenced(status), {
+    check: fenced(status.check),
+    reset: status.reset,
+    generation: status.generation,
+    latest: status.latest,
+  })
 }

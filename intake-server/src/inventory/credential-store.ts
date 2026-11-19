@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { promisify } from 'node:util'
 import { constants, type Stats } from 'node:fs'
 import { realpathSync } from 'node:fs'
-import { lstat, mkdir, open, realpath, rename, rm } from 'node:fs/promises'
+import { lstat, mkdir, open, readFile, realpath, rename, rm } from 'node:fs/promises'
 import { basename, dirname, join, resolve, sep } from 'node:path'
 import { InventoryCredentialReplace, MAX_INVENTORY_TOKEN_LENGTH } from '@invimport/contracts'
 import type { SavedCredential } from './credential.ts'
@@ -36,6 +36,8 @@ export type SecretStoreFailure =
   | 'secret_file_invalid'
   /** The secrets directory overlaps a directory the server publishes. */
   | 'invalid_secrets_directory'
+  /** Another running server already owns this store. */
+  | 'secret_store_in_use'
 
 export class SecretStoreError extends Error {
   readonly code: SecretStoreFailure
@@ -113,6 +115,84 @@ async function canonical(path: string): Promise<string> {
 
 function within(inner: string, outer: string) {
   return inner === outer || inner.startsWith(outer.endsWith(sep) ? outer : outer + sep)
+}
+
+/** Sticky directories (such as /tmp) let only an entry's owner rename or remove it. */
+const STICKY = 0o1000
+/** Group and other write bits: either lets another user replace an entry inside. */
+const SHARED_WRITE = 0o022
+
+/**
+ * Refuses a secrets directory under an ancestor another user could change, where the entry a
+ * check inspects and the one a later write uses could differ. Each real ancestor must belong to
+ * root or this user, and be unwritable by others unless sticky.
+ */
+export async function requireStableAncestors(configured: string | undefined) {
+  if (!configured) {
+    return
+  }
+  const owner = process.getuid?.()
+  let ancestor = dirname(await canonical(resolve(configured)))
+  for (;;) {
+    const info = await lstat(ancestor)
+    const ownedSafely = owner === undefined || info.uid === 0 || info.uid === owner
+    const othersWrite = (info.mode & SHARED_WRITE) !== 0 && (info.mode & STICKY) === 0
+    if (!ownedSafely || othersWrite || (await hasAccessList(ancestor))) {
+      throw new SecretStoreError('secret_file_permissions')
+    }
+    const parent = dirname(ancestor)
+    if (parent === ancestor) {
+      return
+    }
+    ancestor = parent
+  }
+}
+
+/** Marks the store as this process's while it runs; removed on close. */
+const LOCK_FILE = '.inventory-read-token.lock'
+
+function processAlive(pid: number) {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    // EPERM means it exists but belongs to someone else.
+    return errorCode(error) === 'EPERM'
+  }
+}
+
+/**
+ * Claims the store for this process's lifetime, so two servers never keep different tokens in
+ * memory over one file. A lock left by a process that has exited is replaced.
+ */
+export async function claimStore(configured: string | undefined): Promise<() => Promise<void>> {
+  const directory = configured && resolve(configured)
+  if (!directory) {
+    return async () => undefined
+  }
+  await mkdir(directory, { recursive: true, mode: 0o700 })
+  await requirePrivateDirectory(directory)
+  const lock = join(directory, LOCK_FILE)
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const file = await open(lock, 'wx', 0o600)
+      await file.writeFile(String(process.pid))
+      await file.close()
+      return async () => {
+        await rm(lock, { force: true })
+      }
+    } catch (error) {
+      if (errorCode(error) !== 'EEXIST') {
+        throw new SecretStoreError('secret_store_unavailable', { cause: error })
+      }
+    }
+    const holder = Number((await readFile(lock, 'utf8').catch(() => '')).trim())
+    if (Number.isInteger(holder) && holder > 0 && processAlive(holder)) {
+      throw new SecretStoreError('secret_store_in_use')
+    }
+    await rm(lock, { force: true })
+  }
+  throw new SecretStoreError('secret_store_in_use')
 }
 
 /**

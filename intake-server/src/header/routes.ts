@@ -1,5 +1,10 @@
 import type { FastifyInstance } from 'fastify'
-import { schemas, type HeaderWorkDto, type HeaderWorkQueryDto } from '@invimport/contracts'
+import {
+  schemas,
+  type ConnectionStatusDto,
+  type HeaderWorkDto,
+  type HeaderWorkQueryDto,
+} from '@invimport/contracts'
 import { readModelError } from '#/api/errors.ts'
 import { bootstrap, type DevConfig } from '#/config.ts'
 import { connectionStatus, type ConnectionStatusReader } from './connection.ts'
@@ -8,7 +13,8 @@ import { fail } from '#/capture/model.ts'
 export function registerHeader(
   app: FastifyInstance,
   config: DevConfig,
-  connection: ConnectionStatusReader,
+  /** Reads and forced checks; resetting belongs to whoever changes the token. */
+  connection: (() => Promise<ConnectionStatusDto>) & Pick<ConnectionStatusReader, 'check'>,
   work: (batchId?: string) => Promise<HeaderWorkDto>,
 ) {
   const configured = bootstrap(config).status === 'configured'
