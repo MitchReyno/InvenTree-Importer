@@ -36,7 +36,7 @@ The cards SHALL keep the existing personal Claude credential (save, replace, rem
 
 **Tag suggestions.** SHALL hold "Suggest tags for new batches", the initial Auto tags value of each batch created after saving.
 
-**Web research.** SHALL hold "Allow public web pages" and "Prefer manufacturer datasheets", both on until the operator saves otherwise. "Allow public web pages" SHALL say that it applies to sessions in the VM and that, when on, search queries go to the session's provider. Both SHALL be disabled with a one-line explanation when the processing profile gives sessions no web access.
+**Web research.** SHALL hold "Allow public web pages" and "Prefer manufacturer datasheets", both on until the operator saves otherwise. "Allow public web pages" SHALL say that it applies to sessions in the VM, that it controls reading pages, and that provider web search stays on either way, sending queries to the session's provider. Both SHALL be disabled with a one-line explanation when the processing profile gives sessions no web access.
 
 #### Scenario: Change sessions at once
 

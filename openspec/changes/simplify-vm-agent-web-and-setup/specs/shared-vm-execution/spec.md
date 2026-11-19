@@ -118,13 +118,25 @@ With public web access on, the proxy SHALL allow a `CONNECT` only to port 443 of
 
 ### Requirement: Protected destinations come from the deployment
 
-The coordinator SHALL work out each turn's protected hosts from its own configuration, with no operator setting: the hosts of the InvenTree URLs it uses and every public name the app is served under. The proxy SHALL refuse a protected host, its subdomains, and any host resolving to one of its addresses, with `protected_destination`.
+The coordinator SHALL work out each turn's protected hosts from the deployment's configuration, with no operator setting: the host of each InvenTree origin the app reads or writes, and of the origin the app is served under. An entry MAY be a DNS name or a public IP address. The proxy SHALL refuse a protected name, its subdomains, and any host resolving to a protected address, with `protected_destination`.
 
 #### Scenario: Public InvenTree host
 
 - **GIVEN** `INTAKE_INVENTREE_URL=https://inventory.example.com` resolving to a public address
 - **WHEN** the agent connects to `inventory.example.com`, a subdomain of it, or another name sharing its address
 - **THEN** the proxy refuses with `protected_destination`
+
+#### Scenario: InvenTree configured by public address
+
+- **GIVEN** the app reads InvenTree at `https://203.0.113.10`
+- **WHEN** the agent connects to a public DNS name that resolves to `203.0.113.10`
+- **THEN** the proxy refuses with `protected_destination`
+
+#### Scenario: Origin settings missing for the agent worker
+
+- **GIVEN** VM tool sessions whose agent worker didn't receive the app and inventory origins
+- **WHEN** the worker starts its VM bridge
+- **THEN** it refuses with `session_agent_configuration_required`, and no turn is dispatched
 
 ### Requirement: Protected names that don't resolve publicly
 

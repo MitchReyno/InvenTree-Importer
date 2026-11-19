@@ -54,7 +54,7 @@ Tasks 5 and 7 have no dependency on the settings work, so they can proceed while
 - TDD approach:
   - The baseline is the existing reader tests passing.
   - RED: new egress tests expect public CONNECTs allowed with a policy, refusal reasons, IPv6 answers, port refusal and the skip rule. They fail against the provider-only proxy.
-- Verification: `python3 -I -m unittest tooling/deployment/tests/test_guest_egress.py`; `pnpm lint:backend` covers Python style; `rg -n 'bench-web|web-reader|public-web|reader.sock' --glob '!openspec/changes/archive/**'` returns only planning text.
+- Verification: a new root script `pnpm test:deployment` running `python3 -I -m unittest discover -s tooling/deployment/tests -p 'test_*.py'`, added to CI; `uv run --project backend ruff check --config backend/pyproject.toml tooling/deployment` (`pnpm lint:backend` doesn't cover `tooling/deployment`); `rg -n 'bench-web|web-reader|public-web|reader.sock' --glob '!openspec/changes/archive/**'` returns only planning text.
 - Risks and decisions: the long-lived personal egress containers must keep working without a policy file. Covered by a provider-only test.
 
 - [ ] 1.1 Run the existing reader and egress tests and record the baseline.
@@ -66,7 +66,7 @@ Tasks 5 and 7 have no dependency on the settings work, so they can proceed while
   - [ ] 1.2.5 A missing or malformed policy file means provider-only.
 - [ ] 1.3 GREEN: implement `guest-egress.py` and the `guest_destinations.py` changes, and update the callers and image.
 - [ ] 1.4 Remove the reader files, the `bench-web` install, and the socket check and mount. Port the remaining reader tests and delete the reader test file.
-- [ ] 1.5 Run the Python tests, `pnpm lint` and the reference search, and record the results.
+- [ ] 1.5 Add the `test:deployment` script and its CI step, run it, the deployment `ruff check`, `pnpm lint` and the reference search, and record the results.
 
 ## 2. Policy handoff and protected hosts
 
@@ -74,17 +74,19 @@ Tasks 5 and 7 have no dependency on the settings work, so they can proceed while
 - Outcome: each tool turn's egress proxy receives the sealed web setting and the deployment's protected hosts from the supervisor, through a channel the worker can't reach.
 - Scope and approach:
   - **Tool turn:** `tool-turn.sh` creates `$turn/policy` and mounts it read-write in the peer and read-only in egress, not in the worker (design D2).
-  - **Coordinator:** `intake-server/src/agents/shared-vm/coordinator.ts` adds a `protected_hosts` command field from a new `protectedHosts()` (design D4).
+  - **Configuration handoff:** the launcher (`tooling/dev.cjs`) passes the app and inventory origins to the agent worker, and `session-worker-main.ts` validates them and gives them to `startSessionBridge()` (design D4).
+  - **Coordinator:** `intake-server/src/agents/shared-vm/coordinator.ts` adds a `protected_hosts` command field from a new `protectedHosts()`, keeping public IP literals as protected addresses.
   - **Peer:** `guest-main.ts` validates the field and the optional manifest `web` object, then writes `policy.json` atomically before the worker turn.
   - **Input schema:** add the optional `web` object to the session input schema. It is absent, meaning off, until task 3.
   - **Retired setting:** `INTAKE_VM_PROTECTED_HOSTS` is no longer read.
 - Prerequisites: task 1.
 - Acceptance: shared-vm-execution › Egress applies the sealed web setting (both scenarios); Protected destinations come from the deployment; Scoped guest execution and tool access › Public web access off.
 - TDD approach:
-  - RED: coordinator tests expect `protected_hosts` worked out from the configured URLs, skipping IP literals and loopback.
+  - RED: coordinator tests expect `protected_hosts` worked out from the configured origins, keeping public IP literals and dropping loopback and private names.
+  - RED: a launcher test expects the agent worker's environment to carry the origins, and a worker test expects `session_agent_configuration_required` when they are missing.
   - RED: peer tests expect `policy.json` contents and refusal of invalid host lists.
   - RED: a `tool-turn.sh` argument test expects the policy mount absent from the worker's `docker run` arguments.
-- Verification: `pnpm test:intake`; the shell argument test under `tooling/deployment/tests`; `tool-worker-smoke.sh` with the paired VM, showing a public `curl` refused while web is off. If the VM isn't available, record that limitation in the PR.
+- Verification: `pnpm test:intake`, plus `pnpm test:intake:process` for the bridge and worker start-up; `pnpm test:dev` for the launcher passing the origin settings to the agent worker; `pnpm test:deployment` for the `tool-turn.sh` argument test; `tool-worker-smoke.sh` with the paired VM, showing a public `curl` refused while web is off. If the VM isn't available, record that limitation in the PR.
 - Risks and decisions: the order of the policy write and the worker start matters. The peer writes before it calls the worker, and the test asserts that order.
 
 - [ ] 2.1 Read the coordinator command and peer validation paths, and record the current command shape.
@@ -107,14 +109,15 @@ Tasks 5 and 7 have no dependency on the settings work, so they can proceed while
 - TDD approach:
   - RED: settings route tests for defaults and revision conflicts.
   - RED: session-attempt tests for sealing, a save while queued, and other profiles sealing off.
+  - RED: decoding a retained input with and without the `web` object.
   - RED: frontend tests for the switches, disabled state, save and conflict.
-- Verification: `pnpm test:intake`, `pnpm test:frontend`, `pnpm typecheck`, `pnpm build`, `pnpm contracts:check`. A demo video goes on the PR.
+- Verification: `pnpm test:intake`, `pnpm test:intake:pg` (attempt sealing against PostgreSQL), `pnpm test:frontend`, `pnpm lint:frontend`, `pnpm typecheck`, `pnpm build`, `pnpm contracts:check`. A demo video goes on the PR.
 - Risks and decisions: BI-016 may change the input version or the settings shape. Adapt to it, and record the departure in `notes.md`.
 
 - [ ] 3.1 Rebase the `app-settings` delta and this task's approach onto the merged BI-016, and record any differences in `notes.md`.
 - [ ] 3.2 RED: add the contract, settings, sealing and frontend tests, and confirm the failures.
 - [ ] 3.3 GREEN: implement the contract fields, defaults, sealing and the Settings subsection.
-- [ ] 3.4 Run the full intake and frontend checks, `pnpm typecheck`, `pnpm build` and `pnpm contracts:check`, and record the demo video for the PR.
+- [ ] 3.4 Run `pnpm test:intake`, `pnpm test:intake:pg`, `pnpm test:frontend`, `pnpm lint:frontend`, `pnpm typecheck`, `pnpm build` and `pnpm contracts:check`, and record the demo video for the PR.
 
 ## 4. Web guidance in instructions and the opening message
 
@@ -127,7 +130,7 @@ Tasks 5 and 7 have no dependency on the settings work, so they can proceed while
 - Prerequisites: task 3.
 - Acceptance: processing-agent-sessions › Instructions describe the VM web tools (Host session); Opening message carries the session's web settings (both scenarios).
 - TDD approach: RED session-runner tests for the opening text with web on, web off and the preference, an unchanged digest across settings, and no web text for `native-agent/2`.
-- Verification: `pnpm test:intake`.
+- Verification: `pnpm test:intake`, and `pnpm test:intake:process` for the session runner's process tier.
 - Risks and decisions: the profile digest changes, which is expected. Task 10 requalifies.
 
 - [ ] 4.1 RED: add session-runner tests for each case, and confirm the failures.
@@ -142,7 +145,7 @@ Tasks 5 and 7 have no dependency on the settings work, so they can proceed while
 - Prerequisites: None.
 - Acceptance: operations-backup-restore › Operations liveness and readiness (all scenarios).
 - TDD approach: RED readiness tests for `shared-vm-agent/2` (`web: available`) and `synthetic-session/1` (`web: unavailable`), plus a Diagnostics component test.
-- Verification: `pnpm test:intake`, `pnpm test:frontend`, `pnpm contracts:check`.
+- Verification: `pnpm test:intake`, `pnpm test:frontend`, `pnpm lint:frontend`, `pnpm contracts:check`.
 - Risks and decisions: none.
 
 - [ ] 5.1 RED: add the readiness and diagnostics tests, and confirm the failures.
@@ -186,13 +189,18 @@ Tasks 5 and 7 have no dependency on the settings work, so they can proceed while
   - a failed step stopping the run;
   - the VM stop rules;
   - an origin change reprovisioning.
-- Verification: `pnpm test:dev` (with the new `tooling/tests/dev-vm-setup.test.cjs` added to that script), `pnpm lint:tooling`, and one recorded `pnpm vm:setup` run on a disposable VM name (`INTAKE_VM_NAME=bench-agent-setup-test`) plus a rerun, with output attached to the PR. The real `bench-agent-m1-local` VM and its pairing are not touched.
+- Verification: `pnpm test:dev` (with the new `tooling/tests/dev-vm-setup.test.cjs` added to that script), `pnpm lint:tooling`, and one recorded `pnpm vm:setup` run plus a rerun, with output attached to the PR. The run is isolated:
+  - a disposable VM name (`INTAKE_VM_NAME=bench-agent-setup-test`);
+  - a new temporary `INTAKE_DEV_STATE`, so the pairing and operator key default inside it;
+  - a new guest directory.
+
+  The real `bench-agent-m1-local` VM, its pairing and Mitch's state directory are not touched.
 - Risks and decisions: image builds take minutes, so the tests never build for real.
 
 - [ ] 7.1 Read `tooling/tests/dev-vm.test.cjs` and record the injected `exec` shape to reuse.
 - [ ] 7.2 RED: add the setup tests, and confirm the failures.
 - [ ] 7.3 GREEN: implement `vm-setup.cjs`, the script entry and the provisioning script changes.
-- [ ] 7.4 Run the tests and lint, then the disposable-VM run and rerun. Attach the output to the PR, and delete the disposable VM afterwards.
+- [ ] 7.4 Run the tests and lint, then the isolated run and rerun. Attach the output to the PR, then delete only the disposable VM and the temporary state directory.
 
 ## 8. Runner image freshness in `pnpm dev`
 

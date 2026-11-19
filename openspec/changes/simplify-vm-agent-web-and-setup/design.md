@@ -56,7 +56,7 @@ coordinator ──TLS──▶ peer (supervisor) ──writes──▶ $turn/pol
 - `tool-turn.sh` creates `$turn/policy`. It mounts it read-write into the peer only, and read-only into the egress container. The worker never sees it, the same isolation `/run/reap` already relies on.
 - The peer validates the command:
   - the sealed `web` fields from the manifest;
-  - `protected_hosts`, a new command field holding at most 32 lowercase DNS names.
+  - `protected_hosts`, a new command field holding at most 32 entries, each a lowercase DNS name or an IP address literal.
 
   It then writes `policy.json` atomically (temporary file, then rename), before it starts the worker turn.
 - The egress proxy reads the file on each CONNECT. Missing or invalid means provider-only.
@@ -79,12 +79,22 @@ The fields are optional, so the input schema version doesn't change. If `setting
 
 ### D4. Protected hosts are worked out by the coordinator
 
-`protectedHosts()` in the intake server collects:
+`protectedHosts()` in the intake server collects the host part of every origin the deployment serves or reads:
 
-- the hostnames of the configured InvenTree URLs (`INTAKE_INVENTREE_URL`, and the target used for writes when it is configured);
-- the app's public names (the tailnet certificate name when `INTAKE_DEV_TAILSCALE` is on, and any configured public origin).
+- the InvenTree origins the app reads and, when configured, writes to;
+- the app's own origin, which is the tailnet name when `INTAKE_DEV_TAILSCALE` is on.
 
-IP literals, `localhost` and names with private suffixes are dropped, because the destination rules already refuse them. The skip for "resolves only to non-public addresses" happens in the egress proxy, because only the guest's DNS is authoritative for what the agent would reach.
+**Entries:** an entry is a DNS name or an IP address literal.
+- A public IP literal is kept as a protected address, so a DNS name aliasing it is refused.
+- Loopback and other non-public literals, `localhost` and names with private suffixes are dropped, because the destination rules already refuse them.
+- The skip for "resolves only to non-public addresses" happens in the egress proxy, because only the guest's DNS is authoritative for what the agent would reach.
+
+**Configuration handoff.** Today the agent worker receives neither the app origin nor the inventory target. `tooling/dev.cjs:417-455` gives `INTAKE_ORIGIN` and `apiTargetEnv()` only to the API child, and `session-worker-main.ts:108` passes the bridge only the pairing directory and port. So:
+- the launcher passes the same non-secret origin settings to the agent worker. Standalone deployments set them the way they already do for the API (`intake-server/src/config.ts`);
+- `session-worker-main.ts` validates them, and refuses to start the bridge with `session_agent_configuration_required` when they are missing or malformed;
+- it then hands them to `startSessionBridge()`, which the coordinator uses for each turn.
+
+No credential is passed.
 
 `INTAKE_VM_PROTECTED_HOSTS` is removed. Its one remaining reader, the long-lived egress started by `personal-*.sh`, has no public branch, so it doesn't need one.
 
@@ -141,11 +151,11 @@ The VM is stopped at the end only if this run started it, unless `INTAKE_VM_KEEP
 
 ### D9. Runner image freshness
 
-- The digest is a SHA-256 over the sorted list of `path` plus file-content hash for tracked and untracked, non-ignored files under:
-  - `tooling/deployment/images/`, `tooling/deployment/guest/`, `tooling/deployment/bridge/`;
-  - `intake-server/src/`, `contracts/src/`, `media-decoder/src/`;
-  - `intake-server/package.json`, `contracts/package.json`, `media-decoder/package.json`;
-  - the root `package.json`, `pnpm-lock.yaml` and `pnpm-workspace.yaml`.
+- The digest covers every input of the runner image's build chain:
+  - `app.Dockerfile`, `runner.Dockerfile` and the guest image context `tooling/deployment/guest/`;
+  - every build-context `COPY` source in those Dockerfiles, skipping `COPY --from` stage copies. Today that includes `contracts/src`, `contracts/generated`, `frontend`, `intake-server/src` and `intake-server/migrations`, `media-decoder/src`, `backend/src`, `backend/config`, `backend/pyproject.toml` and `uv.lock`, the workspace manifests and lockfile, `tooling/openapi-generator/package.json`, `LICENSE`, and the bridge files the runner copies.
+- It is a SHA-256 over the sorted `path` and file-content hash of each tracked or untracked, non-ignored file under those sources.
+- The source list is parsed from the Dockerfiles rather than kept by hand, so a new `COPY` is covered automatically. Base images are pinned by digest in the Dockerfile text, which is itself hashed.
 - The build passes it as `--label org.bench-intake.source-digest=<digest>`.
 - Before starting the relays, `pnpm dev` (managed) reads the label from the guest. If it differs, it runs D8's image, load and guest-service steps.
 - With management off, it only warns.
@@ -191,7 +201,10 @@ The VM is stopped at the end only if this run started it, unless `INTAKE_VM_KEEP
   - The old `bench-public-reader` container is removed by the next `vm:setup` or image refresh, and is harmless if left.
   - The README tells existing users to run `pnpm vm:setup` once. It keeps their pairing and sign-ins.
   - Existing conversations can't resume across the admission policy change.
-- **Rollback:** revert the PRs. Old attempts never had web fields, and new attempts with web fields are ignored by older code, so no data migration is needed.
+- **Rollback:**
+  - PR-A, PR-C and PR-D revert cleanly. PR-A adds the optional `web` schema field, but nothing seals it before PR-B.
+  - PR-B is forward-only once an attempt has been sealed with `web` fields. The session input schema has `additionalProperties: false` (`contracts/src/processing.ts:10-11`), and `decodeSessionInput()` validates retained manifests (`session-input.ts:71-74`). Code without the field would reject those inputs, and sealed inputs must not be rewritten.
+  - So a problem after PR-B is fixed forward, for example by forcing the egress policy to provider-only. PR-B's tests include decoding a retained input with and without `web`.
 - **Observability:** each egress refusal is counted by reason in the turn's diagnostic counters, without hosts.
 
 ## Risks and open decisions
