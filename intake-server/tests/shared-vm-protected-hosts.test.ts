@@ -56,6 +56,10 @@ test('an origin that cannot be represented is refused, never dropped', () => {
     'ftp://inventory.example.com',
     'https://inventree',
     'https://inventory_example.com',
+    'https:inventory.example.com',
+    'https://inventory.example.com,,',
+    ',https://inventory.example.com',
+    'https://',
     `https://${['a'.repeat(63), 'a'.repeat(63), 'a'.repeat(63), 'a'.repeat(63)].join('.')}`,
   ]) {
     assert.throws(

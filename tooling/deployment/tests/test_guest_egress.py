@@ -113,7 +113,8 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
                         json.dumps({"version": 1, "public_pages": True, "protected_hosts": ["Bad Host"]}),
                         json.dumps({"version": True, "public_pages": True, "protected_hosts": []}),
                         json.dumps({"version": 1, "public_pages": True, "protected_hosts": [], "extra": 1}),
-                        '{"version": 1, "public_pages": false, "public_pages": true, "protected_hosts": []}'):
+                        '{"version": 1, "public_pages": false, "public_pages": true, "protected_hosts": []}',
+                        "[" * 8000 + "]" * 8000):
             with self.subTest(content=content):
                 self.policy.write_text(content)
                 written, upstream = await self.connect("www.ti.com:443", table)
@@ -145,7 +146,8 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
     async def test_malformed_targets_are_refused_before_dns(self):
         self.write_policy()
         for target in ("example.com:22", "127.0.0.1:443", "[::1]:443", "inventory.internal:443",
-                       "host.lima.local:443", "Example.com:443", "example:443", "example.com:abc",
+                       "host.lima.local:443", "Example.com:443", "example:443", "example.com:abc", "example.com:0",
+                       "example.com:" + "4" * 4500,
                        ".".join(["a" * 63] * 4) + ":443"):
             with self.subTest(target=target):
                 written, upstream = await self.connect(target, {})

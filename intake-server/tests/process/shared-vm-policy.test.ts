@@ -5,6 +5,7 @@ import { once } from 'node:events'
 import { mkdir, mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { createServer } from 'node:net'
 import { connect } from 'node:tls'
 import { fileURLToPath } from 'node:url'
 import { processingFixture } from '../support/processing.ts'
@@ -12,6 +13,8 @@ import { freePort } from '../support/manual-process.ts'
 import { pairedCertificates } from '../support/vm-pairing.ts'
 import { lotSession } from '../support/sessions.ts'
 import { runSessionTurn } from '#/agents/session/session-runner.ts'
+import { sealed } from '#/processing/model.ts'
+import { decodeSessionInput } from '#/processing/session-input.ts'
 import { startSessionBridge } from '#/agents/shared-vm/coordinator.ts'
 import { serveGuestTurn } from '#/agents/shared-vm/guest-turn.ts'
 import type { nativeTurn } from '#/agents/shared-vm/native-turn.ts'
@@ -118,18 +121,54 @@ test(
   },
 )
 
-for (const [label, misconfiguration] of [
-  ['without protected origins', {}],
-  [
-    'with a bridge port it cannot use',
-    {
-      INTAKE_AGENT_PROTECTED_ORIGINS: 'http://127.0.0.1:4330,https://inventory.example.com',
-      INTAKE_VM_PORT: 'not-a-port',
+const validOrigins = 'http://127.0.0.1:4330,https://inventory.example.com'
+
+interface Misconfiguration {
+  label: string
+  /** The refusal code the worker reports. */
+  code: string
+  /** Environment overrides, after any files or listeners the case needs. */
+  prepare: (root: string, t: TestContext) => Promise<Record<string, string>>
+}
+
+const misconfigurations: Misconfiguration[] = [
+  {
+    label: 'without protected origins',
+    code: 'session_agent_configuration_required',
+    prepare: async () => ({}),
+  },
+  {
+    label: 'with a bridge port it cannot use',
+    code: 'session_agent_configuration_required',
+    prepare: async () => ({ INTAKE_AGENT_PROTECTED_ORIGINS: validOrigins, INTAKE_VM_PORT: 'x' }),
+  },
+  {
+    label: 'without its pairing files',
+    code: 'session_agent_startup_refused',
+    prepare: async () => ({ INTAKE_AGENT_PROTECTED_ORIGINS: validOrigins }),
+  },
+  {
+    label: 'whose bridge port is already in use',
+    code: 'session_agent_startup_refused',
+    prepare: async (root, t) => {
+      await pairedCertificates(root)
+      const port = await freePort()
+      const holder = createServer()
+      holder.listen(port, '127.0.0.1')
+      await once(holder, 'listening')
+      t.after(() => holder.close())
+      return {
+        INTAKE_AGENT_PROTECTED_ORIGINS: validOrigins,
+        INTAKE_VM_PAIR: join(root, 'bench-coordinator'),
+        INTAKE_VM_PORT: String(port),
+      }
     },
-  ],
-] as const) {
+  },
+]
+
+for (const misconfiguration of misconfigurations) {
   test(
-    `a VM tool worker ${label} refuses before it recovers retained sessions`,
+    `a VM tool worker ${misconfiguration.label} refuses before it recovers retained sessions`,
     { timeout: 60000 },
     async (t) => {
       const fixture = await processingFixture({ profileId: 'shared-vm-agent/2' })
@@ -155,6 +194,7 @@ for (const [label, misconfiguration] of [
       t.after(() => rm(root, { recursive: true, force: true }))
       const stateRoot = join(root, 'state')
       await mkdir(stateRoot, { mode: 0o700 })
+      const overrides = await misconfiguration.prepare(root, t)
       const worker = spawn(
         process.execPath,
         [
@@ -180,7 +220,7 @@ for (const [label, misconfiguration] of [
             INTAKE_TARGET_CONTEXT_ID: fixture.config.targetContextId,
             INTAKE_PROCESSING_CHANNEL_SECRET: fixture.config.channelSecret,
             INTAKE_PROCESSING_PROFILE: 'shared-vm-agent/2',
-            ...misconfiguration,
+            ...overrides,
           },
           stdio: ['ignore', 'pipe', 'pipe'],
         },
@@ -189,9 +229,44 @@ for (const [label, misconfiguration] of [
       worker.stderr.on('data', (bytes: Buffer) => (output += bytes.toString()))
       const [code] = await once(worker, 'exit')
       assert.equal(code, 1)
-      assert.match(output, /"code":"session_agent_configuration_required"/)
+      assert.match(output, new RegExp(`"code":"${misconfiguration.code}"`))
       assert.equal(before, 'running')
       assert.equal(await stateOf(), before)
     },
   )
 }
+
+test('retained session inputs decode with and without sealed web settings', async (t) => {
+  const fixture = await processingFixture({ profileId: 'shared-vm-agent/2' })
+  t.after(() => fixture.dispose())
+  const capture = await fixture.seedCapture()
+  const { attempt } = await lotSession(fixture, capture, capture.packetA, {
+    state: 'queued',
+    profile: {
+      id: 'shared-vm-agent/2',
+      agent: { provider: 'claude', authentication: 'subscription', model: 'haiku' },
+      settingsRevision: '1',
+    },
+  })
+  const {
+    rows: [retained],
+  } = await fixture.db.pool.query<{ manifest_bytes: Buffer; manifest_digest: Buffer }>(
+    `SELECT i.manifest_bytes, i.manifest_digest
+       FROM processing_attempt a JOIN processing_input i ON i.id = a.input_id
+      WHERE a.id = $1`,
+    [attempt],
+  )
+  const manifest = decodeSessionInput(retained.manifest_bytes, retained.manifest_digest)
+  assert.equal(manifest.web, undefined)
+  const web = { public_pages: true, prefer_datasheets: false }
+  const withWeb = sealed({ ...manifest, web })
+  assert.deepEqual(decodeSessionInput(withWeb.bytes, withWeb.digest).web, web)
+  for (const malformed of [
+    { public_pages: 'yes', prefer_datasheets: false },
+    { public_pages: true },
+    { public_pages: true, prefer_datasheets: false, extra: 'x' },
+  ]) {
+    const input = sealed({ ...manifest, web: malformed })
+    assert.throws(() => decodeSessionInput(input.bytes, input.digest), JSON.stringify(malformed))
+  }
+})

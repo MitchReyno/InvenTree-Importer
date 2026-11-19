@@ -61,7 +61,8 @@ def load_policy():
         return None
     try:
         policy = json.loads(raw, object_pairs_hook=unique_object)
-    except ValueError:
+    except (ValueError, RecursionError):
+        # Deep nesting can exhaust the decoder's recursion on some Python versions.
         return None
     # `type(...) is int` keeps JSON true from passing as version 1.
     if (not isinstance(policy, dict) or set(policy) != POLICY_KEYS
@@ -83,7 +84,7 @@ def connect_target(request_line):
         host, separator, port = fields[1].decode("ascii").rpartition(":")
     except UnicodeDecodeError as error:
         raise Refused("destination_refused") from error
-    if not separator or not port.isdigit():
+    if not separator or not (port.isdigit() and len(port) <= 5) or not 1 <= int(port) <= 65535:
         raise Refused("destination_refused")
     return host, int(port)
 

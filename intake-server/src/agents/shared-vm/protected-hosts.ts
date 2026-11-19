@@ -23,8 +23,15 @@ export function protectedEntry(value: unknown): value is string {
   return dnsName || isIP(value) !== 0
 }
 
+/** An origin written out in full: scheme, `//` and a non-empty authority. */
+const EXPLICIT_ORIGIN = /^https?:\/\/[^/?#\s]/i
+
 /** The host of one configured origin in standard form, or undefined for bare `localhost`. */
 function originHost(origin: string): string | undefined {
+  // The URL parser would repair forms such as `https:host`; a configured origin must not need it.
+  if (!EXPLICIT_ORIGIN.test(origin)) {
+    return configurationRequired()
+  }
   let url: URL
   try {
     url = new URL(origin)
@@ -55,11 +62,8 @@ function originHost(origin: string): string | undefined {
  * egress skips non-public addresses itself.
  */
 export function protectedHosts(origins: string): string[] {
-  const entries = origins
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter((entry) => entry !== '')
-  if (entries.length === 0) {
+  const entries = origins.split(',').map((entry) => entry.trim())
+  if (entries.some((entry) => entry === '')) {
     return configurationRequired()
   }
   const hosts = new Set<string>()

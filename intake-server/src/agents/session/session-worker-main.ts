@@ -104,6 +104,12 @@ async function main() {
       ownerLost = true
       shutdown.abort()
     })
+    // Pairing files and the listener are checked before recovery changes any retained session.
+    if (vmBridge) {
+      bridge = await startSessionBridge(vmBridge.pair, vmBridge.port, {
+        protectedHosts: vmBridge.protectedHosts,
+      })
+    }
     // This process now owns the actor, so no other worker can be running these turns.
     await interruptRunningSessions(db.pool, config)
     const store = process.env.INTAKE_BLOB_ROOT
@@ -119,11 +125,6 @@ async function main() {
       config,
       store,
     })
-    if (vmBridge) {
-      bridge = await startSessionBridge(vmBridge.pair, vmBridge.port, {
-        protectedHosts: vmBridge.protectedHosts,
-      })
-    }
     const deps: SessionRunnerDeps = {
       pool: db.pool,
       config,
