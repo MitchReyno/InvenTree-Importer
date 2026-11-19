@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { InventoryCredentialDto } from '@invimport/contracts'
+import type { ConnectionStatusDto, InventoryCredentialDto } from '@invimport/contracts'
 import { serverQueryKey } from '#/queries/scope'
 import { useNow } from '#/browser/useNow'
 import { useOnForeground } from '#/browser/useOnForeground'
@@ -9,6 +9,17 @@ import type { HeaderClient } from './types'
 // Leaf modules, not the barrel: the barrel's HeaderObservationsContext imports this hook.
 import { useRetainedPollInterval } from '#/context/LiveUpdatesContext'
 import { useServerScope } from '#/context/ServerScopeContext'
+
+/** The target as it stands before any probe with the new token has answered. */
+function unobserved(target: ConnectionStatusDto['target']): ConnectionStatusDto['target'] {
+  return {
+    ...target,
+    state: 'unknown',
+    freshness: 'unobserved',
+    observed_at: null,
+    failure_code: null,
+  }
+}
 
 export function useHeaderObservations(client: HeaderClient, batchId?: string) {
   const scope = useServerScope()
@@ -61,11 +72,17 @@ export function useHeaderObservations(client: HeaderClient, batchId?: string) {
    * the connection is read again.
    */
   async function tokenCommand(send: () => Promise<InventoryCredentialDto>) {
+    const key = serverQueryKey(scope, 'header-connection')
     try {
-      return await send()
+      const receipt = await send()
+      await queryClient.cancelQueries({ queryKey: key })
+      // The confirmed source shows at once; the old token's observation no longer applies.
+      queryClient.setQueryData<ConnectionStatusDto>(key, (old) =>
+        old ? { ...old, target: { ...unobserved(old.target), ...receipt } } : old,
+      )
+      return receipt
     } finally {
       tokenCommands.current += 1
-      const key = serverQueryKey(scope, 'header-connection')
       await queryClient.cancelQueries({ queryKey: key })
       void queryClient.invalidateQueries({ queryKey: key })
     }

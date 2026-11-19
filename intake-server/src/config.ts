@@ -1,6 +1,6 @@
 import { Bootstrap, validate, type BootstrapDto } from '@invimport/contracts'
 import { strictJson } from '@invimport/contracts/json'
-import { isAbsolute } from 'node:path'
+import { isAbsolute, resolve } from 'node:path'
 import type { ProcessingConfig } from './processing/attempts.ts'
 import { canonicalSourceUrl } from './research/source-policy.ts'
 import {
@@ -37,7 +37,8 @@ export function devConfig(env: NodeJS.ProcessEnv): DevConfig {
     apiKey: env.INTAKE_DEV_API_KEY,
     targetKind:
       env.INTAKE_TARGET_PROFILE === 'fake' ? ('owned_test' as const) : ('configured' as const),
-    secretsDir: env.INTAKE_SECRETS_DIR || undefined,
+    // Normalized once, so every check and file operation names the same directory entry.
+    secretsDir: env.INTAKE_SECRETS_DIR ? resolve(env.INTAKE_SECRETS_DIR) : undefined,
   }
   const url = new URL(config.origin)
   if (url.hostname !== '127.0.0.1' || url.protocol !== 'http:' || url.origin !== config.origin) {
@@ -47,7 +48,7 @@ export function devConfig(env: NodeJS.ProcessEnv): DevConfig {
     throw new Error('invalid_credential_reference')
   }
   // Relative paths would follow the server's working directory, not the operator's intent.
-  if (config.secretsDir !== undefined && !isAbsolute(config.secretsDir)) {
+  if (env.INTAKE_SECRETS_DIR && !isAbsolute(env.INTAKE_SECRETS_DIR)) {
     throw new Error('invalid_secrets_directory')
   }
   validate('Bootstrap', bootstrap(config))

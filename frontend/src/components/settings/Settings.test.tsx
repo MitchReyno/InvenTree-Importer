@@ -436,6 +436,28 @@ test('a check sent before a token change never replaces the status read after it
   expect(within(row).queryByText('Refused')).toBeNull()
 })
 
+test('a confirmed save shows the saved token at once, even while the next read is still out', async () => {
+  const user = userEvent.setup()
+  header.replaceInventoryCredential.mockResolvedValueOnce({
+    credential_source: 'saved',
+    credential_saved_at: new Date().toISOString(),
+  })
+  renderSettings('inventree')
+  const row = screen.getByRole('group', { name: 'API token' })
+  await within(row).findByText('Accepted')
+  // Every read after the save stalls.
+  header.connection.mockImplementation(() => new Promise(() => undefined))
+
+  await user.click(within(row).getByRole('button', { name: 'Replace token…' }))
+  await user.type(within(row).getByLabelText('New API token'), 'fresh-read-token')
+  await user.click(within(row).getByRole('button', { name: 'Check and save' }))
+
+  expect(await within(row).findByText(/Using the token saved here on/)).toBeVisible()
+  // The old token's Accepted no longer applies until a read with the new one answers.
+  expect(within(row).getByText('Unavailable')).toBeVisible()
+  expect(within(row).getByRole('button', { name: 'Use the environment token…' })).toBeVisible()
+})
+
 const DEFERRED: [SettingsSectionId, string[]][] = [
   ['agents', ['Fill descriptions for', 'Supplier part descriptions', 'Web research']],
   ['defaults', ['Tags']],

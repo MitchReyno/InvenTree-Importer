@@ -32,9 +32,9 @@ import {
   type TargetBinding,
 } from './inventory/transport.ts'
 import { loadSavedCredential, requireUnpublished } from './inventory/credential-store.ts'
+import { registerFrontendAssets } from './api/frontend-assets.ts'
 import { configureReadTarget, readTargetBinding } from './inventory/read-target.ts'
 import { registerInventoryCredential } from './inventory/credential-routes.ts'
-import fastifyStatic from '@fastify/static'
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
@@ -204,11 +204,7 @@ async function main() {
       registerManual(server, db.pool, manualConfig, read, targetReads?.attachments, processing)
     }
     if (existsSync(FRONTEND_ASSETS)) {
-      await server.register(fastifyStatic, {
-        root: FRONTEND_ASSETS,
-        index: 'index.html',
-        dotfiles: 'deny',
-      })
+      await registerFrontendAssets(server, FRONTEND_ASSETS, config.secretsDir)
     }
     for (const signal of ['SIGINT', 'SIGTERM'] as const) {
       process.once(signal, () => {

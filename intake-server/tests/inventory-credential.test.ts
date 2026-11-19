@@ -21,6 +21,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { MAX_INVENTORY_TOKEN_LENGTH } from '@invimport/contracts'
 import { createServer } from '#/api/server.ts'
+import { registerFrontendAssets } from '#/api/frontend-assets.ts'
 import { bootstrap, devConfig } from '#/config.ts'
 import { connectionStatus } from '#/header/connection.ts'
 import { CredentialHolder } from '#/inventory/credential.ts'
@@ -211,6 +212,72 @@ test('a linked directory, a linked file or a pipe is refused without blocking', 
 
   execFileSync('mkfifo', ['-m', '600', join(directory, CREDENTIAL_FILE)])
   await assert.rejects(loadSavedCredential(directory, TARGET), { code: 'secret_file_permissions' })
+})
+
+test('a link among the published app files never serves the saved token', async (t) => {
+  const directory = await secretsDir(t)
+  await saveCredential(directory, PLANTED, TARGET)
+  const dist = join(directory, '..', 'dist')
+  await mkdir(dist)
+  await writeFile(join(dist, 'index.html'), '<!doctype html>')
+  await symlink(join(directory, CREDENTIAL_FILE), join(dist, 'token.txt'))
+  await symlink(directory, join(dist, 'linked'))
+  const app = createServer(config)
+  await registerFrontendAssets(app, dist, directory)
+
+  const page = await app.inject({ url: '/', headers: { host: '127.0.0.1:4334' } })
+  const linkedFile = await app.inject({ url: '/token.txt', headers: { host: '127.0.0.1:4334' } })
+  const linkedDirectory = await app.inject({
+    url: `/linked/${CREDENTIAL_FILE}`,
+    headers: { host: '127.0.0.1:4334' },
+  })
+
+  assert.equal(page.statusCode, 200)
+  for (const response of [linkedFile, linkedDirectory]) {
+    assert.notEqual(response.statusCode, 200)
+    assert.ok(!response.body.includes(PLANTED))
+  }
+})
+
+test('a linked directory is refused however the path is spelled', async (t) => {
+  const directory = await secretsDir(t)
+  const real = `${directory}-real`
+  await mkdir(real, { mode: 0o700 })
+  await symlink(real, directory)
+
+  for (const spelling of [`${directory}/`, `${directory}/.`, `${directory}/x/..`]) {
+    await assert.rejects(loadSavedCredential(spelling, TARGET), {
+      code: 'secret_file_permissions',
+    })
+    await assert.rejects(saveCredential(spelling, PLANTED, TARGET), {
+      code: 'secret_file_permissions',
+    })
+  }
+  assert.deepEqual(await readdir(real), [])
+})
+
+test('repeated resets never hold a status request: it answers unobserved and the next read probes', async () => {
+  const releases: (() => void)[] = []
+  const status = connectionStatus(binding, 'https://inventory.example.invalid/', async () => {
+    await new Promise<void>((resolve) => releases.push(resolve))
+    return json(200)
+  })
+
+  const waiting = status()
+  for (let reset = 0; reset < 3; reset += 1) {
+    await new Promise((resolve) => setImmediate(resolve))
+    status.reset()
+    releases.shift()?.()
+  }
+  const answer = await waiting
+  releases.forEach((release) => release())
+
+  assert.equal(answer.target.state, 'unknown')
+  assert.equal(answer.target.freshness, 'unobserved')
+  const next = status()
+  await new Promise((resolve) => setImmediate(resolve))
+  releases.shift()?.()
+  assert.equal((await next).target.state, 'reachable')
 })
 
 test('a saved token is used only for the InvenTree and target context it was checked against', async (t) => {

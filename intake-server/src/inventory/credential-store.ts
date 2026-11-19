@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { constants, type Stats } from 'node:fs'
+import { realpathSync } from 'node:fs'
 import { lstat, mkdir, open, realpath, rename, rm } from 'node:fs/promises'
 import { basename, dirname, join, resolve, sep } from 'node:path'
 import { InventoryCredentialReplace, MAX_INVENTORY_TOKEN_LENGTH } from '@invimport/contracts'
@@ -112,6 +113,27 @@ export async function requireUnpublished(
   }
 }
 
+/**
+ * For a static file handler: false for any request whose file, after following links, is in the
+ * secrets directory. A link placed among published files still can't reach the token.
+ */
+export async function servesOutside(directory: string | undefined) {
+  if (!directory) {
+    return () => true
+  }
+  const secrets = await canonical(resolve(directory))
+  return (file: string) => {
+    let actual
+    try {
+      actual = realpathSync(file)
+    } catch {
+      // A file that doesn't exist is answered as not found anyway.
+      return true
+    }
+    return !within(actual, secrets)
+  }
+}
+
 function parseSaved(text: string, savedAt: string) {
   let value: unknown
   try {
@@ -139,9 +161,10 @@ function parseSaved(text: string, savedAt: string) {
  * repaired. The file is opened without following links or blocking on a pipe.
  */
 export async function loadSavedCredential(
-  directory: string | undefined,
+  configured: string | undefined,
   binding: CredentialBinding | undefined,
 ): Promise<SavedCredential | null> {
+  const directory = configured && resolve(configured)
   if (!directory || !(await requirePrivateDirectory(directory))) {
     return null
   }
@@ -192,11 +215,12 @@ async function syncDirectory(directory: string) {
  * was; flushing the directory afterwards is best effort and can't undo it.
  */
 export async function saveCredential(
-  directory: string | undefined,
+  configured: string | undefined,
   token: string,
   binding: CredentialBinding,
   effects: StoreEffects = { syncDirectory },
 ): Promise<SavedCredential> {
+  const directory = configured && resolve(configured)
   if (!directory) {
     throw new SecretStoreError('secret_store_unavailable')
   }
@@ -237,9 +261,10 @@ export async function saveCredential(
  * commit point, and the directory flush after it is best effort.
  */
 export async function deleteCredential(
-  directory: string | undefined,
+  configured: string | undefined,
   effects: StoreEffects = { syncDirectory },
 ) {
+  const directory = configured && resolve(configured)
   if (!directory || !(await requirePrivateDirectory(directory))) {
     return
   }

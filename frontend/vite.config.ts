@@ -55,6 +55,20 @@ export default defineConfig({
     host: '127.0.0.1',
     strictPort: true,
     watch: { ignored: ['**/.amp/**', '**/*.md', '**/*.test.*', '**/*.spec.*', '**/dist/**'] },
+    fs: {
+      // Vite's own defaults, which a deny list replaces, plus the saved InvenTree read token,
+      // so a secrets directory inside the workspace is never served through /@fs.
+      deny: [
+        '.env',
+        '.env.*',
+        '*.{crt,pem,key,p12,pfx,cer,der}',
+        '.npmrc',
+        '.yarnrc.yml',
+        '**/.git/**',
+        '**/inventory-read-token',
+        '**/.inventory-read-token.*',
+      ],
+    },
   },
   preview: { host: '127.0.0.1' },
   test: { environment: 'jsdom', setupFiles: ['./src/test-setup.ts'] },

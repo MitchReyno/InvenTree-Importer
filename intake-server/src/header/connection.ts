@@ -211,17 +211,37 @@ export function connectionStatus(
     return running
   }
 
-  /** Probes until an observation stands; a reset mid-probe drops that probe's result. */
+  /**
+   * Probes until an observation stands; a reset mid-probe drops that probe's result. Repeated
+   * resets can't hold a request: after one retry it answers unobserved and the next read probes.
+   */
   async function observe(target: URL, send: () => Promise<Response>) {
     await probeNow(target, send)
-    while (!completed) {
+    // A reset during that probe dropped its result; try once more with the current token.
+    if (!completed) {
       await probeNow(target, send)
+    }
+  }
+
+  function unobserved(target: URL): ConnectionStatusDto {
+    return {
+      ...scope,
+      target: {
+        state: 'unknown',
+        freshness: 'unobserved',
+        observed_at: null,
+        failure_code: null,
+        navigation_url: target.href,
+        label: target.host,
+        kind,
+        ...credential?.(),
+      },
     }
   }
 
   function latest(): ConnectionStatusDto {
     if (!completed) {
-      throw new Error('connection_observation_missing')
+      return unobserved(url!)
     }
     const observation = completed
     return {
