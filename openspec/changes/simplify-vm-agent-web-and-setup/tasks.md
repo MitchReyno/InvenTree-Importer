@@ -148,7 +148,7 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 - [x] 4.1 Confirm the retired-attempt behaviour with Mitch.
 - [x] 4.2 RED: add the migration, retained-attempt, resume, session-runner and launcher tests, and confirm the failures.
 - [x] 4.3 GREEN: add the migration, the profile literals, the launcher mapping, the retired-attempt handling and the instruction text.
-- [ ] 4.4 Run `pnpm test:intake`, `pnpm test:intake:pg`, `pnpm test:intake:process` and `pnpm test:dev`, and record the results.
+- [x] 4.4 Run `pnpm test:intake`, `pnpm test:intake:pg`, `pnpm test:intake:process` and `pnpm test:dev`, and record the results.
 
 ## 5. Readiness web state
 
@@ -163,7 +163,7 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 
 - [x] 5.1 RED: add the readiness and diagnostics tests, and confirm the failures.
 - [x] 5.2 GREEN: replace the field in contracts, server and frontend.
-- [ ] 5.3 Run the intake, frontend and contract checks, and record the results.
+- [x] 5.3 Run the intake, frontend and contract checks, and record the results.
 
 ## 6. Tool surface and admission
 
@@ -182,7 +182,7 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 - [x] 6.1 Record the current recorded frames and config fixtures used by the admission tests.
 - [x] 6.2 RED: add admission and adapter tests for each case, and confirm the failures.
 - [x] 6.3 GREEN: update the tool lists, the Codex config, the admission checks, the item check and the policy identity.
-- [ ] 6.4 Run `pnpm test:intake` and record the results.
+- [x] 6.4 Run `pnpm test:intake` and record the results.
 
 ## 7. `pnpm vm:setup`
 
@@ -295,7 +295,7 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 
 - [x] 11.1 RED: add the launchable-profile instruction test and the `tool-turn.sh` argument test, and confirm the failures.
 - [x] 11.2 GREEN: add `browser-policy.sh`, remove the reader files, install line, whitelist entries, socket check and mount, and move the remaining reader test cases.
-- [ ] 11.3 Run the checks, the image build, the Chromium check where the VM is available and the reference search, and record the results.
+- [x] 11.3 Run the checks, the image build, the Chromium check where the VM is available and the reference search, and record the results.
 
 ## Delivery evidence and lifecycle follow-up
 
