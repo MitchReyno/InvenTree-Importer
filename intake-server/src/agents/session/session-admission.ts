@@ -8,7 +8,7 @@ import { join } from 'node:path'
 import type { AgentSelectionDto } from '@invimport/contracts'
 
 // Changing the qualified surface invalidates existing conversation provenance.
-const ADMISSION_POLICY = 'native-session-direct-tools/1'
+const ADMISSION_POLICY = 'native-session-direct-tools/2'
 
 function policyRecord(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -21,6 +21,24 @@ export function requireCodexSessionVersion(value: unknown) {
   if (typeof value !== 'string' || !/^bench_intake\/0\.166\.0(?:\s|$)/u.test(value)) {
     throw new NativeSessionError('agent_version_unqualified')
   }
+}
+
+/**
+ * The egress proxy a guest tool session's shell commands use, set explicitly so admission can
+ * see it whatever Codex's inherit policy is. It matches the provider's own proxy.
+ */
+export const GUEST_SHELL_PROXY = {
+  HTTPS_PROXY: 'http://127.0.0.1:14316',
+  NO_PROXY: '127.0.0.1,localhost',
+}
+
+function guestShellProxy(config: Record<string, unknown>) {
+  const policy = config.shell_environment_policy
+  if (!policy || typeof policy !== 'object' || Array.isArray(policy)) {
+    return false
+  }
+  const set = (policy as Record<string, unknown>).set
+  return JSON.stringify(set) === JSON.stringify(GUEST_SHELL_PROXY)
 }
 
 export function requireCodexSessionConfig(value: unknown, guestTools = false) {
@@ -41,7 +59,8 @@ export function requireCodexSessionConfig(value: unknown, guestTools = false) {
     config.sandbox_mode !== (guestTools ? 'danger-full-access' : 'read-only') ||
     features.shell_tool !== guestTools ||
     features.view_image !== guestTools ||
-    config.web_search !== 'disabled' ||
+    config.web_search !== (guestTools ? 'live' : 'disabled') ||
+    (guestTools && !guestShellProxy(config)) ||
     policyRecord(features.code_mode).enabled !== false ||
     disabledFeatures.some((key) => features[key] !== false) ||
     policyRecord(skills.bundled).enabled !== false ||

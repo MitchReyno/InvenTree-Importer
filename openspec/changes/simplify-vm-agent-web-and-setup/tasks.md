@@ -179,9 +179,9 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 - Verification: `pnpm test:intake` (the intake server runs `tsx --test`).
 - Risks and decisions: Codex `shell_environment_policy.set` must show up in `config/read`. If it doesn't, record that in `notes.md` and verify the variable with the smoke test instead.
 
-- [ ] 6.1 Record the current recorded frames and config fixtures used by the admission tests.
-- [ ] 6.2 RED: add admission and adapter tests for each case, and confirm the failures.
-- [ ] 6.3 GREEN: update the tool lists, the Codex config, the admission checks, the item check and the policy identity.
+- [x] 6.1 Record the current recorded frames and config fixtures used by the admission tests.
+- [x] 6.2 RED: add admission and adapter tests for each case, and confirm the failures.
+- [x] 6.3 GREEN: update the tool lists, the Codex config, the admission checks, the item check and the policy identity.
 - [ ] 6.4 Run `pnpm test:intake` and record the results.
 
 ## 7. `pnpm vm:setup`

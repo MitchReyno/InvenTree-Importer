@@ -246,9 +246,18 @@ if (args[0] === 'app-server') {
       }
     }
     persist(sessionId)
+    // A guest tool session reports the built-in tools it was started with, as the real CLI does.
+    const toolsFlag = args.indexOf('--tools')
+    const builtins =
+      mode === 'guest-tools' || mode === 'guest-extra-tool'
+        ? (args[toolsFlag + 1] || '').split(',').filter(Boolean)
+        : []
+    log({ event: 'builtins', tools: builtins })
     const tools = [
       ...TOOLS.map((name) => `mcp__intake__${name}`),
+      ...builtins,
       ...(mode === 'extra-tool' ? ['Bash'] : []),
+      ...(mode === 'guest-extra-tool' ? ['NotebookEdit'] : []),
     ]
     send({
       type: 'system',
