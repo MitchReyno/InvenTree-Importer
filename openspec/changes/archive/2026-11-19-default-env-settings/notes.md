@@ -28,5 +28,4 @@ None.
 
 ## Open items
 
-
-- Tooling `.cjs` files are not linted for undefined names (`no-undef`), which let the missing default above pass ESLint; worth a separate lint change.
+None. The tooling lint gap found in task 4 was closed by #218, which checks every tooling script for undefined names.
