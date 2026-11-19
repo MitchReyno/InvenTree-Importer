@@ -17995,6 +17995,10 @@ export interface components {
             new_batch_instructions: string;
             part_description_style: string;
             auto_tags_default: boolean;
+            web: {
+                public_pages: boolean;
+                prefer_datasheets: boolean;
+            };
         };
         AgentSettingsUpdate: {
             /** Format: int64 */
@@ -18034,6 +18038,10 @@ export interface components {
             new_batch_instructions: string;
             part_description_style: string;
             auto_tags_default: boolean;
+            web: {
+                public_pages: boolean;
+                prefer_datasheets: boolean;
+            };
         };
         AgentProviderSettings: {
             enabled: boolean;

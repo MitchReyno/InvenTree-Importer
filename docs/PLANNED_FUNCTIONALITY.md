@@ -96,7 +96,7 @@ Add Google Antigravity (`agy` CLI) as a third native agent provider beside Claud
 
 #### BI-015 — Design refresh backend follow-ups
 
-Build the backend for the design-refresh controls that BI-014 shipped disabled, each with its reason. BI-016 (`settings-debug-mode`) takes over most of the Settings rows. This item keeps the web research switches, the per-record "Fill descriptions for" switches, the supplier part description source and "Tag every Part with its batch name". In Records it is storing and reading manufacturer part, supplier part and agent-proposed company descriptions, and reading location types and their descriptions; descriptions for agent-proposed categories and parameter templates, which the app lists as not supported yet, belong here too. The rest is deleting written batch notes, and Inventory questions that carry their answer options and the existing record's fields, for the disabled option cards and the comparison's InvenTree column and date code.
+Build the backend for the design-refresh controls that BI-014 shipped disabled, each with its reason. BI-016 (`settings-debug-mode`) takes over most of the Settings rows, and BI-017 (`simplify-vm-agent-web-and-setup`) the web research settings. This item keeps the per-record "Fill descriptions for" switches, the supplier part description source and "Tag every Part with its batch name". In Records it is storing and reading manufacturer part, supplier part and agent-proposed company descriptions, and reading location types and their descriptions; descriptions for agent-proposed categories and parameter templates, which the app lists as not supported yet, belong here too. The rest is deleting written batch notes, and Inventory questions that carry their answer options and the existing record's fields, for the disabled option cards and the comparison's InvenTree column and date code.
 
 - Change: `complete-design-refresh-backend`
 - Status: Proposed
@@ -109,7 +109,7 @@ Build the backend for the design-refresh controls that BI-014 shipped disabled, 
 Agents in the shared VM get provider web search (Claude WebSearch, Codex web search), Claude WebFetch, and Glob, Grep and TodoWrite. A per-session "Allow public web pages" setting, on by default, is enforced by each turn's egress proxy. Protected hostnames are worked out automatically, so no web settings go in the environment. The `bench-web` command and the separate document reader are removed. A rerunnable `pnpm vm:setup` replaces the README's manual VM steps, and `pnpm dev` rebuilds and reloads a stale runner image. This item takes over BI-015's web research switches.
 
 - Change: `simplify-vm-agent-web-and-setup`
-- Status: Proposed
+- Status: In progress — PR-A (the egress web policy, #229) and PR-B (`shared-vm-agent/3`, web tools and readiness, #230) merged; PR-C (the web settings) in review; PR-D (one-command setup) and PR-E (requalification, which needs Mitch's go-ahead) remain.
 - Size: L — provider tool admission, the egress proxy policy, a sealed agent setting, launcher setup automation and documentation.
 - Prerequisites: BI-016 (`settings-debug-mode`) for the Settings › Agents structure (#226) and agent-setting sealing (#227), both merged. Read BI-010 before changing the Codex tool surface. Requalifying needs Mitch's fresh go-ahead for a live provider run.
 - OpenSpec: [simplify-vm-agent-web-and-setup](../openspec/changes/simplify-vm-agent-web-and-setup/)

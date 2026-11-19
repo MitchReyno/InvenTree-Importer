@@ -20,7 +20,11 @@ export function singleProvider({
 } & Partial<
   Pick<
     AgentSettingsUpdateDto,
-    'part_description_style' | 'new_batch_instructions' | 'auto_tags_default' | 'stage_selections'
+    | 'part_description_style'
+    | 'new_batch_instructions'
+    | 'auto_tags_default'
+    | 'stage_selections'
+    | 'web'
   >
 >): AgentSettingsUpdateDto {
   const other = selection.provider === 'claude' ? 'codex' : 'claude'
@@ -44,6 +48,7 @@ export function singleProvider({
     new_batch_instructions: '',
     part_description_style: '',
     auto_tags_default: false,
+    web: { public_pages: true, prefer_datasheets: true },
     ...rest,
   }
 }

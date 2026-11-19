@@ -20,9 +20,11 @@ import {
   sessionCommandQueue,
   sessionHandlerVersion,
   type SessionProfileId,
+  webAccess,
 } from './session-policy.ts'
 
 const LOT_STAGES: readonly Stage[] = ['research', 'images', 'inventory']
+const WEB_OFF = { public_pages: false, prefer_datasheets: false }
 
 /**
  * A session attempt: `/6` input, `/5` command on the session queue, and its session. The batch's
@@ -75,6 +77,8 @@ export async function createSessionAttempt(
       agent,
       settingsRevision: settings.revision,
       partDescriptionStyle: settings.part_description_style || undefined,
+      // Only profiles with web access seal the saved values; every other profile seals both off.
+      web: webAccess(profileId) === 'available' ? { ...settings.web } : WEB_OFF,
     }
   }
   const manifest = sealed(

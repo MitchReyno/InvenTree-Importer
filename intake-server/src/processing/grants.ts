@@ -19,7 +19,8 @@ export async function grantProcessing(pool: Pool, role: string, purpose: 'api' |
       `GRANT INSERT ON agent_settings,agent_provider_settings,agent_session,agent_session_inbox,processing_proposal_stale TO ${role};
       GRANT INSERT, DELETE ON agent_batch_pause TO ${role};
       GRANT UPDATE(revision,provider,authentication,model,session_concurrency,default_provider,
-        stage_selections,new_batch_instructions,part_description_style,auto_tags_default) ON agent_settings TO ${role};
+        stage_selections,new_batch_instructions,part_description_style,auto_tags_default,
+        web_public_pages,web_prefer_datasheets) ON agent_settings TO ${role};
       GRANT UPDATE(enabled,authentication,default_model) ON agent_provider_settings TO ${role};`,
     )
   } else {

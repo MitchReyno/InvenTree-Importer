@@ -76977,7 +76977,8 @@
           "session_concurrency",
           "new_batch_instructions",
           "part_description_style",
-          "auto_tags_default"
+          "auto_tags_default",
+          "web"
         ],
         "properties": {
           "revision": {
@@ -77193,6 +77194,22 @@
           },
           "auto_tags_default": {
             "type": "boolean"
+          },
+          "web": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "public_pages",
+              "prefer_datasheets"
+            ],
+            "properties": {
+              "public_pages": {
+                "type": "boolean"
+              },
+              "prefer_datasheets": {
+                "type": "boolean"
+              }
+            }
           }
         }
       },
@@ -77207,7 +77224,8 @@
           "session_concurrency",
           "new_batch_instructions",
           "part_description_style",
-          "auto_tags_default"
+          "auto_tags_default",
+          "web"
         ],
         "properties": {
           "expected_revision": {
@@ -77423,6 +77441,22 @@
           },
           "auto_tags_default": {
             "type": "boolean"
+          },
+          "web": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "public_pages",
+              "prefer_datasheets"
+            ],
+            "properties": {
+              "public_pages": {
+                "type": "boolean"
+              },
+              "prefer_datasheets": {
+                "type": "boolean"
+              }
+            }
           }
         }
       },

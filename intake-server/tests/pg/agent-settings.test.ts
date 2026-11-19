@@ -21,6 +21,7 @@ import { createSessionAttempt } from '#/processing/session-attempts.ts'
 import { decodeSessionInput } from '#/processing/session-input.ts'
 import { triggerExamine } from '#/processing/examine-trigger.ts'
 import { startProcessing } from '#/processing/commands.ts'
+import { sealed } from '#/processing/model.ts'
 import { nativeProfileId } from '#/agents/policy.ts'
 import { sessionProfiles } from '#/processing/session-policy.ts'
 import { openingText, runSessionTurn } from '#/agents/session/session-runner.ts'
@@ -41,6 +42,7 @@ function bothProviders(expected_revision: string): AgentSettingsUpdateDto {
     new_batch_instructions: 'Count reels by their labels.',
     part_description_style: 'Type, key values, package, then variant',
     auto_tags_default: true,
+    web: { public_pages: false, prefer_datasheets: true },
   }
 }
 
@@ -58,6 +60,7 @@ async function queueLotAttempt(
   lotId: string,
   stage: 'research' | 'images',
   settings?: AgentSettingsDto,
+  profileId: 'native-agent/2' | 'shared-vm-agent/1' | 'shared-vm-agent/3' = 'native-agent/2',
 ) {
   return transaction(fixture.api.pool, async (client) => {
     const media = await reserveProcessingMedia(client, fixture.config, capture.batch, [lotId])
@@ -65,7 +68,7 @@ async function queueLotAttempt(
     const attempt = await createSessionAttempt(
       client,
       fixture.config,
-      'native-agent/2',
+      profileId,
       capture.batch,
       { id: jobId, subject_id: lotId, stage },
       '1',
@@ -343,6 +346,8 @@ test('migration 0032 carries an existing selection over to its provider, on', as
       new_batch_instructions: '',
       part_description_style: '',
       auto_tags_default: false,
+      // Added by 0034: a row saved before it reads web research as on.
+      web: { public_pages: true, prefer_datasheets: true },
     })
   } finally {
     await db.dispose()
@@ -520,6 +525,144 @@ test('an over-long model or text with a NUL is an invalid settings error', async
       })
     }
     assert.equal((await readAgentSettings(fixture.api.pool, fixture.config)).revision, '0')
+  } finally {
+    await fixture.dispose()
+  }
+})
+
+test('web research reads as on before any save, and a save keeps its values', async () => {
+  const fixture = await processingFixture()
+  try {
+    assert.deepEqual(unsavedAgentSettings().web, { public_pages: true, prefer_datasheets: true })
+    assert.deepEqual((await readAgentSettings(fixture.api.pool, fixture.config)).web, {
+      public_pages: true,
+      prefer_datasheets: true,
+    })
+    const first = await saveAgentSettings(
+      fixture.api.pool,
+      fixture.config,
+      singleProvider({
+        expected_revision: '0',
+        selection: { provider: 'claude', authentication: 'api_key', model: 'sonnet' },
+      }),
+    )
+    // Saving other settings leaves web research on.
+    assert.deepEqual(first.web, { public_pages: true, prefer_datasheets: true })
+    const off = { public_pages: false, prefer_datasheets: false }
+    const saved = await saveAgentSettings(
+      fixture.api.pool,
+      fixture.config,
+      singleProvider({
+        expected_revision: '1',
+        selection: { provider: 'claude', authentication: 'api_key', model: 'sonnet' },
+        web: off,
+      }),
+    )
+    assert.equal(saved.revision, '2')
+    assert.deepEqual((await readAgentSettings(fixture.api.pool, fixture.config)).web, off)
+    // A stale revision is refused and changes nothing.
+    await assert.rejects(
+      saveAgentSettings(
+        fixture.api.pool,
+        fixture.config,
+        singleProvider({
+          expected_revision: '1',
+          selection: { provider: 'claude', authentication: 'api_key', model: 'sonnet' },
+        }),
+      ),
+      { message: 'revision_conflict' },
+    )
+    assert.deepEqual((await readAgentSettings(fixture.api.pool, fixture.config)).web, off)
+  } finally {
+    await fixture.dispose()
+  }
+})
+
+test('a VM web attempt seals the saved web research at queue time; other profiles seal it off', async () => {
+  const fixture = await processingFixture()
+  try {
+    await saveAgentSettings(fixture.api.pool, fixture.config, {
+      ...bothProviders('0'),
+      web: { public_pages: true, prefer_datasheets: true },
+    })
+    const capture = await fixture.seedCapture()
+    const web = await queueLotAttempt(
+      fixture,
+      capture,
+      capture.packetA.id,
+      'research',
+      undefined,
+      'shared-vm-agent/3',
+    )
+    const host = await queueLotAttempt(fixture, capture, capture.packetB.id, 'research')
+    // Turned off while the attempt waits for a slot: it keeps what it was queued with.
+    await saveAgentSettings(fixture.api.pool, fixture.config, {
+      ...bothProviders('1'),
+      web: { public_pages: false, prefer_datasheets: false },
+    })
+    const sealedWeb = await sealedInput(fixture, web.inputId)
+    assert.deepEqual(sealedWeb.web, { public_pages: true, prefer_datasheets: true })
+    assert.equal(sealedWeb.settings_revision, '1')
+    // An input retained before web research existed still decodes, with no web settings.
+    const { web: _web, ...earlier } = sealedWeb
+    const retained = sealed(earlier)
+    assert.equal('web' in decodeSessionInput(retained.bytes, retained.digest), false)
+    assert.deepEqual((await sealedInput(fixture, host.inputId)).web, {
+      public_pages: false,
+      prefer_datasheets: false,
+    })
+    // Queued after the save, it runs without public pages.
+    const later = await queueLotAttempt(
+      fixture,
+      capture,
+      capture.packetA.id,
+      'images',
+      undefined,
+      'shared-vm-agent/3',
+    )
+    assert.deepEqual((await sealedInput(fixture, later.inputId)).web, {
+      public_pages: false,
+      prefer_datasheets: false,
+    })
+  } finally {
+    await fixture.dispose()
+  }
+})
+
+test('the opening message carries the sealed web research, outside the instructions', async () => {
+  const fixture = await processingFixture()
+  try {
+    const capture = await fixture.seedCapture()
+    const opening = async (
+      web: { public_pages: boolean; prefer_datasheets: boolean },
+      stage: 'research' | 'images',
+    ) => {
+      const revision = (await readAgentSettings(fixture.api.pool, fixture.config)).revision
+      await saveAgentSettings(fixture.api.pool, fixture.config, { ...bothProviders(revision), web })
+      const attempt = await queueLotAttempt(
+        fixture,
+        capture,
+        capture.packetA.id,
+        stage,
+        undefined,
+        'shared-vm-agent/3',
+      )
+      const input = await sealedInput(fixture, attempt.inputId)
+      // The settings never change the profile's digest-verified instructions.
+      assert.equal(input.instruction_sha256, sessionProfiles['shared-vm-agent/3'].instructionDigest)
+      return (JSON.parse(openingText(input, 0, false)) as { instructions: string }).instructions
+    }
+    const on = await opening({ public_pages: true, prefer_datasheets: true }, 'research')
+    assert.match(on, /Public web pages are allowed/)
+    assert.match(on, /Prefer manufacturer datasheets over distributor pages/)
+    const off = await opening({ public_pages: false, prefer_datasheets: false }, 'images')
+    assert.match(off, /Public web pages are not available/)
+    assert.match(off, /rely on search results and the staged evidence/)
+    assert.doesNotMatch(off, /Prefer manufacturer datasheets/)
+    // A session without VM tools gets no web lines.
+    const host = await queueLotAttempt(fixture, capture, capture.packetB.id, 'research')
+    const hostText = openingText(await sealedInput(fixture, host.inputId), 0, false)
+    assert.doesNotMatch(hostText, /Public web pages|manufacturer datasheets/)
   } finally {
     await fixture.dispose()
   }

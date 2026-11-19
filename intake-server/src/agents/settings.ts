@@ -49,6 +49,7 @@ export function unsavedAgentSettings(): AgentSettingsDto {
     new_batch_instructions: '',
     part_description_style: '',
     auto_tags_default: false,
+    web: { public_pages: true, prefer_datasheets: true },
   }
 }
 
@@ -110,6 +111,7 @@ export async function readAgentSettings(
     new_batch_instructions: row.newBatchInstructions,
     part_description_style: row.partDescriptionStyle,
     auto_tags_default: row.autoTagsDefault,
+    web: { public_pages: row.webPublicPages, prefer_datasheets: row.webPreferDatasheets },
   }
 }
 
@@ -179,6 +181,8 @@ export async function saveAgentSettings(
     newBatchInstructions: input.new_batch_instructions,
     partDescriptionStyle: input.part_description_style,
     autoTagsDefault: input.auto_tags_default,
+    webPublicPages: input.web.public_pages,
+    webPreferDatasheets: input.web.prefer_datasheets,
   }
   return transaction(pool, async (client) => {
     const db = queryDatabase(client)

@@ -11,13 +11,13 @@ import { PauseAllAgents } from '#/components/agents/PauseAllAgents'
 import { PersonalClaudeCredential } from '#/components/agents/PersonalClaudeCredential'
 import { useChatGPTSignIn } from '#/components/agents/useChatGPTSignIn'
 import { usePersonalClaudeCredential } from '#/components/agents/usePersonalClaudeCredential'
-import { SettingsCard } from './SettingsCard'
 import { newestRevision } from './newest-revision'
 import { SettingsSection } from './SettingsSection'
 import { AgentSubsection, subsectionHeadingId } from './agents/AgentSubsection'
 import { DescriptionsCard } from './agents/DescriptionsCard'
 import { SlotMeter } from './agents/SlotMeter'
-import { WebResearchRow } from './agents/WebResearchRow'
+import { WebResearchForm } from './agents/WebResearchForm'
+import { useReadiness } from '#/debug/useReadiness'
 import { DescriptionStyleRow } from './agents/DescriptionStyleRow'
 import { InstructionsForm } from './agents/InstructionsForm'
 import { ProvidersAndSteps } from './agents/ProvidersAndSteps'
@@ -44,6 +44,8 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
   const credential = usePersonalClaudeCredential()
   const signIn = useChatGPTSignIn()
   const queryClient = useQueryClient()
+  // Says whether this profile's sessions have web access; until it answers, the form stays usable.
+  const readiness = useReadiness(true)
   const settingsKey = serverQueryKey(scope, 'agent-settings')
   const settings = useQuery({
     queryKey: settingsKey,
@@ -229,9 +231,7 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
         {form ? <TagSuggestionsForm {...form} /> : waiting}
       </AgentSubsection>
       <AgentSubsection id="research" title="Web research">
-        <SettingsCard aria-label="Web research">
-          <WebResearchRow />
-        </SettingsCard>
+        {form ? <WebResearchForm {...form} web={readiness.data?.web} /> : waiting}
       </AgentSubsection>
     </SettingsSection>
   )
