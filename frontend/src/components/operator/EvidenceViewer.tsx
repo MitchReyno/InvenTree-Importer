@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import styled from 'styled-components'
-import { media, Small, Summary, Button } from '#/components/ui'
+import { media, Small, Button, DebugDetails } from '#/components/ui'
 import { Label, Select } from '#/forms'
 import { color, radius, size, space, typeVar } from '#/theme/generated/tokens'
 import type { MediaEvidenceDto, MediaSnapshotDto } from '@invimport/contracts'
@@ -343,16 +343,15 @@ export function EvidenceViewer({
             note={item.note}
           />
         ))}
-      <details>
-        <Summary>Details</Summary>
-        {evidence.flatMap((item) =>
-          item.versions.map((value) => (
-            <Small key={value.id}>
-              {labels.versions.get(value.id)}: {identities.versions.get(value.id)}
-            </Small>
-          )),
+      <DebugDetails
+        label="Evidence identities"
+        rows={evidence.flatMap((item) =>
+          item.versions.map((value) => ({
+            label: labels.versions.get(value.id) ?? value.id,
+            value: identities.versions.get(value.id),
+          })),
         )}
-      </details>
+      />
     </Viewer>
   )
 }

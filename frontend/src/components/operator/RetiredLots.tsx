@@ -1,7 +1,7 @@
 import styled from 'styled-components'
 import { color, radius, space } from '#/theme/generated/tokens'
 import type { CaptureSnapshotDto, OperatorReviewDto } from '@invimport/contracts'
-import { Heading, Panel, Small, Pill } from '#/components/ui'
+import { DebugDetails, Heading, Panel, Small, Pill } from '#/components/ui'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -27,10 +27,14 @@ export function RetiredLots({ batch, review }: Props) {
           <li key={lot.lot_id}>
             <strong>{lot.label}</strong>{' '}
             <Pill tone="neutral">{lot.action === 'split' ? 'Split' : 'Merged'}</Pill>
-            <Small>
-              Into {lot.successor_lot_ids.map((id) => label(batch, id)).join(', ')} · revision{' '}
-              {lot.retired_revision}
-            </Small>
+            <Small>Into {lot.successor_lot_ids.map((id) => label(batch, id)).join(', ')}</Small>
+            <DebugDetails
+              label="Retired lot"
+              rows={[
+                { label: 'Lot', value: lot.lot_id },
+                { label: 'Retired revision', value: lot.retired_revision },
+              ]}
+            />
           </li>
         ))}
       </List>

@@ -39,7 +39,7 @@ The root `pnpm lint`/`pnpm test` also run backend checks, which need the Python/
 
 ## Current and future scope
 
-The visible `Dev mode` header badge, diagnostics attribution, provider capability notices and the test-target note in Changes are intentional. Component tests cover exact text scalars, human attribution, retained URL resume, revision conflicts and archive/resume, but jsdom alone is not end-to-end proof. Read the [primary original prototype and screenshots](../docs/bench-intake/reference/README.md) before changing layout; preserve the user-approved current light/blue palette.
+The visible `Dev mode` header button, the debug mode that shows diagnostics on demand, provider capability notices and the test-target note in Changes are intentional. Component tests cover exact text scalars, human attribution, retained URL resume, revision conflicts and archive/resume, but jsdom alone is not end-to-end proof. Read the [primary original prototype and screenshots](../docs/bench-intake/reference/README.md) before changing layout; preserve the user-approved current light/blue palette.
 
 The inbox provides explicit Capture, Processing, Review and Changes links, a recent-batch card and server-wide title search with ten-row paging, retained original thumbnails and workflow observations. Search is explicitly submitted; typing sends no requests. Counts and latest-round outcomes come from the scoped inbox projection and do not authorize commands. Batch headers show the four tabs, visible development attribution and the decorative masthead.
 

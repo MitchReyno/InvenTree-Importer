@@ -99,13 +99,13 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - Verification: `pnpm typecheck`, `pnpm lint:frontend`, `pnpm test:frontend`, `pnpm build`.
 - Risks: Tests asserting the footer `Diagnostics` (`src/Diagnostics.test.tsx`) move to the Developer section.
 
-- [ ] 2.1 Confirm the theme controller pattern and the existing Diagnostics tests as the baseline.
-- [ ] 2.2 RED: write the preference, Developer section, footer and Copy debug info tests and see them fail.
-- [ ] 2.3 GREEN: build the preference controller, the two components, the Developer section and route, and Reload and Copy.
-  - [ ] 2.3.1 Reload app data invalidates queries without touching form drafts or the navigation guard.
-  - [ ] 2.3.2 `debugInfoText()` is pure and lists only build, route, readiness and transport fields.
-- [ ] 2.4 Refactor, then run the full frontend checks.
-- [ ] 2.5 Verify acceptance, including keyboard use of the switch in both themes.
+- [x] 2.1 Confirm the theme controller pattern and the existing Diagnostics tests as the baseline.
+- [x] 2.2 RED: write the preference, Developer section, footer and Copy debug info tests and see them fail.
+- [x] 2.3 GREEN: build the preference controller, the two components, the Developer section and route, and Reload and Copy.
+  - [x] 2.3.1 Reload app data invalidates queries without touching form drafts or the navigation guard.
+  - [x] 2.3.2 `debugInfoText()` is pure and lists only build, route, readiness and transport fields.
+- [x] 2.4 Refactor, then run the full frontend checks.
+- [x] 2.5 Verify acceptance, including keyboard use of the switch in both themes.
 
 ## 3. Gate developer details and add Debug panels
 
@@ -140,12 +140,12 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
   - A detail some test or flow relies on, such as the approval binding text, could be hidden. Review each one for operator need.
   - InvenTree record numbers stay visible.
 
-- [ ] 3.1 Inventory the call sites against the proposal list, and confirm nothing new was added since planning.
-- [ ] 3.2 RED: parameterized off and on tests for the call sites, and Debug panel tests.
-- [ ] 3.3 GREEN: add `recovery` to the failure summary, then wrap each call site in `DebugDetails`, removing its bespoke disclosure.
-- [ ] 3.4 GREEN: add `DebugPanel` to Batches, Capture, Processing, Review, Changes, Agents and Settings.
-- [ ] 3.5 Refactor shared row-building into a small hook per screen family if it repeats, then run the frontend checks.
-- [ ] 3.6 Verify in the browser at desktop and 390px widths in both themes, attaching screenshots to the PR.
+- [x] 3.1 Inventory the call sites against the proposal list, and confirm nothing new was added since planning.
+- [x] 3.2 RED: parameterized off and on tests for the call sites, and Debug panel tests.
+- [x] 3.3 GREEN: add `recovery` to the failure summary, then wrap each call site in `DebugDetails`, removing its bespoke disclosure.
+- [x] 3.4 GREEN: add `DebugPanel` to Batches, Capture, Processing, Review, Changes, Agents and Settings.
+- [x] 3.5 Refactor shared row-building into a small hook per screen family if it repeats, then run the frontend checks.
+- [x] 3.6 Verify in the browser at desktop and 390px widths in both themes, attaching screenshots to the PR.
 
 ## 4. Dev mode popover
 
@@ -161,11 +161,11 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - Verification: The frontend checks, plus a browser check at 360px.
 - Risks: The masthead's decorative layer clipping the popover, which `Popover` already portals around.
 
-- [ ] 4.1 Confirm the `Popover` API and the masthead tests as the baseline.
-- [ ] 4.2 RED: write the popover tests.
-- [ ] 4.3 GREEN: build `DevModeButton` and its content.
-- [ ] 4.4 Refactor, then run the frontend checks and the 360px browser check.
-- [ ] 4.5 Record a demo with `demo-record` covering the popover, the debug switch and one screen off and on, and attach it to PR-A.
+- [x] 4.1 Confirm the `Popover` API and the masthead tests as the baseline.
+- [x] 4.2 RED: write the popover tests.
+- [x] 4.3 GREEN: build `DevModeButton` and its content.
+- [x] 4.4 Refactor, then run the frontend checks and the 360px browser check.
+- [x] 4.5 Record a demo with `demo-record` covering the popover, the debug switch and one screen off and on, and attach it to PR-A.
 
 ## 5. Settings structure and Agents subsections
 

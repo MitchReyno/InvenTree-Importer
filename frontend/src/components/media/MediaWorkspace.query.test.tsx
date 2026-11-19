@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
+import { setDebugMode } from '#/test/debug-mode'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { createServerQueryClient } from '#/queries/client'
@@ -303,5 +304,13 @@ test('a tile shows the file and its lots; crop, download and byte identity live 
     'href',
     expect.stringContaining(version.id),
   )
-  expect(within(viewer).getByText('Retained byte identity')).toBeInTheDocument()
+  // Byte identity is internal: it shows in the viewer only in debug mode.
+  expect(
+    within(viewer).queryByRole('group', { name: 'Debug: Retained byte identity' }),
+  ).not.toBeInTheDocument()
+  setDebugMode(true)
+  expect(
+    within(viewer).getByRole('group', { name: 'Debug: Retained byte identity' }),
+  ).toHaveTextContent(version.digest)
+  setDebugMode(false)
 })

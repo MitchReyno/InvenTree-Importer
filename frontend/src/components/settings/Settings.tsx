@@ -9,6 +9,7 @@ import { AgentsSection } from './AgentsSection'
 import { AppearanceSection } from './AppearanceSection'
 import { BatchDefaultsSection } from './BatchDefaultsSection'
 import { DescriptionsSection } from './DescriptionsSection'
+import { DeveloperSection } from './DeveloperSection'
 import { InvenTreeSection } from './InvenTreeSection'
 
 type Props = {
@@ -26,6 +27,7 @@ const SECTIONS: SettingsSection[] = [
   { id: 'defaults', label: 'Batch defaults', href: '#settings/defaults' },
   { id: 'descriptions', label: 'Descriptions and naming', href: '#settings/descriptions' },
   { id: 'appearance', label: 'Appearance', href: '#settings/appearance' },
+  { id: 'developer', label: 'Developer', href: '#settings/developer' },
 ]
 
 /** The Settings page: a back link and section nav beside the open section. */
@@ -68,6 +70,8 @@ function SectionContent({ section, agents, onDirtyChange }: Omit<Props, 'returnT
       return <DescriptionsSection />
     case 'appearance':
       return <AppearanceSection />
+    case 'developer':
+      return <DeveloperSection />
   }
 }
 

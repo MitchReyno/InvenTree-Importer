@@ -1,4 +1,4 @@
-import { Paragraph, Summary, Banner, Button } from '#/components/ui'
+import { Paragraph, Banner, Button, DebugDetails } from '#/components/ui'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey } from '#/queries/scope'
@@ -570,11 +570,12 @@ export function Batch({
               {current && (
                 <>
                   <Paragraph>
-                    <strong>Current saved title:</strong> {current.title} · revision{' '}
-                    {current.revision}
+                    <strong>Current saved title:</strong> {current.title}
                   </Paragraph>
-                  <details>
-                    <Summary>Current saved revision {current.revision} · exact fields</Summary>
+                  <DebugDetails
+                    label="Current saved revision"
+                    rows={[{ label: 'Revision', value: current.revision }]}
+                  >
                     <SnapshotFields>
                       {JSON.stringify(
                         {
@@ -589,7 +590,7 @@ export function Batch({
                         2,
                       )}
                     </SnapshotFields>
-                  </details>
+                  </DebugDetails>
                 </>
               )}
               <Button

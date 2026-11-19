@@ -21,6 +21,8 @@ import {
 } from '@invimport/contracts/client'
 import { ServerStateProvider } from './components/query/ServerStateProvider'
 import { LiveUpdates } from './components/operations/LiveUpdates'
+import { PageDebugPanel } from './components/operations/PageDebugPanel'
+import { useDebugMode } from './debug/debug-mode'
 import { serverScopeIdentity } from './queries/scope'
 import { Batches } from './components/batches/Batches'
 import { Batch } from './components/batches/Batch'
@@ -30,7 +32,6 @@ import { color, typeVar } from './theme/generated/tokens'
 import { Main, PageContent } from './components/AppLayout'
 import { pageWidthFor } from './navigation/batch-route'
 import { appPage, routeBatchId, settingsSection } from './navigation/app-route'
-import { Diagnostics } from './components/operations/Diagnostics'
 import { HeaderStatus } from './components/masthead/HeaderStatus'
 import { AppMasthead } from './components/masthead/AppMasthead'
 import { MastheadBackdrop } from './components/masthead/MastheadBackdrop'
@@ -45,6 +46,7 @@ import {
 
 export default function App() {
   const { route, settingsReturn, navigationBlocked, onDirtyChange } = useNavigationGuard()
+  const { enabled: debug } = useDebugMode()
   const bootstrapQuery = useQuery({
     queryKey: ['bootstrap', location.origin],
     queryFn: () => intakeClient(location.origin).bootstrap(),
@@ -277,9 +279,9 @@ export default function App() {
                       </PageContent>
                     )}
                     {batchPage ? content : <PageContent $width={width}>{content}</PageContent>}
-                    {manual && (
+                    {manual && debug && (
                       <PageContent $width={width}>
-                        <Diagnostics />
+                        <PageDebugPanel route={route ?? ''} batchId={currentBatch} />
                       </PageContent>
                     )}
                   </Main>

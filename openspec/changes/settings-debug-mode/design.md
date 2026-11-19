@@ -204,17 +204,16 @@ Reads already in flight finish with the old value. A refused or failed probe wri
 
 ### Debug mode as a device-local controller plus two components
 
-`frontend/src/debug/debug-mode.ts` copies the theme controller:
+`frontend/src/debug/debug-mode.ts` follows the masthead-style controller (`frontend/src/theme/masthead-style.ts`):
 
-- key `bench-intake.debug`;
-- try/catch read and write;
-- an in-memory fallback;
-- `useDebugMode()` through `useSyncExternalStore`.
+- it reads and writes key `bench-intake.debug` (`on` or `off`) through the shared `readPreference`/`writePreference` helpers (`frontend/src/theme/device-preference.ts`), which tolerate missing or throwing storage;
+- an in-memory value keeps the choice for the session when storage fails;
+- `useDebugMode()` reads it through `useSyncExternalStore`.
 
 There are two display components in `components/ui`:
 
 - **`DebugDetails`** renders its children in a dashed block marked "Debug" only when debug mode is on. Each of the about 15 call sites in the proposal wraps its technical content in it, replacing the bespoke `<details>` disclosures.
-- **`DebugPanel`** is a collapsible panel taking `rows: {label, value}[]`, rendered by each main screen. Batch screens build the rows from data they already hold: the route, batch ID and revision, `LiveUpdatesContext` state, and the `dataUpdatedAt`, `status` and `fetchStatus` of the `useQuery` results the screen already holds, so the panel re-renders with them. Reading `getQueryState` from the query client isn't reactive and isn't used.
+- **`DebugPanel`** is a collapsible panel taking `rows: {label, value}[]`. `App` renders one `PageDebugPanel` under every page, named from the route, so each screen gets it without its own wiring. Its rows are the route, the batch ID and revision (from the cached batch read), the agent settings revision (from the cached `agent-settings` read, when a screen holds it), `LiveUpdatesContext` state, and every read mounted on the screen. `useDebugReads` subscribes to the TanStack query cache, as `useCachedData` does, and lists the queries that have an observer, with their status, fetch state and data age, so it re-renders as they change and starts no request.
 
 Rejected:
 

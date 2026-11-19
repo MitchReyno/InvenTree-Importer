@@ -2,6 +2,7 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useQuery } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { setDebugMode } from '#/test/debug-mode'
 import type { BatchAttentionDto, ConnectionStatusDto, HeaderWorkDto } from '@invimport/contracts'
 import { render, fixtureScope } from '#/test/render'
 import { stubPhoneViewport } from '#/test/viewport'
@@ -49,13 +50,15 @@ function client(): HeaderClient {
   return { connection: vi.fn(async () => connection()), work: vi.fn(async () => work()) }
 }
 
-afterEach(() => vi.useRealTimers())
+afterEach(() => {
+  vi.useRealTimers()
+  setDebugMode(false)
+})
 
-/** Diagnostics sit in a panel's Details disclosure. */
+/** The API and transport diagnostics show only in debug mode. */
 function showDetails(panel: HTMLElement) {
-  for (const details of panel.querySelectorAll('details')) {
-    details.open = true
-  }
+  void panel
+  setDebugMode(true)
 }
 
 const SHORT_TIME: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' }
@@ -79,6 +82,9 @@ test('healthy live transport never implies target reachability and Open InvenTre
   expect(link).toHaveAttribute('href', 'https://inventory.example.test/')
   expect(link).toHaveAttribute('target', '_blank')
   expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+  // With debug mode off, the panel shows no transport observation or raw failure code.
+  expect(panel).not.toHaveTextContent('Live updates connected')
+  expect(panel).not.toHaveTextContent('timeout')
   showDetails(panel)
   expect(panel).toHaveTextContent('Live updates connected')
   expect(screen.getByText(/Fresh target observation/)).toBeVisible()
@@ -781,7 +787,7 @@ test('the connection panel leads with host, last check and Open InvenTree, and n
   expect(panel).toHaveTextContent(`Last check${new Date(at).toLocaleTimeString([], SHORT_TIME)}`)
   expect(within(panel).getAllByText(/test InvenTree/)).toHaveLength(1)
   expect(within(panel).getByRole('link', { name: 'Open InvenTree' })).toBeVisible()
-  expect(within(panel).getByText(/Application API/)).not.toBeVisible()
+  expect(within(panel).queryByText(/Application API/)).toBeNull()
 })
 
 test('the connection panel names the InvenTree version when the check read one, and leaves it out otherwise', async () => {

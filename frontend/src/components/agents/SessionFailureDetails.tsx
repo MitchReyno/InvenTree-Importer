@@ -1,11 +1,12 @@
 import styled from 'styled-components'
-import { color, space, radius, type } from '#/theme/generated/tokens'
+import { color, space, type } from '#/theme/generated/tokens'
 import { useId, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { SessionFailureDto, SessionFailureSummaryDto } from '@invimport/contracts'
 import { serverQueryKey } from '#/queries/scope'
-import { Button } from '#/components/ui'
+import { Button, DebugDetails } from '#/components/ui'
 import { useServerScope } from '#/context'
+import { useDebugMode } from '#/debug/debug-mode'
 
 export type FailureLoader = (attemptId: string, failureId: string) => Promise<SessionFailureDto>
 const labels: Record<SessionFailureDto['category'], string> = {
@@ -26,7 +27,10 @@ export const FAILED_SESSION_STATES = new Set([
   'waiting_for_login',
 ])
 
-/** Expanding retained diagnostics only reads; it never sends chat or retries work. */
+/**
+ * Category, summary and recovery always show. In debug mode, Show details reads the retained
+ * diagnostics on demand; expanding only reads, and never sends chat or retries work.
+ */
 export function SessionFailureDetails({
   attemptId,
   failure,
@@ -37,6 +41,7 @@ export function SessionFailureDetails({
   load?: FailureLoader
 }) {
   const [expanded, setExpanded] = useState(false)
+  const { enabled: debug } = useDebugMode()
   const id = useId()
   const scope = useServerScope()
   const query = useQuery({
@@ -47,7 +52,7 @@ export function SessionFailureDetails({
       failure?.id ?? 'unavailable',
     ),
     queryFn: () => load!(attemptId, failure!.id),
-    enabled: expanded && Boolean(load && failure?.details_available),
+    enabled: debug && expanded && Boolean(load && failure?.details_available),
     retry: false,
     staleTime: Infinity,
   })
@@ -59,56 +64,62 @@ export function SessionFailureDetails({
         <strong>{failure ? labels[failure.category] : 'Category unavailable'}</strong>
         {failure && `: ${failure.summary}`}
       </p>
-      <Button
-        variant="ghost"
-        aria-expanded={expanded}
-        aria-controls={id}
-        onClick={() => setExpanded((value) => !value)}
-      >
-        {expanded ? 'Hide details' : 'Show details'}
-      </Button>
-      {expanded && (
+      {failure && <p>{failure.recovery}</p>}
+      {debug && (
+        <Button
+          variant="ghost"
+          aria-expanded={expanded}
+          aria-controls={id}
+          onClick={() => setExpanded((value) => !value)}
+        >
+          {expanded ? 'Hide details' : 'Show details'}
+        </Button>
+      )}
+      {debug && expanded && (
         <div id={id} role="region" aria-label="Failure details">
-          {!available && <p>Details were not retained for this session.</p>}
-          {available && query.isError && (
-            <p role="status">Failure details are currently unavailable.</p>
-          )}
-          {available && !query.isError && !details && <p role="status">Loading failure details…</p>}
-          {available && !query.isError && details && (
-            <>
-              <p>{details.recovery}</p>
-              <dl>
-                {Object.entries({
-                  Code: details.code,
-                  Stage: details.stage,
-                  Time: details.timestamp,
-                  'Correlation ID': details.correlation_id,
-                  Attempt: details.attempt_id,
-                  Lineage: details.lineage_id,
-                  Turn: details.turn,
-                  Provider: details.provider,
-                  Model: details.model,
-                  'CLI version': details.cli_version,
-                  'Provider session': details.provider_session_id,
-                }).map(([label, value]) => (
-                  <div key={label}>
-                    <dt>{label}</dt>
-                    <dd>{value ?? 'Unavailable'}</dd>
-                  </div>
-                ))}
-              </dl>
-              {details.causes.length > 0 && (
-                <ul>
-                  {details.causes.map((cause, index) => (
-                    <li key={index}>
-                      {cause.code}: {cause.summary}
-                    </li>
+          <DebugDetails label="Failure details">
+            {!available && <p>Details were not retained for this session.</p>}
+            {available && query.isError && (
+              <p role="status">Failure details are currently unavailable.</p>
+            )}
+            {available && !query.isError && !details && (
+              <p role="status">Loading failure details…</p>
+            )}
+            {available && !query.isError && details && (
+              <>
+                <dl>
+                  {Object.entries({
+                    Code: details.code,
+                    Stage: details.stage,
+                    Time: details.timestamp,
+                    'Correlation ID': details.correlation_id,
+                    Attempt: details.attempt_id,
+                    Lineage: details.lineage_id,
+                    Turn: details.turn,
+                    Provider: details.provider,
+                    Model: details.model,
+                    'CLI version': details.cli_version,
+                    'Provider session': details.provider_session_id,
+                  }).map(([label, value]) => (
+                    <div key={label}>
+                      <dt>{label}</dt>
+                      <dd>{value ?? 'Unavailable'}</dd>
+                    </div>
                   ))}
-                </ul>
-              )}
-              {details.truncated && <p>Additional cause details were omitted.</p>}
-            </>
-          )}
+                </dl>
+                {details.causes.length > 0 && (
+                  <ul>
+                    {details.causes.map((cause, index) => (
+                      <li key={index}>
+                        {cause.code}: {cause.summary}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {details.truncated && <p>Additional cause details were omitted.</p>}
+              </>
+            )}
+          </DebugDetails>
         </div>
       )}
     </FailureSection>
@@ -127,10 +138,6 @@ const FailureSection = styled.section`
   }
   > div {
     width: 100%;
-    box-sizing: border-box;
-    padding: ${space[3]};
-    border: 1px solid ${color.line};
-    border-radius: ${radius.card};
   }
   dl {
     display: grid;

@@ -2,6 +2,7 @@ import userEvent from '@testing-library/user-event'
 import { act, render, screen, within } from '@testing-library/react'
 import { StrictMode } from 'react'
 import { expect, it } from 'vitest'
+import { setDebugMode } from '#/test/debug-mode'
 import type {
   CaptureSnapshotDto,
   MediaSnapshotDto,
@@ -131,7 +132,7 @@ const media = {
   derivations: [],
 } as unknown as MediaSnapshotDto
 
-it('names each photo by its file, with its group and what it feeds, and keeps coordinates in Details', () => {
+it('names each photo by its file, with its group and what it feeds, and keeps coordinates for debug mode', () => {
   render(<ExamineView batch={batch} lead={lead} media={media} />)
   const bench = screen.getByRole('region', { name: 'bench.jpg' })
   expect(bench).toHaveTextContent('Not in a group · 2 observations · feeds 1 lot')
@@ -139,7 +140,12 @@ it('names each photo by its file, with its group and what it feeds, and keeps co
     'href',
     '#b/capture',
   )
-  expect(within(bench).getAllByText(/region 0,0/)[0]).not.toBeVisible()
+  expect(within(bench).queryByText(/region 0,0/)).toBeNull()
+  setDebugMode(true)
+  expect(within(bench).getAllByRole('group', { name: 'Debug: Region' })[0]).toHaveTextContent(
+    /region 0,0/,
+  )
+  setDebugMode(false)
   expect(
     within(bench).getAllByRole('button', {
       name: 'Source: Examine, Read from the photo. Show details.',

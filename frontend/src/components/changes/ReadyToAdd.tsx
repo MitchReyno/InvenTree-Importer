@@ -30,6 +30,7 @@ import {
   Banner,
   Button,
   ChangeSummary,
+  DebugDetails,
   SegmentedControl,
   StickyFooter,
   TargetChip,
@@ -38,7 +39,6 @@ import {
   Panel,
   Paragraph,
   Small,
-  Summary,
   RecordStatePill,
   media,
 } from '#/components/ui'
@@ -320,18 +320,18 @@ export function ReadyToAdd({
                 }))}
               />
             )}
-            <details>
-              <Summary>Exact approval binding</Summary>
-              <Binding>
-                <Small>Plan {preview.plan_sha256}</Small>
-                <Small>Review {preview.review_fingerprint}</Small>
-                {preview.effects.map((effect) => (
-                  <Small key={effect.lot_id}>
-                    {effect.lot_label}: {effect.barcode}
-                  </Small>
-                ))}
-              </Binding>
-            </details>
+            <DebugDetails
+              label="Exact approval binding"
+              rows={[
+                { label: 'Plan', value: preview.plan_sha256 },
+                { label: 'Review', value: preview.review_fingerprint },
+                ...preview.effects.map((effect) => ({
+                  label: effect.lot_label,
+                  value: effect.barcode,
+                  key: effect.lot_id,
+                })),
+              ]}
+            />
           </>
         )}
       </Panel>
@@ -457,9 +457,4 @@ const Controls = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: ${space[4]};
-`
-const Binding = styled.div`
-  display: grid;
-  gap: ${space[2]};
-  overflow-wrap: anywhere;
 `
