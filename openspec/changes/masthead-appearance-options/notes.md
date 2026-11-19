@@ -6,6 +6,7 @@ Implementation of the three masthead options is in progress on `feat/masthead-ap
 
 - **2026-11-19T13:26+11:00, task 3 (PR-A):** The field stacks at `z-index: -1` instead of `z-index: 0` with a positioned content wrapper. The negative layer paints above the root's ground and below all content without giving the app a stacking context or a new containing block, so the toast-over-menu order and absolute descendants are untouched. Design D2 and task 3.3.5 updated.
 - **2026-11-19T13:26+11:00, task 3 (PR-A):** C's content-column cut-out is computed in CSS from the route's page-width token rather than measured by a ResizeObserver in `AppLayout`, so there is no Effect. Design D2 and task 3 scope updated.
+- **2026-11-19T13:47+11:00, task 3 (correction):** The Batches list label and notes sit inside the list card, so they take no backing after all; only text placed directly on the page is patched. The Agents and Processing step pages' loose text (intro, loading and empty notes, the Capture link) takes the patch, and their outer cards take the shadow.
 
 ## Unexpected challenges
 

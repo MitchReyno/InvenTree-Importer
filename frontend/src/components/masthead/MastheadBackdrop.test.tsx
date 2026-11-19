@@ -116,15 +116,25 @@ test('the whole-window field sits behind the page without a stacking context aro
   expect(style.pointerEvents).toBe('none')
 })
 
-test('fading down keeps parts out of the page content column for each page width', () => {
+/** The CSS rules styled-components generated for this element's own classes. */
+function rulesFor(element: Element): string {
+  const css = [...document.querySelectorAll('style')].map((node) => node.textContent).join('')
+
+  return [...element.classList]
+    .flatMap((name) => css.match(new RegExp(`\\.${name}\\{[^}]*\\}`, 'g')) ?? [])
+    .join('')
+}
+
+test('fading down masks parts out of the page content column for each page width', () => {
   choose('fade')
   const { rerender } = render(<MastheadBackdrop width="content" />)
 
-  const styles = () =>
-    [...document.querySelectorAll('style')].map((node) => node.textContent).join('')
+  const mask = () => screen.getByTestId('masthead-field').firstElementChild!
 
-  expect(styles()).toContain('var(--width-content)')
+  expect(rulesFor(mask())).toMatch(/mask-image:[^;]*var\(--content-edge\)/)
+  expect(rulesFor(mask())).toContain('var(--width-content)')
+  expect(rulesFor(mask())).not.toContain('var(--width-review)')
+
   rerender(<MastheadBackdrop width="review" />)
-  expect(styles()).toContain('var(--width-review)')
-  expect(screen.getByTestId('masthead-field')).toHaveAttribute('data-style', 'fade')
+  expect(rulesFor(mask())).toContain('var(--width-review)')
 })

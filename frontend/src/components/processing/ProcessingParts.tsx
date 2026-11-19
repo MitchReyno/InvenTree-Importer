@@ -1,5 +1,12 @@
 import styled from 'styled-components'
-import { media, hoverTransition, Pill, type PillTone, linkTouchArea } from '#/components/ui'
+import {
+  hoverTransition,
+  linkTouchArea,
+  media,
+  Pill,
+  raisedOnField,
+  type PillTone,
+} from '#/components/ui'
 import { batchHref } from '#/navigation/batch-route'
 import type {
   PipelineCell,
@@ -145,6 +152,7 @@ export const Card = styled.section`
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   background: ${color.surface};
+  ${raisedOnField}
 `
 
 export const CardTitle = styled.h2`

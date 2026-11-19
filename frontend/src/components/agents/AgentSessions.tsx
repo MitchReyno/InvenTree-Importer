@@ -16,6 +16,7 @@ import {
   DataTable,
   TableWrap,
   onField,
+  raisedOnField,
 } from '#/components/ui'
 import { SESSION_STATE, STEP_LABEL } from '#/components/processing/ProcessingParts'
 import { PauseButton } from './PauseButton'
@@ -400,6 +401,7 @@ const Summary = styled.section`
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   background: ${color.surface};
+  ${raisedOnField}
 `
 
 const Block = styled.div`
@@ -435,9 +437,11 @@ const Group = styled.section`
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   background: ${color.surface};
+  ${raisedOnField}
   ${TableWrap} {
     border: 0;
     border-radius: 0;
+    box-shadow: none;
   }
 `
 
