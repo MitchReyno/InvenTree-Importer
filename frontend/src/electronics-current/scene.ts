@@ -25,9 +25,13 @@ import { createOutlineKit, type OutlineKit } from './outline-kit'
 import type { PartModel } from './part-model'
 import { updateDisplay } from './parts/displays'
 
+/** `band`: a short strip such as the masthead bar. `field`: a whole window or a tall band. */
+export type CurrentLayout = 'band' | 'field'
+
 export interface ElectronicsCurrentOptions {
   reducedMotion: boolean
   theme?: ThemeId
+  layout?: CurrentLayout
   random?: () => number
 }
 
@@ -53,6 +57,14 @@ const PARTS_AT_REFERENCE_WIDTH = 30
 const MIN_PARTS = 6
 
 const MAX_PARTS = 40
+
+// A field is far sparser than the bar: about 25 parts on a 1440 × 900 window.
+const FIELD_PARTS_PER_MEGAPIXEL = 19
+
+const PIXELS_PER_MEGAPIXEL = 1_000_000
+
+// A field covers the window, so it renders at a lower pixel ratio than the bar to bound fill cost.
+const MAX_PIXEL_RATIO: Record<CurrentLayout, number> = { band: 2, field: 1.5 }
 
 // Parts enter and leave this far beyond the visible edges, in scene units.
 const EDGE_MARGIN = 15
@@ -150,6 +162,7 @@ export function createElectronicsCurrent(
   }
 
   const random = options.random ?? Math.random
+  const layout = options.layout ?? 'band'
   const scene = new Scene()
   const { camera, axes } = createIsometricCamera()
   const initialTheme = options.theme ?? 'light'
@@ -182,6 +195,7 @@ export function createElectronicsCurrent(
   let frameRequest = 0
   let running = false
   let laidOutWidth = 0
+  let laidOutHeight = 0
 
   renderer.setClearColor(0x000000, 0)
   const fog = new Fog(FINISHES[initialTheme].ground, 96, 124)
@@ -200,7 +214,10 @@ export function createElectronicsCurrent(
   }
 
   function desiredCount(): number {
-    const scaled = Math.round((PARTS_AT_REFERENCE_WIDTH * width) / REFERENCE_WIDTH_PX)
+    const scaled =
+      layout === 'field'
+        ? Math.round((FIELD_PARTS_PER_MEGAPIXEL * width * height) / PIXELS_PER_MEGAPIXEL)
+        : Math.round((PARTS_AT_REFERENCE_WIDTH * width) / REFERENCE_WIDTH_PX)
 
     return Math.min(MAX_PARTS, Math.max(MIN_PARTS, scaled))
   }
@@ -328,7 +345,7 @@ export function createElectronicsCurrent(
     })
   }
 
-  function matchCountToWidth(): void {
+  function matchCountToSize(): void {
     const count = desiredCount()
 
     while (parts.length < count) {
@@ -517,7 +534,7 @@ export function createElectronicsCurrent(
 
     const elapsed = Math.min(MAX_FRAME_SECONDS, Math.max(0, (now - lastFrameAt) / 1000))
     lastFrameAt = now
-    matchCountToWidth()
+    matchCountToSize()
     pointer.velocityX *= Math.exp(-elapsed * POINTER_SPEED_DECAY)
     pointer.velocityY *= Math.exp(-elapsed * POINTER_SPEED_DECAY)
     step(elapsed)
@@ -548,12 +565,18 @@ export function createElectronicsCurrent(
     layOutInitialParts()
     step(0)
     laidOutWidth = width
+    laidOutHeight = height
+  }
+
+  /** A band's count follows its width only; a field's follows its area. */
+  function layoutIsStale(): boolean {
+    return width !== laidOutWidth || (layout === 'field' && height !== laidOutHeight)
   }
 
   function resize(): void {
     width = canvas.clientWidth || REFERENCE_WIDTH_PX
     height = canvas.clientHeight || 120
-    renderer?.setPixelRatio(Math.min(2, window.devicePixelRatio || 1))
+    renderer?.setPixelRatio(Math.min(MAX_PIXEL_RATIO[layout], window.devicePixelRatio || 1))
     renderer?.setSize(width, height, false)
     camera.left = (-width * UNITS_PER_PX) / 2
     camera.right = (width * UNITS_PER_PX) / 2
@@ -570,7 +593,7 @@ export function createElectronicsCurrent(
       return
     }
 
-    if (width !== laidOutWidth) {
+    if (layoutIsStale()) {
       relayOutStaticFrame()
     }
 
@@ -596,6 +619,7 @@ export function createElectronicsCurrent(
     resize()
     layOutInitialParts()
     laidOutWidth = width
+    laidOutHeight = height
     step(0)
     render()
   } catch (error) {

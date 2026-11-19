@@ -9,6 +9,7 @@ interface FakeRenderer {
   lastScene: Scene | null
   renders: number
   disposed: boolean
+  pixelRatio: number
 }
 
 const rendering = vi.hoisted(() => ({ instances: [] as FakeRenderer[] }))
@@ -33,12 +34,15 @@ vi.mock('three', async (importOriginal) => {
     lastScene: Scene | null = null
     renders = 0
     disposed = false
+    pixelRatio = 1
 
     constructor() {
       rendering.instances.push(this)
     }
 
-    setPixelRatio(): void {}
+    setPixelRatio(ratio: number): void {
+      this.pixelRatio = ratio
+    }
 
     setClearColor(): void {}
 
@@ -59,6 +63,7 @@ vi.mock('three', async (importOriginal) => {
 
 let frames: FrameRequestCallback[] = []
 let visibilityCallback: IntersectionObserverCallback | null = null
+let resizeCallback: (() => void) | null = null
 const observers = { resizeDisconnect: vi.fn(), visibilityDisconnect: vi.fn() }
 
 /** Deterministic random source so every run lays out the same parts. */
@@ -122,6 +127,7 @@ function start(reducedMotion: boolean) {
 beforeEach(() => {
   frames = []
   visibilityCallback = null
+  resizeCallback = null
   rendering.instances.length = 0
   vi.stubGlobal(
     'requestAnimationFrame',
@@ -135,6 +141,10 @@ beforeEach(() => {
   vi.stubGlobal(
     'ResizeObserver',
     class {
+      constructor(callback: () => void) {
+        resizeCallback = callback
+      }
+
       observe(): void {}
 
       disconnect(): void {
@@ -473,4 +483,89 @@ test('the pointer reaches a loose end through the scene', () => {
 
   expect(stirred.flatMap((point) => point.toArray()).every(Number.isFinite)).toBe(true)
   expect(stirred[target].dot(right) - untouched[target].dot(right)).toBeGreaterThan(0.05)
+})
+
+/** A canvas reporting the given layout size, as jsdom lays nothing out. */
+function sizedCanvas(width: number, height: number): HTMLCanvasElement {
+  const canvas = document.createElement('canvas')
+  setCanvasSize(canvas, width, height)
+
+  return canvas
+}
+
+function setCanvasSize(canvas: HTMLCanvasElement, width: number, height: number): void {
+  Object.defineProperty(canvas, 'clientWidth', { configurable: true, value: width })
+  Object.defineProperty(canvas, 'clientHeight', { configurable: true, value: height })
+}
+
+function startField(canvas: HTMLCanvasElement, reducedMotion = true) {
+  const controller = createElectronicsCurrent(canvas, {
+    reducedMotion,
+    layout: 'field',
+    random: seededRandom(7),
+  })
+
+  if (!controller) {
+    throw new Error('expected a controller with the fake renderer')
+  }
+
+  return controller
+}
+
+/** Each part's position on screen, in CSS pixels from the canvas centre. */
+function screenOffsets(scene: Scene | null): { x: number; y: number }[] {
+  const right = new Vector3(1, 0, -1).normalize()
+  const up = new Vector3(-1, 2, -1).normalize()
+
+  return partObjects(scene).map((object) => ({
+    x: object.position.dot(right) / 0.17,
+    y: object.position.dot(up) / 0.17,
+  }))
+}
+
+test.each([
+  [1440, 900, 25],
+  [390, 844, 6],
+  [3840, 2160, 40],
+])('a %d × %d field holds parts by area (%d)', (width, height, expected) => {
+  const controller = startField(sizedCanvas(width, height))
+
+  expect(partObjects(currentRenderer().lastScene)).toHaveLength(expected)
+  controller.dispose()
+})
+
+test('a field spreads its parts over its whole height and keeps them inside it', () => {
+  const controller = startField(sizedCanvas(1440, 900))
+  const offsets = screenOffsets(currentRenderer().lastScene)
+
+  expect(offsets.every((offset) => Math.abs(offset.y) <= 450)).toBe(true)
+  expect(offsets.some((offset) => Math.abs(offset.y) > 225)).toBe(true)
+  controller.dispose()
+})
+
+test('a height-only resize re-lays out a still field within its new bounds', () => {
+  const canvas = sizedCanvas(1440, 900)
+  const controller = startField(canvas)
+
+  setCanvasSize(canvas, 1440, 450)
+  resizeCallback?.()
+
+  expect(partObjects(currentRenderer().lastScene)).toHaveLength(12)
+  expect(
+    screenOffsets(currentRenderer().lastScene).every((offset) => Math.abs(offset.y) <= 225),
+  ).toBe(true)
+  expect(requestAnimationFrame).not.toHaveBeenCalled()
+  controller.dispose()
+})
+
+test('a field caps its pixel ratio; the band keeps the existing cap', () => {
+  vi.stubGlobal('devicePixelRatio', 3)
+
+  const field = startField(sizedCanvas(1440, 900))
+  expect(currentRenderer().pixelRatio).toBe(1.5)
+  field.dispose()
+
+  const band = start(true)
+  expect(currentRenderer().pixelRatio).toBe(2)
+  band.dispose()
 })

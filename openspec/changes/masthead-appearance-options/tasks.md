@@ -73,10 +73,10 @@ One PR carries tasks 1–6. The preference, the scene layout, the layouts and th
 - Verification: the scene test file, then `pnpm typecheck`.
 - Risks: tuning the density constant against the artboards (about 25 parts at 1440 × 900); record the chosen value and any change in `notes.md`.
 
-- [ ] 2.1 Baseline: run `scene.test.ts` and record the existing band counts.
-- [ ] 2.2 RED: add the field-count, bounds, height-only resize and pixel-ratio cases; confirm they fail.
-- [ ] 2.3 GREEN: implement the `layout` option with named constants for density and pixel-ratio cap, and relayout the field when its height changes.
-- [ ] 2.4 Refactor; confirm the band cases are unchanged.
+- [x] 2.1 Baseline: run `scene.test.ts` and record the existing band counts.
+- [x] 2.2 RED: add the field-count, bounds, height-only resize and pixel-ratio cases; confirm they fail.
+- [x] 2.3 GREEN: implement the `layout` option with named constants for density and pixel-ratio cap, and relayout the field when its height changes.
+- [x] 2.4 Refactor; confirm the band cases are unchanged.
 
 ## 3. Field host, B and C layouts, ground patches
 
