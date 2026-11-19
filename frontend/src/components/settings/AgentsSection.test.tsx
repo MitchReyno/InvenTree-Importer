@@ -529,6 +529,64 @@ test('a Reload answering after a newer save never brings back older settings', a
   expect(screen.getByText('3 of 2 in use · 1 queued')).toBeVisible()
 })
 
+test('an edit made before a change from elsewhere is sent under its own revision', async () => {
+  const api = client()
+  api.settings
+    .mockResolvedValueOnce(initial)
+    .mockResolvedValueOnce({ ...initial, revision: '9', auto_tags_default: true })
+  await renderAgents(api)
+  fireEvent.change(screen.getByRole('textbox', { name: 'Instructions for every new batch' }), {
+    target: { value: 'Mine' },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Read settings again' }))
+  await waitFor(() => expect(api.settings).toHaveBeenCalledTimes(2))
+  fireEvent.click(within(card('Instructions')).getByRole('button', { name: 'Save' }))
+  // The server refuses revision 7 as stale, so the other tab's change is never overwritten.
+  await waitFor(() =>
+    expect(api.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ expected_revision: '7', new_batch_instructions: 'Mine' }),
+    ),
+  )
+})
+
+test('turning a provider on and off again leaves nothing unsaved', async () => {
+  const dirty = vi.fn()
+  const api = client()
+  api.settings.mockResolvedValue(agentSettings('0', null))
+  await renderAgents(api, dirty)
+  const on = within(screen.getByRole('group', { name: 'Claude' })).getByRole('checkbox', {
+    name: 'On',
+  })
+  fireEvent.click(on)
+  expect(dirty).toHaveBeenLastCalledWith(true)
+  fireEvent.click(on)
+  expect(dirty).toHaveBeenLastCalledWith(false)
+})
+
+test('a save answering after leaving Agents never releases the guard', async () => {
+  const dirty = vi.fn()
+  const api = client()
+
+  let finish: (value: AgentSettingsDto) => void = () => undefined
+
+  api.saveSettings.mockImplementation(
+    () => new Promise<AgentSettingsDto>((resolve) => (finish = resolve)),
+  )
+  await renderAgents(api, dirty)
+  fireEvent.change(screen.getByRole('textbox', { name: 'Instructions for every new batch' }), {
+    target: { value: 'Mine' },
+  })
+  fireEvent.click(within(card('Instructions')).getByRole('button', { name: 'Save' }))
+  await waitFor(() => expect(api.saveSettings).toHaveBeenCalled())
+  fireEvent.click(screen.getByRole('button', { name: 'Leave Agents' }))
+  dirty.mockClear()
+  await act(async () => {
+    finish({ ...initial, revision: '8', new_batch_instructions: 'Mine' })
+    await new Promise((done) => setTimeout(done, 20))
+  })
+  expect(dirty).not.toHaveBeenCalledWith(false)
+})
+
 test('Suggest tags for new batches saves on its own', async () => {
   const api = await renderAgents()
   fireEvent.click(screen.getByRole('checkbox', { name: 'Suggest tags for new batches' }))

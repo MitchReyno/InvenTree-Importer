@@ -25,10 +25,19 @@ export function BatchDefaultsSection({
     refetchOnWindowFocus: false,
   })
 
-  /** A read already running is older than the confirmed defaults, so it must not replace them. */
-  async function adopt(confirmed: BatchDefaultsDto) {
-    await queryClient.cancelQueries({ queryKey: key })
-    queryClient.setQueryData(key, confirmed)
+  /**
+   * Publishes confirmed defaults and answers with the newest known. A read already running, or a
+   * reload older than what a refresh loaded meanwhile, never replaces newer defaults.
+   */
+  function adopt(confirmed: BatchDefaultsDto) {
+    const cached = queryClient.getQueryData<BatchDefaultsDto>(key)
+    if (cached && BigInt(cached.revision) > BigInt(confirmed.revision)) {
+      return cached
+    }
+    void queryClient
+      .cancelQueries({ queryKey: key })
+      .then(() => queryClient.setQueryData(key, confirmed))
+    return confirmed
   }
 
   return (
@@ -57,7 +66,7 @@ export function BatchDefaultsSection({
         <BatchDefaultsForm
           client={batchDefaults}
           loaded={saved.data}
-          onLoaded={(confirmed) => void adopt(confirmed)}
+          onLoaded={adopt}
           onDirtyChange={onDirtyChange}
         />
       )}

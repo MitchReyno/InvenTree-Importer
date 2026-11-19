@@ -61,6 +61,8 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
   const reportDirty = useDirtyForms(onDirtyChange)
   // The newest settings a save or reload confirmed, ahead of the cache while it is updated.
   const newest = useRef<AgentSettingsDto | undefined>(undefined)
+  // Revisions this page's own saves produced; an edit may move past those, never past others.
+  const localSaves = useRef(new Set<string>())
 
   // Syncs the page with the route's location hash. Headings render before the settings load, so
   // the target exists on the first run; the ref keeps a refetch from moving focus again.
@@ -86,12 +88,18 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
    * Publishes confirmed settings and answers with what is current. A read that was already
    * running, or a reload older than a save confirmed meanwhile, never replaces newer settings.
    */
-  function adoptLoaded(confirmed: AgentSettingsDto) {
-    const current = [newest.current, queryClient.getQueryData<AgentSettingsDto>(settingsKey)]
+  function adoptLoaded(confirmed: AgentSettingsDto, source: 'save' | 'reload') {
+    if (source === 'save') {
+      localSaves.current.add(confirmed.revision)
+    }
+    const latest = [newest.current, queryClient.getQueryData<AgentSettingsDto>(settingsKey)]
       .filter((settings) => settings !== undefined)
-      .find((settings) => BigInt(settings.revision) > BigInt(confirmed.revision))
-    if (current) {
-      return current
+      .reduce(
+        (best, settings) => (BigInt(settings.revision) > BigInt(best.revision) ? settings : best),
+        confirmed,
+      )
+    if (latest !== confirmed) {
+      return latest
     }
     newest.current = confirmed
     void queryClient.cancelQueries({ queryKey: settingsKey }).then(() => {
@@ -119,6 +127,7 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
     client,
     loaded: settings.data,
     onLoaded: adoptLoaded,
+    localSaves: localSaves.current,
     reportDirty,
   }
   const sessionsSubsection = (

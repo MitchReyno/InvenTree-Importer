@@ -35,7 +35,8 @@ export function BatchDefaultsForm({
 }: {
   client: BatchDefaultsClient
   loaded: BatchDefaultsDto
-  onLoaded: (saved: BatchDefaultsDto) => void
+  /** Publishes confirmed defaults and answers with the newest known. */
+  onLoaded: (saved: BatchDefaultsDto) => BatchDefaultsDto
   onDirtyChange: (dirty: boolean) => void
 }) {
   const mounted = useMountedRef()
@@ -50,15 +51,21 @@ export function BatchDefaultsForm({
     if (busy) {
       return
     }
-    setEdit((current) => ({
-      base: current?.base ?? loaded,
-      draft: { ...(current?.draft ?? draftOf(loaded)), [field]: record },
-    }))
+    const start = edit?.base ?? loaded
+    const next = { ...(edit?.draft ?? draftOf(loaded)), [field]: record }
     setState('idle')
+    // A choice undone back to the saved records is no longer unsaved.
+    if (next.location?.pk === start.location?.pk && next.supplier?.pk === start.supplier?.pk) {
+      setEdit(null)
+      onDirtyChange(false)
+      return
+    }
+    setEdit({ base: start, draft: next })
     onDirtyChange(true)
   }
 
   function adopt(saved: BatchDefaultsDto) {
+    // The form shows the newest load once the edit is settled.
     onLoaded(saved)
     setEdit(null)
     onDirtyChange(false)

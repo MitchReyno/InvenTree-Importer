@@ -13,13 +13,35 @@ import { useSettingsSave } from './useSettingsSave'
 export type SubsectionFormProps = {
   client: ReturnType<typeof agentsClient>
   loaded: AgentSettingsDto
-  /** Publishes confirmed settings and answers with what is current. */
-  onLoaded: (settings: AgentSettingsDto) => AgentSettingsDto
+  /** Publishes confirmed settings and answers with the newest settings known. */
+  onLoaded: (settings: AgentSettingsDto, source: 'save' | 'reload') => AgentSettingsDto
+  /** Revisions this page's own saves produced, which an edit may safely move past. */
+  localSaves: ReadonlySet<string>
   /** Reports this form's unsaved input to the shared navigation guard. */
   reportDirty: (form: string, dirty: boolean) => void
 }
 
 type Owned = Partial<Omit<AgentSettingsUpdateDto, 'expected_revision'>>
+
+/**
+ * The revision an edit is sent under. Only this page's own saves since the edit began may move
+ * it on; a change from elsewhere keeps the edit's revision, so the server refuses it as a conflict.
+ */
+function expectedRevision(
+  base: AgentSettingsDto | undefined,
+  loaded: AgentSettingsDto,
+  localSaves: ReadonlySet<string>,
+) {
+  if (!base) {
+    return loaded.revision
+  }
+  for (let revision = BigInt(base.revision) + 1n; revision <= BigInt(loaded.revision); revision++) {
+    if (!localSaves.has(revision.toString())) {
+      return base.revision
+    }
+  }
+  return loaded.revision
+}
 
 /**
  * One subsection's form over the loaded settings: it follows a newer load while untouched, keeps
@@ -31,6 +53,7 @@ export function useSubsectionForm<V extends FieldValues>({
   client,
   loaded,
   onLoaded,
+  localSaves,
   reportDirty,
   read,
   write,
@@ -73,7 +96,14 @@ export function useSubsectionForm<V extends FieldValues>({
     state: saving.state,
     busy: saving.busy,
     markDirty: () => {
-      setBase((current) => current ?? loaded)
+      const start = base ?? loaded
+      // An edit undone back to its start is no longer unsaved.
+      if (JSON.stringify(write(form.getValues())) === owned(start)) {
+        setBase(undefined)
+        reportDirty(id, false)
+        return
+      }
+      setBase(start)
       reportDirty(id, true)
     },
     /** `check` runs after the conflict check, for rules beyond the fields' own validation. */
@@ -93,7 +123,7 @@ export function useSubsectionForm<V extends FieldValues>({
           if (check && !check(current)) {
             return
           }
-          settle(await saving.save(write(current)))
+          settle(await saving.save(write(current), expectedRevision(base, loaded, localSaves)))
         })()
         .finally(() => {
           pending.current = false

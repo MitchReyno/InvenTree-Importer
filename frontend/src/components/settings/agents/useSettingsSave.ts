@@ -28,28 +28,31 @@ export function useSettingsSave({
   client: ReturnType<typeof agentsClient>
   loaded: AgentSettingsDto
   /**
-   * Publishes the settings a confirmed save or reload returns, and answers with what is current:
-   * a reload older than a save confirmed meanwhile is not adopted.
+   * Publishes the settings a confirmed save or reload returns, and answers with the newest
+   * settings now known, which may be newer than these.
    */
-  onLoaded: (settings: AgentSettingsDto) => AgentSettingsDto
+  onLoaded: (settings: AgentSettingsDto, source: 'save' | 'reload') => AgentSettingsDto
 }) {
   const mounted = useMountedRef()
   const [state, setState] = useState<SaveState>('idle')
 
-  async function save(fields: Fields) {
-    const { revision, ...current } = loaded
+  /** `expected` is the revision the edit was made over, when it differs from the loaded one. */
+  async function save(fields: Fields, expected = loaded.revision) {
+    const { revision: _revision, ...current } = loaded
     setState('saving')
     try {
       const saved = await client.saveSettings({
         ...current,
         ...fields,
-        expected_revision: revision,
+        expected_revision: expected,
       })
-      if (mounted.current) {
-        setState('saved')
-        return onLoaded(saved)
+      // After leaving the section nothing settles, so a late answer can't release another
+      // page's navigation guard.
+      if (!mounted.current) {
+        return undefined
       }
-      return saved
+      setState('saved')
+      return onLoaded(saved, 'save')
     } catch (caught) {
       if (mounted.current) {
         const code = caught instanceof IntakeRequestError ? caught.code : undefined
@@ -70,11 +73,11 @@ export function useSettingsSave({
     setState('reloading')
     try {
       const current = await client.settings()
-      if (mounted.current) {
-        setState('idle')
-        return onLoaded(current)
+      if (!mounted.current) {
+        return undefined
       }
-      return current
+      setState('idle')
+      return onLoaded(current, 'reload')
     } catch {
       if (mounted.current) {
         // Reload stays offered: the edit is kept and what is saved is still unknown.
