@@ -161,9 +161,9 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - Verification: The frontend checks, plus a browser check at 360px.
 - Risks: The masthead's decorative layer clipping the popover, which `Popover` already portals around.
 
-- [ ] 4.1 Confirm the `Popover` API and the masthead tests as the baseline.
-- [ ] 4.2 RED: write the popover tests.
-- [ ] 4.3 GREEN: build `DevModeButton` and its content.
+- [x] 4.1 Confirm the `Popover` API and the masthead tests as the baseline.
+- [x] 4.2 RED: write the popover tests.
+- [x] 4.3 GREEN: build `DevModeButton` and its content.
 - [ ] 4.4 Refactor, then run the frontend checks and the 360px browser check.
 - [ ] 4.5 Record a demo with `demo-record` covering the popover, the debug switch and one screen off and on, and attach it to PR-A.
 
