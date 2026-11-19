@@ -1159,6 +1159,28 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         self.assertIn(b"X-Bench-Refusal: resolution_failed\r\n", refused)
         writer.transport.abort.assert_called_once()
         client.transport.abort.assert_called_once()
+    async def test_rotating_protected_answers_past_the_bound_fail_the_turn_closed(self):
+        self.write_policy(public_pages=False, protected_hosts=["inventory.example.com"])
+        stream, remote, client, writer = await self.held_tunnel("api.anthropic.com:443")
+        table = {"inventory.example.com": ["8.8.8.8"], "api.anthropic.com": [OTHER_PUBLIC]}
+        self.guest_dns = Mock(side_effect=dns(table))
+        lookups = egress.PROTECTED_LOOKUPS
+        with patch.object(egress, "MAX_PROTECTED_ADDRESSES", 4), \
+                patch.object(socket, "getaddrinfo", self.guest_dns), \
+                patch.object(egress.asyncio, "open_connection",
+                             AsyncMock(return_value=(remote, writer))):
+            provider = asyncio.create_task(egress.handle(stream, client))
+            await self.until_open(client, provider)
+            # The record rotates through more addresses than the turn may keep.
+            for last in range(1, 6):
+                await self.publish("inventory.example.com", f"9.9.9.{last}")
+            await asyncio.wait_for(provider, 2)
+            written, upstream = await self.connect("api.anthropic.com:443", table)
+        self.assertLessEqual(lookups.recorded, 4)
+        self.assertIn(egress.normalized("8.8.8.8"), lookups.known["inventory.example.com"])
+        writer.transport.abort.assert_called_once()
+        self.assert_refused(written, upstream, "resolution_failed")
+
 
 if __name__ == "__main__":
     unittest.main()

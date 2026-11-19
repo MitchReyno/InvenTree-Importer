@@ -44,6 +44,9 @@ MAX_CONNECT_ATTEMPTS = 3
 # Public tunnels open at once, and how long one may sit without data before it closes. Provider
 # tunnels have neither limit: model streams can pause for long stretches.
 MAX_PUBLIC_TUNNELS = 32
+# Every address protected names answer with stays blocked for the turn; past this many the
+# turn fails closed rather than grow without bound.
+MAX_PROTECTED_ADDRESSES = 1024
 PUBLIC_IDLE_TIMEOUT_S = 120
 # Connections still sending their CONNECT line. Provider and public requests share this
 # listener, so the agent could only use it to stall its own turn.
@@ -143,6 +146,9 @@ class ProtectedLookups:
         # Set once a protected name fails to resolve: public hosts are refused for the turn.
         # Read it only under the lock, so a failure is seen together with its revocations.
         self.failed = False
+        # Set once the turn's protected addresses pass their bound: every request is refused.
+        self.overflowed = False
+        self.recorded = 0
         # Open provider tunnels: their connected address and the event that drops them.
         self.tunnels = {}
 
@@ -167,10 +173,19 @@ class ProtectedLookups:
                 affected = [revocation for _address, revocation, public_request
                             in self.tunnels.values() if public_request]
             else:
-                self.known[name] = self.known.get(name, set()) | set(addresses)
-                affected = [revocation for address, revocation, _public_request
-                            in self.tunnels.values() if address in addresses]
-            # Every affected tunnel is revoked before any abort is queued.
+                known = self.known.setdefault(name, set())
+                added = set(addresses) - known
+                if self.recorded + len(added) > MAX_PROTECTED_ADDRESSES:
+                    self.failed = self.overflowed = True
+                    affected = [revocation for _address, revocation, _public_request
+                                in self.tunnels.values()]
+                else:
+                    known |= added
+                    self.recorded += len(added)
+                    affected = [revocation for address, revocation, _public_request
+                                in self.tunnels.values() if address in addresses]
+            # Every affected tunnel is revoked before any abort is queued, each only once.
+            affected = [revocation for revocation in affected if not revocation.revoked]
             for revocation in affected:
                 revocation.revoke()
             for revocation in affected:
@@ -193,7 +208,7 @@ class ProtectedLookups:
     def verdict(self, revocations, public_request):
         """Refuses a public request once a protected lookup has failed, then any request whose
         answers were revoked during setup. Call with the publication lock held."""
-        if public_request and self.failed:
+        if self.overflowed or (public_request and self.failed):
             raise Refused("resolution_failed")
         if any(revocation.is_set() for revocation in revocations):
             raise Refused("protected_destination")
@@ -251,12 +266,12 @@ class ProtectedLookups:
     def guard(self, address, protected, public_request):
         """Refuses a public request once a protected lookup has failed, then an address any
         protected name has answered with this turn, as one step under the publication lock."""
+        address = normalized(address)
         with self.lock:
-            if public_request and self.failed:
+            if self.overflowed or (public_request and self.failed):
                 raise Refused("resolution_failed")
-            blocked = set().union(*(self.known.get(entry, set()) for entry in protected))
-        if normalized(address) in blocked:
-            raise Refused("protected_destination")
+            if any(address in self.known.get(entry, ()) for entry in protected):
+                raise Refused("protected_destination")
 
 
 PROTECTED_LOOKUPS = ProtectedLookups()

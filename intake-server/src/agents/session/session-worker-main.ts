@@ -79,7 +79,12 @@ function schedulerDatabaseUrl(value: string | undefined) {
   const checked = localDatabaseUrl(value)
   const url = new URL(checked)
   const name = url.pathname.slice(1)
-  if (!url.username || name.length < 1 || name.length > 63) {
+  // A plain name, so DBOS (which reads the path) and `pg` agree on which database it is.
+  if (
+    !url.username ||
+    !/^[A-Za-z0-9_-]{1,63}$/.test(name) ||
+    new Client({ connectionString: checked }).database !== name
+  ) {
     throw new Error('local_agent_database_required')
   }
   return checked
