@@ -376,3 +376,17 @@ test('a pause that fails says so and leaves the agents as they were', async () =
   )
   expect(within(group).getByRole('button', { name: 'Pause all' })).toBeVisible()
 })
+
+test('behind the whole window, a session group is raised and the table inside it is not', async () => {
+  document.documentElement.dataset.masthead = 'window'
+  try {
+    render(<AgentSessions client={client()} batches={batches} />)
+    const group = await screen.findByRole('region', { name: 'Mouser order' })
+    const tableWrap = within(group).getByRole('table').parentElement!
+
+    expect(getComputedStyle(group).boxShadow).toContain('shadow')
+    expect(getComputedStyle(tableWrap).boxShadow).toBe('none')
+  } finally {
+    document.documentElement.dataset.masthead = 'bar'
+  }
+})

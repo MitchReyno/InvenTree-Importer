@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import { batchHref } from '#/navigation/batch-route'
 import type { ProcessingSource, StepProgress, WorkStep } from '#/processing/source'
 import { color, icon, radius, space, type, typeVar } from '#/theme/generated/tokens'
-import { Spinner, linkTouchArea, onField } from '#/components/ui'
+import { Spinner, linkTouchArea, onField, groundBehindOnField } from '#/components/ui'
 import { Card, CardTitle, Muted, QuestionRows, SessionRows, stepOutcome } from './ProcessingParts'
 
 type Props = {
@@ -138,6 +138,7 @@ const FieldNote = styled(Muted)`
   ${onField}
 `
 
+// A backing without the patch's margin, so the link keeps its place at the end of the row.
 const CaptureLink = styled.a`
-  ${onField}
+  ${groundBehindOnField}
 `

@@ -11,6 +11,9 @@ import {
   Pill,
   type PillTone,
   linkTouchArea,
+  raisedOnField,
+  onWholeWindow,
+  media,
 } from '#/components/ui'
 
 const STATE: Record<ProposedLotState, { tone: PillTone; word: string }> = {
@@ -141,6 +144,14 @@ const Glance = styled.section`
   border-radius: ${radius.card};
   background: ${color.surface};
   min-width: 0;
+  ${raisedOnField}
+
+  /* On a phone the glance sits inside the Evidence card, which is already raised. */
+  ${onWholeWindow} & {
+    ${media.compact} {
+      box-shadow: none;
+    }
+  }
 `
 
 const Head = styled.div`
