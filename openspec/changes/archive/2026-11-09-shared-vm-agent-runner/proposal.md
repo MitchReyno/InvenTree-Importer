@@ -10,7 +10,7 @@ Canonical change: `shared-vm-agent-runner`. No matching item in the current plan
 
 ## Current behavior and evidence
 
-The driver call in `intake-server/src/agents/session-runner.ts` already separates a claimed turn from execution. The adapters launch local children, enforce tool admission and expect a loopback MCP server. The repository's live qualification recorded Codex tools appearing despite disabled configuration (see `openspec/changes/harden-native-agent-sessions/notes.md`). The worker owns database credentials that must stay outside agent execution. Agent Settings stores revisioned provider selection and concurrency, and has no secret store. The existing decoder image and development InvenTree Compose stack solve narrower packaging problems.
+The driver call in `intake-server/src/agents/session-runner.ts` already separates a claimed turn from execution. The adapters launch local children, enforce tool admission and expect a loopback MCP server. The repository's live qualification recorded Codex tools appearing despite disabled configuration (see `openspec/changes/archive/2026-11-19-harden-native-agent-sessions/notes.md`). The worker owns database credentials that must stay outside agent execution. Agent Settings stores revisioned provider selection and concurrency, and has no secret store. The existing decoder image and development InvenTree Compose stack solve narrower packaging problems.
 
 ## Scope and non-goals
 
