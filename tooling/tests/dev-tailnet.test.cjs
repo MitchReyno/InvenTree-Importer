@@ -288,3 +288,12 @@ test('pending upgrades end with their client, time out, and refusals are well fr
   assert.match(text, /content-length: 0/)
   assert.doesNotMatch(text, /transfer-encoding|refused/i)
 })
+
+test('empty tailnet settings count as unset', () => {
+  const { tailscaleOption } = require('../dev/tailnet.cjs')
+  assert.equal(tailscaleOption({ INTAKE_DEV_TAILSCALE: '' }, []), null)
+  assert.deepEqual(
+    tailscaleOption({ INTAKE_DEV_TAILSCALE: '1', INTAKE_DEV_TAILSCALE_PORT: '' }, []),
+    { port: 443 },
+  )
+})

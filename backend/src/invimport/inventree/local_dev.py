@@ -58,7 +58,8 @@ def read_local_writer_token(directory: Path) -> str | None:
         if not _private(entry, kind=stat.S_ISREG) or entry.st_size > _MAX_STATE_BYTES:
             return None
         state = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+    # ValueError covers bad text, bad JSON and integers past Python's digit limit.
+    except (OSError, ValueError):
         return None
     # JSON true and 1.0 compare equal to 1 in Python; only the integer is version 1.
     if not isinstance(state, dict) or type(state.get("version")) is not int or state["version"] != 1:

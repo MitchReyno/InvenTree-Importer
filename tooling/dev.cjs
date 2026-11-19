@@ -187,7 +187,8 @@ async function main() {
     // A missing pairing is refused before any service starts or the VM boots.
     await checkPairing(resolved.vm.pair)
   }
-  const port = Number(settings.INTAKE_DEV_PORT ?? 4330)
+  // An empty value counts as unset.
+  const port = Number(settings.INTAKE_DEV_PORT || 4330)
   if (!Number.isInteger(port) || port < 1024 || port > 65535 || port === 4310 || port === 4350) {
     throw new Error('invalid_development_port')
   }

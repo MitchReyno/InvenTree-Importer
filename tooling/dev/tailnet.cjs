@@ -6,14 +6,15 @@ const IDENTITY_HEADERS = /^tailscale-/
 
 /** Opt-in tailnet HTTPS; the port is the `tailscale serve --https` port. */
 function tailscaleOption(settings, argv = process.argv) {
-  const flag = settings.INTAKE_DEV_TAILSCALE
+  // An empty value counts as unset, like every other dev setting.
+  const flag = settings.INTAKE_DEV_TAILSCALE || undefined
   if (flag !== undefined && flag !== '0' && flag !== '1') {
     throw new Error('invalid_tailscale_setting')
   }
   if (!argv.includes('--tailscale') && flag !== '1') {
     return null
   }
-  const port = Number(settings.INTAKE_DEV_TAILSCALE_PORT ?? 443)
+  const port = Number(settings.INTAKE_DEV_TAILSCALE_PORT || 443)
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new Error('invalid_tailscale_port')
   }

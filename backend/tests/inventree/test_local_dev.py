@@ -100,6 +100,7 @@ def test_no_state_file_means_no_local_instance(development_state_directory):
         {"version": True, "tokens": {"writer": WRITER}},
         {"version": 1.0, "tokens": {"writer": WRITER}},
         {"version": 1, "tokens": {"writer": WRITER + "\n"}},
+        '{"version": ' + "9" * 5000 + ', "tokens": {"writer": "' + WRITER + '"}}',
         {"version": 1, "tokens": {"writer": "inv-" + "a" * 40 + "-2026111\u0663"}},
     ],
 )
