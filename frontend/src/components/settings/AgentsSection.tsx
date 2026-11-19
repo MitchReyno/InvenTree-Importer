@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { AgentSettingsDto } from '@invimport/contracts'
 import type { agentsClient } from '@invimport/contracts/client'
@@ -55,7 +55,10 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
     queryFn: () => client.sessions(),
     refetchInterval: poll === false ? 10000 : poll,
   })
-  const loaded = settings.isFetchedAfterMount && settings.data
+  // Forms open only on a read that succeeded this visit, never on cached settings after a failed
+  // one; a later failed refresh keeps them, and their drafts, open.
+  const [mountedAt] = useState(Date.now)
+  const loaded = settings.data && settings.dataUpdatedAt >= mountedAt && settings.data
   const ready = Boolean(loaded)
   const focused = useRef<AgentSubsectionId | undefined>(undefined)
   const reportDirty = useDirtyForms(onDirtyChange)

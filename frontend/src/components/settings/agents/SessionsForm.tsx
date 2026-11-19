@@ -56,7 +56,13 @@ export function SessionsForm({
           <Small>
             Lowering it lets running turns finish; queued sessions wait for a free slot.
           </Small>
-          <SaveBar state={state} busy={busy} onSave={save} onReload={reload} />
+          <SaveBar
+            state={state}
+            busy={busy}
+            savedMessage="Saved. The limit applies now: running turns finish, and queued sessions start as slots free up."
+            onSave={save}
+            onReload={reload}
+          />
         </Stack>
       </SettingRow>
       {pause}

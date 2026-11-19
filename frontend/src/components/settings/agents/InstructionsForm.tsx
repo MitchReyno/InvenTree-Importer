@@ -49,7 +49,13 @@ export function InstructionsForm(props: SubsectionFormProps) {
                 Up to {MAX_INSTRUCTIONS.toLocaleString()} characters of plain text.
               </Small>
             )}
-            <SaveBar state={state} busy={busy} onSave={save} onReload={reload} />
+            <SaveBar
+              state={state}
+              busy={busy}
+              savedMessage="Saved. Batches created from now on start with these instructions; existing batches keep theirs."
+              onSave={save}
+              onReload={reload}
+            />
           </Stack>
         )}
       </SettingRow>

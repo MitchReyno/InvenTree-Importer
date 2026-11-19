@@ -34,7 +34,13 @@ export function TagSuggestionsForm(props: SubsectionFormProps) {
             />
             Suggest tags for new batches
           </CheckboxLabel>
-          <SaveBar state={state} busy={busy} onSave={save} onReload={reload} />
+          <SaveBar
+            state={state}
+            busy={busy}
+            savedMessage="Saved. Batches created from now on start with this; existing batches keep theirs."
+            onSave={save}
+            onReload={reload}
+          />
         </Stack>
       </SettingRow>
     </SettingsCard>

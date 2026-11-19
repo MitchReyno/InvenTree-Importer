@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Banner, Button, Paragraph, SettingRow, Switch } from '#/components/ui'
 import { serverQueryKey } from '#/queries/scope'
@@ -24,6 +25,10 @@ export function BatchDefaultsSection({
     refetchOnMount: 'always',
     refetchOnWindowFocus: false,
   })
+
+  // The form opens only on a read that succeeded this visit, never on cached defaults.
+  const [mountedAt] = useState(Date.now)
+  const loaded = saved.data && saved.dataUpdatedAt >= mountedAt ? saved.data : undefined
 
   /**
    * Publishes confirmed defaults and answers with the newest known. A read already running, or a
@@ -57,15 +62,15 @@ export function BatchDefaultsSection({
           </Banner>
         </div>
       )}
-      {batchDefaults && !saved.isFetchedAfterMount && (
+      {batchDefaults && !loaded && !saved.isError && (
         <Paragraph role="status" $onField>
           Loading saved defaults…
         </Paragraph>
       )}
-      {batchDefaults && saved.isFetchedAfterMount && saved.data && (
+      {batchDefaults && loaded && (
         <BatchDefaultsForm
           client={batchDefaults}
-          loaded={saved.data}
+          loaded={loaded}
           onLoaded={adopt}
           onDirtyChange={onDirtyChange}
         />

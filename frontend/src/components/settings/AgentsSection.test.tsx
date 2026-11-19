@@ -1,5 +1,5 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, test, vi, type Mock } from 'vitest'
 import type {
   AgentSessionListDto,
@@ -110,6 +110,13 @@ function Harness({ api, dirty }: { api: Api; dirty?: (value: boolean) => void })
       />
     </>
   )
+}
+
+/** Settings already cached from an earlier visit. */
+function Primed({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient()
+  useState(() => queryClient.setQueryData(serverQueryKey(fixtureScope, 'agent-settings'), initial))
+  return children
 }
 
 async function renderAgents(api = client(), dirty?: (value: boolean) => void, ready = 'Claude') {
@@ -498,7 +505,7 @@ test('a refresh never mixes into a Providers draft, and saving it is a conflict'
   expect(api.saveSettings).not.toHaveBeenCalled()
 })
 
-test('a Reload answering after a newer save never brings back older settings', async () => {
+test('a Reload answering late settles to the newest settings, not its own older answer', async () => {
   const api = client()
 
   let answer: (value: AgentSettingsDto) => void = () => undefined
@@ -507,12 +514,18 @@ test('a Reload answering after a newer save never brings back older settings', a
   api.settings
     .mockResolvedValueOnce(initial)
     .mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)))
+    .mockResolvedValueOnce({
+      ...initial,
+      revision: '9',
+      session_concurrency: 2,
+      new_batch_instructions: 'Newest',
+    })
   await renderAgents(api)
   expect(await screen.findByText('3 of 3 in use · 1 queued')).toBeVisible()
-  fireEvent.change(screen.getByRole('textbox', { name: 'Instructions for every new batch' }), {
-    target: { value: 'Mine' },
-  })
+  const instructions = screen.getByRole('textbox', { name: 'Instructions for every new batch' })
+  fireEvent.change(instructions, { target: { value: 'Mine' } })
   fireEvent.click(within(card('Instructions')).getByRole('button', { name: 'Save' }))
+  // Revision 7 answers the Reload late; this page saves 8; a refresh loads 9 from elsewhere.
   fireEvent.click(await screen.findByRole('button', { name: 'Reload' }))
   await waitFor(() => expect(api.settings).toHaveBeenCalledTimes(2))
   fireEvent.click(
@@ -522,31 +535,55 @@ test('a Reload answering after a newer save never brings back older settings', a
   )
   fireEvent.click(within(card('Sessions')).getByRole('button', { name: 'Save' }))
   expect(await screen.findByText('3 of 2 in use · 1 queued')).toBeVisible()
+  fireEvent.click(screen.getByRole('button', { name: 'Read settings again' }))
+  await waitFor(() => expect(api.settings).toHaveBeenCalledTimes(3))
   await act(async () => {
     answer(initial)
     await new Promise((done) => setTimeout(done, 20))
   })
+  expect(instructions).toHaveValue('Newest')
   expect(screen.getByText('3 of 2 in use · 1 queued')).toBeVisible()
 })
 
-test('an edit made before a change from elsewhere is sent under its own revision', async () => {
+test('after a failed read the forms stay closed over cached settings until a read succeeds', async () => {
+  const api = client()
+  api.settings.mockRejectedValueOnce(new Error('offline'))
+  render(
+    <Primed>
+      <Harness api={api} />
+    </Primed>,
+  )
+  expect(await screen.findByText(/Settings unavailable/)).toBeVisible()
+  expect(screen.queryByRole('textbox', { name: 'Instructions for every new batch' })).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+  expect(
+    await screen.findByRole('textbox', { name: 'Instructions for every new batch' }),
+  ).toBeVisible()
+})
+
+test('an edit made before a change from elsewhere is refused, keeping the edit and Reload', async () => {
   const api = client()
   api.settings
     .mockResolvedValueOnce(initial)
     .mockResolvedValueOnce({ ...initial, revision: '9', auto_tags_default: true })
+  api.saveSettings.mockRejectedValue(new IntakeRequestError(412, 'revision_conflict'))
   await renderAgents(api)
-  fireEvent.change(screen.getByRole('textbox', { name: 'Instructions for every new batch' }), {
-    target: { value: 'Mine' },
-  })
+  const instructions = screen.getByRole('textbox', { name: 'Instructions for every new batch' })
+  fireEvent.change(instructions, { target: { value: 'Mine' } })
   fireEvent.click(screen.getByRole('button', { name: 'Read settings again' }))
-  await waitFor(() => expect(api.settings).toHaveBeenCalledTimes(2))
+  // The other tab's change has reached the page before Save.
+  await waitFor(() =>
+    expect(screen.getByRole('checkbox', { name: 'Suggest tags for new batches' })).toBeChecked(),
+  )
   fireEvent.click(within(card('Instructions')).getByRole('button', { name: 'Save' }))
-  // The server refuses revision 7 as stale, so the other tab's change is never overwritten.
   await waitFor(() =>
     expect(api.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({ expected_revision: '7', new_batch_instructions: 'Mine' }),
     ),
   )
+  expect(await screen.findByText(/changed in another tab/)).toBeVisible()
+  expect(instructions).toHaveValue('Mine')
+  expect(screen.getByRole('button', { name: 'Reload' })).toBeVisible()
 })
 
 test('turning a provider on and off again leaves nothing unsaved', async () => {
