@@ -109,7 +109,7 @@ One PR carries tasks 1–6. The preference, the scene layout, the layouts and th
   - [ ] 3.3.2 Make the `Masthead` bar and ground depend on the style, and publish its text-gap stops on the root.
   - [ ] 3.3.3 Add the body ground and card elevation under the `window` styles.
   - [ ] 3.3.4 Add the `onField` patch mixin and the `$onField` opt-in, and opt in the loose headings and text placed on the field on each screen.
-  - [ ] 3.3.5 Mount the field host from `App.tsx` as the app root's first child, chosen during render from `useMastheadStyle()` and keyed by the style, with the content wrapper after it positioned at `z-index: 0` (no new layer token).
+  - [ ] 3.3.5 Mount the field host from `App.tsx` as the app root's first child, chosen during render from `useMastheadStyle()` and keyed by the style, with the content wrapper after it positioned with `z-index: auto`, so it creates no stacking context (no new layer token).
 - [ ] 3.4 Refactor; run `pnpm format`, `pnpm lint:frontend` and `pnpm build`.
 
 ## 4. Appearance row
@@ -137,7 +137,7 @@ One PR carries tasks 1–6. The preference, the scene layout, the layouts and th
 - Scope: the redesign canvas (`SettingsAppearance.dc.html` only); the design log; `frontend/ARCHITECTURE.md` (theme and masthead paragraphs, Settings paragraph); the change's `notes.md`.
 - Acceptance: the proposal outcome (three options selectable, matching artboards A–C, and B under Dark matching D); loose text on B at least 4.5:1 in both themes; C's band scrolls away; B stays fixed.
 - TDD approach: not applicable. This is design, documentation and manual rendering evidence. Verification uses reference and consistency checks for the docs, and a recorded browser run for the visuals.
-- Verification: `pnpm dev` with a headless browser (visible only if the developer wants to watch). For A, B and C, capture light and dark, desktop (1440 × 900) and phone (390 × 844), at the top and scrolled. Sweep every screen under B in both themes for loose text without a patch, and spot-check contrast. Under B, confirm the field paints above the ground and below the bar, page content, the condensed phone row, popovers, dialogs and toasts. Watch for frame-time regressions. Record a demo with the `demo-record` skill. All evidence goes on the PR, not in the repository.
+- Verification: `pnpm dev` with a headless browser (visible only if the developer wants to watch). For A, B and C, capture light and dark, desktop (1440 × 900) and phone (390 × 844), at the top and scrolled. Sweep every screen under B in both themes for loose text without a patch, and spot-check contrast. Under B, confirm the field paints above the ground and below the bar, page content, the condensed phone row, popovers, dialogs and toasts, and that a toast stays above an open menu overlapping it. Watch for frame-time regressions. Record a demo with the `demo-record` skill. All evidence goes on the PR, not in the repository.
 - Risks: GPU cost on the full-window field; record any tuning in `notes.md`.
 
 - [ ] 5.1 Update the `SettingsAppearance` artboard with the Masthead row and log the change in the design log.
