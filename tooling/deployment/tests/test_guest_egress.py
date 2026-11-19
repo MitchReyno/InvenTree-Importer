@@ -207,7 +207,8 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
 
     async def test_protected_names_and_their_subdomains_are_refused(self):
         self.write_policy(protected_hosts=["inventory.example.com"])
-        table = {"inventory.example.com": [OTHER_PUBLIC], "api.inventory.example.com": [OTHER_PUBLIC]}
+        # The subdomain has an address of its own, so only its name can refuse it.
+        table = {"inventory.example.com": [OTHER_PUBLIC], "api.inventory.example.com": [PUBLIC]}
         for target in ("inventory.example.com:443", "api.inventory.example.com:443"):
             with self.subTest(target=target):
                 written, upstream = await self.connect(target, table)

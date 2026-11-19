@@ -1,4 +1,5 @@
 """Run tool-turn.sh against a fake container engine and check what each container mounts."""
+import json
 import os
 from pathlib import Path
 import socket
@@ -14,6 +15,7 @@ RUN_ID = "0f8fad5b-d9cb-469f-a165-70867728950e"
 # Logs each call and binds the worker socket when the worker container starts.
 FAKE_DOCKER = r'''#!/bin/sh
 printf '%s\n' "$*" >> "$DOCKER_LOG"
+python3 -c 'import json,sys; print(json.dumps(sys.argv[1:]))' "$@" >> "$DOCKER_ARGS"
 case "$*" in
   *" node --import tsx src/agents/shared-vm/tool-worker.ts")
     for arg in "$@"; do
@@ -42,8 +44,10 @@ exit 0
 
 
 class ToolTurnMounts(unittest.TestCase):
-    def run_turn(self):
-        root = Path(self.directory.name)
+    def run_turn(self, provider="claude"):
+        # One root per run, so a test can run a turn for each provider.
+        root = Path(self.directory.name) / provider
+        root.mkdir()
         guest = root / "guest-dir"
         (guest / "web").mkdir(parents=True)
         listener = socket.socket(socket.AF_UNIX)
@@ -56,11 +60,32 @@ class ToolTurnMounts(unittest.TestCase):
             path.write_text(body)
             path.chmod(path.stat().st_mode | stat.S_IXUSR)
         log = root / "docker.log"
+        self.arguments = root / "docker-args.jsonl"
         env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "DOCKER_LOG": str(log),
-               "TMPDIR": str(root)}
-        subprocess.run(["sh", str(SCRIPT), str(guest), "runner:test", "claude", RUN_ID],
+               "DOCKER_ARGS": str(self.arguments), "TMPDIR": str(root)}
+        subprocess.run(["sh", str(SCRIPT), str(guest), "runner:test", provider, RUN_ID],
                        env=env, check=True, capture_output=True, timeout=60)
         return [line for line in log.read_text().splitlines() if line.startswith("run ")]
+
+    def bind_sources(self, name):
+        """Every host path the named container binds, read from its exact arguments."""
+        calls = [json.loads(line) for line in self.arguments.read_text().splitlines()]
+        [call] = [call for call in calls if call[:1] == ["run"] and f"--name={name}" in call
+                  or (call[:1] == ["run"] and "--name" in call
+                      and call[call.index("--name") + 1] == name)]
+        sources = []
+        for flag, value in zip(call, call[1:], strict=False):
+            if flag in ("-v", "--volume"):
+                sources.append(value.split(":", 1)[0])
+            elif flag == "--mount":
+                fields = dict(field.split("=", 1) for field in value.split(",") if "=" in field)
+                sources.append(fields.get("source") or fields.get("src") or "")
+            elif flag.startswith("--volume="):
+                sources.append(flag.split("=", 1)[1].split(":", 1)[0])
+            elif flag.startswith("--mount="):
+                fields = dict(field.split("=", 1) for field in flag[8:].split(",") if "=" in field)
+                sources.append(fields.get("source") or fields.get("src") or "")
+        return sources
 
     def setUp(self):
         # Unix socket paths are limited to about 100 bytes, so keep the root short.
@@ -74,7 +99,12 @@ class ToolTurnMounts(unittest.TestCase):
         return matches[0]
 
     def test_policy_is_writable_by_the_supervisor_and_readable_by_egress_only(self):
-        runs = self.run_turn()
+        for provider in ("claude", "codex"):
+            with self.subTest(provider=provider):
+                self.check_policy_mounts(provider)
+
+    def check_policy_mounts(self, provider):
+        runs = self.run_turn(provider)
         peer = self.container(runs, "-peer")
         egress = self.container(runs, "-egress")
         worker = self.container(runs, "")
@@ -85,12 +115,13 @@ class ToolTurnMounts(unittest.TestCase):
         # The egress reads the very directory the supervisor writes.
         policy = written.group(1)
         self.assertEqual(policy, read.group(1))
-        # No worker bind exposes that directory, under any path or through a parent.
-        sources = re.findall(r"(?:--volume|-v) ([^:\s]+):", worker)
-        sources += re.findall(r"source=([^,\s]+)", worker)
+        # No worker bind exposes that directory, a parent of it, or anything inside it.
+        sources = self.bind_sources(f"bench-tool-{RUN_ID}")
+        self.assertTrue(sources, "the worker's binds were not found")
         for source in sources:
-            self.assertFalse(policy == source or policy.startswith(source.rstrip("/") + "/"),
-                             f"worker mounts {source}")
+            inside = source.startswith(policy.rstrip("/") + "/")
+            parent = policy.startswith(source.rstrip("/") + "/")
+            self.assertFalse(source == policy or inside or parent, f"worker mounts {source}")
         self.assertNotIn("/run/policy", worker)
 
     def test_egress_no_longer_receives_protected_hosts_from_the_environment(self):

@@ -1,13 +1,14 @@
 import { test, type TestContext } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn, type ChildProcess } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 import { once } from 'node:events'
 import { mkdir, mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { createServer } from 'node:net'
+import { connect as netConnect, createServer, type AddressInfo, type Socket } from 'node:net'
 import { setTimeout as delay } from 'node:timers/promises'
-import { connect } from 'node:tls'
+import { connect, type TLSSocket } from 'node:tls'
 import { fileURLToPath } from 'node:url'
 import { processingFixture } from '../support/processing.ts'
 import { freePort } from '../support/manual-process.ts'
@@ -253,6 +254,83 @@ test(
     // The guest side is what this test checks; stop the coordinator's wait for a reconnect.
     stop.abort()
     await session.catch(() => undefined)
+  },
+)
+
+test(
+  'a malformed opening is refused before the supervisor writes anything',
+  { timeout: 60000 },
+  async (t) => {
+    const root = await mkdtemp(join(tmpdir(), 'bench-bad-opening-'))
+    t.after(() => rm(root, { recursive: true, force: true }))
+    const sessionsRoot = join(root, 'guest-sessions')
+    await mkdir(join(root, 'reap'))
+    await mkdir(join(root, 'policy'))
+    const fixture = await processingFixture({ profileId: 'shared-vm-agent/2' })
+    t.after(() => fixture.dispose())
+    const capture = await fixture.seedCapture()
+    const { attempt } = await lotSession(fixture, capture, capture.packetA, {
+      state: 'queued',
+      profile: {
+        id: 'shared-vm-agent/2',
+        agent: { provider: 'claude', authentication: 'subscription', model: 'haiku' },
+        settingsRevision: '1',
+      },
+    })
+    const {
+      rows: [retained],
+    } = await fixture.db.pool.query<{ manifest_bytes: Buffer; manifest_digest: Buffer }>(
+      `SELECT i.manifest_bytes, i.manifest_digest
+         FROM processing_attempt a JOIN processing_input i ON i.id = a.input_id
+        WHERE a.id = $1`,
+      [attempt],
+    )
+    const manifest = decodeSessionInput(retained.manifest_bytes, retained.manifest_digest)
+    // The coordinator end of a plain local connection, sending a command it would never build.
+    const listener = createServer()
+    listener.listen(0, '127.0.0.1')
+    await once(listener, 'listening')
+    t.after(() => listener.close())
+    const accepted = once(listener, 'connection')
+    const guest = netConnect((listener.address() as AddressInfo).port, '127.0.0.1')
+    t.after(() => guest.destroy())
+    const [coordinator] = (await accepted) as [Socket]
+    t.after(() => coordinator.destroy())
+    const frames = new Frames(coordinator)
+    const coordinatorSide = (async () => {
+      await frames.read()
+      await frames.send({
+        protocol,
+        lineage: randomUUID(),
+        attemptId: attempt,
+        turn: '1',
+        manifest,
+        protected_hosts: [],
+        text: 42,
+        instructions: '',
+        tools: [],
+      })
+    })()
+    let starts = 0
+    await assert.rejects(
+      serveGuestTurn(guest as unknown as TLSSocket, {
+        provider: 'claude',
+        isolated: true,
+        reapProof: true,
+        sessionsRoot,
+        reapPath: join(root, 'reap', 'turn'),
+        policyPath: join(root, 'policy', 'policy.json'),
+        runNative: async () => {
+          starts++
+        },
+      }),
+      /invalid_opening/,
+    )
+    await coordinatorSide
+    assert.equal(starts, 0)
+    assert.deepEqual(await readdir(join(root, 'policy')), [])
+    assert.deepEqual(await readdir(join(root, 'reap')), [])
+    assert.equal(await readdir(sessionsRoot).catch(() => 'absent'), 'absent')
   },
 )
 

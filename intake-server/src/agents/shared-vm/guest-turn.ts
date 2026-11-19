@@ -35,6 +35,24 @@ export interface GuestTurnOptions {
 }
 
 /** Serves exactly one turn or terminal probe on `socket`, then ends it. */
+/** The provider's opening from a native turn command, or `invalid_opening`. */
+function nativeOpening(command: Record<string, unknown>) {
+  if (
+    typeof command.text !== 'string' ||
+    typeof command.instructions !== 'string' ||
+    !Array.isArray(command.tools) ||
+    command.tools.some((tool) => typeof tool !== 'string')
+  ) {
+    throw new Error('invalid_opening')
+  }
+  return {
+    text: command.text,
+    instructions: command.instructions,
+    tools: command.tools as string[],
+    resume: typeof command.resume === 'string' ? command.resume : undefined,
+  }
+}
+
 export async function serveGuestTurn(socket: TLSSocket, options: GuestTurnOptions) {
   const { provider, isolated, reapProof } = options
   const frames = new Frames(socket)
@@ -119,6 +137,8 @@ export async function serveGuestTurn(socket: TLSSocket, options: GuestTurnOption
     socket.end()
     return
   }
+  // Decoded before the session directory, reap receipt or journal exists.
+  const opening = manifest.profile_id === 'synthetic-session/1' ? undefined : nativeOpening(command)
   await mkdir(cwd, { recursive: true, mode: 0o700 })
   const abort = new AbortController()
   socket.once('close', () => abort.abort())
@@ -139,21 +159,7 @@ export async function serveGuestTurn(socket: TLSSocket, options: GuestTurnOption
         { flag: 'wx', mode: 0o600 },
       )
     }
-    if (manifest.profile_id !== 'synthetic-session/1') {
-      if (
-        typeof command.text !== 'string' ||
-        typeof command.instructions !== 'string' ||
-        !Array.isArray(command.tools) ||
-        command.tools.some((tool) => typeof tool !== 'string')
-      ) {
-        throw new Error('invalid_opening')
-      }
-      const opening = {
-        text: command.text,
-        instructions: command.instructions,
-        tools: command.tools,
-        resume: typeof command.resume === 'string' ? command.resume : undefined,
-      }
+    if (opening) {
       let pending = Promise.resolve()
 
       const request = (body: Record<string, unknown>) => {
