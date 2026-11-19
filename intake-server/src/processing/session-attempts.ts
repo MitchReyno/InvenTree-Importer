@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { PoolClient } from 'pg'
-import type { CaptureSnapshotDto } from '@invimport/contracts'
+import type { AgentSettingsDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { commands, outbox } from '#/db/schema.ts'
 import { agentSessions } from '#/agents/schema.ts'
@@ -41,8 +41,11 @@ export async function createSessionAttempt(
   {
     lockSettings = true,
     pinnedProposalIds = [],
+    settings: given,
   }: {
     lockSettings?: boolean
+    /** Settings already read in this transaction, so several attempts seal the same read. */
+    settings?: AgentSettingsDto
     /** The identity proposals a per-lot successor starts from; revisions arrive as inbox items. */
     pinnedProposalIds?: readonly string[]
   } = {},
@@ -58,7 +61,7 @@ export async function createSessionAttempt(
   const descriptor = { manifest: media.manifest, sha256: media.manifestDigest }
   let profile: Parameters<typeof sessionLotInputManifest>[4] = { id: 'synthetic-session/1' }
   if (profileId !== 'synthetic-session/1') {
-    const settings = await readAgentSettings(client, config, lockSettings)
+    const settings = given ?? (await readAgentSettings(client, config, lockSettings))
     const agent = resolveSelection(settings, job.stage)
     if (!agent) {
       fail('agent_settings_required', 409)

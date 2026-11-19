@@ -14,12 +14,9 @@ import { createServer } from '#/api/server.ts'
 import { registerCapture } from '#/capture/routes.ts'
 import type { CatalogueReader } from '#/capture/catalogue.ts'
 import { saveAgentSettings, unsavedAgentSettings } from '#/agents/settings.ts'
-import {
-  AUTO_TAGS_REQUESTED,
-  automationIntentNotes,
-  captureContextNotes,
-  captureContextRecords,
-} from '#/capture/context-input.ts'
+import { AUTO_TAGS_REQUESTED } from '#/capture/context-input.ts'
+import { inputManifest } from '#/processing/model.ts'
+import { materialize } from '#/review/model.ts'
 
 const records: Record<CatalogueModelDto, Map<string, CatalogueRecordDto>> = {
   location: new Map([
@@ -266,7 +263,7 @@ test('a new batch copies the defaults into its first revision through the picker
       },
     ])
 
-    // Processing seals these notes into each lot's input, so a session sees the copied values.
+    // Processing seals the copied supplier and the Auto tags request into each lot's input.
     const withLot = (
       await api.http(`/batches/${batch.id}/edits`, {
         expected_revision: batch.revision,
@@ -274,17 +271,14 @@ test('a new batch copies the defaults into its first revision through the picker
       })
     ).value as CaptureSnapshotDto
     const lot = withLot.lots[0]
-    const sealed = [...captureContextNotes(withLot, lot.id), ...automationIntentNotes(withLot)]
-      .map((item) => item.text)
-      .join('\n')
+    const input = inputManifest(withLot, lot.id, 'reading', [], null)
+    const sealed = input.notes.map((item) => item.text).join('\n')
     assert.match(sealed, /"pk":"7"/)
     assert.match(sealed, new RegExp(AUTO_TAGS_REQUESTED))
-    // Review hashes the same context records into each lot's review facts.
-    const reviewed = captureContextRecords(withLot, lot.id).map((record) => record.value.supplier)
-    assert.deepEqual(
-      reviewed.map((value) => (value.mode === 'set' ? value.value.pk : value.mode)),
-      ['7'],
-    )
+    // Review's fingerprint covers the copied supplier: without it the digest changes.
+    const reviewed = materialize(withLot, [lot.id])
+    const withoutContext = materialize({ ...withLot, context: [] }, [lot.id])
+    assert.notEqual(reviewed.digest, withoutContext.digest)
 
     // A later change applies only to batches created after it.
     await api.saveDefaults('1', '12', null)

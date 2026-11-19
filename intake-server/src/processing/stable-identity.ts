@@ -140,32 +140,33 @@ export async function onLeadIdentity(
   if (!toQueue.length) {
     return 'revised'
   }
-  // With no provider on, the identity proposal still stands; its successors aren't queued.
-  const queueable = await stagesWithProvider(client, config, toQueue)
+  // One read decides what to queue and is sealed into every successor, so a save landing
+  // meanwhile can neither roll back this proposal nor split the successors across revisions.
+  const settings = await settingsForSuccessors(client, config)
+  const queueable = settings
+    ? toQueue.filter((stage) => resolveSelection(settings, stage))
+    : [...toQueue]
   if (!queueable.length) {
+    // With no provider on, the identity proposal still stands; its successors aren't queued.
     return 'waiting'
   }
   await checkJobCapacity(client, snapshot.id, [lotId], [...queueable])
   for (const stage of queueable) {
     await queueJob(client, config, snapshot, lotId, stage, [], media, [proposalId], {
       lockSettings: false,
+      settings,
     })
   }
   return 'queued'
 }
 
-/** The stages a provider resolves for now; the synthetic profile needs none. */
-async function stagesWithProvider<T extends string>(
-  client: PoolClient,
-  config: ProcessingConfig,
-  stages: readonly T[],
-) {
+/** The agent settings successors seal; none for profiles that need no provider. */
+async function settingsForSuccessors(client: PoolClient, config: ProcessingConfig) {
   const profile = config.profileId
   if (!profile || !isSessionProfile(profile) || profile === 'synthetic-session/1') {
-    return [...stages]
+    return undefined
   }
-  const settings = await readAgentSettings(client, config)
-  return stages.filter((stage) => resolveSelection(settings, stage))
+  return readAgentSettings(client, config)
 }
 
 /** Claim-time check: every identity a successor was pinned to is still current. */

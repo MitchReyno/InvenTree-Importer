@@ -10,6 +10,7 @@ import { lockCaptureForInputSettlement } from '#/capture/repository.ts'
 import { claimSessionSlot } from '#/agents/session/slots.ts'
 import { singleProvider } from '../support/agent-settings.ts'
 import { saveAgentSettings, unsavedAgentSettings } from '#/agents/settings.ts'
+import { decodeSessionInput } from '#/processing/session-input.ts'
 import { queueSessionResume, runSessionTurn } from '#/agents/session/session-runner.ts'
 
 test('a stable identity queues the lot’s Research and Images, pinned to it, as agent_writer', async (t) => {
@@ -356,10 +357,15 @@ test('on native-agent/2, a stable identity queues successors as agent_writer wit
     )
   })
   assert.equal(outcome, 'queued')
-  for (const row of await successors(crystal.id)) {
+  const queued = await successors(crystal.id)
+  for (const row of queued) {
     assert.equal(row.attempt_state, 'queued')
     assert.deepEqual(pinned(row), [identity.id])
   }
+  // Both successors seal one settings read: the same revision and selection.
+  const sealed = queued.map((row) => decodeSessionInput(row.input_bytes, row.input_digest))
+  assert.equal(new Set(sealed.map((input) => input.settings_revision)).size, 1)
+  assert.equal(new Set(sealed.map((input) => JSON.stringify(input.agent))).size, 1)
 })
 
 test('with no provider on, a stable identity stands and queues no successors', async (t) => {
