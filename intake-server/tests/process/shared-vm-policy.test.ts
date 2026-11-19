@@ -1,11 +1,12 @@
 import { test, type TestContext } from 'node:test'
 import assert from 'node:assert/strict'
-import { spawn } from 'node:child_process'
+import { spawn, type ChildProcess } from 'node:child_process'
 import { once } from 'node:events'
 import { mkdir, mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createServer } from 'node:net'
+import { setTimeout as delay } from 'node:timers/promises'
 import { connect } from 'node:tls'
 import { fileURLToPath } from 'node:url'
 import { processingFixture } from '../support/processing.ts'
@@ -248,6 +249,9 @@ test(
   },
 )
 
+/** A worker that refuses its configuration exits within seconds; longer means it hung. */
+const WORKER_EXIT_TIMEOUT_MS = 20000
+
 const validOrigins = 'http://127.0.0.1:4330,https://inventory.example.com'
 
 interface Misconfiguration {
@@ -298,8 +302,21 @@ for (const misconfiguration of misconfigurations) {
     `a VM tool worker ${misconfiguration.label} refuses before it recovers retained sessions`,
     { timeout: 60000 },
     async (t) => {
+      let worker: ChildProcess | undefined
+      let root: string | undefined
       const fixture = await processingFixture({ profileId: 'shared-vm-agent/2' })
-      t.after(() => fixture.dispose())
+      // One ordered teardown: the worker is reaped before its database is dropped.
+      t.after(async () => {
+        if (worker && worker.exitCode === null && worker.signalCode === null) {
+          const reaped = once(worker, 'exit')
+          worker.kill('SIGKILL')
+          await reaped
+        }
+        await fixture.dispose()
+        if (root) {
+          await rm(root, { recursive: true, force: true })
+        }
+      })
       const capture = await fixture.seedCapture()
       const { attempt } = await lotSession(fixture, capture, capture.packetA, {
         state: 'running',
@@ -317,12 +334,11 @@ for (const misconfiguration of misconfigurations) {
           )
         ).rows[0]?.session_state
       const before = await stateOf()
-      const root = await mkdtemp(join(tmpdir(), 'bench-worker-origins-'))
-      t.after(() => rm(root, { recursive: true, force: true }))
+      root = await mkdtemp(join(tmpdir(), 'bench-worker-origins-'))
       const stateRoot = join(root, 'state')
       await mkdir(stateRoot, { mode: 0o700 })
       const overrides = await misconfiguration.prepare(root, t)
-      const worker = spawn(
+      const spawned = spawn(
         process.execPath,
         [
           '--import',
@@ -352,20 +368,16 @@ for (const misconfiguration of misconfigurations) {
           stdio: ['ignore', 'pipe', 'pipe'],
         },
       )
+      worker = spawned
       let output = ''
-      worker.stderr.on('data', (bytes: Buffer) => (output += bytes.toString()))
-      const exited = once(worker, 'exit')
-      let code: unknown
-      try {
-        ;[code] = await exited
-      } finally {
-        // A worker that didn't refuse is stopped and reaped here, before the fixture's
-        // database is dropped by the after hooks.
-        if (worker.exitCode === null && worker.signalCode === null) {
-          worker.kill('SIGKILL')
-          await exited
-        }
-      }
+      spawned.stderr.on('data', (bytes: Buffer) => (output += bytes.toString()))
+      const exited = once(spawned, 'exit')
+      const outcome = await Promise.race([
+        exited,
+        delay(WORKER_EXIT_TIMEOUT_MS).then(() => 'still running' as const),
+      ])
+      assert.notEqual(outcome, 'still running', 'the worker did not refuse within its deadline')
+      const [code] = outcome as [number | null]
       assert.equal(code, 1)
       assert.match(output, new RegExp(`"code":"${misconfiguration.code}"`))
       assert.equal(before, 'running')

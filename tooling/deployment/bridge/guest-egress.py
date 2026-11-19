@@ -259,8 +259,8 @@ async def provider_addresses(host, protected):
     return connection_order(addresses)
 
 
-def provider_guard(protected):
-    """Refuses a provider address that a protected lookup has found since it was checked."""
+def protection_guard(protected):
+    """Refuses an address that a protected lookup has found since it was checked."""
     def guard(address):
         if normalized(address) in PROTECTED_LOOKUPS.latest(protected):
             raise Refused("protected_destination")
@@ -284,11 +284,12 @@ async def checked_addresses(host, port, provider, protected):
     """Addresses to try, in order, all of them checked, and a recheck to run around each dial;
     or Refused."""
     if provider:
-        return await provider_addresses(host, protected), provider_guard(protected)
+        return await provider_addresses(host, protected), protection_guard(protected)
     try:
-        # public_target resolved every protected name for this request; nothing to recheck.
-        return await PUBLIC_DNS.run(
-            public_target, host, port, protected, PROTECTED_LOOKUPS.publish), None
+        # Other connections' lookups can still protect this address before or after the dial.
+        addresses = await PUBLIC_DNS.run(
+            public_target, host, port, protected, PROTECTED_LOOKUPS.publish)
+        return addresses, protection_guard(protected)
     except Refused as refusal:
         # A protected name stays protected when its lookup runs out of time or slots.
         if refusal.reason == "resolution_failed" and protected_name(host, protected):
@@ -411,15 +412,14 @@ async def handle(reader, client):
             counted = True
         addresses, guard = await checked_addresses(host, port, provider, protected)
         remote, upstream, address = await open_first(addresses, guard)
-        if provider:
-            # Watch from now on, then check once more, so a protected lookup finishing at any
-            # point drops the tunnel.
-            protected_now, stop_watching = PROTECTED_LOOKUPS.watch(address)
-            try:
-                guard(address)
-            except Refused:
-                abort(upstream)
-                raise
+        # Watch from now on, then check once more, so a protected lookup finishing at any point
+        # drops the tunnel, public or provider.
+        protected_now, stop_watching = PROTECTED_LOOKUPS.watch(address)
+        try:
+            guard(address)
+        except Refused:
+            abort(upstream)
+            raise
         client.write(b"HTTP/1.1 200 Connection Established\r\n\r\n")
         await client.drain()
         activity = Activity()

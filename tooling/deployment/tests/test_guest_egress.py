@@ -669,6 +669,44 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         writer.transport.abort.assert_called_once()
         client.transport.abort.assert_called_once()
 
+    async def test_public_dial_is_refused_when_its_address_becomes_protected_meanwhile(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC],
+                 "api.anthropic.com": [OTHER_PUBLIC]}
+
+        def slow_dial(remote, writer):
+            async def dial(_address, _port):
+                await asyncio.sleep(0.4)
+                return remote, writer
+            return dial
+
+        with self.fake_network(table, open_results=slow_dial):
+            public = asyncio.create_task(self.handle("www.ti.com:443"))
+            await asyncio.sleep(0.1)
+            # The name moves onto the public target's address; a provider CONNECT finds out.
+            table["inventory.example.com"] = [PUBLIC]
+            await self.handle("api.anthropic.com:443")
+            written = await asyncio.wait_for(public, 2)
+        self.assertNotIn(b"200 Connection Established", written)
+        self.assertIn(b"X-Bench-Refusal: protected_destination\r\n", written)
+
+    async def test_open_public_tunnel_is_dropped_when_its_address_becomes_protected(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        stream, remote, client, writer = await self.held_tunnel("www.ti.com:443")
+        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC],
+                 "api.anthropic.com": [OTHER_PUBLIC]}
+        self.guest_dns = Mock(side_effect=dns(table))
+        with patch.object(socket, "getaddrinfo", self.guest_dns), \
+                patch.object(egress.asyncio, "open_connection",
+                             AsyncMock(return_value=(remote, writer))):
+            public = asyncio.create_task(egress.handle(stream, client))
+            await self.until_open(client, public)
+            table["inventory.example.com"] = [PUBLIC]
+            await self.handle("api.anthropic.com:443")
+            await asyncio.wait_for(public, 2)
+        writer.transport.abort.assert_called_once()
+        client.transport.abort.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

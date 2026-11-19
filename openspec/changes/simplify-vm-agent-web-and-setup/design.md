@@ -243,7 +243,7 @@ The VM is stopped at the end only if this run started it, unless `INTAKE_VM_KEEP
   - PR-A adds the optional `web` field to the session input schema, and PR-C starts sealing it. The schema has `additionalProperties: false` (`contracts/src/processing.ts:10-11`), and `decodeSessionInput()` validates retained manifests (`session-input.ts:71-74`). Once any attempt is sealed with `web`, code without the field would reject it, and sealed inputs must not be rewritten.
   - So after the first `web` input is sealed, neither PR-A's schema support nor PR-C's sealing is reverted. A rollback of PR-A's behaviour keeps the schema field and only forces the egress policy to provider-only. A rollback of PR-C stops sealing new values but keeps decoding existing ones.
   - Tests in PR-A and PR-C decode a retained input with and without `web`.
-- **Observability:** each egress refusal is counted by reason in the turn's diagnostic counters, without hosts.
+- **Observability:** each egress refusal returns its reason to the agent in `X-Bench-Refusal`. The egress logs nothing, so no requested host is recorded. It lives for one turn, so there is no per-turn counter to keep.
 
 ## Risks and open decisions
 
