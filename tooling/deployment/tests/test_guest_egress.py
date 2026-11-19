@@ -1576,6 +1576,46 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         # A publication waiting on the lock lands only after the 200 has been written.
         self.assertEqual(acknowledged_first, [True])
 
+    async def test_refused_client_keeps_its_slot_while_it_closes_through_a_revocation(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        stream, remote, client, writer = await self.held_tunnel("www.ti.com:443")
+        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC, OTHER_PUBLIC]}
+        self.guest_dns = Mock(side_effect=dns(table))
+        lookups = egress.PROTECTED_LOOKUPS
+        acknowledge = lookups.acknowledge
+        closing = asyncio.Event()
+        finish_close = asyncio.Event()
+
+        async def held_close():
+            closing.set()
+            await finish_close.wait()
+
+        client.wait_closed = AsyncMock(side_effect=held_close)
+
+        def unused_answer_protected(*args):
+            lookups.publish("inventory.example.com", {egress.normalized(OTHER_PUBLIC)})
+            return acknowledge(*args)
+
+        with patch.object(egress, "MAX_PUBLIC_TUNNELS", 1), \
+                patch.object(socket, "getaddrinfo", self.guest_dns), \
+                patch.object(egress.asyncio, "open_connection",
+                             AsyncMock(return_value=(remote, writer))), \
+                patch.object(lookups, "acknowledge", unused_answer_protected):
+            refused = asyncio.create_task(egress.handle(stream, client))
+            self.addAsyncCleanup(self.cancelled, refused)
+            await asyncio.wait_for(closing.wait(), 2)
+            # The connected address is revoked while the refused client is still closing.
+            await self.publish("inventory.example.com", PUBLIC)
+            await asyncio.sleep(0.05)
+            writer.transport.abort.assert_called_once()
+            self.assertFalse(refused.done())
+            during_close = await self.handle("www.ti.com:443")
+            finish_close.set()
+            await asyncio.wait_for(refused, 2)
+        self.assertIn(b"X-Bench-Refusal: too_many_connections\r\n", during_close)
+        client.transport.abort.assert_not_called()
+        self.assertEqual(egress.public_tunnels, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -578,53 +578,58 @@ async def read_request(reader):
 
 
 async def close_tunnel(writers, revoked, drop):
-    """Closes the streams, giving them CLOSE_TIMEOUT_S to flush, and aborts them at once when
-    `drop` is set or at the deadline. A revocation, even mid-close, aborts them; the close
-    waits for that abort, within the same deadline, before it returns."""
-    def fired():
-        return revoked is not None and revoked.event.is_set()
+    """Closes the streams within CLOSE_TIMEOUT_S, aborting whatever is still open at the
+    deadline, and returns only once none is outstanding. `drop` aborts them at once. A
+    revocation aborts the tunnel's own streams, and the close waits for that abort; a stream
+    that never joined the tunnel, such as a refused client, keeps closing on the same budget.
+    """
+    deadline = time.monotonic() + CLOSE_TIMEOUT_S
 
-    if revoked is not None and revoked.is_set():
-        deadline = time.monotonic() + CLOSE_TIMEOUT_S
-        try:
-            await asyncio.wait_for(revoked.wait(), CLOSE_TIMEOUT_S)
-        except asyncio.TimeoutError:
-            for writer in writers:
-                abort(writer)
-            return
-        # A client refused before it joined the tunnel still has its refusal to deliver; it
-        # closes within what is left of the same budget, so the slot never outlives it.
-        refused = [writer for writer in writers if writer not in revoked.streams]
-        for writer in refused:
-            writer.close()
-        try:
-            await asyncio.wait_for(
-                asyncio.gather(*(writer.wait_closed() for writer in refused),
-                               return_exceptions=True),
-                max(0, deadline - time.monotonic()))
-        except asyncio.TimeoutError:
-            for writer in refused:
-                abort(writer)
-        return
+    def in_tunnel(writer):
+        return revoked is not None and writer in revoked.streams
+
+    def revoking():
+        return revoked is not None and revoked.is_set()
+
+    # A revoked tunnel's own streams are left to the revocation's abort.
+    own = [writer for writer in writers if not (revoking() and in_tunnel(writer))]
     if drop:
-        for writer in writers:
+        for writer in own:
             abort(writer)
-        return
-    for writer in writers:
+        graceful = []
+    else:
+        graceful = own
+    for writer in graceful:
         writer.close()
-    closing = asyncio.ensure_future(asyncio.gather(
-        *(writer.wait_closed() for writer in writers), return_exceptions=True))
-    waits = [closing]
-    if revoked is not None:
-        waits.append(asyncio.create_task(revoked.wait()))
-    done, pending = await asyncio.wait(waits, timeout=CLOSE_TIMEOUT_S,
-                                       return_when=asyncio.FIRST_COMPLETED)
-    for waiter in pending:
-        waiter.cancel()
-    await asyncio.gather(*pending, return_exceptions=True)
-    if closing not in done and not fired():
+    closes = {writer: asyncio.ensure_future(writer.wait_closed()) for writer in graceful}
+    aborted = asyncio.ensure_future(revoked.wait()) if revoked is not None else None
+    try:
+        while True:
+            if aborted is not None and aborted.done():
+                # The revocation's abort has run: the tunnel's own streams are finished.
+                for writer in [writer for writer in closes if in_tunnel(writer)]:
+                    closes.pop(writer).cancel()
+            outstanding = [close for close in closes.values() if not close.done()]
+            awaiting_abort = revoking() and not aborted.done()
+            remaining = deadline - time.monotonic()
+            if not outstanding and not awaiting_abort:
+                return
+            if remaining <= 0:
+                break
+            waits = outstanding + ([aborted] if aborted is not None and not aborted.done() else [])
+            await asyncio.wait(waits, timeout=remaining, return_when=asyncio.FIRST_COMPLETED)
+        # The deadline passed: abort every stream still open, each once.
+        stuck = {writer for writer, close in closes.items() if not close.done()}
+        if revoking() and not aborted.done():
+            stuck |= {writer for writer in writers if in_tunnel(writer)}
         for writer in writers:
-            abort(writer)
+            if writer in stuck:
+                abort(writer)
+    finally:
+        leftovers = [*closes.values(), *([aborted] if aborted is not None else [])]
+        for task in leftovers:
+            task.cancel()
+        await asyncio.gather(*leftovers, return_exceptions=True)
 
 
 def abort(writer):
@@ -688,11 +693,14 @@ async def handle(reader, client):
         await asyncio.gather(*tasks, return_exceptions=True)
         # The address stays watched until both streams are closed or aborted, and a public
         # tunnel keeps its slot until then, so neither outlives a socket still flushing.
-        await close_tunnel([writer for writer in (upstream, client) if writer], revoked, drop)
-        for _revocation, stop in answer_watches:
-            stop()
-        if counted:
-            public_tunnels -= 1
+        try:
+            await close_tunnel([writer for writer in (upstream, client) if writer], revoked, drop)
+        finally:
+            # Even a cancelled close gives back the watches and the slot.
+            for _revocation, stop in answer_watches:
+                stop()
+            if counted:
+                public_tunnels -= 1
 
 
 async def main():
