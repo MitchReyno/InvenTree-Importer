@@ -145,7 +145,7 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - [x] 3.3 GREEN: add `recovery` to the failure summary, then wrap each call site in `DebugDetails`, removing its bespoke disclosure.
 - [x] 3.4 GREEN: add `DebugPanel` to Batches, Capture, Processing, Review, Changes, Agents and Settings.
 - [x] 3.5 Refactor shared row-building into a small hook per screen family if it repeats, then run the frontend checks.
-- [ ] 3.6 Verify in the browser at desktop and 390px widths in both themes, attaching screenshots to the PR.
+- [x] 3.6 Verify in the browser at desktop and 390px widths in both themes, attaching screenshots to the PR.
 
 ## 4. Dev mode popover
 
@@ -165,7 +165,7 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - [x] 4.2 RED: write the popover tests.
 - [x] 4.3 GREEN: build `DevModeButton` and its content.
 - [x] 4.4 Refactor, then run the frontend checks and the 360px browser check.
-- [ ] 4.5 Record a demo with `demo-record` covering the popover, the debug switch and one screen off and on, and attach it to PR-A.
+- [x] 4.5 Record a demo with `demo-record` covering the popover, the debug switch and one screen off and on, and attach it to PR-A.
 
 ## 5. Settings structure and Agents subsections
 
