@@ -144,5 +144,6 @@ const Status = styled.span`
 const Actions = styled.span`
   display: inline-flex;
   flex-wrap: wrap;
+  align-items: flex-start;
   gap: ${space[4]};
 `

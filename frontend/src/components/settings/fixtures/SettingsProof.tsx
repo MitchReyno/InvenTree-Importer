@@ -86,7 +86,20 @@ const agents = {
 } as unknown as ReturnType<typeof agentsClient>
 
 const header: HeaderClient = {
-  checkConnection: () => header.connection(),
+  // Staged for the demo: a check takes a moment, then InvenTree refuses the token.
+  checkConnection: async () => {
+    await new Promise((resolve) => setTimeout(resolve, 900))
+    const current = await header.connection()
+    return {
+      ...current,
+      target: {
+        ...current.target,
+        state: 'unavailable',
+        failure_code: 'unauthorized',
+        version: null,
+      },
+    }
+  },
   connection: async (): Promise<ConnectionStatusDto> =>
     ({
       ...identity,
