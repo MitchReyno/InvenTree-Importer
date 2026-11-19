@@ -1448,6 +1448,34 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
             written, upstream = await self.connect("www.ti.com:443", table)
         self.assert_refused(written, upstream, "resolution_failed")
 
+    async def test_latched_failure_takes_precedence_over_a_full_tunnel_cap(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        stream, remote, client, writer = await self.held_tunnel("www.ti.com:443")
+        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC]}
+        self.guest_dns = Mock(side_effect=dns(table))
+        release = asyncio.Event()
+
+        def held_abort(revocation):
+            # The revoked tunnel keeps its slot until the test releases its abort.
+            async def fire_when_released():
+                await release.wait()
+                revocation.fire()
+            revocation.loop.call_soon_threadsafe(
+                lambda: revocation.loop.create_task(fire_when_released()))
+
+        with patch.object(egress, "MAX_PUBLIC_TUNNELS", 1), \
+                patch.object(egress.Revocation, "schedule_abort", held_abort), \
+                patch.object(socket, "getaddrinfo", self.guest_dns), \
+                patch.object(egress.asyncio, "open_connection",
+                             AsyncMock(return_value=(remote, writer))):
+            tunnel = asyncio.create_task(egress.handle(stream, client))
+            await self.until_open(client, tunnel)
+            await self.publish_failure("inventory.example.com")
+            at_cap = await self.handle("www.ti.com:443")
+            release.set()
+            await asyncio.wait_for(tunnel, 2)
+        self.assertIn(b"X-Bench-Refusal: resolution_failed\r\n", at_cap)
+
 
 if __name__ == "__main__":
     unittest.main()

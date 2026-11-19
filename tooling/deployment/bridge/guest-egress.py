@@ -401,8 +401,6 @@ def check_public_request(host, port, policy, protected):
     if policy is None or not policy["public_pages"]:
         raise Refused("destination_refused")
     check_public_form(host, port, protected)
-    if PROTECTED_LOOKUPS.has_failed():
-        raise Refused("resolution_failed")
 
 
 async def checked_addresses(host, port, provider, protected):
@@ -629,11 +627,15 @@ async def handle(reader, client):
         if not provider:
             check_public_request(host, port, policy, protected)
             # Counted before any DNS work, so idle or slow public tunnels can't crowd out the
-            # provider, which is never counted.
-            if public_tunnels >= MAX_PUBLIC_TUNNELS:
-                raise Refused("too_many_connections")
-            public_tunnels += 1
-            counted = True
+            # provider, which is never counted. The latch and the slot are decided together,
+            # so a failure latched at the cap still reports itself.
+            with PROTECTED_LOOKUPS.lock:
+                if PROTECTED_LOOKUPS.failed:
+                    raise Refused("resolution_failed")
+                if public_tunnels >= MAX_PUBLIC_TUNNELS:
+                    raise Refused("too_many_connections")
+                public_tunnels += 1
+                counted = True
         addresses, guard = await checked_addresses(host, port, provider, protected)
         remote, upstream, revoked, stop_watching = await open_first(addresses, guard, not provider)
         revoked.streams.append(client)

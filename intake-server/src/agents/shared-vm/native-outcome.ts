@@ -1,5 +1,6 @@
 import { ResearchReapPendingError } from '#/research/errors.ts'
 import { SessionResumeUnavailable } from '#/agents/session/session-adapters.ts'
+import { NativeSessionError } from '#/agents/failure-model.ts'
 import type { TurnOutcome } from './journal.ts'
 
 export interface NativeTurnSteps {
@@ -25,7 +26,7 @@ export async function nativeTurnOutcome(steps: NativeTurnSteps): Promise<TurnOut
     if (error instanceof SessionResumeUnavailable) {
       return 'resume_unavailable'
     }
-    if (error instanceof Error && error.message === 'agent_login_required') {
+    if (error instanceof NativeSessionError && error.code === 'agent_login_required') {
       return 'agent_login_required'
     }
     return 'agent_turn_failed'

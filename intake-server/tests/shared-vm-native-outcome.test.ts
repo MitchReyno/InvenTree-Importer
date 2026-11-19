@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { nativeTurnOutcome } from '#/agents/shared-vm/native-outcome.ts'
+import { NativeSessionError } from '#/agents/failure-model.ts'
 import { SessionResumeUnavailable } from '#/agents/session/session-adapters.ts'
 import { ResearchReapPendingError } from '#/research/errors.ts'
 
@@ -35,7 +36,9 @@ test('a policy that cannot be published is a recorded failure and the provider n
 test('provider failures keep their existing outcomes', async () => {
   const cases: [unknown, string][] = [
     [new SessionResumeUnavailable(), 'resume_unavailable'],
-    [new Error('agent_login_required'), 'agent_login_required'],
+    [new NativeSessionError('agent_login_required'), 'agent_login_required'],
+    // Only the typed provider error is a login failure, whatever a plain error says.
+    [new Error('agent_login_required'), 'agent_turn_failed'],
     [new Error('anything else'), 'agent_turn_failed'],
   ]
   for (const [error, expected] of cases) {
