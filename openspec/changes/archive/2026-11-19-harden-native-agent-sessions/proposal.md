@@ -6,11 +6,11 @@ Native sessions must provide usable, citable proposals without gaining tools out
 
 ## Change identity and linked items
 
-Canonical name: `harden-native-agent-sessions`. Linked item: [BI-010](../../../docs/PLANNED_FUNCTIONALITY.md#bi-010--harden-native-agent-sessions). The index owns status and priority. Delivering branches and subjects retain this change name.
+Canonical name: `harden-native-agent-sessions`. Linked item: [BI-010](../../../../docs/PLANNED_FUNCTIONALITY.md#bi-010--harden-native-agent-sessions). The index owns status and priority. Delivering branches and subjects retain this change name.
 
 ## Current behavior and evidence
 
-`intake-server/src/agents/session/session-adapters.ts` checks Codex MCP inventory, not the complete model tool surface. Its item checks cannot establish that nested MCP calls were not wrapped in arbitrary JavaScript. Claude checks its init list, which previously omitted deferred advisor tooling. `tools/handlers.ts` reduces contract errors to `invalid_contract`; evidence fetch paths return images without a complete source citation. See the task 13 findings in [the archived notes](../archive/2026-11-07-simplify-intake-entry/notes.md) and [qualification PR](https://github.com/MitchReyno/InvenTree-Importer/pull/118). Those observations are historical, not a claim about newly installed provider versions.
+`intake-server/src/agents/session/session-adapters.ts` checks Codex MCP inventory, not the complete model tool surface. Its item checks cannot establish that nested MCP calls were not wrapped in arbitrary JavaScript. Claude checks its init list, which previously omitted deferred advisor tooling. `tools/handlers.ts` reduces contract errors to `invalid_contract`; evidence fetch paths return images without a complete source citation. See the task 13 findings in [the archived notes](../2026-11-07-simplify-intake-entry/notes.md) and [qualification PR](https://github.com/MitchReyno/InvenTree-Importer/pull/118). Those observations are historical, not a claim about newly installed provider versions.
 
 ## Scope and non-goals
 

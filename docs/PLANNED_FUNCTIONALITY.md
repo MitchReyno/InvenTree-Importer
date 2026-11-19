@@ -116,7 +116,7 @@ BI-006's live qualification (#118) found that a native Codex session is not conf
 - Status: Blocked — tool admission, actionable tool results, retained failure details and the live qualification merged in #133, #134, #137 and #141. Claude Haiku qualified apart from partial status cadence, but Codex still receives code-mode tools on subscription turns, so `native-agent/2` keeps `native_unverified`. Continuing needs a decision on how to detect or refuse that Codex surface.
 - Size: M — adapter tool confinement and checks for both providers, validation messages, a digest in the evidence delivery, and a re-run of the qualification.
 - Prerequisites: BI-006 is Done (satisfied). Live qualification was authorized for Claude Haiku and GPT 6 Luna on 2026-11-07; any further live run needs fresh authorization.
-- OpenSpec: [harden-native-agent-sessions](../openspec/changes/harden-native-agent-sessions/)
+- OpenSpec: [harden-native-agent-sessions](../openspec/changes/archive/2026-11-19-harden-native-agent-sessions/)
 
 ## Improvements
 
