@@ -45,6 +45,9 @@ MAX_CONNECT_ATTEMPTS = 3
 # tunnels have neither limit: model streams can pause for long stretches.
 MAX_PUBLIC_TUNNELS = 32
 PUBLIC_IDLE_TIMEOUT_S = 120
+# Connections still sending their CONNECT line. Provider and public requests share this
+# listener, so the agent could only use it to stall its own turn.
+MAX_PENDING_HEADERS = 16
 # All DNS work for one CONNECT, including protected-host lookups, must finish within this.
 DNS_TIMEOUT_S = 10
 # Lookups in flight per path; a stalled lookup keeps its slot until its thread returns.
@@ -226,17 +229,27 @@ async def provider_addresses(host, protected):
     return connection_order(addresses)
 
 
+def provider_guard(protected):
+    """Refuses a provider address that a protected lookup has found since it was checked."""
+    def guard(address):
+        if normalized(address) in PROTECTED_LOOKUPS.latest(protected):
+            raise Refused("protected_destination")
+    return guard
+
+
 async def checked_addresses(host, port):
-    """Addresses to try, in order, all of them checked; or Refused."""
+    """Addresses to try, in order, all of them checked, and a recheck to run before each dial;
+    or Refused."""
     policy = load_policy()
     protected = PROTECTED | (policy["protected_hosts"] if policy else set())
     if host in HOSTS and port == 443:
-        return await provider_addresses(host, protected)
+        return await provider_addresses(host, protected), provider_guard(protected)
     if policy is None or not policy["public_pages"]:
         raise Refused("destination_refused")
     check_public_form(host, port, protected)
     try:
-        return await PUBLIC_DNS.run(public_target, host, port, protected)
+        # public_target resolved every protected name for this request; nothing to recheck.
+        return await PUBLIC_DNS.run(public_target, host, port, protected), None
     except Refused as refusal:
         # A protected name stays protected when its lookup runs out of time or slots.
         if refusal.reason == "resolution_failed" and protected_name(host, protected):
@@ -244,10 +257,12 @@ async def checked_addresses(host, port):
         raise
 
 
-async def open_first(addresses):
+async def open_first(addresses, guard=None):
     """Connects to the first reachable checked address, trying at most a few."""
     failure = OSError("no checked address")
     for address in addresses[:MAX_CONNECT_ATTEMPTS]:
+        if guard:
+            guard(address)
         try:
             return await asyncio.wait_for(asyncio.open_connection(address, 443), CONNECT_TIMEOUT_S)
         except (OSError, asyncio.TimeoutError) as error:
@@ -284,8 +299,30 @@ async def idle_watch(activity, timeout):
         await asyncio.sleep(remaining)
 
 
-# Public CONNECTs being set up or tunnelling; the egress serves them on one event loop.
+# Public CONNECTs being set up or tunnelling, and connections still sending their header; the
+# egress serves them on one event loop.
 public_tunnels = 0
+pending_headers = 0
+
+
+async def read_request(reader):
+    """The CONNECT target, counting this connection until its header arrives."""
+    global pending_headers
+    if pending_headers >= MAX_PENDING_HEADERS:
+        raise ConnectionRefusedError("too many pending requests")
+    pending_headers += 1
+    try:
+        headers = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), HEADER_TIMEOUT_S)
+    finally:
+        pending_headers -= 1
+    return connect_target(headers.split(b"\r\n", 1)[0])
+
+
+def abort(writer):
+    """Drops a stream at once, without waiting for a stalled peer to read buffered data."""
+    transport = getattr(writer, "transport", None)
+    if transport is not None:
+        transport.abort()
 
 
 async def handle(reader, client):
@@ -293,9 +330,9 @@ async def handle(reader, client):
     upstream = None
     tasks = []
     counted = False
+    idle_expired = False
     try:
-        headers = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), HEADER_TIMEOUT_S)
-        host, port = connect_target(headers.split(b"\r\n", 1)[0])
+        host, port = await read_request(reader)
         provider = host in HOSTS and port == 443
         if not provider:
             # Counted before any DNS work, so idle or slow public tunnels can't crowd out the
@@ -304,29 +341,37 @@ async def handle(reader, client):
                 raise Refused("too_many_connections")
             public_tunnels += 1
             counted = True
-        remote, upstream = await open_first(await checked_addresses(host, port))
+        addresses, guard = await checked_addresses(host, port)
+        remote, upstream = await open_first(addresses, guard)
         client.write(b"HTTP/1.1 200 Connection Established\r\n\r\n")
         await client.drain()
         activity = Activity()
         tasks = [asyncio.create_task(copy(reader, upstream, activity)),
                  asyncio.create_task(copy(remote, client, activity))]
+        watch = None
         if not provider:
-            tasks.append(asyncio.create_task(idle_watch(activity, PUBLIC_IDLE_TIMEOUT_S)))
-        await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            watch = asyncio.create_task(idle_watch(activity, PUBLIC_IDLE_TIMEOUT_S))
+            tasks.append(watch)
+        done, _running = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+        idle_expired = watch in done
     except Refused as refusal:
         await refuse(client, refusal.reason)
     except (OSError, ValueError, asyncio.IncompleteReadError, asyncio.LimitOverrunError,
             asyncio.TimeoutError):
         pass
     finally:
-        if counted:
-            public_tunnels -= 1
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
+        if idle_expired:
+            abort(upstream)
+            abort(client)
         if upstream:
             upstream.close()
         client.close()
+        # Released only after teardown, so the slot never outlives a still-open tunnel.
+        if counted:
+            public_tunnels -= 1
 
 
 async def main():

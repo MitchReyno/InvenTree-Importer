@@ -486,6 +486,51 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         delivered = b"".join(call.args[0] for call in client.write.call_args_list)
         self.assertTrue(delivered.endswith(b"x" * 6 * 1024))
 
+    async def test_provider_fallback_never_dials_an_address_protected_during_the_first_dial(self):
+        self.write_policy(public_pages=False, protected_hosts=["inventory.example.com"])
+        table = {"inventory.example.com": [PUBLIC], "api.anthropic.com": [OTHER_PUBLIC, PUBLIC]}
+
+        def slow_first_dial(_remote, _writer):
+            async def dial(address, _port):
+                await asyncio.sleep(0.4)
+                raise OSError(f"{address} unreachable")
+            return dial
+
+        with patch.object(egress, "PROTECTED_LOOKUP_BUDGET_S", 0.05):
+            written, upstream = await self.connect(
+                "api.anthropic.com:443", table, open_results=slow_first_dial,
+                delays={"inventory.example.com": 0.2})
+        # The first, unprotected address was dialled and failed; the second was refused.
+        self.assertIn(b"X-Bench-Refusal: protected_destination\r\n", written)
+        self.assertEqual([call.args[0] for call in upstream.call_args_list], [OTHER_PUBLIC])
+
+    async def test_idle_public_tunnel_aborts_both_streams_before_freeing_its_slot(self):
+        self.write_policy()
+        stream, remote, client, writer = await self.held_tunnel("www.ti.com:443")
+        self.guest_dns = Mock(side_effect=dns({"www.ti.com": [PUBLIC]}))
+        with patch.object(egress, "PUBLIC_IDLE_TIMEOUT_S", 0.1), \
+                patch.object(socket, "getaddrinfo", self.guest_dns), \
+                patch.object(egress.asyncio, "open_connection",
+                             AsyncMock(return_value=(remote, writer))):
+            await asyncio.wait_for(egress.handle(stream, client), 2)
+        writer.transport.abort.assert_called_once()
+        client.transport.abort.assert_called_once()
+        self.assertEqual(egress.public_tunnels, 0)
+
+    async def test_connections_waiting_for_a_header_are_bounded(self):
+        waiting = asyncio.StreamReader()
+        first = Mock()
+        with patch.object(egress, "MAX_PENDING_HEADERS", 1), \
+                patch.object(egress, "HEADER_TIMEOUT_S", 0.3):
+            held = asyncio.create_task(egress.handle(waiting, first))
+            await asyncio.sleep(0.05)
+            extra = Mock()
+            await asyncio.wait_for(egress.handle(asyncio.StreamReader(), extra), 0.1)
+            extra.write.assert_not_called()
+            extra.close.assert_called_once()
+            await held
+        self.assertEqual(egress.pending_headers, 0)
+
 
 if __name__ == "__main__":
     unittest.main()
