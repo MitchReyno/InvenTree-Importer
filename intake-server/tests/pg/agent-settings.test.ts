@@ -674,6 +674,11 @@ test('a VM web session opens with its sealed web research, outside the instructi
         undefined,
         'shared-vm-agent/3',
       )
+      // The opposite values saved while it waits for a slot never reach its opening message.
+      await saveAgentSettings(fixture.api.pool, fixture.config, {
+        ...bothProviders((BigInt(revision) + 1n).toString()),
+        web: { public_pages: !web.public_pages, prefer_datasheets: !web.prefer_datasheets },
+      })
       await runSessionTurn(deps, attempt.attemptId, new AbortController().signal)
       const turn = turns.at(-1)!
       // The instructions the driver receives are the profile's digest-verified bytes.
@@ -709,6 +714,34 @@ test('a session without VM tools opens with no web research lines', async () => 
     const host = await queueLotAttempt(fixture, capture, capture.packetB.id, 'research')
     const text = openingText(await sealedInput(fixture, host.inputId), 0, false)
     assert.doesNotMatch(text, /Public web pages|manufacturer datasheets/)
+  } finally {
+    await fixture.dispose()
+  }
+})
+
+test('each mixed web research pair saves, reads back and seals as saved', async () => {
+  const fixture = await processingFixture()
+  try {
+    const capture = await fixture.seedCapture()
+    const pairs = [
+      { public_pages: false, prefer_datasheets: true },
+      { public_pages: true, prefer_datasheets: false },
+    ]
+    const lots = [capture.packetA.id, capture.packetB.id]
+    for (const [index, web] of pairs.entries()) {
+      const revision = (await readAgentSettings(fixture.api.pool, fixture.config)).revision
+      await saveAgentSettings(fixture.api.pool, fixture.config, { ...bothProviders(revision), web })
+      assert.deepEqual((await readAgentSettings(fixture.api.pool, fixture.config)).web, web)
+      const attempt = await queueLotAttempt(
+        fixture,
+        capture,
+        lots[index],
+        'research',
+        undefined,
+        'shared-vm-agent/3',
+      )
+      assert.deepEqual((await sealedInput(fixture, attempt.inputId)).web, web)
+    }
   } finally {
     await fixture.dispose()
   }
