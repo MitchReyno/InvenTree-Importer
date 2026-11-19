@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 /**
  * Several forms share one navigation guard: it stays held while any of them has unsaved input,
@@ -6,6 +6,18 @@ import { useCallback, useRef } from 'react'
  */
 export function useDirtyForms(onDirtyChange: (dirty: boolean) => void) {
   const dirty = useRef(new Set<string>())
+  const report = useRef(onDirtyChange)
+  useEffect(() => {
+    report.current = onDirtyChange
+  }, [onDirtyChange])
+  // Leaving drops every draft, so the guard is released with them.
+  useEffect(
+    () => () => {
+      dirty.current.clear()
+      report.current(false)
+    },
+    [],
+  )
   return useCallback(
     (form: string, isDirty: boolean) => {
       if (isDirty) {

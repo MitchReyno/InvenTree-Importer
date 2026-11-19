@@ -201,3 +201,33 @@ test('an unconfirmed save and a failed Reload both keep Reload and the choice', 
   expect(screen.getByRole('button', { name: 'Reload' })).toBeVisible()
   expect(screen.queryByRole('button', { name: 'No supplier' })).toBeNull()
 })
+
+test('leaving Batch defaults with a choice releases the guard it held', async () => {
+  const user = userEvent.setup()
+  const dirty = vi.fn()
+  const api = clients()
+  const view = render(<BatchDefaultsSection onDirtyChange={dirty} />, {
+    clients: {
+      catalogue: api.catalogue,
+      batchDefaults: api.batchDefaults as unknown as BatchDefaultsClient,
+    },
+  })
+  await user.click(await screen.findByRole('button', { name: 'No supplier' }))
+  expect(dirty).toHaveBeenLastCalledWith(true)
+  view.unmount()
+  expect(dirty).toHaveBeenLastCalledWith(false)
+})
+
+test('after an unconfirmed save, Save waits for a Reload', async () => {
+  const user = userEvent.setup()
+  const api = clients()
+  api.batchDefaults.save.mockRejectedValue(new Error('offline'))
+  await renderDefaults(api)
+  await user.click(screen.getByRole('button', { name: 'No supplier' }))
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  expect(await screen.findByText(/wasn’t confirmed/)).toBeVisible()
+  const save = screen.getByRole('button', { name: 'Save' })
+  expect(save).toHaveAttribute('aria-disabled', 'true')
+  await user.click(save)
+  expect(api.batchDefaults.save).toHaveBeenCalledTimes(1)
+})

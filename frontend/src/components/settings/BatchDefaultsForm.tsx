@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import type { BatchDefaultRecordDto, BatchDefaultsDto } from '@invimport/contracts'
 import { SettingRow, Small } from '#/components/ui'
@@ -40,6 +40,12 @@ export function BatchDefaultsForm({
   onDirtyChange: (dirty: boolean) => void
 }) {
   const mounted = useMountedRef()
+  const report = useRef(onDirtyChange)
+  useEffect(() => {
+    report.current = onDirtyChange
+  }, [onDirtyChange])
+  // Leaving drops the choice, so the guard is released with it.
+  useEffect(() => () => report.current(false), [])
   // An edit holds the defaults it was made over with its choices, so values and revision match.
   // Until the first edit the form shows the latest load.
   const [edit, setEdit] = useState<{ base: BatchDefaultsDto; draft: Draft } | null>(null)
@@ -81,7 +87,8 @@ export function BatchDefaultsForm({
   }
 
   async function save() {
-    if (busy) {
+    // SaveBar also blocks a Save while what is saved is unknown or contested.
+    if (busy || state === 'failed' || state === 'conflict' || state === 'reloadFailed') {
       return
     }
     setState('saving')

@@ -38,14 +38,20 @@ export function SaveBar({
   onReload: () => void
 }) {
   const message = state === 'saved' ? savedMessage : MESSAGE[state]
+  // Until a Reload shows what is saved, another Save could hide an earlier one's outcome.
+  const blocked = busy || RELOAD[state] !== undefined
 
   return (
     <Bar>
       <Button
         type="button"
         variant="primary"
-        aria-disabled={busy || undefined}
-        onClick={() => onSave()}
+        aria-disabled={blocked || undefined}
+        onClick={() => {
+          if (!blocked) {
+            onSave()
+          }
+        }}
       >
         {state === 'saving' ? 'Saving…' : label}
       </Button>

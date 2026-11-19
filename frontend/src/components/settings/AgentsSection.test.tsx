@@ -648,6 +648,37 @@ test('Saved clears once the subsection is edited again', async () => {
   expect(screen.queryByText(/start with these instructions/)).toBeNull()
 })
 
+test('the Part description style saves its own text, and a conflict Reload restores the saved one', async () => {
+  const api = client()
+  api.saveSettings
+    .mockResolvedValueOnce({ ...initial, revision: '8', part_description_style: 'Type, value' })
+    .mockRejectedValueOnce(new IntakeRequestError(412, 'revision_conflict'))
+  api.settings.mockResolvedValueOnce(initial).mockResolvedValueOnce({
+    ...initial,
+    revision: '9',
+    part_description_style: 'Theirs',
+  })
+  await renderAgents(api)
+  const style = screen.getByRole('textbox', { name: 'Part description style' })
+  fireEvent.change(style, { target: { value: 'Type, value' } })
+
+  const save = () =>
+    fireEvent.click(within(card('Descriptions and naming')).getByRole('button', { name: 'Save' }))
+
+  save()
+  await waitFor(() =>
+    expect(api.saveSettings).toHaveBeenLastCalledWith(
+      agentSettingsUpdate('7', initialSelection, { part_description_style: 'Type, value' }),
+    ),
+  )
+  fireEvent.change(style, { target: { value: 'Mine' } })
+  save()
+  expect(await screen.findByText(/changed in another tab/)).toBeVisible()
+  expect(style).toHaveValue('Mine')
+  fireEvent.click(screen.getByRole('button', { name: 'Reload' }))
+  await waitFor(() => expect(style).toHaveValue('Theirs'))
+})
+
 test('Suggest tags for new batches saves on its own', async () => {
   const api = await renderAgents()
   fireEvent.click(screen.getByRole('checkbox', { name: 'Suggest tags for new batches' }))
