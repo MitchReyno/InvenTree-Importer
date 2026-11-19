@@ -8,8 +8,15 @@ LABEL = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
 DNS_NAME = re.compile(rf"{LABEL}(?:\.{LABEL})+")
 PRIVATE_SUFFIXES = (".localhost", ".internal", ".local", ".lan", ".arpa", ".onion", ".test", ".invalid")
 MAX_DNS_NAME_BYTES = 253
-# IANA's IPv6 documentation range inside 2000::/3; not globally reachable.
-DOCUMENTATION_V6 = ipaddress.ip_network("3fff::/20")
+# IANA special-purpose ranges that are not globally reachable, listed explicitly so the
+# check doesn't depend on which Python version's is_global tables are installed.
+NON_GLOBAL_V4 = tuple(ipaddress.ip_network(network) for network in (
+    "0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16",
+    "172.16.0.0/12", "192.0.0.0/24", "192.0.2.0/24", "192.88.99.0/24", "192.168.0.0/16",
+    "198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4"))
+# Within 2000::/3: IETF protocol assignments (including Teredo), documentation, 6to4.
+NON_GLOBAL_V6 = tuple(ipaddress.ip_network(network) for network in (
+    "2001::/23", "2001:db8::/32", "2002::/16", "3fff::/20"))
 
 
 def configured_hosts(name):
@@ -26,10 +33,12 @@ def dns_name(value):
 
 def public(value):
     address = ipaddress.ip_address(value)
-    return (address.is_global and not address.is_multicast and
-            (address.version == 4 or (address in ipaddress.ip_network("2000::/3")
-                                      and address not in DOCUMENTATION_V6))
-            and not getattr(address, "sixtofour", None) and not getattr(address, "teredo", None))
+    if not address.is_global or address.is_multicast:
+        return False
+    if address.version == 4:
+        return not any(address in network for network in NON_GLOBAL_V4)
+    return (address in ipaddress.ip_network("2000::/3")
+            and not any(address in network for network in NON_GLOBAL_V6))
 
 
 def permitted_addresses(answers, protected):
@@ -101,4 +110,10 @@ def public_target(host, port, protected):
     blocked = protected_addresses(protected)
     if any(normalized(address) in blocked for address in addresses):
         raise Refused("protected_destination")
-    return addresses[0]
+    return connection_order(addresses)
+
+
+def connection_order(addresses):
+    """Checked addresses, IPv4 first: the VM's container bridge has no IPv6 route."""
+    unique = list(dict.fromkeys(addresses))
+    return sorted(unique, key=lambda address: ipaddress.ip_address(address).version)

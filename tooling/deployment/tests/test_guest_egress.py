@@ -54,7 +54,7 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
             "protected_hosts": list(protected_hosts),
         }))
 
-    async def connect(self, target, table):
+    async def connect(self, target, table, open_results=None):
         stream = asyncio.StreamReader()
         stream.feed_data(f"CONNECT {target} HTTP/1.1\r\n\r\n".encode())
         stream.feed_eof()
@@ -73,7 +73,8 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         with patch.object(socket, "getaddrinfo", side_effect=lookup) as guest_dns, \
                 patch.object(loop, "getaddrinfo", side_effect=loop_lookup) as provider_dns, \
                 patch.object(egress.asyncio, "open_connection",
-                             AsyncMock(return_value=(remote, upstream_writer))) as upstream:
+                             AsyncMock(side_effect=open_results(remote, upstream_writer) if open_results
+                                       else None, return_value=(remote, upstream_writer))) as upstream:
             await egress.handle(stream, client)
         written = b"".join(call.args[0] for call in client.write.call_args_list)
         client.close.assert_called_once()
@@ -134,7 +135,8 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         self.write_policy()
         for private in ("10.0.0.1", "100.64.0.1", "169.254.169.254", "::1", "fd00::1", "fe80::1",
                         "224.0.0.1", "::ffff:127.0.0.1", "2002:7f00:1::1", "203.0.113.10",
-                        "3fff::1"):
+                        "3fff::1", "192.0.0.8", "192.88.99.2", "198.18.0.1", "2001:20::1",
+                        "2001:db8::1"):
             with self.subTest(address=private):
                 written, upstream = await self.connect("mixed.example.com:443",
                                                        {"mixed.example.com": [PUBLIC, private]})
@@ -241,6 +243,25 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         self.write_policy(protected_hosts=[".".join(["a" * 63] * 4)])
         written, upstream = await self.connect("www.ti.com:443", {"www.ti.com": [PUBLIC]})
         self.assert_refused(written, upstream, "destination_refused")
+
+    async def test_dual_stack_answer_connects_over_ipv4_first(self):
+        self.write_policy()
+        written, upstream = await self.connect(
+            "www.ti.com:443", {"www.ti.com": ["2606:4700::6810:84e5", PUBLIC]})
+        self.assert_connected(written, upstream, PUBLIC)
+
+    async def test_unreachable_first_address_falls_back_to_the_next_checked_one(self):
+        self.write_policy()
+        written, upstream = await self.connect(
+            "www.ti.com:443", {"www.ti.com": [PUBLIC, OTHER_PUBLIC]},
+            open_results=lambda remote, writer: [OSError("unreachable"), (remote, writer)])
+        self.assertTrue(written.startswith(b"HTTP/1.1 200"), written)
+        self.assertEqual([call.args for call in upstream.call_args_list],
+                         [(PUBLIC, 443), (OTHER_PUBLIC, 443)])
+
+    async def test_provider_lookup_failure_is_refused_with_its_reason(self):
+        written, upstream = await self.connect("api.anthropic.com:443", {})
+        self.assert_refused(written, upstream, "resolution_failed")
 
 
 if __name__ == "__main__":

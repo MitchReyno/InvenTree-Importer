@@ -62,9 +62,13 @@ function vmBridgeConfiguration(env: NodeJS.ProcessEnv, profileId: string) {
   if (!vmProfile && profileId !== 'synthetic-session/1') {
     throw new Error('session_agent_configuration_required')
   }
+  const port = Number(env.INTAKE_VM_PORT)
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error('session_agent_configuration_required')
+  }
   return {
     pair: env.INTAKE_VM_PAIR,
-    port: Number(env.INTAKE_VM_PORT),
+    port,
     protectedHosts: bridgeProtectedHosts(env, profileId),
   }
 }

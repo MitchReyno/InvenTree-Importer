@@ -118,66 +118,80 @@ test(
   },
 )
 
-test(
-  'a VM tool worker without protected origins refuses before it recovers retained sessions',
-  { timeout: 60000 },
-  async (t) => {
-    const fixture = await processingFixture({ profileId: 'shared-vm-agent/2' })
-    t.after(() => fixture.dispose())
-    const capture = await fixture.seedCapture()
-    const { attempt } = await lotSession(fixture, capture, capture.packetA, {
-      state: 'running',
-      profile: {
-        id: 'shared-vm-agent/2',
-        agent: { provider: 'claude', authentication: 'subscription', model: 'haiku' },
-        settingsRevision: '1',
-      },
-    })
-    const stateOf = async () =>
-      (
-        await fixture.db.pool.query<{ session_state: string }>(
-          'SELECT session_state FROM agent_session WHERE attempt_id=$1',
-          [attempt],
-        )
-      ).rows[0]?.session_state
-    const before = await stateOf()
-    const root = await mkdtemp(join(tmpdir(), 'bench-worker-origins-'))
-    t.after(() => rm(root, { recursive: true, force: true }))
-    const stateRoot = join(root, 'state')
-    await mkdir(stateRoot, { mode: 0o700 })
-    const worker = spawn(
-      process.execPath,
-      [
-        '--import',
-        'tsx',
-        fileURLToPath(new URL('../../src/agents/session/session-worker-main.ts', import.meta.url)),
-      ],
-      {
-        cwd: fileURLToPath(new URL('../../', import.meta.url)),
-        env: {
-          PATH: process.env.PATH,
-          HOME: root,
-          USER: process.env.USER,
-          INTAKE_VM_PAIR: join(root, 'pair'),
-          INTAKE_VM_PORT: String(await freePort()),
-          INTAKE_AGENT_DATABASE_URL: fixture.runner.url,
-          INTAKE_AGENT_SCHEDULER_DATABASE_URL: fixture.scheduler.url,
-          INTAKE_AGENT_STATE_ROOT: stateRoot,
-          INTAKE_ACTOR_ID: fixture.config.actorId,
-          INTAKE_TARGET_ID: fixture.config.targetId,
-          INTAKE_TARGET_CONTEXT_ID: fixture.config.targetContextId,
-          INTAKE_PROCESSING_CHANNEL_SECRET: fixture.config.channelSecret,
-          INTAKE_PROCESSING_PROFILE: 'shared-vm-agent/2',
+for (const [label, misconfiguration] of [
+  ['without protected origins', {}],
+  [
+    'with a bridge port it cannot use',
+    {
+      INTAKE_AGENT_PROTECTED_ORIGINS: 'http://127.0.0.1:4330,https://inventory.example.com',
+      INTAKE_VM_PORT: 'not-a-port',
+    },
+  ],
+] as const) {
+  test(
+    `a VM tool worker ${label} refuses before it recovers retained sessions`,
+    { timeout: 60000 },
+    async (t) => {
+      const fixture = await processingFixture({ profileId: 'shared-vm-agent/2' })
+      t.after(() => fixture.dispose())
+      const capture = await fixture.seedCapture()
+      const { attempt } = await lotSession(fixture, capture, capture.packetA, {
+        state: 'running',
+        profile: {
+          id: 'shared-vm-agent/2',
+          agent: { provider: 'claude', authentication: 'subscription', model: 'haiku' },
+          settingsRevision: '1',
         },
-        stdio: ['ignore', 'pipe', 'pipe'],
-      },
-    )
-    let output = ''
-    worker.stderr.on('data', (bytes: Buffer) => (output += bytes.toString()))
-    const [code] = await once(worker, 'exit')
-    assert.equal(code, 1)
-    assert.match(output, /"code":"session_agent_configuration_required"/)
-    assert.equal(before, 'running')
-    assert.equal(await stateOf(), before)
-  },
-)
+      })
+      const stateOf = async () =>
+        (
+          await fixture.db.pool.query<{ session_state: string }>(
+            'SELECT session_state FROM agent_session WHERE attempt_id=$1',
+            [attempt],
+          )
+        ).rows[0]?.session_state
+      const before = await stateOf()
+      const root = await mkdtemp(join(tmpdir(), 'bench-worker-origins-'))
+      t.after(() => rm(root, { recursive: true, force: true }))
+      const stateRoot = join(root, 'state')
+      await mkdir(stateRoot, { mode: 0o700 })
+      const worker = spawn(
+        process.execPath,
+        [
+          '--import',
+          'tsx',
+          fileURLToPath(
+            new URL('../../src/agents/session/session-worker-main.ts', import.meta.url),
+          ),
+        ],
+        {
+          cwd: fileURLToPath(new URL('../../', import.meta.url)),
+          env: {
+            PATH: process.env.PATH,
+            HOME: root,
+            USER: process.env.USER,
+            INTAKE_VM_PAIR: join(root, 'pair'),
+            INTAKE_VM_PORT: String(await freePort()),
+            INTAKE_AGENT_DATABASE_URL: fixture.runner.url,
+            INTAKE_AGENT_SCHEDULER_DATABASE_URL: fixture.scheduler.url,
+            INTAKE_AGENT_STATE_ROOT: stateRoot,
+            INTAKE_ACTOR_ID: fixture.config.actorId,
+            INTAKE_TARGET_ID: fixture.config.targetId,
+            INTAKE_TARGET_CONTEXT_ID: fixture.config.targetContextId,
+            INTAKE_PROCESSING_CHANNEL_SECRET: fixture.config.channelSecret,
+            INTAKE_PROCESSING_PROFILE: 'shared-vm-agent/2',
+            ...misconfiguration,
+          },
+          stdio: ['ignore', 'pipe', 'pipe'],
+        },
+      )
+      let output = ''
+      worker.stderr.on('data', (bytes: Buffer) => (output += bytes.toString()))
+      const [code] = await once(worker, 'exit')
+      assert.equal(code, 1)
+      assert.match(output, /"code":"session_agent_configuration_required"/)
+      assert.equal(before, 'running')
+      assert.equal(await stateOf(), before)
+    },
+  )
+}

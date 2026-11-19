@@ -12,6 +12,7 @@ from pathlib import Path
 from guest_destinations import (
     Refused,
     configured_hosts,
+    connection_order,
     dns_name,
     literal_address,
     normalized,
@@ -34,6 +35,8 @@ MAX_PROTECTED_HOSTS = 32
 MAX_POLICY_BYTES = 16384
 HEADER_TIMEOUT_S = 5
 CONNECT_TIMEOUT_S = 10
+# A destination with many answers gets at most this many connection attempts.
+MAX_CONNECT_ATTEMPTS = 3
 
 
 def protected_entry(value):
@@ -103,18 +106,22 @@ def provider_protected_addresses(protected):
 async def provider_address(host, protected):
     if protected_name(host, protected):
         raise Refused("protected_destination")
-    answers = await asyncio.get_running_loop().getaddrinfo(
-        host, 443, family=socket.AF_INET, type=socket.SOCK_STREAM)
+    try:
+        answers = await asyncio.get_running_loop().getaddrinfo(
+            host, 443, family=socket.AF_INET, type=socket.SOCK_STREAM)
+    except OSError as error:
+        raise Refused("resolution_failed") from error
     blocked = await asyncio.to_thread(provider_protected_addresses, protected)
     addresses = [answer[4][0] for answer in answers]
     if not addresses or not all(public(address) for address in addresses):
         raise Refused("not_public")
     if any(normalized(address) in blocked for address in addresses):
         raise Refused("protected_destination")
-    return addresses[0]
+    return connection_order(addresses)
 
 
-async def checked_address(host, port):
+async def checked_addresses(host, port):
+    """Addresses to try, in order, all of them checked; or Refused."""
     policy = load_policy()
     protected = PROTECTED | (policy["protected_hosts"] if policy else set())
     if host in HOSTS and port == 443:
@@ -122,6 +129,17 @@ async def checked_address(host, port):
     if policy is None or not policy["public_pages"]:
         raise Refused("destination_refused")
     return await asyncio.to_thread(public_target, host, port, protected)
+
+
+async def open_first(addresses):
+    """Connects to the first reachable checked address, trying at most a few."""
+    failure = OSError("no checked address")
+    for address in addresses[:MAX_CONNECT_ATTEMPTS]:
+        try:
+            return await asyncio.wait_for(asyncio.open_connection(address, 443), CONNECT_TIMEOUT_S)
+        except (OSError, asyncio.TimeoutError) as error:
+            failure = error
+    raise failure
 
 
 async def refuse(client, reason):
@@ -142,9 +160,7 @@ async def handle(reader, client):
     try:
         headers = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), HEADER_TIMEOUT_S)
         host, port = connect_target(headers.split(b"\r\n", 1)[0])
-        address = await checked_address(host, port)
-        remote, upstream = await asyncio.wait_for(
-            asyncio.open_connection(address, 443), CONNECT_TIMEOUT_S)
+        remote, upstream = await open_first(await checked_addresses(host, port))
         client.write(b"HTTP/1.1 200 Connection Established\r\n\r\n")
         await client.drain()
         tasks = [asyncio.create_task(copy(reader, upstream)),
