@@ -159,14 +159,15 @@ class ProtectedLookups:
         """This lookup's public addresses for `name` and whether its answer was empty or held
         any private address; or None when the lookup fails."""
         try:
-            answers = [normalized(answer) for answer in resolved_addresses(name)]
+            answers = resolved_addresses(name)
         except Refused:
             addresses = None
             result = None
         else:
-            # Only public answers are blocked; a private one is already refused by address.
-            addresses = {answer for answer in answers if public(str(answer))}
-            result = (addresses, not answers or len(addresses) < len(set(answers)))
+            # Classified as answered, as the destination check does; normalized only for
+            # matching. Only public answers are blocked: a private one is refused by address.
+            addresses = {normalized(answer) for answer in answers if public(answer)}
+            result = (addresses, not answers or not all(public(answer) for answer in answers))
         self.publish(name, addresses)
         with self.lock:
             self.in_flight.pop(name, None)
@@ -443,20 +444,23 @@ async def checked_addresses(host, port, provider, protected):
             if PROTECTED_LOOKUPS.failed:
                 raise Refused("resolution_failed")
         raise Refused("not_public" if answer and answer[1] else "protected_destination")
-    if PROTECTED_LOOKUPS.has_failed():
-        raise Refused("resolution_failed")
-    if not all(refresh.done() for refresh in refreshes.values()):
-        raise Refused("resolution_failed")
-    if refusal is not None:
-        # A protected name stays protected when its lookup runs out of time or slots.
-        if refusal.reason == "resolution_failed" and protected_name(host, protected):
-            raise Refused("protected_destination") from None
-        raise refusal
-    blocked = PROTECTED_LOOKUPS.latest(protected) | {
-        literal for literal in map(literal_address, protected)
-        if literal is not None and public(str(literal))}
-    if any(normalized(address) in blocked for address in addresses):
-        raise Refused("protected_destination")
+    literals = {literal for literal in map(literal_address, protected)
+                if literal is not None and public(str(literal))}
+    # One decision under the publication lock, so a failure latched at any point before it
+    # takes precedence over every other reason.
+    with PROTECTED_LOOKUPS.lock:
+        if PROTECTED_LOOKUPS.failed:
+            raise Refused("resolution_failed")
+        if not all(refresh.done() for refresh in refreshes.values()):
+            raise Refused("resolution_failed")
+        if refusal is not None:
+            # A protected name stays protected when its lookup runs out of time or slots.
+            if refusal.reason == "resolution_failed" and protected_name(host, protected):
+                raise Refused("protected_destination") from None
+            raise refusal
+        blocked = literals.union(*(PROTECTED_LOOKUPS.known.get(entry, ()) for entry in protected))
+        if any(normalized(address) in blocked for address in addresses):
+            raise Refused("protected_destination")
     # Other connections' lookups can still protect this address before or after the dial.
     return addresses, protection_guard(protected, True)
 

@@ -1387,10 +1387,13 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
 
     async def test_protected_name_with_a_mixed_answer_reports_not_public(self):
         self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
-        table = {"inventory.example.com": [PUBLIC, "10.0.0.2"]}
-        written, upstream = await self.connect("inventory.example.com:443", table)
-        self.assert_refused(written, upstream, "not_public")
-        self.assertEqual(self.lookups, 1)
+        # The IPv4-mapped form is not public as answered, though it maps to a public address.
+        for answer in ([PUBLIC, "10.0.0.2"], [PUBLIC, "::ffff:" + PUBLIC]):
+            with self.subTest(answer=answer):
+                table = {"inventory.example.com": answer}
+                written, upstream = await self.connect("inventory.example.com:443", table)
+                self.assert_refused(written, upstream, "not_public")
+                self.assertEqual(self.lookups, 1)
 
     async def test_exact_name_reason_comes_from_the_refresh_it_waited_on(self):
         self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
@@ -1422,6 +1425,28 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(looked_up.count(name), 1, name)
         for name in names[1:]:
             self.assertTrue(egress.PROTECTED_LOOKUPS.known.get(name), name)
+
+    async def test_admission_reads_the_latch_and_addresses_in_one_locked_step(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC]}
+        lookups = egress.PROTECTED_LOOKUPS
+        lock = PublishOnRelease(lookups.lock)
+        wait = asyncio.wait
+
+        def publish():
+            lookups.publish("inventory.example.com", {egress.normalized(PUBLIC)})
+            lookups.publish("inventory.example.com", None)
+
+        async def armed_after_refreshes(*args, **kwargs):
+            result = await wait(*args, **kwargs)
+            # The next release is the admission's first read of the shared state.
+            lock.then = publish
+            return result
+
+        with patch.object(lookups, "lock", lock), \
+                patch.object(egress.asyncio, "wait", armed_after_refreshes):
+            written, upstream = await self.connect("www.ti.com:443", table)
+        self.assert_refused(written, upstream, "resolution_failed")
 
 
 if __name__ == "__main__":
