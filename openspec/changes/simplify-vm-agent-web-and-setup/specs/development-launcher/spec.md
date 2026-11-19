@@ -96,6 +96,12 @@ When the launcher manages the VM, it SHALL check before booting that the pairing
 - **WHEN** `pnpm vm:setup` reaches the operator key step
 - **THEN** it stops with `vm_operator_key_mismatch`, generates nothing and overwrites neither key
 
+#### Scenario: Guest service stopped
+
+- **GIVEN** a prepared VM whose Claude management container is stopped
+- **WHEN** the developer runs `pnpm vm:setup`, or `pnpm dev` starts with VM management
+- **THEN** the container is started and confirmed running before setup reports done or the relays start, and a failed start stops the run naming that service
+
 #### Scenario: Pairing only half present
 
 - **GIVEN** a host pairing directory whose guest side is missing, or the reverse

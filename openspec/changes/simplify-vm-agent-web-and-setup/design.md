@@ -86,7 +86,8 @@ The fields are optional, so the input schema version doesn't change. If `setting
 
 **Entries:** an entry is a DNS name or an IP address literal.
 - A public IP literal is kept as a protected address, so a DNS name aliasing it is refused.
-- Loopback and other non-public literals, `localhost` and names with private suffixes are dropped, because the destination rules already refuse them.
+- Loopback and other non-public IP literals are dropped, because no public name can resolve to them past the address check.
+- DNS names are kept whatever their suffix. An inventory host such as `inventory.internal` can resolve to a public address in the guest, and its address must still block public aliases.
 - The skip for "resolves only to non-public addresses" happens in the egress proxy, because only the guest's DNS is authoritative for what the agent would reach.
 
 **Configuration handoff.** Today the agent worker receives neither the app origin nor the inventory target. `tooling/dev.cjs:417-455` gives `INTAKE_ORIGIN` and `apiTargetEnv()` only to the API child, and `session-worker-main.ts:108` passes the bridge only the pairing directory and port. So:
@@ -165,7 +166,7 @@ Since the contract field changes, the frontend and server move together in one P
 | Runner in guest | Guest `docker image inspect` digest label matches | `docker save \| limactl shell … docker load` |
 | Pairing | Host `ca.pem`, `cert.pem` and `key.pem`, and the guest `guest/` directory, both exist | `pair.sh`. One side only: `vm_pairing_mismatch`. |
 | Operator key | The host key file and the guest's `operator/key` both exist and have the same SHA-256 | Generated and installed only when both are missing. One side only, or different contents, refuses with `vm_operator_key_mismatch` and changes neither. This check runs before every provisioning path, in setup and in refresh (D9). `personal-claude.sh` and `personal-codex.sh` also enforce it themselves: they never generate a key when the guest has one, and never overwrite a guest key with different contents. |
-| Guest services | Containers exist with the current image and the expected `INTAKE_OPERATOR_ORIGIN` | Run `personal-claude.sh` and `personal-codex.sh`. Both are changed to remove only their own named containers first, and to leave the store, state and key directories alone. |
+| Guest services | Containers exist with the current image and the expected `INTAKE_OPERATOR_ORIGIN`, and are running. A matching stopped container is started and checked. | Run `personal-claude.sh` and `personal-codex.sh`. Both are changed to remove only their own named containers first, and to leave the store, state and key directories alone. |
 
 The guest browser policy (`guest/browser-seccomp.json`, which `tool-turn.sh:46-48` applies when present) is installed by `browser-policy.sh`, the remaining part of the retired `public-web.sh`. `vm:setup` and each image refresh run it again, so the policy follows the checkout.
 
@@ -185,7 +186,7 @@ The VM is stopped at the end only if this run started it, unless `INTAKE_VM_KEEP
 - The build passes it as `--label org.bench-intake.source-digest=<digest>`.
 - Before starting the relays, `pnpm dev` (managed) checks each refresh result on its own, so a refresh that failed part-way is repaired on the next start:
   - the guest image's digest label;
-  - the image ID and `INTAKE_OPERATOR_ORIGIN` of each guest service container;
+  - the image ID, `INTAKE_OPERATOR_ORIGIN` and running state of each guest service container. A matching stopped container is started, and a start failure stops startup naming the service;
   - the SHA-256 of the installed `browser-seccomp.json`.
 - If any of these is wrong, it runs D8's operator key check, then only the steps still needed, in order: image, load, browser policy, guest services. A key mismatch stops startup with `vm_operator_key_mismatch` before any provisioning.
 - `vm:setup` uses the same checks, so the two commands agree on what "current" means.

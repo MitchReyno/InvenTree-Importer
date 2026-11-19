@@ -65,7 +65,7 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
   - [ ] 1.2.1 Provider hosts are allowed with and without a policy.
   - [ ] 1.2.2 With web on, public hosts are allowed and the connection pins a checked address.
   - [ ] 1.2.3 Mixed public and private answers, an IPv6 private answer, a private suffix, an IP literal and a port other than 443 are refused with their reasons.
-  - [ ] 1.2.4 A protected name, a subdomain of it and a shared address are refused. A protected name resolving only privately is skipped. A failed lookup gives `resolution_failed` for public hosts only.
+  - [ ] 1.2.4 A protected name, a subdomain of it and a shared address are refused, including a private-suffix protected name that resolves to a public address. A protected name resolving only privately is skipped. A failed lookup gives `resolution_failed` for public hosts only.
   - [ ] 1.2.5 A missing or malformed policy file means provider-only.
 - [ ] 1.3 GREEN: implement `guest-egress.py` and the `guest_destinations.py` changes, and update the callers, image and whitelist.
 - [ ] 1.4 Add the `test:deployment` script and its CI step, then run it, the deployment `ruff check`, `pnpm lint` and a runner image build, and record the results.
@@ -84,7 +84,7 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 - Prerequisites: task 1.
 - Acceptance: shared-vm-execution › Egress applies the sealed web setting (both scenarios); Protected destinations come from the deployment; Scoped guest execution and tool access › Public web access off.
 - TDD approach:
-  - RED: coordinator tests expect `protected_hosts` worked out from the configured origins, keeping public IP literals and dropping loopback and private names.
+  - RED: coordinator tests expect `protected_hosts` worked out from the configured origins, keeping every DNS name (including private suffixes such as `.internal`) and public IP literals, and dropping non-public IP literals.
   - RED: launcher tests expect the agent worker's `INTAKE_AGENT_PROTECTED_ORIGINS` to hold the loopback and inventory origins, plus the tailnet origin when `INTAKE_DEV_TAILSCALE` is on, while its `INTAKE_ORIGIN` stays loopback. A worker test expects `session_agent_configuration_required` when the list is missing or malformed.
   - RED: decoding a retained input with and without the `web` object.
   - RED: peer tests expect `policy.json` contents and refusal of invalid host lists.
@@ -200,6 +200,7 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
   - a fresh run in order;
   - a rerun with no actions;
   - a one-sided pairing giving `vm_pairing_mismatch`;
+  - a stopped guest service being started, and a failed start stopping the run naming it;
   - a one-sided or mismatched operator key giving `vm_operator_key_mismatch`, with neither key written;
   - a missing `limactl`;
   - a failed step stopping the run;
@@ -225,7 +226,7 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 - Scope and approach: a digest helper shared with task 7; the launcher's VM start path in `tooling/dev/vm.cjs` and `tooling/dev.cjs`; the `vm_pairing_missing` message.
 - Prerequisites: task 7.
 - Acceptance: development-launcher › The runner image is kept current; A failed image refresh stops startup; A missing pairing is refused before the VM starts (all scenarios).
-- TDD approach: RED launcher tests for a matching digest (no build), a mismatch (rebuild, load, `browser-policy.sh` and restart before the relays), a `.dockerignore` change invalidating the digest, a stale image with a missing or mismatched host key stopping with `vm_operator_key_mismatch` and leaving both keys unchanged, a load that succeeded followed by failed provisioning being repaired on the next start before any relay, a guest service on an old image ID or the wrong origin, a missing or changed browser policy, a failed rebuild (`vm_runner_image_refresh_failed` and the stop rules), unmanaged (warning only), and the refusal text naming `pnpm vm:setup`.
+- TDD approach: RED launcher tests for a matching digest (no build), a mismatch (rebuild, load, `browser-policy.sh` and restart before the relays), a `.dockerignore` change invalidating the digest, a stale image with a missing or mismatched host key stopping with `vm_operator_key_mismatch` and leaving both keys unchanged, a load that succeeded followed by failed provisioning being repaired on the next start before any relay, a guest service on an old image ID or the wrong origin, a stopped guest service being started before the relays, a missing or changed browser policy, a failed rebuild (`vm_runner_image_refresh_failed` and the stop rules), unmanaged (warning only), and the refusal text naming `pnpm vm:setup`.
 - Verification: `pnpm test:dev` and `pnpm lint:tooling`.
 - Risks and decisions: the digest input list must include everything the image copies. A test asserts the list against the Dockerfiles' `COPY` sources.
 

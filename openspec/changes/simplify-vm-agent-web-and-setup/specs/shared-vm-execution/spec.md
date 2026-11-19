@@ -132,6 +132,12 @@ The coordinator SHALL work out each turn's protected hosts from the deployment's
 - **WHEN** the agent connects to a public DNS name that resolves to `1.1.1.1`
 - **THEN** the proxy refuses with `protected_destination`
 
+#### Scenario: Private-suffix inventory name with a public address
+
+- **GIVEN** the app reads InvenTree at `https://inventory.internal`, which resolves in the guest to a public address
+- **WHEN** the agent connects to a public DNS name that resolves to that address
+- **THEN** the proxy refuses with `protected_destination`
+
 #### Scenario: App served on the tailnet
 
 - **GIVEN** `pnpm dev` with `INTAKE_DEV_TAILSCALE` on and a tailnet name that resolves publicly
