@@ -1,7 +1,6 @@
 import { startSessionBridge } from '#/agents/shared-vm/coordinator.ts'
 import { bridgeProtectedHosts } from '#/agents/shared-vm/protected-hosts.ts'
 import { join } from 'node:path'
-import { Client } from 'pg'
 import { DBOS, DBOSClient } from '@dbos-inc/dbos-sdk'
 import { setTimeout as delay } from 'node:timers/promises'
 import { database } from '#/db/database.ts'
@@ -33,62 +32,7 @@ import {
   wakePendingSessions,
 } from './session-execution.ts'
 import { deliverMissingInstructions } from '#/agents/instructions.ts'
-
-/**
- * A PostgreSQL URL for a loopback server, checked both as written and as the `pg` driver reads
- * it, so the identity DBOS derives from the URL is the one the driver connects to.
- */
-function localDatabaseUrl(value: string | undefined) {
-  if (!value) {
-    throw new Error('agent_database_required')
-  }
-  // A NUL in any field, encoded or not, would reach the PostgreSQL startup packet.
-  if (value.includes('\0') || /%00/i.test(value)) {
-    throw new Error('local_agent_database_required')
-  }
-  let host = ''
-  let port = 0
-  try {
-    const url = new URL(value)
-    // The URL's own authority must be loopback, and `pg` must not be told to go elsewhere.
-    if (
-      !['postgres:', 'postgresql:'].includes(url.protocol) ||
-      !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) ||
-      url.searchParams.has('host') ||
-      url.searchParams.has('hostaddr')
-    ) {
-      throw new Error('local_agent_database_required')
-    }
-    ;({ host, port } = new Client({ connectionString: value }))
-  } catch {
-    throw new Error('local_agent_database_required')
-  }
-  if (
-    !['127.0.0.1', 'localhost', '::1'].includes(host) ||
-    !Number.isInteger(port) ||
-    port < 1 ||
-    port > 65535
-  ) {
-    throw new Error('local_agent_database_required')
-  }
-  return value
-}
-
-/** The scheduler URL, with the fields DBOS requires when it launches, checked before recovery. */
-function schedulerDatabaseUrl(value: string | undefined) {
-  const checked = localDatabaseUrl(value)
-  const url = new URL(checked)
-  const name = url.pathname.slice(1)
-  // A plain name, so DBOS (which reads the path) and `pg` agree on which database it is.
-  if (
-    !url.username ||
-    !/^[A-Za-z0-9_-]{1,63}$/.test(name) ||
-    new Client({ connectionString: checked }).database !== name
-  ) {
-    throw new Error('local_agent_database_required')
-  }
-  return checked
-}
+import { localDatabaseUrl, schedulerDatabaseUrl } from './database-urls.ts'
 
 /**
  * The paired VM bridge this worker starts, or undefined without one. Checked before any

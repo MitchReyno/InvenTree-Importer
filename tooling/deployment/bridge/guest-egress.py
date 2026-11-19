@@ -228,10 +228,11 @@ class ProtectedLookups:
                     self.tunnels.pop(revocation, None)
 
     def refresh(self, name):
-        """Every address the name has answered with and its refresh in flight."""
+        """Every address the name has answered with and its refresh in flight. Requests joining
+        a refresh share one event-loop future, so a stalled lookup gains no waiters per request."""
         with self.lock:
             if name not in self.in_flight:
-                self.in_flight[name] = self.pool.submit(self.resolve, name)
+                self.in_flight[name] = asyncio.wrap_future(self.pool.submit(self.resolve, name))
             return self.known.get(name, set()), self.in_flight[name]
 
     async def deny_set(self, protected):
@@ -243,8 +244,7 @@ class ProtectedLookups:
                 if public(str(literal)):
                     blocked.add(literal)
                 continue
-            known, future = self.refresh(entry)
-            refreshes.append((known, asyncio.wrap_future(future)))
+            refreshes.append(self.refresh(entry))
         if refreshes:
             await asyncio.wait([waiter for _known, waiter in refreshes],
                                timeout=PROTECTED_LOOKUP_BUDGET_S)

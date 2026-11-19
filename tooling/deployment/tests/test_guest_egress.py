@@ -39,9 +39,12 @@ def dns(table, stalled=None, delays=None):
     """A getaddrinfo stand-in: unknown names fail like an NXDOMAIN answer.
 
     A name in `stalled` blocks until its event is set, like an unresponsive resolver; a name in
-    `delays` answers after that many seconds.
+    `delays` answers after that many seconds. An absolute name (`name.`) uses its own entry when
+    the table has one, and otherwise the entry for the same name without the dot.
     """
     def lookup(host, *_args, **_kwargs):
+        if host not in table:
+            host = host.rstrip(".")
         if stalled and host in stalled:
             stalled[host].wait(10)
         if delays and host in delays:
@@ -1180,6 +1183,37 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         self.assertIn(egress.normalized("8.8.8.8"), lookups.known["inventory.example.com"])
         writer.transport.abort.assert_called_once()
         self.assert_refused(written, upstream, "resolution_failed")
+
+    async def test_requests_joining_a_stalled_lookup_add_no_waiters(self):
+        self.write_policy(public_pages=False, protected_hosts=["inventory.example.com"])
+        stalled = {"inventory.example.com": threading.Event()}
+        self.addCleanup(stalled["inventory.example.com"].set)
+        lookups = egress.PROTECTED_LOOKUPS
+        submitted = []
+        submit = lookups.pool.submit
+
+        def recorded(*args):
+            submitted.append(submit(*args))
+            return submitted[-1]
+
+        table = {"api.anthropic.com": [OTHER_PUBLIC]}
+        with patch.object(egress, "PROTECTED_LOOKUP_BUDGET_S", 0.02), \
+                patch.object(lookups.pool, "submit", recorded):
+            for _attempt in range(5):
+                written, upstream = await self.connect(
+                    "api.anthropic.com:443", table, stalled=stalled)
+                self.assert_connected(written, upstream, OTHER_PUBLIC)
+        self.assertEqual(len(submitted), 1)
+        # One event-loop future follows the lookup, however many requests waited on it.
+        self.assertEqual(len(submitted[0]._done_callbacks), 1)
+
+    async def test_protected_names_resolve_as_absolute_names(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        # A search domain could answer differently for the relative name.
+        table = {"inventory.example.com.": [PUBLIC], "inventory.example.com": ["8.8.8.8"],
+                 "alias.example.net": [PUBLIC]}
+        written, upstream = await self.connect("alias.example.net:443", table)
+        self.assert_refused(written, upstream, "protected_destination")
 
 
 if __name__ == "__main__":

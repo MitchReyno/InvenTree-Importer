@@ -439,14 +439,14 @@ const misconfigurations: Misconfiguration[] = [
     },
   },
   {
-    label: 'whose scheduler database name is percent-encoded',
+    label: 'whose scheduler database name is longer than DBOS allows',
     code: 'local_agent_database_required',
     prepare: async (root) => {
       await pairedCertificates(root)
       return {
         INTAKE_AGENT_PROTECTED_ORIGINS: validOrigins,
         INTAKE_VM_PAIR: join(root, 'bench-coordinator'),
-        INTAKE_AGENT_SCHEDULER_DATABASE_URL: 'postgres://bench@127.0.0.1/owned%2Ddb',
+        INTAKE_AGENT_SCHEDULER_DATABASE_URL: `postgres://bench@127.0.0.1/${'s'.repeat(64)}`,
       }
     },
   },

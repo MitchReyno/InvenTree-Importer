@@ -83,8 +83,9 @@ def protected_name(host, protected):
 
 
 def resolved_addresses(host):
+    """The name's addresses, looked up as an absolute name so no search domain is appended."""
     try:
-        answers = socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)
+        answers = socket.getaddrinfo(host + ".", 443, type=socket.SOCK_STREAM)
     except OSError as error:
         raise Refused("resolution_failed") from error
     return [answer[4][0] for answer in answers]
