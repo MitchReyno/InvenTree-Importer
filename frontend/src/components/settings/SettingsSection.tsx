@@ -1,7 +1,7 @@
 import { useId, type ReactNode } from 'react'
 import styled from 'styled-components'
 import { color, space, type, typeVar } from '#/theme/generated/tokens'
-import { AiMark } from '#/components/ui'
+import { AiMark, onField } from '#/components/ui'
 
 type Props = {
   title: string
@@ -43,10 +43,12 @@ const Head = styled.div`
 const Title = styled.h2`
   margin: 0;
   ${type.h2}
+  ${onField}
 `
 
 const Lead = styled.p`
   margin: 0;
   font-size: ${typeVar.small.size};
   color: ${color.muted};
+  ${onField}
 `

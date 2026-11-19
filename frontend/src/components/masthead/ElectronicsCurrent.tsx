@@ -1,13 +1,28 @@
 import { useEffect, useRef } from 'react'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 import { media } from '#/components/ui'
-import type { ElectronicsCurrentController } from '#/electronics-current/scene'
+import type { CurrentLayout, ElectronicsCurrentController } from '#/electronics-current/scene'
 import type { ThemeId } from '#/theme/generated/tokens'
+import { barGapMask, compactBarGapMask } from './current-masks'
 
 // three.js r163+ renders through WebGL 2 only. Detect it before loading the
 // scene chunk so unsupported browsers (and jsdom) never download three.js.
 function supportsWebGl2(): boolean {
   return typeof window.WebGL2RenderingContext === 'function'
+}
+
+type SceneModule = typeof import('#/electronics-current/scene')
+
+let sceneModule: Promise<SceneModule> | undefined
+
+/** One load of the scene chunk shared by every mount; a failed load can be retried. */
+function loadScene(): Promise<SceneModule> {
+  sceneModule ??= import('#/electronics-current/scene').catch((error: unknown) => {
+    sceneModule = undefined
+    throw error
+  })
+
+  return sceneModule
 }
 
 function pageTheme(): ThemeId {
@@ -22,14 +37,17 @@ function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
-// Mask opacity, not a colour: parts under compact text stay at a quarter strength.
-const DIMMED = 'color-mix(in srgb, black 25%, transparent)'
+type ElectronicsCurrentProps = {
+  /** `band` fills the masthead bar and masks itself to the gap between its text; a `field`
+   * fills its container, which owns any mask. */
+  layout?: CurrentLayout
+}
 
 /**
- * Decorative isometric electronics drifting behind the masthead title. Purely
+ * Decorative isometric electronics drifting behind the masthead title or the page. Purely
  * visual: hidden from assistive technology and never affects application state.
  */
-export function ElectronicsCurrent() {
+export function ElectronicsCurrent({ layout = 'band' }: ElectronicsCurrentProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -43,7 +61,7 @@ export function ElectronicsCurrent() {
     let unmounted = false
 
     async function start(target: HTMLCanvasElement): Promise<void> {
-      const { createElectronicsCurrent } = await import('#/electronics-current/scene')
+      const { createElectronicsCurrent } = await loadScene()
 
       if (unmounted) {
         return
@@ -52,6 +70,7 @@ export function ElectronicsCurrent() {
       controller = createElectronicsCurrent(target, {
         reducedMotion: prefersReducedMotion(),
         theme: pageTheme(),
+        layout,
       })
     }
 
@@ -94,39 +113,27 @@ export function ElectronicsCurrent() {
       controller?.dispose()
       controller = null
     }
-  }, [])
+  }, [layout])
 
-  return <Canvas ref={canvasRef} aria-hidden="true" data-testid="electronics-current" />
+  return (
+    <Canvas ref={canvasRef} $layout={layout} aria-hidden="true" data-testid="electronics-current" />
+  )
 }
 
-// Parts show only between the left text and the status controls. The masthead measures the
-// four stops; the fallbacks are the default layout's.
-const Canvas = styled.canvas`
+const Canvas = styled.canvas<{ $layout: CurrentLayout }>`
   position: absolute;
   inset: 0;
   display: block;
   width: 100%;
   height: 100%;
   pointer-events: none;
-  mask-image: linear-gradient(
-    to right,
-    transparent 0,
-    transparent var(--current-clear-start, 460px),
-    black var(--current-opaque-start, 600px),
-    black var(--current-opaque-end, calc(100% - 420px)),
-    transparent var(--current-clear-end, calc(100% - 300px))
-  );
+  ${({ $layout }) =>
+    $layout === 'band' &&
+    css`
+      mask-image: ${barGapMask};
 
-  /* The compact bar leaves little room between its ends, so parts dim under the text
-     instead of disappearing. */
-  ${media.compact} {
-    mask-image: linear-gradient(
-      to right,
-      ${DIMMED} 0,
-      ${DIMMED} 200px,
-      black 240px,
-      black calc(100% - 200px),
-      ${DIMMED} calc(100% - 170px)
-    );
-  }
+      ${media.compact} {
+        mask-image: ${compactBarGapMask};
+      }
+    `}
 `

@@ -1,4 +1,5 @@
 import styled, { css } from 'styled-components'
+import { groundBehindOnField } from './field'
 import { color, icon, radius, size, space, type, typeVar } from '#/theme/generated/tokens'
 import { AiMark } from './AiMark'
 import { BackIcon } from './icons'
@@ -48,6 +49,7 @@ const Nav = styled.nav`
   flex-direction: column;
   gap: ${space[1]};
   min-width: 0;
+  ${groundBehindOnField}
 `
 
 const link = css`

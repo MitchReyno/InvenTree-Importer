@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import styled, { css } from 'styled-components'
+import { raisedOnField } from './field'
 import { color, font, radius, size, space, type, typeVar } from '#/theme/generated/tokens'
 import { InlineEdit } from '#/forms/InlineEdit'
 import { media } from './media'
@@ -187,6 +188,7 @@ export const TableWrap = styled.div`
   overflow-x: auto;
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
+  ${raisedOnField}
   background: ${color.surface};
 `
 

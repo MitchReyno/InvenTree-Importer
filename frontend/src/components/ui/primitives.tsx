@@ -1,5 +1,6 @@
 import styled, { css } from 'styled-components'
 import { color, radius, size, space, type, typeVar } from '#/theme/generated/tokens'
+import { onField, raisedOnField } from './field'
 import { media } from './media'
 
 /** Under compact, an inline link keeps its line height and gains an invisible 44px hit area. */
@@ -30,22 +31,31 @@ export const Panel = styled.section`
   border-radius: ${radius.card};
   margin-bottom: ${space[6]};
   min-width: 0;
+  ${raisedOnField}
 `
-export const PageTitle = styled.h1`
+
+/** Text placed directly on the page, which takes a ground patch behind the whole window. */
+type OnFieldProps = { $onField?: boolean }
+
+export const PageTitle = styled.h1<OnFieldProps>`
   ${type.h1}
   margin: ${space[6]} 0;
   overflow-wrap: anywhere;
+  ${({ $onField }) => $onField && onField}
 `
-export const Heading = styled.h2`
+export const Heading = styled.h2<OnFieldProps>`
   ${type.h2}
   margin: 0 0 ${space[6]};
+  ${({ $onField }) => $onField && onField}
 `
-export const Subheading = styled.h3`
+export const Subheading = styled.h3<OnFieldProps>`
   ${type.h3}
   margin: 0 0 ${space[5]};
+  ${({ $onField }) => $onField && onField}
 `
-export const Paragraph = styled.p`
+export const Paragraph = styled.p<OnFieldProps>`
   line-height: 1.45;
+  ${({ $onField }) => $onField && onField}
 `
 export const Small = styled.small`
   display: block;

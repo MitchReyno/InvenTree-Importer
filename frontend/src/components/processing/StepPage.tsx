@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import { batchHref } from '#/navigation/batch-route'
 import type { ProcessingSource, StepProgress, WorkStep } from '#/processing/source'
 import { color, icon, radius, space, type, typeVar } from '#/theme/generated/tokens'
-import { Spinner, linkTouchArea } from '#/components/ui'
+import { Spinner, linkTouchArea, onField } from '#/components/ui'
 import { Card, CardTitle, Muted, QuestionRows, SessionRows, stepOutcome } from './ProcessingParts'
 
 type Props = {
@@ -124,6 +124,7 @@ const Head = styled.div`
 const Title = styled.h2`
   margin: 0;
   ${type.h2}
+  ${onField}
 `
 
 const Outputs = styled.section`

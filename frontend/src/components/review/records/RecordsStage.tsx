@@ -34,6 +34,7 @@ import {
   RecordStatePill,
   FilterChips,
   VisuallyHidden,
+  onField,
 } from '#/components/ui'
 import { MappingReader } from '#/components/capture/MappingReader'
 import { RecordDetail } from './RecordDetail'
@@ -488,6 +489,7 @@ const Steps = styled.span`
 const PageHeading = styled.h2`
   margin: 0;
   ${type.h2}
+  ${onField}
 `
 const Layout = styled.div`
   display: grid;

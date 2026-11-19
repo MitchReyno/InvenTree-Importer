@@ -15,6 +15,7 @@ import {
   Pill,
   DataTable,
   TableWrap,
+  onField,
 } from '#/components/ui'
 import { SESSION_STATE, STEP_LABEL } from '#/components/processing/ProcessingParts'
 import { PauseButton } from './PauseButton'
@@ -375,6 +376,7 @@ const Head = styled.div`
 const Title = styled.h1`
   margin: 0;
   ${type.h1}
+  ${onField}
 `
 
 const Muted = styled.span`

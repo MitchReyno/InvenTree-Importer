@@ -1,4 +1,5 @@
 import styled from 'styled-components'
+import { raisedOnField } from '#/components/ui'
 import { color, radius, space, type } from '#/theme/generated/tokens'
 
 /** The Batches page's surface card. */
@@ -8,6 +9,7 @@ export const Card = styled.section`
   border-radius: ${radius.card};
   background: ${color.surface};
   min-width: 0;
+  ${raisedOnField}
 `
 
 export const CardTitle = styled.h2`

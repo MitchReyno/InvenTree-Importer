@@ -1,4 +1,5 @@
 import styled from 'styled-components'
+import { raisedOnField } from '#/components/ui'
 import { color, radius } from '#/theme/generated/tokens'
 
 /** A card of `SettingRow`s on the Settings page; name it with `aria-label`. */
@@ -7,4 +8,5 @@ export const SettingsCard = styled.section`
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   background: ${color.surface};
+  ${raisedOnField}
 `
