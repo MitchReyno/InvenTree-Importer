@@ -1,4 +1,5 @@
 import { Type, type Static } from '@sinclair/typebox'
+import { CaptureCreationNotice } from './batch-defaults.ts'
 import { Id, IsoTime, PositivePk, Quantity, Revision } from './scalars.ts'
 import { unicodeText } from './unicode-text.ts'
 import {
@@ -241,6 +242,8 @@ export const CaptureSnapshot = object({
   settings_intent: Type.Optional(CaptureSettingsIntentRecord),
   setting_notes: Type.Optional(Type.Array(CaptureSettingNoteRecord, { maxItems: 2 })),
   reference_drafts: Type.Optional(Type.Array(CaptureReferenceDraftRecord, { maxItems: 16 })),
+  /** App-level defaults this batch could not copy at creation; absent when every one was copied. */
+  creation_notices: Type.Optional(Type.Array(CaptureCreationNotice, { maxItems: 2 })),
   parts: Type.Array(
     object({
       id: Id,

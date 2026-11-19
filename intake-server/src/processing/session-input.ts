@@ -35,6 +35,8 @@ export function sessionLotInputManifest(
         id: 'native-agent/2' | 'shared-vm-agent/1' | 'shared-vm-agent/2'
         agent: AgentSelectionDto
         settingsRevision: string
+        /** Sealed with the attempt, so a later save can't change what a queued session reads. */
+        partDescriptionStyle?: string
       }
     | { id: 'synthetic-session/1' },
   pinnedProposalIds: readonly string[] = [],
@@ -62,6 +64,9 @@ export function sessionLotInputManifest(
     media: { ...media },
     agent: profile.id !== 'synthetic-session/1' ? profile.agent : null,
     settings_revision: profile.id !== 'synthetic-session/1' ? profile.settingsRevision : null,
+    ...(profile.id !== 'synthetic-session/1' && profile.partDescriptionStyle
+      ? { part_description_style: profile.partDescriptionStyle }
+      : {}),
     pinned_proposal_ids: [...pinnedProposalIds].sort(),
   }
   validate('ProcessingInputV6', manifest)
@@ -138,6 +143,9 @@ export function sessionLeadInputManifest(
     media: { ...media },
     agent: profile.id !== 'synthetic-session/1' ? profile.agent : null,
     settings_revision: profile.id !== 'synthetic-session/1' ? profile.settingsRevision : null,
+    ...(profile.id !== 'synthetic-session/1' && profile.partDescriptionStyle
+      ? { part_description_style: profile.partDescriptionStyle }
+      : {}),
     pinned_proposal_ids: [],
   }
   validate('ProcessingInputV6', manifest)

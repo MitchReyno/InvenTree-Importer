@@ -7,6 +7,7 @@ import type { useHeaderObservations } from '#/header/useHeaderObservations'
 import { safeTargetNavigation, targetStatus } from '#/header/observations'
 import { ActivityIndicator } from './ActivityIndicator'
 import { ConnectionDetails } from './ConnectionDetails'
+import { CheckConnectionButton } from './CheckConnectionButton'
 import { ConnectionStatus } from './ConnectionStatus'
 import { PhoneMenu } from './PhoneMenu'
 import { useUpdateHealth, HeaderObservationsProvider, useSharedHeaderObservations } from '#/context'
@@ -55,7 +56,7 @@ function HeaderStatusView({
   variant = 'bar',
   observations,
 }: ViewProps) {
-  const { now, connection, work } = observations
+  const { now, connection, work, check } = observations
   const health = useUpdateHealth()
   const phone = useMediaQuery(media.compact)
   const [open, setOpen] = useState<Panel | null>(null)
@@ -80,6 +81,7 @@ function HeaderStatusView({
     <UnavailableLink>Open InvenTree unavailable</UnavailableLink>
   )
 
+  const checkButton = <CheckConnectionButton check={check} />
   const apiChecked = connection.isFetchedAfterMount ? connection.dataUpdatedAt : 0
   const activity = (
     <ActivityIndicator
@@ -108,6 +110,7 @@ function HeaderStatusView({
               now={now}
               health={health}
               inventree={inventreeLink}
+              check={checkButton}
             />
           }
           open={open === 'menu'}
@@ -127,6 +130,7 @@ function HeaderStatusView({
         now={now}
         health={health}
         inventree={inventreeLink}
+        check={checkButton}
         open={open === 'connection'}
         onOpenChange={(value) => setOpen(value ? 'connection' : null)}
       />

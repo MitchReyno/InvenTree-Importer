@@ -203,8 +203,8 @@ export function AgentSessions({ client, batches }: Props) {
             <Block>
               <Label>Default for new sessions</Label>
               <span>
-                {settings.data?.selection
-                  ? `${settings.data.selection.provider === 'codex' ? 'Codex' : 'Claude Code'} · ${settings.data.selection.model}`
+                {settings.data?.default_provider
+                  ? `${settings.data.default_provider === 'codex' ? 'Codex' : 'Claude Code'} · ${settings.data.providers[settings.data.default_provider].default_model}`
                   : 'No model chosen'}
               </span>
             </Block>

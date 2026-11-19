@@ -12,6 +12,7 @@ import type { ProcessingClient } from './processing/types'
 import { ApiClientsProvider } from './context'
 import { useState, useSyncExternalStore } from 'react'
 import { createDrawerRestore, type DrawerRestoreStore } from './processing/drawer-restore'
+import { agentSettings } from '#/test/agent-settings'
 
 const batchId = '10000000-0000-4000-8000-000000000001'
 const subjectId = '20000000-0000-4000-8000-000000000002'
@@ -1545,11 +1546,7 @@ test('the batch is shown paused from its own read, whatever the account-wide lis
               next_before: null,
               sessions_supported: true,
             })),
-            settings: vi.fn(async () => ({
-              revision: '1',
-              selection: null,
-              session_concurrency: 1,
-            })),
+            settings: vi.fn(async () => agentSettings('1', null, { session_concurrency: 1 })),
             pause: vi.fn(async () => undefined),
           },
         }}

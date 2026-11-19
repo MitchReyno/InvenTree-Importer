@@ -5,6 +5,7 @@ import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { commands, outbox } from '#/db/schema.ts'
 import { agentSessions } from '#/agents/schema.ts'
 import { readAgentSettings } from '#/agents/settings.ts'
+import { resolveSelection } from '#/agents/resolve-selection.ts'
 import type { LockedMediaInputs } from '#/media/locked-inputs.ts'
 import { channelToken, type ProcessingConfig } from './attempts.ts'
 import { MAX_PROCESSING_SNAPSHOT_BYTES } from './limits.ts'
@@ -58,10 +59,16 @@ export async function createSessionAttempt(
   let profile: Parameters<typeof sessionLotInputManifest>[4] = { id: 'synthetic-session/1' }
   if (profileId !== 'synthetic-session/1') {
     const settings = await readAgentSettings(client, config, lockSettings)
-    if (!settings.selection) {
+    const agent = resolveSelection(settings, job.stage)
+    if (!agent) {
       fail('agent_settings_required', 409)
     }
-    profile = { id: profileId, agent: settings.selection, settingsRevision: settings.revision }
+    profile = {
+      id: profileId,
+      agent,
+      settingsRevision: settings.revision,
+      partDescriptionStyle: settings.part_description_style || undefined,
+    }
   }
   const manifest = sealed(
     lead

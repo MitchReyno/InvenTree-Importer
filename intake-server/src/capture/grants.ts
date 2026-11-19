@@ -28,6 +28,9 @@ export async function grantCapture(pool: Pool, role: string) {
   await grantCaptureRead(pool, role)
   await pool.query(`GRANT SELECT ON media_group,media_group_history TO ${role};
     GRANT SELECT(id,batch_id,evidence_id,media_type) ON media_version TO ${role}`)
+  // A new batch copies the app-level defaults; Settings saves them.
+  await pool.query(`GRANT SELECT ON agent_settings,agent_provider_settings TO ${role};
+    GRANT SELECT,INSERT,UPDATE(revision,location_pk,supplier_pk) ON batch_defaults TO ${role}`)
 
   await pool.query(`GRANT INSERT ON capture_source,capture_batch,capture_subject,capture_part,capture_lot,capture_note,capture_observation,capture_selection,capture_revision,capture_lot_lineage,capture_lot_retirement,capture_issue_disposition,capture_instruction,capture_context,capture_settings_intent,capture_setting_note,capture_reference_draft_identity,capture_reference_draft,capture_group_location TO ${role};
     GRANT UPDATE(title,revision,archived,updated_at) ON capture_batch TO ${role};

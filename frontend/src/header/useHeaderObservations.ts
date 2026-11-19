@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey } from '#/queries/scope'
 import { useNow } from '#/browser/useNow'
 import { useOnForeground } from '#/browser/useOnForeground'
@@ -10,6 +10,7 @@ import { useServerScope } from '#/context/ServerScopeContext'
 
 export function useHeaderObservations(client: HeaderClient, batchId?: string) {
   const scope = useServerScope()
+  const queryClient = useQueryClient()
   const now = useNow(1000)
   const poll = useRetainedPollInterval()
   const connection = useQuery({
@@ -30,9 +31,20 @@ export function useHeaderObservations(client: HeaderClient, batchId?: string) {
     },
     refetchInterval: poll === false ? HEADER_POLL_MS : poll,
   })
+  // One shared check, so the server menu and Settings can't both send one; its result replaces
+  // the connection read everywhere.
+  const check = useMutation({
+    mutationFn: async () => {
+      const result = await client.checkConnection()
+      assertHeaderScope(result, scope)
+      return result
+    },
+    onSuccess: (result) =>
+      queryClient.setQueryData(serverQueryKey(scope, 'header-connection'), result),
+  })
   useOnForeground(() => {
     void connection.refetch()
     void work.refetch()
   })
-  return { now, connection, work }
+  return { now, connection, work, check }
 }

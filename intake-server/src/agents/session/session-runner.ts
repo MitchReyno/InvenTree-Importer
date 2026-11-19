@@ -333,6 +333,9 @@ function inboxText(item: { id: string; seq: bigint; kind: string; payload: unkno
   return `Inbox item ${item.id} (sequence ${item.seq}, ${item.kind}): ${JSON.stringify(item.payload)}`
 }
 
+const STYLE_GUIDANCE =
+  'Write each Part description you propose in the pattern part_description_style gives, the operator’s saved style. It is still one line of at most 250 characters.'
+
 function openingText(manifest: ProcessingInputV6Dto, pending: number, resumed: boolean) {
   if (resumed) {
     return `You have ${pending} new inbox item(s). Call read_inbox and continue.`
@@ -360,8 +363,13 @@ function openingText(manifest: ProcessingInputV6Dto, pending: number, resumed: b
       media_type: version.mediaType,
     })),
     pending_inbox: pending,
+    // Operator guidance sealed at queue time; kept out of the profile instructions and their digest.
+    ...(manifest.part_description_style
+      ? { part_description_style: manifest.part_description_style }
+      : {}),
     instructions:
       (manifest.stage === 'examine' ? `${LEAD_INSTRUCTIONS} ` : '') +
+      (manifest.part_description_style ? `${STYLE_GUIDANCE} ` : '') +
       'Report steps with status, publish proposals with propose, ask questions with ask and keep working. Check read_inbox whenever pending_inbox is above zero. An instruction item is the operator’s saved instruction for the batch, or for one evidence group when it names one: follow it from then on; empty text withdraws the earlier one. ' +
       'Put catalogue values in the proposal’s catalogue block, each with its sources, and with source_kind and agreement when you know them: an existing category, parameter, manufacturer or supplier as the observed reference, or a proposed_new name with a reason when none exists. Only existing references can enter a Part spec; the rest are kept for the operator. When sources disagree on a parameter, give the value you used, the others as alternatives with their sources, and chosen_because. List the category’s mapped templates you found no value for in required_missing, each with why. For an existing category, give the reason you chose it and any alternative you considered; name the nearest existing Part you chose not to reuse in not_reused, with why.',
   })

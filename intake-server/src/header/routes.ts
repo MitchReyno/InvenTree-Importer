@@ -1,19 +1,14 @@
 import type { FastifyInstance } from 'fastify'
-import {
-  schemas,
-  type ConnectionStatusDto,
-  type HeaderWorkDto,
-  type HeaderWorkQueryDto,
-} from '@invimport/contracts'
+import { schemas, type HeaderWorkDto, type HeaderWorkQueryDto } from '@invimport/contracts'
 import { readModelError } from '#/api/errors.ts'
 import { bootstrap, type DevConfig } from '#/config.ts'
-import { connectionStatus } from './connection.ts'
+import { connectionStatus, type ConnectionStatusReader } from './connection.ts'
 import { fail } from '#/capture/model.ts'
 
 export function registerHeader(
   app: FastifyInstance,
   config: DevConfig,
-  connection: () => Promise<ConnectionStatusDto>,
+  connection: ConnectionStatusReader,
   work: (batchId?: string) => Promise<HeaderWorkDto>,
 ) {
   const configured = bootstrap(config).status === 'configured'
@@ -24,6 +19,12 @@ export function registerHeader(
       '/api/v1/connection-status',
       { schema: { response: { 200: schemas.ConnectionStatus } } },
       () => (configured ? connection() : unconfigured()),
+    )
+    // A command, not a GET flag, so a cache refetch can never force probes.
+    scope.post(
+      '/api/v1/connection-status/check',
+      { schema: { response: { 200: schemas.ConnectionStatus } } },
+      () => (configured ? connection.check() : unconfigured()),
     )
     scope.get<{ Querystring: HeaderWorkQueryDto }>(
       '/api/v1/header-work',

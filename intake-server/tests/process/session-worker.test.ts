@@ -1,3 +1,4 @@
+import { singleProvider } from '../support/agent-settings.ts'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
@@ -196,11 +197,15 @@ test(
       part_subject_id: null,
     })
     const { saveAgentSettings } = await import('#/agents/settings.ts')
-    await saveAgentSettings(fixture.api.pool, fixture.config, {
-      expected_revision: '0',
-      selection: { provider: 'claude', authentication: 'api_key', model: 'fake-claude-model' },
-      session_concurrency: 3,
-    })
+    await saveAgentSettings(
+      fixture.api.pool,
+      fixture.config,
+      singleProvider({
+        expected_revision: '0',
+        selection: { provider: 'claude', authentication: 'api_key', model: 'fake-claude-model' },
+        session_concurrency: 3,
+      }),
+    )
     const root = await mkdtemp(join(tmpdir(), 'session-slots-test-'))
     const executable = join(root, 'provider.cjs')
     await writeFile(

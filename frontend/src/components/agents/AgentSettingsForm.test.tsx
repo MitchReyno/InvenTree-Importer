@@ -3,12 +3,10 @@ import { expect, test, vi } from 'vitest'
 import { render } from '#/test/render'
 import { AgentSettingsForm } from './AgentSettingsForm'
 import type { agentsClient } from '@invimport/contracts/client'
+import { agentSettings, agentSettingsUpdate } from '#/test/agent-settings'
 
-const initial = {
-  revision: '7',
-  selection: { provider: 'claude', authentication: 'subscription', model: 'sonnet' },
-  session_concurrency: 3,
-} as const
+const sonnet = { provider: 'claude', authentication: 'subscription', model: 'sonnet' } as const
+const initial = agentSettings('7', sonnet)
 
 const status = { providerStatus: { claude: 'Not checked', codex: 'Not checked' } } as const
 
@@ -33,11 +31,9 @@ test('saving the global default pins the loaded revision and clears the dirty gu
   expect(api.saveSettings).not.toHaveBeenCalled()
   fireEvent.click(screen.getByRole('button', { name: 'Save' }))
   await waitFor(() =>
-    expect(api.saveSettings).toHaveBeenCalledWith({
-      expected_revision: '7',
-      selection: { provider: 'claude', authentication: 'subscription', model: 'opus' },
-      session_concurrency: 3,
-    }),
+    expect(api.saveSettings).toHaveBeenCalledWith(
+      agentSettingsUpdate('7', { ...sonnet, model: 'opus' }),
+    ),
   )
   await screen.findByText(/New attempts use this selection/)
   expect(dirty).toHaveBeenLastCalledWith(false)
@@ -51,11 +47,9 @@ test('the running-session limit is saved with the loaded revision', async () => 
   fireEvent.click(within(sessions).getByRole('button', { name: 'One more' }))
   fireEvent.click(screen.getByRole('button', { name: 'Save' }))
   await waitFor(() =>
-    expect(api.saveSettings).toHaveBeenCalledWith({
-      expected_revision: '7',
-      selection: { provider: 'claude', authentication: 'subscription', model: 'sonnet' },
-      session_concurrency: 5,
-    }),
+    expect(api.saveSettings).toHaveBeenCalledWith(
+      agentSettingsUpdate('7', sonnet, { session_concurrency: 5 }),
+    ),
   )
 })
 

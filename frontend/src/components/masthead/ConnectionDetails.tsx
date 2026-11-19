@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import type { ConnectionStatusDto } from '@invimport/contracts'
 import { color, space, typeVar } from '#/theme/generated/tokens'
 import { LIVE_UPDATE_FRESH_MS } from '#/components/operations/LiveUpdates'
-import { Button, DebugDetails, DisabledFeature, KeyValue } from '#/components/ui'
+import { Button, DebugDetails, KeyValue } from '#/components/ui'
 import { observationFresh, safeTargetNavigation, timestampFresh } from '#/header/observations'
 import { DevBadge } from './DevBadge'
 import { type UpdateHealth } from '#/context'
@@ -16,6 +16,8 @@ interface Props {
   health: UpdateHealth
   /** The Open InvenTree link, or the reason there is none. */
   inventree: ReactNode
+  /** Check connection now. */
+  check: ReactNode
 }
 
 const SHORT_TIME: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' }
@@ -32,6 +34,7 @@ export function ConnectionDetails({
   now,
   health,
   inventree,
+  check,
 }: Props) {
   const apiFresh = apiChecked > 0 && timestampFresh(apiChecked, now)
   const targetFresh =
@@ -89,6 +92,9 @@ export function ConnectionDetails({
           },
         ]}
       />
+      {target?.failure_code === 'unauthorized' && (
+        <Line>InvenTree refused the read token. Replace it in Server settings.</Line>
+      )}
       {target?.kind === 'owned_test' && (
         <Line>Approvals write only to this test InvenTree, never to a real one.</Line>
       )}
@@ -98,13 +104,7 @@ export function ConnectionDetails({
       <DevBadge />
       <Actions aria-label="Server">
         {inventree}
-        <DisabledFeature explanation="Checking the connection on demand is not available yet; it is checked every 30 seconds.">
-          {(disabled) => (
-            <Button variant="ghost" size="sm" {...disabled}>
-              Check connection now
-            </Button>
-          )}
-        </DisabledFeature>
+        {check}
         <Button as="a" variant="ghost" size="sm" href="#settings/inventree">
           Server settings
         </Button>

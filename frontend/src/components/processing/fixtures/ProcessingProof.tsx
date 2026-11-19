@@ -1,4 +1,5 @@
 import type {
+  AgentSettingsDto,
   SessionFailureDto,
   AgentSessionListDto,
   CaptureSnapshotDto,
@@ -128,6 +129,20 @@ const selection = {
   authentication: 'subscription',
   model: 'claude-opus-5-5',
 } as const
+
+const savedSettings: AgentSettingsDto = {
+  revision: '2',
+  providers: {
+    claude: { enabled: true, authentication: 'subscription', default_model: selection.model },
+    codex: { enabled: false, authentication: 'subscription', default_model: 'gpt-6.1-sol' },
+  },
+  default_provider: 'claude',
+  stage_selections: {},
+  session_concurrency: 3,
+  new_batch_instructions: '',
+  part_description_style: '',
+  auto_tags_default: false,
+}
 
 function session(n: number, stage: string, subject: string | null, extra: object) {
   return {
@@ -275,7 +290,7 @@ export function ProcessingProof() {
               client={{
                 sessions: async () => sessionList(sessions),
                 failure: async () => failure,
-                settings: async () => ({ revision: '2', selection, session_concurrency: 3 }),
+                settings: async () => savedSettings,
                 ...pauseClient,
               }}
               batches={async () => ({
@@ -288,8 +303,7 @@ export function ProcessingProof() {
               value={{
                 agents: {
                   sessions: async () => sessionList(sessions),
-                  settings: async () =>
-                    ({ revision: '2', selection, session_concurrency: 3 }) as never,
+                  settings: async () => savedSettings,
                   pause: pauseClient.pause,
                 },
               }}

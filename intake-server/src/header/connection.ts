@@ -6,6 +6,8 @@ import { readBoundedBody } from '#/capture/bounded-body.ts'
 type Binding = Pick<DevConfig, 'actorId' | 'targetId' | 'targetContextId' | 'targetKind'>
 type Observation = ConnectionStatusDto['target']
 const CACHE_MS = 30000
+/** Forced checks are counted on their own, so a background poll never delays one. */
+export const MIN_FORCED_CHECK_INTERVAL_MS = 5000
 const STALE_MS = 60000
 const DEADLINE_MS = 3000
 const VERSION_BODY_MAX_BYTES = 16 * 1024
@@ -59,6 +61,9 @@ async function probeResult(
     void response.body?.cancel().catch(() => undefined)
     if (response.status >= 300 && response.status < 400) {
       return { state: 'unavailable', failure_code: 'redirect_refused' }
+    }
+    if (response.status === 401 || response.status === 403) {
+      return { state: 'unavailable', failure_code: 'unauthorized' }
     }
     if (!response.ok) {
       return { state: 'unavailable', failure_code: 'http_error' }
@@ -115,6 +120,11 @@ async function versionResult(read: () => Promise<Response>): Promise<string | nu
   }
 }
 
+export type ConnectionStatusReader = (() => Promise<ConnectionStatusDto>) & {
+  /** Probes now, unless a probe is in flight or a forced check ran in the last 5 seconds. */
+  check: () => Promise<ConnectionStatusDto>
+}
+
 /** One fixed profile owns one bounded cached observation and one coalesced probe. */
 export function connectionStatus(
   binding: Binding,
@@ -122,7 +132,7 @@ export function connectionStatus(
   probe?: () => Promise<Response>,
   now: () => number = Date.now,
   version?: () => Promise<Response>,
-) {
+): ConnectionStatusReader {
   const scope = {
     actor_id: binding.actorId,
     target_id: binding.targetId,
@@ -132,46 +142,52 @@ export function connectionStatus(
   const kind = binding.targetKind ?? 'configured'
   let completed: { at: number; value: Observation } | undefined
   let pending: Promise<void> | undefined
+  let lastForced: number | undefined
 
-  return async (): Promise<ConnectionStatusDto> => {
-    if (!url || !probe) {
-      return {
-        ...scope,
-        target: {
-          state: 'unconfigured',
-          freshness: 'unobserved',
-          observed_at: null,
-          navigation_url: null,
-          label: null,
-          failure_code: origin ? 'invalid_configuration' : null,
+  function unconfigured(): ConnectionStatusDto | undefined {
+    if (url && probe) {
+      return undefined
+    }
+    return {
+      ...scope,
+      target: {
+        state: 'unconfigured',
+        freshness: 'unobserved',
+        observed_at: null,
+        navigation_url: null,
+        label: null,
+        failure_code: origin ? 'invalid_configuration' : null,
+        kind,
+      },
+    }
+  }
+
+  function probeNow(target: URL, send: () => Promise<Response>) {
+    pending ??= (async () => {
+      const [result, read] = await Promise.all([
+        probeResult(send),
+        version ? versionResult(version) : Promise.resolve(null),
+      ])
+      const at = now()
+      completed = {
+        at,
+        value: {
+          ...result,
+          version: result.state === 'reachable' ? read : null,
+          freshness: 'fresh',
+          observed_at: new Date(at).toISOString(),
+          navigation_url: target.href,
+          label: target.host,
           kind,
         },
       }
-    }
-    if (!completed || now() - completed.at >= CACHE_MS || now() < completed.at) {
-      pending ??= (async () => {
-        const [result, read] = await Promise.all([
-          probeResult(probe),
-          version ? versionResult(version) : Promise.resolve(null),
-        ])
-        const at = now()
-        completed = {
-          at,
-          value: {
-            ...result,
-            version: result.state === 'reachable' ? read : null,
-            freshness: 'fresh',
-            observed_at: new Date(at).toISOString(),
-            navigation_url: url.href,
-            label: url.host,
-            kind,
-          },
-        }
-      })().finally(() => {
-        pending = undefined
-      })
-      await pending
-    }
+    })().finally(() => {
+      pending = undefined
+    })
+    return pending
+  }
+
+  function latest(): ConnectionStatusDto {
     if (!completed) {
       throw new Error('connection_observation_missing')
     }
@@ -181,4 +197,35 @@ export function connectionStatus(
       target: { ...observation.value, freshness: observationFreshness(observation.at, now()) },
     }
   }
+
+  const read = async (): Promise<ConnectionStatusDto> => {
+    const none = unconfigured()
+    if (none) {
+      return none
+    }
+    if (!completed || now() - completed.at >= CACHE_MS || now() < completed.at) {
+      await probeNow(url!, probe!)
+    }
+    return latest()
+  }
+
+  const check = async (): Promise<ConnectionStatusDto> => {
+    const none = unconfigured()
+    if (none) {
+      return none
+    }
+    if (pending) {
+      await pending
+      return latest()
+    }
+    const sinceForced = lastForced === undefined ? Infinity : now() - lastForced
+    if (completed && sinceForced >= 0 && sinceForced < MIN_FORCED_CHECK_INTERVAL_MS) {
+      return latest()
+    }
+    lastForced = now()
+    await probeNow(url!, probe!)
+    return latest()
+  }
+
+  return Object.assign(read, { check })
 }

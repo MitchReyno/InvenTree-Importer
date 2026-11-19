@@ -8,6 +8,7 @@ import { processingFixture } from './processing.ts'
 import { seedPhoto } from './sessions.ts'
 import { triggerExamine } from '#/processing/examine-trigger.ts'
 import { decodeSessionInput } from '#/processing/session-input.ts'
+import { singleProvider } from './agent-settings.ts'
 import { saveAgentSettings } from '#/agents/settings.ts'
 import { startSessionToolServer } from '#/agents/tools/server.ts'
 import { runSessionTurn, syntheticSessionDriver } from '#/agents/session/session-runner.ts'
@@ -62,11 +63,15 @@ export async function formedBatch(t: { after: (fn: () => Promise<void>) => void 
   }
   // Room for the lead session and both lots' successors at once; queue order is tested elsewhere.
   const settings = await fixture.http('/agent-settings')
-  await saveAgentSettings(fixture.api.pool, fixture.config, {
-    expected_revision: (settings.value as { revision: string }).revision,
-    selection: { provider: 'claude', authentication: 'api_key', model: 'claude-sonnet-5-5' },
-    session_concurrency: 8,
-  })
+  await saveAgentSettings(
+    fixture.api.pool,
+    fixture.config,
+    singleProvider({
+      expected_revision: (settings.value as { revision: string }).revision,
+      selection: { provider: 'claude', authentication: 'api_key', model: 'claude-sonnet-5-5' },
+      session_concurrency: 8,
+    }),
+  )
   const capture = await fixture.seedCapture()
   const batchId = capture.batch.id
   await photoWithNote(fixture, batchId, 'Tray', '16 MHz crystal; LED 0603 red ×500')

@@ -15,9 +15,16 @@ import { fail } from './model.ts'
 
 export type { ListOperation }
 
+export type CatalogueRecordLookup =
+  | { status: 'found'; record: CatalogueRecordDto }
+  | { status: 'not_found' }
+  | { status: 'unavailable' }
+
 export interface CatalogueReader {
   search(model: CatalogueModelDto, query: string): Promise<CatalogueSearchDto>
   candidates(model: CatalogueModelDto): Promise<CatalogueCandidatesDto>
+  /** One record by PK, for saved defaults: a missing or unreachable record is a status, not an error. */
+  record(model: CatalogueModelDto, pk: string): Promise<CatalogueRecordLookup>
 }
 
 interface CatalogueTarget {
@@ -231,6 +238,20 @@ export function catalogueReader(target: CatalogueTarget): CatalogueReader {
     return { status: 'found' as const, record }
   }
 
+  async function record(model: CatalogueModelDto, pk: string): Promise<CatalogueRecordLookup> {
+    if (inFlight >= MAX_CONCURRENT_READS) {
+      return { status: 'unavailable' }
+    }
+    inFlight += 1
+    try {
+      return await exactId(model, pk)
+    } catch {
+      return { status: 'unavailable' }
+    } finally {
+      inFlight -= 1
+    }
+  }
+
   async function search(model: CatalogueModelDto, query: string): Promise<CatalogueSearchDto> {
     requireQuery(query)
     const result = await bounded(async () => {
@@ -304,5 +325,5 @@ export function catalogueReader(target: CatalogueTarget): CatalogueReader {
     return result
   }
 
-  return { search, candidates }
+  return { search, candidates, record }
 }

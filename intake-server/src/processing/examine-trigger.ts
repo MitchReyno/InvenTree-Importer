@@ -9,6 +9,7 @@ import { CaptureError } from '#/capture/model.ts'
 import { lockBatchMediaInputs } from '#/media/locked-inputs.ts'
 import { versionRemovedSql } from '#/media/removal.ts'
 import { readAgentSettings } from '#/agents/settings.ts'
+import { resolveSelection } from '#/agents/resolve-selection.ts'
 import { appendSessionInbox } from '#/agents/tools/inbox.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { processingJobs } from './schema.ts'
@@ -169,7 +170,7 @@ export async function triggerExamine(
         if (profileId !== 'synthetic-session/1') {
           // No saved agent default: the lead session waits until the operator chooses one.
           const settings = await readAgentSettings(client, config)
-          if (!settings.selection) {
+          if (!resolveSelection(settings, 'examine')) {
             return
           }
         }

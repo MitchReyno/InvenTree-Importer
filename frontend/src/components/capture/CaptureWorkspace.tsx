@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { CreationNotices } from './CreationNotices'
 import styled from 'styled-components'
 import { space } from '#/theme/generated/tokens'
 import type { CaptureWorkspaceProps } from '#/capture/types'
@@ -136,11 +137,16 @@ export function CaptureWorkspace({
   return (
     <>
       {batch.archived && (
-        <ArchivedNote role="status">
+        <PageNotice role="status">
           <Banner tone="plain">
             Archived, not deleted. History and original contributions are retained. Resume to edit.
           </Banner>
-        </ArchivedNote>
+        </PageNotice>
+      )}
+      {batch.creation_notices && (
+        <PageNotice>
+          <CreationNotices key={batch.id} notices={batch.creation_notices} />
+        </PageNotice>
       )}
       <CaptureGrid data-capture-grid>
         <EvidencePanel
@@ -214,7 +220,7 @@ const SettingsColumn = styled.div`
   gap: ${space[6]};
   min-width: 0;
 `
-const ArchivedNote = styled.div`
+const PageNotice = styled.div`
   margin-bottom: ${space[8]};
 `
 const GlanceFocus = styled.div`

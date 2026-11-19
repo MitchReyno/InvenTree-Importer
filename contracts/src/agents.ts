@@ -13,19 +13,58 @@ const object = <T extends TProperties>(properties: T) =>
 
 import { AgentSelection } from './agent-selection.ts'
 import { SessionLatestStatus, SessionState } from './sessions.ts'
+import type { AgentSelectionDto } from './agent-selection.ts'
 export { AgentSelection, type AgentSelectionDto } from './agent-selection.ts'
 /** How many sessions may run provider turns at once; waiting sessions hold no slot. */
 export const SessionConcurrency = Type.Integer({ minimum: 1, maximum: 8 })
-export const AgentSettings = object({
-  revision: CursorSequence,
-  selection: Type.Union([AgentSelection, Type.Null()]),
-  session_concurrency: SessionConcurrency,
+export type AgentProviderId = AgentSelectionDto['provider']
+/** Suggested model IDs per provider, first one first; models stay free text. */
+export const AGENT_MODEL_SUGGESTIONS: Record<AgentProviderId, readonly string[]> = {
+  claude: ['sonnet', 'opus', 'haiku'],
+  codex: ['gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-astra', 'gpt-6-luna'],
+}
+/** The steps that can name their own provider and model; any other step uses the default. */
+export const AGENT_SETTINGS_STAGES = ['examine', 'research', 'images', 'inventory'] as const
+export type AgentSettingsStage = (typeof AGENT_SETTINGS_STAGES)[number]
+
+// Models are checked against the model ID pattern on save, which answers invalid_agent_settings.
+const modelText = Type.String({ maxLength: 128 })
+const providerFields = {
+  enabled: Type.Boolean(),
+  authentication: AgentSelection.properties.authentication,
+  /** May be empty while the provider is off. */
+  default_model: modelText,
+}
+export const AgentProviderSettings = object(providerFields)
+export const AgentStageSelection = object({
+  provider: AgentSelection.properties.provider,
+  model: modelText,
 })
+/** A step that is absent uses the default provider and its default model. */
+export const AgentStageSelections = object({
+  examine: Type.Optional(AgentStageSelection),
+  research: Type.Optional(AgentStageSelection),
+  images: Type.Optional(AgentStageSelection),
+  inventory: Type.Optional(AgentStageSelection),
+})
+const agentSettingsFields = {
+  providers: object({ claude: AgentProviderSettings, codex: AgentProviderSettings }),
+  /** Null exactly when no provider is on. */
+  default_provider: Type.Union([AgentSelection.properties.provider, Type.Null()]),
+  stage_selections: AgentStageSelections,
+  session_concurrency: SessionConcurrency,
+  /** Copied into each new batch's instructions at creation. */
+  new_batch_instructions: Type.String({ maxLength: 8192 }),
+  /** Operator guidance sealed into each new session for Part descriptions. */
+  part_description_style: Type.String({ maxLength: 500 }),
+  /** Whether new batches start with Auto tags on. */
+  auto_tags_default: Type.Boolean(),
+}
+export const AgentSettings = object({ revision: CursorSequence, ...agentSettingsFields })
+/** The whole settings object, saved under one revision. */
 export const AgentSettingsUpdate = object({
   expected_revision: CursorSequence,
-  selection: AgentSelection,
-  /** Omitted keeps the saved limit (3 until first set). */
-  session_concurrency: Type.Optional(SessionConcurrency),
+  ...agentSettingsFields,
 })
 export const AgentSessionList = object({
   sessions: Type.Array(
@@ -93,6 +132,8 @@ export const agentSchemas = {
   AgentSelection,
   AgentSettings,
   AgentSettingsUpdate,
+  AgentProviderSettings,
+  AgentStageSelection,
   AgentSessionList,
   AgentPauseUpdate,
   AgentPause,
@@ -105,4 +146,6 @@ export type AgentPauseDto = Static<typeof AgentPause>
 export type AgentPauseAllDto = Static<typeof AgentPauseAll>
 export type AgentSettingsDto = Static<typeof AgentSettings>
 export type AgentSettingsUpdateDto = Static<typeof AgentSettingsUpdate>
+export type AgentProviderSettingsDto = Static<typeof AgentProviderSettings>
+export type AgentStageSelectionDto = Static<typeof AgentStageSelection>
 export type AgentSessionListDto = Static<typeof AgentSessionList>

@@ -648,6 +648,225 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/catalogue/{model}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                model: string;
+            };
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query: {
+                    q: string;
+                };
+                header?: never;
+                path: {
+                    model: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description CatalogueSearch */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CatalogueSearch"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/catalogue/{model}/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                model: string;
+            };
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    model: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description CatalogueCandidates */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CatalogueCandidates"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/batch-defaults": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description BatchDefaults */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BatchDefaults"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["BatchDefaultsUpdate"];
+                };
+            };
+            responses: {
+                /** @description BatchDefaults */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BatchDefaults"];
+                    };
+                };
+                /** @description ErrorDto */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/connection-status": {
         parameters: {
             query?: never;
@@ -686,6 +905,95 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/connection-status/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description ConnectionStatus */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ConnectionStatus"];
+                    };
+                };
+                /** @description ErrorDto */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -5531,6 +5839,10 @@ export interface components {
                 actor_id: string;
                 created_at: string;
             })[];
+            creation_notices?: {
+                field: "location" | "supplier";
+                code: "default_not_found" | "default_unavailable";
+            }[];
             parts: {
                 id: string;
                 label: string;
@@ -6555,7 +6867,7 @@ export interface components {
                 state: "unconfigured" | "unknown" | "reachable" | "unavailable";
                 freshness: "unobserved" | "fresh" | "stale";
                 observed_at: string | null;
-                failure_code: ("invalid_configuration" | "timeout" | "http_error" | "redirect_refused" | "unexpected_response" | "unavailable") | null;
+                failure_code: ("invalid_configuration" | "timeout" | "http_error" | "redirect_refused" | "unexpected_response" | "unavailable" | "unauthorized") | null;
                 navigation_url: string | null;
                 label: string | null;
                 version?: string | null;
@@ -7706,6 +8018,7 @@ export interface components {
                 sha256: string;
             };
             pinned_proposal_ids: string[];
+            part_description_style?: string;
             /** @constant */
             profile_id: "native-agent/2";
             /** @constant */
@@ -7818,6 +8131,7 @@ export interface components {
                 sha256: string;
             };
             pinned_proposal_ids: string[];
+            part_description_style?: string;
             /** @constant */
             profile_id: "native-agent/2";
             /** @constant */
@@ -8187,6 +8501,7 @@ export interface components {
                 sha256: string;
             };
             pinned_proposal_ids: string[];
+            part_description_style?: string;
             /** @constant */
             profile_id: "shared-vm-agent/1";
             /** @constant */
@@ -8299,6 +8614,7 @@ export interface components {
                 sha256: string;
             };
             pinned_proposal_ids: string[];
+            part_description_style?: string;
             /** @constant */
             profile_id: "shared-vm-agent/1";
             /** @constant */
@@ -8668,6 +8984,7 @@ export interface components {
                 sha256: string;
             };
             pinned_proposal_ids: string[];
+            part_description_style?: string;
             /** @constant */
             profile_id: "shared-vm-agent/2";
             /** @constant */
@@ -8780,6 +9097,7 @@ export interface components {
                 sha256: string;
             };
             pinned_proposal_ids: string[];
+            part_description_style?: string;
             /** @constant */
             profile_id: "shared-vm-agent/2";
             /** @constant */
@@ -9149,6 +9467,7 @@ export interface components {
                 sha256: string;
             };
             pinned_proposal_ids: string[];
+            part_description_style?: string;
             /** @constant */
             profile_id: "synthetic-session/1";
             /** @constant */
@@ -9256,6 +9575,7 @@ export interface components {
                 sha256: string;
             };
             pinned_proposal_ids: string[];
+            part_description_style?: string;
             /** @constant */
             profile_id: "synthetic-session/1";
             /** @constant */
@@ -17118,22 +17438,89 @@ export interface components {
         AgentSettings: {
             /** Format: int64 */
             revision: string;
-            selection: {
-                provider: "codex" | "claude";
-                authentication: "api_key" | "subscription";
-                model: string;
-            } | null;
+            providers: {
+                claude: {
+                    enabled: boolean;
+                    authentication: "api_key" | "subscription";
+                    default_model: string;
+                };
+                codex: {
+                    enabled: boolean;
+                    authentication: "api_key" | "subscription";
+                    default_model: string;
+                };
+            };
+            default_provider: ("codex" | "claude") | null;
+            stage_selections: {
+                examine?: {
+                    provider: "codex" | "claude";
+                    model: string;
+                };
+                research?: {
+                    provider: "codex" | "claude";
+                    model: string;
+                };
+                images?: {
+                    provider: "codex" | "claude";
+                    model: string;
+                };
+                inventory?: {
+                    provider: "codex" | "claude";
+                    model: string;
+                };
+            };
             session_concurrency: number;
+            new_batch_instructions: string;
+            part_description_style: string;
+            auto_tags_default: boolean;
         };
         AgentSettingsUpdate: {
             /** Format: int64 */
             expected_revision: string;
-            selection: {
-                provider: "codex" | "claude";
-                authentication: "api_key" | "subscription";
-                model: string;
+            providers: {
+                claude: {
+                    enabled: boolean;
+                    authentication: "api_key" | "subscription";
+                    default_model: string;
+                };
+                codex: {
+                    enabled: boolean;
+                    authentication: "api_key" | "subscription";
+                    default_model: string;
+                };
             };
-            session_concurrency?: number;
+            default_provider: ("codex" | "claude") | null;
+            stage_selections: {
+                examine?: {
+                    provider: "codex" | "claude";
+                    model: string;
+                };
+                research?: {
+                    provider: "codex" | "claude";
+                    model: string;
+                };
+                images?: {
+                    provider: "codex" | "claude";
+                    model: string;
+                };
+                inventory?: {
+                    provider: "codex" | "claude";
+                    model: string;
+                };
+            };
+            session_concurrency: number;
+            new_batch_instructions: string;
+            part_description_style: string;
+            auto_tags_default: boolean;
+        };
+        AgentProviderSettings: {
+            enabled: boolean;
+            authentication: "api_key" | "subscription";
+            default_model: string;
+        };
+        AgentStageSelection: {
+            provider: "codex" | "claude";
+            model: string;
         };
         AgentSessionList: {
             sessions: {
@@ -17192,6 +17579,38 @@ export interface components {
         InstructionDelivery: {
             sessions: number;
             woken: number;
+        };
+        BatchDefaultRecord: {
+            /** Format: int64 */
+            pk: string;
+            label: string | null;
+            status: "found" | "not_found" | "unavailable";
+        };
+        BatchDefaults: {
+            /** Format: int64 */
+            revision: string;
+            location: {
+                /** Format: int64 */
+                pk: string;
+                label: string | null;
+                status: "found" | "not_found" | "unavailable";
+            } | null;
+            supplier: {
+                /** Format: int64 */
+                pk: string;
+                label: string | null;
+                status: "found" | "not_found" | "unavailable";
+            } | null;
+        };
+        BatchDefaultsUpdate: {
+            /** Format: int64 */
+            expected_revision: string;
+            location_pk: string | null;
+            supplier_pk: string | null;
+        };
+        CaptureCreationNotice: {
+            field: "location" | "supplier";
+            code: "default_not_found" | "default_unavailable";
         };
         SessionReplacement: {
             /** Format: int64 */
@@ -18856,11 +19275,17 @@ export type NativeAgentResult = components['schemas']['NativeAgentResult']
 export type AgentSelection = components['schemas']['AgentSelection']
 export type AgentSettings = components['schemas']['AgentSettings']
 export type AgentSettingsUpdate = components['schemas']['AgentSettingsUpdate']
+export type AgentProviderSettings = components['schemas']['AgentProviderSettings']
+export type AgentStageSelection = components['schemas']['AgentStageSelection']
 export type AgentSessionList = components['schemas']['AgentSessionList']
 export type AgentPauseUpdate = components['schemas']['AgentPauseUpdate']
 export type AgentPause = components['schemas']['AgentPause']
 export type AgentPauseAll = components['schemas']['AgentPauseAll']
 export type InstructionDelivery = components['schemas']['InstructionDelivery']
+export type BatchDefaultRecord = components['schemas']['BatchDefaultRecord']
+export type BatchDefaults = components['schemas']['BatchDefaults']
+export type BatchDefaultsUpdate = components['schemas']['BatchDefaultsUpdate']
+export type CaptureCreationNotice = components['schemas']['CaptureCreationNotice']
 export type SessionReplacement = components['schemas']['SessionReplacement']
 export type SessionLatestStatus = components['schemas']['SessionLatestStatus']
 export type SessionTimeline = components['schemas']['SessionTimeline']

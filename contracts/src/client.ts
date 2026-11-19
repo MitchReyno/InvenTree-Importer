@@ -14,6 +14,7 @@ import type {
 import type { HeaderWorkQueryDto } from './header.ts'
 import type { CaptureListQueryDto } from './capture.ts'
 import type { CatalogueModelDto } from './catalogue.ts'
+import type { BatchDefaultsUpdateDto } from './batch-defaults.ts'
 import { validate } from './index.ts'
 import { successfulData } from './client-policy.ts'
 import { typedClient, commandHeaders } from './client-runtime.ts'
@@ -77,6 +78,37 @@ export function catalogueClient(
           params: { path: { id, model } },
         }),
       ),
+
+    /** Settings pickers, outside any batch. */
+    searchAll: (model: CatalogueModelDto, q: string, signal?: AbortSignal) =>
+      successfulData(
+        client.GET('/api/v1/catalogue/{model}', {
+          params: { path: { model }, query: { q } },
+          signal,
+        }),
+      ),
+
+    candidatesAll: (model: CatalogueModelDto) =>
+      successfulData(
+        client.GET('/api/v1/catalogue/{model}/candidates', { params: { path: { model } } }),
+      ),
+  }
+}
+
+/**
+ * The app-level defaults each new batch copies at creation.
+ * @planned task 9.3 the Settings › Batch defaults form reads and saves them.
+ */
+export function batchDefaultsClient(
+  baseUrl: string,
+  csrfToken: string,
+  transport: typeof fetch = fetch,
+) {
+  const client = typedClient(baseUrl, transport, csrfToken)
+  return {
+    read: () => successfulData(client.GET('/api/v1/batch-defaults')),
+    save: (input: BatchDefaultsUpdateDto) =>
+      successfulData(client.PUT('/api/v1/batch-defaults', { body: input })),
   }
 }
 
@@ -243,6 +275,8 @@ export function headerClient(baseUrl: string, csrfToken: string, transport: type
   const client = typedClient(baseUrl, transport, csrfToken)
   return {
     connection: () => successfulData(client.GET('/api/v1/connection-status')),
+    /** Probes now; a check in flight or one in the last 5 seconds returns the latest result. */
+    checkConnection: () => successfulData(client.POST('/api/v1/connection-status/check')),
     work: (query: HeaderWorkQueryDto = {}) =>
       successfulData(client.GET('/api/v1/header-work', { params: { query } })),
   }

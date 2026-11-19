@@ -7,6 +7,7 @@ import {
   captureBatches,
   captureSubjects,
   captureObservations,
+  captureInstructions,
   captureSources,
   captureParts,
   captureLots,
@@ -25,7 +26,10 @@ import {
   type CaptureListQueryDto,
   type CaptureSnapshotDto,
   type CaptureObservationDto,
+  type CaptureCreationNoticeDto,
+  captureIntentFromLegacy,
 } from '@invimport/contracts'
+import type { CreationDefaults } from './batch-defaults.ts'
 import { canonical, canonicalRecord } from '@invimport/contracts/json'
 import { fail, type CaptureBinding } from './model.ts'
 import { transaction } from '#/db/database.ts'
@@ -60,6 +64,7 @@ type Batch = {
   archived: boolean
   stream_id: string
   updated_at: Date
+  creation_notices: CaptureCreationNoticeDto[] | null
 }
 type Subject = { id: string; label: string; revision: string; kind: 'lot' | 'part' }
 type Selection =
@@ -80,6 +85,7 @@ const batchColumns = {
   archived: captureBatches.archived,
   stream_id: captureBatches.streamId,
   updated_at: captureBatches.updatedAt,
+  creation_notices: captureBatches.creationNotices,
 }
 
 /** Every lookup is actor AND fixed target/context scoped, including archived reads. */
@@ -230,6 +236,7 @@ async function snapshot(
     ...(settingsIntent ? { settings_intent: settingsIntent } : {}),
     ...(settingNotes.length ? { setting_notes: settingNotes } : {}),
     ...(referenceDrafts.length ? { reference_drafts: referenceDrafts } : {}),
+    ...(b.creation_notices?.length ? { creation_notices: b.creation_notices } : {}),
     ...(groupLocations.length ? { group_locations: groupLocations } : {}),
     actor_id: b.actor_id,
     target_context_id: b.target_context_id,
@@ -901,6 +908,101 @@ async function applyBatchSettings(
   )
 }
 
+async function observeDefault(
+  c: PoolClient,
+  b: Batch,
+  model: 'location' | 'company',
+  record: { pk: string; name: string },
+  mapping?: CaptureObservationDto['mapping'],
+) {
+  const value = {
+    id: randomUUID(),
+    model,
+    pk: record.pk,
+    label: record.name,
+    ...(mapping ? { mapping } : {}),
+    target_context_id: b.target_context_id,
+    observed_at: new Date().toISOString(),
+  }
+  validate('CaptureObservation', value)
+  await executeDatabaseQuery(
+    queryDatabase(c)
+      .insert(captureObservations)
+      .values({
+        ...value,
+        batchId: b.id,
+        targetId: b.target_id,
+        targetContextId: b.target_context_id,
+        mapping: mapping ?? null,
+        observedAt: sql`${value.observed_at}::timestamptz`,
+      }),
+  )
+  return { observation_id: value.id, target_context_id: b.target_context_id, pk: record.pk }
+}
+
+/**
+ * Copies the app-level defaults into a new batch's first revision through the same writes the
+ * Batch settings pickers use, so the observations, selection, intent and context all agree.
+ */
+async function applyCreationDefaults(c: PoolClient, b: Batch, defaults: CreationDefaults) {
+  const base = captureIntentFromLegacy(undefined)
+  const location = defaults.location
+    ? {
+        mode: 'set' as const,
+        value: {
+          ...(await observeDefault(c, b, 'location', defaults.location)),
+          model: 'location' as const,
+        },
+      }
+    : unset
+  const supplier = defaults.supplier
+    ? {
+        mode: 'existing' as const,
+        reference: {
+          ...(await observeDefault(c, b, 'company', defaults.supplier, {
+            kind: 'company',
+            manufacturer: defaults.supplier.manufacturer,
+            supplier: true,
+          })),
+          model: 'company' as const,
+        },
+      }
+    : base.supplier.selection
+  if (defaults.location || defaults.supplier || defaults.autoTags) {
+    await applyBatchSettings(
+      c,
+      b,
+      {
+        kind: 'batch_settings',
+        title: b.title,
+        default_location: location,
+        intent: {
+          ...base,
+          supplier: { absent: false, selection: supplier },
+          shared_tags: { ...base.shared_tags, auto: defaults.autoTags },
+        },
+        notes: { batch: null, order: null },
+        drafts: [],
+      },
+      b.revision,
+    )
+  }
+  if (defaults.instructions) {
+    await executeDatabaseQuery(
+      queryDatabase(c)
+        .insert(captureInstructions)
+        .values({
+          id: randomUUID(),
+          batchId: b.id,
+          groupId: null,
+          version: BigInt(b.revision),
+          text: defaults.instructions,
+          actorId: b.actor_id,
+        }),
+    )
+  }
+}
+
 export interface LockedCaptureEdit {
   /** Internal pre-publication facts. Use readPublished for a public response cursor. */
   snapshot: CaptureSnapshotDto
@@ -1217,7 +1319,8 @@ export function captureRepository(pool: Pool, config: Binding) {
         return snapshot(c, config, id)
       })
     },
-    async create(key: string, input: { title: string; note: string }) {
+    /** `defaults` are the app-level values resolved for this batch before the transaction. */
+    async create(key: string, input: { title: string; note: string }, defaults?: CreationDefaults) {
       return command('capture_create', 'batches', key, input, async (c) => {
         const id = randomUUID()
         const source = randomUUID()
@@ -1237,18 +1340,24 @@ export function captureRepository(pool: Pool, config: Binding) {
             .values({ id: stream, streamKey: `capture:${id}` }),
         )
         await executeDatabaseQuery(
-          queryDatabase(c).insert(captureBatches).values({
-            id,
-            sourceId: source,
-            actorId: config.actorId,
-            targetId: config.targetId,
-            targetContextId: config.targetContextId,
-            streamId: stream,
-            title: input.title,
-          }),
+          queryDatabase(c)
+            .insert(captureBatches)
+            .values({
+              id,
+              sourceId: source,
+              actorId: config.actorId,
+              targetId: config.targetId,
+              targetContextId: config.targetContextId,
+              streamId: stream,
+              title: input.title,
+              creationNotices: defaults?.notices.length ? defaults.notices : null,
+            }),
         )
         const b = await batch(c, config, id)
         await note(c, b, null, input.note)
+        if (defaults) {
+          await applyCreationDefaults(c, b, defaults)
+        }
         await retainRevision(c, b, input)
         return snapshot(c, config, id)
       })

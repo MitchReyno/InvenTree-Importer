@@ -1,6 +1,7 @@
 import styled from 'styled-components'
-import { Button, KeyValue, SettingRow, Small } from '#/components/ui'
-import { Input } from '#/forms'
+import type { ConnectionStatusDto } from '@invimport/contracts'
+import { Button, DisabledFeature, KeyValue, SettingRow, Small } from '#/components/ui'
+import { CheckConnectionButton } from '#/components/masthead/CheckConnectionButton'
 import { color, space, typeVar } from '#/theme/generated/tokens'
 import { safeTargetNavigation, targetStatus } from '#/header/observations'
 import { useSharedHeaderObservations } from '#/context'
@@ -9,6 +10,16 @@ import { SettingsCard } from './SettingsCard'
 import { SettingsSection } from './SettingsSection'
 
 const SHORT_TIME: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' }
+
+const TOKEN_STATUS = { accepted: 'Accepted', refused: 'Refused', unavailable: 'Unavailable' }
+
+/** A reachable read proves the token works; a 401 or 403 is a refusal; anything else is unknown. */
+function tokenStatus(target: ConnectionStatusDto['target'] | undefined) {
+  if (target?.state === 'reachable') {
+    return 'accepted'
+  }
+  return target?.failure_code === 'unauthorized' ? 'refused' : 'unavailable'
+}
 
 /**
  * Settings › InvenTree: the server from the masthead's connection observation, which it never
@@ -66,28 +77,38 @@ export function InvenTreeSection() {
             )}
           </Stack>
         </SettingRow>
-        <SettingRow
-          label="API token"
-          help="Kept on the server and never shown."
-          disabledReason="Not available yet: the token is set in the server's environment, and its status isn't read here."
-        >
-          {({ disabled }) => (
+        <SettingRow label="API token" help="Kept on the server and never shown.">
+          <Stack>
+            <Status>
+              {TOKEN_STATUS[tokenStatus(target)]}
+              {target?.observed_at && (
+                <Small>
+                  · checked {new Date(target.observed_at).toLocaleTimeString([], SHORT_TIME)}
+                </Small>
+              )}
+            </Status>
             <Actions>
-              <Button variant="ghost" size="sm" {...disabled}>
-                Check now
-              </Button>
-              <Button variant="ghost" size="sm" {...disabled}>
-                Replace token…
-              </Button>
+              {observations && (
+                <CheckConnectionButton check={observations.check} label="Check now" />
+              )}
+              <DisabledFeature explanation="Not available yet: the token is set in the server's environment.">
+                {(disabled) => (
+                  <Button variant="ghost" size="sm" {...disabled}>
+                    Replace token…
+                  </Button>
+                )}
+              </DisabledFeature>
             </Actions>
-          )}
+          </Stack>
         </SettingRow>
         <SettingRow
-          label="Import reference prefix"
-          help="Stamped on every stock item, so a retried approval can't add stock twice."
-          disabledReason="Not available yet: the server sets the import reference, and it can't be changed here."
+          label="Import reference"
+          help="Set by the server for each stock item, so a retried approval can't add stock twice. It can't be changed."
         >
-          {({ named, disabled }) => <Prefix type="text" readOnly {...named} {...disabled} />}
+          <Stack>
+            <code>bi1:‹batch source›:‹lot›</code>
+            <Small>For example, bi1:7d1c3e9a-…-1b2c3d4e5f60:0b9f2c41-…-2e8f4a6d1b37</Small>
+          </Stack>
         </SettingRow>
       </SettingsCard>
     </SettingsSection>
@@ -115,8 +136,4 @@ const Actions = styled.span`
   display: inline-flex;
   flex-wrap: wrap;
   gap: ${space[4]};
-`
-
-const Prefix = styled(Input)`
-  max-width: 120px;
 `

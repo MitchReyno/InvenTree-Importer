@@ -8,6 +8,7 @@ import { triggerExamine } from '#/processing/examine-trigger.ts'
 import { onLeadIdentity } from '#/processing/stable-identity.ts'
 import { lockCaptureForInputSettlement } from '#/capture/repository.ts'
 import { claimSessionSlot } from '#/agents/session/slots.ts'
+import { singleProvider } from '../support/agent-settings.ts'
 import { saveAgentSettings } from '#/agents/settings.ts'
 import { queueSessionResume, runSessionTurn } from '#/agents/session/session-runner.ts'
 
@@ -230,11 +231,15 @@ test('Research and Images take slots alongside the running lead session', async 
 test('a resumed lead session starts ahead of older queued per-lot sessions', async (t) => {
   const { fixture, leadJob, leadAttempt, lot, successors } = await formedBatch(t)
   const current = await fixture.http('/agent-settings')
-  await saveAgentSettings(fixture.api.pool, fixture.config, {
-    expected_revision: (current.value as { revision: string }).revision,
-    selection: { provider: 'claude', authentication: 'api_key', model: 'claude-sonnet-5-5' },
-    session_concurrency: 1,
-  })
+  await saveAgentSettings(
+    fixture.api.pool,
+    fixture.config,
+    singleProvider({
+      expected_revision: (current.value as { revision: string }).revision,
+      selection: { provider: 'claude', authentication: 'api_key', model: 'claude-sonnet-5-5' },
+      session_concurrency: 1,
+    }),
+  )
   await transaction(fixture.runner.pool, (client) => queueSessionResume(client, leadJob))
   const [first] = await successors((await lot('led 0603 red')).id)
   // Nothing holds a slot, so only queue order decides.
@@ -404,11 +409,15 @@ test('a gated Inventory never holds back the Research and Images it waits for', 
   })
   assert.equal(started.status, 202)
   const current = await fixture.http('/agent-settings')
-  await saveAgentSettings(fixture.api.pool, fixture.config, {
-    expected_revision: (current.value as { revision: string }).revision,
-    selection: { provider: 'claude', authentication: 'api_key', model: 'claude-sonnet-5-5' },
-    session_concurrency: 1,
-  })
+  await saveAgentSettings(
+    fixture.api.pool,
+    fixture.config,
+    singleProvider({
+      expected_revision: (current.value as { revision: string }).revision,
+      selection: { provider: 'claude', authentication: 'api_key', model: 'claude-sonnet-5-5' },
+      session_concurrency: 1,
+    }),
+  )
   // Only the LED lot is in play: the crystal's queued successors are set aside.
   const crystal = await lot('16 mhz crystal')
   await fixture.db.pool.query(
@@ -449,11 +458,15 @@ test('a gated Inventory never holds back another lot’s ready Inventory', async
     [crystalResearch.attempt_id],
   )
   const current = await fixture.http('/agent-settings')
-  await saveAgentSettings(fixture.api.pool, fixture.config, {
-    expected_revision: (current.value as { revision: string }).revision,
-    selection: { provider: 'claude', authentication: 'api_key', model: 'claude-sonnet-5-5' },
-    session_concurrency: 1,
-  })
+  await saveAgentSettings(
+    fixture.api.pool,
+    fixture.config,
+    singleProvider({
+      expected_revision: (current.value as { revision: string }).revision,
+      selection: { provider: 'claude', authentication: 'api_key', model: 'claude-sonnet-5-5' },
+      session_concurrency: 1,
+    }),
+  )
   const inventory = async (lotId: string) =>
     (
       await fixture.db.pool.query<{ current_attempt_id: string }>(
