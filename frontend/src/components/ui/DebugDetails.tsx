@@ -60,7 +60,11 @@ const Block = styled.div`
   border-radius: ${radius.sm};
   background: ${color.devBg};
   color: ${color.fg};
+  overflow-wrap: anywhere;
   ${type.small}
+  p {
+    margin: 0;
+  }
 `
 
 const Tag = styled.span`

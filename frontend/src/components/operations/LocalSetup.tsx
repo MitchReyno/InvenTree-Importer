@@ -73,6 +73,9 @@ const Stack = styled.div`
   align-items: flex-start;
   gap: ${space[4]};
   min-width: 0;
+  p {
+    margin: 0;
+  }
 `
 
 const Facts = styled.dl`
