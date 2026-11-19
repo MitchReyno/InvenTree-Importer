@@ -15,6 +15,7 @@ from pathlib import Path
 from guest_destinations import (
     Refused,
     check_public_form,
+    check_public_syntax,
     configured_hosts,
     connection_order,
     dns_name,
@@ -48,6 +49,8 @@ PUBLIC_IDLE_TIMEOUT_S = 120
 # Connections still sending their CONNECT line. Provider and public requests share this
 # listener, so the agent could only use it to stall its own turn.
 MAX_PENDING_HEADERS = 16
+# A public tunnel's streams get this long to flush on close before they are aborted.
+CLOSE_TIMEOUT_S = 5
 # All DNS work for one CONNECT, including protected-host lookups, must finish within this.
 DNS_TIMEOUT_S = 10
 # Lookups in flight per path; a stalled lookup keeps its slot until its thread returns.
@@ -258,15 +261,29 @@ async def checked_addresses(host, port):
 
 
 async def open_first(addresses, guard=None):
-    """Connects to the first reachable checked address, trying at most a few."""
+    """Connects to the first reachable checked address, trying at most a few.
+
+    `guard` rechecks an address before it is dialled and again once connected, so a protected
+    lookup that finishes during the dial still stops the tunnel before any byte is relayed.
+    """
     failure = OSError("no checked address")
     for address in addresses[:MAX_CONNECT_ATTEMPTS]:
         if guard:
             guard(address)
         try:
-            return await asyncio.wait_for(asyncio.open_connection(address, 443), CONNECT_TIMEOUT_S)
+            remote, upstream = await asyncio.wait_for(
+                asyncio.open_connection(address, 443), CONNECT_TIMEOUT_S)
         except (OSError, asyncio.TimeoutError) as error:
             failure = error
+            continue
+        if guard:
+            try:
+                guard(address)
+            except Refused:
+                abort(upstream)
+                upstream.close()
+                raise
+        return remote, upstream
     raise failure
 
 
@@ -318,6 +335,17 @@ async def read_request(reader):
     return connect_target(headers.split(b"\r\n", 1)[0])
 
 
+async def close_within(writer):
+    """Closes a stream, giving it CLOSE_TIMEOUT_S to flush before aborting it."""
+    if writer is None:
+        return
+    writer.close()
+    try:
+        await asyncio.wait_for(writer.wait_closed(), CLOSE_TIMEOUT_S)
+    except (OSError, asyncio.TimeoutError):
+        abort(writer)
+
+
 def abort(writer):
     """Drops a stream at once, without waiting for a stalled peer to read buffered data."""
     transport = getattr(writer, "transport", None)
@@ -335,6 +363,7 @@ async def handle(reader, client):
         host, port = await read_request(reader)
         provider = host in HOSTS and port == 443
         if not provider:
+            check_public_syntax(host, port)
             # Counted before any DNS work, so idle or slow public tunnels can't crowd out the
             # provider, which is never counted.
             if public_tunnels >= MAX_PUBLIC_TUNNELS:
@@ -366,12 +395,16 @@ async def handle(reader, client):
         if idle_expired:
             abort(upstream)
             abort(client)
-        if upstream:
-            upstream.close()
-        client.close()
-        # Released only after teardown, so the slot never outlives a still-open tunnel.
         if counted:
+            # A public tunnel keeps its slot until both streams are closed or aborted, so the
+            # slot never outlives an open socket, even one flushing to a stalled peer.
+            await close_within(upstream)
+            await close_within(client)
             public_tunnels -= 1
+        else:
+            if upstream:
+                upstream.close()
+            client.close()
 
 
 async def main():

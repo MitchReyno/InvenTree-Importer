@@ -27,6 +27,14 @@ def answers(*addresses):
             for a in addresses]
 
 
+def stream_writer():
+    """A StreamWriter stand-in whose drain and close complete at once."""
+    writer = Mock()
+    writer.drain = AsyncMock()
+    writer.wait_closed = AsyncMock()
+    return writer
+
+
 def dns(table, stalled=None, delays=None):
     """A getaddrinfo stand-in: unknown names fail like an NXDOMAIN answer.
 
@@ -84,8 +92,7 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         """Patches DNS and upstream connections once; concurrent CONNECTs share it."""
         remote = asyncio.StreamReader()
         remote.feed_eof()
-        upstream_writer = Mock()
-        upstream_writer.drain = AsyncMock()
+        upstream_writer = stream_writer()
         self.guest_dns = Mock(side_effect=dns(table, stalled, delays))
         opened = AsyncMock(side_effect=open_results(remote, upstream_writer) if open_results else None,
                            return_value=(remote, upstream_writer))
@@ -97,8 +104,7 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         stream = asyncio.StreamReader()
         stream.feed_data(f"CONNECT {target} HTTP/1.1\r\n\r\n".encode())
         stream.feed_eof()
-        client = Mock()
-        client.drain = AsyncMock()
+        client = stream_writer()
         await egress.handle(stream, client)
         client.close.assert_called_once()
         self.lookups = self.guest_dns.call_count
@@ -338,13 +344,11 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         stream = asyncio.StreamReader()
         # The client's half stays open; the upstream ending closes the tunnel.
         stream.feed_data(b"CONNECT www.ti.com:443 HTTP/1.1\r\n\r\n" + sent)
-        client = Mock()
-        client.drain = AsyncMock()
+        client = stream_writer()
         remote = asyncio.StreamReader()
         remote.feed_data(received)
         remote.feed_eof()
-        upstream_writer = Mock()
-        upstream_writer.drain = AsyncMock()
+        upstream_writer = stream_writer()
         with patch.object(socket, "getaddrinfo", side_effect=dns({"www.ti.com": [PUBLIC]})), \
                 patch.object(egress.asyncio, "open_connection",
                              AsyncMock(return_value=(remote, upstream_writer))):
@@ -436,10 +440,8 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         stream = asyncio.StreamReader()
         stream.feed_data(f"CONNECT {target} HTTP/1.1\r\n\r\n".encode())
         remote = asyncio.StreamReader()
-        client = Mock()
-        client.drain = AsyncMock()
-        writer = Mock()
-        writer.drain = AsyncMock()
+        client = stream_writer()
+        writer = stream_writer()
         return stream, remote, client, writer
 
     async def test_public_tunnels_are_capped_without_blocking_the_provider(self):
@@ -455,10 +457,12 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
             while not client.write.called:
                 await asyncio.sleep(0.01)
             second = await self.handle("www.ti.com:443")
+            wrong_port = await self.handle("www.ti.com:22")
             provider = await self.handle("api.anthropic.com:443")
             remote.feed_eof()
             await held
         self.assertIn(b"X-Bench-Refusal: too_many_connections\r\n", second)
+        self.assertIn(b"X-Bench-Refusal: destination_refused\r\n", wrong_port)
         self.assertTrue(provider.startswith(b"HTTP/1.1 200"), provider)
 
     async def test_idle_public_tunnel_closes_but_one_way_traffic_keeps_it_open(self):
@@ -530,6 +534,49 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
             extra.close.assert_called_once()
             await held
         self.assertEqual(egress.pending_headers, 0)
+
+    async def test_provider_dial_that_succeeds_after_its_address_is_protected_relays_nothing(self):
+        self.write_policy(public_pages=False, protected_hosts=["inventory.example.com"])
+        table = {"inventory.example.com": [OTHER_PUBLIC], "api.anthropic.com": [OTHER_PUBLIC]}
+
+        def slow_dial(remote, writer):
+            async def dial(_address, _port):
+                await asyncio.sleep(0.4)
+                return remote, writer
+            return dial
+
+        with patch.object(egress, "PROTECTED_LOOKUP_BUDGET_S", 0.05):
+            with self.fake_network(table, open_results=slow_dial,
+                                   delays={"inventory.example.com": 0.2}) as upstream:
+                written = await self.handle("api.anthropic.com:443")
+                dialled = upstream.call_args_list
+        self.assertNotIn(b"200 Connection Established", written)
+        self.assertIn(b"X-Bench-Refusal: protected_destination\r\n", written)
+        self.assertEqual(len(dialled), 1)
+
+    async def test_public_tunnel_keeps_its_slot_while_a_stalled_peer_blocks_its_close(self):
+        self.write_policy()
+        stream, remote, client, writer = await self.held_tunnel("www.ti.com:443")
+
+        async def stalled_close():
+            await asyncio.sleep(5)
+
+        client.wait_closed = AsyncMock(side_effect=stalled_close)
+        remote.feed_data(b"tail of a download")
+        remote.feed_eof()
+        self.guest_dns = Mock(side_effect=dns({"www.ti.com": [PUBLIC]}))
+        with patch.object(egress, "MAX_PUBLIC_TUNNELS", 1), \
+                patch.object(egress, "CLOSE_TIMEOUT_S", 0.3), \
+                patch.object(socket, "getaddrinfo", self.guest_dns), \
+                patch.object(egress.asyncio, "open_connection",
+                             AsyncMock(return_value=(remote, writer))):
+            closing = asyncio.create_task(egress.handle(stream, client))
+            await asyncio.sleep(0.1)
+            during_close = await self.handle("www.ti.com:443")
+            await closing
+        self.assertIn(b"X-Bench-Refusal: too_many_connections\r\n", during_close)
+        client.transport.abort.assert_called_once()
+        self.assertEqual(egress.public_tunnels, 0)
 
 
 if __name__ == "__main__":

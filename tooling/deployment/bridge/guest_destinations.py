@@ -96,14 +96,19 @@ def protected_addresses(protected):
     return blocked
 
 
+def check_public_syntax(host, port):
+    """Refuses a public CONNECT to a port other than 443 or to something not a DNS name."""
+    if port != 443 or not dns_name(host) or not host.split(".")[-1].isalpha():
+        raise Refused("destination_refused")
+
+
 def check_public_form(host, port, protected):
     """Refuses a public CONNECT whose name or port can never be allowed, before any DNS.
 
     A configured protected name with a private suffix, such as `inventory.internal`, reports
     protected_destination rather than the generic suffix refusal.
     """
-    if port != 443 or not dns_name(host) or not host.split(".")[-1].isalpha():
-        raise Refused("destination_refused")
+    check_public_syntax(host, port)
     if host.endswith(PRIVATE_SUFFIXES):
         if protected_name(host, protected):
             raise Refused("protected_destination")
