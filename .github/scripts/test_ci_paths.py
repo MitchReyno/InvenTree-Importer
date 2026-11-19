@@ -124,8 +124,13 @@ class SelectionTests(unittest.TestCase):
         ):
             with self.subTest(path=path):
                 self.assert_checks([path], "frontend", "intake")
-        self.assert_checks(["tooling/unrelated.cjs"])
+        self.assert_checks(["tooling/unrelated.txt"])
         self.assert_checks(["tooling/eslint/README.md"], "markdown")
+
+    def test_tooling_scripts_select_the_lint_that_checks_them(self):
+        for path in ("tooling/deployment/bridge/relay.mjs", "tooling/unrelated.cjs"):
+            with self.subTest(path=path):
+                self.assert_checks([path], "intake")
 
     def test_unused_code_tooling_selects_both_typescript_consumers(self):
         for path in (
@@ -151,8 +156,9 @@ class SelectionTests(unittest.TestCase):
         ):
             with self.subTest(path=path):
                 self.assert_checks([path], "markdown")
+        # Not contract inputs, but tooling scripts the lint job checks for undefined names.
         self.assert_checks(
-            ["tooling/openapi-generator-other/index.cjs", "tooling/unrelated/index.cjs"]
+            ["tooling/openapi-generator-other/index.cjs", "tooling/unrelated/index.cjs"], "intake"
         )
 
     def test_shared_skills_agents_and_resources_need_sync_not_full_tests(self):

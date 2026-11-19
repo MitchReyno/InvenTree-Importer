@@ -46,6 +46,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Check shared readability rules
         run: pnpm lint:readability
+      - name: Check tooling scripts for undefined names
+        run: pnpm lint:tooling
       - name: Test readability checks
         run: pnpm test:readability
       - name: Check for unused code

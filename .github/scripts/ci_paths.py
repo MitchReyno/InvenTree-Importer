@@ -88,6 +88,9 @@ def select_checks(paths: list[str] | None) -> dict[str, bool]:
             or (not markdown and path.startswith("backend/config/"))
         ):
             selected["intake"] = True
+        # The TypeScript lint job also checks tooling scripts for undefined names.
+        if not markdown and path.startswith("tooling/") and suffix in (".cjs", ".mjs"):
+            selected["intake"] = True
         if suffix == ".py" and path.startswith("tooling/inventree-dev/scripts/"):
             selected["backend_lint"] = True
         if path.startswith(SHARED_WORKFLOWS):
