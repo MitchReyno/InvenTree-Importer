@@ -124,7 +124,7 @@ With public web access on, the proxy SHALL allow a `CONNECT` only to port 443 of
 
 ### Requirement: Public tunnels are bounded
 
-Each turn's egress SHALL allow at most 32 public tunnels at once, refusing more with `too_many_connections`, and SHALL close a public tunnel that carries no data in either direction for two minutes. Provider tunnels SHALL count toward neither limit, and DNS work SHALL have a deadline, so public traffic can't hold up the provider.
+Each turn's egress SHALL allow at most 32 public tunnels at once, refusing more with `too_many_connections`, and SHALL close a public tunnel that carries no data in either direction for two minutes. Provider tunnels SHALL count toward neither limit; they have a separate bound of 64 open at once. DNS work SHALL have a deadline, so public traffic can't hold up the provider.
 
 #### Scenario: Public tunnels at the cap
 
