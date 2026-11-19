@@ -17,6 +17,8 @@ PR-A (debug mode and the Dev mode popover) merged in #225 and PR-B (the Settings
 - **2026-11-19, review round 1 (PR-C):** design.md said rolling back the code was enough. Startup requires the exact migration list, so older code refuses a database with `0032`; rollback is restoring the pre-upgrade archive, and design.md now says so.
 - **2026-11-19, review round 1 (PR-C):** Settings › Batch defaults refuses a newly chosen record that InvenTree doesn't have (`batch_default_not_found`, 422) or that can't be checked (`catalogue_unavailable`, 503). A saved record deleted later can still be kept or cleared.
 
+- **2026-11-19, review round 2 (PR-C):** Batch defaults and batch creation check the current target context before and after their catalogue lookups and again inside the write transaction, like the existing Capture catalogue routes. They don't lock `target`: a rotation committing between that last check and the write's commit can still land the write in the retired context. Closing that window would need the Capture role to hold `UPDATE` on `target` (as the executor does for its `FOR UPDATE`), which widens its authority, so it is accepted as for every other Capture write.
+
 ## Unexpected challenges
 
 - **2026-11-19T14:40+11:00, task 2:** pnpm refuses nested workspace scripts (`pnpm typecheck`) when `node_modules` is a symlink to the main checkout (`ERR_PNPM_UNSAFE_TASK_RUN_STATE_PATH`). The worktree uses its own `pnpm install --frozen-lockfile` instead; the lockfile is unchanged.

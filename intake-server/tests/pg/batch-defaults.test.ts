@@ -189,6 +189,12 @@ test('batch defaults save under a revision and name each saved record on read', 
     assert.equal(kept.status, 200)
     assert.equal(kept.value.revision, '2')
     assert.equal(kept.value.supplier, null)
+    // A stale save is a conflict even when its record is missing or can't be checked.
+    const staleMissing = await api.saveDefaults('1', '99', null)
+    assert.equal(staleMissing.status, 412)
+    api.state.down = true
+    assert.equal((await api.saveDefaults('1', '12', null)).status, 412)
+    api.state.down = false
     api.state.down = true
     assert.deepEqual((await api.http('/batch-defaults')).value.location, {
       pk: '11',

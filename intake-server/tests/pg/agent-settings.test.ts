@@ -389,3 +389,34 @@ test('the style sealed at queue time reaches the opening turn only, outside the 
     await rm(root, { recursive: true, force: true })
   }
 })
+
+test('each actor reads only its own provider rows', async () => {
+  const fixture = await processingFixture()
+  try {
+    const other = randomUUID()
+    await fixture.db.pool.query('INSERT INTO operator VALUES ($1,$2,$3)', [
+      other,
+      'development',
+      `fixture-${other}`,
+    ])
+    const otherScope = { ...fixture.config, actorId: other }
+    await saveAgentSettings(fixture.api.pool, fixture.config, bothProviders('0'))
+    await saveAgentSettings(fixture.api.pool, otherScope, {
+      ...bothProviders('0'),
+      providers: {
+        claude: { enabled: true, authentication: 'api_key', default_model: 'opus' },
+        codex: { enabled: false, authentication: 'subscription', default_model: 'gpt-6-astra' },
+      },
+      stage_selections: {},
+    })
+    for (const lock of [false, true]) {
+      const mine = await readAgentSettings(fixture.api.pool, fixture.config, lock)
+      assert.deepEqual(mine.providers, bothProviders('0').providers, `lock ${lock}`)
+      const theirs = await readAgentSettings(fixture.api.pool, otherScope, lock)
+      assert.equal(theirs.providers.claude.default_model, 'opus')
+      assert.equal(theirs.providers.codex.enabled, false)
+    }
+  } finally {
+    await fixture.dispose()
+  }
+})

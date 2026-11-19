@@ -208,6 +208,31 @@ test('the API token row shows Refused after Check now, and the import reference 
   expect(within(reference).queryByRole('textbox')).toBeNull()
 })
 
+test('the API token row never shows a stale or failed read as current', async () => {
+  const old = connection()
+  header.connection.mockResolvedValueOnce({
+    ...old,
+    target: {
+      ...old.target,
+      freshness: 'stale',
+      observed_at: new Date(Date.now() - 120_000).toISOString(),
+    },
+  })
+  const view = renderSettings('inventree')
+  const token = screen.getByRole('group', { name: 'API token' })
+  // Once the stale observation has loaded, its check time shows beside Unavailable.
+  expect(await within(token).findByText(/checked/)).toBeVisible()
+  expect(within(token).getByText('Unavailable')).toBeVisible()
+  view.unmount()
+
+  header.connection.mockRejectedValueOnce(new Error('offline'))
+  renderSettings('inventree')
+  await screen.findByText('InvenTree unreachable')
+  expect(
+    within(screen.getByRole('group', { name: 'API token' })).getByText('Unavailable'),
+  ).toBeVisible()
+})
+
 const DEFERRED: [SettingsSectionId, string[]][] = [
   [
     'agents',

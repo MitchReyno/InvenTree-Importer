@@ -1323,8 +1323,8 @@ export function captureRepository(pool: Pool, config: Binding) {
     /** `defaults` are the app-level values resolved for this batch before the transaction. */
     async create(key: string, input: { title: string; note: string }, defaults?: CreationDefaults) {
       return command('capture_create', 'batches', key, input, async (c) => {
-        // Records looked up for the defaults belong to this context; refuse once it has rotated.
-        if (defaults?.location || defaults?.supplier) {
+        // The defaults were resolved for this context; refuse once it has rotated.
+        if (defaults) {
           await requireCurrentTargetContext(c, config)
         }
         const id = randomUUID()

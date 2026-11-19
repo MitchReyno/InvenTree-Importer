@@ -136,6 +136,10 @@ export async function saveBatchDefaults(
     supplierPk: input.supplier_pk === null ? null : BigInt(input.supplier_pk),
   }
   const previous = await savedRow(pool, binding)
+  // A stale save is a conflict, whatever the catalogue would say about its records.
+  if ((previous?.revision.toString() ?? '0') !== input.expected_revision) {
+    fail('revision_conflict', 412)
+  }
   const found = await fencedLookups(pool, binding, catalogue, {
     location: values.locationPk,
     supplier: values.supplierPk,

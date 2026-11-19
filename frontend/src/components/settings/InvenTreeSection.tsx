@@ -3,7 +3,7 @@ import type { ConnectionStatusDto } from '@invimport/contracts'
 import { Button, DisabledFeature, KeyValue, SettingRow, Small } from '#/components/ui'
 import { CheckConnectionButton } from '#/components/masthead/CheckConnectionButton'
 import { color, space, typeVar } from '#/theme/generated/tokens'
-import { safeTargetNavigation, targetStatus } from '#/header/observations'
+import { observationFresh, safeTargetNavigation, targetStatus } from '#/header/observations'
 import { useSharedHeaderObservations } from '#/context'
 import { ConnectionDot } from '#/components/masthead/ConnectionDot'
 import { SettingsCard } from './SettingsCard'
@@ -13,8 +13,14 @@ const SHORT_TIME: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-dig
 
 const TOKEN_STATUS = { accepted: 'Accepted', refused: 'Refused', unavailable: 'Unavailable' }
 
-/** A reachable read proves the token works; a 401 or 403 is a refusal; anything else is unknown. */
-function tokenStatus(target: ConnectionStatusDto['target'] | undefined) {
+/**
+ * A fresh reachable read proves the token works and a fresh 401 or 403 is a refusal. A stale
+ * observation or a failed read says nothing current, so it is Unavailable.
+ */
+function tokenStatus(target: ConnectionStatusDto['target'] | undefined, current: boolean) {
+  if (!current) {
+    return 'unavailable'
+  }
   if (target?.state === 'reachable') {
     return 'accepted'
   }
@@ -30,7 +36,10 @@ export function InvenTreeSection() {
   const connection = observations?.connection
   const unavailable = connection ? connection.isError || connection.fetchStatus === 'paused' : false
   const target = connection?.isFetchedAfterMount ? connection.data?.target : undefined
-  const status = targetStatus(target, unavailable, observations?.now ?? Date.now())
+  const now = observations?.now ?? Date.now()
+  const status = targetStatus(target, unavailable, now)
+  const current =
+    !unavailable && target?.freshness === 'fresh' && observationFresh(target.observed_at, now)
   const navigation = safeTargetNavigation(target?.navigation_url)
 
   return (
@@ -80,7 +89,7 @@ export function InvenTreeSection() {
         <SettingRow label="API token" help="Kept on the server and never shown.">
           <Stack>
             <Status>
-              {TOKEN_STATUS[tokenStatus(target)]}
+              {TOKEN_STATUS[tokenStatus(target, current)]}
               {target?.observed_at && (
                 <Small>
                   · checked {new Date(target.observed_at).toLocaleTimeString([], SHORT_TIME)}
@@ -103,7 +112,7 @@ export function InvenTreeSection() {
         </SettingRow>
         <SettingRow
           label="Import reference"
-          help="Set by the server for each stock item, so a retried approval can't add stock twice. It can't be changed."
+          help="The fixed reference the server gives each stock item it sends. It can't be changed."
         >
           <Stack>
             <code>bi1:‹batch source›:‹lot›</code>

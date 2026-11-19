@@ -63,22 +63,35 @@ export async function readAgentSettings(
   binding: CaptureBinding,
   lock = false,
 ): Promise<AgentSettingsDto> {
+  const db = queryDatabase(client)
+  if (lock) {
+    // Its own statement, so the read below starts after any save holding the row has committed.
+    await executeDatabaseQuery(
+      db
+        .select({ revision: agentSettings.revision })
+        .from(agentSettings)
+        .where(settingsScope(binding))
+        .for('share'),
+    )
+  }
   // One statement, so the provider rows always come from the same save as their parent row.
-  const query = queryDatabase(client)
-    .select({
-      row: agentSettings,
-      providers: sql<ProviderRow[]>`(
-        SELECT coalesce(json_agg(json_build_object(
-          'provider', p.provider, 'enabled', p.enabled,
-          'authentication', p.authentication, 'default_model', p.default_model)), '[]'::json)
-        FROM ${agentProviderSettings} p
-        WHERE p.actor_id = ${agentSettings.actorId}
-          AND p.target_id = ${agentSettings.targetId}
-          AND p.target_context_id = ${agentSettings.targetContextId})`,
-    })
-    .from(agentSettings)
-    .where(settingsScope(binding))
-  const rows = await executeDatabaseQuery(lock ? query.for('share') : query)
+  // Outer columns are written out in full: Drizzle drops their table name inside a subquery.
+  const rows = await executeDatabaseQuery(
+    db
+      .select({
+        row: agentSettings,
+        providers: sql<ProviderRow[]>`(
+          SELECT coalesce(json_agg(json_build_object(
+            'provider', p.provider, 'enabled', p.enabled,
+            'authentication', p.authentication, 'default_model', p.default_model)), '[]'::json)
+          FROM agent_provider_settings p
+          WHERE p.actor_id = agent_settings.actor_id
+            AND p.target_id = agent_settings.target_id
+            AND p.target_context_id = agent_settings.target_context_id)`,
+      })
+      .from(agentSettings)
+      .where(settingsScope(binding)),
+  )
   if (!rows[0]) {
     return unsavedAgentSettings()
   }
