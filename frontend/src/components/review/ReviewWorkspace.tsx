@@ -10,6 +10,8 @@ import {
   Summary,
   Button,
   ShortcutsButton,
+  groundBehindOnField,
+  raisedOnField,
 } from '#/components/ui'
 import { subjectStatuses, type LotStatus } from '#/processing/source'
 import styled from 'styled-components'
@@ -603,6 +605,7 @@ const ScopeBar = styled.div`
       width: 100%;
     }
   }
+  ${raisedOnField}
 `
 const SubjectActions = styled.div`
   display: flex;
@@ -613,6 +616,7 @@ const SubjectActions = styled.div`
 const ContextFold = styled.details`
   margin-bottom: ${space[4]};
   color: ${color.muted};
+  ${groundBehindOnField}
 `
 // Phones have no keyboard to use the shortcuts with.
 const KeyboardHelp = styled.span`

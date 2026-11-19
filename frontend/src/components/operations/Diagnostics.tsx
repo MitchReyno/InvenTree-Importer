@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { intakeClient } from '@invimport/contracts/client'
 import { serverQueryKey } from '#/queries/scope'
-import { Paragraph, Small, Button } from '#/components/ui'
+import { Paragraph, Small, Button, raisedOnField } from '#/components/ui'
 import styled from 'styled-components'
 import { color, radius, size, space, typeVar } from '#/theme/generated/tokens'
 import { useServerScope } from '#/context'
@@ -74,4 +74,5 @@ const Container = styled.details`
   dd {
     margin: ${space[2]} 0 ${space[5]};
   }
+  ${raisedOnField}
 `

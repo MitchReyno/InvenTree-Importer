@@ -375,7 +375,7 @@ export function ManualWorkspace({
         </VisuallyHidden>
       ) : (
         <HeadingRow>
-          <Heading>{stage === 'approve' ? 'Ready to add' : 'Added'}</Heading>
+          <Heading $onField>{stage === 'approve' ? 'Ready to add' : 'Added'}</Heading>
         </HeadingRow>
       )}
       {workspace?.preparations_truncated && (

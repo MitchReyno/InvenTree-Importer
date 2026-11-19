@@ -279,6 +279,26 @@ function stageWith(read: BatchRecordsDto) {
 }
 
 describe('RecordsStage', () => {
+  it('behind the whole window, backs the breadcrumb and raises the rail, list and record', async () => {
+    const user = userEvent.setup()
+    document.documentElement.dataset.masthead = 'window'
+    try {
+      stage()
+      const rail = await screen.findByRole('navigation', { name: 'Record types' })
+      await user.click(within(rail).getByRole('button', { name: /^Parts/ }))
+      const list = screen.getByRole('region', { name: 'Parts' })
+      await user.click(within(list).getAllByRole('button')[0])
+
+      expect(
+        getComputedStyle(screen.getByRole('navigation', { name: 'Record' })).backgroundColor,
+      ).toContain('masthead-ground')
+      expect(getComputedStyle(rail).boxShadow).toContain('shadow')
+      expect(getComputedStyle(list).boxShadow).toContain('shadow')
+    } finally {
+      document.documentElement.dataset.masthead = 'bar'
+    }
+  })
+
   it('lists types with their counts and decisions waiting', async () => {
     stage()
     const rail = await screen.findByRole('navigation', { name: 'Record types' })
