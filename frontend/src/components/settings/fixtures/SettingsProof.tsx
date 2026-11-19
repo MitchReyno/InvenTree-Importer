@@ -85,33 +85,27 @@ const agents = {
   deliverInstructions: async () => ({ sessions: 0 }),
 } as unknown as ReturnType<typeof agentsClient>
 
+// Staged for the demo: once checked, InvenTree has refused the token, and later reads say so.
+let tokenRefused = false
+
 const header: HeaderClient = {
-  // Staged for the demo: a check takes a moment, then InvenTree refuses the token.
   checkConnection: async () => {
     await new Promise((resolve) => setTimeout(resolve, 900))
-    const current = await header.connection()
-    return {
-      ...current,
-      target: {
-        ...current.target,
-        state: 'unavailable',
-        failure_code: 'unauthorized',
-        version: null,
-      },
-    }
+    tokenRefused = true
+    return header.connection()
   },
   connection: async (): Promise<ConnectionStatusDto> =>
     ({
       ...identity,
       target: {
         kind: 'owned_test',
-        state: 'reachable',
+        state: tokenRefused ? 'unavailable' : 'reachable',
         freshness: 'fresh',
         observed_at: new Date().toISOString(),
-        failure_code: null,
+        failure_code: tokenRefused ? 'unauthorized' : null,
         navigation_url: 'https://inventory.example.test/',
         label: 'Bench test InvenTree',
-        version: '1.1.0',
+        version: tokenRefused ? null : '1.1.0',
       },
     }) as ConnectionStatusDto,
   work: async () => ({
