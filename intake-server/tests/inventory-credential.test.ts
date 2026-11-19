@@ -13,11 +13,12 @@ import {
   rm,
   stat,
   symlink,
+  utimes,
   writeFile,
 } from 'node:fs/promises'
 import { createServer as httpServer } from 'node:http'
 import { createRequire } from 'node:module'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { MAX_INVENTORY_TOKEN_LENGTH } from '@invimport/contracts'
@@ -391,6 +392,55 @@ test('starters recovering the same stale lock at once leave exactly one owner', 
   }
   assert.equal((await readFile(join(lock, 'pid'), 'utf8')).trim(), String(process.pid))
   await (owners[0] as PromiseFulfilledResult<() => Promise<void>>).value()
+})
+
+test(
+  'an ancestor with a deny-only access list is fine; one that grants access is refused',
+  { skip: process.platform !== 'darwin' && 'only macOS hides access lists from the mode bits' },
+  async () => {
+    // Home folders carry `group:everyone deny delete`; the launcher's default lives under one.
+    await requireStableAncestors(
+      await resolveSecretsDir(join(homedir(), `.intake-secrets-test-${process.pid}`, 'secrets')),
+    )
+    const parent = await mkdtemp(join(tmpdir(), 'intake-ancestors-'))
+    const denying = join(parent, 'denying')
+    const granting = join(parent, 'granting')
+    await mkdir(denying)
+    await mkdir(granting)
+    try {
+      execFileSync('/bin/chmod', ['+a', 'everyone deny delete', denying])
+      execFileSync('/bin/chmod', ['+a', 'everyone allow add_file,delete_child', granting])
+
+      await requireStableAncestors(await resolveSecretsDir(join(denying, 'secrets')))
+      await assert.rejects(
+        requireStableAncestors(await resolveSecretsDir(join(granting, 'secrets'))),
+        { code: 'secret_file_permissions' },
+      )
+    } finally {
+      // Cleared first: the deny entry would refuse the removal.
+      execFileSync('/bin/chmod', ['-N', denying, granting])
+      await rm(parent, { recursive: true, force: true })
+    }
+  },
+)
+
+test('a recovery left mid-way is never expired: claims stay refused until it is removed', async (t) => {
+  const directory = await secretsDir(t)
+  await mkdir(directory, { mode: 0o700 })
+  const lock = join(directory, '.inventory-read-token.lock')
+  await mkdir(lock, { mode: 0o700 })
+  await writeFile(join(lock, 'pid'), '999999999', { mode: 0o600 })
+  const recovery = join(directory, '.inventory-read-token.lock.recovery')
+  await mkdir(recovery, { mode: 0o700 })
+  const longAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+  await utimes(recovery, longAgo, longAgo)
+
+  await assert.rejects(claimStore(directory), { code: 'secret_store_in_use' })
+  await assert.rejects(claimStore(directory), { code: 'secret_store_in_use' })
+
+  await rm(recovery, { recursive: true })
+  const owner = await claimStore(directory)
+  await owner()
 })
 
 test('overlapping claims leave exactly one owner', async (t) => {

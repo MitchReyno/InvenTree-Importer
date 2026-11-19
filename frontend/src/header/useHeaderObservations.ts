@@ -4,22 +4,11 @@ import type { ConnectionStatusDto, InventoryCredentialDto } from '@invimport/con
 import { serverQueryKey } from '#/queries/scope'
 import { useNow } from '#/browser/useNow'
 import { useOnForeground } from '#/browser/useOnForeground'
-import { assertHeaderScope, HEADER_POLL_MS } from './observations'
+import { assertHeaderScope, HEADER_POLL_MS, unobserved } from './observations'
 import type { HeaderClient } from './types'
 // Leaf modules, not the barrel: the barrel's HeaderObservationsContext imports this hook.
 import { useRetainedPollInterval } from '#/context/LiveUpdatesContext'
 import { useServerScope } from '#/context/ServerScopeContext'
-
-/** The target as it stands before any probe with the new token has answered. */
-function unobserved(target: ConnectionStatusDto['target']): ConnectionStatusDto['target'] {
-  return {
-    ...target,
-    state: 'unknown',
-    freshness: 'unobserved',
-    observed_at: null,
-    failure_code: null,
-  }
-}
 
 /** The token source a read reported, when it reported one. */
 function readCredential(target: ConnectionStatusDto['target'] | undefined) {

@@ -1,6 +1,6 @@
 import type { ConnectionStatusDto } from '@invimport/contracts'
 import { describe, expect, it } from 'vitest'
-import { targetStatus, targetSummary } from './observations'
+import { targetStatus, targetSummary, unobserved } from './observations'
 
 type Target = NonNullable<ConnectionStatusDto['target']>
 
@@ -91,5 +91,26 @@ describe('owned test target', () => {
     expect(targetStatus(target({ kind: 'configured' } as Partial<Target>), false, now).tone).toBe(
       'ok',
     )
+  })
+})
+
+it('a target before any probe with a new token keeps nothing the old probe found', () => {
+  const target = unobserved({
+    state: 'unavailable',
+    freshness: 'fresh',
+    observed_at: '2026-11-20T00:00:00.000Z',
+    failure_code: 'unauthorized',
+    navigation_url: 'https://inventory.example.test/',
+    label: 'Bench target',
+    version: '1.1.0',
+  })
+
+  expect(target).toMatchObject({
+    state: 'unknown',
+    freshness: 'unobserved',
+    observed_at: null,
+    failure_code: null,
+    version: null,
+    label: 'Bench target',
   })
 })

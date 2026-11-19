@@ -189,3 +189,16 @@ export function workflowSummary(
   }
   return 'Idle'
 }
+
+/** The target as it stands before any probe with the new token has answered. */
+export function unobserved(target: ConnectionStatusDto['target']): ConnectionStatusDto['target'] {
+  return {
+    ...target,
+    state: 'unknown',
+    freshness: 'unobserved',
+    observed_at: null,
+    failure_code: null,
+    // The old token's read of the version describes nothing yet.
+    version: null,
+  }
+}

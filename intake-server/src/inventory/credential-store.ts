@@ -87,8 +87,13 @@ async function requirePrivateDirectory(directory: string): Promise<boolean> {
  * POSIX ACL widens the group bits, which `privateTo` already refuses.
  */
 async function hasAccessList(path: string) {
+  return (await accessListEntries(path)).length > 0
+}
+
+/** The access list entries macOS reports for a path; none elsewhere. */
+async function accessListEntries(path: string) {
   if (process.platform !== 'darwin') {
-    return false
+    return []
   }
   let listing
   try {
@@ -97,7 +102,15 @@ async function hasAccessList(path: string) {
     throw new SecretStoreError('secret_store_unavailable', { cause: error })
   }
   // The first line is the entry itself; each line after it is an access list entry.
-  return listing.stdout.trim().split('\n').length > 1
+  return listing.stdout.trim().split('\n').slice(1)
+}
+
+/**
+ * Whether an access list grants anything. Deny-only entries, such as the `deny delete` macOS
+ * puts on home folders, take access away and are fine on an ancestor.
+ */
+async function accessListGrants(path: string) {
+  return (await accessListEntries(path)).some((entry) => /\ballow\b/.test(entry))
 }
 
 /** Resolves links in the part of the path that exists, keeping the rest as written. */
@@ -134,13 +147,23 @@ export async function requireStableAncestors(directory: string | undefined) {
   const owner = process.getuid?.()
   let ancestor = dirname(directory)
   for (;;) {
-    const info = await lstat(ancestor)
+    // Ancestors that don't exist yet are created later by this process, owner-only.
+    const info = await lstat(ancestor).catch((error: unknown) => {
+      if (errorCode(error) === 'ENOENT') {
+        return undefined
+      }
+      throw error
+    })
+    const parent = dirname(ancestor)
+    if (!info) {
+      ancestor = parent
+      continue
+    }
     const ownedSafely = owner === undefined || info.uid === 0 || info.uid === owner
     const othersWrite = (info.mode & SHARED_WRITE) !== 0 && (info.mode & STICKY) === 0
-    if (!ownedSafely || othersWrite || (await hasAccessList(ancestor))) {
+    if (!ownedSafely || othersWrite || (await accessListGrants(ancestor))) {
       throw new SecretStoreError('secret_file_permissions')
     }
-    const parent = dirname(ancestor)
     if (parent === ancestor) {
       return
     }
@@ -191,9 +214,6 @@ async function placeLock(directory: string, lock: string) {
   }
 }
 
-/** A recovery lock older than this was left by a starter that died mid-recovery, in ms. */
-const RECOVERY_STALE_MS = 10_000
-
 /**
  * Removes a lock whose owner has exited, one starter at a time. The recovery lock is taken with
  * an exclusive mkdir; its holder removes the lock only if it still names the dead owner it saw,
@@ -208,10 +228,7 @@ async function recoverStale(directory: string, lock: string, deadOwner: number |
     if (errorCode(error) !== 'EEXIST') {
       throw error
     }
-    const age = Date.now() - (await lstat(recovery)).mtimeMs
-    if (age > RECOVERY_STALE_MS) {
-      await rm(recovery, { recursive: true, force: true })
-    }
+    // Never expired: a recovery left by a crash stays until it is removed with no server running.
     throw new SecretStoreError('secret_store_in_use')
   }
   try {
