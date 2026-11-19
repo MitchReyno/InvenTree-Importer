@@ -10,7 +10,7 @@ import { Small } from '#/components/ui'
 import { Input, Select } from '#/forms'
 import { color, space, typeVar } from '#/theme/generated/tokens'
 import {
-  MODEL_ID,
+  validModel,
   PROVIDER_LABEL,
   PROVIDERS,
   STAGE_LABEL,
@@ -76,9 +76,11 @@ export function StepChoices({
                   readOnly={busy}
                   autoComplete="off"
                   aria-invalid={invalid ? true : undefined}
+                  aria-describedby={invalid ? `step-${stage}-error` : undefined}
                   {...register(`stages.${stage}.model`, {
                     validate: (value, current) =>
-                      !current.stages[stage].provider || MODEL_ID.test(value),
+                      !current.stages[stage].provider || validModel(value, true),
+                    onChange: onEdit,
                   })}
                 />
                 <datalist id={listId}>
@@ -88,7 +90,11 @@ export function StepChoices({
                 </datalist>
               </>
             )}
-            {invalid && <Invalid role="alert">Choose a valid model ID.</Invalid>}
+            {invalid && (
+              <Invalid id={`step-${stage}-error`} role="alert">
+                Choose a valid model ID.
+              </Invalid>
+            )}
             {reset.includes(stage) && !choice.provider && (
               <Small role="status">Its provider was turned off, so it now uses Default.</Small>
             )}

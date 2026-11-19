@@ -32,7 +32,7 @@ PR-A (debug mode and the Dev mode popover) merged in #225, PR-B (the Settings st
 
 ## Decisions made during implementation
 
-- **2026-11-19, task 9 (PR-D):** Every agent subsection's form goes through `useSubsectionForm`: it follows a newer load while untouched, keeps an edit through another subsection's save, and sends the loaded value for every field it doesn't own. `useDirtyForms` holds the one navigation guard while any form is edited.
+- **2026-11-19, task 9 (PR-D):** Every agent subsection's form goes through `useSubsectionForm`: it follows a newer load while untouched, keeps an edit through another subsection's save, and sends the loaded value for every field it doesn't own. An edit remembers the settings it started from, and a change to its own fields from elsewhere is a conflict found before sending, since the revision is shared across subsections. `useDirtyForms` holds the one navigation guard while any form is edited.
 
 - **2026-11-19, task 6 (PR-C):** The model suggestion lists moved to contracts (`AGENT_MODEL_SUGGESTIONS`), because the server needs each provider's first suggestion for unsaved settings and the migration backfill.
 - **2026-11-19, task 6 (PR-C):** An over-long description style or instruction text is refused by the contract (400) before the settings checks run. `invalid_agent_settings` (422) covers the provider and step rules, any model over 128 characters, and text PostgreSQL can't store unchanged (NUL or an unpaired surrogate).

@@ -4,7 +4,15 @@ import type { AgentSettingsDto, AgentSettingsUpdateDto } from '@invimport/contra
 import { useMountedRef } from '#/lifecycle/useMountedRef'
 
 export type SaveState =
-  'idle' | 'saving' | 'saved' | 'conflict' | 'invalid' | 'failed' | 'reloading'
+  | 'idle'
+  | 'saving'
+  | 'saved'
+  | 'conflict'
+  | 'invalid'
+  | 'failed'
+  | 'reloading'
+  /** A Reload after a conflict that didn't answer; the conflict and the edit stay. */
+  | 'reloadFailed'
 
 type Fields = Partial<Omit<AgentSettingsUpdateDto, 'expected_revision'>>
 
@@ -55,6 +63,7 @@ export function useSettingsSave({
   }
 
   async function reload() {
+    const after = state
     setState('reloading')
     try {
       const current = await client.settings()
@@ -65,11 +74,18 @@ export function useSettingsSave({
       return current
     } catch {
       if (mounted.current) {
-        setState('failed')
+        setState(after === 'conflict' || after === 'reloadFailed' ? 'reloadFailed' : 'failed')
       }
       return undefined
     }
   }
 
-  return { state, save, reload, busy: state === 'saving' || state === 'reloading' }
+  return {
+    state,
+    save,
+    reload,
+    /** A conflict found before sending: these fields changed elsewhere since the edit began. */
+    refuse: () => setState('conflict'),
+    busy: state === 'saving' || state === 'reloading',
+  }
 }

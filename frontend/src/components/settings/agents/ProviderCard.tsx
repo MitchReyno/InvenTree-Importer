@@ -6,7 +6,7 @@ import { SegmentedControl, Small } from '#/components/ui'
 import { CheckboxLabel, Input } from '#/forms'
 import { color, radius, space, typeVar } from '#/theme/generated/tokens'
 import type { ProviderStatus } from '#/components/agents/provider-status'
-import { MODEL_ID, PROVIDER_LABEL, type ProviderFormValues } from './provider-form'
+import { PROVIDER_LABEL, validModel, type ProviderFormValues } from './provider-form'
 import { SignInHelp } from './SignInHelp'
 
 const AUTHENTICATION = [
@@ -38,6 +38,7 @@ export function ProviderCard({
   const modelError = formState.errors.providers?.[provider]?.default_model
   const listId = `${provider}-models`
   const statusId = `${provider}-card-status`
+  const errorId = `${provider}-model-error`
 
   return (
     <Card role="group" aria-label={label} aria-describedby={statusId}>
@@ -73,10 +74,11 @@ export function ProviderCard({
         Default model
         <Model
           {...register(`providers.${provider}.default_model`, {
-            validate: (value, values) =>
-              !values.providers[provider].enabled || MODEL_ID.test(value),
+            validate: (value, values) => validModel(value, values.providers[provider].enabled),
+            onChange: onEdit,
           })}
           aria-invalid={modelError ? true : undefined}
+          aria-describedby={modelError ? errorId : undefined}
           list={listId}
           readOnly={busy}
           autoComplete="off"
@@ -88,7 +90,11 @@ export function ProviderCard({
           <option key={model} value={model} />
         ))}
       </datalist>
-      {modelError && <Invalid role="alert">Choose a valid model ID for {label}.</Invalid>}
+      {modelError && (
+        <Invalid id={errorId} role="alert">
+          Choose a valid model ID for {label}.
+        </Invalid>
+      )}
       {credential}
     </Card>
   )

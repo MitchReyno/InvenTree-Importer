@@ -56,6 +56,7 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
     refetchInterval: poll === false ? 10000 : poll,
   })
   const loaded = settings.isFetchedAfterMount && settings.data
+  const ready = Boolean(loaded)
   const focused = useRef<AgentSubsectionId | undefined>(undefined)
   const reportDirty = useDirtyForms(onDirtyChange)
 
@@ -67,14 +68,17 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
       focused.current = undefined
       return
     }
-    if (focused.current === subsection) {
+    // Loading the settings replaces the first subsections' headings; focus follows the new one
+    // only when it was lost with the old, never taking it from where the operator moved it.
+    const lost = document.activeElement === document.body
+    if (focused.current === subsection && !lost) {
       return
     }
     const heading = document.getElementById(subsectionHeadingId(subsection))
     heading?.scrollIntoView?.({ block: 'start' })
     heading?.focus()
     focused.current = subsection
-  }, [subsection])
+  }, [subsection, ready])
 
   /** A read already running is older than the confirmed settings, so it must not replace them. */
   async function adoptLoaded(confirmed: AgentSettingsDto) {

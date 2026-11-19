@@ -4,6 +4,7 @@ import { TextArea } from '#/forms'
 import { SaveBar } from './SaveBar'
 import { Stack } from './Stack'
 import { useSubsectionForm, type SubsectionFormProps } from './useSubsectionForm'
+import { storable } from './provider-form'
 
 const MAX_STYLE = 500
 
@@ -25,7 +26,7 @@ export function DescriptionStyleRow(props: SubsectionFormProps) {
   return (
     <SettingRow
       label="Part description style"
-      help="A pattern agents follow, written in plain words. Applies to sessions that start after you save."
+      help="A pattern agents follow, written in plain words. Applies to sessions queued after you save."
     >
       {({ named }) => (
         <Stack>
@@ -35,7 +36,7 @@ export function DescriptionStyleRow(props: SubsectionFormProps) {
             readOnly={busy}
             aria-invalid={tooLong ? true : undefined}
             {...form.register('style', {
-              validate: (value) => [...value].length <= MAX_STYLE,
+              validate: (value) => [...value].length <= MAX_STYLE && storable(value),
               onChange: markDirty,
             })}
           />

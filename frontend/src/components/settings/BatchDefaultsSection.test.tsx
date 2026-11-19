@@ -137,3 +137,22 @@ test('a record that is no longer in InvenTree is refused with a way forward', as
   // The pick is kept for another try.
   expect(screen.getAllByText(/Drawer 5/).length).toBeGreaterThan(0)
 })
+
+test('while a save is pending a default cannot be cleared, and a second Save sends nothing', async () => {
+  const user = userEvent.setup()
+  const api = clients()
+
+  let finish: (value: BatchDefaultsDto) => void = () => undefined
+
+  api.batchDefaults.save.mockImplementation(
+    () => new Promise<BatchDefaultsDto>((resolve) => (finish = resolve)),
+  )
+  await renderDefaults(api)
+  await user.click(screen.getByRole('button', { name: 'No supplier' }))
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  expect(screen.getByRole('button', { name: 'No default location' })).toBeDisabled()
+  await user.click(screen.getByRole('button', { name: 'Saving…' }))
+  expect(api.batchDefaults.save).toHaveBeenCalledTimes(1)
+  finish({ ...saved, revision: '4', supplier: null })
+  expect(await screen.findByText(/Batches created from now on/)).toBeVisible()
+})

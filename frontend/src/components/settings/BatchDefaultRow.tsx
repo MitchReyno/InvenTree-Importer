@@ -64,7 +64,13 @@ export function BatchDefaultRow({
           }
         />
         {value && (
-          <Button type="button" variant="ghost" size="sm" onClick={() => onChoose(field, null)}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={busy}
+            onClick={() => onChoose(field, null)}
+          >
             {clearLabel}
           </Button>
         )}

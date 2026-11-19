@@ -7,9 +7,11 @@ const CONFLICT =
   'These settings changed in another tab, so this save was refused. Your edit is kept here; Reload to see the saved settings.'
 
 const MESSAGE: Partial<Record<SaveState, string>> = {
-  saved: 'Saved. Sessions that start from now on use it; running ones keep theirs.',
+  saved: 'Saved. Sessions queued from now on use it; queued and running ones keep theirs.',
   invalid: 'The server refused these settings. Check the fields above and save again.',
-  failed: 'Not saved: the server didn’t answer. Your edit is kept here; try again.',
+  failed:
+    'The save wasn’t confirmed: the server didn’t answer. Your edit is kept here; Reload shows what was saved.',
+  reloadFailed: 'The saved settings couldn’t be loaded. Your edit is kept here; try Reload again.',
 }
 
 /** One subsection's Save, with what its last save or reload did. */
@@ -37,7 +39,7 @@ export function SaveBar({
       <Button type="button" variant="primary" aria-disabled={busy || undefined} onClick={onSave}>
         {state === 'saving' ? 'Saving…' : label}
       </Button>
-      {state === 'conflict' && (
+      {(state === 'conflict' || state === 'reloadFailed') && (
         <div role="alert">
           <Banner
             tone="warn"

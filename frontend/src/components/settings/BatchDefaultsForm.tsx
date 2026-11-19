@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import type { BatchDefaultRecordDto, BatchDefaultsDto } from '@invimport/contracts'
 import { SettingRow, Small } from '#/components/ui'
@@ -40,16 +40,23 @@ export function BatchDefaultsForm({
 }) {
   const mounted = useMountedRef()
   const [draft, setDraft] = useState<Draft>(() => draftOf(loaded))
+  // The revision the current choice started from, while there is one.
+  const base = useRef<string | undefined>(undefined)
   const [state, setState] = useState<SaveState | 'missing' | 'unchecked'>('idle')
   const busy = state === 'saving' || state === 'reloading'
 
   function choose(field: keyof Draft, record: BatchDefaultRecordDto | null) {
+    if (busy) {
+      return
+    }
+    base.current ??= loaded.revision
     setDraft((current) => ({ ...current, [field]: record }))
     setState('idle')
     onDirtyChange(true)
   }
 
   function adopt(saved: BatchDefaultsDto) {
+    base.current = undefined
     onLoaded(saved)
     setDraft(draftOf(saved))
     onDirtyChange(false)
@@ -62,7 +69,8 @@ export function BatchDefaultsForm({
     setState('saving')
     try {
       const saved = await client.save({
-        expected_revision: loaded.revision,
+        // The revision this choice was made over, so a newer save elsewhere is a conflict.
+        expected_revision: base.current ?? loaded.revision,
         location_pk: draft.location?.pk ?? null,
         supplier_pk: draft.supplier?.pk ?? null,
       })

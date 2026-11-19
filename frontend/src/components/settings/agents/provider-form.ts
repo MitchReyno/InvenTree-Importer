@@ -17,6 +17,16 @@ export const STAGE_LABEL: Record<AgentSettingsStage, string> = {
 /** The model ID pattern the server checks, so the form says so before sending. */
 export const MODEL_ID = /^[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,127}$/
 
+/** Text the server stores unchanged: no NUL, and no unpaired surrogate. */
+export function storable(value: string) {
+  return !value.includes('\u0000') && !/\p{Cs}/u.test(value)
+}
+
+/** A model the server accepts: any provider's within 128 characters, an enabled one's an ID. */
+export function validModel(value: string, enabled: boolean) {
+  return value.length <= 128 && storable(value) && (!enabled || MODEL_ID.test(value))
+}
+
 /** A step's choice in the form: '' is Default. */
 export type StepChoice = { provider: AgentProviderId | ''; model: string }
 

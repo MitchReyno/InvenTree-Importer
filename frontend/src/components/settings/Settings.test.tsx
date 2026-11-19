@@ -1,9 +1,9 @@
-import { screen, within } from '@testing-library/react'
+import { act, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useQueryClient } from '@tanstack/react-query'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { useState, type ReactNode } from 'react'
-import type { ConnectionStatusDto } from '@invimport/contracts'
+import type { AgentSettingsDto, ConnectionStatusDto } from '@invimport/contracts'
 import type { agentsClient } from '@invimport/contracts/client'
 import { fixtureScope, render } from '#/test/render'
 import { agentSettings } from '#/test/agent-settings'
@@ -406,6 +406,21 @@ test('the old Descriptions and naming link opens that Agents subsection', () => 
   // Agents already write Part descriptions, so only that switch shows on.
   expect(within(fill).getByRole('switch', { name: 'Parts · up to 250' })).toBeChecked()
   expect(within(fill).getByRole('switch', { name: 'Companies · up to 500' })).not.toBeChecked()
+})
+
+test('a direct link to Providers focuses its heading once the settings have loaded', async () => {
+  const client = agents()
+
+  let answer: (value: AgentSettingsDto) => void = () => undefined
+
+  vi.mocked(client.settings).mockImplementation(
+    () => new Promise<AgentSettingsDto>((resolve) => (answer = resolve)),
+  )
+  renderSettings('agents', { subsection: 'providers', client })
+  expect(screen.getByRole('heading', { level: 3, name: 'Providers' })).toHaveFocus()
+  await act(async () => answer(agentSettings('7', null)))
+  await screen.findByRole('group', { name: 'Claude' })
+  expect(screen.getByRole('heading', { level: 3, name: 'Providers' })).toHaveFocus()
 })
 
 test('going back to Agents and then to the same subsection focuses its heading again', () => {

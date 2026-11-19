@@ -5,6 +5,7 @@ import { SettingsCard } from '#/components/settings/SettingsCard'
 import { SaveBar } from './SaveBar'
 import { Stack } from './Stack'
 import { useSubsectionForm, type SubsectionFormProps } from './useSubsectionForm'
+import { storable } from './provider-form'
 
 /** The batch instruction limit, so a copied instruction always fits. */
 const MAX_INSTRUCTIONS = 8192
@@ -36,10 +37,17 @@ export function InstructionsForm(props: SubsectionFormProps) {
               {...named}
               readOnly={busy}
               aria-invalid={tooLong ? true : undefined}
-              {...form.register('text', { maxLength: MAX_INSTRUCTIONS, onChange: markDirty })}
+              aria-describedby={tooLong ? 'instructions-error' : undefined}
+              {...form.register('text', {
+                // Counted in characters, as the server counts them.
+                validate: (value) => [...value].length <= MAX_INSTRUCTIONS && storable(value),
+                onChange: markDirty,
+              })}
             />
             {tooLong && (
-              <Small role="alert">Up to {MAX_INSTRUCTIONS.toLocaleString()} characters.</Small>
+              <Small id="instructions-error" role="alert">
+                Up to {MAX_INSTRUCTIONS.toLocaleString()} characters of plain text.
+              </Small>
             )}
             <SaveBar state={state} busy={busy} onSave={save} onReload={reload} />
           </Stack>

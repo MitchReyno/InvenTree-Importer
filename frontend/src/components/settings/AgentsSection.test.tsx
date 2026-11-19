@@ -421,6 +421,57 @@ test('a description style over 500 characters shows the limit and sends nothing'
   expect(style).toHaveValue('x'.repeat(501))
 })
 
+test('typing a model holds the navigation guard', async () => {
+  const dirty = vi.fn()
+  await renderAgents(client(), dirty)
+  fireEvent.change(
+    within(screen.getByRole('group', { name: 'Claude' })).getByRole('combobox', {
+      name: 'Default model',
+    }),
+    { target: { value: 'opus' } },
+  )
+  expect(dirty).toHaveBeenLastCalledWith(true)
+})
+
+test('pressing both Providers Saves at once sends one save', async () => {
+  const api = await renderAgents()
+  fireEvent.click(within(card('Default provider')).getByRole('button', { name: 'Save' }))
+  fireEvent.click(within(card('Provider and model per step')).getByRole('button', { name: 'Save' }))
+  await waitFor(() => expect(api.saveSettings).toHaveBeenCalledTimes(1))
+  await new Promise((done) => setTimeout(done, 20))
+  expect(api.saveSettings).toHaveBeenCalledTimes(1)
+})
+
+test('an edit made over instructions changed elsewhere is a conflict and sends nothing', async () => {
+  const api = client()
+  api.settings
+    .mockResolvedValueOnce(initial)
+    .mockResolvedValueOnce({ ...initial, revision: '9', new_batch_instructions: 'Theirs' })
+  await renderAgents(api)
+  const instructions = screen.getByRole('textbox', { name: 'Instructions for every new batch' })
+  fireEvent.change(instructions, { target: { value: 'Mine' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Read settings again' }))
+  await waitFor(() => expect(api.settings).toHaveBeenCalledTimes(2))
+  fireEvent.click(within(card('Instructions')).getByRole('button', { name: 'Save' }))
+  expect(await screen.findByText(/changed in another tab/)).toBeVisible()
+  expect(api.saveSettings).not.toHaveBeenCalled()
+  expect(instructions).toHaveValue('Mine')
+})
+
+test('a Reload that fails keeps the conflict, the edit and the Reload action', async () => {
+  const api = client()
+  api.saveSettings.mockRejectedValue(new IntakeRequestError(409, 'revision_conflict'))
+  api.settings.mockResolvedValueOnce(initial).mockRejectedValueOnce(new Error('offline'))
+  await renderAgents(api)
+  const instructions = screen.getByRole('textbox', { name: 'Instructions for every new batch' })
+  fireEvent.change(instructions, { target: { value: 'Mine' } })
+  fireEvent.click(within(card('Instructions')).getByRole('button', { name: 'Save' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Reload' }))
+  expect(await screen.findByText(/couldn’t be loaded/)).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Reload' })).toBeVisible()
+  expect(instructions).toHaveValue('Mine')
+})
+
 test('Suggest tags for new batches saves on its own', async () => {
   const api = await renderAgents()
   fireEvent.click(screen.getByRole('checkbox', { name: 'Suggest tags for new batches' }))
