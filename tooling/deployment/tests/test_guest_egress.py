@@ -1616,6 +1616,12 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         client.transport.abort.assert_not_called()
         self.assertEqual(egress.public_tunnels, 0)
 
+    async def test_ipv4_mapped_protected_answer_blocks_its_ipv4_address(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        table = {"inventory.example.com": ["::ffff:" + PUBLIC], "www.ti.com": [PUBLIC]}
+        written, upstream = await self.connect("www.ti.com:443", table)
+        self.assert_refused(written, upstream, "protected_destination")
+
 
 if __name__ == "__main__":
     unittest.main()

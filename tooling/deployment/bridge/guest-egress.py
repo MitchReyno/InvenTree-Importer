@@ -164,9 +164,11 @@ class ProtectedLookups:
             addresses = None
             result = None
         else:
-            # Classified as answered, as the destination check does; normalized only for
-            # matching. Only public answers are blocked: a private one is refused by address.
-            addresses = {normalized(answer) for answer in answers if public(answer)}
+            # Blocked by the address each answer reaches, so an IPv4-mapped form blocks its
+            # IPv4 address; a private address is already refused by address. The reason for a
+            # request to this name classifies the answers as given, as the destination check does.
+            addresses = {address for address in map(normalized, answers)
+                         if public(str(address))}
             result = (addresses, not answers or not all(public(answer) for answer in answers))
         self.publish(name, addresses)
         with self.lock:
@@ -603,13 +605,15 @@ async def close_tunnel(writers, revoked, drop):
         writer.close()
     closes = {writer: asyncio.ensure_future(writer.wait_closed()) for writer in graceful}
     aborted = asyncio.ensure_future(revoked.wait()) if revoked is not None else None
+    # Writers no longer awaited; their tasks stay in `closes` so each result is collected.
+    finished = set()
     try:
         while True:
             if aborted is not None and aborted.done():
                 # The revocation's abort has run: the tunnel's own streams are finished.
-                for writer in [writer for writer in closes if in_tunnel(writer)]:
-                    closes.pop(writer).cancel()
-            outstanding = [close for close in closes.values() if not close.done()]
+                finished |= {writer for writer in closes if in_tunnel(writer)}
+            outstanding = [close for writer, close in closes.items()
+                           if writer not in finished and not close.done()]
             awaiting_abort = revoking() and not aborted.done()
             remaining = deadline - time.monotonic()
             if not outstanding and not awaiting_abort:
@@ -619,7 +623,8 @@ async def close_tunnel(writers, revoked, drop):
             waits = outstanding + ([aborted] if aborted is not None and not aborted.done() else [])
             await asyncio.wait(waits, timeout=remaining, return_when=asyncio.FIRST_COMPLETED)
         # The deadline passed: abort every stream still open, each once.
-        stuck = {writer for writer, close in closes.items() if not close.done()}
+        stuck = {writer for writer, close in closes.items()
+                 if writer not in finished and not close.done()}
         if revoking() and not aborted.done():
             stuck |= {writer for writer in writers if in_tunnel(writer)}
         for writer in writers:
