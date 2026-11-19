@@ -4,6 +4,7 @@ import '@fontsource/ibm-plex-mono/500.css'
 import '#/theme/generated/tokens.css'
 import { createGlobalStyle } from 'styled-components'
 import { color, font, radius, ring, typeVar } from '#/theme/generated/tokens'
+import { dottedGround, onWholeWindow } from '#/components/ui'
 
 /** Application reset and document defaults; component appearance stays locally scoped. */
 export const GlobalStyle = createGlobalStyle`
@@ -15,6 +16,11 @@ export const GlobalStyle = createGlobalStyle`
     background: ${color.bg};
     font-synthesis: none;
     text-rendering: optimizeLegibility;
+  }
+  /* Behind the whole window, the page itself is the masthead's dotted ground. */
+  ${onWholeWindow} {
+    ${dottedGround}
+    background-attachment: fixed;
   }
   * { box-sizing: border-box; }
   body { margin: 0; }

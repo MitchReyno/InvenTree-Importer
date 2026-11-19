@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import { batchHref } from '#/navigation/batch-route'
 import type { ProcessingSource, StepProgress, WorkStep } from '#/processing/source'
 import { color, icon, radius, space, type, typeVar } from '#/theme/generated/tokens'
-import { Spinner, linkTouchArea } from '#/components/ui'
+import { Spinner, linkTouchArea, onField, groundBehindOnField } from '#/components/ui'
 import { Card, CardTitle, Muted, QuestionRows, SessionRows, stepOutcome } from './ProcessingParts'
 
 type Props = {
@@ -30,10 +30,10 @@ export function StepPage({ batchId, step, source, onOpenSession, children }: Pro
       <Head>
         {progress && <StateDisc progress={progress} />}
         <Title>{label}</Title>
-        {progress && progress.jobs > 0 && <Muted>{stepOutcome(progress)}</Muted>}
-        <a href={batchHref(batchId, { tab: 'capture' })}>Evidence in Capture</a>
+        {progress && progress.jobs > 0 && <FieldNote>{stepOutcome(progress)}</FieldNote>}
+        <CaptureLink href={batchHref(batchId, { tab: 'capture' })}>Evidence in Capture</CaptureLink>
       </Head>
-      {progress?.jobs === 0 && <Muted>No retained work on {label} yet.</Muted>}
+      {progress?.jobs === 0 && <FieldNote>No retained work on {label} yet.</FieldNote>}
       {questions.length > 0 && (
         <Card aria-label="Questions">
           <CardTitle>Questions</CardTitle>
@@ -124,10 +124,21 @@ const Head = styled.div`
 const Title = styled.h2`
   margin: 0;
   ${type.h2}
+  ${onField}
 `
 
 const Outputs = styled.section`
   display: grid;
   gap: ${space[4]};
   min-width: 0;
+`
+
+/** Text placed directly on the page, which takes a ground patch behind the whole window. */
+const FieldNote = styled(Muted)`
+  ${onField}
+`
+
+// A backing without the patch's margin, so the link keeps its place at the end of the row.
+const CaptureLink = styled.a`
+  ${groundBehindOnField}
 `

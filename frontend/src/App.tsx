@@ -33,6 +33,7 @@ import { appPage, routeBatchId, settingsSection } from './navigation/app-route'
 import { Diagnostics } from './components/operations/Diagnostics'
 import { HeaderStatus } from './components/masthead/HeaderStatus'
 import { AppMasthead } from './components/masthead/AppMasthead'
+import { MastheadBackdrop } from './components/masthead/MastheadBackdrop'
 import { useNavigationGuard } from './navigation/useNavigationGuard'
 import {
   ApiClientsProvider,
@@ -211,6 +212,7 @@ export default function App() {
   return (
     <>
       <GlobalStyle />
+      <MastheadBackdrop width={width} />
       <ServerStateProvider key={scope ? serverScopeIdentity(scope) : 'setup'} scope={scope}>
         <ConfirmationProvider>
           <ApiClientsProvider value={apiClients}>

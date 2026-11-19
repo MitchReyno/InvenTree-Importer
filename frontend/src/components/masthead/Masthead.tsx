@@ -1,7 +1,16 @@
 import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import styled from 'styled-components'
 import { color, space, type, typeVar } from '#/theme/generated/tokens'
-import { Breadcrumb, type BreadcrumbItem, media, linkTouchArea } from '#/components/ui'
+import {
+  Breadcrumb,
+  type BreadcrumbItem,
+  dottedGround,
+  linkTouchArea,
+  media,
+  onFadingDown,
+  onWholeWindow,
+} from '#/components/ui'
+import { useMastheadStyle } from '#/theme/masthead-style'
 import { DevBadge } from './DevBadge'
 import { ElectronicsCurrent } from './ElectronicsCurrent'
 
@@ -11,8 +20,9 @@ type MastheadProps = {
   status?: ReactNode
 }
 
-/** One bar over the electronics current: wordmark, Dev badge, breadcrumb, then the status group. */
+/** One bar with the electronics current: wordmark, Dev badge, breadcrumb, then the status group. */
 export function Masthead({ breadcrumb, status }: MastheadProps) {
+  const { style } = useMastheadStyle()
   const header = useRef<HTMLElement>(null)
   const lead = useRef<HTMLDivElement>(null)
   const end = useRef<HTMLDivElement>(null)
@@ -32,7 +42,7 @@ export function Masthead({ breadcrumb, status }: MastheadProps) {
 
   return (
     <Header ref={header}>
-      <ElectronicsCurrent />
+      {style === 'bar' && <ElectronicsCurrent />}
       <Row>
         <Lead ref={lead}>
           <Wordmark href="#" aria-label="Bench Intake, Batches">
@@ -62,7 +72,8 @@ type MastheadElements = { header: HTMLElement; lead: HTMLElement; end: HTMLEleme
 
 /**
  * Tells the current's mask where the text sits, so parts only show in the gap between.
- * The fades shrink to fit a narrow gap, and close entirely when there is none.
+ * The fades shrink to fit a narrow gap, and close entirely when there is none. The stops and
+ * the bar's height go on the document root, where Fading down's page-level mask reads them too.
  */
 function fitCurrentToText({ header, lead, end }: MastheadElements) {
   const bar = header.getBoundingClientRect()
@@ -71,23 +82,37 @@ function fitCurrentToText({ header, lead, end }: MastheadElements) {
   const gap = Math.max(0, clearEnd - clearStart)
   const share = Math.min(1, gap / (FADE_IN_PX + FADE_OUT_PX))
   const stops = {
+    '--masthead-height': bar.height,
     '--current-clear-start': clearStart,
     '--current-opaque-start': clearStart + FADE_IN_PX * share,
     '--current-opaque-end': clearEnd - FADE_OUT_PX * share,
     '--current-clear-end': gap > 0 ? clearEnd : clearStart,
   }
   for (const [name, value] of Object.entries(stops)) {
-    header.style.setProperty(name, `${Math.round(value)}px`)
+    document.documentElement.style.setProperty(name, `${Math.round(value)}px`)
   }
 }
 
 const Header = styled.header`
   position: relative;
   overflow: hidden;
-  background-color: ${color.mastheadGround};
-  background-image: radial-gradient(circle, ${color.mastheadDot} 1px, transparent 1.4px);
-  background-size: 16px 16px;
+  ${dottedGround}
   border-bottom: 1px solid ${color.line};
+
+  /* The field shows through a translucent, blurred bar. */
+  ${onWholeWindow} & {
+    background-image: none;
+    /* literal-allowed: the bar's translucency from the canvas; no opacity token has it */
+    background-color: color-mix(in srgb, ${color.surface} 70%, transparent);
+    /* literal-allowed: the bar's blur from the canvas; no blur token exists */
+    backdrop-filter: blur(8px);
+  }
+
+  /* The fading band draws the ground behind the bar, which keeps none of its own. */
+  ${onFadingDown} & {
+    background: none;
+    border-bottom: 0;
+  }
 `
 
 const Row = styled.div`

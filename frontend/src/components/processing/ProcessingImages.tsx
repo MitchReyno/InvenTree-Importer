@@ -6,7 +6,15 @@ import { mediaResource } from '#/media/types'
 import { mediaDisplayLabels } from '#/media/identity-labels'
 import { serverQueryKey } from '#/queries/scope'
 import { EvidenceViewer } from '#/components/operator/EvidenceViewer'
-import { Heading, Link, Panel, Paragraph, Small, Banner } from '#/components/ui'
+import {
+  Heading,
+  Link,
+  Panel,
+  Paragraph,
+  Small,
+  Banner,
+  groundBehindOnField,
+} from '#/components/ui'
 import { batchHref } from '#/navigation/batch-route'
 import { useServerScope, useRetainedPollInterval } from '#/context'
 
@@ -27,7 +35,7 @@ export function ProcessingImages({ batchId, client }: { batchId: string; client?
     return <Banner tone="plain">Retained media is not configured for this application.</Banner>
   }
   return (
-    <section aria-label="Retained image outputs">
+    <Outputs aria-label="Retained image outputs">
       <Heading>Originals and documentary crops</Heading>
       <Paragraph>
         Inspect saved outputs before choosing attachments. A prepared crop is not an approved
@@ -86,7 +94,7 @@ export function ProcessingImages({ batchId, client }: { batchId: string; client?
           </Panel>
         ))}
       </Gallery>
-    </section>
+    </Outputs>
   )
 }
 
@@ -109,4 +117,9 @@ const Versions = styled.div`
     min-height: ${size.touch};
     color: ${color.accent};
   }
+`
+
+/** These outputs sit directly on the step page, so their text takes one ground backing. */
+const Outputs = styled.section`
+  ${groundBehindOnField}
 `

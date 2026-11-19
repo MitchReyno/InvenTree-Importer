@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { createElectronicsCurrent } from '#/electronics-current/scene'
+import { mastheadStyleController } from '#/theme/masthead-style'
 import { Masthead } from './Masthead'
 
 vi.mock('#/electronics-current/scene', () => ({ createElectronicsCurrent: vi.fn() }))
@@ -98,7 +99,11 @@ test('starts the scene with the reduced-motion preference and forwards the point
   render(<Masthead />)
 
   await waitFor(() => expect(createScene).toHaveBeenCalledTimes(1))
-  expect(createScene.mock.calls[0][1]).toEqual({ reducedMotion: true, theme: 'light' })
+  expect(createScene.mock.calls[0][1]).toEqual({
+    reducedMotion: true,
+    theme: 'light',
+    layout: 'band',
+  })
 
   fireEvent.pointerMove(window, { clientX: 40, clientY: 20 })
   expect(controller.setPointer).toHaveBeenCalled()
@@ -136,10 +141,26 @@ test('starts the scene in the page theme and follows theme changes', async () =>
   const { unmount } = render(<Masthead />)
 
   await waitFor(() => expect(createScene).toHaveBeenCalledTimes(1))
-  expect(createScene.mock.calls[0][1]).toEqual({ reducedMotion: false, theme: 'dark' })
+  expect(createScene.mock.calls[0][1]).toEqual({
+    reducedMotion: false,
+    theme: 'dark',
+    layout: 'band',
+  })
 
   document.documentElement.dataset.theme = 'light'
   await waitFor(() => expect(controller.setTheme).toHaveBeenCalledWith('light'))
   unmount()
   delete document.documentElement.dataset.theme
 })
+
+test.each(['window', 'fade'] as const)(
+  'leaves the current to the page backdrop when it lives %s',
+  (style) => {
+    mastheadStyleController().choose(style)
+    render(<Masthead />)
+
+    expect(screen.queryByTestId('electronics-current')).not.toBeInTheDocument()
+    expect(screen.getByRole('banner')).toHaveTextContent('Bench Intake')
+    mastheadStyleController().choose('bar')
+  },
+)

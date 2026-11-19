@@ -8,6 +8,7 @@ import type { agentsClient } from '@invimport/contracts/client'
 import { fixtureScope, render } from '#/test/render'
 import { serverQueryKey } from '#/queries/scope'
 import { HeaderObservationsProvider } from '#/context'
+import { MASTHEAD_STORAGE_KEY, mastheadStyleController } from '#/theme/masthead-style'
 import { THEME_STORAGE_KEY, themeController } from '#/theme/theme'
 import { Settings } from './Settings'
 import type { SettingsSectionId } from '#/navigation/app-route'
@@ -224,6 +225,62 @@ test('Appearance holds the stored theme and changing it applies at once', async 
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('light')
   } finally {
     themeController().choose('system')
+  }
+})
+
+test('Appearance offers the masthead styles, applies one at once and remembers it', async () => {
+  const user = userEvent.setup()
+  mastheadStyleController().choose('bar')
+  try {
+    const { unmount } = renderSettings('appearance')
+    const masthead = screen.getByRole('radiogroup', { name: 'Masthead' })
+    const options = within(masthead).getAllByRole('radio')
+
+    expect(options).toHaveLength(3)
+    ;['In the bar', 'Behind the whole window', 'Fading down'].forEach((name, index) =>
+      expect(options[index]).toHaveAccessibleName(name),
+    )
+    expect(within(masthead).getByRole('radio', { name: 'In the bar' })).toBeChecked()
+    expect(
+      within(masthead).getByRole('radio', { name: 'Fading down' }),
+    ).toHaveAccessibleDescription('A band at the top that fades out.')
+
+    await user.click(within(masthead).getByRole('radio', { name: 'Fading down' }))
+    expect(document.documentElement.dataset.masthead).toBe('fade')
+    expect(localStorage.getItem(MASTHEAD_STORAGE_KEY)).toBe('fade')
+
+    unmount()
+    renderSettings('appearance')
+    expect(
+      within(screen.getByRole('radiogroup', { name: 'Masthead' })).getByRole('radio', {
+        name: 'Fading down',
+      }),
+    ).toBeChecked()
+  } finally {
+    mastheadStyleController().choose('bar')
+  }
+})
+
+test('the masthead and theme choices change independently', async () => {
+  const user = userEvent.setup()
+  themeController().choose('light')
+  mastheadStyleController().choose('bar')
+  try {
+    renderSettings('appearance')
+    const theme = screen.getByRole('radiogroup', { name: 'Theme' })
+    const masthead = screen.getByRole('radiogroup', { name: 'Masthead' })
+
+    await user.click(within(masthead).getByRole('radio', { name: 'Behind the whole window' }))
+    expect(within(theme).getByRole('radio', { name: 'Light' })).toBeChecked()
+    expect(document.documentElement.dataset.theme).toBe('light')
+
+    await user.click(within(theme).getByRole('radio', { name: 'Dark' }))
+    expect(within(masthead).getByRole('radio', { name: 'Behind the whole window' })).toBeChecked()
+    expect(document.documentElement.dataset.masthead).toBe('window')
+    expect(document.documentElement.dataset.theme).toBe('dark')
+  } finally {
+    themeController().choose('system')
+    mastheadStyleController().choose('bar')
   }
 })
 

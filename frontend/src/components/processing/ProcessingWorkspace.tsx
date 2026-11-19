@@ -22,6 +22,7 @@ import {
   Banner,
   Button,
   Dialog,
+  onField,
 } from '#/components/ui'
 import { ProcessingImages } from './ProcessingImages'
 import { ProcessingInventory } from './ProcessingInventory'
@@ -663,7 +664,7 @@ export function ProcessingWorkspace({
         </div>
       )}
       {!snapshot || !source ? (
-        <Muted role="status">Reading retained processing state…</Muted>
+        <FieldNote role="status">Reading retained processing state…</FieldNote>
       ) : (
         <>
           {view !== 'overview' && (
@@ -906,4 +907,9 @@ const Selection = styled.fieldset`
     align-items: center;
     min-height: ${size.touch};
   }
+`
+
+/** Status text placed directly on the page, which takes a ground patch behind the whole window. */
+const FieldNote = styled(Muted)`
+  ${onField}
 `

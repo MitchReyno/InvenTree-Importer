@@ -1,6 +1,14 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import styled from 'styled-components'
-import { VisuallyHidden, media, Banner, Button, HelpButton, Pill } from '#/components/ui'
+import {
+  VisuallyHidden,
+  media,
+  Banner,
+  Button,
+  HelpButton,
+  Pill,
+  raisedOnField,
+} from '#/components/ui'
 import { Select } from '#/forms'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { RegionStage } from './RegionStage'
@@ -735,6 +743,7 @@ const Column = styled.section`
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   background: ${color.surface};
+  ${raisedOnField}
 `
 
 const Title = styled.h2`

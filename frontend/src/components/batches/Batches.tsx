@@ -1,4 +1,4 @@
-import { Banner, Button, media } from '#/components/ui'
+import { Banner, Button, media, onField } from '#/components/ui'
 import { Input } from '#/forms'
 import { useEffect, useRef, useState } from 'react'
 import { NewBatchForm } from './NewBatchForm'
@@ -205,6 +205,7 @@ const PageHead = styled.div`
 const Title = styled.h1`
   margin: 0;
   ${type.h1}
+  ${onField}
 `
 
 const Meta = styled.span`

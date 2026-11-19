@@ -56,12 +56,12 @@ One PR carries tasks 1–6. The preference, the scene layout, the layouts and th
 - Verification: `pnpm --filter frontend exec vitest run src/theme` (or the project's equivalent single-file run), then `pnpm typecheck`.
 - Risks: the pre-paint script and the controller must agree; a parity test covers it.
 
-- [ ] 1.1 Baseline: run the existing theme tests and record that they pass.
-- [ ] 1.2 RED: write failing tests.
-  - [ ] 1.2.1 Masthead-style controller: default `bar`, stored values, unknown values, throwing or missing storage, and subscribers notified on change.
-  - [ ] 1.2.2 Pre-paint parity: the `index.html` script sets the same `data-masthead` as the controller for each stored value, and its `data-theme` result is unchanged.
-- [ ] 1.3 GREEN: extract `device-preference.ts` from `theme.ts`, add the masthead-style controller and `useMastheadStyle`, wire it in `main.tsx`, and extend the inline script.
-- [ ] 1.4 Refactor; run `pnpm format` and `pnpm lint:frontend`.
+- [x] 1.1 Baseline: run the existing theme tests and record that they pass.
+- [x] 1.2 RED: write failing tests.
+  - [x] 1.2.1 Masthead-style controller: default `bar`, stored values, unknown values, throwing or missing storage, and subscribers notified on change.
+  - [x] 1.2.2 Pre-paint parity: the `index.html` script sets the same `data-masthead` as the controller for each stored value, and its `data-theme` result is unchanged.
+- [x] 1.3 GREEN: extract `device-preference.ts` from `theme.ts`, add the masthead-style controller and `useMastheadStyle`, wire it in `main.tsx`, and extend the inline script.
+- [x] 1.4 Refactor; run `pnpm format` and `pnpm lint:frontend`.
 
 ## 2. Scene field layout
 
@@ -73,10 +73,10 @@ One PR carries tasks 1–6. The preference, the scene layout, the layouts and th
 - Verification: the scene test file, then `pnpm typecheck`.
 - Risks: tuning the density constant against the artboards (about 25 parts at 1440 × 900); record the chosen value and any change in `notes.md`.
 
-- [ ] 2.1 Baseline: run `scene.test.ts` and record the existing band counts.
-- [ ] 2.2 RED: add the field-count, bounds, height-only resize and pixel-ratio cases; confirm they fail.
-- [ ] 2.3 GREEN: implement the `layout` option with named constants for density and pixel-ratio cap, and relayout the field when its height changes.
-- [ ] 2.4 Refactor; confirm the band cases are unchanged.
+- [x] 2.1 Baseline: run `scene.test.ts` and record the existing band counts.
+- [x] 2.2 RED: add the field-count, bounds, height-only resize and pixel-ratio cases; confirm they fail.
+- [x] 2.3 GREEN: implement the `layout` option with named constants for density and pixel-ratio cap, and relayout the field when its height changes.
+- [x] 2.4 Refactor; confirm the band cases are unchanged.
 
 ## 3. Field host, B and C layouts, ground patches
 
@@ -91,26 +91,27 @@ One PR carries tasks 1–6. The preference, the scene layout, the layouts and th
   - New `frontend/src/components/masthead/MastheadField.tsx`.
   - `Masthead.tsx`: style-dependent ground and bar; mask stops published on the root for C.
   - `App.tsx`: the field host before the content.
-  - `GlobalStyle.tsx`: the body ground under `window` styles, limited to the root.
+  - `GlobalStyle.tsx`: the dotted ground on the root element under `window`.
   - `components/ui/primitives.tsx`: the `onField` patch mixin and a `$onField` opt-in on the heading primitives (never on by default); card shadow under `window`.
-  - `components/AppLayout.tsx`: publish the content column's edges on the root for C's mask.
+  - `components/masthead/MastheadBackdrop.tsx`: picks the field host by style, keyed by it.
+  - `components/ui/field.ts`: the ground, patch and raised-card mixins.
   - Loose headings and text on the field across screens (Batches, Agents, Settings, Records stage and any found later), opting in to `onField`.
   - Tests in `AppMasthead.test.tsx` or `Masthead.test.tsx`.
   - Design D2 and D3.
 - Acceptance: ui-design-system "Behind the whole window", "Behind the whole window in the dark theme", "Headings inside surfaces get no patch", "Compact width keeps its dimming", "Fading down", "No WebGL 2 or reduced motion" and "Style changes in place".
 - TDD: component tests with a stubbed `WebGL2RenderingContext` and a mocked scene module. They assert which host mounts for each `data-masthead` value, that the scene receives `layout: 'field'` for B and C, and that switching style (A→B, B→C, C→B, and once while the lazy import is pending, under StrictMode) disposes the old scene once and leaves one canvas and one live scene. A primitive test asserts that a `PageTitle` with `$onField` carries the patch only under `window`, and that the setup panel's `PageTitle` and a `Heading` in a `Panel` never do. A test asserts that under `fade` the content edges reach the field's mask. They fail because neither the field host nor the patch exists. Visual layout cannot be asserted in jsdom; task 5 covers it manually.
 - Verification: the masthead test files; `pnpm lint:frontend` (the literal and contrast checks must pass with token values only); `pnpm build`.
-- Risks: a missed patch on some screen (task 5's sweep catches it). `mask-composite` support for C's combined mask (supported in current evergreen browsers; confirm in the manual run). `backdrop-filter` cost over the canvas.
+- Risks: a missed patch on some screen (task 5's sweep catches it). C's nested masks (confirm in the manual run). `backdrop-filter` cost over the canvas.
 
-- [ ] 3.1 Baseline: run the masthead tests and record the result.
-- [ ] 3.2 RED: add the host-selection, layout-option, disposal-on-switch and patch tests; confirm they fail.
-- [ ] 3.3 GREEN: make the layouts render.
-  - [ ] 3.3.1 Add `MastheadField` with the `window` and `fade` canvas boxes and C's mask (fade, bar text gap with its compact dimming, content-column cut-out), and publish the content edges from `AppLayout`.
-  - [ ] 3.3.2 Make the `Masthead` bar and ground depend on the style, and publish its text-gap stops on the root.
-  - [ ] 3.3.3 Add the body ground and card elevation under the `window` styles.
-  - [ ] 3.3.4 Add the `onField` patch mixin and the `$onField` opt-in, and opt in the loose headings and text placed on the field on each screen.
-  - [ ] 3.3.5 Mount the field host from `App.tsx` as the app root's first child, chosen during render from `useMastheadStyle()` and keyed by the style, with the content wrapper after it positioned with `z-index: auto`, so it creates no stacking context (no new layer token).
-- [ ] 3.4 Refactor; run `pnpm format`, `pnpm lint:frontend` and `pnpm build`.
+- [x] 3.1 Baseline: run the masthead tests and record the result.
+- [x] 3.2 RED: add the host-selection, layout-option, disposal-on-switch and patch tests; confirm they fail.
+- [x] 3.3 GREEN: make the layouts render.
+  - [x] 3.3.1 Add `MastheadField` with the `window` and `fade` canvas boxes and C's mask (fade, bar text gap with its compact dimming, content-column cut-out computed from the route's page-width token).
+  - [x] 3.3.2 Make the `Masthead` bar and ground depend on the style, and publish its text-gap stops on the root.
+  - [x] 3.3.3 Add the root ground and card elevation under the `window` style.
+  - [x] 3.3.4 Add the `onField` patch mixin and the `$onField` opt-in, and opt in the loose headings and text placed on the field on each screen.
+  - [x] 3.3.5 Mount the field host from `App.tsx`, chosen during render from `useMastheadStyle()` and keyed by the style, at `z-index: -1` with no wrapper or new layer token.
+- [x] 3.4 Refactor; run `pnpm format`, `pnpm lint:frontend` and `pnpm build`.
 
 ## 4. Appearance row
 
@@ -122,10 +123,10 @@ One PR carries tasks 1–6. The preference, the scene layout, the layouts and th
 - Verification: `Settings.test.tsx`; `pnpm typecheck`.
 - Risks: None beyond task 1's.
 
-- [ ] 4.1 Baseline: run `Settings.test.tsx`.
-- [ ] 4.2 RED: add the masthead-choice and independence tests; confirm they fail.
-- [ ] 4.3 GREEN: add `MastheadChoice` with its three labelled options and descriptions, and add the Masthead row.
-- [ ] 4.4 Refactor; run `pnpm format` and `pnpm lint:frontend`.
+- [x] 4.1 Baseline: run `Settings.test.tsx`.
+- [x] 4.2 RED: add the masthead-choice and independence tests; confirm they fail.
+- [x] 4.3 GREEN: add `MastheadChoice` with its three labelled options and descriptions, and add the Masthead row.
+- [x] 4.4 Refactor; run `pnpm format` and `pnpm lint:frontend`.
 
 ## 5. Canvas, docs and manual qualification
 
@@ -140,19 +141,19 @@ One PR carries tasks 1–6. The preference, the scene layout, the layouts and th
 - Verification: `pnpm dev` with a headless browser (visible only if the developer wants to watch). For A, B and C, capture light and dark, desktop (1440 × 900) and phone (390 × 844), at the top and scrolled. Sweep every screen under B in both themes for loose text without a patch, and spot-check contrast. Under B, confirm the field paints above the ground and below the bar, page content, the condensed phone row, popovers, dialogs and toasts, and that a toast stays above an open menu overlapping it. Watch for frame-time regressions. Record a demo with the `demo-record` skill. All evidence goes on the PR, not in the repository.
 - Risks: GPU cost on the full-window field; record any tuning in `notes.md`.
 
-- [ ] 5.1 Update the `SettingsAppearance` artboard with the Masthead row and log the change in the design log.
-- [ ] 5.2 Update `frontend/ARCHITECTURE.md` and check that its claims match the code.
-- [ ] 5.3 Run the manual qualification matrix and capture the evidence for the PR.
-- [ ] 5.4 Record the demo and keep it for the PR description.
-- [ ] 5.5 Write `notes.md` entries for departures, tuning and remaining limitations.
+- [x] 5.1 Update the `SettingsAppearance` artboard with the Masthead row and log the change in the design log.
+- [x] 5.2 Update `frontend/ARCHITECTURE.md` and check that its claims match the code.
+- [x] 5.3 Run the manual qualification matrix and capture the evidence for the PR.
+- [x] 5.4 Record the demo and keep it for the PR description.
+- [x] 5.5 Write `notes.md` entries for departures, tuning and remaining limitations.
 
 ## 6. Review and delivery
 
 - PR delivery: PR-A.
 - Outcome: a reviewed, green PR into `interactive-app`, merged per the repository's standing merge practice.
 
-- [ ] 6.1 Run `pnpm typecheck`, `pnpm lint:frontend`, `pnpm test:frontend` and `pnpm build` on the final commit.
-- [ ] 6.2 Independent read-only review of the exact head against the code guidelines; fix and re-review until a round finds nothing new; name the reviewed SHA.
+- [x] 6.1 Run `pnpm typecheck`, `pnpm lint:frontend`, `pnpm test:frontend` and `pnpm build` on the final commit.
+- [x] 6.2 Independent read-only review of the exact head against the code guidelines; fix and re-review until a round finds nothing new; name the reviewed SHA.
 - [ ] 6.3 Re-check every claim in the PR body, docs and specs against the code; open the PR with the evidence and demo attached.
 - [ ] 6.4 Selected CI green; merge.
 

@@ -1,5 +1,5 @@
 import { useCallback, useState, type ReactNode } from 'react'
-import { Paragraph, Summary } from '#/components/ui'
+import { Paragraph, Summary, raisedOnField } from '#/components/ui'
 import type { Snapshot } from '#/capture/types'
 import styled from 'styled-components'
 import { color, radius, space, type, typeVar } from '#/theme/generated/tokens'
@@ -127,6 +127,7 @@ const EvidenceArea = styled.section`
   border: 1px dashed ${color.lineStrong};
   border-radius: ${radius.card};
   background: ${color.surface};
+  ${raisedOnField}
 `
 const EvidenceLabel = styled.h2`
   margin: 0;

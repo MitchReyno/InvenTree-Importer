@@ -4,7 +4,7 @@ import type { BatchRecordDto, CaptureSnapshotDto, SourceKindDto } from '@invimpo
 import { parameterMatrix, type MatrixConflict } from '#/records/parameter-matrix'
 import { STEP_LABELS } from '#/records/model'
 import { color, font, radius, space, type, typeVar } from '#/theme/generated/tokens'
-import { Button, Pill, Small, VisuallyHidden } from '#/components/ui'
+import { Button, Pill, Small, VisuallyHidden, raisedOnField } from '#/components/ui'
 import { AskControl } from './AskControl'
 import { useRecordSave, type Save } from './draft'
 import { useRecordSaving } from '#/context'
@@ -242,6 +242,7 @@ const Matrix = styled.section`
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   background: ${color.surface};
+  ${raisedOnField}
 `
 const Group = styled.div`
   display: grid;

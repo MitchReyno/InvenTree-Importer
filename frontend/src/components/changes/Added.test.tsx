@@ -185,6 +185,23 @@ function setup(runs: ManualRunDto[], preparations: ManualPreviewDto[] = []) {
 }
 
 describe('Added', () => {
+  it('behind the whole window, backs the outcome strip and the empty state', () => {
+    document.documentElement.dataset.masthead = 'window'
+    try {
+      setup([])
+
+      const grounded = (element: HTMLElement) =>
+        getComputedStyle(element).backgroundColor.includes('masthead-ground')
+
+      expect(grounded(screen.getByRole('region', { name: 'Outcome' }))).toBe(true)
+      expect(
+        grounded(screen.getByText('Nothing has been added to InvenTree from this batch yet.')),
+      ).toBe(true)
+    } finally {
+      document.documentElement.dataset.masthead = 'bar'
+    }
+  })
+
   it('opens on an outcome strip that names the test target', () => {
     setup([confirmed, uncertain])
     const strip = screen.getByRole('region', { name: 'Outcome' })

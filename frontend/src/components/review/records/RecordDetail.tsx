@@ -15,6 +15,7 @@ import {
   DescriptionField,
   DESCRIPTION_LIMIT,
   type DataColumn,
+  raisedOnField,
 } from '#/components/ui'
 import { batchHref } from '#/navigation/batch-route'
 import { AskControl } from './AskControl'
@@ -380,6 +381,7 @@ const Card = styled.section`
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   background: ${color.surface};
+  ${raisedOnField}
 `
 const Head = styled.div`
   display: flex;

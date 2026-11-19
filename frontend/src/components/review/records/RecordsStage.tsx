@@ -34,6 +34,9 @@ import {
   RecordStatePill,
   FilterChips,
   VisuallyHidden,
+  onField,
+  groundBehindOnField,
+  raisedOnField,
 } from '#/components/ui'
 import { MappingReader } from '#/components/capture/MappingReader'
 import { RecordDetail } from './RecordDetail'
@@ -479,6 +482,7 @@ const RecordNav = styled.nav`
   strong {
     color: ${color.fg};
   }
+  ${groundBehindOnField}
 `
 const Steps = styled.span`
   display: inline-flex;
@@ -488,6 +492,7 @@ const Steps = styled.span`
 const PageHeading = styled.h2`
   margin: 0;
   ${type.h2}
+  ${onField}
 `
 const Layout = styled.div`
   display: grid;
@@ -508,9 +513,11 @@ const column = `
 `
 const Rail = styled.nav`
   ${column}
+  ${raisedOnField}
 `
 const List = styled.section`
   ${column}
+  ${raisedOnField}
 `
 const Detail = styled.div`
   display: grid;
@@ -576,6 +583,7 @@ const Empty = styled.p`
   background: ${color.surface};
   color: ${color.muted};
   font-size: ${typeVar.small.size};
+  ${raisedOnField}
 `
 const RowDetail = styled.span`
   grid-column: 1 / -1;

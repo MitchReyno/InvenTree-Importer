@@ -15,6 +15,8 @@ import {
   Pill,
   DataTable,
   TableWrap,
+  onField,
+  raisedOnField,
 } from '#/components/ui'
 import { SESSION_STATE, STEP_LABEL } from '#/components/processing/ProcessingParts'
 import { PauseButton } from './PauseButton'
@@ -154,10 +156,10 @@ export function AgentSessions({ client, batches }: Props) {
           <Title>
             <AiMark size="lg">Agents</AiMark>
           </Title>
-          <Muted>
+          <FieldNote>
             Every agent session across your batches. Open a batch's Processing to see its steps and
             chat with it.
-          </Muted>
+          </FieldNote>
         </div>
         {query.data && supported && (
           <Button as="a" href="#settings">
@@ -172,7 +174,7 @@ export function AgentSessions({ client, batches }: Props) {
           </Banner>
         </div>
       )}
-      {query.isPending && <Muted role="status">Loading sessions…</Muted>}
+      {query.isPending && <FieldNote role="status">Loading sessions…</FieldNote>}
       {query.data && !supported && (
         <Banner tone="info">
           Agent sessions are not available for this setup: the server's processing profile does not
@@ -225,7 +227,7 @@ export function AgentSessions({ client, batches }: Props) {
             value={filter}
             onChange={(value) => setFilter(value as Filter)}
           />
-          {shown.length === 0 && <Muted>No sessions match this filter on this page.</Muted>}
+          {shown.length === 0 && <FieldNote>No sessions match this filter on this page.</FieldNote>}
           {batchIds
             .filter((batchId) => shown.some((session) => session.batch_id === batchId))
             .map((batchId) => {
@@ -340,7 +342,7 @@ export function AgentSessions({ client, batches }: Props) {
               </Button>
             </Paging>
           )}
-          <Muted>Filters and counts cover this page of history.</Muted>
+          <FieldNote>Filters and counts cover this page of history.</FieldNote>
         </>
       )}
     </Page>
@@ -375,11 +377,18 @@ const Head = styled.div`
 const Title = styled.h1`
   margin: 0;
   ${type.h1}
+  ${onField}
 `
 
 const Muted = styled.span`
   font-size: ${typeVar.small.size};
   color: ${color.muted};
+`
+
+/** Muted text placed directly on the page, which takes a ground patch behind the whole window. */
+const FieldNote = styled(Muted)`
+  display: block;
+  ${onField}
 `
 
 /** One card: what runs now, the model, what waits for the operator, and Pause. */
@@ -392,6 +401,7 @@ const Summary = styled.section`
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   background: ${color.surface};
+  ${raisedOnField}
 `
 
 const Block = styled.div`
@@ -427,6 +437,7 @@ const Group = styled.section`
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   background: ${color.surface};
+  ${raisedOnField}
   ${TableWrap} {
     border: 0;
     border-radius: 0;

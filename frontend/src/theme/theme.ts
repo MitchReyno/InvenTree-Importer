@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { readPreference, writePreference, type PreferenceStorage } from './device-preference'
 import type { ThemeId } from './generated/tokens'
 
 export type ThemeChoice = ThemeId | 'system'
@@ -8,8 +9,6 @@ export const THEME_CHOICES: readonly ThemeChoice[] = ['light', 'dark', 'system']
 
 const DARK_QUERY = '(prefers-color-scheme: dark)'
 
-type ThemeStorage = Pick<Storage, 'getItem' | 'setItem'>
-
 type SchemeQuery = {
   readonly matches: boolean
   addEventListener(type: 'change', listener: (event: { matches: boolean }) => void): void
@@ -17,7 +16,7 @@ type SchemeQuery = {
 }
 
 export type ThemeEnvironment = {
-  storage: () => ThemeStorage | undefined
+  storage: () => PreferenceStorage | undefined
   media: () => SchemeQuery | undefined
   root: HTMLElement
 }
@@ -29,32 +28,10 @@ export type ThemeController = {
   dispose: () => void
 }
 
-function isThemeChoice(value: unknown): value is ThemeChoice {
-  return THEME_CHOICES.includes(value as ThemeChoice)
-}
-
-// Storage can be missing or throw (private windows, blocked site data); the OS scheme then applies.
-function readChoice(storage: ThemeEnvironment['storage']): ThemeChoice {
-  try {
-    const stored = storage()?.getItem(THEME_STORAGE_KEY)
-    return isThemeChoice(stored) ? stored : 'system'
-  } catch {
-    return 'system'
-  }
-}
-
-function writeChoice(storage: ThemeEnvironment['storage'], choice: ThemeChoice) {
-  try {
-    storage()?.setItem(THEME_STORAGE_KEY, choice)
-  } catch {
-    // The choice still applies for this session.
-  }
-}
-
 export function createThemeController(environment: ThemeEnvironment): ThemeController {
   const query = environment.media()
   const listeners = new Set<() => void>()
-  let current = readChoice(environment.storage)
+  let current = readPreference(environment.storage, THEME_STORAGE_KEY, THEME_CHOICES, 'system')
 
   function apply() {
     const prefersDark = query?.matches ?? false
@@ -75,7 +52,7 @@ export function createThemeController(environment: ThemeEnvironment): ThemeContr
     choice: () => current,
     choose(choice) {
       current = choice
-      writeChoice(environment.storage, choice)
+      writePreference(environment.storage, THEME_STORAGE_KEY, choice)
       apply()
       listeners.forEach((listener) => listener())
     },
