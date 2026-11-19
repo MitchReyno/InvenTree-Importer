@@ -4,8 +4,16 @@ import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ProcessingInputV6Dto } from '@invimport/contracts'
-import { bridgeProtectedHosts, protectedHosts } from '#/agents/shared-vm/protected-hosts.ts'
-import { turnPolicy, writeTurnPolicy } from '#/agents/shared-vm/turn-policy.ts'
+import {
+  bridgeProtectedHosts,
+  MAX_PROTECTED_HOSTS,
+  protectedHosts,
+} from '#/agents/shared-vm/protected-hosts.ts'
+import {
+  MAX_TURN_POLICY_BYTES,
+  turnPolicy,
+  writeTurnPolicy,
+} from '#/agents/shared-vm/turn-policy.ts'
 
 test('protected hosts come from every configured origin in a standard form', () => {
   assert.deepEqual(
@@ -18,12 +26,14 @@ test('protected hosts come from every configured origin in a standard form', () 
         'https://[2606:4700::1]',
         'https://203.0.113.10',
         'https://bücher.example',
+        'https://[::ffff:1.1.1.1]',
       ].join(','),
     ),
     [
       '127.0.0.1',
       '203.0.113.10',
       '2606:4700::1',
+      '::ffff:101:101',
       'bench.tailnet.ts.net',
       'inventory.example.com',
       'inventory.internal',
@@ -86,21 +96,33 @@ function manifest(web?: { public_pages: boolean; prefer_datasheets: boolean }) {
   return { profile_id: 'shared-vm-agent/2', ...(web ? { web } : {}) } as ProcessingInputV6Dto
 }
 
-test('the turn policy follows the sealed setting, and an unsealed attempt has public pages off', () => {
+test('no current profile opens public pages, whatever its sealed setting says', () => {
   const hosts = ['inventory.example.com', '203.0.113.10']
   assert.deepEqual(turnPolicy(manifest(), hosts), {
     version: 1,
     public_pages: false,
     protected_hosts: hosts,
   })
-  assert.equal(
-    turnPolicy(manifest({ public_pages: true, prefer_datasheets: false }), hosts).public_pages,
-    true,
+  for (const web of [
+    { public_pages: true, prefer_datasheets: false },
+    { public_pages: false, prefer_datasheets: true },
+  ]) {
+    assert.equal(turnPolicy(manifest(web), hosts).public_pages, false, JSON.stringify(web))
+  }
+})
+
+test('the largest valid policy fits the size the egress proxy reads', () => {
+  const hosts = Array.from({ length: MAX_PROTECTED_HOSTS }, (_value, index) =>
+    [
+      `${String(index).padStart(2, '0')}${'a'.repeat(61)}`,
+      'a'.repeat(63),
+      'a'.repeat(63),
+      'b'.repeat(61),
+    ].join('.'),
   )
-  assert.equal(
-    turnPolicy(manifest({ public_pages: false, prefer_datasheets: true }), hosts).public_pages,
-    false,
-  )
+  assert.ok(hosts.every((host) => host.length === 253))
+  const policy = turnPolicy(manifest(), hosts)
+  assert.ok(Buffer.byteLength(JSON.stringify(policy)) <= MAX_TURN_POLICY_BYTES)
 })
 
 test('a command whose protected hosts are missing or malformed is refused', () => {
@@ -121,14 +143,11 @@ test('the policy file is replaced atomically and leaves no temporary file', asyn
   t.after(() => rm(directory, { recursive: true, force: true }))
   const path = join(directory, 'policy.json')
   await writeTurnPolicy(path, turnPolicy(manifest(), ['inventory.example.com']))
-  await writeTurnPolicy(
-    path,
-    turnPolicy(manifest({ public_pages: true, prefer_datasheets: true }), []),
-  )
+  await writeTurnPolicy(path, turnPolicy(manifest(), ['203.0.113.10']))
   assert.deepEqual(JSON.parse(await readFile(path, 'utf8')), {
     version: 1,
-    public_pages: true,
-    protected_hosts: [],
+    public_pages: false,
+    protected_hosts: ['203.0.113.10'],
   })
   assert.deepEqual(await readdir(directory), ['policy.json'])
 })

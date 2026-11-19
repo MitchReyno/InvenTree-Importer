@@ -13,12 +13,11 @@ import { validate } from '@invimport/contracts'
 import type { ProcessingInputV6Dto } from '@invimport/contracts'
 import { syntheticTurn, type SyntheticResult } from '#/agents/session/synthetic-turn.ts'
 import { evidenceReplyLimit, Frames, protocol } from './frames.ts'
-import { SessionResumeUnavailable } from '#/agents/session/session-adapters.ts'
 import { isolatedToolTurn } from './tool-client.ts'
 import { nativeTurn } from './native-turn.ts'
-import { ResearchReapPendingError } from '#/research/errors.ts'
 import { pairing } from './pair.ts'
 import { TURN_POLICY_PATH, turnPolicy, writeTurnPolicy } from './turn-policy.ts'
+import { nativeTurnOutcome } from './native-outcome.ts'
 
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/
 
@@ -151,6 +150,12 @@ async function main() {
         ) {
           throw new Error('invalid_opening')
         }
+        const opening = {
+          text: command.text,
+          instructions: command.instructions,
+          tools: command.tools,
+          resume: typeof command.resume === 'string' ? command.resume : undefined,
+        }
         let pending = Promise.resolve()
 
         const request = (body: Record<string, unknown>) => {
@@ -172,39 +177,25 @@ async function main() {
           return result
         }
 
-        if (policy) {
+        const outcome = await nativeTurnOutcome({
           // The egress proxy allows only provider hosts until this file exists.
-          await writeTurnPolicy(TURN_POLICY_PATH, policy)
-        }
-        try {
-          const runNative = isolated ? isolatedToolTurn : nativeTurn
-          await runNative(
-            {
-              manifest,
-              cwd,
-              signal: abort.signal,
-              identity,
-            },
-            {
-              text: command.text,
-              instructions: command.instructions,
-              tools: command.tools,
-              resume: typeof command.resume === 'string' ? command.resume : undefined,
-            },
-            request,
-          )
-        } catch (error) {
-          if (error instanceof ResearchReapPendingError) {
-            throw error
-          }
-          if (error instanceof SessionResumeUnavailable) {
-            return 'resume_unavailable'
-          }
-          const failure =
-            error instanceof Error && error.message === 'agent_login_required'
-              ? 'agent_login_required'
-              : 'agent_turn_failed'
-          return failure
+          publishPolicy: policy ? () => writeTurnPolicy(TURN_POLICY_PATH, policy) : undefined,
+          run: async () => {
+            const runNative = isolated ? isolatedToolTurn : nativeTurn
+            await runNative(
+              {
+                manifest,
+                cwd,
+                signal: abort.signal,
+                identity,
+              },
+              opening,
+              request,
+            )
+          },
+        })
+        if (outcome !== 'done') {
+          return outcome
         }
       } else {
         await frames.send({ started: true })

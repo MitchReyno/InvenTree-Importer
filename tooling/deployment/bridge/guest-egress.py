@@ -4,7 +4,6 @@ The provider's own hosts are always allowed. Public hosts are allowed only when 
 policy file, written by the paired supervisor, says public web pages are on.
 """
 import asyncio
-import ipaddress
 import json
 import os
 import socket
@@ -15,7 +14,9 @@ from guest_destinations import (
     Refused,
     configured_hosts,
     literal_address,
+    normalized,
     protected_addresses,
+    public,
     public_target,
 )
 
@@ -26,8 +27,10 @@ SOCKET = Path("/run/egress/codex.sock" if CODEX else "/run/egress/claude.sock")
 # Mounted read-only from the supervisor's turn directory; absent outside tool turns.
 POLICY_PATH = Path("/run/policy/policy.json")
 POLICY_VERSION = 1
+POLICY_KEYS = {"version", "public_pages", "protected_hosts"}
+# Both limits match intake-server/src/agents/shared-vm/turn-policy.ts, which refuses larger.
 MAX_PROTECTED_HOSTS = 32
-MAX_POLICY_BYTES = 8192
+MAX_POLICY_BYTES = 16384
 HEADER_TIMEOUT_S = 5
 CONNECT_TIMEOUT_S = 10
 
@@ -35,6 +38,13 @@ CONNECT_TIMEOUT_S = 10
 def protected_entry(value):
     return isinstance(value, str) and (DNS_NAME.fullmatch(value) is not None
                                        or literal_address(value) is not None)
+
+
+def unique_object(pairs):
+    keys = [key for key, _value in pairs]
+    if len(keys) != len(set(keys)):
+        raise ValueError("duplicate policy key")
+    return dict(pairs)
 
 
 def load_policy():
@@ -47,12 +57,14 @@ def load_policy():
     if len(raw) > MAX_POLICY_BYTES:
         return None
     try:
-        policy = json.loads(raw)
+        policy = json.loads(raw, object_pairs_hook=unique_object)
     except ValueError:
         return None
-    if not isinstance(policy, dict) or policy.get("version") != POLICY_VERSION:
+    # `type(...) is int` keeps JSON true from passing as version 1.
+    if (not isinstance(policy, dict) or set(policy) != POLICY_KEYS
+            or type(policy["version"]) is not int or policy["version"] != POLICY_VERSION):
         return None
-    hosts = policy.get("protected_hosts")
+    hosts = policy["protected_hosts"]
     if (not isinstance(policy.get("public_pages"), bool) or not isinstance(hosts, list)
             or len(hosts) > MAX_PROTECTED_HOSTS or not all(protected_entry(host) for host in hosts)):
         return None
@@ -93,7 +105,9 @@ async def provider_address(host, protected):
         host, 443, family=socket.AF_INET, type=socket.SOCK_STREAM)
     blocked = await asyncio.to_thread(provider_protected_addresses, protected)
     addresses = [answer[4][0] for answer in answers]
-    if not addresses or any(ipaddress.ip_address(address) in blocked for address in addresses):
+    if not addresses or not all(public(address) for address in addresses):
+        raise Refused("not_public")
+    if any(normalized(address) in blocked for address in addresses):
         raise Refused("protected_destination")
     return addresses[0]
 

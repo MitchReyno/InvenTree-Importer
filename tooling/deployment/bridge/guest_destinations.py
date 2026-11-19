@@ -37,10 +37,16 @@ class Refused(Exception):
         self.reason = reason
 
 
+def normalized(value):
+    """An address with IPv4-mapped IPv6 replaced by its IPv4 address, so aliases compare equal."""
+    address = ipaddress.ip_address(value)
+    return getattr(address, "ipv4_mapped", None) or address
+
+
 def literal_address(value):
     """The IP address a protected entry names directly, or None for a DNS name."""
     try:
-        return ipaddress.ip_address(value)
+        return normalized(value)
     except ValueError:
         return None
 
@@ -67,13 +73,8 @@ def protected_addresses(protected):
     blocked = set()
     for entry in protected:
         literal = literal_address(entry)
-        if literal is not None:
-            if public(entry):
-                blocked.add(literal)
-            continue
-        for address in resolved_addresses(entry):
-            if public(address):
-                blocked.add(ipaddress.ip_address(address))
+        addresses = [literal] if literal is not None else map(normalized, resolved_addresses(entry))
+        blocked |= {address for address in addresses if public(str(address))}
     return blocked
 
 
@@ -83,12 +84,12 @@ def public_target(host, port, protected):
                    and not host.endswith(PRIVATE_SUFFIXES))
     if port != 443 or not target_name:
         raise Refused("destination_refused")
-    if protected_name(host, protected):
-        raise Refused("protected_destination")
-    blocked = protected_addresses(protected)
     addresses = resolved_addresses(host)
     if not addresses or not all(public(address) for address in addresses):
         raise Refused("not_public")
-    if any(ipaddress.ip_address(address) in blocked for address in addresses):
+    if protected_name(host, protected):
+        raise Refused("protected_destination")
+    blocked = protected_addresses(protected)
+    if any(normalized(address) in blocked for address in addresses):
         raise Refused("protected_destination")
     return addresses[0]

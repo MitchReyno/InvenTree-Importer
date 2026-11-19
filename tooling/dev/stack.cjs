@@ -41,18 +41,6 @@ function apiTargetEnv(target, state, key, { readOnly } = {}) {
   }
 }
 
-/**
- * Origins the VM agents' egress must refuse: the app (loopback and, when served, tailnet) and
- * the inventory it reads. The worker turns them into protected hosts and refuses to start
- * when one can't be represented.
- */
-function agentProtectedOrigins({ appOrigin, tailnetOrigin, inventoryOrigin }) {
-  if (!appOrigin || !inventoryOrigin) {
-    throw new Error('protected_origins_unavailable')
-  }
-  return [appOrigin, tailnetOrigin, inventoryOrigin].filter(Boolean).join(',')
-}
-
 /** Only a writable mock runs the owned apply runner; local and external targets never do. */
 function startsApplyRunner(state, readOnly) {
   if (typeof readOnly !== 'boolean') {
@@ -99,7 +87,6 @@ async function startSupervision(settings, target, deps) {
 }
 
 module.exports = {
-  agentProtectedOrigins,
   prepareDevelopment,
   apiTargetEnv,
   startsApplyRunner,

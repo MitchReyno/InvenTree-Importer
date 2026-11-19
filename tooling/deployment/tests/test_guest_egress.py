@@ -108,7 +108,10 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         table = {"www.ti.com": [PUBLIC], "api.anthropic.com": [OTHER_PUBLIC]}
         for content in ("not json", json.dumps({"version": 1, "public_pages": "yes", "protected_hosts": []}),
                         json.dumps({"version": 2, "public_pages": True, "protected_hosts": []}),
-                        json.dumps({"version": 1, "public_pages": True, "protected_hosts": ["Bad Host"]})):
+                        json.dumps({"version": 1, "public_pages": True, "protected_hosts": ["Bad Host"]}),
+                        json.dumps({"version": True, "public_pages": True, "protected_hosts": []}),
+                        json.dumps({"version": 1, "public_pages": True, "protected_hosts": [], "extra": 1}),
+                        '{"version": 1, "public_pages": false, "public_pages": true, "protected_hosts": []}'):
             with self.subTest(content=content):
                 self.policy.write_text(content)
                 written, upstream = await self.connect("www.ti.com:443", table)
@@ -186,6 +189,44 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         with patch.object(egress, "PROTECTED", {"inventory.example.com"}):
             written, upstream = await self.connect("api.anthropic.com:443", table)
         self.assert_refused(written, upstream, "protected_destination")
+
+    async def test_provider_host_with_a_private_answer_is_refused(self):
+        for addresses in (["10.0.0.5"], [OTHER_PUBLIC, "192.168.1.2"]):
+            for public_pages in (None, False):
+                with self.subTest(addresses=addresses, public_pages=public_pages):
+                    if public_pages is None:
+                        self.policy.unlink(missing_ok=True)
+                    else:
+                        self.write_policy(public_pages=public_pages)
+                    written, upstream = await self.connect("api.anthropic.com:443",
+                                                           {"api.anthropic.com": addresses})
+                    self.assert_refused(written, upstream, "not_public")
+
+    async def test_ipv4_mapped_protected_literal_blocks_its_ipv4_alias(self):
+        self.write_policy(protected_hosts=["::ffff:101:101"])
+        written, upstream = await self.connect("alias.example.net:443",
+                                               {"alias.example.net": [OTHER_PUBLIC]})
+        self.assert_refused(written, upstream, "protected_destination")
+
+    async def test_configured_tailnet_name_is_refused_by_its_answers(self):
+        self.write_policy(protected_hosts=["bench.tailnet.ts.net"])
+        written, upstream = await self.connect("bench.tailnet.ts.net:443",
+                                               {"bench.tailnet.ts.net": ["100.64.0.7"]})
+        self.assert_refused(written, upstream, "not_public")
+        written, upstream = await self.connect("bench.tailnet.ts.net:443",
+                                               {"bench.tailnet.ts.net": [OTHER_PUBLIC]})
+        self.assert_refused(written, upstream, "protected_destination")
+
+    async def test_largest_valid_policy_is_read(self):
+        # 32 distinct 249-byte names: three 63-byte labels and a 57-byte final label.
+        hosts = [".".join([f"{index:02d}" + "a" * 61] + ["a" * 63] * 2 + ["b" * 57])
+                 for index in range(32)]
+        self.assertTrue(all(len(host) == 249 for host in hosts))
+        self.write_policy(protected_hosts=hosts)
+        self.assertLessEqual(self.policy.stat().st_size, egress.MAX_POLICY_BYTES)
+        written, upstream = await self.connect("www.ti.com:443", {"www.ti.com": [PUBLIC]})
+        # The policy loaded: its unresolvable protected names stop public access for the turn.
+        self.assert_refused(written, upstream, "resolution_failed")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { agentProtectedOrigins, prepareDevelopment } = require('../dev/stack.cjs')
+const { prepareDevelopment } = require('../dev/stack.cjs')
 
 function recorder(overrides = {}) {
   const calls = []
@@ -251,34 +251,4 @@ test('only a writable mock starts the apply runner', () => {
   assert.equal(startsApplyRunner({ version: 1 }, true), false)
   assert.equal(startsApplyRunner({ version: 2 }, false), false)
   assert.equal(startsApplyRunner({ version: 3 }, true), false)
-})
-
-test('the agent worker gets the app, tailnet and inventory origins to protect', () => {
-  assert.equal(
-    agentProtectedOrigins({
-      appOrigin: 'http://127.0.0.1:4330',
-      tailnetOrigin: 'https://bench.tailnet.ts.net',
-      inventoryOrigin: 'https://inventory.example.com',
-    }),
-    'http://127.0.0.1:4330,https://bench.tailnet.ts.net,https://inventory.example.com',
-  )
-  assert.equal(
-    agentProtectedOrigins({
-      appOrigin: 'http://127.0.0.1:4330',
-      tailnetOrigin: undefined,
-      inventoryOrigin: 'http://127.0.0.1:4320',
-    }),
-    'http://127.0.0.1:4330,http://127.0.0.1:4320',
-  )
-})
-
-test('protected origins are refused when the app or inventory origin is missing', () => {
-  assert.throws(
-    () => agentProtectedOrigins({ appOrigin: 'http://127.0.0.1:4330', inventoryOrigin: '' }),
-    /protected_origins_unavailable/,
-  )
-  assert.throws(
-    () => agentProtectedOrigins({ appOrigin: '', inventoryOrigin: 'http://127.0.0.1:4320' }),
-    /protected_origins_unavailable/,
-  )
 })
