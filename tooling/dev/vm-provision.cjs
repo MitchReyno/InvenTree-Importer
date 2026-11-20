@@ -103,14 +103,29 @@ async function checkPrerequisites({ exec = runCommand, env } = {}) {
 
 const LABELS_FORMAT = `{{index .Config.Labels "${DIGEST_LABEL}"}}|{{index .Config.Labels "${ROLE_LABEL}"}}`
 
-/** The digest label of an image built as the runner, or null for any other image or none. */
-function runnerDigest(output) {
+/** The digest label of an image built for `role` (the runner by default), or null otherwise. */
+function runnerDigest(output, expected = 'runner') {
   const [digest, role] = output.trim().split('|')
-  return role === 'runner' && digest && digest !== '<no value>' ? digest : null
+  return role === expected && digest && digest !== '<no value>' ? digest : null
 }
 
-/** The local runner image's digest label, or null when it is missing or isn't a runner image. */
-async function localImageDigest(context, image) {
+/** Whether every local image the runner is built from carries the current digest. */
+async function localImagesCurrent(context) {
+  const images = [
+    [APP_IMAGE, 'app'],
+    [GUEST_IMAGE, 'guest'],
+    [context.plan.image, 'runner'],
+  ]
+  for (const [image, role] of images) {
+    if ((await localImageDigest(context, image, role)) !== context.digest) {
+      return false
+    }
+  }
+  return true
+}
+
+/** A local image's digest label, or null when it is missing or wasn't built for `role`. */
+async function localImageDigest(context, image, role = 'runner') {
   const { exec = runCommand, env } = context
   let output
   try {
@@ -121,7 +136,7 @@ async function localImageDigest(context, image) {
   } catch {
     return null
   }
-  return runnerDigest(output)
+  return runnerDigest(output, role)
 }
 
 /** Refuses a runner tag that names one of the images it is built from. */
@@ -304,16 +319,56 @@ async function hostPath(path, lstat) {
   }
 }
 
-/** The guest side of the pairing: `complete` (its `guest/` directory), `present` or `absent`. */
+/** The guest side of the pairing: `complete` (all three files in `guest/`), `present` or `absent`. */
 async function guestPairing(context) {
   const output = await guestCommand(context, [
     'sh',
     '-c',
-    'if test -d "$1/guest"; then echo complete; elif test -e "$1"; then echo present; else echo absent; fi',
+    'if test -s "$1/guest/ca.pem" && test -s "$1/guest/cert.pem" && test -s "$1/guest/key.pem"; then echo complete; elif test -e "$1"; then echo present; else echo absent; fi',
     'sh',
     context.guestDir,
   ])
   return output.trim()
+}
+
+/**
+ * Checks a pairing directory's files belong together: the certificate was issued by its CA, and
+ * the private key is the certificate's. Run on the host for the host side and in the guest for
+ * the guest side.
+ */
+const PAIRING_VALID = [
+  'cd "$1"',
+  'openssl verify -CAfile ca.pem cert.pem >/dev/null 2>&1',
+  'test "$(openssl x509 -noout -pubkey -in cert.pem)" = "$(openssl pkey -pubout -in key.pem)"',
+].join(' && ')
+
+async function hostPairingValid(context) {
+  const { exec = runCommand, env, plan } = context
+  try {
+    await exec('sh', ['-c', PAIRING_VALID, 'sh', plan.pair], {
+      timeout: GUEST_COMMAND_TIMEOUT_MS,
+      env,
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function guestPairingValid(context) {
+  try {
+    await guestCommand(context, [
+      'sudo',
+      'sh',
+      '-c',
+      PAIRING_VALID,
+      'sh',
+      `${context.guestDir}/guest`,
+    ])
+    return true
+  } catch {
+    return false
+  }
 }
 
 function pairingMismatch(context) {
@@ -341,9 +396,13 @@ async function checkPairing(context, { lstat = fsLstat, read = readFile } = {}) 
   if (!hostComplete || guest !== 'complete') {
     throw pairingMismatch(context)
   }
-  // Certificates from another pairing would pass a presence check but never authenticate.
+  // Files from another pairing would pass a presence check but never authenticate: both sides
+  // must share the CA, and each certificate and key must belong to it.
   const hostCa = sha256(await read(join(plan.pair, 'ca.pem')))
   if ((await guestFileHash(context, `${guestDir}/guest/ca.pem`)) !== hostCa) {
+    throw pairingMismatch(context)
+  }
+  if (!(await hostPairingValid(context)) || !(await guestPairingValid(context))) {
     throw pairingMismatch(context)
   }
   return 'match'
@@ -365,10 +424,29 @@ async function ensurePairing(context, { lstat = fsLstat, read = readFile } = {})
 }
 
 /**
+ * Before a VM is created: with no VM there is no guest side, so a host pairing or key file already
+ * in place is one-sided and refused before anything, the VM's disk included, is made.
+ */
+async function checkHostIdentityAlone(context, { lstat = fsLstat } = {}) {
+  if ((await hostPath(context.plan.pair, lstat)).exists) {
+    throw pairingMismatch(context)
+  }
+  if ((await hostPath(context.keyFile, lstat)).exists) {
+    throw new VmSetupError('vm_operator_key_mismatch', [
+      context.keyFile,
+      `${context.plan.name}:${context.guestDir}/operator/key`,
+    ])
+  }
+}
+
+/**
  * Compares the host key file with the guest's key: `match`, or `none` when neither side has one.
  * A key on one side only, an empty key or two different keys is refused and neither is touched.
  */
-async function checkOperatorKey(context, { lstat = fsLstat, read = readFile } = {}) {
+async function checkOperatorKey(
+  context,
+  { lstat = fsLstat, read = readFile, allowNone = true } = {},
+) {
   const { keyFile, guestDir, plan } = context
   const mismatch = new VmSetupError('vm_operator_key_mismatch', [
     keyFile,
@@ -376,7 +454,8 @@ async function checkOperatorKey(context, { lstat = fsLstat, read = readFile } = 
   ])
   const host = await hostPath(keyFile, lstat)
   const guest = await guestFile(context, `${guestDir}/operator/key`)
-  if (!host.exists && guest.state === 'absent') {
+  // Only setup may create a key; a refresh needs the existing one on both sides.
+  if (!host.exists && guest.state === 'absent' && allowNone) {
     return 'none'
   }
   if (!host.file || guest.state !== 'present') {
@@ -438,13 +517,13 @@ async function containerState(context, name) {
       'docker',
       'inspect',
       '--format',
-      '{{.Image}}|{{.State.Running}}|{{range .Mounts}}{{.Source}};{{end}}|{{range .Config.Env}}{{.}};{{end}}',
+      '{{.Image}}|{{.State.Status}}|{{range .Mounts}}{{.Source}};{{end}}|{{range .Config.Env}}{{.}};{{end}}',
       name,
     ])
   } catch {
     return null
   }
-  const [image, running, mounts, ...rest] = output.trim().split('|')
+  const [image, status, mounts, ...rest] = output.trim().split('|')
   const origin = rest
     .join('|')
     .split(';')
@@ -452,7 +531,8 @@ async function containerState(context, name) {
     ?.slice('INTAKE_OPERATOR_ORIGIN='.length)
   return {
     image,
-    running: running === 'true',
+    // Only `running`: a container in restart backoff reports Running=true with no process.
+    running: status === 'running',
     mounts: mounts.split(';').filter(Boolean),
     origin: origin ?? null,
   }
@@ -560,15 +640,12 @@ async function provisionProvider(context, provider) {
 
 /** Removes the retired document reader's container, which nothing runs any more. */
 async function removeRetiredReader(context) {
-  const listed = await guestCommand(context, [
-    'sudo',
-    'docker',
-    'ps',
-    '-aq',
-    '--filter',
-    `name=^${RETIRED_CONTAINER}$`,
-  ])
-  if (listed.trim() === '') {
+  const reader = await containerState(context, RETIRED_CONTAINER)
+  // Only this installation's reader, which mounted its `web` directory; another one is left alone.
+  if (
+    reader === null ||
+    !reader.mounts.every((source) => source.startsWith(`${context.guestDir}/`))
+  ) {
     return false
   }
   await guestCommand(context, ['sudo', 'docker', 'rm', '-f', RETIRED_CONTAINER])
@@ -604,6 +681,7 @@ module.exports = {
   VmSetupError,
   browserPolicyCurrent,
   buildImages,
+  checkHostIdentityAlone,
   checkOperatorKey,
   checkPairing,
   checkPrerequisites,
@@ -616,6 +694,8 @@ module.exports = {
   guestImageDigest,
   loadRunner,
   localImageDigest,
+  localImagesCurrent,
+  vmStatus,
   servicesState,
   sourceDigest,
 }

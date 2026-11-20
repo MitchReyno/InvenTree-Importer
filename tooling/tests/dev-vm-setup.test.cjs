@@ -9,6 +9,7 @@ const {
   runVmSetup,
   refreshRunner,
   startManagedVm,
+  hostToolEnv,
   staleImageWarning,
   failureLine,
 } = require('../dev/vm-setup.cjs')
@@ -40,6 +41,7 @@ async function world(t, initial = {}) {
     vmStatus: '',
     localLabel: null,
     localRole: 'runner',
+    baseLabels: {},
     guestLabel: null,
     guestImageId: null,
     guestPairing: false,
@@ -69,6 +71,7 @@ async function world(t, initial = {}) {
       state.containers[name] = {
         image: state.guestImageId,
         running: !state.fail.has(`dies ${name}`),
+        status: state.fail.has(`restarts ${name}`) ? 'restarting' : undefined,
         mounts: [`${GUEST_DIR}/operator`, `${GUEST_DIR}/${provider}-state`],
         origin: MANAGEMENT.has(name) ? origin : null,
       }
@@ -100,6 +103,10 @@ async function world(t, initial = {}) {
       }
       return state.guestDirExists ? 'present\n' : 'absent\n'
     }
+    if (first === 'sudo' && second === 'sh' && args[3].includes('openssl verify')) {
+      failIf('guest pairing invalid')
+      return ''
+    }
     if (first === 'sudo' && second === 'sh') {
       failIf('guest probe')
       const path = args.at(-1)
@@ -130,14 +137,12 @@ async function world(t, initial = {}) {
         const env = container.origin
           ? `INTAKE_OPERATOR_ORIGIN=${container.origin};PATH=/bin;`
           : 'PATH=/bin;'
-        return `${container.image}|${container.running}|${mounts}|${env}`
-      }
-      if (rest[0] === 'ps') {
-        return state.reader ? 'abc123\n' : ''
+        const status = container.status ?? (container.running ? 'running' : 'exited')
+        return `${container.image}|${status}|${mounts}|${env}`
       }
       if (rest[0] === 'rm') {
         actions.push(`remove ${rest.at(-1)}`)
-        state.reader = false
+        delete state.containers[rest.at(-1)]
         return ''
       }
       if (rest[0] === 'start') {
@@ -145,6 +150,7 @@ async function world(t, initial = {}) {
         actions.push(`start ${name}`)
         failIf(`start ${name}`)
         state.containers[name].running = true
+        delete state.containers[name].status
         return ''
       }
     }
@@ -154,6 +160,10 @@ async function world(t, initial = {}) {
   const exec = async (command, args, options) => {
     if (command === 'git') {
       return runCommand(command, args, options)
+    }
+    if (command === 'sh' && args[1].includes('openssl verify')) {
+      failIf('host pairing invalid')
+      return ''
     }
     if (command === 'sh' && args[1] === 'command -v "$1"') {
       if (state.missingTools.includes(args[3])) {
@@ -185,17 +195,25 @@ async function world(t, initial = {}) {
     }
     if (command === 'docker') {
       if (args[0] === 'image' && args[1] === 'inspect') {
-        if (state.localLabel === null) {
+        const tag = args.at(-1)
+        const base = { 'bench-intake-app:dev': 'app', 'bench-intake-personal-guest:dev': 'guest' }[
+          tag
+        ]
+        const label = base ? state.baseLabels[base] : state.localLabel
+        if (label === null || label === undefined) {
           throw new Error('command_failed')
         }
-        return `${state.localLabel}|${state.localRole}`
+        return `${label}|${base ?? state.localRole}`
       }
       const target = args.includes('personal') ? 'runner' : args.includes('-f') ? 'app' : 'guest'
       actions.push(`build ${target}`)
       failIf(`build ${target}`)
+      const label = args[args.indexOf('--label') + 1].split('=')[1]
       if (target === 'runner') {
-        state.localLabel = args[args.indexOf('--label') + 1].split('=')[1]
+        state.localLabel = label
         state.localRole = 'runner'
+      } else {
+        state.baseLabels[target] = label
       }
       return ''
     }
@@ -321,20 +339,21 @@ async function hostPairing(fake, ca = 'ca.pem from this pairing') {
 test('a pairing on one side only stops before anything is built, naming both and removing neither', async (t) => {
   for (const side of ['host', 'guest']) {
     await t.test(side, async (t) => {
-      const fake = await world(t, side === 'guest' ? { guestDirExists: true } : {})
+      // A guest side needs an existing VM; a host side alone is refused before any VM is made.
+      const fake = await world(
+        t,
+        side === 'guest' ? { guestDirExists: true, vmStatus: 'Stopped' } : {},
+      )
       if (side === 'host') {
         await mkdir(fake.plan.pair, { recursive: true })
         await writeFile(join(fake.plan.pair, 'ca.pem'), 'kept')
       }
       await assert.rejects(fake.setup(), (error) => {
         assert.equal(error.code, 'vm_pairing_mismatch')
-        assert.match(
-          failureLine(error),
-          new RegExp(`${fake.plan.pair}.*bench-agent-test:${GUEST_DIR}`),
-        )
+        assert.match(failureLine(error), new RegExp(`${fake.plan.pair} and bench-agent-test:`))
         return true
       })
-      assert.deepEqual(fake.actions, ['create vm', 'stop vm'])
+      assert.deepEqual(fake.actions, side === 'host' ? [] : ['boot vm', 'stop vm'])
       if (side === 'host') {
         assert.equal(await readFile(join(fake.plan.pair, 'ca.pem'), 'utf8'), 'kept')
       } else {
@@ -345,10 +364,44 @@ test('a pairing on one side only stops before anything is built, naming both and
 })
 
 test('a pairing whose sides come from different pairings is refused', async (t) => {
-  const fake = await world(t, { guestPairing: true, guestCa: sha256('another pairing') })
+  const fake = await world(t, {
+    vmStatus: 'Stopped',
+    guestPairing: true,
+    guestCa: sha256('another pairing'),
+  })
   await hostPairing(fake)
   await assert.rejects(fake.setup(), { code: 'vm_pairing_mismatch' })
-  assert.deepEqual(fake.actions, ['create vm', 'stop vm'])
+  assert.deepEqual(fake.actions, ['boot vm', 'stop vm'])
+})
+
+test('a pairing sharing a CA but with a certificate or key from elsewhere is refused', async (t) => {
+  for (const side of ['host', 'guest']) {
+    await t.test(side, async (t) => {
+      const fake = await world(t, {
+        vmStatus: 'Stopped',
+        guestPairing: true,
+        guestCa: sha256('ca.pem from this pairing'),
+        fail: new Set([`${side} pairing invalid`]),
+      })
+      await hostPairing(fake)
+      await assert.rejects(fake.setup(), { code: 'vm_pairing_mismatch' })
+      assert.deepEqual(fake.actions, ['boot vm', 'stop vm'])
+    })
+  }
+})
+
+test('with no VM yet, a host pairing or key file alone is refused before a VM is created', async (t) => {
+  const pairing = await world(t)
+  await hostPairing(pairing)
+  await assert.rejects(pairing.setup(), { code: 'vm_pairing_mismatch' })
+  assert.deepEqual(pairing.actions, [])
+
+  const key = await world(t)
+  await mkdir(join(key.root, 'state'), { recursive: true })
+  await writeFile(key.keyFile, 'kept\n')
+  await assert.rejects(key.setup(), { code: 'vm_operator_key_mismatch' })
+  assert.deepEqual(key.actions, [])
+  assert.equal(await readFile(key.keyFile, 'utf8'), 'kept\n')
 })
 
 test('an operator key on one side only, empty, or different stops before anything is written', async (t) => {
@@ -362,6 +415,7 @@ test('an operator key on one side only, empty, or different stops before anythin
   for (const [name, keys] of Object.entries(cases)) {
     await t.test(name, async (t) => {
       const fake = await world(t, {
+        vmStatus: 'Stopped',
         guestPairing: true,
         guestCa: sha256('ca.pem from this pairing'),
         guestKey: keys.guest,
@@ -371,7 +425,7 @@ test('an operator key on one side only, empty, or different stops before anythin
         await writeFile(fake.keyFile, keys.host)
       }
       await assert.rejects(fake.setup(), { code: 'vm_operator_key_mismatch' })
-      assert.deepEqual(fake.actions, ['create vm', 'stop vm'])
+      assert.deepEqual(fake.actions, ['boot vm', 'stop vm'])
       assert.equal(fake.state.guestKey, keys.guest)
       if (keys.host === null) {
         await assert.rejects(readFile(fake.keyFile), { code: 'ENOENT' })
@@ -446,6 +500,25 @@ test('a service that dies after a successful provisioning command fails the run 
     return true
   })
   assert.ok(!fake.output.join('').includes('is ready'))
+})
+
+test('a service in restart backoff is not taken as running', async (t) => {
+  const fake = await world(t, { fail: new Set(['restarts bench-claude-management']) })
+  await assert.rejects(fake.setup(), (error) => {
+    assert.equal(failureLine(error), 'vm_guest_service_start_failed: bench-claude-management')
+    return true
+  })
+})
+
+test('a missing app or guest image is rebuilt even when the runner image is current', async (t) => {
+  for (const base of ['app', 'guest']) {
+    const fake = await world(t)
+    await fake.setup({ plan: { keepRunning: true } })
+    delete fake.state.baseLabels[base]
+    fake.actions.length = 0
+    await fake.setup({ plan: { keepRunning: true } })
+    assert.deepEqual(fake.actions, ['build app', 'build guest', 'build runner'], base)
+  }
 })
 
 test('a container of the same name from another installation is neither reused nor replaced', async (t) => {
@@ -534,11 +607,21 @@ test('a stopped guest service is started and confirmed; a failed start names the
   })
 })
 
-test('the retired document reader container is removed', async (t) => {
+test("the retired document reader is removed only when it is this installation's", async (t) => {
   const fake = await world(t)
   await fake.setup({ plan: { keepRunning: true } })
-  fake.state.reader = true
+  const reader = (mount) => ({
+    image: 'sha256:reader',
+    running: true,
+    mounts: [mount],
+    origin: null,
+  })
+  fake.state.containers['bench-public-reader'] = reader('/home/dev/other-install/web')
   fake.actions.length = 0
+  await fake.setup({ plan: { keepRunning: true } })
+  assert.deepEqual(fake.actions, [])
+
+  fake.state.containers['bench-public-reader'] = reader(`${GUEST_DIR}/web`)
   await fake.setup({ plan: { keepRunning: true } })
   assert.deepEqual(fake.actions, ['remove bench-public-reader'])
 })
@@ -619,6 +702,17 @@ test('a stale image with a missing or different host key stops before any build 
       assert.equal(fake.state.guestKey, guestKey)
     })
   }
+})
+
+test('a refresh with both operator keys missing refuses rather than making a new one', async (t) => {
+  const fake = await prepared(t)
+  await rm(fake.keyFile)
+  fake.state.guestKey = null
+  fake.state.guestLabel = 'old'
+  await assert.rejects(fake.refresh(), { code: 'vm_operator_key_mismatch' })
+  assert.deepEqual(fake.actions, [])
+  await assert.rejects(readFile(fake.keyFile), { code: 'ENOENT' })
+  assert.equal(fake.state.guestKey, null)
 })
 
 test('a refresh refuses a pairing that does not match its guest', async (t) => {
@@ -726,4 +820,25 @@ test('a failed refresh starts no relay, and the boot is already recorded for shu
   )
   assert.deepEqual(order, ['boot', 'guest directory', 'refresh'])
   assert.equal(booted, true)
+})
+
+test('Lima and Docker commands get the settings that select the Docker engine, and nothing else', () => {
+  const env = hostToolEnv({
+    PATH: '/usr/bin',
+    HOME: '/home/dev',
+    DOCKER_HOST: 'unix:///run/other.sock',
+    DOCKER_CONTEXT: 'bench',
+    DOCKER_CONFIG: '/home/dev/.docker-bench',
+    LIMA_HOME: '/home/dev/.lima-bench',
+    INTAKE_DEV_PORT: '4330',
+    AWS_SECRET_ACCESS_KEY: 'not passed',
+  })
+  assert.deepEqual(env, {
+    PATH: '/usr/bin',
+    HOME: '/home/dev',
+    DOCKER_HOST: 'unix:///run/other.sock',
+    DOCKER_CONTEXT: 'bench',
+    DOCKER_CONFIG: '/home/dev/.docker-bench',
+    LIMA_HOME: '/home/dev/.lima-bench',
+  })
 })

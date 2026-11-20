@@ -17,6 +17,7 @@ const {
   VmSetupError,
   browserPolicyCurrent,
   buildImages,
+  checkHostIdentityAlone,
   checkOperatorKey,
   checkPairing,
   checkPrerequisites,
@@ -29,12 +30,17 @@ const {
   guestImageDigest,
   loadRunner,
   localImageDigest,
+  localImagesCurrent,
+  vmStatus,
   servicesState,
   sourceDigest,
 } = require('./vm-provision.cjs')
 
 /** The operator key file's name in the development state directory. */
 const VM_OPERATOR_KEY_FILE = 'vm-operator-key'
+
+/** Names the default guest directory before the guest exists to look it up. */
+const GUEST_DIR_LABEL = '~/bench-intake-guest in the guest'
 
 const STANDARD_WRITE = {
   out: (text) => process.stdout.write(text),
@@ -74,9 +80,9 @@ async function step(name, write, action, signal) {
   return result
 }
 
-/** Builds the images unless the local runner image already carries the current digest. */
+/** Builds the images unless all three local images already carry the current digest. */
 async function ensureImages(context) {
-  if ((await localImageDigest(context, context.plan.image)) === context.digest) {
+  if (await localImagesCurrent(context)) {
     return 'done'
   }
   context.write.out('Building the app, guest and runner images; this takes a few minutes.\n')
@@ -153,6 +159,17 @@ async function runVmSetup({
   }
   let failure = null
   try {
+    if ((await vmStatus(context)) === '') {
+      // No VM yet, so no guest side: a host pairing or key already here is refused before a VM
+      // and its disk are created.
+      context.guestDir = plan.guestDir ?? GUEST_DIR_LABEL
+      await step(
+        'Pairing and operator key checks',
+        write,
+        () => checkHostIdentityAlone(context),
+        signal,
+      )
+    }
     await step('VM', write, async () => ((await ensureVm(context)) ? 'changed' : 'done'), signal)
     context.guestDir = await resolveGuestDir(plan, { exec, env, write })
     await provisionGuest(context)
@@ -197,8 +214,9 @@ async function refreshRunner({
   if (imageCurrent && policyCurrent && servicesCurrent) {
     return false
   }
-  // A key mismatch stops the refresh before anything is built, loaded or reprovisioned.
-  await checkOperatorKey(context)
+  // A key mismatch stops the refresh before anything is built, loaded or reprovisioned. Only setup
+  // makes a key: with both missing, the refresh refuses rather than creating a new identity.
+  await checkOperatorKey(context, { allowNone: false })
   if (!imageCurrent) {
     write.out(`Refreshing the runner image in VM ${plan.name}.\n`)
     try {
@@ -292,23 +310,31 @@ async function developmentOrigin(settings, env) {
   return `http://127.0.0.1:${Number(settings.INTAKE_DEV_PORT || 4330)}`
 }
 
+/**
+ * The environment Lima and Docker commands get, in `pnpm vm:setup` and `pnpm dev` alike: the base
+ * process settings, Lima's home, and whatever selects the Docker engine, so both use the same one.
+ */
+function hostToolEnv(environment = process.env) {
+  const names = [
+    'PATH',
+    'HOME',
+    'USER',
+    'LOGNAME',
+    'TMPDIR',
+    'LANG',
+    'LIMA_HOME',
+    'DOCKER_HOST',
+    'DOCKER_CONTEXT',
+    'DOCKER_CONFIG',
+  ]
+  return Object.fromEntries(
+    names.filter((key) => environment[key]).map((key) => [key, environment[key]]),
+  )
+}
+
 async function main() {
   const repository = resolve(__dirname, '../..')
-  const env = Object.fromEntries(
-    [
-      'PATH',
-      'HOME',
-      'USER',
-      'LOGNAME',
-      'TMPDIR',
-      'LANG',
-      'LIMA_HOME',
-      'DOCKER_HOST',
-      'DOCKER_CONTEXT',
-    ]
-      .filter((key) => process.env[key] !== undefined)
-      .map((key) => [key, process.env[key]]),
-  )
+  const env = hostToolEnv()
   const { developmentEnvironment } = require('./environment.cjs')
   const { resolveVmSetup } = require('./settings.cjs')
   const settings = await developmentEnvironment(repository)
@@ -352,6 +378,7 @@ module.exports = {
   runVmSetup,
   refreshRunner,
   startManagedVm,
+  hostToolEnv,
   staleImageWarning,
   VM_OPERATOR_KEY_FILE,
   failureLine,

@@ -100,8 +100,10 @@ test('the digest follows edits, Dockerfile ignore files and untracked sources, n
   assert.notEqual(ignoreChanged, edited)
 
   await write('src/new.ts', 'export {}\n')
-  assert.notEqual(await sourceDigest(root), ignoreChanged)
+  const added = await sourceDigest(root)
+  assert.notEqual(added, ignoreChanged)
 
+  // The guest image's whole context is an input, whatever its Dockerfile copies.
   await write('tooling/deployment/guest/package.json', '{}\n')
-  assert.notEqual(await sourceDigest(root), ignoreChanged)
+  assert.notEqual(await sourceDigest(root), added)
 })

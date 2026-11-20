@@ -115,7 +115,7 @@ ssh -NT -o ExitOnForwardFailure=yes -o ControlPath=none -F "${LIMA_HOME:-$HOME/.
 
 For `pnpm dev`, set `INTAKE_RUN_AGENTS_IN_VM=true` with the coordinator pair and port; it enables the dev UI proxy. Real subscription sessions also need `INTAKE_USE_MOCK_AI_AGENTS=false` (see [choosing what the app runs](../../docs/development.md#choosing-what-the-app-runs)). In a packaged deployment, route the exact same-origin path `/personal-runner/claude` to the private tunnel. Preserve the browser Origin and Authorization headers, disable body and authorization-header logging, and exclude the route from caches. The management service verifies the operator key and exact origin, including on status requests. Keep the guest credential directory and operator key outside backups and image builds.
 
-Rerunning a provider script replaces only that provider's two containers, for example to change the origin or move to a new runner image. The credential store, egress and key directories stay, so sign-ins are kept.
+Rerunning a provider script replaces only that provider's two containers, for example to change the origin or move to a new runner image. It refuses with `vm_guest_service_conflict` when a container of the same name mounts another installation's directories, and removes nothing. The credential store, egress and key directories stay, so sign-ins are kept.
 
 In **Settings › Agents → Personal Claude subscription**, enter the management key, choose **Check configuration**, enter the setup token, and explicitly save it. Reopening shows configuration status only. Replace and remove use the last acknowledged revision. Removing the credential blocks future launches. An already running provider process retains its environment until exit.
 

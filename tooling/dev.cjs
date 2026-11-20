@@ -31,6 +31,7 @@ const {
   VM_OPERATOR_KEY_FILE,
   VmSetupError,
   failureLine,
+  hostToolEnv,
   startManagedVm,
   staleImageWarning,
 } = require('./dev/vm-setup.cjs')
@@ -46,16 +47,8 @@ const baseEnv = Object.fromEntries(
     .filter((key) => process.env[key] !== undefined)
     .map((key) => [key, process.env[key]]),
 )
-// Lima and the relays get the base environment, and Lima's home when the shell sets one.
-const vmEnv = {
-  ...baseEnv,
-  // The same Docker engine `pnpm vm:setup` builds on.
-  ...Object.fromEntries(
-    ['LIMA_HOME', 'DOCKER_HOST', 'DOCKER_CONTEXT']
-      .filter((key) => process.env[key])
-      .map((key) => [key, process.env[key]]),
-  ),
-}
+// The same environment `pnpm vm:setup` gives Lima and Docker, so both use the same engine.
+const vmEnv = hostToolEnv()
 // Survive source reloads: the browser keeps its connection through these.
 const FRONT_DOOR = new Set(['ui', 'tailnet', 'tailscale-serve'])
 // The VM tunnel does not use the app services, and the relays reconnect to the restarted worker.

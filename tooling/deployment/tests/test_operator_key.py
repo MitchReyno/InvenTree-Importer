@@ -9,12 +9,19 @@ import unittest
 
 BRIDGE = Path(__file__).resolve().parents[1] / "bridge"
 
-# `limactl shell --workdir=/ <vm> [sudo] <command...>` runs the command here; docker is only logged.
+# `limactl shell --workdir=/ <vm> [sudo] <command...>` runs the command here. Docker is logged;
+# `inspect` prints the mounts recorded for a container in $CONTAINERS, or fails when it has none.
 FAKE_LIMACTL = r'''#!/bin/sh
 shift 3
 [ "$1" = sudo ] && shift
 if [ "$1" = docker ]; then
   shift
+  if [ "$1" = inspect ]; then
+    for name; do :; done
+    [ -f "$CONTAINERS/$name" ] || exit 1
+    cat "$CONTAINERS/$name"
+    exit 0
+  fi
   printf '%s\n' "$*" >> "$DOCKER_LOG"
   exit 0
 fi
@@ -72,6 +79,8 @@ class OperatorKey(unittest.TestCase):
         self.key_file.parent.mkdir()
         self.docker_log = root / "docker.log"
         self.docker_log.touch()
+        self.containers = root / "containers"
+        self.containers.mkdir()
 
     def tearDown(self):
         self.directory.cleanup()
@@ -85,6 +94,7 @@ class OperatorKey(unittest.TestCase):
             "PATH": f"{self.bin}:{os.environ['PATH']}",
             "HOME": self.directory.name,
             "DOCKER_LOG": str(self.docker_log),
+            "CONTAINERS": str(self.containers),
         }
         return subprocess.run(
             ["bash", str(BRIDGE / name), *args],
@@ -182,6 +192,9 @@ class OperatorKey(unittest.TestCase):
         ):
             with self.subTest(provider):
                 self.docker_log.write_text("")
+                # Both containers exist and belong to this installation.
+                for name in own.split():
+                    (self.containers / name).write_text(f"{self.guest}/{kept} ")
                 (self.guest / kept).mkdir(exist_ok=True)
                 (self.guest / kept / "sign-in").write_text("kept")
                 result = self.provision(provider)
@@ -191,6 +204,17 @@ class OperatorKey(unittest.TestCase):
                 removals = [call for call in calls if call.startswith("rm")]
                 self.assertEqual(removals, [f"rm -f {own}"])
                 self.assertEqual((self.guest / kept / "sign-in").read_text(), "kept")
+
+    def test_provisioning_refuses_containers_of_another_installation(self):
+        for provider, name in (("claude", "bench-claude-management"), ("codex", "bench-codex-egress")):
+            with self.subTest(provider):
+                self.docker_log.write_text("")
+                (self.containers / name).write_text("/home/dev/other-install/operator ")
+                result = self.provision(provider)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(f"vm_guest_service_conflict: {name}", result.stderr)
+                self.assertEqual(self.docker_log.read_text(), "")
+                (self.containers / name).unlink()
 
 
 if __name__ == "__main__":
