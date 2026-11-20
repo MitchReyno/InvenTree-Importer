@@ -2,15 +2,25 @@
  * `pnpm vm:setup` prepares the agent VM in one rerunnable command, and `pnpm dev` keeps its runner
  * image current. Both use the checks and steps in `vm-provision.cjs`, so they agree on "current".
  */
+const { constants } = require('node:os')
 const { join, resolve } = require('node:path')
 const { pathToFileURL } = require('node:url')
-const { finishVm, resolveGuestDir, runCommand } = require('./vm.cjs')
+const {
+  confirmVmChildren,
+  ensureVmRunning,
+  finishVm,
+  resolveGuestDir,
+  runCommand,
+  startVmChildren,
+} = require('./vm.cjs')
 const {
   VmSetupError,
   browserPolicyCurrent,
   buildImages,
   checkOperatorKey,
+  checkPairing,
   checkPrerequisites,
+  checkRunnerTag,
   ensureBrowserPolicy,
   ensureGuestServices,
   ensureOperatorKey,
@@ -22,6 +32,9 @@ const {
   servicesState,
   sourceDigest,
 } = require('./vm-provision.cjs')
+
+/** The operator key file's name in the development state directory. */
+const VM_OPERATOR_KEY_FILE = 'vm-operator-key'
 
 const STANDARD_WRITE = {
   out: (text) => process.stdout.write(text),
@@ -35,10 +48,19 @@ const NAMED_FAILURES = new Set([
   'vm_operator_key_mismatch',
   'vm_guest_service_start_failed',
   'vm_guest_service_provision_failed',
+  'vm_guest_service_conflict',
+  'vm_runner_image_name_reserved',
+  'vm_setup_cancelled',
 ])
 
-/** Runs one step, reports whether it changed anything, and names the step when it fails. */
-async function step(name, write, action) {
+/**
+ * Runs one step, reports whether it changed anything, and names the step when it fails. A
+ * cancelled run stops before the next step, so the cleanup after it still runs.
+ */
+async function step(name, write, action, signal) {
+  if (signal?.aborted) {
+    throw new VmSetupError('vm_setup_cancelled', name)
+  }
   let result
   try {
     result = await action()
@@ -70,14 +92,26 @@ async function ensureRunnerLoaded(context) {
   return 'changed'
 }
 
+/**
+ * The pairing and key are checked before anything is built or written, so a mismatch stops the
+ * run with nothing changed.
+ */
+async function checkIdentity(context) {
+  await checkPairing(context)
+  await checkOperatorKey(context)
+  return 'done'
+}
+
 /** The steps after the VM is running, in order. */
 async function provisionGuest(context) {
-  const { write } = context
-  await step('Runner image in the VM', write, () => ensureRunnerLoaded(context))
-  await step('Pairing', write, () => ensurePairing(context))
-  await step('Operator key', write, () => ensureOperatorKey(context))
-  await step('Browser policy', write, () => ensureBrowserPolicy(context))
-  await step('Guest services', write, () => ensureGuestServices(context))
+  const { write, signal } = context
+  await step('Pairing and operator key checks', write, () => checkIdentity(context), signal)
+  await step('Images', write, () => ensureImages(context), signal)
+  await step('Runner image in the VM', write, () => ensureRunnerLoaded(context), signal)
+  await step('Pairing', write, () => ensurePairing(context), signal)
+  await step('Operator key', write, () => ensureOperatorKey(context), signal)
+  await step('Browser policy', write, () => ensureBrowserPolicy(context), signal)
+  await step('Guest services', write, () => ensureGuestServices(context), signal)
 }
 
 function nextSteps(plan) {
@@ -106,23 +140,34 @@ async function runVmSetup({
   exec = runCommand,
   env,
   write = STANDARD_WRITE,
+  signal,
+  settleMs,
 }) {
-  const context = { plan, repository, origin, keyFile, exec, env, write }
+  const context = { plan, repository, origin, keyFile, exec, env, write, signal, settleMs }
+  checkRunnerTag(plan)
   await checkPrerequisites({ exec, env })
   context.digest = await sourceDigest(repository, { exec })
-  await step('Images', write, () => ensureImages(context))
   let booted = false
   context.onBoot = () => {
     booted = true
   }
+  let failure = null
   try {
-    await step('VM', write, async () => ((await ensureVm(context)) ? 'changed' : 'done'))
+    await step('VM', write, async () => ((await ensureVm(context)) ? 'changed' : 'done'), signal)
     context.guestDir = await resolveGuestDir(plan, { exec, env, write })
     await provisionGuest(context)
-    write.out(nextSteps({ ...plan, keyFile }))
-  } finally {
-    await finishVm(plan, booted, { exec, env, write })
+  } catch (error) {
+    failure = error
   }
+  // The VM is stopped after a failure too; a failed stop is a failed run.
+  const stopped = await finishVm(plan, booted, { exec, env, write })
+  if (failure) {
+    throw failure
+  }
+  if (!stopped) {
+    throw new VmSetupError('vm_stop_failed', plan.name)
+  }
+  write.out(nextSteps({ ...plan, keyFile }))
 }
 
 /**
@@ -138,8 +183,12 @@ async function refreshRunner({
   exec = runCommand,
   env,
   write = STANDARD_WRITE,
+  settleMs,
 }) {
-  const context = { plan, guestDir, repository, origin, keyFile, exec, env, write }
+  const context = { plan, guestDir, repository, origin, keyFile, exec, env, write, settleMs }
+  checkRunnerTag(plan)
+  // A pairing that doesn't match its guest would never authenticate; nothing starts on it.
+  await checkPairing(context)
   context.digest = await sourceDigest(repository, { exec })
   const imageCurrent = (await guestImageDigest(context)) === context.digest
   const policyCurrent = !plan.tools || (await browserPolicyCurrent(context))
@@ -162,11 +211,57 @@ async function refreshRunner({
     }
   }
   if (!policyCurrent) {
-    await ensureBrowserPolicy(context)
+    try {
+      await ensureBrowserPolicy(context)
+    } catch (error) {
+      throw new VmSetupError('vm_setup_step_failed', `browser policy in ${plan.name}:${guestDir}`, {
+        cause: error,
+      })
+    }
   }
   // Checks the operator key before reprovisioning, and starts stopped services.
   await ensureGuestServices(context)
   return true
+}
+
+/**
+ * The launcher's VM side, in order: boot (recorded through `onBoot` before it starts, so the
+ * launcher's shutdown stops a VM this run booted even after a failure), the guest directory, the
+ * runner refresh, then the tunnel and relays. A failed refresh starts no relay.
+ */
+async function startManagedVm(plan, options) {
+  const {
+    onBoot,
+    onRefreshed,
+    signal,
+    env,
+    repository,
+    origin,
+    keyFile,
+    launch,
+    execPath,
+    steps = {},
+  } = options
+  const {
+    ensureRunning = ensureVmRunning,
+    guestDirectory = resolveGuestDir,
+    refresh = refreshRunner,
+    startChildren = startVmChildren,
+    confirmChildren = confirmVmChildren,
+  } = steps
+  await ensureRunning(plan, { signal, env, onBoot })
+  signal?.throwIfAborted()
+  const guestDir = await guestDirectory(plan, { env, signal })
+  signal?.throwIfAborted()
+  if (await refresh({ plan, guestDir, repository, origin, keyFile, env })) {
+    onRefreshed?.()
+  }
+  signal?.throwIfAborted()
+  const children = startChildren(
+    { ...plan, guestDir },
+    { launch, execPath, repository, baseEnv: env },
+  )
+  return { children, confirmed: confirmChildren(children, { signal }) }
 }
 
 /** With the VM unmanaged, only the local image is compared, so the VM is never touched. */
@@ -223,7 +318,27 @@ async function main() {
   const state = stateDirectory(settings)
   const plan = resolveVmSetup(settings, { stateDirectory: state })
   const origin = await developmentOrigin(settings, env)
-  await runVmSetup({ plan, repository, origin, keyFile: join(state, 'vm-operator-key'), env })
+  // Steps run in their own process groups, so a Ctrl-C reaches only this process: the first one
+  // stops the run after the current step and still stops a VM it started; the next quits at once.
+  const cancel = new AbortController()
+  const stop = (name) => {
+    if (cancel.signal.aborted) {
+      process.exit(128 + constants.signals[name])
+    }
+    process.stderr.write('Stopping after the current step; press Ctrl-C again to quit at once.\n')
+    cancel.abort()
+  }
+  for (const name of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+    process.on(name, stop)
+  }
+  await runVmSetup({
+    plan,
+    repository,
+    origin,
+    keyFile: join(state, VM_OPERATOR_KEY_FILE),
+    env,
+    signal: cancel.signal,
+  })
 }
 
 if (require.main === module) {
@@ -233,4 +348,12 @@ if (require.main === module) {
   })
 }
 
-module.exports = { runVmSetup, refreshRunner, staleImageWarning, failureLine, VmSetupError }
+module.exports = {
+  runVmSetup,
+  refreshRunner,
+  startManagedVm,
+  staleImageWarning,
+  VM_OPERATOR_KEY_FILE,
+  failureLine,
+  VmSetupError,
+}

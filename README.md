@@ -96,7 +96,7 @@ Sign in once. In **Settings › Agents → Personal Claude subscription**, enter
 
 VM sessions can search the web through their provider and, while **Settings › Agents › Web research › Allow public web pages** is on (the default), read public pages through each turn's egress proxy. `INTAKE_VM_AGENT_TOOLS=false` selects `shared-vm-agent/1`, the same VM with one guest turn and no tools.
 
-**An existing setup** made by hand from an earlier version of this section: run `pnpm vm:setup` once with the same `INTAKE_VM_*` settings. It keeps your pairing, operator key and sign-ins, replaces the guest services on the current runner image, and removes the old `bench-public-reader` container. If your pairing or key file is not in the development state directory, move it there or set `INTAKE_VM_PAIR` to its directory.
+**An existing setup** made by hand from an earlier version of this section: run `pnpm vm:setup` once with the same `INTAKE_VM_*` settings. It keeps your pairing, operator key and sign-ins, replaces the guest services on the current runner image, and removes the old `bench-public-reader` container. Setup reads the operator key only from `vm-operator-key` in the development state directory, so copy an existing key file there under that name, keeping its contents. A pairing directory elsewhere can stay where it is: set `INTAKE_VM_PAIR` to it.
 
 #### Running the VM side yourself
 

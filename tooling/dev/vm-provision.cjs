@@ -3,8 +3,9 @@
  * keep the runner image current. Each step checks before it acts, so a rerun changes nothing that
  * is already in place. Commands are passed in, so tests can substitute them.
  */
-const { createHash, randomBytes } = require('node:crypto')
-const { lstat: fsLstat, mkdir, readFile, writeFile } = require('node:fs/promises')
+const { createHash } = require('node:crypto')
+const { lstat: fsLstat, mkdir, readFile } = require('node:fs/promises')
+const { setTimeout: delay } = require('node:timers/promises')
 const { dirname, join } = require('node:path')
 const { DIGEST_LABEL, sourceDigest } = require('./runner-digest.cjs')
 const { runCommand } = require('./vm.cjs')
@@ -20,6 +21,10 @@ const IMAGE_LOAD_TIMEOUT_MS = 10 * 60_000
 const VM_CREATE_TIMEOUT_MS = 20 * 60_000
 const VM_BOOT_TIMEOUT_MS = 180_000
 const GUEST_COMMAND_TIMEOUT_MS = 60_000
+/** How long a freshly provisioned service gets to fail before it is checked as running. */
+const SERVICE_SETTLE_MS = 2000
+/** Each image says which role it was built for, so an app or guest image is never taken as the runner. */
+const ROLE_LABEL = 'org.bench-intake.image-role'
 const PROVISION_TIMEOUT_MS = 5 * 60_000
 
 /** The pairing files the host side holds. */
@@ -62,28 +67,27 @@ function guestCommand(context, args, timeout = GUEST_COMMAND_TIMEOUT_MS) {
   return exec('limactl', ['shell', '--workdir=/', plan.name, ...args], { timeout, env })
 }
 
-/** Resolves false when the guest command fails, for checks whose failure means "absent". */
-async function guestSucceeds(context, args) {
-  try {
-    await guestCommand(context, args)
-    return true
-  } catch {
-    return false
-  }
-}
-
-/** A guest file's SHA-256, or null when it is missing or empty. */
-async function guestFileHash(context, path) {
+/**
+ * A guest file: `absent`, `empty`, or `present` with its SHA-256. A failed check rejects, so an
+ * unreachable guest is never read as a missing file.
+ */
+async function guestFile(context, path) {
   const output = await guestCommand(context, [
     'sudo',
     'sh',
     '-c',
-    'if test -s "$1"; then sha256sum < "$1"; else echo missing; fi',
+    'if test ! -e "$1"; then echo absent; elif test -s "$1"; then echo present; sha256sum < "$1"; else echo empty; fi',
     'sh',
     path,
   ])
-  const value = output.trim().split(/\s+/)[0]
-  return value === 'missing' ? null : value
+  const [state, hashLine = ''] = output.trim().split('\n')
+  return { state: state.trim(), hash: hashLine.trim().split(/\s+/)[0] || null }
+}
+
+/** A guest file's SHA-256, or null when it is absent or empty. */
+async function guestFileHash(context, path) {
+  const file = await guestFile(context, path)
+  return file.state === 'present' ? file.hash : null
 }
 
 /** Refuses before anything changes when `limactl` or `docker` is not on `PATH`. */
@@ -97,21 +101,34 @@ async function checkPrerequisites({ exec = runCommand, env } = {}) {
   }
 }
 
-/** A local image's digest label, or null when the image or label is missing. */
+const LABELS_FORMAT = `{{index .Config.Labels "${DIGEST_LABEL}"}}|{{index .Config.Labels "${ROLE_LABEL}"}}`
+
+/** The digest label of an image built as the runner, or null for any other image or none. */
+function runnerDigest(output) {
+  const [digest, role] = output.trim().split('|')
+  return role === 'runner' && digest && digest !== '<no value>' ? digest : null
+}
+
+/** The local runner image's digest label, or null when it is missing or isn't a runner image. */
 async function localImageDigest(context, image) {
   const { exec = runCommand, env } = context
   let output
   try {
-    output = await exec(
-      'docker',
-      ['image', 'inspect', '--format', `{{index .Config.Labels "${DIGEST_LABEL}"}}`, image],
-      { timeout: GUEST_COMMAND_TIMEOUT_MS, env },
-    )
+    output = await exec('docker', ['image', 'inspect', '--format', LABELS_FORMAT, image], {
+      timeout: GUEST_COMMAND_TIMEOUT_MS,
+      env,
+    })
   } catch {
     return null
   }
-  const value = output.trim()
-  return value && value !== '<no value>' ? value : null
+  return runnerDigest(output)
+}
+
+/** Refuses a runner tag that names one of the images it is built from. */
+function checkRunnerTag(plan) {
+  if (plan.image === APP_IMAGE || plan.image === GUEST_IMAGE) {
+    throw new VmSetupError('vm_runner_image_name_reserved', plan.image)
+  }
 }
 
 /** The guest's runner image digest label, or null when it has no such image. */
@@ -124,20 +141,24 @@ async function guestImageDigest(context) {
       'image',
       'inspect',
       '--format',
-      `{{index .Config.Labels "${DIGEST_LABEL}"}}`,
+      LABELS_FORMAT,
       context.plan.image,
     ])
   } catch {
     return null
   }
-  const value = output.trim()
-  return value && value !== '<no value>' ? value : null
+  return runnerDigest(output)
 }
 
 /** Builds the app, guest and runner images, each labelled with the source digest. */
 async function buildImages(context) {
   const { exec = runCommand, env, repository, plan, digest, write } = context
-  const label = ['--label', `${DIGEST_LABEL}=${digest}`]
+  const label = (role) => [
+    '--label',
+    `${DIGEST_LABEL}=${digest}`,
+    '--label',
+    `${ROLE_LABEL}=${role}`,
+  ]
   const options = { timeout: IMAGE_BUILD_TIMEOUT_MS, env, stderr: buildMessages(write) }
   const images = 'tooling/deployment/images'
   await exec(
@@ -152,7 +173,7 @@ async function buildImages(context) {
       join(repository, images, 'app.Dockerfile'),
       '-t',
       APP_IMAGE,
-      ...label,
+      ...label('app'),
       repository,
     ],
     options,
@@ -167,7 +188,7 @@ async function buildImages(context) {
       PLATFORM,
       '-t',
       GUEST_IMAGE,
-      ...label,
+      ...label('guest'),
       join(repository, 'tooling/deployment/guest'),
     ],
     options,
@@ -188,7 +209,7 @@ async function buildImages(context) {
       'personal',
       '-t',
       plan.image,
-      ...label,
+      ...label('runner'),
       repository,
     ],
     options,
@@ -270,94 +291,114 @@ async function ensureVm(context) {
   return true
 }
 
-/** Which sides of the pairing exist: complete on the host, and the guest's `guest/` directory. */
-async function pairingState(context, { lstat = fsLstat } = {}) {
-  const { plan, guestDir } = context
-  const exists = async (path, kind) => {
-    try {
-      const stat = await lstat(path)
-      return kind === 'file' ? stat.isFile() : true
-    } catch {
-      return false
+/** Whether a host path exists, and whether it is a non-empty regular file. */
+async function hostPath(path, lstat) {
+  try {
+    const stat = await lstat(path)
+    return { exists: true, file: stat.isFile() && stat.size > 0 }
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return { exists: false, file: false }
     }
+    throw error
   }
-  const hostFiles = await Promise.all(
-    PAIRING_FILES.map((file) => exists(join(plan.pair, file), 'file')),
+}
+
+/** The guest side of the pairing: `complete` (its `guest/` directory), `present` or `absent`. */
+async function guestPairing(context) {
+  const output = await guestCommand(context, [
+    'sh',
+    '-c',
+    'if test -d "$1/guest"; then echo complete; elif test -e "$1"; then echo present; else echo absent; fi',
+    'sh',
+    context.guestDir,
+  ])
+  return output.trim()
+}
+
+function pairingMismatch(context) {
+  return new VmSetupError('vm_pairing_mismatch', [
+    context.plan.pair,
+    `${context.plan.name}:${context.guestDir}`,
+  ])
+}
+
+/**
+ * Checks the pairing without changing it: `match` when both sides are complete and issued by the
+ * same CA, `none` when neither side exists. Anything else is refused, naming both directories.
+ */
+async function checkPairing(context, { lstat = fsLstat, read = readFile } = {}) {
+  const { plan, guestDir } = context
+  const files = await Promise.all(
+    PAIRING_FILES.map((file) => hostPath(join(plan.pair, file), lstat)),
   )
-  const hostComplete = hostFiles.every(Boolean)
-  const hostPresent = hostComplete || (await exists(plan.pair))
-  const guestComplete = await guestSucceeds(context, ['test', '-d', `${guestDir}/guest`])
-  const guestPresent = guestComplete || (await guestSucceeds(context, ['test', '-e', guestDir]))
-  return { hostComplete, hostPresent, guestComplete, guestPresent }
+  const hostComplete = files.every((file) => file.file)
+  const hostPresent = hostComplete || (await hostPath(plan.pair, lstat)).exists
+  const guest = await guestPairing(context)
+  if (!hostPresent && guest === 'absent') {
+    return 'none'
+  }
+  if (!hostComplete || guest !== 'complete') {
+    throw pairingMismatch(context)
+  }
+  // Certificates from another pairing would pass a presence check but never authenticate.
+  const hostCa = sha256(await read(join(plan.pair, 'ca.pem')))
+  if ((await guestFileHash(context, `${guestDir}/guest/ca.pem`)) !== hostCa) {
+    throw pairingMismatch(context)
+  }
+  return 'match'
 }
 
 /** Pairs when neither side exists; refuses when only one does, removing nothing. */
-async function ensurePairing(context, { lstat = fsLstat } = {}) {
+async function ensurePairing(context, { lstat = fsLstat, read = readFile } = {}) {
   const { exec = runCommand, env, plan, guestDir, repository } = context
-  const state = await pairingState(context, { lstat })
-  if (state.hostComplete && state.guestComplete) {
+  if ((await checkPairing(context, { lstat, read })) === 'match') {
     return 'done'
-  }
-  if (state.hostPresent || state.guestPresent) {
-    throw new VmSetupError('vm_pairing_mismatch', [plan.pair, `${plan.name}:${guestDir}`])
   }
   await mkdir(dirname(plan.pair), { recursive: true, mode: 0o700 })
   await exec(
     'bash',
     [join(repository, 'tooling/deployment/bridge/pair.sh'), plan.name, plan.pair, guestDir],
-    {
-      timeout: PROVISION_TIMEOUT_MS,
-      stderr: messages(context.write, 'setup'),
-      env,
-    },
+    { timeout: PROVISION_TIMEOUT_MS, stderr: messages(context.write, 'setup'), env },
   )
   return 'changed'
 }
 
 /**
  * Compares the host key file with the guest's key: `match`, or `none` when neither side has one.
- * One side only, or different contents, is refused and neither key is touched.
+ * A key on one side only, an empty key or two different keys is refused and neither is touched.
  */
-async function checkOperatorKey(context, { read = readFile } = {}) {
+async function checkOperatorKey(context, { lstat = fsLstat, read = readFile } = {}) {
   const { keyFile, guestDir, plan } = context
-  let host = null
-  try {
-    host = sha256(await read(keyFile))
-  } catch (error) {
-    if (error.code !== 'ENOENT') {
-      throw error
-    }
-  }
-  const guest = await guestFileHash(context, `${guestDir}/operator/key`)
-  if (host === null && guest === null) {
+  const mismatch = new VmSetupError('vm_operator_key_mismatch', [
+    keyFile,
+    `${plan.name}:${guestDir}/operator/key`,
+  ])
+  const host = await hostPath(keyFile, lstat)
+  const guest = await guestFile(context, `${guestDir}/operator/key`)
+  if (!host.exists && guest.state === 'absent') {
     return 'none'
   }
-  if (host === null || guest === null || host !== guest) {
-    throw new VmSetupError('vm_operator_key_mismatch', [
-      keyFile,
-      `${plan.name}:${guestDir}/operator/key`,
-    ])
+  if (!host.file || guest.state !== 'present') {
+    throw mismatch
+  }
+  if (sha256(await read(keyFile)) !== guest.hash) {
+    throw mismatch
   }
   return 'match'
 }
 
-/** Makes the operator key only when neither side has one, and installs it in the guest. */
-async function ensureOperatorKey(context, { read = readFile } = {}) {
+/** Makes the operator key on both sides only when neither has one; `operator-key.sh` does it. */
+async function ensureOperatorKey(context, { lstat = fsLstat, read = readFile } = {}) {
   const { exec = runCommand, env, plan, guestDir, keyFile, repository } = context
-  if ((await checkOperatorKey(context, { read })) === 'match') {
+  if ((await checkOperatorKey(context, { lstat, read })) === 'match') {
     return 'done'
   }
   await mkdir(dirname(keyFile), { recursive: true, mode: 0o700 })
-  // `wx`: never replaces a key file that appeared since the check.
-  await writeFile(keyFile, `${randomBytes(32).toString('hex')}\n`, { mode: 0o600, flag: 'wx' })
   await exec(
     'bash',
     [join(repository, 'tooling/deployment/bridge/operator-key.sh'), plan.name, guestDir, keyFile],
-    {
-      timeout: PROVISION_TIMEOUT_MS,
-      stderr: messages(context.write, 'setup'),
-      env,
-    },
+    { timeout: PROVISION_TIMEOUT_MS, stderr: messages(context.write, 'setup'), env },
   )
   return 'changed'
 }
@@ -385,7 +426,10 @@ async function ensureBrowserPolicy(context, { read = readFile } = {}) {
   return 'changed'
 }
 
-/** A guest container's image ID, running state and origin, or null when it doesn't exist. */
+/**
+ * A guest container's image ID, running state, bind-mount sources and origin, or null when it
+ * doesn't exist.
+ */
 async function containerState(context, name) {
   let output
   try {
@@ -394,18 +438,24 @@ async function containerState(context, name) {
       'docker',
       'inspect',
       '--format',
-      '{{.Image}}|{{.State.Running}}|{{range .Config.Env}}{{.}};{{end}}',
+      '{{.Image}}|{{.State.Running}}|{{range .Mounts}}{{.Source}};{{end}}|{{range .Config.Env}}{{.}};{{end}}',
       name,
     ])
   } catch {
     return null
   }
-  const [image, running, environment = ''] = output.trim().split('|')
-  const origin = environment
+  const [image, running, mounts, ...rest] = output.trim().split('|')
+  const origin = rest
+    .join('|')
     .split(';')
     .find((entry) => entry.startsWith('INTAKE_OPERATOR_ORIGIN='))
     ?.slice('INTAKE_OPERATOR_ORIGIN='.length)
-  return { image, running: running === 'true', origin: origin ?? null }
+  return {
+    image,
+    running: running === 'true',
+    mounts: mounts.split(';').filter(Boolean),
+    origin: origin ?? null,
+  }
 }
 
 async function guestImageId(context) {
@@ -425,6 +475,27 @@ async function guestImageId(context) {
   }
 }
 
+/** Whether a container runs this installation's runner image, for the current origin if it has one. */
+function serviceMatches(context, name, state, imageId) {
+  return (
+    state !== null &&
+    imageId !== null &&
+    state.image === imageId &&
+    (!MANAGEMENT_CONTAINERS.has(name) || state.origin === context.origin)
+  )
+}
+
+/**
+ * A container of the same name that mounts another installation's directories is refused: it is
+ * neither reused nor replaced.
+ */
+function checkOwnership(context, name, state) {
+  const inside = (source) => source.startsWith(`${context.guestDir}/`)
+  if (state !== null && !state.mounts.every(inside)) {
+    throw new VmSetupError('vm_guest_service_conflict', name)
+  }
+}
+
 /**
  * Each provider's services: `current` when every container runs the guest's runner image (for the
  * current origin, where it has one), `stopped` when they match but one isn't running, else `stale`.
@@ -434,12 +505,9 @@ async function servicesState(context) {
   const providers = {}
   for (const [provider, { containers }] of Object.entries(GUEST_SERVICES)) {
     const states = await Promise.all(containers.map((name) => containerState(context, name)))
-    const matches = states.every(
-      (state, index) =>
-        state !== null &&
-        imageId !== null &&
-        state.image === imageId &&
-        (!MANAGEMENT_CONTAINERS.has(containers[index]) || state.origin === context.origin),
+    containers.forEach((name, index) => checkOwnership(context, name, states[index]))
+    const matches = containers.every((name, index) =>
+      serviceMatches(context, name, states[index], imageId),
     )
     if (!matches) {
       providers[provider] = { state: 'stale' }
@@ -465,19 +533,28 @@ async function startStoppedService(context, name) {
 
 async function provisionProvider(context, provider) {
   const { exec = runCommand, env, plan, guestDir, keyFile, origin, repository } = context
-  const script = join(repository, GUEST_SERVICES[provider].script)
+  const { script, containers } = GUEST_SERVICES[provider]
   const args =
     provider === 'claude'
       ? [plan.name, guestDir, plan.image, keyFile, origin]
       : [plan.name, guestDir, plan.image, origin, keyFile]
   try {
-    await exec('bash', [script, ...args], {
+    await exec('bash', [join(repository, script), ...args], {
       timeout: PROVISION_TIMEOUT_MS,
       env,
       stderr: messages(context.write, provider),
     })
   } catch {
     throw new VmSetupError('vm_guest_service_provision_failed', provider)
+  }
+  // `docker run --detach` returns before the service could fail, so each one is checked after.
+  await delay(context.settleMs ?? SERVICE_SETTLE_MS)
+  const imageId = await guestImageId(context)
+  for (const name of containers) {
+    const state = await containerState(context, name)
+    if (!serviceMatches(context, name, state, imageId) || !state.running) {
+      throw new VmSetupError('vm_guest_service_start_failed', name)
+    }
   }
 }
 
@@ -502,12 +579,12 @@ async function removeRetiredReader(context) {
  * Brings each provider's services to the current image and origin: stale ones are reprovisioned
  * (which checks the operator key first), stopped ones started and confirmed running.
  */
-async function ensureGuestServices(context, { read = readFile } = {}) {
+async function ensureGuestServices(context, { lstat = fsLstat, read = readFile } = {}) {
   let changed = await removeRetiredReader(context)
   const providers = await servicesState(context)
   const stale = Object.keys(providers).filter((provider) => providers[provider].state === 'stale')
   if (stale.length > 0) {
-    await checkOperatorKey(context, { read })
+    await checkOperatorKey(context, { lstat, read })
   }
   for (const [provider, { state, stopped }] of Object.entries(providers)) {
     if (state === 'stale') {
@@ -528,7 +605,9 @@ module.exports = {
   browserPolicyCurrent,
   buildImages,
   checkOperatorKey,
+  checkPairing,
   checkPrerequisites,
+  checkRunnerTag,
   ensureBrowserPolicy,
   ensureGuestServices,
   ensureOperatorKey,

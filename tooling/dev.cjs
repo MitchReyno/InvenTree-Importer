@@ -28,27 +28,17 @@ const {
 } = require('./dev/stack.cjs')
 const { readTailnetIdentity, tailscaleOption } = require('./dev/tailnet.cjs')
 const {
+  VM_OPERATOR_KEY_FILE,
   VmSetupError,
   failureLine,
-  refreshRunner,
+  startManagedVm,
   staleImageWarning,
 } = require('./dev/vm-setup.cjs')
 const { claimSupervisorLock, processStartedAt } = require('./dev/supervisor-lock.cjs')
 const { bindSessionEnd, finishOwnedRun } = require('./dev/session.cjs')
-const {
-  ensureVmRunning,
-  checkPairing,
-  resolveGuestDir,
-  finishVm,
-  guardVmStop,
-  startVmChildren,
-  confirmVmChildren,
-  VM_CHILD_NAMES,
-} = require('./dev/vm.cjs')
+const { checkPairing, finishVm, guardVmStop, VM_CHILD_NAMES } = require('./dev/vm.cjs')
 
 const repository = resolve(__dirname, '..')
-/** The operator key file's name in the development state directory, as `pnpm vm:setup` makes it. */
-const VM_OPERATOR_KEY_FILE = 'vm-operator-key'
 const intake = join(repository, 'intake-server')
 const intakeRequire = createRequire(join(intake, 'package.json'))
 const baseEnv = Object.fromEntries(
@@ -59,7 +49,12 @@ const baseEnv = Object.fromEntries(
 // Lima and the relays get the base environment, and Lima's home when the shell sets one.
 const vmEnv = {
   ...baseEnv,
-  ...(process.env.LIMA_HOME ? { LIMA_HOME: process.env.LIMA_HOME } : {}),
+  // The same Docker engine `pnpm vm:setup` builds on.
+  ...Object.fromEntries(
+    ['LIMA_HOME', 'DOCKER_HOST', 'DOCKER_CONTEXT']
+      .filter((key) => process.env[key])
+      .map((key) => [key, process.env[key]]),
+  ),
 }
 // Survive source reloads: the browser keeps its connection through these.
 const FRONT_DOOR = new Set(['ui', 'tailnet', 'tailscale-serve'])
@@ -302,43 +297,28 @@ async function main() {
     const publicOrigin = `http://127.0.0.1:${port}`
     if (resolved.vm) {
       startup.signal.throwIfAborted()
-      await ensureVmRunning(resolved.vm, {
+      const vmSide = await startManagedVm(resolved.vm, {
         signal: startup.signal,
         env: vmEnv,
+        repository,
+        // The guest services are bound to the origin the browser uses.
+        origin: tailnet ? tailnet.origin : publicOrigin,
+        keyFile: join(developmentState, VM_OPERATOR_KEY_FILE),
+        launch,
+        execPath: process.execPath,
         onBoot: () => {
           vmBooted = true
           process.stdout.write(`Starting VM ${resolved.vm.name}.\n`)
         },
-      })
-      startup.signal.throwIfAborted()
-      const guestDir = await resolveGuestDir(resolved.vm, { env: vmEnv, signal: startup.signal })
-      startup.signal.throwIfAborted()
-      // The guest image, services and browser policy are brought up to date before any relay.
-      const refreshed = await refreshRunner({
-        plan: resolved.vm,
-        guestDir,
-        repository,
-        origin: tailnet ? tailnet.origin : publicOrigin,
-        keyFile: join(developmentState, VM_OPERATOR_KEY_FILE),
-        env: vmEnv,
-      })
-      if (refreshed) {
-        process.stdout.write(
-          `Runner image and guest services in VM ${resolved.vm.name} are current.\n`,
-        )
-      }
-      startup.signal.throwIfAborted()
-      const vmChildren = startVmChildren(
-        { ...resolved.vm, guestDir },
-        {
-          launch,
-          execPath: process.execPath,
-          repository,
-          baseEnv: vmEnv,
+        onRefreshed: () => {
+          process.stdout.write(
+            `Runner image and guest services in VM ${resolved.vm.name} are current.\n`,
+          )
         },
-      )
+      })
+      const vmChildren = vmSide.children
       children.push(...vmChildren)
-      await confirmVmChildren(vmChildren, { signal: startup.signal })
+      await vmSide.confirmed
       stopAppWhenExited(vmChildren)
       // Recorded now, so a run killed during the long setup below still has them reclaimed.
       await publishRunning(root, publicOrigin, children)

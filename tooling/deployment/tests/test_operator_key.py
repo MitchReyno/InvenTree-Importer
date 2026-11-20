@@ -38,6 +38,17 @@ cat "$1" > "$2"
 
 FAKE_SHA256SUM = '#!/bin/sh\nexec shasum -a 256 "$@"\n'
 
+# Ownership and mode need root; the tests check contents only.
+NO_OP = '#!/bin/sh\nexit 0\n'
+
+# A guest whose shell checks fail, as when the VM stops answering.
+FAILING_LIMACTL = r'''#!/bin/sh
+shift 3
+[ "$1" = sudo ] && shift
+[ "$1" = sh ] && exit 255
+exec "$@"
+'''
+
 
 def executable(path, text):
     path.write_text(text)
@@ -53,6 +64,8 @@ class OperatorKey(unittest.TestCase):
         executable(self.bin / "limactl", FAKE_LIMACTL)
         executable(self.bin / "install", FAKE_INSTALL)
         executable(self.bin / "sha256sum", FAKE_SHA256SUM)
+        executable(self.bin / "chown", NO_OP)
+        executable(self.bin / "chmod", NO_OP)
         self.guest = root / "guest-dir"
         (self.guest / "guest").mkdir(parents=True)
         self.key_file = root / "host" / "vm-operator-key"
@@ -107,6 +120,34 @@ class OperatorKey(unittest.TestCase):
         self.assertEqual(result.returncode, 3)
         self.assertEqual(self.key_file.read_text(), "host-key\n")
         self.assertEqual(self.guest_key.read_text(), "guest-key\n")
+
+    def test_host_key_without_guest_key_is_refused_and_not_installed(self):
+        self.key_file.write_text("host-key\n")
+        result = self.ensure_key()
+        self.assertEqual(result.returncode, 3)
+        self.assertIn("vm_operator_key_mismatch", result.stderr)
+        self.assertFalse(self.guest_key.exists())
+        self.assertEqual(self.key_file.read_text(), "host-key\n")
+
+    def test_an_empty_guest_key_is_refused_and_not_replaced(self):
+        for host in (None, "host-key\n"):
+            with self.subTest(host=host):
+                self.put_guest_key("")
+                if host:
+                    self.key_file.write_text(host)
+                elif self.key_file.exists():
+                    self.key_file.unlink()
+                result = self.ensure_key()
+                self.assertEqual(result.returncode, 3)
+                self.assertEqual(self.guest_key.read_text(), "")
+                self.assertEqual(self.key_file.exists(), host is not None)
+
+    def test_a_failed_guest_check_stops_before_any_key_is_made(self):
+        executable(self.bin / "limactl", FAILING_LIMACTL)
+        result = self.ensure_key()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(self.key_file.exists())
+        self.assertFalse(self.guest_key.exists())
 
     def test_matching_keys_change_nothing(self):
         self.put_guest_key("same-key\n")
