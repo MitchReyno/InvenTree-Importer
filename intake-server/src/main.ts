@@ -7,7 +7,7 @@ import { createServer } from './api/server.ts'
 import { registerLive } from './live/routes.ts'
 import { compatibleSchema } from './operations/compatibility.ts'
 import { registerReadiness } from './operations/readiness.ts'
-import { bootstrap, devConfig, processingConfig } from './config.ts'
+import { devConfig, processingConfig } from './config.ts'
 import { webAccess } from './processing/session-policy.ts'
 import { database } from './db/database.ts'
 import type { Pool } from 'pg'
@@ -32,9 +32,21 @@ import {
   type ReadOperation,
   type TargetBinding,
 } from './inventory/transport.ts'
-import fastifyStatic from '@fastify/static'
+import {
+  claimStore,
+  loadSavedCredential,
+  openSecretsDir,
+  requireUnpublished,
+} from './inventory/credential-store.ts'
+import { registerFrontendAssets } from './api/frontend-assets.ts'
+import { configureReadTarget, readTargetBinding } from './inventory/read-target.ts'
+import { registerInventoryCredential } from './inventory/credential-routes.ts'
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+
+/** The built browser app, served as static files; secrets must never live under it. */
+const FRONTEND_ASSETS = fileURLToPath(new URL('../../frontend/dist/', import.meta.url))
+const REPOSITORY_ROOT = fileURLToPath(new URL('../../', import.meta.url))
 
 /** Explicit opt-in only; never discovers a default directory or initializes without a DB. */
 async function configuredMediaStore(env: NodeJS.ProcessEnv, pool?: Pool) {
@@ -59,6 +71,10 @@ function startupFailureCode(error: unknown) {
     'media_root_required',
     'media_store_identity_mismatch',
     'database_version_quarantined',
+    'secret_file_permissions',
+    'secret_file_invalid',
+    'invalid_secrets_directory',
+    'secret_store_in_use',
   ]
   return error instanceof Error && safe.includes(error.message)
     ? error.message
@@ -96,10 +112,22 @@ async function main() {
     }
   }
 
+  // Releases this process's claim on the secrets directory; nothing to release until claimed.
+  let releaseStore: () => Promise<void> = async () => undefined
+
   let server: ReturnType<typeof createServer> | undefined
   try {
+    // A saved replacement other users could reach refuses startup, with or without a database.
+    const readOrigin = process.env.INTAKE_READ_ORIGIN
+    // Opened component by component, nothing followed unchecked; every later step uses its path.
+    const secretsDir = await openSecretsDir(config.secretsDir)
+    // The checkout too: the frontend dev server may serve any file in it.
+    await requireUnpublished(secretsDir, [FRONTEND_ASSETS, REPOSITORY_ROOT])
+    releaseStore = await claimStore(secretsDir)
+    const saved = await loadSavedCredential(secretsDir, readTargetBinding(config, readOrigin))
     const mediaStore = await configuredMediaStore(process.env, db?.pool)
     server = createServer(config, { mediaEnabled: mediaStore !== undefined })
+    server.addHook('onClose', releaseStore)
     registerReadiness(
       server,
       db?.pool,
@@ -114,17 +142,8 @@ async function main() {
       registerLive(server, db.pool, config)
       server.addHook('onClose', closeDatabase)
       // Only the read closure crosses the capture boundary. No browser-supplied origin/key.
-      const transport =
-        process.env.INTAKE_READ_ORIGIN && config.apiKey && bootstrap(config).status === 'configured'
-          ? inventoryTransport({
-              kind: 'protected-read-only',
-              origin: process.env.INTAKE_READ_ORIGIN,
-              targetId: config.targetId,
-              contextId: config.targetContextId,
-              protectedOrigins: [process.env.INTAKE_READ_ORIGIN],
-              credential: config.apiKey,
-            })
-          : undefined
+      const readTarget = configureReadTarget(config, readOrigin, saved)
+      const transport = readTarget?.transport
       const targetReads = transport
         ? bindReadOnlyTarget(transport, {
             targetId: config.targetId,
@@ -150,18 +169,23 @@ async function main() {
       const headerConfig = { ...manualConfig, ...processing }
       registerProcessing(server, db.pool, processing, lockCaptureForEdit)
       registerAgents(server, db.pool, processing)
-      registerHeader(
-        server,
+      const connection = scopedConnectionStatus(
+        db.pool,
         config,
-        scopedConnectionStatus(
-          db.pool,
-          config,
-          runtime.readOrigin,
-          targetReads?.probe,
-          targetReads?.serverVersion,
-        ),
-        (batchId) => headerWork(db.pool, headerConfig, batchId),
+        runtime.readOrigin,
+        targetReads?.probe,
+        targetReads?.serverVersion,
+        readTarget?.holder,
       )
+      registerHeader(server, config, connection, (batchId) =>
+        headerWork(db.pool, headerConfig, batchId),
+      )
+      registerInventoryCredential(server, {
+        secretsDir: secretsDir,
+        target: readTarget,
+        fence: () => requireCurrentTargetContext(db.pool, config),
+        changed: () => connection.reset(),
+      })
       if (mediaStore) {
         // Region crops are cached privately beside, never inside, the blob store.
         registerMediaRoutes(
@@ -198,9 +222,8 @@ async function main() {
       )
       registerManual(server, db.pool, manualConfig, read, targetReads?.attachments, processing)
     }
-    const assets = fileURLToPath(new URL('../../frontend/dist/', import.meta.url))
-    if (existsSync(assets)) {
-      await server.register(fastifyStatic, { root: assets, index: 'index.html', dotfiles: 'deny' })
+    if (existsSync(FRONTEND_ASSETS)) {
+      await registerFrontendAssets(server, FRONTEND_ASSETS, secretsDir)
     }
     for (const signal of ['SIGINT', 'SIGTERM'] as const) {
       process.once(signal, () => {
@@ -218,6 +241,7 @@ async function main() {
     )
   } catch (error) {
     await server?.close().catch(() => undefined)
+    await releaseStore().catch(() => undefined)
     await closeDatabase()
     const code = startupFailureCode(error)
     throw new Error(code)

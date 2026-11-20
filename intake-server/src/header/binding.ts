@@ -3,7 +3,7 @@ import type { Pool, PoolClient } from 'pg'
 import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { targets } from '#/db/schema.ts'
 import { fail } from '#/capture/model.ts'
-import type { ConnectionStatusDto } from '@invimport/contracts'
+import type { ConnectionStatusDto, InventoryCredentialDto } from '@invimport/contracts'
 import type { DevConfig } from '#/config.ts'
 import { connectionStatus } from './connection.ts'
 
@@ -40,16 +40,25 @@ export function scopedConnectionStatus(
   origin: string | undefined,
   probe?: () => Promise<Response>,
   version?: () => Promise<Response>,
+  /** The read token the probes use; only its source is reported, never the token. */
+  credential?: { state: () => InventoryCredentialDto; current: () => string },
 ) {
   const scope = statusBinding(binding)
-  const status = connectionStatus(scope, origin, probe, Date.now, version)
+  const status = connectionStatus(scope, origin, probe, Date.now, version, undefined, credential)
 
   const fenced = (run: () => Promise<ConnectionStatusDto>) => async () => {
+    const generation = status.generation()
     await requireHeaderContext(pool, scope)
     const result = await run()
     await requireHeaderContext(pool, scope)
-    return result
+    // The token changed while the context was checked: that answer describes the old one.
+    return status.generation() === generation ? result : status.latest()
   }
 
-  return Object.assign(fenced(status), { check: fenced(status.check) })
+  return Object.assign(fenced(status), {
+    check: fenced(status.check),
+    reset: status.reset,
+    generation: status.generation,
+    latest: status.latest,
+  })
 }

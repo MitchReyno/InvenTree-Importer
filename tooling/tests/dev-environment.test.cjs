@@ -179,6 +179,7 @@ test('standalone API child receives runtime settings but no setup/provider or un
     INTAKE_ORIGIN: 'http://127.0.0.1:12345',
     INTAKE_DEV_API_KEY: 'synthetic-inventory-runtime',
     INTAKE_DATABASE_URL: 'postgresql://intake_fixture:synthetic@127.0.0.1/owned',
+    INTAKE_SECRETS_DIR: '/state/secrets',
     INTAKE_DEV_ADMIN_URL: 'synthetic-admin-never-runtime',
     OPENAI_API_KEY: 'synthetic-provider-never-runtime',
     ANTHROPIC_API_KEY: 'synthetic-second-provider-never-runtime',
@@ -197,6 +198,7 @@ test('standalone API child receives runtime settings but no setup/provider or un
   assert.equal(child.INTAKE_ORIGIN, 'http://127.0.0.1:12345')
   assert.equal(child.INTAKE_DEV_API_KEY, 'synthetic-inventory-runtime')
   assert.equal(child.INTAKE_DATABASE_URL, inherited.INTAKE_DATABASE_URL)
+  assert.equal(child.INTAKE_SECRETS_DIR, '/state/secrets')
   for (const key of [
     'INTAKE_DEV_ADMIN_URL',
     'OPENAI_API_KEY',

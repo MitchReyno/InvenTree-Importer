@@ -7,8 +7,16 @@ import { grantFoundation } from '#/operations/grants.ts'
 import { grantCapture } from '#/capture/grants.ts'
 import { fileURLToPath } from 'node:url'
 
+/** Optional additions for a test; the defaults keep the original fixture. */
+export interface CaptureProcessOptions {
+  /** Extra server settings, such as a secrets directory. */
+  env?: Record<string, string>
+  /** When set, the connection probe answers 200 only for this token and 401 otherwise. */
+  acceptedToken?: string
+}
+
 /** Owned fixture: real main.ts child + restricted role + bounded fake read endpoint, no real env. */
-export async function captureProcess(port: number) {
+export async function captureProcess(port: number, options: CaptureProcessOptions = {}) {
   const db = await isolatedDatabase()
   const identity = await seedAuthority(db.pool)
   const role = `intake_${randomUUID().replaceAll('-', '')}`
@@ -22,8 +30,25 @@ export async function captureProcess(port: number) {
   url.username = role
   url.password = password
   const requests: { method: string; path: string }[] = []
+  // Kept apart from requests, so tests comparing those are unchanged.
+  const authorizations: string[] = []
   const fake = httpServer((req, res) => {
     requests.push({ method: req.method ?? '', path: req.url ?? '' })
+    authorizations.push(req.headers.authorization ?? '')
+    if (options.acceptedToken !== undefined && req.url === '/api/part/?limit=1') {
+      const accepted = req.headers.authorization === `Token ${options.acceptedToken}`
+      res
+        .writeHead(accepted ? 200 : 401, { 'content-type': 'application/json' })
+        .end(accepted ? '{"results":[]}' : '{"detail":"Invalid token."}')
+      return
+    }
+    if (options.acceptedToken !== undefined && req.url === '/api/') {
+      // A hostile root that echoes the token it was sent as its version.
+      res
+        .writeHead(200, { 'content-type': 'application/json' })
+        .end(JSON.stringify({ version: req.headers.authorization ?? '' }))
+      return
+    }
     const match = /^\/api\/(part|stock\/location)\/([1-9][0-9]*)\/$/.exec(req.url ?? '')
     if (req.method !== 'GET' || !match) {
       res.writeHead(405).end()
@@ -69,6 +94,7 @@ export async function captureProcess(port: number) {
         INTAKE_DEV_API_KEY: 'fixture-only-not-a-secret',
         INTAKE_DATABASE_URL: url.toString(),
         INTAKE_READ_ORIGIN: `http://127.0.0.1:${address && typeof address !== 'string' ? address.port : 0}`,
+        ...options.env,
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     })
@@ -99,6 +125,8 @@ export async function captureProcess(port: number) {
     origin,
     identity,
     requests,
+    authorizations,
+    logs: () => logs,
     start,
     stop,
     async dispose() {

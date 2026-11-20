@@ -74,7 +74,7 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - [x] 1.3 Resolve the remaining "requirement text very long" validation warnings by moving lists into scenarios where that reads better.
 - [x] 1.4 Run validation and the overlap check, and fix the findings.
 - [x] 1.5 Independent read-only review of the plan, fixing findings until a round finds nothing new.
-- [ ] 1.6 Open PR-P with no reviewers and merge once review is clean and CI is green.
+- [x] 1.6 Open PR-P with no reviewers and merge once review is clean and CI is green.
 
 ## 2. Debug mode foundation and Settings › Developer
 
@@ -341,7 +341,7 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - [x] 9.2 RED: write the form tests.
 - [x] 9.3 GREEN: build each subsection form and the Batch defaults form, removing their `DisabledFeature` wrappers.
 - [x] 9.4 Refactor, then run the frontend checks.
-- [ ] 9.5 Record a demo of the working rows and attach it to PR-D.
+- [x] 9.5 Record a demo of the working rows and attach it to PR-D.
 
 ## 10. Documentation and notes
 
@@ -399,13 +399,13 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
   - Logging the request body by accident. The redaction test with a planted value covers it.
   - Coordinating with `default-env-settings`, which also edits the env template and launcher.
 
-- [ ] 11.1 Confirm the transport credential path, startup order and request logging as the baseline.
-- [ ] 11.2 RED: write the server and frontend tests.
-- [ ] 11.3 GREEN: build the secrets directory setting, the holder, startup loading and the permissions check.
-- [ ] 11.4 GREEN: build the routes, check-then-save, revert, redaction and status fields.
-- [ ] 11.5 GREEN: build the Settings › InvenTree row.
-- [ ] 11.6 Refactor, run the server and frontend checks, and do the manual token swap check.
-- [ ] 11.7 Update the intake-server README and architecture docs and the env template notes for `INTAKE_SECRETS_DIR`.
+- [x] 11.1 Confirm the transport credential path, startup order and request logging as the baseline.
+- [x] 11.2 RED: write the server and frontend tests.
+- [x] 11.3 GREEN: build the secrets directory setting, the holder, startup loading and the permissions check.
+- [x] 11.4 GREEN: build the routes, check-then-save, revert, redaction and status fields.
+- [x] 11.5 GREEN: build the Settings › InvenTree row.
+- [x] 11.6 Refactor, run the server and frontend checks, and do the manual token swap check.
+- [x] 11.7 Update the intake-server README and architecture docs and the env template notes for `INTAKE_SECRETS_DIR`.
 
 ## Delivery evidence and lifecycle follow-up
 
@@ -421,5 +421,5 @@ Then update the BI items to their actual status; BI-016 is Done only after PR-A 
 - [x] PR-A reviewed, published and merged
 - [x] PR-B reviewed, published and merged
 - [x] PR-C reviewed, published and merged
-- [ ] PR-D reviewed, published and merged
+- [x] PR-D reviewed, published and merged
 - [ ] PR-E reviewed, published and merged

@@ -74,6 +74,14 @@ export function HeaderStatusProof() {
   const [tab, setTab] = useState('Capture')
   const client: HeaderClient = {
     checkConnection: () => client.connection(),
+    replaceInventoryCredential: async () => ({
+      credential_source: 'saved',
+      credential_saved_at: new Date().toISOString(),
+    }),
+    revertInventoryCredential: async () => ({
+      credential_source: 'environment',
+      credential_saved_at: null,
+    }),
     connection: async () => {
       if (scenario.current === 'offline') {
         throw new Error('owned_fixture_offline')

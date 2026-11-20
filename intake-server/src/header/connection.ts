@@ -1,4 +1,4 @@
-import type { ConnectionStatusDto } from '@invimport/contracts'
+import type { ConnectionStatusDto, InventoryCredentialDto } from '@invimport/contracts'
 import { InventoryTransportError } from '#/inventory/transport.ts'
 import type { DevConfig } from '#/config.ts'
 import { readBoundedBody } from '#/capture/bounded-body.ts'
@@ -49,7 +49,8 @@ function navigation(origin: string | undefined): URL | null {
   }
 }
 
-async function probeResult(
+/** Classifies one bounded probe; shared with the token check, so both judge a token alike. */
+export async function probeResult(
   probe: () => Promise<Response>,
 ): Promise<Pick<Observation, 'state' | 'failure_code'>> {
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -123,6 +124,15 @@ async function versionResult(read: () => Promise<Response>): Promise<string | nu
 export type ConnectionStatusReader = (() => Promise<ConnectionStatusDto>) & {
   /** Probes now, unless a probe is in flight or a forced check ran in the last 5 seconds. */
   check: () => Promise<ConnectionStatusDto>
+  /**
+   * Forgets the observation and the forced-check window, for a new read token. A probe already
+   * running with the old token can no longer become the observation.
+   */
+  reset: () => void
+  /** Counts resets; an answer begun under another generation describes an older token. */
+  generation: () => number
+  /** The current answer without probing: the observation, or unobserved after a reset. */
+  latest: () => ConnectionStatusDto
 }
 
 /** One fixed profile owns one bounded cached observation and one coalesced probe. */
@@ -134,6 +144,11 @@ export function connectionStatus(
   version?: () => Promise<Response>,
   /** Monotonic milliseconds for the forced-check window, so a clock change can't skip it. */
   elapsed: () => number = () => performance.now(),
+  /**
+   * The read token in use: its source is reported with each observation, captured when the
+   * probe starts, and the token itself is used only to keep it out of the version string.
+   */
+  credential?: { state: () => InventoryCredentialDto; current: () => string },
 ): ConnectionStatusReader {
   const scope = {
     actor_id: binding.actorId,
@@ -145,6 +160,8 @@ export function connectionStatus(
   let completed: { at: number; value: Observation } | undefined
   let pending: Promise<void> | undefined
   let lastForced: number | undefined
+  // Counts resets, so a probe started before one can't publish after it.
+  let generation = 0
 
   function unconfigured(): ConnectionStatusDto | undefined {
     if (url && probe) {
@@ -165,33 +182,76 @@ export function connectionStatus(
   }
 
   function probeNow(target: URL, send: () => Promise<Response>) {
-    pending ??= (async () => {
+    if (pending) {
+      return pending
+    }
+    const started = generation
+    const source = credential?.state()
+    // The probe and the version read send this token, in this same tick.
+    const sent = credential?.current()
+    const running: Promise<void> = (async () => {
       const [result, read] = await Promise.all([
         probeResult(send),
         version ? versionResult(version) : Promise.resolve(null),
       ])
+      if (started !== generation) {
+        return
+      }
       const at = now()
       completed = {
         at,
         value: {
           ...result,
-          version: result.state === 'reachable' ? read : null,
+          // A target that echoes the token back in its version must not get it into a response.
+          version: result.state === 'reachable' && !(sent && read?.includes(sent)) ? read : null,
           freshness: 'fresh',
           observed_at: new Date(at).toISOString(),
           navigation_url: target.href,
           label: target.host,
           kind,
+          ...source,
         },
       }
     })().finally(() => {
-      pending = undefined
+      if (pending === running) {
+        pending = undefined
+      }
     })
-    return pending
+    pending = running
+    return running
+  }
+
+  /**
+   * Probes until an observation stands; a reset mid-probe drops that probe's result. Repeated
+   * resets can't hold a request: after one retry it answers unobserved and the next read probes.
+   */
+  async function observe(target: URL, send: () => Promise<Response>) {
+    await probeNow(target, send)
+    // A reset during that probe dropped its result; try once more with the current token.
+    if (!completed) {
+      await probeNow(target, send)
+    }
+  }
+
+  function unobserved(target: URL): ConnectionStatusDto {
+    return {
+      ...scope,
+      target: {
+        state: 'unknown',
+        freshness: 'unobserved',
+        observed_at: null,
+        failure_code: null,
+        navigation_url: target.href,
+        label: target.host,
+        kind,
+        ...credential?.state(),
+      },
+    }
   }
 
   function latest(): ConnectionStatusDto {
     if (!completed) {
-      throw new Error('connection_observation_missing')
+      return unobserved(url!)
     }
     const observation = completed
     return {
@@ -206,7 +266,7 @@ export function connectionStatus(
       return none
     }
     if (!completed || now() - completed.at >= CACHE_MS || now() < completed.at) {
-      await probeNow(url!, probe!)
+      await observe(url!, probe!)
     }
     return latest()
   }
@@ -217,7 +277,7 @@ export function connectionStatus(
       return none
     }
     if (pending) {
-      await pending
+      await observe(url!, probe!)
       return latest()
     }
     // The window runs from when the last forced check finished, however long it took.
@@ -228,10 +288,27 @@ export function connectionStatus(
     ) {
       return latest()
     }
-    await probeNow(url!, probe!)
-    lastForced = elapsed()
+    const started = generation
+    await observe(url!, probe!)
+    // A check that began with the old token can't charge the new token's window.
+    if (started === generation) {
+      lastForced = elapsed()
+    }
     return latest()
   }
 
-  return Object.assign(read, { check })
+  function reset() {
+    generation += 1
+    completed = undefined
+    pending = undefined
+    lastForced = undefined
+  }
+
+  return Object.assign(read, {
+    check,
+    reset,
+    generation: () => generation,
+    // Without probing: what a caller holding an older answer should return instead.
+    latest: () => unconfigured() ?? latest(),
+  })
 }

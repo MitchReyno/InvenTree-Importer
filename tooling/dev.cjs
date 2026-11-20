@@ -25,6 +25,7 @@ const {
   apiTargetEnv,
   startsApplyRunner,
   startSupervision,
+  supervisedEnv,
 } = require('./dev/stack.cjs')
 const { readTailnetIdentity, tailscaleOption } = require('./dev/tailnet.cjs')
 const {
@@ -362,6 +363,8 @@ async function main() {
       throw new Error('immutable_decoder_required')
     }
     const apiPort = await freePort()
+    // Replacement read tokens live beside this state; the API creates and checks the directory.
+    const secretsDir = resolved.secretsDir ?? join(root, 'secrets')
     const scope = {
       INTAKE_ACTOR_ID: state.identity.actor,
       INTAKE_TARGET_ID: state.identity.target,
@@ -399,7 +402,7 @@ async function main() {
           name,
           process.execPath,
           entry.endsWith('.cjs') ? [entry] : applicationArgs(entry),
-          { cwd: intake, env: { ...env, ...scope, ...extra } },
+          { cwd: intake, env: supervisedEnv(env, scope, extra) },
           ready,
         )
         children.push(owned)
@@ -430,6 +433,7 @@ async function main() {
           INTAKE_PROCESSING_PROFILE: profile,
           // Lets the connection status name the owned test target.
           INTAKE_TARGET_PROFILE: target.kind,
+          INTAKE_SECRETS_DIR: secretsDir,
         },
         (text) => text.includes('"web_ready"'),
       ).ready()

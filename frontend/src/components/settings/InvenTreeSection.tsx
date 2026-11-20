@@ -1,37 +1,25 @@
 import styled from 'styled-components'
-import type { ConnectionStatusDto } from '@invimport/contracts'
-import { Button, DisabledFeature, KeyValue, SettingRow, Small } from '#/components/ui'
-import { CheckConnectionButton } from '#/components/masthead/CheckConnectionButton'
+import { Button, KeyValue, SettingRow, Small } from '#/components/ui'
 import { color, space, typeVar } from '#/theme/generated/tokens'
 import { observationFresh, safeTargetNavigation, targetStatus } from '#/header/observations'
 import { useSharedHeaderObservations } from '#/context'
 import { ConnectionDot } from '#/components/masthead/ConnectionDot'
 import { SettingsCard } from './SettingsCard'
 import { SettingsSection } from './SettingsSection'
+import { ApiTokenRow } from './ApiTokenRow'
 
 const SHORT_TIME: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' }
 
-const TOKEN_STATUS = { accepted: 'Accepted', refused: 'Refused', unavailable: 'Unavailable' }
-
-/**
- * A fresh reachable read proves the token works and a fresh 401 or 403 is a refusal. A stale
- * observation or a failed read says nothing current, so it is Unavailable.
- */
-function tokenStatus(target: ConnectionStatusDto['target'] | undefined, current: boolean) {
-  if (!current) {
-    return 'unavailable'
-  }
-  if (target?.state === 'reachable') {
-    return 'accepted'
-  }
-  return target?.failure_code === 'unauthorized' ? 'refused' : 'unavailable'
-}
-
 /**
  * Settings › InvenTree: the server from the masthead's connection observation, which it never
- * reads again, and the token and import reference rows the app can't change yet.
+ * reads again, the read token, and the fixed import reference.
  */
-export function InvenTreeSection() {
+export function InvenTreeSection({
+  onDirtyChange,
+}: {
+  /** Reports a typed replacement token to the navigation guard. */
+  onDirtyChange?: (dirty: boolean) => void
+}) {
   const observations = useSharedHeaderObservations()
   const connection = observations?.connection
   const unavailable = connection ? connection.isError || connection.fetchStatus === 'paused' : false
@@ -86,30 +74,12 @@ export function InvenTreeSection() {
             )}
           </Stack>
         </SettingRow>
-        <SettingRow label="API token" help="Kept on the server and never shown.">
-          <Stack>
-            <Status>
-              {TOKEN_STATUS[tokenStatus(target, current)]}
-              {target?.observed_at && (
-                <Small>
-                  · checked {new Date(target.observed_at).toLocaleTimeString([], SHORT_TIME)}
-                </Small>
-              )}
-            </Status>
-            <Actions>
-              {observations && (
-                <CheckConnectionButton check={observations.check} label="Check now" />
-              )}
-              <DisabledFeature explanation="Not available yet: the token is set in the server's environment.">
-                {(disabled) => (
-                  <Button variant="ghost" size="sm" {...disabled}>
-                    Replace token…
-                  </Button>
-                )}
-              </DisabledFeature>
-            </Actions>
-          </Stack>
-        </SettingRow>
+        <ApiTokenRow
+          target={target}
+          current={current}
+          observations={observations}
+          onDirtyChange={onDirtyChange}
+        />
         <SettingRow
           label="Import reference"
           help="The fixed reference the server gives each stock item it sends. It can't be changed."
@@ -139,11 +109,4 @@ const Status = styled.span`
   align-items: center;
   gap: ${space[3]};
   font-weight: ${typeVar.bodyStrong.weight};
-`
-
-const Actions = styled.span`
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: ${space[4]};
 `

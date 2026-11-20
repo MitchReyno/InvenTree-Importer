@@ -6,6 +6,7 @@ import { devConfig } from '#/config.ts'
 import { processingFixture } from '../support/processing.ts'
 import { headerWork } from '#/header/work.ts'
 import { scopedConnectionStatus } from '#/header/binding.ts'
+import { CredentialHolder } from '#/inventory/credential.ts'
 import { nativeProfileId } from '#/agents/policy.ts'
 import { singleProvider } from '../support/agent-settings.ts'
 import { saveAgentSettings } from '#/agents/settings.ts'
@@ -278,6 +279,56 @@ test('retained import approval and dispatch receipts appear without starting exe
     ])
     assert.equal(run.steps_complete, false)
     assert.equal(result.active_sessions.length, 0)
+  } finally {
+    await fixture.dispose()
+  }
+})
+
+test('an answer the token changed under, during the final context check, is not returned', async () => {
+  const fixture = await processingFixture()
+  try {
+    const holder = new CredentialHolder('environment-token-synthetic', null)
+    let fenceQueries = 0
+    let swap: () => void = () => undefined
+    // Counts the scoped reader's context checks; the token changes during the second.
+    const pool = new Proxy(fixture.api.pool, {
+      get(target, property, receiver) {
+        const value = Reflect.get(target, property, receiver)
+        if (property !== 'query') {
+          return typeof value === 'function' ? value.bind(target) : value
+        }
+        return (...args: unknown[]) => {
+          fenceQueries += 1
+          if (fenceQueries === 2) {
+            swap()
+          }
+          return (value as (...input: unknown[]) => unknown).apply(target, args)
+        }
+      },
+    })
+    const status = scopedConnectionStatus(
+      pool,
+      fixture.config,
+      'https://inventory.example.invalid/',
+      async () =>
+        new Response('{}', {
+          status: holder.state().credential_source === 'saved' ? 200 : 401,
+          headers: { 'content-type': 'application/json' },
+        }),
+      undefined,
+      holder,
+    )
+    swap = () => {
+      holder.replace({ token: 'replacement', savedAt: '2026-11-19T00:00:00.000Z' })
+      status.reset()
+    }
+
+    const answer = await status()
+
+    // The refusal of the old token is not handed out once the new one is in use.
+    assert.equal(answer.target.failure_code, null)
+    assert.equal(answer.target.freshness, 'unobserved')
+    assert.equal(answer.target.credential_source, 'saved')
   } finally {
     await fixture.dispose()
   }
