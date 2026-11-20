@@ -96,16 +96,21 @@ async function world(t, initial = {}) {
     if (first === 'sh' && args.includes('printf %s "$HOME"')) {
       return '/home/dev'
     }
-    if (first === 'sh' && args[2].includes('echo complete')) {
+    // Only root can see into `guest/`, as on the real guest.
+    if (first === 'sudo' && second === 'sh' && args[3].includes('echo complete')) {
       failIf('guest probe')
       if (state.guestPairing) {
         return 'complete\n'
       }
       return state.guestDirExists ? 'present\n' : 'absent\n'
     }
-    if (first === 'sudo' && second === 'sh' && args[3].includes('openssl verify')) {
+    if (first === 'sudo' && second === 'python3') {
+      // The guest's key against its certificate.
       failIf('guest pairing invalid')
       return ''
+    }
+    if (first === 'sudo' && second === 'cat') {
+      return state.fail.has('guest certificate from elsewhere') ? 'other cert' : 'guest cert'
     }
     if (first === 'sudo' && second === 'sh') {
       failIf('guest probe')
@@ -162,7 +167,8 @@ async function world(t, initial = {}) {
       return runCommand(command, args, options)
     }
     if (command === 'sh' && args[1].includes('openssl verify')) {
-      failIf('host pairing invalid')
+      // `cd` checks the host side; `printf` checks the guest's certificate against the host CA.
+      failIf(args[1].startsWith('cd') ? 'host pairing invalid' : 'guest certificate from elsewhere')
       return ''
     }
     if (command === 'sh' && args[1] === 'command -v "$1"') {
@@ -375,13 +381,17 @@ test('a pairing whose sides come from different pairings is refused', async (t) 
 })
 
 test('a pairing sharing a CA but with a certificate or key from elsewhere is refused', async (t) => {
-  for (const side of ['host', 'guest']) {
-    await t.test(side, async (t) => {
+  for (const failure of [
+    'host pairing invalid',
+    'guest pairing invalid',
+    'guest certificate from elsewhere',
+  ]) {
+    await t.test(failure, async (t) => {
       const fake = await world(t, {
         vmStatus: 'Stopped',
         guestPairing: true,
         guestCa: sha256('ca.pem from this pairing'),
-        fail: new Set([`${side} pairing invalid`]),
+        fail: new Set([failure]),
       })
       await hostPairing(fake)
       await assert.rejects(fake.setup(), { code: 'vm_pairing_mismatch' })

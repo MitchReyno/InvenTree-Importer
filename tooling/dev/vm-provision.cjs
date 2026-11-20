@@ -321,7 +321,9 @@ async function hostPath(path, lstat) {
 
 /** The guest side of the pairing: `complete` (all three files in `guest/`), `present` or `absent`. */
 async function guestPairing(context) {
+  // `sudo`: `guest/` belongs to the guest services' user, not the Lima login user.
   const output = await guestCommand(context, [
+    'sudo',
     'sh',
     '-c',
     'if test -s "$1/guest/ca.pem" && test -s "$1/guest/cert.pem" && test -s "$1/guest/key.pem"; then echo complete; elif test -e "$1"; then echo present; else echo absent; fi',
@@ -332,20 +334,23 @@ async function guestPairing(context) {
 }
 
 /**
- * Checks a pairing directory's files belong together: the certificate was issued by its CA, and
- * the private key is the certificate's. Run on the host for the host side and in the guest for
- * the guest side.
+ * The host side's files belong together: its certificate was issued by its CA, and its private key
+ * is the certificate's.
  */
-const PAIRING_VALID = [
+const HOST_PAIRING_VALID = [
   'cd "$1"',
   'openssl verify -CAfile ca.pem cert.pem >/dev/null 2>&1',
   'test "$(openssl x509 -noout -pubkey -in cert.pem)" = "$(openssl pkey -pubout -in key.pem)"',
 ].join(' && ')
 
+/** The guest has no OpenSSL; Python's TLS loader refuses a key that isn't the certificate's. */
+const GUEST_KEY_MATCHES =
+  'import ssl, sys; ssl.create_default_context().load_cert_chain(sys.argv[1], sys.argv[2])'
+
 async function hostPairingValid(context) {
   const { exec = runCommand, env, plan } = context
   try {
-    await exec('sh', ['-c', PAIRING_VALID, 'sh', plan.pair], {
+    await exec('sh', ['-c', HOST_PAIRING_VALID, 'sh', plan.pair], {
       timeout: GUEST_COMMAND_TIMEOUT_MS,
       env,
     })
@@ -355,16 +360,33 @@ async function hostPairingValid(context) {
   }
 }
 
+/**
+ * The guest side: its key is its certificate's (checked in the guest, so the key never leaves it),
+ * and its certificate, which is public, was issued by the host's CA (checked on the host).
+ */
 async function guestPairingValid(context) {
+  const { exec = runCommand, env, plan, guestDir } = context
   try {
     await guestCommand(context, [
       'sudo',
-      'sh',
+      'python3',
       '-c',
-      PAIRING_VALID,
-      'sh',
-      `${context.guestDir}/guest`,
+      GUEST_KEY_MATCHES,
+      `${guestDir}/guest/cert.pem`,
+      `${guestDir}/guest/key.pem`,
     ])
+    const certificate = await guestCommand(context, ['sudo', 'cat', `${guestDir}/guest/cert.pem`])
+    await exec(
+      'sh',
+      [
+        '-c',
+        'printf %s "$2" | openssl verify -CAfile "$1" >/dev/null 2>&1',
+        'sh',
+        join(plan.pair, 'ca.pem'),
+        certificate,
+      ],
+      { timeout: GUEST_COMMAND_TIMEOUT_MS, env },
+    )
     return true
   } catch {
     return false
@@ -437,6 +459,7 @@ async function checkHostIdentityAlone(context, { lstat = fsLstat } = {}) {
       `${context.plan.name}:${context.guestDir}/operator/key`,
     ])
   }
+  return 'done'
 }
 
 /**
