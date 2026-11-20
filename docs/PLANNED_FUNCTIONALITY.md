@@ -109,7 +109,7 @@ Build the backend for the design-refresh controls that BI-014 shipped disabled, 
 Agents in the shared VM get provider web search (Claude WebSearch, Codex web search), Claude WebFetch, and Glob, Grep and TodoWrite. A per-session "Allow public web pages" setting, on by default, is enforced by each turn's egress proxy. Protected hostnames are worked out automatically, so no web settings go in the environment. The `bench-web` command and the separate document reader are removed. A rerunnable `pnpm vm:setup` replaces the README's manual VM steps, and `pnpm dev` rebuilds and reloads a stale runner image. This item takes over BI-015's web research switches.
 
 - Change: `simplify-vm-agent-web-and-setup`
-- Status: In progress — PR-A (the egress web policy, #229) and PR-B (`shared-vm-agent/3`, web tools and readiness, #230) merged; PR-C (the web settings) in review; PR-D (one-command setup) and PR-E (requalification, which needs Mitch's go-ahead) remain.
+- Status: In progress — PR-A (the egress web policy, #229) and PR-B (`shared-vm-agent/3`, web tools and readiness, #230) merged; PR-C (the web settings, #231) merged; PR-D (one-command setup) in review; PR-E (requalification, which needs Mitch's go-ahead) remains.
 - Size: L — provider tool admission, the egress proxy policy, a sealed agent setting, launcher setup automation and documentation.
 - Prerequisites: BI-016 (`settings-debug-mode`) for the Settings › Agents structure (#226) and agent-setting sealing (#227), both merged. Read BI-010 before changing the Codex tool surface. Requalifying needs Mitch's fresh go-ahead for a live provider run.
 - OpenSpec: [simplify-vm-agent-web-and-setup](../openspec/changes/simplify-vm-agent-web-and-setup/)
