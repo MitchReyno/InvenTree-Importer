@@ -73,7 +73,7 @@ Delivered: PR-A (debug mode and the Dev mode popover) in #225, PR-B (the Setting
 
 - Successors a stable identity couldn't queue while no provider was on stay unqueued after a provider is turned on, until the lot's identity is published again or the operator starts the stages.
 
-- `simplify-vm-agent-web-and-setup` (BI-017, #223) modifies app-settings › "Agent settings section" and "Deferred settings are disabled and explained", written against this change's versions. Sync this change first; that change rebases onto it, so `pnpm openspec:overlap` reports those requirements until then.
+- `simplify-vm-agent-web-and-setup` (BI-017, #223) modifies app-settings › "Agent settings section" and "Deferred settings are disabled and explained", written against this change's versions, so `pnpm openspec:overlap` reports those requirements. See Archive order above for what must hold before any sync.
 
 - The import reference is sent as the stock item's `barcode`, which `intake-server/src/execution/ARCHITECTURE.md` says InvenTree 1.5.0 doesn't store. The Settings row describes the reference as the server sets it, not whether a given InvenTree keeps it.
 
