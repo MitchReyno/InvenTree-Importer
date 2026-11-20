@@ -1,6 +1,6 @@
 # Implementation notes
 
-PR-A (debug mode and the Dev mode popover) merged in #225, PR-B (the Settings structure) in #226 and PR-C (server storage, sealing, batch defaults and the connection check) in #227. PR-D (the Settings forms) is in progress; PR-E (Replace token) remains.
+Delivered: PR-A (debug mode and the Dev mode popover) in #225, PR-B (the Settings structure) in #226, PR-C (server storage, sealing, batch defaults and the connection check) in #227, PR-D (the Settings forms) in #228 and PR-E (Replace token) in #232.
 
 ## Changes to the plan
 
@@ -66,6 +66,10 @@ PR-A (debug mode and the Dev mode popover) merged in #225, PR-B (the Settings st
 - **2026-11-19, task 11 (PR-E):** A reset of the connection reader counts generations, so a probe still running with the old token can't become the observation after a replace or revert; a read or check waiting on it probes again.
 
 ## Open items
+
+- **Archive order.** This change syncs first. `pnpm openspec:overlap --change settings-debug-mode` reports app-settings requirements that two active changes also modify as whole blocks. `masthead-appearance-options` then rebuilds its "InvenTree and appearance sections" block from the synced requirement, as its notes describe; this change's block already carries the Masthead sentences and scenarios. `simplify-vm-agent-web-and-setup` must likewise rebuild its "Agent settings section" and "Deferred settings are disabled and explained" blocks from the synced text before it syncs, or it would drop this change's rows.
+- **Process tier for task 6.9.** PR-C's probe image build failed, so its process tier didn't run before merge. It ran on 2026-11-21 against the merged `interactive-app` (all five PRs), one file at a time: 114 passed, 0 failed, 11 skipped. The skips are opt-in and unrelated: four need a test-only `INTAKE_MEDIA_PROBE_IMAGE`, and seven are live shared-VM sessions that need a paired VM and real provider sign-ins.
+- **PR-E review at the merged head.** Review rounds 1–17 covered `0e7e71823f2854375237c1d209fe29500d64c0f6`. #232 then merged `interactive-app` (#229–#231) as `0a37fd42128715adef572d3455f71170ada9c363`; a separate review of that merge and its conflict resolutions found nothing material, and that is the head that merged.
 
 - Successors a stable identity couldn't queue while no provider was on stay unqueued after a provider is turned on, until the lot's identity is published again or the operator starts the stages.
 
