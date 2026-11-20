@@ -21,6 +21,7 @@ import {
 } from '#/processing/schema.ts'
 import { lockProcessingAttempt, transitionAttempt } from '#/processing/state.ts'
 import { decodeSessionInput } from '#/processing/session-input.ts'
+import { webAccess } from '#/processing/session-policy.ts'
 import { evidenceNotes } from '#/capture/context-input.ts'
 import { decodeMediaInputs } from '#/media/inputs.ts'
 import { agentBatchPauses, agentSessionInbox, agentSessions } from '#/agents/schema.ts'
@@ -336,6 +337,23 @@ function inboxText(item: { id: string; seq: bigint; kind: string; payload: unkno
 const STYLE_GUIDANCE =
   'Write each Part description you propose in the pattern part_description_style gives, the operator’s saved style. It is still one line of at most 250 characters.'
 
+const WEB_ON =
+  'Public web pages are allowed in this session: after searching, read pages with WebFetch, where available, or curl, both through the session’s proxy.'
+const WEB_OFF =
+  'Public web pages are not available in this session: rely on search results and the staged evidence. A WebFetch or curl to a public site is refused.'
+const DATASHEETS =
+  'Prefer manufacturer datasheets over distributor pages, and take exact values from the datasheet.'
+
+/** The sealed web research lines for a VM tool session; other sessions have no web access. */
+function webGuidance(manifest: ProcessingInputV6Dto) {
+  if (webAccess(manifest.profile_id) !== 'available') {
+    return ''
+  }
+  // An attempt sealed before web research existed runs with both off.
+  const web = manifest.web ?? { public_pages: false, prefer_datasheets: false }
+  return `${web.public_pages ? WEB_ON : WEB_OFF} ${web.prefer_datasheets ? `${DATASHEETS} ` : ''}`
+}
+
 /** Exported for tests. */
 export function openingText(manifest: ProcessingInputV6Dto, pending: number, resumed: boolean) {
   if (resumed) {
@@ -371,6 +389,7 @@ export function openingText(manifest: ProcessingInputV6Dto, pending: number, res
     instructions:
       (manifest.stage === 'examine' ? `${LEAD_INSTRUCTIONS} ` : '') +
       (manifest.part_description_style ? `${STYLE_GUIDANCE} ` : '') +
+      webGuidance(manifest) +
       'Report steps with status, publish proposals with propose, ask questions with ask and keep working. Check read_inbox whenever pending_inbox is above zero. An instruction item is the operator’s saved instruction for the batch, or for one evidence group when it names one: follow it from then on; empty text withdraws the earlier one. ' +
       'Put catalogue values in the proposal’s catalogue block, each with its sources, and with source_kind and agreement when you know them: an existing category, parameter, manufacturer or supplier as the observed reference, or a proposed_new name with a reason when none exists. Only existing references can enter a Part spec; the rest are kept for the operator. When sources disagree on a parameter, give the value you used, the others as alternatives with their sources, and chosen_because. List the category’s mapped templates you found no value for in required_missing, each with why. For an existing category, give the reason you chose it and any alternative you considered; name the nearest existing Part you chose not to reuse in not_reused, with why.',
   })
@@ -451,12 +470,36 @@ export async function runSessionTurn(
         return 'paused' as const
       }
       const manifest = decodeSessionInput(row.inputBytes, row.inputDigest)
+      // No worker runs `shared-vm-agent/2` any more, so whichever worker finds one of its
+      // attempts settles it: queued or requeued by a resume, it fails without starting, its
+      // history kept, instead of waiting for a worker that will never come.
+      if (manifest.profile_id === 'shared-vm-agent/2') {
+        // Counted as a turn, so the session's views find this turn's diagnostic.
+        const retired = await setSessionState(client, attemptId, row.jobId, 'failed', ['queued'], {
+          countTurn: true,
+        })
+        if (retired === 'failed') {
+          await retainSessionFailure(
+            client,
+            sessionFailure(new NativeSessionError('agent_profile_retired'), {
+              attemptId,
+              lineageId: row.jobId,
+              turn: (row.turnCount + 1n).toString(),
+              stage: 'startup',
+              provider: manifest.agent?.provider ?? null,
+              model: manifest.agent?.model ?? null,
+            }),
+          )
+        }
+        await publish(client, row.batchId)
+        return retired === 'failed' ? ('retired' as const) : ('cancelled' as const)
+      }
       // Drain a sealed VM turn on its paired deployment. A VM worker must also leave
       // pre-existing host turns for their original worker.
       if (
-        (manifest.profile_id === 'shared-vm-agent/2' ||
+        (manifest.profile_id === 'shared-vm-agent/3' ||
           manifest.profile_id === 'shared-vm-agent/1' ||
-          config.profileId === 'shared-vm-agent/2' ||
+          config.profileId === 'shared-vm-agent/3' ||
           config.profileId === 'shared-vm-agent/1') &&
         manifest.profile_id !== config.profileId
       ) {
@@ -534,6 +577,9 @@ export async function runSessionTurn(
   }
   if (claimed === 'cancelled') {
     return 'cancelled' as const
+  }
+  if (claimed === 'retired') {
+    return 'failed' as const
   }
   if (claimed === 'archived' || claimed === 'paused' || claimed === 'waiting') {
     return 'queued' as const

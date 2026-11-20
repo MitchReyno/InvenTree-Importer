@@ -20,7 +20,7 @@ test(
   async (t) => {
     const root = await mkdtemp(join(tmpdir(), 'vm-lifecycle-'))
     t.after(() => rm(root, { recursive: true, force: true }))
-    const fixture = await processingFixture({ profileId: 'shared-vm-agent/2' })
+    const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
     t.after(() => fixture.dispose())
     const selection = {
       provider: 'claude',
@@ -39,12 +39,14 @@ test(
     const bridge = await startSessionBridge(
       process.env.INTAKE_VM_PAIR!,
       Number(process.env.INTAKE_VM_PORT),
+      // The live turns reach no deployment, so nothing needs protecting.
+      { protectedHosts: [] },
     )
     t.after(() => bridge.close())
     const capture = await fixture.seedCapture()
     const options = {
       state: 'queued',
-      profile: { id: 'shared-vm-agent/2', agent: selection, settingsRevision: '1' },
+      profile: { id: 'shared-vm-agent/3', agent: selection, settingsRevision: '1' },
     } as const
     const first = await lotSession(fixture, capture, capture.packetA, options)
     const second = await lotSession(fixture, capture, capture.packetB, options)
@@ -67,7 +69,7 @@ test(
       config: fixture.config,
       host: { stateRoot: root, env: {}, claudeExecutable: '/unused', codexExecutable: '/unused' },
       toolUrl: 'http://127.0.0.1:1',
-      drivers: { 'shared-vm-agent/2': driver },
+      drivers: { 'shared-vm-agent/3': driver },
     }
     const control = new AbortController()
     const cancelled = runSessionTurn(deps, first.attempt, control.signal)

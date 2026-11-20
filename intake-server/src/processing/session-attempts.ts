@@ -20,9 +20,11 @@ import {
   sessionCommandQueue,
   sessionHandlerVersion,
   type SessionProfileId,
+  webAccess,
 } from './session-policy.ts'
 
 const LOT_STAGES: readonly Stage[] = ['research', 'images', 'inventory']
+const WEB_OFF = { public_pages: false, prefer_datasheets: false }
 
 /**
  * A session attempt: `/6` input, `/5` command on the session queue, and its session. The batch's
@@ -50,6 +52,10 @@ export async function createSessionAttempt(
     pinnedProposalIds?: readonly string[]
   } = {},
 ) {
+  // `shared-vm-agent/2` is retired: no new attempt is sealed for it.
+  if (profileId === 'shared-vm-agent/2') {
+    fail('agent_profile_retired', 409)
+  }
   const lead = job.stage === 'examine' && job.subject_id === null
   // Reading and identifying are replaced by the batch-level Examine session.
   if (!lead && (job.subject_id === null || !LOT_STAGES.includes(job.stage as Stage))) {
@@ -71,6 +77,8 @@ export async function createSessionAttempt(
       agent,
       settingsRevision: settings.revision,
       partDescriptionStyle: settings.part_description_style || undefined,
+      // Only profiles with web access seal the saved values; every other profile seals both off.
+      web: webAccess(profileId) === 'available' ? { ...settings.web } : WEB_OFF,
     }
   }
   const manifest = sealed(

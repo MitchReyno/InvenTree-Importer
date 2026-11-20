@@ -178,7 +178,7 @@ function resolveProcessing(settings) {
   }
   if (agentsInVm) {
     return {
-      profile: vmTools ? 'shared-vm-agent/2' : 'shared-vm-agent/1',
+      profile: vmTools ? 'shared-vm-agent/3' : 'shared-vm-agent/1',
       mockAgents,
       agentsInVm,
       vmTools,
@@ -354,9 +354,29 @@ function targetEnvironment(settings, targetSettings) {
 }
 
 /** Settings the agent worker receives: the resolved VM pairing, provider access, or nothing. */
-function agentWorkerSettings(resolved, settings) {
+/**
+ * Origins the VM agents' egress must refuse: the app (loopback and, when served, tailnet) and
+ * the inventory it reads. The worker turns them into protected hosts and refuses to start
+ * when one can't be represented.
+ */
+function agentProtectedOrigins({ appOrigin, tailnetOrigin, inventoryOrigin }) {
+  if (!appOrigin || !inventoryOrigin) {
+    throw new Error('protected_origins_unavailable')
+  }
+  return [appOrigin, tailnetOrigin, inventoryOrigin].filter(Boolean).join(',')
+}
+
+/**
+ * The agent worker's provider and VM settings. VM agents also get the origins their egress
+ * must protect; the worker's own app origin is not passed.
+ */
+function agentWorkerSettings(resolved, settings, origins) {
   if (resolved.vmPairing) {
-    return { INTAKE_VM_PAIR: resolved.vmPairing.pair, INTAKE_VM_PORT: resolved.vmPairing.port }
+    return {
+      INTAKE_VM_PAIR: resolved.vmPairing.pair,
+      INTAKE_VM_PORT: resolved.vmPairing.port,
+      INTAKE_AGENT_PROTECTED_ORIGINS: agentProtectedOrigins(origins ?? {}),
+    }
   }
   if (resolved.mockAgents) {
     return {}
@@ -470,6 +490,7 @@ module.exports = {
   targetEnvironment,
   settingsRefusalLines,
   withTargetSettingNames,
+  agentProtectedOrigins,
   agentWorkerSettings,
   personalManagementFlag,
   startupSummary,

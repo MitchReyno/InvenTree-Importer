@@ -96,7 +96,7 @@ Add Google Antigravity (`agy` CLI) as a third native agent provider beside Claud
 
 #### BI-015 — Design refresh backend follow-ups
 
-Build the backend for the design-refresh controls that BI-014 shipped disabled, each with its reason. BI-016 (`settings-debug-mode`) takes over most of the Settings rows. This item keeps the web research switches, the per-record "Fill descriptions for" switches, the supplier part description source and "Tag every Part with its batch name". In Records it is storing and reading manufacturer part, supplier part and agent-proposed company descriptions, and reading location types and their descriptions; descriptions for agent-proposed categories and parameter templates, which the app lists as not supported yet, belong here too. The rest is deleting written batch notes, and Inventory questions that carry their answer options and the existing record's fields, for the disabled option cards and the comparison's InvenTree column and date code.
+Build the backend for the design-refresh controls that BI-014 shipped disabled, each with its reason. BI-016 (`settings-debug-mode`) takes over most of the Settings rows, and BI-017 (`simplify-vm-agent-web-and-setup`) the web research settings. This item keeps the per-record "Fill descriptions for" switches, the supplier part description source and "Tag every Part with its batch name". In Records it is storing and reading manufacturer part, supplier part and agent-proposed company descriptions, and reading location types and their descriptions; descriptions for agent-proposed categories and parameter templates, which the app lists as not supported yet, belong here too. The rest is deleting written batch notes, and Inventory questions that carry their answer options and the existing record's fields, for the disabled option cards and the comparison's InvenTree column and date code.
 
 - Change: `complete-design-refresh-backend`
 - Status: Proposed
@@ -109,7 +109,7 @@ Build the backend for the design-refresh controls that BI-014 shipped disabled, 
 Agents in the shared VM get provider web search (Claude WebSearch, Codex web search), Claude WebFetch, and Glob, Grep and TodoWrite. A per-session "Allow public web pages" setting, on by default, is enforced by each turn's egress proxy. Protected hostnames are worked out automatically, so no web settings go in the environment. The `bench-web` command and the separate document reader are removed. A rerunnable `pnpm vm:setup` replaces the README's manual VM steps, and `pnpm dev` rebuilds and reloads a stale runner image. This item takes over BI-015's web research switches.
 
 - Change: `simplify-vm-agent-web-and-setup`
-- Status: Proposed
+- Status: In progress — PR-A (the egress web policy, #229) and PR-B (`shared-vm-agent/3`, web tools and readiness, #230) merged; PR-C (the web settings) in review; PR-D (one-command setup) and PR-E (requalification, which needs Mitch's go-ahead) remain.
 - Size: L — provider tool admission, the egress proxy policy, a sealed agent setting, launcher setup automation and documentation.
 - Prerequisites: BI-016 (`settings-debug-mode`) for the Settings › Agents structure (#226) and agent-setting sealing (#227), both merged. Read BI-010 before changing the Codex tool surface. Requalifying needs Mitch's fresh go-ahead for a live provider run.
 - OpenSpec: [simplify-vm-agent-web-and-setup](../openspec/changes/simplify-vm-agent-web-and-setup/)
@@ -171,7 +171,7 @@ Repository Markdown is uneven. Some documents are long unbroken paragraphs, head
 Make most of the Settings rows that BI-014 shipped disabled work. These are new-batch instructions, the Part description style, a tag-suggestion default, default location and supplier for new batches, an on-demand token check, Replace token for the InvenTree read token, and the import reference shown read-only. Claude and Codex become separately configured providers, and each processing step picks its own provider and model. Settings › Agents gathers every agent-behaviour setting as subsections with sub-nav links. A device-local debug mode hides developer details unless it is on and adds a Debug panel to each screen; the Dev mode pill opens a popover of developer tools.
 
 - Change: `settings-debug-mode`
-- Status: In progress — PR-A (debug mode and the Dev mode popover, #225), PR-B (the Settings structure, #226) and PR-C (providers, batch defaults and the connection check, #227) and PR-D (the Settings forms, #228) merged; PR-E (Replace token) in review.
+- Status: In progress — PR-A (debug mode and the Dev mode popover, #225), PR-B (the Settings structure, #226), PR-C (providers, batch defaults and the connection check, #227) and PR-D (the Settings forms, #228) merged; PR-E (Replace token) in review.
 - Size: XL — agent settings contract and sealing, a creation snapshot, a stored read credential, the Settings structure and debug gating across most screens, in five PRs (PR-A to PR-E) after the planning PR.
 - Prerequisites: None. It takes over the Settings rows from BI-015 that it builds; coordinate `.env.example` and launcher edits with `default-env-settings`.
 - OpenSpec: [settings-debug-mode](../openspec/changes/settings-debug-mode/)

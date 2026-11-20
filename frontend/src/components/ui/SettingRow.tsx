@@ -22,6 +22,8 @@ type Available = Common & {
 /** A deferred setting: the control renders disabled through `DisabledFeature`. */
 type Deferred = Common & {
   disabledReason: string
+  /** Replaces "Coming later" when the control works, just not here. */
+  disabledBadge?: string
   children: (control: { named: NamedByRow; disabled: DisabledControlProps }) => ReactNode
 }
 
@@ -39,7 +41,7 @@ export function SettingRow(props: SettingRowProps) {
       const render = props.children
 
       return (
-        <DisabledFeature explanation={props.disabledReason}>
+        <DisabledFeature explanation={props.disabledReason} badge={props.disabledBadge}>
           {(disabled) => render({ named, disabled })}
         </DisabledFeature>
       )

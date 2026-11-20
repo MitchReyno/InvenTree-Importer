@@ -8,6 +8,7 @@ import { registerLive } from './live/routes.ts'
 import { compatibleSchema } from './operations/compatibility.ts'
 import { registerReadiness } from './operations/readiness.ts'
 import { devConfig, processingConfig } from './config.ts'
+import { webAccess } from './processing/session-policy.ts'
 import { database } from './db/database.ts'
 import type { Pool } from 'pg'
 import { readMediaStoreIdentity } from './media/store-identity.ts'
@@ -127,7 +128,13 @@ async function main() {
     const mediaStore = await configuredMediaStore(process.env, db?.pool)
     server = createServer(config, { mediaEnabled: mediaStore !== undefined })
     server.addHook('onClose', releaseStore)
-    registerReadiness(server, db?.pool, config, mediaStore !== undefined)
+    registerReadiness(
+      server,
+      db?.pool,
+      config,
+      mediaStore !== undefined,
+      process.env.INTAKE_PROCESSING_PROFILE,
+    )
     if (db) {
       if (!(await compatibleSchema(db.pool))) {
         throw new Error('database_version_quarantined')
@@ -226,8 +233,11 @@ async function main() {
     }
     await server.listen({ host: '127.0.0.1', port: devListenPort(config.origin, process.env) })
     process.stdout.write(
-      JSON.stringify({ event: 'web_ready', mode: 'restricted_local', research: 'unqualified' }) +
-        '\n',
+      JSON.stringify({
+        event: 'web_ready',
+        mode: 'restricted_local',
+        web: webAccess(process.env.INTAKE_PROCESSING_PROFILE),
+      }) + '\n',
     )
   } catch (error) {
     await server?.close().catch(() => undefined)

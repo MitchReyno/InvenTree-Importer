@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtemp, rm, readdir, chmod, writeFile, unlink, symlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { createHash } from 'node:crypto'
 import {
   requireCodexSessionVersion,
   requireClaudeSessionConfig,
@@ -51,6 +52,72 @@ test('configuration admission rejects absent, ignored and widened settings', () 
     { ...config, approval_policy: 'on-request' },
   ])
     assert.throws(() => requireCodexSessionConfig(change), /agent_policy_refused/)
+})
+
+test('a guest tool session is admitted with live web search and the shell proxy only', () => {
+  const host = {
+    approval_policy: 'never',
+    sandbox_mode: 'read-only',
+    web_search: 'disabled',
+    features: {
+      code_mode: { enabled: false },
+      goals: false,
+      shell_tool: false,
+      view_image: false,
+      apps: false,
+      plugins: false,
+      remote_plugin: false,
+      memories: false,
+      multi_agent: false,
+      request_permissions_tool: false,
+    },
+    skills: { bundled: { enabled: false }, include_instructions: false },
+  }
+  const guest = {
+    ...host,
+    sandbox_mode: 'danger-full-access',
+    web_search: 'live',
+    features: { ...host.features, shell_tool: true, view_image: true },
+    // Literal values: the guest's provider proxy listens on 127.0.0.1:14316.
+    shell_environment_policy: {
+      set: { HTTPS_PROXY: 'http://127.0.0.1:14316', NO_PROXY: '127.0.0.1,localhost' },
+    },
+  }
+  requireCodexSessionConfig(guest, true)
+  for (const change of [
+    { ...guest, web_search: 'disabled' },
+    { ...guest, web_search: 'cached' },
+    { ...guest, shell_environment_policy: {} },
+    { ...guest, shell_environment_policy: { set: { HTTPS_PROXY: 'http://127.0.0.1:1' } } },
+  ]) {
+    assert.throws(() => requireCodexSessionConfig(change, true), /agent_policy_refused/)
+  }
+  // A host session never gets web search, whatever else it reports.
+  assert.throws(
+    () => requireCodexSessionConfig({ ...host, web_search: 'live' }),
+    /agent_policy_refused/,
+  )
+})
+
+test('admissions from before the web tool surface no longer resume', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'session-admission-'))
+  const selection = { provider: 'claude', authentication: 'subscription', model: 'test' } as const
+  try {
+    const previous = createHash('sha256')
+      .update(
+        JSON.stringify([
+          'native-session-direct-tools/1',
+          selection.provider,
+          selection.authentication,
+          'earlier',
+        ]),
+      )
+      .digest('hex')
+    await writeFile(join(root, `admission-${previous}`), previous, { mode: 0o600 })
+    assert.equal(await hasAdmission(root, selection, 'earlier'), false)
+  } finally {
+    await rm(root, { recursive: true })
+  }
 })
 
 test('conversation admission is bound to conversation, provider and authentication', async () => {

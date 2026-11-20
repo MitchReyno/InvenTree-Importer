@@ -83,6 +83,8 @@ def select_checks(paths: list[str] | None) -> dict[str, bool]:
             )
             # The OpenSpec sync overlap check runs with the other Node tooling tests.
             or path.startswith(("tooling/openspec/", "tooling/tests/openspec-"))
+            # Guest egress and tool-turn policy tests run in the intake job.
+            or (not markdown and path.startswith("tooling/deployment/"))
             or (not markdown and path.startswith("tooling/inventree-dev/"))
             # The local InvenTree seed fixture is checked against the importer config.
             or (not markdown and path.startswith("backend/config/"))

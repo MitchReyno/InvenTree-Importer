@@ -48,6 +48,7 @@
     "format:readability": "eslint --config eslint.config.mjs frontend/src intake-server/src media-decoder/src contracts/src --fix --max-warnings 0",
     "dev:ui": "pnpm --filter @invimport/frontend dev",
     "test:openspec": "node --test tooling/tests/openspec-overlap.test.mjs",
+    "test:deployment": "python3 -I -m unittest discover -s tooling/deployment/tests -p 'test_*.py'",
     "openspec:overlap": "node tooling/openspec/overlap.mjs",
     "test:dev": "node --test tooling/tests/dev.test.cjs tooling/tests/dev-environment.test.cjs tooling/tests/dev-stack.test.cjs tooling/tests/dev-supervisor.test.cjs tooling/tests/dev-profile.test.cjs tooling/tests/dev-settings.test.cjs tooling/tests/dev-vm.test.cjs tooling/tests/dev-tailnet.test.cjs tooling/tests/codex-login.test.cjs tooling/tests/inventree-dev.test.cjs tooling/tests/inventree-dev-seed.test.cjs tooling/tests/inventree-dev-contract.test.cjs tooling/tests/vite-secrets.test.cjs"
   },

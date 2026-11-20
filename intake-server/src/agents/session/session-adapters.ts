@@ -10,6 +10,7 @@ import { CODEX_CONFIG, rejectHostCustomizations } from '#/agents/codex.ts'
 import {
   hasAdmission,
   rememberAdmission,
+  GUEST_SHELL_PROXY,
   requireCodexSessionConfig,
   requireCodexSessionVersion,
   requireClaudeSessionVersion,
@@ -82,6 +83,19 @@ function deliveryLoop(
   }
 }
 
+/** A guest tool session's built-in Claude tools; host sessions get none. */
+const GUEST_CLAUDE_TOOLS = [
+  'Bash',
+  'Read',
+  'Write',
+  'Edit',
+  'Glob',
+  'Grep',
+  'TodoWrite',
+  'WebSearch',
+  'WebFetch',
+]
+
 /** Claude Code: app tools only, persistence on for resume, stdin stream-JSON for in-turn input. */
 export async function runClaudeSession(
   host: NativeAgentHost,
@@ -95,7 +109,7 @@ export async function runClaudeSession(
     throw new SessionResumeUnavailable()
   }
   await requireClaudeSessionVersion(host.claudeExecutable, cwd, env, signal, turn.onCliVersion)
-  const builtins = host.guestTools ? ['Bash', 'Read', 'Write', 'Edit'] : []
+  const builtins = host.guestTools ? GUEST_CLAUDE_TOOLS : []
   const mcpConfig = join(cwd, 'mcp.json')
   // The file names the variable, never the capability; the CLI expands it from the environment.
   await writeFile(
@@ -296,6 +310,13 @@ export async function runCodexSession(
           sandbox_mode: 'danger-full-access',
           'features.shell_tool': true,
           'features.view_image': true,
+          web_search: 'live',
+          ...Object.fromEntries(
+            Object.entries(GUEST_SHELL_PROXY).map(([name, value]) => [
+              `shell_environment_policy.set.${name}`,
+              value,
+            ]),
+          ),
         }
       : {}),
     forced_login_method: selection.authentication === 'subscription' ? 'chatgpt' : 'api',
@@ -524,7 +545,10 @@ function requireAppItem(
   tools: readonly string[],
   guestTools = false,
 ) {
-  if (guestTools && ['commandExecution', 'fileChange', 'imageView'].includes(String(item.type))) {
+  if (
+    guestTools &&
+    ['commandExecution', 'fileChange', 'imageView', 'webSearch'].includes(String(item.type))
+  ) {
     return
   }
   if (SESSION_ITEM_TYPES.has(String(item.type))) {

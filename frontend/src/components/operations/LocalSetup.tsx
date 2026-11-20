@@ -9,6 +9,14 @@ type LocalSetupProps = {
   compact?: boolean
 }
 
+/** Whether sessions can use the web, as the configured processing profile allows. */
+function webAccessLabel(web: 'available' | 'unavailable', compact: boolean) {
+  if (web === 'available') {
+    return compact ? 'Available' : 'Available in VM sessions'
+  }
+  return compact ? 'Unavailable' : 'Unavailable for this profile'
+}
+
 /** What the local server reports about its setup, with Check again. */
 export function LocalSetup({ readiness, compact = false }: LocalSetupProps) {
   const failed = readiness.isError || readiness.fetchStatus === 'paused'
@@ -38,8 +46,8 @@ export function LocalSetup({ readiness, compact = false }: LocalSetupProps) {
               <dd>Supervised runner only</dd>
             </>
           )}
-          <dt>Research</dt>
-          <dd>{compact ? 'Unavailable' : 'Unavailable pending provider qualification'}</dd>
+          <dt>Web access</dt>
+          <dd>{webAccessLabel(readiness.data.web, compact)}</dd>
           {!compact && (
             <>
               <dt>Deployment</dt>

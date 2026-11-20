@@ -47,6 +47,7 @@ let saved: AgentSettingsDto = {
   new_batch_instructions: '',
   part_description_style: '',
   auto_tags_default: false,
+  web: { public_pages: true, prefer_datasheets: true },
 }
 
 function session(index: number, running: boolean) {

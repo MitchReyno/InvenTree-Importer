@@ -45,7 +45,7 @@ test('the processing switches select each supported profile', () => {
     ],
     [
       { INTAKE_USE_MOCK_AI_AGENTS: 'false', INTAKE_RUN_AGENTS_IN_VM: 'true', ...VM },
-      'shared-vm-agent/2',
+      'shared-vm-agent/3',
     ],
   ]
   for (const [settings, profile] of cases) {
@@ -343,20 +343,32 @@ test('a refusal prints its code, then each named variable and its replacement', 
 const { pathToFileURL } = require('node:url')
 const { join } = require('node:path')
 const {
+  agentProtectedOrigins,
   agentWorkerSettings,
   personalManagementFlag,
   startupSummary,
 } = require('../dev/settings.cjs')
 
-test('scripted agents get no provider access; real agents get it; VM agents get only the resolved pairing', () => {
+test('scripted agents get no provider access; real agents get it; VM agents get the resolved pairing and protected origins', () => {
   const providers = {
     OPENAI_API_KEY: 'synthetic-openai',
     ANTHROPIC_API_KEY: 'synthetic-anthropic',
   }
+  const origins = {
+    appOrigin: 'http://127.0.0.1:4330',
+    tailnetOrigin: 'https://bench.tailnet.ts.net',
+    inventoryOrigin: 'https://inventory.example.com',
+  }
   const worker = (settings) =>
-    agentWorkerSettings(resolveDevelopmentSettings(settings, STATE), settings)
+    agentWorkerSettings(resolveDevelopmentSettings(settings, STATE), settings, origins)
   assert.deepEqual(worker({ ...providers }), {})
-  const pairing = { INTAKE_VM_PAIR: '/state/vm-pair', INTAKE_VM_PORT: '14313' }
+  const protectedOrigins =
+    'http://127.0.0.1:4330,https://bench.tailnet.ts.net,https://inventory.example.com'
+  const pairing = {
+    INTAKE_VM_PAIR: '/state/vm-pair',
+    INTAKE_VM_PORT: '14313',
+    INTAKE_AGENT_PROTECTED_ORIGINS: protectedOrigins,
+  }
   for (const settings of [
     { INTAKE_RUN_AGENTS_IN_VM: 'true' },
     { INTAKE_RUN_AGENTS_IN_VM: 'true', INTAKE_USE_MOCK_AI_AGENTS: 'false' },
@@ -368,11 +380,54 @@ test('scripted agents get no provider access; real agents get it; VM agents get 
   ]) {
     assert.deepEqual(worker({ ...settings, ...providers }), pairing, JSON.stringify(settings))
   }
-  assert.deepEqual(worker({ INTAKE_RUN_AGENTS_IN_VM: 'true', ...VM }), {
+  const vmWorker = worker({ INTAKE_RUN_AGENTS_IN_VM: 'true', ...VM })
+  assert.deepEqual(vmWorker, {
     INTAKE_VM_PAIR: '/pair',
     INTAKE_VM_PORT: '14313',
+    INTAKE_AGENT_PROTECTED_ORIGINS: protectedOrigins,
   })
+  // The worker's own app origin stays the API's loopback one; the tailnet name is only protected.
+  assert.equal('INTAKE_ORIGIN' in vmWorker, false)
   assert.deepEqual(worker({ INTAKE_USE_MOCK_AI_AGENTS: 'false', ...providers }), providers)
+})
+
+test('the agent worker gets the app, tailnet and inventory origins to protect', () => {
+  assert.equal(
+    agentProtectedOrigins({
+      appOrigin: 'http://127.0.0.1:4330',
+      tailnetOrigin: 'https://bench.tailnet.ts.net',
+      inventoryOrigin: 'https://inventory.example.com',
+    }),
+    'http://127.0.0.1:4330,https://bench.tailnet.ts.net,https://inventory.example.com',
+  )
+  assert.equal(
+    agentProtectedOrigins({
+      appOrigin: 'http://127.0.0.1:4330',
+      tailnetOrigin: undefined,
+      inventoryOrigin: 'http://127.0.0.1:4320',
+    }),
+    'http://127.0.0.1:4330,http://127.0.0.1:4320',
+  )
+})
+
+test('protected origins are refused when the app or inventory origin is missing', () => {
+  assert.throws(
+    () =>
+      agentWorkerSettings(
+        resolveDevelopmentSettings({ INTAKE_RUN_AGENTS_IN_VM: 'true' }, STATE),
+        {},
+        undefined,
+      ),
+    /protected_origins_unavailable/,
+  )
+  assert.throws(
+    () => agentProtectedOrigins({ appOrigin: 'http://127.0.0.1:4330', inventoryOrigin: '' }),
+    /protected_origins_unavailable/,
+  )
+  assert.throws(
+    () => agentProtectedOrigins({ appOrigin: '', inventoryOrigin: 'http://127.0.0.1:4320' }),
+    /protected_origins_unavailable/,
+  )
 })
 
 test('the credential-management proxy is on only with VM agents', () => {
@@ -601,7 +656,7 @@ test('the startup summary names the managed VM and every default it filled in', 
   const summary = startupSummary('fake', resolveDevelopmentSettings(REAL_VM_AGENTS, STATE))
   assert.equal(
     summary,
-    'Inventory: mock (writable).\nProcessing: shared-vm-agent/2 in the VM.\n' +
+    'Inventory: mock (writable).\nProcessing: shared-vm-agent/3 in the VM.\n' +
       'VM: bench-agent, started with the app and stopped with it if this run starts it.\n' +
       'Defaults used: INTAKE_VM_PAIR=/state/vm-pair, INTAKE_VM_PORT=14313, ' +
       'INTAKE_VM_NAME=bench-agent, INTAKE_VM_GUEST_DIR=bench-intake-guest in the guest home, ' +

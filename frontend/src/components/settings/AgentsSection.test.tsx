@@ -1,4 +1,5 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { useState, type ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, test, vi, type Mock } from 'vitest'
 import type {
@@ -14,6 +15,32 @@ import type { SettingsSectionId } from '#/navigation/app-route'
 import { Settings } from './Settings'
 import { resetRunnerQueue } from '#/components/agents/useChatGPTSignIn'
 import { agentSettings, agentSettingsUpdate } from '#/test/agent-settings'
+
+// Readiness says whether this profile's sessions have web access; each test sets it.
+const readiness = vi.hoisted(() => {
+  const listeners = new Set<() => void>()
+  let web: 'available' | 'unavailable' | undefined = 'available'
+  return {
+    get: () => web,
+    set(next: typeof web) {
+      web = next
+      listeners.forEach((listener) => listener())
+    },
+    subscribe(listener: () => void) {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+  }
+})
+vi.mock('#/debug/useReadiness', async () => {
+  const { useSyncExternalStore } = await import('react')
+  return {
+    useReadiness: () => {
+      const web = useSyncExternalStore(readiness.subscribe, readiness.get)
+      return { data: web ? { web } : undefined }
+    },
+  }
+})
 
 const initialSelection = {
   provider: 'claude',
@@ -137,6 +164,7 @@ function expectCard(provider: 'Claude' | 'Codex', status: string) {
 let send: Mock<typeof fetch>
 
 beforeEach(() => {
+  readiness.set('available')
   send = vi.fn<typeof fetch>()
   vi.stubGlobal('isSecureContext', true)
   vi.stubGlobal('fetch', send)
@@ -945,4 +973,83 @@ test('a settings read that was already running cannot replace a confirmed save',
   })
 
   expect(screen.getByText('3 of 2 in use · 1 queued')).toBeVisible()
+})
+
+describe('Web research', () => {
+  const publicPages = () => screen.getByRole('checkbox', { name: 'Allow public web pages' })
+
+  const datasheets = () =>
+    screen.getByRole('checkbox', { name: 'Prefer manufacturer datasheets over distributor pages' })
+
+  test('both settings start on, explain provider search and save on their own', async () => {
+    const api = await renderAgents()
+    expect(publicPages()).toBeChecked()
+    expect(datasheets()).toBeChecked()
+    expect(screen.getByRole('group', { name: 'Web research' })).toHaveAccessibleDescription(
+      /sessions in the VM.*Provider web search stays on either way/,
+    )
+    fireEvent.click(publicPages())
+    fireEvent.click(within(card('Web research')).getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(api.saveSettings).toHaveBeenCalledWith(
+        agentSettingsUpdate('7', initialSelection, {
+          web: { public_pages: false, prefer_datasheets: true },
+        }),
+      ),
+    )
+  })
+
+  for (const saved of [
+    { public_pages: false, prefer_datasheets: true },
+    { public_pages: true, prefer_datasheets: false },
+  ]) {
+    test(`a profile without web access shows the saved ${JSON.stringify(saved)}, disabled`, async () => {
+      readiness.set('unavailable')
+      const user = userEvent.setup()
+      const api = client()
+      api.settings.mockResolvedValue({ ...initial, web: saved })
+      await renderAgents(api)
+      for (const [box, checked] of [
+        [publicPages(), saved.public_pages],
+        [datasheets(), saved.prefer_datasheets],
+      ] as const) {
+        expect(box).toHaveAttribute('aria-disabled', 'true')
+        expect(box).toHaveAccessibleDescription(/no web access/)
+        expect((box as HTMLInputElement).checked).toBe(checked)
+        await user.click(box)
+        expect((box as HTMLInputElement).checked).toBe(checked)
+      }
+      expect(within(card('Web research')).queryByRole('button', { name: 'Save' })).toBeNull()
+      // These settings work elsewhere, so they don't claim to be coming later.
+      expect(within(card('Web research')).getByText('Not for this profile')).toBeVisible()
+      expect(within(card('Web research')).queryByText('Coming later')).toBeNull()
+      expect(api.saveSettings).not.toHaveBeenCalled()
+    })
+  }
+
+  test('an edit made before readiness says there is no web access shows the saved value and can be discarded', async () => {
+    readiness.set(undefined)
+    const dirty = vi.fn()
+    const api = await renderAgents(client(), dirty)
+    fireEvent.click(publicPages())
+    await waitFor(() => expect(dirty).toHaveBeenLastCalledWith(true))
+    act(() => readiness.set('unavailable'))
+    expect(publicPages()).toBeChecked()
+    fireEvent.click(within(card('Web research')).getByRole('button', { name: 'Discard my edit' }))
+    await waitFor(() => expect(dirty).toHaveBeenLastCalledWith(false))
+    expect(api.saveSettings).not.toHaveBeenCalled()
+  })
+
+  test('a save over settings changed elsewhere is a conflict that keeps the edit', async () => {
+    const api = client()
+    api.saveSettings.mockRejectedValue(new IntakeRequestError(409, 'revision_conflict'))
+    api.settings.mockResolvedValueOnce(initial).mockResolvedValueOnce({ ...initial, revision: '9' })
+    await renderAgents(api)
+    fireEvent.click(datasheets())
+    fireEvent.click(within(card('Web research')).getByRole('button', { name: 'Save' }))
+    expect(await screen.findByText(/changed in another tab/)).toBeVisible()
+    expect(datasheets()).not.toBeChecked()
+    fireEvent.click(screen.getByRole('button', { name: 'Reload' }))
+    await waitFor(() => expect(datasheets()).toBeChecked())
+  })
 })

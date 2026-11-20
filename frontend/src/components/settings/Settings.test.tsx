@@ -19,6 +19,9 @@ import {
   type SettingsSectionId,
 } from '#/navigation/app-route'
 
+// Agents reads whether sessions have web access; these tests don't depend on it.
+vi.mock('#/debug/useReadiness', () => ({ useReadiness: () => ({ data: { web: 'available' } }) }))
+
 const batchId = '10000000-0000-4000-8000-000000000001'
 const identity = {
   actor_id: fixtureScope.actorId,
@@ -524,7 +527,7 @@ test('a check answered in the same moment a token change is confirmed never publ
 })
 
 const DEFERRED: [SettingsSectionId, string[]][] = [
-  ['agents', ['Fill descriptions for', 'Supplier part descriptions', 'Web research']],
+  ['agents', ['Fill descriptions for', 'Supplier part descriptions']],
   ['defaults', ['Tags']],
 ]
 

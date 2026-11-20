@@ -9,11 +9,32 @@ import { ResearchReapPendingError } from '#/research/errors.ts'
 import { evidenceReplyLimit, Frames, protocol, readBounded } from './frames.ts'
 import { SessionResumeUnavailable } from '#/agents/session/session-adapters.ts'
 import { NativeSessionError } from '#/agents/failure-model.ts'
+import { refusalOutcome } from './journal.ts'
 import { pairing } from './pair.ts'
 import { settled } from '#/events/settled.ts'
 
-/** A guest connection accepts exactly one session turn. The capability stays on the host. */
-export async function startSessionBridge(directory: string, port: number) {
+export interface SessionBridgeOptions {
+  /** Hosts each tool turn's egress proxy refuses; see `bridgeProtectedHosts`. */
+  protectedHosts: readonly string[]
+}
+
+/** The failure code a settled guest turn reports, or undefined for anything else. */
+function settledFailure(value: unknown) {
+  if (value === 'agent_login_required' || value === 'agent_turn_failed') {
+    return value
+  }
+  return refusalOutcome(value)
+}
+
+/**
+ * A guest connection accepts exactly one session turn. The capability stays on the host. Without
+ * `options` the bridge refuses tool turns, whose egress needs the deployment's protected hosts.
+ */
+export async function startSessionBridge(
+  directory: string,
+  port: number,
+  options?: SessionBridgeOptions,
+) {
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new Error('invalid_bridge_port')
   }
@@ -63,6 +84,11 @@ export async function startSessionBridge(directory: string, port: number) {
             subscriptions.set(socket, 'codex')
           }
           if (greeting.builtinTools === true) {
+            // An older tool-worker supervisor would ignore protected_hosts and the sealed web
+            // setting, so it never receives a command.
+            if (greeting.turnPolicy !== true) {
+              throw new Error('runner_turn_policy_unsupported')
+            }
             rich.add(socket)
             if (greeting.evidenceFiles === true) {
               evidencePeers.add(socket)
@@ -91,12 +117,15 @@ export async function startSessionBridge(directory: string, port: number) {
   await once(server, 'listening')
 
   const driver: SessionDriver = async (turn, context) => {
-    const toolWorker = context.manifest.profile_id === 'shared-vm-agent/2'
+    const toolWorker = context.manifest.profile_id === 'shared-vm-agent/3'
+    if (toolWorker && !options) {
+      throw new Error('protected_hosts_required')
+    }
     // The tool relay starts its provider tunnel, worker and paired supervisor on a cold VM.
     const deadline = Date.now() + (toolWorker ? 45_000 : 15_000)
     const subscription =
       (context.manifest.profile_id === 'shared-vm-agent/1' ||
-        context.manifest.profile_id === 'shared-vm-agent/2') &&
+        context.manifest.profile_id === 'shared-vm-agent/3') &&
       context.manifest.agent?.authentication === 'subscription'
         ? context.manifest.agent.provider
         : undefined
@@ -140,6 +169,7 @@ export async function startSessionBridge(directory: string, port: number) {
       instructions: turn.instructions,
       text: turn.text,
       tools: turn.tools,
+      ...(toolWorker ? { protected_hosts: options!.protectedHosts } : {}),
     }
     let dispatched = false
     try {
@@ -160,9 +190,10 @@ export async function startSessionBridge(directory: string, port: number) {
           dispatched = false
           throw new SessionResumeUnavailable()
         }
-        if (msg.failure === 'agent_login_required' || msg.failure === 'agent_turn_failed') {
+        const failure = settledFailure(msg.failure)
+        if (failure) {
           dispatched = false
-          throw new NativeSessionError(msg.failure)
+          throw new NativeSessionError(failure)
         }
         if (
           msg.provider &&
@@ -204,7 +235,7 @@ export async function startSessionBridge(directory: string, port: number) {
         if (
           typeof msg.mcp === 'string' &&
           (context.manifest.profile_id === 'shared-vm-agent/1' ||
-            context.manifest.profile_id === 'shared-vm-agent/2')
+            context.manifest.profile_id === 'shared-vm-agent/3')
         ) {
           const response = await fetch(turn.toolUrl, {
             method: 'POST',
@@ -286,8 +317,9 @@ export async function startSessionBridge(directory: string, port: number) {
           if (outcome === 'resume_unavailable') {
             throw new SessionResumeUnavailable()
           }
-          if (outcome === 'agent_login_required' || outcome === 'agent_turn_failed') {
-            throw new NativeSessionError(outcome)
+          const failure = settledFailure(outcome)
+          if (failure) {
+            throw new NativeSessionError(failure)
           }
         }
         throw new ResearchReapPendingError()

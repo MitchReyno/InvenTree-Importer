@@ -41,6 +41,8 @@ export const agentSettings = pgTable(
     newBatchInstructions: text('new_batch_instructions').notNull().default(''),
     partDescriptionStyle: text('part_description_style').notNull().default(''),
     autoTagsDefault: boolean('auto_tags_default').notNull().default(false),
+    webPublicPages: boolean('web_public_pages').notNull().default(true),
+    webPreferDatasheets: boolean('web_prefer_datasheets').notNull().default(true),
   },
   (table) => [primaryKey({ columns: [table.actorId, table.targetId, table.targetContextId] })],
 )

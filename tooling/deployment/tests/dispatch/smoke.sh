@@ -30,11 +30,7 @@ cd "$state"
 "$root/tooling/deployment/bridge/pair.sh" "$vm" "$state/host" "$remote"
 if [[ $lifecycle == controlled ]]; then
   export INTAKE_VM_BUILTIN_TOOLS=1 INTAKE_VM_CLAUDE_SUBSCRIPTION=1
-  guest install -d -m 0700 -o 1000 -g 1000 "$remote/web"
-  guest touch "$remote/tool-protected-hosts"
   guest install -m 0444 /dev/stdin "$remote/browser-seccomp.json" < "$root/tooling/deployment/guest/browser-seccomp.json"
-  # A socket inode satisfies the worker mount contract. This controlled fixture makes no web calls.
-  guest docker run --rm --network=none -v "$remote/web:/run/web" "$image" python3 -c 'import socket; s=socket.socket(socket.AF_UNIX); s.bind("/run/web/reader.sock")'
 fi
 pw=$(openssl rand -hex 32)
 if [[ -n "$app_image" ]]; then

@@ -60,15 +60,15 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
   - Build the runner image once after the whitelist change, and record the result on the PR.
 - Risks and decisions: the long-lived personal egress containers must keep working without a policy file, which a provider-only test covers.
 
-- [ ] 1.1 Run the existing reader and egress tests and record the baseline.
-- [ ] 1.2 RED: write `test_guest_egress.py` covering the cases below, and confirm they fail for the expected reason.
-  - [ ] 1.2.1 Provider hosts are allowed with and without a policy.
-  - [ ] 1.2.2 With web on, public hosts are allowed and the connection pins a checked address.
-  - [ ] 1.2.3 Mixed public and private answers, an IPv6 private answer, a private suffix, an IP literal and a port other than 443 are refused with their reasons.
-  - [ ] 1.2.4 A protected name, a subdomain of it and a shared address are refused, including a private-suffix protected name that resolves to a public address. A protected name resolving only privately is skipped. A failed lookup gives `resolution_failed` for public hosts only.
-  - [ ] 1.2.5 A missing or malformed policy file means provider-only.
-- [ ] 1.3 GREEN: implement `guest-egress.py` and the `guest_destinations.py` changes, and update the callers, image and whitelist.
-- [ ] 1.4 Add the `test:deployment` script and its CI step, then run it, the deployment `ruff check`, `pnpm lint` and a runner image build, and record the results.
+- [x] 1.1 Run the existing reader and egress tests and record the baseline.
+- [x] 1.2 RED: write `test_guest_egress.py` covering the cases below, and confirm they fail for the expected reason.
+  - [x] 1.2.1 Provider hosts are allowed with and without a policy.
+  - [x] 1.2.2 With web on, public hosts are allowed and the connection pins a checked address.
+  - [x] 1.2.3 Mixed public and private answers, an IPv6 private answer, a private suffix, an IP literal and a port other than 443 are refused with their reasons.
+  - [x] 1.2.4 A protected name, a subdomain of it and a shared address are refused, including a private-suffix protected name that resolves to a public address. A protected name resolving only privately is skipped. A failed lookup gives `resolution_failed` for public hosts only.
+  - [x] 1.2.5 A missing or malformed policy file means provider-only.
+- [x] 1.3 GREEN: implement `guest-egress.py` and the `guest_destinations.py` changes, and update the callers, image and whitelist.
+- [x] 1.4 Add the `test:deployment` script and its CI step, then run it, the deployment `ruff check`, `pnpm lint` and a runner image build, and record the results.
 
 ## 2. Policy handoff and protected hosts
 
@@ -92,11 +92,11 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 - Verification: `pnpm test:intake`, plus `pnpm test:intake:process` for the bridge and worker start-up; `pnpm test:dev` for the launcher passing the origin settings to the agent worker; `pnpm test:deployment` for the `tool-turn.sh` argument test; `tool-worker-smoke.sh` with the paired VM, showing a public `curl` refused while web is off. If the VM isn't available, record that limitation in the PR.
 - Risks and decisions: the order of the policy write and the worker start matters. The peer writes before it calls the worker, and the test asserts that order.
 
-- [ ] 2.1 Read the coordinator command and peer validation paths, and record the current command shape.
-- [ ] 2.2 RED: add coordinator, peer and mount tests, and confirm the failures.
-- [ ] 2.3 GREEN: implement `protectedHosts()`, the command field, the input `web` schema, peer validation and the atomic write, and the mounts.
-- [ ] 2.4 Stop `tool-turn.sh` passing `INTAKE_VM_PROTECTED_HOSTS` to the per-turn egress, leaving the reader's configuration as it is. The existing reader tests, including public mode with protected hosts, still pass.
-- [ ] 2.5 Run `pnpm test:intake`, the tooling tests and, where available, the VM smoke test. Record the results and any VM limitation.
+- [x] 2.1 Read the coordinator command and peer validation paths, and record the current command shape.
+- [x] 2.2 RED: add coordinator, peer and mount tests, and confirm the failures.
+- [x] 2.3 GREEN: implement `protectedHosts()`, the command field, the input `web` schema, peer validation and the atomic write, and the mounts.
+- [x] 2.4 Stop `tool-turn.sh` passing `INTAKE_VM_PROTECTED_HOSTS` to the per-turn egress, leaving the reader's configuration as it is. The existing reader tests, including public mode with protected hosts, still pass.
+- [x] 2.5 Run `pnpm test:intake`, the tooling tests and, where available, the VM smoke test. Record the results and any VM limitation.
 
 ## 3. Web settings, sealing and the opening message
 
@@ -121,10 +121,10 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 - Verification: `pnpm test:intake`, `pnpm test:intake:pg` (attempt sealing against PostgreSQL), `pnpm test:intake:process` (session runner), `pnpm test:frontend`, `pnpm lint:frontend`, `pnpm typecheck`, `pnpm build`, `pnpm contracts:check`. A demo video goes on the PR.
 - Risks and decisions: BI-016 may change the input version or the settings shape. Adapt to it, and record the departure in `notes.md`.
 
-- [ ] 3.1 Rebase the `app-settings` delta and this task's approach onto the merged BI-016, and record any differences in `notes.md`.
-- [ ] 3.2 RED: add the contract, settings, sealing, opening-message and frontend tests, and confirm the failures.
-- [ ] 3.3 GREEN: implement the contract fields, defaults, sealing, the opening-message lines and the Settings subsection.
-- [ ] 3.4 Run `pnpm test:intake`, `pnpm test:intake:pg`, `pnpm test:intake:process`, `pnpm test:frontend`, `pnpm lint:frontend`, `pnpm typecheck`, `pnpm build` and `pnpm contracts:check`, and record the demo video for the PR.
+- [x] 3.1 Rebase the `app-settings` delta and this task's approach onto the merged BI-016, and record any differences in `notes.md`.
+- [x] 3.2 RED: add the contract, settings, sealing, opening-message and frontend tests, and confirm the failures.
+- [x] 3.3 GREEN: implement the contract fields, defaults, sealing, the opening-message lines and the Settings subsection.
+- [x] 3.4 Run `pnpm test:intake`, `pnpm test:intake:pg`, `pnpm test:intake:process`, `pnpm test:frontend`, `pnpm lint:frontend`, `pnpm typecheck`, `pnpm build` and `pnpm contracts:check`, and record the demo video for the PR.
 
 ## 4. `shared-vm-agent/3` profile and retired `/2` attempts
 
@@ -145,10 +145,10 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 - Verification: `pnpm test:intake`, `pnpm test:intake:pg` (migration and retained attempts), `pnpm test:intake:process` (session runner), `pnpm test:dev` (profile table).
 - Risks and decisions: Mitch confirms the retired-attempt behaviour before implementation (proposal, open decisions). Task 10 qualifies the new profile.
 
-- [ ] 4.1 Confirm the retired-attempt behaviour with Mitch.
-- [ ] 4.2 RED: add the migration, retained-attempt, resume, session-runner and launcher tests, and confirm the failures.
-- [ ] 4.3 GREEN: add the migration, the profile literals, the launcher mapping, the retired-attempt handling and the instruction text.
-- [ ] 4.4 Run `pnpm test:intake`, `pnpm test:intake:pg`, `pnpm test:intake:process` and `pnpm test:dev`, and record the results.
+- [x] 4.1 Confirm the retired-attempt behaviour with Mitch.
+- [x] 4.2 RED: add the migration, retained-attempt, resume, session-runner and launcher tests, and confirm the failures.
+- [x] 4.3 GREEN: add the migration, the profile literals, the launcher mapping, the retired-attempt handling and the instruction text.
+- [x] 4.4 Run `pnpm test:intake`, `pnpm test:intake:pg`, `pnpm test:intake:process` and `pnpm test:dev`, and record the results.
 
 ## 5. Readiness web state
 
@@ -161,9 +161,9 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 - Verification: `pnpm test:intake`, `pnpm test:frontend`, `pnpm lint:frontend`, `pnpm contracts:check`.
 - Risks and decisions: none.
 
-- [ ] 5.1 RED: add the readiness and diagnostics tests, and confirm the failures.
-- [ ] 5.2 GREEN: replace the field in contracts, server and frontend.
-- [ ] 5.3 Run the intake, frontend and contract checks, and record the results.
+- [x] 5.1 RED: add the readiness and diagnostics tests, and confirm the failures.
+- [x] 5.2 GREEN: replace the field in contracts, server and frontend.
+- [x] 5.3 Run the intake, frontend and contract checks, and record the results.
 
 ## 6. Tool surface and admission
 
@@ -179,10 +179,10 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 - Verification: `pnpm test:intake` (the intake server runs `tsx --test`).
 - Risks and decisions: Codex `shell_environment_policy.set` must show up in `config/read`. If it doesn't, record that in `notes.md` and verify the variable with the smoke test instead.
 
-- [ ] 6.1 Record the current recorded frames and config fixtures used by the admission tests.
-- [ ] 6.2 RED: add admission and adapter tests for each case, and confirm the failures.
-- [ ] 6.3 GREEN: update the tool lists, the Codex config, the admission checks, the item check and the policy identity.
-- [ ] 6.4 Run `pnpm test:intake` and record the results.
+- [x] 6.1 Record the current recorded frames and config fixtures used by the admission tests.
+- [x] 6.2 RED: add admission and adapter tests for each case, and confirm the failures.
+- [x] 6.3 GREEN: update the tool lists, the Codex config, the admission checks, the item check and the policy identity.
+- [x] 6.4 Run `pnpm test:intake` and record the results.
 
 ## 7. `pnpm vm:setup`
 
@@ -293,9 +293,9 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
   - `rg -n 'bench-web|web-reader|public-web|reader.sock' --glob '!openspec/changes/archive/**' --glob '!intake-server/migrations/**'` returns only planning text and the retained `/2` handling. Applied migrations are immutable and keep their historical text.
 - Risks and decisions: none beyond task 4's retired-attempt decision.
 
-- [ ] 11.1 RED: add the launchable-profile instruction test and the `tool-turn.sh` argument test, and confirm the failures.
-- [ ] 11.2 GREEN: add `browser-policy.sh`, remove the reader files, install line, whitelist entries, socket check and mount, and move the remaining reader test cases.
-- [ ] 11.3 Run the checks, the image build, the Chromium check where the VM is available and the reference search, and record the results.
+- [x] 11.1 RED: add the launchable-profile instruction test and the `tool-turn.sh` argument test, and confirm the failures.
+- [x] 11.2 GREEN: add `browser-policy.sh`, remove the reader files, install line, whitelist entries, socket check and mount, and move the remaining reader test cases.
+- [x] 11.3 Run the checks, the image build, the Chromium check where the VM is available and the reference search, and record the results.
 
 ## Delivery evidence and lifecycle follow-up
 

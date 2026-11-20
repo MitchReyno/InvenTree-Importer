@@ -27,9 +27,8 @@ trap cleanup EXIT
 trap 'exit 1' TERM HUP INT
 install -d -m 0700 -o 1000 -g 1000 "$turn/rpc" "$turn/reap"
 install -d -m 0700 -o 1000 -g 1000 "$directory/tool-sessions"
-test -S "$directory/web/reader.sock"
-protected=$(cat "$directory/tool-protected-hosts")
-install -d -m 0700 -o 1000 -g 1000 "$turn/egress"
+# The supervisor writes this turn's web policy here; egress reads it and the worker never sees it.
+install -d -m 0700 -o 1000 -g 1000 "$turn/egress" "$turn/policy"
 isolated() { docker run --network=none --read-only --cap-drop=ALL --security-opt=no-new-privileges --pids-limit=128 "$@"; }
 
 if [ "$provider" = claude ]; then
@@ -41,13 +40,13 @@ else
   set -- --volume "$directory/codex-state:/run/codex-state" --volume "$turn/egress:/run/egress:ro"
 fi
 docker run -d --name "$name-egress" --read-only --cap-drop=ALL --security-opt=no-new-privileges \
-  --pids-limit=24 --memory=64m --env "$envarg" --env "INTAKE_VM_PROTECTED_HOSTS=$protected" \
-  --volume "$turn/egress:/run/egress" "$image" python3 /opt/guest-tools/claude-egress.py >/dev/null
+  --pids-limit=24 --memory=64m --env "$envarg" \
+  --volume "$turn/egress:/run/egress" --volume "$turn/policy:/run/policy:ro" "$image" python3 /opt/guest-tools/guest-egress.py >/dev/null
 if [ -f "$directory/browser-seccomp.json" ]; then
   set -- --security-opt "seccomp=$directory/browser-seccomp.json" "$@"
 fi
 worker_id=$(isolated -d --name "$name" --memory=640m --tmpfs /tmp:rw,nosuid,nodev,size=64m \
-  --env "$envarg" "$@" --volume "$turn/rpc:/run/turn" --volume "$directory/web:/run/web:ro" \
+  --env "$envarg" "$@" --volume "$turn/rpc:/run/turn" \
   --volume "$directory/tool-sessions:/home/node/sessions" "$image" node --import tsx src/agents/shared-vm/tool-worker.ts)
 i=0
 while [ "$i" -lt 150 ]; do
@@ -57,6 +56,6 @@ while [ "$i" -lt 150 ]; do
 done
 test -S "$turn/rpc/worker.sock"
 isolated --rm -i --name "$name-peer" --memory=256m --tmpfs /tmp:size=16m \
-  --env "$envarg" --env INTAKE_VM_TOOL_WORKER=1 --env INTAKE_VM_REAP_PROOF=1 --volume "$turn/reap:/run/reap" --volume "$turn/rpc:/run/turn:ro" \
+  --env "$envarg" --env INTAKE_VM_TOOL_WORKER=1 --env INTAKE_VM_REAP_PROOF=1 --volume "$turn/reap:/run/reap" --volume "$turn/policy:/run/policy" --volume "$turn/rpc:/run/turn:ro" \
   --volume "$directory/guest:/run/bench-pair:ro" --volume "$directory/sessions:/home/node/sessions" \
   "$image" node --import tsx src/agents/shared-vm/guest-main.ts

@@ -13,11 +13,7 @@ import {
   unseal,
   type RetainedMediaDescriptor,
 } from './model.ts'
-import {
-  sessionProfiles,
-  sessionToolProfileVersion,
-  type SessionProfileId,
-} from './session-policy.ts'
+import { sessionProfiles, type SessionProfileId } from './session-policy.ts'
 
 export type SessionLotStage = 'research' | 'images' | 'inventory'
 
@@ -32,11 +28,13 @@ export function sessionLotInputManifest(
   media: RetainedMediaDescriptor,
   profile:
     | {
-        id: 'native-agent/2' | 'shared-vm-agent/1' | 'shared-vm-agent/2'
+        id: 'native-agent/2' | 'shared-vm-agent/1' | 'shared-vm-agent/2' | 'shared-vm-agent/3'
         agent: AgentSelectionDto
         settingsRevision: string
         /** Sealed with the attempt, so a later save can't change what a queued session reads. */
         partDescriptionStyle?: string
+        /** Sealed with the attempt; off for every profile but `shared-vm-agent/3`. */
+        web?: { public_pages: boolean; prefer_datasheets: boolean }
       }
     | { id: 'synthetic-session/1' },
   pinnedProposalIds: readonly string[] = [],
@@ -60,13 +58,14 @@ export function sessionLotInputManifest(
     profile_id: profile.id,
     instruction_version: policy.instructionVersion,
     instruction_sha256: policy.instructionDigest,
-    tool_profile_version: sessionToolProfileVersion,
+    tool_profile_version: policy.toolProfileVersion,
     media: { ...media },
     agent: profile.id !== 'synthetic-session/1' ? profile.agent : null,
     settings_revision: profile.id !== 'synthetic-session/1' ? profile.settingsRevision : null,
     ...(profile.id !== 'synthetic-session/1' && profile.partDescriptionStyle
       ? { part_description_style: profile.partDescriptionStyle }
       : {}),
+    ...(profile.id !== 'synthetic-session/1' && profile.web ? { web: { ...profile.web } } : {}),
     pinned_proposal_ids: [...pinnedProposalIds].sort(),
   }
   validate('ProcessingInputV6', manifest)
@@ -139,13 +138,14 @@ export function sessionLeadInputManifest(
     profile_id: profile.id,
     instruction_version: policy.instructionVersion,
     instruction_sha256: policy.instructionDigest,
-    tool_profile_version: sessionToolProfileVersion,
+    tool_profile_version: policy.toolProfileVersion,
     media: { ...media },
     agent: profile.id !== 'synthetic-session/1' ? profile.agent : null,
     settings_revision: profile.id !== 'synthetic-session/1' ? profile.settingsRevision : null,
     ...(profile.id !== 'synthetic-session/1' && profile.partDescriptionStyle
       ? { part_description_style: profile.partDescriptionStyle }
       : {}),
+    ...(profile.id !== 'synthetic-session/1' && profile.web ? { web: { ...profile.web } } : {}),
     pinned_proposal_ids: [],
   }
   validate('ProcessingInputV6', manifest)

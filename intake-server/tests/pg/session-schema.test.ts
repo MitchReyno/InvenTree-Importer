@@ -8,6 +8,7 @@ import { isolatedDatabase } from '../support/database.ts'
 import { sealed } from '#/processing/model.ts'
 import { transaction } from '#/db/database.ts'
 import { migrate } from '#/operations/migrate.ts'
+import { devConfig, processingConfig } from '#/config.ts'
 
 type Fixture = Awaited<ReturnType<typeof processingFixture>>
 
@@ -95,9 +96,28 @@ test('session profiles are stored with instruction bytes matching their digests'
         ['native-agent/2', 'native_unverified', 'native-session-tools/1'],
         ['shared-vm-agent/1', 'native_unverified', 'native-session-tools/1'],
         ['shared-vm-agent/2', 'native_unverified', 'native-session-tools/1'],
+        ['shared-vm-agent/3', 'native_unverified', 'native-session-web-tools/1'],
         ['synthetic-session/1', 'fixture_only', 'native-session-tools/1'],
       ],
     )
+    const byId = new Map(rows.rows.map((row) => [row.id, row]))
+    // Adding /3 leaves the retired /2 row's sealed digest as it was.
+    assert.equal(
+      byId.get('shared-vm-agent/2')!.instruction_digest.toString('hex'),
+      '8695228770489604b189728dacca8822d6ec27a24f45ded88e7b5ed55b6d1b07',
+    )
+    assert.equal(
+      byId.get('shared-vm-agent/3')!.instruction_digest.toString('hex'),
+      '047abcc81e994911bb12d8856a84fee863e8c553c79c252f49acafda6329b9f2',
+    )
+    const instructions = (id: string) => byId.get(id)!.instruction_bytes.toString('utf8')
+    for (const line of ['web search', 'WebFetch', 'curl', 'Cite web facts by URL']) {
+      assert.ok(instructions('shared-vm-agent/3').includes(line), line)
+    }
+    assert.ok(!instructions('shared-vm-agent/3').includes('bench-web'))
+    for (const word of ['web search', 'WebFetch', 'curl', 'bench-web']) {
+      assert.ok(!instructions('native-agent/2').includes(word), word)
+    }
     for (const row of rows.rows) {
       assert.deepEqual(
         createHash('sha256').update(row.instruction_bytes).digest(),
@@ -114,6 +134,37 @@ test('session profiles are stored with instruction bytes matching their digests'
       ),
       pgError('23514'),
     )
+    // The web tool surface belongs to /3 alone.
+    await assert.rejects(
+      fixture.db.pool.query(
+        "INSERT INTO processing_profile VALUES('shared-vm-agent/4','native_unverified','processing/5','\\x00',decode(repeat('00',32),'hex'),'native-session-web-tools/1')",
+      ),
+      pgError('23514'),
+    )
+  } finally {
+    await fixture.dispose()
+  }
+})
+
+test('no profile a worker can run instructs its agent to use the removed bench-web', async () => {
+  const fixture = await processingFixture({ autoStart: false })
+  try {
+    const rows = await fixture.db.pool.query<{ id: string; instruction_bytes: Buffer }>(
+      'SELECT id, instruction_bytes FROM processing_profile ORDER BY id',
+    )
+    const launchable = rows.rows.filter((row) => {
+      const env = { INTAKE_PROCESSING_PROFILE: row.id }
+      try {
+        processingConfig(devConfig(env), env)
+        return true
+      } catch {
+        return false
+      }
+    })
+    assert.ok(launchable.some((row) => row.id === 'shared-vm-agent/3'))
+    for (const row of launchable) {
+      assert.equal(row.instruction_bytes.toString('utf8').includes('bench-web'), false, row.id)
+    }
   } finally {
     await fixture.dispose()
   }
@@ -424,7 +475,8 @@ test('the session migration upgrades a database already at the previous migratio
     const after = await db.pool.query<{ id: string }>(
       'SELECT id FROM processing_profile ORDER BY id',
     )
-    assert.equal(after.rows.length, Number(before.rows[0].count) + 4)
+    // native-agent/2, shared-vm-agent/1, /2 and /3, and synthetic-session/1.
+    assert.equal(after.rows.length, Number(before.rows[0].count) + 5)
     const nullable = await db.pool.query<{ is_nullable: string }>(
       "SELECT is_nullable FROM information_schema.columns WHERE table_name='processing_job' AND column_name='subject_id'",
     )
