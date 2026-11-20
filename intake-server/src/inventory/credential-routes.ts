@@ -67,20 +67,27 @@ async function requireAccepted(probeWith: ReadTarget['probeWith'], token: string
   }
 }
 
+/** An entry of InvenTree's part list: an object with a positive integer `pk`. */
+function isPart(entry: unknown) {
+  if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
+    return false
+  }
+  const pk = (entry as { pk?: unknown }).pk
+  return typeof pk === 'number' && Number.isSafeInteger(pk) && pk > 0
+}
+
 async function answersPartList(response: Response) {
   const json = /^application\/json(?:\s*;|$)/i.test(response.headers.get('content-type') ?? '')
-  if (!response.ok || !json || !response.body) {
+  // Exactly 200: a 206 or other 2xx is not a whole answer.
+  if (response.status !== 200 || !json || !response.body) {
     await response.body?.cancel().catch(() => undefined)
     return false
   }
   try {
     const bytes = await readBoundedBody(response.body, MAX_CHECK_BODY_BYTES, CHECK_BODY_DEADLINE_MS)
     const body: unknown = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes))
-    const paginated =
-      body !== null &&
-      typeof body === 'object' &&
-      Array.isArray((body as { results?: unknown }).results)
-    return Array.isArray(body) || paginated
+    const results = Array.isArray(body) ? body : (body as { results?: unknown } | null)?.results
+    return Array.isArray(results) && results.every(isPart)
   } catch {
     return false
   }

@@ -750,6 +750,23 @@ test('a refused token, an unreachable InvenTree or a rotated context writes noth
   }
 })
 
+test('a whole part list, empty, paginated or plain, accepts the token', async (t) => {
+  const bodies = ['{"count":0,"results":[]}', '{"count":1,"results":[{"pk":7,"name":"R1"}]}', '[]']
+  for (const body of bodies) {
+    const directory = await secretsDir(t)
+    const server = await credentialServer({
+      secretsDir: directory,
+      probeWith: async () =>
+        new Response(body, { headers: { 'content-type': 'application/json' } }),
+    })
+
+    const response = await server.replace(PLANTED)
+
+    assert.equal(response.statusCode, 200, body)
+    assert.equal(server.holder.current(), PLANTED)
+  }
+})
+
 test('a 200 whose part list is broken or cut short is no proof: nothing is saved and the token stays', async (t) => {
   const directory = await secretsDir(t)
   const saved = await saveCredential(directory, 'working-token', TARGET)
@@ -768,6 +785,15 @@ test('a 200 whose part list is broken or cut short is no proof: nothing is saved
     () => new Response('{"results": [', { headers: { 'content-type': 'application/json' } }),
     // Well-formed, but not a part list.
     () => new Response('{"detail":"ok"}', { headers: { 'content-type': 'application/json' } }),
+    // A partial answer, though its body looks right.
+    () =>
+      new Response('{"results":[]}', {
+        status: 206,
+        headers: { 'content-type': 'application/json' },
+      }),
+    // A list whose entries aren't parts.
+    () => new Response('{"results":[null]}', { headers: { 'content-type': 'application/json' } }),
+    () => new Response('[{"pk":"7"}]', { headers: { 'content-type': 'application/json' } }),
   ]
   for (const answer of answers) {
     const server = await credentialServer({
