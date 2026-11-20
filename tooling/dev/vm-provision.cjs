@@ -214,18 +214,30 @@ async function loadRunner(context) {
       plan.image,
       plan.name,
     ],
-    { timeout: IMAGE_LOAD_TIMEOUT_MS, env },
+    { timeout: IMAGE_LOAD_TIMEOUT_MS, env, stderr: messages(context.write, 'load') },
   )
 }
 
-/** The instance's status: `Running`, another state, or an empty string when it doesn't exist. */
+/**
+ * The instance's status: `Running`, another state, or an empty string when it doesn't exist.
+ * Every instance is listed, because Lima fails rather than answering for a name it doesn't know.
+ */
 async function vmStatus(context) {
   const { exec = runCommand, env, plan } = context
-  const output = await exec('limactl', ['list', '--format', '{{.Status}}', plan.name], {
+  const output = await exec('limactl', ['list', '--format', '{{.Name}} {{.Status}}'], {
     timeout: GUEST_COMMAND_TIMEOUT_MS,
     env,
   })
-  return output.trim()
+  const entry = output
+    .split('\n')
+    .map((line) => line.trim().split(/\s+/))
+    .find(([name]) => name === plan.name)
+  return entry?.[1] ?? ''
+}
+
+/** A command's own messages, prefixed, so a failed step shows its cause. */
+function messages(write, prefix) {
+  return write ? (line) => write.err(`[${prefix}] ${line}\n`) : undefined
 }
 
 /** Creates the VM from the repository's template, or starts it. Resolves true when it booted it. */
@@ -246,10 +258,14 @@ async function ensureVm(context) {
         `--name=${plan.name}`,
         join(repository, 'tooling/deployment/lima/agent.yaml'),
       ],
-      { timeout: VM_CREATE_TIMEOUT_MS, env },
+      { timeout: VM_CREATE_TIMEOUT_MS, env, stderr: messages(context.write, 'limactl') },
     )
   } else {
-    await exec('limactl', ['start', '--tty=false', plan.name], { timeout: VM_BOOT_TIMEOUT_MS, env })
+    await exec('limactl', ['start', '--tty=false', plan.name], {
+      timeout: VM_BOOT_TIMEOUT_MS,
+      env,
+      stderr: messages(context.write, 'limactl'),
+    })
   }
   return true
 }
@@ -291,6 +307,7 @@ async function ensurePairing(context, { lstat = fsLstat } = {}) {
     [join(repository, 'tooling/deployment/bridge/pair.sh'), plan.name, plan.pair, guestDir],
     {
       timeout: PROVISION_TIMEOUT_MS,
+      stderr: messages(context.write, 'setup'),
       env,
     },
   )
@@ -338,6 +355,7 @@ async function ensureOperatorKey(context, { read = readFile } = {}) {
     [join(repository, 'tooling/deployment/bridge/operator-key.sh'), plan.name, guestDir, keyFile],
     {
       timeout: PROVISION_TIMEOUT_MS,
+      stderr: messages(context.write, 'setup'),
       env,
     },
   )
@@ -360,6 +378,7 @@ async function ensureBrowserPolicy(context, { read = readFile } = {}) {
     [join(repository, 'tooling/deployment/bridge/browser-policy.sh'), plan.name, guestDir],
     {
       timeout: PROVISION_TIMEOUT_MS,
+      stderr: messages(context.write, 'setup'),
       env,
     },
   )
@@ -452,7 +471,11 @@ async function provisionProvider(context, provider) {
       ? [plan.name, guestDir, plan.image, keyFile, origin]
       : [plan.name, guestDir, plan.image, origin, keyFile]
   try {
-    await exec('bash', [script, ...args], { timeout: PROVISION_TIMEOUT_MS, env })
+    await exec('bash', [script, ...args], {
+      timeout: PROVISION_TIMEOUT_MS,
+      env,
+      stderr: messages(context.write, provider),
+    })
   } catch {
     throw new VmSetupError('vm_guest_service_provision_failed', provider)
   }

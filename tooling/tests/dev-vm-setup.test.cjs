@@ -139,7 +139,9 @@ async function world(t, initial = {}) {
     }
     if (command === 'limactl') {
       if (args[0] === 'list') {
-        return `${state.vmStatus}\n`
+        // Lima lists every instance; the named one is absent until it is created.
+        const other = 'bench-agent-other Running\n'
+        return state.vmStatus === '' ? other : `${other}bench-agent-test ${state.vmStatus}\n`
       }
       if (args[0] === 'start') {
         actions.push(state.vmStatus === '' ? 'create vm' : 'boot vm')

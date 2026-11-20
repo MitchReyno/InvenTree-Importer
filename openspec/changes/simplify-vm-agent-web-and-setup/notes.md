@@ -18,6 +18,8 @@ Implementation of `simplify-vm-agent-web-and-setup` (BI-017) started with PR-A (
 ## Unexpected challenges
 
 - **2026-11-19T14:41+11:00, task 1 (PR-A):** pnpm 12 refuses filtered task runs through a symlinked `node_modules` (`ERR_PNPM_UNSAFE_TASK_RUN_STATE_PATH`), so `pnpm lint` failed in a worktree linked to the main checkout's `node_modules`. The worktree uses its own `pnpm install --frozen-lockfile` instead.
+- **2026-11-21T02:10+11:00, task 7 (PR-D):** The isolated real run found that `limactl list <name>` exits 1 for an instance that doesn't exist, rather than printing nothing as the tests assumed, so a fresh setup failed at the VM step. `vm:setup` now lists every instance and picks the named one, the fake world lists instances the same way, and Lima's and the provisioning scripts' own messages are forwarded with a prefix so a failed step shows its cause.
+- **2026-11-21T02:10+11:00, task 8 (PR-D):** A Markdown edit under `intake-server/src` (the agents architecture document) changed the digest and caused a rebuild on the next run, because the app image copies that directory. This follows from hashing what the Dockerfiles copy without applying `.dockerignore`: the cost is an occasional unneeded rebuild, never a stale image.
 
 ## Decisions made during implementation
 

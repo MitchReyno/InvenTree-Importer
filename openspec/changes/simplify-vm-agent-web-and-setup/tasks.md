@@ -217,7 +217,7 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 - [x] 7.1 Read `tooling/tests/dev-vm.test.cjs` and record the injected `exec` shape to reuse.
 - [x] 7.2 RED: add the setup tests, and confirm the failures.
 - [x] 7.3 GREEN: implement `vm-setup.cjs`, the script entry and the provisioning script changes.
-- [ ] 7.4 Run the tests and lint, then the isolated run and rerun. Attach the output to the PR, then delete only the disposable VM and the temporary state directory.
+- [x] 7.4 Run the tests and lint, then the isolated run and rerun. Attach the output to the PR, then delete only the disposable VM and the temporary state directory.
 
 ## 8. Runner image freshness in `pnpm dev`
 
@@ -250,8 +250,8 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 - Verification: `pnpm lint:markdown`, `pnpm format:check`, the reference search from task 11, and a read-through against the specs.
 - Risks and decisions: none.
 
-- [ ] 9.1 Rewrite the affected sections.
-- [ ] 9.2 Run the reference search, `pnpm lint:markdown` and `pnpm format:check`, and fix any findings.
+- [x] 9.1 Rewrite the affected sections.
+- [x] 9.2 Run the reference search, `pnpm lint:markdown` and `pnpm format:check`, and fix any findings.
 
 ## 10. Requalification run
 
