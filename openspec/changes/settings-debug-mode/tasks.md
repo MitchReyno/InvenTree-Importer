@@ -422,4 +422,4 @@ Then update the BI items to their actual status; BI-016 is Done only after PR-A 
 - [x] PR-B reviewed, published and merged
 - [x] PR-C reviewed, published and merged
 - [x] PR-D reviewed, published and merged
-- [ ] PR-E reviewed, published and merged
+- [x] PR-E reviewed, published and merged
