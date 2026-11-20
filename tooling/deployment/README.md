@@ -83,7 +83,7 @@ For the relay, run `node tooling/deployment/bridge/relay.mjs VM PORT GUEST_DIREC
 To exercise the trusted app in its host Docker image as well, pass the app image as a third argument to the smoke script. It shares only the disposable database's isolated network namespace. For that topology the relay accepts a fifth argument, the coordinator container name, and uses a fixed loopback byte pump inside that container. Host Docker management remains outside both the coordinator and the guest.
 
 
-For a persistent installation, run the pairing command once with a new coordinator directory outside the checkout and a new directory in the guest. Use the same directories on each restart. The certificates last one year. Rotation requires a fresh matched pair.
+For local development, `pnpm vm:setup` does the pairing, provisioning and browser policy steps below in one rerunnable command (README, "VM agent runner"). For another persistent installation, run the pairing command once with a new coordinator directory outside the checkout and a new directory in the guest. Use the same directories on each restart. The certificates last one year. Rotation requires a fresh matched pair.
 
 ```sh
 tooling/deployment/bridge/pair.sh "$vm" "$INTAKE_VM_PAIR" "$guest_directory"
@@ -99,7 +99,7 @@ Set `INTAKE_COORDINATOR_PAIR` to a directory readable by UID 1000 containing onl
 
 Use the final `personal` runner image for this deployment. Run the unmodified `claude setup-token` locally and keep its result private. Settings › Agents accepts it for your own Claude Code subscription. The management key below authorizes changes to the VM and is independent of the subscription. [Claude Code authentication](https://code.claude.com/docs/en/authentication#generate-a-long-lived-token)
 
-After pairing, provision the guest services once. Choose a new operator-key file in a private host directory. The setup command creates the file. Use the exact browser origin for this installation. A personal HTTPS reverse proxy may front a remote Pi.
+After pairing, provision the guest services. Choose an operator-key file in a private host directory. Both provider scripts check it with `operator-key.sh`, which creates the key only when neither the file nor the guest has one. A key on one side only, or two different keys, stops the script with `vm_operator_key_mismatch` and changes neither. Use the exact browser origin for this installation. A personal HTTPS reverse proxy may front a remote Pi.
 
 ```sh
 origin=http://127.0.0.1:4330
@@ -115,7 +115,7 @@ ssh -NT -o ExitOnForwardFailure=yes -o ControlPath=none -F "${LIMA_HOME:-$HOME/.
 
 For `pnpm dev`, set `INTAKE_RUN_AGENTS_IN_VM=true` with the coordinator pair and port; it enables the dev UI proxy. Real subscription sessions also need `INTAKE_USE_MOCK_AI_AGENTS=false` (see [choosing what the app runs](../../docs/development.md#choosing-what-the-app-runs)). In a packaged deployment, route the exact same-origin path `/personal-runner/claude` to the private tunnel. Preserve the browser Origin and Authorization headers, disable body and authorization-header logging, and exclude the route from caches. The management service verifies the operator key and exact origin, including on status requests. Keep the guest credential directory and operator key outside backups and image builds.
 
-An installation set up before the management service's cap was raised to 384 MB keeps its old cap. Raise it in place with `limactl shell "$vm" sudo docker update --memory=384m --memory-swap=768m bench-claude-management`, which matches the swap a fresh setup gets; rerunning the setup script instead fails at its first `docker run`, because the containers already exist.
+Rerunning a provider script replaces only that provider's two containers, for example to change the origin or move to a new runner image. It refuses with `vm_guest_service_conflict` when a container of the same name mounts another installation's directories, and removes nothing. The credential store, egress and key directories stay, so sign-ins are kept.
 
 In **Settings › Agents → Personal Claude subscription**, enter the management key, choose **Check configuration**, enter the setup token, and explicitly save it. Reopening shows configuration status only. Replace and remove use the last acknowledged revision. Removing the credential blocks future launches. An already running provider process retains its environment until exit.
 
@@ -130,7 +130,7 @@ Choose **Claude**, **Subscription**, and a model in the existing defaults form, 
 
 ### Sign in with ChatGPT
 
-Run `personal-codex.sh` once in an installation paired with `pair.sh`. It reuses the personal operator management key when one exists. For a first installation supply a new private key file outside the checkout. The fourth argument must match the exact browser origin.
+Run `personal-codex.sh` in an installation paired with `pair.sh`, with the same operator key file as the Claude script; the key rules are the same. The fourth argument must match the exact browser origin.
 
 ```sh
 tooling/deployment/bridge/personal-codex.sh "$vm" "$guest_directory" "$personal_image" "$origin" "$operator_key_file"

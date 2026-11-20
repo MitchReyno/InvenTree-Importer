@@ -71,84 +71,36 @@ Open <http://127.0.0.1:4330>. The first start builds the decoder image and creat
 
 ### VM agent runner
 
-Use this when a Processing session should run Claude or Codex inside the shared VM. `pnpm dev` runs the session coordinator from this checkout. The relay and the provider CLIs run in the Lima VM, from a private runner image. Subscription tokens and the operator key are entered in the app.
+Use this when a Processing session should run Claude or Codex inside the shared VM. `pnpm dev` runs the session coordinator from this checkout. The relay and the provider CLIs run in a Lima VM, from a private runner image. Subscription tokens and the operator key are entered in the app.
 
-Keep the build, VM, pairing and provision commands in one shell so the variables stay set. Each relay and each SSH forward runs in its own terminal; export the variables again there before pasting the command.
-
-Build the images in the Mac Docker context. These tags are local names for this checkout; keep the personal image private, because it contains the provider CLIs.
+You need Lima (`limactl`) and Docker on an Apple-silicon Mac. Then run:
 
 ```sh
-export INTAKE_APP_IMAGE=bench-intake-app:dev
-export INTAKE_GUEST_IMAGE=bench-intake-personal-guest:dev
-export INTAKE_RUNNER_IMAGE=bench-intake-runner:personal
-docker buildx build --load --platform linux/arm64 \
-  -f tooling/deployment/images/app.Dockerfile -t "$INTAKE_APP_IMAGE" .
-docker buildx build --load --platform linux/arm64 \
-  -t "$INTAKE_GUEST_IMAGE" tooling/deployment/guest
-docker build --platform linux/arm64 \
-  --build-arg APP_IMAGE="$INTAKE_APP_IMAGE" \
-  --build-arg PERSONAL_TOOLS_IMAGE="$INTAKE_GUEST_IMAGE" \
-  -f tooling/deployment/images/runner.Dockerfile --target personal \
-  -t "$INTAKE_RUNNER_IMAGE" .
+pnpm vm:setup
 ```
 
-Create the VM and load the runner into the guest Docker engine. `bench-agent` is the default name `pnpm dev` uses; another name of lowercase letters, digits and hyphens works when `INTAKE_VM_NAME` names it.
+It builds the app, guest and runner images, creates the VM `bench-agent` from `tooling/deployment/lima/agent.yaml`, loads the runner image, pairs the coordinator with the guest, creates the operator key file, installs the guest browser policy and starts both providers' guest services for the origin `pnpm dev` serves. The first run takes several minutes. It is safe to run again: each step is skipped when its result is already in place, and it never replaces a pairing, the operator key, a provider sign-in or the VM's disk. A pairing or key found on one side only stops it with `vm_pairing_mismatch` or `vm_operator_key_mismatch`, naming both places and changing neither. A VM it started is stopped at the end unless `INTAKE_VM_KEEP_RUNNING=true`.
 
-```sh
-vm=bench-agent
-limactl start --tty=false --vm-type=vz --name="$vm" tooling/deployment/lima/agent.yaml
-docker save "$INTAKE_RUNNER_IMAGE" | limactl shell --workdir=/ "$vm" sudo docker load
-```
+The pairing is in `vm-pair` and the operator key in `vm-operator-key`, both in the development state directory (`~/.local/state/bench-intake` unless `INTAKE_DEV_STATE` says otherwise). Another VM name, guest directory, runner image tag or port can be set with `INTAKE_VM_NAME`, `INTAKE_VM_GUEST_DIR`, `INTAKE_VM_RUNNER_IMAGE` and `INTAKE_VM_PORT`, the same settings `pnpm dev` reads. Run `pnpm vm:setup` again after changing `INTAKE_DEV_PORT` or turning on the tailnet, so the guest services accept the new origin.
 
-If the first SSH connection drops during provisioning, check `limactl list` and start that VM again. Confirm Docker is running inside the VM before the next step.
-
-Pair the coordinator and the guest once. Both directories must be new, and the host directory's parent must already exist. The first `pnpm dev` creates `~/.local/state/bench-intake`. The host directory is an absolute path outside this checkout. The guest directory is an absolute path inside the VM, and may contain only letters, digits, `_`, `.`, `/` and `-`.
-
-```sh
-export INTAKE_VM_PAIR="$HOME/.local/state/bench-intake/vm-pair"
-guest_directory=$(limactl shell --workdir=/ "$vm" sh -c 'printf %s "$HOME/bench-intake-guest"')
-tooling/deployment/bridge/pair.sh "$vm" "$INTAKE_VM_PAIR" "$guest_directory"
-```
-
-Provision the guest services once, for the exact browser origin. The default app origin is `http://127.0.0.1:4330`. A different `INTAKE_DEV_PORT`, or the tailnet address, is a different origin and needs its own provision. The Claude command creates the operator key file when it is missing.
-
-```sh
-umask 077
-origin=http://127.0.0.1:4330
-operator_key_file="$HOME/.local/state/bench-intake/vm-operator-key"
-tooling/deployment/bridge/personal-claude.sh \
-  "$vm" "$guest_directory" "$INTAKE_RUNNER_IMAGE" "$operator_key_file" "$origin"
-tooling/deployment/bridge/personal-codex.sh \
-  "$vm" "$guest_directory" "$INTAKE_RUNNER_IMAGE" "$origin" "$operator_key_file"
-```
-
-Install the guest browser policy, which tool workers start Chromium under.
-
-```sh
-export INTAKE_VM_PORT=14313
-bash tooling/deployment/bridge/browser-policy.sh "$vm" "$guest_directory"
-```
-
-Turn on real agents in the VM in `.env`. The instance `bench-agent`, the pairing directory above, the guest's `bench-intake-guest` directory, the image `bench-intake-runner:personal` and port 14313 are the defaults, so nothing else is needed; set `INTAKE_VM_NAME`, `INTAKE_VM_PAIR`, `INTAKE_VM_GUEST_DIR`, `INTAKE_VM_RUNNER_IMAGE` or `INTAKE_VM_PORT` only where your setup differs.
+Turn on real agents in the VM in `.env`, then restart `pnpm dev` so it reads the file:
 
 ```dotenv
 INTAKE_USE_MOCK_AI_AGENTS=false
 INTAKE_RUN_AGENTS_IN_VM=true
 ```
 
-Stop a running `pnpm dev`, then start it again so it reads the file. It boots the VM, opens the credential tunnels and starts the relays itself. To run them yourself instead, see [running the VM side yourself](#running-the-vm-side-yourself). In **Settings › Agents → Personal Claude subscription**, enter the operator key, choose **Check configuration**, then paste a token from `claude setup-token` and save it. The token stays out of `.env`. [Claude Code authentication](https://code.claude.com/docs/en/authentication#generate-a-long-lived-token) describes that command. In **Settings › Agents → ChatGPT subscription**, enter the same key and choose **Sign in with ChatGPT**. Enable device-code sign-in in [ChatGPT security settings](https://chatgpt.com/#settings/Security) first. Choose **Claude** or **Codex**, **Subscription**, and a model, then start a new Processing session.
+`pnpm dev` boots the VM, opens the credential tunnels and starts the relays, and stops them with the app (the VM only if that run booted it); see [running the agent VM with the app](docs/development.md#running-the-agent-vm-with-the-app). Before the relays start it checks that the guest runner image matches the checkout, and rebuilds and reloads it, restarts the guest services and reinstalls the browser policy when they are out of date.
 
-The guest egress service has to be running during inference. Claude credential management can be offline after a saved token. Rebuilding the runner image is required after a change to guest or provider code, followed by `docker save` and `docker load` into the same VM. `pnpm dev` reloads the coordinator from this checkout.
+Sign in once. In **Settings › Agents → Personal Claude subscription**, enter the operator key from the key file, choose **Check configuration**, then paste a token from `claude setup-token` and save it. The token stays out of `.env`. [Claude Code authentication](https://code.claude.com/docs/en/authentication#generate-a-long-lived-token) describes that command. In **Settings › Agents → ChatGPT subscription**, enter the same key and choose **Sign in with ChatGPT**. Enable device-code sign-in in [ChatGPT security settings](https://chatgpt.com/#settings/Security) first. Choose **Claude** or **Codex**, **Subscription**, and a model, then start a new Processing session.
 
-On a later day, run `pnpm dev`: it starts the VM, tunnels and relays and stops them with the app (the VM only if that run booted it); see [running the agent VM with the app](docs/development.md#running-the-agent-vm-with-the-app). With `INTAKE_VM_MANAGED=false`, start the same VM, export the same variables and start the same tunnels and relays yourself first. Leave the pairing directories and the operator key file in place. `limactl stop "$vm"` pauses the VM and keeps its disk.
+VM sessions can search the web through their provider and, while **Settings › Agents › Web research › Allow public web pages** is on (the default), read public pages through each turn's egress proxy. `INTAKE_VM_AGENT_TOOLS=false` selects `shared-vm-agent/1`, the same VM with one guest turn and no tools.
 
-```sh
-limactl start "$vm"
-```
+**An existing setup** made by hand from an earlier version of this section: run `pnpm vm:setup` once with the same `INTAKE_VM_*` settings. It keeps your pairing, operator key and sign-ins, replaces the guest services on the current runner image, and removes the old `bench-public-reader` container. Setup reads the operator key only from `vm-operator-key` in the development state directory, so copy an existing key file there under that name, keeping its contents. A pairing directory elsewhere can stay where it is: set `INTAKE_VM_PAIR` to it.
 
 #### Running the VM side yourself
 
-Only with `INTAKE_VM_MANAGED=false` in `.env`. With management on, `pnpm dev` runs these itself, and hand-run forwards would hold the ports it needs.
+Only with `INTAKE_VM_MANAGED=false` in `.env`. With management on, `pnpm dev` runs these itself, and hand-run forwards would hold the ports it needs. Prepare the VM with `pnpm vm:setup` as above, and start it with `limactl start "$vm"`. An unmanaged `pnpm dev` doesn't touch the VM: when the local runner image is older than the checkout it warns, and `pnpm vm:setup` refreshes it.
 
 Start one relay per provider, each in its own terminal. A relay handles one turn at a time and keeps running. It retries until the coordinator is listening, so it can start before `pnpm dev`. Export the variables in that terminal first:
 
@@ -173,7 +125,7 @@ INTAKE_VM_BUILTIN_TOOLS=1 INTAKE_VM_CODEX_SUBSCRIPTION=1 \
 
 Use another free loopback port when `14313` is already taken, and use that same port in `.env` and in both relays. Each tool turn's egress proxy allows the provider's hosts and keeps public pages off unless the turn's sealed web setting turns them on. Details and limits are in the [deployment guide](tooling/deployment/README.md#shared-vm-sessions-with-native-tools).
 
-`shared-vm-agent/1` is the same VM with one guest turn and no tool worker; select it with `INTAKE_VM_AGENT_TOOLS=false`. For that profile, skip `browser-policy.sh` and start each relay without `INTAKE_VM_BUILTIN_TOOLS=1`.
+For `shared-vm-agent/1` (`INTAKE_VM_AGENT_TOOLS=false`), start each relay without `INTAKE_VM_BUILTIN_TOOLS=1`.
 
 While signing in, forward the guest management ports to this machine, one forward in each terminal. Export `vm` there the same way. Keep the forwards open while the settings panels are in use. `ControlPath=none` gives each forward its own connection; through Lima's shared one, `ssh` would hand the forward over and exit.
 
@@ -193,6 +145,7 @@ After installing the application toolchains/dependencies as described in their R
 
 ```sh
 pnpm dev                  # full retained local app at 127.0.0.1:4330
+pnpm vm:setup             # prepare the agent VM; safe to rerun
 pnpm codex:login          # Codex subscription login for this dev app's private home
 pnpm dev:ui               # standalone frontend development server
 pnpm build                # frontend production assets

@@ -51,7 +51,7 @@ Each setting below is independent, and its name says what it controls. Switches 
 | `INTAKE_USE_MOCK_AI_AGENTS` | `true` | `false` uses real Claude or Codex agents. |
 | `INTAKE_USE_AGENT_SESSIONS` | `true` | `false` produces one result per stage instead of Examine sessions. |
 | `INTAKE_RUN_AGENTS_IN_VM` | `false` | `true` runs agents through the shared VM, with the pairing in `INTAKE_VM_PAIR` (default `vm-pair` in the development state directory) on `INTAKE_VM_PORT` (default 14313), and serves the VM's credential management. |
-| `INTAKE_VM_AGENT_TOOLS` | `true` | With real agents in the VM, `false` leaves out the tool worker and web reader. It has no effect on scripted agents or agents on the host. |
+| `INTAKE_VM_AGENT_TOOLS` | `true` | With real agents in the VM, `false` selects `shared-vm-agent/1`, which has no tool worker and no web access. It has no effect on scripted agents or agents on the host. |
 
 The processing switches select one of the existing profiles, which the startup output names:
 
@@ -81,7 +81,7 @@ An external server supports connection status, existing-record lookups, local Ca
 
 ## Running the agent VM with the app
 
-With real agents in the VM, `pnpm dev` runs the VM side as well: it boots the Lima instance, opens the credential tunnels and runs one relay per provider, and stops them when the app stops. With the README's setup, two switches are enough:
+With real agents in the VM, `pnpm dev` runs the VM side as well: it boots the Lima instance, opens the credential tunnels and runs one relay per provider, and stops them when the app stops. After `pnpm vm:setup` (README, "VM agent runner"), two switches are enough:
 
 ```dotenv
 INTAKE_USE_MOCK_AI_AGENTS=false
@@ -92,17 +92,25 @@ INTAKE_RUN_AGENTS_IN_VM=true
 |---|---|---|
 | `INTAKE_VM_MANAGED` | on for real VM agents | Switch. `false` leaves the VM side to you; `true` with scripted agents is refused. |
 | `INTAKE_VM_NAME` | `bench-agent` | The Lima instance. |
-| `INTAKE_VM_PAIR` | `vm-pair` in the development state directory | The host side of the pairing made by `pair.sh`. |
+| `INTAKE_VM_PAIR` | `vm-pair` in the development state directory | The host side of the pairing `pnpm vm:setup` makes. |
 | `INTAKE_VM_PORT` | `14313` | The loopback port the session worker listens on. |
-| `INTAKE_VM_GUEST_DIR` | `bench-intake-guest` in the guest user's home, looked up after boot | The guest directory given to `pair.sh`; an explicit value is an absolute path. |
+| `INTAKE_VM_GUEST_DIR` | `bench-intake-guest` in the guest user's home, looked up after boot | The guest side of the pairing; an explicit value is an absolute path. |
 | `INTAKE_VM_RUNNER_IMAGE` | `bench-intake-runner:personal` | The personal runner image loaded into the VM's Docker. |
 | `INTAKE_VM_KEEP_RUNNING` | `false` | Switch. `true` leaves a VM this run booted running after the app stops. |
 
 Explicit values always win. The startup summary names the VM and lists each value it filled in, for example `Defaults used: INTAKE_VM_NAME=bench-agent, …`. A non-default Lima home is taken from `LIMA_HOME` in the shell that runs `pnpm dev`, not from the env file.
 
-Before anything starts, `pnpm dev` checks that the pairing directory holds `ca.pem`, `cert.pem` and `key.pem`, and otherwise stops with `vm_pairing_missing` and the README step to run.
+Before anything starts, `pnpm dev` checks that the pairing directory holds `ca.pem`, `cert.pem` and `key.pem`, and otherwise stops with `vm_pairing_missing`, telling you to run `pnpm vm:setup`.
 
-After the database is ready, `pnpm dev` boots the VM if it is stopped (about 36 s on an M1), looks up the default guest directory if needed, and starts:
+After the database is ready, `pnpm dev` boots the VM if it is stopped (about 36 s on an M1) and looks up the default guest directory if needed. It then keeps the runner current, checking each part on its own so a refresh that failed part-way is finished on the next start:
+
+- the guest runner image's source digest, a SHA-256 of every file the image's Dockerfiles copy (`tooling/dev/runner-digest.cjs`), which each image carries as the label `org.bench-intake.source-digest`;
+- each guest service container's image, operator origin and running state;
+- the installed browser policy, when VM tools are on.
+
+When anything is out of date it first checks the operator key as `pnpm vm:setup` does, then runs only the steps still needed: rebuild (only when the local image is stale too) and load the runner, reinstall the browser policy, reprovision the services, or start a stopped one. The output says when it refreshed. A failed rebuild or load stops startup with `vm_runner_image_refresh_failed`, a key mismatch with `vm_operator_key_mismatch`, and a service that won't start with `vm_guest_service_start_failed` naming it, all before any relay starts. With `INTAKE_VM_MANAGED=false` it only compares the local runner image and warns when it is stale.
+
+Then it starts:
 
 - `vm-tunnel`: forwards loopback ports 14315 and 14317 to the guest, for **Settings › Agents**;
 - `vm-relay-claude` and `vm-relay-codex`: one relay each, using `INTAKE_VM_PORT`, with the tool worker unless `INTAKE_VM_AGENT_TOOLS=false`.
@@ -115,7 +123,7 @@ From when the app begins stopping its processes until a VM this run booted has s
 
 The settings are checked before anything starts. `INTAKE_VM_MANAGED=true` with scripted agents, or without `INTAKE_RUN_AGENTS_IN_VM=true`, is refused (`vm_launch_requires_real_vm_agents`), as are values the relay would reject. When the default guest directory cannot be looked up after boot, startup stops with `vm_guest_dir_unavailable` before any relay starts.
 
-Close any tunnel or relay you started by hand before switching to this; a port still held on 14315 or 14317 stops startup with `vm-tunnel_stopped_during_startup`. With `INTAKE_VM_MANAGED=false`, start the relays and tunnels yourself as described in the [deployment guide](../tooling/deployment/README.md#app-to-guest-dispatch). Creating and pairing the VM, loading the runner image and linking provider accounts stay one-off steps in that guide.
+Close any tunnel or relay you started by hand before switching to this; a port still held on 14315 or 14317 stops startup with `vm-tunnel_stopped_during_startup`. With `INTAKE_VM_MANAGED=false`, start the relays and tunnels yourself as described in the [deployment guide](../tooling/deployment/README.md#app-to-guest-dispatch). `pnpm vm:setup` still prepares the VM, and signing in to the providers stays a one-off step.
 
 ## Local development InvenTree
 

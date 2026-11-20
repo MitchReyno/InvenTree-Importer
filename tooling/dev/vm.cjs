@@ -166,7 +166,7 @@ async function checkPairing(pairDir, { lstat = fsLstat } = {}) {
       throw new DevelopmentSettingsError('vm_pairing_missing', [
         {
           name: 'INTAKE_VM_PAIR',
-          hint: 'pair the VM first (README, "VM agent runner"), or set INTAKE_VM_MANAGED=false',
+          hint: 'run pnpm vm:setup to pair the VM, or set INTAKE_VM_MANAGED=false',
         },
       ])
     }

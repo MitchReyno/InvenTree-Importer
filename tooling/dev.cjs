@@ -10,6 +10,7 @@ const { watchCode, snapshot } = require('./dev/watch.cjs')
 const { processingWorker } = require('./dev/profile.cjs')
 const {
   resolveDevelopmentSettings,
+  resolveVmSetup,
   targetEnvironment,
   settingsRefusalLines,
   withTargetSettingNames,
@@ -27,18 +28,17 @@ const {
   supervisedEnv,
 } = require('./dev/stack.cjs')
 const { readTailnetIdentity, tailscaleOption } = require('./dev/tailnet.cjs')
+const {
+  VM_OPERATOR_KEY_FILE,
+  VmSetupError,
+  failureLine,
+  hostToolEnv,
+  startManagedVm,
+  staleImageWarning,
+} = require('./dev/vm-setup.cjs')
 const { claimSupervisorLock, processStartedAt } = require('./dev/supervisor-lock.cjs')
 const { bindSessionEnd, finishOwnedRun } = require('./dev/session.cjs')
-const {
-  ensureVmRunning,
-  checkPairing,
-  resolveGuestDir,
-  finishVm,
-  guardVmStop,
-  startVmChildren,
-  confirmVmChildren,
-  VM_CHILD_NAMES,
-} = require('./dev/vm.cjs')
+const { checkPairing, finishVm, guardVmStop, VM_CHILD_NAMES } = require('./dev/vm.cjs')
 
 const repository = resolve(__dirname, '..')
 const intake = join(repository, 'intake-server')
@@ -48,11 +48,8 @@ const baseEnv = Object.fromEntries(
     .filter((key) => process.env[key] !== undefined)
     .map((key) => [key, process.env[key]]),
 )
-// Lima and the relays get the base environment, and Lima's home when the shell sets one.
-const vmEnv = {
-  ...baseEnv,
-  ...(process.env.LIMA_HOME ? { LIMA_HOME: process.env.LIMA_HOME } : {}),
-}
+// The same environment `pnpm vm:setup` gives Lima and Docker, so both use the same engine.
+const vmEnv = hostToolEnv()
 // Survive source reloads: the browser keeps its connection through these.
 const FRONT_DOOR = new Set(['ui', 'tailnet', 'tailscale-serve'])
 // The VM tunnel does not use the app services, and the relays reconnect to the restarted worker.
@@ -173,8 +170,9 @@ async function main() {
     pathToFileURL(join(intake, 'src/dev/pg-identity.ts')).href
   )
   // Every switch is resolved and refused here, before any service or state is touched.
+  const developmentState = developmentStateDirectory(settings)
   const resolved = resolveDevelopmentSettings(settings, {
-    stateDirectory: developmentStateDirectory(settings),
+    stateDirectory: developmentState,
   })
   const targetValues = targetEnvironment(settings, resolved.targetSettings)
   // Pure config only; application processes keep their existing pinned tsx entrypoints.
@@ -191,6 +189,8 @@ async function main() {
   if (resolved.vm) {
     // A missing pairing is refused before any service starts or the VM boots.
     await checkPairing(resolved.vm.pair)
+  } else if (resolved.agentsInVm && !resolved.mockAgents) {
+    await warnIfRunnerStale(settings, developmentState)
   }
   // An empty value counts as unset.
   const port = Number(settings.INTAKE_DEV_PORT || 4330)
@@ -291,28 +291,28 @@ async function main() {
     const publicOrigin = `http://127.0.0.1:${port}`
     if (resolved.vm) {
       startup.signal.throwIfAborted()
-      await ensureVmRunning(resolved.vm, {
+      const vmSide = await startManagedVm(resolved.vm, {
         signal: startup.signal,
         env: vmEnv,
+        repository,
+        // The guest services are bound to the origin the browser uses.
+        origin: tailnet ? tailnet.origin : publicOrigin,
+        keyFile: join(developmentState, VM_OPERATOR_KEY_FILE),
+        launch,
+        execPath: process.execPath,
         onBoot: () => {
           vmBooted = true
           process.stdout.write(`Starting VM ${resolved.vm.name}.\n`)
         },
-      })
-      startup.signal.throwIfAborted()
-      const guestDir = await resolveGuestDir(resolved.vm, { env: vmEnv, signal: startup.signal })
-      startup.signal.throwIfAborted()
-      const vmChildren = startVmChildren(
-        { ...resolved.vm, guestDir },
-        {
-          launch,
-          execPath: process.execPath,
-          repository,
-          baseEnv: vmEnv,
+        onRefreshed: () => {
+          process.stdout.write(
+            `Runner image and guest services in VM ${resolved.vm.name} are current.\n`,
+          )
         },
-      )
+      })
+      const vmChildren = vmSide.children
       children.push(...vmChildren)
-      await confirmVmChildren(vmChildren, { signal: startup.signal })
+      await vmSide.confirmed
       stopAppWhenExited(vmChildren)
       // Recorded now, so a run killed during the long setup below still has them reclaimed.
       await publishRunning(root, publicOrigin, children)
@@ -630,12 +630,32 @@ async function main() {
     }
   }
 }
+/**
+ * With the VM unmanaged, a runner image older than the checkout is only reported: `pnpm dev`
+ * doesn't touch a VM it doesn't manage.
+ */
+async function warnIfRunnerStale(settings, stateDirectory) {
+  const plan = resolveVmSetup(settings, { stateDirectory })
+  try {
+    const warning = await staleImageWarning({ plan, repository, env: vmEnv })
+    if (warning) {
+      process.stderr.write(warning)
+    }
+  } catch {
+    process.stderr.write(
+      'Could not check the runner image; run pnpm vm:setup if it is out of date.\n',
+    )
+  }
+}
+
 main().catch((error) => {
   if (error instanceof DevelopmentSettingsError) {
     process.stderr.write(`${settingsRefusalLines(error).join('\n')}\n`)
     process.exitCode = 1
     return
   }
-  process.stderr.write(`${failureCode(error)}\n`)
+  // A VM setup failure names the step, service or paths it concerns.
+  const line = error instanceof VmSetupError ? failureLine(error) : failureCode(error)
+  process.stderr.write(`${line}\n`)
   process.exitCode = 1
 })
