@@ -91,7 +91,7 @@ function SectionContent({ section, subsection, agents, onDirtyChange }: Omit<Pro
         </div>
       )
     case 'inventree':
-      return <InvenTreeSection />
+      return <InvenTreeSection onDirtyChange={onDirtyChange} />
     case 'defaults':
       return <BatchDefaultsSection onDirtyChange={onDirtyChange} />
     case 'appearance':

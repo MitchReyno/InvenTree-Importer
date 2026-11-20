@@ -171,7 +171,7 @@ Repository Markdown is uneven. Some documents are long unbroken paragraphs, head
 Make most of the Settings rows that BI-014 shipped disabled work. These are new-batch instructions, the Part description style, a tag-suggestion default, default location and supplier for new batches, an on-demand token check, Replace token for the InvenTree read token, and the import reference shown read-only. Claude and Codex become separately configured providers, and each processing step picks its own provider and model. Settings › Agents gathers every agent-behaviour setting as subsections with sub-nav links. A device-local debug mode hides developer details unless it is on and adds a Debug panel to each screen; the Dev mode pill opens a popover of developer tools.
 
 - Change: `settings-debug-mode`
-- Status: In progress — PR-A (debug mode and the Dev mode popover, #225), PR-B (the Settings structure, #226) and PR-C (providers, batch defaults and the connection check, #227) merged; PR-D (the Settings forms) in review; PR-E (Replace token) remains.
+- Status: In progress — PR-A (debug mode and the Dev mode popover, #225), PR-B (the Settings structure, #226), PR-C (providers, batch defaults and the connection check, #227) and PR-D (the Settings forms, #228) merged; PR-E (Replace token) in review.
 - Size: XL — agent settings contract and sealing, a creation snapshot, a stored read credential, the Settings structure and debug gating across most screens, in five PRs (PR-A to PR-E) after the planning PR.
 - Prerequisites: None. It takes over the Settings rows from BI-015 that it builds; coordinate `.env.example` and launcher edits with `default-env-settings`.
 - OpenSpec: [settings-debug-mode](../openspec/changes/settings-debug-mode/)

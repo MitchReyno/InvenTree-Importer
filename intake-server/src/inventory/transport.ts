@@ -177,9 +177,63 @@ const singleSend: typeof fetch = async (input, init) => {
   })
 }
 
-/** Transport defense in depth, NOT approval or request-journal authority. Only T03 apply may receive this closure. */
-export function inventoryTransport(input: TargetProfile, send: typeof fetch = singleSend) {
+export interface TransportOptions {
+  /** Supplies the token per request when it can change at runtime; defaults to the profile's. */
+  credential?: () => string
+  /** Ends any response that echoes the request's token, for reads whose results reach a browser. */
+  refuseEcho?: boolean
+}
+
+export class TokenEchoError extends Error {
+  readonly code = 'target_echoed_token'
+
+  constructor() {
+    super('target_echoed_token')
+  }
+}
+
+/**
+ * Ends a response body with an error if it contains the token the request sent, raw or as a
+ * JSON string, so nothing read from the target can carry the token on to a caller.
+ */
+export function withoutEcho(response: Response, token: string): Response {
+  if (!response.body || token === '') {
+    return response
+  }
+  const forms = [...new Set([token, JSON.stringify(token).slice(1, -1)])].map((form) =>
+    Buffer.from(form, 'utf8'),
+  )
+  const overlap = Math.max(...forms.map((form) => form.length)) - 1
+  let tail = Buffer.alloc(0)
+  const scan = new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      // The previous chunk's end is kept, so a token split across chunks is still found.
+      const joined = Buffer.concat([tail, chunk])
+      if (forms.some((form) => joined.includes(form))) {
+        controller.error(new TokenEchoError())
+        return
+      }
+      controller.enqueue(chunk)
+      tail = joined.subarray(Math.max(0, joined.length - overlap))
+    },
+  })
+  return new Response(response.body.pipeThrough(scan), {
+    status: response.status,
+    headers: response.headers,
+  })
+}
+
+/**
+ * Transport defense in depth, NOT approval or request-journal authority. Only T03 apply may receive this closure.
+ * Options apply only to the app's reads; the approval runner's transport keeps the defaults.
+ */
+export function inventoryTransport(
+  input: TargetProfile,
+  send: typeof fetch = singleSend,
+  options: TransportOptions = {},
+) {
   const profile = structuredClone(input)
+  const currentCredential = options.credential ?? (() => profile.credential)
   const destination = origin(profile.origin)
   const protectedHosts = profile.protectedOrigins.map((value) => host(origin(value)))
 
@@ -196,13 +250,14 @@ export function inventoryTransport(input: TargetProfile, send: typeof fetch = si
     headers: Record<string, string> = {},
     timeoutMs = 5000,
   ): Promise<Response> {
+    const token = currentCredential()
     const response = await send(new URL(path, destination), {
       method,
       body,
       redirect: 'manual',
       signal: AbortSignal.timeout(timeoutMs),
       headers: {
-        authorization: `Token ${profile.credential}`,
+        authorization: `Token ${token}`,
         'content-type': 'application/json',
         ...headers,
       },
@@ -211,7 +266,7 @@ export function inventoryTransport(input: TargetProfile, send: typeof fetch = si
       await response.body?.cancel()
       throw new InventoryTransportError()
     }
-    return response
+    return options.refuseEcho ? withoutEcho(response, token) : response
   }
 
   function requireOwnedMutationTarget() {

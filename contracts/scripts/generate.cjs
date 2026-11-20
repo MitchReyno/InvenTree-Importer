@@ -232,9 +232,7 @@ async function main() {
         get: get('CatalogueCandidates', CATALOGUE_SNAPSHOT_TIMEOUT_MS),
       },
       '/api/v1/catalogue/{model}': {
-        parameters: [
-          { name: 'model', in: 'path', required: true, schema: schemas.CatalogueModel },
-        ],
+        parameters: [{ name: 'model', in: 'path', required: true, schema: schemas.CatalogueModel }],
         get: {
           ...get('CatalogueSearch', CAPTURE_TIMEOUT_MS),
           parameters: [
@@ -243,9 +241,7 @@ async function main() {
         },
       },
       '/api/v1/catalogue/{model}/candidates': {
-        parameters: [
-          { name: 'model', in: 'path', required: true, schema: schemas.CatalogueModel },
-        ],
+        parameters: [{ name: 'model', in: 'path', required: true, schema: schemas.CatalogueModel }],
         get: get('CatalogueCandidates', CATALOGUE_SNAPSHOT_TIMEOUT_MS),
       },
       '/api/v1/batch-defaults': {
@@ -257,6 +253,13 @@ async function main() {
         post: {
           'x-intake-client': { timeoutMs: CAPTURE_TIMEOUT_MS, errorMode: 'typed' },
           responses: commandResponses('ConnectionStatus'),
+        },
+      },
+      '/api/v1/inventory-credential': {
+        put: post('InventoryCredentialReplace', 'InventoryCredential', '200', CAPTURE_TIMEOUT_MS),
+        delete: {
+          'x-intake-client': { timeoutMs: CAPTURE_TIMEOUT_MS, errorMode: 'typed' },
+          responses: commandResponses('InventoryCredential'),
         },
       },
       '/api/v1/header-work': {

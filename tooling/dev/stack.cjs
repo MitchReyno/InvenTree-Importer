@@ -122,8 +122,18 @@ async function startSupervision(settings, target, deps) {
   return { serviceEnv, prepared, release }
 }
 
+/**
+ * A supervised child's environment. The replacement read token's directory is left out of the
+ * shared part; only the API child names it, in its own settings.
+ */
+function supervisedEnv(shared, scope, extra) {
+  const { INTAKE_SECRETS_DIR: _secretsDir, ...rest } = shared
+  return { ...rest, ...scope, ...extra }
+}
+
 module.exports = {
   agentChildEnvironment,
+  supervisedEnv,
   prepareDevelopment,
   apiTargetEnv,
   startsApplyRunner,

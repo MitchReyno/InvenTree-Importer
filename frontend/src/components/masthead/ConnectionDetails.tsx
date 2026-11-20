@@ -22,6 +22,17 @@ interface Props {
 
 const SHORT_TIME: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' }
 
+/** Where to fix a refused read token, by which token the server used. */
+function refusedToken(source: string | undefined) {
+  if (source === 'saved') {
+    return 'InvenTree refused the token saved in Settings › InvenTree. Replace it there.'
+  }
+  if (source === 'environment') {
+    return 'InvenTree refused the read token from the server’s environment.'
+  }
+  return 'InvenTree refused the read token.'
+}
+
 function shortTime(at: string | number) {
   return new Date(at).toLocaleTimeString([], SHORT_TIME)
 }
@@ -93,7 +104,7 @@ export function ConnectionDetails({
         ]}
       />
       {targetFresh && !apiUnavailable && target?.failure_code === 'unauthorized' && (
-        <Line>InvenTree refused the read token. It is set in the server's environment.</Line>
+        <Line>{refusedToken(target.credential_source)}</Line>
       )}
       {target?.kind === 'owned_test' && (
         <Line>Approvals write only to this test InvenTree, never to a real one.</Line>

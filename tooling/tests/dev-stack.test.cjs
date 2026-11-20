@@ -1,6 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { agentChildEnvironment, prepareDevelopment } = require('../dev/stack.cjs')
+const { agentChildEnvironment, prepareDevelopment, supervisedEnv } = require('../dev/stack.cjs')
 const { resolveDevelopmentSettings } = require('../dev/settings.cjs')
 
 function recorder(overrides = {}) {
@@ -252,6 +252,18 @@ test('only a writable mock starts the apply runner', () => {
   assert.equal(startsApplyRunner({ version: 1 }, true), false)
   assert.equal(startsApplyRunner({ version: 2 }, false), false)
   assert.equal(startsApplyRunner({ version: 3 }, true), false)
+})
+
+test('only a child given the secrets directory in its own settings receives it', () => {
+  const shared = { PATH: '/bin', INTAKE_SECRETS_DIR: '/from/dotenv' }
+  const scope = { INTAKE_BLOB_ROOT: '/state/blobs' }
+
+  const media = supervisedEnv(shared, scope, { INTAKE_MEDIA_DECODER_IMAGE: 'sha256:x' })
+  const api = supervisedEnv(shared, scope, { INTAKE_SECRETS_DIR: '/state/secrets' })
+
+  assert.equal(media.INTAKE_SECRETS_DIR, undefined)
+  assert.equal(media.PATH, '/bin')
+  assert.equal(api.INTAKE_SECRETS_DIR, '/state/secrets')
 })
 
 test('the agent worker launches with its databases and protected origins, never the app origin', () => {

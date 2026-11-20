@@ -3,7 +3,7 @@
  * children understand. Pure: no files, network or processes.
  */
 
-const { join } = require('node:path')
+const { join, isAbsolute } = require('node:path')
 
 class DevelopmentSettingsError extends Error {
   /** @param {string} code @param {{ name: string, replacement?: string }[]} names */
@@ -287,6 +287,22 @@ function resolveVmLaunch(settings, pairing, { vmTools, keepRunning }, defaulted)
  * Resolves every `pnpm dev` switch before any setup. `targetSettings` uses the internal names
  * `developmentTarget` and the child processes read.
  */
+/**
+ * Where a replacement read token is saved: the operator's absolute directory, or null for the
+ * default `secrets/` under the prepared state root, which only the launcher knows.
+ */
+function resolveSecretsDir(settings) {
+  if (!present(settings, 'INTAKE_SECRETS_DIR')) {
+    return null
+  }
+  if (!isAbsolute(settings.INTAKE_SECRETS_DIR)) {
+    throw new DevelopmentSettingsError('invalid_development_setting', [
+      { name: 'INTAKE_SECRETS_DIR' },
+    ])
+  }
+  return settings.INTAKE_SECRETS_DIR
+}
+
 function resolveDevelopmentSettings(settings, { stateDirectory } = {}) {
   refuseRetiredSettings(settings)
   const { targetSettings, ignored } = resolveInventory(settings)
@@ -294,6 +310,7 @@ function resolveDevelopmentSettings(settings, { stateDirectory } = {}) {
   const { profile, mockAgents, agentsInVm, vmTools } = resolveProcessing(settings)
   // Checked whether or not the VM is managed, like the other switches.
   const keepRunning = switchValue(settings, 'INTAKE_VM_KEEP_RUNNING') ?? false
+  const secretsDir = resolveSecretsDir(settings)
   const managed = resolveManaged(settings, { mockAgents, agentsInVm })
   const defaulted = []
   const vmPairing = agentsInVm ? resolveVmPairing(settings, stateDirectory, defaulted) : null
@@ -310,6 +327,7 @@ function resolveDevelopmentSettings(settings, { stateDirectory } = {}) {
     vmPairing,
     vm,
     defaulted,
+    secretsDir,
   }
 }
 

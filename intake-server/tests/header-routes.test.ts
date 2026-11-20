@@ -11,7 +11,8 @@ const config = devConfig({
 })
 
 /** A connection reader whose forced check reads the same way. */
-const reader = <T>(read: () => Promise<T>) => Object.assign(read, { check: read })
+const reader = <T>(read: () => Promise<T>) =>
+  Object.assign(read, { check: read, reset: () => undefined })
 
 test('header reads use the existing host/origin gate and serialize only scoped contracts', async () => {
   const app = createServer(config)
@@ -156,6 +157,7 @@ test('Check connection now forces the reader through a CSRF-protected command', 
           counts.check += 1
           return observation
         },
+        reset: () => undefined,
       },
     ),
     async () => {
