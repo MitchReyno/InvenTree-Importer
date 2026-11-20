@@ -7,7 +7,7 @@ import {
 } from '@invimport/contracts'
 import { readModelError } from '#/api/errors.ts'
 import { fail } from '#/capture/model.ts'
-import { probeResult } from '#/header/connection.ts'
+import { readBoundedBody } from '#/capture/bounded-body.ts'
 import { deleteCredential, saveCredential, SecretStoreError } from './credential-store.ts'
 import type { ReadTarget } from './read-target.ts'
 
@@ -40,13 +40,49 @@ async function storing<T>(run: () => Promise<T>): Promise<T> {
 }
 
 /** Probes before saving: only a token InvenTree accepts is written. */
+/** Longest part list answer read while checking a token, in bytes. */
+const MAX_CHECK_BODY_BYTES = 64 * 1024
+/** How long the check's answer may take to arrive in full, in ms. */
+const CHECK_BODY_DEADLINE_MS = 3000
+
+/**
+ * Checks before saving, with one request: a 401 or 403 is a refusal, and the token is accepted
+ * only when InvenTree answers the part list in full, a 200 JSON body read within its byte limit
+ * and deadline that is a paginated `{results: [...]}` or a plain list. Anything else, including
+ * a body that fails part-way or echoes the token, proves nothing.
+ */
 async function requireAccepted(probeWith: ReadTarget['probeWith'], token: string) {
-  const outcome = await probeResult(() => probeWith(token))
-  if (outcome.failure_code === 'unauthorized') {
+  let response
+  try {
+    response = await probeWith(token)
+  } catch {
+    fail('target_unavailable', 503)
+  }
+  if (response.status === 401 || response.status === 403) {
+    await response.body?.cancel().catch(() => undefined)
     fail('token_refused', 422)
   }
-  if (outcome.state !== 'reachable') {
+  if (!(await answersPartList(response))) {
     fail('target_unavailable', 503)
+  }
+}
+
+async function answersPartList(response: Response) {
+  const json = /^application\/json(?:\s*;|$)/i.test(response.headers.get('content-type') ?? '')
+  if (!response.ok || !json || !response.body) {
+    await response.body?.cancel().catch(() => undefined)
+    return false
+  }
+  try {
+    const bytes = await readBoundedBody(response.body, MAX_CHECK_BODY_BYTES, CHECK_BODY_DEADLINE_MS)
+    const body: unknown = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes))
+    const paginated =
+      body !== null &&
+      typeof body === 'object' &&
+      Array.isArray((body as { results?: unknown }).results)
+    return Array.isArray(body) || paginated
+  } catch {
+    return false
   }
 }
 

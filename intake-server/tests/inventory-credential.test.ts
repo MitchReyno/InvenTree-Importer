@@ -750,6 +750,42 @@ test('a refused token, an unreachable InvenTree or a rotated context writes noth
   }
 })
 
+test('a 200 whose part list is broken or cut short is no proof: nothing is saved and the token stays', async (t) => {
+  const directory = await secretsDir(t)
+  const saved = await saveCredential(directory, 'working-token', TARGET)
+  const answers = [
+    // A body that fails as soon as it is read.
+    () =>
+      new Response(
+        new ReadableStream({
+          pull(controller) {
+            controller.error(new Error('connection reset'))
+          },
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      ),
+    // Malformed JSON.
+    () => new Response('{"results": [', { headers: { 'content-type': 'application/json' } }),
+    // Well-formed, but not a part list.
+    () => new Response('{"detail":"ok"}', { headers: { 'content-type': 'application/json' } }),
+  ]
+  for (const answer of answers) {
+    const server = await credentialServer({
+      secretsDir: directory,
+      holder: new CredentialHolder(ENVIRONMENT_TOKEN, saved),
+      probeWith: async () => answer(),
+    })
+
+    const response = await server.replace(PLANTED)
+
+    assert.equal(response.statusCode, 503)
+    assert.equal((response.json() as { code: string }).code, 'target_unavailable')
+    assert.equal(server.holder.current(), 'working-token')
+    assert.equal(server.changes(), 0)
+    assert.equal(await storedToken(directory), 'working-token')
+  }
+})
+
 test('a second change while one runs is refused, not queued', async (t) => {
   const directory = await secretsDir(t)
   let release: () => void = () => undefined
