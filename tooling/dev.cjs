@@ -10,6 +10,7 @@ const { watchCode, snapshot } = require('./dev/watch.cjs')
 const { processingWorker } = require('./dev/profile.cjs')
 const {
   resolveDevelopmentSettings,
+  resolveVmSetup,
   targetEnvironment,
   settingsRefusalLines,
   withTargetSettingNames,
@@ -26,6 +27,12 @@ const {
   startSupervision,
 } = require('./dev/stack.cjs')
 const { readTailnetIdentity, tailscaleOption } = require('./dev/tailnet.cjs')
+const {
+  VmSetupError,
+  failureLine,
+  refreshRunner,
+  staleImageWarning,
+} = require('./dev/vm-setup.cjs')
 const { claimSupervisorLock, processStartedAt } = require('./dev/supervisor-lock.cjs')
 const { bindSessionEnd, finishOwnedRun } = require('./dev/session.cjs')
 const {
@@ -40,6 +47,8 @@ const {
 } = require('./dev/vm.cjs')
 
 const repository = resolve(__dirname, '..')
+/** The operator key file's name in the development state directory, as `pnpm vm:setup` makes it. */
+const VM_OPERATOR_KEY_FILE = 'vm-operator-key'
 const intake = join(repository, 'intake-server')
 const intakeRequire = createRequire(join(intake, 'package.json'))
 const baseEnv = Object.fromEntries(
@@ -172,8 +181,9 @@ async function main() {
     pathToFileURL(join(intake, 'src/dev/pg-identity.ts')).href
   )
   // Every switch is resolved and refused here, before any service or state is touched.
+  const developmentState = developmentStateDirectory(settings)
   const resolved = resolveDevelopmentSettings(settings, {
-    stateDirectory: developmentStateDirectory(settings),
+    stateDirectory: developmentState,
   })
   const targetValues = targetEnvironment(settings, resolved.targetSettings)
   // Pure config only; application processes keep their existing pinned tsx entrypoints.
@@ -190,6 +200,8 @@ async function main() {
   if (resolved.vm) {
     // A missing pairing is refused before any service starts or the VM boots.
     await checkPairing(resolved.vm.pair)
+  } else if (resolved.agentsInVm && !resolved.mockAgents) {
+    await warnIfRunnerStale(settings, developmentState)
   }
   // An empty value counts as unset.
   const port = Number(settings.INTAKE_DEV_PORT || 4330)
@@ -300,6 +312,21 @@ async function main() {
       })
       startup.signal.throwIfAborted()
       const guestDir = await resolveGuestDir(resolved.vm, { env: vmEnv, signal: startup.signal })
+      startup.signal.throwIfAborted()
+      // The guest image, services and browser policy are brought up to date before any relay.
+      const refreshed = await refreshRunner({
+        plan: resolved.vm,
+        guestDir,
+        repository,
+        origin: tailnet ? tailnet.origin : publicOrigin,
+        keyFile: join(developmentState, VM_OPERATOR_KEY_FILE),
+        env: vmEnv,
+      })
+      if (refreshed) {
+        process.stdout.write(
+          `Runner image and guest services in VM ${resolved.vm.name} are current.\n`,
+        )
+      }
       startup.signal.throwIfAborted()
       const vmChildren = startVmChildren(
         { ...resolved.vm, guestDir },
@@ -626,12 +653,32 @@ async function main() {
     }
   }
 }
+/**
+ * With the VM unmanaged, a runner image older than the checkout is only reported: `pnpm dev`
+ * doesn't touch a VM it doesn't manage.
+ */
+async function warnIfRunnerStale(settings, stateDirectory) {
+  const plan = resolveVmSetup(settings, { stateDirectory })
+  try {
+    const warning = await staleImageWarning({ plan, repository, env: vmEnv })
+    if (warning) {
+      process.stderr.write(warning)
+    }
+  } catch {
+    process.stderr.write(
+      'Could not check the runner image; run pnpm vm:setup if it is out of date.\n',
+    )
+  }
+}
+
 main().catch((error) => {
   if (error instanceof DevelopmentSettingsError) {
     process.stderr.write(`${settingsRefusalLines(error).join('\n')}\n`)
     process.exitCode = 1
     return
   }
-  process.stderr.write(`${failureCode(error)}\n`)
+  // A VM setup failure names the step, service or paths it concerns.
+  const line = error instanceof VmSetupError ? failureLine(error) : failureCode(error)
+  process.stderr.write(`${line}\n`)
   process.exitCode = 1
 })

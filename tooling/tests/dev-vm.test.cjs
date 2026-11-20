@@ -489,7 +489,7 @@ test('a missing or incomplete pairing is refused with the step to run', async ()
       assert.equal(error.message, 'vm_pairing_missing')
       const lines = settingsRefusalLines(error).join('\n')
       assert.match(lines, /INTAKE_VM_PAIR/)
-      assert.match(lines, /README/)
+      assert.match(lines, /pnpm vm:setup/)
       return true
     })
   }

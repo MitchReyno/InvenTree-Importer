@@ -10,9 +10,11 @@ origin=${5:?exact browser origin}
 [[ $vm =~ ^[a-z0-9][a-z0-9-]*$ && $dir =~ ^/[a-zA-Z0-9_./-]+$ && $image =~ ^[a-zA-Z0-9][a-zA-Z0-9._/:@-]+$ ]]
 guest() { limactl shell --workdir=/ "$vm" "$@"; }
 guest test -d "$dir/guest"
-if [[ ! -e $key_file ]]; then (set -C; openssl rand -hex 32 > "$key_file"); fi
-guest sudo install -d -m 0700 -o 1000 -g 1000 "$dir/operator" "$dir/claude-store" "$dir/egress"
-guest sudo install -m 0400 -o 1000 -g 1000 /dev/stdin "$dir/operator/key" < "$key_file"
+# Never makes a key while the guest has one, or replaces the guest's key.
+bash "$(dirname "$0")/operator-key.sh" "$vm" "$dir" "$key_file"
+guest sudo install -d -m 0700 -o 1000 -g 1000 "$dir/claude-store" "$dir/egress"
+# Replaces only this provider's containers; the store, egress and key directories stay.
+guest sudo docker rm -f bench-claude-egress bench-claude-management >/dev/null 2>&1 || true
 base=(--detach --restart=unless-stopped --read-only --tmpfs=/tmp:rw,nosuid,nodev,size=16m --cap-drop=ALL --security-opt=no-new-privileges --user=1000:1000 --pids-limit=48)
 guest sudo docker run "${base[@]}" --memory=128m --name bench-claude-egress \
   --mount "type=bind,src=$dir/egress,dst=/run/egress" "$image" python3 /opt/guest-tools/guest-egress.py

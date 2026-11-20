@@ -1,0 +1,156 @@
+"""Run operator-key.sh and the personal provisioning scripts against a fake guest, and check that
+a key is made only when neither side has one and that neither key is ever replaced."""
+import os
+from pathlib import Path
+import stat
+import subprocess
+from tempfile import TemporaryDirectory
+import unittest
+
+BRIDGE = Path(__file__).resolve().parents[1] / "bridge"
+
+# `limactl shell --workdir=/ <vm> [sudo] <command...>` runs the command here; docker is only logged.
+FAKE_LIMACTL = r'''#!/bin/sh
+shift 3
+[ "$1" = sudo ] && shift
+if [ "$1" = docker ]; then
+  shift
+  printf '%s\n' "$*" >> "$DOCKER_LOG"
+  exit 0
+fi
+exec "$@"
+'''
+
+# Creates directories for `install -d`, copies for a file install, and ignores ownership and mode.
+FAKE_INSTALL = r'''#!/bin/sh
+directory=no
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -d) directory=yes;;
+    -m|-o|-g) shift;;
+    *) if [ "$directory" = yes ]; then mkdir -p "$1"; else set -- "$@"; break; fi;;
+  esac
+  shift
+done
+[ "$directory" = yes ] && exit 0
+cat "$1" > "$2"
+'''
+
+FAKE_SHA256SUM = '#!/bin/sh\nexec shasum -a 256 "$@"\n'
+
+
+def executable(path, text):
+    path.write_text(text)
+    path.chmod(path.stat().st_mode | stat.S_IXUSR)
+
+
+class OperatorKey(unittest.TestCase):
+    def setUp(self):
+        self.directory = TemporaryDirectory()
+        root = Path(self.directory.name)
+        self.bin = root / "bin"
+        self.bin.mkdir()
+        executable(self.bin / "limactl", FAKE_LIMACTL)
+        executable(self.bin / "install", FAKE_INSTALL)
+        executable(self.bin / "sha256sum", FAKE_SHA256SUM)
+        self.guest = root / "guest-dir"
+        (self.guest / "guest").mkdir(parents=True)
+        self.key_file = root / "host" / "vm-operator-key"
+        self.key_file.parent.mkdir()
+        self.docker_log = root / "docker.log"
+        self.docker_log.touch()
+
+    def tearDown(self):
+        self.directory.cleanup()
+
+    @property
+    def guest_key(self):
+        return self.guest / "operator" / "key"
+
+    def run_script(self, name, *args):
+        env = {
+            "PATH": f"{self.bin}:{os.environ['PATH']}",
+            "HOME": self.directory.name,
+            "DOCKER_LOG": str(self.docker_log),
+        }
+        return subprocess.run(
+            ["bash", str(BRIDGE / name), *args],
+            env=env, capture_output=True, text=True, check=False,
+        )
+
+    def ensure_key(self):
+        return self.run_script("operator-key.sh", "bench-agent-test", str(self.guest), str(self.key_file))
+
+    def put_guest_key(self, text):
+        self.guest_key.parent.mkdir(exist_ok=True)
+        self.guest_key.write_text(text)
+
+    def test_neither_side_makes_one_key_on_both(self):
+        result = self.ensure_key()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        host = self.key_file.read_text()
+        self.assertRegex(host, r"^[0-9a-f]{64}\n$")
+        self.assertEqual(self.guest_key.read_text(), host)
+
+    def test_guest_key_without_host_file_is_refused_and_nothing_is_made(self):
+        self.put_guest_key("guest-key\n")
+        result = self.ensure_key()
+        self.assertEqual(result.returncode, 3)
+        self.assertIn("vm_operator_key_mismatch", result.stderr)
+        self.assertFalse(self.key_file.exists())
+        self.assertEqual(self.guest_key.read_text(), "guest-key\n")
+
+    def test_different_keys_are_refused_and_neither_changes(self):
+        self.put_guest_key("guest-key\n")
+        self.key_file.write_text("host-key\n")
+        result = self.ensure_key()
+        self.assertEqual(result.returncode, 3)
+        self.assertEqual(self.key_file.read_text(), "host-key\n")
+        self.assertEqual(self.guest_key.read_text(), "guest-key\n")
+
+    def test_matching_keys_change_nothing(self):
+        self.put_guest_key("same-key\n")
+        self.key_file.write_text("same-key\n")
+        result = self.ensure_key()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.guest_key.read_text(), "same-key\n")
+
+    def provision(self, provider):
+        args = {
+            "claude": ["personal-claude.sh", "bench-agent-test", str(self.guest), "runner:test",
+                       str(self.key_file), "http://127.0.0.1:4330"],
+            "codex": ["personal-codex.sh", "bench-agent-test", str(self.guest), "runner:test",
+                      "http://127.0.0.1:4330", str(self.key_file)],
+        }[provider]
+        return self.run_script(*args)
+
+    def test_provisioning_refuses_a_mismatched_key_before_any_container(self):
+        for provider in ("claude", "codex"):
+            with self.subTest(provider):
+                self.put_guest_key("guest-key\n")
+                self.key_file.write_text("host-key\n")
+                result = self.provision(provider)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(self.docker_log.read_text(), "")
+                self.assertEqual(self.guest_key.read_text(), "guest-key\n")
+
+    def test_provisioning_replaces_only_its_own_containers_and_keeps_state(self):
+        for provider, own, kept in (
+            ("claude", "bench-claude-egress bench-claude-management", "claude-store"),
+            ("codex", "bench-codex-egress bench-codex-management", "codex-state"),
+        ):
+            with self.subTest(provider):
+                self.docker_log.write_text("")
+                (self.guest / kept).mkdir(exist_ok=True)
+                (self.guest / kept / "sign-in").write_text("kept")
+                result = self.provision(provider)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                calls = self.docker_log.read_text().splitlines()
+                self.assertEqual(calls[0], f"rm -f {own}")
+                removals = [call for call in calls if call.startswith("rm")]
+                self.assertEqual(removals, [f"rm -f {own}"])
+                self.assertEqual((self.guest / kept / "sign-in").read_text(), "kept")
+
+
+if __name__ == "__main__":
+    unittest.main()

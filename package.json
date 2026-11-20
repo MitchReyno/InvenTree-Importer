@@ -7,6 +7,7 @@
   },
   "scripts": {
     "dev": "node tooling/dev.cjs",
+    "vm:setup": "node tooling/dev/vm-setup.cjs",
     "codex:login": "node tooling/codex-login.cjs",
     "build": "pnpm --filter @invimport/frontend build",
     "typecheck": "pnpm --filter @invimport/frontend typecheck && pnpm run typecheck:intake",
@@ -50,7 +51,7 @@
     "test:openspec": "node --test tooling/tests/openspec-overlap.test.mjs",
     "test:deployment": "python3 -I -m unittest discover -s tooling/deployment/tests -p 'test_*.py'",
     "openspec:overlap": "node tooling/openspec/overlap.mjs",
-    "test:dev": "node --test tooling/tests/dev.test.cjs tooling/tests/dev-environment.test.cjs tooling/tests/dev-stack.test.cjs tooling/tests/dev-supervisor.test.cjs tooling/tests/dev-profile.test.cjs tooling/tests/dev-settings.test.cjs tooling/tests/dev-vm.test.cjs tooling/tests/dev-tailnet.test.cjs tooling/tests/codex-login.test.cjs tooling/tests/inventree-dev.test.cjs tooling/tests/inventree-dev-seed.test.cjs tooling/tests/inventree-dev-contract.test.cjs"
+    "test:dev": "node --test tooling/tests/dev.test.cjs tooling/tests/dev-environment.test.cjs tooling/tests/dev-stack.test.cjs tooling/tests/dev-supervisor.test.cjs tooling/tests/dev-profile.test.cjs tooling/tests/dev-settings.test.cjs tooling/tests/dev-vm.test.cjs tooling/tests/dev-vm-setup.test.cjs tooling/tests/dev-runner-digest.test.cjs tooling/tests/dev-tailnet.test.cjs tooling/tests/codex-login.test.cjs tooling/tests/inventree-dev.test.cjs tooling/tests/inventree-dev-seed.test.cjs tooling/tests/inventree-dev-contract.test.cjs"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "5.10.0",

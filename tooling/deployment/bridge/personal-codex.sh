@@ -7,15 +7,13 @@ image=${3:?personal runner image}
 origin=${4:?exact browser origin}
 [[ $vm =~ ^[a-z0-9][a-z0-9-]*$ && $dir =~ ^/[a-zA-Z0-9_./-]+$ && $image =~ ^[a-zA-Z0-9][a-zA-Z0-9._/:@-]+$ ]]
 guest() { limactl shell --workdir=/ "$vm" "$@"; }
+key_file=${5:?private operator key file on the host}
 guest test -d "$dir/guest"
-if ! guest sudo test -s "$dir/operator/key"; then
-  key_file=${5:?provide a private host path for the initial operator key}
-  umask 077
-  if [[ ! -e $key_file ]]; then (set -C; openssl rand -hex 32 > "$key_file"); fi
-  guest sudo install -d -m 0700 -o 1000 -g 1000 "$dir/operator"
-  guest sudo install -m 0400 -o 1000 -g 1000 /dev/stdin "$dir/operator/key" < "$key_file"
-fi
+# Never makes a key while the guest has one, or replaces the guest's key.
+bash "$(dirname "$0")/operator-key.sh" "$vm" "$dir" "$key_file"
 guest sudo install -d -m 0700 -o 1000 -g 1000 "$dir/codex-state" "$dir/codex-egress"
+# Replaces only this provider's containers; the state, egress and key directories stay.
+guest sudo docker rm -f bench-codex-egress bench-codex-management >/dev/null 2>&1 || true
 base=(--detach --restart=unless-stopped --read-only --tmpfs=/tmp:rw,nosuid,nodev,size=48m --cap-drop=ALL --security-opt=no-new-privileges --user=1000:1000 --pids-limit=100 --memory=384m -e INTAKE_VM_CODEX_SUBSCRIPTION=1)
 guest sudo docker run "${base[@]}" --name bench-codex-egress \
   --mount "type=bind,src=$dir/codex-egress,dst=/run/egress" "$image" python3 /opt/guest-tools/guest-egress.py

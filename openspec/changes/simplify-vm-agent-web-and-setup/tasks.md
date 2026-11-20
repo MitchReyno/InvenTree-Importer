@@ -214,9 +214,9 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
   The real `bench-agent-m1-local` VM, its pairing and Mitch's state directory are not touched.
 - Risks and decisions: image builds take minutes, so the tests never build for real.
 
-- [ ] 7.1 Read `tooling/tests/dev-vm.test.cjs` and record the injected `exec` shape to reuse.
-- [ ] 7.2 RED: add the setup tests, and confirm the failures.
-- [ ] 7.3 GREEN: implement `vm-setup.cjs`, the script entry and the provisioning script changes.
+- [x] 7.1 Read `tooling/tests/dev-vm.test.cjs` and record the injected `exec` shape to reuse.
+- [x] 7.2 RED: add the setup tests, and confirm the failures.
+- [x] 7.3 GREEN: implement `vm-setup.cjs`, the script entry and the provisioning script changes.
 - [ ] 7.4 Run the tests and lint, then the isolated run and rerun. Attach the output to the PR, then delete only the disposable VM and the temporary state directory.
 
 ## 8. Runner image freshness in `pnpm dev`
@@ -230,9 +230,9 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 - Verification: `pnpm test:dev` and `pnpm lint:tooling`.
 - Risks and decisions: the digest input list must include everything the image copies. A test asserts the list against the Dockerfiles' `COPY` sources.
 
-- [ ] 8.1 RED: add the digest and launcher tests, including the `COPY` source coverage test, and confirm the failures.
-- [ ] 8.2 GREEN: implement the digest helper, the label at build time, and the launcher check.
-- [ ] 8.3 Run the tests and lint, and record the results.
+- [x] 8.1 RED: add the digest and launcher tests, including the `COPY` source coverage test, and confirm the failures.
+- [x] 8.2 GREEN: implement the digest helper, the label at build time, and the launcher check.
+- [x] 8.3 Run the tests and lint, and record the results.
 
 ## 9. Documentation
 

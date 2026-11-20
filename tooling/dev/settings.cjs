@@ -313,6 +313,18 @@ function resolveDevelopmentSettings(settings, { stateDirectory } = {}) {
   }
 }
 
+/**
+ * The VM `pnpm vm:setup` prepares: the same names, defaults and checks as `pnpm dev`, whether or
+ * not the agent switches are on yet, so setup can run before them.
+ */
+function resolveVmSetup(settings, { stateDirectory } = {}) {
+  const defaulted = []
+  const vmTools = switchValue(settings, 'INTAKE_VM_AGENT_TOOLS') ?? true
+  const keepRunning = switchValue(settings, 'INTAKE_VM_KEEP_RUNNING') ?? false
+  const pairing = resolveVmPairing(settings, stateDirectory, defaulted)
+  return resolveVmLaunch(settings, pairing, { vmTools, keepRunning }, defaulted)
+}
+
 /** User-facing and internal target names; only the resolved internal values may reach the policy. */
 const TARGET_SETTING_NAMES = [
   'INTAKE_TARGET_PROFILE',
@@ -469,6 +481,7 @@ function validGuestDirectory(path) {
 module.exports = {
   validGuestDirectory,
   resolveDevelopmentSettings,
+  resolveVmSetup,
   targetEnvironment,
   settingsRefusalLines,
   withTargetSettingNames,
