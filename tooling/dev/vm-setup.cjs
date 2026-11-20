@@ -159,7 +159,13 @@ async function runVmSetup({
   }
   let failure = null
   try {
-    if ((await vmStatus(context)) === '') {
+    let status
+    try {
+      status = await vmStatus(context)
+    } catch (error) {
+      throw new VmSetupError('vm_setup_step_failed', 'VM', { cause: error })
+    }
+    if (status === '') {
       // No VM yet, so no guest side: a host pairing or key already here is refused before a VM
       // and its disk are created.
       context.guestDir = plan.guestDir ?? GUEST_DIR_LABEL
@@ -202,7 +208,19 @@ async function refreshRunner({
   write = STANDARD_WRITE,
   settleMs,
 }) {
-  const context = { plan, guestDir, repository, origin, keyFile, exec, env, write, settleMs }
+  const context = {
+    plan,
+    guestDir,
+    repository,
+    origin,
+    keyFile,
+    exec,
+    env,
+    write,
+    settleMs,
+    // A refresh only verifies the operator key; only setup makes one.
+    keyVerifyOnly: true,
+  }
   checkRunnerTag(plan)
   // A pairing that doesn't match its guest would never authenticate; nothing starts on it.
   await checkPairing(context)

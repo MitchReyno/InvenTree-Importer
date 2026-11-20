@@ -89,8 +89,8 @@ class OperatorKey(unittest.TestCase):
     def guest_key(self):
         return self.guest / "operator" / "key"
 
-    def run_script(self, name, *args):
-        env = {
+    def run_script(self, name, *args, **extra):
+        env = {**extra,
             "PATH": f"{self.bin}:{os.environ['PATH']}",
             "HOME": self.directory.name,
             "DOCKER_LOG": str(self.docker_log),
@@ -215,6 +215,20 @@ class OperatorKey(unittest.TestCase):
                 self.assertIn(f"vm_guest_service_conflict: {name}", result.stderr)
                 self.assertEqual(self.docker_log.read_text(), "")
                 (self.containers / name).unlink()
+
+    def test_verify_only_refuses_to_make_a_key_when_both_are_missing(self):
+        result = self.run_script("operator-key.sh", "bench-agent-test", str(self.guest),
+                                 str(self.key_file), INTAKE_OPERATOR_KEY_VERIFY_ONLY="1")
+        self.assertEqual(result.returncode, 3)
+        self.assertFalse(self.key_file.exists())
+        self.assertFalse(self.guest_key.exists())
+
+    def test_a_container_without_mounts_is_not_removed(self):
+        (self.containers / "bench-claude-egress").write_text(" ")
+        result = self.provision("claude")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("vm_guest_service_conflict: bench-claude-egress", result.stderr)
+        self.assertEqual(self.docker_log.read_text(), "")
 
 
 if __name__ == "__main__":

@@ -41,6 +41,16 @@ const GUEST_SERVICES = {
     containers: ['bench-codex-egress', 'bench-codex-management'],
   },
 }
+/**
+ * The guest-directory entries each container mounts, as the provisioning scripts make them; a
+ * container mounting anything else isn't the service the relays and tool workers expect.
+ */
+const SERVICE_MOUNTS = {
+  'bench-claude-egress': ['egress'],
+  'bench-claude-management': ['claude-store', 'operator'],
+  'bench-codex-egress': ['codex-egress'],
+  'bench-codex-management': ['codex-egress', 'codex-state', 'operator'],
+}
 /** Management services serve the operator's browser, so they are bound to its origin. */
 const MANAGEMENT_CONTAINERS = new Set(['bench-claude-management', 'bench-codex-management'])
 /** The document reader the guest ran before web access moved to the turn's egress. */
@@ -141,9 +151,32 @@ async function localImageDigest(context, image, role = 'runner') {
 
 /** Refuses a runner tag that names one of the images it is built from. */
 function checkRunnerTag(plan) {
-  if (plan.image === APP_IMAGE || plan.image === GUEST_IMAGE) {
+  const reference = canonicalImage(plan.image)
+  // Without a tag, `docker save` would export every tag of the repository.
+  if (reference === null) {
+    throw new VmSetupError('vm_runner_image_tag_required', plan.image)
+  }
+  if (reference === canonicalImage(APP_IMAGE) || reference === canonicalImage(GUEST_IMAGE)) {
     throw new VmSetupError('vm_runner_image_name_reserved', plan.image)
   }
+}
+
+/**
+ * An image reference as Docker resolves it, `repository:tag` with Docker Hub's implied prefix
+ * removed, or null when it names no tag. A digest reference has no tag to save, so it is null too.
+ */
+function canonicalImage(reference) {
+  if (reference.includes('@')) {
+    return null
+  }
+  const slash = reference.lastIndexOf('/')
+  const colon = reference.lastIndexOf(':')
+  if (colon <= slash) {
+    return null
+  }
+  return reference
+    .replace(/^(docker\.io|index\.docker\.io|registry-1\.docker\.io)\//, '')
+    .replace(/^library\//, '')
 }
 
 /** The guest's runner image digest label, or null when it has no such image. */
@@ -263,6 +296,7 @@ async function vmStatus(context) {
   const output = await exec('limactl', ['list', '--format', '{{.Name}} {{.Status}}'], {
     timeout: GUEST_COMMAND_TIMEOUT_MS,
     env,
+    stderr: messages(context.write, 'limactl'),
   })
   const entry = output
     .split('\n')
@@ -337,9 +371,17 @@ async function guestPairing(context) {
  * The host side's files belong together: its certificate was issued by its CA, and its private key
  * is the certificate's.
  */
+/** Each side's certificate names its peer role, as the TLS checks on each side require. */
+const HOST_PEER = 'bench-coordinator'
+const GUEST_PEER = 'bench-guest'
+/** Reads a certificate from `input` (`-in <file>`) or standard input, and checks its peer name. */
+const NAMES_PEER = (name, input = '') =>
+  `openssl x509 ${input} -noout -subject -nameopt RFC2253 | grep -Eq '(^subject=|,)CN=${name}(,|$)'`
+
 const HOST_PAIRING_VALID = [
   'cd "$1"',
   'openssl verify -CAfile ca.pem cert.pem >/dev/null 2>&1',
+  NAMES_PEER(HOST_PEER, '-in cert.pem'),
   'test "$(openssl x509 -noout -pubkey -in cert.pem)" = "$(openssl pkey -pubout -in key.pem)"',
 ].join(' && ')
 
@@ -364,6 +406,26 @@ async function hostPairingValid(context) {
  * The guest side: its key is its certificate's (checked in the guest, so the key never leaves it),
  * and its certificate, which is public, was issued by the host's CA (checked on the host).
  */
+/** Whether a certificate was issued by the CA in `caPath` and names the guest peer. */
+async function guestCertificateValid(caPath, certificate, { exec = runCommand, env } = {}) {
+  try {
+    await exec(
+      'sh',
+      [
+        '-c',
+        `printf %s "$2" | openssl verify -CAfile "$1" >/dev/null 2>&1 && printf %s "$2" | ${NAMES_PEER(GUEST_PEER)}`,
+        'sh',
+        caPath,
+        certificate,
+      ],
+      { timeout: GUEST_COMMAND_TIMEOUT_MS, env },
+    )
+    return true
+  } catch {
+    return false
+  }
+}
+
 async function guestPairingValid(context) {
   const { exec = runCommand, env, plan, guestDir } = context
   try {
@@ -375,22 +437,11 @@ async function guestPairingValid(context) {
       `${guestDir}/guest/cert.pem`,
       `${guestDir}/guest/key.pem`,
     ])
-    const certificate = await guestCommand(context, ['sudo', 'cat', `${guestDir}/guest/cert.pem`])
-    await exec(
-      'sh',
-      [
-        '-c',
-        'printf %s "$2" | openssl verify -CAfile "$1" >/dev/null 2>&1',
-        'sh',
-        join(plan.pair, 'ca.pem'),
-        certificate,
-      ],
-      { timeout: GUEST_COMMAND_TIMEOUT_MS, env },
-    )
-    return true
   } catch {
     return false
   }
+  const certificate = await guestCommand(context, ['sudo', 'cat', `${guestDir}/guest/cert.pem`])
+  return guestCertificateValid(join(plan.pair, 'ca.pem'), certificate, { exec, env })
 }
 
 function pairingMismatch(context) {
@@ -430,11 +481,43 @@ async function checkPairing(context, { lstat = fsLstat, read = readFile } = {}) 
   return 'match'
 }
 
+/**
+ * The guest's session storage, which `pair.sh` creates and relays mount. A pairing restored
+ * without it gets it back, empty, with the pairing and any other state left alone.
+ */
+async function ensureSessionStorage(context) {
+  const sessions = `${context.guestDir}/sessions`
+  const present = await guestCommand(context, [
+    'sudo',
+    'sh',
+    '-c',
+    'if test -d "$1"; then echo present; else echo absent; fi',
+    'sh',
+    sessions,
+  ])
+  if (present.trim() === 'present') {
+    return false
+  }
+  await guestCommand(context, [
+    'sudo',
+    'install',
+    '-d',
+    '-o',
+    '1000',
+    '-g',
+    '1000',
+    '-m',
+    '700',
+    sessions,
+  ])
+  return true
+}
+
 /** Pairs when neither side exists; refuses when only one does, removing nothing. */
 async function ensurePairing(context, { lstat = fsLstat, read = readFile } = {}) {
   const { exec = runCommand, env, plan, guestDir, repository } = context
   if ((await checkPairing(context, { lstat, read })) === 'match') {
-    return 'done'
+    return (await ensureSessionStorage(context)) ? 'changed' : 'done'
   }
   await mkdir(dirname(plan.pair), { recursive: true, mode: 0o700 })
   await exec(
@@ -580,10 +663,12 @@ async function guestImageId(context) {
 
 /** Whether a container runs this installation's runner image, for the current origin if it has one. */
 function serviceMatches(context, name, state, imageId) {
+  const expected = SERVICE_MOUNTS[name].map((entry) => `${context.guestDir}/${entry}`).sort()
   return (
     state !== null &&
     imageId !== null &&
     state.image === imageId &&
+    JSON.stringify([...state.mounts].sort()) === JSON.stringify(expected) &&
     (!MANAGEMENT_CONTAINERS.has(name) || state.origin === context.origin)
   )
 }
@@ -594,7 +679,8 @@ function serviceMatches(context, name, state, imageId) {
  */
 function checkOwnership(context, name, state) {
   const inside = (source) => source.startsWith(`${context.guestDir}/`)
-  if (state !== null && !state.mounts.every(inside)) {
+  // Ownership needs evidence: a container with no mounts in this directory isn't this one's.
+  if (state !== null && (state.mounts.length === 0 || !state.mounts.every(inside))) {
     throw new VmSetupError('vm_guest_service_conflict', name)
   }
 }
@@ -644,7 +730,8 @@ async function provisionProvider(context, provider) {
   try {
     await exec('bash', [join(repository, script), ...args], {
       timeout: PROVISION_TIMEOUT_MS,
-      env,
+      // A refresh never makes a key, even if both disappeared after its first check.
+      env: context.keyVerifyOnly ? { ...env, INTAKE_OPERATOR_KEY_VERIFY_ONLY: '1' } : env,
       stderr: messages(context.write, provider),
     })
   } catch {
@@ -664,11 +751,9 @@ async function provisionProvider(context, provider) {
 /** Removes the retired document reader's container, which nothing runs any more. */
 async function removeRetiredReader(context) {
   const reader = await containerState(context, RETIRED_CONTAINER)
-  // Only this installation's reader, which mounted its `web` directory; another one is left alone.
-  if (
-    reader === null ||
-    !reader.mounts.every((source) => source.startsWith(`${context.guestDir}/`))
-  ) {
+  // Only this installation's reader, which mounted exactly its `web` directory; another is left.
+  const web = `${context.guestDir}/web`
+  if (reader === null || reader.mounts.length !== 1 || reader.mounts[0] !== web) {
     return false
   }
   await guestCommand(context, ['sudo', 'docker', 'rm', '-f', RETIRED_CONTAINER])
@@ -684,7 +769,7 @@ async function ensureGuestServices(context, { lstat = fsLstat, read = readFile }
   const providers = await servicesState(context)
   const stale = Object.keys(providers).filter((provider) => providers[provider].state === 'stale')
   if (stale.length > 0) {
-    await checkOperatorKey(context, { lstat, read })
+    await checkOperatorKey(context, { lstat, read, allowNone: !context.keyVerifyOnly })
   }
   for (const [provider, { state, stopped }] of Object.entries(providers)) {
     if (state === 'stale') {
@@ -714,7 +799,9 @@ module.exports = {
   ensureOperatorKey,
   ensurePairing,
   ensureVm,
+  guestCertificateValid,
   guestImageDigest,
+  hostPairingValid,
   loadRunner,
   localImageDigest,
   localImagesCurrent,

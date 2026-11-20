@@ -22,6 +22,12 @@ const SERVICES = {
   codex: ['bench-codex-egress', 'bench-codex-management'],
 }
 const MANAGEMENT = new Set(['bench-claude-management', 'bench-codex-management'])
+const MOUNTS = {
+  'bench-claude-egress': ['egress'],
+  'bench-claude-management': ['claude-store', 'operator'],
+  'bench-codex-egress': ['codex-egress'],
+  'bench-codex-management': ['codex-egress', 'codex-state', 'operator'],
+}
 
 const sha256 = (content) => createHash('sha256').update(content).digest('hex')
 
@@ -46,6 +52,7 @@ async function world(t, initial = {}) {
     guestImageId: null,
     guestPairing: false,
     guestDirExists: false,
+    sessions: false,
     guestCa: null,
     guestKey: null,
     policyHash: null,
@@ -72,7 +79,7 @@ async function world(t, initial = {}) {
         image: state.guestImageId,
         running: !state.fail.has(`dies ${name}`),
         status: state.fail.has(`restarts ${name}`) ? 'restarting' : undefined,
-        mounts: [`${GUEST_DIR}/operator`, `${GUEST_DIR}/${provider}-state`],
+        mounts: MOUNTS[name].map((entry) => `${GUEST_DIR}/${entry}`),
         origin: MANAGEMENT.has(name) ? origin : null,
       }
     }
@@ -103,6 +110,14 @@ async function world(t, initial = {}) {
         return 'complete\n'
       }
       return state.guestDirExists ? 'present\n' : 'absent\n'
+    }
+    if (first === 'sudo' && second === 'sh' && args.at(-1).endsWith('/sessions')) {
+      return state.sessions ? 'present\n' : 'absent\n'
+    }
+    if (first === 'sudo' && second === 'install') {
+      actions.push('create sessions')
+      state.sessions = true
+      return ''
     }
     if (first === 'sudo' && second === 'python3') {
       // The guest's key against its certificate.
@@ -179,6 +194,7 @@ async function world(t, initial = {}) {
     }
     if (command === 'limactl') {
       if (args[0] === 'list') {
+        failIf('list vms')
         // Lima lists every instance; the named one is absent until it is created.
         const other = 'bench-agent-other Running\n'
         return state.vmStatus === '' ? other : `${other}bench-agent-test ${state.vmStatus}\n`
@@ -242,6 +258,7 @@ async function world(t, initial = {}) {
           await writeFile(join(args[2], file), `${file} from this pairing`)
         }
         state.guestPairing = true
+        state.sessions = true
         state.guestCa = sha256('ca.pem from this pairing')
       } else if (script === 'operator-key.sh') {
         // The script makes the key on both sides when neither has one.
@@ -373,6 +390,7 @@ test('a pairing whose sides come from different pairings is refused', async (t) 
   const fake = await world(t, {
     vmStatus: 'Stopped',
     guestPairing: true,
+    sessions: true,
     guestCa: sha256('another pairing'),
   })
   await hostPairing(fake)
@@ -390,6 +408,7 @@ test('a pairing sharing a CA but with a certificate or key from elsewhere is ref
       const fake = await world(t, {
         vmStatus: 'Stopped',
         guestPairing: true,
+        sessions: true,
         guestCa: sha256('ca.pem from this pairing'),
         fail: new Set([failure]),
       })
@@ -427,6 +446,7 @@ test('an operator key on one side only, empty, or different stops before anythin
       const fake = await world(t, {
         vmStatus: 'Stopped',
         guestPairing: true,
+        sessions: true,
         guestCa: sha256('ca.pem from this pairing'),
         guestKey: keys.guest,
       })
@@ -469,10 +489,25 @@ test('a missing limactl or docker is refused before anything runs', async (t) =>
 })
 
 test('a runner tag naming one of its base images is refused before anything runs', async (t) => {
-  for (const image of ['bench-intake-app:dev', 'bench-intake-personal-guest:dev']) {
+  for (const image of [
+    'bench-intake-app:dev',
+    'bench-intake-personal-guest:dev',
+    'docker.io/library/bench-intake-app:dev',
+    'docker.io/bench-intake-personal-guest:dev',
+  ]) {
     const fake = await world(t)
     await assert.rejects(fake.setup({ plan: { image } }), { code: 'vm_runner_image_name_reserved' })
-    assert.deepEqual(fake.actions, [])
+    assert.deepEqual(fake.actions, [], image)
+  }
+  // Without a tag, saving it would export every tag of the repository.
+  for (const image of [
+    'bench-intake-runner',
+    'localhost:5000/bench-intake-runner',
+    'runner@sha256:abc',
+  ]) {
+    const fake = await world(t)
+    await assert.rejects(fake.setup({ plan: { image } }), { code: 'vm_runner_image_tag_required' })
+    assert.deepEqual(fake.actions, [], image)
   }
 })
 
@@ -628,6 +663,11 @@ test("the retired document reader is removed only when it is this installation's
   })
   fake.state.containers['bench-public-reader'] = reader('/home/dev/other-install/web')
   fake.actions.length = 0
+  await fake.setup({ plan: { keepRunning: true } })
+  assert.deepEqual(fake.actions, [])
+
+  // No mounts is no evidence: an unrelated container of that name stays.
+  fake.state.containers['bench-public-reader'] = { ...reader('unused'), mounts: [] }
   await fake.setup({ plan: { keepRunning: true } })
   assert.deepEqual(fake.actions, [])
 
@@ -851,4 +891,62 @@ test('Lima and Docker commands get the settings that select the Docker engine, a
     DOCKER_CONFIG: '/home/dev/.docker-bench',
     LIMA_HOME: '/home/dev/.lima-bench',
   })
+})
+
+test('a restored pairing without its session storage gets it back, pairing untouched', async (t) => {
+  const fake = await world(t)
+  await fake.setup({ plan: { keepRunning: true } })
+  fake.state.sessions = false
+  fake.actions.length = 0
+  await fake.setup({ plan: { keepRunning: true } })
+  assert.deepEqual(fake.actions, ['create sessions'])
+  assert.equal(await readFile(join(fake.plan.pair, 'ca.pem'), 'utf8'), 'ca.pem from this pairing')
+})
+
+test('a service whose mounts differ from what its script makes is reprovisioned', async (t) => {
+  const fake = await world(t)
+  await fake.setup({ plan: { keepRunning: true } })
+  fake.state.containers['bench-claude-egress'].mounts = [`${GUEST_DIR}/other-egress`]
+  fake.actions.length = 0
+  await fake.setup({ plan: { keepRunning: true } })
+  assert.deepEqual(fake.actions, ['personal-claude.sh'])
+})
+
+test("a service container with no mounts is not taken as this installation's", async (t) => {
+  const fake = await world(t)
+  await fake.setup({ plan: { keepRunning: true } })
+  fake.state.containers['bench-codex-egress'].mounts = []
+  fake.actions.length = 0
+  await assert.rejects(fake.setup({ plan: { keepRunning: true } }), (error) => {
+    assert.equal(failureLine(error), 'vm_guest_service_conflict: bench-codex-egress')
+    return true
+  })
+  assert.deepEqual(fake.actions, [])
+})
+
+test('a refresh never makes a key, even when both disappear after its first check', async (t) => {
+  const fake = await prepared(t)
+  fake.state.guestLabel = 'old'
+  const record = fake.actions.push.bind(fake.actions)
+  fake.actions.push = (action) => {
+    const length = record(action)
+    if (action === 'load runner') {
+      // Removed while the image loads, after the refresh's own key check.
+      void rm(fake.keyFile)
+      fake.state.guestKey = null
+    }
+    return length
+  }
+  await assert.rejects(fake.refresh(), { code: 'vm_operator_key_mismatch' })
+  assert.ok(!fake.actions.some((action) => action.startsWith('personal-')))
+  assert.equal(fake.state.guestKey, null)
+})
+
+test('a failed first VM lookup is reported as the VM step', async (t) => {
+  const fake = await world(t, { fail: new Set(['list vms']) })
+  await assert.rejects(fake.setup(), (error) => {
+    assert.equal(failureLine(error), 'vm_setup_step_failed: VM')
+    return true
+  })
+  assert.deepEqual(fake.actions, [])
 })

@@ -29,6 +29,8 @@ if [[ $host_state == present && $guest_state == present ]]; then
   exit 0
 fi
 [[ $host_state == absent && $guest_state == absent ]] || refuse
+# A refresh only verifies: it never makes a key, even when both are missing.
+[[ ${INTAKE_OPERATOR_KEY_VERIFY_ONLY:-} != 1 ]] || refuse
 # Neither side has a key: make one, then install it without replacing a key that appeared since.
 (set -C; openssl rand -hex 32 > "$key_file")
 guest sudo install -d -m 0700 -o 1000 -g 1000 "$dir/operator"

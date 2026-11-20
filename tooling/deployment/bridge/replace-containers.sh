@@ -13,6 +13,11 @@ for name in "$@"; do
   if ! mounts=$(guest sudo docker inspect --format '{{range .Mounts}}{{.Source}} {{end}}' "$name" 2>/dev/null); then
     continue
   fi
+  # Ownership needs evidence: a container with no mounts here isn't this installation's.
+  if [[ -z ${mounts// /} ]]; then
+    echo "vm_guest_service_conflict: $name" >&2
+    exit 4
+  fi
   for source in $mounts; do
     if [[ $source != "$dir/"* ]]; then
       echo "vm_guest_service_conflict: $name" >&2
