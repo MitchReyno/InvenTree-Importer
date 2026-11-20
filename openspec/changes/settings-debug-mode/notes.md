@@ -1,11 +1,11 @@
 # Implementation notes
 
-PR-A (debug mode and the Dev mode popover) merged in #225, PR-B (the Settings structure) in #226 and PR-C (server storage, sealing, batch defaults and the connection check) in #227. PR-D (the Settings forms) is in progress; PR-E (Replace token) remains.
+Delivered: PR-A (debug mode and the Dev mode popover) in #225, PR-B (the Settings structure) in #226, PR-C (server storage, sealing, batch defaults and the connection check) in #227, PR-D (the Settings forms) in #228 and PR-E (Replace token) in #232.
 
 ## Changes to the plan
 
 - **2026-11-19T14:29+11:00, task 2 (PR-A):** `masthead-appearance-options` (#222) merged after this plan and added a shared device-preference helper (`frontend/src/theme/device-preference.ts`). Debug mode uses that helper instead of copying the theme controller. design.md's debug-mode decision is updated to match.
-- **2026-11-19T14:29+11:00, specs (PR-A):** #222's change also modifies app-settings › "InvenTree and appearance sections" to add the Masthead choice. This change's MODIFIED block now includes that text and its three scenarios, so it is a superset and syncs correctly after `masthead-appearance-options` is archived. Until then `pnpm openspec:overlap` reports the shared requirement as an error; archive `masthead-appearance-options` first.
+- **2026-11-19T14:29+11:00, specs (PR-A):** #222's change also modifies app-settings › "InvenTree and appearance sections" to add the Masthead choice. This change's MODIFIED block now includes that text and its three scenarios, so it is a superset and syncs correctly after `masthead-appearance-options` is archived. Until then `pnpm openspec:overlap` reports the shared requirement as an error; archive `masthead-appearance-options` first. (Superseded on 2026-11-21: see Open items › Archive order, which follows the masthead change's own notes.)
 - **2026-11-19T14:48+11:00, task 3 (PR-A):** The plan put a Debug panel in each screen, built from that screen's own `useQuery` results. One page-level panel in `App`, listing the reads mounted on the current screen through a query-cache subscription, covers every screen without threading rows through each one, and still starts no request. design.md is updated.
 
 - **2026-11-19T15:59+11:00, task 5 (PR-B):** The sessions-at-once stepper stays inside the current `AgentSettingsForm`, under Providers, because it shares that form's one Save with provider, sign-in and model. Sessions holds Pause all for now; the stepper moves to Sessions when task 9 rebuilds the forms in PR-D.
@@ -67,9 +67,13 @@ PR-A (debug mode and the Dev mode popover) merged in #225, PR-B (the Settings st
 
 ## Open items
 
+- **Archive order.** Archiving needs `pnpm openspec:overlap --change settings-debug-mode` to pass before any sync; it currently exits 1 on three app-settings requirements that two active changes also modify as whole blocks. Facts for that step: this change's "InvenTree and appearance sections" block already carries the Masthead sentences and three scenarios from `masthead-appearance-options`, whose notes plan to rebuild its block from this change's synced text; and `simplify-vm-agent-web-and-setup`'s "Agent settings section" and "Deferred settings are disabled and explained" blocks already keep this change's rows, which must be checked against this change's blocks when reconciling. How the competing blocks are reconciled so the check passes is decided when archiving.
+- **Process tier for task 6.9.** PR-C's probe image build failed, so its process tier didn't run before merge. It ran on 2026-11-21 against the merged `interactive-app` (all five PRs), one file at a time: 114 passed, 0 failed, 11 skipped. The skips are opt-in and unrelated: four need a test-only `INTAKE_MEDIA_PROBE_IMAGE`, and seven are live shared-VM sessions that need a paired VM and real provider sign-ins. The command and trimmed output are in #233.
+- **PR-E review at the merged head.** Review rounds 1–17 covered `0e7e71823f2854375237c1d209fe29500d64c0f6`. #232 then merged `interactive-app` (#229–#231) as `0a37fd42128715adef572d3455f71170ada9c363`; a separate review of that merge and its conflict resolutions found nothing material, and that is the head that merged.
+
 - Successors a stable identity couldn't queue while no provider was on stay unqueued after a provider is turned on, until the lot's identity is published again or the operator starts the stages.
 
-- `simplify-vm-agent-web-and-setup` (BI-017, #223) modifies app-settings › "Agent settings section" and "Deferred settings are disabled and explained", written against this change's versions. Sync this change first; that change rebases onto it, so `pnpm openspec:overlap` reports those requirements until then.
+- `simplify-vm-agent-web-and-setup` (BI-017, #223) modifies app-settings › "Agent settings section" and "Deferred settings are disabled and explained", written against this change's versions, so `pnpm openspec:overlap` reports those requirements. See Archive order above for what must hold before any sync.
 
 - The import reference is sent as the stock item's `barcode`, which `intake-server/src/execution/ARCHITECTURE.md` says InvenTree 1.5.0 doesn't store. The Settings row describes the reference as the server sets it, not whether a given InvenTree keeps it.
 
