@@ -10,7 +10,7 @@ Agents in the shared VM (`shared-vm-agent/2`) can barely use the web, and gettin
 
 The outcome Mitch asked for on 2026-11-19:
 
-1. VM agents get provider web search, Claude `WebFetch`, and Claude's in-container `Glob` and `Grep`.
+1. VM agents get provider web search, Claude `WebFetch`, and Claude's in-container `Glob` and `Grep`. The request also named `TodoWrite`, which Claude Code 2.1.319 doesn't have; see [notes.md](notes.md).
 2. A per-session "Allow public web pages" setting, on by default, decides whether a session can reach public sites. The per-turn egress proxy enforces it, with protected hosts worked out automatically, so there are no web settings in the environment.
 3. `bench-web` and the document reader are removed.
 4. A fresh clone gets real VM agents with `pnpm vm:setup`, two `.env` switches and a sign-in. `pnpm dev` keeps the runner image current by itself.
