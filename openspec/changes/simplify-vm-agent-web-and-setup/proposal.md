@@ -10,7 +10,7 @@ Agents in the shared VM (`shared-vm-agent/2`) can barely use the web, and gettin
 
 The outcome Mitch asked for on 2026-11-19:
 
-1. VM agents get provider web search, Claude `WebFetch`, and Claude's in-container `Glob`, `Grep` and `TodoWrite`.
+1. VM agents get provider web search, Claude `WebFetch`, and Claude's in-container `Glob` and `Grep`. The request also named `TodoWrite`, which Claude Code 2.1.319 doesn't have; see [notes.md](notes.md).
 2. A per-session "Allow public web pages" setting, on by default, decides whether a session can reach public sites. The per-turn egress proxy enforces it, with protected hosts worked out automatically, so there are no web settings in the environment.
 3. `bench-web` and the document reader are removed.
 4. A fresh clone gets real VM agents with `pnpm vm:setup`, two `.env` switches and a sign-in. `pnpm dev` keeps the runner image current by itself.
@@ -53,7 +53,7 @@ The full investigation is in Mitch's handover findings for this work, outside th
 
 **In scope:**
 - **Profile version.** The new tool surface and instructions run under a new profile, `shared-vm-agent/3`, added by an additive migration. `/2` and its migration stay as they are, and `/2` attempts reaching a `/3` worker fail with `agent_profile_retired`.
-- **Tool surface.** In VM tool sessions, Claude adds `WebSearch`, `WebFetch`, `Glob`, `Grep` and `TodoWrite`, and Codex sets `web_search = "live"`. Both admission checks and in-turn item checks are updated. The session policy identity changes, and a requalification run follows.
+- **Tool surface.** In VM tool sessions, Claude adds `WebSearch`, `WebFetch`, `Glob` and `Grep`, and Codex sets `web_search = "live"`. Both admission checks and in-turn item checks are updated. The session policy identity changes, and a requalification run follows.
 - **Egress policy.** The per-turn egress proxy enforces the turn's sealed web setting. Provider hosts are always allowed. When web access is on, any public host that passes the shared destination checks is allowed too. Protected hosts are worked out from the deployment's own configuration.
 - **Settings.** "Allow public web pages" (on by default) and "Prefer manufacturer datasheets" (on by default) become working, per-session Settings › Agents switches, sealed into each attempt. Guidance about both is delivered to the session.
 - **Retirement.** `bench-web`, `web-reader.py`, the `bench-public-reader` container, `public-web.sh`, the reader socket mount and check, and the `INTAKE_VM_WEB_MODE`, `INTAKE_VM_WEB_ORIGINS` and `INTAKE_VM_PROTECTED_HOSTS` settings are removed. The reader's policy tests move to the proxy.

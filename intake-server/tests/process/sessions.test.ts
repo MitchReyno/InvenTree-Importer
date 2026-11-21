@@ -141,7 +141,6 @@ test(
         'Edit',
         'Glob',
         'Grep',
-        'TodoWrite',
         'WebSearch',
         'WebFetch',
       ])

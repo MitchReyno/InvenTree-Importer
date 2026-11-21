@@ -109,7 +109,7 @@ The long-lived egress containers started by `personal-*.sh` have no public branc
 ### D5. Tool surface and admission
 
 **Claude:**
-- `builtins` becomes `['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep', 'TodoWrite', 'WebSearch', 'WebFetch']` when `guestTools` is on.
+- `builtins` becomes `['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep', 'WebSearch', 'WebFetch']` when `guestTools` is on.
 - The expected-tool comparison and the in-turn `tool_use` check reuse that list.
 - `--disallowedTools advisor` and the agent-set check stay.
 

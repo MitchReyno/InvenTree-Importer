@@ -5,6 +5,11 @@ const path = require('node:path')
 const readline = require('node:readline')
 
 const args = process.argv.slice(2)
+// The built-in tools Claude Code 2.1.319 accepts in `--tools`, as reported by the real CLI.
+const CLAUDE_BUILTINS = new Set([
+  'Bash', 'Edit', 'Glob', 'Grep', 'Monitor', 'NotebookEdit', 'Read', 'Task', 'TaskCreate', 'TaskGet',
+  'TaskList', 'TaskStop', 'TaskUpdate', 'ToolSearch', 'WebFetch', 'WebSearch', 'Write',
+])
 // The adapter passes only an allowlisted environment, so the test leaves its settings in the
 // private session directory the child runs in.
 const settingsFile = path.join(process.cwd(), 'fake-session.json')
@@ -246,11 +251,12 @@ if (args[0] === 'app-server') {
       }
     }
     persist(sessionId)
-    // A guest tool session reports the built-in tools it was started with, as the real CLI does.
+    // A guest tool session reports the built-in tools it was started with, as the real CLI does,
+    // which silently drops names it doesn't have.
     const toolsFlag = args.indexOf('--tools')
     const builtins =
       mode === 'guest-tools' || mode === 'guest-extra-tool'
-        ? (args[toolsFlag + 1] || '').split(',').filter(Boolean)
+        ? (args[toolsFlag + 1] || '').split(',').filter((name) => CLAUDE_BUILTINS.has(name))
         : []
     log({ event: 'builtins', tools: builtins })
     const tools = [
