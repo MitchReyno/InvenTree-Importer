@@ -168,7 +168,7 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 ## 6. Tool surface and admission
 
 - PR delivery: PR-B.
-- Outcome: Claude VM sessions get `Glob`, `Grep`, `TodoWrite`, `WebSearch` and `WebFetch`. Codex VM sessions get live web search with the proxy set in their shell environment. Host sessions are unchanged.
+- Outcome: Claude VM sessions get `Glob`, `Grep`, `WebSearch` and `WebFetch`. Codex VM sessions get live web search with the proxy set in their shell environment. Host sessions are unchanged.
 - Scope and approach:
   - **Claude:** update `session-adapters.ts` (builtins and the in-turn check) and `claude-session-admission.ts`.
   - **Codex:** update `session-admission.ts` (`requireCodexSessionConfig`, the `ADMISSION_POLICY` bump), the Codex guest config including `shell_environment_policy.set`, and `requireAppItem`.

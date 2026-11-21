@@ -106,7 +106,7 @@ Build the backend for the design-refresh controls that BI-014 shipped disabled, 
 
 #### BI-017 — Simple web access and setup for VM agents
 
-Agents in the shared VM get provider web search (Claude WebSearch, Codex web search), Claude WebFetch, and Glob, Grep and TodoWrite. A per-session "Allow public web pages" setting, on by default, is enforced by each turn's egress proxy. Protected hostnames are worked out automatically, so no web settings go in the environment. The `bench-web` command and the separate document reader are removed. A rerunnable `pnpm vm:setup` replaces the README's manual VM steps, and `pnpm dev` rebuilds and reloads a stale runner image. This item takes over BI-015's web research switches.
+Agents in the shared VM get provider web search (Claude WebSearch, Codex web search), Claude WebFetch, and Glob and Grep. A per-session "Allow public web pages" setting, on by default, is enforced by each turn's egress proxy. Protected hostnames are worked out automatically, so no web settings go in the environment. The `bench-web` command and the separate document reader are removed. A rerunnable `pnpm vm:setup` replaces the README's manual VM steps, and `pnpm dev` rebuilds and reloads a stale runner image. This item takes over BI-015's web research switches.
 
 - Change: `simplify-vm-agent-web-and-setup`
 - Status: In progress — PR-A (the egress web policy, #229) and PR-B (`shared-vm-agent/3`, web tools and readiness, #230) merged; PR-C (the web settings, #231) merged; PR-D (one-command setup) in review; PR-E (requalification, which needs Mitch's go-ahead) remains.

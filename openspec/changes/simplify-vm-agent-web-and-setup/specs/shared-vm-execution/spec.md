@@ -26,13 +26,13 @@ The guest SHALL provide a distinct working directory per session, shell, script 
 
 ### Requirement: Claude VM tool surface
 
-A Claude `shared-vm-agent/3` session SHALL be admitted only when it reports exactly `Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`, `TodoWrite`, `WebSearch` and `WebFetch` plus the app's MCP tools, with no slash commands, setting sources or other MCP servers. Using any other tool SHALL end the turn with `agent_tool_refused`.
+A Claude `shared-vm-agent/3` session SHALL be admitted only when it reports exactly `Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`, `WebSearch` and `WebFetch` plus the app's MCP tools, with no slash commands, setting sources or other MCP servers. Using any other tool SHALL end the turn with `agent_tool_refused`.
 
 #### Scenario: Claude session admitted
 
 - **GIVEN** a Claude VM tool session whose CLI reports exactly the listed tools and the app's MCP server
 - **WHEN** admission runs
-- **THEN** the turn starts, and a `WebSearch`, `WebFetch`, `Glob`, `Grep` or `TodoWrite` call doesn't end it
+- **THEN** the turn starts, and a `WebSearch`, `WebFetch`, `Glob` or `Grep` call doesn't end it
 
 #### Scenario: Unexpected Claude tool
 

@@ -91,7 +91,6 @@ const GUEST_CLAUDE_TOOLS = [
   'Edit',
   'Glob',
   'Grep',
-  'TodoWrite',
   'WebSearch',
   'WebFetch',
 ]
