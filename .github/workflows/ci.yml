@@ -2,31 +2,54 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, interactive-app]
   pull_request:
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
-  test:
+  changes:
+    name: Changed paths
     runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.paths.outputs.backend }}
+      backend-lint: ${{ steps.paths.outputs.backend_lint }}
+      frontend: ${{ steps.paths.outputs.frontend }}
+      markdown: ${{ steps.paths.outputs.markdown }}
+      workflow-sync: ${{ steps.paths.outputs.workflow_sync }}
+      intake: ${{ steps.paths.outputs.intake }}
     steps:
       - uses: actions/checkout@v4
-
-      - uses: astral-sh/setup-uv@v6
         with:
-          enable-cache: true
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Test path selection
+        run: python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v
+      - name: Select checks
+        id: paths
+        run: python3 .github/scripts/ci_paths.py
 
-      # Python comes from .python-version. The scanner extra is left out: it
-      # wants radio and input libraries a runner has no use for, and the TUI
-      # tests skip themselves without it.
-      - name: Install
-        run: uv sync --locked
+  test:
+    name: Test
+    needs: changes
+    uses: ./.github/workflows/test.yml
+    with:
+      backend: ${{ needs.changes.outputs.backend == 'true' }}
+      frontend: ${{ needs.changes.outputs.frontend == 'true' }}
+      workflow-sync: ${{ needs.changes.outputs.workflow-sync == 'true' }}
+      intake: ${{ needs.changes.outputs.intake == 'true' }}
 
-      - name: Lint
-        run: uv run ruff check .
-
-      - name: Test
-        run: uv run pytest
+  lint:
+    name: Lint
+    needs: changes
+    uses: ./.github/workflows/lint.yml
+    with:
+      backend: ${{ needs.changes.outputs.backend-lint == 'true' }}
+      frontend: ${{ needs.changes.outputs.frontend == 'true' }}
+      markdown: ${{ needs.changes.outputs.markdown == 'true' }}
+      intake: ${{ needs.changes.outputs.intake == 'true' }}

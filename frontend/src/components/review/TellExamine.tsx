@@ -1,0 +1,123 @@
+import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import styled from 'styled-components'
+import { examineLead } from '#/processing/source'
+import { confirmPending, editPending, pendingMessage, sendKey } from '#/processing/pending-messages'
+import { serverQueryKey } from '#/queries/scope'
+import { color, radius, space } from '#/theme/generated/tokens'
+import { chatConfirmation } from '#/components/processing/SessionChatPanel'
+import { AiMark, Button, Small } from '#/components/ui'
+import { Label, TextArea } from '#/forms'
+import { useReportDirty } from '#/navigation/useReportDirty'
+import { useApiClients, useServerScope, useRetainedPollInterval } from '#/context'
+import { useAsyncAction } from '#/lifecycle/useAsyncAction'
+
+const NOT_CONFIRMED =
+  'The instruction was not confirmed and may already be queued. It is kept here; sending it again cannot queue it twice.'
+
+/**
+ * Review › Map's instruction to the lot-forming agent, sent as chat to the batch's Examine lead
+ * session. It appears only while that session can take one: a cancelled session is restarted from
+ * Processing instead.
+ */
+export function TellExamine({
+  batchId,
+  onDirtyChange,
+}: {
+  batchId: string
+  /** Reports unsent text to the navigation guard. */
+  onDirtyChange?: (dirty: boolean) => void
+}) {
+  const { processing } = useApiClients()
+  const storeKey = `${batchId}:examine-lead`
+  const scope = useServerScope()
+  const pollInterval = useRetainedPollInterval()
+  const [text, setText] = useState(() => pendingMessage(storeKey).text)
+  const [outcome, setOutcome] = useState<string | null>(null)
+  const { busy, error, run, clearError } = useAsyncAction()
+  const snapshot = useQuery({
+    queryKey: serverQueryKey(scope, 'processing', batchId),
+    queryFn: () => processing!.read(batchId),
+    enabled: Boolean(processing?.chat),
+    refetchInterval: pollInterval,
+  })
+  const lead = snapshot.data ? examineLead(snapshot.data) : null
+  const chat = processing?.chat
+  const visible = Boolean(chat && lead?.session_state && lead.session_state !== 'cancelled')
+  // Unsent text is unsaved work only while the form is shown; hiding or leaving reports clean.
+  const dirty = visible && Boolean(text.trim())
+  // Typing and sending report from their handlers; polling can also hide the form, with no event.
+  useEffect(() => {
+    onDirtyChange?.(dirty)
+  }, [dirty, onDirtyChange])
+  useReportDirty(dirty, onDirtyChange)
+  if (!lead?.session_state || lead.session_state === 'cancelled' || !chat) {
+    return null
+  }
+  const state = lead.session_state
+
+  async function send(key: string) {
+    setOutcome(null)
+    await chat!.call(
+      processing,
+      batchId,
+      lead!.id,
+      { idempotency_key: key, text: text.trim() },
+      key,
+    )
+    confirmPending(storeKey)
+    setText('')
+    onDirtyChange?.(false)
+    setOutcome(chatConfirmation(state))
+  }
+
+  return (
+    <Form
+      onSubmit={(event) => {
+        event.preventDefault()
+        // Made before the run, so a failure to make a key is not reported as a possibly queued send.
+        const key = sendKey(storeKey, text)
+        void run(() => send(key), NOT_CONFIRMED)
+      }}
+    >
+      <Label>
+        <AiMark size="sm">Instruction for Examine</AiMark>
+        <TextArea
+          value={text}
+          rows={2}
+          maxLength={4096}
+          disabled={busy}
+          onChange={(event) => {
+            const next = event.target.value
+            setText(next)
+            editPending(storeKey, next)
+            setOutcome(null)
+            clearError()
+            onDirtyChange?.(Boolean(next.trim()))
+          }}
+        />
+      </Label>
+      <Row>
+        <Button type="submit" size="sm" disabled={busy || !text.trim()}>
+          Tell Examine
+        </Button>
+        {outcome && <Small role="status">{outcome}</Small>}
+        {error && <Small role="alert">{error}</Small>}
+      </Row>
+    </Form>
+  )
+}
+
+const Form = styled.form`
+  display: grid;
+  gap: ${space[4]};
+  padding: ${space[6]};
+  border-radius: ${radius.btn};
+  background: ${color.surface2};
+`
+const Row = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[4]};
+`

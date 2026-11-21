@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "locations": [
+    { "key": "loc-bench", "name": "Seed Bench", "description": "Seeded development workbench" },
+    {
+      "key": "loc-drawer-a1",
+      "name": "Drawer A1",
+      "parent": "loc-bench",
+      "description": "Seeded small-parts drawer"
+    },
+    { "key": "loc-shelf", "name": "Seed Shelf", "description": "Seeded shelf for reels and boxes" }
+  ],
+  "companies": [
+    {
+      "key": "co-seed-semi",
+      "name": "Seed Semiconductor",
+      "description": "Seeded manufacturer",
+      "is_manufacturer": true
+    },
+    {
+      "key": "co-seed-passives",
+      "name": "Seed Passives",
+      "description": "Seeded manufacturer",
+      "is_manufacturer": true
+    },
+    {
+      "key": "co-seed-supply",
+      "name": "Seed Supply",
+      "description": "Seeded supplier",
+      "is_supplier": true
+    }
+  ],
+  "parts": [
+    {
+      "key": "part-opamp",
+      "name": "SEED358 dual op-amp",
+      "IPN": "SEED-IC-0001",
+      "description": "Seeded dual operational amplifier, DIP-8",
+      "category": "Integrated Circuits/Op-Amps",
+      "manufacturer": "co-seed-semi",
+      "MPN": "SEED358P",
+      "supplier": "co-seed-supply",
+      "SKU": "SS-SEED358P"
+    },
+    {
+      "key": "part-mcu",
+      "name": "SEED328 microcontroller",
+      "IPN": "SEED-IC-0002",
+      "description": "Seeded 8-bit microcontroller, DIP-28",
+      "category": "Integrated Circuits/Microcontrollers",
+      "manufacturer": "co-seed-semi",
+      "MPN": "SEED328-PU",
+      "supplier": "co-seed-supply",
+      "SKU": "SS-SEED328-PU"
+    },
+    {
+      "key": "part-cap-100n",
+      "name": "100 nF ceramic capacitor",
+      "IPN": "SEED-CAP-0001",
+      "description": "Seeded 100 nF 50 V X7R ceramic capacitor, radial",
+      "category": "Capacitors/Ceramic Capacitors",
+      "manufacturer": "co-seed-passives",
+      "MPN": "SP-C104-50",
+      "supplier": "co-seed-supply",
+      "SKU": "SS-C104-50"
+    },
+    {
+      "key": "part-res-10k",
+      "name": "10 kΩ resistor",
+      "IPN": "SEED-RES-0001",
+      "description": "Seeded 10 kΩ 1% 0.25 W metal film resistor",
+      "category": "Resistors/Through Hole Resistors",
+      "manufacturer": "co-seed-passives",
+      "MPN": "SP-R10K-1",
+      "supplier": "co-seed-supply",
+      "SKU": "SS-R10K-1"
+    }
+  ],
+  "stock": [
+    { "key": "stock-opamp", "part": "part-opamp", "location": "loc-drawer-a1", "quantity": 12 },
+    { "key": "stock-mcu", "part": "part-mcu", "location": "loc-drawer-a1", "quantity": 3 },
+    { "key": "stock-cap-100n", "part": "part-cap-100n", "location": "loc-shelf", "quantity": 250 },
+    { "key": "stock-res-10k", "part": "part-res-10k", "location": "loc-shelf", "quantity": 500 }
+  ]
+}

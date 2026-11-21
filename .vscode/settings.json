@@ -1,0 +1,22 @@
+{
+  "prettier.requireConfig": true,
+  "prettier.prettierPath": "./node_modules/prettier",
+  "prettier.ignorePath": ".prettierignore",
+  "ruff.path": [
+    "${workspaceFolder}/backend/.venv/bin/ruff",
+    "${workspaceFolder}/backend/.venv/Scripts/ruff.exe"
+  ],
+  "ruff.configuration": "${workspaceFolder}/backend/pyproject.toml",
+  "[javascript][javascriptreact][typescript][typescriptreact][json][jsonc][css]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true
+  },
+  "[markdown]": {
+    "editor.formatOnSave": false,
+    "editor.wordWrap": "on"
+  }
+}

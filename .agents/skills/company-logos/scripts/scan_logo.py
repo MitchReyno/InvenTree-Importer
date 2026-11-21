@@ -1,7 +1,7 @@
 """Cut a logo out of a scanned PDF page - a data book cover, an ad.
 
-    uv run --with pillow python scan_logo.py PDF --page N OUT_DIR
-    uv run --with pillow python scan_logo.py PDF --page N OUT.png --region X0,Y0,X1,Y1
+    uv run --project backend --with pillow python scan_logo.py PDF --page N OUT_DIR
+    uv run --project backend --with pillow python scan_logo.py PDF --page N OUT.png --region X0,Y0,X1,Y1
         [--mask X0,Y0,X1,Y1 ...] [--whiten] [--whiten-uneven [--white-level L]
         [--max-tint S]]
 

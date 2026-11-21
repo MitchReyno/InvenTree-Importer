@@ -1,0 +1,13 @@
+[
+  "frontend/src/capture/context.ts | export | batchContext",
+  "intake-server/src/capture/settings-intent.ts | export | hasSettingsIntent",
+  "intake-server/src/media/schema.ts | export | mediaStoreIdentity",
+  "intake-server/src/operations/archive.ts | type | ArchiveManifest",
+  "intake-server/src/processing/catalogue.ts | type | CatalogueAssessment",
+  "intake-server/src/processing/catalogue.ts | type | CatalogueUnsupportedReason",
+  "intake-server/src/processing/model.ts | export | handlerVersion",
+  "intake-server/src/processing/model.ts | export | stageOrderFor",
+  "intake-server/src/processing/stable-identity.ts | export | SUCCESSOR_STAGES",
+  "intake-server/src/processing/stable-identity.ts | export | lotRegrouped",
+  "intake-server/src/research/limits.ts | export | MAX_INVENTORY_READ_BYTES"
+]

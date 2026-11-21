@@ -1,0 +1,4 @@
+# Preserve PDF bytes and omit binary document content from textual diffs.
+*.pdf binary
+# Preserve the exact bytes referenced by fixture SHA-256 digests on every checkout.
+fixtures/**/*.json text eol=lf

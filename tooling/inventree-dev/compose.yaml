@@ -1,0 +1,88 @@
+# Local development InvenTree. Drive it with `pnpm inventree:dev`, not plain
+# `docker compose`: the CLI owns secrets, ordering and ownership checks.
+name: bench-inventree-dev
+
+x-inventree: &inventree
+  image: inventree/inventree@sha256:36027b18ac12e428d0adeda1428325a79c915d571f9c22e2efa0d736f68a3d53
+  labels:
+    bench-intake.owner: inventree-dev
+  restart: "no"
+  environment:
+    INVENTREE_SITE_URL: http://127.0.0.1:4320
+    INVENTREE_DB_ENGINE: postgresql
+    INVENTREE_DB_HOST: inventree-db
+    INVENTREE_DB_PORT: "5432"
+    INVENTREE_DB_NAME: inventree
+    INVENTREE_DB_USER: inventree
+    INVENTREE_CACHE_ENABLED: "False"
+    INVENTREE_PLUGINS_ENABLED: "False"
+    INVENTREE_AUTO_UPDATE: "False"
+    INVENTREE_LOG_LEVEL: WARNING
+    INVENTREE_GUNICORN_WORKERS: "2"
+    INVENTREE_BACKGROUND_WORKERS: "1"
+  volumes:
+    - bench-inventree-dev-data:/home/inventree/data
+    - ./scripts:/opt/bench-intake:ro
+  env_file:
+    - path: ${BENCH_INVENTREE_DEV_STATE:?}/inventree.env
+      required: false
+
+services:
+  inventree-db:
+    image: postgres:17
+    container_name: bench-inventree-dev-db
+    labels:
+      bench-intake.owner: inventree-dev
+    restart: "no"
+    command: ["postgres", "-c", "max_connections=120", "-c", "shared_buffers=64MB"]
+    env_file:
+      - path: ${BENCH_INVENTREE_DEV_STATE:?}/inventree-db.env
+        required: false
+    ports:
+      - 127.0.0.1:55433:5432
+    volumes:
+      - bench-inventree-dev-db:/var/lib/postgresql/data
+    cpus: 1
+    mem_limit: 512m
+    pids_limit: 256
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  inventree-init:
+    <<: *inventree
+    command:
+      - sh
+      - -c
+      - invoke migrate && invoke static && python src/backend/InvenTree/manage.py shell < /opt/bench-intake/bootstrap.py
+    env_file:
+      - path: ${BENCH_INVENTREE_DEV_STATE:?}/inventree.env
+        required: false
+      - path: ${BENCH_INVENTREE_DEV_STATE:?}/inventree-init.env
+        required: false
+
+  inventree-server:
+    <<: *inventree
+    ports:
+      - 127.0.0.1:4320:8000
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/', timeout=3)"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+  inventree-worker:
+    <<: *inventree
+    command: ["invoke", "worker"]
+
+volumes:
+  bench-inventree-dev-db:
+    name: bench-inventree-dev-db
+    labels:
+      bench-intake.owner: inventree-dev
+  bench-inventree-dev-data:
+    name: bench-inventree-dev-data
+    labels:
+      bench-intake.owner: inventree-dev

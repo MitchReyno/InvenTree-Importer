@@ -1,0 +1,48 @@
+# Only these web/code formats belong to Prettier (including editor requests).
+# Markdown stays with remark; Python stays with Ruff. HTML/YAML/SQL are not opted in.
+*
+!*/
+!**/*.js
+!**/*.jsx
+!**/*.cjs
+!**/*.mjs
+!**/*.ts
+!**/*.tsx
+!**/*.cts
+!**/*.mts
+!**/*.json
+!**/*.jsonc
+!**/*.css
+
+# Generated/checksummed contracts and preserved synthetic evidence are byte-sensitive.
+**/generated/**
+**/vectors/**
+**/fixtures/**
+**/migrations/**
+docs/**
+spikes/**
+openspec/changes/**/spikes/**
+backend/**
+
+# Mirrored workflow assets are outside this web-tooling rollout.
+.agents/**
+.claude/**
+.codex/**
+.amp/**
+**/node_modules/**
+**/dist/**
+**/coverage/**
+**/.venv/**
+**/.git/**
+**/.cache/**
+**/.temp/**
+**/.local_imports/**
+**/.pnpm-store/**
+**/.pytest_cache/**
+**/.ruff_cache/**
+**/__pycache__/**
+**/backups/**
+**/worktrees/**
+*.tsbuildinfo
+results.json
+orders.json

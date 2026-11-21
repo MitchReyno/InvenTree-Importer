@@ -1,0 +1,11 @@
+{
+  "name": "@invimport/openapi-generator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "exports": "./index.cjs",
+  "dependencies": {
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3"
+  }
+}

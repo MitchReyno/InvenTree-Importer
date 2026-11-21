@@ -1,0 +1,145 @@
+# Design assessment
+
+## Context and grounding
+
+The change touches only the frontend: the masthead, the app shell's page ground, the electronics-current scene, the theme controller and Settings › Appearance. No server, contract or stored-data boundary is involved.
+
+Existing patterns this builds on:
+
+- **Theme preference** (`frontend/src/theme/theme.ts`): a controller with injected storage, media query and root element, holding the choice in `localStorage` (`bench-intake.theme`), writing `data-theme` on `<html>` and read through `useSyncExternalStore`. An inline script in `frontend/index.html` sets `data-theme` before first paint. Storage failures fall back silently.
+- **Current host** (`components/masthead/ElectronicsCurrent.tsx`): WebGL 2 detection, a lazy scene import, reduced motion, window pointer listeners, a `data-theme` MutationObserver calling `setTheme`, and full disposal on unmount. `Masthead.tsx` owns the bar ground and measures the text gap into four `--current-*` mask stops.
+- **Scene** (`electronics-current/scene.ts`): sizes to its canvas. `desiredCount()` scales with width only (30 at 1280px, from 6 to 40), and `openHeightNear` spawns within the canvas height. The flow drifts right to left with gentle vertical waves (`flow.ts`).
+- **Settings** (`components/settings/AppearanceSection.tsx`): one `SettingRow` with `ThemeChoice`, a radiogroup also used by `PhoneMenu`.
+
+Complexity: moderate. Most of the work is layout and CSS. The scene needs one new layout input. The theme controller is unchanged: every option follows the Theme setting, and the canvas option D is B under the dark theme, not a separate option.
+
+## Goals and constraints
+
+- Meet the modified requirements in `specs/ui-design-system/spec.md` and `specs/app-settings/spec.md`.
+- No visible change for devices without a stored masthead style.
+- Keep the current's existing guarantees in every style and theme: lazy three.js, still frame, disposal, no application-state effects, `aria-hidden`.
+- Follow the frontend guidelines. Use `useSyncExternalStore` for the stored preference, keep component-owned styles colocated, use token-driven values (the literal checker applies), and add no Effect where an event handler or render-time derivation suffices.
+
+## Decisions and alternatives
+
+### D1. One masthead-style preference, applied as a root attribute
+
+Add `frontend/src/theme/masthead-style.ts`, modelled on `theme.ts`:
+
+- **Values:** `MastheadStyle = 'bar' | 'window' | 'fade'`, stored under `bench-intake.masthead`, defaulting to `bar`.
+- **Effect:** it writes `data-masthead` on `<html>`, and `useMastheadStyle()` exposes the choice.
+- **Pre-paint:** the inline script in `index.html` sets `data-masthead` too, so the first paint is correct.
+
+The shared storage read and write, with their try/catch fallback, move into a small `theme/device-preference.ts` helper used by both controllers. This avoids a second copy of the fallback policy.
+
+Rejected:
+
+- A React context holding the style. Styles and the pre-paint script need it outside React, and the theme already proves the root-attribute pattern.
+- Widening the theme controller into one "appearance" controller. That mixes two independent choices and their tests.
+
+### D2. One field canvas, positioned by style; the bar canvas stays for A
+
+Two hosts render `ElectronicsCurrent`:
+
+| Style | Host | Canvas box | Mask |
+| --- | --- | --- | --- |
+| `bar` | `Masthead` (as today) | the bar | horizontal text gap (existing) |
+| `window` | new `MastheadField` in the app shell, before the content | `position: fixed; inset: 0`, behind content (stacking below) | none: legibility comes from heading patches (D3) |
+| `fade` | `MastheadField` | `position: absolute`, top of the page, 420px tall, scrolls with the page | two nested masks, which multiply: the band's vertical fade (opaque to 140px, clear at 420px), and inside it a mask whose two layers add up: the bar's text-gap mask within the bar's height, and below the bar a cut-out over the main content column |
+
+Stacking uses no new token and no wrapper. The field host sits at `z-index: -1`, which paints above the root's background (the dotted ground under B) and below every in-flow and positioned element: the masthead bar, pages, the condensed phone row, popovers, dialogs and toasts. No element around the app gains a stacking context, so toasts still render above body-portalled menus through the existing `raised`, `popover` and `toast` layers, and no absolute descendant changes its containing block. The field never takes pointer events.
+
+The host is picked during render from `useMastheadStyle()` by `MastheadBackdrop`, so only one canvas exists at a time. `ElectronicsCurrent` loads the scene chunk through one module-level promise shared by every mount (reset if the load fails), so overlapping mounts, as under StrictMode, share a single import. B and C share `MastheadField`, and `ElectronicsCurrent`'s Effect runs once per mount, so the field host is rendered with `key={style}`: every style change, B↔C included, unmounts the old host, and the existing cleanup (with its `unmounted` guard for a pending lazy import) releases its scene. The field's mask stops are CSS custom properties, like the bar's. C reuses the bar's existing ResizeObserver stops, including the compact quarter-strength dimming under the text: `Masthead` sets them on the document root rather than on its own element, so the field can read them. The content column's edges are computed in CSS from the page-width token the app already picks per route (`pageWidthFor`), passed to the field as a prop: each edge is `max(0px, (100% - width) / 2)`, so the cut-out follows each screen's width (1240px, or 1500px on Review) without measuring anything. On a phone the column is the full width, so below the bar C shows only the ground; parts stay in the bar's gap. That is accepted: the alternative is parts behind page text, or patches that would show as chips below the band.
+
+Ground and chrome by style, all in styled-components keyed off `[data-masthead]` on the root:
+
+- **`bar`:** unchanged.
+- **`window`:** the dotted ground (`masthead-ground` / `masthead-dot`) moves to the root element (`:root`, fixed attachment), whose background paints below the field's negative layer. The bar is `surface` at 70% via `color-mix`, with `backdrop-filter: blur` and its bottom rule. Cards that sit on the page take the `shadow` token through `raisedOnField`; tables inside them do not.
+- **`fade`:** the bar loses its ground and rule; the page keeps `bg`. The field draws the dotted ground inside its masked band.
+
+Rejected:
+
+- One canvas that is resized and re-masked across styles. It keeps a single GPU context alive, but needs the scene to relayout in place and the host to move between DOM parents. Remounting is simpler and already correct.
+- Fading the field under the content column. The developer chose heading patches instead (2026-11-19), which keep parts at full strength everywhere, as the artboard shows.
+
+### D3. Ground patches behind text on the field
+
+Under `window` only, text that sits directly on the field gets a patch of `masthead-ground`, as the artboard's "Batches" heading does: small horizontal padding with a matching negative margin, so the text does not move, plus the small radius token. Parts pass behind the patch, never the text.
+
+- **Where:** a shared `onField` css mixin in `components/ui/field.ts`, active only under `[data-masthead='window']`. A block of loose text whose items must keep their width, such as the Settings nav or a padded note, uses `groundBehindOnField`, one ground backing without the patch's padding and fit-content width. Nothing applies it by default, `PageTitle` included: each heading or text opts in where it is placed on the field, through a transient `$onField` prop on the primitives or the mixin in a screen's own styled component. Each screen is swept: Batches, Agents, Settings (title, section titles and leads, nav, back link), Records stage, and any other text found by the manual check.
+- **Not on surfaces:** headings inside `Panel`, cards, dialogs and the batch header band already sit on `surface` and do not opt in, so no ground-coloured chip appears inside a card. For example, the "Local setup required" `PageTitle` in `App.tsx` sits in a `Panel` and stays unpatched.
+- **Themes:** the patch uses the ground token, so it follows the theme with no extra work.
+
+Rejected: applying the patch to `PageTitle`, `Heading` or `Subheading` by default. Some of each sit inside panels, where a ground chip on a surface would look wrong.
+
+### D4. Scene field layout: density by area, a capped pixel ratio
+
+`ElectronicsCurrentOptions` gains `layout: 'band' | 'field'`, defaulting to `'band'`, which keeps current behaviour exactly.
+
+For `'field'`:
+
+- **Count:** `desiredCount()` uses area, at the bar's reference density of 30 parts per 1280 × 64 px scaled down. The artboards show about 25 parts on 1440 × 900, so the density is a named constant tuned to that. The count is clamped to the same 6–40 range, so a 4K window cannot exceed 40.
+- **Spread:** spawn heights use the full field, and `openHeightNear` already spreads them.
+- **Pixel ratio:** capped at 1.5 for the field (the bar keeps its current ratio). This bounds fill cost on a full-window canvas.
+- **Resize:** today the scene relays out only when the width changes (`laidOutWidth`), which is right for a band of fixed height. The field layout tracks the laid-out height too, so a height-only resize (including the still frame under reduced motion) recomputes the count and places every part within the new bounds. For B the canvas is viewport-sized and does not change on scroll, so scrolling never relayouts.
+
+Rejected: a separate scene module for the field. The flow, catalogue and finishes are identical; only count and bounds differ.
+
+### D5. Settings row: a radiogroup of three named options
+
+Add `components/settings/MastheadChoice.tsx`, a radiogroup like `ThemeChoice`, in a "Masthead" `SettingRow` under Theme. The help text reads "Where the drifting electronics sit." Each option has its artboard label and a one-line description:
+
+- In the bar: the masthead only.
+- Behind the whole window: dotted ground under every page.
+- Fading down: a band at the top that fades out.
+
+Picking an option calls the controller in the change handler; no Effect is involved. `ThemeChoice` and `PhoneMenu` are unchanged.
+
+Rejected: thumbnail previews. They are not in the design, and each would be a small animated or static mock to maintain. The canvas Appearance artboard is updated with the text row to keep design and app aligned.
+
+## State, authority and failure behavior
+
+```text
+localStorage ─► masthead-style controller ─► <html data-masthead> ─► styles, field host, patches
+localStorage ─► theme controller (unchanged) ─► <html data-theme> ─► tokens, scene.setTheme
+index.html inline script sets both attributes before first paint
+```
+
+- **State:** device-local only, owned by the two independent controllers. There is no server state, authority or identity. Nothing is sent anywhere.
+- **Failures:**
+  - Missing or throwing storage gives `bar`, and the theme as today; a choice made then lasts for the session.
+  - An unknown stored value is treated as `bar`.
+  - Without WebGL 2 the CSS ground and chrome still apply, with no canvas content and no three.js download.
+  - A scene start failure leaves the plain ground, as today.
+- **Concurrency:** a style change during a pending lazy scene import is covered by the existing `unmounted` guard in `ElectronicsCurrent`.
+- **Accessibility:** both canvases stay `aria-hidden` with no pointer events. Text contrast on B relies on the ground patches, which are checked in verification.
+
+## Verification strategy
+
+| Outcome or risk | Check | Boundary established |
+| --- | --- | --- |
+| Preference read, write, fallback and unknown values; pre-paint parity | Vitest unit tests for `masthead-style.ts` and `device-preference.ts` with fake storage; a test that runs the `index.html` inline script in jsdom for each stored combination | Controller logic and the pre-paint rule in jsdom |
+| Masthead and theme choices stay independent | Settings test: change one, assert the other's attribute and selection are unchanged, then remount from storage | jsdom only |
+| Patches only where placed on the field | Primitive test: a `PageTitle` with `$onField` gains the patch only under `data-masthead="window"`; the setup panel's `PageTitle` and a `Heading` inside `Panel` never do | Computed style rules in jsdom (presence, not visual result) |
+| Field stays behind content without changing overlay order | Component test: the whole-window field is fixed, non-interactive and at `z-index: -1`. Manual check under B that the field sits above the ground and below the bar, page content, the condensed phone row, popovers, dialogs and toasts, and that a toast stays above an open menu that overlaps it | DOM order and styles in jsdom; painting order manually |
+| C keeps parts off page text | Component test: under `fade`, the field's mask uses the page-width token for the current route width | Mask inputs in jsdom; the visual result is checked manually |
+| Settings row is remembered and applies immediately | `Settings.test.tsx`: pick Fading down, assert `data-masthead`, remount from storage | jsdom only |
+| One host per style; switching disposes the old one | Component test under StrictMode with a stubbed `WebGL2RenderingContext` and a mocked scene module, for A→B, B→C and C→B, including a switch while the lazy import is pending: each old scene is disposed once (or never created), and one canvas and one live scene remain | Host lifecycle, not GPU behaviour |
+| Field density and bounds | `scene.test.ts`: area-based count at 1440 × 900, 390 × 844 and 3840 × 2160 stays within 6–40; spawn heights fall within the field; a height-only resize under reduced motion updates the count and keeps every part in bounds with no animation loop; `band` counts are unchanged | Pure scene maths |
+| Visual fidelity, legibility and fixed/scrolling behaviour for A, B and C, light and dark, desktop and phone | Manual browser run through `pnpm dev` (headless browser where possible), compared with artboards A–C, and with D for B under Dark. Every screen's loose text on B is spot-checked for 4.5:1 and any missing patch added with the browser's contrast tool. Captures go on the PR, and a demo recording is attached per the UI-PR practice | Real rendering; manual evidence |
+| Repository gates | `pnpm typecheck`, `pnpm lint:frontend` (includes the literal and contrast checks), `pnpm test:frontend`, `pnpm build` | Declared frontend checks |
+
+jsdom has no WebGL, so no automated test proves GPU rendering or performance. The manual run covers that, and the PR states it.
+
+## Migration, rollout and recovery
+
+- **Migration:** none. The new preference defaults to today's behaviour, and the theme is untouched.
+- **Rollback:** reverting the change leaves at most a harmless unused `bench-intake.masthead` key in browser storage.
+- **Not applicable:** observability and live operations; the feature is decorative and local.
+
+## Risks and open decisions
+
+- **GPU cost of a full-window canvas** on low-end devices. Mitigations: the 40-part cap, the 1.5 pixel-ratio cap for the field, and the existing still frame under reduced motion. Watch for a frame-time regression during the manual run; if there is one, record it in `notes.md` and lower the density constant.
+- **`backdrop-filter` over a WebGL canvas** can be costly in some browsers. Mitigation: the blur applies only to the 64px bar.
+- **A missed patch** leaves some loose text on the field less legible. Mitigation: the manual sweep of every screen under B in both themes; findings are fixed before review.
+- Open decisions: None. The developer resolved both on 2026-11-19 (D follows the theme; heading patches).

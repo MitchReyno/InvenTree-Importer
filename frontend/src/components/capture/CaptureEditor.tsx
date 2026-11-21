@@ -1,0 +1,203 @@
+import { Small, Button } from '#/components/ui'
+import { Fieldset, Form, Input, Label, Select, TextArea } from '#/forms'
+import { Controller, useForm } from 'react-hook-form'
+import type { Snapshot } from '#/capture/types'
+import {
+  captureEditorDefaults,
+  captureEditorChange,
+  type CaptureEditorValues,
+} from '#/capture/editor-model'
+import { CaptureContextFields } from './CaptureContextFields'
+import { CaptureContextSummary } from './CaptureContextSummary'
+import { PartCreationFields } from './PartCreationFields'
+import { QuantityField } from './QuantityField'
+import { AssignedLocationField } from './AssignedLocationField'
+import { ReferenceField } from './ReferenceField'
+import type { CaptureEdit } from '#/capture/types'
+import { useBatchCommands } from '#/context'
+
+type EditorProps = {
+  batch: Snapshot
+  selected: string
+  frozen: boolean
+  dirty: boolean
+  onDirty: (value: boolean) => void
+  edit: CaptureEdit
+}
+
+export function CaptureEditor({ batch, selected, frozen, dirty, onDirty, edit }: EditorProps) {
+  const { observe } = useBatchCommands()
+  const lot = batch.lots.find((l) => l.id === selected)
+  const part = batch.parts.find((p) => p.id === selected)
+  let labelCaption = 'Lot label'
+  if (part || selected === 'add_part') {
+    labelCaption = 'Part label'
+  }
+
+  // Defaults belong to this selected editor's lifetime. Polling does not reset human input.
+  const { register, control, handleSubmit, formState, watch } = useForm<CaptureEditorValues>({
+    defaultValues: captureEditorDefaults(batch, selected),
+  })
+
+  function saveChanges(values: CaptureEditorValues) {
+    return edit(captureEditorChange(batch, selected, values))
+  }
+
+  return (
+    <Form onChange={() => onDirty(true)} onSubmit={handleSubmit(saveChanges)}>
+      <Fieldset disabled={frozen || formState.isSubmitting}>
+        <Label>
+          {labelCaption}
+          <Input required maxLength={256} {...register('label')} />
+        </Label>
+        {(lot || selected === 'add_lot') && (
+          <Label>
+            Shared Part proposal
+            <Select {...register('partId')}>
+              <option value="">Not linked yet</option>
+              {batch.parts.map((p) => (
+                <option value={p.id} key={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </Select>
+          </Label>
+        )}
+        {lot && (
+          <>
+            <Controller
+              name="quantity"
+              control={control}
+              render={({ field }) => (
+                <QuantityField value={field.value} defaults={false} onChange={field.onChange} />
+              )}
+            />
+            <Controller
+              name="location"
+              control={control}
+              render={({ field }) => (
+                <ReferenceField
+                  title="Location"
+                  model="location"
+                  value={field.value}
+                  defaults={false}
+                  batch={batch}
+                  onChange={(value) => {
+                    field.onChange(value)
+                    onDirty(true)
+                  }}
+                  observe={observe}
+                />
+              )}
+            />
+          </>
+        )}
+        {lot && (
+          <>
+            <CaptureContextSummary batch={batch} subjectId={lot.id} />
+            <Controller
+              name="captureContext"
+              control={control}
+              render={({ field }) => (
+                <CaptureContextFields
+                  value={field.value}
+                  defaults={false}
+                  batch={batch}
+                  observe={observe}
+                  onChange={(value) => {
+                    field.onChange(value)
+                    onDirty(true)
+                  }}
+                />
+              )}
+            />
+          </>
+        )}
+        {part && (
+          <Controller
+            name="partLocation"
+            control={control}
+            render={({ field }) => (
+              <AssignedLocationField
+                label="Location for this Part's lots"
+                scope="Applies to linked lots that use the batch default. A lot's own location still wins; this is not an inventory Part field."
+                value={field.value.mode === 'unset' ? undefined : field.value}
+                batch={batch}
+                onChange={(value) => {
+                  field.onChange(value)
+                  onDirty(true)
+                }}
+              />
+            )}
+          />
+        )}
+        {part && (
+          <Label>
+            Part action
+            <Select {...register('partMode')}>
+              <option value="reuse">Reuse an observed existing Part</option>
+              <option value="create">Create one shared Part</option>
+            </Select>
+          </Label>
+        )}
+        {part && watch('partMode') === 'create' && (
+          <PartCreationFields
+            batch={batch}
+            control={control}
+            register={register}
+            observe={observe}
+            onDirty={() => onDirty(true)}
+          />
+        )}
+        {part && watch('partMode') === 'reuse' && (
+          <Controller
+            name="choice"
+            control={control}
+            render={({ field }) => (
+              <ReferenceField
+                title="Existing Part"
+                model="part"
+                value={field.value}
+                defaults
+                batch={batch}
+                onChange={(value) => {
+                  field.onChange(value)
+                  onDirty(true)
+                }}
+                observe={observe}
+              />
+            )}
+          />
+        )}
+        {selected === 'add_lot' && (
+          <Label>
+            Human observation / note
+            <TextArea maxLength={8192} {...register('text')} />
+          </Label>
+        )}
+        <Button type="submit" disabled={frozen || (!dirty && !selected.startsWith('add_'))}>
+          Save human changes
+        </Button>
+        {!dirty && !frozen && !selected.startsWith('add_') && (
+          <Small>Saved values are unchanged. Edit a field to save a new revision.</Small>
+        )}
+      </Fieldset>
+      {dirty && (
+        <Button
+          type="button"
+          disabled={formState.isSubmitting}
+          onClick={() => {
+            onDirty(false)
+            /* Remount through explicit reset rather than silently dropping stale values. */ locationReload()
+          }}
+        >
+          Discard unsaved input
+        </Button>
+      )}
+    </Form>
+  )
+}
+
+function locationReload() {
+  window.location.reload()
+}

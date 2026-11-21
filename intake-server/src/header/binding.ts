@@ -1,0 +1,64 @@
+import { eq } from 'drizzle-orm'
+import type { Pool, PoolClient } from 'pg'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
+import { targets } from '#/db/schema.ts'
+import { fail } from '#/capture/model.ts'
+import type { ConnectionStatusDto, InventoryCredentialDto } from '@invimport/contracts'
+import type { DevConfig } from '#/config.ts'
+import { connectionStatus } from './connection.ts'
+
+type Binding = Pick<DevConfig, 'actorId' | 'targetId' | 'targetContextId'>
+
+/** A header binding plus whether its target is the owned test fake. */
+type StatusBinding = Binding & Pick<DevConfig, 'targetKind'>
+
+export async function requireHeaderContext(client: Pool | PoolClient, binding: Binding) {
+  const rows = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ context: targets.currentContextId })
+      .from(targets)
+      .where(eq(targets.id, binding.targetId)),
+  )
+  if (rows[0]?.context !== binding.targetContextId) {
+    fail('target_context_changed', 409)
+  }
+}
+
+/** What connection status is scoped to, including whether the target is the owned test fake. */
+export function statusBinding(binding: StatusBinding) {
+  return {
+    actorId: binding.actorId,
+    targetId: binding.targetId,
+    targetContextId: binding.targetContextId,
+    targetKind: binding.targetKind,
+  }
+}
+
+export function scopedConnectionStatus(
+  pool: Pool,
+  binding: StatusBinding,
+  origin: string | undefined,
+  probe?: () => Promise<Response>,
+  version?: () => Promise<Response>,
+  /** The read token the probes use; only its source is reported, never the token. */
+  credential?: { state: () => InventoryCredentialDto; current: () => string },
+) {
+  const scope = statusBinding(binding)
+  const status = connectionStatus(scope, origin, probe, Date.now, version, undefined, credential)
+
+  const fenced = (run: () => Promise<ConnectionStatusDto>) => async () => {
+    const generation = status.generation()
+    await requireHeaderContext(pool, scope)
+    const result = await run()
+    await requireHeaderContext(pool, scope)
+    // The token changed while the context was checked: that answer describes the old one.
+    return status.generation() === generation ? result : status.latest()
+  }
+
+  return Object.assign(fenced(status), {
+    check: fenced(status.check),
+    reset: status.reset,
+    generation: status.generation,
+    latest: status.latest,
+  })
+}

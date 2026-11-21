@@ -33,5 +33,6 @@ review:
   scanRepoDiscussionsCommandEnabled: true
   customRules:
     - Report concrete correctness, security, and performance defects with evidence.
+    - Read the root CODE_GUIDELINES.md and the CODE_GUIDELINES.md of each application the PR touches before reviewing, and report violations of them, citing the rule.
     - Avoid style-only findings and issues already enforced by CI.
     - Explain the failing scenario and suggest a concrete fix.

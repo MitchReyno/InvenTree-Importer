@@ -1,6 +1,6 @@
 """Crop one object out of a photo, square where the photo allows it.
 
-    uv run --with pillow --with numpy python crop.py SRC OUT X0 Y0 X1 Y1 [options]
+    uv run --project backend --with pillow --with numpy python crop.py SRC OUT X0 Y0 X1 Y1 [options]
 
 X0 Y0 X1 Y1 is the region of interest (ROI) in source pixels: the area the
 object lies in, drawn so that it EXCLUDES everything that must not appear in

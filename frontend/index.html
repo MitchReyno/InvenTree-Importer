@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="A local file intake scaffold for InvenTree Importer." />
+    <title>Intake · InvenTree Importer</title>
+    <script>
+      // Sets the theme and masthead style before first paint; frontend/src/theme/theme.ts and
+      // masthead-style.ts own them afterwards.
+      var choice = null
+      var masthead = null
+      try {
+        choice = localStorage.getItem('bench-intake.theme')
+        masthead = localStorage.getItem('bench-intake.masthead')
+      } catch (error) {}
+      var prefersDark = typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches
+      var dark = choice === 'dark' || (choice !== 'light' && prefersDark)
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+      document.documentElement.dataset.masthead =
+        masthead === 'window' || masthead === 'fade' ? masthead : 'bar'
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
