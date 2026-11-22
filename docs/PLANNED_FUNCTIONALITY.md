@@ -120,10 +120,10 @@ Agents in the shared VM get provider web search (Claude WebSearch, Codex web sea
 
 #### BI-018 — Bound agent evidence images and record provider errors
 
-An agent session can be sent an evidence image a provider refuses: lot sessions get the original upload unchanged, and Examine region crops are unscaled, so a 6144 × 8160 photo breaks Claude's pixel limits. When a provider ends a turn with an error, the session failure keeps only `agent_turn_failed`, so the operator can't tell why. Every image sent to an agent is bounded to 2,576 px from the decoded preview, and a failed turn records the provider's own error kind as an allowlisted code.
+Agent sessions could be sent evidence images a provider refuses: lot sessions got the original upload unchanged and Examine region crops were unscaled, so a 6144 × 8160 photo broke Claude's pixel limits. A failed turn kept only `agent_turn_failed`, so the operator couldn't tell why. Every `fetch_evidence` image is now bounded to 2,576 px from the decoded preview (the older single-result native prompt still sends originals). A failed turn records the provider's own error kind when the provider gives one, and a VM turn the specific code behind its failure, whenever the guest's final frame reaches the host.
 
 - Change: `bound-agent-evidence-images`
-- Status: In progress — planned; PR-A (bounded images) and PR-B (provider error) remain.
+- Status: In progress — bounded agent images (#238), the provider's turn error (#239), the specific code behind a VM turn failure (#240) and Claude's output limits in VM tool sessions (#241) merged, and on the paired VM Mitch's retried Examine session reached its question for him and an Images session finished. The planned lot fetch of a 6144 × 8160 original and a live provider error have not been observed yet.
 - Size: M — the tool server's evidence delivery, guest staging, provider adapters, the guest frame and the diagnostic panel.
 - Prerequisites: None. Found during BI-017's requalification; the live check needs Mitch's go-ahead.
 - OpenSpec: [bound-agent-evidence-images](../openspec/changes/bound-agent-evidence-images/)

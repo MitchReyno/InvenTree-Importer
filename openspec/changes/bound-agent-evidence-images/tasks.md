@@ -26,7 +26,9 @@ Check an action off only after it is done and verified, in the same commit as th
 | Bundle | Outcome | Tasks | Why this boundary | Order | Branch and subject | Gates |
 | --- | --- | --- | --- | --- | --- | --- |
 | PR-A | Agents only ever receive bounded images | 1, 2, 3 | One contract field (`delivered`) and its two consumers ship together; the fix for the image failure | First | `feat/bound-agent-evidence-images`, `fix(bound-agent-evidence-images): bound every image sent to agents` | Fast, PostgreSQL and process tiers; GPT-6.2 Sol review; CI |
-| PR-B | A failed turn names the provider's error | 4, 5, 6 | Independent of image bounding; frame and contract change together; includes the visible panel row | After PR-A | `feat/bound-agent-evidence-images-provider-error`, `feat(bound-agent-evidence-images): record the provider's turn error` | As PR-A, plus a demo recording of the panel and the live check |
+| PR-B | A failed turn names the provider's error | 4, 5 | Independent of image bounding; frame and contract change together; includes the visible panel row | After PR-A | `feat/bound-agent-evidence-images-provider-error`, `feat(bound-agent-evidence-images): record the provider's turn error` | As PR-A, plus a demo recording of the panel |
+| Follow-ups | The live check's failures are fixed | 7 | Found by the live check after PR-B merged; each is a separate small PR | After PR-B | #240 `fix/bound-agent-evidence-images-failure-cause`, #241 `fix/bound-agent-evidence-images-tool-frames` | Review rounds; CI |
+| PR-C | The live check is recorded | 6 | Needs a runner image built from merged PR-A and PR-B, so it runs after both | After PR-B, and after the follow-ups #240 and #241 | `docs/bound-agent-evidence-images-live-check`, `docs(bound-agent-evidence-images): record the live check` | Exact-head review; CI |
 
 ## 1. Plan and BI entry
 
@@ -100,12 +102,26 @@ Check an action off only after it is done and verified, in the same commit as th
 
 - **Outcome:** a VM lot session fetching a 6144 × 8160 original succeeds, and a failing turn shows its provider error.
 - **Prerequisites:** PR-A and the code from tasks 4 and 5 are on a runner image, and Mitch gives the go-ahead for provider use.
-- **Verification:** a summary of the session outcomes on PR-B.
+- **Verification:** a summary of the session outcomes on PR-C.
 
-- [ ] 6.1 Ask Mitch for the go-ahead.
-- [ ] 6.2 Run the check, and record the outcomes in `notes.md` and on PR-B.
+- [x] 6.1 Ask Mitch for the go-ahead.
+- [x] 6.2 Rerun Mitch's failing Examine session on the VM after #241, and record the outcome in `notes.md`.
+- [ ] 6.3 Observe a lot session fetching a 6144 × 8160 original, and a failed turn showing a live provider error.
+
+## 7. Follow-ups found by the live check
+
+- **Outcome:** a VM turn failure names its specific code, and Claude in a VM tool session can read image tool results.
+- **Scope:** the guest and tool-worker failure frames (#240); `AgentChild`'s output limits for VM tool sessions (#241). See `notes.md`.
+
+- [x] 7.1 Keep the specific code behind a VM turn failure (#240).
+- [x] 7.2 Let VM tool sessions read image tool results (#241).
 
 ## Delivery
 
-- [ ] PR-A: exact-head review clean; CI green; merged.
-- [ ] PR-B: exact-head review clean; CI green; merged.
+Each PR's review stopped at the agreed three-round limit, with the last round's fixes not reviewed again, so none is recorded as review clean.
+
+- [x] PR-A merged (#238), CI green.
+- [x] PR-B merged (#239), CI green.
+- [x] Follow-ups merged (#240, #241), CI green.
+- [ ] PR-C: CI green; merged.
+- [ ] Each PR: exact-head review clean.
