@@ -4,7 +4,7 @@
 
 ### Requirement: Bounded agent evidence images
 
-Every image fetch_evidence returns to an agent SHALL be cut from the version's decoded page preview and be at most 2,576 px on its long edge. The result SHALL state the delivered width, height and scale relative to the page preview, and the per-run image budget SHALL count the delivered bytes.
+Every image fetch_evidence returns to an agent SHALL be cut from the version's decoded page preview, be at most 2,576 px on its long edge and at most 1.25 MiB encoded. The result SHALL state the delivered width, height and scale relative to the page preview, and the per-run image budget SHALL count the delivered bytes.
 
 #### Scenario: Large original in a lot session
 
@@ -20,15 +20,27 @@ Every image fetch_evidence returns to an agent SHALL be cut from the version's d
 
 #### Scenario: Small region or small page
 
-- **GIVEN** a region or page no larger than 2,576 px on either side
+- **GIVEN** a region, or a lot session's page, no larger than 2,576 px on either side
 - **WHEN** the agent fetches it
 - **THEN** it receives it at its own size, never enlarged, with scale 1, and a later region request still uses page-preview pixels.
 
-#### Scenario: No preview yet
+#### Scenario: Examine overview
 
-- **GIVEN** a delivered version whose preview has not been decoded, or has no previews because it is encrypted
+- **GIVEN** an Examine session and a page of any size
+- **WHEN** the agent fetches it without a region
+- **THEN** it receives an overview at most 768 px on its long edge, lossless where it fits the size cap, with its scale stated.
+
+#### Scenario: Requested page has no preview
+
+- **GIVEN** a version the session may fetch, whose requested page has no decoded preview
 - **WHEN** the agent fetches it
-- **THEN** the result refuses with the existing "no preview yet" validation failure, and grants no delivery authority, and no original bytes are sent.
+- **THEN** the result refuses with `validation_failed`, grants no delivery authority, and sends no original bytes. Encrypted and undecoded versions never reach a session: a lot manifest refuses them as `media_not_ready` and Examine leaves them out.
+
+#### Scenario: Too large at any quality, or removed meanwhile
+
+- **GIVEN** a cut that exceeds 1.25 MiB even at the lowest JPEG quality, or evidence the operator removes while its preview is read
+- **WHEN** the agent fetches it
+- **THEN** the result carries metadata only, or refuses with `media_evidence_removed`; no image is sent, the budget is not charged, and no delivery authority is granted.
 
 ## MODIFIED Requirements
 

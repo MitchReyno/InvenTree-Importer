@@ -87,7 +87,6 @@ None.
 
 - **Intake server:**
   - `agents/tools/handlers.ts`: both `fetch_evidence` paths;
-  - `media/region-crops.ts`: a bounded size option;
   - `agents/failure-model.ts` and the session adapters: provider error capture;
   - `agents/shared-vm/` `native-outcome.ts`, `guest-turn.ts`, `coordinator.ts` and `stage-evidence.ts`.
 - **Contracts:** `SessionToolResult` fetch metadata gains the delivered image's size and scale. `SessionFailure` gains an optional `provider_error`.
@@ -97,6 +96,6 @@ None.
 
 ## Open decisions and assumptions
 
-- **Encoding:** bounded whole pages are JPEG at quality 90, and regions that need no scaling stay PNG. JPEG keeps photo pages far under the size limits; PNG keeps small crops lossless. Revisit if a test page shows text artifacts.
+- **Encoding:** an unscaled image tries PNG, anything else JPEG at falling quality, all within a 1.25 MiB cap per image (see the design).
 - **Assumption:** 2,576 px is the useful maximum for current Claude models, from the vision docs' high-resolution tier. Codex models get the same bound.
 - **Decision (Mitch, 2026-11-22):** fix by bounding images rather than the Files API; plan as an OpenSpec change; implementation authorized.

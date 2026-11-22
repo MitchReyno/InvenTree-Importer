@@ -8,7 +8,7 @@ const extensions = new Map([
   ['image/webp', 'webp'],
 ])
 
-/** Expose authorized image bytes to guest scripts, retaining the original citation for crops. */
+/** Expose the delivered image to guest scripts, keeping the original version as its citation. */
 export async function stageEvidence(
   id: string | number,
   body: string,
@@ -30,7 +30,8 @@ export async function stageEvidence(
   }
   const bytes = Buffer.from(image.data, 'base64')
   const sha256 = createHash('sha256').update(bytes).digest('hex')
-  if (!Array.isArray(metadata.pages) && sha256 !== metadata.source.sha256) {
+  const expected = expectedDigest(metadata, image.mimeType)
+  if (expected !== undefined && sha256 !== expected) {
     throw new Error('invalid_evidence_file')
   }
   const path = join(await directory(), randomUUID() + '.' + extension)
@@ -38,4 +39,30 @@ export async function stageEvidence(
   metadata.local_file = { path, sha256, byte_length: bytes.length, media_type: image.mimeType }
   result.content = [{ type: 'text', text: JSON.stringify(metadata) }, image]
   return JSON.stringify(reply)
+}
+
+/**
+ * The digest the delivered bytes must have. A bounded delivery states its own; a host from before
+ * bounded deliveries sent the original (its source digest) or, with page sizes, a preview cut,
+ * which has none to check, so a guest updated first keeps working with it.
+ */
+function expectedDigest(
+  metadata: { source: { sha256?: unknown }; pages?: unknown; delivered?: Record<string, unknown> },
+  mediaType: string,
+) {
+  const delivered = metadata.delivered
+  if (delivered !== undefined) {
+    if (typeof delivered.sha256 !== 'string' || delivered.media_type !== mediaType) {
+      throw new Error('invalid_evidence_file')
+    }
+    return delivered.sha256
+  }
+  if (Array.isArray(metadata.pages)) {
+    return undefined
+  }
+  // An older host's original must still name the digest it is checked against.
+  if (typeof metadata.source.sha256 !== 'string') {
+    throw new Error('invalid_evidence_file')
+  }
+  return metadata.source.sha256
 }

@@ -4,7 +4,7 @@
 
 ### Requirement: Guest-staged evidence matches the delivered image
 
-The guest SHALL stage the image a fetch_evidence delivery carries, and record that image's own SHA-256, size and dimensions with it. A staged image whose bytes don't match the delivery's stated digest SHALL be refused before the provider sees it. The cited source reference SHALL remain the original version.
+The guest SHALL stage the image a fetch_evidence delivery carries, and record that image's own SHA-256, size and dimensions with it. A staged image whose bytes don't match the delivery's stated digest SHALL be refused before the provider sees it. The cited source reference SHALL remain the original version. A reply from an older host, without a delivered digest, SHALL still be staged under the earlier rule.
 
 #### Scenario: Script crops a bounded delivery
 

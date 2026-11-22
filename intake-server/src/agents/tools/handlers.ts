@@ -40,8 +40,7 @@ import {
   processingProposals,
   processingQuestions,
 } from '#/processing/schema.ts'
-import { decodeMediaInputs, type MediaInputVersion } from '#/media/inputs.ts'
-import { mediaContent } from '#/media/content.ts'
+import { decodeMediaInputs } from '#/media/inputs.ts'
 import type { BlobStore } from '#/media/blob-store.ts'
 import { sha256 } from '#/db/authority.ts'
 import { capabilityDigest, resolveSessionCapability, type SessionPrincipal } from './capability.ts'
@@ -53,7 +52,6 @@ import { pendingSessionInbox, readSessionInbox, sessionInboxItem } from './inbox
 import { removedVersionIds, versionRemovedSql } from '#/media/removal.ts'
 
 export const SESSION_IMAGE_BUDGET_BYTES = 8 * 1024 * 1024
-const SUPPORTED_IMAGES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 
 export interface SessionToolContext {
   pool: Pool
@@ -71,11 +69,14 @@ export interface SessionToolContext {
 }
 
 /** The lead session's evidence: originals pinned in its manifest plus versions sent as notices. */
-async function leadDeliveredVersions(client: PoolClient, principal: SessionPrincipal) {
+/** A session's fetchable versions: its pinned media plus versions sent to it as notices. */
+async function deliverableVersions(client: PoolClient, principal: SessionPrincipal) {
+  // The lead session works from originals; a lot session may also be pinned derived versions.
+  const examine = (principal.manifest.stage as string) === 'examine'
   const pinned = decodeMediaInputs(
     Buffer.from(principal.manifest.media.manifest, 'utf8'),
     Buffer.from(principal.manifest.media.sha256, 'hex'),
-  ).versions.filter((item) => item.kind === 'original')
+  ).versions.filter((item) => !examine || item.kind === 'original')
   const notices = await client.query<{ evidence_id: string; version_id: string }>(
     `SELECT payload->>'evidence_id' AS evidence_id, payload->>'version_id' AS version_id
      FROM public.agent_session_inbox WHERE session_lineage_id=$1 AND kind='evidence'`,
@@ -91,12 +92,90 @@ async function leadDeliveredVersions(client: PoolClient, principal: SessionPrinc
 export const LEAD_PREVIEW_LONG_EDGE = 768
 
 /**
- * A session's evidence as previews: its pinned media plus versions sent to it as evidence
- * notices. The lead session always fetches this way; a lot session does for pages, region
- * crops and versions it learned of from a notice. Previews come back downscaled; a region comes back as a crop of the full preview.
- * Every answer lists each page's full preview size, which regions are measured against.
+ * Every image an agent receives fits this long edge: Claude's high-resolution maximum, which it
+ * downscales anything larger to, and inside every provider's per-image pixel and size limits.
  */
-async function previewFetchEvidence(
+export const AGENT_IMAGE_LONG_EDGE = 2576
+
+/**
+ * The most one encoded agent image may be. Its base64 stays inside the smallest relay frame a
+ * tool reply crosses (about 2 MiB) and far inside every provider's per-image size limit.
+ */
+export const AGENT_IMAGE_MAX_BYTES = 1_310_720
+
+/** JPEG qualities tried in turn until an image fits `AGENT_IMAGE_MAX_BYTES`. */
+const JPEG_QUALITIES = [90, 80, 70, 60]
+const SCALE_DECIMALS = 10_000
+
+interface DeliveredImage {
+  bytes: Buffer
+  mediaType: 'image/png' | 'image/jpeg'
+  width: number
+  height: number
+  scale: number
+}
+
+/**
+ * The image no larger than `longEdge` and `AGENT_IMAGE_MAX_BYTES`, or null when even the
+ * lowest JPEG quality is too large. A lossless request tries PNG first. `scale` is the
+ * delivered long edge per source long edge, so a reader can map positions back.
+ */
+async function boundedImage(
+  source: Buffer,
+  size: { width: number; height: number },
+  longEdge: number,
+  lossless: boolean,
+): Promise<DeliveredImage | null> {
+  const sourceLongEdge = Math.max(size.width, size.height)
+  const decoded = sharp(source, { limitInputPixels: false })
+  const fitted =
+    sourceLongEdge > longEdge
+      ? decoded.resize({ width: longEdge, height: longEdge, fit: 'inside' })
+      : decoded
+  const { data, info } = await fitted.raw().toBuffer({ resolveWithObject: true })
+
+  const pixels = () =>
+    sharp(data, { raw: { width: info.width, height: info.height, channels: info.channels } })
+
+  const scale =
+    sourceLongEdge > longEdge
+      ? Math.round((Math.max(info.width, info.height) / sourceLongEdge) * SCALE_DECIMALS) /
+        SCALE_DECIMALS
+      : 1
+
+  const delivered = (bytes: Buffer, mediaType: DeliveredImage['mediaType']) => ({
+    bytes,
+    mediaType,
+    width: info.width,
+    height: info.height,
+    scale,
+  })
+
+  if (lossless) {
+    const png = await pixels().png().toBuffer()
+    if (png.length <= AGENT_IMAGE_MAX_BYTES) {
+      return delivered(png, 'image/png')
+    }
+  }
+  for (const quality of JPEG_QUALITIES) {
+    const jpeg = await pixels()
+      .flatten({ background: '#ffffff' })
+      .jpeg({ quality, mozjpeg: true })
+      .toBuffer()
+    if (jpeg.length <= AGENT_IMAGE_MAX_BYTES) {
+      return delivered(jpeg, 'image/jpeg')
+    }
+  }
+  return null
+}
+
+/**
+ * A session's evidence, always cut from the decoded page preview and never the original upload.
+ * A whole page comes back bounded (the lead session's overview smaller still); a region is cut
+ * from the full preview, then bounded. Every answer lists each page's full preview size, which
+ * regions are measured against, and describes the image actually delivered.
+ */
+async function fetchEvidenceImage(
   context: SessionToolContext,
   token: string,
   run: string,
@@ -109,6 +188,7 @@ async function previewFetchEvidence(
         versionId: string
         source: ProcessingMediaSourceDto
         preview: { id: string; page: number; width: number; height: number; digest: string }
+        examine: boolean
         region?: {
           x: number
           y: number
@@ -137,7 +217,7 @@ async function previewFetchEvidence(
           source_height: number
         }
       }>('SessionFetchEvidenceArgs', args)
-      const delivered = await leadDeliveredVersions(client, principal)
+      const delivered = await deliverableVersions(client, principal)
       const version = delivered.find(
         (item) =>
           item.evidence_id === request.evidence_id &&
@@ -192,6 +272,7 @@ async function previewFetchEvidence(
         versionId: version!.version_id,
         preview: preview!,
         region: request.region,
+        examine: (principal.manifest.stage as string) === 'examine',
       }
       const described = await client.query<{ label: string; note: string | null }>(
         `SELECT e.label,
@@ -217,28 +298,41 @@ async function previewFetchEvidence(
   if (!plan || !authorized.result.ok || !context.store || (plan.region && !context.cropCacheDir)) {
     return authorized
   }
-  const { preview, region } = plan
+  const { preview, region, batchId, versionId } = plan
 
   const source = () => context.store!.read(preview.digest)
 
-  const bytes = region
-    ? (
-        await regionCropCache(context.cropCacheDir!).crop(
-          { versionId: plan.versionId, page: preview.page },
-          { kind: 'pixels', ...region },
-          source,
+  const delivered = region
+    ? await boundedImage(
+        (
+          await regionCropCache(context.cropCacheDir!).crop(
+            { versionId: plan.versionId, page: preview.page },
+            { kind: 'pixels', ...region },
+            source,
+          )
+        ).bytes,
+        region,
+        AGENT_IMAGE_LONG_EDGE,
+        region.width <= AGENT_IMAGE_LONG_EDGE && region.height <= AGENT_IMAGE_LONG_EDGE,
+      )
+    : plan.examine
+      ? await boundedImage(await source(), preview, LEAD_PREVIEW_LONG_EDGE, true)
+      : await boundedImage(
+          await source(),
+          preview,
+          AGENT_IMAGE_LONG_EDGE,
+          preview.width <= AGENT_IMAGE_LONG_EDGE && preview.height <= AGENT_IMAGE_LONG_EDGE,
         )
-      ).bytes
-    : await sharp(await source(), { limitInputPixels: false })
-        .resize({
-          width: LEAD_PREVIEW_LONG_EDGE,
-          height: LEAD_PREVIEW_LONG_EDGE,
-          fit: 'inside',
-          withoutEnlargement: true,
-        })
-        .png()
-        .toBuffer()
-  if (!(await resolveSessionCapability(context.pool, token))) {
+  // One final decision after the read and encoding: the session may have ended and the operator
+  // may have removed the evidence meanwhile. Nothing below it awaits before the grant.
+  // Removal first and the capability last, so the grant follows the latest capability read.
+  const final = await transaction(context.pool, async (client) => {
+    const removed = await removedVersionIds(client, batchId, [versionId])
+    const live = await resolveSessionCapability(client, token)
+
+    return { removed, live }
+  })
+  if (!final.live) {
     return {
       result: {
         ok: false,
@@ -248,6 +342,21 @@ async function previewFetchEvidence(
       },
     }
   }
+  if (final.removed.size) {
+    return {
+      result: {
+        ok: false,
+        error: 'media_evidence_removed',
+        message: 'That evidence was deleted by the operator.',
+        pending_inbox: 0,
+      },
+    }
+  }
+  // An image too large to send at any quality comes back as metadata, like an exhausted budget.
+  if (!delivered) {
+    return authorized
+  }
+  const bytes = delivered.bytes
   // The image budget counts what reaches the agent, reserved for this provider run.
   const used = context.imageBudget.get(run) ?? 0
   if (bytes.length > SESSION_IMAGE_BUDGET_BYTES - used) {
@@ -258,8 +367,22 @@ async function previewFetchEvidence(
   fetched.add(plan.versionId)
   context.deliveredMedia.set(plan.jobId, fetched)
   return {
-    result: { ...authorized.result, source: plan.source },
-    images: [{ mediaType: 'image/png', base64: bytes.toString('base64') }],
+    result: {
+      ...authorized.result,
+      source: plan.source,
+      delivered: {
+        page: preview.page,
+        width: delivered.width,
+        height: delivered.height,
+        scale: delivered.scale,
+        ...(region
+          ? { region: { x: region.x, y: region.y, width: region.width, height: region.height } }
+          : {}),
+        media_type: delivered.mediaType,
+        sha256: sha256(bytes).toString('hex'),
+      },
+    },
+    images: [{ mediaType: delivered.mediaType, base64: bytes.toString('base64') }],
   }
 }
 
@@ -783,7 +906,7 @@ export function sessionTools(context: SessionToolContext) {
       withLeadSession(context, token, async (client, principal) => {
         const input = validated<RecordObservationArgsDto>('RecordObservationArgs', args)
         // Only evidence this session was given; an observation also marks it as examined.
-        const delivered = await leadDeliveredVersions(client, principal)
+        const delivered = await deliverableVersions(client, principal)
         if (!delivered.some((item) => item.version_id === input.evidence_version_id)) {
           refuse('source_not_delivered', 'That evidence was not delivered to this session.')
         }
@@ -998,124 +1121,7 @@ export function sessionTools(context: SessionToolContext) {
         return ok(client, principal, { id })
       }),
 
-    fetch_evidence: async (token: string, args: unknown): Promise<SessionToolOutput> => {
-      const run = capabilityDigest(token).toString('hex')
-      const found = await resolveSessionCapability(context.pool, token)
-      const request = (args ?? {}) as { version_id?: unknown; region?: unknown; page?: unknown }
-
-      const inManifest = (versionId: unknown) =>
-        found !== null &&
-        found !== undefined &&
-        decodeMediaInputs(
-          Buffer.from(found.manifest.media.manifest, 'utf8'),
-          Buffer.from(found.manifest.media.sha256, 'hex'),
-        ).versions.some((item) => item.versionId === versionId)
-
-      if (
-        found &&
-        ((found.stage as string) === 'examine' ||
-          request.region !== undefined ||
-          request.page !== undefined ||
-          (typeof request.version_id === 'string' && !inManifest(request.version_id)))
-      ) {
-        return previewFetchEvidence(context, token, run, args)
-      }
-      let reserved: { version: MediaInputVersion; jobId: string; batchId: string } | undefined
-      // Authorize and reserve under the session locks; the bytes are read after the transaction,
-      // so a fetch never holds one pooled connection while waiting for another.
-      const authorized = await withSession(
-        context,
-        token,
-        { capture: false },
-        async (client, principal) => {
-          const request = validated<{
-            evidence_id: string
-            version_id?: string
-            region?: unknown
-            page?: number
-          }>('SessionFetchEvidenceArgs', args)
-          if (request.region !== undefined || request.page !== undefined) {
-            refuse('validation_failed', 'Pages and region crops are not available to this session.')
-          }
-          const media = decodeMediaInputs(
-            Buffer.from(principal.manifest.media.manifest, 'utf8'),
-            Buffer.from(principal.manifest.media.sha256, 'hex'),
-          )
-          const version = media.versions.find(
-            (item) =>
-              item.evidenceId === request.evidence_id &&
-              (request.version_id === undefined || item.versionId === request.version_id),
-          )
-          if (!version) {
-            refuse('source_not_delivered', 'That evidence was not delivered to this session.')
-          }
-          await refuseRemovedVersions(client, principal.batchId, [version!.versionId])
-          // The budget belongs to this provider run and is reserved before any await.
-          const used = context.imageBudget.get(run) ?? 0
-          const size = Number(version!.byteSize)
-          if (
-            context.store &&
-            SUPPORTED_IMAGES.has(version!.mediaType) &&
-            size <= SESSION_IMAGE_BUDGET_BYTES - used
-          ) {
-            context.imageBudget.set(run, used + size)
-            reserved = { version: version!, jobId: principal.jobId, batchId: principal.batchId }
-          }
-          return ok(client, principal, { id: version!.versionId })
-        },
-      )
-      if (!reserved || !authorized.result.ok) {
-        return authorized
-      }
-      const { version, jobId, batchId } = reserved
-
-      const refund = () =>
-        context.imageBudget.set(run, (context.imageBudget.get(run) ?? 0) - Number(version.byteSize))
-
-      let bytes: Buffer
-      try {
-        bytes = await mediaContent(context.pool, context.config, context.store!).original(
-          batchId,
-          version.versionId,
-        )
-      } catch (error) {
-        refund()
-        throw error
-      }
-      if (
-        bytes.length.toString() !== version.byteSize ||
-        sha256(bytes).toString('hex') !== version.digest
-      ) {
-        refund()
-        throw new Error('agent_media_invalid')
-      }
-      // The session may have ended while the bytes were read; only a live one receives them.
-      if (!(await resolveSessionCapability(context.pool, token))) {
-        refund()
-        return {
-          result: {
-            ok: false,
-            error: 'capability_refused',
-            message: 'This session capability is not valid.',
-            pending_inbox: 0,
-          },
-        }
-      }
-      const fetched = context.deliveredMedia.get(jobId) ?? new Set<string>()
-      fetched.add(version.versionId)
-      context.deliveredMedia.set(jobId, fetched)
-      return {
-        result: {
-          ...authorized.result,
-          source: {
-            kind: 'media_version',
-            evidence_id: version.evidenceId,
-            version_id: version.versionId,
-            sha256: version.digest,
-          },
-        },
-        images: [{ mediaType: version.mediaType, base64: bytes.toString('base64') }],
-      }
-    },
+    fetch_evidence: async (token: string, args: unknown): Promise<SessionToolOutput> =>
+      fetchEvidenceImage(context, token, capabilityDigest(token).toString('hex'), args),
   }
 }

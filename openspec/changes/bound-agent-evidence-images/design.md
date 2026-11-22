@@ -8,7 +8,7 @@ Affected boundaries:
 
 | Boundary | Current code | Change |
 | --- | --- | --- |
-| Agent images | `agents/tools/handlers.ts` `fetch_evidence` and `previewFetchEvidence`; `media/region-crops.ts` | One bounded delivery path from the decoded preview |
+| Agent images | `agents/tools/handlers.ts` `fetch_evidence` and `previewFetchEvidence` | One bounded delivery path from the decoded preview (`fetchEvidenceImage`) |
 | Tool result contract | `contracts/src/sessions.ts` `SessionToolResult` | Adds `delivered` |
 | Guest staging | `agents/shared-vm/stage-evidence.ts` | Stages the delivered image, checked against `delivered.sha256` |
 | Failure record | `agents/failure-model.ts`, `contracts/src/session-failures.ts` | Adds an optional `provider_error` |
@@ -40,15 +40,15 @@ Affected boundaries:
 Today's lot-session "original" branch is removed, and `fetch_evidence` always reads the decoded page preview.
 
 - **Whole page:** Examine keeps its 768 px overview. Every other session gets the page bounded at 2,576 px.
-- **Region:** cut from the full-resolution preview, then bounded. `regionCropCache.crop` gains a `bound` size that keeps the aspect ratio. Its cache name includes the bound, so a cached unbounded crop is never reused.
+- **Region:** cut from the full-resolution preview through the existing `regionCropCache` (its full-size PNG), then bounded in the handler. The crop cache and its keys are unchanged.
 
 Rationale: the original branch sent undecoded uploads straight to providers, could send any pixel size, and duplicated authorization and budget code.
 
-Accepted trade-off: a version without a preview (decode pending, encrypted, or an unsupported type) now gets the existing "no preview yet" refusal where a supported raw original used to be sent. Supported images decode within seconds of upload, so a session should rarely see this.
+Accepted trade-off: a requested page without a decoded preview is refused as `validation_failed`, where a raw original used to be sent. Undecoded, encrypted and unsupported versions never reach `fetch_evidence`: a lot manifest refuses them as `media_not_ready`, and Examine leaves them out.
 
-### Encoding
+### Encoding and size cap
 
-A bounded or scaled image is JPEG at quality 90, because photo pages at 2,576 px stay around 1 MB. A region delivered at scale 1 stays PNG, losslessly, as today. Examine's 768 px overview stays PNG.
+Every delivered image is at most `AGENT_IMAGE_MAX_BYTES` (1.25 MiB), so its base64 fits the smallest relay frame a tool reply crosses (about 2 MiB on the non-tool-worker path) and stays far under Claude's 10 MB. An unscaled image or the Examine overview tries PNG first; anything else, or a PNG over the cap, is JPEG at quality 90, 80, 70 then 60. An image that fits at no quality is returned as metadata only, like an exhausted budget.
 
 ### Result metadata
 
@@ -91,7 +91,7 @@ The adapter stores the last error kind it saw. When it throws `agent_turn_failed
 
 `nativeTurnOutcome` returns `{ outcome, providerError? }`. The journal still stores the outcome alone, so its exact-match parsing is unchanged. The final frame becomes `{ failure, provider_error? }`. The coordinator validates `provider_error` against the same lists before attaching it to the `NativeSessionError`.
 
-Compatibility: an old guest sends no field. An old host drops the unknown key, because `msg.failure` is read by name.
+Compatibility: an old guest sends no field. An old host drops the unknown key, because `msg.failure` is read by name. For staging, a guest updated before its host keeps the old rule when a reply has no `delivered`: the bytes must match the source digest, unless page sizes mark a preview cut.
 
 ## State, authority and failure behavior
 
@@ -106,10 +106,9 @@ Compatibility: an old guest sends no field. An old host drops the unknown key, b
 
 | Outcome | Check |
 | --- | --- |
-| Bound, scale and encoding | `fetch_evidence` handler tests with synthetic previews: 6144 × 8160 whole page, a large region, a small region, an Examine overview. Each asserts the dimensions, scale, media type, `delivered.sha256` and that `source` is the original. |
-| No original bytes sent | Handler test: the result image never equals the original upload's bytes. |
+| Bound, scale, encoding and cap | `fetch_evidence` handler tests with a 3000 × 4000 synthetic preview (over the bound in the same 3:4 shape as the failing photos): whole page, a large region, a small region, a detailed region too large as PNG, an Examine overview. Each asserts the dimensions, scale, media type, `delivered.sha256`, the 1.25 MiB cap, and that `source` is the original. |
+| No original bytes sent | Handler test: the fetch reads the preview blob and never the original upload's blob. |
 | No preview | Handler test: refusal, and no `deliveredMedia` grant. |
-| Crop cache | `region-crops` test: bounded and unbounded crops of the same region are separate cache entries. |
 | Guest staging | `stage-evidence` tests: a delivered digest match stages; a mismatch throws. |
 | Claude and Codex error kinds | Adapter tests with the fake CLIs emitting `error: 'invalid_request'` plus `subtype: 'error_during_execution'`, and `codexErrorInfo` as a string and as an `httpConnectionFailed` object. Unlisted values become `unknown`. |
 | Frame and settle | `native-outcome` and coordinator tests. Contract tests for `SessionFailure` with and without `provider_error`. |

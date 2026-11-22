@@ -39,7 +39,7 @@ Check an action off only after it is done and verified, in the same commit as th
 ## 2. Bounded deliveries in the tool server
 
 - **Outcome:** every `fetch_evidence` image comes from the decoded preview, is at most 2,576 px on its long edge, and is described by `delivered`. No original upload bytes are sent.
-- **Scope:** `contracts/src/sessions.ts` (`delivered`); `intake-server/src/agents/tools/handlers.ts` (remove the original branch, bound whole pages and regions); `intake-server/src/media/region-crops.ts` (a bounded size); `intake-server/ARCHITECTURE.md` where it describes evidence delivery.
+- **Scope:** `contracts/src/sessions.ts` (`delivered`); `intake-server/src/agents/tools/handlers.ts` (remove the original branch, bound whole pages and regions); `intake-server/src/agents/ARCHITECTURE.md` where it describes evidence delivery.
 - **Approach (TDD):** write the handler tests below against the current code and see them fail, then implement.
 - **Verification:**
   - the intake-server fast tier, and the contracts tests;
@@ -47,16 +47,18 @@ Check an action off only after it is done and verified, in the same commit as th
   - `tests/process/sessions.test.ts`.
 - **Risks:** lot sessions now need a decoded preview, which is covered by a refusal test.
 
-- [ ] 2.1 Add `delivered` to `SessionToolResult`, with contract tests.
-- [ ] 2.2 RED: write handler tests for:
-  - [ ] 2.2.1 a 6144 × 8160 whole page in a lot session, which gets 1940 × 2576 JPEG with scale and digest, and `source` naming the original;
-  - [ ] 2.2.2 a region larger than the bound, which is scaled to fit; and a small region, which stays PNG at scale 1;
-  - [ ] 2.2.3 the Examine overview, which stays at 768 px with `delivered`;
-  - [ ] 2.2.4 a version with no preview, which is refused with no delivery grant;
-  - [ ] 2.2.5 the image never being the original upload's bytes.
-- [ ] 2.3 Add the bounded crop size to `regionCropCache`, with a separate cache key, and a test.
-- [ ] 2.4 Merge the original branch into the preview path, and bound and encode as the design says; GREEN.
-- [ ] 2.5 Update the intake-server architecture text on evidence delivery.
+- [x] 2.1 Add `delivered` to `SessionToolResult`, with contract tests.
+- [x] 2.2 RED: write handler tests for:
+  - [x] 2.2.1 a whole page larger than the bound in a lot session (3000 × 4000 in the test), which gets 1932 × 2576 JPEG with scale and digest, and `source` naming the original;
+  - [x] 2.2.2 a region larger than the bound, which is scaled to fit; and a small region, which stays PNG at scale 1;
+  - [x] 2.2.3 the Examine overview, which stays at 768 px with `delivered`;
+  - [x] 2.2.4 a requested page with no preview (page 2 of a one-page photo), which is refused as `validation_failed` with no delivery grant;
+  - [x] 2.2.5 the delivery being re-encoded from the decoded preview, never the original upload;
+  - [x] 2.2.6 a detailed region too large as PNG, which comes back as JPEG within 1.25 MiB, and every delivery within that cap;
+  - [x] 2.2.7 evidence removed while its preview is read, which is refused with no budget charge or grant.
+- [x] 2.3 Bound region crops: the handler bounds the cached full-resolution crop, so `regionCropCache` and its cache keys are unchanged.
+- [x] 2.4 Merge the original branch into the preview path, and bound and encode as the design says; GREEN.
+- [x] 2.5 Update the agents architecture text on evidence delivery.
 
 ## 3. Guest staging of the delivered image
 
@@ -64,8 +66,8 @@ Check an action off only after it is done and verified, in the same commit as th
 - **Scope:** `intake-server/src/agents/shared-vm/stage-evidence.ts` and its tests.
 - **Verification:** `stage-evidence` unit tests; the fast tier.
 
-- [ ] 3.1 RED: write tests for a match that stages with `local_file` describing the delivered image, and a mismatch that throws `invalid_evidence_file`.
-- [ ] 3.2 Check against `delivered.sha256`, and drop the original-only special case; GREEN.
+- [x] 3.1 RED: write tests for a match that stages with `local_file` describing the delivered image, and a mismatch that throws `invalid_evidence_file`.
+- [x] 3.2 Check against `delivered.sha256`, keeping the old rule for a reply without `delivered` so a guest updated before its host still works; GREEN.
 
 ## 4. Provider error capture and record
 
