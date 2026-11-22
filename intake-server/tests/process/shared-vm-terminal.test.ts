@@ -146,7 +146,11 @@ for (const [reported, retained] of [
         provider: { providerSessionId: 'fixture-session', actualModel: 'haiku' },
       })
       assert.equal((await frames.read()).ok, true)
-      await frames.send({ failure: 'agent_turn_failed', provider_error: reported })
+      await frames.send({
+        failure: 'agent_turn_failed',
+        provider_error: reported,
+        cause: reported.kind === 'invalid_request' ? 'agent_protocol_invalid' : 'agent_unknown',
+      })
       assert.equal(await session, 'failed')
       const failure = await fixture.db.pool.query(
         'SELECT diagnostic FROM agent_session_failure WHERE attempt_id=$1',
@@ -154,6 +158,11 @@ for (const [reported, retained] of [
       )
       assert.equal(failure.rows[0].diagnostic.code, 'agent_turn_failed')
       assert.deepEqual(failure.rows[0].diagnostic.provider_error, retained)
+      // The guest's specific code is kept as a cause.
+      assert.equal(
+        failure.rows[0].diagnostic.causes[0]?.code,
+        reported.kind === 'invalid_request' ? 'agent_protocol_invalid' : 'agent_unknown',
+      )
     },
   )
 }

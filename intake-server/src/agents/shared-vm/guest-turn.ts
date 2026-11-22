@@ -147,6 +147,7 @@ export async function serveGuestTurn(socket: TLSSocket, options: GuestTurnOption
   const abort = new AbortController()
   // Set only when this turn ran and failed with one; a journaled replay has none.
   let providerError: ProviderErrorDto | undefined
+  let causeCode: string | undefined
   socket.once('close', () => abort.abort())
 
   const execute = async (): Promise<TurnOutcome> => {
@@ -191,6 +192,9 @@ export async function serveGuestTurn(socket: TLSSocket, options: GuestTurnOption
         onProviderError: (error) => {
           providerError = error
         },
+        onCause: (code) => {
+          causeCode = code
+        },
         // The egress proxy allows only provider hosts until this file exists.
         publishPolicy: policy ? () => writeTurnPolicy(options.policyPath, policy) : undefined,
         run: async () => {
@@ -229,17 +233,23 @@ export async function serveGuestTurn(socket: TLSSocket, options: GuestTurnOption
   }
 
   const outcome = await journalTurn(path, command, execute, abort.signal)
-  await frames.send(finalFrame(outcome, providerError))
+  await frames.send(finalFrame(outcome, providerError, causeCode))
   socket.end()
 }
 
-/** The guest's last frame: the outcome, with the provider's error kind on a failed turn. */
-export function finalFrame(outcome: TurnOutcome, providerError?: ProviderErrorDto) {
+/**
+ * The guest's last frame: the outcome, with the provider's error kind and the specific failure
+ * code (a typed code only) when the turn ran and failed.
+ */
+export function finalFrame(outcome: TurnOutcome, providerError?: ProviderErrorDto, cause?: string) {
   if (outcome === 'done') {
     return { done: true }
   }
-  if ((outcome === 'agent_turn_failed' || outcome === 'agent_login_required') && providerError) {
-    return { failure: outcome, provider_error: providerError }
+  const carriesProviderError =
+    providerError && (outcome === 'agent_turn_failed' || outcome === 'agent_login_required')
+  return {
+    failure: outcome,
+    ...(carriesProviderError ? { provider_error: providerError } : {}),
+    ...(cause && cause !== outcome ? { cause } : {}),
   }
-  return { failure: outcome }
 }
