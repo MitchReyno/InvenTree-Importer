@@ -4,8 +4,36 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { strictJson } from '@invimport/contracts/json'
 import { ResearchReapPendingError } from '#/research/errors.ts'
 
-const MAX_FRAME_BYTES = 256 * 1024
-const MAX_OUTPUT_BYTES = 2 * 1024 * 1024
+/** Per-line and per-turn ceilings on what a provider CLI may print. */
+export interface ChildLimits {
+  frameBytes: number
+  outputBytes: number
+  /** Parsed frames not yet read, so a stalled reader can't grow memory up to `outputBytes`. */
+  queuedBytes: number
+}
+
+/** A session without tools prints short JSON lines. */
+export const DEFAULT_LIMITS: ChildLimits = {
+  frameBytes: 256 * 1024,
+  outputBytes: 2 * 1024 * 1024,
+  queuedBytes: 2 * 1024 * 1024,
+}
+
+/**
+ * Claude Code in a VM tool session echoes every tool result, so one line can carry a delivered
+ * image (at most 1.25 MiB, about 1.7 MB as base64) and a long session prints far more than 2 MiB
+ * in all. The Claude adapter reads frames as they arrive and keeps none, so the per-turn figure
+ * is a runaway guard, not a working limit. Codex reports image views by path and keeps the
+ * default limits, since its adapter holds every notification until the turn ends.
+ */
+export const TOOL_SESSION_LIMITS: ChildLimits = {
+  // One image echo is about 1.7 MB; parsing a line costs many times its size in memory.
+  frameBytes: 4 * 1024 * 1024,
+  outputBytes: 512 * 1024 * 1024,
+  // A parsed frame takes many times its wire size in memory; this keeps a worker that waits
+  // before reading well inside its 640 MiB container.
+  queuedBytes: 8 * 1024 * 1024,
+}
 const MAX_STDERR_BYTES = 128 * 1024
 const REAP_DEADLINE_MS = 2000
 
@@ -13,6 +41,8 @@ const REAP_DEADLINE_MS = 2000
 export class AgentChild {
   private readonly child: ChildProcessWithoutNullStreams
   private readonly frames: unknown[] = []
+  private readonly frameSizes: number[] = []
+  private queuedBytes = 0
   private wake: (() => void) | undefined
   private failure: Error | undefined
   private ended = false
@@ -29,6 +59,7 @@ export class AgentChild {
     env: NodeJS.ProcessEnv,
     signal: AbortSignal,
     private readonly framing: 'lines' | 'json' = 'lines',
+    private readonly limits: ChildLimits = DEFAULT_LIMITS,
   ) {
     signal.throwIfAborted()
     this.child = spawn(executable, args, { cwd, env, shell: false, detached: true, stdio: 'pipe' })
@@ -42,7 +73,10 @@ export class AgentChild {
         if (this.framing === 'json' && this.buffer.length && !this.failure) {
           try {
             this.frames.push(
-              strictJson(new TextDecoder('utf-8', { fatal: true }).decode(this.buffer)),
+              strictJson(
+                new TextDecoder('utf-8', { fatal: true }).decode(this.buffer),
+                this.limits.frameBytes,
+              ),
             )
             this.buffer = Buffer.alloc(0)
           } catch {
@@ -70,6 +104,11 @@ export class AgentChild {
 
   private reject(code: string) {
     this.failure ??= new NativeSessionError(code)
+    // Nothing more is read after a failure, so release what is held now.
+    this.buffer = Buffer.alloc(0)
+    this.frames.length = 0
+    this.frameSizes.length = 0
+    this.queuedBytes = 0
     this.stop()
     // Escalation must not depend on the caller leaving a backpressured stdin write.
     this.escalation ??= setTimeout(() => {
@@ -85,8 +124,12 @@ export class AgentChild {
   }
 
   private receive(bytes: Buffer) {
+    // A failed child is being stopped; whatever it still prints is discarded.
+    if (this.failure) {
+      return
+    }
     this.outputBytes += bytes.length
-    if (this.outputBytes > MAX_OUTPUT_BYTES) {
+    if (this.outputBytes > this.limits.outputBytes) {
       this.reject('agent_output_capacity')
       return
     }
@@ -98,7 +141,7 @@ export class AgentChild {
     while ((newline = this.buffer.indexOf(10)) !== -1) {
       const frame = this.buffer.subarray(0, newline)
       this.buffer = this.buffer.subarray(newline + 1)
-      if (frame.length > MAX_FRAME_BYTES) {
+      if (frame.length > this.limits.frameBytes) {
         this.reject('agent_frame_capacity')
         return
       }
@@ -107,13 +150,19 @@ export class AgentChild {
       }
       try {
         const text = new TextDecoder('utf-8', { fatal: true }).decode(frame)
-        this.frames.push(strictJson(text))
+        if (this.queuedBytes + frame.length > this.limits.queuedBytes) {
+          this.reject('agent_output_capacity')
+          return
+        }
+        this.frames.push(strictJson(text, this.limits.frameBytes))
+        this.frameSizes.push(frame.length)
+        this.queuedBytes += frame.length
       } catch {
         this.reject('agent_protocol_invalid')
         return
       }
     }
-    if (this.buffer.length > MAX_FRAME_BYTES) {
+    if (this.buffer.length > this.limits.frameBytes) {
       this.reject('agent_frame_capacity')
     }
     this.wake?.()
@@ -140,6 +189,7 @@ export class AgentChild {
         throw this.failure
       }
       if (this.frames.length) {
+        this.queuedBytes -= this.frameSizes.shift() ?? 0
         return this.frames.shift()
       }
       if (this.ended) {

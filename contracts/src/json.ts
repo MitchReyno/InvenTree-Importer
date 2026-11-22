@@ -1,7 +1,8 @@
 import { visit } from 'jsonc-parser'
 
 const DEFAULT_MAX_BYTES = 262144
-const MAX_EXPLICIT_BYTES = 2 * 1024 * 1024
+// The largest limit a caller may ask for: one tool-session line carrying a delivered image.
+const MAX_EXPLICIT_BYTES = 8 * 1024 * 1024
 
 /** Reject duplicates (including escaped aliases), unsafe numbers and non-JSON syntax. */
 export function strictJson(text: string, maxBytes = DEFAULT_MAX_BYTES): unknown {

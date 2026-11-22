@@ -122,6 +122,41 @@ async function sessionHarness(provider: Provider, { guestTools = false } = {}) {
 }
 
 test(
+  'claude: a VM tool session reads echoed image results, which a host session refuses',
+  { timeout: 60000 },
+  async () => {
+    // Two image-sized echoes: each over the 256 KiB line limit, and over 2 MiB together.
+    const guest = await sessionHarness('claude', { guestTools: true })
+    try {
+      const outcome = await runSessionTurn(
+        guest.deps('guest-image-echo'),
+        guest.session.attempt,
+        new AbortController().signal,
+      )
+      assert.equal(outcome, 'finished', JSON.stringify(await guest.events()))
+    } finally {
+      await guest.dispose()
+    }
+    const host = await sessionHarness('claude')
+    try {
+      const outcome = await runSessionTurn(
+        host.deps('image-echo'),
+        host.session.attempt,
+        new AbortController().signal,
+      )
+      assert.equal(outcome, 'failed')
+      const retained = await host.fixture.db.pool.query(
+        'SELECT diagnostic FROM agent_session_failure WHERE attempt_id=$1',
+        [host.session.attempt],
+      )
+      assert.equal(retained.rows[0].diagnostic.code, 'agent_frame_capacity')
+    } finally {
+      await host.dispose()
+    }
+  },
+)
+
+test(
   'claude: a guest tool session starts with exactly the guest tools and refuses another',
   { timeout: 60000 },
   async () => {
