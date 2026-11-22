@@ -1,6 +1,6 @@
 import { SessionFailureSummary } from './session-failures.ts'
 import { Type, type Static, type TProperties } from '@sinclair/typebox'
-import { CursorSequence, Id, Revision } from './scalars.ts'
+import { CursorSequence, Digest, Id, Revision } from './scalars.ts'
 import {
   ProcessingFields,
   ProcessingMediaSource,
@@ -145,6 +145,28 @@ export const SessionToolResult = Type.Union([
         }),
         { maxItems: 30 },
       ),
+    ),
+    /**
+     * fetch_evidence: the image actually sent, cut from a page preview. `scale` is delivered
+     * pixels per page-preview pixel; regions are always requested in page-preview pixels.
+     */
+    delivered: Type.Optional(
+      object({
+        page: Type.Integer({ minimum: 1, maximum: 10000 }),
+        width: Type.Integer({ minimum: 1 }),
+        height: Type.Integer({ minimum: 1 }),
+        scale: Type.Number({ exclusiveMinimum: 0, maximum: 1 }),
+        region: Type.Optional(
+          object({
+            x: Type.Integer({ minimum: 0 }),
+            y: Type.Integer({ minimum: 0 }),
+            width: Type.Integer({ minimum: 1 }),
+            height: Type.Integer({ minimum: 1 }),
+          }),
+        ),
+        media_type: Type.Union([Type.Literal('image/png'), Type.Literal('image/jpeg')]),
+        sha256: Digest,
+      }),
     ),
     /** fetch_evidence for the lead session: the evidence's label and the operator's note. */
     evidence_label: Type.Optional(Type.String({ minLength: 1, maxLength: 256 })),

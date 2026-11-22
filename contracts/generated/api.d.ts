@@ -19375,6 +19375,20 @@ export interface components {
                 width: number;
                 height: number;
             }[];
+            delivered?: {
+                page: number;
+                width: number;
+                height: number;
+                scale: number;
+                region?: {
+                    x: number;
+                    y: number;
+                    width: number;
+                    height: number;
+                };
+                media_type: "image/png" | "image/jpeg";
+                sha256: string;
+            };
             evidence_label?: string;
             evidence_note?: string;
             suggested?: boolean;
