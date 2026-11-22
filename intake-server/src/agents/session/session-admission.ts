@@ -38,7 +38,16 @@ function guestShellProxy(config: Record<string, unknown>) {
     return false
   }
   const set = (policy as Record<string, unknown>).set
-  return JSON.stringify(set) === JSON.stringify(GUEST_SHELL_PROXY)
+  if (!set || typeof set !== 'object' || Array.isArray(set)) {
+    return false
+  }
+  // Codex reports these variables as a map in no fixed order, so compare them by name.
+  const reported = Object.entries(set as Record<string, unknown>)
+  const expected = Object.entries(GUEST_SHELL_PROXY)
+  return (
+    reported.length === expected.length &&
+    expected.every(([name, value]) => (set as Record<string, unknown>)[name] === value)
+  )
 }
 
 export function requireCodexSessionConfig(value: unknown, guestTools = false) {

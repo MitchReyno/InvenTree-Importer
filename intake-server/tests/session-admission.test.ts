@@ -84,11 +84,40 @@ test('a guest tool session is admitted with live web search and the shell proxy 
     },
   }
   requireCodexSessionConfig(guest, true)
+  // Codex reports the set variables as a map in no fixed order.
+  requireCodexSessionConfig(
+    {
+      ...guest,
+      shell_environment_policy: {
+        set: { NO_PROXY: '127.0.0.1,localhost', HTTPS_PROXY: 'http://127.0.0.1:14316' },
+      },
+    },
+    true,
+  )
   for (const change of [
     { ...guest, web_search: 'disabled' },
     { ...guest, web_search: 'cached' },
     { ...guest, shell_environment_policy: {} },
     { ...guest, shell_environment_policy: { set: { HTTPS_PROXY: 'http://127.0.0.1:1' } } },
+    {
+      ...guest,
+      shell_environment_policy: {
+        set: { ...guest.shell_environment_policy.set, HTTP_PROXY: 'http://127.0.0.1:14316' },
+      },
+    },
+    // Both names present, one value wrong; and the right count under another name.
+    {
+      ...guest,
+      shell_environment_policy: {
+        set: { ...guest.shell_environment_policy.set, HTTPS_PROXY: 'http://127.0.0.1:1' },
+      },
+    },
+    {
+      ...guest,
+      shell_environment_policy: {
+        set: { HTTP_PROXY: 'http://127.0.0.1:14316', NO_PROXY: '127.0.0.1,localhost' },
+      },
+    },
   ]) {
     assert.throws(() => requireCodexSessionConfig(change, true), /agent_policy_refused/)
   }
