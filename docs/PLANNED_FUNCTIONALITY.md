@@ -118,6 +118,16 @@ Agents in the shared VM get provider web search (Claude WebSearch, Codex web sea
 
 ### High
 
+#### BI-018 — Bound agent evidence images and record provider errors
+
+An agent session can be sent an evidence image a provider refuses: lot sessions get the original upload unchanged, and Examine region crops are unscaled, so a 6144 × 8160 photo breaks Claude's pixel limits. When a provider ends a turn with an error, the session failure keeps only `agent_turn_failed`, so the operator can't tell why. Every image sent to an agent is bounded to 2,576 px from the decoded preview, and a failed turn records the provider's own error kind as an allowlisted code.
+
+- Change: `bound-agent-evidence-images`
+- Status: In progress — planned; PR-A (bounded images) and PR-B (provider error) remain.
+- Size: M — the tool server's evidence delivery, guest staging, provider adapters, the guest frame and the diagnostic panel.
+- Prerequisites: None. Found during BI-017's requalification; the live check needs Mitch's go-ahead.
+- OpenSpec: [bound-agent-evidence-images](../openspec/changes/bound-agent-evidence-images/)
+
 #### BI-010 — Harden native agent sessions
 
 BI-006's live qualification (#118) found that a native Codex session is not confined to the intake tools. Codex wraps them inside its `exec` JavaScript tool, also offers its collaboration, clock, `apply_patch` and `image_gen` tools, and loads the user-level skills catalogue, and neither the start-time check nor the in-run check catches this. Real models also stumble on `propose`, whose rejection does not name the failing field. A session cannot cite evidence it picks up mid-session, because no digest is delivered with it. Fix these, detect or exclude Claude's deferred `advisor` tool, and correct the qualification script's chat detection, then re-run the live qualification so `native-agent/2` can drop `native_unverified`.
