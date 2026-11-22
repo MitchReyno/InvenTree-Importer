@@ -271,7 +271,7 @@ if (args[0] === 'app-server') {
     // which silently drops names it doesn't have.
     const toolsFlag = args.indexOf('--tools')
     const builtins =
-      mode === 'guest-tools' || mode === 'guest-extra-tool'
+      mode === 'guest-tools' || mode === 'guest-extra-tool' || mode === 'guest-image-echo'
         ? (args[toolsFlag + 1] || '').split(',').filter((name) => CLAUDE_BUILTINS.has(name))
         : []
     log({ event: 'builtins', tools: builtins })
@@ -294,6 +294,13 @@ if (args[0] === 'app-server') {
     })
     if (mode === 'deferred-call') send({type:'assistant',message:{content:[{type:'tool_use',name:'advisor',input:{}}]}})
     log({ event: 'opening', text })
+    // Claude echoes each tool result, an image included, as one stream-json line.
+    if (mode === 'image-echo' || mode === 'guest-image-echo') {
+      for (let n = 0; n < 2; n++) {
+        send({ type: 'user', message: { role: 'user', content: [{ type: 'tool_result',
+          content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: 'A'.repeat(1800000) } }] }] } })
+      }
+    }
     if (mode === 'claude-api-error' || mode === 'claude-unlisted-error') {
       const unlisted = mode === 'claude-unlisted-error'
       send({ type: 'assistant', error: unlisted ? 'brand_new_kind' : 'invalid_request',

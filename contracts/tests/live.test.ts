@@ -54,5 +54,5 @@ test('explicit larger JSON budgets keep the default HTTP limit and every structu
   assert.equal(strictJson(large, 2 * 1024 * 1024), 'x'.repeat(300000))
   assert.throws(() => strictJson('{"same":1,"same":2}', 2 * 1024 * 1024), /duplicate_json_key/)
   assert.throws(() => strictJson('{"id":9007199254740993}', 2 * 1024 * 1024), /unsafe_json_number/)
-  assert.throws(() => strictJson('{}', 3 * 1024 * 1024), /invalid_json_limit/)
+  assert.throws(() => strictJson('{}', 9 * 1024 * 1024), /invalid_json_limit/)
 })

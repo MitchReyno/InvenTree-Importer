@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { AgentSelectionDto } from '@invimport/contracts'
-import { AgentChild, record } from '#/agents/child.ts'
+import { AgentChild, DEFAULT_LIMITS, record, TOOL_SESSION_LIMITS } from '#/agents/child.ts'
 import type { NativeAgentHost } from '#/agents/environment.ts'
 import { admitClaudeSession } from './claude-session-admission.ts'
 import { CODEX_CONFIG, rejectHostCustomizations } from '#/agents/codex.ts'
@@ -168,6 +168,8 @@ export async function runClaudeSession(
     cwd,
     { ...env, [SESSION_CAPABILITY_VARIABLE]: turn.capability },
     turnSignal,
+    'lines',
+    host.guestTools ? TOOL_SESSION_LIMITS : DEFAULT_LIMITS,
   )
   const expectedTools = [
     ...builtins,
