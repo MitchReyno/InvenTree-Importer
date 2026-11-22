@@ -1,4 +1,4 @@
-import { NativeSessionError } from '#/agents/failure-model.ts'
+import { NativeSessionError, providerError } from '#/agents/failure-model.ts'
 import { randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -181,6 +181,7 @@ export async function runClaudeSession(
 
   let stopDelivery: (() => Promise<void>) | undefined
   let initialized = false
+  let assistantError: unknown
   try {
     await admitClaudeSession(child, turn.tools, turnSignal)
     await child.send(userMessage(turn.text))
@@ -228,7 +229,13 @@ export async function runClaudeSession(
         message.error === 'authentication_failed' &&
         host.guestClaudeToken
       ) {
-        throw new NativeSessionError('agent_login_required')
+        throw new NativeSessionError('agent_login_required', {
+          providerError: providerError('claude', { kind: message.error }),
+        })
+      }
+      if (message.type === 'assistant' && message.error !== undefined) {
+        // Kept to name why the turn fails; only a listed kind is ever retained.
+        assistantError = message.error
       }
       if (message.type === 'assistant') {
         const content = record(message.message).content
@@ -250,7 +257,13 @@ export async function runClaudeSession(
           throw new NativeSessionError('agent_protocol_invalid')
         }
         if (message.is_error !== false || message.subtype !== 'success') {
-          throw new NativeSessionError('agent_turn_failed')
+          throw new NativeSessionError('agent_turn_failed', {
+            providerError: providerError('claude', {
+              kind: assistantError,
+              result: message.subtype,
+              httpStatus: message.api_error_status,
+            }),
+          })
         }
         finished = true
         await stopDelivery?.()
@@ -505,15 +518,22 @@ export async function runCodexSession(
       turnSignal.throwIfAborted()
       const completed = notifications.find((item) => item.method === 'turn/completed')
       if (completed) {
-        const state = record(record(completed.params).turn).status
-        if (state !== 'completed') {
-          throw new NativeSessionError('agent_turn_failed')
+        const ended = record(record(completed.params).turn)
+        if (ended.status !== 'completed') {
+          throw new NativeSessionError('agent_turn_failed', {
+            providerError: codexTurnError(ended.error),
+          })
         }
         break
       }
-      const failure = notifications.find((item) => item.method === 'error')
+      // A retried error is not the end of the turn; the turn's own completion says how it ended.
+      const failure = notifications.find(
+        (item) => item.method === 'error' && record(item.params).willRetry !== true,
+      )
       if (failure) {
-        throw new NativeSessionError('agent_turn_failed')
+        throw new NativeSessionError('agent_turn_failed', {
+          providerError: codexTurnError(record(failure.params).error),
+        })
       }
       if (!(await pump())) {
         throw new NativeSessionError('agent_result_missing')
@@ -561,4 +581,31 @@ function requireAppItem(
   if (!appCall) {
     throw new NativeSessionError('agent_tool_refused')
   }
+}
+
+/**
+ * A Codex `TurnError`'s kind: `codexErrorInfo` is a string, or an object with one key whose
+ * value may carry `httpStatusCode`. Its message is never read.
+ */
+function codexTurnError(error: unknown) {
+  const info =
+    error && typeof error === 'object'
+      ? (error as Record<string, unknown>).codexErrorInfo
+      : undefined
+  if (typeof info === 'string') {
+    return providerError('codex', { kind: info })
+  }
+  if (info && typeof info === 'object' && !Array.isArray(info)) {
+    const keys = Object.keys(info)
+    const detail = keys.length === 1 ? (info as Record<string, unknown>)[keys[0]!] : undefined
+    const status =
+      detail && typeof detail === 'object'
+        ? (detail as Record<string, unknown>).httpStatusCode
+        : undefined
+    return providerError('codex', {
+      kind: keys.length === 1 ? keys[0] : undefined,
+      httpStatus: status,
+    })
+  }
+  return providerError('codex', {})
 }

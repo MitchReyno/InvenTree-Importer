@@ -171,24 +171,25 @@ function session(n: number, stage: string, subject: string | null, extra: object
 
 const failure: SessionFailureDto = {
   id: id(90),
-  category: 'tool_policy',
-  summary: 'The provider attempted an operation outside the allowed tool policy.',
+  category: 'provider_network',
+  summary: 'The provider connection or protocol failed.',
   details_available: true,
   attempt_id: id(24),
   lineage_id: id(4),
   turn: '2',
   timestamp: '2026-11-07T01:42:00.000Z',
   correlation_id: id(91),
-  code: 'agent_tool_refused',
+  code: 'agent_turn_failed',
   stage: 'turn',
   provider: 'claude',
   model: 'claude-opus-5-5',
   cli_version: '2.1.319',
   provider_session_id: null,
   causes: [],
-  recovery:
-    'Check the supported CLI configuration. Keep this conversation stopped and start a fresh session after correcting it.',
+  recovery: 'Check provider availability and connection settings before explicitly retrying.',
   truncated: false,
+  // The provider's own reason, as an oversized image would be refused.
+  provider_error: { kind: 'invalid_request', result: 'error_during_execution', http_status: 400 },
 }
 
 /** Paused batches; Pause all and Resume change it, and the next list read shows it. */

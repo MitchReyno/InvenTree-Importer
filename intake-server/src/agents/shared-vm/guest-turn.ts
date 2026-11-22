@@ -11,6 +11,7 @@ import { evidenceRequest } from './evidence-request.ts'
 import { evidenceReplyLimit, Frames, protocol } from './frames.ts'
 import { commandDigest, journalTurn, recordedOutcome, type TurnOutcome } from './journal.ts'
 import { nativeTurnOutcome } from './native-outcome.ts'
+import type { ProviderErrorDto } from '#/agents/failure-model.ts'
 import { nativeTurn } from './native-turn.ts'
 import { isolatedToolTurn } from './tool-client.ts'
 import { turnPolicy, writeTurnPolicy } from './turn-policy.ts'
@@ -144,6 +145,8 @@ export async function serveGuestTurn(socket: TLSSocket, options: GuestTurnOption
   const opening = manifest.profile_id === 'synthetic-session/1' ? undefined : nativeOpening(command)
   await mkdir(cwd, { recursive: true, mode: 0o700 })
   const abort = new AbortController()
+  // Set only when this turn ran and failed with one; a journaled replay has none.
+  let providerError: ProviderErrorDto | undefined
   socket.once('close', () => abort.abort())
 
   const execute = async (): Promise<TurnOutcome> => {
@@ -185,6 +188,9 @@ export async function serveGuestTurn(socket: TLSSocket, options: GuestTurnOption
       }
 
       const outcome = await nativeTurnOutcome({
+        onProviderError: (error) => {
+          providerError = error
+        },
         // The egress proxy allows only provider hosts until this file exists.
         publishPolicy: policy ? () => writeTurnPolicy(options.policyPath, policy) : undefined,
         run: async () => {
@@ -223,6 +229,17 @@ export async function serveGuestTurn(socket: TLSSocket, options: GuestTurnOption
   }
 
   const outcome = await journalTurn(path, command, execute, abort.signal)
-  await frames.send(outcome === 'done' ? { done: true } : { failure: outcome })
+  await frames.send(finalFrame(outcome, providerError))
   socket.end()
+}
+
+/** The guest's last frame: the outcome, with the provider's error kind on a failed turn. */
+export function finalFrame(outcome: TurnOutcome, providerError?: ProviderErrorDto) {
+  if (outcome === 'done') {
+    return { done: true }
+  }
+  if ((outcome === 'agent_turn_failed' || outcome === 'agent_login_required') && providerError) {
+    return { failure: outcome, provider_error: providerError }
+  }
+  return { failure: outcome }
 }

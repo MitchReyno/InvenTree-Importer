@@ -20,7 +20,7 @@ The guest SHALL stage the image a fetch_evidence delivery carries, and record th
 
 ### Requirement: Guest-reported provider error
 
-A guest turn that ends with a provider error SHALL send the provider's error kind, result type and HTTP status with its failure outcome, using the same fixed list as the session failure. The host SHALL accept only listed values. A turn settled from the guest journal after a lost connection SHALL settle with its outcome alone.
+A guest turn that ends with a provider error SHALL send the provider's error kind, result type and HTTP status with its failure outcome, using the same fixed list as the session failure. In a tool session the provider runs in the tool worker, which passes the error to its supervisor; the supervisor and the host each accept only listed values. A turn settled from the guest journal after a lost connection SHALL settle with its outcome alone.
 
 #### Scenario: Failed provider turn in the guest
 

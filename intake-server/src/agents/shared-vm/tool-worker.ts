@@ -6,15 +6,13 @@ import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { ProcessingInputV6Dto } from '@invimport/contracts'
 import { validate } from '@invimport/contracts'
-import { NativeSessionError } from '#/agents/failure-model.ts'
-import { refusalOutcome } from './journal.ts'
 import { ResearchReapPendingError } from '#/research/errors.ts'
 import { evidenceReplyLimit, Frames } from './frames.ts'
 import { providerProxy } from './provider-proxy.ts'
 import { nativeTurn } from './native-turn.ts'
 import type { SessionDriverContext } from '#/agents/session/session-runner.ts'
 import type { SessionTurn } from '#/agents/session/session-adapters.ts'
-import { SessionResumeUnavailable } from '#/agents/session/session-adapters.ts'
+import { workerFailure } from './worker-outcome.ts'
 
 const provider = process.env.INTAKE_VM_CODEX_SUBSCRIPTION === '1' ? 'codex' : 'claude'
 const proxy = await providerProxy(provider)
@@ -63,16 +61,7 @@ try {
   await frames.send({ outcome: 'done' })
 } catch (error) {
   if (!(error instanceof ResearchReapPendingError)) {
-    let outcome = 'agent_turn_failed'
-    if (error instanceof SessionResumeUnavailable) {
-      outcome = 'resume_unavailable'
-    }
-    if (error instanceof NativeSessionError && error.message === 'agent_login_required') {
-      outcome = 'agent_login_required'
-    }
-    // A tool-policy refusal keeps its code, so the operator sees why the turn stopped.
-    outcome = (error instanceof NativeSessionError && refusalOutcome(error.code)) || outcome
-    await frames.send({ outcome }).catch(() => {})
+    await frames.send(workerFailure(error)).catch(() => {})
   }
 } finally {
   socket.end()

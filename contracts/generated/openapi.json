@@ -85856,6 +85856,196 @@
           },
           "truncated": {
             "type": "boolean"
+          },
+          "provider_error": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "kind",
+              "result",
+              "http_status"
+            ],
+            "properties": {
+              "kind": {
+                "anyOf": [
+                  {
+                    "const": "unknown",
+                    "type": "string"
+                  },
+                  {
+                    "const": "authentication_failed",
+                    "type": "string"
+                  },
+                  {
+                    "const": "oauth_org_not_allowed",
+                    "type": "string"
+                  },
+                  {
+                    "const": "account_on_hold",
+                    "type": "string"
+                  },
+                  {
+                    "const": "verification_required",
+                    "type": "string"
+                  },
+                  {
+                    "const": "billing_error",
+                    "type": "string"
+                  },
+                  {
+                    "const": "rate_limit",
+                    "type": "string"
+                  },
+                  {
+                    "const": "overloaded",
+                    "type": "string"
+                  },
+                  {
+                    "const": "invalid_request",
+                    "type": "string"
+                  },
+                  {
+                    "const": "model_not_found",
+                    "type": "string"
+                  },
+                  {
+                    "const": "server_error",
+                    "type": "string"
+                  },
+                  {
+                    "const": "max_output_tokens",
+                    "type": "string"
+                  },
+                  {
+                    "const": "cloud_credential_error",
+                    "type": "string"
+                  },
+                  {
+                    "const": "contextWindowExceeded",
+                    "type": "string"
+                  },
+                  {
+                    "const": "sessionBudgetExceeded",
+                    "type": "string"
+                  },
+                  {
+                    "const": "usageLimitExceeded",
+                    "type": "string"
+                  },
+                  {
+                    "const": "rateLimitExceeded",
+                    "type": "string"
+                  },
+                  {
+                    "const": "flexUnavailable",
+                    "type": "string"
+                  },
+                  {
+                    "const": "serverOverloaded",
+                    "type": "string"
+                  },
+                  {
+                    "const": "modelNotFound",
+                    "type": "string"
+                  },
+                  {
+                    "const": "policyCapacityUnavailable",
+                    "type": "string"
+                  },
+                  {
+                    "const": "cyberPolicy",
+                    "type": "string"
+                  },
+                  {
+                    "const": "misalignmentPolicyViolation",
+                    "type": "string"
+                  },
+                  {
+                    "const": "tooManyDenials",
+                    "type": "string"
+                  },
+                  {
+                    "const": "internalServerError",
+                    "type": "string"
+                  },
+                  {
+                    "const": "unauthorized",
+                    "type": "string"
+                  },
+                  {
+                    "const": "badRequest",
+                    "type": "string"
+                  },
+                  {
+                    "const": "threadRollbackFailed",
+                    "type": "string"
+                  },
+                  {
+                    "const": "sandboxError",
+                    "type": "string"
+                  },
+                  {
+                    "const": "other",
+                    "type": "string"
+                  },
+                  {
+                    "const": "httpConnectionFailed",
+                    "type": "string"
+                  },
+                  {
+                    "const": "responseStreamConnectionFailed",
+                    "type": "string"
+                  },
+                  {
+                    "const": "responseStreamDisconnected",
+                    "type": "string"
+                  },
+                  {
+                    "const": "responseTooManyFailedAttempts",
+                    "type": "string"
+                  },
+                  {
+                    "const": "activeTurnNotSteerable",
+                    "type": "string"
+                  }
+                ]
+              },
+              "result": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "const": "success",
+                        "type": "string"
+                      },
+                      {
+                        "const": "error_during_execution",
+                        "type": "string"
+                      },
+                      {
+                        "const": "error_max_turns",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "http_status": {
+                "anyOf": [
+                  {
+                    "minimum": 100,
+                    "maximum": 599,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
           }
         }
       },

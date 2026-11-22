@@ -83,3 +83,77 @@ test(
     next.socket.destroy()
   },
 )
+
+for (const [reported, retained] of [
+  [
+    { kind: 'invalid_request', result: 'error_during_execution', http_status: null },
+    { kind: 'invalid_request', result: 'error_during_execution', http_status: null },
+  ],
+  [
+    { kind: 'not_a_listed_kind', result: 'API Error: secret', http_status: 7, extra: 'x' },
+    { kind: 'unknown', result: null, http_status: null },
+  ],
+] as const) {
+  test(
+    `the guest's provider error is retained from the fixed list (${reported.kind})`,
+    { timeout: 60000 },
+    async (t) => {
+      const root = await mkdtemp(join(tmpdir(), 'bench-provider-error-'))
+      t.after(() => rm(root, { recursive: true, force: true }))
+      await pairedCertificates(root)
+      const fixture = await processingFixture({ profileId: 'shared-vm-agent/1' })
+      t.after(() => fixture.dispose())
+      const port = await freePort()
+      const bridge = await startSessionBridge(join(root, 'bench-coordinator'), port)
+      t.after(() => bridge.close())
+      const capture = await fixture.seedCapture()
+      const { attempt } = await lotSession(fixture, capture, capture.packetA, {
+        state: 'queued',
+        profile: {
+          id: 'shared-vm-agent/1',
+          agent: { provider: 'claude', authentication: 'subscription', model: 'haiku' },
+          settingsRevision: '1',
+        },
+      })
+      const session = runSessionTurn(
+        {
+          pool: fixture.runner.pool,
+          config: fixture.config,
+          host: {
+            stateRoot: root,
+            env: {},
+            claudeExecutable: '/unused',
+            codexExecutable: '/unused',
+          },
+          toolUrl: 'http://127.0.0.1:1',
+          drivers: { 'shared-vm-agent/1': bridge.driver },
+        },
+        attempt,
+        AbortSignal.timeout(30000),
+      )
+      const socket = connect({
+        ...(await pairing(join(root, 'bench-guest'))),
+        port,
+        host: '127.0.0.1',
+        servername: 'bench-coordinator',
+      })
+      t.after(() => socket.destroy())
+      await once(socket, 'secureConnect')
+      const frames = new Frames(socket)
+      await frames.send({ ready: protocol, claudeSubscription: true })
+      await frames.read()
+      await frames.send({
+        provider: { providerSessionId: 'fixture-session', actualModel: 'haiku' },
+      })
+      assert.equal((await frames.read()).ok, true)
+      await frames.send({ failure: 'agent_turn_failed', provider_error: reported })
+      assert.equal(await session, 'failed')
+      const failure = await fixture.db.pool.query(
+        'SELECT diagnostic FROM agent_session_failure WHERE attempt_id=$1',
+        [attempt],
+      )
+      assert.equal(failure.rows[0].diagnostic.code, 'agent_turn_failed')
+      assert.deepEqual(failure.rows[0].diagnostic.provider_error, retained)
+    },
+  )
+}

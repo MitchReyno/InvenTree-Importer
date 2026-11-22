@@ -569,6 +569,65 @@ for (const provider of ['claude', 'codex'] as const) {
   )
 }
 
+const PROVIDER_ERRORS = {
+  claude: [
+    [
+      'claude-api-error',
+      { kind: 'invalid_request', result: 'error_during_execution', http_status: 529 },
+    ],
+    ['claude-unlisted-error', { kind: 'unknown', result: null, http_status: null }],
+  ],
+  codex: [
+    ['codex-context-error', { kind: 'contextWindowExceeded', result: null, http_status: null }],
+    ['codex-http-error', { kind: 'httpConnectionFailed', result: null, http_status: 503 }],
+  ],
+} as const
+
+test('codex: a retried error does not end the turn', { timeout: 60000 }, async () => {
+  const h = await sessionHarness('codex')
+  try {
+    assert.equal(
+      await runSessionTurn(
+        h.deps('codex-retry-error'),
+        h.session.attempt,
+        new AbortController().signal,
+      ),
+      'finished',
+    )
+  } finally {
+    await h.dispose()
+  }
+})
+
+for (const provider of ['claude', 'codex'] as const) {
+  for (const [mode, expected] of PROVIDER_ERRORS[provider]) {
+    test(
+      `${provider}: a failed turn retains the provider's error kind (${mode})`,
+      { timeout: 60000 },
+      async () => {
+        const h = await sessionHarness(provider)
+        try {
+          assert.equal(
+            await runSessionTurn(h.deps(mode), h.session.attempt, new AbortController().signal),
+            'failed',
+          )
+          const retained = await h.fixture.db.pool.query(
+            'SELECT diagnostic FROM agent_session_failure WHERE attempt_id=$1',
+            [h.session.attempt],
+          )
+          const diagnostic = retained.rows[0].diagnostic
+          assert.equal(diagnostic.code, 'agent_turn_failed')
+          assert.deepEqual(diagnostic.provider_error, expected)
+          // The provider's own text is never retained.
+          assert.equal(JSON.stringify(diagnostic).includes('secret provider text'), false)
+        } finally {
+          await h.dispose()
+        }
+      },
+    )
+  }
+}
+
 for (const provider of ['claude', 'codex'] as const) {
   test(
     `${provider}: an unqualified executable never starts a turn`,

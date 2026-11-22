@@ -8,7 +8,7 @@ import type { SessionDriver } from '#/agents/session/session-runner.ts'
 import { ResearchReapPendingError } from '#/research/errors.ts'
 import { evidenceReplyLimit, Frames, protocol, readBounded } from './frames.ts'
 import { SessionResumeUnavailable } from '#/agents/session/session-adapters.ts'
-import { NativeSessionError } from '#/agents/failure-model.ts'
+import { NativeSessionError, retainedProviderError } from '#/agents/failure-model.ts'
 import { refusalOutcome } from './journal.ts'
 import { pairing } from './pair.ts'
 import { settled } from '#/events/settled.ts'
@@ -193,7 +193,13 @@ export async function startSessionBridge(
         const failure = settledFailure(msg.failure)
         if (failure) {
           dispatched = false
-          throw new NativeSessionError(failure)
+          // Only a listed kind survives; anything else from the guest becomes `unknown`.
+          throw new NativeSessionError(failure, {
+            providerError: retainedProviderError(
+              context.manifest.agent?.provider,
+              msg.provider_error,
+            ),
+          })
         }
         if (
           msg.provider &&

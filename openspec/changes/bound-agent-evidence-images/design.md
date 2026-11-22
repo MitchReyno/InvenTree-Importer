@@ -80,7 +80,7 @@ provider_error?: {
 }
 ```
 
-`kind` comes from a fixed list per provider, which is the union of the values found in the CLIs, plus `unknown`. `result` comes from a fixed list: `error_during_execution`, `error_max_turns`, `success`. An unlisted value becomes `unknown` or `null`.
+`kind` comes from a fixed list per provider, which is the union of the values found in the CLIs, plus `unknown`. The lists live in the contracts package, so the `SessionFailure` contract itself admits only listed values. `result` comes from a fixed list: `error_during_execution`, `error_max_turns`, `success`. An unlisted value becomes `unknown` or `null`.
 
 The adapter stores the last error kind it saw. When it throws `agent_turn_failed`, it attaches the error kind to the `NativeSessionError` as a new optional `providerError` property. `sessionFailure` validates and copies it.
 
@@ -89,7 +89,7 @@ The adapter stores the last error kind it saw. When it throws `agent_turn_failed
 
 ### Guest frame
 
-`nativeTurnOutcome` returns `{ outcome, providerError? }`. The journal still stores the outcome alone, so its exact-match parsing is unchanged. The final frame becomes `{ failure, provider_error? }`. The coordinator validates `provider_error` against the same lists before attaching it to the `NativeSessionError`.
+`nativeTurnOutcome` still returns the outcome string and reports a provider error through an `onProviderError` callback; `guest-turn.ts` keeps it for the turn it ran and adds it to the final frame. In a tool session the provider runs in the tool worker, whose outcome frame carries the same field to the supervisor through `shared-vm/worker-outcome.ts`. The journal still stores the outcome alone, so its exact-match parsing is unchanged. The final frame becomes `{ failure, provider_error? }`. The coordinator validates `provider_error` against the same lists before attaching it to the `NativeSessionError`.
 
 Compatibility: an old guest sends no field. An old host drops the unknown key, because `msg.failure` is read by name. For staging, a guest updated before its host keeps the old rule when a reply has no `delivered`: the bytes must match the source digest, unless page sizes mark a preview cut.
 

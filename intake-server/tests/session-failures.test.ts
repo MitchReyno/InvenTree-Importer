@@ -5,7 +5,12 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { validate } from '@invimport/contracts'
-import { NativeSessionError, sessionFailure } from '#/agents/failure-model.ts'
+import {
+  NativeSessionError,
+  providerError,
+  retainedProviderError,
+  sessionFailure,
+} from '#/agents/failure-model.ts'
 
 const context = {
   attemptId: randomUUID(),
@@ -76,4 +81,44 @@ test('known model identifiers are retained and generic RPC refusals are not tool
     sessionFailure(new NativeSessionError('agent_request_refused'), context).category,
     'provider_network',
   )
+})
+
+test('a provider error is retained from the fixed lists only, and never its text', () => {
+  const listed = new NativeSessionError('agent_turn_failed', {
+    providerError: providerError('codex', {
+      kind: 'httpConnectionFailed',
+      httpStatus: 503,
+    }),
+  })
+  const diagnostic = sessionFailure(listed, context)
+  validate('SessionFailure', diagnostic)
+  assert.deepEqual(diagnostic.provider_error, {
+    kind: 'httpConnectionFailed',
+    result: null,
+    http_status: 503,
+  })
+  // A kind from the other provider's list, an unknown result type and a bad status.
+  assert.deepEqual(
+    providerError('codex', { kind: 'invalid_request', result: 'success', httpStatus: 99 }),
+    { kind: 'unknown', result: null, http_status: null },
+  )
+  assert.deepEqual(
+    providerError('claude', { kind: 'rate_limit', result: 'error_max_turns', httpStatus: 1.5 }),
+    { kind: 'rate_limit', result: 'error_max_turns', http_status: null },
+  )
+  // Without a provider error, or for an unattributed failure, there is no field.
+  assert.equal(
+    'provider_error' in sessionFailure(new NativeSessionError('agent_turn_failed'), context),
+    false,
+  )
+  assert.equal('provider_error' in sessionFailure(listed, { ...context, provider: null }), false)
+  assert.equal(retainedProviderError('claude', 'invalid_request'), undefined)
+  // The contract itself admits only listed values, even well-formed ones.
+  for (const forged of [
+    { kind: 'API Error: 400 secret', result: null, http_status: null },
+    { kind: 'private_provider_text', result: null, http_status: null },
+    { kind: 'invalid_request', result: 'invented_result', http_status: null },
+  ]) {
+    assert.throws(() => validate('SessionFailure', { ...diagnostic, provider_error: forged }))
+  }
 })
