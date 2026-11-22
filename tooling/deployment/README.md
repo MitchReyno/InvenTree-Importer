@@ -167,11 +167,14 @@ For ChatGPT-backed sessions, start a second relay with `INTAKE_VM_CODEX_SUBSCRIP
 
 Agents use their native shell, file and image tools and provider web search; Claude sessions also have `WebFetch`. `curl` and `WebFetch` reach the web through the turn's egress proxy (`HTTPS_PROXY`). It always allows the provider's hosts. It allows public HTTPS hosts only when the turn's sealed policy turns public pages on, and only on port 443 to names whose every DNS answer is public and none protected. A refusal is `403` with the reason in `X-Bench-Refusal`. Public websites receive any data the operator or agent puts in a permitted URL.
 
-For live qualification on an already linked test deployment, run the following once with `provider=claude` and once with `provider=codex`. The harness uses host Docker for a disposable PostgreSQL instance and Lima for agent execution. It stages a random image in a unique guest directory, checks the app status against its answer, and verifies the saved Python script and that the proxy refused a public page, since the attempt seals no web setting.
+For live qualification on an already linked test deployment, run the following for `provider=claude` and `provider=codex`, each with `web=off` and `web=on`, and each for `stage=research` (a lot session) and `stage=examine` (the batch-level session). The harness uses host Docker for a disposable PostgreSQL instance and Lima for agent execution. Run the cases one at a time: each starts a relay on `INTAKE_VM_PORT`, which defaults to 14319, so parallel runs need distinct ports.
+
+- **`web=off`:** the attempt seals public pages off. The harness stages a random image in a unique guest directory and checks the app status against its answer. It verifies the saved Python script and that the proxy refused a public page. Claude's `WebFetch` must fail too.
+- **`web=on`:** the attempt seals public pages and datasheet guidance. The status must report a provider search result whose URL is on `ti.com`. Claude must also read a random recent RFC with `WebFetch` and save its title in the fixture. The harness reads that title itself, keeps it out of the prompt and requires the saved title to match it. The harness checks that `curl` downloaded the same RFC 9110 PDF bytes the host fetches, and that the proxy answered the `CONNECT` to a private address with its refusal.
 
 ```sh
 bash tooling/deployment/tests/dispatch/live-tools.sh \
-  "$vm" "$guest_directory" "$runner_image" "$coordinator_pair_directory" "$provider"
+  "$vm" "$guest_directory" "$runner_image" "$coordinator_pair_directory" "$provider" "$web" "$stage"
 ```
 
 ### Verify a release or roll back the image pair

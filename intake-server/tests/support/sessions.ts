@@ -139,7 +139,16 @@ export async function seedPhoto(
 }
 
 /** The batch's Examine lead session: a batch-scoped job with no subject. */
-export async function leadSession(fixture: Fixture, capture: Capture) {
+export async function leadSession(
+  fixture: Fixture,
+  capture: Capture,
+  options: {
+    state?: 'running' | 'queued'
+    profile?: Parameters<typeof sessionLotInputManifest>[4]
+  } = {},
+) {
+  const state = options.state ?? 'running'
+  const profile = options.profile ?? { id: 'synthetic-session/1' as const }
   const ids = {
     job: randomUUID(),
     attempt: randomUUID(),
@@ -157,7 +166,7 @@ export async function leadSession(fixture: Fixture, capture: Capture) {
       capture.packetA.id,
       'research',
       { manifest: media.bytes.toString('utf8'), sha256: media.digest.toString('hex') },
-      { id: 'synthetic-session/1' },
+      profile,
     )
     const input = sealed({
       ...lot,
@@ -185,17 +194,26 @@ export async function leadSession(fixture: Fixture, capture: Capture) {
       ],
     )
     await client.query(
-      "INSERT INTO processing_job(id,batch_id,subject_id,stage,current_attempt_id,state) VALUES($1,$2,NULL,'examine',$3,'running')",
-      [ids.job, capture.batch.id, ids.attempt],
+      "INSERT INTO processing_job(id,batch_id,subject_id,stage,current_attempt_id,state) VALUES($1,$2,NULL,'examine',$3,$4)",
+      [ids.job, capture.batch.id, ids.attempt, state],
     )
     await client.query(
       `INSERT INTO processing_attempt(id,batch_id,job_id,number,input_id,profile_id,command_id,channel_digest,state)
-       VALUES($1,$2,$3,1,$4,'synthetic-session/1',$5,$6,'running')`,
-      [ids.attempt, capture.batch.id, ids.job, ids.input, ids.command, input.digest],
+       VALUES($1,$2,$3,1,$4,$5,$6,$7,$8)`,
+      [
+        ids.attempt,
+        capture.batch.id,
+        ids.job,
+        ids.input,
+        profile.id,
+        ids.command,
+        input.digest,
+        state,
+      ],
     )
     await client.query(
-      "INSERT INTO agent_session(attempt_id,session_state,session_lineage_id) VALUES($1,'running',$2)",
-      [ids.attempt, ids.job],
+      'INSERT INTO agent_session(attempt_id,session_state,session_lineage_id) VALUES($1,$2,$3)',
+      [ids.attempt, state, ids.job],
     )
   })
   return ids

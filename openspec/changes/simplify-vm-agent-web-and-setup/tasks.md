@@ -38,7 +38,7 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 | PR-B | The `shared-vm-agent/3` profile with its tool surface and admission, retired `/2` attempts, the reader removed, and readiness reporting the web state | Tasks 4, 5, 6, 11 | The profile, its instructions and its tool surface must arrive together, or `/3` would run with tools its instructions don't match. The reader can only go once no launchable profile names it. Readiness reports what this PR makes true. | PR-A merged (`WebFetch` is always behind the policy) | `interactive-app`, `feat/simplify-vm-agent-web-and-setup-tools`, `feat(simplify-vm-agent-web-and-setup): give VM agents web search and fetch` | `pnpm test:deployment`, `pnpm test:intake`, `pnpm test:intake:pg`, `pnpm test:intake:process`, `pnpm test:dev`, `pnpm test:frontend`, `pnpm lint:frontend`, `pnpm contracts:check`, runner image build, exact-head review, green CI |
 | PR-C | Working web settings, sealed per attempt, and the opening message that reports them | Task 3 | Settings, sealing and what the session is told form one user-visible behaviour | BI-016 merged; PR-B merged | `interactive-app`, `feat/simplify-vm-agent-web-and-setup-settings`, `feat(simplify-vm-agent-web-and-setup): add web research settings` | `pnpm test:intake`, `pnpm test:intake:pg`, `pnpm test:intake:process`, `pnpm test:frontend`, `pnpm lint:frontend`, `pnpm typecheck`, `pnpm build`, `pnpm contracts:check`, demo video (UI change), exact-head review, green CI |
 | PR-D | One-command setup, image freshness and the documentation rewrite | Tasks 7, 8, 9 | Setup automation and the docs that replace the manual steps belong together | PR-A and PR-B merged; docs facts from PR-C merged first | `interactive-app`, `feat/simplify-vm-agent-web-and-setup-vm-setup`, `feat(simplify-vm-agent-web-and-setup): add pnpm vm:setup` | `pnpm test:dev`, `pnpm lint`, Markdown checks, a recorded fresh `vm:setup` run, exact-head review, green CI |
-| PR-E | Requalification evidence and notes | Task 10 | A live run is separate authority and evidence | PR-A to PR-D merged; Mitch's go-ahead | `interactive-app`, `docs/simplify-vm-agent-web-and-setup-qualification`, `docs(simplify-vm-agent-web-and-setup): record requalification` | Evidence attached to the PR, exact-head review |
+| PR-E | Requalification evidence and notes | Task 10 | A live run is separate authority and evidence | PR-A to PR-D merged; Mitch's go-ahead | `interactive-app`, `test/simplify-vm-agent-web-and-setup-requalify`, `test(simplify-vm-agent-web-and-setup): requalify the VM agent tools live` | Evidence attached to the PR, exact-head review |
 
 ## 1. Egress proxy public policy
 
@@ -268,9 +268,9 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 - Verification: session transcripts summarised on the PR, without secrets; `notes.md` updated with any provider host or preflight finding.
 - Risks and decisions: a provider needing an extra host means a follow-up policy change, not an ad-hoc allowlist edit during the run.
 
-- [ ] 10.1 Ask Mitch for the go-ahead for the live run.
-- [ ] 10.2 Run each case and record the outcomes.
-- [ ] 10.3 Update `notes.md` and the PR with the results and any limitations.
+- [x] 10.1 Ask Mitch for the go-ahead for the live run.
+- [x] 10.2 Run each case and record the outcomes.
+- [x] 10.3 Update `notes.md` and the PR with the results and any limitations.
 
 ## 11. Remove the document reader
 
