@@ -148,3 +148,31 @@ test('a changed server scope never reuses another account diagnostic', async () 
   expect(await screen.findByText('agent_login_required')).toBeVisible()
   expect(load).toHaveBeenCalledTimes(2)
 })
+
+test("a failed turn's details name the provider's own error, and only when it reported one", async () => {
+  const reported: SessionFailureDto = {
+    ...details,
+    category: 'provider_network',
+    code: 'agent_turn_failed',
+    provider_error: { kind: 'httpConnectionFailed', result: null, http_status: 503 },
+  }
+  const load = vi.fn().mockResolvedValue(reported)
+  const { unmount } = render(
+    <SessionFailureDetails attemptId="attempt" failure={reported} load={load} />,
+  )
+  await userEvent.click(screen.getByRole('button', { name: 'Show details' }))
+  const term = await screen.findByText('Provider error')
+  expect(term.nextElementSibling).toHaveTextContent('httpConnectionFailed · HTTP 503')
+  unmount()
+
+  render(
+    <SessionFailureDetails
+      attemptId="attempt"
+      failure={details}
+      load={vi.fn().mockResolvedValue(details)}
+    />,
+  )
+  await userEvent.click(screen.getByRole('button', { name: 'Show details' }))
+  await screen.findByText('agent_tool_refused')
+  expect(screen.queryByText('Provider error')).not.toBeInTheDocument()
+})

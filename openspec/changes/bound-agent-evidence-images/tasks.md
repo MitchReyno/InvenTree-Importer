@@ -79,12 +79,12 @@ Check an action off only after it is done and verified, in the same commit as th
   - the fake CLIs in `intake-server/tests/support`.
 - **Verification:** contract tests; the adapter tests in the fast and process tiers.
 
-- [ ] 4.1 Add the optional `provider_error` to `SessionFailure`, with contract tests for its presence and absence.
-- [ ] 4.2 RED: write adapter tests in which:
-  - [ ] 4.2.1 Claude has `error: 'invalid_request'` and result `error_during_execution`;
-  - [ ] 4.2.2 Codex has `codexErrorInfo: 'contextWindowExceeded'`, and `{ httpConnectionFailed: { httpStatusCode: 503 } }`;
-  - [ ] 4.2.3 unlisted values become `unknown` or `null`.
-- [ ] 4.3 Capture the kinds in both adapters, carry them on `NativeSessionError`, and validate and copy them in `sessionFailure`; GREEN.
+- [x] 4.1 Add the optional `provider_error` to `SessionFailure`, with contract tests for its presence and absence.
+- [x] 4.2 RED: write adapter tests in which:
+  - [x] 4.2.1 Claude has `error: 'invalid_request'` and result `error_during_execution`;
+  - [x] 4.2.2 Codex has `codexErrorInfo: 'contextWindowExceeded'`, and `{ httpConnectionFailed: { httpStatusCode: 503 } }`;
+  - [x] 4.2.3 unlisted values become `unknown` or `null`.
+- [x] 4.3 Capture the kinds in both adapters, carry them on `NativeSessionError`, and validate and copy them in `sessionFailure`; GREEN.
 
 ## 5. Guest frame and panel
 
@@ -92,9 +92,9 @@ Check an action off only after it is done and verified, in the same commit as th
 - **Scope:** `native-outcome.ts`, `guest-turn.ts`, `coordinator.ts`; `frontend/src/components/agents/SessionFailureDetails.tsx` and its test; the frontend fixtures.
 - **Verification:** the shared-VM unit and process tests; frontend typecheck, lint, tests and build; a demo recording of the panel.
 
-- [ ] 5.1 RED: write tests for the guest final frame carrying `provider_error`, for host validation turning unlisted values into `unknown`, and for a journal settle having none.
-- [ ] 5.2 Carry the field through `nativeTurnOutcome`, the final frame and the coordinator; GREEN.
-- [ ] 5.3 Show the provider error in `SessionFailureDetails`, with tests for its presence and absence.
+- [x] 5.1 RED: write tests for the guest final frame carrying `provider_error`, for host validation turning unlisted values into `unknown`, and for a journal settle having none.
+- [x] 5.2 Carry the field through `nativeTurnOutcome`, the final frame and the coordinator; GREEN.
+- [x] 5.3 Show the provider error in `SessionFailureDetails`, with tests for its presence and absence.
 
 ## 6. Live check
 

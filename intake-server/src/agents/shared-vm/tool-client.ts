@@ -1,11 +1,9 @@
 import { evidenceRequest } from './evidence-request.ts'
 import { ResearchReapPendingError } from '#/research/errors.ts'
-import { NativeSessionError } from '#/agents/failure-model.ts'
-import { refusalOutcome } from './journal.ts'
+import { workerOutcomeError } from './worker-outcome.ts'
 import { connect } from 'node:net'
 import { once } from 'node:events'
 import { evidenceReplyLimit, Frames } from './frames.ts'
-import { SessionResumeUnavailable } from '#/agents/session/session-adapters.ts'
 import type { nativeTurn } from './native-turn.ts'
 
 /** The tool worker can use only the coordinator operations of its assigned turn. */
@@ -20,18 +18,12 @@ export const isolatedToolTurn: typeof nativeTurn = async (context, opening, requ
       const message = await frames.read().catch(() => {
         throw new ResearchReapPendingError()
       })
-      if (message.outcome === 'agent_login_required') {
-        throw new NativeSessionError('agent_login_required')
-      }
-      const refusal = refusalOutcome(message.outcome)
-      if (refusal) {
-        throw new NativeSessionError(refusal)
-      }
       if (message.outcome === 'done') {
         return
       }
-      if (message.outcome === 'resume_unavailable') {
-        throw new SessionResumeUnavailable()
+      const failure = workerOutcomeError(message, context.manifest.agent?.provider)
+      if (failure) {
+        throw failure
       }
       const body = message.request
       if (

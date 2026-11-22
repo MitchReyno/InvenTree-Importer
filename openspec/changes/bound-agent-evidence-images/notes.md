@@ -1,6 +1,6 @@
 # Implementation notes
 
-Implementation of `bound-agent-evidence-images` (BI-018) started with PR-A (tasks 1 to 3). PR-B (tasks 4 to 6) remains.
+PR-A (tasks 1 to 3, #238) bounds every agent image. PR-B (tasks 4 to 6) records the provider's turn error; its live check (task 6) remains.
 
 ## Changes to the plan
 
@@ -8,12 +8,23 @@ Implementation of `bound-agent-evidence-images` (BI-018) started with PR-A (task
 
 ## Unexpected challenges
 
+- **2026-11-23T00:08+11:00, task 5 (PR-B):** Review found that `shared-vm-agent/3` runs the provider in a separate tool worker, whose outcome frame reached the guest supervisor as a bare outcome; a turn failure even fell through to a generic `tool_worker_refused`. The mapping moved to `shared-vm/worker-outcome.ts`, used on both sides of the worker socket, so the provider error crosses it and is re-checked by the supervisor. Codex `error` notifications with `willRetry` no longer end a turn.
+
+- **2026-11-23T00:02+11:00, PR-A:** A process tier was still running in the PR-A worktree when the commit was amended, and its serial `dev-stack` test had temporarily appended invalid TypeScript to `intake-server/src/dev/listen.ts`, which `git add -A` committed and pushed to #238. The file was restored from `interactive-app` and force-pushed before CI or merge; parallel work now uses a separate worktree.
+
 - **2026-11-22T23:32+11:00, task 2 (PR-A):** Review found that bounding pixels didn't bound bytes: a detailed 1,650 px PNG was about 8 MB, over Claude's 10 MB once base64-encoded and over the 2 MiB relay frame. Every delivery now has a 1.25 MiB cap, with PNG then falling JPEG quality. Review also found that the merged path checked removal only before the read, where the old original path checked it at the read; removal is now checked again after encoding. Spec, design and tasks updated.
 
 ## Decisions made during implementation
 
+- **2026-11-23T00:16+11:00, task 4 (PR-B):** A Claude login failure keeps the kind `authentication_failed` but no result type or HTTP status: the adapter settles `agent_login_required` at that assistant message, as before. Waiting a bounded time for a later result was rejected because it delays every login failure to add two fields to a case the kind already names.
+- **2026-11-23T00:16+11:00, task 5 (PR-B):** A browser tab left open across the upgrade rejects a diagnostic carrying `provider_error`, since contract objects are closed, and shows "details unavailable" until it is reloaded. A versioned endpoint was rejected for the same reason as the readiness change in `simplify-vm-agent-web-and-setup`: the frontend checks the API version as a fixed literal, and this panel is debug-only.
+
+- **2026-11-23T00:02+11:00, task 4 (PR-B):** `http_status` comes from Codex's `httpConnectionFailed`-style kinds and from Claude's result `api_error_status`, which Claude reports when it gives up on an HTTP error such as 529. The kind lists are the values read from Claude Code 2.1.319 and codex-cli 0.166.0; a newer CLI's new kind is retained as `unknown` until the lists are updated.
+
 - **2026-11-22T22:56+11:00, task 2:** A lot session's pinned derived versions stay fetchable: the lead session's originals-only filter now applies to Examine only, since the merged path would otherwise have refused derived versions the old original branch served. Undecoded and encrypted versions never reach `fetch_evidence`: a lot manifest refuses them as `media_not_ready` and Examine leaves them out. The fetch-time refusal is for a requested page without a preview, tested as page 2 of a one-page photo.
 
 ## Open items
+
+- **No local test crosses the real tool-worker socket.** `worker-outcome.ts` is unit-tested on both sides and the host frame has a process test, but `tool-worker.ts` is an entrypoint with a fixed socket path, a provider proxy and a real CLI behind it, so the path between them is proved only by the task 6 live check on the VM. Found in PR-B's last review round, 2026-11-23T00:21+11:00.
 
 - **A JSON-RPC batch of several `fetch_evidence` calls can outgrow a VM relay frame.** The relay gives the larger evidence reply limit only to a standalone `fetch_evidence` request, so a batch whose images together exceed the default frame fails after the host has recorded delivery. This predates the change (the old path sent originals of up to 8 MiB), and the provider CLIs send single requests. Refusing batches that contain `fetch_evidence` is a follow-up. Found in PR-A's review, 2026-11-22T23:45+11:00.

@@ -19634,6 +19634,11 @@ export interface components {
                 summary: string;
             }[];
             truncated: boolean;
+            provider_error?: {
+                kind: "unknown" | "authentication_failed" | "oauth_org_not_allowed" | "account_on_hold" | "verification_required" | "billing_error" | "rate_limit" | "overloaded" | "invalid_request" | "model_not_found" | "server_error" | "max_output_tokens" | "cloud_credential_error" | "contextWindowExceeded" | "sessionBudgetExceeded" | "usageLimitExceeded" | "rateLimitExceeded" | "flexUnavailable" | "serverOverloaded" | "modelNotFound" | "policyCapacityUnavailable" | "cyberPolicy" | "misalignmentPolicyViolation" | "tooManyDenials" | "internalServerError" | "unauthorized" | "badRequest" | "threadRollbackFailed" | "sandboxError" | "other" | "httpConnectionFailed" | "responseStreamConnectionFailed" | "responseStreamDisconnected" | "responseTooManyFailedAttempts" | "activeTurnNotSteerable";
+                result: ("success" | "error_during_execution" | "error_max_turns") | null;
+                http_status: number | null;
+            };
         };
         SessionFailureSummary: {
             id: string;

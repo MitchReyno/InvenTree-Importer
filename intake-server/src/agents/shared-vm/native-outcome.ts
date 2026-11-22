@@ -1,6 +1,6 @@
 import { ResearchReapPendingError } from '#/research/errors.ts'
 import { SessionResumeUnavailable } from '#/agents/session/session-adapters.ts'
-import { NativeSessionError } from '#/agents/failure-model.ts'
+import { NativeSessionError, type ProviderErrorDto } from '#/agents/failure-model.ts'
 import { refusalOutcome, type TurnOutcome } from './journal.ts'
 
 export interface NativeTurnSteps {
@@ -8,6 +8,8 @@ export interface NativeTurnSteps {
   publishPolicy?: () => Promise<void>
   /** Starts and runs the provider turn. */
   run: () => Promise<void>
+  /** Told the provider's own error kind when the turn fails with one. */
+  onProviderError?: (error: ProviderErrorDto) => void
 }
 
 /**
@@ -25,6 +27,9 @@ export async function nativeTurnOutcome(steps: NativeTurnSteps): Promise<TurnOut
     }
     if (error instanceof SessionResumeUnavailable) {
       return 'resume_unavailable'
+    }
+    if (error instanceof NativeSessionError && error.providerError) {
+      steps.onProviderError?.(error.providerError)
     }
     if (error instanceof NativeSessionError && error.code === 'agent_login_required') {
       return 'agent_login_required'

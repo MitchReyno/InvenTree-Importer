@@ -20,6 +20,22 @@ const labels: Record<SessionFailureDto['category'], string> = {
   interrupted: 'Interrupted',
   internal: 'Internal / unknown',
 }
+
+/** The provider's own error, kind first, then its result type or HTTP status when given. */
+function providerErrorText(error: SessionFailureDto['provider_error']) {
+  if (!error) {
+    return undefined
+  }
+  const parts = [error.kind]
+  if (error.result) {
+    parts.push(error.result)
+  }
+  if (error.http_status !== null) {
+    parts.push(`HTTP ${error.http_status}`)
+  }
+  return parts.join(' · ')
+}
+
 export const FAILED_SESSION_STATES = new Set([
   'failed',
   'interrupted',
@@ -100,6 +116,9 @@ export function SessionFailureDetails({
                     Model: details.model,
                     'CLI version': details.cli_version,
                     'Provider session': details.provider_session_id,
+                    ...(details.provider_error
+                      ? { 'Provider error': providerErrorText(details.provider_error) }
+                      : {}),
                   }).map(([label, value]) => (
                     <div key={label}>
                       <dt>{label}</dt>

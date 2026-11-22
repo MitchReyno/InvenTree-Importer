@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { nativeTurnOutcome } from '#/agents/shared-vm/native-outcome.ts'
+import { finalFrame } from '#/agents/shared-vm/guest-turn.ts'
 import { NativeSessionError } from '#/agents/failure-model.ts'
 import { SessionResumeUnavailable } from '#/agents/session/session-adapters.ts'
 import { ResearchReapPendingError } from '#/research/errors.ts'
@@ -65,4 +66,27 @@ test('a pending reap still escapes so the coordinator keeps the slot', async () 
     }),
     (error) => error === pending,
   )
+})
+
+test('a failed turn reports the provider error, and the final frame carries it', async () => {
+  const reported: unknown[] = []
+  const providerError = { kind: 'rate_limit', result: 'error_during_execution', http_status: null }
+  const outcome = await nativeTurnOutcome({
+    run: async () => {
+      throw new NativeSessionError('agent_turn_failed', { providerError })
+    },
+    onProviderError: (error) => reported.push(error),
+  })
+  assert.equal(outcome, 'agent_turn_failed')
+  assert.deepEqual(reported, [providerError])
+  assert.deepEqual(finalFrame('agent_turn_failed', providerError), {
+    failure: 'agent_turn_failed',
+    provider_error: providerError,
+  })
+  // A refusal or a journaled replay carries the outcome alone.
+  assert.deepEqual(finalFrame('agent_tool_refused', providerError), {
+    failure: 'agent_tool_refused',
+  })
+  assert.deepEqual(finalFrame('agent_turn_failed'), { failure: 'agent_turn_failed' })
+  assert.deepEqual(finalFrame('done'), { done: true })
 })

@@ -206,6 +206,22 @@ if (args[0] === 'app-server') {
           params: { threadId, turnId, item: { type: mode === 'wrapped-call' ? 'codeExecution' : 'commandExecution', id: 'c1', command: 'ls' } },
         })
       }
+      // The provider's own error kind, and text that must never be retained.
+      if (mode === 'codex-context-error') {
+        send({ method: 'turn/completed', params: { turn: { id: turnId, status: 'failed',
+          error: { message: 'secret provider text', codexErrorInfo: 'contextWindowExceeded' } } } })
+        return
+      }
+      if (mode === 'codex-http-error') {
+        send({ method: 'error', params: { threadId, turnId, willRetry: false,
+          error: { message: 'secret provider text', codexErrorInfo: { httpConnectionFailed: { httpStatusCode: 503 } } } } })
+        return
+      }
+      // A retried error does not end the turn.
+      if (mode === 'codex-retry-error') {
+        send({ method: 'error', params: { threadId, turnId, willRetry: true,
+          error: { message: 'retrying', codexErrorInfo: { responseStreamDisconnected: { httpStatusCode: 502 } } } } })
+      }
       await work(() => deliveries.next())
       send({ method: 'turn/completed', params: { turn: { id: turnId, status: 'completed' } } })
     }
@@ -278,6 +294,14 @@ if (args[0] === 'app-server') {
     })
     if (mode === 'deferred-call') send({type:'assistant',message:{content:[{type:'tool_use',name:'advisor',input:{}}]}})
     log({ event: 'opening', text })
+    if (mode === 'claude-api-error' || mode === 'claude-unlisted-error') {
+      const unlisted = mode === 'claude-unlisted-error'
+      send({ type: 'assistant', error: unlisted ? 'brand_new_kind' : 'invalid_request',
+        message: { content: [{ type: 'text', text: 'API Error: 400 secret provider text' }] } })
+      send({ type: 'result', subtype: unlisted ? 'error_unheard_of' : 'error_during_execution',
+        is_error: true, session_id: sessionId, api_error_status: unlisted ? 42 : 529 })
+      return
+    }
     await work(() => deliveries.next())
     send({ type: 'result', subtype: 'success', is_error: false, session_id: sessionId })
   })

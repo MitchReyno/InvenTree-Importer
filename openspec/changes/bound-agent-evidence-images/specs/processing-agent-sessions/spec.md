@@ -56,15 +56,15 @@ Processing and session history SHALL display a failure category, actionable summ
 
 #### Scenario: Provider reports why a turn failed
 
-- **GIVEN** a Claude turn whose assistant message carries the error kind `invalid_request` and whose result type is `error_during_execution`, or a Codex turn that fails with `contextWindowExceeded` or with `httpConnectionFailed` and HTTP status 503
+- **GIVEN** a Claude turn whose assistant message carries the error kind `invalid_request` and whose result type is `error_during_execution` with HTTP status 529, or a Codex turn that fails with `contextWindowExceeded` or with `httpConnectionFailed` and HTTP status 503
 - **WHEN** the failure is retained and its details are opened
-- **THEN** the panel shows `agent_turn_failed` with the provider error kind, and the result type or HTTP status where given. No provider message text is stored or shown.
+- **THEN** the panel shows `agent_turn_failed` with the provider error kind, and the result type or HTTP status where given. No provider message text is stored or shown. A Codex error it is retrying does not end the turn, and an expired Claude subscription keeps the kind `authentication_failed` with its login failure; the turn ends at that message, so no result type or status follows it.
 
 #### Scenario: Unrecognized provider error kind
 
-- **GIVEN** a provider error kind or result type outside the fixed list, or one longer than the stored limit
+- **GIVEN** a provider error kind, result type or HTTP status outside its fixed list or range
 - **WHEN** the failure is retained
-- **THEN** the provider error kind is recorded as `unknown` and the unrecognized value is not stored.
+- **THEN** each field is checked on its own: an unlisted kind is recorded as `unknown`, an unlisted result type or out-of-range status as null, and a listed value beside them is kept. The unrecognized value is not stored.
 
 #### Scenario: Legacy and unknown failures
 

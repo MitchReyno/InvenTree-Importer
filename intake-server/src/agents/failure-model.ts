@@ -1,5 +1,10 @@
 import { randomUUID } from 'node:crypto'
-import type { SessionFailureDto } from '@invimport/contracts'
+import {
+  CLAUDE_ERROR_KINDS,
+  CLAUDE_RESULT_TYPES,
+  CODEX_ERROR_KINDS,
+  type SessionFailureDto,
+} from '@invimport/contracts'
 
 type Category = SessionFailureDto['category']
 const categories: Record<string, Category> = {
@@ -80,12 +85,65 @@ const descriptions: Record<Category, { summary: string; recovery: string }> = {
 }
 
 /** Only explicitly typed application failures may supply a diagnostic code. */
+export type ProviderErrorDto = NonNullable<SessionFailureDto['provider_error']>
+
+const CLAUDE_KINDS = new Set<string>(CLAUDE_ERROR_KINDS)
+const CLAUDE_RESULTS = new Set<string>(CLAUDE_RESULT_TYPES)
+const CODEX_KINDS = new Set<string>(CODEX_ERROR_KINDS)
+
+const PROVIDER_ERROR_KINDS = { claude: CLAUDE_KINDS, codex: CODEX_KINDS }
+
+/**
+ * A provider error reduced to the fixed lists: an unlisted kind is `unknown`, and an unlisted
+ * result type or an out-of-range status is null. Provider text never enters it.
+ */
+export function providerError(
+  provider: 'claude' | 'codex',
+  reported: { kind?: unknown; result?: unknown; httpStatus?: unknown },
+): ProviderErrorDto {
+  const kind = reported.kind
+  const listedKind =
+    typeof kind === 'string' && PROVIDER_ERROR_KINDS[provider].has(kind) ? kind : 'unknown'
+  const result =
+    provider === 'claude' &&
+    typeof reported.result === 'string' &&
+    CLAUDE_RESULTS.has(reported.result)
+      ? reported.result
+      : null
+  const status = reported.httpStatus
+  const httpStatus =
+    Number.isInteger(status) && (status as number) >= 100 && (status as number) <= 599
+      ? (status as number)
+      : null
+  return { kind: listedKind, result, http_status: httpStatus }
+}
+
+/** A provider error retained from the guest or another boundary, re-checked against the lists. */
+export function retainedProviderError(
+  provider: 'claude' | 'codex' | null | undefined,
+  value: unknown,
+): ProviderErrorDto | undefined {
+  if (!provider || !value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined
+  }
+  const reported = value as Record<string, unknown>
+  return providerError(provider, {
+    kind: reported.kind,
+    result: reported.result,
+    httpStatus: reported.http_status,
+  })
+}
+
 export class NativeSessionError extends Error {
+  /** The provider's own error kind, when a turn failed with one. */
+  readonly providerError?: ProviderErrorDto
+
   constructor(
     readonly code: string,
-    options?: ErrorOptions,
+    options?: ErrorOptions & { providerError?: ProviderErrorDto },
   ) {
     super(code, options)
+    this.providerError = options?.providerError
   }
 }
 interface Context {
@@ -156,5 +214,14 @@ export function sessionFailure(error: unknown, context: Context): SessionFailure
         : null,
     causes,
     truncated: Boolean(cause),
+    ...providerErrorField(error, context.provider),
   }
+}
+
+function providerErrorField(error: unknown, provider: Context['provider']) {
+  if (!(error instanceof NativeSessionError)) {
+    return {}
+  }
+  const retained = retainedProviderError(provider, error.providerError)
+  return retained ? { provider_error: retained } : {}
 }
