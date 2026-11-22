@@ -1,9 +1,10 @@
 # Implementation notes
 
-PR-A (tasks 1 to 3, #238) bounds every agent image. PR-B (tasks 4 to 6) records the provider's turn error; its live check (task 6) remains.
+PR-A (#238) bounds every `fetch_evidence` image and PR-B (#239) records the provider's turn error when the guest's final frame reaches the host. The live check (task 6) found two more problems, fixed in #240 (the specific failure code behind a VM turn) and #241 (Claude's output limits in VM tool sessions); with those, Mitch's retried Examine session reached its question for him.
 
 ## Changes to the plan
 
+- **2026-11-23T10:32+11:00, task 6:** The live check ran after PR-B merged rather than inside it, because it needed a runner image built from the merged code. It also needed two follow-ups the plan didn't foresee, #240 and #241 (see Unexpected challenges). Its outcome differed from the planned one: the failing turn named its cause (`agent_frame_capacity`) through #240's cause rather than a provider error, and a lot session on a 6144 × 8160 original was not run as such. Instead, after #241, Mitch's Examine session on the batch that had failed reached its question for him, and an Images lot session on that batch finished. One `agent_process_unavailable` failure was recorded between them; its cause and any relation to the live check were not investigated. The planned lot fetch of a 6144 × 8160 original and a live provider error remain unobserved.
 - **2026-11-22T22:56+11:00, task 2 (PR-A):** The design had `regionCropCache` gain a bounded size with its own cache key. The handler bounds the cache's full-size crop instead, so the cache, its keys and its UI caller in `media/content.ts` are unchanged, at the cost of one resize per large region fetch. Tasks and design updated.
 
 ## Unexpected challenges
@@ -33,6 +34,6 @@ PR-A (tasks 1 to 3, #238) bounds every agent image. PR-B (tasks 4 to 6) records 
 
 - **Host Claude tool sessions keep the 256 KiB line limit.** A `native-agent/2` session on the host also gets `fetch_evidence` images, so its echo of one would still fail with `agent_frame_capacity`. Only VM tool workers got the larger limits; the host profile is expected to be retired with BI-010. Found reviewing the frame fix, 2026-11-23T08:29+11:00.
 
-- **No local test crosses the real tool-worker socket.** `worker-outcome.ts` is unit-tested on both sides and the host frame has a process test, but `tool-worker.ts` is an entrypoint with a fixed socket path, a provider proxy and a real CLI behind it, so the path between them is proved only by the task 6 live check on the VM. Found in PR-B's last review round, 2026-11-23T00:21+11:00.
+- **No local test crosses the real tool-worker socket.** `worker-outcome.ts` is unit-tested on both sides and the host frame has a process test, but `tool-worker.ts` is an entrypoint with a fixed socket path, a provider proxy and a real CLI behind it. The live check showed a specific cause (`agent_frame_capacity`) crossing it; a live provider error crossing it has not been observed.
 
 - **A JSON-RPC batch of several `fetch_evidence` calls can outgrow a VM relay frame.** The relay gives the larger evidence reply limit only to a standalone `fetch_evidence` request, so a batch whose images together exceed the default frame fails after the host has recorded delivery. This predates the change (the old path sent originals of up to 8 MiB), and the provider CLIs send single requests. Refusing batches that contain `fetch_evidence` is a follow-up. Found in PR-A's review, 2026-11-22T23:45+11:00.
