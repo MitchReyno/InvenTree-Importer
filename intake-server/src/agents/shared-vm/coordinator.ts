@@ -8,7 +8,7 @@ import type { SessionDriver } from '#/agents/session/session-runner.ts'
 import { ResearchReapPendingError } from '#/research/errors.ts'
 import { evidenceReplyLimit, Frames, protocol, readBounded } from './frames.ts'
 import { SessionResumeUnavailable } from '#/agents/session/session-adapters.ts'
-import { NativeSessionError, retainedProviderError } from '#/agents/failure-model.ts'
+import { NativeSessionError, retainedCause, retainedProviderError } from '#/agents/failure-model.ts'
 import { refusalOutcome } from './journal.ts'
 import { pairing } from './pair.ts'
 import { settled } from '#/events/settled.ts'
@@ -199,6 +199,7 @@ export async function startSessionBridge(
               context.manifest.agent?.provider,
               msg.provider_error,
             ),
+            cause: retainedCause(msg.cause),
           })
         }
         if (

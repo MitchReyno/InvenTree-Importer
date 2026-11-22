@@ -90,3 +90,28 @@ test('a failed turn reports the provider error, and the final frame carries it',
   assert.deepEqual(finalFrame('agent_turn_failed'), { failure: 'agent_turn_failed' })
   assert.deepEqual(finalFrame('done'), { done: true })
 })
+
+test('a failure more specific than its outcome reports its code, and the final frame carries it', async () => {
+  const causes: string[] = []
+  const outcome = await nativeTurnOutcome({
+    run: async () => {
+      throw new NativeSessionError('agent_result_missing')
+    },
+    onCause: (code) => causes.push(code),
+  })
+  assert.equal(outcome, 'agent_turn_failed')
+  assert.deepEqual(causes, ['agent_result_missing'])
+  assert.deepEqual(finalFrame('agent_turn_failed', undefined, 'agent_result_missing'), {
+    failure: 'agent_turn_failed',
+    cause: 'agent_result_missing',
+  })
+  // A refusal is already specific, so it reports no separate cause.
+  const refusals: string[] = []
+  await nativeTurnOutcome({
+    run: async () => {
+      throw new NativeSessionError('agent_tool_refused')
+    },
+    onCause: (code) => refusals.push(code),
+  })
+  assert.deepEqual(refusals, [])
+})

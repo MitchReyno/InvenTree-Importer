@@ -49,7 +49,31 @@ test('the supervisor keeps only listed values and maps every other outcome as be
     workerOutcomeError({ outcome: 'resume_unavailable' }, 'codex') instanceof
       SessionResumeUnavailable,
   )
-  assert.deepEqual(workerFailure(new Error('anything')), { outcome: 'agent_turn_failed' })
+  // An untyped error crosses as agent_unknown, never as its message.
+  assert.deepEqual(workerFailure(new Error('secret detail')), {
+    outcome: 'agent_turn_failed',
+    cause: 'agent_unknown',
+  })
   // A request frame is not a failure.
   assert.equal(workerOutcomeError({ request: { mcp: '{}' } }, 'claude'), undefined)
+})
+
+test('the specific failure code behind a general outcome crosses the worker socket', () => {
+  const frame = workerFailure(new NativeSessionError('agent_protocol_invalid'))
+  assert.deepEqual(frame, { outcome: 'agent_turn_failed', cause: 'agent_protocol_invalid' })
+  const crossed = workerOutcomeError(
+    JSON.parse(JSON.stringify(frame)),
+    'claude',
+  ) as NativeSessionError
+  assert.equal(crossed.code, 'agent_turn_failed')
+  assert.ok(crossed.cause instanceof NativeSessionError)
+  assert.equal(crossed.cause.code, 'agent_protocol_invalid')
+  // An untyped worker error survives the socket as agent_unknown.
+  const untyped = workerOutcomeError(workerFailure(new Error('EACCES: secret path')), 'claude')
+  assert.equal(((untyped as NativeSessionError).cause as NativeSessionError).code, 'agent_unknown')
+  // A cause that is not a registered code is dropped, however it is spelled.
+  for (const cause of ['API Error: secret', 'agent_invented_code']) {
+    const forged = workerOutcomeError({ outcome: 'agent_turn_failed', cause }, 'claude')
+    assert.equal((forged as NativeSessionError).cause, undefined, cause)
+  }
 })

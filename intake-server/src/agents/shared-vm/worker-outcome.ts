@@ -1,4 +1,9 @@
-import { NativeSessionError, retainedProviderError } from '#/agents/failure-model.ts'
+import {
+  failureCauseCode,
+  NativeSessionError,
+  retainedCause,
+  retainedProviderError,
+} from '#/agents/failure-model.ts'
 import { SessionResumeUnavailable } from '#/agents/session/session-adapters.ts'
 import { refusalOutcome } from './journal.ts'
 
@@ -19,7 +24,13 @@ export function workerFailure(error: unknown) {
   const providerError = error instanceof NativeSessionError ? error.providerError : undefined
   const carriesProviderError =
     providerError && (outcome === 'agent_turn_failed' || outcome === 'agent_login_required')
-  return carriesProviderError ? { outcome, provider_error: providerError } : { outcome }
+  // The specific code the outcome would otherwise hide, such as agent_protocol_invalid.
+  const cause = failureCauseCode(error)
+  return {
+    outcome,
+    ...(carriesProviderError ? { provider_error: providerError } : {}),
+    ...(cause !== outcome ? { cause } : {}),
+  }
 }
 
 /**
@@ -36,6 +47,7 @@ export function workerOutcomeError(
   if (message.outcome === 'agent_login_required' || message.outcome === 'agent_turn_failed') {
     return new NativeSessionError(message.outcome, {
       providerError: retainedProviderError(provider, message.provider_error),
+      cause: retainedCause(message.cause),
     })
   }
   const refusal = refusalOutcome(message.outcome)

@@ -225,3 +225,22 @@ function providerErrorField(error: unknown, provider: Context['provider']) {
   const retained = retainedProviderError(provider, error.providerError)
   return retained ? { provider_error: retained } : {}
 }
+
+/**
+ * The most specific typed code behind a failure: a wrapped cause's, or the error's own. An
+ * untyped error is `agent_unknown`, so no exception text ever leaves the process that saw it.
+ */
+export function failureCauseCode(error: unknown) {
+  if (!(error instanceof NativeSessionError)) {
+    return 'agent_unknown'
+  }
+  return error.cause instanceof NativeSessionError ? error.cause.code : error.code
+}
+
+/** A cause received from a guest or tool worker, kept only when it is a registered code. */
+export function retainedCause(value: unknown) {
+  // agent_unknown is the senders' code for an untyped error; it has no category of its own.
+  const registered =
+    typeof value === 'string' && (value === 'agent_unknown' || Object.hasOwn(categories, value))
+  return registered ? new NativeSessionError(value as string) : undefined
+}

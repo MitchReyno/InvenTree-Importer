@@ -1,6 +1,10 @@
 import { ResearchReapPendingError } from '#/research/errors.ts'
 import { SessionResumeUnavailable } from '#/agents/session/session-adapters.ts'
-import { NativeSessionError, type ProviderErrorDto } from '#/agents/failure-model.ts'
+import {
+  failureCauseCode,
+  NativeSessionError,
+  type ProviderErrorDto,
+} from '#/agents/failure-model.ts'
 import { refusalOutcome, type TurnOutcome } from './journal.ts'
 
 export interface NativeTurnSteps {
@@ -10,6 +14,8 @@ export interface NativeTurnSteps {
   run: () => Promise<void>
   /** Told the provider's own error kind when the turn fails with one. */
   onProviderError?: (error: ProviderErrorDto) => void
+  /** Told the specific failure code when the outcome is more general, such as agent_turn_failed. */
+  onCause?: (code: string) => void
 }
 
 /**
@@ -31,11 +37,20 @@ export async function nativeTurnOutcome(steps: NativeTurnSteps): Promise<TurnOut
     if (error instanceof NativeSessionError && error.providerError) {
       steps.onProviderError?.(error.providerError)
     }
-    if (error instanceof NativeSessionError && error.code === 'agent_login_required') {
-      return 'agent_login_required'
+    const outcome = turnFailureOutcome(error)
+    const cause = failureCauseCode(error)
+    if (cause !== outcome) {
+      steps.onCause?.(cause)
     }
-    const refusal = error instanceof NativeSessionError ? refusalOutcome(error.code) : undefined
-    return refusal ?? 'agent_turn_failed'
+    return outcome
   }
   return 'done'
+}
+
+function turnFailureOutcome(error: unknown): TurnOutcome {
+  if (error instanceof NativeSessionError && error.code === 'agent_login_required') {
+    return 'agent_login_required'
+  }
+  const refusal = error instanceof NativeSessionError ? refusalOutcome(error.code) : undefined
+  return refusal ?? 'agent_turn_failed'
 }
