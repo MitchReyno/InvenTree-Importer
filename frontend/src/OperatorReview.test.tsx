@@ -311,6 +311,13 @@ test('filters persist in the URL and retired lots are history, not selectable', 
   expect(screen.queryByRole('checkbox', { name: 'Select Original bag' })).not.toBeInTheDocument()
 })
 
+test('Review shows no Batch context disclosure', async () => {
+  renderReview()
+  await screen.findByRole('checkbox', { name: 'Select Packet A' })
+
+  expect(screen.queryByText('Batch context')).toBeNull()
+})
+
 test('a successor lot shows its predecessor evidence', async () => {
   const user = userEvent.setup()
   renderReview()
@@ -1198,9 +1205,7 @@ test('the lot detail ends in its action footer and holds the lot edits', async (
   expect(screen.getAllByRole('button', { name: 'Edit lot details' })).toEqual([
     within(details).getByRole('button', { name: 'Edit lot details' }),
   ])
-  expect(screen.getByLabelText('Human capture context').closest('details')).not.toHaveAttribute(
-    'open',
-  )
+  expect(screen.queryByLabelText('Human capture context')).toBeNull()
 })
 
 test('lot details show the new Part maker, MPN, package and date code', async () => {

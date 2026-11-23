@@ -639,12 +639,6 @@ export function ProcessingWorkspace({
           </Banner>
         </div>
       )}
-      <Banner tone="info">
-        {snapshot?.runner_status === 'native_unverified'
-          ? 'Native agent profile · requires a saved default and supervised worker. Live provider access has not been qualified.'
-          : 'Synthetic processing fixture · actual provider support is not qualified.'}{' '}
-        Closing this browser does not cancel saved work.
-      </Banner>
       {offline && (
         <div role="alert">
           <Banner tone="bad">

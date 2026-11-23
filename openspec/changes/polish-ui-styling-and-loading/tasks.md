@@ -98,10 +98,10 @@
 - **Verification:** frontend tests; captures of Review and Processing.
 - **Risks and decisions:** none.
 
-- [ ] 3.1 Find every test, fixture and doc that mentions Batch context, `native_unverified` text or "live provider not qualified".
-- [ ] 3.2 RED: assert their absence, and assert the debug row.
-- [ ] 3.3 GREEN: remove them, add the debug row and move the help sentence.
-- [ ] 3.4 Update `frontend/ARCHITECTURE.md` where it describes them. Run the frontend checks.
+- [x] 3.1 Find every test, fixture and doc that mentions Batch context, `native_unverified` text or "live provider not qualified".
+- [x] 3.2 RED: assert their absence, and assert the debug row.
+- [x] 3.3 GREEN: remove them, add the debug row and move the help sentence.
+- [x] 3.4 Update `frontend/ARCHITECTURE.md` where it describes them. Run the frontend checks.
 
 ## 4. Freshness layer and persisted reads
 

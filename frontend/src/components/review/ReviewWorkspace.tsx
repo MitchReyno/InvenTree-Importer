@@ -7,10 +7,8 @@ import {
   Panel,
   Paragraph,
   Small,
-  Summary,
   Button,
   ShortcutsButton,
-  groundBehindOnField,
   raisedOnField,
 } from '#/components/ui'
 import { subjectStatuses, type LotStatus } from '#/processing/source'
@@ -24,7 +22,6 @@ import type {
   ProcessingAnswerDto,
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
-import { CaptureContextSummary } from '#/components/capture/CaptureContextSummary'
 import { ReviewQueue, visibleQueueLotIds } from './ReviewQueue'
 import {
   blockingIssues,
@@ -341,10 +338,6 @@ export function ReviewWorkspace({
           </Banner>
         </div>
       )}
-      <ContextFold>
-        <Summary>Batch context</Summary>
-        <CaptureContextSummary batch={batch} subjectId={focused ?? undefined} />
-      </ContextFold>
       <ScopeBar>
         <div>
           <strong>{selected.length} selected</strong>
@@ -611,11 +604,6 @@ const SubjectActions = styled.div`
   flex-wrap: wrap;
   gap: ${space[3]};
   margin-right: auto;
-`
-const ContextFold = styled.details`
-  margin-bottom: ${space[4]};
-  color: ${color.muted};
-  ${groundBehindOnField}
 `
 // Phones have no keyboard to use the shortcuts with.
 const KeyboardHelp = styled.span`

@@ -63,12 +63,16 @@ export function PageDebugPanel({ route, batchId }: PageDebugPanelProps) {
   const reads = useDebugReads()
   const batch = useCachedBatchReads(batchId)
   const agentSettings = useCachedData<{ revision: string }>(serverQueryKey(scope, 'agent-settings'))
+  const processing = useCachedData<{ runner_status: string }>(
+    batchId ? serverQueryKey(scope, 'processing', batchId) : undefined,
+  )
   const now = Date.now()
   const rows: DebugRow[] = [
     { label: 'Route', value: `#${route}` },
     ...(batchId ? [{ label: 'Batch', value: batchId }] : []),
     ...(batch.revision ? [{ label: 'Batch revision', value: batch.revision }] : []),
     ...(agentSettings ? [{ label: 'Agent settings revision', value: agentSettings.revision }] : []),
+    ...(processing ? [{ label: 'Processing profile', value: processing.runner_status }] : []),
     { label: 'Live updates', value: liveUpdates(health, now) },
     ...reads.map((read) => ({ label: read.name, value: readState(read, now) })),
   ]

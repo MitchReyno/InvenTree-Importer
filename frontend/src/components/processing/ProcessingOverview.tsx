@@ -12,6 +12,7 @@ import {
   StatusTimeline,
   type TimelineEntry,
   NeedsYou,
+  HelpButton,
 } from '#/components/ui'
 import { PauseButton } from '#/components/agents/PauseButton'
 import {
@@ -100,6 +101,10 @@ export function ProcessingOverview({
             <CardTitle>
               {working ? `${plural(working, 'agent')} working` : 'No agents working'}
             </CardTitle>
+            <HelpButton
+              label="About Processing"
+              explanation="Agents work on the server. Closing this browser does not cancel saved work."
+            />
             {(started || lotsFormed) && (
               <Muted>
                 {[started && `Started ${started}`, lotsFormed].filter(Boolean).join(' · ')}

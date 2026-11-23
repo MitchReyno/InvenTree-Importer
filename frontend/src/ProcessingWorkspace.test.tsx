@@ -144,6 +144,16 @@ afterEach(() => {
   onlineManager.setOnline(true)
 })
 
+test('shows no processing profile notice and no qualification tag on job cards', async () => {
+  const client = clientFixture()
+  mount(client)
+  expect((await screen.findAllByText(/How many are in Packet A\?/)).length).toBeGreaterThan(0)
+
+  expect(screen.queryByText(/Synthetic processing fixture|Native agent profile/)).toBeNull()
+  expect(screen.queryByText(/synthetic fixture only|live provider not qualified/)).toBeNull()
+  expect(screen.queryByText(/Closing this browser/)).toBeNull()
+})
+
 test('warm cache and cache writes cannot authorize commands; failed reads retain a pinned dirty answer', async () => {
   const user = userEvent.setup()
   const client = clientFixture()

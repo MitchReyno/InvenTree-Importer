@@ -163,6 +163,16 @@ describe('ProcessingOverview', () => {
     expect(within(needs).getByRole('heading', { name: 'Needs you' })).toBeVisible()
     expect(within(needs).queryByText('1')).toBeNull()
   })
+
+  it('says behind its help that closing the browser does not cancel saved work', async () => {
+    const user = userEvent.setup()
+    overview()
+    const progress = screen.getByRole('region', { name: 'Progress' })
+
+    expect(progress).not.toHaveTextContent('Closing this browser')
+    await user.click(within(progress).getByRole('button', { name: 'About Processing' }))
+    expect(screen.getByText(/Closing this browser does not cancel saved work/)).toBeVisible()
+  })
 })
 
 describe('InstructionField', () => {
