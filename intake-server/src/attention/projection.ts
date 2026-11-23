@@ -1,6 +1,8 @@
 import {
   MAX_ATTENTION_ITEMS,
   oldestQuestionFirst,
+  questionView,
+  type QuestionViewStep,
   type AttentionItemDto,
   type BatchAttentionDto,
   type BatchRecordsDto,
@@ -45,14 +47,27 @@ function questionItems({ batchId, processing }: AttentionSources): AttentionItem
         .map((question) => ({ job, question })),
     )
     .sort((a, b) => oldestQuestionFirst(a.question, b.question))
-    .map(({ job, question }) => ({
-      key: `question:${question.id}`,
-      group: 'question' as const,
-      tab: 'processing' as const,
-      title: question.spec.prompt,
-      detail: question.assumption ?? null,
-      route: `${batchId}/processing/${STEP_BY_STAGE[job.stage] ?? 'overview'}/${question.id}`,
-    }))
+    .map(({ job, question }) => {
+      const view = questionView(question)
+      return {
+        key: `question:${question.id}`,
+        group: 'question' as const,
+        tab: 'processing' as const,
+        title: view.title,
+        detail: view.steps[0].assumption,
+        question: { steps: view.steps.map(stepSummary) },
+        route: `${batchId}/processing/${STEP_BY_STAGE[job.stage] ?? 'overview'}/${question.id}`,
+      }
+    })
+}
+
+/** What Needs you shows of a step: its answer kind, how many options and the assumption. */
+function stepSummary(step: QuestionViewStep) {
+  return {
+    kind: step.answer.kind,
+    ...(step.answer.kind === 'choice' ? { options: step.answer.options.length } : {}),
+    assumption: step.assumption,
+  }
 }
 
 function failedJobItems({ batchId, processing }: AttentionSources): AttentionItemDto[] {
@@ -101,7 +116,7 @@ function lotsNeedingAnswer({ processing, review }: AttentionSources) {
     (processing?.jobs ?? [])
       .flatMap((job) => job.questions)
       .filter((question) => question.state === 'open')
-      .map((question) => question.spec.subject_id)
+      .map((question) => question.subject_id)
       .filter((subject): subject is string => Boolean(subject)),
   )
 

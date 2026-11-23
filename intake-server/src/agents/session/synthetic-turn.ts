@@ -9,6 +9,55 @@ export interface SyntheticResult {
   items?: { id: string; seq: string; kind: string; payload?: Record<string, unknown> }[]
 }
 
+/** One question in three related steps, so the stepped form and its effects can be exercised. */
+export function syntheticQuestion(subjectId: string) {
+  return {
+    schema_version: 'bench-intake-question/2',
+    subject_id: subjectId,
+    reason: 'The synthetic session cannot see the packet, count it or know where it goes.',
+    fields: ['identity', 'quantity'],
+    title: 'Same Part, how many left and where it goes',
+    steps: [
+      {
+        id: 'same_part',
+        prompt: 'Are both packets the same Part?',
+        assumption: 'Treating them as the same Part.',
+        answer: {
+          kind: 'choice',
+          options: [
+            { id: 'same', label: 'Yes, same Part' },
+            {
+              id: 'different',
+              label: 'No, different Parts',
+              detail: 'Each packet gets its own lot.',
+            },
+          ],
+          other: true,
+        },
+      },
+      {
+        id: 'left',
+        prompt: 'How many are left in this packet?',
+        assumption: 'Treating the lot as one item until answered.',
+        answer: { kind: 'number' },
+      },
+      {
+        id: 'place',
+        prompt: 'Where does it go?',
+        assumption: 'Leaving the location to the batch default.',
+        answer: {
+          kind: 'choice',
+          options: [
+            { id: 'drawer_r4', label: 'Drawer R4' },
+            { id: 'reel_rack', label: 'Reel rack' },
+          ],
+          other: true,
+        },
+      },
+    ],
+  }
+}
+
 export async function syntheticTurn(
   turn: Pick<SessionTurn, 'resume'>,
   context: Pick<SessionDriverContext, 'manifest' | 'cwd'>,
@@ -89,14 +138,7 @@ export async function syntheticTurn(
   }
   const answered = items.some((item) => item.kind === 'answer')
   if (!answered && !turn.resume && context.manifest.subject_id) {
-    await call('ask', {
-      kind: 'quantity',
-      subject_id: context.manifest.subject_id,
-      prompt: 'How many items are in this lot?',
-      reason: 'The synthetic session cannot count.',
-      fields: ['quantity'],
-      assumption: 'Treating the lot as one item until answered.',
-    })
+    await call('ask', syntheticQuestion(context.manifest.subject_id))
   }
   const last = items.at(-1)
   if (last) {

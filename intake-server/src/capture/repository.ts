@@ -1009,6 +1009,11 @@ export interface LockedCaptureEdit {
   snapshot: CaptureSnapshotDto
   streamId: string
   apply(input: CaptureEditDto): Promise<CaptureSnapshotDto>
+  /**
+   * Applies several edits under the one lock, each against the revision the previous produced, and
+   * publishes once. A refusal of any edit rolls back with the caller's transaction.
+   */
+  applyInOrder(inputs: readonly CaptureEditDto[]): Promise<CaptureSnapshotDto>
   publish(): Promise<void>
   readPublished(): Promise<CaptureSnapshotDto>
 }
@@ -1029,27 +1034,34 @@ export async function lockCaptureForEdit(
   let phase: 'locked' | 'applied' | 'published' = 'locked'
   const publicationId = randomUUID()
 
+  const applyInOrder = async (inputs: readonly CaptureEditDto[]) => {
+    if (phase !== 'locked') {
+      fail('capture_edit_already_applied')
+    }
+    if (!inputs.length) {
+      fail('capture_edit_required')
+    }
+    for (const input of inputs) {
+      validate('CaptureEdit', input)
+      // Each edit names the revision the one before it produced; the first, the locked one.
+      if (input.expected_revision !== retained.revision) {
+        fail('revision_conflict', 412)
+      }
+      await applyLockedCaptureEdit(client, retained, subjects, input)
+    }
+    await executeDatabaseQuery(
+      queryDatabase(client).insert(captureEditPublications).values({ id: publicationId, batchId }),
+    )
+    phase = 'applied'
+    return snapshot(client, config, batchId)
+  }
+
   return {
     snapshot: initialSnapshot,
     streamId: retained.stream_id,
 
-    async apply(input) {
-      if (phase !== 'locked') {
-        fail('capture_edit_already_applied')
-      }
-      validate('CaptureEdit', input)
-      if (input.expected_revision !== expectedRevision) {
-        fail('revision_conflict', 412)
-      }
-      await applyLockedCaptureEdit(client, retained, subjects, input)
-      await executeDatabaseQuery(
-        queryDatabase(client)
-          .insert(captureEditPublications)
-          .values({ id: publicationId, batchId }),
-      )
-      phase = 'applied'
-      return snapshot(client, config, batchId)
-    },
+    apply: (input) => applyInOrder([input]),
+    applyInOrder,
 
     async publish() {
       if (phase !== 'applied') {

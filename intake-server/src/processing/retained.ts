@@ -12,6 +12,7 @@ import {
   type ProcessingInputV6Dto,
   type ProcessingProposalV5Dto,
   type SessionAskArgsDto,
+  type SessionAskArgsV2Dto,
   type SessionEnvelopeDto,
   type ProcessingEnvelopeDto,
   type ProcessingQuestionSpecDto,
@@ -167,11 +168,17 @@ export function retainedSessionQuestion(
   subjectId: string | null,
   /** For the lead job: the batch's subjects a question may be about, besides the whole batch. */
   batchSubjects: ReadonlySet<string> = new Set(),
-): SessionAskArgsDto {
+): SessionAskArgsDto | SessionAskArgsV2Dto {
   const envelope = acceptedSessionMessage(seal)
   const value = unseal(seal.specBytes, seal.specDigest)
-  validate('SessionAskArgs', value)
-  const ask = value as SessionAskArgsDto
+  const stepped =
+    typeof value === 'object' &&
+    value !== null &&
+    'schema_version' in value &&
+    value.schema_version === 'bench-intake-question/2'
+  validate(stepped ? 'SessionAskArgsV2' : 'SessionAskArgs', value)
+  // Validated above against the version the stored bytes name.
+  const ask = value as SessionAskArgsDto | SessionAskArgsV2Dto
   if (
     envelope.kind !== 'question' ||
     canonical(envelope.payload) !== canonical(ask) ||

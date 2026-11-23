@@ -23,13 +23,57 @@ function question(n: number, state: 'open' | 'answered' | 'superseded', assumpti
     input_sha256: digest,
     revision: '1',
     state,
+    subject_id: lot(1),
     spec: {
       kind: 'clarification' as const,
-      subject_id: lot(1),
       prompt: `Question ${n}?`,
       reason: 'Unclear',
     },
     ...(assumption ? { assumption } : {}),
+  }
+}
+
+/** A `/2` question in three steps: a choice, a number and a text step. */
+function steppedQuestion(n: number, subjectId: string) {
+  return {
+    id: id(n),
+    job_id: id(n),
+    attempt_id: id(n),
+    input_sha256: digest,
+    revision: '1',
+    state: 'open' as const,
+    subject_id: subjectId,
+    schema_version: 'bench-intake-question/2' as const,
+    fields: ['identity' as const, 'quantity' as const],
+    title: 'Same Part, how many and where',
+    reason: 'Two packets look alike.',
+    steps: [
+      {
+        id: 'same',
+        prompt: 'Same Part?',
+        assumption: 'Same Part.',
+        answer: {
+          kind: 'choice' as const,
+          options: [
+            { id: 'yes', label: 'Yes' },
+            { id: 'no', label: 'No' },
+          ],
+          other: false,
+        },
+      },
+      {
+        id: 'left',
+        prompt: 'How many?',
+        assumption: 'About 380.',
+        answer: { kind: 'number' as const },
+      },
+      {
+        id: 'where',
+        prompt: 'Where?',
+        assumption: 'Drawer R4.',
+        answer: { kind: 'text' as const },
+      },
+    ],
   }
 }
 
@@ -187,7 +231,12 @@ test('routes each item to the screen that owns it', () => {
     tab: 'processing',
     title: 'Question 1?',
     detail: 'Assuming 10kΩ',
+    question: { steps: [{ kind: 'text', assumption: 'Assuming 10kΩ' }] },
     route: `${batch}/processing/examine/${id(1)}`,
+  })
+  // An earlier runner question recorded no assumption, and the item doesn't invent one.
+  assert.deepEqual(byKey[`question:${id(3)}`].question, {
+    steps: [{ kind: 'text', assumption: null }],
   })
   assert.equal(byKey[`question:${id(3)}`].route, `${batch}/processing/research/${id(3)}`)
   assert.equal(byKey[`question:${id(2)}`], undefined)
@@ -435,7 +484,7 @@ test('counts lots needing an answer as the Review queue does: an open question o
   const part = id(7)
   const onPart = (n: number, state: 'open' | 'answered') => ({
     ...question(n, state),
-    spec: { ...question(n, state).spec, subject_id: part },
+    subject_id: part,
   })
   const withPart = {
     ...review,
@@ -466,6 +515,29 @@ test('counts lots needing an answer as the Review queue does: an open question o
 
   const none = projectAttention({ batchId: batch, processing: undefined, review, manual, records })
   assert.equal(none.review.needs_answer, 0)
+
+  // A stepped question counts against its lot or Part through the shared subject.
+  const stepped = projectAttention({
+    batchId: batch,
+    processing: {
+      ...processing,
+      jobs: [{ ...job(1, 'research', []), questions: [steppedQuestion(5, part)] }],
+    } as unknown as ProcessingSnapshotDto,
+    review: withPart,
+    manual,
+    records,
+  })
+  validate('BatchAttention', stepped)
+  assert.equal(stepped.review.needs_answer, 2)
+  const item = stepped.items.find((entry) => entry.key === `question:${id(5)}`)!
+  assert.equal(item.title, 'Same Part, how many and where')
+  assert.deepEqual(item.question, {
+    steps: [
+      { kind: 'choice', options: 2, assumption: 'Same Part.' },
+      { kind: 'number', assumption: 'About 380.' },
+      { kind: 'text', assumption: 'Drawer R4.' },
+    ],
+  })
 })
 
 test('each lot job counts toward its step, so failed or replaced work is never done', () => {

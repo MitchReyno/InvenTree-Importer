@@ -43,7 +43,7 @@ export const AttentionItem = object({
     object({
       steps: Type.Array(
         object({
-          kind: choice(['choice', 'number', 'text']),
+          kind: Type.Union([Type.Literal('choice'), Type.Literal('number'), Type.Literal('text')]),
           /** Choice steps: how many options the agent offered. */
           options: Type.Optional(Type.Integer({ minimum: 2, maximum: 6 })),
           /** Null for an earlier runner question, which recorded none. */

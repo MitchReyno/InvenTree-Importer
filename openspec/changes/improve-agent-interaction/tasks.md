@@ -137,25 +137,25 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - **Verification:** `pnpm db:intake test` on the affected files, and `test:process` for sessions. Both need `INTAKE_MEDIA_DECODER_IMAGE` and `INTAKE_MEDIA_PROBE_IMAGE`.
 - **Risks and decisions:** the note line format is "prompt — answer", one line per step; record any change in `notes.md`. The `ask` tool must not advertise `/2` in a build without task 4's form, which is why tasks 2–4 share PR-B.
 
-- [ ] 3.1 Read the shared and intake-server code guidelines and `intake-server/ARCHITECTURE.md`. Map where `/1` question specs are decoded for the read model and the answer route.
-- [ ] 3.2 RED: write the `ask` handler PG tests.
-  - [ ] 3.2.1 Store a valid `/2` question.
-  - [ ] 3.2.2 Refuse duplicate step IDs or option IDs, two number steps, a number step without a live lot, and a number step whose question doesn't list `quantity` in its fields, asserting that each tool response names the affected step by index or ID; and schema refusals (five steps, one option) whose issue paths name `/steps` or the step's options; and an ask within every field limit whose sealed envelope exceeds 32,768 bytes, refused as a correctable tool error with nothing stored.
-  - [ ] 3.2.3 A batch near the snapshot limit with retained `/1` questions and `/2` asks that fit the per-attempt question budget still reads in the Processing snapshot, each question's content carried once.
-- [ ] 3.3 RED: write the answer PG tests.
-  - [ ] 3.3.1 A quantity plus a note, applied in one transaction.
-  - [ ] 3.3.2 Rollback when the note edit is refused after the quantity edit, with the refusal injected.
-  - [ ] 3.3.3 Refusal of a combined note over the 8192-character limit, before any edit, with the response naming the step, and of an answer whose note fits but whose payload, measured as PostgreSQL's `jsonb` text, exceeds 32,768 bytes, including one that fits as compact JSON.
-  - [ ] 3.3.4 Refusal of a wrong kind, an unknown option or a missing step.
-  - [ ] 3.3.5 A number step answered in words is accepted: the text reaches the inbox, the note is written and the lot quantity is unchanged.
-  - [ ] 3.3.6 Same-key replay returns the first receipt; a different payload under that key is refused; a new key with the same payload adopts the answer; a new key with a different payload gets `payload_conflict`.
-  - [ ] 3.3.7 A number answer marks a proposal relying on the lot's quantity stale.
-  - [ ] 3.3.8 An inbox payload carrying the option ID and the number step's basis.
-  - [ ] 3.3.9 A `/1` answer still accepted.
-  - [ ] 3.3.10 A `/2` answer to an earlier runner question is refused before the runner branch reads `input.value`, and retained `/1` runner answers still succeed.
-- [ ] 3.4 RED: an attention read PG test with an open `/2` stepped question, a `/1` session question and an earlier runner question, each carrying its title and kind or step count, with assumptions where recorded and none for the runner question; `/2` lot and Part questions count against their affected lots.
-- [ ] 3.5 GREEN: implement the `ask` and answer branches and the version-discriminated read model.
-- [ ] 3.6 Update the `ask` description and the runner's opening instructions. Teach the fake CLI and the synthetic session a stepped ask, and add a process test that answers it and reads the inbox.
+- [x] 3.1 Read the shared and intake-server code guidelines and `intake-server/ARCHITECTURE.md`. Map where `/1` question specs are decoded for the read model and the answer route.
+- [x] 3.2 RED: write the `ask` handler PG tests.
+  - [x] 3.2.1 Store a valid `/2` question.
+  - [x] 3.2.2 Refuse duplicate step IDs or option IDs, two number steps, a number step without a live lot, and a number step whose question doesn't list `quantity` in its fields, asserting that each tool response names the affected step by index or ID; and schema refusals (five steps, one option) whose issue paths name `/steps` or the step's options; and an ask within every field limit whose sealed envelope exceeds 32,768 bytes, refused as a correctable tool error with nothing stored.
+  - [x] 3.2.3 A batch near the snapshot limit with retained `/1` questions and `/2` asks that fit the per-attempt question budget still reads in the Processing snapshot, each question's content carried once.
+- [x] 3.3 RED: write the answer PG tests.
+  - [x] 3.3.1 A quantity plus a note, applied in one transaction.
+  - [x] 3.3.2 Rollback when the note edit is refused after the quantity edit, with the refusal injected.
+  - [x] 3.3.3 Refusal of a combined note over the 8192-character limit, before any edit, with the response naming the step, and of an answer whose note fits but whose payload, measured as PostgreSQL's `jsonb` text, exceeds 32,768 bytes, including one that fits as compact JSON.
+  - [x] 3.3.4 Refusal of a wrong kind, an unknown option or a missing step.
+  - [x] 3.3.5 A number step answered in words is accepted: the text reaches the inbox, the note is written and the lot quantity is unchanged.
+  - [x] 3.3.6 Same-key replay returns the first receipt; a different payload under that key is refused; a new key with the same payload adopts the answer; a new key with a different payload gets `payload_conflict`.
+  - [x] 3.3.7 A number answer marks a proposal relying on the lot's quantity stale.
+  - [x] 3.3.8 An inbox payload carrying the option ID and the number step's basis.
+  - [x] 3.3.9 A `/1` answer still accepted.
+  - [x] 3.3.10 A `/2` answer to an earlier runner question is refused before the runner branch reads `input.value`, and retained `/1` runner answers still succeed.
+- [x] 3.4 RED: an attention read PG test with an open `/2` stepped question, a `/1` session question and an earlier runner question, each carrying its title and kind or step count, with assumptions where recorded and none for the runner question; `/2` lot and Part questions count against their affected lots.
+- [x] 3.5 GREEN: implement the `ask` and answer branches and the version-discriminated read model.
+- [x] 3.6 Update the `ask` description and the runner's opening instructions. Teach the fake CLI and the synthetic session a stepped ask, and add a process test that answers it and reads the inbox.
 - [ ] 3.7 Update `intake-server/src/agents/ARCHITECTURE.md` (the question shape and answer effects). Run the intake unit, PG and process tiers, including a read of a database already holding `/2` questions and answers.
 
 ## 4. Stepped answer form, option cards and Needs you rows
