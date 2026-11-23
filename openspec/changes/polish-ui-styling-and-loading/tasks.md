@@ -42,8 +42,8 @@
 | PR-C | The remaining screens moved onto the layer, with skeletons and the one-off lines removed | 5 | Broad but mechanical once PR-B's pattern is merged | PR-A and PR-B merged | `feat/polish-ui-styling-and-loading-every-screen`; `feat(polish-ui-styling-and-loading): one loading pattern on every screen` | Frontend checks; captures; demo video; review; CI |
 | PR-E | Several files at once: phone library multi-select, drop and paste | 9 | A small, self-contained Capture change | PR-0 | `feat/polish-ui-styling-and-loading-multi-file`; `feat(polish-ui-styling-and-loading): add several evidence files at once` | Frontend checks; phone and desktop checks recorded; demo video; review; CI |
 | PR-F | Debounced autosave for non-text agent settings, with save receipts in the intake server | 11 | One settings behaviour change, reviewed with its save-ordering tests | PR-0 | `feat/polish-ui-styling-and-loading-settings-autosave`; `feat(polish-ui-styling-and-loading): agent settings save as they change` | Frontend checks; contracts tests; intake unit and PG tiers; demo video; review; CI |
-| PR-G | The read-only provider status: per-provider status endpoints and relay routes, the `credential_meta` side table, the intake API and contract | 12 | Server and VM work, reviewed on its own with the process tier | PR-0 | `feat/polish-ui-styling-and-loading-provider-status`; `feat(polish-ui-styling-and-loading): read provider sign-in status without the key` | Contracts tests, intake unit, PG and process tiers with the decoder and probe images; a live check on the VM with Mitch's go-ahead; review; CI |
-| PR-H | Provider cards with status pills, switches, the segmented default provider and the sign-in dialogs | 13 | The UI over PR-G, after PR-F's autosave changes to the same forms | PR-D, PR-F and PR-G merged | `feat/polish-ui-styling-and-loading-provider-cards`; `feat(polish-ui-styling-and-loading): provider cards and sign-in dialogs like the design` | Frontend checks; demo video; review; CI |
+| PR-G | The read-only provider status: per-provider status endpoints and relay routes, the `credential_meta` side table, the intake API and contract | 12 | Server and VM work, reviewed on its own with the process tier | PR-0 | `feat/polish-ui-styling-and-loading-provider-status`; `feat(polish-ui-styling-and-loading): read provider sign-in status without the key` | Contracts tests, intake unit, PG and process tiers with the decoder and probe images; a live status-route check on the VM (reads only, no provider turn) with Mitch's go-ahead; review; CI |
+| PR-H | Provider cards with status pills, switches, the segmented default provider and the sign-in dialogs | 13 | The UI over PR-G, after PR-F's autosave changes to the same forms | PR-D, PR-F and PR-G merged | `feat/polish-ui-styling-and-loading-provider-cards`; `feat(polish-ui-styling-and-loading): provider cards and sign-in dialogs like the design` | Frontend checks; Settings on the real VM showing the statuses with no key; demo video; review; CI |
 | PR-I | Every dropdown on the guideline: searchable pickers for records and growing lists, segmented or native for short fixed lists | 14 | A broad but mechanical sweep, reviewed with captures | PR-H merged (the `SearchablePicker` base) | `feat/polish-ui-styling-and-loading-dropdowns`; `feat(polish-ui-styling-and-loading): one dropdown guideline across the app` | Frontend checks; captures of each changed field; demo video; review; CI |
 | PR-D | One state vocabulary and time format, the masthead summary, the Overview's Needs you and lot table, and step page counts | 6, 7 | One coherent "status reads the same everywhere" change; independent of the loading work | PR-0; rebase on PR-A if it merged first | `feat/polish-ui-styling-and-loading-status`; `feat(polish-ui-styling-and-loading): one way to show status and time` | Frontend checks; captures of Overview, step pages, Agents and the masthead; demo video; review; CI |
 
@@ -118,7 +118,7 @@
   - `components/ui/` (`ReadState`, `RefreshLine`, the `Button` option);
   - `App.tsx` (`RefreshSignal`, the restore wait);
   - `vite.config.ts` (the build constant);
-  - `processing/ProcessingWorkspace.tsx`, `review/ManualWorkspace.tsx`, `review/ReviewWorkspace.tsx`.
+  - `processing/ProcessingWorkspace.tsx`, `review/ManualWorkspace.tsx`, `review/ReviewWorkspace.tsx`, and `review/records/RecordsStage.tsx`'s Processing query, so every caller of that key moves together.
 - **Prerequisites:** none.
 - **Acceptance:** "Reads load without shifting the page" (all scenarios), "Refresh progress takes no space", "Commands wait quietly for a verified read", "The wait is quiet", "Background refreshes keep commands available", "Commands without a revision wait for a settled read", "Cached reads survive a reload in the same session", "Only allowlisted reads are stored"; "Live unverifiable workspace state" still passes.
 - **TDD approach:** hook, signal, button and persistence tests fail first. The existing Processing and Review gate tests are rewritten against the hook and must keep their guarantees.
@@ -128,16 +128,16 @@
   - a demo video of returning to Review and Processing (no banner), a slow refresh throttled in DevTools, and a reload.
 - **Risks and decisions:** keep the gate's guarantees exactly; review each replaced condition against the old one.
 
-- [ ] 4.1 Read the guidelines and the frontend architecture's query and live-update sections. Write down the exact current gate conditions in Processing and Review, every `cancelQueries` call, and every command that writes its receipt with `setQueryData`.
+- [ ] 4.1 Read the guidelines and the frontend architecture's query and live-update sections. Write down the exact current gate conditions in Processing and Review, every `cancelQueries` call, every command that writes its receipt with `setQueryData`, and every command that sends no expected revision (Pause, Resume and instruction delivery at least).
 - [ ] 4.2 Define the first snapshot allowlist and its display projections (Processing, the Review workspace, the batch header, Records), with the contracts' validators.
 - [ ] 4.3 RED: hook and component tests:
   - [ ] 4.3.1 `useFreshRead` phases and `commandsReady`, including the scope change and the `current` predicate.
   - [ ] 4.3.2 `RefreshSignal` at 400 ms and 3 s, reduced motion, and the announced status.
   - [ ] 4.3.3 `Button`'s quiet disabled reason, which adds no layout.
   - [ ] 4.3.4 Snapshots: sentinel values in excluded fields, keys and nested DTOs never stored; validation on read; restore only after a matching bootstrap and never into the query cache; expiry by age and build; scope change dropping pending writes; the size cap and quota failure.
-  - [ ] 4.3.5 Verification, with the real `QueryClient`: a `setQueryData` write before and after verification (including equal data), a successful read of equal data still verifying, a silent cancel and replace through `cancelVerified`, an older request completing late, a removed query, a shared in-flight fetch, failed and paused reads, and a receipt writer's reread; separate refresh cases for Processing commands, Pause and Resume (a settled read started after the last hint, rechecked at dispatch, including a dispatch during the 100 ms debounce and while reconciliation is queued behind a running read), Review's manual workflow and acceptance.
+  - [ ] 4.3.5 Verification, with the real `QueryClient`: a `setQueryData` write before and after verification (including equal data), a successful read of equal data still verifying, a silent cancel and replace through `cancelVerified`, the real reconciliation path with one settled query (staying verified) and one in-flight background refresh (cancelled, never verifying), an observer joining a fetch mid-flight with polling off and no further hints (verified by the follow-up fetch), an older request completing late, a removed query, a shared in-flight fetch, failed and paused reads, and a receipt writer's reread; separate refresh cases for Processing commands, Pause, Resume and instruction delivery (a settled read started after the last hint, rechecked at dispatch, including a dispatch during the 100 ms debounce and while reconciliation is queued behind a running read), Review's manual workflow and acceptance.
 - [ ] 4.4 GREEN: implement the hook with the verified-reads registry and request generations, `cancelVerified` (used by `LiveUpdates`), the hint times for Pause and Resume, the rereads after receipt writes on Processing and Review, `ReadState`, `RefreshSignal`, the focusable quiet button option, the build constant, and the snapshot module.
-- [ ] 4.5 Move Processing and Review onto them. Remove the two "Verifying…" banners and "Reading retained processing state…", and add their skeletons. Rerun their gate and draft tests.
+- [ ] 4.5 Move Processing, Review and Records' Processing query onto them. Remove the two "Verifying…" banners and "Reading retained processing state…", and add their skeletons. Rerun their gate and draft tests.
 - [ ] 4.6 Measure the persisted sizes, update `frontend/ARCHITECTURE.md` (reads, freshness, persistence), and run the frontend checks.
 
 ## 5. Every screen on the freshness layer
@@ -175,7 +175,7 @@
 - **Risks and decisions:** agree the shared types with `improve-agent-interaction` (see design).
 
 - [ ] 6.1 Read the guidelines and the frontend architecture. List every place a work state or event time renders, and every word it uses today.
-- [ ] 6.2 RED: tests for "no agents working" needing a complete active-session read with no held lane (a cancelled session still holding one; `lane_occupied: true` with no visible holder); the summary outside a batch never claiming no failures; the state mapping, `StatePill` glyphs, `EventTime` formats and hover text, and the masthead summary: a failure first, then waiting; "no agents working" only from a fresh, complete read; a truncated, stale or unavailable read saying "Updating…" or "Status unavailable"; "all done" never shown.
+- [ ] 6.2 RED: tests for "no agents working" needing a complete active-session read with no held lane (a cancelled session still holding one; `lane_occupied: true` with no visible holder); a truncated work list naming steps without counts; the summary outside a batch never claiming no failures; the state mapping, `StatePill` glyphs, `EventTime` formats and hover text, and the masthead summary: a failure first, then waiting; "no agents working" only from a fresh, complete read; a truncated, stale or unavailable read saying "Updating…" or "Status unavailable"; "all done" never shown.
 - [ ] 6.3 GREEN: implement them, and replace the per-screen words and time formats.
 - [ ] 6.4 Update affected tests and `frontend/ARCHITECTURE.md`. Run the frontend checks.
 
@@ -256,7 +256,7 @@
 - **Risks and decisions:** none.
 
 - [ ] 10.1 Read the guidelines, `theme/masthead-style.ts`, `device-preference.ts` and how `ElectronicsCurrent` starts the scene.
-- [ ] 10.2 RED: tests for the preference (default, bad storage, unknown value), the switch, the scene paused when off, turning it on after an off-state reload, a theme change while paused, OS reduced motion still winning, and switching off, scrolling the masthead out of view and back (still paused), then switching on (the same scene resumes).
+- [ ] 10.2 RED: tests for the preference (default, bad storage, unknown value), the switch, the scene paused when off, turning it on after an off-state reload, a theme change while paused, OS reduced motion still winning, and switching off, scrolling the masthead out of view and back (still paused), then switching on (the same scene resumes); and resizing the window while paused redrawing the still frame at the new size.
 - [ ] 10.3 GREEN: implement the preference, the switch, and the controller's `pause()` and `resume()`, keeping the OS reduced-motion flag separate.
 - [ ] 10.4 Check the three styles with the switch off in the running app (the fixture runner freezes the scene). Update `frontend/ARCHITECTURE.md`, and run the frontend checks.
 
@@ -275,18 +275,18 @@
 - **Verification:** frontend checks; contracts tests; intake unit and PG tiers; a demo video of a stepper, a switch, a conflict and an instruction edit.
 - **Risks and decisions:** keep the revision and page-lock guarantees exactly; review each changed save path against the old one.
 
-- [ ] 11.1 Read the guidelines, `frontend/ARCHITECTURE.md`'s Settings › Agents section and the subsection forms. List each control as text or non-text.
+- [ ] 11.1 Read the guidelines, `frontend/ARCHITECTURE.md`'s Settings › Agents section and the subsection forms. List each control as text or non-text. Read the intake server's migration and compatibility docs, and record in `notes.md` the rollout and recovery procedure for the receipt migration (one build for every intake process).
 - [ ] 11.2 RED: fake-timer tests:
   - [ ] 11.2.1 Debounce coalescing, and the payload built at dispatch from the newest confirmed settings with only owned fields.
   - [ ] 11.2.2 Same-page saves overlapping through the serial queue, and edits during a save saving again after it.
   - [ ] 11.2.3 An external conflict and a lost acknowledgement (with and without a committed save) pausing the queue, reading again, and resolving through Reload or Try again.
   - [ ] 11.2.7 Validation at dispatch: a provider-off save superseding a queued step choice for that provider.
   - [ ] 11.2.8 Save identity: a timed-out save that commits after the recovery read, resolved as confirmed by resending its `save_id`; a lost acknowledgement followed by another tab's save, still confirmed; a conflict told apart from both; queued edits kept until the outcome is known.
-  - [ ] 11.2.9 Intake PG tier: the receipt written in the settings transaction; a resend returning the original result; a resend with other fields refused; a duplicate racing the original applying once; pruning; the API role's grant.
+  - [ ] 11.2.9 Intake PG tier: the receipt written in the settings transaction; a resend returning the minimal receipt, also after another tab saved; a resend with other fields refused; a duplicate racing the original applying once; two concurrent first saves with one ID; pruning by count and by age, then a resend below the watermark answering `save_outcome_unknown`; the API role's grant.
   - [ ] 11.2.4 Flush before in-app navigation (success continues, failure stays), and the leave prompt on reload.
   - [ ] 11.2.5 The last-provider refusal, and the provider-off reset.
   - [ ] 11.2.6 Text fields, including the interim model fields, keeping Save, shown only while edited.
-- [ ] 11.3 GREEN: add `save_id` to the agent settings contract, and the receipt table with its migration, grant, pruning and lookup before the revision check; add the autosave mode with field ownership and payloads built at dispatch, turn `PageSave` into a serial queue, add `AutosaveStatus` per subsection, the pre-navigation flush in `useNavigationGuard`, and the refusals. Remove the non-text Save bars; the interim model fields keep their own Save.
+- [ ] 11.3 GREEN: add `save_id` to the agent settings contract, and the receipt table with its migration, grant, scope lock, pruning watermark and lookup before the revision check; add the autosave mode with field ownership and payloads built at dispatch, turn `PageSave` into a serial queue, add `AutosaveStatus` per subsection, the pre-navigation flush in `useNavigationGuard`, and the refusals. Remove the non-text Save bars; the interim model fields keep their own Save.
 - [ ] 11.4 Update `frontend/ARCHITECTURE.md` (the Settings › Agents save model). Run the frontend checks, and record the demo video.
 
 ## 12. Read-only provider status
@@ -306,10 +306,10 @@
 - **TDD approach:** frame, route and contract tests fail first, using a fake guest. A test proves that no response carries a token, account or key.
 - **Verification:**
   - contracts tests; intake unit, PG and process tiers;
-  - a live check on the real VM. That's a live provider run, so it needs Mitch's go-ahead.
+  - a live check on the real VM: an authorized call to the status route, before and after a turn, starting no provider turn. It still touches the real VM, so it needs Mitch's go-ahead.
 - **Risks and decisions:**
   - Provider token verification is out of scope here (12.1.3 only investigates it). Save confirms shape and storage, and failures show as the last-session line.
-  - A guest image change means `pnpm dev` rebuilds the runner image.
+  - A guest image change needs the runner image refreshed: managed `pnpm dev` rebuilds it, and unmanaged mode only warns that it's stale and points to `pnpm vm:setup` (`tooling/dev.cjs:190–195,633–646`). The provider management containers run the credential entry point from that image (`personal-claude.sh:22–25`, `personal-codex.sh:20–24`), so they restart on it too. The deployment README covers both modes.
 
 - [ ] 12.1 Investigate and decide, recording each decision and its reason in `notes.md`:
   - [ ] 12.1.1 The transport for the API-to-worker status request, and a new worker-to-guest path to each credential process's status-only endpoint (the relay has none today): how the endpoint authenticates the paired worker, how both providers are reached in one deployment, and how a timed-out call is abandoned and its guest work released.
@@ -321,7 +321,7 @@
   - [ ] 12.2.2 Older, busy and timed-out guests reading as unknown.
   - [ ] 12.2.3 The API-to-worker request and its timeout.
   - [ ] 12.2.7 Each provider answering independently, one timing out while the other answers; direct requests from the browser-facing management listener and from other namespaces refused; the deployed two-provider topology read before any turn.
-  - [ ] 12.2.4 The route, with the last-session line (shown only for the provider's latest started session in either mode, when it used the subscription and its provider error is `authentication_failed`, `unauthorized` or HTTP 401, read from the scoped diagnostic projection; a tie with an API-key session hiding it; not for a missing token, an unreachable guest or unavailable credentials; hidden after a newer session that didn't fail sign-in), and an unreachable VM.
+  - [ ] 12.2.4 The route, with the last-session line (shown only for the provider's latest queued session in either mode, a VM subscription failure produced through the real session runner, when it used the subscription and its provider error is `authentication_failed`, `unauthorized` or HTTP 401, read from the scoped diagnostic projection; a tie with an API-key session hiding it; not for a missing token, an unreachable guest or unavailable credentials; hidden after a newer session that didn't fail sign-in), and an unreachable VM.
   - [ ] 12.2.5 The contract.
 - [ ] 12.3 GREEN: implement the status-only endpoint, the `credential_meta` side table, the worker request, the route and the contract.
 - [ ] 12.4 Update the deployment README and `intake-server/src/agents/ARCHITECTURE.md`. Run the tiers, and ask Mitch before the live VM check.

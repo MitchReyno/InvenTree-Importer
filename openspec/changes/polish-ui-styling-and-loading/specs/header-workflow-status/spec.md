@@ -2,7 +2,7 @@
 
 ### Requirement: The summary names what needs attention
 
-Inside a batch, the masthead's workflow summary SHALL name that batch's step that failed or waits for the operator, with a count, such as "Research failed · 1" or "Examine waiting for you · 2", failures first, from the batch's complete step read. It SHALL NOT claim that all work is done, and SHALL NOT use internal terms such as "Retained work".
+Inside a batch, the masthead's workflow summary SHALL name that batch's step that failed or waits for the operator, with a count, such as "Research failed · 1" or "Examine waiting for you · 2", failures first. When the work list is truncated, it SHALL name those steps without counts. It SHALL NOT claim that all work is done, and SHALL NOT use internal terms such as "Retained work".
 
 #### Scenario: A failed step
 
@@ -22,7 +22,7 @@ Inside a batch, the summary SHALL say the batch name with "no agents working" on
 
 #### Scenario: Nothing running
 
-- **GIVEN** a batch with no step working, waiting or failed
+- **GIVEN** the open batch with no step working, waiting or failed, a fresh and complete work read and active-session read, the aggregate lane flag clear and no session holding a lane
 - **WHEN** the masthead summary renders
 - **THEN** it reads the batch name with "no agents working", not "Retained work · ready" or "all done".
 
@@ -31,6 +31,12 @@ Inside a batch, the summary SHALL say the batch name with "no agents working" on
 - **GIVEN** a truncated, stale or unavailable work read
 - **WHEN** the masthead summary renders
 - **THEN** it says "Updating…" or "Status unavailable" rather than "no agents working".
+
+#### Scenario: A truncated work list
+
+- **GIVEN** the open batch with failed Research jobs, and a work list cut at its limit
+- **WHEN** the masthead summary renders
+- **THEN** it reads "Research failed" without a count, and doesn't say "no agents working".
 
 #### Scenario: A cancelled session still holding a lane
 

@@ -67,7 +67,7 @@ The masthead SHALL be one bar with the electronics current placed by the operato
 
 - **GIVEN** any style, with WebGL 2 available and "Animate the electronics" off
 - **WHEN** the screen renders and the operator moves the pointer over the masthead
-- **THEN** the style's ground and parts show as a still frame, nothing stirs, pulses or cycles, and turning the switch on resumes the same parts from where they stopped.
+- **THEN** the style's ground and parts show as a still frame, nothing stirs, pulses or cycles, and turning the switch on resumes the same parts from where they stopped, unless the operating system asks for reduced motion.
 
 ## ADDED Requirements
 

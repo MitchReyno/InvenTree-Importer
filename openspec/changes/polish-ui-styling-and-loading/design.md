@@ -61,11 +61,14 @@ useFreshRead(query, { current?: (data) => boolean, restored?: Snapshot }) →
     - An `updated` cache event with a non-manual `success` action verifies the query only when the data came from the newest generation started, and that request started after the observer's mount. An older request completing late never verifies.
     - A manual `success` (any `setQueryData`) clears it, whatever the data, and so do an error, a paused fetch and a scope change.
   - Cancellation isn't visible to a cache subscription: TanStack Query 5.105.1 handles a silent cancel without dispatching an `error`, and a reverting cancel restores state through `setState` (`query-core/src/query.ts:844–852,890–909`). So:
-    - the app cancels only through a `cancelVerified` helper, which clears the entry first, and `LiveUpdates`' silent `cancelQueries` (`LiveUpdates.tsx:85`) uses it;
+    - the app cancels only through a `cancelVerified` helper, which `LiveUpdates`' silent `cancelQueries` (`LiveUpdates.tsx:85`) uses. It marks the in-flight generation as cancelled, so it can never verify, and keeps the entry for the result already adopted, because a reverting cancel restores that same data. Reconciliation cancels the whole server scope before invalidating (`LiveUpdates.tsx:79–88`), so clearing settled entries there would disable commands on every hint;
     - a `removed` cache event clears the entry;
-    - a cancelled request's generation can never verify, because a newer one has started or the entry was cleared.
+    - a cancelled request's generation can never verify.
+  - The stricter Pause and Resume rule is a separate hint time (below), not a cleared proof.
   - **Receipt writers:** a confirmed command that writes its receipt with `setQueryData` clears verification, and healthy live mode can turn polling off (`LiveUpdates.tsx:221`). So each such writer also invalidates and rereads its query, to give mounted controls a verified read again. Review Map's media receipt (`ReviewMapStage.tsx:45–49,58–79`) is one; task 4.1 lists the rest.
   - Every observer of a shared key reads the same registry entry, so a joined in-flight fetch verifies them all only if its request started after each one's mount.
+  - **A joined fetch is followed up:** TanStack's mount fetch joins a request already running (`query-core/src/queryObserver.ts:117–118`, `query.ts:707–721`), and routine polling can be off. When an observer mounts during a request that started before it, the registry, as the key's single owner, schedules one more fetch after that request finishes, deduplicated per key, so the new observer always gets a qualifying read.
+  - Every caller of a shared key moves onto the hook in the same PR. The Processing key is shared by Processing, Manual Review and Records (`RecordsStage.tsx:127–132`), so all three move in PR-B.
   - A restored snapshot is never in the cache, so it never verifies.
 - **Phases:**
   - `empty`: no data and no restored snapshot;
@@ -75,7 +78,7 @@ useFreshRead(query, { current?: (data) => boolean, restored?: Snapshot }) →
   - `failed`: `isError`, or a paused fetch.
 - **Gating:** each screen keeps its own command conditions, built on `verified` rather than `isFetchedAfterMount`:
   - **Processing:** queue, cancel and answer need `verified` once, and stay available through later background refreshes, as today.
-  - **Pause and Resume** send no revision (`intake-server/src/agents/routes.ts:40–53`), so they need a settled verified read whose request started after the last relevant live hint was received.
+  - **Revisionless commands:** Pause and Resume (`intake-server/src/agents/routes.ts:40–53`) and Processing's instruction delivery (`:55–62`) send no revision. Task 4.1 audits every other command for the same, and each found is gated the same way. They need a settled verified read whose request started after the last relevant live hint was received.
     - `LiveUpdates` waits 100 ms before reconciling and can queue reconciliation behind a read in flight (`LiveUpdates.tsx:65–88,141–158`), so a query can look settled after a hint has arrived. On receipt of a relevant hint, before that debounce, it records a hint time for the batch and account-wide agent reads, and the gate needs a verified read whose request started after it.
     - The gate is checked again at dispatch.
     - It applies to every surface that sends them: Processing (PR-B), and the Agents page's batch and global controls and Settings › Agents' Pause all (PR-C).
@@ -129,7 +132,8 @@ useFreshRead(query, { current?: (data) => boolean, restored?: Snapshot }) →
     - The server sets `lane_occupied` even when the holder belongs to another target or context and so isn't listed (`processing/read.ts:412–424,493–496`); the activity popover already handles that case (`ActivityPopover.tsx:61–68,98–102`).
     - A cancelled or superseded session still holding a lane, or a lane held by an unlisted session, keeps it showing as working.
   - **Scope of failures:** only the open batch has a complete step projection. The header loads full job state for the selected batch, and other batches come from an activity projection that leaves out settled failures (`header/processing.ts:26–55,89–95`, `processing/read.ts:362–369,483–485`). So the failure and waiting headline, and "no agents working", are for the open batch. Outside a batch, the summary names only active and waiting work across batches, and never says there are no failures or no agents. The header's counts describe jobs that exist, not which steps or lots still need work, so the app can't prove "all done" and never says it.
-  - A stale, truncated or unavailable read says "Updating…" or "Status unavailable". It never says "Retained work".
+  - **Counts:** they come from the work list, which the API caps at 100 entries independently of the session list (`header/work.ts:41–46`). When `work_truncated` is set, steps are named without counts and "no agents working" isn't shown.
+  - A stale or unavailable read says "Updating…" or "Status unavailable". It never says "Retained work".
   - S7's "all done" canvas example is replaced by "no agents working" for this reason.
 - **Times:**
   - A new `EventTime` component formats with `Intl.DateTimeFormat`: "Today HH:MM", "Yesterday HH:MM", "Fri 20 Nov · HH:MM", and the year outside the current one.
@@ -180,6 +184,7 @@ useFreshRead(query, { current?: (data) => boolean, restored?: Snapshot }) →
   - A page loaded with the switch off builds the scene normally, renders one frame, then pauses, so turning it on later works without recreating the scene. Recreating it would reset time and re-randomise the parts.
   - A theme change while paused redraws the still frame in the new palette.
   - **Every start path checks the preference:** scrolling the canvas back into view calls `startLoop()`, which today checks only `running` and the OS setting (`electronics-current/scene.ts:546–558,619–651`). `startLoop()` itself checks visibility, the device preference and OS reduced motion, so the visibility handler, `resume()` and a style change can't restart a paused scene.
+  - **Resizing while paused:** a device-paused scene is built with `reducedMotion: false`, and that branch of `resize()` updates the renderer and camera and returns without drawing, expecting the loop to (`scene.ts:587–616`). A paused resize redraws the still frame, relaying out as the reduced-motion branch does.
 - **What stays the same:** the masthead style, its ground and masks are untouched.
 - **Spec:** the masthead requirement (`ui-design-system`, "Masthead and electronics current in both themes"), synced from `masthead-appearance-options`, is modified in full so pointer stir, pulses and display cycling are qualified by the switch.
 - **Rejected:** hiding the parts when off. Mitch asked to keep the chosen appearance and only stop the movement.
@@ -201,15 +206,18 @@ useFreshRead(query, { current?: (data) => boolean, restored?: Snapshot }) →
 - **Debounce:** a change starts a 600 ms debounce; further changes restart it, so stepper clicks coalesce.
 - **Validating at dispatch:** a save is validated when it is sent, against the newest confirmed settings. A queued step choice for a provider that is now off is dropped. Turning a provider off supersedes queued choices for it: its save carries the reset of its steps to Default, and any queued step save naming that provider is discarded with the existing reset note.
 - **Save identity:** today settings saves share one revision, with no request receipt, and a stale revision is refused as `revision_conflict` with HTTP 412 (`intake-server/src/agents/settings.ts:187–222`). After a lost response, a read can't tell this tab's save from another tab's, and a single "last applied" ID couldn't either: "mine committed, then another tab saved" and "mine never committed" both end with a newer revision and another ID.
-  - Each save carries a client-generated `save_id`. In the same transaction as the settings update, the server writes a receipt: `save_id` (unique), the settings scope, a hash of the submitted fields, and the revision it produced.
-  - Receipts are bounded: the newest 200 per scope, and none older than 7 days.
-  - A save whose `save_id` already has a receipt is resolved before the revision check, under the same settings row lock. With the same scope and hash it returns the original result and applies nothing; otherwise it is refused. The unique key means a duplicate never applies twice, even if the original is still running.
+  - Each save carries a client-generated `save_id`. In the same transaction as the settings update, the server writes a receipt: `save_id` (unique), the settings scope, a hash of the submitted fields, the base revision and the revision it produced.
+  - **Locking, including the first save:** at revision 0 there is no settings row to lock, and today a lost insert race returns a conflict (`settings.ts:97–99,187–206`). Every save therefore first takes a transaction-scoped advisory lock on its settings scope (`pg_advisory_xact_lock`, as `research/receipts.ts` and `agents/session/slots.ts` do), then checks receipts, then the revision. First saves and duplicates of one `save_id` serialise on it.
+  - **Resend of a known `save_id`:** with the same scope and hash it applies nothing and returns a minimal receipt (`save_id`, `revision`, `replayed: true`), not the full settings, because later saves may have changed them; the client then reads the settings. With another hash it is refused. The unique key means a duplicate never applies twice.
+  - **Pruning without ambiguity:** receipts are kept for the newest 200 per scope and at most 7 days. Pruning advances a per-scope `receipts_pruned_through` revision. A resend with no receipt is answered by comparing its base revision:
+    - at or above the watermark, any receipt the original would have written is still kept, so its absence proves it never applied, and the normal revision check runs (a `revision_conflict` is then definite);
+    - below the watermark, the server can't tell, and answers `save_outcome_unknown` without applying.
   - Definite refusals keep the typed `revision_conflict` response.
   - This is a contract, migration and server change in PR-F, with the API role's grant on the receipt table (`intake-server/src/processing/grants.ts`).
 - **After an unconfirmed result:** the queue distinguishes three outcomes.
   - **Confirmed:** the response, or a resend of the same `save_id` returning its receipt.
-  - **Conflict:** `revision_conflict` for the save or its resend, which, because the receipt is checked first, means this save never applied.
-  - **Unknown:** no response to the save or its resend.
+  - **Conflict:** `revision_conflict` for the save or its resend, which, because the receipt is checked first under the lock and the watermark covers it, means this save never applied.
+  - **Unknown:** no response to the save or its resend, or `save_outcome_unknown`. An unknown save is never re-sent under a new revision: Try again resends the same request, and once the server says unknown only Reload is offered, with "Couldn't confirm this change; reload to see what's saved".
 - An unknown or conflicting outcome pauses the queue. Queued edits and their revision bases are kept until the outcome is known.
   - **Unknown:** resending the same `save_id` with backoff, or Try again, which is safe to repeat.
   - **Conflict:** Reload adopts the saved settings and discards the unconfirmed non-text values, keeping text drafts; Try again re-sends them over the new revision, validated again.
@@ -248,8 +256,9 @@ useFreshRead(query, { current?: (data) => boolean, restored?: Snapshot }) →
   - The answer carries no token, account email, key or pairing material.
 - **Intake server:**
   - `GET /api/v1/agents/provider-status` (read authority, short cache) returns that answer. It is display-only: it never carries a credential revision for the browser to save with.
-  - **The last-session line:** for each provider, the server selects that provider's latest started session in the authorized scope, in either sign-in mode.
-    - If several share the latest start time, the line shows only if every one of them qualifies.
+  - **The last-session line:** for each provider, the server selects that provider's latest queued session in the authorized scope, in either sign-in mode. It orders by `queued_at`, which every session has. `started_at` is written only for the `starting` progress, and the VM runner's claim and provider start don't set it (`session/sessions.ts:185–188`, `session-runner.ts:127–134,543–549,656–664`), so it would miss VM failures and leaves older sessions unknown.
+    - If several share the latest queued time, the line shows only if every one of them qualifies.
+    - Qualifying uses the real session-runner path in the tier tests, not hand-built rows only.
     - The line shows only if that session used the subscription, and its current turn's retained provider error (from #239) has Claude's kind `authentication_failed`, Codex's kind `unauthorized`, or HTTP 401 (`contracts/src/session-failures.ts:22–56`).
     - The broader `authentication` category doesn't count, because it also covers missing credentials (`failure-model.ts:9–12`).
     - The session summary strips `provider_error`, so the route reads the scoped diagnostic projection (`agents/failures.ts:41–79`).
@@ -311,7 +320,7 @@ Authority is unchanged: no command is enabled by cached, restored or cache-writt
 - **Provider status (intake PG and process tiers):**
   - each provider's status endpoint answering independently, one timing out while the other answers; direct requests from the browser-facing management listener and from other namespaces refused;
   - the deployed topology with both providers, read before any turn;
-  - the last-session line for a missing token, an unreachable guest, a provider refusal with evidence, a newer API-key session, and an API-key session with the same start time;
+  - the last-session line for a missing token, an unreachable guest, a provider refusal with evidence, a newer API-key session, and an API-key session queued at the same time; a VM session failing through the real session runner;
   - `credential_meta` through upgrade, rollback, replace or remove on the older image, and re-upgrade, showing no stale time;
   - the status endpoint with a fake guest: Claude saved with and without `credential_meta`; Codex signed in, signing in, and expired-but-uncancelled left untouched;
   - a paired VM with zero turns and a pending Codex login, and a status read overlapping an active turn;
@@ -320,10 +329,12 @@ Authority is unchanged: no command is enabled by cached, restored or cache-writt
   - the last-session line: hidden after a newer success or API-key session, not shown for unavailable credentials;
   - the credential store opening on an older image after `credential_meta` exists, and on the new image with an existing token;
   - no secret in any response; the management endpoints unchanged.
-- **Intake PG tier, save receipts:** the receipt written with the update; a resend returning the original result without applying; a resend with other fields refused; a duplicate racing the original applying once; a lost acknowledgement followed by another tab's save; pruning by count and age; the API role's grant.
+- **Intake PG tier, save receipts:** the receipt written with the update; a resend returning the minimal receipt without applying, including after another tab saved; a resend with other fields refused; a duplicate racing the original applying once; two concurrent first saves (revision 0) with the same ID applying once; a lost acknowledgement followed by another tab's save; pruning by count and by age, each followed by a resend below the watermark answering `save_outcome_unknown`; the API role's grant.
 - **Dropdowns:** each converted field keeps its value, validation and form wiring (its existing tests, updated for the control); a picker per kind is tested for search and keyboard; captures at 1440 and 390 px for every changed field.
 - **Unit (frontend), provider cards and dialogs:** the model picker (search by name and ID, grouping, a provider that's off disabled with its reason, exact IDs per provider and their validation, a pick setting both provider and model and autosaving, the record picker unchanged on the shared base); the pill states, Check again, the switches, the segmented default provider, the dialog shape checks, Save staying disabled while checking, failures keeping the dialog open, and the Codex dialog closing on confirmation.
-- **Manual (provider status):** on the real VM, Settings shows the status with no key typed, and a failed sign-in shows as the last-session line.
+- **Manual (provider status):**
+  - PR-G: on the real VM, an authorized call to the status route returns each provider's status with no key, before and after a turn. This reads existing VM status and starts no provider turn.
+  - PR-H: Settings shows those statuses with no key typed. Showing a real last-session line needs a provider turn that is refused sign-in, which is a separate live provider run needing Mitch's go-ahead; otherwise it is shown from fixtures.
 - **Unit (frontend), agent settings autosave:** under fake timers (also: a timed-out save that commits after the recovery read, resolved by resending its `save_id`; a lost acknowledgement followed by another tab's save, still resolved as confirmed; a provider-off save superseding a queued step choice; a conflict and a lost acknowledgement, with and without a committed save, pausing the queue and resolving through Reload or Try again):
   - debounce coalescing;
   - the payload built at dispatch from the newest confirmed settings with only owned fields;
@@ -360,7 +371,9 @@ Authority is unchanged: no command is enabled by cached, restored or cache-writt
 
 ## Migration, rollout and recovery
 
-- **Rollout:** a new build invalidates stored snapshots. Two stored-data changes: the intake database's agent settings save receipt table (task 11), added by a forward migration that older servers ignore; and the guest's `credential_meta` side table (task 12), which older images ignore.
+- **Rollout:** a new build invalidates stored snapshots. Two stored-data changes:
+  - **The save receipt table (task 11).** Older intake binaries don't ignore it: `compatibleSchema` requires an exact match of migration names, digests and count, and both the API and the session worker quarantine a mismatch (`operations/compatibility.ts:20–30`, `main.ts:138–141`, `session-worker-main.ts:86–89`). So PR-F ships the migration, the grant and both binaries in one build, and every intake process restarts on that build. Task 11.1 records the procedure from the intake server's migration docs. If the rollout fails after the migration, recovery is forward (fix and redeploy), or restoring the pre-migration database backup with the older build; the older build can't run against the migrated schema.
+  - **The guest's `credential_meta` side table (task 12)**, which older guest images ignore.
 - **Rollback:** removing the snapshot module leaves nothing to migrate; sessions start without snapshots.
 - **Build identifier:** the Vite `define` adds one build constant; the Dev mode popover's build summary can show it too.
 

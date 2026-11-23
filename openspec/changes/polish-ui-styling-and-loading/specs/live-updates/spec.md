@@ -44,7 +44,7 @@ Once a workspace has a verified read, later background refreshes SHALL NOT disab
 
 ### Requirement: Commands without a revision wait for a settled read
 
-A command that sends no expected revision, such as Pause or Resume, SHALL be available only with a settled verified read whose request started after the last relevant live hint was received, and SHALL be checked again when pressed.
+A command that sends no expected revision (Pause, Resume, delivering instructions, and any other the audit finds) SHALL be available only with a settled verified read whose request started after the last relevant live hint was received, and SHALL be checked again when pressed.
 
 #### Scenario: Commands without a revision
 

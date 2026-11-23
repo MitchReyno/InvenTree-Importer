@@ -132,6 +132,15 @@ Non-goals:
 | A loading-bar library (such as nprogress) | A ready bar | The bar is a few lines with the existing motion tokens; one more dependency and its CSS | — | — |
 | A page stack primitive in `components/ui` (custom) | Matches the design system's page gap, and is one place to fix rhythm | Must be adopted by every page | `components/ui/primitives.tsx`; the canvas pages (`gap: 14px`) | None |
 
+Two later additions need the same assessment:
+
+| Option | Goal fit and strengths | Limitations and risks | Primary evidence | Still to prove |
+| --- | --- | --- | --- | --- |
+| **Save receipts.** Reuse the inbox's unique `idempotency_key` pattern (`agent_session_inbox`, `processing/grants.ts:32`) as a receipt table with an advisory scope lock (as `research/receipts.ts:198`) (recommended) | Proven in this codebase; atomic with the settings update; no dependency | Needs pruning with a watermark and a migration that every intake process must match | `processing/routes.ts:142`, `processing/currentness.ts` | The watermark's correctness under concurrent pruning (PG tier) |
+| **Save receipts.** An HTTP idempotency middleware or library | Generic | Stores responses outside the settings transaction, so it can't prove a save didn't apply; another dependency | — | — |
+| **Status path.** The existing pairing relay, extended with a worker-to-guest request (recommended, decided in task 12.1.1) | Reuses the paired, authenticated channel and its lifecycle | Carries guest-initiated connections today, one provider per turn (`relay.mjs:10–88`) | `tooling/deployment/bridge/relay.mjs` | Worker authentication, two-provider routing and timeout release |
+| **Status path.** A new forwarded port or socket per provider | Simple to reach | A new listener outside the pairing's trust, and more deployment surface | `personal-claude.sh`, `personal-codex.sh` | Rejected unless 12.1.1 shows the relay can't carry it |
+
 **Recommendation:**
 
 - Build the freshness layer on TanStack Query's own state, with verification bound to the adopted result, and keep reload snapshots in a small module of the app's own. No new dependency.

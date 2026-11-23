@@ -219,7 +219,7 @@ Each provider card's status SHALL come from that provider's own answer, so one p
 
 ### Requirement: Sign-in failures shown apart from the status
 
-When a provider's latest started session, in either sign-in mode, used its subscription and its retained provider error shows the provider refused sign-in (Claude `authentication_failed`, Codex `unauthorized`, or HTTP 401), its card SHALL say so on a separate line, "Last session couldn't sign in" with its time, without changing the status pill. Missing credentials or an unreachable guest SHALL NOT show it, and a newer session that didn't fail sign-in hides it.
+When a provider's most recently queued session, in either sign-in mode, used its subscription and its retained provider error shows the provider refused sign-in (Claude `authentication_failed`, Codex `unauthorized`, or HTTP 401), its card SHALL say so on a separate line, "Last session couldn't sign in" with its time, without changing the status pill. Missing credentials or an unreachable guest SHALL NOT show it, and a newer session that didn't fail sign-in hides it.
 
 #### Scenario: A session that couldn't sign in
 
@@ -240,9 +240,9 @@ When a provider's latest started session, in either sign-in mode, used its subsc
 - **WHEN** the card renders
 - **THEN** no "Last session couldn't sign in" line shows.
 
-#### Scenario: Two sessions started together
+#### Scenario: Two sessions queued together
 
-- **GIVEN** a Claude subscription session that was refused sign-in and a Claude API-key session with the same start time
+- **GIVEN** a Claude subscription session that was refused sign-in and a Claude API-key session queued at the same time
 - **WHEN** the card renders
 - **THEN** no "Last session couldn't sign in" line shows.
 
