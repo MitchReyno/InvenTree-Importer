@@ -38,12 +38,12 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 | --- | --- | --- | --- | --- | --- | --- |
 | PR-0 | This plan, BI-019 and the BI-015 hand-over | Planning only | Review the plan before code | None; first | `interactive-app` ← `docs/improve-agent-interaction`; `docs(improve-agent-interaction): plan agent interaction improvements` | `openspec validate --strict`, `pnpm workflow-sync` unaffected; read-only review; CI green |
 | PR-A | Backdrop click closes every dialog | 1 | Small, independent and immediately useful | PR-0 | `feat/improve-agent-interaction-dialog-backdrop`; `fix(improve-agent-interaction): close dialogs from their backdrop` | Frontend typecheck, lint, tests and build; demo video; review; CI |
-| PR-B | `/2` questions and answers end to end: contracts, the server path, agent guidance, and the drawer's stepped form, live option cards and Needs you rows | 2, 3, 4 | Today's form can't answer a `/2` question, so the ask and the form that answers it ship together; no build asks questions its UI can't answer | PR-0 | `feat/improve-agent-interaction-question-steps`; `feat(improve-agent-interaction): ask and answer stepped questions with options` | Contracts tests, intake unit, PG and process tiers with the decoder and probe images; frontend checks; demo video; rollback note in the PR body; review; CI |
-| PR-D | Recorded photo views, web page sources, the paged history read with session metadata and the photo-view crop route | 5, 6 | The server side of the history; the old timeline view keeps working until PR-E switches to it | PR-B merged (the history resolves `/2` questions) | `feat/improve-agent-interaction-session-history`; `feat(improve-agent-interaction): record and read a session's full history` | Contracts tests, intake unit, PG and process tiers; frontend checks, since the existing source list and timeline must read `/6` proposals and photo views; rollback note in the PR body; review; CI |
+| PR-B | `/2` questions and answers end to end: contracts, the server path, agent guidance, and the drawer's stepped form, live option cards and Needs you rows | 2, 3, 4 | Today's form can't answer a `/2` question, so the ask and the form that answers it ship together; no build asks questions its UI can't answer | PR-0 | `feat/improve-agent-interaction-question-steps`; `feat(improve-agent-interaction): ask and answer stepped questions with options` | Contracts tests, intake unit, PG and process tiers with the decoder and probe images; frontend checks; demo video; rollback note and the session worker rollout steps in the PR body; review; CI |
+| PR-D | Recorded photo views, web page sources, the paged history read with session metadata and the photo-view crop route | 5, 6 | The server side of the history; the old timeline view keeps working until PR-E switches to it | PR-B merged (the history resolves `/2` questions) | `feat/improve-agent-interaction-session-history`; `feat(improve-agent-interaction): record and read a session's full history` | Contracts tests, intake unit, PG and process tiers; frontend checks, since the existing source list and timeline must read `/6` proposals and photo views; rollback note and the session worker rollout steps in the PR body; review; CI |
 | PR-E | Expandable, grouped, linked entries in the drawer and the session page as a conversation | 7 | The UI over PR-D; one entry renderer for both places | PR-B and PR-D merged | `feat/improve-agent-interaction-session-page`; `feat(improve-agent-interaction): expandable agent history and session page` | Frontend checks; intake unit and PG tiers for the timeline route removal and its consumers; demo video; review; CI |
-| PR-G | A session-level Agents read, one row per session, failures in plain words, recovery actions and the Agents page filters | 10 | One read and its rows; its links and failure display reach the session page | PR-E merged | `feat/improve-agent-interaction-session-rows`; `feat(improve-agent-interaction): one row per session with its real failure` | Contracts tests, intake unit and PG tiers, frontend checks; demo video; review; CI |
-| PR-H | Drawer header, recent activity in the app's words, the labelled message box and readable status lines | 11 | Builds on the history read, the session page and the session-level read | PR-D, PR-E and PR-G merged | `feat/improve-agent-interaction-session-details`; `feat(improve-agent-interaction): clearer session header, activity and message box` | Contracts tests, intake unit and PG tiers for the batch activity read and the instruction text, frontend checks; demo video; review; CI |
-| PR-F | Per-stage counts and the paused flag, stage rows in the activity popover and the new bar states | 8, 9 | Independent of questions and history, small enough to review end to end | PR-0 | `feat/improve-agent-interaction-activity-stages`; `feat(improve-agent-interaction): show each stage's state and counts in the activity popover` | Contracts tests, intake PG tier, frontend checks; demo video; review; CI |
+| PR-G | A session-level Agents read, one row per session, failures in plain words, recovery actions and the Agents page filters | 10 | One read and its rows; its links and failure display reach the session page | PR-E merged, and PR-F or polish merged for the shared components | `feat/improve-agent-interaction-session-rows`; `feat(improve-agent-interaction): one row per session with its real failure` | Contracts tests, intake unit and PG tiers, frontend checks; demo video; review; CI |
+| PR-H | Drawer header, recent activity in the app's words, the labelled message box and readable status lines | 11 | Builds on the history read, the session page and the session-level read | PR-D, PR-E and PR-G merged, and PR-F or polish merged for the shared components | `feat/improve-agent-interaction-session-details`; `feat(improve-agent-interaction): clearer session header, activity and message box` | Contracts tests, intake unit and PG tiers for the batch activity read and the instruction text, frontend checks; demo video; review; CI |
+| PR-F | Per-stage counts and the paused flag, stage rows in the activity popover and the new bar states; the shared `WorkState`, `StatePill` and `EventTime` components if `polish-ui-styling-and-loading` hasn't merged first | 8, 9 | Independent of questions and history, small enough to review end to end | PR-0; whichever of PR-F and polish merges second reuses the other's shared components | `feat/improve-agent-interaction-activity-stages`; `feat(improve-agent-interaction): show each stage's state and counts in the activity popover` | Contracts tests, intake PG tier, frontend checks; demo video; review; CI |
 
 ## 1. Dialogs close from their backdrop
 
@@ -206,6 +206,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 - **Scope and approach:**
   - `contracts/src/sessions.ts` (`SessionHistory`, `SessionHistoryEntry`, and `moves` on new regroup outbox items);
   - the regroup handler, which records its moves;
+  - `read_inbox` in `agents/tools/handlers.ts`, which publishes `session_changed` when it advances the acknowledgement cursor;
   - the idle-cancellation and `shared-vm-agent/2` retirement transitions in `agents/session/session-runner.ts`, which write `finished_at`;
   - `intake-server/src/agents/tools/timeline.ts` and its route in `processing/routes.ts`;
   - `media/region-crops.ts` for the crop route, `GET …/photo-views/:attemptId/:seq/crop`.
@@ -220,7 +221,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 - [ ] 6.2 RED: PG tests:
   - [ ] 6.2.1 Each entry kind resolves its summary, details and links.
   - [ ] 6.2.2 A retired lot or a removed version gives a "gone" link.
-  - [ ] 6.2.3 Answers, instructions, evidence and revise items appear as the operator's at their send time, and one above the acknowledgement cursor reads as not read yet.
+  - [ ] 6.2.3 Answers, instructions, evidence and revise items appear as the operator's at their send time, and one above the acknowledgement cursor reads as not read yet; a `read_inbox` call that advances the cursor publishes `session_changed` in its transaction, and one that doesn't move it publishes nothing.
   - [ ] 6.2.4 Attempt headers say how an attempt ended, and why it started where the retained input shows it; turns within an attempt are not attempts; a failure or resume with no new inbox or outbox item still updates its header on the next read; the span runs from the queue time, not a turn's `started_at`; an attempt cancelled before its first turn, and one cancelled after a settled turn, show the cancellation's end time.
   - [ ] 6.2.5 A regroup with recorded moves shows them; an older regroup lists its destination lots; earlier attempts' failures resolve; a lot edited after formation shows its values labelled current.
   - [ ] 6.2.6 The `before` cursor pages without gaps or duplicates across retries with repeated sequences and equal timestamps, and across inbox and outbox rows with equal timestamps; the page, its cursor and the metadata come from one snapshot; every read returns the metadata and acknowledgement cursor, including a read of the newest page with no new entries.
@@ -264,7 +265,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - [ ] 7.3.4 The drawer's summary lines and "Open full session".
 - [ ] 7.4 RED: page tests:
   - [ ] 7.4.1 One conversation in time order, with attempt dividers.
-  - [ ] 7.4.2 Filter chips and Load older; an invalidation re-reads the newest page and replaces it, keeping loaded older pages without duplicates; more than one page of new entries between refreshes drops the older pages and Load older continues from the new page; answering a matching question in another job refreshes a proposal's provisional links on the newest page; a chat sent from another tab and an acknowledgement with no new entry both show after the next invalidation.
+  - [ ] 7.4.2 Filter chips and Load older; an invalidation re-reads the newest page and replaces it, keeping loaded older pages without duplicates; one new entry keeps the entry it pushed off the newest page; more than one page of new entries between refreshes drops the older pages and Load older continues from the new page; answering a matching question in another job refreshes a proposal's provisional links on the newest page; a chat sent from another tab shows after the next invalidation, and an acknowledgement with no new entry shows through the `session_changed` that `read_inbox` publishes.
   - [ ] 7.4.3 Sending a message once.
   - [ ] 7.4.4 Answering a question in place, with the drawer's draft shown as superseded, and commands disabled while the page's Processing read is loading, failed or paused, including a warm cache whose mounted read is still pending.
   - [ ] 7.4.5 Not found, and the debug block only in debug mode.
@@ -297,7 +298,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - no fill is invented without counts;
   - the popover is 520 px on desktop, with stage rows linking to step pages and showing counts, a state pill and a status line;
   - a paused batch offers Resume.
-- **Scope and approach:** `frontend/src/components/ui/ProgressSegments.tsx`, `header/workSegments.ts`, `components/masthead/ActivityPopover.tsx`, `ActivityIndicator.tsx`, `processing/ProcessingOverview.tsx` (the shared bar), and the component gallery.
+- **Scope and approach:** `frontend/src/components/ui/ProgressSegments.tsx`, `header/workSegments.ts`, `components/masthead/ActivityPopover.tsx`, `ActivityIndicator.tsx`, `processing/ProcessingOverview.tsx` (the shared bar), and the component gallery; if `polish-ui-styling-and-loading` hasn't merged, the shared `WorkState`, `StatePill` and `EventTime` components in `components/ui`, with polish's words and time format.
 - **Prerequisites:** task 8.
 - **Acceptance:** "Stage rows in workflow details", "Stage bar states" and "Only working stages animate", all scenarios.
 - **TDD approach:** `workSegments` and `ProgressSegments` tests for each state, and popover tests for rows, links and Resume, fail first.
@@ -313,7 +314,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - [ ] 9.2.2 A stage with no jobs yet is never done.
   - [ ] 9.2.3 No fill without counts.
   - [ ] 9.2.4 Examine waiting on questions reads as waiting for you.
-- [ ] 9.3 RED: tests for `ProgressSegments`' states, patterns and animation (only working, none under reduced motion), and for the popover's stage rows, links, counts, status lines and Resume, including a finished stage and a stage whose sessions fall outside `active_sessions`, which show a reason rather than an agent line.
+- [ ] 9.3 RED: tests for `ProgressSegments`' states, patterns and animation (only working, none under reduced motion), and for the popover's stage rows, links, counts, status lines and Resume, including a finished stage and a stage whose sessions fall outside `active_sessions`, which show a reason rather than an agent line ("Stage with no listed session").
 - [ ] 9.4 GREEN: implement the states, the popover layout and the rows. Update the component gallery.
 - [ ] 9.5 Run the frontend checks. Record the demo video for the PR description.
 
@@ -330,7 +331,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - `contracts/src/session-failures.ts` and `agents/failures.ts`: a sanitized `cause` on the failure summary, built from the recorded provider error and cause code, under the same read scope;
   - `frontend/src/components/agents/AgentSessions.tsx`, the Processing session list in `components/processing/`, `components/agents/SessionFailureDetails.tsx`, and the failure-text mapping beside the contracts' allowlists (`CLAUDE_ERROR_KINDS`, `CODEX_ERROR_KINDS`, cause codes).
   - It uses the shared state words and time format from `polish-ui-styling-and-loading`.
-- **Prerequisites:** task 7, for the session page that row titles and failure details open; coordinate with polish on the shared words.
+- **Prerequisites:** task 7, for the session page that row titles and failure details open; the shared components from task 9 or polish, whichever merged first.
 - **Acceptance:** "Opens on what needs attention", "Archived batches only under All", "Retries fold into one row", "Failed row recovery", "Provider overloaded", "Old failure without a cause".
 - **TDD approach:** grouping, Needs attention derivation and failure-text tests fail first.
 - **Verification:** contracts tests, the intake unit and PG tiers for the read and the failure summary, frontend checks, and a demo video of the Agents page on a Heyyy-like fixture going from 8 rows to 3, and of earlier attempts expanding under a Processing job card.
@@ -349,15 +350,15 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - recent activity in the app's words, linked to the lot, with the agent's note muted;
   - the labelled message box;
   - one instruction sentence asking for plain status lines without internal IDs.
-- **Scope and approach:** the drawer in `ProcessingWorkspace.tsx` (it rebases on polish's edits); a bounded batch activity read (`readBatchActivity` in `agents/tools/`, its contract and route) reusing task 6's resolver; `ProcessingOverview.tsx` recent activity from that read; the shared message box component; and `openingText` in `agents/session/session-runner.ts`.
-- **Prerequisites:** tasks 6, 7 and 10.
+- **Scope and approach:** the drawer in `ProcessingWorkspace.tsx` (it rebases on polish's edits), with its header built from task 6's history metadata and the earlier failures' causes from task 10's failure summary; a bounded batch activity read (`readBatchActivity` in `agents/tools/`, its contract and route) reusing task 6's resolver; `ProcessingOverview.tsx` recent activity from that read; the shared message box component; and `openingText` in `agents/session/session-runner.ts`.
+- **Prerequisites:** tasks 6, 7 and 10 (task 10 for the failure causes).
 - **Acceptance:** "Retried session in the drawer", "Proposal in recent activity", "Sending a message", "Status after proposing".
 - **TDD approach:** component tests, and a session-runner test for the instruction sentence, fail first.
 - **Verification:** contracts tests, the intake unit and PG tiers, frontend checks, and a demo video.
 - **Risks and decisions:** the boards FixDrawerHeader, FixActivityFeed and FixMessageBox are the reference.
 
 - [ ] 11.1 Read the code guidelines and the Fixes page boards.
-- [ ] 11.2 RED: header, activity entry and message box tests, the opening-instructions test, and a PG test that the batch activity read returns the newest entries across several jobs, including jobs outside the first Agents page.
+- [ ] 11.2 RED: header tests, including a drawer opened from Processing for a session absent from the Agents read's first page and filter; activity entry and message box tests, the opening-instructions test, and a PG test that the batch activity read returns the newest entries across several jobs, including jobs outside the first Agents page.
 - [ ] 11.3 GREEN: implement them.
 - [ ] 11.4 Run the checks, and record the demo video.
 
@@ -372,5 +373,5 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 - [ ] PR-G: implement task 10, review the exact head, publish with the demo, CI green, merge.
 - [ ] PR-H: implement task 11, review the exact head, publish with the demo, CI green, merge.
 - [ ] Update BI-019's status as PRs merge. It is Done only after PR-A, PR-B, PR-D, PR-E, PR-F, PR-G and PR-H merge and its acceptance is evidenced.
-- [ ] Mark the design log entries D37, D39, D41 and D42 Built (D40's page layout was replaced by D41), with their PRs.
+- [ ] Mark the design log entries D37 (PR-A), D38 (PR-B), D39 and D41 (PR-E) and D42 (PR-F) Built, with their PRs (D40's page layout was replaced by D41).
 - [ ] Before archiving, run `pnpm openspec:overlap --change improve-agent-interaction`, sync the specs, and record final open items in `notes.md`.
