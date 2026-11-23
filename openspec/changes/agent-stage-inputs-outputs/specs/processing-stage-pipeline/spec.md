@@ -36,6 +36,12 @@ For `/7` work, a lot with a strong search key SHALL also start them only when Ma
 - **WHEN** the lead session moves one of its observations to another lot
 - **THEN** the identity is no longer stable, Research does not start from it, and it starts once Examine republishes an identity for the regrouped lot.
 
+#### Scenario: Regrouped `/7` lot with a candidate
+
+- **GIVEN** a `/7` lot whose Research is queued but not yet started
+- **WHEN** the lead regroups it, and Examine's republished identity has a strong key that finds a candidate
+- **THEN** Research and Images stay held through the new search and while the match question is open.
+
 ### Requirement: Evidence-based currentness
 
 Each proposal SHALL record the observations, evidence versions, notes and answers it relies on, including the lot's observation set. It SHALL become stale only when one of those changes or is removed, or, for `/7` work, when one of the pins below changes.

@@ -6,7 +6,7 @@ The Match step decides, before research or photo work is spent, whether each lot
 
 ### Requirement: Deterministic search by strong keys
 
-Match SHALL search InvenTree (Parts, manufacturer Parts, supplier Parts and stock) through the Match search reads (see inventory-target-protection), and this app's other unapproved lots within the configured actor, target and target context, using every strong key of the lot's current identity: an MPN or type with a manufacturer, an NSN, an IPN or SKU read from a label, or a candidate Part's stock with the label's batch code. Each candidate SHALL record the keys that matched.
+Match SHALL search InvenTree (Parts, manufacturer Parts, supplier Parts and stock) through the Match search reads (see inventory-target-protection), and this app's unapproved lots in other batches, within the configured actor, target and target context, using every strong key of the lot's current identity: an MPN or type with a manufacturer, an NSN, an IPN or SKU read from a label, or a candidate Part's stock with the label's batch code. Each candidate SHALL record the keys that matched.
 
 #### Scenario: Exact match
 
