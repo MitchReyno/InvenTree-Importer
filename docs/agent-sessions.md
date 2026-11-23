@@ -426,7 +426,7 @@ flowchart TD
    | Answer | Research | Images |
    | --- | --- | --- |
    | New Part | full | full |
-   | Fill what's missing | gaps (named fields only) | stock, plus a Part image if the Part has none |
+   | Fill what's missing | gaps (named fields only); skipped when only the Part image is missing | stock, plus a Part image if the Part has none |
    | Add stock | skipped | stock, plus a Part image if the Part has none |
    | Already imported | skipped; lot left out | skipped |
 

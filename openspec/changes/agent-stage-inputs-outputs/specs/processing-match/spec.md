@@ -84,7 +84,7 @@ Match SHALL search after Examine's stable identity when it has a strong key (a l
 
 ### Requirement: Lots the operator adds
 
-A lot the operator adds without evidence for Examine SHALL enter Match from its operator-entered identifiers once they are confirmed: with a strong key Match searches, and without one it asks the operator as for an unresolved identification. Pass 3 SHALL gate it like any other `/7` lot.
+In a batch with a `/7` lead, a lot the operator adds without evidence for Examine SHALL enter Match from its operator-entered identifiers once they are confirmed: with a strong key Match searches, and without one it asks the operator as for an unresolved identification. Pass 3 SHALL gate it like any other `/7` lot.
 
 #### Scenario: Note-only lot after the lead finishes
 
@@ -182,7 +182,13 @@ The match question SHALL offer add stock, and add stock and fill what's missing,
 
 ### Requirement: Decisions set stage modes
 
-The operator's decision SHALL set the lot's target and its stages' modes: new Part (Research full, Images full); fill what's missing (Research for the missing fields only; Images stock, with a Part image only if the Part has none); add stock (Research skipped; Images as for fill); already imported (the lot left out).
+The operator's decision SHALL set the lot's target and its stages' modes: new Part (Research full, Images full); fill what's missing (Research for the missing fields only, or skipped when only the Part image is missing; Images stock, with a Part image only if the Part has none); add stock (Research skipped; Images as for fill); already imported (the lot left out).
+
+#### Scenario: Only the Part image missing
+
+- **GIVEN** an exact candidate whose only gap is its Part image
+- **WHEN** the operator chooses add stock and fill what's missing
+- **THEN** Research is skipped, and Images runs for the stock images and the Part image.
 
 #### Scenario: Add stock
 
@@ -215,6 +221,16 @@ When lots share a draft Part and one is decided as add stock to an existing Part
 - **GIVEN** lot A decided as add stock to RES-0144 while lot C also targets RES-0144
 - **WHEN** lot A is decided again as new Part
 - **THEN** A moves to a draft Part of its own, and C keeps RES-0144.
+
+### Requirement: A clear search doesn't drop a confirmed target
+
+A clear search that would change a lot's confirmed existing-Part target SHALL open a match question instead of settling silently.
+
+#### Scenario: Clear search after add stock
+
+- **GIVEN** lot A decided as add stock to RES-0144, whose identity is then corrected so the new search finds no candidates, while lot C keeps RES-0144
+- **WHEN** the search settles
+- **THEN** a match question opens for A; answering new Part moves A to its own draft, and C keeps RES-0144.
 
 ### Requirement: Validation before approval
 

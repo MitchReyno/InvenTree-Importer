@@ -28,7 +28,7 @@ For `/7` work, every lot SHALL also start them only when Match allows them: Matc
 
 - **GIVEN** an Examine lead session that has published an identity for one lot and is still grouping other observations
 - **WHEN** concurrency slots are free
-- **THEN** Research and Images sessions for that lot start, and both appear as running at the same time as the lead session when slots allow. Under the new profiles this needs the identity's strong key and either Match's settled no-match verdict or a recorded decision that runs both stages.
+- **THEN** Research and Images sessions for that lot start, and both appear as running at the same time as the lead session when slots allow. Under the new profiles this needs either Match's settled no-match verdict for the identity's strong key, or a recorded decision that runs both stages, which after an unresolved identification needs no strong key.
 
 #### Scenario: Weak-key lot held until its decision
 
