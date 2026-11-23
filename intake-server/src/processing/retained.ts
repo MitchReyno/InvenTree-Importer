@@ -9,8 +9,9 @@ import {
 import type { PoolClient } from 'pg'
 import {
   validate,
+  webPageUrlAccepted,
   type ProcessingInputV6Dto,
-  type ProcessingProposalV5Dto,
+  type SessionProposalDto,
   type SessionAskArgsDto,
   type SessionAskArgsV2Dto,
   type SessionEnvelopeDto,
@@ -144,11 +145,11 @@ export function retainedSessionProposal(
   batchLots: ReadonlySet<string> = new Set(),
   /** Batch versions a session may have been delivered after opening, through an evidence notice. */
   batchVersions: Parameters<typeof deliveredSourceCheck>[1] = [],
-): ProcessingProposalV5Dto {
+): SessionProposalDto {
   const envelope = acceptedSessionMessage(seal)
   const value = unseal(seal.valueBytes, seal.valueDigest)
-  validate('ProcessingProposalV5', value)
-  const proposal = value as ProcessingProposalV5Dto
+  validate('SessionProposal', value)
+  const proposal = value as SessionProposalDto
   if (
     envelope.kind !== 'proposal' ||
     canonical(envelope.payload) !== canonical(proposal) ||
@@ -160,7 +161,12 @@ export function retainedSessionProposal(
     { batchId: manifest.batch_id, notes: manifest.notes, media: manifest.media },
     batchVersions,
   )
-  if (![...proposal.sources, ...catalogueSources(proposal)].every(delivered)) {
+  // Only `/6` top-level sources can be web pages: agent-reported, never delivered evidence.
+  const cited = [...proposal.sources, ...catalogueSources(proposal)]
+  const citationsHold = cited.every((source) =>
+    source.kind === 'web_page' ? webPageUrlAccepted(source.url) : delivered(source),
+  )
+  if (!citationsHold) {
     fail('retained_proposal_binding_invalid')
   }
   return proposal
