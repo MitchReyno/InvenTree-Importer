@@ -46,6 +46,7 @@ import { createSharperRequestStore } from '#/components/processing/ExamineView'
 import { useInstructionDelivery } from '#/processing/instruction-delivery'
 import { createDrawerRestore } from '#/processing/drawer-restore'
 import { useAcceptedOperatorReview } from '#/operator/useAcceptedOperatorReview'
+import { displaysRestored, RestoredTab } from './RestoredTab'
 
 /** The screen each Review and Changes route mounts until their redesigns replace them. */
 function manualStage(route: BatchRoute | null): ManualStage {
@@ -652,56 +653,3 @@ const SnapshotFields = styled.pre`
   max-height: 300px;
   font-size: ${typeVar.mono.size};
 `
-
-/** The tabs a reload can show from restored snapshots while Capture's read is still landing. */
-function displaysRestored(route: BatchRoute | null, processing: unknown) {
-  if (route?.tab === 'processing') {
-    return processing !== undefined
-  }
-  return route?.tab === 'review' && (route.view === 'lots' || route.view === 'records')
-}
-
-/**
- * The open tab drawn from restored snapshots, read-only: every command and edit is fenced, and the
- * live workspace replaces it once Capture's fresh read lands.
- */
-function RestoredTab({
-  batch,
-  route,
-  manual,
-  navigate,
-  onDirtyChange,
-}: {
-  batch: CaptureSnapshotDto
-  route: BatchRoute
-  manual: ManualClient
-  navigate: (stage: ManualStage, resourceId?: string, options?: { replace?: boolean }) => void
-  onDirtyChange: (dirty: boolean) => void
-}) {
-  const { processing, records } = useApiClients()
-  if (route.tab === 'processing' && processing) {
-    return (
-      <ProcessingStage
-        batch={batch}
-        client={processing}
-        step={route.step}
-        questionId={route.questionId}
-        onDirtyChange={onDirtyChange}
-        displayOnly
-      />
-    )
-  }
-  if (route.tab === 'review' && route.view === 'records') {
-    return <RecordsStage batch={batch} client={records} onDirtyChange={onDirtyChange} displayOnly />
-  }
-  return (
-    <ManualWorkspace
-      batch={batch}
-      client={manual}
-      stage="review"
-      navigate={navigate}
-      onDirtyChange={onDirtyChange}
-      displayOnly
-    />
-  )
-}
