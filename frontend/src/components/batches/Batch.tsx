@@ -1,4 +1,4 @@
-import { Paragraph, Banner, Button, DebugDetails, DisplayOnly } from '#/components/ui'
+import { Paragraph, Banner, Button, DebugDetails, DisplayOnly, ReadState } from '#/components/ui'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey } from '#/queries/scope'
@@ -38,6 +38,7 @@ import {
   useApiClients,
   useServerScope,
   useRetainedPollInterval,
+  useReportRefreshing,
   BatchCommandsProvider,
 } from '#/context'
 import { RecordsStage } from '#/components/review/records/RecordsStage'
@@ -47,6 +48,7 @@ import { useInstructionDelivery } from '#/processing/instruction-delivery'
 import { createDrawerRestore } from '#/processing/drawer-restore'
 import { useAcceptedOperatorReview } from '#/operator/useAcceptedOperatorReview'
 import { displaysRestored, RestoredTab } from './RestoredTab'
+import { TabSkeleton } from './TabSkeleton'
 
 /** The screen each Review and Changes route mounts until their redesigns replace them. */
 function manualStage(route: BatchRoute | null): ManualStage {
@@ -140,11 +142,9 @@ export function Batch({
 
   // Delivery sends no revision: it waits for a Processing read started after it was asked for and
   // after the last live hint, and asks for one.
-  const requestProcessingRead = () => {
-    const request = freshReads(queryClient).requestRead(processingKey)
-    void queryClient.invalidateQueries({ queryKey: processingKey })
-    return request
-  }
+  const requestProcessingRead = processing
+    ? () => freshReads(queryClient).requestRead(processingKey, () => processing.read(id))
+    : undefined
 
   const instructionDelivery = useInstructionDelivery(
     id,
@@ -453,6 +453,7 @@ export function Batch({
   }
 
   let content: ReactNode
+  let showingRestored = false
   if (redirectTo) {
     content = null
   } else if (batch && processingSelected && batchRoute?.tab === 'processing') {
@@ -550,6 +551,7 @@ export function Batch({
       />
     )
   } else if (restoredBatch && !visibleError && displaysRestored(batchRoute, processing)) {
+    showingRestored = true
     content = (
       <DisplayOnly>
         <RestoredTab
@@ -561,9 +563,18 @@ export function Batch({
         />
       </DisplayOnly>
     )
+  } else if (!visibleError && batchRoute && displaysRestored(batchRoute, processing)) {
+    // A first visit to these tabs shows their layout until Capture's read lands.
+    content = (
+      <ReadState phase="empty" skeleton={<TabSkeleton route={batchRoute} />}>
+        {null}
+      </ReadState>
+    )
   } else {
     content = !visibleError && <Paragraph role="status">Resuming saved batch…</Paragraph>
   }
+  // Capture's read holds the restored tab fenced, so a slow one shows refresh progress.
+  useReportRefreshing(showingRestored && captureQuery.isFetching)
   // After a reload the header shows the restored batch, fenced, until Capture's read lands.
   const headerBatch = batch ?? (content && !visibleError && restoredBatch ? restoredBatch : null)
   const restoredHeader = !batch && headerBatch !== null

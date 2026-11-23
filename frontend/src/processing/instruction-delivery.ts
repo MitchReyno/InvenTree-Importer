@@ -14,7 +14,6 @@ export type DeliveryGate = () => ReadRequest
 
 interface Wait {
   controller: AbortController
-  request: ReadRequest | undefined
   sending: boolean
 }
 
@@ -40,11 +39,7 @@ export function useInstructionDelivery(
 
   // The wait outlives Processing's remounts but not the batch.
   useEffect(() => {
-    return () => {
-      const wait = waiting.current
-      wait?.controller.abort()
-      wait?.request?.release()
-    }
+    return () => waiting.current?.controller.abort()
   }, [batchId])
 
   async function deliverNow(sendInstructions: NonNullable<typeof send>) {
@@ -52,20 +47,25 @@ export function useInstructionDelivery(
       return
     }
     waiting.current?.controller.abort()
-    waiting.current?.request?.release()
-    const current: Wait = { controller: new AbortController(), request: gate?.(), sending: false }
+    const current: Wait = { controller: new AbortController(), sending: false }
     waiting.current = current
     setState({ batchId, delivery: { status: 'pending' } })
+    const request = gate?.()
     try {
-      // Checked again just before sending: a hint can arrive as the read lands.
-      while (current.request && !current.request.ready()) {
-        await current.request.wait(current.controller.signal)
+      // Each pass reads Processing; a hint arriving meanwhile, or joining a read that started
+      // earlier, needs another. Checked once more just before sending.
+      while (request && !request.ready()) {
+        await request.readAgain()
+        if (current.controller.signal.aborted) {
+          return
+        }
       }
     } catch {
-      // Replaced by a Retry, or the batch closed: that newer wait owns the outcome.
+      if (waiting.current === current) {
+        waiting.current = null
+        setState({ batchId, delivery: { status: 'failed' } })
+      }
       return
-    } finally {
-      current.request?.release()
     }
     if (waiting.current !== current || current.controller.signal.aborted) {
       return

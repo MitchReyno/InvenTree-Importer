@@ -314,7 +314,10 @@ export function DecisionPanel({
             captureRevision={answering.captureRevision}
             currentQuestion={openQuestion?.id === answering.id ? openQuestion.question : undefined}
             currentCaptureRevision={openQuestion?.captureRevision ?? answering.captureRevision}
-            disabled={disabled || drafts.hasOtherSources('answer')}
+            disabled={
+              disabled || drafts.hasOtherSources('answer') || answerWaitReason !== undefined
+            }
+            blockedReason={answerWaitReason}
             answer={async (questionId, input, key) => {
               await answerQuestion(questionId, input, key)
               drafts.forSource('answer')(false)

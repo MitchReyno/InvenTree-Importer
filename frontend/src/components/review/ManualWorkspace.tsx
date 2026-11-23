@@ -234,7 +234,15 @@ export function ManualWorkspace({
     })
   }
 
+  /** The gate checked again when a command is sent, so a render made before a newer read can't send. */
+  function commandsReadyNow() {
+    return !displayOnly && workspaceFresh.commandsReadyNow()
+  }
+
   function reviewLots(ids: string[]) {
+    if (!commandsReadyNow()) {
+      return
+    }
     void perform('Retaining exact review…', async () => {
       await client.review(
         batch.id,
@@ -272,6 +280,9 @@ export function ManualWorkspace({
   }
 
   function prepareLots(lotIds: string[]) {
+    if (!commandsReadyNow()) {
+      return
+    }
     void perform('Reading the fixed target and preparing selected effects…', async () => {
       const result = await client.prepare(
         batch.id,
@@ -288,6 +299,9 @@ export function ManualWorkspace({
   }
 
   function approve() {
+    if (!commandsReadyNow()) {
+      return
+    }
     if (!displayedPreview) {
       return
     }
@@ -313,6 +327,9 @@ export function ManualWorkspace({
     action: 'start' | 'cancel' | 'recover',
     selection?: RunRecoverySelection,
   ) {
+    if (!commandsReadyNow()) {
+      return
+    }
     void perform('Retaining original-run command…', async () => {
       const input = { expected_run_revision: run.revision }
       if (action === 'recover') {
@@ -348,6 +365,7 @@ export function ManualWorkspace({
         mediaLoading={media !== undefined && mediaQuery.isPending}
         processing={processingFresh.data}
         processingCurrent={processingFresh.phase === 'current'}
+        processingCurrentNow={processingFresh.currentNow}
         displayOnly={displayOnly}
         waitReason={
           waitingForFirstRead && !displayOnly && !busy && !connectionLost ? 'Updating…' : undefined

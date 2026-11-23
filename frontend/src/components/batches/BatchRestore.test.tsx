@@ -148,6 +148,8 @@ test('a snapshot from another target is never shown', async () => {
       onDirtyChange={vi.fn()}
     />,
   )
-  expect(screen.getByText(/Resuming saved batch/)).toBeInTheDocument()
+  // A first visit instead: Review's skeleton until Capture's read lands.
+  expect(screen.getByRole('status')).toHaveTextContent('Loading')
+  expect(screen.queryByText(/Resuming saved batch/)).not.toBeInTheDocument()
   expect(screen.queryByText('Restored reels')).not.toBeInTheDocument()
 })

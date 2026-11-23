@@ -43,6 +43,8 @@ export interface FreshRead<T> {
   /** The same tests on the cache as it is now, for a check at dispatch. */
   commandsReadyNow: () => boolean
   settledAfterHintNow: () => boolean
+  /** `current` checked on the cache now: verified, settled, the shown read, and the page's test. */
+  currentNow: () => boolean
 }
 
 /**
@@ -105,9 +107,16 @@ export function useFreshRead<T>({
     current: verified && query.data !== undefined && (current?.(query.data) ?? true),
   })
 
+  const renderedRead = registry.adoptedOrder(queryKey)
+
+  // At dispatch the cache must still hold the read this render showed: a newer one may have
+  // changed what the command would act on, so the operator sees it first.
   function readyNow(test: 'verified' | 'afterHint') {
     const state = client.getQueryState(queryKey)
-    const healthy = state?.status === 'success' && state.fetchStatus !== 'paused'
+    const healthy =
+      state?.status === 'success' &&
+      state.fetchStatus !== 'paused' &&
+      registry.adoptedOrder(queryKey) === renderedRead
     const proven =
       test === 'verified'
         ? registry.verified(queryKey, mountOrder)
@@ -121,12 +130,19 @@ export function useFreshRead<T>({
     restored: query.data === undefined && restored !== undefined,
     phase,
     verified,
-    verifiedRead: verified ? registry.adoptedOrder(queryKey) : undefined,
+    verifiedRead: verified ? renderedRead : undefined,
     commandsReady: verified && !failed,
     settledAfterHint: settledAfterHint && !failed,
     reason: freshReason(failed, verified),
     commandsReadyNow: () => readyNow('verified'),
     settledAfterHintNow: () => readyNow('afterHint'),
+    currentNow: () => {
+      const state = client.getQueryState<T>(queryKey)
+      if (state?.fetchStatus !== 'idle' || state.data === undefined || !readyNow('verified')) {
+        return false
+      }
+      return current?.(state.data) ?? true
+    },
   }
 }
 

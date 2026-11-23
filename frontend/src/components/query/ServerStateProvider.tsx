@@ -16,8 +16,13 @@ interface Props {
 export function ServerStateProvider({ children, scope, client }: Props) {
   const [ownedClient] = useState(createServerQueryClient)
   const queryClient = client ?? ownedClient
-  // The registry belongs to the client, created with it rather than by the first reader.
-  useState(() => freshReads(queryClient))
+  // The fresh-read registry belongs to the client: made with it, so it follows the cache before
+  // any read starts, and detached when the client's lifetime ends.
+  const [registry] = useState(() => freshReads(queryClient))
+  useEffect(() => {
+    registry.attach()
+    return () => registry.detach()
+  }, [registry])
 
   // Session storage keeps snapshots for this scope only: the next scope deletes the others when it
   // starts, and a scope that ends drops its waiting writes. Replaying this Effect keeps them.

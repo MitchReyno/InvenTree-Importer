@@ -13,6 +13,8 @@ interface Props {
   defaultQuantity: CaptureSnapshotDto['defaults']['quantity']
   /** Only a finished attempt whose input is still current may be accepted; others are history. */
   current: boolean
+  /** The same test on the cache at the moment of accepting; a newer read must be seen first. */
+  currentNow?: () => boolean
   disabled: boolean
   edit?: CaptureEdit
 }
@@ -38,6 +40,7 @@ export function ProcessingSuggestions({
   proposal,
   defaultQuantity,
   current,
+  currentNow,
   disabled,
   edit,
 }: Props) {
@@ -66,9 +69,12 @@ export function ProcessingSuggestions({
         <Button
           type="button"
           disabled={disabled}
-          onClick={() =>
+          onClick={() => {
+            if (currentNow && !currentNow()) {
+              return
+            }
             void edit({ kind: 'lot', id: lot.id, quantity: { mode: 'set', value: quantity.value } })
-          }
+          }}
         >
           Use estimated quantity {quantity.value} for {lot.label}
         </Button>
@@ -83,13 +89,16 @@ export function ProcessingSuggestions({
           <Button
             type="button"
             disabled={disabled}
-            onClick={() =>
+            onClick={() => {
+              if (currentNow && !currentNow()) {
+                return
+              }
               void edit({
                 kind: 'part',
                 id: part.id,
                 choice: { ...creating, spec: { ...creating.spec, tags: newTags } },
               })
-            }
+            }}
           >
             Add suggested tags to {part.label}
           </Button>

@@ -20,7 +20,7 @@ function deferred<T>() {
 let client: QueryClient | undefined
 let deliver: (() => Promise<void>) | undefined
 
-let remount: () => void = () => undefined
+let leave: () => void = () => undefined
 
 /** Processing's read, remounted as an instruction save's reload remounts it. */
 function ProcessingRead({ read }: { read: () => Promise<string> }) {
@@ -37,23 +37,21 @@ function Owner({
   read: () => Promise<string>
 }) {
   client = useQueryClient()
-  const [mount, setMount] = useState(0)
-  remount = () => setMount((count) => count + 1)
-  const delivery = useInstructionDelivery('batch', send, () => {
-    const request = freshReads(client!).requestRead(key)
-    void client!.invalidateQueries({ queryKey: key })
-    return request
-  })
+  const [onProcessing, setOnProcessing] = useState(true)
+  leave = () => setOnProcessing(false)
+  const delivery = useInstructionDelivery('batch', send, () =>
+    freshReads(client!).requestRead(key, read),
+  )
   deliver = delivery.deliver
   return (
     <>
       <output aria-label="Delivery">{delivery.delivery.status}</output>
-      <ProcessingRead key={mount} read={read} />
+      {onProcessing && <ProcessingRead read={read} />}
     </>
   )
 }
 
-test('an instruction save whose hint arrives first holds delivery pending across the reload, then sends once', async () => {
+test('delivery held across a hint and leaving Processing reads for itself, then sends once', async () => {
   const reads: ReturnType<typeof deferred<string>>[] = []
   const read = vi.fn(() => {
     const next = deferred<string>()
@@ -68,27 +66,47 @@ test('an instruction save whose hint arrives first holds delivery pending across
   act(() => {
     void client!.refetchQueries({ queryKey: key })
   })
+  await waitFor(() => expect(reads).toHaveLength(2))
   act(() => freshReads(client!).noteHint())
-  // The save returns: delivery is due, and Processing reloads.
+  // The save returns: delivery is due. Then the operator leaves Processing.
   act(() => {
     void deliver!()
-    remount()
   })
   expect(screen.getByLabelText('Delivery')).toHaveTextContent('pending')
-  // Retry while pending goes through the same gate, and the held send is still sent once.
+  act(() => leave())
+  // Retry while pending goes through the same gate.
   act(() => {
     void deliver!()
   })
-  await waitFor(() => expect(reads).toHaveLength(4))
 
-  // The read running when the hint arrived, and the one the replaced wait asked for, settle
-  // without sending: neither is the newest read started after the request.
+  // The read running when the hint arrived settles without sending, and delivery reads again.
   await act(async () => reads[1].resolve('before the hint'))
-  await act(async () => reads[2].resolve('replaced'))
+  await waitFor(() => expect(reads).toHaveLength(3))
+  expect(send).not.toHaveBeenCalled()
+
+  // Another hint while that read runs: it is not enough either.
+  act(() => freshReads(client!).noteHint())
+  await act(async () => reads[2].resolve('before the second hint'))
+  await waitFor(() => expect(reads).toHaveLength(4))
   expect(send).not.toHaveBeenCalled()
   expect(screen.getByLabelText('Delivery')).toHaveTextContent('pending')
 
   await act(async () => reads[3].resolve('after'))
   await waitFor(() => expect(screen.getByLabelText('Delivery')).toHaveTextContent('sent'))
   expect(send).toHaveBeenCalledTimes(1)
+})
+
+test('a failed read while delivery is pending reports the delivery as failed, with Retry', async () => {
+  const read = vi
+    .fn<() => Promise<string>>()
+    .mockResolvedValueOnce('first')
+    .mockRejectedValue(new Error('offline'))
+  const send = vi.fn(async () => ({ sessions: 1, woken: 0 }))
+  render(<Owner send={send} read={read} />)
+  await waitFor(() => expect(read).toHaveBeenCalledTimes(1))
+  act(() => {
+    void deliver!()
+  })
+  await waitFor(() => expect(screen.getByLabelText('Delivery')).toHaveTextContent('failed'))
+  expect(send).not.toHaveBeenCalled()
 })

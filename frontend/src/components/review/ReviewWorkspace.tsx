@@ -59,6 +59,8 @@ interface Props {
   processing?: ProcessingSnapshotDto
   /** True only after a successful mounted Processing read at the displayed capture revision. */
   processingCurrent?: boolean
+  /** `processingCurrent` checked again on the cache when a candidate is accepted. */
+  processingCurrentNow?: () => boolean
   /** Drawn from restored snapshots before Capture's read lands; commands are already disabled. */
   displayOnly?: boolean
   /** Why commands wait for a read still landing; they then stay focusable and say so quietly. */
@@ -180,6 +182,7 @@ export function ReviewWorkspace({
   mediaLoading,
   processing,
   processingCurrent = false,
+  processingCurrentNow,
   displayOnly = false,
   waitReason,
   selected,
@@ -537,6 +540,7 @@ export function ReviewWorkspace({
                 mediaLoading={mediaLoading}
                 processing={processing}
                 processingCurrent={processingCurrent}
+                processingCurrentNow={processingCurrentNow}
                 // Accepting remounts Review at the new revision, so any open draft fences it.
                 editDisabled={busy || stale || batch.archived || drafts.dirty}
               />

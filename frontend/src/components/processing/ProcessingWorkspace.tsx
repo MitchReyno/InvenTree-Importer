@@ -740,9 +740,11 @@ export function ProcessingWorkspace({
                 )}
               </>
             ) : (
-              questionId && (
+              // While this visit's read lands the question waits quietly; it pins once verified.
+              questionId &&
+              (offline || !waitingForRead) && (
                 <Banner tone="warn">
-                  {waitingForRead || offline
+                  {offline
                     ? 'The selected question cannot be opened until current state is available.'
                     : 'The pinned question is unavailable. Choose a current question explicitly.'}
                 </Banner>

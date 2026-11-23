@@ -24,6 +24,8 @@ interface KeyEntry {
   adopted?: Request
   /** The data that result put in the cache; a state change keeps the proof only if it restores it. */
   adoptedData?: unknown
+  /** The query's data update count at the last manual write, to tell which write is newest. */
+  manualUpdate?: number
   /** Each mounted observer's mount order. */
   observers: Map<symbol, number>
   followUpScheduled: boolean
@@ -45,9 +47,23 @@ export class FreshReadRegistry {
   #lastHint = 0
   #version = 0
 
+  #unsubscribeCache: (() => void) | null = null
+
   constructor(client: QueryClient) {
     this.#client = client
-    client.getQueryCache().subscribe((event) => this.#onCacheEvent(event))
+    this.attach()
+  }
+
+  /** Follows the client's cache; the owner of the client attaches and detaches it. */
+  attach() {
+    this.#unsubscribeCache ??= this.#client
+      .getQueryCache()
+      .subscribe((event) => this.#onCacheEvent(event))
+  }
+
+  detach() {
+    this.#unsubscribeCache?.()
+    this.#unsubscribeCache = null
   }
 
   /** A position in the shared order, taken when an observer mounts or a request starts. */
@@ -122,53 +138,26 @@ export class FreshReadRegistry {
 
   /**
    * Holds a command with no revision until the cache adopts a read of this key that started after
-   * this call and after the last live hint. The request counts as an observer, so a read it joins
-   * mid-flight is followed by one more. `ready()` checks again at dispatch; `release()` ends it.
+   * this call and after the last live hint. `readAgain` starts that read itself, so it needs no
+   * mounted page; `ready()` checks again at dispatch.
    */
-  requestRead(queryKey: QueryKey): ReadRequest {
+  requestRead<T>(queryKey: QueryKey, read: () => Promise<T>): ReadRequest {
     const requested = this.nextOrder()
-    const marker = Symbol('read-request')
-    const unobserve = this.observe(queryKey, marker, requested)
 
     const ready = () => {
       const state = this.#client.getQueryState(queryKey)
       return state?.status === 'success' && this.settledAfterHint(queryKey, requested)
     }
 
-    const wait = (signal: AbortSignal) =>
-      new Promise<void>((resolve, reject) => {
-        // The proof changes with the registry; the settled state with the cache.
-        const unsubscribes: (() => void)[] = []
-
-        const stop = () => {
-          for (const unsubscribe of unsubscribes) {
-            unsubscribe()
-          }
-          signal.removeEventListener('abort', abort)
-        }
-
-        const abort = () => {
-          stop()
-          reject(signal.reason)
-        }
-
-        const check = () => {
-          if (ready()) {
-            stop()
-            resolve()
-          }
-        }
-
-        if (signal.aborted) {
-          reject(signal.reason)
-          return
-        }
-        unsubscribes.push(this.subscribe(check), this.#client.getQueryCache().subscribe(check))
-        signal.addEventListener('abort', abort)
-        check()
+    const readAgain = async () => {
+      await this.#client.fetchQuery({
+        queryKey,
+        queryFn: this.track(queryKey, () => read()),
+        staleTime: 0,
       })
+    }
 
-    return { ready, wait, release: unobserve }
+    return { ready, readAgain }
   }
 
   /** Records that a live hint arrived, before any reconciliation it causes. */
@@ -226,8 +215,13 @@ export class FreshReadRegistry {
     if (event.type === 'removed') {
       const entry = this.#entries.get(hash)
       if (entry) {
-        entry.adopted = undefined
-        entry.produced = undefined
+        // Only mounted observers outlive their query; its requests can no longer publish.
+        this.#entries.set(hash, {
+          generations: entry.generations,
+          cancelled: new Set(),
+          observers: entry.observers,
+          followUpScheduled: false,
+        })
         this.#changed()
       }
       return
@@ -242,7 +236,7 @@ export class FreshReadRegistry {
     const action = event.action
     switch (action.type) {
       case 'success':
-        this.#settleSuccess(entry, hash, action.manual === true, event.query.state.data)
+        this.#settleSuccess(entry, hash, action.manual === true, event.query.state)
         return
       case 'error':
       case 'pause':
@@ -265,14 +259,26 @@ export class FreshReadRegistry {
     }
   }
 
-  #settleSuccess(entry: KeyEntry, hash: string, manual: boolean, data: unknown) {
+  #settleSuccess(
+    entry: KeyEntry,
+    hash: string,
+    manual: boolean,
+    state: { data: unknown; dataUpdateCount: number },
+  ) {
     if (manual) {
       // A cache write between a request's return and its adoption keeps that request pending.
+      entry.manualUpdate = state.dataUpdateCount
       this.#clear(entry)
       return
     }
     const produced = entry.produced
     entry.produced = undefined
+    // A write made while this result was being published (an observer writing in its callback)
+    // is newer than the result, so the cache no longer holds what the request read.
+    if (entry.manualUpdate === state.dataUpdateCount) {
+      this.#clear(entry)
+      return
+    }
     // Only the newest request's own result is adopted; a manual write or any other success is not.
     const adoptable =
       produced !== undefined &&
@@ -283,7 +289,9 @@ export class FreshReadRegistry {
       return
     }
     entry.adopted = entry.newest
-    entry.adoptedData = data
+    entry.adoptedData = state.data
+    // Only the newest request can publish, so older cancelled markers are no longer needed.
+    entry.cancelled.clear()
     this.#changed()
     this.#followUpJoinedObservers(entry, hash)
   }
@@ -331,8 +339,8 @@ export class FreshReadRegistry {
 /** A held command's wait for a read started after it was asked for. */
 export interface ReadRequest {
   ready: () => boolean
-  wait: (signal: AbortSignal) => Promise<void>
-  release: () => void
+  /** Reads the key (joining a read already running); rejects when that read fails. */
+  readAgain: () => Promise<void>
 }
 
 const registries = new WeakMap<QueryClient, FreshReadRegistry>()

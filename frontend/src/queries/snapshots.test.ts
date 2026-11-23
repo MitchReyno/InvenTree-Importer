@@ -8,6 +8,7 @@ import {
 } from '@invimport/contracts'
 import type { ServerScope } from './scope'
 import { SNAPSHOT_MAX_AGE_MS, SNAPSHOT_WRITE_INTERVAL_MS, SnapshotStore } from './snapshots'
+import { SNAPSHOT_KINDS } from './snapshot-projections'
 
 const batchId = '10000000-0000-4000-8000-000000000001'
 const scope: ServerScope = {
@@ -279,4 +280,42 @@ test('a full storage clears every snapshot and is reported for debug only', () =
   }
   expect(storedText()).toBe('')
   expect(snapshots.lastFailure()).toBe('Session storage full; snapshots cleared')
+})
+
+test('the Processing projection drops session inbox sources from nested proposals', () => {
+  const job = {
+    id: '30000000-0000-4000-8000-000000000003',
+    subject_id: null,
+    stage: 'research',
+    revision: '1',
+    state: 'ready',
+    attempt_id: SENTINEL_ID,
+    input_sha256: 'a'.repeat(64),
+    attempt_number: '1',
+    qualification: 'fixture_only',
+    questions: [],
+    proposals: [
+      {
+        id: '70000000-0000-4000-8000-000000000007',
+        message_id: SENTINEL_ID,
+        value: {
+          relies_on: {
+            fields: ['identity'],
+            sources: [
+              { kind: 'observation_set', lot_id: batchId, version: '5' },
+              { kind: 'inbox_item', inbox_item_id: SENTINEL_ID },
+            ],
+          },
+        },
+      },
+    ],
+  }
+  const projected = SNAPSHOT_KINDS.processing.project({
+    ...processing,
+    jobs: [job],
+  } as unknown as ProcessingSnapshotDto)
+
+  const text = JSON.stringify(projected)
+  expect(text).not.toContain(SENTINEL_ID)
+  expect(text).toContain('observation_set')
 })

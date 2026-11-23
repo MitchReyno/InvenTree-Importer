@@ -19,9 +19,34 @@ function displayJob(job: ProcessingJob): ProcessingJob {
   return {
     ...job,
     attempt_id: WITHHELD_ID,
-    proposals: job.proposals.map((proposal) => ({ ...proposal, message_id: WITHHELD_ID })),
+    proposals: job.proposals.map((proposal) => ({
+      ...proposal,
+      message_id: WITHHELD_ID,
+      // The store validates the whole projection against the contract before it is written.
+      value: withoutInboxItems(proposal.value) as typeof proposal.value,
+    })),
     questions: job.questions.map((question) => ({ ...question, attempt_id: WITHHELD_ID })),
   }
+}
+
+/**
+ * A proposal's sources without the session inbox messages it relied on. A source list left empty
+ * fails validation, so that snapshot is not stored rather than stored with the message IDs.
+ */
+function withoutInboxItems(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.filter((item) => !isInboxItem(item)).map(withoutInboxItems)
+  }
+  if (typeof value === 'object' && value !== null) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, withoutInboxItems(item)]),
+    )
+  }
+  return value
+}
+
+function isInboxItem(value: unknown) {
+  return typeof value === 'object' && value !== null && 'inbox_item_id' in value
 }
 
 /** The read each snapshot kind stores. */
