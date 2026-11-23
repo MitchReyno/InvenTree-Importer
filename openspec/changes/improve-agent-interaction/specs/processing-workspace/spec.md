@@ -133,7 +133,13 @@ Each agent session SHALL have a page inside its batch's Processing that shows th
 
 ### Requirement: Session page header and panels
 
-The session page SHALL show a header with the step and subject, provider and model, where it runs, whether web pages are allowed, and its time span from when it was first queued, and its attempts. Side panels SHALL list the photos it viewed and the sources it cited, with debug details in debug mode.
+The session page SHALL show a header with the step and subject, provider and model, where it runs, whether web pages are allowed, and its time span from when it was first queued, and its attempts. Side panels SHALL list the photos it viewed and the sources it cited in the entries loaded so far, saying so while older entries remain to load, with debug details in debug mode.
+
+#### Scenario: Panels on a long session
+
+- **GIVEN** a session whose only photo view is older than the entries first loaded
+- **WHEN** its page opens and the operator then chooses Load older
+- **THEN** the photos panel first says older entries are not loaded yet, and lists the photo view once its entry is loaded.
 
 #### Scenario: Photo view on the page
 
@@ -161,7 +167,7 @@ The session page SHALL be reached from the drawer's "Open full session", the Age
 
 - **GIVEN** a session with more entries than one read returns
 - **WHEN** the operator reaches the oldest shown entry and chooses Load older
-- **THEN** the next older entries appear above in order without duplicates, and new entries returned by the next re-read of the newest entries appear in time order; an entry written slowly enough to sort behind entries already shown appears when the page is next opened.
+- **THEN** the next older entries appear above in order without duplicates, and new entries returned by the next re-read of the newest entries appear in time order; an entry written slowly enough to sort behind entries already shown appears when the page that holds it is next read.
 
 #### Scenario: Many entries between refreshes
 

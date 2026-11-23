@@ -26,7 +26,7 @@ Expanding the workflow indicator SHALL show authorized work identities, current 
 
 ### Requirement: Stage rows in workflow details
 
-On desktop the workflow details SHALL be wide enough for one row per Processing stage of a batch, and on a phone a full-width sheet. Each row SHALL link to that stage's step page and show its state, a count where the stage has one (lots ready of the batch's lots; Examine shows lots formed and open questions), and a short status line: the newest status line among that stage's sessions in the header's bounded active-session list, with its time, or else a plain reason.
+On desktop the workflow details SHALL be wide enough for one row per Processing stage of a batch, and on a phone a full-width sheet. Each row SHALL link to that stage's step page and show its state, a count where the stage has one (lots ready of the batch's lots; Examine shows lots formed and open questions), and a short status line: the newest status line from that stage's current, uncancelled attempts in the header's bounded active-session list, with its time, or else a plain reason.
 
 #### Scenario: Stage rows for a working batch
 
@@ -39,6 +39,12 @@ On desktop the workflow details SHALL be wide enough for one row per Processing 
 - **GIVEN** Inventory has no session in the header's active-session list and waits on Research and Images
 - **WHEN** its row renders
 - **THEN** its status line reads a plain reason such as "Starts when Research and Images finish a lot", not an older agent line.
+
+#### Scenario: Cancelled attempt still holding a slot
+
+- **GIVEN** Research has finished every lot, and a cancelled Research attempt is still holding its slot until its worker is reaped
+- **WHEN** its row renders
+- **THEN** its status line gives a plain reason, not the cancelled attempt's last line, and the slot still shows as in use.
 
 #### Scenario: No count for a stage
 
