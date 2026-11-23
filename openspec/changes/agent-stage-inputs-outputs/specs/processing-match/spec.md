@@ -6,7 +6,7 @@ The Match step decides, before research or photo work is spent, whether each lot
 
 ### Requirement: Deterministic search by strong keys
 
-Match SHALL search InvenTree (Parts, manufacturer Parts, supplier Parts and stock) through the app's read credential and the transport's Match search reads (see inventory-target-protection), and this app's other unapproved lots, using every strong key of the lot's current identity: an MPN or type with a manufacturer, an NSN, an IPN or SKU read from a label, or a label barcode with the batch. Each candidate SHALL record the keys that matched.
+Match SHALL search InvenTree (Parts, manufacturer Parts, supplier Parts and stock) through the Match search reads (see inventory-target-protection), and this app's other unapproved lots, using every strong key of the lot's current identity: an MPN or type with a manufacturer, an NSN, an IPN or SKU read from a label, or a candidate Part's stock with the label's batch code. Each candidate SHALL record the keys that matched.
 
 #### Scenario: Exact match
 
@@ -22,13 +22,25 @@ Match SHALL search InvenTree (Parts, manufacturer Parts, supplier Parts and stoc
 
 ### Requirement: Import reference lookup
 
-Match SHALL look up the lot's generated import reference (`bi1:<source>:<contribution>`) as an exact stock barcode on its own, without a batch code, because the executor writes it as the stock barcode with no batch. The import reference SHALL detect duplicates only, and SHALL NOT count as a strong identity key.
+When a lot's identity becomes stable, before any identify-mode Research, Match SHALL look up its generated import reference (`bi1:<source>:<contribution>`) in this app's execution records, which hold the stock each approval created, and confirm each hit with a stock read by PK. The import reference SHALL detect duplicates only, and SHALL NOT count as a strong identity key. A hit SHALL open the match question and hold Research and Images.
 
 #### Scenario: Stock this app created
 
-- **GIVEN** a house-numbered lot whose generated import reference is already a stock barcode in InvenTree, created by an earlier approval
-- **WHEN** Match runs
-- **THEN** it records a duplicate candidate from the import reference lookup, and the lot still starts identify-mode Research for its identity.
+- **GIVEN** a house-numbered lot whose import reference an earlier approval already created as stock
+- **WHEN** its identity becomes stable
+- **THEN** Match records a duplicate candidate and opens the match question, and identify-mode Research waits for the answer.
+
+#### Scenario: Kept after a duplicate hit
+
+- **GIVEN** that match question
+- **WHEN** the operator answers new Part or something else that keeps the lot
+- **THEN** the lot, still without a strong key, starts Research in identify mode.
+
+#### Scenario: Uncertain earlier create
+
+- **GIVEN** a lot whose import reference has a stock create with an uncertain outcome
+- **WHEN** Match or pass 3 looks it up
+- **THEN** the lookup is reported as unavailable, and pass 3 blocks the lot.
 
 ### Requirement: When Match searches
 
@@ -42,7 +54,7 @@ Match SHALL search after Examine's stable identity when it has a strong key (a l
 
 ### Requirement: Verdicts and sufficiency
 
-Match SHALL give each lot a verdict: no match, exact (a strong key and the manufacturer agree), possible (a weak key or partial agreement) or duplicate (the same generated import reference, or a label barcode with the batch). For a candidate Part it SHALL list what InvenTree is missing: datasheet, the category's key parameters, Part image, manufacturer Part, and supplier Part for this supplier.
+Match SHALL give each lot a verdict: no match, exact (a strong key and the manufacturer agree), possible (a weak key or partial agreement) or duplicate (the same generated import reference, or the candidate Part's stock with the same batch code). For a candidate Part it SHALL list what InvenTree is missing: datasheet, the category's key parameters, Part image, manufacturer Part, and supplier Part for this supplier.
 
 #### Scenario: What the Part is missing
 
@@ -134,7 +146,7 @@ A paused identify-mode Research lot SHALL receive its decision's mode, or have i
 
 ### Requirement: Validation before approval
 
-Preparation SHALL run Match's search again for each selected lot of a batch whose lead input is `/7`, with the lot's final identifiers and import references. A Part created since the decision, stock that now exists with the lot's import reference or label barcode and batch, or a final identity that no longer fits the decision SHALL be a blocking item until the operator decides again.
+Preparation SHALL run Match's search again for each selected lot of a batch whose lead input is `/7`, with the lot's final identifiers and import references. A Part created since the decision, stock that now exists with the lot's import reference or, on the target Part, its batch code, or a final identity that no longer fits the decision SHALL be a blocking item until the operator decides again.
 
 #### Scenario: Part created meanwhile
 

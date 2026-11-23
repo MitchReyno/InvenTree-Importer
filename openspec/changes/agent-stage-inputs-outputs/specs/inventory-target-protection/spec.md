@@ -36,19 +36,19 @@ Owned-fake mutation kinds SHALL require the matching capability on the owned pro
 
 ### Requirement: Match search reads
 
-The transport SHALL add bounded list reads for Match's searches and sufficiency check: `search_parts`, `list_manufacturer_parts`, `list_supplier_parts`, `list_stock`, `list_part_parameters` and `list_part_attachments`. Each SHALL use a fixed path, the list bounds above and only named filters: a search text, an exact MPN, manufacturer PK, SKU, supplier PK, Part PK, batch code or barcode. Any other filter SHALL be refused before a request is sent.
+The transport SHALL add bounded list reads for Match: `search_parts`, `list_manufacturer_parts`, `list_supplier_parts`, `list_stock`, `list_part_parameters`, `list_part_attachments` and `list_category_parameters`. Each SHALL use a fixed path, the list bounds above and only named filters that the pinned InvenTree API offers: a search text, an exact MPN, manufacturer PK, SKU, supplier PK, Part PK, category PK or batch code. Any other filter SHALL be refused before a request is sent.
 
-#### Scenario: Stock by barcode and batch
+#### Scenario: Stock by Part and batch
 
-- **GIVEN** Match searching for stock with a barcode and a batch code
-- **WHEN** it sends `list_stock` with those two filters and a limit of 20
+- **GIVEN** Match searching a candidate Part's stock for a batch code
+- **WHEN** it sends `list_stock` with the Part PK and batch filters and a limit of 20
 - **THEN** the request uses the fixed stock path with exactly those filters and the limit.
 
-#### Scenario: Import reference with no label barcode
+#### Scenario: Missing category parameter
 
-- **GIVEN** a lot with a generated import reference and no barcode read from a label
-- **WHEN** Match looks the import reference up
-- **THEN** it sends `list_stock` with only the barcode filter set to the import reference, and no batch filter.
+- **GIVEN** a candidate Part whose category maps a key parameter template it has no value row for
+- **WHEN** Match runs its sufficiency check
+- **THEN** it reads the mappings with `list_category_parameters` by category PK and lists that parameter as missing.
 
 #### Scenario: Unnamed filter refused
 
