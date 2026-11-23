@@ -26,7 +26,7 @@
 | --- | --- | --- | --- |
 | 1. Briefs, input `/7`, read tools and stage packs scaffold | Contracts, intake server, migration | BI-019 PR-D1 (`photo_view`) | agent-sessions "Sessions start from a sealed brief", "Session tool boundary" and "Stage tool sets" (read tools) |
 | 2. Typed outputs, boundaries, revisions and no repeated questions | Contracts, intake server | 1; BI-019 PR-B and PR-D1 | agent-sessions "Typed stage outputs", "Human facts take precedence" (data), "Questions are not asked twice"; agent-sessions "Authoritative citations for fetched evidence" ("Released view after a restart"); pipeline "Revisions carry the change"; the design's citation admission over `photo_view` |
-| 3. Match: search, verdicts, questions, modes and queueing | Intake server, migration, frontend | 2; BI-019 PR-B | processing-match "Deterministic search by strong keys", "Verdicts and sufficiency", "The match question", "Decisions set stage modes" ("Add stock"), "When Match searches" (its after-Examine and check-again triggers), "Match questions are pinned", "Match waits are recorded" ("Searches settle out of order"); pipeline "Examine stage and parallel successors", "Successors start on a stable identity" ("Parallel start", "Lot regrouped before successors start"), "Evidence-based currentness" (the decision and mode); workspace "Processing › Match", "Step page pattern" (the Match exception), "Inventory step page" (earlier-version batches only) |
+| 3. Match: search, verdicts, questions, modes and queueing | Intake server, migration, frontend | 2; BI-019 PR-B | processing-match "Deterministic search by strong keys", "Verdicts and sufficiency", "The match question", "Add stock needs an InvenTree Part", "Decisions set stage modes" ("Add stock"), "When Match searches" (its after-Examine and check-again triggers), "Match questions are pinned", "Match waits are recorded" ("Searches settle out of order"); pipeline "Examine stage and parallel successors", "Successors start on a stable identity" ("Parallel start", "Lot regrouped before successors start"), "Evidence-based currentness" (the decision and mode); workspace "Processing › Match", "Step page pattern" (the Match exception), "Inventory step page" (earlier-version batches only) |
 | 4. Identify mode and identity amendments | Intake server | 3 | pipeline "Identify first when nothing can be searched", "Identity amendments update the lot", "Successors start on a stable identity" (identify-mode start); match "When Match searches" ("Alias found during research"), "Decisions set stage modes" (a paused identify session) |
 | 5. Media decoder ports and recipe `/2` | Media decoder, contracts | None | capture-media "Media immutable derived crops"; the parity tests behind agent-sessions "Image and logo tools run in the app" |
 | 10. Image tools and the Images review | Intake server, frontend | 2, 5 | agent-sessions "Image and logo tools run in the app", "Stage tool sets" (image tools); workspace "Images step shows proposed crops" |
@@ -43,7 +43,7 @@
 | PR-0 | This plan, the design doc and BI-022 | Planning | Review before code | None | `interactive-app` ← `docs/agent-stage-inputs-outputs`; `docs(agent-stage-inputs-outputs): plan agent stage inputs and outputs` | `openspec validate --strict`; review; CI |
 | PR-A | Sealed briefs and read tools | 1 | The data path everything else reads | PR-0; BI-019 PR-D1 | `interactive-app` ← `feat/agent-stage-inputs-outputs-briefs`; `feat(agent-stage-inputs-outputs): give every session a sealed brief` | Contracts, intake unit, PG and process tiers; review; CI |
 | PR-B | Typed outputs, boundaries, revisions and the duplicate check | 2 | The contract every stage publishes to | PR-A; BI-019 PR-B and PR-D1 | `interactive-app` ← `feat/agent-stage-inputs-outputs-typed-outputs`; `feat(agent-stage-inputs-outputs): typed stage outputs with enforced boundaries` | Intake tiers; review; CI |
-| PR-C | Match replaces the Inventory agent | 3 | One pipeline change with its UI and question | PR-B; BI-019 PR-B (stepped questions); coordinate with BI-019 PR-F's popover if it has merged | `interactive-app` ← `feat/agent-stage-inputs-outputs-match`; `feat(agent-stage-inputs-outputs): match lots against InvenTree before research` | Intake tiers, frontend checks; demo video; review; CI |
+| PR-C | Match replaces the Inventory agent | 3 | One pipeline change with its UI and question | PR-B; BI-019 PR-B (stepped questions) | `interactive-app` ← `feat/agent-stage-inputs-outputs-match`; `feat(agent-stage-inputs-outputs): match lots against InvenTree before research` | Intake tiers, frontend checks; demo video; review; CI |
 | PR-D | Identify mode and identity amendments | 4 | Builds on Match's search passes | PR-C | `interactive-app` ← `feat/agent-stage-inputs-outputs-identify`; `feat(agent-stage-inputs-outputs): identify items before matching them` | Intake tiers; review; CI |
 | PR-E1 | Media decoder ports and recipe `/2` | 5 | Depends only on the contracts and the decoder, so the longest single task starts in wave 1 | PR-0 | `interactive-app` ← `feat/agent-stage-inputs-outputs-decoder-ports`; `feat(agent-stage-inputs-outputs): port the image and logo scripts to the media decoder` | Decoder parity tests, contracts tests; review; CI |
 | PR-E2 | Image tools, `propose_images` and the Images review | 10 | Exposes PR-E1's operations to sessions with their consumers | PR-B, PR-E1 | `interactive-app` ← `feat/agent-stage-inputs-outputs-images`; `feat(agent-stage-inputs-outputs): images proposed as recipes and rendered by the app` | Intake tiers, frontend checks; demo video; review; CI |
@@ -144,7 +144,6 @@ With suggestions 3 and 4 also applied, PR-C1 and PR-F1 would join wave 2 and wav
   - `inventory/` read helpers;
   - the match question store and its Needs you read;
   - a migration;
-  - the activity popover's Match row, if BI-019 PR-F has merged; if it merges later, the row joins the next BI-022 PR still open, and PR-G2 at the latest, so activation never ships without it, showing Match for `/7` batches and Inventory for earlier ones;
   - the Match exception on the step page as it stands when PR-C is built; the spec deltas are reconciled with BI-019 once, before archive (see the lifecycle follow-up);
   - `frontend/src/components/processing/` (Match step, Needs you);
   - the Inventory step shown only for batches with no lead or an earlier-version lead.
@@ -238,7 +237,7 @@ With suggestions 3 and 4 also applied, PR-C1 and PR-F1 would join wave 2 and wav
 - **Prerequisites:** task 1. The pack wording can be drafted from wave 1, before task 1 merges.
 - **TDD approach:** profile and guide tests fail first: the claim's stage-instructions digest check, `read_guide` sections sealed with the profile, and `read_vocabulary` paging.
 - **Verification:** intake tiers.
-- **Risks and decisions:** Mitch reviews the instruction wording; later PRs may revise a pack as their output contracts settle, which is a new profile row before activation, not an edit.
+- **Risks and decisions:** Mitch reviews the instruction wording; later PRs may revise a pack as their output contracts settle. Until PR-G2 activates `/4`, only tests seal it, so a later migration may replace its packs; from activation, a revision is a new profile.
 
 - [ ] 7.1 Draft the base and stage packs from the skills; get Mitch's review of the wording.
 - [ ] 7.2 RED: write the profile, stage-instructions and guide tests.
@@ -252,6 +251,7 @@ With suggestions 3 and 4 also applied, PR-C1 and PR-F1 would join wave 2 and wav
   - the new tool profile admitted on both providers;
   - the default profile switched to `synthetic-session/1`;
   - `/7` turned on for new leads of `shared-vm-agent/4` and of `synthetic-session/1` on the local synthetic driver, replacing the test-only fixture switch; the paired bridge route keeps `/6`, with a process test for each route;
+  - the activity popover's Match row from BI-019 PR-F, showing Match for `/7` batches and Inventory for the others;
   - a live requalification on Claude and Codex.
 - **Scope:**
   - `config.ts` and `agents/session/session-admission.ts`;

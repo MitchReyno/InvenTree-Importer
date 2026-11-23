@@ -148,7 +148,7 @@ No new third-party runtime dependency is needed: the decoder already ships `shar
 - **Prerequisites:**
   - BI-019 PR-B (stepped questions, needed by the match question), PR-D1 (`photo_view`, web sources), PR-E (session page) and PR-G (the session-level read, recovery eligibility and slot totals that multi-lot session rows adapt);
   - coordinate instruction edits with BI-017;
-  - BI-019 PR-F's activity popover, whose fourth stage row task 3 adapts to Match if PR-F has merged first;
+  - BI-019 PR-F's activity popover, whose fourth stage row task 11 adapts to Match before activation;
   - Mitch's go-ahead for the live requalification.
 
 ## Delivery and parallel work

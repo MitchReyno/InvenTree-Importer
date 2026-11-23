@@ -15,7 +15,7 @@ The complexity is high. The change touches every session's input and output, add
 
 - **Goals:** those of the [proposal](proposal.md) and the deltas in `specs/`.
 - **Constraints:**
-  - Sealed inputs and pinned profiles stay immutable. A new instruction text needs a new profile row, digest, CHECK combination, contract literal and config entry.
+  - Sealed inputs and pinned profiles stay immutable. A new instruction text needs a new profile row, digest, CHECK combination, contract literal and config entry once the profile is active; before PR-G2 activates `/4`, only tests seal it, so a later migration may replace its packs.
   - Admission compares exact tool sets and forbids skills, so new tools join a new tool profile.
   - The untrusted-data rule holds: notes, images, documents and web content are data, never instructions.
   - Retained attempts of earlier profiles stay readable. New formats are forward-only.

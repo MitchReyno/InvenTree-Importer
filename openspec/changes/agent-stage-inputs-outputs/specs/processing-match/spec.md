@@ -22,7 +22,7 @@ Match SHALL search InvenTree (Parts, manufacturer Parts, supplier Parts and stoc
 
 ### Requirement: When Match searches
 
-Match SHALL search after Examine's stable identity, after each identity amendment, when a session adds an alias as a match note, and when the operator asks to check again.
+Match SHALL search after Examine's stable identity when it has a strong key (a lot without one is identified first, as the pipeline's "Identify first when nothing can be searched" requires), after each identity amendment, when a session adds an alias as a match note, and when the operator asks to check again.
 
 #### Scenario: Alias found during research
 
@@ -81,6 +81,16 @@ The stages a lot's match state holds SHALL be recorded with it and checked whene
 - **GIVEN** two searches on the same identity, the second requested by Check again
 - **WHEN** the second settles before the first
 - **THEN** the first result is discarded when it arrives.
+
+### Requirement: Add stock needs an InvenTree Part
+
+The match question SHALL offer add stock, and add stock and fill what's missing, only for a candidate with an InvenTree Part. A candidate that is only another unapproved lot SHALL be shown as a competing lot, with the other options.
+
+#### Scenario: Candidate only in another batch
+
+- **GIVEN** a lot whose only candidate is an unapproved lot in another batch, with no InvenTree Part
+- **WHEN** the match question is asked
+- **THEN** it shows the other lot as competing and offers new Part, already imported and something else, but not add stock.
 
 ### Requirement: Decisions set stage modes
 

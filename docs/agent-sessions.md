@@ -265,7 +265,7 @@ Writes publish a `processing_changed` event for the batch, which the frontend us
 **What admission pins** (`intake-server/src/agents/session/session-admission.ts`, `claude-session-admission.ts`):
 
 - the CLI versions: Claude Code 2.1.319 and Codex 0.166.0;
-- empty skills, slash commands and plugins;
+- empty skills and slash commands, and on Claude exactly the admitted built-in plugins (with the telemetry plugin added for subscription sessions, `session-admission.ts:172-200`);
 - one MCP server named `intake`, whose tool list must match exactly;
 - the Codex feature set.
 
