@@ -1,4 +1,5 @@
 import { test } from 'node:test'
+import { randomUUID } from 'node:crypto'
 import { saveAgentSettings, unsavedAgentSettings } from '#/agents/settings.ts'
 import assert from 'node:assert/strict'
 import { processingFixture } from '../support/processing.ts'
@@ -203,6 +204,7 @@ test('a batch whose lead manifest would be too large is skipped, not retried eve
     await saveAgentSettings(fixture.api.pool, fixture.config, {
       ...fields,
       expected_revision: revision,
+      save_id: randomUUID(),
     })
     assert.deepEqual(
       (await triggerExamine(fixture.writer.pool, fixture.config, { quietMs: 0, skipped })).failed,

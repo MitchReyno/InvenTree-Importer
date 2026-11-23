@@ -212,6 +212,7 @@ test('a new batch copies the defaults into its first revision through the picker
     await saveAgentSettings(api.db.pool, api.binding, {
       ...fields,
       expected_revision: revision,
+      save_id: randomUUID(),
       auto_tags_default: true,
       new_batch_instructions: 'Count reels by their labels.',
     })
@@ -285,6 +286,7 @@ test('a new batch copies the defaults into its first revision through the picker
     await saveAgentSettings(api.db.pool, api.binding, {
       ...fields,
       expected_revision: '1',
+      save_id: randomUUID(),
       auto_tags_default: true,
       new_batch_instructions: 'Weigh small parts instead of counting.',
     })

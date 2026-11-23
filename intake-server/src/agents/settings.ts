@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
 import { and, eq, sql } from 'drizzle-orm'
 import {
@@ -8,13 +9,15 @@ import {
   type AgentProviderSettingsDto,
   type AgentSelectionDto,
   type AgentSettingsDto,
+  type AgentSettingsSaveReplayDto,
   type AgentSettingsUpdateDto,
 } from '@invimport/contracts'
+import { canonicalRecord } from '@invimport/contracts/json'
 import type { CaptureBinding } from '#/capture/model.ts'
 import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
 import { fail } from '#/processing/model.ts'
 import { storableText } from '#/db/storable-text.ts'
-import { agentProviderSettings, agentSettings } from './schema.ts'
+import { agentProviderSettings, agentSettings, agentSettingsSaveReceipts } from './schema.ts'
 
 export const DEFAULT_SESSION_CONCURRENCY = 3
 
@@ -166,13 +169,152 @@ const FIRST_SAVE_FALLBACK: AgentSelectionDto = {
   model: AGENT_MODEL_SUGGESTIONS.claude[0],
 }
 
+/** Save receipts kept per settings scope: the newest this many, for at most a week. */
+const RECEIPTS_KEPT = 200
+const RECEIPT_MAX_AGE = '7 days'
+
+/** What a resend must repeat exactly: every submitted field, without its revision or save ID. */
+function submittedDigest(input: AgentSettingsUpdateDto) {
+  const { expected_revision: _revision, save_id: _saveId, ...fields } = input
+  return createHash('sha256').update(canonicalRecord(fields)).digest()
+}
+
+/** Serialises every save of one settings scope, including first saves, which have no row to lock. */
+async function lockSettingsScope(client: PoolClient, binding: CaptureBinding) {
+  await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
+    `agent-settings-save/1:${binding.actorId}:${binding.targetId}:${binding.targetContextId}`,
+  ])
+}
+
+/**
+ * The receipt of an earlier send of this save, if it applied. A save ID reused for another
+ * scope, other fields or another base revision is refused rather than answered.
+ */
+async function priorReceipt(
+  client: PoolClient,
+  binding: CaptureBinding,
+  input: AgentSettingsUpdateDto,
+  digest: Buffer,
+): Promise<AgentSettingsSaveReplayDto | undefined> {
+  const rows = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select()
+      .from(agentSettingsSaveReceipts)
+      .where(eq(agentSettingsSaveReceipts.saveId, input.save_id)),
+  )
+  const receipt = rows[0]
+  if (!receipt) {
+    return undefined
+  }
+  const sameScope =
+    receipt.actorId === binding.actorId &&
+    receipt.targetId === binding.targetId &&
+    receipt.targetContextId === binding.targetContextId
+  const sameRequest =
+    receipt.payloadSha256.equals(digest) && receipt.baseRevision === BigInt(input.expected_revision)
+  if (!sameScope || !sameRequest) {
+    fail('save_receipt_mismatch', 409)
+  }
+  return { save_id: receipt.saveId, revision: receipt.revision.toString(), replayed: true }
+}
+
+/**
+ * The highest revision whose receipt may have been pruned. A save with no receipt sent over an
+ * older revision may have applied and lost its receipt, so its outcome can't be told.
+ */
+async function receiptsPrunedThrough(client: PoolClient, binding: CaptureBinding) {
+  const rows = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ through: agentSettings.receiptsPrunedThrough })
+      .from(agentSettings)
+      .where(settingsScope(binding)),
+  )
+  return rows[0]?.through ?? 0n
+}
+
+async function writeReceipt(
+  client: PoolClient,
+  binding: CaptureBinding,
+  input: AgentSettingsUpdateDto,
+  digest: Buffer,
+) {
+  const baseRevision = BigInt(input.expected_revision)
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .insert(agentSettingsSaveReceipts)
+      .values({
+        saveId: input.save_id,
+        actorId: binding.actorId,
+        targetId: binding.targetId,
+        targetContextId: binding.targetContextId,
+        payloadSha256: digest,
+        baseRevision,
+        revision: baseRevision + 1n,
+      }),
+  )
+}
+
+/** Drops receipts beyond the newest kept or past their age, advancing the scope's watermark. */
+async function pruneReceipts(client: PoolClient, binding: CaptureBinding, revision: bigint) {
+  await client.query(
+    `WITH pruned AS (
+       DELETE FROM agent_settings_save_receipt
+       WHERE actor_id = $1 AND target_id = $2 AND target_context_id = $3
+         AND (revision <= $4 OR saved_at < now() - $5::interval)
+       RETURNING revision
+     )
+     UPDATE agent_settings
+     SET receipts_pruned_through = GREATEST(
+       receipts_pruned_through,
+       (SELECT max(revision) FROM pruned)
+     )
+     WHERE actor_id = $1 AND target_id = $2 AND target_context_id = $3
+       AND EXISTS (SELECT 1 FROM pruned)`,
+    [
+      binding.actorId,
+      binding.targetId,
+      binding.targetContextId,
+      (revision - BigInt(RECEIPTS_KEPT)).toString(),
+      RECEIPT_MAX_AGE,
+    ],
+  )
+}
+
+/**
+ * Saves the whole settings object under its expected revision, or answers a resend of a save
+ * that already applied with its receipt. Under the scope's lock, the receipt is checked before
+ * the revision, so a `revision_conflict` always means this save never applied.
+ */
 export async function saveAgentSettings(
   pool: Pool,
   binding: CaptureBinding,
   input: AgentSettingsUpdateDto,
-) {
+): Promise<AgentSettingsDto | AgentSettingsSaveReplayDto> {
   validate('AgentSettingsUpdate', input)
   checkAgentSettings(input)
+  const digest = submittedDigest(input)
+  return transaction(pool, async (client) => {
+    await lockSettingsScope(client, binding)
+    const replay = await priorReceipt(client, binding, input, digest)
+    if (replay) {
+      return replay
+    }
+    if (BigInt(input.expected_revision) < (await receiptsPrunedThrough(client, binding))) {
+      fail('save_outcome_unknown', 409)
+    }
+    await writeSettings(client, binding, input)
+    await writeReceipt(client, binding, input, digest)
+    await pruneReceipts(client, binding, BigInt(input.expected_revision) + 1n)
+    return readAgentSettings(client, binding)
+  })
+}
+
+/** Writes the settings row under the expected revision and the provider rows with it. */
+async function writeSettings(
+  client: PoolClient,
+  binding: CaptureBinding,
+  input: AgentSettingsUpdateDto,
+) {
   const legacy = legacySelection(input)
   const fields = {
     defaultProvider: input.default_provider,
@@ -184,70 +326,64 @@ export async function saveAgentSettings(
     webPublicPages: input.web.public_pages,
     webPreferDatasheets: input.web.prefer_datasheets,
   }
-  return transaction(pool, async (client) => {
-    const db = queryDatabase(client)
-    if (input.expected_revision === '0') {
-      const inserted = await executeDatabaseQuery(
-        db
-          .insert(agentSettings)
-          .values({
-            actorId: binding.actorId,
-            targetId: binding.targetId,
-            targetContextId: binding.targetContextId,
-            ...(legacy ?? FIRST_SAVE_FALLBACK),
-            ...fields,
-            revision: 1n,
-          })
-          .onConflictDoNothing()
-          .returning(),
-      )
-      if (!inserted.length) {
-        fail('revision_conflict', 412)
-      }
-    } else {
-      const updated = await executeDatabaseQuery(
-        db
-          .update(agentSettings)
-          .set({ ...legacy, ...fields, revision: BigInt(input.expected_revision) + 1n })
-          .where(
-            and(
-              settingsScope(binding),
-              eq(agentSettings.revision, BigInt(input.expected_revision)),
-            ),
-          )
-          .returning(),
-      )
-      if (!updated.length) {
-        fail('revision_conflict', 412)
-      }
+  const db = queryDatabase(client)
+  if (input.expected_revision === '0') {
+    const inserted = await executeDatabaseQuery(
+      db
+        .insert(agentSettings)
+        .values({
+          actorId: binding.actorId,
+          targetId: binding.targetId,
+          targetContextId: binding.targetContextId,
+          ...(legacy ?? FIRST_SAVE_FALLBACK),
+          ...fields,
+          revision: 1n,
+        })
+        .onConflictDoNothing()
+        .returning(),
+    )
+    if (!inserted.length) {
+      fail('revision_conflict', 412)
     }
-    for (const provider of PROVIDERS) {
-      const values = {
-        enabled: input.providers[provider].enabled,
-        authentication: input.providers[provider].authentication,
-        defaultModel: input.providers[provider].default_model,
-      }
-      await executeDatabaseQuery(
-        db
-          .insert(agentProviderSettings)
-          .values({
-            actorId: binding.actorId,
-            targetId: binding.targetId,
-            targetContextId: binding.targetContextId,
-            provider,
-            ...values,
-          })
-          .onConflictDoUpdate({
-            target: [
-              agentProviderSettings.actorId,
-              agentProviderSettings.targetId,
-              agentProviderSettings.targetContextId,
-              agentProviderSettings.provider,
-            ],
-            set: values,
-          }),
-      )
+  } else {
+    const updated = await executeDatabaseQuery(
+      db
+        .update(agentSettings)
+        .set({ ...legacy, ...fields, revision: BigInt(input.expected_revision) + 1n })
+        .where(
+          and(settingsScope(binding), eq(agentSettings.revision, BigInt(input.expected_revision))),
+        )
+        .returning(),
+    )
+    if (!updated.length) {
+      fail('revision_conflict', 412)
     }
-    return readAgentSettings(client, binding)
-  })
+  }
+  for (const provider of PROVIDERS) {
+    const values = {
+      enabled: input.providers[provider].enabled,
+      authentication: input.providers[provider].authentication,
+      defaultModel: input.providers[provider].default_model,
+    }
+    await executeDatabaseQuery(
+      db
+        .insert(agentProviderSettings)
+        .values({
+          actorId: binding.actorId,
+          targetId: binding.targetId,
+          targetContextId: binding.targetContextId,
+          provider,
+          ...values,
+        })
+        .onConflictDoUpdate({
+          target: [
+            agentProviderSettings.actorId,
+            agentProviderSettings.targetId,
+            agentProviderSettings.targetContextId,
+            agentProviderSettings.provider,
+          ],
+          set: values,
+        }),
+    )
+  }
 }

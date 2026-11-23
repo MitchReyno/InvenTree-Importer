@@ -18,7 +18,7 @@ None yet.
 - **2026-11-24T03:41+11:00, task 11.1 (PR-F), rollout and recovery of the save receipt migration:** migration `0035` adds the receipt table and the per-scope pruning watermark. Every intake process checks the exact migration list at startup and quarantines a mismatch, so the API and the session worker must run the same build. To roll out:
   1. Drain and stop every intake process (the web entry point, the session worker and any runner), as for any intake deploy.
   2. Take a backup (`pnpm --filter @invimport/intake-server operations backup`).
-  3. Run the reviewed migrations with the migration role (`pnpm db:intake migrate` locally), which also grants the API role its receipt privileges.
+  3. Migrate and grant with the new build: the deployment's provisioning step (`operations/deployment-provision.ts`) runs the migrations and then `grantProcessing`, which gives the API role its receipt privileges. The development stack does both when it starts (`dev/setup.ts`).
   4. Start every process on the new build only.
 
   If the rollout fails after step 3, recover forward (fix and redeploy the new build), or restore the step 2 backup and start the older build. The older build can't run against the migrated schema, and the migration is never edited or reversed in place.
