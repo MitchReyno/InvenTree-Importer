@@ -17,16 +17,25 @@ import {
   type ProviderFormValues,
 } from './provider-form'
 
-/** Each step's provider and model, or Default; only providers that are on can be chosen. */
+/**
+ * Each step's provider and model, or Default; only providers that are on can be chosen. The
+ * provider choice saves as it changes; the model field keeps its own Save.
+ */
 export function StepChoices({
-  busy,
+  textBusy,
   reset,
-  onEdit,
+  savedModel,
+  onAutoEdit,
+  onTextEdit,
 }: {
-  busy: boolean
+  /** The model fields' Save is running, so they are read-only. */
+  textBusy: boolean
   /** Steps whose choice was reset because their provider was turned off. */
   reset: readonly AgentSettingsStage[]
-  onEdit: () => void
+  /** A provider's saved default model, which a newly chosen provider starts with. */
+  savedModel: (provider: AgentProviderId) => string
+  onAutoEdit: () => void
+  onTextEdit: () => void
 }) {
   const { register, watch, setValue, formState } = useFormContext<ProviderFormValues>()
   const values = watch()
@@ -47,18 +56,15 @@ export function StepChoices({
             <Select
               aria-label={`${STAGE_LABEL[stage]} provider`}
               value={choice.provider}
-              disabled={busy}
               onChange={(event) => {
                 const provider = event.target.value as AgentProviderId | ''
+                // The saved default model, never an unsaved draft of it.
                 setValue(
                   `stages.${stage}`,
-                  {
-                    provider,
-                    model: provider ? values.providers[provider].default_model : '',
-                  },
+                  { provider, model: provider ? savedModel(provider) : '' },
                   { shouldDirty: true },
                 )
-                onEdit()
+                onAutoEdit()
               }}
             >
               <option value="">{fallback}</option>
@@ -73,14 +79,14 @@ export function StepChoices({
                 <Input
                   aria-label={`${STAGE_LABEL[stage]} model`}
                   list={listId}
-                  readOnly={busy}
+                  readOnly={textBusy}
                   autoComplete="off"
                   aria-invalid={invalid ? true : undefined}
                   aria-describedby={invalid ? `step-${stage}-error` : undefined}
                   {...register(`stages.${stage}.model`, {
                     validate: (value, current) =>
                       !current.stages[stage].provider || validModel(value, true),
-                    onChange: onEdit,
+                    onChange: onTextEdit,
                   })}
                 />
                 <datalist id={listId}>

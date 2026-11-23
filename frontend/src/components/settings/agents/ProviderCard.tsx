@@ -14,22 +14,31 @@ const AUTHENTICATION = [
   { id: 'api_key', label: 'API key' },
 ]
 
-/** One provider, set up on its own: on or off, sign-in, default model and its credential panel. */
+/**
+ * One provider, set up on its own: on or off and sign-in, which save as they change, the default
+ * model with its own Save, and its credential panel.
+ */
 export function ProviderCard({
   provider,
   status,
-  busy,
+  textBusy,
+  refused,
   onEnabledChange,
-  onEdit,
+  onAutoEdit,
+  onTextEdit,
   credential,
 }: {
   provider: AgentProviderId
   /** What its credential panel shows. */
   status: ProviderStatus
-  busy: boolean
+  /** The model field's Save is running, so the field is read-only. */
+  textBusy: boolean
+  /** Why its switch was refused: the last provider on, or no saved model ID to turn on with. */
+  refused?: 'last' | 'model'
   onEnabledChange: (enabled: boolean) => void
-  /** A control that fires no input event reports its edit here. */
-  onEdit: () => void
+  /** Reports an edit to the sign-in choice, which fires no input event. */
+  onAutoEdit: () => void
+  onTextEdit: () => void
   credential: ReactNode
 }) {
   const { register, watch, setValue, formState } = useFormContext<ProviderFormValues>()
@@ -39,6 +48,7 @@ export function ProviderCard({
   const listId = `${provider}-models`
   const statusId = `${provider}-card-status`
   const errorId = `${provider}-model-error`
+  const refusedId = `${provider}-refused`
 
   return (
     <Card role="group" aria-label={label} aria-describedby={statusId}>
@@ -50,21 +60,27 @@ export function ProviderCard({
         <input
           type="checkbox"
           checked={settings.enabled}
-          disabled={busy}
+          aria-describedby={refused ? refusedId : undefined}
           onChange={(event) => onEnabledChange(event.target.checked)}
         />
         On
       </CheckboxLabel>
+      {refused && (
+        <Invalid id={refusedId} role="alert">
+          {refused === 'last'
+            ? 'At least one provider stays on.'
+            : `Save a valid default model before turning ${label} on.`}
+        </Invalid>
+      )}
       <SegmentedControl
         label={`${label} sign-in`}
         options={AUTHENTICATION}
         value={settings.authentication}
-        disabled={busy}
         onChange={(id) => {
           setValue(`providers.${provider}.authentication`, id as 'api_key' | 'subscription', {
             shouldDirty: true,
           })
-          onEdit()
+          onAutoEdit()
         }}
       />
       <Small>
@@ -75,12 +91,12 @@ export function ProviderCard({
         <Model
           {...register(`providers.${provider}.default_model`, {
             validate: (value, values) => validModel(value, values.providers[provider].enabled),
-            onChange: onEdit,
+            onChange: onTextEdit,
           })}
           aria-invalid={modelError ? true : undefined}
           aria-describedby={modelError ? errorId : undefined}
           list={listId}
-          readOnly={busy}
+          readOnly={textBusy}
           autoComplete="off"
           placeholder="Choose a model or enter its exact ID"
         />

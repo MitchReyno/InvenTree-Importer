@@ -14,6 +14,9 @@ import { listAgentSessions } from './session/sessions.ts'
 import { setAllPause, setBatchPause } from './pause.ts'
 import { deliverInstructions } from './instructions.ts'
 
+/** Refusals a reload of what is saved resolves: a conflict, or a save whose outcome is unknown. */
+const RELOAD_RECOVERY = new Set(['revision_conflict', 'save_outcome_unknown'])
+
 export function registerAgents(app: FastifyInstance, pool: Pool, config: ProcessingConfig) {
   app.register(async (scope) => {
     scope.setErrorHandler((error, request, reply) => {
@@ -23,7 +26,7 @@ export function registerAgents(app: FastifyInstance, pool: Pool, config: Process
       reply.code(error.statusCode).send({
         code: error.code,
         message: 'Agent request could not be accepted.',
-        recovery: error.code === 'revision_conflict' ? 'refresh' : 'none',
+        recovery: RELOAD_RECOVERY.has(error.code) ? 'refresh' : 'none',
         correlation_id: request.id,
       })
     })
@@ -34,7 +37,12 @@ export function registerAgents(app: FastifyInstance, pool: Pool, config: Process
     )
     scope.put<{ Body: AgentSettingsUpdateDto }>(
       '/api/v1/agent-settings',
-      { schema: { body: schemas.AgentSettingsUpdate, response: { 200: schemas.AgentSettings } } },
+      {
+        schema: {
+          body: schemas.AgentSettingsUpdate,
+          response: { 200: schemas.AgentSettingsSaveResult },
+        },
+      },
       (request) => saveAgentSettings(pool, config, request.body),
     )
     scope.put<{ Body: AgentPauseUpdateDto }>(

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import {
   AGENT_MODEL_SUGGESTIONS,
   type AgentSelectionDto,
@@ -30,6 +31,7 @@ export function singleProvider({
   const other = selection.provider === 'claude' ? 'codex' : 'claude'
   return {
     expected_revision,
+    save_id: randomUUID(),
     providers: {
       [selection.provider]: {
         enabled: true,

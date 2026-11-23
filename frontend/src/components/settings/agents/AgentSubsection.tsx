@@ -4,11 +4,22 @@ import { color, space, type, typeVar } from '#/theme/generated/tokens'
 import type { AgentSubsectionId } from '#/navigation/app-route'
 import { onField } from '#/components/ui'
 
+export const SUBSECTION_TITLE: Record<AgentSubsectionId, string> = {
+  providers: 'Providers',
+  sessions: 'Sessions',
+  models: 'Provider and model per step',
+  instructions: 'Instructions',
+  descriptions: 'Descriptions and naming',
+  tags: 'Tag suggestions',
+  research: 'Web research',
+}
+
 type AgentSubsectionProps = {
   id: AgentSubsectionId
-  title: string
   /** One line under the heading; leave it out when the title says enough. */
   lead?: string
+  /** What the subsection's autosave is doing, beside its heading. */
+  status?: ReactNode
   children: ReactNode
 }
 
@@ -18,15 +29,18 @@ export function subsectionHeadingId(id: AgentSubsectionId) {
 }
 
 /** One Settings › Agents subsection: its heading renders at once, before the settings load. */
-export function AgentSubsection({ id, title, lead, children }: AgentSubsectionProps) {
+export function AgentSubsection({ id, lead, status, children }: AgentSubsectionProps) {
   const headingId = subsectionHeadingId(id)
 
   return (
     <Section aria-labelledby={headingId}>
       <Head>
-        <Title id={headingId} tabIndex={-1}>
-          {title}
-        </Title>
+        <TitleRow>
+          <Title id={headingId} tabIndex={-1}>
+            {SUBSECTION_TITLE[id]}
+          </Title>
+          {status}
+        </TitleRow>
         {lead && <Lead>{lead}</Lead>}
       </Head>
       {children}
@@ -45,6 +59,13 @@ const Head = styled.div`
   display: flex;
   flex-direction: column;
   gap: ${space[1]};
+`
+
+const TitleRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: ${space[2]} ${space[5]};
 `
 
 const Title = styled.h3`

@@ -32,6 +32,7 @@ type Fixture = Awaited<ReturnType<typeof processingFixture>>
 function bothProviders(expected_revision: string): AgentSettingsUpdateDto {
   return {
     expected_revision,
+    save_id: randomUUID(),
     providers: {
       claude: { enabled: true, authentication: 'subscription', default_model: 'sonnet' },
       codex: { enabled: true, authentication: 'api_key', default_model: 'gpt-6.1-sol' },
@@ -44,6 +45,13 @@ function bothProviders(expected_revision: string): AgentSettingsUpdateDto {
     auto_tags_default: true,
     web: { public_pages: false, prefer_datasheets: true },
   }
+}
+
+/** A save sent once answers with the settings, never a resend's receipt. */
+async function saveFresh(fixture: Fixture, input: AgentSettingsUpdateDto) {
+  const result = await saveAgentSettings(fixture.api.pool, fixture.config, input)
+  assert.ok(!('replayed' in result))
+  return result
 }
 
 const legacyColumns = async (fixture: Fixture) =>
@@ -97,7 +105,7 @@ test('both providers, step choices and the new fields round-trip under one revis
   const fixture = await processingFixture()
   try {
     const saved = await saveAgentSettings(fixture.api.pool, fixture.config, bothProviders('0'))
-    const { expected_revision: _, ...fields } = bothProviders('0')
+    const { expected_revision: _, save_id: _saveId, ...fields } = bothProviders('0')
     assert.deepEqual(saved, { revision: '1', ...fields })
     assert.deepEqual(await readAgentSettings(fixture.api.pool, fixture.config), saved)
     // The rollback columns follow the default provider.
@@ -185,9 +193,10 @@ test('a first save with no provider on keeps other settings and valid rollback c
   const fixture = await processingFixture()
   try {
     const { revision, ...fields } = unsavedAgentSettings()
-    const saved = await saveAgentSettings(fixture.api.pool, fixture.config, {
+    const saved = await saveFresh(fixture, {
       ...fields,
       expected_revision: revision,
+      save_id: randomUUID(),
       new_batch_instructions: 'Count reels by their labels.',
     })
     assert.equal(saved.revision, '1')
@@ -441,7 +450,11 @@ test('an attempt given a settings read seals that read, not a later save', async
     const read = await readAgentSettings(fixture.api.pool, fixture.config)
     // Saved after the read: both providers off, no style.
     const { revision, ...off } = unsavedAgentSettings()
-    await saveAgentSettings(fixture.api.pool, fixture.config, { ...off, expected_revision: '1' })
+    await saveAgentSettings(fixture.api.pool, fixture.config, {
+      ...off,
+      expected_revision: '1',
+      save_id: randomUUID(),
+    })
     const capture = await fixture.seedCapture()
     const attempt = await queueLotAttempt(fixture, capture, capture.packetA.id, 'research', read)
     const input = await sealedInput(fixture, attempt.inputId)
@@ -538,9 +551,8 @@ test('web research reads as on before any save, and a save keeps its values', as
       public_pages: true,
       prefer_datasheets: true,
     })
-    const first = await saveAgentSettings(
-      fixture.api.pool,
-      fixture.config,
+    const first = await saveFresh(
+      fixture,
       singleProvider({
         expected_revision: '0',
         selection: { provider: 'claude', authentication: 'api_key', model: 'sonnet' },

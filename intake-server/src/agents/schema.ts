@@ -43,9 +43,24 @@ export const agentSettings = pgTable(
     autoTagsDefault: boolean('auto_tags_default').notNull().default(false),
     webPublicPages: boolean('web_public_pages').notNull().default(true),
     webPreferDatasheets: boolean('web_prefer_datasheets').notNull().default(true),
+    /** The highest revision whose save receipt has been pruned; 0 while none has. */
+    receiptsPrunedThrough: bigint('receipts_pruned_through', { mode: 'bigint' })
+      .notNull()
+      .default(0n),
   },
   (table) => [primaryKey({ columns: [table.actorId, table.targetId, table.targetContextId] })],
 )
+/** One per applied settings save, written in the save's transaction and pruned per scope. */
+export const agentSettingsSaveReceipts = pgTable('agent_settings_save_receipt', {
+  saveId: uuid('save_id').primaryKey(),
+  actorId: uuid('actor_id').notNull(),
+  targetId: uuid('target_id').notNull(),
+  targetContextId: uuid('target_context_id').notNull(),
+  payloadSha256: bytea('payload_sha256').notNull(),
+  baseRevision: bigint('base_revision', { mode: 'bigint' }).notNull(),
+  revision: bigint({ mode: 'bigint' }).notNull(),
+  savedAt: timestamp('saved_at', { withTimezone: true }).notNull().defaultNow(),
+})
 /** One row per provider, written with its parent `agent_settings` row and under its revision. */
 export const agentProviderSettings = pgTable(
   'agent_provider_settings',

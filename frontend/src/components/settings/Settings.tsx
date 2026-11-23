@@ -23,7 +23,8 @@ type Props = {
   returnTo: string | undefined
   /** Absent where this setup has no agent settings. */
   agents: ReturnType<typeof agentsClient> | null
-  onDirtyChange: (dirty: boolean) => void
+  /** Reports unsaved input, with how to save what can be saved before leaving. */
+  onDirtyChange: (dirty: boolean, beforeLeave?: () => Promise<boolean>) => void
 }
 
 const SECTIONS: SettingsSection[] = [
