@@ -9,6 +9,7 @@ import {
 import { strictJson } from '@invimport/contracts/json'
 import { RETAINED_POLL_INTERVAL_MS } from '#/queries/client'
 import { serverQueryKey } from '#/queries/scope'
+import { cancelVerified, freshReads } from '#/queries/fresh-reads'
 import {
   RetainedPollIntervalContext,
   ServerScopeContext,
@@ -62,6 +63,15 @@ export function LiveUpdates({
     let attempt = 0
     let lastFrame = Date.now()
 
+    // A frame says saved state changed: commands with no revision wait for a read started after it,
+    // from now, not from when reconciliation gets to run.
+    const hinted = () => {
+      if (!stopped) {
+        freshReads(queryClient).noteHint()
+      }
+      reconcile()
+    }
+
     const reconcile = () => {
       if (stopped) {
         return
@@ -81,8 +91,9 @@ export function LiveUpdates({
       try {
         while (reconcileQueued && !stopped) {
           reconcileQueued = false
-          // Invalidation alone can adopt an initial read that predates the hint.
-          await queryClient.cancelQueries({ queryKey: serverQueryKey(scope) }, { silent: true })
+          // Invalidation alone can adopt an initial read that predates the hint. Cancelling through
+          // the registry keeps a cancelled request from ever verifying a command.
+          await cancelVerified(queryClient, { queryKey: serverQueryKey(scope) }, { silent: true })
           if (!stopped) {
             await queryClient.invalidateQueries({ queryKey: serverQueryKey(scope) })
           }
@@ -148,14 +159,14 @@ export function LiveUpdates({
             setTruncated(frame.truncated)
             setHealth({ state: 'live', observedAt: Date.now() })
             attempt = 0
-            reconcile()
+            hinted()
           } else if (frame.type === 'changed') {
             const previous = cursors.current.find((cursor) => cursor.stream_id === frame.stream_id)
             if (!previous || BigInt(frame.sequence) < BigInt(previous.sequence)) {
               throw new Error('cursor_regressed')
             }
             previous.sequence = frame.sequence
-            reconcile()
+            hinted()
           }
         } catch {
           setHealth({ state: 'update_required', observedAt: Date.now() })

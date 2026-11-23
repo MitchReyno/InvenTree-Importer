@@ -25,6 +25,50 @@ describe('Button', () => {
     expect(screen.getByText('Answer the open question first')).toBeVisible()
   })
 
+  it('gives a quiet reason that stays focusable, adds no layout and ignores presses', async () => {
+    const onClick = vi.fn()
+    render(
+      <Button reasonDisplay="quiet" disabledReason="Updating…" onClick={onClick}>
+        Mark selected reviewed
+      </Button>,
+    )
+    const button = screen.getByRole('button', { name: 'Mark selected reviewed' })
+
+    expect(button).not.toBeDisabled()
+    expect(button).toHaveAttribute('aria-disabled', 'true')
+    expect(button).toHaveAccessibleDescription('Updating…')
+    // The reason is a tooltip, drawn over the page rather than beside the button.
+    expect(screen.getByRole('tooltip', { hidden: true })).toHaveTextContent('Updating…')
+
+    await userEvent.tab()
+    expect(button).toHaveFocus()
+    await userEvent.keyboard('{Enter}')
+    await userEvent.click(button)
+    expect(onClick).not.toHaveBeenCalled()
+  })
+
+  it('keeps the same button when a quiet reason clears, so focus stays', async () => {
+    const onClick = vi.fn()
+    const { rerender } = render(
+      <Button reasonDisplay="quiet" disabledReason="Updating…" onClick={onClick}>
+        Pause all
+      </Button>,
+    )
+    const button = screen.getByRole('button', { name: 'Pause all' })
+    button.focus()
+
+    rerender(
+      <Button reasonDisplay="quiet" onClick={onClick}>
+        Pause all
+      </Button>,
+    )
+    expect(screen.getByRole('button', { name: 'Pause all' })).toBe(button)
+    expect(button).toHaveFocus()
+    expect(button).not.toHaveAttribute('aria-disabled')
+    await userEvent.click(button)
+    expect(onClick).toHaveBeenCalledTimes(1)
+  })
+
   it('keeps its label while busy and ignores repeat clicks', async () => {
     const onClick = vi.fn()
     render(

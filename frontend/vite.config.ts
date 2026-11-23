@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { realpathSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
@@ -105,7 +106,22 @@ function sourceHmrGuard(): Plugin {
   }
 }
 
+/** The commit and build time; stored snapshots from another build are never shown. */
+function buildIdentity() {
+  let commit = 'unknown'
+  try {
+    commit = execFileSync('git', ['rev-parse', '--short', 'HEAD'], {
+      cwd: frontend,
+      encoding: 'utf8',
+    }).trim()
+  } catch {
+    // A source tree without git still gets a per-build time.
+  }
+  return `${commit}-${new Date().toISOString()}`
+}
+
 export default defineConfig({
+  define: { __APP_BUILD__: JSON.stringify(buildIdentity()) },
   plugins: [credentialFileGuard(), sourceHmrGuard(), react()],
   // The app has no public files; without a public directory nothing is served or copied from one.
   publicDir: false,

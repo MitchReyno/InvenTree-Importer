@@ -12,6 +12,7 @@ import { media } from './media'
 import { hoverTransition } from './motion'
 import { Spinner } from './Loading'
 import { linkTouchArea } from './primitives'
+import { visuallyHidden } from './VisuallyHidden'
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'warn' | 'link'
 export type ButtonSize = 'sm' | 'md' | 'lg'
@@ -31,6 +32,11 @@ type AsButton = CommonProps &
     busy?: boolean
     /** Shown beside a disabled button and linked as its description. */
     disabledReason?: string
+    /**
+     * `quiet` keeps a passing reason, such as a read still landing, out of the layout: the button
+     * stays focusable with `aria-disabled`, and the reason is its description and a tooltip.
+     */
+    reasonDisplay?: 'beside' | 'quiet'
   }
 
 /** Links navigate, so they have no busy or disabled state; use a button for those. */
@@ -40,6 +46,7 @@ type AsLink = CommonProps &
     href: string
     busy?: never
     disabledReason?: never
+    reasonDisplay?: never
   }
 
 export type ButtonProps = AsButton | AsLink
@@ -70,6 +77,7 @@ function LinkButton({
   icon,
   busy,
   disabledReason,
+  reasonDisplay,
   children,
   ...anchor
 }: AsLink) {
@@ -89,38 +97,60 @@ function NativeButton({
   icon,
   busy = false,
   disabledReason,
+  reasonDisplay = 'beside',
   children,
   onClick,
   ...button
 }: AsButton) {
   const reasonId = useId()
-  const disabled = button.disabled || disabledReason !== undefined
+  const quiet = reasonDisplay === 'quiet'
+  const quietlyUnavailable = quiet && disabledReason !== undefined
+  const disabled = button.disabled || (!quiet && disabledReason !== undefined)
 
   function handleClick(event: MouseEvent<HTMLButtonElement>) {
-    if (busy) {
+    if (busy || quietlyUnavailable) {
       event.preventDefault()
       return
     }
     onClick?.(event)
   }
 
+  const control = (
+    <Control
+      as={as}
+      type="button"
+      {...button}
+      disabled={disabled}
+      aria-disabled={quietlyUnavailable || undefined}
+      aria-busy={busy || undefined}
+      aria-describedby={disabledReason ? reasonId : button['aria-describedby']}
+      onClick={handleClick}
+      $variant={variant}
+      $size={size}
+    >
+      <Content icon={icon} busy={busy}>
+        {children}
+      </Content>
+    </Control>
+  )
+
+  // The wrapper stays while the reason comes and goes, so the button keeps its element and focus.
+  if (quiet) {
+    return (
+      <QuietAnchor>
+        {control}
+        {disabledReason && (
+          <QuietReason id={reasonId} role="tooltip">
+            {disabledReason}
+          </QuietReason>
+        )}
+      </QuietAnchor>
+    )
+  }
+
   return (
     <>
-      <Control
-        as={as}
-        type="button"
-        {...button}
-        disabled={disabled}
-        aria-busy={busy || undefined}
-        aria-describedby={disabledReason ? reasonId : button['aria-describedby']}
-        onClick={handleClick}
-        $variant={variant}
-        $size={size}
-      >
-        <Content icon={icon} busy={busy}>
-          {children}
-        </Content>
-      </Control>
+      {control}
       {disabledReason && <Reason id={reasonId}>{disabledReason}</Reason>}
     </>
   )
@@ -131,29 +161,29 @@ const variants = {
     background: ${color.accent};
     border-color: ${color.accent};
     color: ${color.onAccent};
-    &:hover:not(:disabled) {
+    &:hover:not(:disabled):not([aria-disabled='true']) {
       filter: brightness(1.07);
     }
-    &:active:not(:disabled) {
+    &:active:not(:disabled):not([aria-disabled='true']) {
       filter: brightness(0.95);
     }
   `,
   secondary: css`
-    &:hover:not(:disabled) {
+    &:hover:not(:disabled):not([aria-disabled='true']) {
       background: ${color.surface2};
     }
   `,
   ghost: css`
     border-color: transparent;
     background: transparent;
-    &:hover:not(:disabled) {
+    &:hover:not(:disabled):not([aria-disabled='true']) {
       background: ${color.surface2};
     }
   `,
   warn: css`
     border-color: ${color.warn};
     color: ${color.warn};
-    &:hover:not(:disabled) {
+    &:hover:not(:disabled):not([aria-disabled='true']) {
       background: ${color.warnWeak};
     }
   `,
@@ -200,7 +230,8 @@ const Control = styled.button<{ $variant: ButtonVariant; $size: ButtonSize }>`
   ${({ $size }) => sizes[$size]}
   ${({ $variant }) => variants[$variant]}
   ${({ $variant }) => ($variant === 'link' ? 'min-height: 0;' : '')}
-  &:disabled {
+  &:disabled,
+  &[aria-disabled='true'] {
     opacity: ${opacity.disabled};
     cursor: not-allowed;
   }
@@ -223,4 +254,32 @@ const Reason = styled.span`
   margin-left: ${space[4]};
   font-size: ${typeVar.small.size};
   color: ${color.muted};
+`
+
+const QuietAnchor = styled.span`
+  position: relative;
+  display: inline-flex;
+`
+
+/** Read as the button's description; drawn only on hover or keyboard focus, over the page. */
+const QuietReason = styled.span`
+  ${visuallyHidden}
+  ${QuietAnchor}:hover > &,
+  ${QuietAnchor}:has(:focus-visible) > & {
+    clip: auto;
+    width: max-content;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    bottom: calc(100% + ${space[2]});
+    left: 0;
+    z-index: 3;
+    padding: ${space[2]} ${space[4]};
+    border-radius: ${radius.btn};
+    background: ${color.fg};
+    color: ${color.bg};
+    font-size: ${typeVar.small.size};
+    white-space: nowrap;
+    pointer-events: none;
+  }
 `
