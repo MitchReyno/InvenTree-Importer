@@ -21,12 +21,15 @@ export function displaysRestored(route: BatchRoute | null, processing: unknown) 
 export function RestoredTab({
   batch,
   route,
+  focusLotId,
   manual,
   navigate,
   onDirtyChange,
 }: {
   batch: CaptureSnapshotDto
   route: BatchRoute
+  /** A lot the Processing step address focuses. */
+  focusLotId?: string | null
   manual: ManualClient
   navigate: (stage: ManualStage, resourceId?: string, options?: { replace?: boolean }) => void
   onDirtyChange: (dirty: boolean) => void
@@ -39,6 +42,9 @@ export function RestoredTab({
         client={processing}
         step={route.step}
         questionId={route.questionId}
+        focusLotId={focusLotId}
+        // The restored snapshot carries each lot's own retirement until the live reads land.
+        retiredLotIds={new Set(batch.lots.filter((lot) => lot.retired).map((lot) => lot.id))}
         onDirtyChange={onDirtyChange}
         displayOnly
       />

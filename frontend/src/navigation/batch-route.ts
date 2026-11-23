@@ -192,6 +192,16 @@ export function sessionFromQuery(query: string) {
   return new URLSearchParams(query).get('session')
 }
 
+/** A link that opens a Processing step with one lot's output in focus. */
+export function lotFocusHref(batchId: string, step: ProcessingStep, lotId: string) {
+  return batchHref(batchId, { tab: 'processing', step }, `?lot=${encodeURIComponent(lotId)}`)
+}
+
+/** The lot a Processing link asks to focus, from the route's query. */
+export function lotFromQuery(query: string) {
+  return new URLSearchParams(query).get('lot')
+}
+
 /** The Processing step that shows a job of the given stage. */
 export function processingStepFor(stage: string): ProcessingStep {
   if (LEGACY_EXAMINE_STEPS.has(stage)) {

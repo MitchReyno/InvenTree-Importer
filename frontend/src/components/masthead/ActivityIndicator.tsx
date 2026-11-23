@@ -2,17 +2,18 @@ import { useId } from 'react'
 import styled from 'styled-components'
 import type { HeaderWorkDto } from '@invimport/contracts'
 import { color, radius, space, typeVar } from '#/theme/generated/tokens'
-import { observationFresh, preferredWork, workflowSummary } from '#/header/observations'
+import { observationFresh, preferredWork } from '#/header/observations'
 import { useCachedBatchReads } from '#/header/useCachedBatchReads'
 import {
   batchStepCounts,
-  compactJobWord,
   jobGroup,
   otherOpenJobs,
   processingProgress,
   processingSegments,
   segmentSteps,
+  slotHeld,
 } from '#/header/workSegments'
+import { workSummary, type WorkSummary } from '#/header/workSummary'
 import {
   AiMark,
   Spinner,
@@ -20,6 +21,8 @@ import {
   ProgressSegments,
   VisuallyHidden,
   visuallyHidden,
+  WORK_STATE,
+  type WorkState,
 } from '#/components/ui'
 import { ActivityPopover } from './ActivityPopover'
 import { HeaderDisclosure } from './HeaderDisclosure'
@@ -54,7 +57,8 @@ export function ActivityIndicator({
   const ids = useId()
   const cached = useCachedBatchReads(batchId)
   const fresh = !unavailable && !!data && observationFresh(data.observed_at, now)
-  const preferred = preferredWork(data, batchId)
+  const summary = workSummary({ data, batchId, batchTitle: cached.title, unavailable, fresh })
+  const preferred = shownWork(data, batchId, summary)
   const ownBatch = !!batchId && preferred?.batch_id === batchId
   // Outside its batch the pill names the batch it shows, from that batch's cached read.
   const shown = useCachedBatchReads(ownBatch ? undefined : preferred?.batch_id)
@@ -67,15 +71,9 @@ export function ActivityIndicator({
       : []
   // Only steps actually running spin; queued and waiting steps do not.
   const running = jobs.some((item) => item.steps.some((step) => step.state === 'running'))
-  const idle = fresh && !!data && workflowSummary(data, preferred, false, now) === 'Idle'
-  const working = fresh && data && preferred ? agentsWorking(data, preferred.batch_id) : ''
-  const headline = working || workflowSummary(data, preferred, unavailable, now)
-  let name = shown.title ?? 'Application-wide'
-  if (idle) {
-    name = 'Nothing running'
-  } else if (ownBatch) {
-    name = ''
-  }
+  const idle = summary.idle
+  const headline = summary.headline
+  const name = summaryName(summary, batchId, preferred && !ownBatch ? shown.title : undefined)
   // Processing work is agent work, so a fresh desktop pill for it leads with the AI mark. The phone
   // button is the agents status button, so it always carries it.
   const showMark = layout !== 'bar' || (fresh && preferred?.kind === 'processing')
@@ -90,11 +88,7 @@ export function ActivityIndicator({
   const more = fresh && data ? otherOpenJobs(data.work, preferred) : 0
   const compact = !fresh
     ? compactWord(unavailable, !!data)
-    : preferred
-      ? compactJobWord(preferred)
-      : idle
-        ? 'Idle'
-        : 'Active'
+    : compactSummaryWord(summary, !!preferred && slotHeld(preferred))
   // A held slot outranks the spinner on the phone pill, where its word stands in for the labels.
   const held = fresh && compact === 'Slot held'
   const showSegments = fresh && !!preferred && layout !== 'condensed'
@@ -121,8 +115,14 @@ export function ActivityIndicator({
       trigger={
         <>
           {showMark && <AiMark size="sm" />}
+          {fresh && summary.state && summary.state !== 'working' && (
+            <Glyph aria-hidden="true" $state={summary.state}>
+              {WORK_STATE[summary.state].glyph}
+            </Glyph>
+          )}
           {running && (
-            <SpinnerSlot data-held={held}>
+            // At phone width a held slot's or an urgent headline's word takes the spinner's place.
+            <SpinnerSlot data-held={held || (fresh && urgent(summary))}>
               <Spinner />
             </SpinnerSlot>
           )}
@@ -138,9 +138,11 @@ export function ActivityIndicator({
           </Labels>
           {/* At phone width a read that is not current says so first, then the spinner or the
               job's word, beside the step segments. */}
-          {(!fresh || !running || held) && <ShortText aria-hidden="true" data-short={compact} />}
+          {(!fresh || !running || held || urgent(summary)) && (
+            <ShortText aria-hidden="true" data-short={compact} />
+          )}
           {showSegments && (
-            <Segments>
+            <Segments data-named={fresh && urgent(summary)}>
               <ProgressSegments steps={segments} />
             </Segments>
           )}
@@ -175,27 +177,85 @@ export function ActivityIndicator({
   )
 }
 
-/** Sessions holding a running slot; one waiting for an answer holds none. */
-function agentsWorking(data: HeaderWorkDto, batch: string) {
-  const count = data.active_sessions.filter(
-    (session) => session.batch_id === batch && session.occupies_lane,
-  ).length
-  if (!count) {
-    return ''
+/**
+ * The work the pill's segments show. Outside a batch it is only the headline's batch's work, so a
+ * name, spinner and segments never come from another batch; a batch with only sessions shows none.
+ */
+function shownWork(
+  data: HeaderWorkDto | undefined,
+  batchId: string | undefined,
+  summary: WorkSummary,
+) {
+  if (batchId || !data) {
+    return preferredWork(data, batchId)
+  }
+  if (!summary.batchId) {
+    return undefined
+  }
+  const own = data.work.filter((item) => item.batch_id === summary.batchId)
+
+  return own.length ? preferredWork({ ...data, work: own }, summary.batchId) : undefined
+}
+
+/**
+ * The line under the headline: inside a batch, what else needs attention, or the batch whose work
+ * the segments show when it is not the open one; outside one, the batch the pill names.
+ */
+function summaryName(summary: WorkSummary, batchId: string | undefined, shownTitle?: string) {
+  if (batchId) {
+    return summary.detail ?? shownTitle ?? ''
   }
 
-  const more = data.sessions_truncated ? '+' : ''
-  return `${count}${more} ${count === 1 && !more ? 'agent' : 'agents'} working`
+  return summary.state ? (shownTitle ?? 'Application-wide') : ''
+}
+
+/** A failure, a wait or an incomplete read keeps its word on the phone pill beside a spinner. */
+function urgent(summary: WorkSummary) {
+  return (
+    summary.state === 'failed' ||
+    summary.state === 'waiting_for_you' ||
+    summary.headline === 'Status incomplete'
+  )
+}
+
+/** One short word for the phone pill: the summary's state, or a held slot's. */
+function compactSummaryWord(summary: WorkSummary, held: boolean) {
+  if (summary.idle) {
+    return 'Idle'
+  }
+  if (held && !urgent(summary)) {
+    return 'Slot held'
+  }
+  // A failure or a wait names its step and count beside its glyph, as the full headline does.
+  if (summary.short) {
+    return summary.short
+  }
+  if (summary.state) {
+    return WORK_STATE[summary.state].word
+  }
+
+  return summary.headline === 'Status incomplete' ? 'Incomplete' : 'Active'
 }
 
 /** At phone width the labels hide, so a workflow read that is not current names its state. */
 function compactWord(unavailable: boolean, loaded: boolean) {
   if (unavailable) {
-    return 'Offline'
+    return 'Unavailable'
   }
 
   return loaded ? 'Stale' : 'Reading…'
 }
+
+const GLYPH_COLOR: Partial<Record<WorkState, string>> = {
+  failed: color.bad,
+  waiting_for_you: color.warn,
+}
+
+/** The headline state's glyph, so a failure or a wait reads without its colour. */
+const Glyph = styled.span<{ $state: WorkState }>`
+  font-weight: ${typeVar.pill.weight};
+  color: ${(props) => GLYPH_COLOR[props.$state] ?? color.muted};
+`
 
 const Labels = styled.span`
   display: flex;
@@ -276,6 +336,10 @@ const WideOnly = styled.span`
 const Segments = styled.span`
   display: contents;
   ${media.compact} {
+    /* A named failure or wait says which step itself, so the segments give way to the brand. */
+    &[data-named='true'] {
+      display: none;
+    }
     [data-state] {
       /* literal-allowed: a phone segment's width, as ProgressSegments' own 14px; no token has this role */
       width: 8px;

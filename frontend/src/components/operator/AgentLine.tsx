@@ -2,8 +2,8 @@ import styled from 'styled-components'
 import { batchHref } from '#/navigation/batch-route'
 import { WORK_STEPS, type LotStatus } from '#/processing/source'
 import { space } from '#/theme/generated/tokens'
-import { SESSION_STATE } from '#/components/processing/ProcessingParts'
-import { Pill, Link } from '#/components/ui'
+import { workState } from '#/header/workSegments'
+import { Link, StatePill } from '#/components/ui'
 
 /** The lot's latest agent status line in Lot details, opening its step in Processing. */
 export function AgentLine({ batchId, status }: { batchId: string; status: LotStatus | null }) {
@@ -16,7 +16,7 @@ export function AgentLine({ batchId, status }: { batchId: string; status: LotSta
       <span>
         {step} · {status.text}
       </span>
-      <Pill tone={SESSION_STATE[status.state].tone}>{SESSION_STATE[status.state].word}</Pill>
+      <StatePill state={workState(status.state)} />
       <Link href={batchHref(batchId, { tab: 'processing', step: status.step })}>
         Open in Processing
       </Link>

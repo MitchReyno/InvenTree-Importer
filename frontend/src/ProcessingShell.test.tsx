@@ -151,7 +151,7 @@ test(
       'aria-current',
       'page',
     )
-    expect(await screen.findByText(/Processing in progress/)).toBeVisible()
+    expect(await screen.findByText('Examine working')).toBeVisible()
     await user.click(screen.getByRole('button', { name: 'Workflow activity' }))
     // Lanes are diagnostics: each job keeps them in its Details.
     await user.click(within(screen.getByRole('dialog')).getAllByText('Details')[0])
@@ -187,7 +187,7 @@ test('an unavailable workflow read cannot claim idle or released capacity', asyn
   location.hash = `${batch.id}/processing/overview`
   retainedApi(false)
   render(<App />)
-  await screen.findByText('Workflow unavailable')
-  expect(screen.queryByText('Idle')).not.toBeInTheDocument()
+  await screen.findByText('Status unavailable')
+  expect(screen.queryByText(/no agents working/)).not.toBeInTheDocument()
   expect(screen.queryByText(/Processing lane available/)).not.toBeInTheDocument()
 })

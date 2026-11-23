@@ -181,7 +181,7 @@ test('filters show running, waiting, queued and finished-today sessions', async 
   const sessionRows = () =>
     screen.getAllByRole('row').filter((row) => within(row).queryAllByRole('cell').length > 0)
 
-  fireEvent.click(screen.getByRole('button', { name: /^Running/ }))
+  fireEvent.click(screen.getByRole('button', { name: /^Working/ }))
   expect(sessionRows()).toHaveLength(2)
 
   fireEvent.click(screen.getByRole('button', { name: /^Waiting for you/ }))
@@ -191,7 +191,7 @@ test('filters show running, waiting, queued and finished-today sessions', async 
   fireEvent.click(screen.getByRole('button', { name: /^Queued/ }))
   expect(sessionRows()).toHaveLength(1)
 
-  fireEvent.click(screen.getByRole('button', { name: /^Finished today/ }))
+  fireEvent.click(screen.getByRole('button', { name: /^Ended today/ }))
   expect(sessionRows()).toHaveLength(1)
   expect(screen.queryByText('Old work')).not.toBeInTheDocument()
 })
@@ -217,8 +217,8 @@ test('sessions are grouped by batch, each group linking to its Processing', asyn
     within(row).getByRole('link', { name: 'Open session: Research · Packet A' }),
   ).toHaveAttribute('href', '#batch-a/processing/research?session=job')
   expect(within(row).getByText('Packet A')).toBeInTheDocument()
-  // Times are short and tabular.
-  expect(within(row).getByText(/^\d{2}:\d{2}$/)).toBeInTheDocument()
+  // Times say which day, with the full instant on hover.
+  expect(within(row).getByText(/^(Today|Yesterday) |·/).tagName).toBe('TIME')
   expect(await screen.findByRole('region', { name: 'Bench bag' })).toBeInTheDocument()
 })
 
@@ -351,7 +351,7 @@ test('Pause all agents pauses every batch, each batch pauses on its own, and pau
   expect(within(summary).getByRole('button', { name: 'Resume all agents' })).toBeVisible()
   expect(within(summary).getByRole('button', { name: 'Pause all agents' })).toBeVisible()
   // A finished session is not paused, whatever its batch.
-  expect(within(paused).getAllByText('Finished').length).toBeGreaterThan(0)
+  expect(within(paused).getAllByText('Done').length).toBeGreaterThan(0)
 })
 
 test('a group past the paused list still reads paused from its sessions and offers Resume', async () => {
@@ -405,4 +405,22 @@ test('behind the whole window, a session group is raised and the table inside it
   } finally {
     document.documentElement.dataset.masthead = 'bar'
   }
+})
+
+test('a cancelled session still holding its slot reads Working in the Working filter', async () => {
+  const holder: Session = {
+    ...base,
+    attempt_id: 'cancelled-holding',
+    state: 'cancelled',
+    session_state: 'cancelled',
+    occupies_lane: true,
+    paused: true,
+  }
+  render(<AgentSessions client={client({ sessions: [holder] })} batches={batches} />)
+  await screen.findByRole('region', { name: 'Mouser order' })
+
+  fireEvent.click(screen.getByRole('button', { name: /^Working/ }))
+  const row = screen.getAllByRole('row').find((r) => within(r).queryAllByRole('cell').length > 0)!
+  expect(within(row).getByText('Working')).toBeInTheDocument()
+  expect(within(row).queryByText(/Not started|Paused/)).toBeNull()
 })

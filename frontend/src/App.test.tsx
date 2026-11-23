@@ -1192,7 +1192,7 @@ test('a failed attention refresh withholds the old running counts and says so', 
     { wrapper: Wrapper },
   )
   const tabs = within(await screen.findByRole('navigation', { name: 'Batch' }))
-  await tabs.findByRole('link', { name: 'Processing, running' })
+  await tabs.findByRole('link', { name: 'Processing, working' })
 
   await act(async () => {
     await cache.refetchQueries({ queryKey: serverQueryKey(fixtureScope, 'attention', fixture.id) })
