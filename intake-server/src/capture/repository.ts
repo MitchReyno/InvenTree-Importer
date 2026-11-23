@@ -1011,11 +1011,30 @@ export interface LockedCaptureEdit {
   apply(input: CaptureEditDto): Promise<CaptureSnapshotDto>
   /**
    * Applies several edits under the one lock, each against the revision the previous produced, and
-   * publishes once. A refusal of any edit rolls back with the caller's transaction.
+   * publishes once. A refusal of any edit rolls back with the caller's transaction. Several edits
+   * may only set a lot's quantity or add a note, which change no batch state or subject list that a
+   * later edit checks against.
    */
   applyInOrder(inputs: readonly CaptureEditDto[]): Promise<CaptureSnapshotDto>
   publish(): Promise<void>
   readPublished(): Promise<CaptureSnapshotDto>
+}
+
+/**
+ * An edit that leaves the batch's archive state and subject list as they were, so a later edit in
+ * the same sequence is still checked against current facts: a note, or a lot's quantity alone.
+ */
+function sequenceSafeEdit(input: CaptureEditDto) {
+  const { change } = input
+  if (change.kind === 'note') {
+    return true
+  }
+  if (change.kind !== 'lot') {
+    return false
+  }
+  const changed = Object.keys(change).filter((key) => key !== 'kind' && key !== 'id')
+
+  return changed.length === 1 && changed[0] === 'quantity'
 }
 
 /** Acquire all capture locks before a consumer locks processing jobs, attempts or questions. */
@@ -1040,6 +1059,9 @@ export async function lockCaptureForEdit(
     }
     if (!inputs.length) {
       fail('capture_edit_required')
+    }
+    if (inputs.length > 1 && !inputs.every(sequenceSafeEdit)) {
+      fail('capture_edit_sequence_unsupported')
     }
     for (const input of inputs) {
       validate('CaptureEdit', input)

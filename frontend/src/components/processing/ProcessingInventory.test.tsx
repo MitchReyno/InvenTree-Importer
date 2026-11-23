@@ -6,6 +6,8 @@ import type {
   BatchRecordsDto,
   CaptureSnapshotDto,
   ProcessingJobDto,
+  ProcessingQuestionV2Dto,
+  QuestionStepDto,
 } from '@invimport/contracts'
 import { render } from '#/test/render'
 import { ProcessingInventory } from './ProcessingInventory'
@@ -304,53 +306,57 @@ describe('ProcessingInventory', () => {
   })
 
   it('compares a stepped question by its title and reason, but not one that only asks for a count', async () => {
+    const choiceStep = {
+      id: 'same',
+      prompt: 'Is it the tube in stock?',
+      assumption: 'Treating it as new.',
+      answer: {
+        kind: 'choice',
+        other: false,
+        options: [
+          { id: 'same', label: 'Same tube as stock #1712' },
+          { id: 'new', label: 'Different tube: add new stock' },
+        ],
+      },
+    } satisfies QuestionStepDto
     const stepped = {
-      ...question,
       id: id(403),
-      spec: undefined,
-      assumption: undefined,
+      job_id: job,
+      attempt_id: id(301),
+      input_sha256: 'a'.repeat(64),
+      revision: '1',
+      state: 'open',
+      subject_id: tube,
       schema_version: 'bench-intake-question/2',
       fields: ['identity'],
       title: 'The LM358 tube and stock #1712',
       reason: 'Stock #1712 has the same Part, date code and bin.',
-      steps: [
-        {
-          id: 'same',
-          prompt: 'Is it the tube in stock?',
-          assumption: 'Treating it as new.',
-          answer: {
-            kind: 'choice',
-            other: false,
-            options: [
-              { id: 'same', label: 'Same tube as stock #1712' },
-              { id: 'new', label: 'Different tube: add new stock' },
-            ],
-          },
-        },
-      ],
-    }
+      steps: [choiceStep],
+    } satisfies ProcessingQuestionV2Dto
     const countOnly = {
       ...stepped,
       id: id(404),
+      job_id: id(310),
       subject_id: resistors,
+      fields: ['quantity'],
       title: 'How many resistors are left?',
       steps: [
         { id: 'left', prompt: 'How many?', assumption: 'About 12.', answer: { kind: 'number' } },
       ],
-    }
+    } satisfies ProcessingQuestionV2Dto
     const twoSteps = {
       ...stepped,
       id: id(405),
       title: 'Where the LM358 tube goes',
       steps: [
-        stepped.steps[0],
+        choiceStep,
         { id: 'why', prompt: 'Why?', assumption: 'No reason given.', answer: { kind: 'text' } },
       ],
-    }
-    const shown = [
+    } satisfies ProcessingQuestionV2Dto
+    const shown: ProcessingJobDto[] = [
       { ...jobs[0], questions: [stepped, twoSteps] },
       { ...jobs[1], questions: [countOnly] },
-    ] as unknown as ProcessingJobDto[]
+    ]
     mount(undefined, shown)
     await screen.findByRole('region', { name: 'Parts' })
     const [card, stepsCard] = screen.getAllByRole('region', {

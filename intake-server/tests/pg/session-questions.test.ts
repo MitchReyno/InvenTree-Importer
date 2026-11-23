@@ -309,6 +309,29 @@ test('ask refuses duplicate IDs, misplaced number steps and oversized questions,
     )
     assert.equal(oneOption.error, 'validation_failed')
     assert.ok(oneOption.issues?.some((issue) => issue.path === '/steps/0/answer/options'))
+    // A missing assumption, missing affected fields or an over-long option label is correctable.
+    const { assumption: _assumption, ...noAssumption } = placeStep
+    const { fields: _fields, ...noFields } = stepped(lot, [placeStep])
+    const longLabel = {
+      ...placeStep,
+      answer: {
+        ...placeStep.answer,
+        options: [placeStep.answer.options[0], { id: 'long', label: 'L'.repeat(81) }],
+      },
+    }
+    const schemaRefusals: [string, Record<string, unknown>, string][] = [
+      ['no assumption', stepped(lot, [noAssumption]), '/steps/0/assumption'],
+      ['no affected fields', noFields, '/fields'],
+      ['an 81-character label', stepped(lot, [longLabel]), '/steps/0/answer/options/1/label'],
+    ]
+    for (const [label, ask, path] of schemaRefusals) {
+      const result = await call(url, a.token, 'ask', ask)
+      assert.equal(result.error, 'validation_failed', label)
+      assert.ok(
+        result.issues?.some((issue) => issue.path === path),
+        `${label}: ${JSON.stringify(result.issues)}`,
+      )
+    }
     // A blank assumption is no assumption.
     const blank = await call(url, a.token, 'ask', stepped(lot, [{ ...placeStep, assumption: ' ' }]))
     assert.equal(blank.error, 'validation_failed')
@@ -625,6 +648,7 @@ test('a wrong kind, an unknown option or a missing step is refused with nothing 
         'same_part',
       ],
       ['a missing step', fullAnswer.slice(0, 2), 'place'],
+      ['a repeated step', [...fullAnswer, fullAnswer[0]], 'same_part'],
       [
         'a step the question does not have',
         [...fullAnswer, { step_id: 'extra', value: { kind: 'text', text: 'x' } }],
@@ -943,5 +967,24 @@ test('a one-step choice is stored open, the session keeps running, and the picke
     assert.deepEqual(answer.payload.steps, [
       { step_id: 'place', value: { kind: 'choice', option_id: 'drawer_r4', label: 'Drawer R4' } },
     ])
+  })
+})
+
+test('several capture edits under one lock may only set a quantity or add a note', async () => {
+  await withSessions(async ({ fixture, capture }) => {
+    const revision = await captureRevision(fixture, capture.batch.id)
+    // An archive then a note would check the note against the batch as it was before the archive.
+    const archiveThenNote: CaptureEditDto[] = [
+      { expected_revision: revision, change: { kind: 'batch', archived: true } },
+      { expected_revision: revision, change: { kind: 'note', subject_id: null, text: 'Late.' } },
+    ]
+    await assert.rejects(
+      transaction(fixture.api.pool, async (client) => {
+        const locked = await lockCaptureForEdit(client, fixture.config, capture.batch.id, revision)
+        return locked.applyInOrder(archiveThenNote)
+      }),
+      (error: { code?: string }) => error.code === 'capture_edit_sequence_unsupported',
+    )
+    assert.equal(await captureRevision(fixture, capture.batch.id), revision)
   })
 })
