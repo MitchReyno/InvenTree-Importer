@@ -46,17 +46,31 @@ Every image fetch_evidence returns to an agent SHALL be cut from the version's d
 
 ### Requirement: Categorized failures with diagnostic disclosure
 
-Processing and session history SHALL display a failure category, actionable summary and accessible Show details button. Details SHALL retain safe technical context across reloads, obey session read scope and exclude sensitive data before persistence. Legacy or unknown failures SHALL identify unavailable information without inventing a cause or retry guarantee. When a provider ends a turn with a structured error, the details SHALL include the provider's error kind from a fixed list, its result type and HTTP status when it gives them, and never the provider's message text.
+Processing and session history SHALL display a failure category, an actionable summary and its recovery guidance. The failure summary read SHALL carry the recovery guidance, so showing it needs no details read.
+
+**Show details.** When debug mode is on, they SHALL also offer an accessible Show details button. It reads the details on demand and shows them as a debug-marked panel. With debug mode off, the button and the diagnostic panel SHALL NOT render, and no details read is made.
+
+**Retained details.** Details SHALL retain safe technical context across reloads, obey session read scope and exclude sensitive data before persistence, whatever the debug mode.
+
+**Provider errors.** When a provider ends a turn with a structured error, the details SHALL include the provider's error kind from a fixed list, its result type and HTTP status when it gives them, and never the provider's message text.
+
+**Legacy and unknown failures.** These SHALL identify unavailable information without inventing a cause or retry guarantee.
 
 #### Scenario: Operator inspects a failed session
 
-- **GIVEN** a failed provider turn
+- **GIVEN** a failed provider turn and debug mode on
 - **WHEN** the operator opens its Processing view or session-history entry and activates Show details
 - **THEN** a readable diagnostic panel opens with category, stage, stable error code, timestamp, session/attempt and correlation IDs, bounded safe causes, provider/model/version when known, and recovery guidance; closing it preserves the current selection and drafts, and disclosure never starts a retry.
 
+#### Scenario: Failed session with debug mode off
+
+- **GIVEN** a failed provider turn and debug mode off
+- **WHEN** the operator opens its Processing view or session-history entry
+- **THEN** the category, summary and recovery guidance are shown, no Show details button, error code or ID is present, and no failure details request is sent
+
 #### Scenario: Provider reports why a turn failed
 
-- **GIVEN** a Claude turn whose assistant message carries the error kind `invalid_request` and whose result type is `error_during_execution` with HTTP status 529, or a Codex turn that fails with `contextWindowExceeded` or with `httpConnectionFailed` and HTTP status 503
+- **GIVEN** debug mode on, and a Claude turn whose assistant message carries the error kind `invalid_request` and whose result type is `error_during_execution` with HTTP status 529, or a Codex turn that fails with `contextWindowExceeded` or with `httpConnectionFailed` and HTTP status 503
 - **WHEN** the failure is retained and its details are opened
 - **THEN** the panel shows `agent_turn_failed` with the provider error kind, and the result type or HTTP status where given. No provider message text is stored or shown. A Codex error it is retrying does not end the turn, and an expired Claude subscription keeps the kind `authentication_failed` with its login failure; the turn ends at that message, so no result type or status follows it.
 

@@ -162,13 +162,39 @@ A successful fetch_evidence delivery SHALL include the complete source reference
 
 ### Requirement: Categorized failures with diagnostic disclosure
 
-Processing and session history SHALL display a failure category, actionable summary and accessible Show details button. Details SHALL retain safe technical context across reloads, obey session read scope and exclude sensitive data before persistence. Legacy or unknown failures SHALL identify unavailable information without inventing a cause or retry guarantee.
+Processing and session history SHALL display a failure category, an actionable summary and its recovery guidance. The failure summary read SHALL carry the recovery guidance, so showing it needs no details read.
+
+**Show details.** When debug mode is on, they SHALL also offer an accessible Show details button. It reads the details on demand and shows them as a debug-marked panel. With debug mode off, the button and the diagnostic panel SHALL NOT render, and no details read is made.
+
+**Retained details.** Details SHALL retain safe technical context across reloads, obey session read scope and exclude sensitive data before persistence, whatever the debug mode.
+
+**Provider errors.** When a provider ends a turn with a structured error, the details SHALL include the provider's error kind from a fixed list, its result type and HTTP status when it gives them, and never the provider's message text.
+
+**Legacy and unknown failures.** These SHALL identify unavailable information without inventing a cause or retry guarantee.
 
 #### Scenario: Operator inspects a failed session
 
-- **GIVEN** a failed provider turn
+- **GIVEN** a failed provider turn and debug mode on
 - **WHEN** the operator opens its Processing view or session-history entry and activates Show details
 - **THEN** a readable diagnostic panel opens with category, stage, stable error code, timestamp, session/attempt and correlation IDs, bounded safe causes, provider/model/version when known, and recovery guidance; closing it preserves the current selection and drafts, and disclosure never starts a retry.
+
+#### Scenario: Failed session with debug mode off
+
+- **GIVEN** a failed provider turn and debug mode off
+- **WHEN** the operator opens its Processing view or session-history entry
+- **THEN** the category, summary and recovery guidance are shown, no Show details button, error code or ID is present, and no failure details request is sent
+
+#### Scenario: Provider reports why a turn failed
+
+- **GIVEN** debug mode on, and a Claude turn whose assistant message carries the error kind `invalid_request` and whose result type is `error_during_execution` with HTTP status 529, or a Codex turn that fails with `contextWindowExceeded` or with `httpConnectionFailed` and HTTP status 503
+- **WHEN** the failure is retained and its details are opened
+- **THEN** the panel shows `agent_turn_failed` with the provider error kind, and the result type or HTTP status where given. No provider message text is stored or shown. A Codex error it is retrying does not end the turn, and an expired Claude subscription keeps the kind `authentication_failed` with its login failure; the turn ends at that message, so no result type or status follows it.
+
+#### Scenario: Unrecognized provider error kind
+
+- **GIVEN** a provider error kind, result type or HTTP status outside its fixed list or range
+- **WHEN** the failure is retained
+- **THEN** each field is checked on its own: an unlisted kind is recorded as `unknown`, an unlisted result type or out-of-range status as null, and a listed value beside them is kept. The unrecognized value is not stored.
 
 #### Scenario: Legacy and unknown failures
 
@@ -211,3 +237,136 @@ A provider conversation created before the current admission policy SHALL NOT re
 - **GIVEN** a retained session without proof that its provider conversation began under the current admission policy
 - **WHEN** a resume is requested or scheduled
 - **THEN** no provider turn starts, history and pending inbox items remain available, and the operator can explicitly start a replacement conversation without losing pending input or duplicating accepted effects.
+
+### Requirement: Part description style delivered to sessions
+
+Each attempt queued after a Part description style is saved SHALL seal the style text itself in its input, and the session SHALL receive it as operator guidance in its opening message. The style SHALL NOT change the profile's digest-verified instruction bytes or relax the existing description validation (one line, at most 250 characters). A later save SHALL NOT change what a queued or running attempt received.
+
+#### Scenario: Style reaches a new session
+
+- **GIVEN** a saved style "Type, key values, package, then variant"
+- **WHEN** a Research session for a lot is queued and starts
+- **THEN** its opening message contains the style, its sealed input holds the same text, and a proposed description over 250 characters is still rejected with the existing correctable error
+
+#### Scenario: Style changed while queued
+
+- **GIVEN** an attempt queued with style A and waiting for a slot
+- **WHEN** the operator saves style B and the attempt then starts
+- **THEN** the session receives style A, and only attempts queued after the save receive B
+
+#### Scenario: No style saved
+
+- **GIVEN** no saved style
+- **WHEN** a session is queued
+- **THEN** its instructions are as they are today
+
+### Requirement: Web tools run under a new VM profile version
+
+VM tool sessions with the web tool surface SHALL run under `shared-vm-agent/3`, a new profile with its own fixed instructions, instruction digest and tool profile version, added without changing `shared-vm-agent/2` or any earlier migration. A worker serving `shared-vm-agent/3` SHALL settle any `shared-vm-agent/2` attempt it finds, queued or requeued by a resume, as failed with `agent_profile_retired`, keeping its history, and SHALL NOT run it under either surface.
+
+#### Scenario: Attempt queued before the upgrade
+
+- **GIVEN** a `shared-vm-agent/2` attempt queued before the upgrade and never started
+- **WHEN** the worker now serving `shared-vm-agent/3` claims work
+- **THEN** that attempt fails with `agent_profile_retired` and a summary saying to run the step again, and no provider process starts
+
+#### Scenario: Message to a finished session from before the upgrade
+
+- **GIVEN** a finished `shared-vm-agent/2` session with its transcript and proposals
+- **WHEN** the operator sends it a message after the upgrade
+- **THEN** the requeued attempt fails with `agent_profile_retired` instead of waiting, the session's history and proposals stay, and the message stays pending for a new attempt
+
+#### Scenario: Retained instructions stay valid
+
+- **GIVEN** retained `shared-vm-agent/2` attempts and their sealed instruction digests
+- **WHEN** the new profile is added
+- **THEN** the `shared-vm-agent/2` profile row and its digest are unchanged, so those attempts still decode and display
+
+### Requirement: Web settings sealed per attempt
+
+Each attempt queued for a profile that gives sessions web access SHALL seal "Allow public web pages" and "Prefer manufacturer datasheets" as read from the saved agent settings, with the settings revision it read. Later saves SHALL NOT change a queued or running attempt. An attempt sealed before these fields existed SHALL run with both off. Attempts for other profiles SHALL seal both as off.
+
+#### Scenario: Save while queued
+
+- **GIVEN** an attempt queued with public web pages on
+- **WHEN** the operator turns the setting off before the attempt gets a slot
+- **THEN** the attempt still runs with public web access, and only attempts queued after the save run without it
+
+#### Scenario: Attempt from before the change
+
+- **GIVEN** a queued attempt whose sealed input has no web fields
+- **WHEN** it runs in the VM
+- **THEN** its turn has public web access off
+
+### Requirement: Instructions describe the VM web tools
+
+A VM tool session's fixed instructions SHALL say:
+
+- use search to find sources;
+- `WebFetch` returns a summary, so use it to find and skim pages;
+- use `curl` for raw pages and documents such as PDF datasheets, where exact values come from;
+- cite web facts by URL in the proposal's sources.
+
+Sessions without web tools SHALL receive no web guidance.
+
+#### Scenario: Host session
+
+- **GIVEN** a `native-agent/2` session
+- **WHEN** it opens
+- **THEN** its instructions and opening message mention no web tools
+
+### Requirement: Opening message carries the session's web settings
+
+A VM tool session's opening message SHALL say whether public web pages are allowed for it, and SHALL add the manufacturer datasheet preference when that setting is on. Neither SHALL change the profile's digest-verified instruction bytes.
+
+#### Scenario: Web on with datasheet preference
+
+- **GIVEN** an attempt sealed with both web settings on
+- **WHEN** its session opens
+- **THEN** the opening message says public web pages are allowed and to prefer manufacturer datasheets over distributor pages, and the instruction digest is the profile's
+
+#### Scenario: Web off
+
+- **GIVEN** an attempt sealed with public web pages off
+- **WHEN** its session opens
+- **THEN** the opening message says public web pages are not available and to rely on search results and staged evidence, and a `curl` to a public site is refused by the egress proxy
+
+### Requirement: Bounded agent evidence images
+
+Every image fetch_evidence returns to an agent SHALL be cut from the version's decoded page preview, be at most 2,576 px on its long edge and at most 1.25 MiB encoded. The result SHALL state the delivered width, height and scale relative to the page preview, and the per-run image budget SHALL count the delivered bytes.
+
+#### Scenario: Large original in a lot session
+
+- **GIVEN** a lot session whose manifest delivers a 6144 × 8160 photo
+- **WHEN** the agent fetches that evidence without a page or region
+- **THEN** it receives a 1940 × 2576 image with its width, height and scale stated. The result's source reference names the original version and its SHA-256, and a proposal citing that reference is accepted.
+
+#### Scenario: Large region of a page
+
+- **GIVEN** an Examine session and a page preview of 6144 × 8160
+- **WHEN** the agent requests a region 5000 px wide and 6000 px tall in page-preview pixels
+- **THEN** it receives that region scaled to fit within 2,576 px, with the scale stated, and the cited source is the version, not the crop.
+
+#### Scenario: Small region or small page
+
+- **GIVEN** a region, or a lot session's page, no larger than 2,576 px on either side
+- **WHEN** the agent fetches it
+- **THEN** it receives it at its own size, never enlarged, with scale 1, and a later region request still uses page-preview pixels.
+
+#### Scenario: Examine overview
+
+- **GIVEN** an Examine session and a page of any size
+- **WHEN** the agent fetches it without a region
+- **THEN** it receives an overview at most 768 px on its long edge, lossless where it fits the size cap, with its scale stated.
+
+#### Scenario: Requested page has no preview
+
+- **GIVEN** a version the session may fetch, whose requested page has no decoded preview
+- **WHEN** the agent fetches it
+- **THEN** the result refuses with `validation_failed`, grants no delivery authority, and sends no original bytes. Encrypted and undecoded versions never reach a session: a lot manifest refuses them as `media_not_ready` and Examine leaves them out.
+
+#### Scenario: Too large at any quality, or removed meanwhile
+
+- **GIVEN** a cut that exceeds 1.25 MiB even at the lowest JPEG quality, or evidence the operator removes while its preview is read
+- **WHEN** the agent fetches it
+- **THEN** the result carries metadata only, or refuses with `media_evidence_removed`; no image is sent, the budget is not charged, and no delivery authority is granted.
