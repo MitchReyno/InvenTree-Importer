@@ -1,12 +1,14 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { setDebugMode } from '#/test/debug-mode'
 import type { BatchAttentionDto, ConnectionStatusDto, HeaderWorkDto } from '@invimport/contracts'
 import { render, fixtureScope } from '#/test/render'
 import { stubPhoneViewport } from '#/test/viewport'
+import { freshReads } from '#/queries/fresh-reads'
 import { serverQueryKey } from '#/queries/scope'
+import { createServerQueryClient } from '#/queries/client'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { eventTimeText } from '#/components/ui'
 import { HeaderStatus } from './HeaderStatus'
@@ -590,14 +592,23 @@ const stepCounts = {
 }
 
 /** Stands in for the batch screen, which fills the capture and attention reads the header shares. */
-function BatchReads({ attention }: { attention: BatchAttentionDto }) {
+function BatchReads({
+  attention,
+  read,
+}: {
+  attention: BatchAttentionDto
+  read?: () => Promise<BatchAttentionDto>
+}) {
+  const queryClient = useQueryClient()
+  const attentionKey = serverQueryKey(fixtureScope, 'attention', batchId, '4')
   useQuery({
     queryKey: serverQueryKey(fixtureScope, 'capture', batchId),
     queryFn: async () => ({ id: batchId, title: 'Mouser 3381-22 + bench bag', revision: '4' }),
   })
+  // Numbered as the batch screen's own attention read is.
   useQuery({
-    queryKey: serverQueryKey(fixtureScope, 'attention', batchId, '4'),
-    queryFn: async () => attention,
+    queryKey: attentionKey,
+    queryFn: freshReads(queryClient).track(attentionKey, read ?? (async () => attention)),
   })
   return null
 }
@@ -677,6 +688,55 @@ const attention: BatchAttentionDto = {
   items: [],
   items_truncated: false,
 }
+
+test('bars stop moving after a live hint until both the work and attention reads since then land', async () => {
+  const user = userEvent.setup()
+  const api = client()
+  vi.mocked(api.work).mockResolvedValue(processingWork())
+  const cache = createServerQueryClient()
+
+  let releaseAttention: (value: BatchAttentionDto) => void = () => {}
+
+  let attentionReads = 0
+  render(
+    <ServerStateProvider scope={fixtureScope} client={cache}>
+      <BatchReads
+        attention={attention}
+        read={() => {
+          attentionReads += 1
+          if (attentionReads === 1) {
+            return Promise.resolve(attention)
+          }
+          return new Promise((resolve) => {
+            releaseAttention = resolve
+          })
+        }}
+      />
+      <HeaderStatus client={api} batchId={batchId} />
+    </ServerStateProvider>,
+  )
+  await user.click(await screen.findByRole('button', { name: 'Workflow activity' }))
+
+  const moving = () => document.querySelectorAll('[data-animated="true"]').length
+
+  await waitFor(() => expect(moving()).toBeGreaterThan(0))
+
+  act(() => freshReads(cache).noteHint())
+  expect(moving()).toBe(0)
+
+  // The work read lands first; the attention counts still predate the hint.
+  await act(async () => {
+    await cache.invalidateQueries({ queryKey: serverQueryKey(fixtureScope, 'header-work') })
+  })
+  act(() => {
+    void cache.invalidateQueries({ queryKey: serverQueryKey(fixtureScope, 'attention') })
+  })
+  await waitFor(() => expect(attentionReads).toBe(2))
+  expect(moving()).toBe(0)
+
+  await act(async () => releaseAttention(attention))
+  await waitFor(() => expect(moving()).toBeGreaterThan(0))
+})
 
 test('inside its batch the activity label names what waits, then counts the agents holding a slot, with no batch name or question count', async () => {
   const api = client()

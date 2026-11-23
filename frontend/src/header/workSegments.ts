@@ -252,12 +252,23 @@ export function processingSegments(
   items: WorkItem[],
   counts: BatchCounts | undefined,
   paused: boolean,
+  sessions: readonly Session[] = [],
 ): ProgressStep[] {
   const retained = items.flatMap((item) => (item.kind === 'processing' ? item.steps : []))
+  // A session whose job was cut from the bounded work list still says what its stage is doing.
+  const listed = new Set(
+    items.flatMap((item) => (item.kind === 'processing' ? [item.attempt_id] : [])),
+  )
+  const unlisted = sessions.filter((session) => session.current && !listed.has(session.attempt_id))
   return PLANNED.map((stage) => {
-    const states = retained
-      .filter((own) => 'stage' in own && stageOf(own.stage) === stage)
-      .map((own) => own.state)
+    const states: RetainedState[] = [
+      ...retained
+        .filter((own) => 'stage' in own && stageOf(own.stage) === stage)
+        .map((own) => own.state),
+      ...unlisted
+        .filter((session) => stageOf(session.stage) === stage)
+        .map((session) => session.state),
+    ]
     return stageSegment(stage, counts?.steps[stage], counts?.lots, paused, states)
   })
 }

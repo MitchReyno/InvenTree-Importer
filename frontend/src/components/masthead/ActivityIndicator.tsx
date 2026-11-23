@@ -4,6 +4,9 @@ import type { HeaderWorkDto } from '@invimport/contracts'
 import { color, radius, space, typeVar } from '#/theme/generated/tokens'
 import { observationFresh, preferredWork } from '#/header/observations'
 import { useCachedBatchReads } from '#/header/useCachedBatchReads'
+import { useServerScope } from '#/context'
+import { useReadAfterHint } from '#/queries/useReadAfterHint'
+import { serverQueryKey } from '#/queries/scope'
 import {
   batchPaused,
   batchStepCounts,
@@ -58,6 +61,19 @@ export function ActivityIndicator({
   const ids = useId()
   const cached = useCachedBatchReads(batchId)
   const fresh = !unavailable && !!data && observationFresh(data.observed_at, now)
+  const scope = useServerScope()
+  const workAfterHint = useReadAfterHint(
+    serverQueryKey(scope, 'header-work', batchId ?? 'all'),
+    'shown',
+  )
+  const attentionAfterHint = useReadAfterHint(
+    batchId && cached.revision
+      ? serverQueryKey(scope, 'attention', batchId, cached.revision)
+      : undefined,
+    'shown',
+  )
+  // Bars move only while the reads that drew them started after the newest change the app heard of.
+  const moving = fresh && workAfterHint && (!cached.attention || attentionAfterHint)
   const summary = workSummary({ data, batchId, batchTitle: cached.title, unavailable, fresh })
   const preferred = shownWork(data, batchId, summary)
   const ownBatch = !!batchId && preferred?.batch_id === batchId
@@ -146,7 +162,7 @@ export function ActivityIndicator({
           )}
           {showSegments && (
             <Segments data-named={fresh && urgent(summary)}>
-              <ProgressSegments steps={segments} />
+              <ProgressSegments steps={segments} still={!moving} />
             </Segments>
           )}
           {showSegments && layout === 'phone' && (
@@ -175,6 +191,7 @@ export function ActivityIndicator({
         attention={cached.attention}
         unavailable={unavailable}
         fresh={fresh}
+        moving={moving}
       />
     </HeaderDisclosure>
   )

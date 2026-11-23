@@ -101,6 +101,7 @@ const Segment = styled.span<{ $size: 'sm' | 'lg' }>`
   width: ${({ $size }) => ($size === 'lg' ? 'auto' : '14px')};
   flex: ${({ $size }) => ($size === 'lg' ? '1' : 'none')};
   height: ${({ $size }) => ($size === 'lg' ? '8px' : '6px')};
+  position: relative;
   border-radius: 2px;
   background: ${color.lineStrong};
   overflow: hidden;
@@ -145,7 +146,7 @@ const Segment = styled.span<{ $size: 'sm' | 'lg' }>`
   &[data-state='queued'] {
     background-color: transparent;
     i {
-      background-color: ${color.muted};
+      background-color: ${track(color.muted)};
     }
   }
   /* Fine stripes leaning forward: working, even when still. */
@@ -174,8 +175,14 @@ const Segment = styled.span<{ $size: 'sm' | 'lg' }>`
     /* literal-allowed: the dot grid's pitch, not a spacing role */
     background-size: 3px 3px;
   }
-  &[data-pattern='outline'] {
-    box-shadow: inset 0 0 0 1px ${color.lineStrong};
+  /* Drawn over the fill, so a queued stage with every lot ready still shows its outline. */
+  &[data-pattern='outline']::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 1px ${color.muted};
+    pointer-events: none;
   }
   &[data-pattern='faint'] {
     opacity: ${opacity.muted};

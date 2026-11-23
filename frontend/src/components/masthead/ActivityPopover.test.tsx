@@ -112,6 +112,8 @@ function workingBatch(overrides: Partial<HeaderWorkDto> = {}): HeaderWorkDto {
 
 type PopoverOptions = {
   fresh?: boolean
+  /** Whether the reads behind the bars started after the last live hint; follows `fresh` if unset. */
+  moving?: boolean
   agents?: Partial<AgentsRead>
   attention?: BatchAttentionDto
   /** Answers the header work read; the first answer is `data`. */
@@ -122,17 +124,27 @@ let invalidateWork: () => Promise<void> = async () => {}
 
 let noteHint: () => void = () => {}
 
+let cacheOther: (data: HeaderWorkDto) => Promise<unknown> = async () => undefined
+
 /** The popover over a header work read held in the query cache, as the masthead holds it. */
 function WithWorkRead({ data, options }: { data: HeaderWorkDto; options: PopoverOptions }) {
   const scope = useServerScope()
   const queryClient = useQueryClient()
-  const key = serverQueryKey(scope, 'header-work', 'all')
+  const key = serverQueryKey(scope, 'header-work', batch)
   const read = useQuery({
     queryKey: key,
     queryFn: freshReads(queryClient).track(key, options.read ?? (async () => data)),
   })
   invalidateWork = () => queryClient.invalidateQueries({ queryKey: key })
   noteHint = () => freshReads(queryClient).noteHint()
+  // A read another header scope left in the cache, as after moving between pages.
+  cacheOther = (other) => {
+    const otherKey = serverQueryKey(scope, 'header-work', 'all')
+    return queryClient.fetchQuery({
+      queryKey: otherKey,
+      queryFn: freshReads(queryClient).track(otherKey, async () => other),
+    })
+  }
   if (!read.data) {
     return null
   }
@@ -145,6 +157,7 @@ function WithWorkRead({ data, options }: { data: HeaderWorkDto; options: Popover
       attention={options.attention}
       unavailable={false}
       fresh={options.fresh ?? true}
+      moving={options.moving ?? options.fresh ?? true}
     />
   )
 }
@@ -283,6 +296,27 @@ describe('ActivityPopover stage rows', () => {
   })
 })
 
+describe('ActivityPopover stage rows for sessions alone', () => {
+  it('gives a batch whose work was cut from the list its stage rows, from its sessions', async () => {
+    await popover(
+      workingBatch({
+        work: [],
+        batch_steps: [],
+        active_sessions: [session('research', 1), session('images', 2, { current: false })],
+        work_truncated: true,
+      }),
+    )
+    const group = screen.getByRole('region', { name: 'Heyyy · Processing' })
+    const links = rows(group)
+
+    expect(links).toHaveLength(4)
+    expect(links[1]).toHaveTextContent('Working')
+    // An earlier attempt that is not its job's current one says nothing about its stage.
+    expect(links[2]).toHaveTextContent('Not started')
+    expect(links[1]).not.toHaveTextContent('of 12 lots')
+  })
+})
+
 describe('ActivityPopover Resume', () => {
   it('offers Resume on a paused batch, keeps a running turn working, and resumes through the pause route', async () => {
     const user = userEvent.setup()
@@ -409,5 +443,28 @@ describe('ActivityPopover Resume', () => {
       ),
     ).toBeInTheDocument()
     await waitFor(() => expect(read).toHaveBeenCalledTimes(2))
+  })
+
+  it('waits only on the work read it shows, not one another page left in the cache', async () => {
+    const user = userEvent.setup()
+    const pause = vi.fn(async () => ({ batch_id: batch, paused: false }))
+    const data = workingBatch({ paused_batches: [{ batch_id: batch, title: 'Heyyy' }] })
+    data.batch_steps![0].paused = true
+    await popover(data, { agents: { pause } })
+    await act(async () => {
+      await cacheOther(data)
+    })
+    const group = screen.getByRole('region', { name: 'Heyyy · Processing' })
+    const resume = within(group).getByRole('button', { name: 'Resume' })
+
+    act(() => noteHint())
+    expect(resume).toHaveAttribute('aria-disabled', 'true')
+    // Only the shown read refreshes; the other page's read stays older than the hint.
+    await act(async () => {
+      await invalidateWork()
+    })
+    await waitFor(() => expect(resume).not.toHaveAttribute('aria-disabled'))
+    await user.click(resume)
+    await waitFor(() => expect(pause).toHaveBeenCalledWith(batch, false))
   })
 })

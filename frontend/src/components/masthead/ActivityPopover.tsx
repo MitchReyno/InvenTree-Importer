@@ -1,7 +1,10 @@
 import type { BatchAttentionDto, HeaderWorkDto } from '@invimport/contracts'
 import styled from 'styled-components'
 import { color, size, space, typeVar } from '#/theme/generated/tokens'
+import type { QueryKey } from '@tanstack/react-query'
 import { batchHref } from '#/navigation/batch-route'
+import { useServerScope } from '#/context'
+import { serverQueryKey } from '#/queries/scope'
 import {
   PLANNED,
   batchPaused,
@@ -40,6 +43,8 @@ interface Props {
   attention?: BatchAttentionDto
   unavailable: boolean
   fresh: boolean
+  /** The reads behind the bars started after the last live hint, so working stages may move. */
+  moving: boolean
 }
 
 /** A retained state in the shared words, for the diagnostics under Details. */
@@ -55,23 +60,25 @@ export function ActivityPopover({
   attention,
   unavailable,
   fresh,
+  moving,
 }: Props) {
+  const scope = useServerScope()
   const work = data?.work ?? []
   const sessions = data?.active_sessions ?? []
   const processing = work.filter((item) => item.kind === 'processing')
   const imports = work.filter((item) => item.kind === 'import')
   const paused = data?.paused_batches ?? []
   // One Processing entry per batch, the open batch first; each import run is its own entry. A
-  // paused batch gets one even with no work listed, so it can be resumed.
+  // paused batch gets one even with no work listed, so it can be resumed, and so does a batch whose
+  // work was cut from the bounded list while its sessions were not.
   const batches = [
     ...new Set([
       ...processing.map((item) => item.batch_id),
       ...paused.map((entry) => entry.batch_id),
+      ...sessions.map((session) => session.batch_id),
     ]),
   ].sort((a, b) => Number(b === batchId) - Number(a === batchId))
-  const sessionOnly = [...new Set(sessions.map((session) => session.batch_id))].filter(
-    (batch) => !batches.includes(batch),
-  )
+  const workKey = serverQueryKey(scope, 'header-work', batchId ?? 'all')
 
   const title = (batch: string) => {
     if (batch === batchId) {
@@ -120,7 +127,8 @@ export function ActivityPopover({
             counts={counts}
             paused={batchPaused(data, batch, counts)}
             sessions={sessionsOf(batch)}
-            fresh={fresh}
+            moving={moving}
+            workKey={workKey}
             resumeUnavailable={resumeUnavailable}
           />
         )
@@ -130,9 +138,6 @@ export function ActivityPopover({
         .map((item) => (
           <ImportJob key={item.id} item={item} title={title(item.batch_id)} />
         ))}
-      {sessionOnly.map((batch) => (
-        <SessionJob key={batch} batch={batch} title={title(batch)} sessions={sessionsOf(batch)} />
-      ))}
       {idle && <Note>No agents working</Note>}
       {nothingListed && <Note>No active work listed</Note>}
       {data?.lane_occupied && !sessions.some((session) => session.occupies_lane) && (
@@ -167,26 +172,6 @@ export function ActivityPopover({
   )
 }
 
-function latestStatus(sessions: Session[]) {
-  return sessions
-    .map((session) => session.latest_status)
-    .filter((status) => status !== null)
-    .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0]
-}
-
-function StatusLine({ sessions, fallback }: { sessions: Session[]; fallback: string }) {
-  const latest = latestStatus(sessions)
-  if (!latest) {
-    return <Line>{fallback}</Line>
-  }
-
-  return (
-    <Line>
-      {latest.text} · <EventTime at={latest.at} />
-    </Line>
-  )
-}
-
 /** A batch's Processing: its stage bar, one row per stage, and Resume while it is paused. */
 function ProcessingJob({
   batch,
@@ -196,7 +181,8 @@ function ProcessingJob({
   counts,
   paused,
   sessions,
-  fresh,
+  moving,
+  workKey,
   resumeUnavailable,
 }: {
   batch: string
@@ -206,12 +192,16 @@ function ProcessingJob({
   counts: BatchCounts | undefined
   paused: boolean
   sessions: Session[]
-  fresh: boolean
+  moving: boolean
+  workKey: QueryKey
   resumeUnavailable?: string
 }) {
-  const steps = processingSegments(jobs, counts, paused)
+  const steps = processingSegments(jobs, counts, paused, sessions)
   const questions = attention?.processing.questions ?? 0
-  const state = questions > 0 ? 'waiting_for_you' : batchState(jobs)
+  let state: WorkState = questions > 0 ? 'waiting_for_you' : batchState(jobs)
+  if (questions === 0 && jobs.length === 0) {
+    state = sessionsState(sessions)
+  }
   // A slot held by a job that stopped working says so beside Working.
   const held = !jobs.some((job) => workState(job.state) === 'working') && jobs.some(slotHeld)
   let detail: string | undefined
@@ -225,16 +215,18 @@ function ProcessingJob({
     <JobBody aria-label={`${title} · Processing`}>
       <Head>
         <b>{title}</b>
-        {(jobs.length > 0 || questions > 0) && <StatePill state={state} detail={detail} />}
+        {(jobs.length > 0 || questions > 0 || sessions.length > 0) && (
+          <StatePill state={state} detail={detail} />
+        )}
       </Head>
       {paused && (
         <PausedRow>
           <StatePill state="paused" />
           <span>No session starts new work until you resume.</span>
-          <ResumeBatch batchId={batch} unavailable={resumeUnavailable} />
+          <ResumeBatch batchId={batch} readKey={workKey} unavailable={resumeUnavailable} />
         </PausedRow>
       )}
-      <ProgressSegments steps={steps} size="lg" still={!fresh} />
+      <ProgressSegments steps={steps} size="lg" still={!moving} />
       <StageRows aria-label="Stages">
         {PLANNED.map((stage, index) => (
           <StageRow
@@ -319,41 +311,16 @@ function ImportJob({ item, title }: { item: WorkItem; title: string }) {
   )
 }
 
-/** A batch whose agents run with no retained work item of their own. */
-function SessionJob({
-  batch,
-  title,
-  sessions,
-}: {
-  batch: string
-  title: string
-  sessions: Session[]
-}) {
-  let state: WorkState = 'queued'
+/** A batch's state from its listed sessions alone, when its work was cut from the bounded list. */
+function sessionsState(sessions: Session[]): WorkState {
   if (sessions.some((session) => session.session_state === 'waiting_input')) {
-    state = 'waiting_for_you'
-  } else if (sessions.some((session) => session.occupies_lane)) {
-    state = 'working'
+    return 'waiting_for_you'
   }
-  return (
-    <JobBody aria-label={`${title} · Agents`}>
-      <Head>
-        <b>{title}</b>
-        <StatePill state={state} />
-      </Head>
-      <StatusLine sessions={sessions} fallback={`${sessions.length} agent sessions`} />
-      <Action href={batchHref(batch, { tab: 'processing', step: 'overview' })}>
-        Open session work
-      </Action>
-      <Details>
-        <summary>Details</summary>
-        {sessions.map((session) => (
-          <SessionFacts key={session.attempt_id} session={session} />
-        ))}
-        <p>Batch {batch}</p>
-      </Details>
-    </JobBody>
-  )
+  if (sessions.some((session) => session.occupies_lane)) {
+    return 'working'
+  }
+
+  return 'queued'
 }
 
 function SessionFacts({ session }: { session: Session }) {
