@@ -62,6 +62,16 @@ Preparation SHALL plan at most one gaps fill per target Part and field. Identica
 - **WHEN** preparation runs
 - **THEN** it is blocked asking which datasheet MCU-0012 gets, and when both confirmed the same one, the plan fills it once.
 
+### Requirement: Parameter fills create or update
+
+A gaps fill for a key parameter SHALL create the value when the Part has no row for its template, expecting no row, and SHALL update the row when one exists with an empty value, expecting it empty. Both SHALL be `owned-fake-effects/3` effects, and each SHALL re-read its precondition just before the send.
+
+#### Scenario: Value row appears before the send
+
+- **GIVEN** a planned create of MCU-0012's missing tolerance parameter
+- **WHEN** someone adds that parameter before the effect runs
+- **THEN** the executor's re-read finds the row, refuses the effect as a conflict and records it, and creates nothing.
+
 ### Requirement: Existing-Part writes expect an empty field
 
 Each gaps fill SHALL carry the value it expects to be missing, and an existing Part's image effect SHALL expect the Part to have no image. The executor SHALL re-read the field or image just before the write and refuse the effect as a conflict when it is no longer empty. InvenTree has no conditional update, so a competing write between that re-read and the write MAY still be overwritten; the effect SHALL state this window.
