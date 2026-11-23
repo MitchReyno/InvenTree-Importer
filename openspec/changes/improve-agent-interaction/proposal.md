@@ -1,0 +1,176 @@
+# Change proposal
+
+## Problem and intended outcome
+
+Mitch found two problems while working with agents in a live batch on 2026-11-23:
+
+1. **The session drawer ignores clicks outside it.** It is dimmed like a modal, but clicking the dimmed page does nothing; only Esc and Close close it.
+2. **Answering an agent's question is clunky and often fails.** An agent asks one free-form prompt that may hold several questions. It sets the question to `quantity` or `clarification`, and the operator gets one field. A prose reply to a `quantity` question fails with "Enter a positive exact quantity with at most six decimal places." That happened in the session Mitch reported. There is no way to offer answer choices: the drawer shows two disabled option cards saying "Questions don't carry the session's answer options yet".
+
+3. **A session's history says little.** The drawer's timeline shows status lines and generic entries ("Published a proposal", "Proposed a lot") with no details and no links. The operator's own answers and instructions don't appear in it.
+4. **There is nowhere to see everything a session did**: which photos it looked at, which pages it read, and how each attempt started and ended.
+5. **The activity bar misreports waiting work.** In the masthead activity popover, a stage that has made progress but waits on questions is drawn like a stage that hasn't started: `ProgressSegments` has one `waiting` state, drawn empty at 45% opacity, for both. A working stage only pulses its fill, and a paused batch looks the same as a running one.
+6. **The popover says too little per stage.** It shows one bar, the newest status line and one link, with no per-stage counts, status or navigation.
+
+The outcome sought:
+
+- Any dialog, the session drawer included, closes when the operator clicks its backdrop, as Esc does. An unsaved answer still stops the close and shows the existing warning.
+- An agent asks **one question per `ask`**. A question has one step, or up to four related steps that the drawer shows one at a time and sends together.
+- Each step has its own answer kind:
+  - **choice**: 2–6 options from the agent, shown as clickable cards, with an optional "Something else…" text answer;
+  - **number**: a lot's quantity, counted or estimated;
+  - **text**.
+- A number step checks the value as it is typed, with a plain fix, and offers "Answer in words" when a number can't be given.
+- The agent states the assumption it works on for each step, and the drawer and Needs you show it.
+
+- Every history entry with more to show expands in place to its details, and links to the pages it concerns. Runs of the same action are grouped. The operator's inputs (answers, instructions, new photos, revise notices) appear in the history; chat stays in the chat.
+- Each session gets a page inside its batch's Processing that shows it as one conversation, oldest first: action rows, chat bubbles, question cards answered in place, the operator's inputs and attempt dividers. It has filters, a message box, side panels for the photos it viewed and the sources it cited, and debug details. The drawer summarises photo views and web reads in one line and links to the page.
+- The activity popover is 520 px wide on desktop, with one row per stage linking to its step page, showing a count where there is one, a state and a short status line.
+- Each stage's bar shows done, working, waiting for you, paused, queued, not started or failed. Only a stage being worked on now animates, and a paused batch is hatched and offers Resume.
+
+The design for items 1 and 2 is on the Bench Intake Redesign canvas, v70. The boards are "Session drawer: click outside to close, one question at a time" and "Agent questions: choices, numbers, words and steps", with the "Proposal: agent questions" sticky. The design log entries are D37 and D38. Items 3 and 4 are in v71–v75: "Session timeline: expandable entries with links", and the session page as "Option B (chosen) · Agent session page as a conversation", beside the unchosen option A (D39–D41). Items 5 and 6 are on the Masthead options page: "Activity popover: stage rows, counts and bar states" (D42).
+
+Mitch will add more agent-interaction items to this change. This proposal covers the six above; later items are folded in with `openspec-update-change`.
+
+## Change identity and linked items
+
+- Change: `improve-agent-interaction`. Branches use `feat/improve-agent-interaction-<suffix>`, and subjects `type(improve-agent-interaction): …`.
+- **BI-019** (new): Agent interaction improvements.
+- **BI-015** (`complete-design-refresh-backend`): this change takes over its item "Inventory questions that carry their answer options". BI-015 keeps the existing-record comparison fields (InvenTree column and date code).
+
+## Current behavior and evidence
+
+- **The drawer:**
+  - `frontend/src/components/ui/Dialog.tsx` opens a native `<dialog>` with `showModal()` and closes only on `cancel` (Esc) or its Close button. It has no pointer handling for the backdrop.
+  - `ProcessingWorkspace.tsx` passes an `onClose` that shows "Save or discard your answer before closing this session" while an answer draft is unsaved.
+- **The ask tool:**
+  - `SessionAskArgs` in `contracts/src/sessions.ts` takes `{kind: quantity|clarification, subject_id, prompt, reason, fields, assumption}`; `prompt` is free text of up to 2048 characters.
+  - The tool description in `intake-server/src/agents/tools/server.ts` doesn't tell the agent to ask one thing at a time.
+- **The answer form:**
+  - `QuestionAnswer.tsx` builds `bench-intake-answer/1` with `{kind: quantity, value, basis}` or `{kind: clarification, text}`. It validates against the contract only on submit and reports a generic message.
+  - `DrawerAnswers.tsx` draws two hard-coded disabled option cards (`OPTIONS_NOT_CARRIED`).
+- **Server effects** (`intake-server/src/processing/session-answers.ts`):
+  - A quantity answer sets the lot quantity through one capture edit, and a clarification becomes one note.
+  - Both reach the asking session as an `answer` inbox item and mark relying proposals stale.
+  - `CaptureEdit` carries one `change`.
+- **Older questions:** runner questions of earlier profiles use `ProcessingQuestionSpec` and `processing/answers.ts`, with a continuation attempt. They stay as they are.
+- **History:**
+  - `SessionTimeline.tsx` maps outbox kinds to fixed strings (`stepText`) and drops replies. Entries carry only IDs (`lot_id`, `proposal_id`, …) and have no links.
+  - `agents/tools/timeline.ts` reads one job's outbox and inbox, newest 500 (`TIMELINE_LIMIT`), with `truncated`; it does not page.
+  - `fetch_evidence` deliveries are charged to an in-memory image budget (`handlers.ts`), and nothing is recorded in the history.
+  - Proposal sources are notes, media versions or host research receipts (`ProcessingSourceV3`). A VM agent that read a page with WebFetch has no way to cite it, and web reads inside the provider are seen only by the egress proxy, as hosts.
+  - Routes exist for a lot, the map, a record, a step with a question and Capture (`navigation/batch-route.ts`); there is no session page.
+- **Activity popover:**
+  - `components/masthead/ActivityPopover.tsx` renders one `ProgressSegments` bar per batch, the newest status line and "Open processing".
+  - `header/workSegments.ts` maps every non-running state to `waiting`. A running step without a count fills an invented 50% (`RUNNING_WITHOUT_FRACTION`).
+  - The header read's step counts (`contracts/src/header.ts`, `stepJobs`) carry `jobs`, `ready` and `running`, and the attention read adds `questions` and `failed`. Neither has waiting-for-you or queued counts, or the batch's paused flag, which lives in `intake-server/src/agents/pause.ts`.
+- **Specs:** current requirements are in `processing-workspace` (the session drawer and the Inventory session drawer's disabled option cards), `processing-stage-pipeline` ("Non-blocking questions with assumptions") and `processing-agent-sessions`.
+- **Unverified:** the exact prompt of the failed question in Mitch's screenshot. That its answer was prose to a `quantity` question is inferred from the only client-side message of that shape.
+
+## Scope and non-goals
+
+In scope:
+
+- Backdrop click closes every `Dialog` through its existing `onClose`, and does nothing while `closeDisabled` is set. A press that starts inside the dialog and is released on the backdrop doesn't close it.
+- A versioned session question with 1–4 steps and three answer kinds, plus its versioned answer. The `ask` tool, its validation and its description change to match.
+- The drawer's stepped answer form with a check-your-answers summary, option cards, inline number validation and "Answer in words".
+- Answer effects:
+  - a number step sets the lot's quantity;
+  - choice and text steps are saved as one note on the subject;
+  - the session receives every step's value, with the option id for a choice.
+- Needs you and Overview rows show each question's kind or step count and its assumptions.
+- Agent instructions that ask one question per `ask` and offer options when the answer is one of a few.
+- A server-built session history view: each entry has its summary, details and typed link targets, the operator's inputs are included, and older entries page in.
+- Expandable, grouped entries in the drawer, with one summary line for runs of photo views and web reads.
+- A recorded photo view for each delivered `fetch_evidence` image.
+- A proposal source kind for an agent-reported web page URL, shown as unverified.
+- The batch-scoped session page as a conversation, with a message box and questions answered in place, linked from the drawer, the Agents page, the session lists and the failure details.
+- Per-step `waiting` and `queued` counts, `questions`, the Examine step's `lots` formed, and the batch's `paused` flag in the header and attention reads.
+- Stage rows in the activity popover, and the new bar states and animation rules in `ProgressSegments` (also used on the Processing overview).
+
+Non-goals:
+
+- Multi-select choices.
+- Answering from the Overview without opening the drawer.
+- A heuristic that refuses prompts containing several question marks.
+- Changing the earlier runner question path (`ProcessingQuestionSpec`, `bench-intake-answer/1`); retained `/1` session questions keep the current form.
+- The existing-record comparison fields that BI-015 keeps.
+- Saved copies of web pages or an app-side `fetch_web` tool with receipts (the provenance follow-up named in BI-017).
+- Hosts read through the egress proxy in the history (a later addition).
+
+Compatibility:
+
+- Retained session envelopes with the `/1` ask payload must still decode and stay answerable.
+- Tools and contracts stay app-owned; there is no provider or VM surface change.
+- `shared-vm-agent/3` sessions get the new `ask` schema through the same tool server, so no profile bump is needed. The admission checks compare tool names, not schemas; design confirms this.
+
+## Reuse and dependency assessment
+
+| Option and relevant version | Goal fit and strengths | Limitations, risks and total adoption cost | Primary evidence and date checked | Unknowns / proof of fit |
+| --- | --- | --- | --- | --- |
+| Native `<dialog closedby="any">` light dismiss | No JavaScript; routes through `cancel`, so the existing guard applies | Not supported in Safari, including 26.x previews; iOS light dismiss is tracked separately. Mitch uses Safari and a phone, so a fallback is needed anyway | [caniuse wf-dialog-closedby](https://caniuse.com/wf-dialog-closedby), [WebKit 284592](https://bugs.webkit.org/show_bug.cgi?id=284592), [Chrome light-dismiss guide](https://developer.chrome.com/docs/modern-web-guidance/guides/ui-behaviors/light-dismiss-a-dialog.md.txt), checked 2026-11-23 | Behavior under jsdom tests |
+| `dialog-closedby-polyfill` (npm) | Fills Safari | A new runtime dependency for a few lines of code; the package page sits under a supply-chain incident notice | [socket.dev listing](https://socket.dev/npm/package/dialog-closedby-polyfill), checked 2026-11-23 | Maintenance and provenance |
+| Extend `Dialog.tsx`: pointerdown and click on the dialog element outside its content box, calling `onClose` (recommended) | Works in every browser; one path for all dialogs; the existing `onClose` guard and `closeDisabled` apply unchanged; testable in jsdom | Small custom code to keep | The current `Dialog.tsx`; the [Chrome guide's fallback pattern](https://developer.chrome.com/docs/modern-web-guidance/guides/ui-behaviors/light-dismiss-a-dialog.md.txt) | None material |
+| Expandable entries: native `<details>`/`<summary>` | Built-in keyboard and screen-reader behavior, no dependency; the canvas draws it this way | Styling of the marker varies a little by browser | MDN `<details>`; the canvas v71 boards | None material |
+| Stepped questions: a form or wizard library | — | The repository already uses `react-hook-form` and its own `OptionRow`, `Fieldset` and `QuestionCard`; a wizard library adds nothing these can't do | `frontend/package.json`, `frontend/src/forms` | — |
+| Stepped questions: extend contracts, `QuestionAnswer` and `DrawerAnswers` (recommended) | Keeps the TypeBox contract as the single source for the agent schema, server validation and the form | Custom UI work | The current source listed above | — |
+
+**Recommendation:**
+
+- Extend `Dialog.tsx` for the backdrop click. If `closedby` reaches every target browser later, it can replace the handler.
+- Build the stepped question on the existing contracts and form stack.
+- Use native `<details>` for expandable entries, and the existing route helpers for links.
+- No new dependency is justified.
+
+## Capabilities
+
+### New capabilities
+
+None.
+
+### Modified capabilities
+
+- `processing-workspace`: the session drawer closes from its backdrop, and steps are answered in the drawer. The Inventory drawer's option cards become live. Expandable history with links, the operator's inputs in it, the drawer/page split and the session page.
+- `agents-overview`: each session row links to its session page.
+- `header-workflow-status`: stage rows in the workflow details, the stage bar states, and only working stages animating.
+- `processing-stage-pipeline`: non-blocking questions are one question with 1–4 steps, each with an answer kind and an assumption.
+- `processing-agent-sessions`: the `ask` tool's structured question, the delivery of stepped answers to the session, recorded photo views and agent-reported web page sources.
+- `ui-design-system`: dialogs close from their backdrop.
+
+## Impact and dependencies
+
+- **Contracts:**
+  - a `/2` ask payload and question spec;
+  - a `bench-intake-answer/2` answer;
+  - a new `answer` inbox payload variant;
+  - the session envelope union.
+- **Intake server:**
+  - `agents/tools/handlers.ts` (`ask`) and the `server.ts` description;
+  - `processing/session-answers.ts`, which applies up to two capture edits in one transaction;
+  - the read model that returns questions to the frontend;
+  - the session runner prompt.
+- **History and page:** `agents/tools/timeline.ts` and its route in `processing/routes.ts`; a new outbox kind for photo views; the proposal source union; `SessionTimeline.tsx`; a new session page and route in `navigation/batch-route.ts`; the Agents page rows (`agents/AgentSessions.tsx`).
+- **Frontend:** `Dialog.tsx`, `QuestionAnswer.tsx`, `DrawerAnswers.tsx`, `ui/QuestionCard.tsx`, and the Needs you and Overview rows.
+- **Fixtures:** the fake CLI and synthetic session gain stepped questions for tests and the demo.
+- **Prerequisites:** none. Coordinate any `session-runner.ts` prompt edit with `simplify-vm-agent-web-and-setup`, which is still open.
+
+## Open decisions and assumptions
+
+Decided by Mitch on 2026-11-23:
+
+- A choice is clicked, then sent (Send or Next).
+- Up to 4 steps and 2–6 options per choice; one option per step (no multi-select).
+- Every dialog closes from its backdrop, through its own close guard.
+- The operator's inputs appear in the history; chat stays in the chat.
+- Photo views are recorded, and runs of the same action are grouped.
+- Web reads: exact URLs for pages the agent cites, shown as agent-reported; proxy hosts later.
+- The session page is batch-scoped and shown as a conversation (option B). It has a message box, and questions are answered in place with the same form as the drawer.
+- The activity popover gets stage rows, counts, a status line and new bar states. It is wider on desktop.
+
+Assumptions:
+
+- An option label is up to 80 characters, with an optional detail of up to 160.
+- "Something else" is allowed per step by the agent (`other: true`), on by default for choice steps.
+- A number step needs a live lot subject. "Answer in words" turns that step's value into text, and the lot quantity is then unchanged.
+- A stepped answer is sent once, after the summary. Partial answers are not sent.
+- The history read returns 200 entries per page; the drawer reads the newest page only.
