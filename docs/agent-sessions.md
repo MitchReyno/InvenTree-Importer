@@ -444,7 +444,7 @@ A lot has one current **identity**, built in layers. Examine publishes the base 
 
 **What changes when an amendment lands**
 
-- **The lot's key details:** the lot's proposed label and its draft Part are updated, when the lot is agent-made and the operator hasn't edited them, for example "Reel TK-1N4148" becomes "1N4148W-7-F diodes (TK-1N4148)". On an edited lot they become suggestions the operator accepts in Review, as for Examine's suggestions today.
+- **The lot's key details:** the lot's proposed label and its draft Part are updated, when the lot is agent-made and the operator hasn't edited them, for example "Reel TK-1N4148" becomes "1N4148W-7-F diodes (TK-1N4148)". On an edited lot they become suggestions the operator accepts in Review. Today's edited-lot suggestions cover observation membership only (`capture/evidence-observations.ts:541-555`), so task 4 adds label and draft Part suggestions.
 - **Pins:** successors pin to the merged identity's revision, not to Examine's proposal alone. Images and a later Research session start from the refined identity.
 - **Match:** Match searches with the merged keys: pass 2, or a late match.
 - **Examine:** Examine receives a `revision/2` naming the added and refined fields. Its later identity proposals build on them instead of reverting them.

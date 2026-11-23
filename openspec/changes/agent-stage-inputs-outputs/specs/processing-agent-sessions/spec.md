@@ -176,11 +176,11 @@ Session instructions SHALL weigh human-provided facts above the evidence as the 
 
 ### Requirement: Questions are not asked twice
 
-`ask` SHALL return the existing question, storing nothing, when an open or answered question already covers the same subject and overlapping fields, unless the new question names evidence or a conflict the earlier one did not.
+In a session whose input is `bench-intake-input/7`, `ask` SHALL return the existing question, storing nothing, when an open or answered question already covers the same subject and overlapping fields, unless the new question names evidence or a conflict the earlier one did not.
 
 #### Scenario: Examine already asked
 
-- **GIVEN** an answered question on the lot about identity and quantity
+- **GIVEN** an answered question on the lot about identity and quantity, and a `/7` Research session
 - **WHEN** Research asks about the same fields with no new evidence
 - **THEN** ask returns the answered question and its answer, and nothing new appears in Needs you.
 

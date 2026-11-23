@@ -153,7 +153,7 @@ No new third-party runtime dependency is needed: the decoder already ships `shar
 
 ## Delivery and parallel work
 
-The work is eleven PRs after the plan. Tasks › "Parallel work" sets out exactly which can be built at the same time: six waves, with up to three PRs in progress at once and a critical path of PR-A → PR-B → PR-C → PR-D → PR-F → PR-G2. Mitch applied two re-carvings on 2026-11-23: the media decoder ports (PR-E1) start in wave 1, separate from the image tools and review (PR-E2), and the profile scaffold, packs and guides (PR-G1) land early behind the test-only switch, separate from activation and the live run (PR-G2). PR-A now waits for BI-019's early PR-D1 rather than its history read. Two further re-carvings stay proposals.
+The work is eleven PRs after the plan. Tasks › "Parallel work" sets out exactly which can be built at the same time: six waves, with up to three PRs in progress at once and a critical path of six PRs, PR-A → PR-B → PR-C → PR-D, then PR-F or PR-I, then PR-G2. Mitch applied two re-carvings on 2026-11-23: the media decoder ports (PR-E1) start in wave 1, separate from the image tools and review (PR-E2), and the profile scaffold, packs and guides (PR-G1) land early behind the test-only switch, separate from activation and the live run (PR-G2). PR-A now waits for BI-019's early PR-D1 rather than its history read. Two further re-carvings stay proposals.
 
 ## Open decisions and assumptions
 

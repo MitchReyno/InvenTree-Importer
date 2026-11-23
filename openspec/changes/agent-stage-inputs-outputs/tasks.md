@@ -32,7 +32,7 @@
 | 10. Image tools and the Images review | Intake server, frontend | 2, 5 | agent-sessions "Image and logo tools run in the app", "Stage tool sets" (image tools); workspace "Images step shows proposed crops" |
 | 6. Outputs into records and approval, and validation before approval | Intake server, frontend | 3, 4, 10 | review-records "Agent values are proposed until confirmed"; approval-preparation both requirements; match "Validation before approval", "Validation searches are preparation reads", "Approval checks the latest search" |
 | 7. Profile scaffold, instruction packs and guides | Intake server, migration | 1 | agent-sessions "Human facts take precedence" (instructions), "Stage guides on demand" |
-| 11. Activation, cutover and live requalification | Intake server, migration, live | 1–10 | agent-sessions "Stage tool sets" (admission); the cutover and activation scenarios; live evidence |
+| 11. Activation, cutover and live requalification | Intake server, migration, live | 1–10; BI-019 PR-F | agent-sessions "Stage tool sets" (admission); the cutover and activation scenarios; live evidence |
 | 8. The brief on the session page | Frontend | 1; BI-019 PR-E | workspace "The brief on the session page" |
 | 9. Multi-lot Research and Images sessions | Contracts, intake server, migration, frontend | 3, 4, 10; BI-019 PR-E and PR-G | agent-sessions "Research and Images sessions serve lot groups", "Lots per session settings", "Per-lot handling inside a group", "Lots leave a group individually", "Proposals name their lot"; agent-sessions "Resume idle sessions for pending input" ("Chat for a held lot"); pipeline "Selective rework from answers and edits" (the `/7` group case) and "Evidence-based currentness" (the `/7` pins); workspace "Sessions show the lots they serve" |
 
@@ -50,14 +50,14 @@
 | PR-F | Outputs into records and approval, and validation before approval | 6 | Everything that reaches InvenTree, reviewed together | PR-C, PR-D, PR-E2 | `interactive-app` ← `feat/agent-stage-inputs-outputs-records`; `feat(agent-stage-inputs-outputs): confirmed agent output reaches records and approval` | Intake tiers including execution tests, frontend checks; review; CI |
 | PR-I | Multi-lot Research and Images sessions | 9 | One session model change with its settings, claim, routing and UI | PR-D, PR-E2; BI-019 PR-E and PR-G | `interactive-app` ← `feat/agent-stage-inputs-outputs-lot-groups`; `feat(agent-stage-inputs-outputs): run research and images sessions over several lots` | Contracts tests, intake tiers, frontend checks; demo video; review; CI |
 | PR-G1 | The profile scaffold, instruction packs and guides, behind the test-only switch | 7 | Lets the long pack and guide work start early; nothing selects the profile yet | PR-A | `interactive-app` ← `feat/agent-stage-inputs-outputs-profile-scaffold`; `feat(agent-stage-inputs-outputs): add the stage profile, packs and guides` | Profile and guide tests, intake tiers; Mitch's review of the wording; review; CI |
-| PR-G2 | Activation, cutover and the live requalification | 11 | The behaviour change and its live proof together | All other PRs; Mitch's go-ahead for the live run | `interactive-app` ← `feat/agent-stage-inputs-outputs-activation`; `feat(agent-stage-inputs-outputs): switch on the stage profile` | Admission tests, intake tiers, live evidence on the PR; review; CI |
+| PR-G2 | Activation, cutover and the live requalification | 11 | The behaviour change and its live proof together | All other PRs; BI-019 PR-F (the popover's Match row); Mitch's go-ahead for the live run | `interactive-app` ← `feat/agent-stage-inputs-outputs-activation`; `feat(agent-stage-inputs-outputs): switch on the stage profile` | Admission tests, intake tiers, live evidence on the PR; review; CI |
 | PR-H | The brief on the session page | 8 | UI over PR-A, after the page exists | PR-A; BI-019 PR-E | `interactive-app` ← `feat/agent-stage-inputs-outputs-brief-page`; `feat(agent-stage-inputs-outputs): show the brief a session started from` | Frontend checks; demo video; review; CI |
 
 ## Parallel work
 
 How the PR map above lets work run at the same time. A PR can start once every PR it depends on has merged; PRs in the same wave share no dependency on each other and can be built by separate people or agents at once.
 
-**External gates** (BI-019, PR #243): BI-022 PR-A waits for BI-019 PR-D1; PR-B waits for BI-019 PR-B and PR-D1; PR-C waits for BI-019 PR-B; PR-H waits for BI-019 PR-E; PR-I waits for BI-019 PR-E and PR-G.
+**External gates** (BI-019, PR #243): BI-022 PR-A waits for BI-019 PR-D1; PR-B waits for BI-019 PR-B and PR-D1; PR-C waits for BI-019 PR-B; PR-H waits for BI-019 PR-E; PR-I waits for BI-019 PR-E and PR-G; PR-G2 waits for BI-019 PR-F.
 
 | Wave | Can run in parallel | Waits for |
 | --- | --- | --- |
@@ -66,9 +66,9 @@ How the PR map above lets work run at the same time. A PR can start once every P
 | 3 | PR-C · PR-E2 | PR-B (both); BI-019 PR-B (PR-C); PR-E1 (PR-E2) |
 | 4 | PR-D | PR-C (PR-E2 may still be in progress) |
 | 5 | PR-F · PR-I | PR-C, PR-D and PR-E2 (PR-F); PR-D, PR-E2, BI-019 PR-E and PR-G (PR-I) |
-| 6 | PR-G2 | everything else; Mitch's go-ahead for the live run |
+| 6 | PR-G2 | everything else; BI-019 PR-F; Mitch's go-ahead for the live run |
 
-- **Critical path:** PR-A → PR-B → PR-C → PR-D → PR-F → PR-G2, six PRs in sequence. PR-E1, PR-E2, PR-G1, PR-H and PR-I have slack.
+- **Critical path:** PR-A → PR-B → PR-C → PR-D → PR-F → PR-G2 and PR-A → PR-B → PR-C → PR-D → PR-I → PR-G2, six PRs in sequence each; the BI-019 gates and actual PR durations decide which is longer. PR-E1, PR-E2, PR-G1 and PR-H have slack.
 - **Most parallel moment:** wave 2, three PRs; waves 1, 3 and 5 have two each. PR-H can run alongside anything from wave 2 on.
 - **Conflicts to expect between parallel PRs:** PR-C and PR-E2 both add session tools to `agents/tools/server.ts` and `handlers.ts` and both add migrations, so whichever merges second rebases and renumbers its migration. PR-F and PR-I both touch the Processing read and session rows.
 
@@ -105,9 +105,9 @@ With suggestions 3 and 4 also applied, PR-C1 and PR-F1 would join wave 2 and wav
 - **TDD approach:** PG tests for assembly of each section, the human marking, the asked-list scope, regions, budget summaries, the retained-input cap, read-tool scope and paging, an edit between queueing and the first page read, an edit to a field held only in a page, and a retained synthetic `/6` lead receiving new evidence without queueing `/7` successors fail first.
 - **Verification:** contracts tests, and `pnpm db:intake test` and `test:process` (with the decoder and probe images).
 
-- [ ] 1.1 Read the code guidelines, the intake architecture and the doc's Part 1. Correcting an observation replaces its readings in place and sets `operator_edited` (`capture/evidence-observations.ts:968-985`), so `read_batch` projects only the current markings; decide whether the brief needs the earlier reading, and record the decision in `notes.md`.
+- [ ] 1.1 Read the code guidelines, the intake architecture and the doc's Part 1. Correcting an observation replaces its readings in place and sets `operator_edited` (`capture/evidence-observations.ts:968-985`), so `read_batch` projects only the current markings; the brief's corrections need the reading before and after, so task 1 retains it.
 - [ ] 1.2 RED: contract and PG tests for the brief, `/7`, `read_lot`, `read_batch` with full readings, and the stage-instructions claim check.
-- [ ] 1.3 GREEN: implement them, retaining earlier readings if 1.1 decided the brief needs them. The before-and-after brief test drives a real observation correction.
+- [ ] 1.3 GREEN: implement them, retaining the earlier reading, author and time when an observation is corrected. A correction made before this change shows its current reading marked as corrected, with the earlier reading not known. The before-and-after brief test drives a real observation correction.
 - [ ] 1.4 Add a process test with a fake session reading its brief. Update `intake-server/src/agents/ARCHITECTURE.md`, and run the tiers.
 
 ## 2. Typed outputs, boundaries, revisions and no repeated questions
@@ -117,7 +117,7 @@ With suggestions 3 and 4 also applied, PR-C1 and PR-F1 would join wave 2 and wav
   - the typed proposals and their stage and mode checks;
   - `revision/2` with typed changes from every sender;
   - Examine woken by operator corrections;
-  - `ask` returning an existing question unless it names new evidence;
+  - `ask` in `/7` sessions returning an existing question unless it names new evidence or a new conflict;
   - the release of a `photo_view` recorded by the native adapter or synthetic driver that hands the image over, and citations admitted only for a released view on the current attempt; the VM relay's acknowledgement is task 11's.
 - **Scope:** the contracts, `agents/tools/handlers.ts`, `processing/currentness.ts`, `stable-identity.ts`, `session-answers.ts`, and the capture correction paths.
 - **TDD approach:** PG tests for kind and field refusals, a `/7` `propose_lot` estimate refused while one `examine-identity/1` estimate reaches Review, each revision sender's changes, the correction wake, the duplicate-check cases, a withheld reply, a native response write that fails, a view from an older attempt, a released view cited after a worker restart, and a synthetic fetch followed by an admitted citation fail first.
@@ -163,7 +163,7 @@ With suggestions 3 and 4 also applied, PR-C1 and PR-F1 would join wave 2 and wav
 - **Outcome:**
   - Research identify mode publishing `research-identity/1` and pausing;
   - the merged identity with per-field sources and an identity revision that successors pin;
-  - label and draft Part proposals for agent-made, unedited lots;
+  - label and draft Part proposals for agent-made, unedited lots, and new label and draft Part suggestions for edited lots, since today's edited-lot suggestions cover observation membership only;
   - replacing amendments opening a question;
   - Match passes 2 and late matches.
 - **Scope:** `processing/stable-identity.ts` (merged identity), `capture/` (proposed lot edits), the match module, and inbox `match` items.
@@ -262,7 +262,7 @@ With suggestions 3 and 4 also applied, PR-C1 and PR-F1 would join wave 2 and wav
   - the cutover: the drain fence and the drain's completion check for `/3`, and the upgrade action, superseding the batch's queued or waiting earlier-version successors, for a finished or idle earlier-profile lead (`processing/session-replacement.ts` and the session drawer);
   - `tooling/dev/` and the README;
   - the live harness.
-- **Prerequisites:** tasks 1–10; Mitch's go-ahead for the live run.
+- **Prerequisites:** tasks 1–10; BI-019 PR-F, so the popover's Match row ships with activation; Mitch's go-ahead for the live run.
 - **TDD approach:** admission and profile tests fail first, with a paired `/4` turn with sealed web on and off and a protected origin refused, the VM release acknowledgement through the isolated relay (guest staging failing after the view commits, a response write failing after staging succeeds, an immediate citation behind a delayed acknowledgement, an acknowledgement whose commit is delayed past the bound, and an acknowledgement that never arrives, which leaves the view uncitable and the turn running), retained `/3` attempts draining on a `/3` worker before cutover, a batch with a retained lead across the cutover, evidence arriving during a running `/3` turn and on a batch without a lead, an answered waiting lead carried into its upgrade, a still-open question answered after the upgrade, a Start during the Examine trigger's quiet period waiting for the `/7` lead, a cutover starting with a paused batch and a gated Inventory attempt, and upgrading a finished lead with pending evidence and retained history. The live run is manual evidence.
 - **Verification:** intake tiers, plus live runs on `bench-agent-m1-local` recorded on the PR. They cover an exact match decided before research, a house-numbered item identified then matched, and Images producing a Part image.
 - **Risks and decisions:** the live run is a sample, not a guarantee.
