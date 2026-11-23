@@ -22,6 +22,12 @@ The executor SHALL apply only plans whose version, build and capability match a 
 - **WHEN** the operator activates the `/3` deployment
 - **THEN** new earlier-version approvals are fenced under the target lock, and activation is refused until that run settles on its own runner, so one writer holds the target.
 
+#### Scenario: Writer still stopping
+
+- **GIVEN** a `bench-effects-plan/2` run whose authorized request is still open after cancellation was requested
+- **WHEN** the operator activates the `/3` deployment
+- **THEN** activation waits until the earlier writer's child exit is confirmed, whatever the run's projected state.
+
 #### Scenario: Verification alone doesn't block the switch
 
 - **GIVEN** a settled `bench-effects-plan/2` run that offers only `verify_effect`

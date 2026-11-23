@@ -48,7 +48,7 @@ An import reference hit SHALL be an original-contribution hit, not an identity c
 
 ### Requirement: Earlier-run details follow run access
 
-An original-contribution hit SHALL block the lot across the whole target. Its question SHALL link the earlier run and report its stock status only when the operator may read that run; otherwise it SHALL say only that the contribution was already approved.
+An original-contribution hit SHALL block the lot across the whole target. Its question and any pass-3 finding SHALL link the earlier run and report its stock status only when the operator may read that run; otherwise it SHALL say only that the contribution was already approved.
 
 #### Scenario: Hit from another actor
 

@@ -61,3 +61,13 @@ The transport SHALL add bounded list reads for Match: `search_parts`, `list_manu
 - **GIVEN** a `list_supplier_parts` read carrying an unnamed `ordering` or a raw query string
 - **WHEN** it is requested
 - **THEN** it is refused before any request is sent.
+
+### Requirement: Part-scoped reads name their model
+
+`list_part_parameters` and `list_part_attachments` SHALL take a validated Part PK and send their own fixed `model_type` with it as `model_id`.
+
+#### Scenario: Another model with the same id
+
+- **GIVEN** a parameter on Part 12 and another on a different model with id 12
+- **WHEN** Match sends `list_part_parameters` for Part 12
+- **THEN** the request carries the Part model type and `model_id=12`, and only the Part's parameter is read.
