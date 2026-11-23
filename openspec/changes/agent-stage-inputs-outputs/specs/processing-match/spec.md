@@ -114,10 +114,16 @@ Match's validation searches SHALL be preparation target reads, each with its com
 
 ### Requirement: Approval checks the latest search
 
-A preparation SHALL record each selected `/7` lot's validation search generation. Approval SHALL refuse it when a newer search for a lot has been requested, settled or not, or when the validation read failed.
+A preparation SHALL record each selected `/7` lot's validation search generation. Approval SHALL refuse it when a newer search for a lot has been requested, settled or not, when the validation read failed, or when the batch's lead is now `/7` and a selected lot has no recorded successful validation. An approval that already committed SHALL replay unchanged.
 
 #### Scenario: Check again before approval
 
 - **GIVEN** a prepared batch whose lot passed validation
 - **WHEN** the operator asks Match to check that lot again and approves before the search settles
 - **THEN** approval is refused until a new validation passes.
+
+#### Scenario: Prepared before an upgrade
+
+- **GIVEN** a preparation made while the batch's lead was `/6`
+- **WHEN** the lead is upgraded to `/7` and the operator approves that preparation
+- **THEN** approval is refused until a preparation with Match's validation exists.

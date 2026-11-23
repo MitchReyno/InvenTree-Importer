@@ -28,6 +28,54 @@ A session whose input is `bench-intake-input/7` (`shared-vm-agent/4` or `synthet
 - **WHEN** a fresh or resumed turn is admitted
 - **THEN** that configuration fails offline qualification or is refused by admission/runtime checks; a runtime refusal does not undo an already executed action. An incomplete init list alone is not qualification evidence.
 
+### Requirement: Resume idle sessions for pending input
+
+When a waiting, paused or finished session has a pending inbox item, the system SHALL schedule a resume of that session's provider conversation with the queued items, within the concurrency limit.
+
+For `/7` work, an item for a lot that Match holds SHALL NOT wake the session; it stays pending until that lot's wait ends. A `match` item that ends a held lot's wait SHALL wake it.
+
+#### Scenario: Chat with a finished session
+
+- **GIVEN** a session that has finished
+- **WHEN** the operator sends a chat message
+- **THEN** the message is queued, the session's provider conversation is resumed with it, and the agent's reply appears in that session's chat.
+
+#### Scenario: Resume fails
+
+- **GIVEN** a queued inbox item for a finished session whose provider conversation cannot be resumed (for example, a missing transcript or a sign-in failure)
+- **WHEN** the resume is attempted
+- **THEN** the item stays pending, the session shows a typed waiting-for-login or resume-unavailable state, and the operator can start a fresh session that receives the pending items.
+
+#### Scenario: Chat for a held lot
+
+- **GIVEN** a parked `/7` Research session whose only lot waits on its match question
+- **WHEN** the operator sends it a chat message, and later answers the match question
+- **THEN** the chat alone doesn't resume the session, and the decision's `match` item resumes it with the chat delivered first.
+
+### Requirement: Authoritative citations for fetched evidence
+
+A successful fetch_evidence delivery SHALL include the complete source reference accepted by proposal validation, including exact evidence/version identity and authoritative SHA-256. Preview and crop bytes MUST NOT be mistaken for the cited original version's digest. Merely receiving a notice or knowing a digest SHALL NOT establish delivery authority.
+
+For `/7` sessions, delivery authority SHALL be a release recorded for the view on the current attempt. A recorded release SHALL survive a worker restart for that attempt; a view without one SHALL be fetched again.
+
+#### Scenario: New evidence during a session
+
+- **GIVEN** a same-batch evidence notice delivered after the initial manifest
+- **WHEN** the session successfully fetches that version and cites the returned source reference
+- **THEN** source validation accepts the delivered reference subject to existing currentness checks.
+
+#### Scenario: Failed or unauthorized fetch
+
+- **GIVEN** a wrong-batch version, failed byte delivery or exhausted budget
+- **WHEN** fetch_evidence is attempted
+- **THEN** no delivery authority is granted and a subsequent citation is refused; after worker restart evidence must be fetched again under the existing delivery rules.
+
+#### Scenario: Released view after a restart
+
+- **GIVEN** a `/7` session whose fetch of a photo has a recorded release, and another fetch whose release was never recorded
+- **WHEN** the worker restarts and the same attempt continues and cites both
+- **THEN** the released view's citation is accepted, and the other is refused until the photo is fetched again.
+
 ## ADDED Requirements
 
 ### Requirement: Stage tool sets
