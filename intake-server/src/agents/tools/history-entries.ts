@@ -14,6 +14,7 @@ import {
   type SessionInboxItemDto,
   type SessionOutboxItemDto,
   type SessionProposalDto,
+  type RegroupMoveDto,
 } from '@invimport/contracts'
 import { fail } from '#/processing/model.ts'
 import { decodeSessionInput } from '#/processing/session-input.ts'
@@ -79,7 +80,6 @@ function inboxEntryId(item: SessionInboxItemDto) {
 function referencedIds(rows: readonly HistoryRow[], capture: CaptureSnapshotDto) {
   const ids = {
     observations: new Set<string>(),
-    lots: new Set<string>(),
     proposalAttempts: new Set<string>(),
     questions: new Set<string>(),
     instructions: new Set<string>(),
@@ -90,7 +90,6 @@ function referencedIds(rows: readonly HistoryRow[], capture: CaptureSnapshotDto)
     if (item.kind === 'observation') {
       ids.observations.add(item.payload.evidence_observation_id)
     } else if (item.kind === 'lot') {
-      ids.lots.add(item.payload.lot_id)
       for (const id of lots.get(item.payload.lot_id)?.evidence_observation_ids ?? []) {
         ids.observations.add(id)
       }
@@ -156,23 +155,6 @@ async function evidenceDirectory(client: PoolClient, batchId: string) {
 
 type EvidenceDirectory = Awaited<ReturnType<typeof evidenceDirectory>>
 
-/** Each lot's first `lot` entry in the lineage, which formed it; later ones extended it. */
-async function lotFormingEntries(client: PoolClient, jobId: string, lotIds: Set<string>) {
-  if (!lotIds.size) {
-    return new Map<string, string>()
-  }
-  const rows = await client.query<{ lot_id: string; session_id: string; seq: string }>(
-    `SELECT DISTINCT ON (o.payload->>'lot_id') o.payload->>'lot_id' AS lot_id, o.session_id,
-            o.seq::text
-       FROM public.agent_session_outbox o
-       JOIN public.agent_session s ON s.attempt_id=o.session_id
-      WHERE s.session_lineage_id=$1 AND o.kind='lot' AND o.payload->>'lot_id' = ANY($2::text[])
-      ORDER BY o.payload->>'lot_id', o.created_at, o.session_id, o.seq`,
-    [jobId, [...lotIds]],
-  )
-  return new Map(rows.rows.map((row) => [row.lot_id, `outbox:${row.session_id}:${row.seq}`]))
-}
-
 interface RetainedProposal {
   id: string
   attemptId: string
@@ -181,8 +163,9 @@ interface RetainedProposal {
 }
 
 /**
- * Every proposal of the attempts that have one on the page, in outbox order, so a web read is
- * linked to the first proposal of its attempt that cites the page, even one on an older page.
+ * Every proposal of the attempts that have one on the page, in each attempt's outbox sequence
+ * (not creation time, which is a transaction's start), so a web read is linked to the first
+ * proposal of its attempt that cites it, even one on an older page.
  */
 async function proposalsOfAttempts(
   client: PoolClient,
@@ -218,7 +201,7 @@ async function proposalsOfAttempts(
        JOIN public.agent_session_outbox o
          ON o.session_id=p.attempt_id AND o.kind='proposal' AND o.payload->>'proposal_id'=p.id::text
       WHERE a.job_id=$1 AND p.attempt_id = ANY($2::uuid[])
-      ORDER BY o.created_at, o.session_id, o.seq`,
+      ORDER BY o.session_id, o.seq`,
     [context.job.id, [...attemptIds]],
   )
   const versions = await batchVersions(client, context.job.batchId)
@@ -284,6 +267,48 @@ function firstWebCitations(proposals: Map<string, RetainedProposal>) {
     first.set(proposal.id, indexes)
   }
   return first
+}
+
+/**
+ * The notes the page's proposals cite: capture notes from the snapshot, evidence notes from one
+ * read of their rows.
+ */
+async function notesById(
+  client: PoolClient,
+  context: HistoryContext,
+  proposals: Map<string, RetainedProposal>,
+) {
+  const cited = new Set<string>()
+  for (const proposal of proposals.values()) {
+    for (const source of proposal.value.sources) {
+      if (source.kind === 'note') {
+        cited.add(source.note_id)
+      }
+    }
+  }
+  const notes = new Map<string, { text: string; subjectId: string | null; evidenceId?: string }>()
+  for (const note of context.capture.notes) {
+    if (cited.has(note.id)) {
+      notes.set(note.id, { text: note.text, subjectId: note.subject_id })
+    }
+  }
+  const missing = [...cited].filter((id) => !notes.has(id))
+  if (!missing.length) {
+    return notes
+  }
+  const rows = await client.query<{ id: string; evidence_id: string; text: string }>(
+    `SELECT id, evidence_id, text FROM public.media_evidence_note
+      WHERE batch_id=$1 AND id = ANY($2::uuid[])`,
+    [context.job.batchId, missing],
+  )
+  for (const row of rows.rows) {
+    notes.set(row.id, {
+      text: row.text.trim() ? row.text : 'Evidence note',
+      subjectId: null,
+      evidenceId: row.evidence_id,
+    })
+  }
+  return notes
 }
 
 interface RetainedQuestion {
@@ -384,7 +409,7 @@ interface Resolved {
   parts: Map<string, CaptureSnapshotDto['parts'][number]>
   observations: Awaited<ReturnType<typeof observationsById>>
   evidence: EvidenceDirectory
-  lotForming: Map<string, string>
+  notes: Awaited<ReturnType<typeof notesById>>
   proposals: Map<string, RetainedProposal>
   webCitations: Map<string, number[]>
   currentness: Awaited<ReturnType<typeof proposalCurrentnessFacts>>
@@ -472,9 +497,11 @@ function observationEntry(resolved: Resolved, item: OutboxOf<'observation'>): Bu
   }
 }
 
-function lotEntry(resolved: Resolved, entryId: string, item: OutboxOf<'lot'>): Built {
+const LOT_VERBS = { formed: 'Formed', extended: 'Extended', suggested: 'Suggested changes to' }
+
+function lotEntry(resolved: Resolved, item: OutboxOf<'lot'>): Built {
   const lot = resolved.lots.get(item.payload.lot_id)
-  const formed = resolved.lotForming.get(item.payload.lot_id) === entryId
+  const outcome = item.payload.outcome ?? null
   const observations = (lot?.evidence_observation_ids ?? []).flatMap((id) => {
     const current = currentObservation(resolved, id)
     return current ? [current] : []
@@ -485,7 +512,8 @@ function lotEntry(resolved: Resolved, entryId: string, item: OutboxOf<'lot'>): B
       : null
   const label = lot ? lot.label : 'a lot'
   return {
-    summary: oneLine(`${formed ? 'Formed' : 'Updated'} ${label}`),
+    // An item recorded before outcomes were kept doesn't say whether it formed the lot.
+    summary: oneLine(`${outcome ? LOT_VERBS[outcome] : 'Proposed'} ${label}`),
     links: lotLinks(resolved, item.payload.lot_id),
     details: {
       kind: 'lot',
@@ -502,11 +530,26 @@ function lotEntry(resolved: Resolved, entryId: string, item: OutboxOf<'lot'>): B
           }
         : null,
       current: true,
-      formed,
+      outcome,
       // propose_lot records no reason for keeping a lot separate.
       not_retained: ['separation_reason'],
     },
   }
+}
+
+function regroupSummary(moves: readonly RegroupMoveDto[]) {
+  const count = (outcome: RegroupMoveDto['outcome']) =>
+    moves.filter((move) => move.outcome === outcome).length
+
+  const observations = (n: number) => `${n} ${n === 1 ? 'observation' : 'observations'}`
+
+  const parts = [
+    count('applied') ? `moved ${observations(count('applied'))}` : '',
+    count('suggested') ? `suggested moving ${observations(count('suggested'))}` : '',
+    count('unchanged') ? `${count('unchanged')} already in place` : '',
+  ].filter(Boolean)
+  const text = parts.join(', ')
+  return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
 function regroupEntry(resolved: Resolved, item: OutboxOf<'regroup'>): Built {
@@ -519,12 +562,7 @@ function regroupEntry(resolved: Resolved, item: OutboxOf<'regroup'>): Built {
   const links = affected.map((id) => lotLink(resolved, id))
   let summary: string
   if (moves) {
-    const suggested = moves.filter((move) => move.outcome === 'suggested').length
-    const noun = moves.length === 1 ? 'observation' : 'observations'
-    summary = `Moved ${moves.length} ${noun}`
-    if (suggested) {
-      summary += `, ${suggested} only suggested`
-    }
+    summary = regroupSummary(moves)
   } else {
     const labels = lotIds.map((id) => resolved.lots.get(id)?.label ?? 'a lot')
     summary = `Regrouped observations into ${labels.join(', ')}`
@@ -547,10 +585,27 @@ function proposalCurrentnessOf(resolved: Resolved, proposalId: string): Currentn
   return { state: 'current' }
 }
 
+function noteLink(resolved: Resolved, noteId: string): SessionHistoryLinkDto {
+  const note = resolved.notes.get(noteId)
+  if (!note) {
+    return { kind: 'gone', target: 'note', label: 'Note no longer exists' }
+  }
+  return {
+    kind: 'note',
+    note_id: noteId,
+    subject_id: note.subjectId,
+    ...(note.evidenceId ? { evidence_id: note.evidenceId } : {}),
+    label: oneLine(note.text, LABEL_MAX_CHARACTERS),
+  }
+}
+
 function sourceLinks(resolved: Resolved, proposal: SessionProposalDto): SessionHistoryLinkDto[] {
   return proposal.sources.flatMap((source): SessionHistoryLinkDto[] => {
     if (source.kind === 'media_version') {
       return [evidenceLink(resolved, source.version_id, 1)]
+    }
+    if (source.kind === 'note') {
+      return [noteLink(resolved, source.note_id)]
     }
     if (source.kind === 'web_page') {
       return [
@@ -766,7 +821,7 @@ function evidenceEntry(
   }
 }
 
-function outboxEntry(resolved: Resolved, entryId: string, item: SessionOutboxItemDto): Built {
+function outboxEntry(resolved: Resolved, item: SessionOutboxItemDto): Built {
   switch (item.kind) {
     case 'status':
       return {
@@ -777,7 +832,7 @@ function outboxEntry(resolved: Resolved, entryId: string, item: SessionOutboxIte
     case 'observation':
       return observationEntry(resolved, item)
     case 'lot':
-      return lotEntry(resolved, entryId, item)
+      return lotEntry(resolved, item)
     case 'regroup':
       return regroupEntry(resolved, item)
     case 'proposal':
@@ -845,8 +900,8 @@ export async function resolveHistoryEntries(
     parts: new Map(context.capture.parts.map((part) => [part.id, part])),
     observations: await observationsById(client, context.job.batchId, ids.observations),
     evidence: await evidenceDirectory(client, context.job.batchId),
-    lotForming: await lotFormingEntries(client, context.job.id, ids.lots),
     proposals,
+    notes: await notesById(client, context, proposals),
     webCitations: firstWebCitations(proposals),
     currentness: proposals.size
       ? await proposalCurrentnessFacts(client, context.job.batchId, [...proposals.keys()])
@@ -870,7 +925,7 @@ export async function resolveHistoryEntries(
         at: row.item.created_at,
         who: 'agent',
         attempt: row.attemptNumber,
-        ...outboxEntry(resolved, id, row.item),
+        ...outboxEntry(resolved, row.item),
       }
       entries.push(entry)
       if (row.item.kind === 'proposal') {

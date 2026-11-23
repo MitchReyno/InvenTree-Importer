@@ -334,6 +334,8 @@ export async function nextSessionAttempt(
   number: number,
   profile: Parameters<typeof sessionLotInputManifest>[4],
   state: 'running' | 'queued' = 'running',
+  /** False for an attempt of a profile without sessions, which has no session row. */
+  withSession = true,
 ) {
   const ids = { attempt: randomUUID(), input: randomUUID(), command: randomUUID() }
   await transaction(fixture.db.pool, async (client) => {
@@ -384,10 +386,12 @@ export async function nextSessionAttempt(
         state,
       ],
     )
-    await client.query(
-      'INSERT INTO agent_session(attempt_id,session_state,session_lineage_id) VALUES($1,$2,$3)',
-      [ids.attempt, state, session.job],
-    )
+    if (withSession) {
+      await client.query(
+        'INSERT INTO agent_session(attempt_id,session_state,session_lineage_id) VALUES($1,$2,$3)',
+        [ids.attempt, state, session.job],
+      )
+    }
     await client.query('UPDATE processing_job SET current_attempt_id=$2, state=$3 WHERE id=$1', [
       session.job,
       ids.attempt,

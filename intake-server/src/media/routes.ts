@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { Pool } from 'pg'
-import { Id, Revision, schemas, type MediaEditDto } from '@invimport/contracts'
+import { Id, Revision, schemas, validInt64, type MediaEditDto } from '@invimport/contracts'
 import { CommandPayloadConflict } from '#/db/authority.ts'
 import { bootstrap, type DevConfig } from '#/config.ts'
 import { CaptureError, fail } from '#/capture/model.ts'
@@ -193,7 +193,11 @@ export function registerMediaRoutes(
         const values = request.params as Record<string, unknown>
         const batchId = identifier(values.batchId)
         const seq = values.seq
-        if (typeof seq !== 'string' || !new RegExp(Revision.pattern!).test(seq)) {
+        if (
+          typeof seq !== 'string' ||
+          !validInt64(seq) ||
+          !new RegExp(Revision.pattern!).test(seq)
+        ) {
           fail('invalid_id', 400)
         }
         const view = {

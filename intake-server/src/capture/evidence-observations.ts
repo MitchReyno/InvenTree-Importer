@@ -11,6 +11,7 @@ import type {
   RecordObservationArgsDto,
   RegroupArgsDto,
   RegroupMoveDto,
+  LotFormingOutcomeDto,
 } from '@invimport/contracts'
 import { lotItemCount } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
@@ -42,7 +43,9 @@ export type LotFormingResult =
       id: string
       suggested: boolean
       partSubjectId?: string
-      /** `regroup` only: each move with its source lot and whether it applied or was suggested. */
+      /** `propose_lot` only: whether it formed, extended or only suggested for the lot. */
+      lotOutcome?: LotFormingOutcomeDto
+      /** `regroup` only: each move with its source lot and outcome. */
       moves?: RegroupMoveDto[]
     }
   | { ok: false; error: 'stale'; revision: string; conflicts: LotFormingConflictDto[] }
@@ -560,7 +563,7 @@ export async function proposeLot(
         )
       }
       const revision = await locked.finish({ tool: 'propose_lot', ...args }, writer.sessionId)
-      return { ok: true, revision, id: lotId, suggested: true }
+      return { ok: true, revision, id: lotId, suggested: true, lotOutcome: 'suggested' }
     }
     // A new draft Part counts towards the subject limit here too.
     if (args.part && 'label' in args.part && subjects.length + 1 > MAX_LOTS_AND_PARTS) {
@@ -646,7 +649,14 @@ export async function proposeLot(
     { tool: 'propose_lot', ...args, id: lotId },
     writer.sessionId,
   )
-  return { ok: true, revision, id: lotId, suggested, partSubjectId: createdPartId }
+  return {
+    ok: true,
+    revision,
+    id: lotId,
+    suggested,
+    partSubjectId: createdPartId,
+    lotOutcome: args.lot_id ? 'extended' : 'formed',
+  }
 }
 
 /** `regroup`: moves observations between AI lots; edited rows only receive suggestions. */
@@ -676,11 +686,16 @@ export async function regroup(
     const from = row.lotId ? lots.get(row.lotId) : undefined
     const to = lots.get(move.to_lot_id)!
     const onlySuggested = editedObservation(row) || editedLot(to) || (from && editedLot(from))
+    let outcome: RegroupMoveDto['outcome'] = onlySuggested ? 'suggested' : 'applied'
+    // Already in that lot: setActiveLot changes nothing.
+    if (!onlySuggested && row.lotId === move.to_lot_id) {
+      outcome = 'unchanged'
+    }
     moves.push({
       observation_id: move.observation_id,
       from_lot_id: row.lotId,
       to_lot_id: move.to_lot_id,
-      outcome: onlySuggested ? 'suggested' : 'applied',
+      outcome,
     })
     if (onlySuggested) {
       await suggestMembership(

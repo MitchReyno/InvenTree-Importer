@@ -583,6 +583,7 @@ test('a regroup records its moves with their source lots and outcomes; an older 
   const moves = [
     { observation_id: id(30), from_lot_id: id(4), to_lot_id: id(5), outcome: 'applied' },
     { observation_id: id(31), from_lot_id: null, to_lot_id: id(5), outcome: 'suggested' },
+    { observation_id: id(32), from_lot_id: id(5), to_lot_id: id(5), outcome: 'unchanged' },
   ]
   validate('SessionOutboxItem', {
     ...outboxBase,
@@ -590,6 +591,21 @@ test('a regroup records its moves with their source lots and outcomes; an older 
     payload: { lot_ids: [id(5)], moves },
   })
   validate('SessionOutboxItem', { ...outboxBase, kind: 'regroup', payload: { lot_ids: [id(5)] } })
+  // A lot item may say what propose_lot did; an older one has only the lot.
+  for (const outcome of ['formed', 'extended', 'suggested']) {
+    validate('SessionOutboxItem', {
+      ...outboxBase,
+      kind: 'lot',
+      payload: { lot_id: id(4), outcome },
+    })
+  }
+  assert.throws(() =>
+    validate('SessionOutboxItem', {
+      ...outboxBase,
+      kind: 'lot',
+      payload: { lot_id: id(4), outcome: 'merged' },
+    }),
+  )
   assert.throws(() =>
     validate('SessionOutboxItem', {
       ...outboxBase,
@@ -628,7 +644,6 @@ const historyPage = (entries: unknown[], extra: object = {}) => ({
     subject_id: id(4),
     current_attempt_id: id(40),
     attempts: [historyAttempt],
-    attempts_truncated: false,
     inbox_acked_seq: '0',
   },
   entries,

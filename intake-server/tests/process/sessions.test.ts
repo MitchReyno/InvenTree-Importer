@@ -362,6 +362,12 @@ for (const provider of ['claude', 'codex'] as const) {
         const answer = history.entries.find((entry) => entry.details.kind === 'answer')
         assert.equal(answer?.summary, 'You answered: Yes, same Part · 380 estimated · Drawer R4')
         assert.ok(answer?.who === 'operator' && answer.read)
+        const lotId = h.session.manifest.subject_id!
+        assert.deepEqual(answer.details.kind === 'answer' && answer.details.effects, [
+          { kind: 'quantity', lot_id: lotId, value: '380', basis: 'estimated' },
+          { kind: 'note', subject_id: lotId },
+        ])
+        assert.ok(answer.links.some((link) => link.kind === 'lot' && link.lot_id === lotId))
         assert.deepEqual(
           history.session.attempts.map((attempt) => [attempt.number, attempt.runs_on]),
           [[1, 'host']],

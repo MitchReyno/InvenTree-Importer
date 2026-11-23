@@ -93587,6 +93587,22 @@
                         "lot_id": {
                           "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                           "type": "string"
+                        },
+                        "outcome": {
+                          "anyOf": [
+                            {
+                              "const": "formed",
+                              "type": "string"
+                            },
+                            {
+                              "const": "extended",
+                              "type": "string"
+                            },
+                            {
+                              "const": "suggested",
+                              "type": "string"
+                            }
+                          ]
                         }
                       }
                     }
@@ -93678,6 +93694,10 @@
                                   },
                                   {
                                     "const": "suggested",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "unchanged",
                                     "type": "string"
                                   }
                                 ]
@@ -94447,7 +94467,6 @@
               "subject_id",
               "current_attempt_id",
               "attempts",
-              "attempts_truncated",
               "inbox_acked_seq"
             ],
             "properties": {
@@ -94504,7 +94523,7 @@
               },
               "attempts": {
                 "minItems": 1,
-                "maxItems": 200,
+                "maxItems": 1000,
                 "type": "array",
                 "items": {
                   "additionalProperties": false,
@@ -94851,9 +94870,6 @@
                   }
                 }
               },
-              "attempts_truncated": {
-                "type": "boolean"
-              },
               "inbox_acked_seq": {
                 "pattern": "^(0|[1-9][0-9]{0,18})(?![\\s\\S])",
                 "format": "int64",
@@ -94895,7 +94911,7 @@
                       "type": "string"
                     },
                     "links": {
-                      "maxItems": 200,
+                      "maxItems": 1000,
                       "type": "array",
                       "items": {
                         "anyOf": [
@@ -95008,6 +95024,46 @@
                             "type": "object",
                             "required": [
                               "kind",
+                              "note_id",
+                              "subject_id",
+                              "label"
+                            ],
+                            "properties": {
+                              "kind": {
+                                "const": "note",
+                                "type": "string"
+                              },
+                              "note_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "subject_id": {
+                                "anyOf": [
+                                  {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "evidence_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "label": {
+                                "minLength": 1,
+                                "maxLength": 256,
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "kind",
                               "question_id",
                               "label"
                             ],
@@ -95105,6 +95161,10 @@
                                   },
                                   {
                                     "const": "question",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "note",
                                     "type": "string"
                                   }
                                 ]
@@ -95385,7 +95445,7 @@
                             "kind",
                             "lot",
                             "current",
-                            "formed",
+                            "outcome",
                             "not_retained"
                           ],
                           "properties": {
@@ -95758,8 +95818,28 @@
                               "const": true,
                               "type": "boolean"
                             },
-                            "formed": {
-                              "type": "boolean"
+                            "outcome": {
+                              "anyOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "const": "formed",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "extended",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "suggested",
+                                      "type": "string"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             },
                             "not_retained": {
                               "maxItems": 1,
@@ -95824,6 +95904,10 @@
                                       },
                                       {
                                         "const": "suggested",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "unchanged",
                                         "type": "string"
                                       }
                                     ]
@@ -101073,7 +101157,7 @@
                       "type": "string"
                     },
                     "links": {
-                      "maxItems": 200,
+                      "maxItems": 1000,
                       "type": "array",
                       "items": {
                         "anyOf": [
@@ -101186,6 +101270,46 @@
                             "type": "object",
                             "required": [
                               "kind",
+                              "note_id",
+                              "subject_id",
+                              "label"
+                            ],
+                            "properties": {
+                              "kind": {
+                                "const": "note",
+                                "type": "string"
+                              },
+                              "note_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "subject_id": {
+                                "anyOf": [
+                                  {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "evidence_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "label": {
+                                "minLength": 1,
+                                "maxLength": 256,
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "kind",
                               "question_id",
                               "label"
                             ],
@@ -101283,6 +101407,10 @@
                                   },
                                   {
                                     "const": "question",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "note",
                                     "type": "string"
                                   }
                                 ]
@@ -101570,7 +101698,7 @@
                             "kind",
                             "lot",
                             "current",
-                            "formed",
+                            "outcome",
                             "not_retained"
                           ],
                           "properties": {
@@ -101943,8 +102071,28 @@
                               "const": true,
                               "type": "boolean"
                             },
-                            "formed": {
-                              "type": "boolean"
+                            "outcome": {
+                              "anyOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "const": "formed",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "extended",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "suggested",
+                                      "type": "string"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             },
                             "not_retained": {
                               "maxItems": 1,
@@ -102009,6 +102157,10 @@
                                       },
                                       {
                                         "const": "suggested",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "unchanged",
                                         "type": "string"
                                       }
                                     ]
@@ -107296,10 +107448,30 @@
               {
                 "const": "suggested",
                 "type": "string"
+              },
+              {
+                "const": "unchanged",
+                "type": "string"
               }
             ]
           }
         }
+      },
+      "LotFormingOutcome": {
+        "anyOf": [
+          {
+            "const": "formed",
+            "type": "string"
+          },
+          {
+            "const": "extended",
+            "type": "string"
+          },
+          {
+            "const": "suggested",
+            "type": "string"
+          }
+        ]
       },
       "SessionEnvelope": {
         "anyOf": [
@@ -118104,6 +118276,22 @@
                   "lot_id": {
                     "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                     "type": "string"
+                  },
+                  "outcome": {
+                    "anyOf": [
+                      {
+                        "const": "formed",
+                        "type": "string"
+                      },
+                      {
+                        "const": "extended",
+                        "type": "string"
+                      },
+                      {
+                        "const": "suggested",
+                        "type": "string"
+                      }
+                    ]
                   }
                 }
               }
@@ -118195,6 +118383,10 @@
                             },
                             {
                               "const": "suggested",
+                              "type": "string"
+                            },
+                            {
+                              "const": "unchanged",
                               "type": "string"
                             }
                           ]

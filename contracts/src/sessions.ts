@@ -130,13 +130,29 @@ export const SessionPhotoView = object({
     sha256: Digest,
   }),
 })
-/** One regroup move as it was made: applied, or only suggested because the operator edited a row. */
+/**
+ * One regroup move as it was made: applied, only suggested because the operator edited a row, or
+ * unchanged because the observation was already in that lot.
+ */
 export const RegroupMove = object({
   observation_id: Id,
   from_lot_id: Type.Union([Id, Type.Null()]),
   to_lot_id: Id,
-  outcome: Type.Union([Type.Literal('applied'), Type.Literal('suggested')]),
+  outcome: Type.Union([
+    Type.Literal('applied'),
+    Type.Literal('suggested'),
+    Type.Literal('unchanged'),
+  ]),
 })
+/**
+ * What `propose_lot` did: formed a new lot, extended an agent lot, or only suggested membership
+ * because the operator edited the lot.
+ */
+export const LotFormingOutcome = Type.Union([
+  Type.Literal('formed'),
+  Type.Literal('extended'),
+  Type.Literal('suggested'),
+])
 export const SessionOutboxItem = Type.Union([
   object({ ...outboxBase, kind: Type.Literal('status'), payload: SessionStatusArgs }),
   object({
@@ -144,7 +160,15 @@ export const SessionOutboxItem = Type.Union([
     kind: Type.Literal('observation'),
     payload: object({ evidence_observation_id: Id }),
   }),
-  object({ ...outboxBase, kind: Type.Literal('lot'), payload: object({ lot_id: Id }) }),
+  object({
+    ...outboxBase,
+    kind: Type.Literal('lot'),
+    payload: object({
+      lot_id: Id,
+      /** Absent on items recorded before outcomes were kept. */
+      outcome: Type.Optional(LotFormingOutcome),
+    }),
+  }),
   object({
     ...outboxBase,
     kind: Type.Literal('regroup'),
@@ -316,8 +340,10 @@ export const SessionTimeline = object({
 })
 /** The most stored inbox and outbox rows one history page holds. */
 export const SESSION_HISTORY_PAGE_SIZE = 200
-/** The most attempts a history read describes, newest first. */
-export const SESSION_HISTORY_MAX_ATTEMPTS = 200
+/** The most attempts one job's history describes; a longer lineage is refused, not cut. */
+export const SESSION_HISTORY_MAX_ATTEMPTS = 1000
+/** Every source of a proposal and every question making it provisional can be linked. */
+const MAX_ENTRY_LINKS = 1000
 const SUMMARY_MAX_CHARACTERS = 300
 /** Web reads are derived from a page's proposals and don't count towards its 200 rows. */
 const MAX_HISTORY_ENTRIES = SESSION_HISTORY_PAGE_SIZE * 101
@@ -353,6 +379,14 @@ export const SessionHistoryLink = Type.Union([
     label: historyLabel,
   }),
   object({ kind: Type.Literal('record'), part_subject_id: Id, label: historyLabel }),
+  /** A cited note: a capture note names its subject, an evidence note its evidence. */
+  object({
+    kind: Type.Literal('note'),
+    note_id: Id,
+    subject_id: Type.Union([Id, Type.Null()]),
+    evidence_id: Type.Optional(Id),
+    label: historyLabel,
+  }),
   object({ kind: Type.Literal('question'), question_id: Id, label: historyLabel }),
   object({ kind: Type.Literal('failure'), attempt_id: Id, failure_id: Id }),
   object({
@@ -363,7 +397,7 @@ export const SessionHistoryLink = Type.Union([
   object({
     kind: Type.Literal('gone'),
     target: Type.Union(
-      (['lot', 'evidence', 'observation', 'question'] as const).map((target) =>
+      (['lot', 'evidence', 'observation', 'question', 'note'] as const).map((target) =>
         Type.Literal(target),
       ),
     ),
@@ -428,8 +462,8 @@ export const SessionHistoryDetails = Type.Union([
     ]),
     /** Lot entries keep no snapshot of the lot as formed, so these are its current values. */
     current: Type.Literal(true),
-    /** First for the lot's first entry, later ones extended or changed it. */
-    formed: Type.Boolean(),
+    /** Null for an entry recorded before outcomes were kept. */
+    outcome: Type.Union([LotFormingOutcome, Type.Null()]),
     not_retained: Type.Array(Type.Literal('separation_reason'), { maxItems: 1 }),
   }),
   object({
@@ -502,7 +536,7 @@ const historyEntryBase = {
   id: SessionHistoryEntryId,
   at: IsoTime,
   summary: Type.String({ minLength: 1, maxLength: SUMMARY_MAX_CHARACTERS }),
-  links: Type.Array(SessionHistoryLink, { maxItems: 200 }),
+  links: Type.Array(SessionHistoryLink, { maxItems: MAX_ENTRY_LINKS }),
 }
 /** One history entry: the agent's outbox items carry their attempt; inbox items belong to the job. */
 export const SessionHistoryEntry = Type.Union([
@@ -559,13 +593,12 @@ export const SessionHistoryMetadata = object({
   stage: ProcessingStageV2,
   /** Null for the batch's Examine lead session. */
   subject_id: Type.Union([Id, Type.Null()]),
+  /** The job's current attempt, which may have no session after a switch to another profile. */
   current_attempt_id: Id,
   attempts: Type.Array(SessionHistoryAttempt, {
     minItems: 1,
     maxItems: SESSION_HISTORY_MAX_ATTEMPTS,
   }),
-  /** Older attempts exist beyond those listed. */
-  attempts_truncated: Type.Boolean(),
   /** Inbox items at or below this sequence were acknowledged by the session. */
   inbox_acked_seq: CursorSequence,
 })
@@ -593,6 +626,7 @@ export const sessionSchemas = {
   SessionHistoryCursor,
   SessionHistoryQuery,
   RegroupMove,
+  LotFormingOutcome,
   SessionEnvelope,
   SessionState,
   SessionStatusArgs,
@@ -620,6 +654,7 @@ export type SessionHistoryDetailsDto = Static<typeof SessionHistoryDetails>
 export type SessionHistoryLinkDto = Static<typeof SessionHistoryLink>
 export type SessionHistoryAttemptDto = Static<typeof SessionHistoryAttempt>
 export type RegroupMoveDto = Static<typeof RegroupMove>
+export type LotFormingOutcomeDto = Static<typeof LotFormingOutcome>
 export type SessionEnvelopeDto = Static<typeof SessionEnvelope>
 export type SessionStateDto = Static<typeof SessionState>
 export type SessionStatusArgsDto = Static<typeof SessionStatusArgs>

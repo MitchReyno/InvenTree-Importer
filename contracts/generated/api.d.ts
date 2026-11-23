@@ -21104,6 +21104,7 @@ export interface components {
                 kind: "lot";
                 payload: {
                     lot_id: string;
+                    outcome?: "formed" | "extended" | "suggested";
                 };
             } | {
                 session_id: string;
@@ -21118,7 +21119,7 @@ export interface components {
                         observation_id: string;
                         from_lot_id: string | null;
                         to_lot_id: string;
-                        outcome: "applied" | "suggested";
+                        outcome: "applied" | "suggested" | "unchanged";
                     }[];
                 };
             } | {
@@ -21308,7 +21309,6 @@ export interface components {
                         details_available: boolean;
                     };
                 }[];
-                attempts_truncated: boolean;
                 /** Format: int64 */
                 inbox_acked_seq: string;
             };
@@ -21340,6 +21340,13 @@ export interface components {
                     label: string;
                 } | {
                     /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    subject_id: string | null;
+                    evidence_id?: string;
+                    label: string;
+                } | {
+                    /** @constant */
                     kind: "question";
                     question_id: string;
                     label: string;
@@ -21356,7 +21363,7 @@ export interface components {
                 } | {
                     /** @constant */
                     kind: "gone";
-                    target: "lot" | "evidence" | "observation" | "question";
+                    target: "lot" | "evidence" | "observation" | "question" | "note";
                     label: string;
                 })[];
                 /** @constant */
@@ -21466,7 +21473,7 @@ export interface components {
                     } | null;
                     /** @constant */
                     current: true;
-                    formed: boolean;
+                    outcome: ("formed" | "extended" | "suggested") | null;
                     not_retained: "separation_reason"[];
                 } | {
                     /** @constant */
@@ -21475,7 +21482,7 @@ export interface components {
                         observation_id: string;
                         from_lot_id: string | null;
                         to_lot_id: string;
-                        outcome: "applied" | "suggested";
+                        outcome: "applied" | "suggested" | "unchanged";
                     }[];
                     lot_ids: string[];
                 } | {
@@ -22426,6 +22433,13 @@ export interface components {
                     label: string;
                 } | {
                     /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    subject_id: string | null;
+                    evidence_id?: string;
+                    label: string;
+                } | {
+                    /** @constant */
                     kind: "question";
                     question_id: string;
                     label: string;
@@ -22442,7 +22456,7 @@ export interface components {
                 } | {
                     /** @constant */
                     kind: "gone";
-                    target: "lot" | "evidence" | "observation" | "question";
+                    target: "lot" | "evidence" | "observation" | "question" | "note";
                     label: string;
                 })[];
                 who: "operator" | "app";
@@ -22551,7 +22565,7 @@ export interface components {
                     } | null;
                     /** @constant */
                     current: true;
-                    formed: boolean;
+                    outcome: ("formed" | "extended" | "suggested") | null;
                     not_retained: "separation_reason"[];
                 } | {
                     /** @constant */
@@ -22560,7 +22574,7 @@ export interface components {
                         observation_id: string;
                         from_lot_id: string | null;
                         to_lot_id: string;
-                        outcome: "applied" | "suggested";
+                        outcome: "applied" | "suggested" | "unchanged";
                     }[];
                     lot_ids: string[];
                 } | {
@@ -23494,8 +23508,9 @@ export interface components {
             observation_id: string;
             from_lot_id: string | null;
             to_lot_id: string;
-            outcome: "applied" | "suggested";
+            outcome: "applied" | "suggested" | "unchanged";
         };
+        LotFormingOutcome: "formed" | "extended" | "suggested";
         SessionEnvelope: {
             /** @constant */
             schema_version: "bench-intake-session/1";
@@ -25416,6 +25431,7 @@ export interface components {
             kind: "lot";
             payload: {
                 lot_id: string;
+                outcome?: "formed" | "extended" | "suggested";
             };
         } | {
             session_id: string;
@@ -25430,7 +25446,7 @@ export interface components {
                     observation_id: string;
                     from_lot_id: string | null;
                     to_lot_id: string;
-                    outcome: "applied" | "suggested";
+                    outcome: "applied" | "suggested" | "unchanged";
                 }[];
             };
         } | {
@@ -26025,6 +26041,7 @@ export type SessionHistory = components['schemas']['SessionHistory']
 export type SessionHistoryCursor = components['schemas']['SessionHistoryCursor']
 export type SessionHistoryQuery = components['schemas']['SessionHistoryQuery']
 export type RegroupMove = components['schemas']['RegroupMove']
+export type LotFormingOutcome = components['schemas']['LotFormingOutcome']
 export type SessionEnvelope = components['schemas']['SessionEnvelope']
 export type SessionState = components['schemas']['SessionState']
 export type SessionStatusArgs = components['schemas']['SessionStatusArgs']

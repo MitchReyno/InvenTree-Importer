@@ -61,8 +61,12 @@ export function decodeHistoryCursor(value: string): HistoryPosition {
     return fail('invalid_history_cursor', 400)
   }
   const [at, stream, attemptId, seq] = fields as unknown[]
+  // Round-tripping refuses dates JavaScript would normalise, such as 30 February.
   const validTime =
-    typeof at === 'string' && ISO_MILLISECONDS.test(at) && !Number.isNaN(Date.parse(at))
+    typeof at === 'string' &&
+    ISO_MILLISECONDS.test(at) &&
+    !Number.isNaN(Date.parse(at)) &&
+    new Date(at).toISOString() === at
   const validStream = stream === INBOX_STREAM || stream === OUTBOX_STREAM
   const validAttempt = typeof attemptId === 'string' && UUID.test(attemptId)
   const validSeq =
@@ -73,7 +77,10 @@ export function decodeHistoryCursor(value: string): HistoryPosition {
   return { at, stream, attemptId, seq }
 }
 
-/** The job, if it is a session job in this batch of the caller's account. */
+/**
+ * The job, if it is in this batch of the caller's account and holds a session attempt of that
+ * account. Its current attempt may not be a session after a switch to another profile.
+ */
 async function scopedSessionJob(
   client: PoolClient,
   config: ProcessingConfig,
@@ -90,13 +97,14 @@ async function scopedSessionJob(
     `SELECT j.id, j.batch_id, j.stage, j.subject_id, j.current_attempt_id
        FROM public.processing_job j
        JOIN public.capture_batch b ON b.id=j.batch_id
-       JOIN public.processing_attempt a ON a.id=j.current_attempt_id
-       JOIN public.command c ON c.id=a.command_id
-       JOIN public.agent_session s ON s.attempt_id=a.id
       WHERE j.id=$1 AND j.batch_id=$2
         AND b.actor_id=$3 AND b.target_id=$4 AND b.target_context_id=$5
-        AND c.actor_id=$3 AND c.target_id=$4 AND c.target_context_id=$5
-        AND s.session_lineage_id=j.id AND s.session_state IS NOT NULL`,
+        AND EXISTS (
+          SELECT 1 FROM public.processing_attempt a
+            JOIN public.command c ON c.id=a.command_id
+            JOIN public.agent_session s ON s.attempt_id=a.id
+           WHERE a.job_id=j.id AND s.session_lineage_id=j.id AND s.session_state IS NOT NULL
+             AND c.actor_id=$3 AND c.target_id=$4 AND c.target_context_id=$5)`,
     [jobId, batchId, config.actorId, config.targetId, config.targetContextId],
   )
   const job = rows.rows[0] ?? fail('session_not_found', 404)
@@ -118,8 +126,8 @@ function runsOn(profileId: string): SessionHistoryAttemptDto['runs_on'] {
 
 /**
  * Every attempt's header, newest first. An attempt's span runs from its queue time; its end is
- * the latest transition into its current terminal state, since a turn's `finished_at` is not an
- * attempt's end and idle cancellation or supersession writes none.
+ * its latest transition, by retained order, while that is into its current terminal state, since
+ * a turn's `finished_at` is not an attempt's end and idle cancellation or supersession writes none.
  */
 async function historyAttempts(client: PoolClient, job: HistoryJob) {
   const rows = await client.query<{
@@ -132,37 +140,49 @@ async function historyAttempts(client: PoolClient, job: HistoryJob) {
     actual_model: string | null
     manifest_bytes: Buffer
     manifest_digest: Buffer
-    ended_at: Date | null
+    last_state: ProcessingStateDto | null
+    last_state_at: Date | null
+    settled_state: ProcessingStateDto | null
     last_activity_at: Date | null
   }>(
     `SELECT a.id, a.number::text, a.state, a.profile_id, s.session_state, s.queued_at,
             s.actual_model, i.manifest_bytes, i.manifest_digest,
-            (SELECT max(t.created_at) FROM public.processing_transition t
-              WHERE t.attempt_id=a.id AND t.state=a.state) AS ended_at,
+            latest.state AS last_state, latest.created_at AS last_state_at,
+            (SELECT t.state FROM public.processing_transition t
+              WHERE t.attempt_id=a.id AND t.state<>'superseded'
+              ORDER BY t.sequence DESC LIMIT 1) AS settled_state,
             GREATEST(s.finished_at,
               (SELECT max(o.created_at) FROM public.agent_session_outbox o
                 WHERE o.session_id=a.id)) AS last_activity_at
        FROM public.processing_attempt a
        JOIN public.agent_session s ON s.attempt_id=a.id
        JOIN public.processing_input i ON i.id=a.input_id
+       LEFT JOIN LATERAL (
+         SELECT t.state, t.created_at FROM public.processing_transition t
+          WHERE t.attempt_id=a.id ORDER BY t.sequence DESC LIMIT 1
+       ) latest ON true
       WHERE a.job_id=$1 AND s.session_lineage_id=$1
       ORDER BY a.number DESC
       LIMIT $2`,
     [job.id, SESSION_HISTORY_MAX_ATTEMPTS + 1],
   )
-  const listed = rows.rows.slice(0, SESSION_HISTORY_MAX_ATTEMPTS)
+  // Every read returns every header, so a longer lineage is refused rather than cut short.
+  if (rows.rows.length > SESSION_HISTORY_MAX_ATTEMPTS) {
+    fail('session_history_capacity', 503)
+  }
   const failures = await latestSessionFailures(
     client,
-    listed.map((row) => row.id),
+    rows.rows.map((row) => row.id),
   )
-  const stateOfNumber = new Map(rows.rows.map((row) => [row.number, row.state]))
-  const attempts = listed.map((row): SessionHistoryAttemptDto => {
+  // Start fresh supersedes a failed or interrupted attempt, so its state before that counts.
+  const settledOfNumber = new Map(rows.rows.map((row) => [row.number, row.settled_state]))
+  return rows.rows.map((row): SessionHistoryAttemptDto => {
     const manifest = decodeJobInput(row.manifest_bytes, row.manifest_digest)
     if (manifest.schema_version !== 'bench-intake-input/6') {
       return fail('agent_session_binding_invalid', 503)
     }
     const number = Number(row.number)
-    const previous = stateOfNumber.get((BigInt(row.number) - 1n).toString())
+    const previous = settledOfNumber.get((BigInt(row.number) - 1n).toString()) ?? undefined
     const failure = failures.get(row.id)
     return {
       id: row.id,
@@ -180,19 +200,19 @@ async function historyAttempts(client: PoolClient, job: HistoryJob) {
       ...(failure ? { failure } : {}),
     }
   })
-  return { attempts, truncated: rows.rows.length > SESSION_HISTORY_MAX_ATTEMPTS }
 }
 
 function attemptEnd(row: {
   state: ProcessingStateDto
-  ended_at: Date | null
+  last_state: ProcessingStateDto | null
+  last_state_at: Date | null
   last_activity_at: Date | null
 }): Pick<SessionHistoryAttemptDto, 'ended'> {
   if (!ENDED_STATES.includes(row.state)) {
     return {}
   }
-  if (row.ended_at) {
-    return { ended: { at: row.ended_at.toISOString(), source: 'transition' } }
+  if (row.last_state === row.state && row.last_state_at) {
+    return { ended: { at: row.last_state_at.toISOString(), source: 'transition' } }
   }
   if (row.last_activity_at) {
     return { ended: { at: row.last_activity_at.toISOString(), source: 'last_activity' } }
@@ -332,7 +352,7 @@ export async function readSessionHistory(
     await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
     const job = await scopedSessionJob(client, config, batchId, jobId)
     const { snapshot } = await captureInTransaction(client, config, batchId)
-    const { attempts, truncated } = await historyAttempts(client, job)
+    const attempts = await historyAttempts(client, job)
     const ackedSeq = await inboxCursor(client, jobId)
     const rows = await historyRows(client, jobId, before)
     const page = rows.slice(0, SESSION_HISTORY_PAGE_SIZE)
@@ -346,7 +366,6 @@ export async function readSessionHistory(
         subject_id: job.subjectId,
         current_attempt_id: job.currentAttemptId,
         attempts,
-        attempts_truncated: truncated,
         inbox_acked_seq: ackedSeq.toString(),
       },
       entries,

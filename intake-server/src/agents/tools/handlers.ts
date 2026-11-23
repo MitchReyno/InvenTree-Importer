@@ -1079,18 +1079,20 @@ export function sessionTools(context: SessionToolContext) {
       }),
 
     propose_lot: (token: string, args: unknown) =>
-      withLeadSession(context, token, async (client, principal) =>
-        outboxed(
+      withLeadSession(context, token, async (client, principal) => {
+        const result = await proposeLot(
           client,
-          principal,
-          await proposeLot(
-            client,
-            writer(principal),
-            validated<ProposeLotArgsDto>('ProposeLotArgs', args),
-          ),
-          (id) => ({ kind: 'lot', payload: { lot_id: id } }),
-        ),
-      ),
+          writer(principal),
+          validated<ProposeLotArgsDto>('ProposeLotArgs', args),
+        )
+        return outboxed(client, principal, result, (id) => ({
+          kind: 'lot',
+          payload: {
+            lot_id: id,
+            ...(result.ok && result.lotOutcome ? { outcome: result.lotOutcome } : {}),
+          },
+        }))
+      }),
 
     regroup: (token: string, args: unknown) =>
       withLeadSession(context, token, async (client, principal) => {

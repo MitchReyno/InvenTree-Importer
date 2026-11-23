@@ -277,6 +277,9 @@ test('a removed version is not found, and the crop has the history’s scope', a
     ]) {
       assert.equal((await crop(fixture, outside)).status, 404, outside)
     }
+    // A sequence beyond a signed 64-bit integer is refused before it reaches PostgreSQL.
+    const overflow = cropPath(batchId, session.job, session.attempt, '9223372036854775808')
+    assert.equal((await crop(fixture, overflow)).status, 400)
     // Another account's binding finds nothing either.
     await assert.rejects(
       mediaContent(

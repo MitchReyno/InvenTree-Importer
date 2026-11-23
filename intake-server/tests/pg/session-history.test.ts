@@ -173,9 +173,12 @@ test('each agent entry resolves its summary, details and links; retired lots and
       moves: [
         { observation_id: spare, to_lot_id: packetB },
         { observation_id: loose, to_lot_id: packetB },
+        { observation_id: back, to_lot_id: packetB },
       ],
     })
     revision = regrouped.revision!
+    // The first call on the operator-edited diodes lot only suggests.
+    await proposeLot({ lot_id: diodes, observation_ids: [back] })
     // The agent revises its first observation in place, under the same ID.
     await observe(0, 'RC0603 10k 2341', front)
     await call('status', token, { text: 'Comparing date codes' })
@@ -194,10 +197,12 @@ test('each agent entry resolves its summary, details and links; retired lots and
     )
     await transaction(fixture.runner.pool, async (client) => {
       // A regroup recorded before moves were kept, and a photo view of a region.
+      // Items recorded before outcomes and moves were kept.
       await appendSessionOutbox(client, lead.attempt, {
         kind: 'regroup',
         payload: { lot_ids: [diodes] },
       })
+      await appendSessionOutbox(client, lead.attempt, { kind: 'lot', payload: { lot_id: diodes } })
       await appendSessionOutbox(client, lead.attempt, {
         kind: 'photo_view',
         payload: {
@@ -241,10 +246,19 @@ test('each agent entry resolves its summary, details and links; retired lots and
     const lots = entriesOf(history, 'lot')
     const packetEntries = lots.filter((entry) => details(entry, 'lot').lot?.id === packetB)
     assert.deepEqual(
-      packetEntries.map((entry) => [entry.summary, details(entry, 'lot').formed]),
+      packetEntries.map((entry) => [entry.summary, details(entry, 'lot').outcome]),
       [
-        ['Updated 10 kΩ resistor — packet B', false],
-        ['Formed 10 kΩ resistor — packet B', true],
+        ['Extended 10 kΩ resistor — packet B', 'extended'],
+        ['Formed 10 kΩ resistor — packet B', 'formed'],
+      ],
+    )
+    const diodeEntries = lots.filter((entry) => details(entry, 'lot').lot?.id === diodes)
+    assert.deepEqual(
+      diodeEntries.map((entry) => [entry.summary, details(entry, 'lot').outcome]),
+      [
+        ['Proposed Diodes', null],
+        ['Suggested changes to Diodes', 'suggested'],
+        ['Formed Diodes', 'formed'],
       ],
     )
     const formed = details(packetEntries[1], 'lot')
@@ -275,8 +289,12 @@ test('each agent entry resolves its summary, details and links; retired lots and
     assert.deepEqual(details(mixed, 'regroup').moves, [
       { observation_id: spare, from_lot_id: leds, to_lot_id: packetB, outcome: 'applied' },
       { observation_id: loose, from_lot_id: diodes, to_lot_id: packetB, outcome: 'suggested' },
+      { observation_id: back, from_lot_id: packetB, to_lot_id: packetB, outcome: 'unchanged' },
     ])
-    assert.equal(mixed.summary, 'Moved 2 observations, 1 only suggested')
+    assert.equal(
+      mixed.summary,
+      'Moved 1 observation, suggested moving 1 observation, 1 already in place',
+    )
     assert.deepEqual(
       mixed.links.map((link) => (link.kind === 'lot' ? link.lot_id : link.kind)).sort(),
       [leds, diodes, packetB].sort(),
@@ -548,9 +566,15 @@ test('a proposal links its lot, sources, first web reads and every open question
       'Is packet A one reel?',
       'Which package is it?',
     ])
-    assert.deepEqual(older.links.slice(0, 3), [
+    assert.deepEqual(older.links.slice(0, 4), [
       { kind: 'lot', lot_id: capture.packetA.id, label: 'Packet A' },
       { kind: 'map', lot_id: capture.packetA.id },
+      {
+        kind: 'note',
+        note_id: source.note_id,
+        subject_id: capture.packetA.id,
+        label: 'Label says approximately 20. Human count unresolved.',
+      },
       {
         kind: 'external_url',
         url: datasheet.url,
@@ -681,6 +705,19 @@ test('attempt headers say how each attempt ended and why it started, from its qu
       source: 'transition',
     })
     assert.notEqual(history.session.attempts[0].ended!.at, finishedAt)
+    // The latest transition is found by its retained order, not its time: a transaction that
+    // started earlier can commit its transition later.
+    await fixture.db.pool.query(
+      `INSERT INTO processing_transition(attempt_id,previous_state,state,created_at)
+       VALUES($1,'cancelled','cancelled',now()-interval '1 day')`,
+      [session.attempt],
+    )
+    const reordered = await fixture.db.pool.query<{ created_at: Date }>(
+      'SELECT created_at FROM processing_transition WHERE attempt_id=$1 ORDER BY sequence DESC LIMIT 1',
+      [session.attempt],
+    )
+    history = await readHistory(fixture, batchId, session.job)
+    assert.equal(history.session.attempts[0].ended!.at, reordered.rows[0].created_at.toISOString())
 
     // Attempt 2 fails; attempt 3 starts after it and is cancelled before its first turn.
     const second = await nextSessionAttempt(fixture, capture, session, capture.packetA, 2, {
@@ -787,7 +824,15 @@ test('the before cursor pages without gaps or duplicates across streams, retries
     )
 
     // A cursor the read did not issue is refused.
-    for (const forged of ['bm90LWpzb24', Buffer.from('["x",1,"y","1"]').toString('base64url')]) {
+    const forgeries = [
+      'bm90LWpzb24',
+      Buffer.from('["x",1,"y","1"]').toString('base64url'),
+      // A date JavaScript would quietly move to 2 March.
+      Buffer.from(JSON.stringify(['2026-02-30T00:00:00.000Z', 1, session.attempt, '1'])).toString(
+        'base64url',
+      ),
+    ]
+    for (const forged of forgeries) {
       const refused = await fixture.http(
         `/batches/${batchId}/processing/${session.job}/history?before=${forged}`,
       )
@@ -872,6 +917,24 @@ test('a session from another batch or account is not found', async () => {
         [404, 'session_not_found'],
       )
     }
+    // After the job's stage is queued under a profile without sessions, its retained session
+    // history still reads.
+    const switched = await nextSessionAttempt(
+      fixture,
+      capture,
+      session,
+      capture.packetA,
+      2,
+      { id: 'synthetic-session/1' },
+      'queued',
+      false,
+    )
+    const retained = await readHistory(fixture, capture.batch.id, session.job)
+    assert.equal(retained.session.current_attempt_id, switched.attempt)
+    assert.deepEqual(
+      retained.session.attempts.map((attempt) => attempt.id),
+      [session.attempt],
+    )
     for (const field of ['actorId', 'targetId', 'targetContextId'] as const) {
       await assert.rejects(
         readSessionHistory(
@@ -987,7 +1050,8 @@ test('an idle attempt cancelled or superseded after a settled turn ends at that 
       source: 'transition',
     })
 
-    // A settled session that can't resume is idle until Start fresh supersedes it.
+    // A settled session that can't resume is idle until Start fresh supersedes it; the new
+    // attempt still starts after a failure.
     const replaced = await lotSession(fixture, capture, capture.packetB)
     await settle(replaced.attempt)
     await setState(fixture, replaced.attempt, 'interrupted', 'resume_unavailable')
@@ -1006,7 +1070,7 @@ test('an idle attempt cancelled or superseded after a settled turn ends at that 
     assert.deepEqual(
       attempts.map((attempt) => [attempt.number, attempt.state, attempt.started_because]),
       [
-        [2, 'queued', null],
+        [2, 'queued', 'after_failure'],
         [1, 'superseded', 'first'],
       ],
     )
@@ -1015,5 +1079,115 @@ test('an idle attempt cancelled or superseded after a settled turn ends at that 
       at: await latestTransition(fixture, replaced.attempt),
       source: 'transition',
     })
+  })
+})
+
+test('a lot identity revised by the lead session reaches Research as the app’s notice', async (t) => {
+  const { formedBatch, photoWithNote } = await import('../support/lot-pipeline.ts')
+  const { triggerExamine } = await import('#/processing/examine-trigger.ts')
+  const { queueSessionResume, runSessionTurn } = await import('#/agents/session/session-runner.ts')
+  const { fixture, deps, batchId, leadJob, leadAttempt, lot, successors } = await formedBatch(t)
+  const led = await lot('led 0603 red')
+  const research = (await successors(led.id)).find((row) => row.stage === 'research')!
+  await setState(fixture, research.attempt_id, 'running', 'running')
+  await photoWithNote(fixture, batchId, 'Reel', 'LED 0603 red')
+  await triggerExamine(fixture.writer.pool, fixture.config, { quietMs: 0 })
+  await transaction(fixture.runner.pool, (client) => queueSessionResume(client, leadJob))
+  assert.equal(await runSessionTurn(deps, leadAttempt, new AbortController().signal), 'finished')
+
+  const history = await readHistory(fixture, batchId, research.job_id)
+  const [revision] = entriesOf(history, 'revision')
+  assert.equal(revision.who, 'app')
+  assert.ok(
+    revision.summary.startsWith("Revision: The lot's identity was revised:"),
+    revision.summary,
+  )
+  assert.deepEqual(details(revision, 'revision').fields, ['identity'])
+  assert.equal('read' in revision && revision.read, false)
+})
+
+/**
+ * A runner pool whose next tool transaction starts, then waits for `gate` before going on, so a
+ * second call can start later and commit first.
+ */
+function heldPool(pool: Pool, gate: Promise<void>): Pool {
+  let held = false
+  const connect = async () => {
+    const client = await pool.connect()
+    const query = async (...args: unknown[]) => {
+      const result = await (client.query as (...values: unknown[]) => Promise<unknown>)(...args)
+      const first = args[0] as string | { text?: string }
+      const text = typeof first === 'string' ? first : (first?.text ?? '')
+      if (!held && text === 'BEGIN') {
+        held = true
+        // Fix the transaction's start time, which now() and created_at use, then wait.
+        await client.query('SELECT now()')
+        await gate
+      }
+      return result
+    }
+    return new Proxy(client, {
+      get(target, property) {
+        if (property === 'query') {
+          return query
+        }
+        const value: unknown = Reflect.get(target, property)
+        return typeof value === 'function' ? value.bind(target) : value
+      },
+    }) as PoolClient
+  }
+  return new Proxy(pool, {
+    get(target, property) {
+      if (property === 'connect') {
+        return connect
+      }
+      const value: unknown = Reflect.get(target, property)
+      return typeof value === 'function' ? value.bind(target) : value
+    },
+  })
+}
+
+test('a web read goes with the first proposal in outbox order, even one created later', async () => {
+  await withFixture(async (fixture, capture) => {
+    const session = await lotSession(fixture, capture, capture.packetA)
+    const token = await issue(fixture, session.attempt)
+    const source = noteSource(session.manifest, capture.packetA.id)
+    const page = { kind: 'web_page', url: 'https://example.com/shared.pdf' }
+    const proposal = (summary: string) => ({
+      proposal: {
+        schema_version: 'bench-intake-proposal/6',
+        subject_id: capture.packetA.id,
+        summary,
+        sources: [source, page],
+        relies_on: { fields: ['identity'], sources: [source] },
+      },
+    })
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const late = sessionTools({
+      pool: heldPool(fixture.runner.pool, gate),
+      config: fixture.config,
+      statusIntervalMs: 0,
+      imageBudget: new Map(),
+      deliveredMedia: new Map(),
+    })
+    // The held call starts first but commits second, with the higher sequence.
+    const started = late.propose(token, proposal('Started first'))
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    await tools(fixture)('propose', token, proposal('Committed first'))
+    release()
+    assert.equal((await started).result.ok, true)
+
+    const history = await readHistory(fixture, capture.batch.id, session.job)
+    const proposals = entriesOf(history, 'proposal')
+    const bySummary = new Map(proposals.map((entry) => [entry.summary, entry]))
+    const first = bySummary.get('Proposed Committed first')!
+    const second = bySummary.get('Proposed Started first')!
+    assert.ok(Date.parse(second.at) < Date.parse(first.at), 'created earlier, sequenced later')
+    const [read] = entriesOf(history, 'web_read')
+    assert.equal(entriesOf(history, 'web_read').length, 1)
+    assert.equal(details(read, 'web_read').proposal_entry_id, first.id)
   })
 })
