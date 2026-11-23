@@ -68,10 +68,10 @@ Session rows and session pages SHALL name the lots a session serves, such as "Re
 
 ### Requirement: The brief on the session page
 
-A session's page SHALL show the brief it started from as the first, collapsible item of its conversation, with the operator's corrections marked as theirs.
+A `/7` session's page SHALL show the brief it started from as the first, collapsible item of its conversation, with the operator's corrections marked as theirs. Sessions from earlier inputs, which had no brief, SHALL keep showing their opening as today.
 
 #### Scenario: See what Research started from
 
-- **GIVEN** a Research session that started after a reading correction and an answered question
+- **GIVEN** a `/7` Research session that started after a reading correction and an answered question
 - **WHEN** the operator opens its page
 - **THEN** the first item summarises Examine's findings, the operator's facts and the questions already asked, and expanding it shows the correction.
