@@ -218,9 +218,7 @@ const SettingsColumn = styled.div`
   gap: ${space[6]};
   min-width: 0;
 `
-const PageNotice = styled.div`
-  margin-bottom: ${space[8]};
-`
+const PageNotice = styled.div``
 const GlanceFocus = styled.div`
   display: contents;
 `

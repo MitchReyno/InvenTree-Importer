@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import { batchHref } from '#/navigation/batch-route'
 import type { ProcessingSource, StepProgress, WorkStep } from '#/processing/source'
 import { color, icon, radius, space, type, typeVar } from '#/theme/generated/tokens'
-import { Spinner, linkTouchArea, onField, groundBehindOnField } from '#/components/ui'
+import { Spinner, linkTouchArea, onField, groundBehindOnField, PageStack } from '#/components/ui'
 import { Card, CardTitle, Muted, QuestionRows, SessionRows, stepOutcome } from './ProcessingParts'
 
 type Props = {
@@ -103,11 +103,7 @@ const Disc = styled.span`
   }
 `
 
-const Page = styled.div`
-  display: grid;
-  gap: ${space[6]};
-  min-width: 0;
-`
+const Page = styled(PageStack)``
 
 const Head = styled.div`
   display: flex;

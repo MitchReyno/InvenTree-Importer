@@ -470,7 +470,6 @@ const Header = styled.div`
   justify-content: space-between;
   align-items: center;
   gap: ${space[4]} ${space[8]};
-  margin-bottom: ${space[6]};
 `
 const RecordNav = styled.nav`
   display: flex;

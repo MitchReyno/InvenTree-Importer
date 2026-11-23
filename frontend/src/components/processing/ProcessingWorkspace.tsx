@@ -23,6 +23,7 @@ import {
   Button,
   Dialog,
   onField,
+  PageStack,
 } from '#/components/ui'
 import { ProcessingImages } from './ProcessingImages'
 import { ProcessingInventory } from './ProcessingInventory'
@@ -885,14 +886,7 @@ function clearSessionLink(jobId?: string) {
 
 const NO_RETIRED_LOTS: ReadonlySet<string> = new Set()
 
-const Workspace = styled.section`
-  display: grid;
-  gap: ${space[6]};
-  min-width: 0;
-  > ${Panel} {
-    margin-bottom: 0;
-  }
-`
+const Workspace = styled(PageStack).attrs({ as: 'section' })``
 
 const Selection = styled.fieldset`
   border: 0;

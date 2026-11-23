@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { afterEach, expect, test } from 'vitest'
-import { Heading, PageTitle, Panel } from './primitives'
+import { Heading, PageStack, PageTitle, Panel } from './primitives'
 
 afterEach(() => {
   document.documentElement.dataset.masthead = 'bar'
@@ -32,4 +32,23 @@ test('titles and headings inside a panel never get a patch', () => {
 
   expect(patched(screen.getByRole('heading', { name: 'Local setup required' }))).toBe(false)
   expect(patched(screen.getByRole('heading', { name: 'Details' }))).toBe(false)
+})
+
+test('a page stack spaces its sections by the page gap and clears their outer margins', () => {
+  const absent = false
+  render(
+    <PageStack data-testid="stack">
+      <Panel>Filters</Panel>
+      {absent && <Panel>Never shown</Panel>}
+      <Panel>Grid</Panel>
+    </PageStack>,
+  )
+  const stack = screen.getByTestId('stack')
+
+  expect(getComputedStyle(stack).getPropertyValue('gap')).toBe('var(--space-7)')
+  expect(stack.children).toHaveLength(2)
+  for (const section of stack.children) {
+    expect(getComputedStyle(section).marginBottom).toBe('0px')
+    expect(getComputedStyle(section).marginTop).toBe('0px')
+  }
 })

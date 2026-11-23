@@ -17,6 +17,7 @@ import {
   TableWrap,
   onField,
   raisedOnField,
+  PageStack,
 } from '#/components/ui'
 import { SESSION_STATE, STEP_LABEL } from '#/components/processing/ProcessingParts'
 import { PauseButton } from './PauseButton'
@@ -357,10 +358,7 @@ const COLUMNS = [
   { id: 'since', header: 'Since', mono: true, nowrap: true },
 ]
 
-const Page = styled.div`
-  display: grid;
-  gap: ${space[8]};
-`
+const Page = styled(PageStack)``
 
 const Head = styled.div`
   display: flex;

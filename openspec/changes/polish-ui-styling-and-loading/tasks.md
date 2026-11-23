@@ -77,10 +77,10 @@
 - **Verification:** frontend checks; a Playwright capture script over the fixture pages and the dev app (kept outside the repository, or under `frontend/scripts/` if it proves reusable), with the captures attached to the PR.
 - **Risks and decisions:** pages with their own grid rhythm (the Review grid) keep it inside the stack.
 
-- [ ] 2.1 Map the canvas page gap (14 px) to its frontend space token. Read every page root, and list the top-level sections with outer margins.
-- [ ] 2.2 Capture every page at 1440 and 390 px as the baseline, and note each touching pair, starting with Review's banner and toolbar, and the filters and grid.
-- [ ] 2.3 Add `PageStack`, with its unit test.
-- [ ] 2.4 Move each page root onto `PageStack` and remove the outer margins.
+- [x] 2.1 Map the canvas page gap (14 px) to its frontend space token. Read every page root, and list the top-level sections with outer margins.
+- [x] 2.2 Capture every page at 1440 and 390 px as the baseline, and note each touching pair, starting with Review's banner and toolbar, and the filters and grid.
+- [x] 2.3 Add `PageStack`, with its unit test.
+- [x] 2.4 Move each page root onto `PageStack` and remove the outer margins.
 - [ ] 2.5 Capture again, compare with 2.2 and fix any remaining touching sections. Run the frontend checks.
 
 ## 3. Remove Batch context and the profile notices

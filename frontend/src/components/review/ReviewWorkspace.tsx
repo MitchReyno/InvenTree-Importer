@@ -584,7 +584,6 @@ const ScopeBar = styled.div`
   align-items: center;
   gap: ${space[6]};
   flex-wrap: wrap;
-  margin-bottom: ${space[4]};
   padding: ${space[3]} ${space[5]};
   background: ${color.surface};
   border: 1px solid ${color.line};
@@ -630,7 +629,6 @@ const Toolbar = styled.div`
   justify-content: space-between;
   flex-wrap: wrap;
   gap: ${space[4]} ${space[8]};
-  margin-bottom: ${space[3]};
 `
 const ReviewGrid = styled.div<{ $focused: boolean }>`
   display: grid;
