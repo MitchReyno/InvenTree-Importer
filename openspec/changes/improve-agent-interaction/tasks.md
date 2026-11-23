@@ -89,14 +89,14 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
   - a demo film.
 - **Risks and decisions:** jsdom has no real layout, so tests stub `getBoundingClientRect`.
 
-- [ ] 1.1 Read the shared and frontend code guidelines and the frontend architecture. List every `Dialog` and `DialogSurface` user and how each closes.
-- [ ] 1.2 RED: add `Dialog.test.tsx` cases:
-  - [ ] 1.2.1 A backdrop click calls `onClose`.
-  - [ ] 1.2.2 A backdrop click with `closeDisabled` set doesn't call it.
-  - [ ] 1.2.3 A press inside that is released on the backdrop doesn't close, including a press on the surface's padding where both events target the dialog itself.
-  - [ ] 1.2.4 A click on the content doesn't close.
-- [ ] 1.3 RED: add a `ProcessingWorkspace` drawer test: a backdrop click with an unsaved answer shows the close-blocked banner.
-- [ ] 1.4 GREEN: implement the handler, and give `MediaCropDialog` the same backdrop handling through its close guard, with a test.
+- [x] 1.1 Read the shared and frontend code guidelines and the frontend architecture. List every `Dialog` and `DialogSurface` user and how each closes.
+- [x] 1.2 RED: add `Dialog.test.tsx` cases:
+  - [x] 1.2.1 A backdrop click calls `onClose`.
+  - [x] 1.2.2 A backdrop click with `closeDisabled` set doesn't call it.
+  - [x] 1.2.3 A press inside that is released on the backdrop doesn't close, including a press on the surface's padding where both events target the dialog itself.
+  - [x] 1.2.4 A click on the content doesn't close.
+- [x] 1.3 RED: add a `ProcessingWorkspace` drawer test: a backdrop click with an unsaved answer shows the close-blocked banner.
+- [x] 1.4 GREEN: implement the handler, and give `MediaCropDialog` the same backdrop handling through its close guard, with a test.
 - [ ] 1.5 Run the frontend checks. Record a demo video (title card, click outside the drawer, end card) for the PR description.
 
 ## 2. Stepped question contracts

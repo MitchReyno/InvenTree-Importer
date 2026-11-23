@@ -4,6 +4,7 @@ import styled, { css } from 'styled-components'
 import { color, radius, shadow, space, type } from '#/theme/generated/tokens'
 import { Button } from './Button'
 import { motion } from './motion'
+import { useBackdropClick } from './useBackdropClick'
 
 type DialogProps = {
   /** Names the dialog; it may hold an `AiMark`, which stays out of the accessible name. */
@@ -22,7 +23,10 @@ type DialogProps = {
   children: ReactNode
 }
 
-/** A modal step: the native dialog keeps focus inside, and focus returns to the opener on close. */
+/**
+ * A modal step: the native dialog keeps focus inside, closes on Esc, Close or a backdrop click,
+ * and returns focus to the opener on close.
+ */
 export function Dialog({
   title,
   onClose,
@@ -33,6 +37,15 @@ export function Dialog({
 }: DialogProps) {
   const dialog = useRef<HTMLDialogElement>(null)
   const titleId = useId()
+
+  // Esc and a backdrop click close as Close does, and not while closing is disabled.
+  function requestClose() {
+    if (!closeDisabled) {
+      onClose()
+    }
+  }
+
+  const backdrop = useBackdropClick(requestClose)
 
   // The element that had focus before the dialog opened, which gets it back on close.
   const opener = useRef<HTMLElement | null>(null)
@@ -82,10 +95,10 @@ export function Dialog({
       aria-labelledby={titleId}
       onCancel={(event) => {
         event.preventDefault()
-        if (!closeDisabled) {
-          onClose()
-        }
+        requestClose()
       }}
+      onPointerDown={backdrop.onPointerDown}
+      onClick={backdrop.onClick}
     >
       <TitleRow>
         {/* Focusable by script, so focus can land on the title when content it held leaves. */}

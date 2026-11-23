@@ -343,6 +343,82 @@ test('failed native modal restoration leaves the uncertain request and recovery 
   expect(screen.getByText('Crop guard released')).toBeVisible()
 })
 
+// jsdom has no layout, so the crop dialog's box is stubbed at x 100–1500.
+function stubCropBox(dialog: HTMLDialogElement) {
+  vi.spyOn(dialog, 'getBoundingClientRect').mockReturnValue(
+    DOMRect.fromRect({ x: 100, y: 40, width: 1400, height: 800 }),
+  )
+}
+
+function clickBackdrop(dialog: HTMLDialogElement) {
+  fireEvent.pointerDown(dialog, { clientX: 40, clientY: 400 })
+  fireEvent.click(dialog, { clientX: 40, clientY: 400 })
+}
+
+test('a backdrop click closes an unsent crop, but not a press dragged out of the editor', () => {
+  const save = vi.fn<(input: MediaEditDto, key: string) => Promise<void>>()
+  render(<CropDialogHarness save={save} />)
+  const dialog = screen.getByRole<HTMLDialogElement>('dialog', {
+    name: 'Prepare documentary crop',
+  })
+  stubCropBox(dialog)
+
+  fireEvent.pointerDown(screen.getByRole('spinbutton', { name: 'Width' }), {
+    clientX: 400,
+    clientY: 400,
+  })
+  fireEvent.click(dialog, { clientX: 40, clientY: 400 })
+  expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+  clickBackdrop(dialog)
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(screen.getByText('Crop guard released')).toBeVisible()
+  expect(save).not.toHaveBeenCalled()
+})
+
+test('a backdrop click keeps a pending or uncertain crop request open', async () => {
+  const user = userEvent.setup()
+
+  let rejectPending: (error: Error) => void = () => {
+    throw new Error('request was not started')
+  }
+
+  const save = vi.fn<(input: MediaEditDto, key: string) => Promise<void>>()
+  save.mockImplementationOnce(
+    () =>
+      new Promise<void>((_resolve, reject) => {
+        rejectPending = reject
+      }),
+  )
+  render(<CropDialogHarness save={save} />)
+  await user.click(screen.getByRole('button', { name: 'Prepare new version' }))
+  const dialog = screen.getByRole<HTMLDialogElement>('dialog')
+  stubCropBox(dialog)
+
+  clickBackdrop(dialog)
+  expect(screen.getByRole('dialog')).toBeInTheDocument()
+  expect(screen.getByText('Crop guard active')).toBeVisible()
+
+  rejectPending(new Error('lost acknowledgement'))
+  await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('not confirmed'))
+  clickBackdrop(dialog)
+  expect(screen.getByRole('button', { name: 'Retry exact preparation request' })).toBeVisible()
+  expect(screen.getByText('Crop guard active')).toBeVisible()
+})
+
+test('a backdrop click closes the view after a confirmed preparation', async () => {
+  const user = userEvent.setup()
+  const save = vi.fn<(input: MediaEditDto, key: string) => Promise<void>>(async () => undefined)
+  render(<CropDialogHarness save={save} />)
+  await user.click(screen.getByRole('button', { name: 'Prepare new version' }))
+  const dialog = screen.getByRole<HTMLDialogElement>('dialog')
+  stubCropBox(dialog)
+
+  clickBackdrop(dialog)
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(screen.getByText('Crop guard released')).toBeVisible()
+})
+
 test('a replaced dirty callback hears the open editor without reopening the modal', () => {
   const showModal = vi.spyOn(HTMLDialogElement.prototype, 'showModal')
   const first = vi.fn()

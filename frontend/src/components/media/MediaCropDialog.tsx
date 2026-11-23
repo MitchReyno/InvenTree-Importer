@@ -2,7 +2,15 @@ import { createPortal } from 'react-dom'
 import { useEffect, useRef, useState, type SyntheticEvent } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import styled from 'styled-components'
-import { media, Heading, Paragraph, Small, Button, DialogSurface } from '#/components/ui'
+import {
+  media,
+  Heading,
+  Paragraph,
+  Small,
+  Button,
+  DialogSurface,
+  useBackdropClick,
+} from '#/components/ui'
 import { color, space } from '#/theme/generated/tokens'
 import type {
   MediaEditDto,
@@ -113,14 +121,25 @@ export function MediaCropDialog({
     }
   }
 
+  // Unsent or confirmed views may close; a pending or uncertain request waits for explicit discard.
+  function canCloseWithoutDiscard() {
+    const unconfirmedRequest = intent.current !== null && !submitted
+    return !busy && !unconfirmedRequest
+  }
+
+  const backdrop = useBackdropClick(() => {
+    if (canCloseWithoutDiscard()) {
+      close()
+    }
+  })
+
   function reconcileNativeClose(event: SyntheticEvent<HTMLDialogElement>) {
     const nativeDialog = event.currentTarget
     if (!nativeDialog.isConnected || nativeDialog.open) {
       return
     }
 
-    const unconfirmedRequest = intent.current !== null && !submitted
-    if (!busy && !unconfirmedRequest) {
+    if (canCloseWithoutDiscard()) {
       close()
       return
     }
@@ -161,6 +180,8 @@ export function MediaCropDialog({
       aria-labelledby="crop-title"
       onCancel={(event) => event.preventDefault()}
       onClose={reconcileNativeClose}
+      onPointerDown={backdrop.onPointerDown}
+      onClick={backdrop.onClick}
     >
       <Heading id="crop-title">Prepare documentary crop</Heading>
       <Paragraph>

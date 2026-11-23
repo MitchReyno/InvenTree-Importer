@@ -808,6 +808,44 @@ test('closing the drawer with an unsaved answer asks first, and discards only on
   expect(dirty).toHaveBeenLastCalledWith(false)
 })
 
+// jsdom has no layout: the drawer is docked at x 600–1020, so x 100 is the dimmed page.
+function clickBesideDrawer(drawer: HTMLElement) {
+  vi.spyOn(drawer, 'getBoundingClientRect').mockReturnValue(
+    DOMRect.fromRect({ x: 600, y: 0, width: 420, height: 800 }),
+  )
+  fireEvent.pointerDown(drawer, { clientX: 100, clientY: 400 })
+  fireEvent.click(drawer, { clientX: 100, clientY: 400 })
+}
+
+test('a click beside the drawer closes it and returns focus to its session row', async () => {
+  const user = userEvent.setup()
+  mountInventoryDrawer(inventorySnapshot(), undefined, { fromRow: true })
+  await user.click(
+    await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' }),
+  )
+  const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+
+  clickBesideDrawer(drawer)
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Open session: Inventory · Packet A' })).toHaveFocus()
+})
+
+test('a click beside the drawer with an unsaved answer asks first, as Close does', async () => {
+  const user = userEvent.setup()
+  const { dirty } = mountInventoryDrawer(inventorySnapshot())
+  const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+  await within(drawer).findByRole('form', { name: /^Session question: Is Packet A already/ })
+  await user.type(answerBox('Is Packet A already in InvenTree?'), 'Different tube')
+
+  clickBesideDrawer(drawer)
+  expect(screen.getByRole('dialog', { name: 'Inventory · Packet A' })).toBeInTheDocument()
+  expect(within(drawer).getByRole('alert')).toHaveTextContent(
+    'Save or discard your answer before closing this session.',
+  )
+  expect(answerBox('Is Packet A already in InvenTree?')).toHaveValue('Different tube')
+  expect(dirty).toHaveBeenLastCalledWith(true)
+})
+
 test('answering one drawer question leaves the other answerable, and focus moves to it', async () => {
   const user = userEvent.setup()
   // Opened from a session link; saving the answer remounts Processing, as Batch does.

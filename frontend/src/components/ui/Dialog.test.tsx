@@ -135,3 +135,68 @@ test('closing returns focus to a connected opener rather than the fallback', asy
   await user.click(screen.getByRole('button', { name: 'Close' }))
   expect(screen.getByRole('button', { name: 'Open session' })).toHaveFocus()
 })
+
+// jsdom has no layout, so the dialog's box is stubbed: x 100–500, y 0–600.
+const DIALOG_BOX = { left: 100, right: 500, top: 0, bottom: 600 }
+const BACKDROP_POINT = { clientX: 40, clientY: 300 }
+const PADDING_POINT = { clientX: 104, clientY: 300 }
+
+function renderBackdropDialog({ closeDisabled = false } = {}) {
+  const onClose = vi.fn()
+  render(
+    <Dialog title="Session" onClose={onClose} closeDisabled={closeDisabled}>
+      <p>Timeline</p>
+    </Dialog>,
+  )
+  const dialog = screen.getByRole('dialog')
+  vi.spyOn(dialog, 'getBoundingClientRect').mockReturnValue(
+    DOMRect.fromRect({
+      x: DIALOG_BOX.left,
+      y: DIALOG_BOX.top,
+      width: DIALOG_BOX.right - DIALOG_BOX.left,
+      height: DIALOG_BOX.bottom - DIALOG_BOX.top,
+    }),
+  )
+  return { dialog, onClose }
+}
+
+test('a click on the backdrop closes the dialog', () => {
+  const { dialog, onClose } = renderBackdropDialog()
+  fireEvent.pointerDown(dialog, BACKDROP_POINT)
+  fireEvent.click(dialog, BACKDROP_POINT)
+  expect(onClose).toHaveBeenCalledTimes(1)
+})
+
+test('a backdrop click is ignored while closing is disabled', () => {
+  const { dialog, onClose } = renderBackdropDialog({ closeDisabled: true })
+  fireEvent.pointerDown(dialog, BACKDROP_POINT)
+  fireEvent.click(dialog, BACKDROP_POINT)
+  expect(onClose).not.toHaveBeenCalled()
+})
+
+test('a press that starts inside the dialog and ends on the backdrop does not close it', () => {
+  const { dialog, onClose } = renderBackdropDialog()
+
+  // Selecting text: the press is on the content, and the click lands on the dialog.
+  fireEvent.pointerDown(screen.getByText('Timeline'), { clientX: 200, clientY: 300 })
+  fireEvent.click(dialog, BACKDROP_POINT)
+  // A press on the surface's padding targets the dialog itself, but lies inside its box.
+  fireEvent.pointerDown(dialog, PADDING_POINT)
+  fireEvent.click(dialog, BACKDROP_POINT)
+  expect(onClose).not.toHaveBeenCalled()
+})
+
+test('a press on the backdrop released inside the dialog does not close it', () => {
+  const { dialog, onClose } = renderBackdropDialog()
+  fireEvent.pointerDown(dialog, BACKDROP_POINT)
+  fireEvent.click(dialog, PADDING_POINT)
+  expect(onClose).not.toHaveBeenCalled()
+})
+
+test('a click on the content does not close the dialog', () => {
+  const { onClose } = renderBackdropDialog()
+  const content = screen.getByText('Timeline')
+  fireEvent.pointerDown(content, { clientX: 200, clientY: 300 })
+  fireEvent.click(content, { clientX: 200, clientY: 300 })
+  expect(onClose).not.toHaveBeenCalled()
+})
