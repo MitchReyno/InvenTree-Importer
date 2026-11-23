@@ -221,6 +221,17 @@ test('a cancelled press or a click with no press does not close the dialog', () 
   expect(onClose).not.toHaveBeenCalled()
 })
 
+test('a release just outside a fractional edge closes, though the click is rounded inside', () => {
+  const { dialog, onClose } = renderBackdropDialog()
+  vi.mocked(dialog.getBoundingClientRect).mockReturnValue(
+    DOMRect.fromRect({ x: 100, y: 0, width: 400.5, height: 600 }),
+  )
+  fireEvent.pointerDown(dialog, { clientX: 500.75, clientY: 300, pointerId: 1 })
+  fireEvent.pointerUp(dialog, { clientX: 500.75, clientY: 300, pointerId: 1 })
+  fireEvent.click(dialog, { clientX: 500, clientY: 300 })
+  expect(onClose).toHaveBeenCalledTimes(1)
+})
+
 test('a click on the content does not close the dialog', () => {
   const { onClose } = renderBackdropDialog()
   const content = screen.getByText('Timeline')

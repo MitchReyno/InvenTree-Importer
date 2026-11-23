@@ -21,3 +21,9 @@ A modal dialog, centred or docked as a drawer, SHALL close when the operator cli
 - **GIVEN** a dialog whose close is disabled while its work is pending, or an operator selecting text who releases the pointer over the backdrop
 - **WHEN** the click reaches the backdrop
 - **THEN** the dialog stays open.
+
+#### Scenario: Unresolved crop request
+
+- **GIVEN** the crop editor holding a crop request that is still sending or whose outcome is uncertain
+- **WHEN** the operator clicks the backdrop
+- **THEN** the editor stays open with its retry and discard controls, and an unsent or confirmed crop closes instead.

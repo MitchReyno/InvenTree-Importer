@@ -29,12 +29,12 @@ The complexity is moderate. It is a versioned contract with backward-compatible 
 
 ### Backdrop click in `Dialog`, not `closedby`
 
-- **Handler:** `Dialog` records the `pointerdown` target and point. On `click`, when both the press and the release hit the `<dialog>` element itself and both points lie outside its content box, so a press on the surface's padding that is released on the backdrop doesn't count, it calls the same path as Esc: `onClose()` unless `closeDisabled`. With `showModal()`, a click on `::backdrop` is reported with the dialog as its target.
-- **Content box:** the surface has padding, so the handler compares the click point with `getBoundingClientRect()` rather than the target alone.
+- **Handler:** `Dialog` notes, for each pointer, whether its primary-button `pointerdown` hit the `<dialog>` element itself at a point outside the dialog's border box. On that pointer's `pointerup`, the release must pass the same check, and a `pointercancel` drops the press. The `click` that follows a qualifying release must target the dialog itself; its coordinates are not checked again, since a browser may round them across the edge. It then calls the same path as Esc: `onClose()` unless `closeDisabled`. A press on the surface's padding lies inside the box, so it never counts. With `showModal()`, a click on `::backdrop` is reported with the dialog as its target.
+- **Border box:** the surface has padding, so the handler compares the press and release points with `getBoundingClientRect()` rather than the target alone.
 - **Why not `closedby`:** `closedby="any"` is not in Safari ([caniuse](https://caniuse.com/wf-dialog-closedby), checked 2026-11-23). A polyfill adds a dependency for about 15 lines.
 - **Scope:** this applies to every `Dialog`, including centred editors. Their owners already treat Esc as a close request with their own guards, so a backdrop click follows that.
 - **Rejected:** a drawer-only option. It would leave centred dialogs inconsistent, and the spec makes it a design-system rule.
-- **Direct surface users:** `MediaCropDialog` is the one component that uses `DialogSurface` directly, with its own lifecycle. Task 1 gives it the same backdrop handling through its own close guard, so the rule holds for every modal. `RemovalDialog` and `EvidenceGroupPanel` already use `Dialog`.
+- **Direct surface users:** `MediaCropDialog` is the one component that uses `DialogSurface` directly, with its own lifecycle. Task 1 gives it the same backdrop handling through its own close guard, so the rule holds for every modal. That guard is the one its native close already applies: an unsent or confirmed view closes, and a pending or uncertain request stays open until it is explicitly discarded. The click closes the native modal first, so the browser returns focus before the parent unmounts it. `RemovalDialog` and `EvidenceGroupPanel` already use `Dialog`.
 
 ### A `/2` question with steps, read beside `/1`
 

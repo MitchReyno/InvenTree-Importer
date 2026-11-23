@@ -36,10 +36,11 @@ export function useBackdropClick(onBackdropClick: () => void): BackdropHandlers 
       releasedOnBackdrop.current = false
     },
 
+    // The release decided the geometry: a click's coordinates may be rounded across an edge.
     onClick(event) {
       const released = releasedOnBackdrop.current
       releasedOnBackdrop.current = false
-      if (released && isOnBackdrop(event)) {
+      if (released && event.target === event.currentTarget) {
         onBackdropClick()
       }
     },
