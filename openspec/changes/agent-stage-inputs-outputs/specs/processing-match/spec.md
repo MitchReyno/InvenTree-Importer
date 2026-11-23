@@ -222,7 +222,7 @@ Match's validation searches SHALL be preparation target reads, each with its com
 
 ### Requirement: Approval checks the latest search
 
-A preparation SHALL record each selected `/7` lot's validation search generation. Approval SHALL refuse it when a newer search for a lot has been requested, settled or not, when the validation read failed, when the batch's lead is now `/7` and a selected lot has no recorded successful validation, or when, under the lot's Match lock, the lot has an open question or its identity or outcome revision differs from the one pass 3 pinned. An approval that already committed SHALL replay unchanged.
+A preparation SHALL record each selected `/7` lot's validation search generation. Approval SHALL refuse it when a newer search for a lot has been requested, settled or not, when the validation read failed, or when the batch's lead is now `/7` and a selected lot has no recorded successful validation. An approval that already committed SHALL replay unchanged.
 
 #### Scenario: Check again before approval
 
@@ -230,14 +230,25 @@ A preparation SHALL record each selected `/7` lot's validation search generation
 - **WHEN** the operator asks Match to check that lot again and approves before the search settles
 - **THEN** approval is refused until a new validation passes.
 
+#### Scenario: Prepared before an upgrade
+
+- **GIVEN** a preparation made while the batch's lead was `/6`
+- **WHEN** the lead is upgraded to `/7` and the operator approves that preparation
+- **THEN** approval is refused until a preparation with Match's validation exists.
+
+### Requirement: Approval checks the lot's Match state
+
+Under the lot's Match lock, approval SHALL refuse a preparation whose `/7` lot has an open match question, a pending amendment, or an identity or outcome revision different from the one pass 3 pinned.
+
+#### Scenario: Amendment published but not yet applied
+
+- **GIVEN** a prepared lot whose Research has just published an amendment that the app hasn't applied yet
+- **WHEN** the operator approves
+- **THEN** approval is refused until the amendment is applied or its question opens.
+
 #### Scenario: Question opened after preparation
 
 - **GIVEN** a prepared lot whose validation passed
 - **WHEN** a replacing amendment opens a question without a search, and the operator approves the original preparation
 - **THEN** approval is refused for the open question.
 
-#### Scenario: Prepared before an upgrade
-
-- **GIVEN** a preparation made while the batch's lead was `/6`
-- **WHEN** the lead is upgraded to `/7` and the operator approves that preparation
-- **THEN** approval is refused until a preparation with Match's validation exists.

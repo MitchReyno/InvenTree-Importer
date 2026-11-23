@@ -176,7 +176,7 @@ The rules behind the diagram:
 | Examine publishes another stable identity | The lot's Research and Images that have run and aren't superseded, cancelled or failed | `revision` with "The lot's identity was revised: ‹summary›" (`stable-identity.ts:115-135`) | None for the earlier identity; a new identity citing an older observation set is stale at once (`lot_regrouped`). Regrouping, not publication, makes relying proposals stale (`regroup.ts:13-67`). | Yes; unstarted, superseded, cancelled and failed successors get a new attempt instead |
 | Answer to a session question | The asker, plus sessions relying on the fields | `answer` (asker) and `revision` (others) (`intake-server/src/processing/session-answers.ts:134-155`) | Relying proposals | Yes |
 | Chat message | That session | `chat` (`intake-server/src/processing/routes.ts:128-146`) | None | Yes |
-| Batch or group instruction | Every session of the batch | `instruction` (`intake-server/src/agents/instructions.ts:16-25,141-159`) | None | Yes |
+| Batch or group instruction | Each job's current session in the batch, except cancelling, cancelled and failed sessions (`intake-server/src/agents/instructions.ts:13-16,54-71`) | `instruction` (`intake-server/src/agents/instructions.ts:16-25,141-159`) | None | Yes |
 | Pause or Resume | Sessions of the batch | Claim gate (`intake-server/src/agents/pause.ts`; `session-runner.ts:462-470`) | None | Resume releases queued claims |
 | Start fresh (replace session) | A new attempt | `session-replacement.ts` | Old attempt's proposals superseded | New session |
 
@@ -237,7 +237,7 @@ A full lane leaves a claimed session `queued` (`session-runner.ts:543-545`); the
 | `answer` | `session-answers.ts:134` | The asking session |
 | `chat` | `processing/routes.ts:137` | One session |
 | `evidence` | `examine-trigger.ts:157`, `currentness.ts` (observation added, evidence restored) | Lead; the lot's Research and Images |
-| `instruction` | `agents/instructions.ts:114` | Every session of the batch |
+| `instruction` | `agents/instructions.ts:114` | Each job's current session, except cancelling, cancelled and failed ones |
 | `revision` | `currentness.ts:31` (superseded fields, regroups, removals), `stable-identity.ts:120` | Relying sessions; the lot's Research and Images |
 
 Writes publish a `processing_changed` event for the batch, which the frontend uses to re-read. `status` and `reply` publish `session_changed` instead (`handlers.ts:958,989`), and a chat item publishes `session_inbox_changed` (`agents/tools/inbox.ts:167-169`).
