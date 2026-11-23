@@ -66,10 +66,14 @@ const sheen = keyframes`
 /** A state colour faded for a bar's unfilled track, strong enough to read beside the fill. */
 const track = (tone: string) => `color-mix(in srgb, ${tone} 35%, transparent)`
 
-/** Diagonal stripes in a colour; still, they mark the state without colour alone. */
-const stripes = (stripe: string, ground: string) => css`
+/** Diagonal stripes of one width on a ground; still, they mark the state without colour alone. */
+const stripes = (stripe: string, ground: string, angle: string, width: string) => css`
   background-color: ${ground};
-  background-image: repeating-linear-gradient(135deg, ${stripe} 0 3px, transparent 3px 6px);
+  background-image: repeating-linear-gradient(
+    ${angle},
+    ${stripe} 0 ${width},
+    transparent ${width} calc(${width} * 2)
+  );
 `
 
 const Segments = styled.span<{ $size: 'sm' | 'lg' }>`
