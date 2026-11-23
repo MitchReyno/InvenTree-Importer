@@ -131,6 +131,34 @@ test('starts the scene paused with the animation off, and follows the switch aft
   expect(createScene).toHaveBeenCalledTimes(1)
 })
 
+test('stills the scene when the system asks for reduced motion while the page is open', async () => {
+  vi.stubGlobal('WebGL2RenderingContext', function WebGL2RenderingContext() {})
+  const listeners = new Set<() => void>()
+  const query = {
+    matches: false,
+    addEventListener: (_type: string, listener: () => void) => listeners.add(listener),
+    removeEventListener: (_type: string, listener: () => void) => listeners.delete(listener),
+  }
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn(() => query),
+  )
+  const controller = stubController()
+  const { unmount } = render(<Masthead />)
+  await waitFor(() => expect(createScene).toHaveBeenCalledTimes(1))
+
+  query.matches = true
+  listeners.forEach((listener) => listener())
+  expect(controller.pause).toHaveBeenCalledTimes(1)
+
+  mastheadMotionController().choose('off')
+  mastheadMotionController().choose('on')
+  expect(controller.resume).not.toHaveBeenCalled()
+
+  unmount()
+  expect(listeners.size).toBe(0)
+})
+
 test('disposes the scene on unmount', async () => {
   vi.stubGlobal('WebGL2RenderingContext', function WebGL2RenderingContext() {})
   stubReducedMotion(false)

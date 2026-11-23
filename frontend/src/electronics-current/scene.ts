@@ -202,6 +202,7 @@ export function createElectronicsCurrent(
   let frameRequest = 0
   let running = false
   let paused = options.paused ?? false
+  let disposed = false
   // Until the observer reports, the canvas counts as visible.
   let visible = true
   let laidOutWidth = 0
@@ -516,13 +517,16 @@ export function createElectronicsCurrent(
     }
   }
 
-  /** Loose ends follow their parts' new poses; a new one starts hanging straight down. */
-  function updateHanging(): void {
+  /**
+   * Loose ends follow their parts' new poses; a new one starts hanging straight down. A still
+   * redraw passes no time and no pointer, so nothing swings while the scene is stopped.
+   */
+  function updateHanging(frameSeconds: number): void {
     const frame = {
-      frameSeconds: lastStepSeconds,
+      frameSeconds,
       right: axes.right,
       up: axes.up,
-      pointer: pointer.active ? pointerInScene() : null,
+      pointer: frameSeconds > 0 && pointer.active ? pointerInScene() : null,
       unitsPerPx: UNITS_PER_PX,
     }
 
@@ -531,9 +535,14 @@ export function createElectronicsCurrent(
     }
   }
 
-  function render(): void {
+  /** Draws the scene; only a running frame passes the time it stepped. */
+  function render(frameSeconds = 0): void {
+    if (disposed) {
+      return
+    }
+
     placeAll()
-    updateHanging()
+    updateHanging(frameSeconds)
     renderer?.render(scene, camera)
   }
 
@@ -548,14 +557,14 @@ export function createElectronicsCurrent(
     pointer.velocityX *= Math.exp(-elapsed * POINTER_SPEED_DECAY)
     pointer.velocityY *= Math.exp(-elapsed * POINTER_SPEED_DECAY)
     step(elapsed)
-    render()
+    render(lastStepSeconds)
     // Schedule only after a successful frame, so an error cannot repeat every frame.
     frameRequest = requestAnimationFrame(frame)
   }
 
   // Every start path comes here, so the switch, reduced motion and visibility each hold.
   function startLoop(): void {
-    if (running || options.reducedMotion || paused || !visible) {
+    if (running || disposed || options.reducedMotion || paused || !visible) {
       return
     }
 
@@ -667,6 +676,13 @@ export function createElectronicsCurrent(
   startLoop()
 
   function setPointer(clientX: number, clientY: number): void {
+    // Only a running loop stirs parts; a stopped scene ignores the pointer.
+    if (!running) {
+      pointer.active = false
+
+      return
+    }
+
     const bounds = canvas.getBoundingClientRect()
     const scale = width / (bounds.width || width || 1)
     const x = (clientX - bounds.left) * scale
@@ -724,6 +740,7 @@ export function createElectronicsCurrent(
   }
 
   function dispose(): void {
+    disposed = true
     stopLoop()
     resizeObserver.disconnect()
     visibilityObserver?.disconnect()

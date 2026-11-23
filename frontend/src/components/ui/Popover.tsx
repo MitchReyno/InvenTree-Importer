@@ -11,8 +11,9 @@ const EDGE_GAP_PX = 12
 
 /**
  * The alignment a popover opens with. It keeps the preferred one while that side of the trigger
- * has room for the panel, and otherwise opens from the trigger's other edge when that side has
- * room, rather than letting the window edge push the panel away from its trigger.
+ * has room for the panel, and otherwise opens toward whichever side has more room, rather than
+ * letting the window edge push the panel away from its trigger. Positioning then caps the panel
+ * to the room on the chosen side.
  */
 export function chooseAlign(
   preferred: Align,
@@ -29,7 +30,7 @@ export function chooseAlign(
   const preferredRoom = preferred === 'end' ? roomTowardLeft : roomTowardRight
   const otherRoom = preferred === 'end' ? roomTowardRight : roomTowardLeft
 
-  if (panelWidth > preferredRoom && panelWidth <= otherRoom) {
+  if (panelWidth > preferredRoom && otherRoom > preferredRoom) {
     return preferred === 'end' ? 'start' : 'end'
   }
 
@@ -71,25 +72,37 @@ export function Popover({
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [opened, setOpened] = useState<Align | null>(null)
   // The panel's own width is read as it attaches, before positioning caps it to the room on the
-  // aligned side, so the choice compares the width it wants with the room each side has.
+  // aligned side, so the choice compares the width it wants with the room each side has. While it
+  // is open, a window resize chooses again from the trigger's new place.
   const measurePanel = useCallback(
     (panel: HTMLDivElement | null) => {
-      const triggerElement = triggerRef.current
-      if (!panel || !triggerElement) {
+      if (!panel) {
         setOpened(null)
 
         return
       }
 
-      const viewportWidth = document.documentElement.clientWidth
-      setOpened(
-        chooseAlign(
-          align,
-          triggerElement.getBoundingClientRect(),
-          panel.offsetWidth,
-          viewportWidth,
-        ),
-      )
+      const wantedWidth = panel.offsetWidth
+
+      function choose(): void {
+        const triggerElement = triggerRef.current
+        if (!triggerElement) {
+          return
+        }
+
+        const viewportWidth = document.documentElement.clientWidth
+        setOpened(
+          chooseAlign(align, triggerElement.getBoundingClientRect(), wantedWidth, viewportWidth),
+        )
+      }
+
+      choose()
+      window.addEventListener('resize', choose)
+
+      return () => {
+        window.removeEventListener('resize', choose)
+        setOpened(null)
+      }
     },
     [align],
   )

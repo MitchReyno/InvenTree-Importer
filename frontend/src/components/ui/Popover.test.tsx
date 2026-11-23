@@ -47,6 +47,8 @@ test('a popover opens from the other edge of its trigger when the preferred side
   expect(chooseAlign('start', { left: 1200, right: 1300 }, 420, 1440)).toBe('end')
 })
 
-test('a popover too wide for either side keeps its preferred alignment and is clamped', () => {
-  expect(chooseAlign('end', { left: 100, right: 200 }, 380, 390)).toBe('end')
+test('a popover too wide for either side opens toward the side with more room', () => {
+  expect(chooseAlign('end', { left: 100, right: 200 }, 380, 390)).toBe('start')
+  expect(chooseAlign('start', { left: 250, right: 300 }, 380, 390)).toBe('end')
+  expect(chooseAlign('end', { left: 250, right: 300 }, 380, 390)).toBe('end')
 })

@@ -61,6 +61,10 @@ export function ElectronicsCurrent({ layout = 'band' }: ElectronicsCurrentProps)
     let controller: ElectronicsCurrentController | null = null
     let unmounted = false
     const motion = mastheadMotionController()
+    const reducedMotionQuery =
+      typeof window.matchMedia === 'function'
+        ? window.matchMedia('(prefers-reduced-motion: reduce)')
+        : null
 
     async function start(target: HTMLCanvasElement): Promise<void> {
       const { createElectronicsCurrent } = await loadScene()
@@ -93,9 +97,10 @@ export function ElectronicsCurrent({ layout = 'band' }: ElectronicsCurrentProps)
       }
     }
 
-    // The device's animation switch stops and starts the same scene, so parts keep their places.
+    // The device's switch and the system's reduced-motion setting stop and start the same scene,
+    // so parts keep their places.
     function handleMotionChange(): void {
-      if (motion.motion() === 'off') {
+      if (motion.motion() === 'off' || reducedMotionQuery?.matches) {
         controller?.pause()
       } else {
         controller?.resume()
@@ -103,6 +108,7 @@ export function ElectronicsCurrent({ layout = 'band' }: ElectronicsCurrentProps)
     }
 
     const unsubscribeMotion = motion.subscribe(handleMotionChange)
+    reducedMotionQuery?.addEventListener?.('change', handleMotionChange)
 
     // The theme controller owns data-theme; the scene follows it without rebuilding parts.
     const themeObserver = new MutationObserver(() => controller?.setTheme(pageTheme()))
@@ -120,6 +126,7 @@ export function ElectronicsCurrent({ layout = 'band' }: ElectronicsCurrentProps)
     return () => {
       unmounted = true
       unsubscribeMotion()
+      reducedMotionQuery?.removeEventListener?.('change', handleMotionChange)
       themeObserver.disconnect()
       window.removeEventListener('pointermove', handlePointerMove)
       window.removeEventListener('pointercancel', handlePointerGone)

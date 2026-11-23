@@ -699,3 +699,43 @@ test('reduced motion keeps the scene still even when the animation is switched o
   expect(requestAnimationFrame).not.toHaveBeenCalled()
   controller.dispose()
 })
+
+function hangingPositions(): number[] {
+  const layer = currentRenderer().lastScene?.getObjectByName(HANGING_LAYER_NAME)
+
+  return (layer?.children ?? []).flatMap((child) =>
+    Array.from((child as Mesh).geometry.getAttribute('position').array),
+  )
+}
+
+test('redraws while paused leave every loose end where it hung, even with the pointer moving', () => {
+  catalogue.forcedType = 'solderWick'
+  const canvas = sizedCanvas(1440, 120)
+  const controller = createElectronicsCurrent(canvas, {
+    reducedMotion: false,
+    random: seededRandom(7),
+  })!
+  vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 1440, 120))
+  runFrames(30)
+  controller.pause()
+  const hung = hangingPositions()
+
+  controller.setPointer(700, 60)
+  controller.setPointer(720, 62)
+  controller.setTheme('dark')
+  controller.setTheme('light')
+
+  expect(hangingPositions()).toEqual(hung)
+  controller.dispose()
+})
+
+test('a disposed scene never starts again', () => {
+  const controller = start(false)
+  controller.pause()
+  controller.dispose()
+  const scheduled = vi.mocked(requestAnimationFrame).mock.calls.length
+
+  controller.resume()
+
+  expect(vi.mocked(requestAnimationFrame).mock.calls.length).toBe(scheduled)
+})
