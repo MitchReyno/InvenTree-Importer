@@ -48,6 +48,8 @@ export interface ElectronicsCurrentController {
   pause: () => void
   /** Continues from where `pause` stopped, unless reduced motion or visibility forbids it. */
   resume: () => void
+  /** Follows the system's reduced-motion setting after the scene was built. */
+  setReducedMotion: (reduced: boolean) => void
   dispose: () => void
 }
 
@@ -202,6 +204,7 @@ export function createElectronicsCurrent(
   let frameRequest = 0
   let running = false
   let paused = options.paused ?? false
+  let reducedMotion = options.reducedMotion
   let disposed = false
   // Until the observer reports, the canvas counts as visible.
   let visible = true
@@ -564,7 +567,7 @@ export function createElectronicsCurrent(
 
   // Every start path comes here, so the switch, reduced motion and visibility each hold.
   function startLoop(): void {
-    if (running || disposed || options.reducedMotion || paused || !visible) {
+    if (running || disposed || reducedMotion || paused || !visible) {
       return
     }
 
@@ -615,7 +618,7 @@ export function createElectronicsCurrent(
     camera.bottom = (-height * UNITS_PER_PX) / 2
     camera.updateProjectionMatrix()
 
-    if (!options.reducedMotion) {
+    if (!reducedMotion) {
       // The loop adapts the count; a field's parts also keep their place in the new height.
       if (layout === 'field' && parts.length > 0 && height !== laidOutHeight) {
         fitPartsToHeight()
@@ -739,6 +742,18 @@ export function createElectronicsCurrent(
     startLoop()
   }
 
+  function setReducedMotion(reduced: boolean): void {
+    reducedMotion = reduced
+
+    if (reduced) {
+      stopLoop()
+      pointer.active = false
+      render()
+    } else {
+      startLoop()
+    }
+  }
+
   function dispose(): void {
     disposed = true
     stopLoop()
@@ -750,5 +765,5 @@ export function createElectronicsCurrent(
     renderer?.dispose()
   }
 
-  return { setPointer, clearPointer, setTheme, pause, resume, dispose }
+  return { setPointer, clearPointer, setTheme, pause, resume, setReducedMotion, dispose }
 }

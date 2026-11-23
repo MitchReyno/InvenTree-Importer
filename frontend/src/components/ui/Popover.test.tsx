@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
-import { chooseAlign, Popover } from './Popover'
+import { chooseAlign, Popover, roomFor } from './Popover'
 
 test('opens a labelled popover from its trigger and returns focus on Escape', async () => {
   const user = userEvent.setup()
@@ -51,4 +51,11 @@ test('a popover too wide for either side opens toward the side with more room', 
   expect(chooseAlign('end', { left: 100, right: 200 }, 380, 390)).toBe('start')
   expect(chooseAlign('start', { left: 250, right: 300 }, 380, 390)).toBe('end')
   expect(chooseAlign('end', { left: 250, right: 300 }, 380, 390)).toBe('end')
+})
+
+test('a panel is capped to the room on its chosen side, so it stays at its trigger', () => {
+  expect(roomFor('start', { left: 145, right: 245 }, 390)).toBe(233)
+  expect(roomFor('end', { left: 145, right: 245 }, 390)).toBe(233)
+  expect(roomFor('end', { left: 900, right: 1000 }, 1440)).toBe(988)
+  expect(roomFor('center', { left: 145, right: 245 }, 390)).toBeUndefined()
 })

@@ -16,6 +16,7 @@ function stubController() {
     setTheme: vi.fn(),
     pause: vi.fn(),
     resume: vi.fn(),
+    setReducedMotion: vi.fn(),
     dispose: vi.fn(),
   }
   createScene.mockReturnValue(controller)
@@ -149,11 +150,16 @@ test('stills the scene when the system asks for reduced motion while the page is
 
   query.matches = true
   listeners.forEach((listener) => listener())
-  expect(controller.pause).toHaveBeenCalledTimes(1)
+  expect(controller.setReducedMotion).toHaveBeenLastCalledWith(true)
 
+  // The device switch never overrides the system's setting.
   mastheadMotionController().choose('off')
   mastheadMotionController().choose('on')
-  expect(controller.resume).not.toHaveBeenCalled()
+  expect(controller.setReducedMotion).toHaveBeenLastCalledWith(true)
+
+  query.matches = false
+  listeners.forEach((listener) => listener())
+  expect(controller.setReducedMotion).toHaveBeenLastCalledWith(false)
 
   unmount()
   expect(listeners.size).toBe(0)

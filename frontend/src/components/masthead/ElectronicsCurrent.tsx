@@ -100,7 +100,9 @@ export function ElectronicsCurrent({ layout = 'band' }: ElectronicsCurrentProps)
     // The device's switch and the system's reduced-motion setting stop and start the same scene,
     // so parts keep their places.
     function handleMotionChange(): void {
-      if (motion.motion() === 'off' || reducedMotionQuery?.matches) {
+      controller?.setReducedMotion(reducedMotionQuery?.matches ?? false)
+
+      if (motion.motion() === 'off') {
         controller?.pause()
       } else {
         controller?.resume()

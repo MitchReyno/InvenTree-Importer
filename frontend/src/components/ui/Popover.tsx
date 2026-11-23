@@ -37,6 +37,27 @@ export function chooseAlign(
   return preferred
 }
 
+/**
+ * The widest a panel can be at an alignment without leaving the window, so positioning never has
+ * to slide it away from its trigger. A centred panel is left to positioning.
+ */
+export function roomFor(
+  align: Align,
+  trigger: { left: number; right: number },
+  viewportWidth: number,
+): number | undefined {
+  if (align === 'center') {
+    return undefined
+  }
+
+  const room =
+    align === 'end' ? trigger.right - EDGE_GAP_PX : viewportWidth - trigger.left - EDGE_GAP_PX
+
+  return Math.max(0, Math.floor(room))
+}
+
+type Placement = { align: Align; room: number | undefined }
+
 type PopoverProps = {
   /** The popover's accessible name. */
   label: string
@@ -70,14 +91,14 @@ export function Popover({
   children,
 }: PopoverProps) {
   const triggerRef = useRef<HTMLButtonElement>(null)
-  const [opened, setOpened] = useState<Align | null>(null)
-  // The panel's own width is read as it attaches, before positioning caps it to the room on the
-  // aligned side, so the choice compares the width it wants with the room each side has. While it
-  // is open, a window resize chooses again from the trigger's new place.
+  const [placement, setPlacement] = useState<Placement | null>(null)
+  // The panel's own width is read as it attaches, before any cap, so the choice compares the width
+  // it wants with the room each side has; the panel is then capped to the chosen side's room. While
+  // it is open, a window resize or a change in the trigger's size chooses again.
   const measurePanel = useCallback(
     (panel: HTMLDivElement | null) => {
       if (!panel) {
-        setOpened(null)
+        setPlacement(null)
 
         return
       }
@@ -91,17 +112,25 @@ export function Popover({
         }
 
         const viewportWidth = document.documentElement.clientWidth
-        setOpened(
-          chooseAlign(align, triggerElement.getBoundingClientRect(), wantedWidth, viewportWidth),
-        )
+        const triggerBox = triggerElement.getBoundingClientRect()
+        const chosen = chooseAlign(align, triggerBox, wantedWidth, viewportWidth)
+        setPlacement({ align: chosen, room: roomFor(chosen, triggerBox, viewportWidth) })
       }
 
       choose()
       window.addEventListener('resize', choose)
+      const triggerObserver =
+        typeof ResizeObserver === 'function' && triggerRef.current
+          ? new ResizeObserver(choose)
+          : null
+      if (triggerRef.current) {
+        triggerObserver?.observe(triggerRef.current)
+      }
 
       return () => {
         window.removeEventListener('resize', choose)
-        setOpened(null)
+        triggerObserver?.disconnect()
+        setPlacement(null)
       }
     },
     [align],
@@ -115,14 +144,14 @@ export function Popover({
       <RadixPopover.Portal>
         <Surface
           ref={measurePanel}
-          align={opened ?? align}
+          align={placement?.align ?? align}
           sideOffset={8}
           collisionPadding={EDGE_GAP_PX}
           role={role}
           aria-label={label}
           onOpenAutoFocus={onOpenAutoFocus}
           onCloseAutoFocus={onCloseAutoFocus}
-          style={width ? { width } : undefined}
+          style={{ width, maxWidth: placement?.room }}
         >
           {children}
         </Surface>

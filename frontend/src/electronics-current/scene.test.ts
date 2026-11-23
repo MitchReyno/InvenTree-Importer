@@ -739,3 +739,20 @@ test('a disposed scene never starts again', () => {
 
   expect(vi.mocked(requestAnimationFrame).mock.calls.length).toBe(scheduled)
 })
+
+test('a scene started under reduced motion animates once the system allows it, and stills again', () => {
+  const controller = start(true)
+  expect(requestAnimationFrame).not.toHaveBeenCalled()
+
+  const stillRenders = currentRenderer().renders
+  controller.setReducedMotion(false)
+  runFrames(2)
+  const renders = currentRenderer().renders
+  expect(renders).toBe(stillRenders + 2)
+
+  // Stilling draws one still frame, then no loop frame follows.
+  controller.setReducedMotion(true)
+  runFrames(3)
+  expect(currentRenderer().renders).toBe(renders + 1)
+  controller.dispose()
+})
