@@ -96,7 +96,7 @@ Add Google Antigravity (`agy` CLI) as a third native agent provider beside Claud
 
 #### BI-015 — Design refresh backend follow-ups
 
-Build the backend for the design-refresh controls that BI-014 shipped disabled, each with its reason. BI-016 (`settings-debug-mode`) takes over most of the Settings rows, and BI-017 (`simplify-vm-agent-web-and-setup`) the web research settings. This item keeps the per-record "Fill descriptions for" switches, the supplier part description source and "Tag every Part with its batch name". In Records it is storing and reading manufacturer part, supplier part and agent-proposed company descriptions, and reading location types and their descriptions; descriptions for agent-proposed categories and parameter templates, which the app lists as not supported yet, belong here too. The rest is deleting written batch notes, and Inventory questions that carry their answer options and the existing record's fields, for the disabled option cards and the comparison's InvenTree column and date code.
+Build the backend for the design-refresh controls that BI-014 shipped disabled, each with its reason. BI-016 (`settings-debug-mode`) takes over most of the Settings rows, and BI-017 (`simplify-vm-agent-web-and-setup`) the web research settings. This item keeps the per-record "Fill descriptions for" switches, the supplier part description source and "Tag every Part with its batch name". In Records it is storing and reading manufacturer part, supplier part and agent-proposed company descriptions, and reading location types and their descriptions; descriptions for agent-proposed categories and parameter templates, which the app lists as not supported yet, belong here too. The rest is deleting written batch notes, and Inventory questions that carry the existing record's fields, for the comparison's InvenTree column and date code. BI-019 (`improve-agent-interaction`) takes over answer options for questions.
 
 - Change: `complete-design-refresh-backend`
 - Status: Proposed
@@ -176,12 +176,22 @@ Repository Markdown is uneven. Some documents are long unbroken paragraphs, head
 
 ### Unassessed
 
+#### BI-019 — Agent interaction improvements
+
+Make working with agents smoother. Clicking the dimmed page beside the session drawer, or any dialog, closes it as Esc does, while an unsaved answer still stops the close. An agent asks one question per `ask`, with one step or up to four related steps answered one at a time and sent together. Each step is a choice among options the agent offers, a lot's quantity checked as it is typed, or text, and states the assumption the agent keeps working on. Each session's history entries expand to their details and link to the pages they concern, and every session gets a page showing it as one conversation, with the photos it viewed and the web pages it cited. The activity popover shows each stage's state, counts and status, with bars that distinguish working, waiting for you and paused. Sessions also show as one row each with their retries folded and Start fresh offered only where it can run, failures say their recorded cause in plain words, and the Agents page opens on what needs attention.
+
+- Change: `improve-agent-interaction`
+- Status: Proposed — plan in review (#243).
+- Size: XL — a versioned question and answer contract and answer path, a resolved and paged session history, recorded photo views and web sources, a reworked answer form, a new session page and per-stage activity counts and bar states, in eight PRs after the plan.
+- Prerequisites: None. Takes over BI-015's answer options; coordinate session-runner prompt edits with BI-017.
+- OpenSpec: [improve-agent-interaction](../openspec/changes/improve-agent-interaction/)
+
 #### BI-020 — UI polish and calm loading
 
 Fix a selected row losing its top border in Review › Records, give every page one even spacing between sections, and remove the out-of-design Batch context disclosure and the outdated "live provider not qualified" agent profile notices. Replace the brief "Verifying current…" banners and about 20 one-off loading lines with one pattern: a skeleton on a first visit, cached data shown at once with a quiet background refresh, a progress line only when a refresh is noticeable, and commands disabled with a reason until a fresh read lands. Cached reads are kept in session storage so a reload shows the last data at once. Status reads the same everywhere: one set of state words, times that say which day, a masthead that names what failed (or says no agents are working), a Processing Needs you that agrees with the header, a per-lot stage table, and step pages that count their own step. Capture takes several files at once from any source: the phone's library with multi-select, and drag-and-drop or paste on desktop. Settings › Appearance gets a switch to stop the masthead's electronics animation while keeping the chosen masthead style. Settings › Agents saves switches and choices as they change, keeping Save only for text. Provider cards match the design, with a sign-in status read from the agent VM without the management key, switches, one searchable model picker across both providers, and sign-in in dialogs that check a token's shape and confirm the VM stored it. Dropdowns follow one guideline: the searchable picker for records and growing lists, and a segmented control or native select for short fixed lists, chosen case by case.
 
 - Change: `polish-ui-styling-and-loading`
-- Status: Proposed — plan awaiting Mitch's review.
+- Status: Proposed — plan in review (#247).
 - Size: XL — a page layout primitive applied to every page, small fixes, a shared freshness and persistence layer adopted by every screen, one state and time vocabulary, multi-file capture, agent settings autosave a read-only provider status from the agent VM, and a dropdown sweep, in nine PRs after the plan.
 - Prerequisites: None. Coordinate Processing and drawer edits with `improve-agent-interaction` (BI-019), and shared-VM edits with `simplify-vm-agent-web-and-setup` (BI-017). The provider status's live check needs Mitch's go-ahead.
 - OpenSpec: [polish-ui-styling-and-loading](../openspec/changes/polish-ui-styling-and-loading/)
