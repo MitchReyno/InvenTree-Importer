@@ -172,6 +172,9 @@ export function Batch({
 
   // The batch as last accepted in this tab, shown read-only after a reload until Capture is read.
   const restoredBatch = useRestoredSnapshot('batch', id)
+  // On a return, this tab's cached Capture read shows the open tab read-only the same way.
+  const cachedBatch = captureQuery.data
+  const shownBeforeRead = cachedBatch ?? restoredBatch
   // The first fresh read becomes the retained snapshot; later reads never replace it silently.
   if (
     !batch &&
@@ -399,6 +402,13 @@ export function Batch({
   const operatorUnavailable =
     operator !== undefined &&
     (!currentOperatorReview || operatorQuery.isError || operatorQuery.fetchStatus === 'paused')
+  // A review not yet read at this revision, with its read under way, is a wait: commands stay
+  // fenced, quietly, and only a failed or settled-but-different read says it is unavailable.
+  const operatorReviewPending =
+    operatorUnavailable &&
+    !operatorQuery.isError &&
+    operatorQuery.fetchStatus !== 'paused' &&
+    (operatorQuery.isFetching || !operatorQuery.isFetchedAfterMount)
   // Retirement comes from both the operator projection and capture history.
   const retired = useMemo(
     () => retiredLotIds(operatorReview, batch ?? undefined),
@@ -545,6 +555,7 @@ export function Batch({
         navigate={navigate}
         rememberedPreparationId={shownPreparation.current}
         operatorReview={currentOperatorReview}
+        operatorReviewPending={operatorReviewPending}
         onDirtyChange={reportDirty}
       />
     )
@@ -563,12 +574,16 @@ export function Batch({
         settings={settingsPorts}
       />
     )
-  } else if (restoredBatch && !visibleError && displaysRestored(batchRoute, processing)) {
+  } else if (
+    shownBeforeRead &&
+    !visibleError &&
+    displaysRestored(batchRoute, processing, cachedBatch !== undefined)
+  ) {
     showingRestored = true
     content = (
       <DisplayOnly>
         <RestoredTab
-          batch={restoredBatch}
+          batch={shownBeforeRead}
           route={batchRoute!}
           focusLotId={parsed.kind === 'route' ? lotFromQuery(parsed.query) : null}
           manual={manual}
@@ -577,20 +592,21 @@ export function Batch({
         />
       </DisplayOnly>
     )
-  } else if (!visibleError && batchRoute && displaysRestored(batchRoute, processing)) {
-    // A first visit to these tabs shows their layout until Capture's read lands.
+  } else if (!visibleError && batchRoute) {
+    // A first visit shows the open tab's layout until Capture's read lands.
     content = (
       <ReadState phase="empty" skeleton={<TabSkeleton route={batchRoute} />}>
         {null}
       </ReadState>
     )
   } else {
-    content = !visibleError && <Paragraph role="status">Resuming saved batch…</Paragraph>
+    content = null
   }
   // Capture's read holds the restored tab fenced, so a slow one shows refresh progress.
   useReportRefreshing(showingRestored && captureQuery.isFetching)
   // After a reload the header shows the restored batch, fenced, until Capture's read lands.
-  const headerBatch = batch ?? (content && !visibleError && restoredBatch ? restoredBatch : null)
+  const headerBatch =
+    batch ?? (content && !visibleError && shownBeforeRead ? shownBeforeRead : null)
   const restoredHeader = !batch && headerBatch !== null
 
   return (
@@ -608,22 +624,25 @@ export function Batch({
         />
       )}
       <PageContent $width={batchRoute?.tab === 'review' ? 'review' : 'content'}>
-        {operatorUnavailable && acceptedOperatorReview && !visibleError && (
-          <div role="status">
-            <Banner tone="bad">
-              <Paragraph>
-                Current operator review is unavailable or changed. Local input is retained until
-                exact retry or explicit discard.
-              </Paragraph>
-              <Button
-                disabled={busy || captureQuery.isFetching}
-                onClick={() => void discardLocalEdits()}
-              >
-                Discard local edits and load saved values
-              </Button>
-            </Banner>
-          </div>
-        )}
+        {operatorUnavailable &&
+          !operatorReviewPending &&
+          acceptedOperatorReview &&
+          !visibleError && (
+            <div role="status">
+              <Banner tone="bad">
+                <Paragraph>
+                  Current operator review is unavailable or changed. Local input is retained until
+                  exact retry or explicit discard.
+                </Paragraph>
+                <Button
+                  disabled={busy || captureQuery.isFetching}
+                  onClick={() => void discardLocalEdits()}
+                >
+                  Discard local edits and load saved values
+                </Button>
+              </Banner>
+            </div>
+          )}
         {visibleError && (
           <div role="alert">
             <Banner tone="bad">
