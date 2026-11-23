@@ -133,7 +133,7 @@ Each agent session SHALL have a page inside its batch's Processing that shows th
 
 ### Requirement: Session page header and panels
 
-The session page SHALL show a header with the step and subject, provider and model, where it runs, whether web pages are allowed, and its start time, duration and attempts. Side panels SHALL list the photos it viewed and the sources it cited, with debug details in debug mode.
+The session page SHALL show a header with the step and subject, provider and model, where it runs, whether web pages are allowed, and its time span from when it was first queued, and its attempts. Side panels SHALL list the photos it viewed and the sources it cited, with debug details in debug mode.
 
 #### Scenario: Photo view on the page
 
@@ -181,7 +181,7 @@ A failed or stopped session SHALL lead with its recorded cause in plain words, b
 
 #### Scenario: Provider overloaded
 
-- **GIVEN** a Research session whose turn failed with provider error kind `overloaded_error` and HTTP status 529
+- **GIVEN** a Research session whose turn failed with Claude error kind `overloaded` and a recorded HTTP status 529
 - **WHEN** its row, drawer or page shows the failure
 - **THEN** it reads "Couldn't reach Claude: the API was overloaded (HTTP 529)" with its last status line and time, the advice is behind a help button, and no code shows unless debug mode is on.
 
@@ -209,7 +209,7 @@ Processing's recent activity SHALL lead each entry with the app's recorded event
 
 - **GIVEN** a Research session that published an identity proposal for the GE S2CN1 diode lot
 - **WHEN** recent activity shows it
-- **THEN** the entry reads "Research proposed an identity for GE S2CN1 diodes" linking to the lot, with the agent's latest status line as a muted note, and no internal ID is shown.
+- **THEN** the entry reads "Research proposed an identity for GE S2CN1 diodes" linking to the lot, with the agent's latest status line as a muted note in the agent's own words, and the app's text shows no internal ID.
 
 ### Requirement: Labelled message box
 

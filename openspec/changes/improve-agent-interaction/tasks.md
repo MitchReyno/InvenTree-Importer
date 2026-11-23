@@ -64,7 +64,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 - [ ] 1.2 RED: add `Dialog.test.tsx` cases:
   - [ ] 1.2.1 A backdrop click calls `onClose`.
   - [ ] 1.2.2 A backdrop click with `closeDisabled` set doesn't call it.
-  - [ ] 1.2.3 A press inside that is released on the backdrop doesn't close.
+  - [ ] 1.2.3 A press inside that is released on the backdrop doesn't close, including a press on the surface's padding where both events target the dialog itself.
   - [ ] 1.2.4 A click on the content doesn't close.
 - [ ] 1.3 RED: add a `ProcessingWorkspace` drawer test: a backdrop click with an unsaved answer shows the close-blocked banner.
 - [ ] 1.4 GREEN: implement the handler, and give `MediaCropDialog` the same backdrop handling through its close guard, with a test.
@@ -173,7 +173,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 - **PR delivery:** PR-D.
 - **Outcome:** each delivered `fetch_evidence` image appends a `photo_view` outbox item, and proposals can cite an agent-reported `web_page` URL.
 - **Scope and approach:**
-  - `contracts/src/sessions.ts` (the outbox union) and `processing.ts` (a `/6` session proposal accepting a `web_page` source in its top-level `sources`);
+  - `contracts/src/sessions.ts`: the outbox union, and `SessionProposeArgs` and the `SessionEnvelope` proposal variant, which accept only `/5` today and validate before the retained decoder sees the version, so both accept `/5` and `/6`; `processing.ts`: a `/6` session proposal accepting a `web_page` source in its top-level `sources`, and the validated Processing projection;
   - a migration extending the outbox `kind` check (0018) to allow `photo_view`;
   - `intake-server/src/agents/tools/handlers.ts`: `fetchEvidenceImage` reserves the image budget before its final transaction and appends the view in it; it releases the reservation on a refusal or a known rollback, and keeps it on a commit with an unknown outcome, returning no image in either case; the delivered-citation check skips `web_page`;
   - the `propose` tool description;
@@ -190,7 +190,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - [ ] 5.2.1 A delivered fetch appends one `photo_view` with the delivered size and digest, and publishes `session_changed` in the same transaction.
   - [ ] 5.2.2 A refused or over-budget fetch appends nothing, and a refused final transaction releases the budget and returns no image, including when a removal or a capability revocation races the final transaction; a commit with an unknown outcome keeps the reservation and returns no image.
   - [ ] 5.2.3 A `web_page` source is accepted for `https` without a delivery check, refused for `file:`, credentials or a URL over 2048 characters, and refused in `relies_on` or catalogue sources.
-  - [ ] 5.2.4 A `/6` proposal with a `web_page` source reads through the retained decoder and the ordinary Processing snapshot read.
+  - [ ] 5.2.4 A `/6` proposal with a `web_page` source goes through the advertised `propose` tool, is stored, and reads through the retained decoder and the ordinary Processing snapshot read, beside a retained `/5` proposal.
   - [ ] 5.2.5 Frontend: the existing source list shows a stored `/6` proposal's `web_page` source, and the old timeline labels a `photo_view`.
 - [ ] 5.3 GREEN: implement both. Make the source readers treat `web_page` as unverified.
 - [ ] 5.4 Update the `propose` description to say how to cite a page read with WebFetch. Run the intake unit and PG tiers.
@@ -206,7 +206,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - a session-scoped route recuts a photo view's crop.
 - **Scope and approach:**
   - `contracts/src/sessions.ts` (`SessionHistory`, `SessionHistoryEntry`, and `moves` on new regroup outbox items);
-  - the regroup handler, which records its moves;
+  - `regroup` in `capture/evidence-observations.ts`, which returns each move's outcome, and the regroup handler, which records the moves with their source lots and outcomes;
   - `read_inbox` in `agents/tools/handlers.ts`, which publishes `session_changed` when it advances the acknowledgement cursor;
   - the idle-cancellation and `shared-vm-agent/2` retirement transitions in `agents/session/session-runner.ts`, which write `finished_at`;
   - `intake-server/src/agents/tools/timeline.ts` and its route in `processing/routes.ts`;
@@ -224,7 +224,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - [ ] 6.2.2 A retired lot or a removed version gives a "gone" link.
   - [ ] 6.2.3 Answers, instructions, evidence and revise items appear as the operator's at their send time, and an identity `revision` notice with no actor appears as the app's, and one above the acknowledgement cursor reads as not read yet; a `read_inbox` call that advances the cursor publishes `session_changed` in its transaction, and one that doesn't move it publishes nothing.
   - [ ] 6.2.4 Attempt headers say how an attempt ended, and why it started where the retained input shows it; turns within an attempt are not attempts; a failure or resume with no new inbox or outbox item still updates its header on the next read; the span runs from the queue time, not a turn's `started_at`; an attempt cancelled before its first turn, and one cancelled after a settled turn, show the cancellation's end time.
-  - [ ] 6.2.5 A regroup with recorded moves shows them; an older regroup lists its destination lots; earlier attempts' failures resolve; a lot edited after formation shows its values labelled current.
+  - [ ] 6.2.5 A regroup with recorded moves shows them, and a mixed regroup shows which moves were applied and which only suggested; an older regroup lists its destination lots; an observation revised in place shows its values labelled current in both its entries; earlier attempts' failures resolve; a lot edited after formation shows its values labelled current.
   - [ ] 6.2.6 The `before` cursor pages without gaps or duplicates across retries with repeated sequences and equal timestamps, and across inbox and outbox rows with equal timestamps; the page, its cursor and the metadata come from one snapshot; every read returns the metadata and acknowledgement cursor, including a read of the newest page with no new entries.
   - [ ] 6.2.7 A proposal links every open question that makes it provisional, with two matching questions.
   - [ ] 6.2.8 The session metadata for a retried session, including the web setting from each attempt's manifest.
@@ -313,7 +313,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 - [ ] 9.2 RED: `workSegments` tests:
   - [ ] 9.2.1 State precedence, including a stage with both working and failed jobs, and a turn still running after the batch is paused, which reads working while the batch shows Paused and Resume.
   - [ ] 9.2.2 A stage with no jobs yet is never done.
-  - [ ] 9.2.3 No fill without counts.
+  - [ ] 9.2.3 No fill without counts, and an uncounted running stage and an uncounted waiting stage read working and waiting for you from their retained jobs.
   - [ ] 9.2.4 Examine waiting on questions reads as waiting for you.
 - [ ] 9.3 RED: tests for `ProgressSegments`' states, patterns and animation (only working, none under reduced motion), and for the popover's stage rows, links, counts, status lines and Resume, including a finished stage and a stage whose sessions fall outside `active_sessions`, which show a reason rather than an agent line ("Stage with no listed session").
 - [ ] 9.4 GREEN: implement the states, the popover layout and the rows. Update the component gallery.
@@ -329,6 +329,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - Agents filter chips opening on Needs attention, with batches that need nothing collapsed and archived batches only under All.
 - **Scope and approach:**
   - `contracts/src/agents.ts` and `intake-server/src/agents/session/sessions.ts`: a session-level read paging by job, with the selected filter applied before paging, scoped chip and batch counts, slot and waiting totals independent of the filter, a summary of every batch in scope including those with no matching sessions, each job's earlier attempts, the batch's archived flag, where it ran and its sealed web setting;
+  - the `start_fresh` eligibility predicate extracted from `processing/session-replacement.ts`, on the session-level read's rows and the history metadata, used by the Processing rows and the session page;
   - `contracts/src/session-failures.ts` and `agents/failures.ts`: a sanitized `cause` on the failure summary, built from the recorded provider error and cause code, under the same read scope;
   - `frontend/src/components/agents/AgentSessions.tsx`, the Processing session list in `components/processing/`, the other readers of the Agents read (`settings/agents/SlotMeter.tsx` through `AgentsSection.tsx`, and `firstStart` in `ProcessingWorkspace.tsx`), which move to its scoped totals, `components/agents/SessionFailureDetails.tsx`, and the failure-text mapping beside the contracts' allowlists (`CLAUDE_ERROR_KINDS`, `CODEX_ERROR_KINDS`, cause codes).
   - It uses the shared state words and time format from `polish-ui-styling-and-loading`.
@@ -339,7 +340,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 - **Risks and decisions:** the canvas boards FixSessionRows, FixFailureCause, FixSessionLinks and FixAgentsFilters are the reference.
 
 - [ ] 10.1 Read the code guidelines and the Fixes page boards.
-- [ ] 10.2 RED: PG tests for the session-level read (a retry chain that would have spanned two attempt pages, the archived flag, the selected filter applied before paging, and chip and batch counts that include a failed session beyond the first page of all sessions; slot use, queued and waiting totals and each batch's first start that count sessions hidden by the Needs attention filter or beyond the first page; and a batch summary that lists a batch with no matching sessions as collapsed) and the failure summary's `cause` with debug mode off; frontend tests for folded attempts, Needs attention (including a failure followed by success), collapsed and archived batches, failure sentences for each recorded kind and the "not recorded" case, row links and actions, Start fresh from the Agents page running only under the session page's command guard and disabled with its reason for an archived batch or retired lot, and opening failure details never starting a retry; and Settings' slot meter and the Processing overview's start time read from the new totals.
+- [ ] 10.2 RED: PG tests for the session-level read (a retry chain that would have spanned two attempt pages, the archived flag, the selected filter applied before paging, and chip and batch counts that include a failed session beyond the first page of all sessions; slot use, queued and waiting totals and each batch's first start that count sessions hidden by the Needs attention filter or beyond the first page, with the first start taken from the earliest running transition so a resumed attempt doesn't move it; `start_fresh` eligibility for a slot held by an earlier attempt of the job, a stale pinned identity, an archived batch and a retired lot; and a batch summary that lists a batch with no matching sessions as collapsed) and the failure summary's `cause` with debug mode off; frontend tests for folded attempts, Needs attention (including a failure followed by success), collapsed and archived batches, failure sentences for each recorded kind and the "not recorded" case, row links and actions, Start fresh from the Agents page running only under the session page's command guard and disabled with its reason for an archived batch or retired lot, and opening failure details never starting a retry; and Settings' slot meter and the Processing overview's start time read from the new totals.
 - [ ] 10.3 GREEN: implement the read, the failure cause and the rows.
 - [ ] 10.4 Run the contracts tests, the intake unit and PG tiers and the frontend checks, and record the demo video.
 
