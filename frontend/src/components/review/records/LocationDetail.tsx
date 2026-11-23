@@ -6,7 +6,7 @@ import type {
   CaptureSnapshotDto,
   RecordExistingValuesDto,
 } from '@invimport/contracts'
-import { DisabledFeature, Link, Small } from '#/components/ui'
+import { DisabledFeature, Link, Skeleton, Small } from '#/components/ui'
 import { Label, Select } from '#/forms'
 import { batchHref } from '#/navigation/batch-route'
 import {
@@ -45,7 +45,13 @@ export function LocationDetail({ batch, record, records, existing, ask, report }
     <>
       <Facts>
         <dt>Path</dt>
-        <dd>{locationPathText(path)}</dd>
+        <dd>
+          {path.kind === 'reading' ? (
+            <Skeleton width="40%" height={space[5]} />
+          ) : (
+            locationPathText(path)
+          )}
+        </dd>
         <dt>Used as</dt>
         <dd>{locationUseText(use)}</dd>
       </Facts>

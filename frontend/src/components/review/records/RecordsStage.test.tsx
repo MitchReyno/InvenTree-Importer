@@ -10,7 +10,10 @@ import type {
 } from '@invimport/contracts'
 import { applyRecordChange, type CaptureEditDto } from '@invimport/contracts'
 import { describe, expect, it, vi } from 'vitest'
-import { render } from '#/test/render'
+import { fixtureScope, render } from '#/test/render'
+import { deferred } from '#/test/deferred'
+import { createServerQueryClient } from '#/queries/client'
+import { serverQueryKey } from '#/queries/scope'
 import { RecordsStage } from './RecordsStage'
 import type { ProcessingClient } from '#/processing/types'
 import { CompanyDecision } from './CompanyDecision'
@@ -2350,5 +2353,49 @@ describe('CompanyDecision', () => {
       within(decision).getByRole('button', { name: 'Use Global Connector Technology' }),
     )
     expect(useExisting).toHaveBeenCalled()
+  })
+
+  it('a first visit shows the records’ skeleton, not a loading line, until the read lands', async () => {
+    const read = deferred<BatchRecordsDto>()
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(() => read.promise) }}
+        onDirtyChange={vi.fn()}
+      />,
+      { commands: { edit: vi.fn(async () => true), observe: vi.fn(async () => null) } },
+    )
+
+    expect(screen.queryByText(/Reading records/)).not.toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Loading')
+    await act(async () => {
+      read.resolve(records)
+      await read.promise
+    })
+    expect(await screen.findByRole('navigation', { name: 'Record types' })).toBeVisible()
+  })
+
+  it('a return visit shows the cached records at once, with edits waiting for the read', async () => {
+    const user = userEvent.setup()
+    const read = deferred<BatchRecordsDto>()
+    const cache = createServerQueryClient()
+    cache.setQueryData(serverQueryKey(fixtureScope, 'records', batch.id, batch.revision), records)
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(() => read.promise) }}
+        onDirtyChange={vi.fn()}
+      />,
+      { cache, commands: { edit: vi.fn(async () => true), observe: vi.fn(async () => null) } },
+    )
+
+    await open(user, /^Parts/, 'Carbon film resistor')
+    const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
+    expect(within(detail).getByLabelText('Name')).toBeDisabled()
+    await act(async () => {
+      read.resolve(records)
+      await read.promise
+    })
+    await waitFor(() => expect(within(detail).getByLabelText('Name')).toBeEnabled())
   })
 })

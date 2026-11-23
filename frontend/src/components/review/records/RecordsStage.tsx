@@ -35,10 +35,13 @@ import {
   RecordStatePill,
   FilterChips,
   VisuallyHidden,
+  ReadState,
   onField,
   groundBehindOnField,
   raisedOnField,
 } from '#/components/ui'
+import { useReportRefreshing } from '#/context'
+import { RecordsSkeleton } from './RecordsSkeleton'
 import { MappingReader } from '#/components/capture/MappingReader'
 import { RecordDetail } from './RecordDetail'
 import { ParameterMatrix } from './ParameterMatrix'
@@ -86,7 +89,8 @@ export function RecordsStage({
 
   const { processing } = useApiClients()
   const routeType = RECORD_TYPES.find((value) => value === initialType) ?? null
-  const query = useBatchRecords(client, batch.id, batch.revision)
+  const recordsFresh = useBatchRecords(client, batch.id, batch.revision)
+  const query = recordsFresh.query
   const drafts = useDirtySources(onDirtyChange)
   const { isDirty } = drafts
   const [chosenType, setChosenType] = useState<RecordTypeDto | null>(routeType)
@@ -119,12 +123,11 @@ export function RecordsStage({
   useSnapshotWriter(
     'records',
     batch.id,
-    query.isFetchedAfterMount && query.isSuccess && !query.isPlaceholderData
-      ? query.data
-      : undefined,
-    query.dataUpdatedAt,
+    recordsFresh.verified ? query.data : undefined,
+    recordsFresh.verifiedRead,
   )
   const records = query.data ?? lastGood.current ?? restored
+  useReportRefreshing(records !== undefined && query.isFetching)
   const type: RecordTypeDto =
     chosenType ??
     records?.counts.find((count) => count.new + count.existing + count.decide > 0)?.type ??
@@ -207,7 +210,11 @@ export function RecordsStage({
     return <Banner tone="plain">Records are not available in this setup.</Banner>
   }
   if (!records && query.isPending) {
-    return <Small role="status">Reading records…</Small>
+    return (
+      <ReadState phase="empty" skeleton={<RecordsSkeleton />}>
+        {null}
+      </ReadState>
+    )
   }
   if (!records) {
     return (
@@ -222,7 +229,14 @@ export function RecordsStage({
   // Just after a save the previous read stands in until the new revision's read arrives.
   const refreshing = query.isPlaceholderData && query.isFetching
   const stale = query.isError || (!refreshing && records.revision !== batch.revision)
-  const disabled = stale || refreshing || batch.archived || fromSnapshot || displayOnly
+  // Edits wait for a read of this mount's own, so cached records never enable one.
+  const disabled =
+    stale ||
+    refreshing ||
+    !recordsFresh.commandsReady ||
+    batch.archived ||
+    fromSnapshot ||
+    displayOnly
 
   const ofType = records.records.filter((record) => record.type === type)
   const shown = ofType.filter((record) => matchesFilter(record, filter))

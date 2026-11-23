@@ -13,7 +13,15 @@ import { locationUse, locationUseText, stockQuantityText } from '#/records/locat
 import { useBatchRecords } from '#/records/useBatchRecords'
 import { assumptionLine, questionKindLabel, stepKinds } from '#/processing/question-summary'
 import { color, space, typeVar } from '#/theme/generated/tokens'
-import { Button, CompareTable, Link, RecordStatePill, linkTouchArea } from '#/components/ui'
+import {
+  Button,
+  CompareTable,
+  Link,
+  ReadState,
+  RecordStatePill,
+  Skeleton,
+  linkTouchArea,
+} from '#/components/ui'
 import { Card, CardTitle, Muted } from './ProcessingParts'
 
 const NOT_KNOWN = 'Not known'
@@ -89,7 +97,8 @@ function recordFor(records: BatchRecordsDto | undefined, type: string, lotId: st
  */
 export function ProcessingInventory({ batch, jobs, onOpenSession }: Props) {
   const { records: client } = useApiClients()
-  const query = useBatchRecords(client, batch.id, batch.revision)
+  const recordsFresh = useBatchRecords(client, batch.id, batch.revision)
+  const query = recordsFresh.query
   const records = query.data
   const questions = lotQuestions(batch, jobs)
   // Records list only active lots, so a split or merged lot's predecessor drops out here too.
@@ -107,6 +116,11 @@ export function ProcessingInventory({ batch, jobs, onOpenSession }: Props) {
         <Muted role="alert">
           Records are unavailable, so Part, location and company matches aren’t shown.
         </Muted>
+      )}
+      {client && !records && !query.isError && (
+        <ReadState phase="empty" skeleton={<Skeleton width="100%" height={space[20]} />}>
+          {null}
+        </ReadState>
       )}
       {records && (
         <Card aria-label="Parts">

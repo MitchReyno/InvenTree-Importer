@@ -10,6 +10,8 @@ import {
   Button,
   Link,
   Small,
+  ReadState,
+  Skeleton,
   RecordStatePill,
   DataTable,
   DescriptionField,
@@ -90,7 +92,11 @@ function ExistingValues({
 }) {
   const entry = query.data?.records.find((item) => item.key === record.key)
   if (query.isPending) {
-    return <Small role="status">Reading this record in InvenTree…</Small>
+    return (
+      <ReadState phase="empty" skeleton={<Skeleton width="100%" height={space[12]} />}>
+        {null}
+      </ReadState>
+    )
   }
   if (query.isError || entry?.status === 'unavailable') {
     return (

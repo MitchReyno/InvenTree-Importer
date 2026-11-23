@@ -453,3 +453,26 @@ test('a state change that keeps the data, or marks a running read idle, is not a
   await waitFor(() => expect(state('A')).toContain('unverified'))
   expect(state('A')).toContain('before-hint')
 })
+
+function Revisioned({
+  revision,
+  read,
+}: {
+  revision: string
+  read: () => Promise<{ value: string }>
+}) {
+  const fresh = useFreshRead({ queryKey: [...key, revision], queryFn: read, keepPrevious: true })
+  return <Report name="R" fresh={fresh} />
+}
+
+test('a new key shows the previous key’s data while it is first read, and only its own read verifies it', async () => {
+  const { read, pending } = scriptedReads<{ value: string }>()
+  const view = render(<Revisioned revision="1" read={read} />)
+  await act(async () => pending[0].resolve({ value: 'first' }))
+  await waitFor(() => expect(state('R')).toBe('current verified after-hint first'))
+
+  view.rerender(<Revisioned revision="2" read={read} />)
+  expect(state('R')).toBe('refreshing unverified before-hint first')
+  await act(async () => pending[1].resolve({ value: 'second' }))
+  await waitFor(() => expect(state('R')).toBe('current verified after-hint second'))
+})
