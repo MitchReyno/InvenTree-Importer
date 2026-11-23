@@ -194,6 +194,16 @@ Preparation SHALL run Match's search again for each selected lot of a batch whos
 - **WHEN** a Part with that MPN is added to InvenTree before approval
 - **THEN** the Ready view shows a blocking item for the lot, and approval waits until the operator decides again.
 
+### Requirement: Validation without a searchable key
+
+For a selected `/7` lot the operator decided as new Part with no strong key, pass 3 SHALL record a no-searchable-key validation that checks the retained contribution history and binds that decision. If the lot later gains a strong key, approval SHALL need the normal validation search.
+
+#### Scenario: Unidentified lot imported as new
+
+- **GIVEN** a lot whose identification was unresolved and that the operator decided as new Part
+- **WHEN** preparation runs
+- **THEN** pass 3 records a no-searchable-key validation bound to that decision, and approval accepts it; after Research later adds an MPN, approval needs a new validation search.
+
 ### Requirement: Validation searches are preparation reads
 
 Match's validation searches SHALL be preparation target reads, each with its committed intent and retained result, and an unavailable read SHALL block. Unselected lots and lots of earlier-profile batches SHALL be neither searched nor blocked by this gate.

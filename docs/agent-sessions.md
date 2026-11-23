@@ -114,7 +114,6 @@ The rules behind the diagram:
 - **Mismatches:**
   - The instructions say "Publish markings, identity and quantity", but `ProcessingProposalV5` has no markings or identity fields. "Identity" is whatever `summary` and `catalogue` say, with `identity` in `relies_on.fields`.
   - The generic paragraph also asks the lead for the catalogue block, overlapping Research.
-  - `same_item_as` is in the instructions, but only the operator can set it.
 
 ### Research (per lot)
 
@@ -294,7 +293,7 @@ A lineage's working directory persists between its turns. Only `fetch_evidence` 
 11. **Nothing prevents asking a question twice.**
 12. **Quantity has two unreconciled routes:** the lot estimate and the proposal quantity.
 13. **Delivered-evidence tracking lives in worker memory.**
-14. **Instructions contradict the contracts:** markings and identity fields, URL sources, `same_item_as`.
+14. **Instructions contradict the contracts:** markings and identity fields, URL sources. (`same_item_as` is operator-set, read-only context in `read_batch`, which the lead prompt uses to count paired observations once.)
 
 # Part 2: Target design
 
@@ -517,7 +516,7 @@ Every change is delivered as a `revision/2` item carrying `changes`: `{field, fr
 | `identifying` | No strong key; Research is in identify mode |
 | `searching` | An interactive search is running (passes 1 and 2, late matches and Check again) |
 | `needs_decision` | A match question is open; Research and Images wait |
-| `decided` | With the decision and modes; or `clear` after a no-match verdict. Both are a persisted Match outcome with its generation and modes, which `research/1` and `images/1` pin |
+| `decided` | With the decision and modes; or `clear` after a no-match verdict. Both are a persisted Match outcome with an outcome revision and modes, which `research/1` and `images/1` pin; a repeat search with an equivalent result keeps the revision |
 
 Pass 3 isn't a Match state: its progress and findings live on the preparation result, and the lot's interactive verdict, decision and modes stay as they were, so a blocked preparation changes neither stage eligibility nor proposal currentness.
 

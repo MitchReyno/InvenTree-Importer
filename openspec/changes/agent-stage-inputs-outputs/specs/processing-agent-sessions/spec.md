@@ -34,7 +34,7 @@ When a waiting, paused or finished session has a pending inbox item, the system 
 
 For `/7` work, an item for a lot that Match holds SHALL NOT wake the session; it stays pending until that lot's wait ends. A `match` item that ends a held lot's wait SHALL wake it.
 
-While an actor's cutover drain fence is set, no `/3` resume SHALL be scheduled; the item stays pending for the upgrade action.
+While an actor's cutover drain fence is set, and after it has switched to `/4`, no `/3` resume SHALL be scheduled; the item stays pending for the upgrade action.
 
 #### Scenario: Chat with a finished session
 
@@ -53,6 +53,12 @@ While an actor's cutover drain fence is set, no `/3` resume SHALL be scheduled; 
 - **GIVEN** a finished `shared-vm-agent/3` lead on an actor whose drain fence is set
 - **WHEN** the operator sends it a chat message, or new evidence arrives
 - **THEN** no `/3` turn is queued, the item stays pending, and the upgrade action later carries it into the `/7` attempt.
+
+#### Scenario: Chat after the switch to `/4`
+
+- **GIVEN** a retained `shared-vm-agent/3` lead on an actor that now serves `/4`
+- **WHEN** a chat message or new evidence arrives for it
+- **THEN** no `/3` turn is queued and the item stays pending until the upgrade action carries it into a `/7` attempt.
 
 #### Scenario: Chat for a held lot
 
