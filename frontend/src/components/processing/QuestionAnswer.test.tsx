@@ -62,3 +62,14 @@ test('answers inside the question card, choosing the basis from options', () => 
   expect(within(basis).getByRole('radio', { name: /^Estimated/ })).not.toBeChecked()
   expect(screen.getByRole('link', { name: 'Add a photo' })).toHaveAttribute('href', '#b/capture')
 })
+
+test('the consequence of answering stays visible beside Submit, with no help popover', () => {
+  render(<QuestionAnswer question={question} currentQuestion={question} {...props} />)
+
+  expect(
+    screen.getByText(
+      'Your answer updates the saved lot or note, and the agent starts again with it.',
+    ),
+  ).toBeVisible()
+  expect(screen.queryByRole('button', { name: 'About answers' })).not.toBeInTheDocument()
+})

@@ -293,17 +293,19 @@ describe('InstructionField', () => {
     expect(screen.getByText(/not available in this setup/)).toBeInTheDocument()
   })
 
-  it('explains behind its help button that saved instructions reach running and finished agents', async () => {
+  it('says beside Save that saving reaches running agents and wakes finished ones', async () => {
     const user = userEvent.setup()
-    render(<InstructionField text="" revision="4" instruct={undefined} onDirtyChange={vi.fn()} />)
+    render(<InstructionField text="" revision="4" instruct={vi.fn()} onDirtyChange={vi.fn()} />)
 
-    expect(screen.queryByText(/pick them up as they work/)).not.toBeInTheDocument()
+    expect(
+      screen.getByText(
+        "Saving sends them to the batch's agents: running ones pick them up as they work, and finished ones start again to apply them.",
+      ),
+    ).toBeVisible()
     await user.click(screen.getByRole('button', { name: 'About batch instructions' }))
     expect(
       await screen.findByRole('dialog', { name: 'About batch instructions' }),
-    ).toHaveTextContent(
-      'Saved for the batch and sent to its agents. Running agents pick them up as they work, and finished ones start again to apply them. Instructions do not approve inventory values.',
-    )
+    ).toHaveTextContent('They do not approve inventory values.')
   })
 
   it('says when saved instructions could not reach the agents, and offers to send them again', async () => {

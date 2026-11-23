@@ -99,7 +99,7 @@ export function InstructionField({
         </label>
         <HelpButton
           label="About batch instructions"
-          explanation="Saved for the batch and sent to its agents. Running agents pick them up as they work, and finished ones start again to apply them. Instructions do not approve inventory values."
+          explanation="Instructions guide every agent working on this batch. They do not approve inventory values."
         />
       </LabelRow>
       <TextArea
@@ -134,19 +134,25 @@ export function InstructionField({
       {!loaded && !unavailable && <Small role="status">Reading the saved instructions…</Small>}
       {dirty && saveBlockedReason && <Small>{saveBlockedReason}</Small>}
       {instruct ? (
-        <Actions>
-          <Button
-            size="sm"
-            disabled={!dirty || !loaded || Boolean(saveBlockedReason)}
-            busy={saving}
-            onClick={() => void save()}
-          >
-            Save instructions
-          </Button>
-          <Button size="sm" variant="ghost" disabled={!dirty || saving} onClick={discard}>
-            Discard changes
-          </Button>
-        </Actions>
+        <>
+          <Actions>
+            <Button
+              size="sm"
+              disabled={!dirty || !loaded || Boolean(saveBlockedReason)}
+              busy={saving}
+              onClick={() => void save()}
+            >
+              Save instructions
+            </Button>
+            <Button size="sm" variant="ghost" disabled={!dirty || saving} onClick={discard}>
+              Discard changes
+            </Button>
+          </Actions>
+          <Small>
+            Saving sends them to the batch's agents: running ones pick them up as they work, and
+            finished ones start again to apply them.
+          </Small>
+        </>
       ) : (
         <Small>{readOnlyReason ?? 'Instructions are not available in this setup.'}</Small>
       )}

@@ -195,7 +195,8 @@ export function ProcessingOverview({
 const Columns = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: ${space[9]};
+  /* Wrapped, the columns are stacked page sections and take the page gap. */
+  gap: ${space[7]} ${space[9]};
   align-items: flex-start;
 `
 

@@ -206,7 +206,8 @@ const NO_RETIRED_LOTS: ReadonlySet<string> = new Set()
 const CaptureGrid = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: ${space[9]};
+  /* Wrapped, the columns are stacked page sections and take the page gap. */
+  gap: ${space[7]} ${space[9]};
   align-items: flex-start;
   & > [data-area='context'] {
     flex: 999 1 600px;
