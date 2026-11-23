@@ -95,8 +95,8 @@ Option 3 is to let reads confirmed current by the live-update stream enable comm
   - `ProcessingJobCard.tsx` has the "native agent · live provider not qualified" tag.
 - **Loading and freshness:**
   - `queries/client.ts` creates the TanStack Query client (`@tanstack/react-query` 5.105.1); `App.tsx` reads bootstrap with `staleTime: Infinity`. The cache is memory-only.
-  - Processing derives `waitingForRead` from `isFetchedAfterMount`, `isSuccess` and scope. Review's manual workflow uses `waitingForFirstRead`, and acceptance needs `processingCurrent` (`isFetchedAfterMount`, no refetch error, not fetching, and a matching capture revision).
-  - Commands are disabled until then. The rule is deliberate, because cached data must never authorise a command, and it stays.
+  - Processing's commands need `waitingForRead`, which combines the observer's flags with a successful-read latch set inside its own query function (`ProcessingWorkspace.tsx:173,239`), but batch Pause and Resume bypass it and send no revision (`:218`). Review's manual workflow uses `waitingForFirstRead`, and acceptance needs `processingCurrent` (`isFetchedAfterMount`, no refetch error, not fetching, and a matching capture revision).
+  - Those commands are disabled until then. The rule is deliberate, because cached data must never authorise a command, and it stays; this change also extends it to Pause and Resume.
   - `components/ui/Loading.tsx` has `Spinner` and `Skeleton`, used by a few components (`ProposedLotsGlance`, `StepPage`, `Tabs`, upload tiles) but by no page-level loading state.
   - 22 one-off status lines exist, such as "Loading saved settings…", "Reading records…", "Reading retained processing state…" and "Loading retained batches…".
 - **Spec:** live-updates "Live unverifiable workspace state" covers failed reads, and stays.
@@ -171,7 +171,7 @@ None.
   - `settings/MastheadChoice.tsx`, a new device preference beside `theme/masthead-style.ts`, and `masthead/ElectronicsCurrent.tsx`;
   - `settings/agents/` (`SaveBar`, `useSubsectionForm`, `useSettingsSave`, `useDirtyForms` and each subsection form).
 - **Dependencies:** none new.
-- **Server and VM:** only the provider status (task 12) needs them. It adds a guest status question on the paired channel, an intake read API and a contract, plus a token check before saving where the VM can make one. Everything else is frontend only, with no data change.
+- **Server and VM:** only the provider status (task 12) needs them. It adds per-provider status-only endpoints in the guest's credential processes with private relay routes, a `credential_meta` side table, an intake read API and a contract. Agent settings saves also gain a `save_id` in the contract and server (PR-F). Everything else is frontend only.
 - **Coordination:**
   - `improve-agent-interaction` also edits `ProcessingWorkspace.tsx`, `ActivityPopover` and the session drawer. The first to merge rebases the other.
   - `trust-live-confirmed-reads` builds on this change's `useFreshRead`.

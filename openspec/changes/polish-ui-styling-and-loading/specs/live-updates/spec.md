@@ -2,19 +2,23 @@
 
 ### Requirement: Commands wait quietly for a verified read
 
-A workspace showing cached or restored data SHALL keep its commands disabled until a successful HTTP read for that resource and scope has completed since it opened. A cache write, a restored entry, or a failed or paused read SHALL NOT count. While waiting, disabled commands SHALL give the reason "Updating…" on hover and to assistive technology, inputs SHALL keep their values, and no banner SHALL show unless the wait passes 3 s or the read fails.
+A workspace showing cached or restored data SHALL keep its commands disabled until a successful HTTP read for that resource and scope, whose request started after it opened, has been adopted into the cache. A manual cache write (even of equal data), a restored entry, or a failed, cancelled or paused read SHALL NOT count.
+
+#### Scenario: A cache write is not a verified read
+
+- **GIVEN** Processing reopened while another view wrote its snapshot into the cache
+- **WHEN** no HTTP read of its own has been adopted since it opened
+- **THEN** its commands stay disabled until its own read lands.
+
+### Requirement: The wait is quiet
+
+While a workspace waits for a verified read, its disabled commands SHALL give the reason "Updating…" on hover, on keyboard focus and to assistive technology, its inputs SHALL keep their values, and no banner SHALL show unless the wait passes 3 s or the read fails.
 
 #### Scenario: A draft open during a refresh
 
 - **GIVEN** Review reopened from cache with a lot edit still open, and its first read still running
 - **WHEN** the operator hovers or tabs to "Mark selected reviewed"
 - **THEN** the command is announced as unavailable with "Updating…", stays focusable, does nothing when pressed, the draft is kept, and the command becomes available when the read lands.
-
-#### Scenario: A cache write is not a verified read
-
-- **GIVEN** Processing reopened while another view wrote its snapshot into the cache
-- **WHEN** no HTTP read has completed since it opened
-- **THEN** its commands stay disabled until its own read succeeds.
 
 #### Scenario: Read fails
 
@@ -34,9 +38,9 @@ Once a workspace has a verified read, later background refreshes SHALL NOT disab
 
 #### Scenario: Commands without a revision
 
-- **GIVEN** Processing reopened from cache
-- **WHEN** its first read hasn't landed
-- **THEN** Pause and Resume, which send no expected revision, are unavailable like the other commands until the read lands.
+- **GIVEN** Processing, the Agents page or Settings › Agents showing Pause or Resume
+- **WHEN** a read hasn't landed yet, or a live hint has started a refresh
+- **THEN** Pause and Resume, which send no expected revision, are unavailable until the read settles, and are checked again when pressed.
 
 ### Requirement: Cached reads survive a reload in the same session
 

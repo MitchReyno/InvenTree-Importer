@@ -209,13 +209,26 @@ Each provider card SHALL show its sign-in status as a state pill read from the a
 
 ### Requirement: Sign-in failures shown apart from the status
 
-When the latest session that used a provider's subscription failed because the provider refused sign-in, its card SHALL say so on a separate line, "Last session couldn't sign in" with its time, without changing the status pill. A newer successful or API-key session hides it, and unavailable credentials don't count.
+When a provider's latest session, in either sign-in mode, used its subscription and failed with retained evidence that the provider refused sign-in, its card SHALL say so on a separate line, "Last session couldn't sign in" with its time, without changing the status pill. Missing credentials or an unreachable guest SHALL NOT show it, and a newer session that didn't fail sign-in hides it.
 
 #### Scenario: A session that couldn't sign in
 
 - **GIVEN** a saved Claude token, and the latest Claude subscription session failed with a sign-in failure
 - **WHEN** the card renders
 - **THEN** the pill still says "Token saved", and a separate line says "Last session couldn't sign in" with its time.
+
+
+#### Scenario: Missing token or unreachable guest
+
+- **GIVEN** the latest Claude session failed because no token was stored, or the guest couldn't be reached
+- **WHEN** the card renders
+- **THEN** no "Last session couldn't sign in" line shows.
+
+#### Scenario: A newer API-key session
+
+- **GIVEN** a Claude subscription session refused sign-in, followed by a Claude API-key session that succeeded
+- **WHEN** the card renders
+- **THEN** no "Last session couldn't sign in" line shows.
 
 ### Requirement: Agent settings controls match the design
 
@@ -237,11 +250,11 @@ Each provider card SHALL open its subscription sign-in in a dialog that asks for
 - **WHEN** the operator pastes an API key and chooses Save
 - **THEN** the dialog stays open with "That looks like an API key, not a subscription token", and nothing is sent.
 
-#### Scenario: Storage refused
+#### Scenario: Wrong management key
 
-- **GIVEN** a well-formed token and a wrong management key
-- **WHEN** the operator chooses Save
-- **THEN** the dialog stays open with the VM's refusal, and the previously saved token is kept.
+- **GIVEN** the Claude dialog
+- **WHEN** the operator enters a wrong management key
+- **THEN** the protected status read is refused with the reason, Save and Remove stay disabled, and the saved token is kept.
 
 #### Scenario: Token replaced elsewhere
 

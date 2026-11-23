@@ -2,7 +2,7 @@
 
 ### Requirement: Several photos from a phone in one go
 
-On iOS Safari and Android Chrome, Take photos SHALL offer both the camera and the photo library, and the library SHALL allow picking several JPEG or PNG photos at once. The picker SHALL NOT be limited to taking one photo with the camera.
+On iOS Safari and Android Chrome, Take photos SHALL reach both the camera and the photo library, through the system's own sheet or, where that sheet lacks one, a short Camera or Photo library choice inside Take photos. The library SHALL allow picking several JPEG or PNG photos at once. The three evidence actions stay as they are.
 
 #### Scenario: Pick five photos from the library
 

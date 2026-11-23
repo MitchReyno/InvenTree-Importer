@@ -18,7 +18,7 @@ The intake server SHALL be able to read each VM provider's sign-in status withou
 
 ### Requirement: Status reads never change the guest
 
-The status read SHALL reach the guest's credential process through a status-only endpoint that is reachable only through the paired relay, needs no management key and offers no mutating action, never through the management actions. A guest without the endpoint, a busy guest or a timeout SHALL read as unknown, not signed out.
+Each provider's status read SHALL reach that provider's credential process through a status-only endpoint, on a private listener reachable only through the paired relay, needing no management key and offering no mutating action. A provider whose service is missing, older, busy or times out SHALL read as unknown, independently of the other, never as signed out.
 
 #### Scenario: Older guest
 
@@ -40,6 +40,12 @@ The status read SHALL reach the guest's credential process through a status-only
 
 #### Scenario: Older image after an upgrade
 
-- **GIVEN** a guest store that recorded a save time, rolled back to an older guest image
-- **WHEN** the older image opens the credential store
-- **THEN** it opens, the stored token works as before, and the save time is simply unread.
+- **GIVEN** a guest store that recorded a save time, rolled back to an older guest image which then replaces the token
+- **WHEN** the store is opened again by the newer image
+- **THEN** it opens, the replaced token works, and no save time is shown, because the recorded time belongs to an older revision.
+
+#### Scenario: Not reachable from the browser
+
+- **GIVEN** the browser-facing management listener
+- **WHEN** a request is sent through it to a status-only path
+- **THEN** it is refused, and only the paired relay reaches the status endpoints.
