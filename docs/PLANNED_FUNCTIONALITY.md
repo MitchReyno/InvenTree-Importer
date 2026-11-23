@@ -104,6 +104,20 @@ Build the backend for the design-refresh controls that BI-014 shipped disabled, 
 - Prerequisites: BI-014 (`apply-design-refresh`) ships the disabled controls first. BI-014 is Done (satisfied).
 - OpenSpec: [complete-design-refresh-backend](../openspec/changes/complete-design-refresh-backend/)
 
+#### BI-022 — Agent stage inputs and outputs
+
+Give each processing agent its own job, the context earlier stages found, and an output something actually uses.
+- Examine, Research and Images each get a sealed brief that weighs the operator's corrections, answers and notes first.
+- Each stage publishes a typed output that the server keeps within the stage's scope, and Images proposes crop recipes the app renders.
+- The Inventory agent is replaced by an app-side Match step. Match searches InvenTree after Examine, after Research identifies an item, and before approval, and asks the operator before spending research or photo work on a Part that may already exist.
+- The repository's skills become per-stage instruction packs and intake MCP tools.
+
+- Change: `agent-stage-inputs-outputs`
+- Status: Proposed — plan in review.
+- Size: XL — a new input version and typed outputs, an app Match step with its own questions, identity amendments, media decoder ports, records and approval effects, and a new profile with a live requalification, in eight PRs after the plan.
+- Prerequisites: BI-019 (`improve-agent-interaction`) PR-B, PR-D and PR-E; coordinate session instruction edits with BI-017. The live requalification needs Mitch's go-ahead.
+- OpenSpec: [agent-stage-inputs-outputs](../openspec/changes/agent-stage-inputs-outputs/)
+
 #### BI-017 — Simple web access and setup for VM agents
 
 Agents in the shared VM get provider web search (Claude WebSearch, Codex web search), Claude WebFetch, and Glob and Grep. A per-session "Allow public web pages" setting, on by default, is enforced by each turn's egress proxy. Protected hostnames are worked out automatically, so no web settings go in the environment. The `bench-web` command and the separate document reader are removed. A rerunnable `pnpm vm:setup` replaces the README's manual VM steps, and `pnpm dev` rebuilds and reloads a stale runner image. This item takes over BI-015's web research switches.

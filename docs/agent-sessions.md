@@ -1,0 +1,591 @@
+# Agent sessions: inputs, outputs and flow
+
+This is the technical and design reference for Bench Intake's processing agents: what each agent receives, what it produces, how one agent's output reaches the next, and how operator input and new evidence re-steer them.
+
+[Current behaviour](#part-1-current-behaviour) describes the code at `9db1921e` on `interactive-app` (2026-11-23), as read from the source. [Target design](#part-2-target-design) is a proposal, planned in the OpenSpec change `agent-stage-inputs-outputs` (BI-022). Nothing in Part 2 is implemented yet.
+
+Paths are relative to the repository root. Line references are to `9db1921e` and will drift.
+
+## Terms
+
+| Term | Meaning |
+| --- | --- |
+| Stage | One of `examine`, `research`, `images`, `inventory` (`contracts/src/agents.ts` `AGENT_SETTINGS_STAGES`). Examine is batch-level; the others are per lot (`LOT_STAGES`, `intake-server/src/processing/session-attempts.ts:26`). |
+| Job | One stage for one subject (`processing_job`): the batch for Examine, a lot for the others. A job's session lineage id is the job id. |
+| Attempt | One run of a job against one sealed input (`processing_attempt`). A job's current attempt is `current_attempt_id`. |
+| Session | The provider conversation for an attempt (`agent_session`), resumable across turns. |
+| Profile | The sealed instruction text, digest and tool profile a session runs under (`processing_profile`; `intake-server/src/processing/session-policy.ts`). |
+| Input manifest | The sealed, digested JSON an attempt is pinned to (`processing_input`; `ProcessingInputV6`, `contracts/src/processing.ts:119-205`). |
+| Opening | The first user message of a fresh session, rendered from the manifest (`openingText`, `intake-server/src/agents/session/session-runner.ts:358-397`). |
+| Outbox | What a session emits, in order (`agent_session_outbox`; kinds in `contracts/src/sessions.ts:75-93`). |
+| Inbox | What is delivered to a session (`agent_session_inbox`; kinds in `contracts/src/sessions.ts:96-126`). |
+| Proposal | A session's published claim about its subject (`processing_proposal`; `ProcessingProposalV5`). |
+
+# Part 1: Current behaviour
+
+## 1.1 Pipeline and dependencies
+
+```mermaid
+flowchart TD
+  E["Evidence added in Capture"] -->|"ready original, 20 s quiet"| T["Examine trigger"]
+  T -->|"creates or wakes"| L["Examine lead session (batch-level)"]
+  L -->|"record_observation"| O[("Observations")]
+  L -->|"propose_lot, regroup"| LOT[("Lots and memberships")]
+  L -->|"propose, relying on the observation set"| P1[("Identity proposal")]
+  P1 -->|"onLeadIdentity: set version current"| Q{"Queue successors"}
+  Q --> R["Research session, pinned to the identity"]
+  Q --> I["Images session, pinned to the identity"]
+  R -->|"propose"| P2[("Research proposal")]
+  I -->|"propose"| P3[("Images proposal")]
+  S["Operator Start"] -.->|"no pinned identity"| R
+  S -.-> I
+  S -.->|"409 unless both are current"| V["Inventory session"]
+  P2 -->|"gate"| V
+  P3 -->|"gate"| V
+  V -->|"propose"| P4[("Inventory proposal")]
+  LOT --> REC["Records projection"]
+  P2 -.->|"attribution only"| REC
+  P3 -.->|"attribution only"| REC
+  P4 -.->|"attribution only"| REC
+  REC --> APP["Approval preparation (capture state only)"]
+```
+
+The rules behind the diagram:
+
+- **Examine starts from evidence.** The Examine trigger sends each new ready original, after a 20 s quiet period, to the lead session as an `evidence` item, or creates the lead job (`intake-server/src/processing/examine-trigger.ts:25,40-110,155-207`). Media for Examine is originals only (`intake-server/src/media/inputs.ts:199-215`).
+- **A stable identity starts Research and Images.** A lead proposal that names `identity` in `relies_on.fields` and cites `{kind: 'observation_set', lot_id, version}` at the lot's current version is stable. `onLeadIdentity` queues Research and Images pinned to it (`intake-server/src/processing/stable-identity.ts:28-38,65-161`).
+  - A successor that is queued but has never run is replaced.
+  - One that has run gets a `revision` inbox item instead.
+  - An identity citing an older version is stale at once (`lot_regrouped`).
+- **Inventory is never queued by the pipeline.** Only operator Start (`intake-server/src/processing/commands.ts:38,79-107`) and session replacement queue it. Its claim waits for `successorsCurrent`: a non-stale proposal on the current attempt of both Research and Images (`stable-identity.ts:186-196`; `session-runner.ts:535-542`).
+- **Operator Start can bypass the lead.** Start queues Research and Images with no pinned identity (`commands.ts:99-107`). With a session profile it sends all stages at once, and the whole request fails with 409 `inventory_waiting` if Research and Images aren't current (`frontend/src/components/processing/ProcessingWorkspace.tsx:395-401`).
+- **At claim** (`session-runner.ts:462-542`):
+  - a paused batch's sessions stay queued;
+  - a stale pinned identity cancels the session;
+  - Inventory waits for its gate;
+  - a VM profile runs only on a worker paired to the same profile.
+
+## 1.2 What every session receives
+
+| Input | Source | Notes |
+| --- | --- | --- |
+| System prompt | The profile's `instruction_bytes`, checked against `manifest.instruction_sha256` at claim (`session-runner.ts:508-513,616`) | Same text for every stage. `shared-vm-agent/3`: `intake-server/migrations/0033_shared_vm_web_tools.sql:12-14`. It asks for URL citations, which the proposal contract can't hold. |
+| Opening (fresh session) | `openingText` | JSON of `stage`, `capture_revision`, `subject_id`, `subject` (the lot record), `linked_part`, `defaults`, notes with `text_sha256`, evidence ids and digests, `pending_inbox`, `part_description_style`, and an `instructions` string. |
+| `instructions` in the opening | `session-runner.ts:389-394` | `LEAD_INSTRUCTIONS` for Examine only, then style guidance, web guidance (profile-dependent) and one generic paragraph about status, propose, ask, inbox and the catalogue block. Research, Images and Inventory get identical text. It isn't covered by any digest, but is rendered deterministically from the sealed manifest. |
+| Opening (resumed session) | `session-runner.ts:359-361` | Only "You have N new inbox item(s). Call read_inbox and continue." |
+| Tools | `intake-server/src/agents/tools/server.ts:16-67` | Every session: `status`, `propose`, `ask`, `reply`, `fetch_evidence`, `read_inbox`. Examine only: `read_batch`, `record_observation`, `propose_lot`, `regroup`. VM Claude adds `Bash, Read, Write, Edit, Glob, Grep, WebSearch, WebFetch` (`session-adapters.ts:87-96`). VM Codex adds shell, view_image and live web search (`session-adapters.ts:322-335`). |
+| Inbox delivery | `session-adapters.ts:51-84`; `session-runner.ts:623-656,768,783` | Polled every 500 ms in a turn and steered in. Acknowledged only when the turn finishes live. Pending items at turn end re-queue the session. Each item is rendered as `Inbox item <id> (sequence N, <kind>): <payload JSON>`. |
+
+**Sealed but never shown to the agent** (`contracts/src/processing.ts:119-140`; `session-runner.ts:367-395`):
+
+- `observations`: InvenTree category, company, template, part and location observations. The lot input keeps only `part` and `location` (`intake-server/src/processing/model.ts:171-177`).
+- `pinned_proposal_ids`.
+- The media group ↔ evidence map.
+- `batch_id`, `source_id`, `settings_revision`, and the raw `web` object (shown only as guidance text).
+
+## 1.3 Per stage
+
+### Examine (batch lead)
+
+- **Input:** the opening above with a null subject. Notes include automation-intent, group and evidence notes, recast as `producer: 'human'` (`intake-server/src/processing/session-input.ts:94-153`). `pinned_proposal_ids` is empty.
+- **`read_batch`** returns `LeadBatchView` (`contracts/src/evidence-observations.ts:102-140`; `intake-server/src/capture/evidence-observations.ts:1151-1255`):
+  - the revision;
+  - lots with origin, `operator_edited`, `reexamine`, `estimated_quantity`, `observation_set_version`, and member and suggested observation ids;
+  - Parts (id and label);
+  - observations with region, `markings`, `visible_count`, status, supersedes, `lot_id`, `operator_edited` and `same_item_as`.
+
+  It leaves out each reading's text, `source_kind` and agreement, the observation's `evidence_id`, the lot's `quantity_basis` and exclusion, and why a lot is flagged `reexamine`.
+- **`fetch_evidence`** (`intake-server/src/agents/tools/handlers.ts:178-387`):
+  - Whole pages arrive downscaled to a 768 px long edge; regions use the preview, up to 2576 px.
+  - It returns pages, the evidence label and its latest note, the citable `source`, and `delivered{page,width,height,scale,region,media_type,sha256}` with the image.
+  - The budget is 8 MiB per provider run, at most 1.25 MiB per image.
+  - Delivered versions are tracked in worker memory (`server.ts:119-120`), so they are lost on a restart.
+- **Outputs:**
+
+  | Tool | Writes | Triggers |
+  | --- | --- | --- |
+  | `record_observation` | `capture_evidence_observation` and a `capture_revision`. An operator-edited row gets a `suggested` successor instead (`evidence-observations.ts:410-461`). | Outbox `observation`. Stops the trigger re-sending that version. |
+  | `propose_lot` | `capture_lot` (origin `agent`), memberships, an optional draft `capture_part`, `estimated_quantity` and its basis. On an operator-edited lot it writes only suggested memberships and silently drops label, Part and estimate (`:542-554`). | `bumpObservationSet`: supersedes unstarted successors, marks relying identities stale, sends observation notices to lot sessions (`intake-server/src/processing/regroup.ts:13-67`). Outbox `lot`. |
+  | `regroup` | Moves memberships, with the same rules as `propose_lot`. | Same as `propose_lot`. Outbox `regroup`. |
+  | `propose` | `processing_message` and `processing_proposal` with `relies_on`. | `onLeadIdentity` when it is a stable identity. Outbox `proposal`. |
+  | `ask` | `processing_question` (open) and `processing_message`. | Settles the session as `waiting_input` when no work remains. Outbox `question`. |
+  | `reply`, `status` | Outbox only. | Shown in the drawer. |
+
+- **Mismatches:**
+  - The instructions say "Publish markings, identity and quantity", but `ProcessingProposalV5` has no markings or identity fields. "Identity" is whatever `summary` and `catalogue` say, with `identity` in `relies_on.fields`.
+  - The generic paragraph also asks the lead for the catalogue block, overlapping Research.
+  - `same_item_as` is in the instructions, but only the operator can set it.
+
+### Research (per lot)
+
+- **Queued by:** a stable identity, pinned to it; or operator Start, unpinned.
+- **Input:**
+  - the shared opening, whose subject is the lot record (label, quantity, estimate and basis, `evidence_observation_ids`);
+  - the linked Part;
+  - lot, Part, batch, group and evidence notes;
+  - the evidence the lot uses.
+
+  It doesn't see the identity it is pinned to, observation contents, or the catalogue vocabulary.
+- **Output:** a V5 proposal. The catalogue block is expected but not enforced. An existing category, company or template choice needs an `observation_id` (`contracts/src/effects.ts:14-19`; `catalogue-assessment.ts:42,76-124`). The session is never given those ids, so in practice its values are `proposed_new` or judged unsupported.
+- **Consumers:** Records attribution and the Part's "missing", "not reused" and "unsupported" lists (`contracts/src/records-projection.ts:156-230,672-746`). Inventory's gate.
+
+### Images (per lot)
+
+- **Queued:** exactly as Research (`SUCCESSOR_STAGES`, `intake-server/src/processing/supersede.ts:7`).
+- **Input:** the same as Research.
+- **Output:** a V5 proposal with no image content. No session tool creates or selects media.
+  - `fetch_evidence` crops go to a private cache and "are never evidence versions" (`intake-server/src/media/region-crops.ts:12-16`).
+  - Retained crops (`documentary-crop/1`, `documentary-rotated-region/1`, `contracts/src/media.ts:98-134`) come only from the operator's `derive` and `select_attachment` edits.
+- **Consumers:** only Inventory's gate, which any non-stale proposal satisfies. Processing › Images (`frontend/src/components/processing/ProcessingImages.tsx`) lists Capture's originals and crops, not session output.
+- **Observed (dev batch `0b02578a…`, 2026-11-22/23):** both Images attempts read the markings, counted 25 diodes, tried to research the part and published a catalogue proposal (category "Diodes", description, quantity estimate). Neither produced an image.
+
+### Inventory (per lot)
+
+- **Queued:** only by Start or replacement, after its gate passes. `onLeadIdentity` loops over Research and Images only (`stable-identity.ts:95`).
+- **Input:** the same as Research, with `pinned_proposal_ids: []`.
+  - It can't read Research or Images proposals, or cite them (`handlers.ts:747`).
+  - It gets no evidence or revision notices (`intake-server/src/processing/currentness.ts:61-72`).
+  - It has no inventory read; the profile forbids inventory access.
+- **Output:** a V5 proposal. Matches, duplicates and locations have no contract.
+- **Consumers:** none specific. Processing › Inventory shows record projections, and its "In InvenTree" column is always "Not known" (`frontend/src/components/processing/ProcessingInventory.tsx:140-153`).
+
+## 1.4 From agent output to InvenTree
+
+- **Records are capture state.** `projectRecords` builds them from capture state (`contracts/src/records-projection.ts:442-944`).
+- **Proposals only annotate records:**
+  - they label a field's origin step when a capture value equals a proposal value (`:117-140,251-360`);
+  - they add Part details (`required_missing`, `not_reused`, `category_reason`);
+  - they list `unsupported` catalogue values, taking the first current proposal of any stage (`:672-746`);
+  - they add a "company proposed new" record that says creating one is not supported yet (`:750-777`).
+- **Nothing applies a catalogue to a Part spec.** `applicableCatalogueSpec` (`intake-server/src/processing/catalogue.ts:20`) has no production caller. Lead-created Parts are bare rows.
+- **Quantity and tags from current proposals are ignored.** The suggestions UI acts only on `bench-intake-proposal/4` (`frontend/src/components/operator/ProcessingSuggestions.tsx:44`). Stock quantity comes from the lead's `propose_lot` estimate (`records-projection.ts:890-920`).
+- **Approval never reads proposals** (`intake-server/src/review/approve-preparation.ts`).
+  - `create_part` sends name, description, category and tags, with no image (`intake-server/src/execution/effects/effects-body.ts:68-76`).
+  - A Part attachment comes only from an operator-selected media version (`effects-plan.ts:494-572`).
+
+## 1.5 Updates and re-steering
+
+| Event | Who is told | Channel | Staleness | Wakes |
+| --- | --- | --- | --- | --- |
+| New ready original | Examine lead | `evidence` inbox, after a 20 s quiet period (`examine-trigger.ts:40-110,155-171`) | None | Lead resumed or created |
+| Evidence removed | Lead (batch notice); the lot's Research and Images (keyed by removal revision) | `revision` (`currentness.ts:392-409`) | Proposals citing the version, an observation on it or its notes: `evidence_removed`, transitively | Yes |
+| Evidence restored | Lead | `evidence` (`currentness.ts:418-439`) | None | Yes |
+| Observation added to or removed from a lot | The lot's Research and Images | `evidence` / `revision` (`currentness.ts:169-216`) | Proposals citing a removed observation | Yes |
+| Operator corrects an observation, or marks it the same item as another | Nobody | Sets `operator_edited` and the lot's `reexamine` (`evidence-observations.ts:812-873,945-992`) | None | No; the lead sees it only on its next `read_batch` |
+| Operator moves, splits or merges | Research and Images through observation notices; lead only if one of its identities went stale (`currentness.ts:286-313`) | `revision` | Relying identities: `lot_regrouped` | Partly |
+| Operator corrects a lot's identity or quantity | Sessions relying on the field, matched by subject | `revision` from `fieldsSuperseded` (`intake-server/src/capture/repository.ts:1388-1406`) | Relying proposals | Yes |
+| Examine revises an identity | The lot's Research and Images that have run | `revision` with "The lot's identity was revised: ‹summary›" (`stable-identity.ts:119-135`) | Old identity superseded | Yes; unstarted successors are replaced |
+| Answer to a session question | The asker, plus sessions relying on the fields | `answer` (asker) and `revision` (others) (`intake-server/src/processing/session-answers.ts:134-155`) | Relying proposals | Yes |
+| Chat message | That session | `chat` (`intake-server/src/processing/routes.ts:128-146`) | None | Yes |
+| Batch or group instruction | Every session of the batch | `instruction` (`intake-server/src/agents/instructions.ts:16-25,141-159`) | None | Yes |
+| Pause or Resume | Sessions of the batch | Claim gate (`intake-server/src/agents/pause.ts`; `session-runner.ts:462-470`) | None | Resume releases queued claims |
+| Start fresh (replace session) | A new attempt | `session-replacement.ts` | Old attempt's proposals superseded | New session |
+
+An identity revision never reaches Inventory, and `ProcessingField` has no `inventory` field (`contracts/src/processing.ts:327`).
+
+## 1.6 State mapping
+
+```mermaid
+stateDiagram-v2
+  [*] --> queued
+  queued --> running: claimed when not paused and the gate passes
+  running --> waiting_input: open question, no work left
+  running --> finished: turn ends, nothing pending
+  running --> queued: inbox pending at turn end
+  waiting_input --> queued: new inbox item
+  finished --> queued: new inbox item
+  interrupted --> queued: new inbox item
+  running --> cancelling
+  cancelling --> cancelled
+  running --> failed
+  running --> interrupted
+  queued --> waiting_for_login
+  queued --> waiting_for_capacity
+  running --> resume_unavailable
+```
+
+| Session state | Attempt state (`session-runner.ts:68-80`) | Holds a slot |
+| --- | --- | --- |
+| `queued` | `queued` | No |
+| `running`, `cancelling` | `running` | Yes |
+| `waiting_input` | `waiting_for_user` | No |
+| `finished` | `ready` | No |
+| `cancelled` | `cancelled` | No |
+| `interrupted`, `resume_unavailable` | `interrupted` | No |
+| `failed` | `failed` | No |
+| `waiting_for_login` | `waiting_for_login` | No |
+| `waiting_for_capacity` | `waiting_for_capacity` | No |
+
+A new inbox item resumes `waiting_input`, `finished` and `interrupted` sessions (`session-runner.ts:83`; `intake-server/src/agents/session/session-execution.ts:112-145`). A running session receives it in its turn.
+
+## 1.7 Event mapping
+
+**Outbox (session → app)**
+
+| Kind | Payload | Consumers |
+| --- | --- | --- |
+| `status` | text (at most 120 characters) | Drawer timeline, activity popover, Agents page |
+| `observation` | observation id | Drawer timeline, Capture glance, Examine view |
+| `lot` | lot id | Drawer timeline, Review |
+| `regroup` | lot ids | Drawer timeline |
+| `proposal` | proposal id | Drawer timeline (summary and sources), Records attribution, Inventory gate, stable identity |
+| `question` | question id | Needs you, drawer |
+| `reply` | inbox item id, text | Chat panel |
+
+**Inbox (app → session)**
+
+| Kind | Senders | Receivers |
+| --- | --- | --- |
+| `answer` | `session-answers.ts:134` | The asking session |
+| `chat` | `processing/routes.ts:137` | One session |
+| `evidence` | `examine-trigger.ts:157`, `currentness.ts` (observation added, evidence restored) | Lead; the lot's Research and Images |
+| `instruction` | `agents/instructions.ts:114` | Every session of the batch |
+| `revision` | `currentness.ts:31` (superseded fields, regroups, removals), `stable-identity.ts:120` | Relying sessions; the lot's Research and Images |
+
+Every write publishes a `processing_changed` event for the batch, which the frontend uses to re-read.
+
+## 1.8 Profiles and the VM
+
+| Profile | Tools | Status |
+| --- | --- | --- |
+| `shared-vm-agent/3` | Intake MCP + VM built-ins + web | Current |
+| `shared-vm-agent/1`, `native-agent/2` | Intake MCP only | Allowed, not extended |
+| `shared-vm-agent/2` | — | Retired (`agent_profile_retired`) |
+| `synthetic-session/1` | Fixture | Tests and dev |
+| `synthetic-research/2`, `native-agent/1`, `restricted-research-stub/1`, `synthetic-research/1` | Non-session handlers | Legacy. `synthetic-research/2` is still the default when `INTAKE_PROCESSING_PROFILE` is unset (`intake-server/src/config.ts:143`). |
+
+**What a new instruction text requires** (`intake-server/migrations/0006` trigger and CHECK):
+
+- a new profile id;
+- a migration inserting its bytes and digest;
+- a CHECK combination;
+- a contract literal;
+- a `session-policy.ts` entry;
+- a `config.ts` allow-list entry.
+
+**What admission pins** (`intake-server/src/agents/session/session-admission.ts`, `claude-session-admission.ts`):
+
+- the CLI versions: Claude Code 2.1.319 and Codex 0.166.0;
+- empty skills, slash commands and plugins;
+- one MCP server named `intake`, whose tool list must match exactly;
+- the Codex feature set.
+
+Tool schemas themselves aren't pinned.
+
+**The guest container** (`tooling/deployment/bridge/tool-turn.sh:32-50`; `tooling/deployment/guest/Dockerfile:3-5`):
+
+- `--network=none` except through the egress proxy;
+- a read-only root, a 64 MB `/tmp`, 640 MB of memory;
+- Python 3, Pillow, poppler, Chromium and curl; no ImageMagick.
+
+A lineage's working directory persists between its turns. Only `fetch_evidence` images are staged into the guest; they are written to `/tmp` and removed at turn end.
+
+## 1.9 Gaps
+
+1. **The three lot stages are interchangeable:** same instructions, same tools, no field restriction.
+2. **The hand-off is lost.** Successors are pinned to an identity they can't read, and observation readings never reach them.
+3. **Existing catalogue references are out of reach**, because the vocabulary observations aren't shown.
+4. **Images produces nothing**, and its stage exists only to satisfy Inventory's gate.
+5. **Inventory is never auto-queued and can't see its inputs** or InvenTree.
+6. **Operator Start bypasses the stable identity.**
+7. **Web citations can't be stored**, although the instructions ask for them.
+8. **Several outputs have no consumer:** catalogue values, `/5` quantity and tags, supplier price, alternatives, and any Part image.
+9. **Records take the first catalogue from any stage.**
+10. **Operator corrections don't reach the lead**, and an identity revision is a one-line summary.
+11. **Nothing prevents asking a question twice.**
+12. **Quantity has two unreconciled routes:** the lot estimate and the proposal quantity.
+13. **Delivered-evidence tracking lives in worker memory.**
+14. **Instructions contradict the contracts:** markings and identity fields, URL sources, `same_item_as`.
+
+# Part 2: Target design
+
+Status: proposed. Mitch's decisions on 2026-11-23:
+
+- Each stage gets its own typed proposal.
+- Accepted values fill agent-made Parts as proposed values that the operator confirms.
+- The chip logo set may be bundled.
+- New work targets only the new VM profile and the synthetic fixture.
+- **The Inventory agent session is replaced by an app-side Match step.** The app searches InvenTree deterministically. Examine and Research add judgement where search can't (aliases, alternate markings, logos, cross-references). The operator decides before any research or photo work is spent on an item InvenTree may already hold. A deterministic validation runs again before approval.
+- **A lot waiting on its match question doesn't start Research or Images.**
+- **"Add stock to an existing Part" takes a stock photo, and a Part photo only when the existing Part has none.**
+
+## 2.1 Principles
+
+1. **One contract per stage.** Each agent stage has an input brief, a tool set, an instruction pack and a typed output, each owned by that stage and checked by the server.
+2. **Hand-offs are data, not prompts.** Every dependency between stages is a sealed reference plus content in the consumer's brief, and readable again with a tool. Agents never pass free text to each other.
+3. **Human facts are first-class inputs.** Operator corrections, answers, notes and edits are marked as human. They are weighed first, and they reach every session that relies on them as precise changes.
+4. **Deterministic work runs in the app.** Inventory search, duplicate detection, image geometry, crop rendering and logo matching are app work with provenance. Agents judge; the app computes, records and guards.
+5. **Don't spend work InvenTree makes unnecessary.** A lot that matches an existing Part gets only the work the operator's decision calls for.
+6. **Outputs have consumers.** Every output field is read by something named in its contract: Review, Records, approval, the Match step or a later stage. Anything else is dropped from the contract.
+
+## 2.2 Stage contracts
+
+### Shared brief (every session)
+
+- **`batch`:** id, title, defaults, batch instructions, the web policy.
+- **`human`:**
+  - notes, each with its subject;
+  - answers, with question, steps and values;
+  - corrections, with the observation, the reading before and after, who and when;
+  - lot edits, each with its id to cite.
+- **`asked`:** questions on the subject, its Part or the batch whose fields overlap the stage's fields, with state, assumptions and answers.
+- **`evidence`:** the versions the session may fetch, with labels and the regions earlier stages used.
+- **`match`:** the lot's match state, its candidates with the reason each matched, and the decision and mode when one exists.
+- **`revision`:** the brief's revision, which `read_lot` or `read_batch` return again.
+
+The brief is sealed into a new input version, `bench-intake-input/7`, and rendered within a 48 KiB budget. Past the budget it is summarised, and the read tools return the rest in pages.
+
+### Agent stages
+
+| | Examine | Research | Images |
+| --- | --- | --- | --- |
+| Starts when | New evidence; a correction to an observation it made; an answer to its question | Match says so: **identify** mode when the lot has no searchable identifier; **full** or **gaps** mode after a decision or a clean search | Match says so: **full** or **stock** mode, after a decision or a clean search |
+| Brief adds | Every observation with readings, source and confidence; lots with exclusion and `reexamine` reasons; match candidates for its lots | Pinned identity with its id; the lot's observations; the catalogue vocabulary; its mode and, for gaps, the fields to fill; the matched Part's current data | The lot's observations with regions and orientation; items to keep out of frame; its mode; whether the matched Part has an image |
+| Tools | as today + `read_batch` (full readings), `inspect_region`, `match_logo`, `read_guide` | `read_lot`, `read_vocabulary`, `fetch_evidence`, `match_logo`, `read_guide`, web (VM) | `read_lot`, `fetch_evidence`, `inspect_region`, `preview_images`, `propose_images`, `read_guide` |
+| Typed output | `examine-identity/1`: markings verbatim per observation; ranked identity candidates; maker or logo id with method; packaging and seal state; date code; condition; NOS signals; visible NSN; quantity estimate and basis (the only quantity route); **match notes** | `research-identity/1` (identify mode): canonical MPN, manufacturer, every alias with its kind and source, cross-references, **match notes**. `research/1`: category, name, type, MPN, manufacturer, description, parameters with sources and pages, datasheet and pages, web sources (agent-reported), notes by record, conflicts, config gaps (gaps mode fills only the named fields) | `images/1`: image recipes with role (Part image, stock image, extra), source version, region, rotation, straightening, bounded light adjustments and flags (stock mode: stock images, plus the Part image only when the matched Part has none) |
+| May not propose | research or image fields | quantity, images or match decisions | anything except images |
+| Consumers | Match (search keys), Research and Images briefs, Review lots, Records | Match (search keys), Records Part spec (proposed values), Review | Review image choice, approval (Part image, stock attachments) |
+
+**Match notes** are an agent's judgement about existing records, kept apart from the search:
+
+- an alias: "house number 1N4148-TK is this Part's alternate marking";
+- a relation: "same MPN as stock #1712, but date code 2407 vs 2341";
+- a negative: "different maker's logo: not the same Part".
+
+They add search keys, and they are quoted in the match question.
+
+The server refuses a proposal whose kind doesn't match the session's stage or mode, or which carries fields the stage may not propose.
+
+### The Match step (app, not an agent)
+
+**Search keys**
+
+- **Strong keys:** an MPN or type with a manufacturer, an NSN, an InvenTree IPN or SKU read from a label, or the import reference or barcode with the batch.
+- **Weak keys:** house numbers, packaging or distributor codes, generic descriptions and partial markings.
+- **A lot is searchable** when it has at least one strong key.
+
+**What it searches**
+
+- InvenTree Parts (name, IPN, keywords), manufacturer Parts (MPN), supplier Parts (SKU) and stock (batch, barcode, import reference). Searches are read-only, using the app's read token.
+- This app's other unapproved lots with the same keys, so two batches don't both create one Part.
+
+**What it records**
+
+- **Candidates:** each with the keys that matched and the strength of the match.
+- **A verdict:** `no_match`, `exact` (a strong key and manufacturer agree), `possible` (a weak key, or a partial agreement), or `duplicate` (the same import reference or barcode with the batch).
+
+**Sufficiency check.** For a candidate Part, the app reads what InvenTree holds: datasheet, the category's key parameters, Part image, manufacturer Part, and supplier Part for this supplier. It lists what is missing, which decides whether "fill what's missing" is offered and which fields gaps mode fills.
+
+### The lot's path through Match
+
+```mermaid
+flowchart TD
+  ID["Examine: stable identity"] --> K{"Strong key?"}
+  K -->|"no"| RI["Research, identify mode (Images waits)"]
+  RI -->|"research-identity/1: canonical MPN and aliases"| S2["Match search, pass 2"]
+  K -->|"yes"| S1["Match search, pass 1"]
+  S1 --> V{"Verdict"}
+  S2 --> V
+  V -->|"no match"| NEW["Research full, Images full"]
+  V -->|"exact, possible or duplicate"| Q["Match question (Research and Images wait)"]
+  Q -->|"new Part"| NEW
+  Q -->|"add stock"| STOCK["Research skipped, Images stock"]
+  Q -->|"fill what's missing"| GAPS["Research gaps, Images stock"]
+  Q -->|"already imported"| EXC["Lot left out"]
+  NEW --> LATE{"Research finds a new alias?"}
+  LATE -->|"yes"| S3["Match search again"]
+  S3 --> V
+  NEW --> REV["Review: confirm values, images, target"]
+  STOCK --> REV
+  GAPS --> REV
+  REV --> VAL["Pre-approval validation, pass 3"]
+  VAL --> APP["Approval"]
+```
+
+1. **Pass 1, after Examine.** When a lot's identity becomes stable and it has a strong key, Match searches.
+   - With no match, Research (full) and Images (full) are queued.
+   - With candidates, the match question is asked, and Research and Images wait.
+2. **Identify first, when there's no strong key.** Items packaged under a less useful identifier, or known by a different name for a Part that already exists, can't be matched until Research has identified them.
+   - Research is queued in **identify** mode, and Images waits.
+   - Research resolves the canonical MPN, the manufacturer and every alias: house numbers, packaging codes, cross-references and alternate markings. It publishes `research-identity/1` and pauses.
+   - Match then searches with every alias (pass 2).
+   - With no match, the same Research session receives its mode (full) by inbox and continues, and Images is queued.
+   - With candidates, the match question is asked, and the paused session receives the decision's mode, or is closed if the decision skips research.
+3. **The match question.** It is an app question on the lot, using the stepped-question form from BI-019. It is listed in Needs you, and it quotes the candidates, their reasons, the agents' match notes and what the Part is missing. Options depend on the verdict: add stock to the Part, add stock and fill what's missing (only when something is), new Part, already imported (leave the lot out), or something else. Several lots with exact matches can be offered as one batch-level question, with exceptions listed.
+4. **Modes.** Each answer sets the stage modes, which are sealed into the brief or delivered to a paused session:
+
+   | Answer | Research | Images |
+   | --- | --- | --- |
+   | New Part | full | full |
+   | Fill what's missing | gaps (named fields only) | stock, plus a Part image if the Part has none |
+   | Add stock | skipped | stock, plus a Part image if the Part has none |
+   | Already imported | skipped; lot left out | skipped |
+
+5. **Late matches.** If Research in full mode finds an alias or cross-reference that makes the lot searchable in a new way, it publishes it as a match note. Match searches again. A new candidate pauses Research and asks the question, as in pass 2.
+6. **Pass 3, before approval.** Before Changes › Ready, Match searches again with each lot's final identifiers and import references. It looks for a Part created in InvenTree since the decision, stock that now exists with the same barcode and batch, and a final identity that no longer matches its decision. Each finding is a blocking item in Review. Approval's idempotency on the import reference and barcode remains the last guard.
+
+### One identity, refined by more than one stage
+
+A lot has one current **identity**, built in layers. Examine publishes the base (`examine-identity/1`). Research, in identify mode or later, publishes an **amendment** (`research-identity/1`) that adds to it or refines it. The lot's identity is the merge, and every field records which stage, proposal and source it came from. Agents never edit capture state directly; they propose, and the merge is the app's.
+
+**What an amendment may do**
+
+| Change | Example | Applied |
+| --- | --- | --- |
+| Add an identifier | MPN `1N4148W-7-F` and manufacturer Diodes Inc. for a reel labelled only `TK-1N4148` | Automatically, as a proposed value |
+| Add an alias | House number `TK-1N4148` → kind `house_number`, alias of the MPN | Automatically |
+| Refine a field | Manufacturer "Diodes" → "Diodes Incorporated", with a datasheet source | Automatically, as a proposed value |
+| Replace Examine's identity | Examine's top candidate 1N4148; Research shows the markings decode to 1N914 | Not applied silently. Both identities are shown, Examine is told by `revision/2`, and the lot's match question (or an ask) settles it. |
+| Change a human value | The operator corrected the marking or chose the MPN | Never. Research can only ask, citing the conflict. |
+
+**What changes when an amendment lands**
+
+- **The lot's key details:** the lot's proposed label and its draft Part are updated, when the lot is agent-made and the operator hasn't edited them, for example "Reel TK-1N4148" becomes "1N4148W-7-F diodes (TK-1N4148)". On an edited lot they become suggestions the operator accepts in Review, as for Examine's suggestions today.
+- **Pins:** successors pin to the merged identity's revision, not to Examine's proposal alone. Images and a later Research session start from the refined identity.
+- **Match:** Match searches with the merged keys: pass 2, or a late match.
+- **Examine:** Examine receives a `revision/2` naming the added and refined fields. Its later identity proposals build on them instead of reverting them.
+- **Review:** each refined field shows its origin ("from Research: MPN `1N4148W-7-F`, datasheet p.1"), and the operator confirms it like any proposed value.
+
+**Not part of Match:**
+
+- **Locations:** proposed by the app from batch defaults and the matched Part's existing stock locations, and confirmed in Review.
+- **Tags:** NOS, unidentified, `nsn:` and the like, derived by rule from Examine's facts and Research's confirmation, and confirmed in Review.
+
+## 2.3 Target hand-off graph
+
+```mermaid
+flowchart LR
+  subgraph Capture
+    EV["Evidence"]
+    HUM["Human facts: notes, corrections, answers, edits"]
+  end
+  EV --> EX["Examine"]
+  HUM --> EX
+  EX -->|"observations, lots"| CAP[("Capture state")]
+  EX -->|"examine-identity/1 and match notes"| ID[("Identity")]
+  ID --> M["Match: search and verdict"]
+  M -->|"no strong key"| RSI["Research: identify"]
+  RSI -->|"identity amendment and aliases"| ID
+  M -->|"candidates"| MQ["Match question"]
+  MQ -->|"decision and modes"| M
+  M -->|"mode"| RS["Research: full or gaps"]
+  M -->|"mode"| IM["Images: full or stock"]
+  RS -->|"research/1 and match notes"| RO[("Research output")]
+  RO -.->|"new alias"| ID
+  IM -->|"images/1 recipes"| IO[("Image recipes")]
+  M -->|"decision, candidates"| MD[("Match decision")]
+  RO --> REV["Review: confirm values, images, target"]
+  IO --> REV
+  MD --> REV
+  REV --> VAL["Match pass 3"]
+  VAL --> REC["Records"]
+  REC --> APP["Approval and effects"]
+```
+
+## 2.4 Target re-steering
+
+Every change is delivered as a `revision/2` item carrying `changes`: `{field, from, to}`, `{observation_id, reading_from, reading_to}`, `{proposal_id, kind}` or `{match, from, to}`. Each item also carries `source` (`operator`, a session or `match`) and the new brief revision.
+
+| Event | Examine | Match (app) | Research | Images |
+| --- | --- | --- | --- | --- |
+| New evidence | `evidence` + resume | — | after Examine assigns it: `evidence` | after Examine assigns it: `evidence` |
+| Observation corrected by the operator | `revision/2` + resume | Re-search if a key changed | `revision/2`; relying proposals stale | `revision/2` |
+| Identity revised by Examine | — | Re-search; a changed verdict reopens the question | `revision/2` with the change | `revision/2` |
+| Research publishes an identity amendment or a new alias | `revision/2` naming the added and refined fields | Merges the identity; searches (pass 2, or a late match) | Pauses if a question is asked | Repinned to the merged identity; waits or continues by mode |
+| Match decision | — | Records the decision | Mode delivered, or session closed if skipped | Queued in its mode, or skipped |
+| Answer to an agent's question | asker: `answer`; relying sessions: `revision/2` | Re-search if keys changed | same | same |
+| InvenTree changes before approval | — | Pass 3 finding, blocks approval | — | — |
+| Duplicate ask | `ask` returns the existing question | — | same | same |
+
+## 2.5 State and queueing changes
+
+**Lot match states:**
+
+| State | Meaning |
+| --- | --- |
+| `awaiting_identity` | No stable identity yet |
+| `identifying` | No strong key; Research is in identify mode |
+| `searching` | A search is running (passes 1–3) |
+| `needs_decision` | A match question is open; Research and Images wait |
+| `decided` | With the decision and modes; or `clear` after a no-match verdict |
+| `revalidate_blocked` | Pass 3 found a problem |
+
+**Queueing:**
+
+- **The Inventory stage and its gate are removed.** Successors are queued by Match, not by the stable identity alone.
+- **Start pins the identity.** Operator Start pins Research and Images to the lot's current identity. It refuses lots without one ("Examine hasn't identified this lot yet") and respects the lot's match state.
+- **A paused Research session is `waiting_input`, holding no slot.** The mode arrives as an inbox item, `match`, which wakes it.
+- **Durable delivery tracking.** Delivered evidence is recorded in the outbox as `photo_view` items (shared with `improve-agent-interaction`). Citation checks read it, so a worker restart doesn't lose it.
+
+**App-owned questions.** Today every question belongs to an agent attempt. The match question has no attempt, so questions need an owner kind (`session` or `app`), with the subject lot and an answer route. The Processing tab's fourth step becomes **Match**, showing matched, waiting-for-you and new counts. The activity popover's fourth row in BI-019 is built on step counts, so it carries over.
+
+## 2.6 MCP tools ported from the skills
+
+The skills' deterministic scripts become intake MCP tools, run by the app on the retained originals. Both providers already reach the intake MCP server, and admission compares its tool names exactly, so each tool is part of the new profile's sealed tool profile.
+
+| Tool | Ported from | Does | Returns |
+| --- | --- | --- | --- |
+| `inspect_region` | `image-grid-overlay/grid.py` | A labelled source-pixel grid over a page or region, with optional object and box overlays and centring and clipping checks | Image + margin text |
+| `preview_images` | `component-photo-crops/crop.py` and `montage.py` | Renders proposed recipes (region, rotation, straightening, bounded light adjustments) from the original, with a labelled montage | Montage image + per-crop size, aspect and flags |
+| `propose_images` | The cropper agent's report | Publishes `images/1` | Proposal id |
+| `match_logo` | `chip-logo-identification/match.py` and `straighten.py` | Ranks the logo set against a region and returns the candidate sheet | Ranked ids, scores, sheet image |
+| `read_guide` | The skills' instruction text | Returns a named section of the stage's guide, such as cropping rules, logo look-alikes or research traps | Text, sealed with the profile |
+| `read_lot`, `read_vocabulary` | New | Read the lot brief or the catalogue vocabulary | Structured JSON |
+
+**No agent search tool.** Inventory search is the Match step's, not an agent tool. Agents see candidates in their brief, and add keys through match notes, so every search is recorded and repeatable.
+
+**Why MCP tools rather than scripts in the VM:**
+
+- they work for both providers and every profile;
+- they operate on full-resolution originals without spending the image budget on transfers;
+- their results are reproducible and recorded;
+- they need no runner-image changes;
+- recipes stay the only route to a retained crop.
+
+**Where they run.** In the media decoder, which already owns orientation, crops and renditions. The decoder is TypeScript on `sharp` and `@napi-rs/canvas`, so the Python scripts are reimplemented there rather than called, and tested for parity with the scripts' outputs. The logo set is bundled read-only with the decoder image.
+
+**What stays in the VM.** The scripts remain in the runner image under `/opt/bench-toolkits` for scratch inspection. They are never a route to an output.
+
+**Instruction text.** The skills' text is split. Each stage's system prompt carries the short rules: scope, never invent, precedence and the output contract. `read_guide` holds the long reference material on demand. MCP resources can't be used for this, because admission refuses an intake server that exposes resources.
+
+## 2.7 Instruction packs and profile
+
+- **A new profile.** `shared-vm-agent/4` has one instruction text per stage (stage-keyed bytes and digests in the profile row, or one profile id per stage; decided in the change's design) and a tool profile `native-session-stage-tools/1`.
+- **Each pack:**
+  - the stage's scope and what it may not do;
+  - never inventing (from `inventree-stock-import`);
+  - the precedence (human facts, then the evidence as read, then earlier stages' readings, then web sources);
+  - conflicts asked once;
+  - no re-asking;
+  - match notes;
+  - the output contract for each mode.
+- **Ported content per stage:**
+  - **Examine:** transcription, NOS, packaging and seal reading from `inventree-stock-import`; grid use from `image-grid-overlay`; logo identification and look-alikes from `chip-logo-identification`; the "same Part?" evidence rules, as match notes.
+  - **Research:** `component-researcher` and `COMPONENT_RESEARCH.md`, including the identify mode (aliases, NSN and CAGE, cross-references) and the gaps mode.
+  - **Images:** `component-image-cropper` and `component-photo-crops`, with the stock mode.
+  - **The Match step's rules** (not an agent): the existing-records check from `inventree-stock-import`, as deterministic search and the question's options.
+- **Not ported:**
+  - company logos;
+  - source snapshots (pending an app-side fetch with receipts);
+  - browser automation, the dry run, consent and the write, which are already app UI.
+
+## 2.8 Outputs into records and approval
+
+- **Research and Examine:** the merged identity updates an agent-made lot's proposed label and draft Part. Accepted values fill an agent-made Part's spec as proposed values that the operator confirms in Review. They never overwrite operator values. In gaps mode they fill only the existing Part's missing fields.
+- **Records** take each field from the stage that owns it.
+- **Images:** a confirmed recipe becomes a retained derived version, through the existing crop pipeline extended with straightening and light adjustments. It is selected as the Part image or a stock attachment. `create_part` gains the Part image, and effects attach stock images.
+- **Match:** the decision sets the lot's target: a new Part, an existing Part with new stock, or left out as a duplicate. Gaps mode produces update effects for the existing Part's missing fields. Pass 3 findings block approval.
+
+## 2.9 Legacy
+
+- **The new contracts apply only to** `shared-vm-agent/4` and `synthetic-session/1`. Earlier profiles stay readable for retained attempts, but are not extended. Retained Inventory attempts remain readable.
+- **The default profile changes.** `synthetic-research/2` stops being the default when `INTAKE_PROCESSING_PROFILE` is unset; the synthetic session fixture replaces it.
+- **Removing the legacy handlers** stays with `remove-unused-legacy-code`.
+
+## 2.10 Open questions
+
+- The light-adjustment bounds that keep information-carrying colours intact, such as resistor bands and body colour.
+- How Research references an existing category when the vocabulary is large: paging `read_vocabulary` versus a search parameter.
+- The InvenTree search strategy and its limits: which endpoints, fuzzy versus exact MPN normalisation, and paging.
+- Whether a search result is cached per batch, and how long a decision stays valid before pass 3.
+- Whether the batch-level "add stock to each exact match" question needs a setting to skip asking for exact matches.
