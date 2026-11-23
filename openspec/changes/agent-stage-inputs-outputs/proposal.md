@@ -127,7 +127,8 @@ No new third-party runtime dependency is needed: the decoder already ships `shar
 - `processing-lot-forming`: a `/7` lot's estimated count comes from Examine's typed output.
 - `review-records`: agent values are proposed until confirmed; Records › Locations for `/7` batches shows app-proposed locations instead of the Inventory ask box.
 - `approval-preparation`: Match validation blocks approval; add-stock lots need their photos; confirmed images and gaps fills become effects.
-- `inventory-target-protection`: bounded Match list reads with named filters in the target read allowlist.
+- `inventory-target-protection`: bounded Match list reads with named filters in the target read allowlist, and `owned-fake-effects/3` gating the Part image and gaps fill effects.
+- `apply-execution`: `owned-fake-effects/3` joins the supported capability scope.
 
 ## Impact and dependencies
 

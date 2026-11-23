@@ -96,7 +96,7 @@ The rules behind the diagram:
 
   It leaves out each reading's text, `source_kind` and agreement, the observation's `evidence_id`, the lot's `quantity_basis` and exclusion, and why a lot is flagged `reexamine`.
 - **`fetch_evidence`** (`intake-server/src/agents/tools/handlers.ts:178-387`):
-  - Whole pages arrive downscaled to a 768 px long edge; regions use the preview, up to 2576 px.
+  - Examine's whole-page fetches arrive downscaled to a 768 px long edge (`LEAD_PREVIEW_LONG_EDGE`); other stages' whole pages and every region are bounded at 2576 px (`intake-server/src/agents/tools/handlers.ts:92-98,305-325`).
   - It returns pages, the evidence label and its latest note, the citable `source`, and `delivered{page,width,height,scale,region,media_type,sha256}` with the image.
   - The budget is 8 MiB per provider run, at most 1.25 MiB per image.
   - Delivered versions are tracked in worker memory (`server.ts:119-120`), so they are lost on a restart.
@@ -368,7 +368,7 @@ The server refuses a proposal whose kind doesn't match the session's stage or mo
 
 **What it searches**
 
-- InvenTree Parts (name, IPN, keywords), manufacturer Parts (MPN), supplier Parts (SKU) and stock (batch, barcode, import reference). Searches are read-only, using the app's read token. Today the target transport allows only fixed semantic reads and two list reads (`intake-server/src/inventory/transport.ts:44`), so the change adds bounded Match list reads with named filters only: Part search, manufacturer and supplier Parts, stock, and a Part's parameters and attachments.
+- InvenTree Parts (name, IPN, keywords), manufacturer Parts (MPN), supplier Parts (SKU) and stock (batch, barcode, import reference). Searches are read-only, using the app's read token. Today the target transport allows only fixed semantic reads and two list reads (`intake-server/src/inventory/transport.ts:44`), so the change adds bounded Match list reads with named filters only: Part search, manufacturer and supplier Parts, stock, and a Part's parameters and attachments. The import reference is searched through the barcode filter, because the executor writes it as each stock item's barcode (`intake-server/src/execution/plan.ts:60`).
 - This app's other unapproved lots with the same keys, to detect a competing lot before two batches both create one Part. This is detection, not a uniqueness guarantee across batches.
 
 **What it records**
@@ -414,7 +414,7 @@ flowchart TD
    - Research resolves the canonical MPN, the manufacturer and every alias: house numbers, packaging codes, cross-references and alternate markings. It publishes `research-identity/1` and pauses.
    - Match then searches with every alias (pass 2).
    - With no match, the same Research session receives its mode (full) by inbox and continues, and Images is queued.
-   - With candidates, the match question is asked, and the paused session receives the decision's mode, or is closed if the decision skips research.
+   - With candidates, the match question is asked, and the paused lot receives the decision's mode, or its membership is closed if the decision skips research; its identity amendment stays, and the session closes only when none of its lots needs it.
 3. **The match question.** It is an app question on the lot, using the stepped-question form from BI-019. It is listed in Needs you, and it quotes the candidates, their reasons, the agents' match notes and what the Part is missing. Options depend on the verdict: add stock to the Part, add stock and fill what's missing (only when a fillable field is missing), new Part, already imported (leave the lot out), or something else. Several lots with exact matches can be offered as one batch-level question, with exceptions listed.
 4. **Modes.** Each answer sets the stage modes, which are sealed into the brief or delivered to a paused session:
 

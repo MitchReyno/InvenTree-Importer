@@ -28,7 +28,7 @@ Preparation SHALL be blocked for a selected `/7` lot decided as add stock, or ad
 
 ### Requirement: Confirmed images and gap fills become effects
 
-Preparation SHALL include a confirmed Part image as the image of the created Part, or of an existing target Part that has none, where the target's capability allows it, confirmed stock images as stock attachments, and, for a lot decided as fill what's missing, update effects for only the existing Part's missing fields.
+Preparation SHALL include a confirmed Part image as the image of the created Part, or of an existing target Part that has none, where the target's capability allows it, every confirmed stock image of the lot, each as its own stock attachment, and, for a lot decided as fill what's missing, update effects for only the existing Part's missing fields.
 
 #### Scenario: Fill what's missing
 

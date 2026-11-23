@@ -104,13 +104,23 @@ The match question SHALL offer add stock, and add stock and fill what's missing,
 
 ### Requirement: Decisions set stage modes
 
-The operator's decision SHALL set the lot's target and its stages' modes: new Part (Research full, Images full); fill what's missing (Research for the missing fields only; Images stock, with a Part image only if the Part has none); add stock (Research skipped; Images as for fill); already imported (the lot left out). A paused identify-mode Research session SHALL receive its mode, or be closed when Research is skipped.
+The operator's decision SHALL set the lot's target and its stages' modes: new Part (Research full, Images full); fill what's missing (Research for the missing fields only; Images stock, with a Part image only if the Part has none); add stock (Research skipped; Images as for fill); already imported (the lot left out).
 
 #### Scenario: Add stock
 
 - **GIVEN** the decision "add stock to RES-0144", whose Part already has an image
 - **WHEN** it is recorded
 - **THEN** no Research session runs for the lot, Images runs for stock images only, and the lot targets RES-0144.
+
+### Requirement: Decisions reach a paused identify lot
+
+A paused identify-mode Research lot SHALL receive its decision's mode, or have its membership closed when Research is skipped, keeping its identity amendment. The session SHALL close only when no member needs it.
+
+#### Scenario: One lot skipped
+
+- **GIVEN** a Research session identifying lots A and B
+- **WHEN** lot A is decided as add stock
+- **THEN** lot A's membership closes with its amendment kept, and the session keeps identifying lot B.
 
 ### Requirement: Validation before approval
 
