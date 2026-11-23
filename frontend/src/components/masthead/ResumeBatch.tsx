@@ -1,8 +1,11 @@
 import { useQueryClient, type QueryKey } from '@tanstack/react-query'
+import type { HeaderWorkDto } from '@invimport/contracts'
 import styled from 'styled-components'
 import { color, space, typeVar } from '#/theme/generated/tokens'
 import { Button, Small } from '#/components/ui'
 import { useApiClients, useServerScope } from '#/context'
+import { observationFresh } from '#/header/observations'
+import { batchPaused } from '#/header/workSegments'
 import { useAsyncAction } from '#/lifecycle/useAsyncAction'
 import { readAfterHint, useReadAfterHint } from '#/queries/useReadAfterHint'
 import { serverQueryKey } from '#/queries/scope'
@@ -43,8 +46,15 @@ export function ResumeBatch({ batchId, readKey, unavailable }: Props) {
   }
 
   function handleResume() {
-    // A hint since this render may mean a newer pause; nothing is sent until the read lands.
-    if (!readAfterHint(queryClient, readKey, 'settled')) {
+    // Checked again at the press: a hint, or the read growing stale, since this render means
+    // nothing is sent until a current read still shows the batch paused.
+    const shown = queryClient.getQueryData<HeaderWorkDto>(readKey)
+    const current =
+      shown !== undefined &&
+      observationFresh(shown.observed_at, Date.now()) &&
+      batchPaused(shown, batchId, undefined) &&
+      readAfterHint(queryClient, readKey, 'settled')
+    if (!current) {
       return
     }
     void run(

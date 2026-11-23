@@ -782,6 +782,33 @@ test('counts from a newer header read win over older attention counts, so a fini
   expect(document.querySelectorAll('[data-animated="true"]')).toHaveLength(0)
 })
 
+test('a failed refresh keeps the last stages shown, still, beside the unavailable notice', async () => {
+  const user = userEvent.setup()
+  const api = client()
+  vi.mocked(api.work).mockResolvedValueOnce(processingWork())
+  vi.mocked(api.work).mockRejectedValue(new Error('work_read_failed'))
+  const cache = createServerQueryClient()
+  render(
+    <ServerStateProvider scope={fixtureScope} client={cache}>
+      <HeaderStatus client={api} batchId={batchId} />
+    </ServerStateProvider>,
+  )
+  await user.click(await screen.findByRole('button', { name: 'Workflow activity' }))
+  const panel = await screen.findByRole('dialog', { name: 'Workflow details' })
+
+  const moving = () => document.querySelectorAll('[data-animated="true"]').length
+
+  await waitFor(() => expect(moving()).toBeGreaterThan(0))
+
+  await act(async () => {
+    await cache.refetchQueries({ queryKey: serverQueryKey(fixtureScope, 'header-work') })
+  })
+
+  expect(await within(panel).findByText(/Workflow read unavailable/)).toBeInTheDocument()
+  expect(within(panel).getByRole('link', { name: /^Research/ })).toBeInTheDocument()
+  expect(moving()).toBe(0)
+})
+
 test('inside its batch the activity label names what waits, then counts the agents holding a slot, with no batch name or question count', async () => {
   const api = client()
   vi.mocked(api.work).mockResolvedValue(processingWork())

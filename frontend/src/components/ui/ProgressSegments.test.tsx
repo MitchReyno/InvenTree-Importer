@@ -101,4 +101,17 @@ describe('ProgressSegments', () => {
     expect(container.querySelectorAll('[data-animated="true"]')).toHaveLength(0)
     expect(segment(container, 'Research')).toHaveAttribute('data-state', 'working')
   })
+
+  it('fills a not-started stage with ready lots to its share', () => {
+    const { container } = render(
+      <ProgressSegments steps={[{ label: 'Research', state: 'not_started', fraction: 7 / 12 }]} />,
+    )
+    const fill = container.querySelector<HTMLElement>('[data-state] i')!
+
+    expect(fill).toHaveStyle({ width: '58%' })
+    // The fill is painted, not left transparent over the dashed track.
+    expect(getComputedStyle(fill).backgroundColor).not.toMatch(
+      /^(|transparent|rgba\(0, 0, 0, 0\))$/,
+    )
+  })
 })

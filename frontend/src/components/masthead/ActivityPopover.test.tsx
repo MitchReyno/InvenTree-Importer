@@ -111,6 +111,8 @@ function workingBatch(overrides: Partial<HeaderWorkDto> = {}): HeaderWorkDto {
 }
 
 type PopoverOptions = {
+  /** The open batch's capture read hasn't given its title. */
+  untitled?: boolean
   fresh?: boolean
   /** Whether the reads behind the bars started after the last live hint; follows `fresh` if unset. */
   moving?: boolean
@@ -153,7 +155,7 @@ function WithWorkRead({ data, options }: { data: HeaderWorkDto; options: Popover
     <ActivityPopover
       data={data}
       batchId={batch}
-      batchTitle="Heyyy"
+      batchTitle={options.untitled ? undefined : 'Heyyy'}
       attention={options.attention}
       unavailable={false}
       fresh={options.fresh ?? !read.isError}
@@ -359,7 +361,8 @@ describe('ActivityPopover Resume', () => {
       ],
       paused_truncated: true,
     })
-    await popover(data, { agents: { pause: vi.fn() } })
+    // Without the batch screen's title, the open batch takes its name from the paused list.
+    await popover(data, { agents: { pause: vi.fn() }, untitled: true })
 
     for (const name of ['Heyyy · Processing', 'Resistor tray · Processing']) {
       const group = screen.getByRole('region', { name })
@@ -498,5 +501,24 @@ describe('ActivityPopover Resume', () => {
       expect(group).toHaveTextContent('Resume waits for a current workflow read.'),
     )
     expect(within(group).getByRole('alert')).toHaveTextContent("Resume wasn't confirmed")
+  })
+
+  it('sends nothing when the shown read has gone stale by the press, before the page says so', async () => {
+    const user = userEvent.setup()
+    const pause = vi.fn(async () => ({ batch_id: batch, paused: false }))
+    const data = workingBatch({
+      paused_batches: [{ batch_id: batch, title: 'Heyyy' }],
+      // Past the freshness limit, though the page hasn't re-rendered to say so yet.
+      observed_at: new Date(Date.now() - 120_000).toISOString(),
+    })
+    data.batch_steps![0].paused = true
+    await popover(data, { agents: { pause }, fresh: true })
+    const group = screen.getByRole('region', { name: 'Heyyy · Processing' })
+    const resume = within(group).getByRole('button', { name: 'Resume' })
+    await waitFor(() => expect(resume).not.toHaveAttribute('aria-disabled'))
+
+    await user.click(resume)
+
+    expect(pause).not.toHaveBeenCalled()
   })
 })

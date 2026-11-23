@@ -84,11 +84,12 @@ export function ActivityPopover({
   const workKey = serverQueryKey(scope, 'header-work', batchId ?? 'all')
 
   const title = (batch: string) => {
+    const listed = paused.find((entry) => entry.batch_id === batch)?.title
     if (batch === batchId) {
-      return batchTitle ?? 'Current batch'
+      return batchTitle ?? listed ?? 'Current batch'
     }
 
-    return paused.find((entry) => entry.batch_id === batch)?.title ?? 'Other batch'
+    return listed ?? 'Other batch'
   }
 
   // Resume needs a current read: a stale or failed one may show a batch that is no longer paused.

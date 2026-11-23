@@ -143,6 +143,9 @@ const Segment = styled.span<{ $size: 'sm' | 'lg' }>`
       background-color: ${color.muted};
     }
   }
+  &[data-state='not_started'] i {
+    background-color: ${track(color.muted)};
+  }
   &[data-state='queued'] {
     background-color: transparent;
     i {
@@ -187,11 +190,7 @@ const Segment = styled.span<{ $size: 'sm' | 'lg' }>`
   /* A dashed line along the middle of an empty track: not started, unlike a solid done bar. */
   &[data-pattern='dashed'] {
     background-color: transparent;
-    background-image: repeating-linear-gradient(
-      90deg,
-      ${color.muted} 0 3px,
-      transparent 3px 6px
-    );
+    background-image: repeating-linear-gradient(90deg, ${color.muted} 0 3px, transparent 3px 6px);
     /* literal-allowed: the dash line's thickness, not a size role */
     background-size: 100% 2px;
     background-position: center;
