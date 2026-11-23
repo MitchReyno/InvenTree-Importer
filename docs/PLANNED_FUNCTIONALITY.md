@@ -186,6 +186,22 @@ Make most of the Settings rows that BI-014 shipped disabled work. These are new-
 - Prerequisites: None. It takes over the Settings rows from BI-015 that it builds; coordinate `.env.example` and launcher edits with `default-env-settings`.
 - OpenSpec: [settings-debug-mode](../openspec/changes/settings-debug-mode/)
 
+#### BI-020 — Lot session hand-off
+
+A lot's Research, Images and Inventory sessions start from a brief of what is known about the lot:
+- Examine's identity, observations, transcriptions and the regions it used;
+- the operator's corrections, answers and notes, marked as human;
+- the questions already asked;
+- the item's evidence.
+
+Their instructions weigh human facts first and ask once about a conflict instead of overriding it, and `ask` returns an existing question rather than asking it again. Revisions carry the change itself, and a `read_lot` tool re-reads the brief. The session page shows the brief a session started from.
+
+- Change: `lot-session-handoff`
+- Status: Proposed — plan in review.
+- Size: L — a sealed input version, a read tool, a duplicate-question check, richer revisions, a new profile with a live requalification and a session page item, in four PRs after the plan.
+- Prerequisites: BI-019 (`improve-agent-interaction`) PR-B for the stepped `ask` and PR-E for the session page; coordinate session instruction edits with BI-017. The live requalification needs Mitch's go-ahead.
+- OpenSpec: [lot-session-handoff](../openspec/changes/lot-session-handoff/)
+
 #### BI-013 — Preview renditions for media
 
 Every image in the app is served as the full-resolution decoded PNG, often several megabytes, even for 44 px thumbnails, so pages load slowly, especially on a phone over Tailscale. The decoder should also produce smaller WebP preview sizes for each page and documentary crop. Observation crops should be served at those sizes too, and each frontend surface should load the size it needs. Crops stay cut from the retained original or its full-resolution page, never from a reduced preview. Already-retained media is upgraded in the background.
