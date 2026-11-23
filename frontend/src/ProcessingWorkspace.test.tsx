@@ -813,7 +813,8 @@ function clickBesideDrawer(drawer: HTMLElement) {
   vi.spyOn(drawer, 'getBoundingClientRect').mockReturnValue(
     DOMRect.fromRect({ x: 600, y: 0, width: 420, height: 800 }),
   )
-  fireEvent.pointerDown(drawer, { clientX: 100, clientY: 400 })
+  fireEvent.pointerDown(drawer, { clientX: 100, clientY: 400, pointerId: 1 })
+  fireEvent.pointerUp(drawer, { clientX: 100, clientY: 400, pointerId: 1 })
   fireEvent.click(drawer, { clientX: 100, clientY: 400 })
 }
 

@@ -140,6 +140,9 @@ test('closing returns focus to a connected opener rather than the fallback', asy
 const DIALOG_BOX = { left: 100, right: 500, top: 0, bottom: 600 }
 const BACKDROP_POINT = { clientX: 40, clientY: 300 }
 const PADDING_POINT = { clientX: 104, clientY: 300 }
+const CONTENT_POINT = { clientX: 200, clientY: 300 }
+
+type Point = { clientX: number; clientY: number }
 
 function renderBackdropDialog({ closeDisabled = false } = {}) {
   const onClose = vi.fn()
@@ -160,43 +163,67 @@ function renderBackdropDialog({ closeDisabled = false } = {}) {
   return { dialog, onClose }
 }
 
+// As a browser reports one pointer's press, release and click; a release outside the press's
+// element is reported on the dialog, the nearest element holding both.
+function gesture(pressOn: Element, press: Point, releaseOn: Element, release: Point) {
+  fireEvent.pointerDown(pressOn, { ...press, pointerId: 1 })
+  fireEvent.pointerUp(releaseOn, { ...release, pointerId: 1 })
+  fireEvent.click(releaseOn, release)
+}
+
 test('a click on the backdrop closes the dialog', () => {
   const { dialog, onClose } = renderBackdropDialog()
-  fireEvent.pointerDown(dialog, BACKDROP_POINT)
-  fireEvent.click(dialog, BACKDROP_POINT)
+  gesture(dialog, BACKDROP_POINT, dialog, BACKDROP_POINT)
   expect(onClose).toHaveBeenCalledTimes(1)
 })
 
 test('a backdrop click is ignored while closing is disabled', () => {
   const { dialog, onClose } = renderBackdropDialog({ closeDisabled: true })
-  fireEvent.pointerDown(dialog, BACKDROP_POINT)
-  fireEvent.click(dialog, BACKDROP_POINT)
+  gesture(dialog, BACKDROP_POINT, dialog, BACKDROP_POINT)
   expect(onClose).not.toHaveBeenCalled()
 })
 
 test('a press that starts inside the dialog and ends on the backdrop does not close it', () => {
   const { dialog, onClose } = renderBackdropDialog()
-
-  // Selecting text: the press is on the content, and the click lands on the dialog.
-  fireEvent.pointerDown(screen.getByText('Timeline'), { clientX: 200, clientY: 300 })
-  fireEvent.click(dialog, BACKDROP_POINT)
+  // Selecting text: the press is on the content.
+  gesture(screen.getByText('Timeline'), CONTENT_POINT, dialog, BACKDROP_POINT)
   // A press on the surface's padding targets the dialog itself, but lies inside its box.
-  fireEvent.pointerDown(dialog, PADDING_POINT)
-  fireEvent.click(dialog, BACKDROP_POINT)
+  gesture(dialog, PADDING_POINT, dialog, BACKDROP_POINT)
   expect(onClose).not.toHaveBeenCalled()
 })
 
 test('a press on the backdrop released inside the dialog does not close it', () => {
   const { dialog, onClose } = renderBackdropDialog()
-  fireEvent.pointerDown(dialog, BACKDROP_POINT)
-  fireEvent.click(dialog, PADDING_POINT)
+  gesture(dialog, BACKDROP_POINT, dialog, PADDING_POINT)
+  expect(onClose).not.toHaveBeenCalled()
+})
+
+test('another pointer on the backdrop does not let a press from inside close the dialog', () => {
+  const { dialog, onClose } = renderBackdropDialog()
+  fireEvent.pointerDown(dialog, { ...PADDING_POINT, pointerId: 1 })
+  fireEvent.pointerDown(dialog, { ...BACKDROP_POINT, pointerId: 2 })
+  fireEvent.pointerUp(dialog, { ...BACKDROP_POINT, pointerId: 1 })
+  fireEvent.click(dialog, BACKDROP_POINT)
+  expect(onClose).not.toHaveBeenCalled()
+
+  // The second pointer's own press and release on the backdrop still closes it.
+  fireEvent.pointerUp(dialog, { ...BACKDROP_POINT, pointerId: 2 })
+  fireEvent.click(dialog, BACKDROP_POINT)
+  expect(onClose).toHaveBeenCalledTimes(1)
+})
+
+test('a cancelled press or a click with no press does not close the dialog', () => {
+  const { dialog, onClose } = renderBackdropDialog()
+  fireEvent.pointerDown(dialog, { ...BACKDROP_POINT, pointerId: 1 })
+  fireEvent.pointerCancel(dialog, { ...BACKDROP_POINT, pointerId: 1 })
+  fireEvent.click(dialog, BACKDROP_POINT)
+  fireEvent.click(dialog, BACKDROP_POINT)
   expect(onClose).not.toHaveBeenCalled()
 })
 
 test('a click on the content does not close the dialog', () => {
   const { onClose } = renderBackdropDialog()
   const content = screen.getByText('Timeline')
-  fireEvent.pointerDown(content, { clientX: 200, clientY: 300 })
-  fireEvent.click(content, { clientX: 200, clientY: 300 })
+  gesture(content, CONTENT_POINT, content, CONTENT_POINT)
   expect(onClose).not.toHaveBeenCalled()
 })

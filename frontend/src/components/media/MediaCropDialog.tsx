@@ -127,9 +127,11 @@ export function MediaCropDialog({
     return !busy && !unconfirmedRequest
   }
 
+  // Closes the native modal first, so the browser returns focus to the opener before
+  // `reconcileNativeClose` tells the parent.
   const backdrop = useBackdropClick(() => {
     if (canCloseWithoutDiscard()) {
-      close()
+      dialog.current?.close()
     }
   })
 
@@ -180,8 +182,7 @@ export function MediaCropDialog({
       aria-labelledby="crop-title"
       onCancel={(event) => event.preventDefault()}
       onClose={reconcileNativeClose}
-      onPointerDown={backdrop.onPointerDown}
-      onClick={backdrop.onClick}
+      {...backdrop}
     >
       <Heading id="crop-title">Prepare documentary crop</Heading>
       <Paragraph>

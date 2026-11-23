@@ -97,7 +97,7 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
   - [x] 1.2.4 A click on the content doesn't close.
 - [x] 1.3 RED: add a `ProcessingWorkspace` drawer test: a backdrop click with an unsaved answer shows the close-blocked banner.
 - [x] 1.4 GREEN: implement the handler, and give `MediaCropDialog` the same backdrop handling through its close guard, with a test.
-- [ ] 1.5 Run the frontend checks. Record a demo video (title card, click outside the drawer, end card) for the PR description.
+- [x] 1.5 Run the frontend checks. Record a demo video (title card, click outside the drawer, end card) for the PR description.
 
 ## 2. Stepped question contracts
 

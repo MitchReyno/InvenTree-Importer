@@ -54,7 +54,10 @@ beforeEach(() => {
   )
 })
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+  delete (HTMLDialogElement.prototype as Partial<HTMLDialogElement>).close
+})
 
 test('uncertain crop ACK locks editing and retries exact key, ID, recipe and original revision across polling', async () => {
   const user = userEvent.setup()
@@ -351,8 +354,22 @@ function stubCropBox(dialog: HTMLDialogElement) {
 }
 
 function clickBackdrop(dialog: HTMLDialogElement) {
-  fireEvent.pointerDown(dialog, { clientX: 40, clientY: 400 })
+  fireEvent.pointerDown(dialog, { clientX: 40, clientY: 400, pointerId: 1 })
+  fireEvent.pointerUp(dialog, { clientX: 40, clientY: 400, pointerId: 1 })
   fireEvent.click(dialog, { clientX: 40, clientY: 400 })
+}
+
+// jsdom has no native close; a browser closes the modal, restores focus, then fires `close`.
+function stubNativeClose() {
+  const nativeClose = vi.fn(function (this: HTMLDialogElement) {
+    this.open = false
+    this.dispatchEvent(new Event('close'))
+  })
+  Object.defineProperty(HTMLDialogElement.prototype, 'close', {
+    configurable: true,
+    value: nativeClose,
+  })
+  return nativeClose
 }
 
 test('a backdrop click closes an unsent crop, but not a press dragged out of the editor', () => {
@@ -363,14 +380,20 @@ test('a backdrop click closes an unsent crop, but not a press dragged out of the
   })
   stubCropBox(dialog)
 
+  const nativeClose = stubNativeClose()
+
   fireEvent.pointerDown(screen.getByRole('spinbutton', { name: 'Width' }), {
     clientX: 400,
     clientY: 400,
+    pointerId: 1,
   })
+  fireEvent.pointerUp(dialog, { clientX: 40, clientY: 400, pointerId: 1 })
   fireEvent.click(dialog, { clientX: 40, clientY: 400 })
   expect(screen.getByRole('dialog')).toBeInTheDocument()
 
   clickBackdrop(dialog)
+  // The native close runs first, so the browser returns focus before the parent unmounts it.
+  expect(nativeClose).toHaveBeenCalledOnce()
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   expect(screen.getByText('Crop guard released')).toBeVisible()
   expect(save).not.toHaveBeenCalled()
@@ -394,6 +417,7 @@ test('a backdrop click keeps a pending or uncertain crop request open', async ()
   await user.click(screen.getByRole('button', { name: 'Prepare new version' }))
   const dialog = screen.getByRole<HTMLDialogElement>('dialog')
   stubCropBox(dialog)
+  const nativeClose = stubNativeClose()
 
   clickBackdrop(dialog)
   expect(screen.getByRole('dialog')).toBeInTheDocument()
@@ -404,6 +428,7 @@ test('a backdrop click keeps a pending or uncertain crop request open', async ()
   clickBackdrop(dialog)
   expect(screen.getByRole('button', { name: 'Retry exact preparation request' })).toBeVisible()
   expect(screen.getByText('Crop guard active')).toBeVisible()
+  expect(nativeClose).not.toHaveBeenCalled()
 })
 
 test('a backdrop click closes the view after a confirmed preparation', async () => {
@@ -413,6 +438,7 @@ test('a backdrop click closes the view after a confirmed preparation', async () 
   await user.click(screen.getByRole('button', { name: 'Prepare new version' }))
   const dialog = screen.getByRole<HTMLDialogElement>('dialog')
   stubCropBox(dialog)
+  stubNativeClose()
 
   clickBackdrop(dialog)
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()

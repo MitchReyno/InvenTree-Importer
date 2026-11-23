@@ -97,8 +97,7 @@ export function Dialog({
         event.preventDefault()
         requestClose()
       }}
-      onPointerDown={backdrop.onPointerDown}
-      onClick={backdrop.onClick}
+      {...backdrop}
     >
       <TitleRow>
         {/* Focusable by script, so focus can land on the title when content it held leaves. */}
