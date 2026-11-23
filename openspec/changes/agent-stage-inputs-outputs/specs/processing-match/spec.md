@@ -208,7 +208,13 @@ When lots share a draft Part and one is decided as add stock to an existing Part
 
 ### Requirement: Validation before approval
 
-Preparation SHALL run Match's search again for each selected lot of a batch whose lead input is `/7`, with the lot's final identifiers and import references. Findings are measured against the lot's settled Match outcome, a clear verdict or a decision. A Part created since it, an approval of the lot's original contribution, target-Part stock with its batch code the outcome didn't cover, or a final identity that no longer fits it SHALL block until the operator decides again.
+Preparation SHALL rerun Match's search for each selected lot of a `/7` batch with its final identifiers and import references, measured against its settled Match outcome (a clear verdict or a decision). A candidate Part or target-Part stock with its batch code that the outcome didn't cover, an approval of the lot's original contribution, or a final identity that no longer fits SHALL block until the operator decides again.
+
+#### Scenario: Existing Part newly matching
+
+- **GIVEN** a lot with a clear verdict, and an existing Part that then gains the lot's MPN as a manufacturer Part
+- **WHEN** preparation runs
+- **THEN** pass 3 reports that Part as a candidate the outcome didn't cover, and the lot is blocked.
 
 #### Scenario: Stock the decision already covered
 

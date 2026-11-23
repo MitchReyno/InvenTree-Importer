@@ -85,3 +85,25 @@ Before any request, the supervisor SHALL hold a non-expiring host-level claim an
 - **GIVEN** the `/3` writer holding its claims
 - **WHEN** an earlier run's `verify_attachment` runs through the read-only entry point
 - **THEN** it journals and sends only its read, takes no writer claim, and the `/3` writer's claims are unchanged.
+
+### Requirement: Apply attachment confirmation
+
+An attachment transfer SHALL be confirmed only when the downloaded bytes and hash match the approved artifact and its destination matches the approved stock or Part, and a lost acknowledgement SHALL stay unknown until that check. A Part attachment whose response was lost before its remote PK was retained can't be checked; it SHALL stay unknown with manual inspection offered, never another upload. Every supporting blob SHALL be checked before the first stock request, and an attachment failure SHALL NOT hide confirmed stock.
+
+#### Scenario: Attachment fails after stock
+
+- **GIVEN** confirmed stock and an attachment upload proven not sent
+- **WHEN** the operator selects attachment repair
+- **THEN** only the original attachment is transferred and no second stock POST is sent.
+
+#### Scenario: Lost attachment acknowledgement
+
+- **GIVEN** an attachment upload whose response is lost
+- **WHEN** the run is read
+- **THEN** the attachment is unknown and, when its remote record is attributed, only explicit hash-and-destination verification is offered, never a replacement upload.
+
+#### Scenario: Datasheet lost before its PK
+
+- **GIVEN** a datasheet attachment upload whose response was lost before its remote PK was retained
+- **WHEN** the run is read
+- **THEN** the attachment is unknown, manual inspection in InvenTree is offered, and no verification or replacement upload is.

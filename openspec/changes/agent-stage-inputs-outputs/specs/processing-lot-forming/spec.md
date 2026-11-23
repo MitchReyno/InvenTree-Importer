@@ -31,3 +31,25 @@ When evidence becomes ready in a batch that already has a lead session, the syst
 - **GIVEN** a finished `shared-vm-agent/3` lead on an actor whose drain fence is set, or that now serves `/4`
 - **WHEN** new evidence becomes ready in its batch
 - **THEN** the evidence item is delivered to the lead's inbox without resuming it, and the upgrade action carries it into the `/7` lead.
+
+### Requirement: One Examine lead session per batch
+
+When a batch has ready evidence that no observation covers, and no evidence has become ready for a quiet period, the system SHALL queue one Examine lead session for the batch. The default quiet period is 20 seconds. At most one lead session per batch SHALL be active or queued. It SHALL NOT start for an archived batch, or when no agent default is saved. A finished lead session SHALL be resumed, not replaced, when new work arrives for it, except a finished `shared-vm-agent/3` lead during or after the cutover drain, whose new work waits for the upgrade action to replace it with a `/7` attempt carrying its history.
+
+#### Scenario: Photos finish preparing
+
+- **GIVEN** a batch with six ready photos and no lots
+- **WHEN** the quiet period passes after the last preview is ready
+- **THEN** exactly one Examine lead session is queued for the batch, and Processing and Capture show it.
+
+#### Scenario: More photos arrive during the quiet period
+
+- **GIVEN** a pending quiet period
+- **WHEN** another photo becomes ready
+- **THEN** the quiet period restarts, and no second lead session is queued.
+
+#### Scenario: Finished `/3` lead at cutover
+
+- **GIVEN** a finished `shared-vm-agent/3` lead on an actor that has switched to `/4`
+- **WHEN** new evidence arrives and the operator runs the upgrade action
+- **THEN** the lead isn't resumed under `/3`; the upgrade replaces it with a `/7` attempt carrying its history and the pending evidence.
