@@ -10,6 +10,8 @@ export type ValueState = 'plain' | 'edited' | 'override' | 'inherited'
 export type KeyValueRow = {
   label: string
   value: string
+  /** Shown in place of the value's text, such as an event time; `value` stays its plain form. */
+  content?: ReactNode
   source?: ReactNode
   state: ValueState
   mono?: boolean
@@ -46,7 +48,7 @@ function Value({ row }: { row: KeyValueRow }) {
   return (
     <>
       <ValueText $state={row.state} $mono={row.mono ?? false}>
-        {row.value}
+        {row.content ?? row.value}
       </ValueText>
       {note && <Note $state={row.state}>{note}</Note>}
     </>

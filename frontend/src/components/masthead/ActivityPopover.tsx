@@ -3,15 +3,28 @@ import styled from 'styled-components'
 import { color, size, space, typeVar } from '#/theme/generated/tokens'
 import { batchHref } from '#/navigation/batch-route'
 import {
-  batchPill,
-  jobPill,
+  batchState,
   batchStepCounts,
+  capitalised,
+  jobState,
+  PLANNED_STEP,
   processingSegments,
   segmentSteps,
-  stateWords,
-  stepTone,
+  slotHeld,
+  workState,
+  type RetainedState,
 } from '#/header/workSegments'
-import { media, Pill, Link, Small, ProgressSegments } from '#/components/ui'
+import { workSummary } from '#/header/workSummary'
+import {
+  media,
+  EventTime,
+  Link,
+  Small,
+  ProgressSegments,
+  StatePill,
+  WORK_STATE,
+  type WorkState,
+} from '#/components/ui'
 
 type WorkItem = HeaderWorkDto['work'][number]
 type Session = HeaderWorkDto['active_sessions'][number]
@@ -26,11 +39,13 @@ interface Props {
   fresh: boolean
 }
 
-const SHORT_TIME: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' }
-
-function shortTime(at: string | number) {
-  return new Date(at).toLocaleTimeString([], SHORT_TIME)
+/** A retained state in the shared words, for the diagnostics under Details. */
+function stateWord(state: RetainedState) {
+  return WORK_STATE[workState(state)].word
 }
+
+/** A job or step still to finish: under way, queued or waiting for the operator. */
+const UNDER_WAY: ReadonlySet<WorkState> = new Set(['working', 'queued', 'waiting_for_you'])
 
 /** Each job leads with what an operator acts on; lanes, coverage and IDs sit in its Details. */
 export function ActivityPopover({
@@ -58,7 +73,11 @@ export function ActivityPopover({
 
   const sessionsOf = (batch: string) => sessions.filter((session) => session.batch_id === batch)
 
-  const nothingRunning =
+  // Inside a batch only the proven idle summary says no agents work; outside one, other batches'
+  // settled failures are not in the read, so it only says nothing active is listed.
+  const idle = workSummary({ data, batchId, batchTitle, unavailable, fresh }).idle
+  const nothingListed =
+    batchId === undefined &&
     fresh &&
     !!data &&
     !work.length &&
@@ -95,14 +114,17 @@ export function ActivityPopover({
       {sessionOnly.map((batch) => (
         <SessionJob key={batch} batch={batch} title={title(batch)} sessions={sessionsOf(batch)} />
       ))}
-      {nothingRunning && <Note>Nothing running</Note>}
+      {idle && <Note>No agents working</Note>}
+      {nothingListed && <Note>No active work listed</Note>}
       {data?.lane_occupied && !sessions.some((session) => session.occupies_lane) && (
         <Note>
           Processing lane occupied; session details are not available in this authorized projection.
         </Note>
       )}
       <Footer>
-        <Small>Last work read: {data ? shortTime(data.observed_at) : 'Not yet observed'}</Small>
+        <Small>
+          Last work read: {data ? <EventTime at={data.observed_at} /> : 'Not yet observed'}
+        </Small>
         {data?.work_truncated && (
           <Small>
             Work coverage is partial. Open the owning views for additional retained work.
@@ -135,7 +157,7 @@ function StatusLine({ sessions, fallback }: { sessions: Session[]; fallback: str
 
   return (
     <Line>
-      {latest.text} · <time dateTime={latest.at}>{shortTime(latest.at)}</time>
+      {latest.text} · <EventTime at={latest.at} />
     </Line>
   )
 }
@@ -158,18 +180,23 @@ function ProcessingJob({
 }) {
   const steps = processingSegments(jobs, counts)
   const questions = attention?.processing.questions ?? 0
-  const pill =
-    questions > 0
-      ? { status: 'needs-answer' as const, word: `${questions} need you` }
-      : batchPill(jobs)
+  const state = questions > 0 ? 'waiting_for_you' : batchState(jobs)
+  // A slot held by a job that stopped working says so beside Working.
+  const held = !jobs.some((job) => workState(job.state) === 'working') && jobs.some(slotHeld)
+  let detail: string | undefined
+  if (questions > 0) {
+    detail = String(questions)
+  } else if (state === 'working' && held) {
+    detail = 'slot held'
+  }
   const lead =
-    jobs.find((job) => job.steps.some((step) => stepTone(step.state) === 'running')) ?? jobs[0]
+    jobs.find((job) => job.steps.some((step) => UNDER_WAY.has(workState(step.state)))) ?? jobs[0]
 
   return (
     <JobBody aria-label={`${title} · Processing`}>
       <Head>
         <b>{title}</b>
-        <Pill status={pill.status}>{pill.word}</Pill>
+        <StatePill state={state} detail={detail} />
       </Head>
       <ProgressSegments steps={steps} size="lg" />
       <StepLabels aria-hidden="true">
@@ -179,7 +206,7 @@ function ProcessingJob({
       </StepLabels>
       <StatusLine
         sessions={sessions}
-        fallback={`Processing · ${lead.stage} · ${stateWords(lead.state)}`}
+        fallback={`${capitalised(PLANNED_STEP[lead.stage] ?? lead.stage)} · ${WORK_STATE[jobState(lead)].word}`}
       />
       <Action href={batchHref(batch, { tab: 'processing', step: 'overview' })}>
         Open processing
@@ -190,7 +217,7 @@ function ProcessingJob({
           (job) =>
             job.kind === 'processing' && (
               <p key={job.id}>
-                {job.stage} · {stateWords(job.state)} ·{' '}
+                {job.stage} · {stateWord(job.state)} ·{' '}
                 {job.occupies_lane
                   ? 'Physical lane occupied'
                   : 'No physical occupancy reported for this attempt'}{' '}
@@ -200,7 +227,7 @@ function ProcessingJob({
                   : job.input_current
                     ? 'Retained input current'
                     : 'Retained input stale'}
-                {job.blocked_code ? ` · ${stateWords(job.blocked_code)}` : ''} · attempt{' '}
+                {job.blocked_code ? ` · ${job.blocked_code.replaceAll('_', ' ')}` : ''} · attempt{' '}
                 {job.attempt_id}
               </p>
             ),
@@ -220,13 +247,12 @@ function ProcessingJob({
 /** An import run: its own state, steps and link; Processing's questions and agents are not its. */
 function ImportJob({ item, title }: { item: WorkItem; title: string }) {
   const steps = segmentSteps(item)
-  const pill = jobPill(item)
 
   return (
     <JobBody aria-label={`${title} · Import`}>
       <Head>
         <b>{title}</b>
-        <Pill status={pill.status}>{pill.word}</Pill>
+        <StatePill state={jobState(item)} />
       </Head>
       <ProgressSegments steps={steps} size="lg" />
       <StepLabels aria-hidden="true">
@@ -235,7 +261,7 @@ function ImportJob({ item, title }: { item: WorkItem; title: string }) {
         ))}
       </StepLabels>
       <Line>
-        Import · {item.stage} · {stateWords(item.state)}
+        Import · {item.stage} · {stateWord(item.state)}
       </Line>
       <Action href={batchHref(item.batch_id, { tab: 'changes', view: 'added', runId: item.id })}>
         Open original run
@@ -263,17 +289,17 @@ function SessionJob({
   title: string
   sessions: Session[]
 }) {
-  const waiting = sessions.some((session) => session.session_state === 'waiting_input')
-  const working = sessions.some((session) => session.occupies_lane)
+  let state: WorkState = 'queued'
+  if (sessions.some((session) => session.session_state === 'waiting_input')) {
+    state = 'waiting_for_you'
+  } else if (sessions.some((session) => session.occupies_lane)) {
+    state = 'working'
+  }
   return (
     <JobBody aria-label={`${title} · Agents`}>
       <Head>
         <b>{title}</b>
-        {waiting ? (
-          <Pill status="needs-answer">Waiting for you</Pill>
-        ) : (
-          <Pill status={working ? 'running' : 'queued'}>{working ? 'Running' : 'Queued'}</Pill>
-        )}
+        <StatePill state={state} />
       </Head>
       <StatusLine sessions={sessions} fallback={`${sessions.length} agent sessions`} />
       <Action href={batchHref(batch, { tab: 'processing', step: 'overview' })}>
@@ -300,7 +326,7 @@ function SessionFacts({ session }: { session: Session }) {
               ? `actual model ${session.actual_model}`
               : `requested model ${session.selection.model}; actual model not yet reported`
           }`}{' '}
-      · {session.stage} · logical state {stateWords(session.state)} · {session.progress} ·{' '}
+      · {session.stage} · logical state {stateWord(session.state)} · {session.progress} ·{' '}
       {session.session_state === 'waiting_input'
         ? 'Waiting for your input · holds no slot'
         : session.occupies_lane
@@ -311,8 +337,7 @@ function SessionFacts({ session }: { session: Session }) {
       {session.latest_status && (
         <>
           {' · '}
-          {session.latest_status.text} ·{' '}
-          <time dateTime={session.latest_status.at}>{shortTime(session.latest_status.at)}</time>
+          {session.latest_status.text} · <EventTime at={session.latest_status.at} />
         </>
       )}{' '}
       · attempt {session.attempt_id}

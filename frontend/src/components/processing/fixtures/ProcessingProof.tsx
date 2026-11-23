@@ -1,5 +1,6 @@
 import type {
   AgentSettingsDto,
+  BatchAttentionDto,
   SessionFailureDto,
   AgentSessionListDto,
   CaptureSnapshotDto,
@@ -13,6 +14,7 @@ import { ProcessingWorkspace } from '#/components/processing/ProcessingWorkspace
 import { Main, PageContent } from '#/components/AppLayout'
 import { useInstructionDelivery } from '#/processing/instruction-delivery'
 import { useHashRoute } from '#/navigation/useHashRoute'
+import { lotFromQuery, parseBatchRoute } from '#/navigation/batch-route'
 import { ApiClientsProvider } from '#/context'
 import { RefreshSignal } from '#/components/operations/RefreshSignal'
 
@@ -301,6 +303,72 @@ const failure: SessionFailureDto = {
   provider_error: { kind: 'invalid_request', result: 'error_during_execution', http_status: 400 },
 }
 
+const stepCounts = { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 }
+
+/** What the batch header counts: both agent questions, the failed Images job and two Review decisions. */
+const attention = {
+  batch_id: batchId,
+  revision: batch.revision,
+  processing: {
+    questions: 2,
+    failed: 1,
+    running: 2,
+    steps: {
+      examine: { ...stepCounts, questions: 1, jobs: 2, ready: 1, running: 1 },
+      research: { ...stepCounts, questions: 1, jobs: 2, running: 2 },
+      images: { ...stepCounts, failed: 1, jobs: 1 },
+      inventory: stepCounts,
+    },
+  },
+  review: { to_check: 3, changed_after_review: 0, needs_answer: 2, to_decide: 2, records: 4 },
+  changes: { ready: 0, failed: 0, uncertain: 0, runs: 0 },
+  items: [
+    {
+      key: 'question:stepped',
+      group: 'question',
+      tab: 'processing',
+      title: 'About the 10 kΩ packets',
+      detail: null,
+      question: { steps: [{ kind: 'choice', options: 2, assumption: 'Assuming the same Part' }] },
+      route: `${batchId}/processing/examine/${id(45)}`,
+    },
+    {
+      key: 'question:choice',
+      group: 'question',
+      tab: 'processing',
+      title: 'Which ATmega328P variant is this?',
+      detail: null,
+      question: { steps: [{ kind: 'choice', options: 2, assumption: 'Assuming the P variant' }] },
+      route: `${batchId}/processing/research/${id(46)}`,
+    },
+    {
+      key: 'failed:images',
+      group: 'failed_job',
+      tab: 'processing',
+      title: 'Images failed for 10 kΩ resistor 0603 — packet A',
+      detail: 'The provider connection failed.',
+      route: `${batchId}/processing/images`,
+    },
+    {
+      key: 'decision:location',
+      group: 'decision',
+      tab: 'review',
+      title: 'Choose a location for the LM358 tube',
+      detail: 'Two drawers match',
+      route: `${batchId}/review/records`,
+    },
+    {
+      key: 'decision:part',
+      group: 'decision',
+      tab: 'review',
+      title: 'Reuse RES-0144 for packet A?',
+      detail: null,
+      route: `${batchId}/review/records`,
+    },
+  ],
+  items_truncated: false,
+} as unknown as BatchAttentionDto
+
 /** Paused batches; Pause all and Resume change it, and the next list read shows it. */
 const paused = new Set<string>()
 
@@ -358,7 +426,13 @@ const pauseClient = {
 export function ProcessingProof() {
   const view = useHashRoute('overview')
   const sessions = !view.endsWith('-fixture')
-  const page = view.replace('-fixture', '')
+  // The app's own Processing links, such as a lot table pill, open their step here too.
+  const linked = parseBatchRoute(view)
+  const processingLink =
+    linked.kind === 'route' && linked.batchId === batchId && linked.route.tab === 'processing'
+      ? { step: linked.route.step, lot: lotFromQuery(linked.query) }
+      : null
+  const page = processingLink?.step ?? view.replace('-fixture', '')
   const delivery = useInstructionDelivery(batch.id, async () => ({ sessions: 2, woken: 1 }))
   const client = {
     read: async () => {
@@ -436,6 +510,8 @@ export function ProcessingProof() {
                   batch={batch}
                   client={client as never}
                   view={page as never}
+                  focusLotId={processingLink?.lot}
+                  attention={sessions ? attention : undefined}
                   navigate={() => {}}
                   onDirtyChange={() => {}}
                   onSaved={async () => {}}

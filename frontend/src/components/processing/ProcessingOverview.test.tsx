@@ -1,10 +1,13 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { IntakeRequestError } from '@invimport/contracts/client'
+import type { BatchAttentionDto } from '@invimport/contracts'
 import { describe, expect, it, vi } from 'vitest'
 import type { ProcessingSource } from '#/processing/source'
+import type { LotSteps } from '#/processing/lot-steps'
 import { InstructionField } from './InstructionField'
 import { ProcessingOverview } from './ProcessingOverview'
+import { eventTimeText } from '#/components/ui'
 
 const b = 'b0000000-0000-4000-8000-000000000001'
 
@@ -42,8 +45,58 @@ const source: ProcessingSource = {
   sessions: [],
   lead: null,
   jobsOn: () => [],
-  pipeline: { lead: null, lots: [] },
 }
+
+const noSteps = {
+  examine: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
+  research: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
+  images: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
+  inventory: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
+}
+
+/** The batch attention read: no agent questions, two Review decisions, so the header says 2. */
+const attention: BatchAttentionDto = {
+  batch_id: b,
+  revision: '3',
+  processing: { questions: 0, failed: 0, running: 0, steps: noSteps },
+  review: { to_check: 0, changed_after_review: 0, needs_answer: 0, to_decide: 2, records: 2 },
+  changes: { ready: 0, failed: 0, uncertain: 0, runs: 0 },
+  items: [
+    {
+      key: 'decision:r1',
+      group: 'decision',
+      tab: 'review',
+      title: 'Choose the 1N4148 part',
+      detail: 'Two records match',
+      route: `${b}/review/records/part/r1`,
+    },
+    {
+      key: 'decision:r2',
+      group: 'decision',
+      tab: 'review',
+      title: 'Choose the BC547 part',
+      detail: null,
+      route: `${b}/review/records/part/r2`,
+    },
+  ],
+  items_truncated: false,
+}
+
+const diodes = 'a0000000-0000-4000-8000-00000000000a'
+
+const notStarted = { state: 'not_started' as const, job: null, partId: null, hasOutput: false }
+
+const lots: LotSteps[] = [
+  {
+    lotId: diodes,
+    label: 'GE S2CN1 diodes',
+    steps: {
+      research: { state: 'done', job: { id: 'j2' } as never, partId: null, hasOutput: true },
+      images: { state: 'working', job: { id: 'j3' } as never, partId: 'p1', hasOutput: false },
+      inventory: notStarted,
+    },
+  },
+]
 
 function overview(overrides: Partial<Parameters<typeof ProcessingOverview>[0]> = {}) {
   return render(
@@ -53,35 +106,129 @@ function overview(overrides: Partial<Parameters<typeof ProcessingOverview>[0]> =
       instructions={<p>Instructions slot</p>}
       onOpenSession={vi.fn()}
       activity={[]}
+      attention={attention}
+      lots={lots}
       {...overrides}
     />,
   )
 }
 
 describe('ProcessingOverview', () => {
-  it('shows each step in counts, and says when a step has no work', () => {
+  it('labels each step of the bar with its count, linking to its step page', () => {
     overview()
     const steps = screen.getByRole('list', { name: 'Steps' })
 
-    expect(within(steps).getByRole('link', { name: /Examine/ })).toHaveAttribute(
+    expect(within(steps).getByRole('link', { name: 'Examine · 2 of 3' })).toHaveAttribute(
       'href',
       `#${b}/processing/examine`,
     )
-    expect(within(steps).getByText('2 ready · 1 running · 1 question')).toBeInTheDocument()
-    expect(within(steps).getByText('1 failed')).toBeInTheDocument()
-    expect(within(steps).getAllByText('No work yet')).toHaveLength(2)
+    expect(within(steps).getByRole('link', { name: 'Research · 0 of 1' })).toHaveAttribute(
+      'href',
+      `#${b}/processing/research`,
+    )
+    expect(within(steps).getByRole('link', { name: 'Images' })).toBeInTheDocument()
+    // Each step's state shows once: the bar and its links, with no line repeating it.
+    expect(within(steps).queryByText(/ready|running|failed|No work yet/)).toBeNull()
     expect(screen.queryByText(/%/)).not.toBeInTheDocument()
   })
 
-  it('lists open questions as Needs you rows, each answering its question', () => {
+  it('lists everything the header counts in Needs you, tagged with its tab', () => {
     overview()
     const needs = screen.getByRole('region', { name: 'Needs you' })
 
+    expect(within(needs).getByRole('region', { name: 'Records · Review' })).toBeInTheDocument()
+    expect(
+      within(needs).getByRole('link', { name: 'Decide: Choose the 1N4148 part' }),
+    ).toHaveAttribute('href', `#${b}/review/records/part/r1`)
+    expect(within(needs).getByRole('link', { name: 'Decide: Choose the BC547 part' })).toBeVisible()
+    expect(needs).not.toHaveTextContent('No open questions')
+  })
+
+  it('puts agent questions first, with their step and the assumption in use', () => {
+    overview({
+      attention: {
+        ...attention,
+        items: [
+          ...attention.items,
+          {
+            key: 'question:q1',
+            group: 'question',
+            tab: 'processing',
+            title: 'Is the last letter a P?',
+            detail: null,
+            question: { steps: [{ kind: 'text', assumption: 'Assuming ATmega328P' }] },
+            route: `${b}/processing/examine/q1`,
+          },
+        ],
+      },
+    })
+    const needs = screen.getByRole('region', { name: 'Needs you' })
+    const sections = within(needs).getAllByRole('region')
+
+    expect(sections[0]).toHaveAccessibleName('Questions · Processing')
+    expect(
+      within(sections[0]).getByRole('link', { name: 'Answer: Is the last letter a P?' }),
+    ).toHaveAttribute('href', `#${b}/processing/examine/q1`)
+    expect(within(sections[0]).getByText('Examine')).toBeInTheDocument()
+    expect(within(sections[0]).getByText('Assuming ATmega328P')).toBeInTheDocument()
+  })
+
+  it('says when Needs you shows only the first items, as the header popover does', () => {
+    overview({ attention: { ...attention, items_truncated: true } })
+
+    expect(screen.getByRole('region', { name: 'Needs you' })).toHaveTextContent(
+      'Showing the first 2. Each tab shows the rest.',
+    )
+  })
+
+  it('says nothing needs the operator only from the attention read', () => {
+    const { unmount } = overview({ attention: { ...attention, items: [] } })
+    expect(screen.getByRole('region', { name: 'Needs you' })).toHaveTextContent(
+      'Nothing needs you.',
+    )
+    unmount()
+
+    overview({ attention: undefined, source: { ...source, questions: [] } })
+    const needs = screen.getByRole('region', { name: 'Needs you' })
+    expect(needs).toHaveTextContent('Updating…')
+    expect(needs).not.toHaveTextContent(/Nothing needs you|No open questions/)
+  })
+
+  it('says Needs you is partial when the attention read failed, keeping the agent questions', () => {
+    const { unmount } = overview({ attention: undefined, attentionUnavailable: true })
+    const needs = screen.getByRole('region', { name: 'Needs you' })
+    expect(needs).toHaveTextContent('Review and Changes items are not listed')
     expect(
       within(needs).getByRole('link', { name: 'Answer: Is the last letter a P?' }),
-    ).toHaveAttribute('href', `#${b}/processing/examine/q1`)
-    expect(within(needs).getByText('Examine')).toBeInTheDocument()
-    expect(within(needs).getByText('Packet A · Assuming ATmega328P')).toBeInTheDocument()
+    ).toBeVisible()
+    expect(needs).not.toHaveTextContent('Updating…')
+    unmount()
+
+    overview({
+      attention: undefined,
+      attentionUnavailable: true,
+      source: { ...source, questions: [] },
+    })
+    const empty = screen.getByRole('region', { name: 'Needs you' })
+    expect(empty).toHaveTextContent('Needs you is unavailable')
+    expect(empty).not.toHaveTextContent(/Updating…|Nothing needs you/)
+  })
+
+  it('shows each lot’s Research, Images and Inventory as state pills linking to that lot’s step', () => {
+    overview()
+    const table = screen.getByRole('table', { name: 'Lots' })
+    const row = within(table).getByRole('row', { name: /GE S2CN1 diodes/ })
+
+    expect(within(row).getByRole('link', { name: 'Research: Done' })).toHaveAttribute(
+      'href',
+      `#${b}/processing/research?lot=${diodes}`,
+    )
+    expect(within(row).getByRole('link', { name: 'Images: Working' })).toHaveAttribute(
+      'href',
+      `#${b}/processing/images?lot=${diodes}`,
+    )
+    expect(within(row).getByRole('link', { name: 'Inventory: Not started' })).toBeVisible()
+    expect(screen.queryByRole('region', { name: 'Pipeline' })).toBeNull()
   })
 
   it('claims no agent sessions when the source has none', () => {
@@ -138,8 +285,8 @@ describe('ProcessingOverview', () => {
     expect(within(sessions).getByText('Checking the datasheet')).toBeInTheDocument()
     expect(within(sessions).getAllByRole('listitem')[1]).not.toHaveTextContent('Checking')
     expect(within(sessions).getByText('Waiting for you')).toBeInTheDocument()
-    // Running work takes the accent colour, as everywhere else.
-    expect(within(sessions).getByText('Running').closest('[data-tone]')).toHaveAttribute(
+    // Working takes the accent colour, as everywhere else.
+    expect(within(sessions).getByText('Working').closest('[data-tone]')).toHaveAttribute(
       'data-tone',
       'acc',
     )
@@ -369,7 +516,7 @@ describe('InstructionField', () => {
     })
     const aside = screen.getByRole('complementary')
     expect(within(aside).getByRole('region', { name: 'Agent sessions' })).toHaveTextContent(
-      '1 running',
+      '1 working',
     )
     expect(within(aside).getByRole('link', { name: 'All sessions, every batch' })).toHaveAttribute(
       'href',
@@ -385,8 +532,12 @@ describe('InstructionField', () => {
     unmount()
     overview({
       activity: [
-        { text: 'Research · Packet B: Checking the datasheet', time: '13:07' },
-        { text: 'Examine · Whole batch: Grouping the reels', time: '13:09', current: true },
+        { text: 'Research · Packet B: Checking the datasheet', at: '2026-11-23T13:07:00Z' },
+        {
+          text: 'Examine · Whole batch: Grouping the reels',
+          at: '2026-11-23T13:09:00Z',
+          current: true,
+        },
       ],
     })
     const timeline = screen.getByRole('list', { name: 'Recent activity' })
@@ -394,8 +545,9 @@ describe('InstructionField', () => {
   })
 
   it('names when the session started and the slot limit', () => {
+    const startedAt = new Date().toISOString()
     overview({
-      started: '13:02',
+      startedAt,
       sessionLimit: 3,
       source: {
         ...source,
@@ -411,16 +563,21 @@ describe('InstructionField', () => {
         ],
       },
     })
-    expect(screen.getByRole('region', { name: 'Progress' })).toHaveTextContent('Started 13:02')
+    expect(screen.getByRole('region', { name: 'Progress' })).toHaveTextContent(
+      `Started ${eventTimeText(startedAt, Date.now())}`,
+    )
     expect(screen.getByRole('region', { name: 'Agent sessions' })).toHaveTextContent(
-      '1 running · limit 3',
+      '1 working · limit 3',
     )
   })
 
   it('says how many lots were formed and by when, beside the start time', () => {
-    overview({ started: '13:02', lotsFormed: '5 lots formed by 13:20' })
+    const startedAt = new Date().toISOString()
+    const formedAt = new Date().toISOString()
+    overview({ startedAt, lotsFormed: { count: 5, at: formedAt } })
+    const now = Date.now()
     expect(screen.getByRole('region', { name: 'Progress' })).toHaveTextContent(
-      'Started 13:02 · 5 lots formed by 13:20',
+      `Started ${eventTimeText(startedAt, now)} · 5 lots formed by ${eventTimeText(formedAt, now)}`,
     )
   })
 

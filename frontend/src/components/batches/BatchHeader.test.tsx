@@ -109,11 +109,11 @@ describe('BatchHeader', () => {
     const tabs = within(screen.getByRole('navigation', { name: 'Batch' }))
     const steps = within(screen.getByRole('navigation', { name: 'Processing steps' }))
 
-    expect(tabs.getByRole('link', { name: 'Processing, running, 1 question' })).toBeInTheDocument()
+    expect(tabs.getByRole('link', { name: 'Processing, working, 1 question' })).toBeInTheDocument()
     const examine = steps.getByRole('link', { name: 'Examine, done, 1 question' })
     expect(examine).toHaveTextContent('✓')
     expect(examine.querySelector('[data-tone="warn"]')).toHaveTextContent('1')
-    const research = steps.getByRole('link', { name: 'Research, running, 7 of 12 ready' })
+    const research = steps.getByRole('link', { name: 'Research, working, 7 of 12 ready' })
     expect(research.querySelector('[data-tone="default"]')).toHaveTextContent('7/12')
     expect(steps.getByRole('link', { name: 'Images' })).toBeInTheDocument()
   })

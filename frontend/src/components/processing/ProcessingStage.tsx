@@ -1,4 +1,4 @@
-import type { CaptureSnapshotDto } from '@invimport/contracts'
+import type { BatchAttentionDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { batchHref, type ProcessingStep } from '#/navigation/batch-route'
 import type { ProcessingClient } from '#/processing/types'
 import { ProcessingWorkspace } from './ProcessingWorkspace'
@@ -13,6 +13,12 @@ interface Props {
   step: ProcessingStep
   questionId?: string
   sessionId?: string | null
+  /** A lot whose output the step opens in view, from the address. */
+  focusLotId?: string | null
+  /** The batch attention read the header counts from. */
+  attention?: BatchAttentionDto
+  /** The attention read failed, so Needs you cannot list everything the header counts. */
+  attentionUnavailable?: boolean
   sharperRequests?: SharperRequestStore
   drawerRestore?: DrawerRestoreStore
   onDirtyChange: (dirty: boolean) => void
@@ -37,6 +43,9 @@ export function ProcessingStage({
   step,
   questionId,
   sessionId,
+  focusLotId,
+  attention,
+  attentionUnavailable,
   sharperRequests,
   drawerRestore,
   onDirtyChange,
@@ -57,6 +66,9 @@ export function ProcessingStage({
       view={step}
       questionId={questionId}
       sessionId={sessionId}
+      focusLotId={focusLotId}
+      attention={attention}
+      attentionUnavailable={attentionUnavailable}
       sharperRequests={sharperRequests}
       drawerRestore={drawerRestore}
       navigate={navigateProcessing}

@@ -1,4 +1,12 @@
-import { ActionsMenu, DebugDetails, Paragraph, Small } from '#/components/ui'
+import {
+  ActionsMenu,
+  DebugDetails,
+  EventTime,
+  eventTimeText,
+  Paragraph,
+  Small,
+  useMinute,
+} from '#/components/ui'
 import type { Snapshot } from '#/capture/types'
 import styled from 'styled-components'
 import { color, space, typeVar } from '#/theme/generated/tokens'
@@ -8,7 +16,8 @@ const NOTE_DELETE_LATER =
 
 export function HumanNote({ note, batch }: { note: Snapshot['notes'][number]; batch: Snapshot }) {
   const subject = [...batch.lots, ...batch.parts].find((s) => s.id === note.subject_id)
-  const written = new Date(note.created_at).toLocaleString()
+  const now = useMinute()
+  const written = eventTimeText(note.created_at, now) ?? note.created_at
   return (
     <NoteCard>
       <Heading>
@@ -21,7 +30,9 @@ export function HumanNote({ note, batch }: { note: Snapshot['notes'][number]; ba
         />
       </Heading>
       <Paragraph>{note.text || '(Empty original note)'}</Paragraph>
-      <Small>{written}</Small>
+      <Small>
+        <EventTime at={note.created_at} />
+      </Small>
       <DebugDetails
         label="Note attribution"
         rows={[

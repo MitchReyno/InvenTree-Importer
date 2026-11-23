@@ -137,3 +137,29 @@ it('explains candidates behind a help button rather than under each one', async 
   const help = await screen.findByRole('dialog', { name: 'About candidates' })
   expect(help).toHaveTextContent(/never replace the values you chose/)
 })
+
+it('reads queued work in a paused batch as Paused, and a running turn as Working', () => {
+  const props = { batch, disabled: false, cancel: vi.fn(), chooseQuestion: vi.fn(), paused: true }
+  const { unmount } = render(
+    <ProcessingJobCard job={{ ...job('l1'), state: 'queued' } as ProcessingJobDto} {...props} />,
+  )
+  expect(screen.getByText('Paused')).toBeInTheDocument()
+  unmount()
+
+  render(<ProcessingJobCard job={job('l1')} {...props} />)
+  expect(screen.getByText('Working')).toBeInTheDocument()
+})
+
+it('says a superseded attempt’s inputs changed, without claiming a newer attempt exists', () => {
+  render(
+    <ProcessingJobCard
+      job={{ ...job('l1'), state: 'superseded' } as ProcessingJobDto}
+      batch={batch}
+      disabled={false}
+      cancel={vi.fn()}
+      chooseQuestion={vi.fn()}
+    />,
+  )
+  expect(screen.getByText(/Its inputs changed since it ran/)).toBeInTheDocument()
+  expect(screen.queryByText(/newer attempt/)).toBeNull()
+})
