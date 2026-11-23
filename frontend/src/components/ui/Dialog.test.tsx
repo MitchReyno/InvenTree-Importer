@@ -5,6 +5,8 @@ import { expect, test, vi } from 'vitest'
 import { Dialog } from './Dialog'
 import { trackDialogOpeners } from './dialog-opener'
 import { Popover } from './Popover'
+import { Toast } from './Toast'
+import { AutoValueField, type AutoValue } from '#/forms/AutoValueField'
 
 function Opener({ closeDisabled = false }: { closeDisabled?: boolean }) {
   const [open, setOpen] = useState(false)
@@ -123,27 +125,76 @@ test('a click on the content does not close the dialog', async () => {
   expect(screen.getByRole('dialog', { name: 'Merge 2 lots' })).toBeInTheDocument()
 })
 
-test('a popover opened inside a dialog stays usable and does not close the dialog', async () => {
-  const user = userEvent.setup()
-  const choose = vi.fn()
-  render(
-    <Dialog title="Lot settings" onClose={vi.fn()}>
+function SettingsDialog({ onClose, choose }: { onClose: () => void; choose: () => void }) {
+  const [open, setOpen] = useState(true)
+  const [dateCode, setDateCode] = useState<AutoValue>({ mode: 'auto' })
+  if (!open) {
+    return null
+  }
+  return (
+    <Dialog
+      title="Lot settings"
+      onClose={() => {
+        onClose()
+        setOpen(false)
+      }}
+    >
       <Popover label="Quantity mode" trigger={<button type="button">Quantity</button>}>
         <button type="button" onClick={choose}>
           Estimated
         </button>
       </Popover>
-    </Dialog>,
+      <AutoValueField label="Date code" type="text" value={dateCode} onChange={setDateCode} />
+    </Dialog>
   )
+}
+
+test('popovers opened inside a dialog stay usable and do not close it', async () => {
+  const user = userEvent.setup()
+  const onClose = vi.fn()
+  const choose = vi.fn()
+  render(<SettingsDialog onClose={onClose} choose={choose} />)
   await afterOpen()
+  const dialog = screen.getByRole('dialog', { name: 'Lot settings' })
 
   await user.click(screen.getByRole('button', { name: 'Quantity' }))
   const option = await screen.findByRole('button', { name: 'Estimated' })
   // It renders inside the dialog, so it stacks above it and stays in its focus scope.
-  expect(screen.getByRole('dialog', { name: 'Lot settings' })).toContainElement(option)
+  expect(dialog).toContainElement(option)
   await user.click(option)
   expect(choose).toHaveBeenCalledOnce()
+
+  await user.click(screen.getByRole('button', { name: /^Date code/ }))
+  const none = await screen.findByRole('radio', { name: 'None' })
+  expect(dialog).toContainElement(none)
+  await user.click(none)
+  expect(screen.getByRole('button', { name: /^Date code/ })).toHaveAccessibleName(/No value/)
+
+  expect(onClose).not.toHaveBeenCalled()
   expect(screen.getByRole('dialog', { name: 'Lot settings' })).toBeInTheDocument()
+})
+
+test('an open dialog hides a toast’s Undo from the accessibility tree, but not its message', async () => {
+  const user = userEvent.setup()
+  render(
+    <>
+      <Toast
+        message="Deleted Front label"
+        action={{ label: 'Undo', onClick: vi.fn() }}
+        onDismiss={vi.fn()}
+      />
+      <Opener />
+    </>,
+  )
+  expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument()
+
+  await user.click(screen.getByRole('button', { name: 'Merge lots' }))
+  expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull()
+  // The message stays a live region, so it is still announced.
+  expect(screen.getByRole('status')).toHaveTextContent('Deleted Front label')
+
+  await user.click(screen.getByRole('button', { name: 'Close' }))
+  expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument()
 })
 
 test('focus returns to the opener after a StrictMode replay', async () => {
@@ -298,6 +349,24 @@ test('a dialog opened from a menu item returns focus to the menu trigger, not th
     await user.click(screen.getByRole('menuitem', { name: 'Open' }))
     await user.click(screen.getByRole('button', { name: 'Close' }))
     expect(screen.getByRole('button', { name: 'Actions for Front label' })).toHaveFocus()
+  } finally {
+    stopTracking()
+  }
+})
+
+test('a dialog opened by a click that left focus on the page closes from its backdrop back to that control', async () => {
+  const user = userEvent.setup()
+  const stopTracking = trackDialogOpeners()
+  try {
+    render(<Opener />)
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    // As Safari does: the click opens the dialog with focus still on the page.
+    fireEvent.click(screen.getByRole('button', { name: 'Merge lots' }))
+    await afterOpen()
+
+    await user.click(backdrop())
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Merge lots' })).toHaveFocus()
   } finally {
     stopTracking()
   }
