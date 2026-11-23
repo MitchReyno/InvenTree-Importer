@@ -20,7 +20,7 @@ Each step page SHALL show the step's outputs: readings, sources, crops or matche
 
 Processing › Inventory SHALL follow the step page pattern. Its main column lists each lot's Part match and why, a side-by-side comparison for each open Inventory clarification about a lot (such as possible duplicate stock), built from the retained question and Review's records, and location and company matches linking to Review › Records. Fields the retained data doesn't hold SHALL read "Not known" rather than being invented.
 
-The Inventory step SHALL appear only for a batch whose Examine lead input is earlier than `bench-intake-input/7`, which keeps the Inventory pipeline. A batch whose lead input is `/7` SHALL show Processing › Match in its place.
+A batch whose Examine lead input is `bench-intake-input/7` SHALL show Processing › Match in place of the Inventory step. A batch with no Examine lead, or whose lead input is earlier than `/7`, SHALL keep the Inventory step, as its pipeline does.
 
 #### Scenario: Duplicate stock question
 
@@ -30,9 +30,9 @@ The Inventory step SHALL appear only for a batch whose Examine lead input is ear
 
 #### Scenario: Retained batch keeps Inventory
 
-- **GIVEN** a batch whose lead input is `/6`, with an Inventory question open, and a `/7` batch
+- **GIVEN** a batch whose lead input is `/6`, with an Inventory question open, a batch with no Examine lead, and a `/7` batch
 - **WHEN** the operator opens Processing for each
-- **THEN** the `/6` batch shows the Inventory step with its question answerable, and the `/7` batch shows Match instead.
+- **THEN** the `/6` batch shows the Inventory step with its question answerable, the batch with no lead shows the Inventory step, and the `/7` batch shows Match instead.
 
 ## ADDED Requirements
 

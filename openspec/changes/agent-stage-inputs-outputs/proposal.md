@@ -122,7 +122,7 @@ No new third-party runtime dependency is needed: the decoder already ships `shar
 
 - `processing-stage-pipeline`: the stage order without the Inventory agent, successors started by Match, identify mode, identity amendments, and revisions that carry the change.
 - `processing-agent-sessions`: the tool boundary per stage, stage briefs, typed outputs and boundaries, precedence, no repeated questions, re-reading the brief, image and logo tools, and stage guides.
-- `processing-workspace`: the Match step replaces the Inventory step for `/7` batches, while earlier-version batches keep it; the Images step shows proposed crops; the brief on the session page.
+- `processing-workspace`: the Match step replaces the Inventory step for `/7` batches, while batches with no lead or an earlier-version lead keep it; the Images step shows proposed crops; the brief on the session page.
 - `capture-media`: derived crops gain straightening and bounded light adjustments.
 - `review-records`: agent values are proposed until confirmed.
 - `approval-preparation`: Match validation blocks approval; confirmed images and gaps fills become effects.

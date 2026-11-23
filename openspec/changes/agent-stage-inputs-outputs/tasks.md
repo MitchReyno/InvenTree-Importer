@@ -25,7 +25,7 @@
 | Task | Type | Prerequisites | Acceptance |
 | --- | --- | --- | --- |
 | 1. Briefs, input `/7`, read tools and stage packs scaffold | Contracts, intake server, migration | BI-019 PR-D1 (`photo_view`) | agent-sessions "Sessions start from a sealed brief", "Session tool boundary" and "Stage tool sets" (read tools) |
-| 2. Typed outputs, boundaries, revisions and no repeated questions | Contracts, intake server | 1; BI-019 PR-B and PR-D | agent-sessions "Typed stage outputs", "Human facts take precedence" (data), "Questions are not asked twice"; agent-sessions "Authoritative citations for fetched evidence" ("Released view after a restart"); pipeline "Revisions carry the change"; the design's citation admission over `photo_view` |
+| 2. Typed outputs, boundaries, revisions and no repeated questions | Contracts, intake server | 1; BI-019 PR-B and PR-D1 | agent-sessions "Typed stage outputs", "Human facts take precedence" (data), "Questions are not asked twice"; agent-sessions "Authoritative citations for fetched evidence" ("Released view after a restart"); pipeline "Revisions carry the change"; the design's citation admission over `photo_view` |
 | 3. Match: search, verdicts, questions, modes and queueing | Intake server, migration, frontend | 2; BI-019 PR-B | processing-match "Deterministic search by strong keys", "Verdicts and sufficiency", "The match question", "Decisions set stage modes" ("Add stock"), "When Match searches" (its after-Examine and check-again triggers), "Match questions are pinned", "Match waits are recorded" ("Searches settle out of order"); pipeline "Examine stage and parallel successors", "Successors start on a stable identity" ("Parallel start", "Lot regrouped before successors start"), "Evidence-based currentness" (the decision and mode); workspace "Processing › Match", "Step page pattern" (the Match exception), "Inventory step page" (earlier-version batches only) |
 | 4. Identify mode and identity amendments | Intake server | 3 | pipeline "Identify first when nothing can be searched", "Identity amendments update the lot", "Successors start on a stable identity" (identify-mode start); match "When Match searches" ("Alias found during research"), "Decisions set stage modes" (a paused identify session) |
 | 5. Media decoder ports and recipe `/2` | Media decoder, contracts | None | capture-media "Media immutable derived crops"; the parity tests behind agent-sessions "Image and logo tools run in the app" |
@@ -34,7 +34,7 @@
 | 7. Profile scaffold, instruction packs and guides | Intake server, migration | 1 | agent-sessions "Human facts take precedence" (instructions), "Stage guides on demand" |
 | 11. Activation, cutover and live requalification | Intake server, migration, live | 1–10 | agent-sessions "Stage tool sets" (admission); the cutover and activation scenarios; live evidence |
 | 8. The brief on the session page | Frontend | 1; BI-019 PR-E | workspace "The brief on the session page" |
-| 9. Multi-lot Research and Images sessions | Contracts, intake server, migration, frontend | 3, 4; BI-019 PR-E and PR-G | agent-sessions "Research and Images sessions serve lot groups", "Lots per session settings", "Per-lot handling inside a group", "Lots leave a group individually", "Proposals name their lot"; agent-sessions "Resume idle sessions for pending input" ("Chat for a held lot"); pipeline "Selective rework from answers and edits" (the `/7` group case) and "Evidence-based currentness" (the `/7` pins); workspace "Sessions show the lots they serve" |
+| 9. Multi-lot Research and Images sessions | Contracts, intake server, migration, frontend | 3, 4, 10; BI-019 PR-E and PR-G | agent-sessions "Research and Images sessions serve lot groups", "Lots per session settings", "Per-lot handling inside a group", "Lots leave a group individually", "Proposals name their lot"; agent-sessions "Resume idle sessions for pending input" ("Chat for a held lot"); pipeline "Selective rework from answers and edits" (the `/7` group case) and "Evidence-based currentness" (the `/7` pins); workspace "Sessions show the lots they serve" |
 
 ## PR delivery map
 
@@ -48,7 +48,7 @@
 | PR-E1 | Media decoder ports and recipe `/2` | 5 | Depends only on the contracts and the decoder, so the longest single task starts in wave 1 | PR-0 | `interactive-app` ← `feat/agent-stage-inputs-outputs-decoder-ports`; `feat(agent-stage-inputs-outputs): port the image and logo scripts to the media decoder` | Decoder parity tests, contracts tests; review; CI |
 | PR-E2 | Image tools, `propose_images` and the Images review | 10 | Exposes PR-E1's operations to sessions with their consumers | PR-B, PR-E1 | `interactive-app` ← `feat/agent-stage-inputs-outputs-images`; `feat(agent-stage-inputs-outputs): images proposed as recipes and rendered by the app` | Intake tiers, frontend checks; demo video; review; CI |
 | PR-F | Outputs into records and approval, and validation before approval | 6 | Everything that reaches InvenTree, reviewed together | PR-C, PR-D, PR-E2 | `interactive-app` ← `feat/agent-stage-inputs-outputs-records`; `feat(agent-stage-inputs-outputs): confirmed agent output reaches records and approval` | Intake tiers including execution tests, frontend checks; review; CI |
-| PR-I | Multi-lot Research and Images sessions | 9 | One session model change with its settings, claim, routing and UI | PR-D; BI-019 PR-E and PR-G | `interactive-app` ← `feat/agent-stage-inputs-outputs-lot-groups`; `feat(agent-stage-inputs-outputs): run research and images sessions over several lots` | Contracts tests, intake tiers, frontend checks; demo video; review; CI |
+| PR-I | Multi-lot Research and Images sessions | 9 | One session model change with its settings, claim, routing and UI | PR-D, PR-E2; BI-019 PR-E and PR-G | `interactive-app` ← `feat/agent-stage-inputs-outputs-lot-groups`; `feat(agent-stage-inputs-outputs): run research and images sessions over several lots` | Contracts tests, intake tiers, frontend checks; demo video; review; CI |
 | PR-G1 | The profile scaffold, instruction packs and guides, behind the test-only switch | 7 | Lets the long pack and guide work start early; nothing selects the profile yet | PR-A | `interactive-app` ← `feat/agent-stage-inputs-outputs-profile-scaffold`; `feat(agent-stage-inputs-outputs): add the stage profile, packs and guides` | Profile and guide tests, intake tiers; Mitch's review of the wording; review; CI |
 | PR-G2 | Activation, cutover and the live requalification | 11 | The behaviour change and its live proof together | All other PRs; Mitch's go-ahead for the live run | `interactive-app` ← `feat/agent-stage-inputs-outputs-activation`; `feat(agent-stage-inputs-outputs): switch on the stage profile` | Admission tests, intake tiers, live evidence on the PR; review; CI |
 | PR-H | The brief on the session page | 8 | UI over PR-A, after the page exists | PR-A; BI-019 PR-E | `interactive-app` ← `feat/agent-stage-inputs-outputs-brief-page`; `feat(agent-stage-inputs-outputs): show the brief a session started from` | Frontend checks; demo video; review; CI |
@@ -65,7 +65,7 @@ How the PR map above lets work run at the same time. A PR can start once every P
 | 2 | PR-B · PR-G1 · PR-H | PR-A (all three); BI-019 PR-B and PR-D1 (PR-B); BI-019 PR-E (PR-H) |
 | 3 | PR-C · PR-E2 | PR-B (both); BI-019 PR-B (PR-C); PR-E1 (PR-E2) |
 | 4 | PR-D | PR-C (PR-E2 may still be in progress) |
-| 5 | PR-F · PR-I | PR-C, PR-D and PR-E2 (PR-F); PR-D, BI-019 PR-E and PR-G (PR-I) |
+| 5 | PR-F · PR-I | PR-C, PR-D and PR-E2 (PR-F); PR-D, PR-E2, BI-019 PR-E and PR-G (PR-I) |
 | 6 | PR-G2 | everything else; Mitch's go-ahead for the live run |
 
 - **Critical path:** PR-A → PR-B → PR-C → PR-D → PR-F → PR-G2, six PRs in sequence. PR-E1, PR-E2, PR-G1, PR-H and PR-I have slack.
@@ -105,9 +105,9 @@ With suggestions 3 and 4 also applied, PR-C1 and PR-F1 would join wave 2 and wav
 - **TDD approach:** PG tests for assembly of each section, the human marking, the asked-list scope, regions, budget summaries, the retained-input cap, read-tool scope and paging, an edit between queueing and the first page read, an edit to a field held only in a page, and a retained synthetic `/6` lead receiving new evidence without queueing `/7` successors fail first.
 - **Verification:** contracts tests, and `pnpm db:intake test` and `test:process` (with the decoder and probe images).
 
-- [ ] 1.1 Read the code guidelines, the intake architecture and the doc's Part 1. Check whether correcting an observation keeps its earlier readings, and record the answer in `notes.md`.
+- [ ] 1.1 Read the code guidelines, the intake architecture and the doc's Part 1. Correcting an observation replaces its readings in place and sets `operator_edited` (`capture/evidence-observations.ts:968-985`), so `read_batch` projects only the current markings; decide whether the brief needs the earlier reading, and record the decision in `notes.md`.
 - [ ] 1.2 RED: contract and PG tests for the brief, `/7`, `read_lot`, `read_batch` with full readings, and the stage-instructions claim check.
-- [ ] 1.3 GREEN: implement them, retaining earlier readings if needed.
+- [ ] 1.3 GREEN: implement them, retaining earlier readings if 1.1 decided the brief needs them. The before-and-after brief test drives a real observation correction.
 - [ ] 1.4 Add a process test with a fake session reading its brief. Update `intake-server/src/agents/ARCHITECTURE.md`, and run the tiers.
 
 ## 2. Typed outputs, boundaries, revisions and no repeated questions
@@ -138,7 +138,7 @@ With suggestions 3 and 4 also applied, PR-C1 and PR-F1 would join wave 2 and wav
   - persisted Match waits checked at claim, resume, Start and replacement, with late candidates holding running and queued stages;
   - decisions setting modes and queueing Research and Images, which replaces `onLeadIdentity`'s direct queueing;
   - Inventory no longer queued for the new profile;
-  - Processing › Match replacing Inventory for batches whose lead input is `/7`, while earlier-version batches keep the Inventory step.
+  - Processing › Match replacing Inventory for batches whose lead input is `/7`, while batches with no lead or an earlier-version lead keep the Inventory step.
 - **Scope:**
   - a new `intake-server/src/processing/match/`;
   - `inventory/` read helpers;
@@ -147,8 +147,8 @@ With suggestions 3 and 4 also applied, PR-C1 and PR-F1 would join wave 2 and wav
   - the activity popover's Match row, if BI-019 PR-F has merged; if it merges later, the row joins the next BI-022 PR still open, and PR-G2 at the latest, so activation never ships without it, showing Match for `/7` batches and Inventory for earlier ones;
   - the Match exception on the step page as it stands when PR-C is built; the spec deltas are reconciled with BI-019 once, before archive (see the lifecycle follow-up);
   - `frontend/src/components/processing/` (Match step, Needs you);
-  - the Inventory step shown only for earlier-version batches.
-- **TDD approach:** PG tests against a fake InvenTree read model fail first. They cover every verdict, sufficiency, question options, each decision's modes, waiting stages, the search-failure state, the batch question, Needs you before any lot job exists, a stale question's refused answer, a restart between a search request's commit and its read, two searches on the same identity settling in reverse order, two decisions on the same identity with the first `match` item still pending, an answer arriving before a newer search settles, and a second identity change between a decision and the resume. The paused identify session, a late candidate while Images runs and an unrelated inbox item while Research waits are task 4's, since they need identify mode and late matches. Frontend tests cover the Match step rows and a retained `/6` batch with an open Inventory question keeping its Inventory step.
+  - the Inventory step shown only for batches with no lead or an earlier-version lead.
+- **TDD approach:** PG tests against a fake InvenTree read model fail first. They cover every verdict, sufficiency, question options, each decision's modes, waiting stages, the search-failure state, the batch question, Needs you before any lot job exists, a stale question's refused answer, a restart between a search request's commit and its read, two searches on the same identity settling in reverse order, two decisions on the same identity with the first `match` item still pending, an answer arriving before a newer search settles, and a second identity change between a decision and the resume. The paused identify session, a late candidate while Images runs and an unrelated inbox item while Research waits are task 4's, since they need identify mode and late matches. Frontend tests cover the Match step rows a retained `/6` batch with an open Inventory question keeping its Inventory step, and a batch with no lead keeping it.
 - **Verification:** intake tiers, frontend checks, and a demo video.
 - **Risks and decisions:** the search strategy and normalisation are open questions. Record the chosen rules in `notes.md`.
 

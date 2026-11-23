@@ -68,7 +68,7 @@ For `/7` Research and Images sessions, which serve lot groups, an identity chang
 
 #### Scenario: Corrected part number
 
-- **GIVEN** Research running on candidate 74HC00, and Images finished
+- **GIVEN** Research running on candidate 74HC00 under an input earlier than `/7`, and Images finished
 - **WHEN** the operator answers the identity question with 74HCT00
 - **THEN** both sessions receive the answer, their old proposals are stale at once and replaced when revised, and the quantity proposal stays current.
 
