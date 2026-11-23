@@ -22,6 +22,12 @@ The executor SHALL apply only plans whose version, build and capability match a 
 - **WHEN** the operator activates the `/3` deployment
 - **THEN** new earlier-version approvals are fenced under the target lock, and activation is refused until that run settles on its own runner, so one writer holds the target.
 
+#### Scenario: Verifying an earlier run after the switch
+
+- **GIVEN** a completed `bench-effects-plan/2` run that offers `verify_effect`, on a target now served by the `/3` deployment
+- **WHEN** the operator asks to verify it
+- **THEN** the earlier runner, kept in verify-only mode, performs the read-only check, and no earlier-version write is dispatched.
+
 #### Scenario: Part image effects on an older capability
 
 - **GIVEN** a deployment with `owned-fake-effects/2` and a lot whose confirmed Part image targets an existing Part

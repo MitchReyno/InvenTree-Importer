@@ -209,7 +209,7 @@ Preparation SHALL run Match's search again for each selected lot of a batch whos
 #### Scenario: Part created meanwhile
 
 - **GIVEN** a lot decided as a new Part 1N4148W-7-F
-- **WHEN** a Part with that MPN is added to InvenTree before approval
+- **WHEN** a Part with that MPN is added to InvenTree before preparation
 - **THEN** the Ready view shows a blocking item for the lot, and approval waits until the operator decides again.
 
 ### Requirement: Validation without a searchable key
