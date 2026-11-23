@@ -24,7 +24,7 @@ type DirtyReport = { dirty: boolean; beforeLeave?: () => Promise<boolean> }
 async function renderAgents(initial: AgentSettingsDto = agentSettings('7', claude)) {
   const server = agentSettingsServer(initial)
   const reports: DirtyReport[] = []
-  render(
+  const { unmount } = render(
     <Settings
       section="agents"
       returnTo={undefined}
@@ -36,7 +36,7 @@ async function renderAgents(initial: AgentSettingsDto = agentSettings('7', claud
   )
   await screen.findByRole('group', { name: 'Claude' })
   vi.useFakeTimers()
-  return { server, reports, dirty: () => reports.at(-1)?.dirty ?? false }
+  return { server, reports, unmount, dirty: () => reports.at(-1)?.dirty ?? false }
 }
 
 /** Lets timers and the promises they start run. */
@@ -521,6 +521,123 @@ describe('round 1 regressions', () => {
     await wait()
     expect(server.sent().map((request) => request.auto_tags_default)).toEqual([true, true])
     expect(server.saved).toMatchObject({ auto_tags_default: true, session_concurrency: 4 })
+  })
+})
+
+describe('round 2 regressions', () => {
+  test("a retried sign-in never writes back a step's provider that another tab changed", async () => {
+    const { server } = await renderAgents({
+      ...bothOn,
+      stage_selections: { research: { provider: 'claude', model: 'opus' } },
+    })
+    fireEvent.change(
+      within(screen.getByRole('group', { name: 'Research' })).getByRole('combobox', {
+        name: 'Research model',
+      }),
+      { target: { value: 'sonnet' } },
+    )
+    server.otherTab({ stage_selections: { research: { provider: 'codex', model: 'gpt-6-luna' } } })
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Claude' })).getByRole('button', {
+        name: 'API key',
+      }),
+    )
+    await wait(600)
+    fireEvent.click(
+      within(heading('Providers')).getByRole('button', { name: 'Try the same save again' }),
+    )
+    await wait()
+    expect(server.saved.providers.claude.authentication).toBe('api_key')
+    expect(server.saved.stage_selections).toEqual({
+      research: { provider: 'codex', model: 'gpt-6-luna' },
+    })
+  })
+
+  test('a model Save checks only its own fields, and its Try again keeps that scope', async () => {
+    const { server } = await renderAgents({
+      ...bothOn,
+      stage_selections: { research: { provider: 'codex', model: 'gpt-6.1-sol' } },
+    })
+    fireEvent.change(
+      within(screen.getByRole('group', { name: 'Research' })).getByRole('combobox', {
+        name: 'Research model',
+      }),
+      { target: { value: '-not an id' } },
+    )
+    fireEvent.change(
+      within(screen.getByRole('group', { name: 'Claude' })).getByRole('combobox', {
+        name: 'Default model',
+      }),
+      { target: { value: 'sonnet' } },
+    )
+    vi.spyOn(crypto, 'randomUUID').mockImplementationOnce(() => {
+      throw new Error('no_entropy')
+    })
+    fireEvent.click(within(heading('Providers')).getByRole('button', { name: 'Save' }))
+    await wait()
+    expect(server.sent()).toHaveLength(0)
+    fireEvent.click(within(heading('Providers')).getByRole('button', { name: 'Try again' }))
+    await wait()
+    expect(server.sent()).toHaveLength(1)
+    expect(server.saved.providers.claude.default_model).toBe('sonnet')
+    expect(server.saved.stage_selections.research?.model).toBe('gpt-6.1-sol')
+  })
+
+  test('a confirmed save whose read answers after the page is left reports nothing', async () => {
+    const { server, reports, unmount } = await renderAgents()
+    server.deliver('lost-after-commit')
+    toggleTags()
+    await wait(600)
+
+    let answer: (settings: AgentSettingsDto) => void = () => {}
+
+    server.client.settings
+      .mockRejectedValueOnce(new TypeError('network_failed'))
+      .mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)))
+    // The resend's receipt confirms it; its read fails, and the read alone is tried again.
+    await wait(1000)
+    await wait(2000)
+    expect(within(heading('Tag suggestions')).getByRole('status')).toHaveTextContent('Reloading…')
+    unmount()
+    const before = reports.length
+    answer(server.saved)
+    await wait(10000)
+    expect(reports).toHaveLength(before)
+  })
+
+  test('a provider with no saved model ID is refused at its switch and stays off', async () => {
+    const { server } = await renderAgents(
+      agentSettings('7', claude, {
+        providers: {
+          claude: { enabled: true, authentication: 'subscription', default_model: 'opus' },
+          codex: { enabled: false, authentication: 'subscription', default_model: '' },
+        },
+      }),
+    )
+    fireEvent.click(providerSwitch('Codex'))
+    expect(providerSwitch('Codex')).not.toBeChecked()
+    expect(
+      within(screen.getByRole('group', { name: 'Codex' })).getByRole('alert'),
+    ).toHaveTextContent('Save a valid default model before turning Codex on')
+    await wait(2000)
+    expect(server.sent()).toHaveLength(0)
+  })
+
+  test("a failed Reload keeps a change that can't be confirmed as it was", async () => {
+    const { server } = await renderAgents()
+    server.deliver('lost-after-commit')
+    toggleTags()
+    await wait(600)
+    server.prune()
+    server.otherTab({ new_batch_instructions: 'From the other tab' })
+    server.prune()
+    await wait(1000)
+    server.client.settings.mockRejectedValueOnce(new TypeError('network_failed'))
+    fireEvent.click(within(heading('Tag suggestions')).getByRole('button', { name: /Reload/ }))
+    await wait()
+    expect(within(heading('Tag suggestions')).getByRole('alert')).toHaveTextContent(
+      'Couldn’t confirm this change',
+    )
   })
 })
 

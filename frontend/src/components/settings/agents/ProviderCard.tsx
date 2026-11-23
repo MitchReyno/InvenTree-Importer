@@ -33,8 +33,8 @@ export function ProviderCard({
   status: ProviderStatus
   /** The model field's Save is running, so the field is read-only. */
   textBusy: boolean
-  /** Turning it off was refused because it is the last provider on. */
-  refused: boolean
+  /** Why its switch was refused: the last provider on, or no saved model ID to turn on with. */
+  refused?: 'last' | 'model'
   onEnabledChange: (enabled: boolean) => void
   /** Reports an edit to the sign-in choice, which fires no input event. */
   onAutoEdit: () => void
@@ -67,7 +67,9 @@ export function ProviderCard({
       </CheckboxLabel>
       {refused && (
         <Invalid id={refusedId} role="alert">
-          At least one provider stays on.
+          {refused === 'last'
+            ? 'At least one provider stays on.'
+            : `Save a valid default model before turning ${label} on.`}
         </Invalid>
       )}
       <SegmentedControl

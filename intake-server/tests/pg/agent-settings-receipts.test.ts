@@ -205,6 +205,35 @@ test('a receipt past its age is never replayed, even with no save since', async 
   }
 })
 
+test('a resend that waits for the lock past its receipt age is not replayed', async () => {
+  const fixture = await processingFixture()
+  const holder = await fixture.db.pool.connect()
+  try {
+    const old = update('0', 2)
+    await save(fixture, old)
+    // Expires two seconds from now, while the resend waits for the scope's lock.
+    await fixture.db.pool.query(
+      `UPDATE agent_settings_save_receipt
+       SET saved_at = now() - interval '7 days' + interval '2 seconds'`,
+    )
+    await holder.query('BEGIN')
+    await holder.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
+      `agent-settings-save/1:${fixture.config.actorId}:${fixture.config.targetId}:${fixture.config.targetContextId}`,
+    ])
+    const resend = save(fixture, old)
+    const outcome = resend.then(
+      () => 'replayed',
+      (error: Error) => error.message,
+    )
+    await new Promise((done) => setTimeout(done, 3000))
+    await holder.query('COMMIT')
+    assert.equal(await outcome, 'save_outcome_unknown')
+  } finally {
+    holder.release()
+    await fixture.dispose()
+  }
+})
+
 test('one save ID used in two scopes at once applies in one, and the other is refused unchanged', async () => {
   const fixture = await processingFixture()
   try {

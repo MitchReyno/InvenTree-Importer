@@ -108,6 +108,17 @@ export async function sendSave(
 }
 
 /**
+ * A failed Reload establishes nothing about the save: a terminal unknown stays one, a contested
+ * save keeps Reload, and a settled form reports the failed read.
+ */
+function stateAfterFailedReload(before: SaveState): SaveState {
+  if (before === 'unresolved') {
+    return 'unresolved'
+  }
+  return before === 'idle' || before === 'saved' ? 'failed' : 'reloadFailed'
+}
+
+/**
  * One subsection's save state, with its sends and reloads. The state is mirrored in a ref, so a
  * queued save reads it when it starts rather than as it was when queued.
  */
@@ -143,7 +154,7 @@ export function useSettingsSave(page: SettingsPage) {
     } catch {
       if (mounted.current) {
         // Reload stays offered: the edit is kept and what is saved is still unknown.
-        setState(after === 'idle' || after === 'saved' ? 'failed' : 'reloadFailed')
+        setState(stateAfterFailedReload(after))
       }
       return undefined
     }

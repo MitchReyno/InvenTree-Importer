@@ -12,6 +12,7 @@ function Page() {
     <>
       <a href="#batches">Batches</a>
       <a href="#capture">Capture</a>
+      <a href="#settings/agents/tags">Tag suggestions</a>
       <output>{guard.route}</output>
       {guard.navigationBlocked && <p role="alert">Blocked</p>}
     </>
@@ -127,4 +128,27 @@ test('two links while the save runs lead once, to the last one chosen', async ()
   expect(location.hash).toBe('#capture')
   expect(visited).toEqual(['#capture'])
   removeEventListener('hashchange', record)
+})
+
+test('moving to another Agents subsection drops a departure waiting for the save', async () => {
+  render(<Page />)
+
+  let finish: () => void = () => {}
+
+  const beforeLeave = vi.fn(
+    () =>
+      new Promise<boolean>((resolve) => {
+        finish = () => {
+          act(() => guard.onDirtyChange(false))
+          resolve(true)
+        }
+      }),
+  )
+  act(() => guard.onDirtyChange(true, beforeLeave))
+  fireEvent.click(screen.getByRole('link', { name: 'Batches' }))
+  fireEvent.click(screen.getByRole('link', { name: 'Tag suggestions' }))
+  await settle()
+  finish()
+  await settle()
+  expect(location.hash).toBe('#settings/agents/tags')
 })

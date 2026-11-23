@@ -80,6 +80,8 @@ export function useNavigationGuard() {
     function acceptRoute() {
       const next = location.hash.slice(1)
       if (dirty.current && withinAgentsPage(accepted.current.route, next)) {
+        // Staying on the page drops a departure still waiting for its save.
+        leaving.current = undefined
         // The drafts stay mounted; the guard now protects this subsection's URL.
         protectedUrl.current = location.href
       } else if (dirty.current) {
@@ -134,6 +136,7 @@ export function useNavigationGuard() {
       }
       const target = new URL(anchor.href)
       if (withinAgentsPage(accepted.current.route, target.hash.slice(1))) {
+        leaving.current = undefined
         return
       }
       if (

@@ -264,13 +264,16 @@ async function writeReceipt(
   }
 }
 
-/** Drops receipts beyond the newest kept or past their age, advancing the scope's watermark. */
+/**
+ * Drops receipts beyond the newest kept or past their age, advancing the scope's watermark. Age
+ * is measured now, not when the transaction began, since a save may have waited for the lock.
+ */
 async function pruneReceipts(client: PoolClient, binding: CaptureBinding, revision: bigint) {
   await client.query(
     `WITH pruned AS (
        DELETE FROM agent_settings_save_receipt
        WHERE actor_id = $1 AND target_id = $2 AND target_context_id = $3
-         AND (revision <= $4 OR saved_at < now() - $5::interval)
+         AND (revision <= $4 OR saved_at < clock_timestamp() - $5::interval)
        RETURNING revision
      )
      UPDATE agent_settings

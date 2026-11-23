@@ -19,13 +19,22 @@ import {
   providerFormValues,
   turnOff,
   turnOn,
+  validModel,
 } from './provider-form'
 import { ProviderCard } from './ProviderCard'
 import { SaveBar } from './SaveBar'
 import type { FieldKey } from './settings-fields'
 import { Stack } from './Stack'
 import { StepChoices } from './StepChoices'
-import { useSubsectionForm, type SubsectionFormProps } from './useSubsectionForm'
+import { useSubsectionForm, type ProviderKept, type SubsectionFormProps } from './useSubsectionForm'
+
+/** The model fields a subsection's Save validates. */
+function fieldsOf(place: 'providers' | 'models') {
+  if (place === 'providers') {
+    return PROVIDERS.map((provider) => `providers.${provider}.default_model` as const)
+  }
+  return AGENT_SETTINGS_STAGES.map((stage) => `stages.${stage}.model` as const)
+}
 
 const KEYS: readonly FieldKey[] = [
   ...PROVIDERS.flatMap((provider) => [
@@ -55,7 +64,10 @@ export function ProvidersAndSteps({
   sessions: ReactNode
 }) {
   const [reset, setReset] = useState<readonly AgentSettingsStage[]>([])
-  const [refused, setRefused] = useState<AgentProviderId | null>(null)
+  const [refused, setRefused] = useState<{
+    provider: AgentProviderId
+    reason: ProviderKept
+  } | null>(null)
   // Where the model fields' last Save was pressed, so its outcome shows beside those fields.
   const [savedFrom, setSavedFrom] = useState<'providers' | 'models'>('providers')
   const { form, markEdited, autosave, text, textKeys } = useSubsectionForm({
@@ -65,13 +77,18 @@ export function ProvidersAndSteps({
     write: providerFormUpdate,
     keys: KEYS,
     onStepsReset: (steps) => setReset((current) => [...new Set([...current, ...steps])]),
-    onLastProviderKept: (providers) => setRefused(providers[0] ?? null),
+    onProviderKept: (provider, reason) => setRefused({ provider, reason }),
   })
   const values = form.watch()
 
   function setEnabled(provider: AgentProviderId, enabled: boolean) {
     const current = form.getValues()
     if (enabled) {
+      // A provider that is on needs a model ID; a draft of one isn't saved yet.
+      if (!validModel(props.loaded.providers[provider].default_model, true)) {
+        setRefused({ provider, reason: 'model' })
+        return
+      }
       form.reset(turnOn(current, provider), { keepDefaultValues: true, keepFieldsRef: true })
       setRefused(null)
       markEdited('auto')
@@ -79,7 +96,7 @@ export function ProvidersAndSteps({
     }
     // At least one provider stays on; turning off the last is refused here and nothing is sent.
     if (!PROVIDERS.some((other) => other !== provider && current.providers[other].enabled)) {
-      setRefused(provider)
+      setRefused({ provider, reason: 'last' })
       return
     }
     const next = turnOff(current, provider)
@@ -123,7 +140,7 @@ export function ProvidersAndSteps({
         savedMessage="Saved. Sessions queued from now on use it; queued and running ones keep theirs."
         onSave={() => {
           setSavedFrom(place)
-          text.save(undefined, scope)
+          text.save({ scope, fields: fieldsOf(place) })
         }}
         onRetry={text.retry}
         onReload={text.reload}
@@ -146,7 +163,7 @@ export function ProvidersAndSteps({
               provider={provider}
               status={status[provider]}
               textBusy={text.busy}
-              refused={refused === provider}
+              refused={refused?.provider === provider ? refused.reason : undefined}
               onEnabledChange={(enabled) => setEnabled(provider, enabled)}
               onAutoEdit={() => markEdited('auto')}
               onTextEdit={() => markEdited('text')}
