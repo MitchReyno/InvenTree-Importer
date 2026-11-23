@@ -40,7 +40,7 @@ For `/7` work, a lot with a strong search key SHALL also start them only when Ma
 
 Each proposal SHALL record the observations, evidence versions, notes and answers it relies on, including the lot's observation set. It SHALL become stale only when one of those changes or is removed, or, for `/7` work, when one of the pins below changes.
 
-For `/7` work, outputs that establish the identity and outputs that depend on it SHALL record different pins. An `examine-identity/1` proposal has no further pins. A `research-identity/1` amendment SHALL also pin the identity revision its session started from, and SHALL stay current when its own merge advances the revision or Match then records a decision; it becomes stale when another change advances the revision. A `research/1` or `images/1` proposal SHALL also pin the identity revision and the Match decision and stage mode it was produced under, and becomes stale when any of them changes.
+For `/7` work, outputs that establish the identity and outputs that depend on it SHALL record different pins. An `examine-identity/1` proposal has no further pins. A `research-identity/1` amendment SHALL also pin the identity revision it was based on when published (the sealed starting revision, or the merged revision a later `match` item delivered), with the sealed starting revision recorded separately, and SHALL stay current when its own merge advances the revision or Match then records a decision; it becomes stale when another change advances the revision. A `research/1` or `images/1` proposal SHALL also pin the identity revision and the Match decision and stage mode it was produced under, and becomes stale when any of them changes.
 
 #### Scenario: Evidence removed
 
@@ -82,12 +82,12 @@ For `/7` Research and Images sessions, which serve lot groups, an identity chang
 
 ### Requirement: Identify first when nothing can be searched
 
-For `/7` work, a lot whose identity has no strong search key SHALL start Research in identify mode. Research SHALL resolve the canonical MPN, the manufacturer and every alias it can source (house numbers, packaging codes, cross-references, alternate markings), publish them as a `research-identity/1` amendment, and pause until Match has searched with them.
+For `/7` work, a lot whose identity has no strong search key SHALL start Research in identify mode once Match's import reference lookup has completed without a hit. Research SHALL resolve the canonical MPN, the manufacturer and every alias it can source (house numbers, packaging codes, cross-references, alternate markings), publish them as a `research-identity/1` amendment, and pause until Match has searched with them.
 
 #### Scenario: House-numbered reel
 
 - **GIVEN** a reel whose label carries only the distributor's number TK-1N4148
-- **WHEN** Examine publishes its identity
+- **WHEN** Examine publishes its identity and the import reference lookup completes without a hit
 - **THEN** Research starts in identify mode, Images waits, and when Research amends the identity with MPN 1N4148W-7-F and the alias TK-1N4148, Match searches with both.
 
 ### Requirement: Identity amendments update the lot

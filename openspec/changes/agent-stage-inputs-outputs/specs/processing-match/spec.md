@@ -48,7 +48,7 @@ An import reference hit SHALL be an original-contribution hit, not an identity c
 
 ### Requirement: When Match searches
 
-Match SHALL search after Examine's stable identity when it has a strong key (a lot without one is identified first, as the pipeline's "Identify first when nothing can be searched" requires), after each identity amendment, when a session adds an alias as a match note, and when the operator asks to check again.
+Match SHALL search after Examine's stable identity when it has a strong key (a lot without one is identified first, as the pipeline's "Identify first when nothing can be searched" requires), after each identity amendment, when a session adds an alias as a match note, and when the operator asks to check again. A lot still awaiting its first identify-mode amendment SHALL NOT be searched remotely for a match-note alias; the amendment's search covers it.
 
 #### Scenario: Alias found during research
 

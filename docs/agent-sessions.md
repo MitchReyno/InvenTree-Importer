@@ -566,7 +566,7 @@ The skills' deterministic scripts become intake MCP tools, run by the app on the
 - they work for both providers and both `/7` profiles;
 - they operate on full-resolution originals without spending the image budget on transfers;
 - their results are reproducible and recorded;
-- they need no runner-image changes;
+- they need no VM runner-image changes (the coordinator's deployment gains the decoder dispatcher socket in task 11);
 - recipes stay the only route to a retained crop.
 
 **Where they run.** In the media decoder, which already owns orientation, crops and renditions. The decoder is TypeScript on `sharp` and `@napi-rs/canvas`, so the Python scripts are reimplemented there rather than called, and tested for parity with the scripts' outputs. The logo set is bundled read-only with the decoder image.

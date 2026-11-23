@@ -179,12 +179,18 @@ Each lot section of the brief SHALL hold the lot's identity, observations, human
 #### Scenario: Late candidate for one lot
 
 - **GIVEN** a running Images session serving lots A and B
-- **WHEN** a late candidate for lot A opens a match question
+- **WHEN** a match note from lot A's Research adds an alias, and the new search finds a candidate without changing A's identity revision
 - **THEN** only lot A's membership is held: the session stops work on A at the end of its turn, publishes B's proposal while the question is open, and resumes A when its mode arrives.
 
 ### Requirement: Lots leave a group individually
 
 A lot whose identity is changed after the claim by anyone but the group's own session SHALL be released and requeued, with the session told. A failed session's incomplete lots SHALL be requeued one by one, and Start fresh on a lot SHALL move it to a new session.
+
+#### Scenario: Amendment releases one Images lot
+
+- **GIVEN** a running Images session serving lots A and B
+- **WHEN** lot A's Research session amends A's identity and the new search finds a candidate
+- **THEN** A is released from the Images group with the session told, B keeps running, and A joins a later Images group once Match allows it.
 
 #### Scenario: Session fails
 
