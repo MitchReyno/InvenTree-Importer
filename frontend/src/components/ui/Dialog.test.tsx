@@ -1,8 +1,9 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { StrictMode, useState } from 'react'
 import { expect, test, vi } from 'vitest'
 import { Dialog } from './Dialog'
+import { Popover } from './Popover'
 
 function Opener({ closeDisabled = false }: { closeDisabled?: boolean }) {
   const [open, setOpen] = useState(false)
@@ -20,6 +21,22 @@ function Opener({ closeDisabled = false }: { closeDisabled?: boolean }) {
   )
 }
 
+// The dimmed backdrop is the element rendered just before the dialog.
+function backdrop() {
+  const element = screen.getByRole('dialog').previousElementSibling
+  if (!(element instanceof HTMLElement)) {
+    throw new Error('the dialog has no backdrop')
+  }
+  return element
+}
+
+// Radix starts listening for outside presses a tick after the dialog opens.
+async function afterOpen() {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+}
+
 test('opens a dialog named by its title and closes from its Close button', async () => {
   const user = userEvent.setup()
   render(<Opener />)
@@ -32,14 +49,15 @@ test('opens a dialog named by its title and closes from its Close button', async
   expect(screen.getByRole('button', { name: 'Merge lots' })).toHaveFocus()
 })
 
-test('Escape cancels unless closing is blocked', async () => {
+test('Escape closes unless closing is blocked', async () => {
+  const user = userEvent.setup()
   const onClose = vi.fn()
   const { rerender } = render(
     <Dialog title="Crop" onClose={onClose}>
       <p>Body</p>
     </Dialog>,
   )
-  fireEvent(screen.getByRole('dialog'), new Event('cancel', { cancelable: true }))
+  await user.keyboard('{Escape}')
   expect(onClose).toHaveBeenCalledTimes(1)
 
   rerender(
@@ -47,53 +65,94 @@ test('Escape cancels unless closing is blocked', async () => {
       <p>Body</p>
     </Dialog>,
   )
-  fireEvent(screen.getByRole('dialog'), new Event('cancel', { cancelable: true }))
+  await user.keyboard('{Escape}')
   expect(onClose).toHaveBeenCalledTimes(1)
   expect(screen.getByRole('button', { name: 'Close' })).toBeDisabled()
 })
 
-test('focus returns to the opener after a StrictMode replay, while the open modal keeps the page inert', async () => {
-  const realFocus = HTMLElement.prototype.focus
-  // Browsers ignore focus outside an open modal dialog; jsdom does not, so it is modelled here.
-  const focus = vi.spyOn(HTMLElement.prototype, 'focus').mockImplementation(function (
-    this: HTMLElement,
-    options?: FocusOptions,
-  ) {
-    const modal = document.querySelector('dialog[open]')
-    if (modal && !modal.contains(this)) {
-      return
-    }
-    realFocus.call(this, options)
-  })
-  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
-    configurable: true,
-    value: function (this: HTMLDialogElement) {
-      this.open = true
-      this.querySelector('button')?.focus()
-    },
-  })
-  Object.defineProperty(HTMLDialogElement.prototype, 'close', {
-    configurable: true,
-    value: function (this: HTMLDialogElement) {
-      this.open = false
-    },
-  })
-  try {
-    const user = userEvent.setup()
-    render(
-      <StrictMode>
-        <Opener />
-      </StrictMode>,
-    )
-    await user.click(screen.getByRole('button', { name: 'Merge lots' }))
-    expect(screen.getByRole('button', { name: 'Close' })).toHaveFocus()
-    await user.click(screen.getByRole('button', { name: 'Close' }))
-    expect(screen.getByRole('button', { name: 'Merge lots' })).toHaveFocus()
-  } finally {
-    focus.mockRestore()
-    delete (HTMLDialogElement.prototype as Partial<HTMLDialogElement>).showModal
-    delete (HTMLDialogElement.prototype as Partial<HTMLDialogElement>).close
-  }
+test('a click on the backdrop closes the dialog and returns focus to the opener', async () => {
+  const user = userEvent.setup()
+  render(<Opener />)
+  await user.click(screen.getByRole('button', { name: 'Merge lots' }))
+  await afterOpen()
+
+  await user.click(backdrop())
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Merge lots' })).toHaveFocus()
+})
+
+test('a backdrop click is ignored while closing is disabled', async () => {
+  const user = userEvent.setup()
+  render(<Opener closeDisabled />)
+  await user.click(screen.getByRole('button', { name: 'Merge lots' }))
+  await afterOpen()
+
+  await user.click(backdrop())
+  expect(screen.getByRole('dialog', { name: 'Merge 2 lots' })).toBeInTheDocument()
+})
+
+test('a press that starts inside the dialog and ends on the backdrop does not close it', async () => {
+  const user = userEvent.setup()
+  render(<Opener />)
+  await user.click(screen.getByRole('button', { name: 'Merge lots' }))
+  await afterOpen()
+
+  // Selecting text: the press is on the content, the release over the backdrop.
+  await user.pointer([
+    { keys: '[MouseLeft>]', target: screen.getByText('Their evidence stays linked.') },
+    { target: backdrop() },
+    { keys: '[/MouseLeft]' },
+  ])
+  // A press on the surface's own padding is inside the dialog too.
+  await user.pointer([
+    { keys: '[MouseLeft>]', target: screen.getByRole('dialog') },
+    { target: backdrop() },
+    { keys: '[/MouseLeft]' },
+  ])
+  expect(screen.getByRole('dialog', { name: 'Merge 2 lots' })).toBeInTheDocument()
+})
+
+test('a click on the content does not close the dialog', async () => {
+  const user = userEvent.setup()
+  render(<Opener />)
+  await user.click(screen.getByRole('button', { name: 'Merge lots' }))
+  await afterOpen()
+
+  await user.click(screen.getByText('Their evidence stays linked.'))
+  expect(screen.getByRole('dialog', { name: 'Merge 2 lots' })).toBeInTheDocument()
+})
+
+test('a popover opened inside a dialog stays usable and does not close the dialog', async () => {
+  const user = userEvent.setup()
+  const choose = vi.fn()
+  render(
+    <Dialog title="Lot settings" onClose={vi.fn()}>
+      <Popover label="Quantity mode" trigger={<button type="button">Quantity</button>}>
+        <button type="button" onClick={choose}>
+          Estimated
+        </button>
+      </Popover>
+    </Dialog>,
+  )
+  await afterOpen()
+
+  await user.click(screen.getByRole('button', { name: 'Quantity' }))
+  await user.click(await screen.findByRole('button', { name: 'Estimated' }))
+  expect(choose).toHaveBeenCalledOnce()
+  expect(screen.getByRole('dialog', { name: 'Lot settings' })).toBeInTheDocument()
+})
+
+test('focus returns to the opener after a StrictMode replay', async () => {
+  const user = userEvent.setup()
+  render(
+    <StrictMode>
+      <Opener />
+    </StrictMode>,
+  )
+  await user.click(screen.getByRole('button', { name: 'Merge lots' }))
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Close' })).toHaveFocus())
+  await user.click(screen.getByRole('button', { name: 'Close' }))
+  expect(screen.getByRole('button', { name: 'Merge lots' })).toHaveFocus()
 })
 
 function OpenerWithFallback({ fromPage = false }: { fromPage?: boolean }) {
@@ -108,7 +167,7 @@ function OpenerWithFallback({ fromPage = false }: { fromPage?: boolean }) {
         <Dialog
           title="Session"
           onClose={() => setOpen(false)}
-          returnFocus={() => screen.getByRole('button', { name: 'Session row' })}
+          returnFocus={() => screen.getByRole('button', { name: 'Session row', hidden: true })}
         >
           <p>Timeline</p>
         </Dialog>
@@ -121,7 +180,7 @@ test('closing returns focus to the fallback when the dialog opened with focus on
   const user = userEvent.setup()
   ;(document.activeElement as HTMLElement | null)?.blur()
   render(<OpenerWithFallback fromPage />)
-  expect(document.activeElement).toBe(document.body)
+  expect(screen.getByRole('dialog', { name: 'Session' })).toBeInTheDocument()
 
   await user.click(screen.getByRole('button', { name: 'Close' }))
   expect(screen.getByRole('button', { name: 'Session row' })).toHaveFocus()
@@ -136,116 +195,42 @@ test('closing returns focus to a connected opener rather than the fallback', asy
   expect(screen.getByRole('button', { name: 'Open session' })).toHaveFocus()
 })
 
-// jsdom has no layout, so the dialog's box is stubbed: x 100–500, y 0–600.
-const DIALOG_BOX = { left: 100, right: 500, top: 0, bottom: 600 }
-const BACKDROP_POINT = { clientX: 40, clientY: 300 }
-const PADDING_POINT = { clientX: 104, clientY: 300 }
-const CONTENT_POINT = { clientX: 200, clientY: 300 }
+test('focus the owner moves on close stays where the owner put it', async () => {
+  const user = userEvent.setup()
 
-type Point = { clientX: number; clientY: number }
+  // As a confirmed delete does: the closed dialog's result takes focus as it mounts.
+  function MovesFocus() {
+    const [deleted, setDeleted] = useState(false)
+    const [open, setOpen] = useState(false)
+    return (
+      <>
+        <button type="button" onClick={() => setOpen(true)}>
+          Delete file
+        </button>
+        {deleted && (
+          <button type="button" ref={(element) => element?.focus()}>
+            Undo
+          </button>
+        )}
+        {open && (
+          <Dialog title="Delete file" onClose={() => setOpen(false)}>
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false)
+                setDeleted(true)
+              }}
+            >
+              Delete
+            </button>
+          </Dialog>
+        )}
+      </>
+    )
+  }
 
-function renderBackdropDialog({ closeDisabled = false } = {}) {
-  const onClose = vi.fn()
-  render(
-    <Dialog title="Session" onClose={onClose} closeDisabled={closeDisabled}>
-      <p>Timeline</p>
-    </Dialog>,
-  )
-  const dialog = screen.getByRole('dialog')
-  vi.spyOn(dialog, 'getBoundingClientRect').mockReturnValue(
-    DOMRect.fromRect({
-      x: DIALOG_BOX.left,
-      y: DIALOG_BOX.top,
-      width: DIALOG_BOX.right - DIALOG_BOX.left,
-      height: DIALOG_BOX.bottom - DIALOG_BOX.top,
-    }),
-  )
-  return { dialog, onClose }
-}
-
-// As a browser reports one pointer's press, release and click; a release outside the press's
-// element is reported on the dialog, the nearest element holding both.
-function gesture(pressOn: Element, press: Point, releaseOn: Element, release: Point) {
-  fireEvent.pointerDown(pressOn, { ...press, pointerId: 1 })
-  fireEvent.pointerUp(releaseOn, { ...release, pointerId: 1 })
-  fireEvent.click(releaseOn, release)
-}
-
-test('a click on the backdrop closes the dialog', () => {
-  const { dialog, onClose } = renderBackdropDialog()
-  gesture(dialog, BACKDROP_POINT, dialog, BACKDROP_POINT)
-  expect(onClose).toHaveBeenCalledTimes(1)
-})
-
-test('a backdrop click is ignored while closing is disabled', () => {
-  const { dialog, onClose } = renderBackdropDialog({ closeDisabled: true })
-  gesture(dialog, BACKDROP_POINT, dialog, BACKDROP_POINT)
-  expect(onClose).not.toHaveBeenCalled()
-})
-
-test('a press that starts inside the dialog and ends on the backdrop does not close it', () => {
-  const { dialog, onClose } = renderBackdropDialog()
-  // Selecting text: the press is on the content.
-  gesture(screen.getByText('Timeline'), CONTENT_POINT, dialog, BACKDROP_POINT)
-  // A press on the surface's padding targets the dialog itself, but lies inside its box.
-  gesture(dialog, PADDING_POINT, dialog, BACKDROP_POINT)
-  expect(onClose).not.toHaveBeenCalled()
-})
-
-test('a press on the backdrop released inside the dialog does not close it', () => {
-  const { dialog, onClose } = renderBackdropDialog()
-  gesture(dialog, BACKDROP_POINT, dialog, PADDING_POINT)
-  expect(onClose).not.toHaveBeenCalled()
-})
-
-test('another pointer on the backdrop does not let a press from inside close the dialog', () => {
-  const { dialog, onClose } = renderBackdropDialog()
-  fireEvent.pointerDown(dialog, { ...PADDING_POINT, pointerId: 1 })
-  fireEvent.pointerDown(dialog, { ...BACKDROP_POINT, pointerId: 2 })
-  fireEvent.pointerUp(dialog, { ...BACKDROP_POINT, pointerId: 1 })
-  fireEvent.click(dialog, BACKDROP_POINT)
-  expect(onClose).not.toHaveBeenCalled()
-
-  // The second pointer's own press and release on the backdrop still closes it.
-  fireEvent.pointerUp(dialog, { ...BACKDROP_POINT, pointerId: 2 })
-  fireEvent.click(dialog, BACKDROP_POINT)
-  expect(onClose).toHaveBeenCalledTimes(1)
-})
-
-test('a cancelled press or a click with no press does not close the dialog', () => {
-  const { dialog, onClose } = renderBackdropDialog()
-  fireEvent.pointerDown(dialog, { ...BACKDROP_POINT, pointerId: 1 })
-  fireEvent.pointerCancel(dialog, { ...BACKDROP_POINT, pointerId: 1 })
-  fireEvent.click(dialog, BACKDROP_POINT)
-  fireEvent.click(dialog, BACKDROP_POINT)
-  expect(onClose).not.toHaveBeenCalled()
-})
-
-test('a release just outside a fractional edge closes, though the click is rounded inside', () => {
-  const { dialog, onClose } = renderBackdropDialog()
-  vi.mocked(dialog.getBoundingClientRect).mockReturnValue(
-    DOMRect.fromRect({ x: 100, y: 0, width: 400.5, height: 600 }),
-  )
-  fireEvent.pointerDown(dialog, { clientX: 500.75, clientY: 300, pointerId: 1 })
-  fireEvent.pointerUp(dialog, { clientX: 500.75, clientY: 300, pointerId: 1 })
-  fireEvent.click(dialog, { clientX: 500, clientY: 300 })
-  expect(onClose).toHaveBeenCalledTimes(1)
-})
-
-test('the right and bottom edges are backdrop, the left and top edges are dialog', () => {
-  const { dialog, onClose } = renderBackdropDialog()
-  gesture(dialog, { clientX: 500, clientY: 300 }, dialog, { clientX: 500, clientY: 300 })
-  gesture(dialog, { clientX: 200, clientY: 600 }, dialog, { clientX: 200, clientY: 600 })
-  expect(onClose).toHaveBeenCalledTimes(2)
-
-  gesture(dialog, { clientX: 100, clientY: 300 }, dialog, { clientX: 100, clientY: 300 })
-  gesture(dialog, { clientX: 200, clientY: 0 }, dialog, { clientX: 200, clientY: 0 })
-  expect(onClose).toHaveBeenCalledTimes(2)
-})
-
-test('a click on the content does not close the dialog', () => {
-  const { onClose } = renderBackdropDialog()
-  const content = screen.getByText('Timeline')
-  gesture(content, CONTENT_POINT, content, CONTENT_POINT)
-  expect(onClose).not.toHaveBeenCalled()
+  render(<MovesFocus />)
+  await user.click(screen.getByRole('button', { name: 'Delete file' }))
+  await user.click(screen.getByRole('button', { name: 'Delete' }))
+  expect(screen.getByRole('button', { name: 'Undo' })).toHaveFocus()
 })

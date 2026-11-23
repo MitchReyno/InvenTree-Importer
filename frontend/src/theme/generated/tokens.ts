@@ -95,6 +95,7 @@ export const easing = {
 
 export const zIndex = {
   raised: 'var(--z-raised)',
+  dialog: 'var(--z-dialog)',
   popover: 'var(--z-popover)',
   toast: 'var(--z-toast)',
 } as const

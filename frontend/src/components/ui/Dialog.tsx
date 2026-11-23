@@ -1,10 +1,9 @@
-import { useId, useLayoutEffect, useRef, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
+import * as RadixDialog from '@radix-ui/react-dialog'
+import { useCallback, useLayoutEffect, useRef, type ReactNode } from 'react'
 import styled, { css } from 'styled-components'
-import { color, radius, shadow, space, type } from '#/theme/generated/tokens'
+import { color, radius, shadow, space, type, zIndex } from '#/theme/generated/tokens'
 import { Button } from './Button'
 import { motion } from './motion'
-import { useBackdropClick } from './useBackdropClick'
 
 type DialogProps = {
   /** Names the dialog; it may hold an `AiMark`, which stays out of the accessible name. */
@@ -24,8 +23,8 @@ type DialogProps = {
 }
 
 /**
- * A modal step: the native dialog keeps focus inside, closes on Esc, Close or a backdrop click,
- * and returns focus to the opener on close.
+ * A modal step: focus stays inside, Esc, Close or a click on the dimmed backdrop closes it, and
+ * focus returns to the opener on close.
  */
 export function Dialog({
   title,
@@ -35,89 +34,168 @@ export function Dialog({
   returnFocus,
   children,
 }: DialogProps) {
-  const dialog = useRef<HTMLDialogElement>(null)
-  const titleId = useId()
-
-  // Esc and a backdrop click close as Close does, and not while closing is disabled.
-  function requestClose() {
-    if (!closeDisabled) {
-      onClose()
-    }
-  }
-
-  const backdrop = useBackdropClick(requestClose)
-
-  // The element that had focus before the dialog opened, which gets it back on close.
-  const opener = useRef<HTMLElement | null>(null)
-  const fallback = useRef(returnFocus)
-  useLayoutEffect(() => {
-    fallback.current = returnFocus
-  })
-
-  // A layout Effect, so the dialog is open and focus settled before its children's Effects run.
-  useLayoutEffect(() => {
-    const element = dialog.current
-    const active = document.activeElement
-    // Keeps the recorded opener if focus is already inside the dialog.
-    if (active instanceof HTMLElement && !element?.contains(active)) {
-      opener.current = active
-    }
-    if (element && !element.open) {
-      if (typeof element.showModal === 'function') {
-        element.showModal()
-      } else {
-        element.open = true
-      }
-    }
-    return () => {
-      // The opener is inert while the modal is open, so the dialog closes before focus returns.
-      if (element?.open) {
-        if (typeof element.close === 'function') {
-          element.close()
-        } else {
-          element.open = false
-        }
-      }
-      const back = opener.current
-      if (back?.isConnected && back !== document.body) {
-        back.focus()
-      } else {
-        fallback.current?.()?.focus()
-      }
-    }
-  }, [])
-
-  return createPortal(
-    <DialogSurface
-      ref={dialog}
-      data-placement={placement}
-      $side={placement === 'side'}
-      aria-labelledby={titleId}
-      onCancel={(event) => {
-        event.preventDefault()
-        requestClose()
-      }}
-      {...backdrop}
+  return (
+    <ModalFrame
+      onClose={onClose}
+      closeDisabled={closeDisabled}
+      placement={placement}
+      returnFocus={returnFocus}
     >
       <TitleRow>
         {/* Focusable by script, so focus can land on the title when content it held leaves. */}
-        <Title id={titleId} tabIndex={-1}>
-          {title}
-        </Title>
+        <Title tabIndex={-1}>{title}</Title>
         <Button size="sm" disabled={closeDisabled} onClick={onClose}>
           Close
         </Button>
       </TitleRow>
       {children}
-    </DialogSurface>,
-    document.body,
+    </ModalFrame>
   )
 }
 
-/** The modal surface, for dialogs that manage their own native lifecycle; `$wide` fits editors. */
-export const DialogSurface = styled.dialog<{ $wide?: boolean; $side?: boolean }>`
+type ModalFrameProps = {
+  /** Called for Esc (unless `closeOnEscape` is false) and a backdrop click. */
+  onClose: () => void
+  /** Esc and a backdrop click leave the dialog open while set. */
+  closeDisabled?: boolean
+  /** False for an editor whose Esc must not discard its work. */
+  closeOnEscape?: boolean
+  placement?: 'center' | 'side'
+  /** A wider surface, for editors. */
+  wide?: boolean
+  returnFocus?: () => HTMLElement | null
+  /** Must include a `ModalTitle`, which names the dialog. */
+  children: ReactNode
+}
+
+/**
+ * The modal layer behind every dialog: backdrop, focus trap, dismissal and focus return.
+ * `Dialog` adds its title row; editors with their own heading use it directly.
+ */
+export function ModalFrame({
+  onClose,
+  closeDisabled = false,
+  closeOnEscape = true,
+  placement = 'center',
+  wide = false,
+  returnFocus,
+  children,
+}: ModalFrameProps) {
+  const surface = useRef<HTMLDivElement | null>(null)
+  const opener = useRef<HTMLElement | null>(null)
+  const mounted = useRef(false)
+  const fallback = useRef(returnFocus)
+  useLayoutEffect(() => {
+    fallback.current = returnFocus
+  })
+
+  // Runs before Radix moves focus into the dialog, so the opener is still focused.
+  useLayoutEffect(() => {
+    mounted.current = true
+    const active = document.activeElement
+    // Keeps the recorded opener when a StrictMode replay finds focus already inside.
+    if (active instanceof HTMLElement && !surface.current?.contains(active)) {
+      opener.current = active
+    }
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+
+  // Focus settles as the surface mounts, before its content's Effects run, as `showModal` did;
+  // Radix then finds focus inside and leaves it.
+  const attachSurface = useCallback((element: HTMLDivElement | null) => {
+    surface.current = element
+    if (element && !element.contains(document.activeElement)) {
+      element.querySelector<HTMLElement>(TABBABLE)?.focus()
+    }
+  }, [])
+
+  // Radix calls this just after the dialog unmounts. Focus the owner moved elsewhere stays put.
+  function restoreFocus(event: Event) {
+    event.preventDefault()
+    if (mounted.current) {
+      return
+    }
+    const current = document.activeElement
+    if (current && current !== document.body) {
+      return
+    }
+    const back = opener.current
+    if (back?.isConnected && back !== document.body) {
+      back.focus()
+    } else {
+      fallback.current?.()?.focus()
+    }
+  }
+
+  return (
+    <RadixDialog.Root
+      open
+      onOpenChange={(open) => {
+        if (!open) {
+          onClose()
+        }
+      }}
+    >
+      <RadixDialog.Portal>
+        <Backdrop />
+        <DialogSurface
+          ref={attachSurface}
+          data-placement={placement}
+          data-modal-dialog=""
+          $side={placement === 'side'}
+          $wide={wide}
+          aria-describedby={undefined}
+          onCloseAutoFocus={restoreFocus}
+          onEscapeKeyDown={(event) => {
+            if (closeDisabled || !closeOnEscape) {
+              event.preventDefault()
+            }
+          }}
+          onInteractOutside={(event) => {
+            if (closeDisabled) {
+              event.preventDefault()
+            }
+          }}
+        >
+          {children}
+        </DialogSurface>
+      </RadixDialog.Portal>
+    </RadixDialog.Root>
+  )
+}
+
+const TABBABLE = [
+  'button:not([disabled])',
+  'a[href]',
+  'input:not([disabled]):not([type="hidden"])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(', ')
+
+/** Names a `ModalFrame`; renders the child heading in place with `asChild`. */
+export const ModalTitle = RadixDialog.Title
+
+/** Matches an open modal dialog, and not a popover, which also has the dialog role. */
+export const OPEN_MODAL_SELECTOR = '[data-modal-dialog]'
+
+const Backdrop = styled(RadixDialog.Overlay)`
+  position: fixed;
+  inset: 0;
+  z-index: ${zIndex.dialog};
+  background: ${color.overlay};
+`
+
+const DialogSurface = styled(RadixDialog.Content)<{ $wide: boolean; $side: boolean }>`
+  position: fixed;
+  inset: 0;
+  z-index: ${zIndex.dialog};
   width: min(${({ $wide }) => ($wide ? '1400px' : '960px')}, calc(100vw - 2 * ${space[8]}));
+  height: fit-content;
   max-height: calc(100dvh - 2 * ${space[8]});
+  margin: auto;
   overflow: auto;
   padding: ${space[10]};
   border: 1px solid ${color.line};
@@ -125,22 +203,18 @@ export const DialogSurface = styled.dialog<{ $wide?: boolean; $side?: boolean }>
   background: ${color.surface};
   color: ${color.fg};
   box-shadow: ${shadow};
-  &[open] {
-    ${motion.enter}
-  }
+  ${motion.enter}
   a {
     color: ${color.accent};
-  }
-  &::backdrop {
-    background: ${color.overlay};
   }
   ${({ $side }) =>
     $side &&
     css`
+      inset: 0 0 0 auto;
       width: min(420px, 100vw);
       height: 100dvh;
       max-height: 100dvh;
-      margin: 0 0 0 auto;
+      margin: 0;
       border-width: 0 0 0 1px;
       border-radius: 0;
     `}
@@ -154,7 +228,7 @@ const TitleRow = styled.div`
   margin-bottom: ${space[6]};
 `
 
-const Title = styled.h2`
+const Title = styled(RadixDialog.Title)`
   margin: 0;
   ${type.h2}
 `

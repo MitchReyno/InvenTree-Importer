@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import styled from 'styled-components'
 import type { ProcessingAnswerDto, ProcessingQuestionDto } from '@invimport/contracts'
-import { DisabledFeature } from '#/components/ui'
+import { DisabledFeature, OPEN_MODAL_SELECTOR } from '#/components/ui'
 import { color, radius, space, typeVar } from '#/theme/generated/tokens'
 import { QuestionAnswer } from './QuestionAnswer'
 
@@ -123,7 +123,7 @@ export function DrawerAnswers(props: Props) {
       return
     }
     answered.current = false
-    const dialog = container.current?.closest('dialog')
+    const dialog = container.current?.closest<HTMLElement>(OPEN_MODAL_SELECTOR)
     const headingId = dialog?.getAttribute('aria-labelledby')
     const heading = headingId ? document.getElementById(headingId) : null
     if (operatorMovedFocus(promisedFrom.current, dialog ?? null, heading)) {

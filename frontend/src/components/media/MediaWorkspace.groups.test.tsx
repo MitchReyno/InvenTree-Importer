@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { test, expect, vi } from 'vitest'
 import type { CaptureSnapshotDto, MediaSnapshotDto, OperatorReviewDto } from '@invimport/contracts'
@@ -872,8 +872,8 @@ test('the viewer cannot close over an unsaved note, so the draft is never lost',
   const viewer = screen.getByRole('dialog', { name: 'Front label' })
 
   expect(within(viewer).getByRole('button', { name: 'Close' })).toBeDisabled()
-  // jsdom does not turn Escape into the dialog's cancel event, so send it as the browser does.
-  fireEvent(viewer, new Event('cancel', { cancelable: true }))
+  await user.keyboard('{Escape}')
+  expect(screen.getByRole('dialog', { name: 'Front label' })).toBeInTheDocument()
   expect(screen.getByLabelText('Note for Front label')).toHaveValue('Keep both sides together.')
 
   await user.click(within(viewer).getByRole('button', { name: /^Discard note for front label/i }))
@@ -901,10 +901,7 @@ test('a read-only workspace still lets the viewer close', async () => {
     }),
   ).toBeEnabled()
 
-  fireEvent(
-    screen.getByRole('dialog', { name: 'Front label' }),
-    new Event('cancel', { cancelable: true }),
-  )
+  await user.keyboard('{Escape}')
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })
 
@@ -1024,7 +1021,10 @@ test('opens a file’s note from its tile', async () => {
   )
   await user.click(await screen.findByRole('button', { name: 'Note: Front label' }))
   expect(screen.getByRole('textbox', { name: 'Note for Front label' })).toBeVisible()
-  expect(screen.getByRole('region', { name: /Packet A/ })).toHaveTextContent('2 files · 0 lots')
+  // The group behind the open viewer is inert, but still shows its counts.
+  expect(screen.getByRole('region', { name: /Packet A/, hidden: true })).toHaveTextContent(
+    '2 files · 0 lots',
+  )
 })
 
 test('confirms a move with a toast whose Undo moves the files back', async () => {

@@ -2,7 +2,7 @@
 
 ## Context and grounding
 
-The change touches three layers that already exist. No new service, table or dependency is needed.
+The change touches three layers that already exist. No new service or table is needed; the only new dependency is `@radix-ui/react-dialog`, for task 1.
 
 | Layer | Today | Evidence |
 | --- | --- | --- |
@@ -27,14 +27,17 @@ The complexity is moderate. It is a versioned contract with backward-compatible 
 
 ## Decisions and alternatives
 
-### Backdrop click in `Dialog`, not `closedby`
+### Backdrop click through Radix Dialog
 
-- **Handler:** `Dialog` notes, for each pointer, whether its primary-button `pointerdown` hit the `<dialog>` element itself at a point outside the dialog's border box. The box's right and bottom edges count as outside, as in the browser's own hit test. On that pointer's `pointerup`, the release must pass the same check, and a `pointercancel` drops the press. The `click` that follows a qualifying release must target the dialog itself; its coordinates are not checked again, since a browser may round them across the edge. It then calls the same path as Esc: `onClose()` unless `closeDisabled`. A press on the surface's padding lies inside the box, so it never counts. With `showModal()`, a click on `::backdrop` is reported with the dialog as its target.
-- **Border box:** the surface has padding, so the handler compares the press and release points with `getBoundingClientRect()` rather than the target alone.
-- **Why not `closedby`:** `closedby="any"` is not in Safari ([caniuse](https://caniuse.com/wf-dialog-closedby), checked 2026-11-23). A polyfill adds a dependency for about 15 lines.
+- **Decision:** `Dialog` is rebuilt on `@radix-ui/react-dialog` 1.3.1 (Portal, Overlay, Content and Title). Mitch made this decision on 2026-11-23, replacing the earlier plan of a hand-rolled backdrop handler on the native `<dialog>`.
+- **Why:** the hand-rolled handler went through four review rounds of pointer and click edge cases (interleaved pointers, rounded click coordinates, exact edges, delayed clicks) and still had one open. Radix's dismissable layer already owns outside-press, Escape, focus trapping and nested layers. The frontend already uses Radix primitives through `@radix-ui/react-popover` 1.3.1, and Dialog 1.3.1 pins the same shared primitive versions, so it adds one package.
+- **Guards:** `onEscapeKeyDown` and `onInteractOutside` call `preventDefault()` while `closeDisabled` is set; otherwise Radix's `onOpenChange(false)` calls the owner's `onClose`, so the drawer's unsaved-answer banner applies to Esc, Close and the backdrop alike. Radix dismisses on the click that follows a press outside the content, and a press that starts inside the dialog's React tree never counts.
+- **Focus:** the dialog records its opener before Radix moves focus, and returns focus there, or to `returnFocus`, from `onCloseAutoFocus`, unless the owner already moved focus elsewhere. Initial focus is placed as the surface mounts, before its content's Effects run, as `showModal()` did, so the drawer's move to its next question is not mistaken for the operator moving focus.
+- **Layering:** the native modal sat in the browser's top layer; the Radix overlay and content take a new `z-dialog` token, below `z-popover`, so a popover opened inside a dialog stays above it.
+- **Why not `closedby`:** `closedby="any"` is not in Safari ([caniuse](https://caniuse.com/wf-dialog-closedby), checked 2026-11-23).
 - **Scope:** this applies to every `Dialog`, including centred editors. Their owners already treat Esc as a close request with their own guards, so a backdrop click follows that.
-- **Rejected:** a drawer-only option. It would leave centred dialogs inconsistent, and the spec makes it a design-system rule.
-- **Direct surface users:** `MediaCropDialog` is the one component that uses `DialogSurface` directly, with its own lifecycle. Task 1 gives it the same backdrop handling through its own close guard, so the rule holds for every modal. The crop editor ignores Esc, and its Discard and close button drops even an unconfirmed request, so the backdrop click follows neither: it uses the guard the editor's native close already applies. An unsent or confirmed view closes, including after a retry is confirmed. A sending request stays open until it settles, and an unconfirmed one stays open with its retry and discard controls. The click closes the native modal first, so the browser returns focus before the parent unmounts it. `RemovalDialog` and `EvidenceGroupPanel` already use `Dialog`.
+- **Rejected:** a drawer-only option. It would leave centred dialogs inconsistent, and the spec makes it a design-system rule. The hand-rolled handler, for the reasons above.
+- **Direct surface users:** `MediaCropDialog` was the one component with its own native `<dialog>` lifecycle. It moves onto the same Radix layer (`ModalFrame`), so there is one modal system: a native modal and Radix layers don't stack. The crop editor ignores Esc, and its Discard and close button drops even an unconfirmed request, so the backdrop click follows neither: an unsent or confirmed view closes, including after a retry is confirmed, a sending request stays open until it settles, and an unconfirmed one stays open with its retry and discard controls.
 
 ### A `/2` question with steps, read beside `/1`
 

@@ -699,6 +699,11 @@ function RemountingWorkspace({
 }
 
 /** Opens the Inventory drawer from a session link unless `fromRow` leaves it to the session row. */
+// Stands in for leaving Processing from another tab, so the open drawer doesn't block it.
+function toggleProcessing() {
+  fireEvent.click(screen.getByRole('button', { name: 'Toggle Processing', hidden: true }))
+}
+
 function mountInventoryDrawer(
   read: ProcessingSnapshotDto,
   pinnedQuestionId?: string,
@@ -808,14 +813,17 @@ test('closing the drawer with an unsaved answer asks first, and discards only on
   expect(dirty).toHaveBeenLastCalledWith(false)
 })
 
-// jsdom has no layout: the drawer is docked at x 600–1020, so x 100 is the dimmed page.
-function clickBesideDrawer(drawer: HTMLElement) {
-  vi.spyOn(drawer, 'getBoundingClientRect').mockReturnValue(
-    DOMRect.fromRect({ x: 600, y: 0, width: 420, height: 800 }),
-  )
-  fireEvent.pointerDown(drawer, { clientX: 100, clientY: 400, pointerId: 1 })
-  fireEvent.pointerUp(drawer, { clientX: 100, clientY: 400, pointerId: 1 })
-  fireEvent.click(drawer, { clientX: 100, clientY: 400 })
+// The dimmed page beside the drawer is its backdrop, rendered just before it. Radix starts
+// listening for outside presses a tick after the drawer opens.
+async function clickBesideDrawer(user: ReturnType<typeof userEvent.setup>, drawer: HTMLElement) {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+  const backdrop = drawer.previousElementSibling
+  if (!(backdrop instanceof HTMLElement)) {
+    throw new Error('the drawer has no backdrop')
+  }
+  await user.click(backdrop)
 }
 
 test('a click beside the drawer closes it and returns focus to its session row', async () => {
@@ -826,7 +834,7 @@ test('a click beside the drawer closes it and returns focus to its session row',
   )
   const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
 
-  clickBesideDrawer(drawer)
+  await clickBesideDrawer(user, drawer)
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Open session: Inventory · Packet A' })).toHaveFocus()
 })
@@ -838,7 +846,7 @@ test('a click beside the drawer with an unsaved answer asks first, as Close does
   await within(drawer).findByRole('form', { name: /^Session question: Is Packet A already/ })
   await user.type(answerBox('Is Packet A already in InvenTree?'), 'Different tube')
 
-  clickBesideDrawer(drawer)
+  await clickBesideDrawer(user, drawer)
   expect(screen.getByRole('dialog', { name: 'Inventory · Packet A' })).toBeInTheDocument()
   expect(within(drawer).getByRole('alert')).toHaveTextContent(
     'Save or discard your answer before closing this session.',
@@ -1047,7 +1055,7 @@ test('other drawer forms are read-only while an answer saves', async () => {
 test('the page’s clean pinned answer follows a revision a drawer answer moved', async () => {
   const user = userEvent.setup()
   const { client } = mountInventoryDrawer(inventorySnapshot(), questionId)
-  await screen.findByRole('form', { name: 'Pinned application question' })
+  await screen.findByRole('form', { name: 'Pinned application question', hidden: true })
   const second = 'Is Packet A the reel in drawer 2?'
   await screen.findByRole('form', { name: `Session question: ${second}` })
   await user.type(answerBox(second), 'No')
@@ -1061,6 +1069,12 @@ test('the page’s clean pinned answer follows a revision a drawer answer moved'
     expect(screen.queryByRole('form', { name: `Session question: ${second}` })).toBeNull(),
   )
 
+  // The page behind the drawer is inert, so the drawer closes first.
+  await user.click(
+    within(screen.getByRole('dialog', { name: 'Inventory · Packet A' })).getByRole('button', {
+      name: 'Close',
+    }),
+  )
   const pinned = screen.getByRole('form', { name: 'Pinned application question' })
   expect(pinned).not.toHaveTextContent('superseded')
   await user.type(within(pinned).getByRole('textbox', { name: 'Clarification' }), 'Same tube')
@@ -1118,8 +1132,8 @@ test('a skipped reload leaves nothing to reopen the drawer on a later visit', as
   )
 
   // Leave Processing with the drawer open, then come back: it starts from its route alone.
-  await user.click(screen.getByRole('button', { name: 'Toggle Processing' }))
-  await user.click(screen.getByRole('button', { name: 'Toggle Processing' }))
+  toggleProcessing()
+  toggleProcessing()
   await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' })
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })
@@ -1147,9 +1161,9 @@ test('an answer’s failed reload leaves nothing for another tab’s reload to c
   )
 
   // Off to Records, whose save reloads the batch and re-keys every stage, then back.
-  await user.click(screen.getByRole('button', { name: 'Toggle Processing' }))
+  toggleProcessing()
   act(() => drawerRestore.carry())
-  await user.click(screen.getByRole('button', { name: 'Toggle Processing' }))
+  toggleProcessing()
   await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' })
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })

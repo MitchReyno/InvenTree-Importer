@@ -118,6 +118,7 @@
   --ease-linear: linear;
   --ease-loop: ease-in-out;
   --z-raised: 1;
+  --z-dialog: 900;
   --z-popover: 1000;
   --z-toast: 1100;
   --bp-phone: 480px;

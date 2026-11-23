@@ -3,7 +3,7 @@
 ## Plan context
 
 - **Plan:** the [proposal](proposal.md) and [design](design.md), with deltas in `specs/` for `ui-design-system`, `processing-workspace`, `processing-stage-pipeline`, `processing-agent-sessions`, `agents-overview` and `header-workflow-status`.
-- **Reuse:** extend `Dialog.tsx` rather than use `closedby` or a polyfill, extend the existing contracts and form stack, and use native `<details>` for expandable entries. No new dependency.
+- **Reuse:** rebuild `Dialog.tsx` on `@radix-ui/react-dialog`, from the Radix family the frontend already uses for popovers, extend the existing contracts and form stack, and use native `<details>` for expandable entries. Radix Dialog is the only new dependency.
 - **Change name:** `improve-agent-interaction`. Branches are `feat/improve-agent-interaction-<suffix>`, and subjects are `type(improve-agent-interaction): …`.
 - **Items:** BI-019, plus BI-015's answer-options item, which this change takes over.
 - **More to come:** Mitch will add further items. They join this plan as new top-level tasks and PR bundles.
@@ -79,15 +79,15 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - **PR delivery:** PR-A.
 - **Outcome:** clicking the dimmed backdrop of any `Dialog` closes it through `onClose`. It is ignored while `closeDisabled` is set, and a press that starts inside the dialog never closes it.
 - **Scope and approach:**
-  - `frontend/src/components/ui/Dialog.tsx`: `pointerdown` and `click` on the `<dialog>`, with the rectangle check (see design).
-  - `MediaCropDialog`, the one direct `DialogSurface` user, gets the same handling through its own close guard. `RemovalDialog` and `EvidenceGroupPanel` already use `Dialog`.
+  - `frontend/src/components/ui/Dialog.tsx`: rebuild `Dialog` on `@radix-ui/react-dialog` (Portal, Overlay, Content, Title), with the guards in `onEscapeKeyDown` and `onInteractOutside` (see design). Keep the opener and `returnFocus` focus return, the `side` drawer and the surface's look.
+  - `MediaCropDialog`, the one direct `DialogSurface` user, moves off its native `<dialog>` onto the same Radix layer, with its own close guard, so there is one modal system. `RemovalDialog`, `RestructureDialog`, `CompareMatches`, `EvidenceGroupPanel` and the session drawer already use `Dialog`.
 - **Prerequisites:** none.
 - **Acceptance:** ui-design-system "Dialogs close from their backdrop", all scenarios; processing-workspace "Step page pattern", scenario "Session drawer".
-- **TDD approach:** `Dialog.test.tsx` cases fail first, because there is no backdrop handler.
+- **TDD approach:** `Dialog.test.tsx` cases fail first, because there is no backdrop handler. The Radix rebuild keeps them as behaviour tests.
 - **Verification:**
   - `pnpm --filter frontend typecheck`, `lint`, `test` (the Dialog and ProcessingWorkspace drawer tests) and `build`;
   - a demo film.
-- **Risks and decisions:** jsdom has no real layout, so tests stub `getBoundingClientRect`.
+- **Risks and decisions:** a Radix modal marks the page behind it `aria-hidden` and blocks its pointer events, as the native modal made it inert in browsers; jsdom tests that reached the page behind an open dialog now say so. A Radix popover opened inside a dialog must stay usable.
 
 - [x] 1.1 Read the shared and frontend code guidelines and the frontend architecture. List every `Dialog` and `DialogSurface` user and how each closes.
 - [x] 1.2 RED: add `Dialog.test.tsx` cases:
