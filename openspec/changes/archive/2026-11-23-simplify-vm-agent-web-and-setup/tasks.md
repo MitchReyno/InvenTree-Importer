@@ -301,7 +301,7 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 
 For each bundle, record the reviewed commit, check results and published or merged state only after they exist:
 
-Each PR's review stopped at the agreed three-round limit, with the last round's fixes not reviewed again, so none is recorded as review clean.
+None of the PRs is recorded as review clean: each review stopped before a round came back clean, with the last round's fixes not reviewed again. PR-A's review ran 55 rounds before its egress refactor (see `notes.md`); the agreed three-round limit governed the later reviews.
 
 - [x] Plan PR published and merged (#223), CI green.
 - [x] PR-A merged (#229), CI green.
