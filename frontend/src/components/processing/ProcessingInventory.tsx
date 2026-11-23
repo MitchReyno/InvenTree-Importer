@@ -6,7 +6,7 @@ import {
   type CaptureSnapshotDto,
   type ProcessingJobDto,
 } from '@invimport/contracts'
-import { useApiClients } from '#/context'
+import { useApiClients, useReportRefreshing } from '#/context'
 import { batchHref } from '#/navigation/batch-route'
 import { STATE_LABELS } from '#/records/model'
 import { locationUse, locationUseText, stockQuantityText } from '#/records/locations'
@@ -99,6 +99,7 @@ export function ProcessingInventory({ batch, jobs, onOpenSession }: Props) {
   const { records: client } = useApiClients()
   const recordsFresh = useBatchRecords(client, batch.id, batch.revision)
   const query = recordsFresh.query
+  useReportRefreshing(recordsFresh.phase === 'refreshing')
   const records = query.data
   const questions = lotQuestions(batch, jobs)
   // Records list only active lots, so a split or merged lot's predecessor drops out here too.

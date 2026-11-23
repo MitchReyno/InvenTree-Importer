@@ -2103,7 +2103,9 @@ test('Pause waits for a read started after the last live hint, and is checked ag
     button.click()
   })
   expect(pause).not.toHaveBeenCalled()
-  expect(await screen.findByRole('alert')).toHaveTextContent('Pausing failed')
+  // Nothing was sent, so nothing failed: the press waits quietly.
+  expect(screen.queryByText(/Pausing failed/)).not.toBeInTheDocument()
+  expect(button).toHaveAccessibleDescription('Updating…')
 })
 
 test('Resume waits for a read started after the last live hint, and is checked again when pressed', async () => {

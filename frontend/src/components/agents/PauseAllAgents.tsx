@@ -46,9 +46,6 @@ export function PauseAllAgents({ pauseAll, list, unavailableReason, readyNow }: 
   const pause = pauseAll
 
   async function change(paused: boolean) {
-    if (!readyNow()) {
-      throw new Error('agent_sessions_fresh_read_required')
-    }
     await pause(paused)
     await queryClient.invalidateQueries({ queryKey: serverQueryKey(scope, 'agent-sessions') })
   }
@@ -60,6 +57,7 @@ export function PauseAllAgents({ pauseAll, list, unavailableReason, readyNow }: 
         change={change}
         pauseLabel="Pause all agents"
         unavailableReason={unavailableReason}
+        readyNow={readyNow}
       />
       {somePaused(list) && (
         <PauseButton
@@ -67,6 +65,7 @@ export function PauseAllAgents({ pauseAll, list, unavailableReason, readyNow }: 
           change={change}
           resumeLabel="Resume all agents"
           unavailableReason={unavailableReason}
+          readyNow={readyNow}
         />
       )}
     </>

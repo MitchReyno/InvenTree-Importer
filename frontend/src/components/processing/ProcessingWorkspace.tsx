@@ -248,6 +248,7 @@ export function ProcessingWorkspace({
       ? {
           paused: snapshot.paused === true,
           unavailableReason: revisionlessReason,
+          readyNow: () => !displayOnly && fresh.settledAfterHintNow(),
           change: async (paused: boolean) => {
             if (displayOnly || !fresh.settledAfterHintNow()) {
               throw new Error('processing_fresh_read_required')

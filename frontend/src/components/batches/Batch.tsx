@@ -589,6 +589,7 @@ export function Batch({
           manual={manual}
           navigate={navigate}
           onDirtyChange={reportDirty}
+          settings={settingsPorts}
         />
       </DisplayOnly>
     )

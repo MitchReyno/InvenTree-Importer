@@ -344,10 +344,8 @@ export function AgentSessions({ client, batches }: Props) {
                         <PauseButton
                           paused={pausedBatches.has(batchId)}
                           unavailableReason={pauseReason}
+                          readyNow={fresh.settledAfterHintNow}
                           change={async (paused) => {
-                            if (!fresh.settledAfterHintNow()) {
-                              throw new Error('agent_sessions_fresh_read_required')
-                            }
                             await client.pause!(batchId, paused)
                             await reread()
                           }}

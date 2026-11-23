@@ -1,4 +1,5 @@
 import type { CaptureSnapshotDto } from '@invimport/contracts'
+import type { SettingsPorts } from '#/capture/types'
 import type { ManualClient, ManualStage } from '#/manual/types'
 import type { BatchRoute } from '#/navigation/batch-route'
 import { CaptureWorkspace } from '#/components/capture/CaptureWorkspace'
@@ -39,6 +40,7 @@ export function RestoredTab({
   manual,
   navigate,
   onDirtyChange,
+  settings,
 }: {
   batch: CaptureSnapshotDto
   route: BatchRoute
@@ -47,6 +49,8 @@ export function RestoredTab({
   manual: ManualClient
   navigate: (stage: ManualStage, resourceId?: string, options?: { replace?: boolean }) => void
   onDirtyChange: (dirty: boolean) => void
+  /** Capture's settings, so its panel reads as it will; the inert wrapper keeps it from saving. */
+  settings?: SettingsPorts
 }) {
   const { processing, records } = useApiClients()
   if (route.tab === 'processing' && processing) {
@@ -78,14 +82,18 @@ export function RestoredTab({
     )
   }
   if (route.tab === 'capture') {
-    // No settings ports: nothing in it can save.
-    return <CaptureWorkspace batch={batch} busy onDirtyChange={onDirtyChange} />
+    return <CaptureWorkspace batch={batch} busy onDirtyChange={onDirtyChange} settings={settings} />
   }
   return (
     <ManualWorkspace
       batch={batch}
       client={manual}
       stage={changesStage(route)}
+      // The pinned plan or run the address names, as the live workspace gets them.
+      preparationId={
+        route.tab === 'changes' && route.view === 'ready' ? route.preparationId : undefined
+      }
+      runId={route.tab === 'changes' && route.view === 'added' ? route.runId : undefined}
       navigate={navigate}
       onDirtyChange={onDirtyChange}
       displayOnly

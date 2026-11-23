@@ -908,7 +908,8 @@ test('Pause all agents waits for a list read started after the last live hint, a
     pause.click()
   })
   expect(api.pauseAll).not.toHaveBeenCalled()
-  expect(await screen.findByText('Pausing failed; the agents are still running.')).toBeVisible()
+  expect(screen.queryByText(/Pausing failed/)).not.toBeInTheDocument()
+  expect(pause).toHaveAccessibleDescription('Updating…')
 
   await act(async () => {
     await cache.invalidateQueries({ queryKey: key })
@@ -916,6 +917,28 @@ test('Pause all agents waits for a list read started after the last live hint, a
   await waitFor(() => expect(pause).not.toHaveAttribute('aria-disabled'))
   fireEvent.click(pause)
   await waitFor(() => expect(api.pauseAll).toHaveBeenCalledWith(true))
+})
+
+test('Resume all agents waits for a list read started after the last live hint', async () => {
+  const api = client()
+  const list = await api.sessions()
+  api.sessions.mockResolvedValue({ ...list, paused_batch_ids: ['batch-a'] })
+  const cache = createServerQueryClient()
+  render(<Harness api={api} />, { cache })
+  const resume = await screen.findByRole('button', { name: 'Resume all agents' })
+  await waitFor(() => expect(resume).not.toHaveAttribute('aria-disabled'))
+
+  act(() => freshReads(cache).noteHint())
+  expect(resume).toHaveAccessibleDescription('Updating…')
+  fireEvent.click(resume)
+  expect(api.pauseAll).not.toHaveBeenCalled()
+
+  await act(async () => {
+    await cache.invalidateQueries({ queryKey: serverQueryKey(fixtureScope, 'agent-sessions') })
+  })
+  await waitFor(() => expect(resume).not.toHaveAttribute('aria-disabled'))
+  fireEvent.click(resume)
+  await waitFor(() => expect(api.pauseAll).toHaveBeenCalledWith(false))
 })
 
 test('a stale revision is refused as a conflict, keeps the edit and offers Reload', async () => {

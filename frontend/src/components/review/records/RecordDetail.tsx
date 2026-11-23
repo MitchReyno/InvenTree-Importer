@@ -20,6 +20,7 @@ import {
   raisedOnField,
 } from '#/components/ui'
 import { batchHref } from '#/navigation/batch-route'
+import { useReportRefreshing } from '#/context'
 import { AskControl } from './AskControl'
 import { ProposedCompanyEditor } from './ProposedCompanyEditor'
 import { STATE_LABELS, STEP_LABELS, scopeText, specOf } from '#/records/model'
@@ -91,6 +92,7 @@ function ExistingValues({
   query: UseQueryResult<RecordExistingValuesDto>
 }) {
   const entry = query.data?.records.find((item) => item.key === record.key)
+  useReportRefreshing(query.data !== undefined && query.isFetching)
   if (query.isPending) {
     return (
       <ReadState phase="empty" skeleton={<Skeleton width="100%" height={space[12]} />}>

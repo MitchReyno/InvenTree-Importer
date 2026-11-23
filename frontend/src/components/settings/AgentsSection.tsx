@@ -77,7 +77,7 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
   const ready = Boolean(loaded)
   // Until then, settings cached from an earlier visit show read-only.
   const cached = loaded ? undefined : settings.data
-  useReportRefreshing(!loaded && cached !== undefined && settings.isFetching)
+  useReportRefreshing(settings.data !== undefined && settings.isFetching)
   const focused = useRef<AgentSubsectionId | undefined>(undefined)
   // Every subsection saves through one queue, which owns their debounces.
   const [queue] = useState(createSaveQueue)

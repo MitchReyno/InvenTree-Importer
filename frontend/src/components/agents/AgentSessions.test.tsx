@@ -551,7 +551,9 @@ test.each([
     })
     expect(api.pause).not.toHaveBeenCalled()
     expect(api.pauseAll).not.toHaveBeenCalled()
-    expect(await within(region).findByRole('alert')).toHaveTextContent('Resuming failed')
+    // Nothing was sent, so nothing failed: the press waits quietly with the rest.
+    expect(within(region).queryByRole('alert')).not.toBeInTheDocument()
+    expect(resume).toHaveAccessibleDescription('Updating…')
 
     await act(async () => {
       await cache.invalidateQueries({ queryKey: key })
@@ -565,3 +567,29 @@ test.each([
     }
   },
 )
+
+test('a running batch’s Pause waits for a read started after the last live hint', async () => {
+  vi.useRealTimers()
+  const cache = createServerQueryClient()
+  const api = {
+    ...client(),
+    pause: vi.fn(async (batchId: string, paused: boolean) => ({ batch_id: batchId, paused })),
+    pauseAll: vi.fn(),
+  }
+  render(<AgentSessions client={api} batches={batches} />, { cache })
+  const group = await screen.findByRole('region', { name: 'Mouser order' })
+  const pause = within(group).getByRole('button', { name: 'Pause all' })
+  await waitFor(() => expect(pause).not.toHaveAttribute('aria-disabled'))
+
+  act(() => freshReads(cache).noteHint())
+  expect(pause).toHaveAccessibleDescription('Updating…')
+  fireEvent.click(pause)
+  expect(api.pause).not.toHaveBeenCalled()
+
+  await act(async () => {
+    await cache.invalidateQueries({ queryKey: serverQueryKey(fixtureScope, 'agent-sessions') })
+  })
+  await waitFor(() => expect(pause).not.toHaveAttribute('aria-disabled'))
+  fireEvent.click(pause)
+  await waitFor(() => expect(api.pause).toHaveBeenCalledWith('batch-a', true))
+})

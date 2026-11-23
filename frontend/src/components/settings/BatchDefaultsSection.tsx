@@ -37,7 +37,7 @@ export function BatchDefaultsSection({
   const loaded = readThisVisit ? saved.data : undefined
   // Until then, defaults cached from an earlier visit show read-only.
   const cached = loaded ? undefined : saved.data
-  useReportRefreshing(cached !== undefined && saved.isFetching)
+  useReportRefreshing(saved.data !== undefined && saved.isFetching)
 
   /**
    * Publishes confirmed defaults and answers with the newest known. A read already running, or a

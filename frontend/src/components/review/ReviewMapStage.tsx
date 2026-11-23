@@ -59,10 +59,16 @@ export function ReviewMapStage({
     lotIds: string[]
   } | null>(null)
 
-  async function link(evidenceId: string, lotId: string, linked: boolean) {
+  /**
+   * Links or unlinks a file at the media revision in the cache now. The operator's own press needs
+   * the read the Map showed; the link that finishes a new lot was already checked when it started,
+   * and a read landing meanwhile must not leave the lot half made, so it needs only a current read.
+   */
+  async function link(evidenceId: string, lotId: string, linked: boolean, continuation = false) {
     // Read at send time: a handler may run after its closure's media read was replaced.
     const snapshot = queryClient.getQueryData<MediaSnapshotDto>(key) ?? query.data
-    if (!media || !snapshot || !fresh.commandsReadyNow()) {
+    const ready = continuation ? mediaReadCurrent() : fresh.commandsReadyNow()
+    if (!media || !snapshot || !ready) {
       return false
     }
     setBusy(true)
@@ -89,8 +95,17 @@ export function ReviewMapStage({
     }
   }
 
+  /** The media read in the cache is a successful one, neither failed nor paused. */
+  function mediaReadCurrent() {
+    const state = queryClient.getQueryState(key)
+    return state?.status === 'success' && state.fetchStatus !== 'paused'
+  }
+
   /** Makes a lot, then links its file or moves its region into it once the save is confirmed. */
   async function newLot(from: LotSource, label: string, note: string) {
+    if (!fresh.commandsReadyNow()) {
+      return
+    }
     const knownLotIds = batch.lots.map((lot) => lot.id)
     setBusy(true)
     setError('')
@@ -114,7 +129,11 @@ export function ReviewMapStage({
         return
       }
       // This closure's batch predates the new lot, so the move names the accepted revision.
-      await finish({ from, label, lotId: created.id, lotLabel: created.label }, accepted.revision)
+      await finish(
+        { from, label, lotId: created.id, lotLabel: created.label },
+        accepted.revision,
+        true,
+      )
     } catch {
       setError('The lot could not be made. Refresh and try again.')
     } finally {
@@ -173,11 +192,11 @@ export function ReviewMapStage({
   }
 
   // The new lot exists; its file link or region move is kept until confirmed so it can be finished.
-  async function finish(step: Unfinished, revision?: string) {
+  async function finish(step: Unfinished, revision?: string, continuation = false) {
     setUnfinished(step)
     const done =
       step.from.kind === 'file'
-        ? await link(step.from.evidenceId, step.lotId, true)
+        ? await link(step.from.evidenceId, step.lotId, true, continuation)
         : await moveRegion(step.from.observationId, step.lotId, revision)
     if (done) {
       setUnfinished(null)
