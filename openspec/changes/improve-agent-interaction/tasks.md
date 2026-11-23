@@ -27,8 +27,8 @@
 | 7. Expandable timeline and the session page | Frontend behavior | 4, 6 | processing-workspace history requirements, "Drawer and session page split", "Agent session page", "Session page header and panels", "Reaching and reading the session page"; agents-overview "Agents page" ("Open a session's page"); processing-agent-sessions "Cited datasheet" (source chip and web read) |
 | 8. Stage counts and the paused flag | Contracts and intake server | None | header-workflow-status "Stage rows in workflow details" (counts), "Stage bar states" (paused) |
 | 9. Activity popover stage rows and bar states | Frontend behavior | 8 | header-workflow-status "Stage rows in workflow details", "Stage bar states", "Only working stages animate" |
-| 10. Session rows, failures in plain words and Agents filters | Contracts, intake server and frontend | 7 | agents-overview "Agents page", "Session rows", "Failed rows offer recovery"; processing-workspace "Failures in plain words" |
-| 11. Drawer header, activity feed and message box | Contracts, intake server and frontend, plus one instruction sentence | 6, 7, 10 | processing-workspace "Session drawer header", "Activity in the app's words", "Labelled message box"; processing-agent-sessions "Status lines stay readable" |
+| 10. Session rows, failures in plain words and Agents filters | Contracts, intake server and frontend | 7; 9 or polish for the shared components | agents-overview "Agents page", "Session rows", "Failed rows offer recovery"; processing-workspace "Failures in plain words" |
+| 11. Drawer header, activity feed and message box | Contracts, intake server and frontend, plus one instruction sentence | 6, 7, 10; 9 or polish for the shared components | processing-workspace "Session drawer header", "Activity in the app's words", "Labelled message box"; processing-agent-sessions "Status lines stay readable" |
 
 ## PR delivery map
 
@@ -117,6 +117,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - [ ] 3.3.2 Rollback when the note edit is refused after the quantity edit, with the refusal injected.
   - [ ] 3.3.3 Refusal of a combined note over the 8192-character limit, before any edit, with the response naming the step.
   - [ ] 3.3.4 Refusal of a wrong kind, an unknown option or a missing step.
+  - [ ] 3.3.9 A number step answered in words is accepted: the text reaches the inbox, the note is written and the lot quantity is unchanged.
   - [ ] 3.3.5 Same-key replay returns the first receipt; a different payload under that key is refused; a new key with the same payload adopts the answer; a new key with a different payload gets `payload_conflict`.
   - [ ] 3.3.6 An inbox payload carrying the option ID and the number step's basis.
   - [ ] 3.3.7 A `/1` answer still accepted.
@@ -221,7 +222,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 - [ ] 6.2 RED: PG tests:
   - [ ] 6.2.1 Each entry kind resolves its summary, details and links.
   - [ ] 6.2.2 A retired lot or a removed version gives a "gone" link.
-  - [ ] 6.2.3 Answers, instructions, evidence and revise items appear as the operator's at their send time, and one above the acknowledgement cursor reads as not read yet; a `read_inbox` call that advances the cursor publishes `session_changed` in its transaction, and one that doesn't move it publishes nothing.
+  - [ ] 6.2.3 Answers, instructions, evidence and revise items appear as the operator's at their send time, and an identity `revision` notice with no actor appears as the app's, and one above the acknowledgement cursor reads as not read yet; a `read_inbox` call that advances the cursor publishes `session_changed` in its transaction, and one that doesn't move it publishes nothing.
   - [ ] 6.2.4 Attempt headers say how an attempt ended, and why it started where the retained input shows it; turns within an attempt are not attempts; a failure or resume with no new inbox or outbox item still updates its header on the next read; the span runs from the queue time, not a turn's `started_at`; an attempt cancelled before its first turn, and one cancelled after a settled turn, show the cancellation's end time.
   - [ ] 6.2.5 A regroup with recorded moves shows them; an older regroup lists its destination lots; earlier attempts' failures resolve; a lot edited after formation shows its values labelled current.
   - [ ] 6.2.6 The `before` cursor pages without gaps or duplicates across retries with repeated sequences and equal timestamps, and across inbox and outbox rows with equal timestamps; the page, its cursor and the metadata come from one snapshot; every read returns the metadata and acknowledgement cursor, including a read of the newest page with no new entries.
@@ -264,7 +265,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - [ ] 7.3.3 Grouping of consecutive entries.
   - [ ] 7.3.4 The drawer's summary lines and "Open full session".
 - [ ] 7.4 RED: page tests:
-  - [ ] 7.4.1 One conversation in time order, with attempt dividers.
+  - [ ] 7.4.1 One conversation in time order, with attempt dividers, including one whose reason isn't retained and reads only "Attempt N".
   - [ ] 7.4.2 Filter chips and Load older; an invalidation re-reads the newest page and replaces it, keeping loaded older pages without duplicates; one new entry keeps the entry it pushed off the newest page; more than one page of new entries between refreshes drops the older pages and Load older continues from the new page; answering a matching question in another job refreshes a proposal's provisional links on the newest page; a chat sent from another tab shows after the next invalidation, and an acknowledgement with no new entry shows through the `session_changed` that `read_inbox` publishes.
   - [ ] 7.4.3 Sending a message once.
   - [ ] 7.4.4 Answering a question in place, with the drawer's draft shown as superseded, and commands disabled while the page's Processing read is loading, failed or paused, including a warm cache whose mounted read is still pending.
@@ -276,7 +277,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 ## 8. Stage counts and the paused flag
 
 - **PR delivery:** PR-F.
-- **Outcome:** the header and attention reads count each step's `waiting`, `queued`, `questions` and `ready_lots`, the batch's live `lots`, and the batch's `paused` flag.
+- **Outcome:** the header and attention reads count each step's `waiting`, `queued`, `questions` and `ready_lots`, the header read also each step's `failed`, the batch's live `lots`, and the batch's `paused` flag.
 - **Scope and approach:** `contracts/src/header.ts` (`stepJobs`, batch step entries), `contracts/src/attention.ts` (`stepWork`), `intake-server/src/header/processing.ts`, `work.ts` and the attention read, using `agents/pause.ts` for paused.
 - **Prerequisites:** none.
 - **Acceptance:** the counts in "Stage rows for a working batch", "No count for a stage" and "Paused batch".
@@ -285,7 +286,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 - **Risks and decisions:** keep the counts in the existing queries; no extra per-step query.
 
 - [ ] 8.1 Read the shared and intake-server code guidelines. Map how `stepJobs` and `stepWork` are counted today.
-- [ ] 8.2 RED: contract tests for the new fields. PG tests for a batch with one waiting-for-you, one queued, one running and one ready job, with open questions, retired lots, a stage with live lots but no jobs yet, a ready Part job beside a live lot with no job at that step, and a paused batch.
+- [ ] 8.2 RED: contract tests for the new fields. PG tests for a batch with one waiting-for-you, one queued, one running and one ready job, with open questions, retired lots, a stage with live lots but no jobs yet, a ready Part job beside a live lot with no job at that step, a paused batch, and a failed Research job beside running Images in a batch other than the open one.
 - [ ] 8.3 GREEN: implement the counts and the paused flag in both reads.
 - [ ] 8.4 Run the contracts tests and the intake unit and PG tiers.
 
@@ -329,7 +330,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 - **Scope and approach:**
   - `contracts/src/agents.ts` and `intake-server/src/agents/session/sessions.ts`: a session-level read paging by job, with the selected filter applied before paging, scoped chip and batch counts, slot and waiting totals independent of the filter, a summary of every batch in scope including those with no matching sessions, each job's earlier attempts, the batch's archived flag, where it ran and its sealed web setting;
   - `contracts/src/session-failures.ts` and `agents/failures.ts`: a sanitized `cause` on the failure summary, built from the recorded provider error and cause code, under the same read scope;
-  - `frontend/src/components/agents/AgentSessions.tsx`, the Processing session list in `components/processing/`, `components/agents/SessionFailureDetails.tsx`, and the failure-text mapping beside the contracts' allowlists (`CLAUDE_ERROR_KINDS`, `CODEX_ERROR_KINDS`, cause codes).
+  - `frontend/src/components/agents/AgentSessions.tsx`, the Processing session list in `components/processing/`, the other readers of the Agents read (`settings/agents/SlotMeter.tsx` through `AgentsSection.tsx`, and `firstStart` in `ProcessingWorkspace.tsx`), which move to its scoped totals, `components/agents/SessionFailureDetails.tsx`, and the failure-text mapping beside the contracts' allowlists (`CLAUDE_ERROR_KINDS`, `CODEX_ERROR_KINDS`, cause codes).
   - It uses the shared state words and time format from `polish-ui-styling-and-loading`.
 - **Prerequisites:** task 7, for the session page that row titles and failure details open; the shared components from task 9 or polish, whichever merged first.
 - **Acceptance:** "Opens on what needs attention", "Archived batches only under All", "Retries fold into one row", "Failed row recovery", "Provider overloaded", "Old failure without a cause".
@@ -338,7 +339,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 - **Risks and decisions:** the canvas boards FixSessionRows, FixFailureCause, FixSessionLinks and FixAgentsFilters are the reference.
 
 - [ ] 10.1 Read the code guidelines and the Fixes page boards.
-- [ ] 10.2 RED: PG tests for the session-level read (a retry chain that would have spanned two attempt pages, the archived flag, the selected filter applied before paging, and chip and batch counts that include a failed session beyond the first page of all sessions; slot use and waiting totals that count running sessions hidden by the Needs attention filter; and a batch summary that lists a batch with no matching sessions as collapsed) and the failure summary's `cause` with debug mode off; frontend tests for folded attempts, Needs attention (including a failure followed by success), collapsed and archived batches, failure sentences for each recorded kind and the "not recorded" case, and row links and actions.
+- [ ] 10.2 RED: PG tests for the session-level read (a retry chain that would have spanned two attempt pages, the archived flag, the selected filter applied before paging, and chip and batch counts that include a failed session beyond the first page of all sessions; slot use, queued and waiting totals and each batch's first start that count sessions hidden by the Needs attention filter or beyond the first page; and a batch summary that lists a batch with no matching sessions as collapsed) and the failure summary's `cause` with debug mode off; frontend tests for folded attempts, Needs attention (including a failure followed by success), collapsed and archived batches, failure sentences for each recorded kind and the "not recorded" case, row links and actions, Start fresh from the Agents page running only under the session page's command guard and disabled with its reason for an archived batch or retired lot, and opening failure details never starting a retry; and Settings' slot meter and the Processing overview's start time read from the new totals.
 - [ ] 10.3 GREEN: implement the read, the failure cause and the rows.
 - [ ] 10.4 Run the contracts tests, the intake unit and PG tiers and the frontend checks, and record the demo video.
 
@@ -351,7 +352,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - the labelled message box;
   - one instruction sentence asking for plain status lines without internal IDs.
 - **Scope and approach:** the drawer in `ProcessingWorkspace.tsx` (it rebases on polish's edits), with its header built from task 6's history metadata and the earlier failures' causes from task 10's failure summary; a bounded batch activity read (`readBatchActivity` in `agents/tools/`, its contract and route) reusing task 6's resolver; `ProcessingOverview.tsx` recent activity from that read; the shared message box component; and `openingText` in `agents/session/session-runner.ts`.
-- **Prerequisites:** tasks 6, 7 and 10 (task 10 for the failure causes).
+- **Prerequisites:** tasks 6, 7 and 10 (task 10 for the failure causes), and the shared components from task 9 or polish, whichever merged first.
 - **Acceptance:** "Retried session in the drawer", "Proposal in recent activity", "Sending a message", "Status after proposing".
 - **TDD approach:** component tests, and a session-runner test for the instruction sentence, fail first.
 - **Verification:** contracts tests, the intake unit and PG tiers, frontend checks, and a demo video.

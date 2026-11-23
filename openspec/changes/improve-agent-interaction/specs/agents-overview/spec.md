@@ -48,7 +48,7 @@ The Agents page and Processing's session list SHALL show one row per session (jo
 
 ### Requirement: Failed rows offer recovery
 
-A session row whose current attempt failed SHALL offer Start fresh, Open session, Failure details and, for a lot session, Open lot in Review.
+A session row whose current attempt failed SHALL offer Start fresh, Open session, Failure details and, for a lot session, Open lot in Review. Start fresh SHALL run only under a current read of the batch and SHALL show as unavailable, with the reason, where the batch can't start the session again, such as an archived batch or a retired lot. Opening failure details SHALL NOT start a retry.
 
 #### Scenario: Failed row recovery
 

@@ -54,6 +54,8 @@ StepValue         = { kind: 'choice', option_id } | { kind: 'choice', other: tex
                   | { kind: 'number', value, basis } | { kind: 'text', text }
 ```
 
+A number step accepts either a `number` value or, answered in words, a `text` value; every other step takes the value of its own kind.
+
 - **Validation:** step IDs and option IDs are unique, which the handler checks because TypeBox can't. A step prompt is at most 500 characters, so prompts stay one question long. A question title (up to 120 characters) labels a stepped question in Needs you; a one-step question uses its prompt.
 - **The tool's schema:** `ask` takes `SessionAskArgsV2`. The handler stores it in the envelope under a new `kind: 'question'` payload variant, so the envelope union reads both `/1` and `/2` payloads.
 - **The read model:** it returns questions as a normalised view, `{version, title, steps[]}`. A `/1` question becomes one step (`quantity`→number, `clarification`→text) carrying its original kind, so the frontend has one renderer. A `/1` question is still answered with `bench-intake-answer/1`.
@@ -67,7 +69,7 @@ StepValue         = { kind: 'choice', option_id } | { kind: 'choice', other: tex
 
 `answerSessionQuestion` gains a `/2` branch that does the following:
 
-1. Validates the answer against the stored `/2` spec: one value per step, kinds matching, option IDs known, and "other" only where allowed.
+1. Validates the answer against the stored `/2` spec: one value per step, each value of its step's kind or, for a number step, text in words; option IDs known; and "other" only where allowed.
 2. Applies a quantity edit for the number step if there is one. At most one number step is allowed per question, because a question has one subject, and the handler enforces it. As in `/1`, the edit sets the lot's quantity value; the counted or estimated basis is kept in the stored answer and the inbox item.
 3. Applies one note edit, chained on the revision from step 2, joining `prompt — answer` lines for the choice and text steps, and for a number step answered in words.
 4. Records the answer, marks the question answered, and appends one `answer` inbox item. Its payload is `{question_id, answer_id, steps: [{step_id, value}]}`, a new variant of the inbox payload union, and it carries the option ID and label.
@@ -106,7 +108,7 @@ Rejected: changing `CaptureEdit` to carry several changes. That is a wider contr
 - **Identity and order:** outbox sequences restart with each attempt and inbox sequences run per job, so a sequence alone is ambiguous. Each entry's ID is its stream, owning attempt (outbox only) and sequence. Entries have one total order: `created_at`, then stream, attempt and sequence. The `before` cursor encodes the oldest row on the page in that order, so equal timestamps and repeated sequences across retries page without gaps or duplicates within one chain of Load older reads.
 - **Entry:** each `SessionHistoryEntry` holds:
   - `kind` (status, observation, lot, regroup, proposal, question, answer, instruction, evidence, revision, chat, reply, photo_view, web_read, failure);
-  - `who` (agent or you);
+  - `who`: agent, you, or the app for an inbox item no operator sent (`actor_id` is null), such as the `revision` notice `processing/stable-identity.ts` sends when another session revises a lot's identity;
   - `attempt`, the owning attempt's number for an outbox entry, or absent for an inbox entry, which belongs to the job;
   - `at`;
   - `summary`, one line;
@@ -170,7 +172,7 @@ Rejected: changing `CaptureEdit` to carry several changes. That is a wider contr
 - **The fourth stage will change.** BI-022 (`agent-stage-inputs-outputs`, planned) replaces the Inventory agent session with an app-side Match step: a deterministic InvenTree search, a match question, and validation before approval. This change builds the popover's Inventory row on the step counts, not on agent sessions, so the row needs no Inventory agent. Today the step key and route are fixed to `inventory` and its count comes from ready Processing jobs; BI-022 supplies the Match step's key, route and count projection (matched, waiting for you, new), which the row then shows. The Inventory session drawer requirement in this change still applies while the Inventory agent exists.
 
 - **Counts:**
-  - The header read's `stepJobs` gains `waiting` (jobs waiting for the operator), `queued` and `questions`.
+  - The header read's `stepJobs` gains `waiting` (jobs waiting for the operator), `queued`, `questions` and `failed`. The work projection lists only active jobs for batches other than the open one, so the popover can't see a failure without this count.
   - The attention read's `stepWork` gains `waiting` and `queued`.
   - Both gain the batch's live `lots` and, per step, `ready_lots`: distinct live lots with a ready job at that step. Part jobs, which `countSteps` also counts, don't add to `ready_lots`. `lots` is Examine's "lots formed"; Research, Images and Inventory read "`ready_lots` of `lots` lots".
   - Each batch step entry gains `paused`, from `agents/pause.ts`.
@@ -197,13 +199,13 @@ Rejected: changing `CaptureEdit` to carry several changes. That is a wider contr
 
 ### Session rows, failures and the Agents page (Fixes page S1–S3, S6)
 
-- **One row per session.** The Agents read pages by attempt, so a job and its retries can fall on different pages, and it carries no archive flag. It becomes a session-level read: it pages by job, ordered by the latest attempt's queue time, and returns each job's current attempt with its earlier attempts (time, state and failure summary), the batch's archived flag, where it ran and its sealed web setting. The read takes the selected filter and applies it before paging, and returns scoped counts per chip and per batch across every matching job, so a session that needs attention is found and counted even when it is older than the first page of all sessions. Slot use and the waiting total are counted across every session in scope regardless of the filter, and a batch summary lists every batch in scope with its matching count, so a batch with none collapses to one line.
+- **One row per session.** The Agents read pages by attempt, so a job and its retries can fall on different pages, and it carries no archive flag. It becomes a session-level read: it pages by job, ordered by the latest attempt's queue time, and returns each job's current attempt with its earlier attempts (time, state and failure summary), the batch's archived flag, where it ran and its sealed web setting. The read takes the selected filter and applies it before paging, and returns scoped counts per chip and per batch across every matching job, so a session that needs attention is found and counted even when it is older than the first page of all sessions. Slot use, the queued and waiting totals, and each batch's first session start are counted across every session in scope regardless of the filter and page, because Settings' `SlotMeter` and the Processing overview's start time read them from this list today, and a batch summary lists every batch in scope with its matching count, so a batch with none collapses to one line.
 - **Needs attention:** a session whose latest attempt failed, or which is waiting for the operator. A failure followed by a success on the same job doesn't count. Counts are sessions. Batches with nothing needing attention collapse to one line, and archived batches appear only under All.
 - **Failures in plain words:**
   - Today the summary (`latestSessionFailures`) carries only category, summary and recovery; the provider error and cause load with the details, in debug mode. The summary gains a sanitized `cause` built on the server from the recorded `provider_error` (#239: kind, result type, HTTP status) and the cause code (#240), so it shows without debug mode under the same read scope. One mapping turns it into a sentence, for example `overloaded_error` + 529 → "Couldn't reach Claude: the API was overloaded (HTTP 529)".
   - The category's advice moves behind a help button. Codes show only in debug mode.
   - Failures recorded before causes existed say the cause wasn't recorded.
-- **Rows and actions:** the title links to the drawer on Processing and to the session page from Agents. Failed rows offer Start fresh, Open session, Failure details and Open lot in Review.
+- **Rows and actions:** the title links to the drawer on Processing and to the session page from Agents. Failed rows offer Start fresh, Open session, Failure details and Open lot in Review. Start fresh needs the job and capture revisions and can be refused for an archived batch, a retired lot or a slot not yet reaped, which the Agents read doesn't carry. On Processing it runs as today; on the Agents page it opens the session page, which runs it under its mounted Processing read and the shared command guard, and shows it disabled with the reason where the replacement isn't allowed. Opening failure details never starts a retry.
 
 ### Drawer header, activity feed and message box (S4, S8, O6)
 
@@ -258,6 +260,8 @@ Authority is unchanged. Only the operator's answer route writes capture edits. A
 The only migration is PR-D's, which lets the outbox accept `photo_view`. `/1` rows stay readable and `/2` rows are new.
 
 The session worker is a separately supervised process: it hosts the tool server that publishes the `ask` schema and reads retained inbox and outbox items, and it refuses to start when the applied migrations differ from its build's (`compatibleSchema` in `operations/compatibility.ts`). Deploying PR-B or PR-D therefore stops the session worker first, applies any migration, and then starts the API, the worker and the frontend from the same build, so no old worker serves the old `ask` schema or reads `/2` answers and photo views it can't decode. Each PR body states these steps.
+
+A browser tab opened before the deploy still runs the old frontend, which can't decode `/2` questions, `/6` proposals or photo views. The app has no build-version check, so its contract validation fails and the read shows the existing unavailable state rather than a wrong form. The rollout steps end with reloading open tabs, and each PR records a manual check with a tab opened before the deploy.
 
 Rollback is forward-only once new formats are written. A build before PR-B can't decode retained `/2` question and answer items, and a build before PR-D can't decode `/6` proposals or `photo_view` items, even after every question is closed. Recovery is a fix forward, not a rollback; each PR body says so. PR-B's and PR-D's tests read a database that already holds the new formats with the new build.
 

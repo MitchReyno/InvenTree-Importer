@@ -98,7 +98,7 @@ When expanded, a proposal SHALL show its proposed fields with source chips, what
 
 ### Requirement: Your inputs in the session history
 
-A session's history SHALL include the operator's inputs sent to the session, marked as theirs and placed at the time they were sent: answers with what they changed, instructions, new evidence and requests to revise. An input the session has not read yet SHALL say so. Chat messages SHALL stay in the chat.
+A session's history SHALL include the operator's inputs sent to the session, marked as theirs and placed at the time they were sent: answers with what they changed, instructions, new evidence and requests to revise. An input the session has not read yet SHALL say so. A notice the app sent, such as a lot's revised identity, SHALL be marked as the app's, not the operator's. Chat messages SHALL stay in the chat.
 
 #### Scenario: Answer in the history
 
@@ -123,7 +123,7 @@ Each agent session SHALL have a page inside its batch's Processing that shows th
 - agent actions as compact expandable rows, grouped as in the drawer, with each photo view and web read;
 - chat messages from the operator and the agent;
 - questions as their cards, answered in place with the same form as the drawer;
-- the operator's inputs, and a divider for each attempt saying why it started.
+- the operator's inputs, and a divider for each attempt, with its reason where one is retained.
 
 #### Scenario: One conversation
 
