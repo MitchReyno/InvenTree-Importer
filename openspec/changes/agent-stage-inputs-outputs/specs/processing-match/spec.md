@@ -150,7 +150,7 @@ A paused identify-mode Research lot SHALL receive its decision's mode, or have i
 
 ### Requirement: Validation before approval
 
-Preparation SHALL run Match's search again for each selected lot of a batch whose lead input is `/7`, with the lot's final identifiers and import references. A Part created since the decision, stock that now exists with the lot's import reference or, on the target Part, its batch code, or a final identity that no longer fits the decision SHALL be a blocking item until the operator decides again.
+Preparation SHALL run Match's search again for each selected lot of a batch whose lead input is `/7`, with the lot's final identifiers and import references. A Part created since the decision, an approval of the lot's original contribution in this app's retained history, stock that now exists on the target Part with its batch code, or a final identity that no longer fits the decision SHALL be a blocking item until the operator decides again.
 
 #### Scenario: Part created meanwhile
 
