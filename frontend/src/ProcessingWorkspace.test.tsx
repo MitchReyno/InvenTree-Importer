@@ -2042,3 +2042,30 @@ test('Pause waits for a read started after the last live hint, and is checked ag
   expect(pause).not.toHaveBeenCalled()
   expect(await screen.findByRole('alert')).toHaveTextContent('Pausing failed')
 })
+
+test('Resume waits for a read started after the last live hint, and is checked again when pressed', async () => {
+  const user = userEvent.setup()
+  const paused = {
+    ...snapshot,
+    jobs: [{ ...snapshot.jobs[0], session_state: 'running' as const }],
+    paused: true as const,
+  }
+  const client = { ...clientFixture(), read: vi.fn().mockResolvedValue(paused) }
+  const cache = createServerQueryClient()
+  const pause = vi.fn(async () => undefined)
+  mountPause(client, cache, pause)
+  const button = await screen.findByRole('button', { name: 'Resume' })
+  await waitFor(() => expect(button).not.toHaveAttribute('aria-disabled'))
+
+  act(() => freshReads(cache).noteHint())
+  expect(button).toHaveAccessibleDescription('Updating…')
+  await user.click(button)
+  expect(pause).not.toHaveBeenCalled()
+
+  await act(async () => {
+    await cache.invalidateQueries({ queryKey: serverQueryKey(scope, 'processing', batchId) })
+  })
+  await waitFor(() => expect(button).not.toHaveAttribute('aria-disabled'))
+  await user.click(button)
+  await waitFor(() => expect(pause).toHaveBeenCalledWith(batchId, false))
+})

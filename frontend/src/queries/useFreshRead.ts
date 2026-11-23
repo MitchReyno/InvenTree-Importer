@@ -35,6 +35,8 @@ export interface FreshRead<T> {
   verified: boolean
   /** Verified, and not failed or paused. Commands that carry a revision gate on this. */
   commandsReady: boolean
+  /** Identifies the verified read shown; it changes with each new one, even of equal data. */
+  verifiedRead?: number
   /** Commands ready on a read that started after the last live hint, for commands with no revision. */
   settledAfterHint: boolean
   reason?: FreshReason
@@ -119,6 +121,7 @@ export function useFreshRead<T>({
     restored: query.data === undefined && restored !== undefined,
     phase,
     verified,
+    verifiedRead: verified ? registry.adoptedOrder(queryKey) : undefined,
     commandsReady: verified && !failed,
     settledAfterHint: settledAfterHint && !failed,
     reason: freshReason(failed, verified),

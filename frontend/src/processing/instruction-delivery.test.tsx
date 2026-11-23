@@ -39,10 +39,10 @@ function Owner({
   client = useQueryClient()
   const [mount, setMount] = useState(0)
   remount = () => setMount((count) => count + 1)
-  const delivery = useInstructionDelivery('batch', send, async (signal) => {
-    const ready = freshReads(client!).waitForReadStartedNow(key, signal)
+  const delivery = useInstructionDelivery('batch', send, () => {
+    const request = freshReads(client!).requestRead(key)
     void client!.invalidateQueries({ queryKey: key })
-    await ready
+    return request
   })
   deliver = delivery.deliver
   return (

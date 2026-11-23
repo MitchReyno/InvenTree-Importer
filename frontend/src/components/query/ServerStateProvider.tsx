@@ -3,6 +3,7 @@ import { QueryClientProvider, type QueryClient } from '@tanstack/react-query'
 import { createServerQueryClient } from '#/queries/client'
 import { type ServerScope } from '#/queries/scope'
 import { snapshots } from '#/queries/snapshots'
+import { freshReads } from '#/queries/fresh-reads'
 import { ServerScopeContext } from '#/context'
 
 interface Props {
@@ -15,15 +16,17 @@ interface Props {
 export function ServerStateProvider({ children, scope, client }: Props) {
   const [ownedClient] = useState(createServerQueryClient)
   const queryClient = client ?? ownedClient
+  // The registry belongs to the client, created with it rather than by the first reader.
+  useState(() => freshReads(queryClient))
 
-  // Session storage keeps snapshots for this scope only; another scope's never show, and a scope
-  // that ends takes its snapshots and waiting writes with it.
+  // Session storage keeps snapshots for this scope only: the next scope deletes the others when it
+  // starts, and a scope that ends drops its waiting writes. Replaying this Effect keeps them.
   useEffect(() => {
     if (!scope) {
       return
     }
     snapshots.prune(scope)
-    return () => snapshots.dropScope(scope)
+    return () => snapshots.dropPendingWrites(scope)
   }, [scope])
 
   useEffect(() => {

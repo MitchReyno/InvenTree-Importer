@@ -27,6 +27,7 @@ import { useTargetNavigation } from '#/header/useTargetNavigation'
 import {
   useApiClients,
   useConfirmation,
+  useReportRefreshing,
   useServerScope,
   useRetainedPollInterval,
   useBatchCommands,
@@ -110,11 +111,14 @@ export function ManualWorkspace({
     // The stored projection keeps Review's lots only; Changes waits for its own read.
     restored: stage === 'review' ? restoredWorkspace : undefined,
   })
+  // Acceptance waits on Processing's read too, so its refresh shows progress like the page's own.
+  useReportRefreshing(processingFresh.phase === 'refreshing')
   const workspaceQuery = workspaceFresh.query
   useSnapshotWriter(
     'review-workspace',
     batch.id,
     workspaceFresh.verified ? workspaceQuery.data : undefined,
+    workspaceFresh.verifiedRead,
   )
   const workspace = workspaceFresh.data
   const connectionLost = workspaceFresh.phase === 'failed'
@@ -244,6 +248,10 @@ export function ManualWorkspace({
 
   /** Answers a lot's open question; Processing and the review are read again once accepted. */
   async function answerQuestion(questionId: string, input: ProcessingAnswerDto, key: string) {
+    // The question may come from a cached or restored read; answering needs this visit's own.
+    if (!processingFresh.commandsReadyNow()) {
+      throw new Error('processing_fresh_read_required')
+    }
     await processing!.answer(batch.id, questionId, input, key)
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: serverQueryKey(scope, 'processing', batch.id) }),
@@ -353,6 +361,9 @@ export function ManualWorkspace({
         review={review}
         reviewLots={reviewLots}
         answerQuestion={processing ? answerQuestion : undefined}
+        answerWaitReason={
+          processingFresh.commandsReady ? undefined : (processingFresh.reason ?? 'Updating…')
+        }
         prepare={prepare}
         onDirtyChange={drafts.forSource('review')}
       />

@@ -22,6 +22,8 @@ interface KeyEntry {
   produced?: number
   /** The request whose result the cache holds, while no manual write, failure or pause has replaced it. */
   adopted?: Request
+  /** The data that result put in the cache; a state change keeps the proof only if it restores it. */
+  adoptedData?: unknown
   /** Each mounted observer's mount order. */
   observers: Map<symbol, number>
   followUpScheduled: boolean
@@ -91,6 +93,11 @@ export class FreshReadRegistry {
     }
   }
 
+  /** The adopted request's start order: a new value for each verified read, even of equal data. */
+  adoptedOrder(queryKey: QueryKey) {
+    return this.#entries.get(hashKey(queryKey))?.adopted?.startOrder
+  }
+
   /** Whether the cache holds a result whose request started after this observer mounted. */
   verified(queryKey: QueryKey, mountOrder: number | undefined) {
     const adopted = this.#entries.get(hashKey(queryKey))?.adopted
@@ -98,12 +105,15 @@ export class FreshReadRegistry {
   }
 
   /**
-   * Whether a verified result's request also started after the last live hint, so a command that
-   * carries no revision acts on state at least as new as the newest change the app heard of.
+   * Whether a verified result's request also started after the last live hint, with no newer read
+   * in flight, so a command that carries no revision acts on state at least as new as the newest
+   * change the app heard of.
    */
   settledAfterHint(queryKey: QueryKey, mountOrder: number | undefined) {
     const adopted = this.#entries.get(hashKey(queryKey))?.adopted
+    const settled = this.#client.getQueryState(queryKey)?.fetchStatus === 'idle'
     return (
+      settled &&
       this.verified(queryKey, mountOrder) &&
       adopted !== undefined &&
       adopted.startOrder > this.#lastHint
@@ -111,40 +121,54 @@ export class FreshReadRegistry {
   }
 
   /**
-   * Resolves once the cache adopts a read of this key that started after this call and after the
-   * last live hint, for a command with no revision that is held until then. Aborting rejects it.
+   * Holds a command with no revision until the cache adopts a read of this key that started after
+   * this call and after the last live hint. The request counts as an observer, so a read it joins
+   * mid-flight is followed by one more. `ready()` checks again at dispatch; `release()` ends it.
    */
-  waitForReadStartedNow(queryKey: QueryKey, signal: AbortSignal) {
+  requestRead(queryKey: QueryKey): ReadRequest {
     const requested = this.nextOrder()
+    const marker = Symbol('read-request')
+    const unobserve = this.observe(queryKey, marker, requested)
 
-    return new Promise<void>((resolve, reject) => {
-      const ready = () => {
-        const state = this.#client.getQueryState(queryKey)
-        const healthy = state?.status === 'success' && state.fetchStatus !== 'paused'
-        return healthy && this.settledAfterHint(queryKey, requested)
-      }
+    const ready = () => {
+      const state = this.#client.getQueryState(queryKey)
+      return state?.status === 'success' && this.settledAfterHint(queryKey, requested)
+    }
 
-      const stop = () => {
-        unsubscribe()
-        signal.removeEventListener('abort', abort)
-      }
+    const wait = (signal: AbortSignal) =>
+      new Promise<void>((resolve, reject) => {
+        // The proof changes with the registry; the settled state with the cache.
+        const unsubscribes: (() => void)[] = []
 
-      const abort = () => {
-        stop()
-        reject(signal.reason)
-      }
-
-      const unsubscribe = this.subscribe(() => {
-        if (ready()) {
-          stop()
-          resolve()
+        const stop = () => {
+          for (const unsubscribe of unsubscribes) {
+            unsubscribe()
+          }
+          signal.removeEventListener('abort', abort)
         }
+
+        const abort = () => {
+          stop()
+          reject(signal.reason)
+        }
+
+        const check = () => {
+          if (ready()) {
+            stop()
+            resolve()
+          }
+        }
+
+        if (signal.aborted) {
+          reject(signal.reason)
+          return
+        }
+        unsubscribes.push(this.subscribe(check), this.#client.getQueryCache().subscribe(check))
+        signal.addEventListener('abort', abort)
+        check()
       })
-      signal.addEventListener('abort', abort)
-      if (signal.aborted) {
-        abort()
-      }
-    })
+
+    return { ready, wait, release: unobserve }
   }
 
   /** Records that a live hint arrived, before any reconciliation it causes. */
@@ -218,15 +242,18 @@ export class FreshReadRegistry {
     const action = event.action
     switch (action.type) {
       case 'success':
-        this.#settleSuccess(entry, hash, action.manual === true)
+        this.#settleSuccess(entry, hash, action.manual === true, event.query.state.data)
         return
       case 'error':
       case 'pause':
         this.#clear(entry)
         return
       case 'setState':
-        // A reverting cancel restores the adopted data; anything that empties the query clears it.
-        if (event.query.state.data === undefined || event.query.state.status !== 'success') {
+        // A reverting cancel restores the adopted data itself; any other state replaces the proof.
+        if (
+          event.query.state.data !== entry.adoptedData ||
+          event.query.state.status !== 'success'
+        ) {
           this.#clear(entry)
         }
         return
@@ -238,12 +265,16 @@ export class FreshReadRegistry {
     }
   }
 
-  #settleSuccess(entry: KeyEntry, hash: string, manual: boolean) {
+  #settleSuccess(entry: KeyEntry, hash: string, manual: boolean, data: unknown) {
+    if (manual) {
+      // A cache write between a request's return and its adoption keeps that request pending.
+      this.#clear(entry)
+      return
+    }
     const produced = entry.produced
     entry.produced = undefined
     // Only the newest request's own result is adopted; a manual write or any other success is not.
     const adoptable =
-      !manual &&
       produced !== undefined &&
       entry.newest?.generation === produced &&
       !entry.cancelled.has(produced)
@@ -252,11 +283,13 @@ export class FreshReadRegistry {
       return
     }
     entry.adopted = entry.newest
+    entry.adoptedData = data
     this.#changed()
     this.#followUpJoinedObservers(entry, hash)
   }
 
   #clear(entry: KeyEntry) {
+    entry.adoptedData = undefined
     if (entry.adopted !== undefined) {
       entry.adopted = undefined
       this.#changed()
@@ -293,6 +326,13 @@ export class FreshReadRegistry {
       listener()
     }
   }
+}
+
+/** A held command's wait for a read started after it was asked for. */
+export interface ReadRequest {
+  ready: () => boolean
+  wait: (signal: AbortSignal) => Promise<void>
+  release: () => void
 }
 
 const registries = new WeakMap<QueryClient, FreshReadRegistry>()

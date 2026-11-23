@@ -136,6 +136,21 @@ test('sentinels in excluded fields, keys and nested DTOs never reach session sto
   snapshots.write('batch', scope, batchId, withSecrets)
   snapshots.write('processing', scope, batchId, {
     ...processing,
+    jobs: [
+      {
+        id: '30000000-0000-4000-8000-000000000003',
+        subject_id: null,
+        stage: 'research',
+        revision: '1',
+        state: 'running',
+        attempt_id: SENTINEL_ID,
+        input_sha256: 'a'.repeat(64),
+        attempt_number: '1',
+        qualification: 'fixture_only',
+        proposals: [],
+        questions: [],
+      },
+    ],
     csrf_token: SENTINEL_TEXT,
   } as unknown as ProcessingSnapshotDto)
   now += SNAPSHOT_WRITE_INTERVAL_MS
@@ -150,6 +165,7 @@ test('sentinels in excluded fields, keys and nested DTOs never reach session sto
   } as unknown as BatchRecordsDto)
 
   const text = storedText()
+  expect(text).toContain('bench-intake.snapshot.processing')
   expect(text).toContain('bench-intake.snapshot.batch')
   expect(text).toContain('bench-intake.snapshot.review-workspace')
   expect(text).not.toContain(SENTINEL_TEXT)
@@ -204,17 +220,19 @@ test('writes are throttled to one per resource per second, keeping the newest', 
   expect(snapshots.read('processing', scope, batchId)?.capture_revision).toBe('10')
 })
 
-test('a scope change deletes that scope’s snapshots and drops its waiting writes', () => {
+test('a scope change drops the old scope’s waiting writes, and the new scope deletes its snapshots', () => {
   const snapshots = store()
   snapshots.write('processing', scope, batchId, processing)
   snapshots.write('processing', scope, batchId, { ...processing, capture_revision: '9' })
-  snapshots.write('processing', otherTarget, batchId, processing)
 
-  snapshots.dropScope(scope)
+  snapshots.dropPendingWrites(scope)
   now += SNAPSHOT_WRITE_INTERVAL_MS
   vi.advanceTimersByTime(SNAPSHOT_WRITE_INTERVAL_MS)
+  expect(snapshots.read('processing', scope, batchId)?.capture_revision).toBe('8')
+
+  snapshots.prune(otherTarget)
   expect(snapshots.read('processing', scope, batchId)).toBeUndefined()
-  expect(snapshots.read('processing', otherTarget, batchId)).toEqual(processing)
+  expect(storedText()).toBe('')
 })
 
 test('a projection over the size cap is not stored and removes the older one', () => {

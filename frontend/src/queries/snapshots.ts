@@ -119,18 +119,13 @@ export class SnapshotStore {
     }
   }
 
-  /** A scope ends: its snapshots and its waiting writes go. */
-  dropScope(scope: ServerScope) {
+  /** A scope ends: its waiting writes are dropped, so none lands after another scope starts. */
+  dropPendingWrites(scope: ServerScope) {
     const suffix = scopeSuffix(scope)
     for (const [key, pending] of this.#pending) {
       if (key.endsWith(suffix)) {
         clearTimeout(pending.timer)
         this.#pending.delete(key)
-      }
-    }
-    for (const key of this.#snapshotKeys()) {
-      if (key.endsWith(suffix)) {
-        this.#remove(key)
       }
     }
   }

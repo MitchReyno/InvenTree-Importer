@@ -140,16 +140,16 @@ export function Batch({
 
   // Delivery sends no revision: it waits for a Processing read started after it was asked for and
   // after the last live hint, and asks for one.
-  const waitForProcessingRead = async (signal: AbortSignal) => {
-    const read = freshReads(queryClient).waitForReadStartedNow(processingKey, signal)
+  const requestProcessingRead = () => {
+    const request = freshReads(queryClient).requestRead(processingKey)
     void queryClient.invalidateQueries({ queryKey: processingKey })
-    await read
+    return request
   }
 
   const instructionDelivery = useInstructionDelivery(
     id,
     agents?.deliverInstructions,
-    waitForProcessingRead,
+    requestProcessingRead,
   )
   const operatorKey = serverQueryKey(scope, 'operator-review', id)
   const operatorQuery = useQuery({

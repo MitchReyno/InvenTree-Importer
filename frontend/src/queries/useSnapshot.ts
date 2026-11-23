@@ -17,11 +17,15 @@ export function useRestoredSnapshot<K extends SnapshotKind>(
   return restored
 }
 
-/** Stores each verified read of an allowlisted resource; pass nothing until a read is verified. */
+/**
+ * Stores each verified read of an allowlisted resource; pass nothing until a read is verified.
+ * `readId` changes with each new read, so a read of equal data still renews the snapshot's age.
+ */
 export function useSnapshotWriter<K extends SnapshotKind>(
   kind: K,
   resourceId: string,
   verifiedRead: SnapshotData[K] | undefined,
+  readId?: number,
 ) {
   const scope = useServerScope()
 
@@ -30,5 +34,5 @@ export function useSnapshotWriter<K extends SnapshotKind>(
     if (verifiedRead !== undefined) {
       snapshots.write(kind, scope, resourceId, verifiedRead)
     }
-  }, [kind, scope, resourceId, verifiedRead])
+  }, [kind, scope, resourceId, verifiedRead, readId])
 }

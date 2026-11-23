@@ -122,6 +122,7 @@ export function RecordsStage({
     query.isFetchedAfterMount && query.isSuccess && !query.isPlaceholderData
       ? query.data
       : undefined,
+    query.dataUpdatedAt,
   )
   const records = query.data ?? lastGood.current ?? restored
   const type: RecordTypeDto =

@@ -140,8 +140,9 @@ test('a silent cancel and replace never verifies the cancelled request, and keep
     void client!.invalidateQueries({ queryKey: key })
   })
   await waitFor(() => expect(pending).toHaveLength(3))
-  // The adopted read survives the cancel, so commands stay available through the refresh.
-  expect(state('A')).toBe('refreshing verified after-hint one')
+  // The adopted read survives the cancel, so commands with a revision stay available through the
+  // refresh; commands with none wait for it to settle.
+  expect(state('A')).toBe('refreshing verified before-hint one')
 
   await act(async () => pending[1].resolve({ value: 'cancelled' }))
   expect(state('A')).toContain('one')
@@ -383,4 +384,41 @@ test('a new scope starts unverified, whatever the old scope verified', async () 
 
   view.rerender(<Scoped scope="second" />)
   expect(state('second')).toBe('empty unverified before-hint none')
+})
+
+test('a cache write between a read’s return and its adoption still lets that read verify', async () => {
+  const { read, pending } = scriptedReads<{ value: string }>()
+  render(
+    <>
+      <Grab />
+      <Observer name="A" read={read} />
+    </>,
+  )
+  await waitFor(() => expect(pending).toHaveLength(1))
+  await act(async () => {
+    pending[0].resolve({ value: 'read' })
+    // Runs after the query function returns and before TanStack writes its result.
+    await Promise.resolve()
+    client!.setQueryData(key, { value: 'written' })
+  })
+  await waitFor(() => expect(state('A')).toBe('current verified after-hint read'))
+})
+
+test('a state change that replaces the adopted data clears the proof', async () => {
+  const { read, pending } = scriptedReads<{ value: string }>()
+  render(
+    <>
+      <Grab />
+      <Observer name="A" read={read} />
+    </>,
+  )
+  await act(async () => pending[0].resolve({ value: 'read' }))
+  await waitFor(() => expect(state('A')).toContain(' verified'))
+  act(() => {
+    client!
+      .getQueryCache()
+      .find({ queryKey: key })!
+      .setState({ data: { value: 'hydrated' } })
+  })
+  await waitFor(() => expect(state('A')).toContain('unverified'))
 })

@@ -5,6 +5,25 @@ import type {
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
 
+/**
+ * Stands in for an attempt or session message ID, which belongs to a session. A projection keeps
+ * the contract's shape, and nothing shown from a snapshot can send a command, so the page never
+ * needs the real one.
+ */
+export const WITHHELD_ID = '00000000-0000-4000-8000-000000000000'
+
+type ProcessingJob = ProcessingSnapshotDto['jobs'][number]
+
+/** A job as Processing shows it, without its attempt and message identifiers. */
+function displayJob(job: ProcessingJob): ProcessingJob {
+  return {
+    ...job,
+    attempt_id: WITHHELD_ID,
+    proposals: job.proposals.map((proposal) => ({ ...proposal, message_id: WITHHELD_ID })),
+    questions: job.questions.map((question) => ({ ...question, attempt_id: WITHHELD_ID })),
+  }
+}
+
 /** The read each snapshot kind stores. */
 export interface SnapshotData {
   processing: ProcessingSnapshotDto
@@ -34,7 +53,7 @@ export const SNAPSHOT_KINDS: { [K in SnapshotKind]: SnapshotProjection<K> } = {
       runner_status: read.runner_status,
       batch_id: read.batch_id,
       capture_revision: read.capture_revision,
-      jobs: read.jobs,
+      jobs: read.jobs.map(displayJob),
       cursor: read.cursor,
       ...(read.paused ? { paused: read.paused } : {}),
     }),
@@ -71,7 +90,14 @@ export const SNAPSHOT_KINDS: { [K in SnapshotKind]: SnapshotProjection<K> } = {
       parts: read.parts,
       ...(read.group_locations ? { group_locations: read.group_locations } : {}),
       lots: read.lots.map(({ agent_session_id: _session, ...lot }) => lot),
-      ...(read.evidence_observations ? { evidence_observations: read.evidence_observations } : {}),
+      ...(read.evidence_observations
+        ? {
+            evidence_observations: read.evidence_observations.map((observation) => ({
+              ...observation,
+              agent_session_id: null,
+            })),
+          }
+        : {}),
       notes: read.notes,
       observations: read.observations,
       cursor: read.cursor,

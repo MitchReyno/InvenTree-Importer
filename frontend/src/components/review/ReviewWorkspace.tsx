@@ -72,6 +72,8 @@ interface Props {
   reviewLots: (ids: string[]) => void
   /** Answers a lot's open question in place; absent without a Processing client. */
   answerQuestion?: (questionId: string, input: ProcessingAnswerDto, key: string) => Promise<void>
+  /** Why answering a Processing question waits for this visit's own Processing read. */
+  answerWaitReason?: string
   /** Replaces the shared selection; the Table may select more than the Workspace cap. */
   setSelection: (ids: string[]) => void
   prepare: () => void
@@ -188,6 +190,7 @@ export function ReviewWorkspace({
   review,
   reviewLots,
   answerQuestion,
+  answerWaitReason,
   setSelection,
   prepare,
   onDirtyChange,
@@ -220,7 +223,9 @@ export function ReviewWorkspace({
   const autoShown = useRef(false)
   const skipEvidenceFocus = useRef(false)
   useEffect(() => {
+    // Restored data shown before Capture lands never changes the URL; the live workspace does.
     if (
+      displayOnly ||
       autoShown.current ||
       listChosen() ||
       route.view !== 'evidence' ||
@@ -323,7 +328,7 @@ export function ReviewWorkspace({
       },
       viewEvidence: () => evidenceRef.current?.focus(),
     },
-    route.view === 'evidence',
+    route.view === 'evidence' && !displayOnly,
   )
 
   const lot = batch.lots.find((value) => value.id === focused)
@@ -567,6 +572,7 @@ export function ReviewWorkspace({
                 markReviewed={() => reviewLots([lot.id])}
                 openQuestion={openQuestions.get(lot.id) ?? null}
                 answerQuestion={answerQuestion}
+                answerWaitReason={answerWaitReason}
                 agent={agentLines.get(lot.id) ?? null}
                 editPart={openEditor}
                 subjectsDisabled={busy || batch.archived || drafts.dirty}

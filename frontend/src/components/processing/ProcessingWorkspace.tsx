@@ -198,7 +198,12 @@ export function ProcessingWorkspace({
     restored: restoredSnapshot,
   })
   const snapshotQuery = fresh.query
-  useSnapshotWriter('processing', batch.id, fresh.verified ? snapshotQuery.data : undefined)
+  useSnapshotWriter(
+    'processing',
+    batch.id,
+    fresh.verified ? snapshotQuery.data : undefined,
+    fresh.verifiedRead,
+  )
   const snapshot = fresh.data
   // The Agents page's own reads, so both share one cache entry.
   const agentSessions = useQuery({
@@ -226,16 +231,13 @@ export function ProcessingWorkspace({
   const sessionLimit = liveRead(agentSettings) ? agentSettings.data?.session_concurrency : undefined
   // The batch's own read says whether it is paused; a change shows once it is read again. Pause
   // and Resume send no revision, so they wait for a read started after the last live hint.
-  const pauseReason = displayOnly
-    ? 'Updating…'
-    : fresh.settledAfterHint
-      ? undefined
-      : (fresh.reason ?? 'Updating…')
+  const revisionlessReady = !displayOnly && fresh.settledAfterHint
+  const revisionlessReason = revisionlessReady ? undefined : (fresh.reason ?? 'Updating…')
   const pause =
     agents?.pause && snapshot
       ? {
           paused: snapshot.paused === true,
-          unavailableReason: pauseReason,
+          unavailableReason: revisionlessReason,
           change: async (paused: boolean) => {
             if (displayOnly || !fresh.settledAfterHintNow()) {
               throw new Error('processing_fresh_read_required')
@@ -814,6 +816,7 @@ export function ProcessingWorkspace({
                         edit={fenced ? undefined : edit}
                         locked={answerDirty || drafts.isDirty('instructions')}
                         askSharper={askSharper}
+                        askSharperReason={revisionlessReason}
                         requestStore={sharperRequests}
                         onDirtyChange={drafts.forSource('correction')}
                       />

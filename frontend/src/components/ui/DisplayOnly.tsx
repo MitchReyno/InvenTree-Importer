@@ -7,9 +7,12 @@ import { VisuallyHidden } from './VisuallyHidden'
  */
 export function DisplayOnly({ children }: { children: ReactNode }) {
   return (
-    <div inert aria-busy="true" data-display-only="true">
+    <>
+      {/* Outside the inert subtree, so assistive technology can reach it. */}
       <VisuallyHidden role="status">Showing saved data while it updates</VisuallyHidden>
-      {children}
-    </div>
+      <div inert aria-busy="true" data-display-only="true">
+        {children}
+      </div>
+    </>
   )
 }
