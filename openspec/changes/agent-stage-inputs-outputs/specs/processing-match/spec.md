@@ -94,10 +94,20 @@ The operator's decision SHALL set the lot's target and its stages' modes: new Pa
 
 ### Requirement: Validation before approval
 
-Before approval preparation, Match SHALL search again with each lot's final identifiers and import references. A Part created since the decision, stock that now exists with the same barcode and batch, or a final identity that no longer fits the decision SHALL be a blocking item until the operator decides again. A preparation SHALL record the validation it was built from, and approval SHALL refuse a preparation whose validation is older than the lot's latest requested search.
+Before approval preparation, Match SHALL search again with each lot's final identifiers and import references. A Part created since the decision, stock that now exists with the same barcode and batch, or a final identity that no longer fits the decision SHALL be a blocking item until the operator decides again.
 
 #### Scenario: Part created meanwhile
 
 - **GIVEN** a lot decided as a new Part 1N4148W-7-F
 - **WHEN** a Part with that MPN is added to InvenTree before approval
 - **THEN** the Ready view shows a blocking item for the lot, and approval waits until the operator decides again.
+
+### Requirement: Approval checks the latest search
+
+A preparation SHALL record each lot's validation search generation. Approval SHALL refuse it when a newer search for a lot has been requested, settled or not, or when the validation read failed.
+
+#### Scenario: Check again before approval
+
+- **GIVEN** a prepared batch whose lot passed validation
+- **WHEN** the operator asks Match to check that lot again and approves before the search settles
+- **THEN** approval is refused until a new validation passes.

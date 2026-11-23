@@ -20,6 +20,12 @@ Preparation SHALL include a confirmed Part image as the image of the created Par
 - **WHEN** preparation runs
 - **THEN** the plan adds the datasheet to MCU-0012 and stock for the lot, and changes no other field of MCU-0012.
 
+#### Scenario: Image added after preparation
+
+- **GIVEN** a prepared plan that sets RES-0144's image because it had none
+- **WHEN** someone adds an image to RES-0144 before the effect runs
+- **THEN** the executor re-reads the Part just before the upload, refuses the effect as a conflict and records it, and doesn't replace the image.
+
 #### Scenario: Add stock to a Part without an image
 
 - **GIVEN** a lot decided as add stock to RES-0144, which has no image, with a confirmed Part image and stock image

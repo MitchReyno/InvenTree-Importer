@@ -32,6 +32,8 @@ Mitch's decisions, 2026-11-23:
 - a lot waiting on its match question doesn't start Research or Images;
 - "add stock" takes a stock photo, and a Part photo only when the Part has none;
 - Research's identify round updates the lot's key details;
+- the gaps fill and the existing-Part image re-read the field just before writing and refuse if it's filled; the narrow overwrite window left is accepted and documented, and the effects stay enabled;
+- the cutover drains `/3` work before switching, with an upgrade action for an earlier-profile Examine lead;
 - Research and Images sessions each serve several lots, with separate caps: "Lots per Research session" and "Lots per Images session", 1–20, defaulting to 5 and 8.
 
 The visible parts are on the canvas page "Agent stages" (v81; design log D44–D46). The brief on the session page is D43, carried over from the abandoned `lot-session-handoff` (#244).

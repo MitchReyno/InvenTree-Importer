@@ -12,7 +12,7 @@ A `native-agent/2` session SHALL reach the application only through an app-owned
 - fetch_evidence
 - read_inbox
 
-A session of `shared-vm-agent/4` or `synthetic-session/1` SHALL additionally offer its stage's tools from "Stage tool sets", and no others.
+A session whose input is `bench-intake-input/7` (`shared-vm-agent/4` or `synthetic-session/1`) SHALL additionally offer its stage's tools from "Stage tool sets", and no others.
 
 The session SHALL have no shell, filesystem, web, arbitrary code execution, collaboration, image generation, arbitrary MCP, inventory-write or approval tools. Codex MAY expose only the previously accepted inert exceptions list_mcp_resources, list_mcp_resource_templates, read_mcp_resource and request_user_input: the intake server SHALL expose no resources and server-initiated requests SHALL be refused. User skill catalogues and deferred callable tools outside this boundary MUST NOT be available.
 
@@ -32,7 +32,7 @@ The session SHALL have no shell, filesystem, web, arbitrary code execution, coll
 
 ### Requirement: Stage tool sets
 
-For `shared-vm-agent/4` and `synthetic-session/1`, the intake tool server SHALL add these tools to the common set:
+For sessions whose input is `/7`, the intake tool server SHALL add these tools to the common set:
 
 - Examine: read_batch with full readings, inspect_region, match_logo and read_guide.
 - Research: read_lot, read_vocabulary, match_logo and read_guide.
@@ -48,7 +48,7 @@ This requirement does not change the guest built-in and web tools a shared VM pr
 
 ### Requirement: Sessions start from a sealed brief
 
-A session of `shared-vm-agent/4` or `synthetic-session/1` SHALL start from a brief sealed into its input: the batch and its instructions, the human-provided facts marked as human, the questions already asked about its subject, the evidence it may fetch with the regions earlier stages used, the lot's match state, and its stage's additions (see the stage contract in the design). The opening SHALL render it within its budget and say when `read_lot` or `read_batch` holds the rest.
+A session whose input is `/7` SHALL start from a brief sealed into its input: the batch and its instructions, the human-provided facts marked as human, the questions already asked about its subject, the evidence it may fetch with the regions earlier stages used, the lot's match state, and its stage's additions (see the stage contract in the design). The opening SHALL render it within its budget and say when `read_lot` or `read_batch` holds the rest.
 
 #### Scenario: Research starts with Examine's findings
 
@@ -58,7 +58,7 @@ A session of `shared-vm-agent/4` or `synthetic-session/1` SHALL start from a bri
 
 ### Requirement: Research and Images sessions serve lot groups
 
-For `/7` work, a Research or Images session SHALL serve a lot group: 1 to N lot jobs of its stage and mode in one batch, taken at claim, oldest first, from queued lots that Match allows and that are neither superseded nor stale. N SHALL be the attempt's sealed cap for its stage. A lot that becomes ready after the claim SHALL go to a new session. Each lot SHALL keep its own job, and the session SHALL hold one concurrency slot.
+For `/7` work, a Research or Images session SHALL serve a lot group: 1 to N lot jobs of its stage, all in the same mode at claim, in one batch, taken at claim, oldest first, from queued lots that Match allows and that are neither superseded nor stale. N SHALL be the attempt's sealed cap for its stage. A lot that becomes ready after the claim SHALL go to a new session. Each lot SHALL keep its own job, and the session SHALL hold one concurrency slot.
 
 #### Scenario: Three lots in one session
 
@@ -78,13 +78,17 @@ Settings › Agents › Sessions SHALL hold "Lots per Research session" and "Lot
 
 ### Requirement: Per-lot handling inside a group
 
-Each lot section of the brief SHALL hold the lot's identity, observations, human facts, asked questions, evidence and match state and mode. `read_lot` SHALL return only lots in the group. A lot waiting on Match SHALL not stop the session's other lots. A lot whose identity changes after the claim SHALL be released and requeued, with the session told. A failed session's incomplete lots SHALL be requeued one by one, and Start fresh on a lot SHALL move it to a new session.
+Each lot section of the brief SHALL hold the lot's identity, observations, human facts, asked questions, evidence and match state and mode. `read_lot` SHALL return only lots in the group. A lot waiting on Match SHALL not stop the session's other lots.
 
 #### Scenario: One lot pauses in identify mode
 
 - **GIVEN** a Research session identifying two lots
 - **WHEN** one lot's amendment opens a match question
 - **THEN** the session keeps working on the other lot, and resumes the first when its mode arrives.
+
+### Requirement: Lots leave a group individually
+
+A lot whose identity is changed after the claim by anyone but the group's own session SHALL be released and requeued, with the session told. A failed session's incomplete lots SHALL be requeued one by one, and Start fresh on a lot SHALL move it to a new session.
 
 #### Scenario: Session fails
 
@@ -94,7 +98,7 @@ Each lot section of the brief SHALL hold the lot's identity, observations, human
 
 ### Requirement: Typed stage outputs
 
-For `shared-vm-agent/4` and `synthetic-session/1`, each agent stage SHALL publish only its own output kind: `examine-identity/1` for Examine, `research-identity/1` and `research/1` (each with match notes) for Research, and `images/1` for Images. Earlier profiles keep publishing their existing proposal versions. Each proposal SHALL name a lot of the session's group. The server SHALL refuse a proposal of another kind, for another lot, or carrying fields the stage or its mode may not propose.
+For `/7` sessions, each agent stage SHALL publish only its own output kind: `examine-identity/1` for Examine, `research-identity/1` and `research/1` (each with match notes) for Research, and `images/1` for Images. Earlier profiles keep publishing their existing proposal versions. Each proposal SHALL name a lot of the session's group. The server SHALL refuse a proposal of another kind, for another lot, or carrying fields the stage or its mode may not propose.
 
 #### Scenario: Images can't research
 

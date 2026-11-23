@@ -14,7 +14,7 @@ A batch SHALL follow its Examine lead's sealed input version at every queueing e
 
 #### Scenario: No Inventory session
 
-- **GIVEN** a lot whose Research and Images outputs are current under `shared-vm-agent/4` or `synthetic-session/1`
+- **GIVEN** a lot whose Research and Images outputs are current in a batch whose lead input is `/7`
 - **WHEN** processing continues
 - **THEN** no Inventory session is queued, and the lot's target comes from its Match decision.
 
@@ -22,7 +22,7 @@ A batch SHALL follow its Examine lead's sealed input version at every queueing e
 
 Research and Images for a lot SHALL each start as soon as that lot's identity is stable: Examine has published a current identity proposal for it, and the lot's observations have not changed since. They SHALL NOT wait for each other, for other lots, or for Examine to finish.
 
-For `shared-vm-agent/4` and `synthetic-session/1`, they SHALL also start only when Match allows them: Match has either found no match or recorded the operator's decision. A lot without a strong search key SHALL start Research in identify mode while Images waits.
+For `/7` work, they SHALL also start only when Match allows them: Match has either found no match or recorded the operator's decision. A lot without a strong search key SHALL start Research in identify mode while Images waits.
 
 #### Scenario: Parallel start
 
@@ -62,7 +62,7 @@ Each proposal SHALL record the observations, evidence versions, notes and answer
 
 ### Requirement: Identify first when nothing can be searched
 
-Under `shared-vm-agent/4` and `synthetic-session/1`, a lot whose identity has no strong search key SHALL start Research in identify mode. Research SHALL resolve the canonical MPN, the manufacturer and every alias it can source (house numbers, packaging codes, cross-references, alternate markings), publish them as a `research-identity/1` amendment, and pause until Match has searched with them.
+For `/7` work, a lot whose identity has no strong search key SHALL start Research in identify mode. Research SHALL resolve the canonical MPN, the manufacturer and every alias it can source (house numbers, packaging codes, cross-references, alternate markings), publish them as a `research-identity/1` amendment, and pause until Match has searched with them.
 
 #### Scenario: House-numbered reel
 
@@ -72,7 +72,7 @@ Under `shared-vm-agent/4` and `synthetic-session/1`, a lot whose identity has no
 
 ### Requirement: Identity amendments update the lot
 
-Under `shared-vm-agent/4` and `synthetic-session/1`, a lot SHALL have one current identity: Examine's base merged with Research's amendments, each field recording its stage, proposal and source. An amendment MAY add identifiers and aliases and refine fields, which update an agent-made, unedited lot's proposed label and draft Part. It SHALL NOT silently replace Examine's identity with a different part, and SHALL NOT change an operator's value. Successors SHALL pin the merged identity's revision.
+For `/7` work, a lot SHALL have one current identity: Examine's base merged with Research's amendments, each field recording its stage, proposal and source. An amendment MAY add identifiers and aliases and refine fields, which update an agent-made, unedited lot's proposed label and draft Part. It SHALL NOT silently replace Examine's identity with a different part, and SHALL NOT change an operator's value. Successors SHALL pin the merged identity's revision.
 
 #### Scenario: Refined identifiers
 
@@ -88,7 +88,7 @@ Under `shared-vm-agent/4` and `synthetic-session/1`, a lot SHALL have one curren
 
 ### Requirement: Revisions carry the change
 
-A revision delivered to a session of `shared-vm-agent/4` or `synthetic-session/1` SHALL name each change with its previous and new value (a field, a reading, a proposal, or a match decision), who made it (the operator, a session or Match), and the new brief revision.
+A revision delivered to a `/7` session SHALL name each change with its previous and new value (a field, a reading, a proposal, or a match decision), who made it (the operator, a session or Match), and the new brief revision.
 
 #### Scenario: Reading corrected by the operator
 
