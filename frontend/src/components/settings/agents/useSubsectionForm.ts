@@ -7,12 +7,14 @@ import {
   type PathValue,
 } from 'react-hook-form'
 import type {
+  AgentProviderId,
   AgentSettingsDto,
   AgentSettingsStage,
   AgentSettingsUpdateDto,
 } from '@invimport/contracts'
 import type { SaveResult } from './save-queue'
 import {
+  fieldValue,
   sameField,
   withFields,
   withUsableProviders,
@@ -35,8 +37,19 @@ export const AUTOSAVE_DELAY_MS = 600
 /** Pauses before resending a save that got no answer; after the last, Try again is offered. */
 const RESEND_DELAYS_MS = [1000, 2000, 4000]
 
-/** A save whose outcome is unknown or contested, kept so Try again can send it again. */
-type Unresolved = { request: AgentSettingsUpdateDto; keys: FieldKey[] }
+/** A save as sent: its request and the fields it carries for this form. */
+type SentSave = { request: AgentSettingsUpdateDto; keys: FieldKey[] }
+
+/**
+ * What Try again resolves: a save whose outcome is unknown or contested, resent as it was; a
+ * confirmed save whose settings are still unread; or a save that failed before it was sent.
+ */
+type Unresolved = { kind: 'send'; save: SentSave } | { kind: 'read' } | { kind: 'rebuild' }
+
+/** Which of the form's fields an action covers; all of them by default. */
+type KeyScope = (key: FieldKey) => boolean
+
+const EVERY_KEY: KeyScope = () => true
 
 function fieldsOf(settings: AgentSettingsDto): SettingsFields {
   const { revision: _revision, ...fields } = settings
@@ -74,6 +87,7 @@ export function useSubsectionForm<V extends FieldValues>({
   write,
   keys,
   onStepsReset,
+  onLastProviderKept,
 }: SubsectionFormProps & {
   id: string
   /** The form's values from saved settings; a module-level function, so it stays stable. */
@@ -84,6 +98,8 @@ export function useSubsectionForm<V extends FieldValues>({
   keys: readonly FieldKey[]
   /** Steps a save reset to Default because their provider is off. */
   onStepsReset?: (steps: readonly AgentSettingsStage[]) => void
+  /** Providers kept on at dispatch, because turning them off would leave none on. */
+  onLastProviderKept?: (providers: AgentProviderId[]) => void
 }) {
   const auto = useSettingsSave(page)
   const text = useSettingsSave(page)
@@ -203,7 +219,7 @@ export function useSubsectionForm<V extends FieldValues>({
       if (!auto.unsettledNow()) {
         auto.setState('pending')
       }
-      page.queue.schedule(owners.auto, () => buildAndSend('auto'), now ? 0 : AUTOSAVE_DELAY_MS)
+      page.queue.schedule(owners.auto, () => guarded('auto'), now ? 0 : AUTOSAVE_DELAY_MS)
     } else {
       if (text.now() === 'saved') {
         text.setState('idle')
@@ -225,8 +241,25 @@ export function useSubsectionForm<V extends FieldValues>({
     report()
   }
 
+  /**
+   * Runs a save job, turning an unexpected failure into a failed save Try again can rebuild,
+   * so the queue is never left held with nothing to release it.
+   */
+  async function guarded(mode: SaveMode, scope: KeyScope = EVERY_KEY): Promise<SaveResult> {
+    try {
+      return await buildAndSend(mode, scope)
+    } catch {
+      if (!unresolved.current[mode]) {
+        unresolved.current[mode] = { kind: 'rebuild' }
+      }
+      channels[mode].setState('failed')
+      report()
+      return 'hold'
+    }
+  }
+
   /** Builds this form's save for `mode` from the newest confirmed settings, and sends it. */
-  async function buildAndSend(mode: SaveMode): Promise<SaveResult> {
+  async function buildAndSend(mode: SaveMode, scope: KeyScope = EVERY_KEY): Promise<SaveResult> {
     const channel = channels[mode]
     if (!channel.mounted.current) {
       return 'done'
@@ -235,13 +268,21 @@ export function useSubsectionForm<V extends FieldValues>({
     const start = baseRef.current ?? newest
     const draft = draftOver(start)
     const confirmed = fieldsOf(newest)
-    const changed = touchedIn(mode).filter((key) => !sameField(draft, confirmed, key))
+    const owned = touchedIn(mode).filter(scope)
+    const changed = owned.filter((key) => !sameField(draft, confirmed, key))
     // Fields already as confirmed have nothing to send.
-    for (const key of touchedIn(mode)) {
+    for (const key of owned) {
       if (!changed.includes(key)) {
         touched.current.delete(key)
       }
     }
+    // Interim, until the model picker: a step's new provider autosaves with its saved default
+    // model, while a model typed for it waits for Save.
+    const stepProviders =
+      mode === 'auto'
+        ? touchedIn('text').filter((key) => providerChanged(draft, confirmed, key))
+        : []
+    changed.push(...stepProviders)
     if (changed.length === 0) {
       channel.setState(mode === 'auto' && savedOnce.current ? 'saved' : 'idle')
       tidy(newest)
@@ -255,7 +296,8 @@ export function useSubsectionForm<V extends FieldValues>({
       report()
       return 'hold'
     }
-    const sent = validatedAtDispatch(withFields(confirmed, draft, changed), changed)
+    const composed = withStepProviderDefaults(withFields(confirmed, draft, changed), stepProviders)
+    const sent = validatedAtDispatch(composed, confirmed, changed)
     if (sent.keys.every((key) => sameField(sent.settings, confirmed, key))) {
       // Validation left nothing to change.
       for (const key of sent.keys) {
@@ -273,11 +315,41 @@ export function useSubsectionForm<V extends FieldValues>({
     return deliver(mode, { request, keys: sent.keys })
   }
 
+  /** A step whose provider differs from the confirmed one; its model is another matter. */
+  function providerChanged(draft: SettingsFields, confirmed: SettingsFields, key: FieldKey) {
+    if (!key.startsWith('stage_selections.')) {
+      return false
+    }
+    const stage = key.slice('stage_selections.'.length) as AgentSettingsStage
+    return draft.stage_selections[stage]?.provider !== confirmed.stage_selections[stage]?.provider
+  }
+
+  /** Each listed step on its provider's saved default model, never a typed model draft. */
+  function withStepProviderDefaults(settings: SettingsFields, steps: FieldKey[]) {
+    const next = structuredClone(settings)
+    for (const key of steps) {
+      const stage = key.slice('stage_selections.'.length) as AgentSettingsStage
+      const choice = next.stage_selections[stage]
+      if (choice) {
+        next.stage_selections[stage] = {
+          provider: choice.provider,
+          model: settings.providers[choice.provider].default_model,
+        }
+      }
+    }
+    return next
+  }
+
   /**
    * A queued step choice for a provider that is now off is dropped: the step goes back to
    * Default, with the reset note, and the save carries the reset instead.
    */
-  function validatedAtDispatch(settings: SettingsFields, changed: FieldKey[]) {
+  function validatedAtDispatch(
+    composed: SettingsFields,
+    confirmed: SettingsFields,
+    changed: FieldKey[],
+  ) {
+    const settings = withLastProviderKept(composed, confirmed, changed)
     const usable = withUsableProviders(settings)
     const adjusted = keys.filter((key) => !sameField(usable.settings, settings, key))
     if (adjusted.length > 0) {
@@ -296,8 +368,43 @@ export function useSubsectionForm<V extends FieldValues>({
     return { settings: usable.settings, keys: sentKeys }
   }
 
+  /**
+   * At least one provider stays on, checked again at dispatch: turning one off while another tab
+   * turned the other off keeps it on, with the steps and default it had, and says so.
+   */
+  function withLastProviderKept(
+    settings: SettingsFields,
+    confirmed: SettingsFields,
+    changed: FieldKey[],
+  ) {
+    const turnedOff = changed.filter(
+      (key) => key.endsWith('.enabled') && fieldValue(settings, key) === false,
+    )
+    const noneOn = !settings.providers.claude.enabled && !settings.providers.codex.enabled
+    if (!noneOn || turnedOff.length === 0) {
+      return settings
+    }
+    const providerChoices = changed.filter(
+      (key) =>
+        key.endsWith('.enabled') ||
+        key === 'default_provider' ||
+        key.startsWith('stage_selections.'),
+    )
+    for (const key of providerChoices) {
+      touched.current.delete(key)
+      changed.splice(changed.indexOf(key), 1)
+    }
+    const kept = withFields(settings, confirmed, providerChoices)
+    const draft = draftOver(baseRef.current ?? loaded)
+    const shownNow = withFields(draft, kept, providerChoices)
+    showValues(read({ ...shownNow, revision: (baseRef.current ?? loaded).revision }))
+    shown.current = shownNow
+    onLastProviderKept?.(turnedOff.map((key) => key.split('.')[1] as AgentProviderId))
+    return kept
+  }
+
   /** Sends a save and records what is now known of it; `attempt` counts automatic resends. */
-  async function deliver(mode: SaveMode, save: Unresolved, attempt = 0): Promise<SaveResult> {
+  async function deliver(mode: SaveMode, save: SentSave, attempt = 0): Promise<SaveResult> {
     const channel = channels[mode]
     const outcome = await channel.send(save.request)
     if (!channel.mounted.current) {
@@ -306,33 +413,61 @@ export function useSubsectionForm<V extends FieldValues>({
     switch (outcome.kind) {
       case 'confirmed': {
         unresolved.current[mode] = undefined
-        // Only the draft actually sent is acknowledged; a later edit saves again.
-        const draft = draftOver(baseRef.current ?? outcome.settings)
-        for (const key of save.keys) {
-          if (sameField(draft, save.request, key)) {
-            touched.current.delete(key)
-          }
-        }
-        if (mode === 'auto') {
-          savedOnce.current = true
-        }
+        acknowledge(mode, save, outcome.settings)
         tidy(outcome.settings)
         return 'done'
       }
+      case 'confirmedUnread':
+        // Confirmed by its receipt; only the settings it left are still to be read.
+        acknowledge(mode, save, baseRef.current ?? loaded)
+        unresolved.current[mode] = { kind: 'read' }
+        scheduleResend(mode, attempt)
+        report()
+        return 'hold'
       case 'invalid':
         unresolved.current[mode] = undefined
         report()
         return 'done'
       case 'conflict':
       case 'unresolved':
-        unresolved.current[mode] = save
+        unresolved.current[mode] = { kind: 'send', save }
         report()
         return 'hold'
       case 'unknown':
-        unresolved.current[mode] = save
+        unresolved.current[mode] = { kind: 'send', save }
         scheduleResend(mode, attempt)
         report()
         return 'hold'
+    }
+  }
+
+  /** Only the draft actually sent is acknowledged; a later edit saves again. */
+  function acknowledge(mode: SaveMode, save: SentSave, settings: AgentSettingsDto) {
+    const draft = draftOver(baseRef.current ?? settings)
+    for (const key of save.keys) {
+      if (sameField(draft, save.request, key)) {
+        touched.current.delete(key)
+      }
+    }
+    if (mode === 'auto') {
+      savedOnce.current = true
+    }
+  }
+
+  /** Reads the settings a confirmed save left, after its own read failed. */
+  async function readAfterConfirmed(mode: SaveMode, attempt: number): Promise<SaveResult> {
+    const channel = channels[mode]
+    try {
+      const settings = page.adopt(await page.client.settings(), 'reload')
+      unresolved.current[mode] = undefined
+      channel.setState('saved')
+      tidy(settings)
+      return 'done'
+    } catch {
+      channel.setState('failed')
+      scheduleResend(mode, attempt)
+      report()
+      return 'hold'
     }
   }
 
@@ -345,15 +480,30 @@ export function useSubsectionForm<V extends FieldValues>({
     resendTimer.current = setTimeout(() => resend(mode, attempt + 1), delay)
   }
 
-  /** Sends the unresolved save again, with the same ID, ahead of anything held behind it. */
+  /**
+   * Resolves an unknown outcome ahead of anything held behind it: the same save with the same ID,
+   * the read a confirmed save still needs, or a save rebuilt after it failed before sending.
+   */
   function resend(mode: SaveMode, attempt: number) {
-    const save = unresolved.current[mode]
-    if (!save) {
+    const pending = unresolved.current[mode]
+    if (!pending) {
       return
     }
-    void page.queue.run(owners[mode], () => resolving(mode, deliver(mode, save, attempt)), {
+    void page.queue.run(owners[mode], () => resolving(mode, resolve(mode, pending, attempt)), {
       resolving: true,
     })
+  }
+
+  function resolve(mode: SaveMode, pending: Unresolved, attempt: number) {
+    switch (pending.kind) {
+      case 'send':
+        return deliver(mode, pending.save, attempt)
+      case 'read':
+        return readAfterConfirmed(mode, attempt)
+      case 'rebuild':
+        unresolved.current[mode] = undefined
+        return guarded(mode)
+    }
   }
 
   /** Releases the queue once a resolving save's outcome is known. */
@@ -386,7 +536,7 @@ export function useSubsectionForm<V extends FieldValues>({
             }
             unresolved.current[mode] = undefined
             rebase(current)
-            return buildAndSend(mode)
+            return guarded(mode)
           })(),
         ),
       { resolving: true },
@@ -404,7 +554,10 @@ export function useSubsectionForm<V extends FieldValues>({
       report()
       return
     }
-    for (const key of touchedIn(mode)) {
+    // A text Save's Reload drops only the fields that save sent.
+    const pending = unresolved.current[mode]
+    const sent = pending?.kind === 'send' ? pending.save.keys : touchedIn(mode)
+    for (const key of mode === 'auto' ? touchedIn('auto') : sent) {
       touched.current.delete(key)
     }
     unresolved.current[mode] = undefined
@@ -419,8 +572,11 @@ export function useSubsectionForm<V extends FieldValues>({
     }
   }
 
-  /** Save: sends the form's text edits, after the fields' own validation and `check`. */
-  function saveText(check?: (values: V) => boolean) {
+  /**
+   * Save: sends the form's text edits within `scope`, after the fields' own validation and
+   * `check`.
+   */
+  function saveText(check?: (values: V) => boolean, scope: KeyScope = EVERY_KEY) {
     if (pendingText.current || text.busy || queue.running || queue.held) {
       return
     }
@@ -430,19 +586,22 @@ export function useSubsectionForm<V extends FieldValues>({
         if (check && !check(current)) {
           return
         }
-        await page.queue.run(owners.text, () => buildAndSend('text'))
+        await page.queue.run(owners.text, () => guarded('text', scope))
       })()
       .finally(() => {
         pendingText.current = false
       })
   }
 
-  /** Drops the text edit for the loaded settings; what the server saved is left as it is. */
-  function discardText() {
+  /**
+   * Drops the text edits within `scope` for the loaded settings; what the server saved is left as
+   * it is.
+   */
+  function discardText(scope: KeyScope = EVERY_KEY) {
     if (text.busy) {
       return
     }
-    for (const key of touchedIn('text')) {
+    for (const key of touchedIn('text').filter(scope)) {
       touched.current.delete(key)
     }
     unresolved.current.text = undefined

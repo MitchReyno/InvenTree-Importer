@@ -59,7 +59,7 @@ export function DescriptionStyleRow(props: SubsectionFormProps) {
             onSave={() => text.save()}
             onRetry={text.retry}
             onReload={text.reload}
-            onDiscard={text.discard}
+            onDiscard={() => text.discard()}
             dirty={text.dirty}
           />
         </Stack>

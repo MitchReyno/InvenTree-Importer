@@ -219,19 +219,24 @@ async function priorReceipt(
 }
 
 /**
- * The highest revision whose receipt may have been pruned. A save with no receipt sent over an
- * older revision may have applied and lost its receipt, so its outcome can't be told.
+ * The scope's revision and the highest revision whose receipt may have been pruned. A save with
+ * no receipt sent over an older revision may have applied and lost its receipt, so its outcome
+ * can't be told.
  */
-async function receiptsPrunedThrough(client: PoolClient, binding: CaptureBinding) {
+async function receiptState(client: PoolClient, binding: CaptureBinding) {
   const rows = await executeDatabaseQuery(
     queryDatabase(client)
-      .select({ through: agentSettings.receiptsPrunedThrough })
+      .select({ revision: agentSettings.revision, through: agentSettings.receiptsPrunedThrough })
       .from(agentSettings)
       .where(settingsScope(binding)),
   )
-  return rows[0]?.through ?? 0n
+  return { revision: rows[0]?.revision ?? 0n, prunedThrough: rows[0]?.through ?? 0n }
 }
 
+/**
+ * Writes the save's receipt. The ID is unique across scopes, whose locks differ, so a reuse that
+ * races a save in another scope is refused here and the whole save rolls back.
+ */
 async function writeReceipt(
   client: PoolClient,
   binding: CaptureBinding,
@@ -239,7 +244,7 @@ async function writeReceipt(
   digest: Buffer,
 ) {
   const baseRevision = BigInt(input.expected_revision)
-  await executeDatabaseQuery(
+  const written = await executeDatabaseQuery(
     queryDatabase(client)
       .insert(agentSettingsSaveReceipts)
       .values({
@@ -250,8 +255,13 @@ async function writeReceipt(
         payloadSha256: digest,
         baseRevision,
         revision: baseRevision + 1n,
-      }),
+      })
+      .onConflictDoNothing()
+      .returning({ saveId: agentSettingsSaveReceipts.saveId }),
   )
+  if (!written.length) {
+    fail('save_receipt_mismatch', 409)
+  }
 }
 
 /** Drops receipts beyond the newest kept or past their age, advancing the scope's watermark. */
@@ -295,11 +305,13 @@ export async function saveAgentSettings(
   const digest = submittedDigest(input)
   return transaction(pool, async (client) => {
     await lockSettingsScope(client, binding)
+    // Receipts past their age are pruned first, so an idle scope never answers from one.
+    await pruneReceipts(client, binding, (await receiptState(client, binding)).revision)
     const replay = await priorReceipt(client, binding, input, digest)
     if (replay) {
       return replay
     }
-    if (BigInt(input.expected_revision) < (await receiptsPrunedThrough(client, binding))) {
+    if (BigInt(input.expected_revision) < (await receiptState(client, binding)).prunedThrough) {
       fail('save_outcome_unknown', 409)
     }
     await writeSettings(client, binding, input)

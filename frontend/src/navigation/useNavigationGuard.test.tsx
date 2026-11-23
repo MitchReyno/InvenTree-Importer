@@ -11,6 +11,7 @@ function Page() {
   return (
     <>
       <a href="#batches">Batches</a>
+      <a href="#capture">Capture</a>
       <output>{guard.route}</output>
       {guard.navigationBlocked && <p role="alert">Blocked</p>}
     </>
@@ -96,4 +97,34 @@ test('reload and close keep the leave prompt while anything is unsaved', () => {
   const clean = new Event('beforeunload', { cancelable: true })
   dispatchEvent(clean)
   expect(clean.defaultPrevented).toBe(false)
+})
+
+test('two links while the save runs lead once, to the last one chosen', async () => {
+  render(<Page />)
+  const visited: string[] = []
+
+  const record = () => visited.push(location.hash)
+
+  addEventListener('hashchange', record)
+
+  let finish: () => void = () => {}
+
+  const beforeLeave = vi.fn(
+    () =>
+      new Promise<boolean>((resolve) => {
+        finish = () => {
+          act(() => guard.onDirtyChange(false))
+          resolve(true)
+        }
+      }),
+  )
+  act(() => guard.onDirtyChange(true, beforeLeave))
+  fireEvent.click(screen.getByRole('link', { name: 'Batches' }))
+  fireEvent.click(screen.getByRole('link', { name: 'Capture' }))
+  expect(beforeLeave).toHaveBeenCalledOnce()
+  finish()
+  await settle()
+  expect(location.hash).toBe('#capture')
+  expect(visited).toEqual(['#capture'])
+  removeEventListener('hashchange', record)
 })

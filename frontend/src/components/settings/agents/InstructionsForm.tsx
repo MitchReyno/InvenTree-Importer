@@ -63,7 +63,7 @@ export function InstructionsForm(props: SubsectionFormProps) {
               onSave={() => text.save()}
               onRetry={text.retry}
               onReload={text.reload}
-              onDiscard={text.discard}
+              onDiscard={() => text.discard()}
               dirty={text.dirty}
             />
           </Stack>

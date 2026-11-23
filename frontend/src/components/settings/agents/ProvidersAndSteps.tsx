@@ -65,6 +65,7 @@ export function ProvidersAndSteps({
     write: providerFormUpdate,
     keys: KEYS,
     onStepsReset: (steps) => setReset((current) => [...new Set([...current, ...steps])]),
+    onLastProviderKept: (providers) => setRefused(providers[0] ?? null),
   })
   const values = form.watch()
 
@@ -105,7 +106,10 @@ export function ProvidersAndSteps({
   /** The model fields' Save beside the fields it sends, shown while they hold an edit. */
   function modelBar(place: 'providers' | 'models') {
     const prefix = place === 'providers' ? 'providers.' : 'stage_selections.'
-    const edited = textKeys.some((key) => key.startsWith(prefix))
+
+    const scope = (key: FieldKey) => key.startsWith(prefix)
+
+    const edited = textKeys.some(scope)
     const outcome = !text.dirty && text.state !== 'idle' && savedFrom === place
     if (!edited && !outcome) {
       return null
@@ -119,11 +123,11 @@ export function ProvidersAndSteps({
         savedMessage="Saved. Sessions queued from now on use it; queued and running ones keep theirs."
         onSave={() => {
           setSavedFrom(place)
-          text.save()
+          text.save(undefined, scope)
         }}
         onRetry={text.retry}
         onReload={text.reload}
-        onDiscard={text.discard}
+        onDiscard={() => text.discard(scope)}
       />
     )
   }

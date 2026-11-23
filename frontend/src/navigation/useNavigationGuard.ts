@@ -37,6 +37,8 @@ export function useNavigationGuard() {
   const protectedUrl = useRef<string | null>(null)
   // Saves what can be saved before leaving, answering whether nothing is left unsaved.
   const beforeLeave = useRef<(() => Promise<boolean>) | undefined>(undefined)
+  // The navigation waiting for that save, if any.
+  const leaving = useRef<(() => void) | undefined>(undefined)
   const onDirtyChange = useCallback(
     (value: boolean, saveBeforeLeaving?: () => Promise<boolean>) => {
       if (value && !dirty.current) {
@@ -58,9 +60,17 @@ export function useNavigationGuard() {
      * The page shows the failed save with its Try again.
      */
     function saveThenLeave(save: () => Promise<boolean>, leave: () => void) {
+      // One destination at a time: a later request replaces the one waiting for the save.
+      const pending = leaving.current
+      leaving.current = leave
+      if (pending) {
+        return
+      }
       void save().then((saved) => {
+        const destination = leaving.current
+        leaving.current = undefined
         if (saved && !dirty.current) {
-          leave()
+          destination?.()
         } else {
           setNavigationBlocked(true)
         }

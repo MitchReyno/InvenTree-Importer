@@ -47,7 +47,7 @@ export function createSaveQueue() {
   /** The next job allowed to run: any while nothing is held, otherwise only a resolution. */
   function nextRunnable() {
     if (held.size === 0) {
-      return waiting.findIndex(() => true)
+      return waiting.length > 0 ? 0 : -1
     }
     return waiting.findIndex((entry) => entry.resolving && held.has(entry.owner))
   }
@@ -108,9 +108,17 @@ export function createSaveQueue() {
   return {
     run,
 
-    /** Runs `owner`'s save after `delayMs` of quiet; each call restarts the wait. */
+    /**
+     * Runs `owner`'s save after `delayMs` of quiet; each call restarts the wait, including for a
+     * save already queued behind another, which waits for the new pause.
+     */
     schedule(owner: string, job: SaveJob, delayMs: number) {
       cancelTimer(owner)
+      const queued = waiting.findIndex((entry) => entry.owner === owner && !entry.resolving)
+      if (queued >= 0) {
+        const [entry] = waiting.splice(queued, 1)
+        entry.resolve('done')
+      }
       const timer = setTimeout(() => {
         timers.delete(owner)
         void run(owner, job)

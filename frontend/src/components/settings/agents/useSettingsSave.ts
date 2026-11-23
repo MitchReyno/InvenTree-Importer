@@ -24,6 +24,8 @@ export type SaveState =
 /** What one send of a save established. */
 export type SaveOutcome =
   | { kind: 'confirmed'; settings: AgentSettingsDto }
+  /** Confirmed by its receipt, but the settings it left couldn't be read yet. */
+  | { kind: 'confirmedUnread' }
   | { kind: 'conflict' }
   | { kind: 'unknown' }
   | { kind: 'unresolved' }
@@ -58,6 +60,7 @@ const UNSETTLED: ReadonlySet<SaveState> = new Set([
 
 const STATE_AFTER: Record<SaveOutcome['kind'], SaveState> = {
   confirmed: 'saved',
+  confirmedUnread: 'failed',
   conflict: 'conflict',
   unknown: 'failed',
   unresolved: 'unresolved',
@@ -99,8 +102,8 @@ export async function sendSave(
     const current = await page.client.settings()
     return { kind: 'confirmed', settings: page.adopt(current, 'reload') }
   } catch {
-    // Confirmed, but the settings it left are unread; a resend answers with the receipt again.
-    return { kind: 'unknown' }
+    // Confirmed; only the read is retried, never the save.
+    return { kind: 'confirmedUnread' }
   }
 }
 

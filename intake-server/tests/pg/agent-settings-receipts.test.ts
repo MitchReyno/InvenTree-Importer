@@ -1,4 +1,5 @@
 import { test } from 'node:test'
+import { randomUUID } from 'node:crypto'
 import assert from 'node:assert/strict'
 import type { AgentSettingsUpdateDto } from '@invimport/contracts'
 import { agentsClient, IntakeRequestError } from '@invimport/contracts/client'
@@ -183,6 +184,81 @@ test('pruning by age drops receipts older than seven days and advances the water
     assert.equal(await prunedThrough(fixture), '1')
     await assert.rejects(save(fixture, old), { message: 'save_outcome_unknown' })
     assert.equal((await readAgentSettings(fixture.api.pool, fixture.config)).revision, '2')
+  } finally {
+    await fixture.dispose()
+  }
+})
+
+test('a receipt past its age is never replayed, even with no save since', async () => {
+  const fixture = await processingFixture()
+  try {
+    const old = update('0', 2)
+    await save(fixture, old)
+    await fixture.db.pool.query(
+      `UPDATE agent_settings_save_receipt SET saved_at = now() - interval '8 days'`,
+    )
+    await assert.rejects(save(fixture, old), { message: 'save_outcome_unknown' })
+    // The refusal rolls its pruning back; the next save that applies prunes for good.
+    assert.equal((await readAgentSettings(fixture.api.pool, fixture.config)).revision, '1')
+  } finally {
+    await fixture.dispose()
+  }
+})
+
+test('one save ID used in two scopes at once applies in one, and the other is refused unchanged', async () => {
+  const fixture = await processingFixture()
+  try {
+    const other = randomUUID()
+    await fixture.db.pool.query('INSERT INTO operator VALUES ($1,$2,$3)', [
+      other,
+      'development',
+      `fixture-${other}`,
+    ])
+    const otherScope = { ...fixture.config, actorId: other }
+    const shared = update('0', 4)
+    const outcomes = await Promise.allSettled([
+      saveAgentSettings(fixture.api.pool, fixture.config, shared),
+      saveAgentSettings(fixture.api.pool, otherScope, shared),
+    ])
+    const refused = outcomes.filter((outcome) => outcome.status === 'rejected')
+    assert.equal(refused.length, 1)
+    assert.equal((refused[0] as PromiseRejectedResult).reason.message, 'save_receipt_mismatch')
+    const revisions = [
+      (await readAgentSettings(fixture.api.pool, fixture.config)).revision,
+      (await readAgentSettings(fixture.api.pool, otherScope)).revision,
+    ].sort()
+    assert.deepEqual(revisions, ['0', '1'])
+    assert.equal((await receipts(fixture)).length, 1)
+  } finally {
+    await fixture.dispose()
+  }
+})
+
+test('a failure after the settings write rolls back the settings, provider rows and receipt', async () => {
+  const fixture = await processingFixture()
+  try {
+    await save(fixture, update('0', 2))
+    await fixture.db.pool.query(`
+      CREATE FUNCTION refuse_receipt() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN RAISE EXCEPTION 'injected_receipt_failure'; END $$;
+      CREATE TRIGGER refuse_receipt BEFORE INSERT ON agent_settings_save_receipt
+        FOR EACH ROW EXECUTE FUNCTION refuse_receipt();`)
+    await assert.rejects(
+      save(fixture, {
+        ...update('1', 6),
+        providers: {
+          ...update('1').providers,
+          codex: { enabled: true, authentication: 'api_key', default_model: 'gpt-6.1-sol' },
+        },
+      }),
+      /injected_receipt_failure/,
+    )
+    const current = await readAgentSettings(fixture.api.pool, fixture.config)
+    assert.equal(current.revision, '1')
+    assert.equal(current.session_concurrency, 2)
+    assert.equal(current.providers.codex.enabled, false)
+    assert.equal((await receipts(fixture)).length, 1)
+    assert.equal(await prunedThrough(fixture), '0')
   } finally {
     await fixture.dispose()
   }

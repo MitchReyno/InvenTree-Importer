@@ -165,3 +165,19 @@ test('listeners hear each change of running and held', async () => {
   expect(queue.snapshot()).not.toBe(before)
   unsubscribe()
 })
+
+test('a save queued behind another waits for a pause restarted meanwhile', async () => {
+  const queue = createSaveQueue()
+  const log: string[] = []
+  const running = deferredJob(log, 'providers')
+  void queue.run('providers', running.job)
+  const job = vi.fn<SaveJob>(async () => 'done')
+  queue.schedule('sessions', job, 600)
+  await vi.advanceTimersByTimeAsync(600)
+  queue.schedule('sessions', job, 600)
+  running.finish()
+  await vi.advanceTimersByTimeAsync(300)
+  expect(job).not.toHaveBeenCalled()
+  await vi.advanceTimersByTimeAsync(300)
+  expect(job).toHaveBeenCalledTimes(1)
+})

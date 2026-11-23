@@ -414,6 +414,116 @@ describe('providers', () => {
   })
 })
 
+describe('round 1 regressions', () => {
+  test('a step provider autosaves with its saved default model while a model typed for it waits for Save', async () => {
+    const { server } = await renderAgents(bothOn)
+    const research = within(screen.getByRole('group', { name: 'Research' }))
+    fireEvent.change(research.getByRole('combobox', { name: 'Research provider' }), {
+      target: { value: 'codex' },
+    })
+    await wait(200)
+    fireEvent.change(research.getByRole('combobox', { name: 'Research model' }), {
+      target: { value: 'gpt-6-luna' },
+    })
+    await wait(600)
+    expect(server.sent()).toHaveLength(1)
+    expect(server.sent()[0].stage_selections).toEqual({
+      research: { provider: 'codex', model: 'gpt-6.1-sol' },
+    })
+    expect(research.getByRole('combobox', { name: 'Research model' })).toHaveValue('gpt-6-luna')
+    fireEvent.click(
+      within(heading('Provider and model per step')).getByRole('button', { name: 'Save' }),
+    )
+    await wait()
+    expect(server.saved.stage_selections).toEqual({
+      research: { provider: 'codex', model: 'gpt-6-luna' },
+    })
+  })
+
+  test('Try again after another tab turned the other provider off keeps this one on', async () => {
+    const { server } = await renderAgents(bothOn)
+    server.otherTab({
+      providers: { ...bothOn.providers, claude: { ...bothOn.providers.claude, enabled: false } },
+      default_provider: 'codex',
+    })
+    fireEvent.click(providerSwitch('Codex'))
+    await wait(0)
+    fireEvent.click(
+      within(heading('Providers')).getByRole('button', { name: 'Try the same save again' }),
+    )
+    await wait()
+    expect(server.sent()).toHaveLength(1)
+    expect(server.saved.providers.codex.enabled).toBe(true)
+    expect(providerSwitch('Codex')).toBeChecked()
+    expect(
+      within(screen.getByRole('group', { name: 'Codex' })).getByRole('alert'),
+    ).toHaveTextContent('At least one provider stays on')
+  })
+
+  test('a replay whose read fails stays confirmed: only the read is retried, never the save', async () => {
+    const { server } = await renderAgents()
+    server.deliver('lost-after-commit')
+    toggleTags()
+    await wait(600)
+    server.client.settings.mockRejectedValueOnce(new TypeError('network_failed'))
+    await wait(1000)
+    const sent = server.sent().length
+    server.prune()
+    await wait(2000)
+    expect(server.sent()).toHaveLength(sent)
+    expect(screen.getByText('Tag suggestions: Saved')).toBeVisible()
+    expect(screen.queryByText(/Couldn’t confirm/)).not.toBeInTheDocument()
+  })
+
+  test("each model Save and Discard covers only its own subsection's fields", async () => {
+    const { server } = await renderAgents({
+      ...bothOn,
+      stage_selections: { research: { provider: 'codex', model: 'gpt-6.1-sol' } },
+    })
+    fireEvent.change(
+      within(screen.getByRole('group', { name: 'Claude' })).getByRole('combobox', {
+        name: 'Default model',
+      }),
+      { target: { value: 'sonnet' } },
+    )
+    const researchModel = within(screen.getByRole('group', { name: 'Research' })).getByRole(
+      'combobox',
+      { name: 'Research model' },
+    )
+    fireEvent.change(researchModel, { target: { value: 'gpt-6-luna' } })
+    fireEvent.click(within(heading('Providers')).getByRole('button', { name: 'Save' }))
+    await wait()
+    expect(server.saved.providers.claude.default_model).toBe('sonnet')
+    expect(server.saved.stage_selections.research?.model).toBe('gpt-6.1-sol')
+    expect(researchModel).toHaveValue('gpt-6-luna')
+    fireEvent.click(
+      within(heading('Provider and model per step')).getByRole('button', {
+        name: 'Discard my edit',
+      }),
+    )
+    expect(researchModel).toHaveValue('gpt-6.1-sol')
+  })
+
+  test('a save that fails before it is sent offers Try again, which sends it and frees the queue', async () => {
+    const { server } = await renderAgents()
+    vi.spyOn(crypto, 'randomUUID').mockImplementationOnce(() => {
+      throw new Error('no_entropy')
+    })
+    toggleTags()
+    await wait(600)
+    expect(server.sent()).toHaveLength(0)
+    moreSessions()
+    await wait(600)
+    expect(server.sent()).toHaveLength(0)
+    fireEvent.click(
+      within(heading('Tag suggestions')).getByRole('button', { name: 'Try the same save again' }),
+    )
+    await wait()
+    expect(server.sent().map((request) => request.auto_tags_default)).toEqual([true, true])
+    expect(server.saved).toMatchObject({ auto_tags_default: true, session_concurrency: 4 })
+  })
+})
+
 describe('text keeps an explicit Save', () => {
   test('Instructions show Save and Discard only while edited, and save nothing until Save', async () => {
     const { server } = await renderAgents()
