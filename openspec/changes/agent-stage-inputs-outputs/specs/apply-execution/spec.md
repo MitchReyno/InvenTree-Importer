@@ -18,9 +18,15 @@ The executor SHALL apply only plans whose version, build and capability match a 
 
 #### Scenario: Switch waits for retained runs
 
-- **GIVEN** a retained `bench-effects-plan/2` run that is queued, recovery-required, or settled incomplete with a recovery action offered
+- **GIVEN** a retained `bench-effects-plan/2` run that is queued, recovery-required, or settled incomplete with a write-capable recovery action such as `resume_effect` or `repair_attachment` offered
 - **WHEN** the operator activates the `/3` deployment
 - **THEN** new earlier-version approvals are fenced under the target lock, and activation is refused until that run settles on its own runner, so one writer holds the target.
+
+#### Scenario: Verification alone doesn't block the switch
+
+- **GIVEN** a settled `bench-effects-plan/2` run that offers only `verify_effect`
+- **WHEN** the operator activates the `/3` deployment
+- **THEN** activation proceeds, and the verification stays available through the verify-only runner.
 
 #### Scenario: Verifying an earlier run after the switch
 

@@ -35,3 +35,19 @@ For a batch whose Examine lead input is `bench-intake-input/7`, which has no Inv
 - **GIVEN** a `/7` batch whose lot was decided as add stock to RES-0144, which has stock in Drawer 4
 - **WHEN** the operator opens Records › Locations
 - **THEN** Drawer 4 is listed as proposed "from RES-0144's existing stock" with no ask box, and confirming it sets that lot's location
+
+### Requirement: Unsupported record changes are honest
+
+Retained proposals the executor cannot apply SHALL be shown as “Not supported yet”, together with the nearest supported choice, and SHALL never be silently dropped. These include creating a category, a parameter template or a manufacturer company, changing fields of an existing Part, and supplier prices. The exception is a confirmed `/7` gaps fill of a missing datasheet, key parameter or Part image on an existing Part, which preparation turns into a capability-gated effect.
+
+#### Scenario: New category proposed
+
+- **GIVEN** a retained proposal for a new sub-category
+- **WHEN** the Part record opens
+- **THEN** the category field explains that creating categories is not supported yet, and offers the existing categories, with the agent's reason.
+
+#### Scenario: Confirmed gaps fill on an existing Part
+
+- **GIVEN** a `/7` lot decided as fill what's missing for MCU-0012, with a confirmed datasheet, and a retained proposal to change MCU-0012's description
+- **WHEN** the Part record opens
+- **THEN** the datasheet shows as a fill that approval can apply, and the description change shows as not supported yet.
