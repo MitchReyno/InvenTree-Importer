@@ -151,6 +151,10 @@ No new third-party runtime dependency is needed: the decoder already ships `shar
   - BI-019 PR-F's activity popover, whose fourth stage row task 3 adapts to Match if PR-F has merged first;
   - Mitch's go-ahead for the live requalification.
 
+## Delivery and parallel work
+
+The work is nine PRs after the plan. Tasks › "Parallel work" sets out exactly which can be built at the same time: six waves, with at most two PRs in progress at once and a critical path of PR-A → PR-B → PR-C → PR-D → PR-F → PR-G. It also proposes five re-carvings (PR-A off BI-019 PR-D; decoder ports split out of PR-E; the Match search core split out of PR-C; records split from approval in PR-F; guide content and the profile scaffold started early) that would allow up to four PRs at once. They are flagged for Mitch's decision and not yet applied.
+
 ## Open decisions and assumptions
 
 Open, recorded in the doc's open questions (2.10):

@@ -49,6 +49,37 @@
 | PR-G | The new profile, instruction packs and guides, live-qualified | 7 | The behaviour change and its live proof together | PR-A to PR-F and PR-I; Mitch's go-ahead for the live run | `interactive-app` ← `feat/agent-stage-inputs-outputs-profile`; `feat(agent-stage-inputs-outputs): stage instruction packs in a new agent profile` | Admission tests, intake tiers, live evidence on the PR; review; CI |
 | PR-H | The brief on the session page | 8 | UI over PR-A, after the page exists | PR-A; BI-019 PR-E | `interactive-app` ← `feat/agent-stage-inputs-outputs-brief-page`; `feat(agent-stage-inputs-outputs): show the brief a session started from` | Frontend checks; demo video; review; CI |
 
+## Parallel work
+
+How the PR map above lets work run at the same time. A PR can start once every PR it depends on has merged; PRs in the same wave share no dependency on each other and can be built by separate people or agents at once.
+
+**External gates** (BI-019, PR #243): BI-022 PR-A waits for BI-019 PR-D; PR-B waits for BI-019 PR-B and PR-D; PR-C waits for BI-019 PR-B; PR-H waits for BI-019 PR-E; PR-I waits for BI-019 PR-E and PR-G.
+
+| Wave | Can run in parallel | Waits for |
+| --- | --- | --- |
+| 1 | PR-A | PR-0; BI-019 PR-D |
+| 2 | PR-B · PR-H | PR-A (both); BI-019 PR-B and PR-D (PR-B); BI-019 PR-E (PR-H) |
+| 3 | PR-C · PR-E | PR-B (both); BI-019 PR-B (PR-C) |
+| 4 | PR-D | PR-C (PR-E may still be in progress) |
+| 5 | PR-F · PR-I | PR-C, PR-D and PR-E (PR-F); PR-D, BI-019 PR-E and PR-G (PR-I) |
+| 6 | PR-G | everything else; Mitch's go-ahead for the live run |
+
+- **Critical path:** PR-A → PR-B → PR-C → PR-D → PR-F → PR-G, six PRs in sequence. PR-E, PR-H and PR-I have slack.
+- **Most parallel moment:** waves 3 and 5, two PRs each. PR-H can run alongside anything from wave 2 on.
+- **Conflicts to expect between parallel PRs:** PR-C and PR-E both add session tools to `agents/tools/server.ts` and `handlers.ts` and both add migrations, so whichever merges second rebases and renumbers its migration. PR-F and PR-I both touch the Processing read and session rows.
+
+### Re-carving that would allow more parallel work (proposed, not applied)
+
+These are suggestions for Mitch; the map above is unchanged until one is agreed.
+
+1. **Move PR-A off BI-019 PR-D.** PR-A needs `photo_view` only for durable delivery tracking, which the citation rules in PR-B use. Moving that piece into PR-B lets PR-A start right after PR-0 instead of waiting for BI-019's history work. Cost: none beyond moving one task item.
+2. **Split PR-E into decoder ports and wiring.** The decoder ports (recipe `/2`, `inspect_region`, `preview_images`, `match_logo`, the logo set and their parity tests) depend only on the contracts and the media decoder, not on PR-B. As **PR-E1** they can start in wave 1, beside PR-A; **PR-E2** (the intake tools, `propose_images`, and the Images review) still follows PR-B. The parity work is likely the longest single task, so this moves it off the critical path. Cost: one more PR and a contract that lands before its consumer.
+3. **Split PR-C into the Match search core and the Match flow.** **PR-C1**: key extraction, InvenTree and cross-batch search, verdicts, sufficiency and `processing_match` storage, tested against a fake read model with keys supplied by fixtures, so it can start in wave 2 beside PR-B. **PR-C2**: questions, decisions, modes, queueing and Processing › Match, after PR-B and BI-019 PR-B. Cost: the core lands before anything calls it; the key-extraction interface must be settled early.
+4. **Split PR-F into records and approval.** **PR-F1**: proposed values on Parts and their confirmation in Review only needs PR-B's typed outputs, so it can run in wave 3. **PR-F2**: Match targets, image effects, gaps-fill effects and pass 3 still wait for C, D and E. Cost: one more PR; Review shows proposed values before they can be approved into new effects.
+5. **Start PR-G's content early.** The instruction packs and guide text (task 7.1, which needs Mitch's review of the wording) can be drafted from wave 1 as a reviewed document, and the profile row, stage-instructions table and admission (**PR-G1**) can land behind the test-only switch after PR-A. Only the switch-on and the live requalification (**PR-G2**) stay last. Cost: the guide text may need revising as later PRs settle the output contracts.
+
+With all five applied, the waves would be: 1 — PR-A, PR-E1, (guide drafting); 2 — PR-B, PR-C1, PR-G1, PR-H; 3 — PR-C2, PR-E2, PR-F1; 4 — PR-D; 5 — PR-F2, PR-I; 6 — PR-G2. The critical path keeps six steps but each is smaller, and up to four PRs can be in progress at once instead of two.
+
 ## 1. Briefs, input `/7`, read tools and stage packs scaffold
 
 - **PR delivery:** PR-A.
