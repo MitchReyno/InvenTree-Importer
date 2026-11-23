@@ -444,14 +444,12 @@ async function finishEvidenceFetch(
       const found =
         (await resolveSessionCapability(client, token)) ??
         refuse('capability_refused', 'This session capability is not valid.')
-      await client.query('SELECT 1 FROM public.capture_batch WHERE id=$1 FOR SHARE', [
-        found.batchId,
-      ])
+      const streamId = await shareBatchStream(client, found.batchId)
       await requireRunningSession(client, token, found)
       await refuseRemovedVersions(client, target.batchId, [target.versionId])
       if (view) {
         await appendSessionOutbox(client, found.attemptId, { kind: 'photo_view', payload: view })
-        await appendEvent(client, await batchStream(client, found.batchId), 'session_changed', {
+        await appendEvent(client, streamId, 'session_changed', {
           batch_id: found.batchId,
         })
       }
@@ -510,6 +508,18 @@ async function batchStream(client: PoolClient, batchId: string) {
       .select({ streamId: captureBatches.streamId })
       .from(captureBatches)
       .where(eq(captureBatches.id, batchId)),
+  )
+  return rows[0].streamId
+}
+
+/** Takes the batch row's share lock, first in the global lock order, and returns its stream. */
+async function shareBatchStream(client: PoolClient, batchId: string) {
+  const rows = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ streamId: captureBatches.streamId })
+      .from(captureBatches)
+      .where(eq(captureBatches.id, batchId))
+      .for('share'),
   )
   return rows[0].streamId
 }

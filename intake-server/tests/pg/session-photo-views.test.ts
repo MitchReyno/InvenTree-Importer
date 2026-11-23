@@ -69,7 +69,13 @@ async function photoSession(fixture: Fixture, root: string) {
     cropCacheDir: join(root, 'crops'),
   }
   const args = { evidence_id: photo.evidence, version_id: photo.version }
-  return { capture, store, photo, session, token, context, args }
+  const mediaSource = {
+    kind: 'media_version',
+    evidence_id: photo.evidence,
+    version_id: photo.version,
+    sha256: digest(original),
+  }
+  return { capture, store, photo, session, token, context, args, mediaSource }
 }
 
 async function withPhotoSession(
@@ -162,6 +168,9 @@ test('a delivered fetch records one photo view, with session_changed in the same
     const sent = delivered(output)
     assert.equal(output.images?.length, 1)
     const bytes = Buffer.from(output.images![0]!.base64, 'base64')
+    // The fixture's region is 16 × 12 preview pixels, small enough to be sent at its own size.
+    const decoded = await sharp(bytes).metadata()
+    assert.deepEqual([decoded.width, decoded.height], [16, 12])
 
     // Then the run's budget is spent: the refused fetch is not a view.
     context.imageBudget.set(capabilityRun(token), SESSION_IMAGE_BUDGET_BYTES)
@@ -177,13 +186,16 @@ test('a delivered fetch records one photo view, with session_changed in the same
       page: 1,
       region: { x: 4, y: 2, width: 16, height: 12 },
       delivered: {
-        width: sent.width,
-        height: sent.height,
-        media_type: sent.media_type,
+        width: 16,
+        height: 12,
+        media_type: `image/${decoded.format}`,
         sha256: digest(bytes),
       },
     })
-    assert.equal(sent.sha256, digest(bytes))
+    assert.deepEqual(
+      [sent.width, sent.height, sent.media_type, sent.sha256],
+      [16, 12, `image/${decoded.format}`, digest(bytes)],
+    )
     const events = await sessionChangedEvents(fixture, capture.batch.id)
     assert.equal(events.length, before.length + 1)
     assert.equal(events.at(-1)!.xmin, views[0]!.xmin, 'one transaction wrote both')
@@ -194,8 +206,12 @@ test('a delivered fetch records one photo view, with session_changed in the same
     )
     assert.equal(timeline.status, 200)
     validate('SessionTimeline', timeline.value)
-    const kinds = (timeline.value as { outbox: { kind: string }[] }).outbox.map((item) => item.kind)
-    assert.deepEqual(kinds, ['photo_view'])
+    const outbox = (timeline.value as { outbox: { kind: string; payload: unknown }[] }).outbox
+    assert.deepEqual(
+      outbox.map((item) => item.kind),
+      ['photo_view'],
+    )
+    assert.deepEqual(outbox[0]!.payload, views[0]!.payload)
   })
 })
 
@@ -255,7 +271,7 @@ function steppedPool(
   pool: Pool,
   hooks: {
     beforeConnect?: () => Promise<void>
-    afterQuery?: (text: string) => Promise<void>
+    afterQuery?: (text: string, client: PoolClient) => Promise<void>
   },
 ): Pool {
   const connect = async () => {
@@ -265,7 +281,7 @@ function steppedPool(
       const first = args[0] as string | { text?: string }
       const text = typeof first === 'string' ? first : (first?.text ?? '')
       const result = await (client.query as (...values: unknown[]) => Promise<unknown>)(...args)
-      await hooks.afterQuery?.(text)
+      await hooks.afterQuery?.(text, client)
       return result
     }
     return new Proxy(client, {
@@ -323,30 +339,112 @@ for (const [name, race] of Object.entries(races)) {
   })
 }
 
+/** Polls until `waiter` is blocked by `holder`, or fails after about five seconds. */
+async function untilBlockedBy(fixture: Fixture, waiter: () => number | undefined, holder: number) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const pid = waiter()
+    if (pid !== undefined) {
+      const blocking = await fixture.db.pool.query<{ blockers: number[] }>(
+        'SELECT pg_blocking_pids($1) AS blockers',
+        [pid],
+      )
+      if (blocking.rows[0].blockers.includes(holder)) {
+        return
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  }
+  throw new Error('never_blocked')
+}
+
+test('a revocation committed while the final transaction waits on the batch lock refuses the fetch', async () => {
+  await withPhotoSession(async (setup) => {
+    const { fixture, capture, session, token, context, args } = setup
+    const run = capabilityRun(token)
+    let fetchPid: number | undefined
+    let capabilityLive: boolean | undefined
+    let competitor: Promise<void> | undefined
+    // The fetch's final transaction resolves the still-live capability, then waits on the
+    // competitor's batch lock; the competitor revokes the capability and commits.
+    const pool = steppedPool(fixture.runner.pool, {
+      beforeConnect: async () => {
+        if (competitor || (context.imageBudget.get(run) ?? 0) === 0) {
+          return
+        }
+        const holder = await fixture.db.pool.connect()
+        await holder.query('BEGIN')
+        await holder.query('SELECT 1 FROM capture_batch WHERE id=$1 FOR UPDATE', [capture.batch.id])
+        const holderPid = (await holder.query<{ pid: number }>('SELECT pg_backend_pid() AS pid'))
+          .rows[0].pid
+        competitor = (async () => {
+          try {
+            await untilBlockedBy(fixture, () => fetchPid, holderPid)
+            const live = await holder.query<{ live: boolean }>(
+              'SELECT capability_sha256 IS NOT NULL AS live FROM agent_session WHERE attempt_id=$1',
+              [session.attempt],
+            )
+            capabilityLive = live.rows[0].live
+            await revokeSessionCapability(holder, session.attempt)
+            await holder.query('COMMIT')
+          } catch (error) {
+            await holder.query('ROLLBACK')
+            throw error
+          } finally {
+            holder.release()
+          }
+        })()
+      },
+      afterQuery: async (text, client) => {
+        if (competitor && fetchPid === undefined && text === 'BEGIN') {
+          const pid = await client.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')
+          fetchPid = pid.rows[0].pid
+        }
+      },
+    })
+    const before = await sessionChangedEvents(fixture, capture.batch.id)
+
+    const output = await sessionTools({ ...context, pool }).fetch_evidence(token, args)
+    await competitor
+    assert.equal(capabilityLive, true, 'the capability was live while the fetch waited')
+    validate('SessionToolResult', output.result)
+    assert.equal(!output.result.ok && output.result.error, 'capability_refused')
+    assert.equal(output.images, undefined)
+    assert.equal((await photoViews(fixture, session.attempt)).length, 0)
+    assert.equal((await sessionChangedEvents(fixture, capture.batch.id)).length, before.length)
+    assert.equal(context.imageBudget.get(run) ?? 0, 0)
+    assert.equal(context.deliveredMedia.get(session.job)?.has(args.version_id) ?? false, false)
+  })
+})
+
 test('a removal started while the final transaction holds its locks waits for the view', async () => {
   await withPhotoSession(async (setup) => {
     const { fixture, capture, session, token, context, args } = setup
     await grantMedia(fixture.db.pool, fixture.api.name, 'api')
     const media = mediaEditor(fixture.api.pool, fixture.config, capture.batch.id)
     let removal: Promise<unknown> | undefined
+    let removalDoneWhileOpen: boolean | undefined
     let removalDone = false
     const pool = steppedPool(fixture.runner.pool, {
-      afterQuery: async (text) => {
+      afterQuery: async (text, client) => {
         if (removal || !/insert into "agent_session_outbox"/i.test(text)) {
           return
         }
+        const fetchPid = (await client.query<{ pid: number }>('SELECT pg_backend_pid() AS pid'))
+          .rows[0].pid
         removal = media
           .applied({ kind: 'remove', evidence_ids: [args.evidence_id] })
           .then((result) => {
             removalDone = true
             return result
           })
-        // Hold the fetch until the removal is seen waiting on a lock.
+        // Hold the fetch's transaction open until the API's removal is blocked by it.
         for (let attempt = 0; attempt < 100; attempt += 1) {
-          const waiting = await fixture.db.pool.query<{ count: string }>(
-            "SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock'",
+          const waiting = await fixture.db.pool.query<{ pid: number }>(
+            'SELECT pid FROM pg_stat_activity WHERE usename=$1 AND $2 = ANY(pg_blocking_pids(pid))',
+            [fixture.api.name, fetchPid],
           )
-          if (Number(waiting.rows[0].count) > 0) {
+          if (waiting.rows.length > 0) {
+            removalDoneWhileOpen = removalDone
             return
           }
           await new Promise((resolve) => setTimeout(resolve, 50))
@@ -356,7 +454,7 @@ test('a removal started while the final transaction holds its locks waits for th
     })
 
     const output = await sessionTools({ ...context, pool }).fetch_evidence(token, args)
-    assert.equal(removalDone, false, 'the removal waited for the fetch to commit')
+    assert.equal(removalDoneWhileOpen, false, 'the removal was blocked by the open fetch')
     delivered(output)
     assert.equal(output.images?.length, 1)
     assert.equal((await photoViews(fixture, session.attempt)).length, 1)
@@ -563,6 +661,12 @@ test('a web page source needs no delivery, but its URL must be absolute http(s) 
       },
     })
     assert.equal(!v5.result.ok && v5.result.error, 'validation_failed')
+    assert.deepEqual(await storedCounts(fixture, session.attempt, capture.batch.id), before)
+
+    // A web page doesn't excuse the other sources: the pinned photo was never fetched.
+    const mixed = await tools.propose(token, v6([webPage, setup.mediaSource]))
+    validate('SessionToolResult', mixed.result)
+    assert.equal(!mixed.result.ok && mixed.result.error, 'source_not_delivered')
     assert.deepEqual(await storedCounts(fixture, session.attempt, capture.batch.id), before)
 
     // Nothing was fetched or delivered, and a web page alone is still accepted.
