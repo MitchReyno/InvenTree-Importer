@@ -198,7 +198,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 
 - **PR delivery:** PR-D.
 - **Outcome:**
-  - `readSessionHistory` returns resolved entries (summary, details, typed links, `who`, attempt headers) in pages of 200 with a `before` cursor;
+  - `readSessionHistory` returns resolved entries (summary, details, typed links, `who`, attempt headers), newest page first, in pages of 200 with one opaque `before` cursor and no forward read, each page and its metadata taken from one snapshot;
   - the operator's inputs are included;
   - the same scoped read returns the session's metadata: each attempt's number, state and times, the agent selection and model, where it ran and its sealed web setting;
   - retired targets become "gone" links;
@@ -223,7 +223,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - [ ] 6.2.3 Answers, instructions, evidence and revise items appear as the operator's at their send time, and one above the acknowledgement cursor reads as not read yet.
   - [ ] 6.2.4 Attempt headers say how an attempt ended, and why it started where the retained input shows it; turns within an attempt are not attempts; a failure or resume with no new inbox or outbox item still updates its header on the next read; the span runs from the queue time, not a turn's `started_at`; an attempt cancelled before its first turn, and one cancelled after a settled turn, show the cancellation's end time.
   - [ ] 6.2.5 A regroup with recorded moves shows them; an older regroup lists its destination lots; earlier attempts' failures resolve; a lot edited after formation shows its values labelled current.
-  - [ ] 6.2.6 The `before` and `after` cursors page without gaps or duplicates across retries with repeated sequences and equal timestamps, and the `after` watermark misses nothing when an inbox and an outbox write commit out of timestamp order, or when a later sequence in one stream has an earlier timestamp across a page boundary; each non-empty forward read advances a watermark, and a 201-entry backlog in one stream, with an inverted timestamp, drains over two reads with nothing left out, including a delayed write timed inside the loaded range; an `ids` read re-resolves held entries; every read returns the metadata and acknowledgement cursor, even when it returns no entries.
+  - [ ] 6.2.6 The `before` cursor pages without gaps or duplicates across retries with repeated sequences and equal timestamps, and across inbox and outbox rows with equal timestamps; the page, its cursor and the metadata come from one snapshot; every read returns the metadata and acknowledgement cursor, including a read of the newest page with no new entries.
   - [ ] 6.2.7 A proposal links every open question that makes it provisional, with two matching questions.
   - [ ] 6.2.8 The session metadata for a retried session, including the web setting from each attempt's manifest.
   - [ ] 6.2.9 Another batch or account gets `session_not_found`.
@@ -237,7 +237,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 - **Outcome:**
   - one entry renderer (native `<details>`) with typed links and grouping;
   - the drawer's history with summary lines for photo views and web reads, and "Open full session";
-  - the batch-scoped session page as a conversation (option B): action rows, chat bubbles, question cards answered in place, the operator's inputs, attempt dividers, filter chips, Load older, the live merge, a message box, the photos it viewed, the sources it cited and debug details;
+  - the batch-scoped session page as a conversation (option B): action rows, chat bubbles, question cards answered in place, the operator's inputs, attempt dividers, filter chips, Load older, a refresh that re-reads the newest page, a message box, the photos it viewed, the sources it cited and debug details;
   - Agents page rows and failure details link to it;
   - `web_page` source chips marked agent-reported, and web reads on the page.
 - **Scope and approach:**
@@ -247,7 +247,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - the processing fixtures;
   - removal of the old timeline response.
 - **Prerequisites:** tasks 4 and 6.
-- **Acceptance:** "Expandable session history", "Lot-forming entries expand with links", "Proposal, question and failure entries expand with links", "Your inputs in the session history", "Drawer and session page split", "Agent session page", "Session page header and panels", "Reaching and reading the session page" (including "Message from the page" and "Answer on the page"), and agents-overview "Open a session's page"; processing-agent-sessions "Cited datasheet" (the chip and the web read).
+- **Acceptance:** "Expandable session history", "Lot-forming entries expand with links", "Proposal, question and failure entries expand with links", "Your inputs in the session history", "Drawer and session page split", "Agent session page", "Session page header and panels", "Reaching and reading the session page" (including "Message from the page", "Answer on the page", "Long history" and "Many entries between refreshes"), and agents-overview "Open a session's page"; processing-agent-sessions "Cited datasheet" (the chip and the web read).
 - **TDD approach:** component and route tests per scenario fail first, before the renderer and page exist.
 - **Verification:**
   - the frontend typecheck, lint, tests and build;
@@ -264,7 +264,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - [ ] 7.3.4 The drawer's summary lines and "Open full session".
 - [ ] 7.4 RED: page tests:
   - [ ] 7.4.1 One conversation in time order, with attempt dividers.
-  - [ ] 7.4.2 Filter chips, Load older, and the live merge without duplicates or gaps, including more than one page of new entries between refreshes; answering a matching question in another job refreshes a loaded proposal's provisional links; a chat sent from another tab and an acknowledgement with no new entry both show after the next invalidation; a delayed insertion into a full loaded page leaves the held entries in place.
+  - [ ] 7.4.2 Filter chips and Load older; an invalidation re-reads the newest page and replaces it, keeping loaded older pages without duplicates; more than one page of new entries between refreshes drops the older pages and Load older continues from the new page; answering a matching question in another job refreshes a proposal's provisional links on the newest page; a chat sent from another tab and an acknowledgement with no new entry both show after the next invalidation.
   - [ ] 7.4.3 Sending a message once.
   - [ ] 7.4.4 Answering a question in place, with the drawer's draft shown as superseded, and commands disabled while the page's Processing read is loading, failed or paused, including a warm cache whose mounted read is still pending.
   - [ ] 7.4.5 Not found, and the debug block only in debug mode.

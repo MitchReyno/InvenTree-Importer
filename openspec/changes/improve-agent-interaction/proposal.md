@@ -194,4 +194,4 @@ Assumptions:
 - "Something else" is allowed per step by the agent (`other: true`), on by default for choice steps.
 - A number step needs a live lot subject. "Answer in words" turns that step's value into text, and the lot quantity is then unchanged.
 - A stepped answer is sent once, after the summary. Partial answers are not sent.
-- The history read returns 200 entries per page; the drawer reads the newest page only.
+- The history read returns 200 entries per page, newest first, from one snapshot, with a `before` cursor for older pages. On each change the drawer and the page re-read the newest page; the drawer reads only that page.

@@ -143,7 +143,7 @@ The session page SHALL show a header with the step and subject, provider and mod
 
 ### Requirement: Reaching and reading the session page
 
-The session page SHALL be reached from the drawer's "Open full session", the Agents page, the Processing session lists and the failure details. It SHALL update live, load older entries on request and filter to messages, the operator's inputs, photos or web. A message box SHALL send to the session's inbox, as the drawer's chat does.
+The session page SHALL be reached from the drawer's "Open full session", the Agents page, the Processing session lists and the failure details. It SHALL update live by re-reading its newest entries on each change, keeping the older entries it has loaded without duplicates, SHALL load older entries on request and SHALL filter to messages, the operator's inputs, photos or web. A message box SHALL send to the session's inbox, as the drawer's chat does.
 
 #### Scenario: Message from the page
 
@@ -161,7 +161,13 @@ The session page SHALL be reached from the drawer's "Open full session", the Age
 
 - **GIVEN** a session with more entries than one read returns
 - **WHEN** the operator reaches the oldest shown entry and chooses Load older
-- **THEN** the next older entries appear above in order without duplicates, and live entries keep arriving at the bottom with none skipped, even when more than one page arrives between reads.
+- **THEN** the next older entries appear above in order without duplicates, and new entries appear at the bottom when the newest entries are next re-read.
+
+#### Scenario: Many entries between refreshes
+
+- **GIVEN** a session page with older entries loaded
+- **WHEN** more new entries arrive before the next refresh than one read returns
+- **THEN** the page shows the newest entries and drops the older ones it had loaded rather than leaving a gap, and Load older continues from the newest entries shown.
 
 #### Scenario: Session from another batch or account
 
