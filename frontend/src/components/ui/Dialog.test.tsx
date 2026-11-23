@@ -174,7 +174,7 @@ test('popovers opened inside a dialog stay usable and do not close it', async ()
   expect(screen.getByRole('dialog', { name: 'Lot settings' })).toBeInTheDocument()
 })
 
-test('an open dialog hides a toast’s Undo from the accessibility tree, but not its message', async () => {
+test('an open dialog makes the page behind it inert, as a native modal did, then restores it', async () => {
   const user = userEvent.setup()
   render(
     <>
@@ -183,18 +183,25 @@ test('an open dialog hides a toast’s Undo from the accessibility tree, but not
         action={{ label: 'Undo', onClick: vi.fn() }}
         onDismiss={vi.fn()}
       />
+      {/* A masthead control that holds a live status, which Radix alone leaves exposed. */}
+      <button type="button">
+        Workflow activity <span aria-live="polite">2 running</span>
+      </button>
       <Opener />
     </>,
   )
   expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument()
 
   await user.click(screen.getByRole('button', { name: 'Merge lots' }))
+  await afterOpen()
   expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull()
-  // The message stays a live region, so it is still announced.
-  expect(screen.getByRole('status')).toHaveTextContent('Deleted Front label')
+  expect(screen.queryByRole('button', { name: /Workflow activity/ })).toBeNull()
+  expect(screen.getByText('2 running').closest('[inert]')).not.toBeNull()
 
   await user.click(screen.getByRole('button', { name: 'Close' }))
   expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /Workflow activity/ })).toBeInTheDocument()
+  expect(document.querySelector('[inert]')).toBeNull()
 })
 
 test('focus returns to the opener after a StrictMode replay', async () => {

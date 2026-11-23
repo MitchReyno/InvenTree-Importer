@@ -1,10 +1,11 @@
 import * as RadixDialog from '@radix-ui/react-dialog'
-import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import styled, { css } from 'styled-components'
 import { color, radius, shadow, space, zIndex } from '#/theme/generated/tokens'
 import { ModalContainerContext } from '#/context/ModalContainerContext'
 import { dialogOpener } from './dialog-opener'
 import { registerOpenModal } from './open-modals'
+import { hidePageBehind } from './page-behind-modal'
 import { motion } from './motion'
 
 type ModalFrameProps = {
@@ -46,6 +47,14 @@ export function ModalFrame({
   })
 
   useLayoutEffect(() => registerOpenModal(), [])
+
+  // Syncs the page outside React's tree: inert behind the modal, as a native modal made it.
+  useEffect(() => {
+    if (!container) {
+      return
+    }
+    return hidePageBehind(container)
+  }, [container])
 
   // Runs before Radix moves focus into the dialog, so the opener is still focused or just clicked.
   useLayoutEffect(() => {
