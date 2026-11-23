@@ -74,7 +74,11 @@ function session(index: number, running: boolean) {
  */
 const agents = {
   settings: async () => saved,
-  saveSettings: async ({ expected_revision, ...fields }: AgentSettingsUpdateDto) => {
+  saveSettings: async ({
+    expected_revision,
+    save_id: _saveId,
+    ...fields
+  }: AgentSettingsUpdateDto) => {
     saved = { ...fields, revision: String(Number(expected_revision) + 1) }
     return saved
   },

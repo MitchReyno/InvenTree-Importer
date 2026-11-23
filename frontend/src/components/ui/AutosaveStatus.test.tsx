@@ -54,3 +54,39 @@ test('an unconfirmed save offers only the exact retry or an explicit discard', a
   await user.click(screen.getByRole('button', { name: 'Reload saved values and discard my edits' }))
   expect(reload).toHaveBeenCalledOnce()
 })
+
+test('a conflict can offer Try again beside Reload, in the words its owner gives', async () => {
+  const user = userEvent.setup()
+  const retry = vi.fn()
+  render(
+    <AutosaveStatus
+      label="Sessions"
+      state="conflict"
+      revision="4"
+      messages={{ conflict: 'Not saved: changed in another tab' }}
+      retryLabel="Try again"
+      onRetry={retry}
+      onReload={vi.fn()}
+    />,
+  )
+  expect(screen.getByRole('alert')).toHaveTextContent('Sessions: Not saved: changed in another tab')
+  expect(screen.getByRole('button', { name: 'Try the same save again' })).toHaveTextContent(
+    'Try again',
+  )
+  await user.click(screen.getByRole('button', { name: 'Try the same save again' }))
+  expect(retry).toHaveBeenCalledOnce()
+})
+
+test('a save that can never be confirmed offers Reload only', () => {
+  render(
+    <AutosaveStatus
+      label="Sessions"
+      state="unresolved"
+      revision="4"
+      onRetry={vi.fn()}
+      onReload={vi.fn()}
+    />,
+  )
+  expect(screen.getByRole('alert')).toHaveTextContent('Sessions: Couldn’t confirm this change')
+  expect(screen.getAllByRole('button').map((button) => button.textContent)).toEqual(['Reload'])
+})

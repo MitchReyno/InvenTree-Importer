@@ -382,6 +382,7 @@ test('with no provider on, a stable identity stands and queues no successors', a
   await saveAgentSettings(fixture.api.pool, fixture.config, {
     ...off,
     expected_revision: (current.value as { revision: string }).revision,
+    save_id: randomUUID(),
   })
   const [identity] = await identities(crystal.id)
   const native = { ...fixture.config, profileId: 'native-agent/2' as const }

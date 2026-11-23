@@ -179,7 +179,7 @@ export const clientOperations = new Map<string, ClientOperation>([
     {
       "timeoutMs": 10000,
       "errorMode": "typed",
-      "responseSchema": "AgentSettings",
+      "responseSchema": "AgentSettingsSaveResult",
       "requestSchema": "AgentSettingsUpdate"
     }
   ],

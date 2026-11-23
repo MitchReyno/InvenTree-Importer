@@ -1244,11 +1244,11 @@
         },
         "responses": {
           "200": {
-            "description": "AgentSettings",
+            "description": "AgentSettingsSaveResult",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AgentSettings"
+                  "$ref": "#/components/schemas/AgentSettingsSaveResult"
                 }
               }
             }
@@ -79461,6 +79461,7 @@
         "type": "object",
         "required": [
           "expected_revision",
+          "save_id",
           "providers",
           "default_provider",
           "stage_selections",
@@ -79474,6 +79475,10 @@
           "expected_revision": {
             "pattern": "^(0|[1-9][0-9]{0,18})(?![\\s\\S])",
             "format": "int64",
+            "type": "string"
+          },
+          "save_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
             "type": "string"
           },
           "providers": {
@@ -79702,6 +79707,305 @@
             }
           }
         }
+      },
+      "AgentSettingsSaveReplay": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "save_id",
+          "revision",
+          "replayed"
+        ],
+        "properties": {
+          "save_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "revision": {
+            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "replayed": {
+            "const": true,
+            "type": "boolean"
+          }
+        }
+      },
+      "AgentSettingsSaveResult": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "revision",
+              "providers",
+              "default_provider",
+              "stage_selections",
+              "session_concurrency",
+              "new_batch_instructions",
+              "part_description_style",
+              "auto_tags_default",
+              "web"
+            ],
+            "properties": {
+              "revision": {
+                "pattern": "^(0|[1-9][0-9]{0,18})(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              "providers": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "claude",
+                  "codex"
+                ],
+                "properties": {
+                  "claude": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "enabled",
+                      "authentication",
+                      "default_model"
+                    ],
+                    "properties": {
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "authentication": {
+                        "anyOf": [
+                          {
+                            "const": "api_key",
+                            "type": "string"
+                          },
+                          {
+                            "const": "subscription",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "default_model": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "codex": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "enabled",
+                      "authentication",
+                      "default_model"
+                    ],
+                    "properties": {
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "authentication": {
+                        "anyOf": [
+                          {
+                            "const": "api_key",
+                            "type": "string"
+                          },
+                          {
+                            "const": "subscription",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "default_model": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              },
+              "default_provider": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "const": "codex",
+                        "type": "string"
+                      },
+                      {
+                        "const": "claude",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "stage_selections": {
+                "additionalProperties": false,
+                "type": "object",
+                "properties": {
+                  "examine": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "provider",
+                      "model"
+                    ],
+                    "properties": {
+                      "provider": {
+                        "anyOf": [
+                          {
+                            "const": "codex",
+                            "type": "string"
+                          },
+                          {
+                            "const": "claude",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "model": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "research": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "provider",
+                      "model"
+                    ],
+                    "properties": {
+                      "provider": {
+                        "anyOf": [
+                          {
+                            "const": "codex",
+                            "type": "string"
+                          },
+                          {
+                            "const": "claude",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "model": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "images": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "provider",
+                      "model"
+                    ],
+                    "properties": {
+                      "provider": {
+                        "anyOf": [
+                          {
+                            "const": "codex",
+                            "type": "string"
+                          },
+                          {
+                            "const": "claude",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "model": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "inventory": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "provider",
+                      "model"
+                    ],
+                    "properties": {
+                      "provider": {
+                        "anyOf": [
+                          {
+                            "const": "codex",
+                            "type": "string"
+                          },
+                          {
+                            "const": "claude",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "model": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              },
+              "session_concurrency": {
+                "minimum": 1,
+                "maximum": 8,
+                "type": "integer"
+              },
+              "new_batch_instructions": {
+                "maxLength": 8192,
+                "type": "string"
+              },
+              "part_description_style": {
+                "maxLength": 500,
+                "type": "string"
+              },
+              "auto_tags_default": {
+                "type": "boolean"
+              },
+              "web": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "public_pages",
+                  "prefer_datasheets"
+                ],
+                "properties": {
+                  "public_pages": {
+                    "type": "boolean"
+                  },
+                  "prefer_datasheets": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "save_id",
+              "revision",
+              "replayed"
+            ],
+            "properties": {
+              "save_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "revision": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              "replayed": {
+                "const": true,
+                "type": "boolean"
+              }
+            }
+          }
+        ]
       },
       "AgentProviderSettings": {
         "additionalProperties": false,

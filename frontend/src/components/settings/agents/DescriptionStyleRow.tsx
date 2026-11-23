@@ -5,23 +5,27 @@ import { SaveBar } from './SaveBar'
 import { Stack } from './Stack'
 import { useSubsectionForm, type SubsectionFormProps } from './useSubsectionForm'
 import { storable } from './provider-form'
+import type { FieldKey } from './settings-fields'
 
 const MAX_STYLE = 500
 
 type Values = { style: string }
 
+const KEYS: readonly FieldKey[] = ['part_description_style']
+
 const read = (settings: AgentSettingsDto): Values => ({ style: settings.part_description_style })
+
+const write = ({ style }: Values) => ({ part_description_style: style })
 
 /** The Part description style agents follow, saved on its own. */
 export function DescriptionStyleRow(props: SubsectionFormProps) {
-  const { form, state, busy, waiting, dirty, markDirty, save, reload, discard } = useSubsectionForm(
-    {
-      ...props,
-      id: 'description-style',
-      read,
-      write: ({ style }) => ({ part_description_style: style }),
-    },
-  )
+  const { form, markEdited, text } = useSubsectionForm({
+    ...props,
+    id: 'description-style',
+    read,
+    write,
+    keys: KEYS,
+  })
   const length = [...form.watch('style')].length
   const tooLong = length > MAX_STYLE
 
@@ -35,11 +39,11 @@ export function DescriptionStyleRow(props: SubsectionFormProps) {
           <TextArea
             rows={3}
             {...named}
-            readOnly={busy}
+            readOnly={text.busy}
             aria-invalid={tooLong ? true : undefined}
             {...form.register('style', {
               validate: (value) => [...value].length <= MAX_STYLE && storable(value),
-              onChange: markDirty,
+              onChange: () => markEdited('text'),
             })}
           />
           <Small role={tooLong ? 'alert' : undefined}>
@@ -49,13 +53,14 @@ export function DescriptionStyleRow(props: SubsectionFormProps) {
               : '. Each description stays within 250, InvenTree’s limit.'}
           </Small>
           <SaveBar
-            state={state}
-            busy={busy}
-            waiting={waiting}
-            onSave={save}
-            onReload={reload}
-            onDiscard={discard}
-            dirty={dirty}
+            state={text.state}
+            busy={text.busy}
+            waiting={text.waiting}
+            onSave={() => text.save()}
+            onRetry={text.retry}
+            onReload={text.reload}
+            onDiscard={() => text.discard()}
+            dirty={text.dirty}
           />
         </Stack>
       )}

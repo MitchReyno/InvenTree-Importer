@@ -24,11 +24,13 @@ import { ProvidersAndSteps } from './agents/ProvidersAndSteps'
 import { SessionsForm } from './agents/SessionsForm'
 import { TagSuggestionsForm } from './agents/TagSuggestionsForm'
 import { useDirtyForms } from './agents/useDirtyForms'
-import type { PageSave } from './agents/useSubsectionForm'
+import { createSaveQueue } from './agents/save-queue'
+import type { SettingsPage } from './agents/useSettingsSave'
 
 type Props = {
   client: ReturnType<typeof agentsClient>
-  onDirtyChange: (dirty: boolean) => void
+  /** Reports unsaved input, with how to save what can be saved before leaving. */
+  onDirtyChange: (dirty: boolean, beforeLeave?: () => Promise<boolean>) => void
   /** The subsection the route points at; the page scrolls to it and focuses its heading. */
   subsection?: AgentSubsectionId
 }
@@ -68,29 +70,18 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
   const loaded = readThisVisit && settings.data
   const ready = Boolean(loaded)
   const focused = useRef<AgentSubsectionId | undefined>(undefined)
-  const reportDirty = useDirtyForms(onDirtyChange)
+  // Every subsection saves through one queue, which owns their debounces.
+  const [queue] = useState(createSaveQueue)
+  // Leaving the section drops saves still waiting for their pause; the guard flushes them first.
+  useEffect(() => () => queue.dispose(), [queue])
+  const reportDirty = useDirtyForms(onDirtyChange, async () => {
+    await queue.flush()
+    return !reportDirty.anyDirty()
+  })
   // The newest settings a save or reload confirmed, ahead of the cache while it is updated.
   const newest = useRef<AgentSettingsDto | undefined>(undefined)
   // Revisions this page's own saves produced; an edit may move past those, never past others.
   const localSaves = useRef(new Set<string>())
-  // One subsection saves at a time; the ref answers at once, the state shows the others waiting.
-  const saveTurn = useRef(false)
-  const [saving, setSaving] = useState(false)
-  const pageSave: PageSave = {
-    running: saving,
-    start: () => {
-      if (saveTurn.current) {
-        return false
-      }
-      saveTurn.current = true
-      setSaving(true)
-      return true
-    },
-    finish: () => {
-      saveTurn.current = false
-      setSaving(false)
-    },
-  }
 
   // Syncs the page with the route's location hash. Headings render before the settings load, so
   // the target exists on the first run; the ref keeps a refetch from moving focus again.
@@ -150,39 +141,44 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
       Waiting for the saved settings…
     </Paragraph>
   )
-  const form = loaded && {
-    client,
-    loaded: settings.data,
-    onLoaded: adoptLoaded,
-    localSaves: localSaves.current,
-    pageSave,
-    reportDirty,
-  }
-  const sessionsSubsection = (
-    <AgentSubsection id="sessions" title="Sessions">
-      {form ? (
-        <SessionsForm
-          {...form}
-          slots={
-            <SlotMeter
-              list={sessions.data}
-              failed={sessions.isError}
-              limit={settings.data.session_concurrency}
-            />
-          }
-          pause={
-            <SettingRow
-              label="Pause all agents"
-              help="Paused batches keep their place and resume where they stopped."
-            >
-              <PauseAllAgents pauseAll={client.pauseAll} list={sessions.data} />
-            </SettingRow>
-          }
+  const page: SettingsPage | undefined = loaded
+    ? {
+        client,
+        queue,
+        newest: () =>
+          newestRevision(
+            loaded,
+            newest.current,
+            queryClient.getQueryData<AgentSettingsDto>(settingsKey),
+          ),
+        adopt: adoptLoaded,
+        ownSave: (revision) => localSaves.current.add(revision),
+        localSaves: localSaves.current,
+        reportDirty: reportDirty.report,
+      }
+    : undefined
+  const form = loaded && page && { page, loaded }
+  const sessionsSubsection = form ? (
+    <SessionsForm
+      {...form}
+      slots={
+        <SlotMeter
+          list={sessions.data}
+          failed={sessions.isError}
+          limit={settings.data.session_concurrency}
         />
-      ) : (
-        waiting
-      )}
-    </AgentSubsection>
+      }
+      pause={
+        <SettingRow
+          label="Pause all agents"
+          help="Paused batches keep their place and resume where they stopped."
+        >
+          <PauseAllAgents pauseAll={client.pauseAll} list={sessions.data} />
+        </SettingRow>
+      }
+    />
+  ) : (
+    <AgentSubsection id="sessions">{waiting}</AgentSubsection>
   )
 
   return (
@@ -204,7 +200,7 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
         />
       ) : (
         <>
-          <AgentSubsection id="providers" title="Providers">
+          <AgentSubsection id="providers">
             {!settings.isFetchedAfterMount && (
               <Paragraph role="status" $onField>
                 Loading saved settings…
@@ -212,27 +208,28 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
             )}
           </AgentSubsection>
           {sessionsSubsection}
-          <AgentSubsection id="models" title="Provider and model per step">
-            {waiting}
-          </AgentSubsection>
+          <AgentSubsection id="models">{waiting}</AgentSubsection>
         </>
       )}
-      <AgentSubsection id="instructions" title="Instructions">
+      <AgentSubsection id="instructions">
         {form ? <InstructionsForm {...form} /> : waiting}
       </AgentSubsection>
       <AgentSubsection
         id="descriptions"
-        title="Descriptions and naming"
         lead="How agents write the free-text fields InvenTree shows. Existing records keep their text unless you change it in Review."
       >
         <DescriptionsCard style={form ? <DescriptionStyleRow {...form} /> : waiting} />
       </AgentSubsection>
-      <AgentSubsection id="tags" title="Tag suggestions">
-        {form ? <TagSuggestionsForm {...form} /> : waiting}
-      </AgentSubsection>
-      <AgentSubsection id="research" title="Web research">
-        {form ? <WebResearchForm {...form} web={readiness.data?.web} /> : waiting}
-      </AgentSubsection>
+      {form ? (
+        <TagSuggestionsForm {...form} />
+      ) : (
+        <AgentSubsection id="tags">{waiting}</AgentSubsection>
+      )}
+      {form ? (
+        <WebResearchForm {...form} web={readiness.data?.web} />
+      ) : (
+        <AgentSubsection id="research">{waiting}</AgentSubsection>
+      )}
     </SettingsSection>
   )
 }
