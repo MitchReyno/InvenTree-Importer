@@ -199,7 +199,7 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
   - [x] 4.2.9 A confirmed 422 naming a step, submitted from the drawer through `perform()`, keeps the draft editable and marks that step; an uncertain failure retries only the original payload and key.
 - [x] 4.3 GREEN: implement the form, the option cards and the rows. Remove `OPTIONS_NOT_CARRIED` and its placeholders.
 - [x] 4.4 Update the fixtures (`ProcessingProof`) with a stepped and a choice question for the demo. Update the frontend architecture if component ownership changes.
-- [ ] 4.5 Run the frontend checks. Record the demo video for the PR description.
+- [x] 4.5 Run the frontend checks. Record the demo video for the PR description.
 
 ## 5. Photo views and agent-reported web sources
 
