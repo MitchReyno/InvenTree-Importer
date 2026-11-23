@@ -7,7 +7,7 @@ import type {
   OperatorLotDto,
   OperatorReviewDto,
 } from '@invimport/contracts'
-import { Heading, Panel, Small, Pill, ItemRow } from '#/components/ui'
+import { Heading, HelpButton, Panel, Small, Pill, ItemRow } from '#/components/ui'
 import { display } from '#/capture/display'
 import {
   GROUP_LABELS,
@@ -105,11 +105,13 @@ export function ReviewQueue({
   )
   return (
     <Panel aria-label="Physical lot review queue">
-      <Heading>Physical lots</Heading>
-      <Small>
-        Select up to {maxSelected} original contributions. Sharing a Part never includes another
-        lot.
-      </Small>
+      <TitleRow>
+        <Heading>Physical lots</Heading>
+        <HelpButton
+          label="About selecting lots"
+          explanation={`Select up to ${maxSelected} lots at once. Lots that share a Part are still selected one by one.`}
+        />
+      </TitleRow>
       {!lots.length && <Small>No lots match this filter.</Small>}
       {groupsFor(lots, operatorReview).map(({ group, lots: grouped }) => (
         <Group key={group} aria-label={`${GROUP_LABELS[group]} · ${grouped.length}`}>
@@ -172,6 +174,16 @@ export function ReviewQueue({
     </Panel>
   )
 }
+
+const TitleRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${space[3]};
+  margin-bottom: ${space[6]};
+  ${Heading} {
+    margin: 0;
+  }
+`
 
 const Group = styled.section`
   margin-top: ${space[6]};

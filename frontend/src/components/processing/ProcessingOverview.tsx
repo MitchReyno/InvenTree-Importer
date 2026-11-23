@@ -12,6 +12,7 @@ import {
   StatusTimeline,
   type TimelineEntry,
   NeedsYou,
+  HelpButton,
 } from '#/components/ui'
 import { PauseButton } from '#/components/agents/PauseButton'
 import { stageSegment } from '#/header/workSegments'
@@ -42,7 +43,12 @@ type Props = {
   /** How many sessions may run at once, from the agent settings. */
   sessionLimit?: number
   /** Whether the batch's sessions are paused, and how to pause or resume them. */
-  pause?: { paused: boolean; change: (paused: boolean) => Promise<unknown> }
+  pause?: {
+    paused: boolean
+    /** Why Pause or Resume waits, such as a read still landing; absent when it is available. */
+    unavailableReason?: string
+    change: (paused: boolean) => Promise<unknown>
+  }
   /** The batch is paused, as its read last said; its unfinished steps draw as paused. */
   paused?: boolean
   /** The bars stay still while the read they come from is not current. */
@@ -96,6 +102,10 @@ export function ProcessingOverview({
             <CardTitle>
               {working ? `${plural(working, 'agent')} working` : 'No agents working'}
             </CardTitle>
+            <HelpButton
+              label="About Processing"
+              explanation="Agents work on the server. Closing this browser does not cancel saved work."
+            />
             {(started || lotsFormed) && (
               <Muted>
                 {[started && `Started ${started}`, lotsFormed].filter(Boolean).join(' · ')}
@@ -133,7 +143,8 @@ export function ProcessingOverview({
               items={source.questions.map((question) => ({
                 id: question.id,
                 step: STEP_LABEL[question.step],
-                title: question.prompt,
+                title: question.title,
+                kind: question.kind,
                 assumption: [question.subject, question.assumption].filter(Boolean).join(' · '),
                 href: batchHref(batchId, {
                   tab: 'processing',
@@ -174,7 +185,13 @@ export function ProcessingOverview({
                 {runningSessions} running
                 {sessionLimit !== undefined && ` · limit ${sessionLimit}`}
               </Muted>
-              {pause && <PauseButton paused={pause.paused} change={pause.change} />}
+              {pause && (
+                <PauseButton
+                  paused={pause.paused}
+                  change={pause.change}
+                  unavailableReason={pause.unavailableReason}
+                />
+              )}
             </TitleRow>
             {pause?.paused && <Muted>Paused: no session starts new work until you resume.</Muted>}
             <SessionRows sessions={source.sessions} onOpen={onOpenSession} />
@@ -190,7 +207,8 @@ export function ProcessingOverview({
 const Columns = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: ${space[9]};
+  /* Wrapped, the columns are stacked page sections and take the page gap. */
+  gap: ${space[7]} ${space[9]};
   align-items: flex-start;
 `
 

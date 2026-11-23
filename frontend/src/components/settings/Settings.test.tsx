@@ -9,6 +9,7 @@ import { fixtureScope, render } from '#/test/render'
 import { agentSettings } from '#/test/agent-settings'
 import { serverQueryKey } from '#/queries/scope'
 import { HeaderObservationsProvider } from '#/context'
+import { MASTHEAD_MOTION_STORAGE_KEY, mastheadMotionController } from '#/theme/masthead-motion'
 import { MASTHEAD_STORAGE_KEY, mastheadStyleController } from '#/theme/masthead-style'
 import { THEME_STORAGE_KEY, themeController } from '#/theme/theme'
 import { Settings } from './Settings'
@@ -620,6 +621,31 @@ test('Appearance offers the masthead styles, applies one at once and remembers i
       }),
     ).toBeChecked()
   } finally {
+    mastheadStyleController().choose('bar')
+  }
+})
+
+test('Appearance turns the electronics animation off on this device, keeping the masthead style', async () => {
+  const user = userEvent.setup()
+  mastheadStyleController().choose('window')
+  mastheadMotionController().choose('on')
+  try {
+    const { unmount } = renderSettings('appearance')
+    const animate = screen.getByRole('switch', { name: 'Animate the electronics' })
+    expect(animate).toBeChecked()
+
+    await user.click(animate)
+
+    expect(animate).not.toBeChecked()
+    expect(document.documentElement.dataset.mastheadMotion).toBe('off')
+    expect(localStorage.getItem(MASTHEAD_MOTION_STORAGE_KEY)).toBe('off')
+    expect(document.documentElement.dataset.masthead).toBe('window')
+
+    unmount()
+    renderSettings('appearance')
+    expect(screen.getByRole('switch', { name: 'Animate the electronics' })).not.toBeChecked()
+  } finally {
+    mastheadMotionController().choose('on')
     mastheadStyleController().choose('bar')
   }
 })

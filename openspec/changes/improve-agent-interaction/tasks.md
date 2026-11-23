@@ -3,7 +3,7 @@
 ## Plan context
 
 - **Plan:** the [proposal](proposal.md) and [design](design.md), with deltas in `specs/` for `ui-design-system`, `processing-workspace`, `processing-stage-pipeline`, `processing-agent-sessions`, `agents-overview` and `header-workflow-status`.
-- **Reuse:** extend `Dialog.tsx` rather than use `closedby` or a polyfill, extend the existing contracts and form stack, and use native `<details>` for expandable entries. No new dependency.
+- **Reuse:** rebuild `Dialog.tsx` on `@radix-ui/react-dialog`, from the Radix family the frontend already uses for popovers, extend the existing contracts and form stack, and use native `<details>` for expandable entries. Radix Dialog is the only new dependency.
 - **Change name:** `improve-agent-interaction`. Branches are `feat/improve-agent-interaction-<suffix>`, and subjects are `type(improve-agent-interaction): …`.
 - **Items:** BI-019, plus BI-015's answer-options item, which this change takes over.
 - **More to come:** Mitch will add further items. They join this plan as new top-level tasks and PR bundles.
@@ -79,25 +79,25 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - **PR delivery:** PR-A.
 - **Outcome:** clicking the dimmed backdrop of any `Dialog` closes it through `onClose`. It is ignored while `closeDisabled` is set, and a press that starts inside the dialog never closes it.
 - **Scope and approach:**
-  - `frontend/src/components/ui/Dialog.tsx`: `pointerdown` and `click` on the `<dialog>`, with the rectangle check (see design).
-  - `MediaCropDialog`, the one direct `DialogSurface` user, gets the same handling through its own close guard. `RemovalDialog` and `EvidenceGroupPanel` already use `Dialog`.
+  - `frontend/src/components/ui/Dialog.tsx`: rebuild `Dialog` on `@radix-ui/react-dialog` (Portal, Overlay, Content, Title), with the guards in `onEscapeKeyDown` and `onInteractOutside` (see design). Keep the opener and `returnFocus` focus return, the `side` drawer and the surface's look.
+  - `MediaCropDialog`, the one direct `DialogSurface` user, moves off its native `<dialog>` onto the same Radix layer, with its own close guard, so there is one modal system. `RemovalDialog`, `RestructureDialog`, `CompareMatches`, `EvidenceGroupPanel` and the session drawer already use `Dialog`.
 - **Prerequisites:** none.
 - **Acceptance:** ui-design-system "Dialogs close from their backdrop", all scenarios; processing-workspace "Step page pattern", scenario "Session drawer".
-- **TDD approach:** `Dialog.test.tsx` cases fail first, because there is no backdrop handler.
+- **TDD approach:** `Dialog.test.tsx` cases fail first, because there is no backdrop handler. The Radix rebuild keeps them as behaviour tests.
 - **Verification:**
   - `pnpm --filter frontend typecheck`, `lint`, `test` (the Dialog and ProcessingWorkspace drawer tests) and `build`;
   - a demo film.
-- **Risks and decisions:** jsdom has no real layout, so tests stub `getBoundingClientRect`.
+- **Risks and decisions:** a Radix modal marks the page behind it `aria-hidden` and blocks its pointer events, as the native modal made it inert in browsers; jsdom tests that reached the page behind an open dialog now say so. A Radix popover opened inside a dialog must stay usable.
 
-- [ ] 1.1 Read the shared and frontend code guidelines and the frontend architecture. List every `Dialog` and `DialogSurface` user and how each closes.
-- [ ] 1.2 RED: add `Dialog.test.tsx` cases:
-  - [ ] 1.2.1 A backdrop click calls `onClose`.
-  - [ ] 1.2.2 A backdrop click with `closeDisabled` set doesn't call it.
-  - [ ] 1.2.3 A press inside that is released on the backdrop doesn't close, including a press on the surface's padding where both events target the dialog itself.
-  - [ ] 1.2.4 A click on the content doesn't close.
-- [ ] 1.3 RED: add a `ProcessingWorkspace` drawer test: a backdrop click with an unsaved answer shows the close-blocked banner.
-- [ ] 1.4 GREEN: implement the handler, and give `MediaCropDialog` the same backdrop handling through its close guard, with a test.
-- [ ] 1.5 Run the frontend checks. Record a demo video (title card, click outside the drawer, end card) for the PR description.
+- [x] 1.1 Read the shared and frontend code guidelines and the frontend architecture. List every `Dialog` and `DialogSurface` user and how each closes.
+- [x] 1.2 RED: add `Dialog.test.tsx` cases:
+  - [x] 1.2.1 A backdrop click calls `onClose`.
+  - [x] 1.2.2 A backdrop click with `closeDisabled` set doesn't call it.
+  - [x] 1.2.3 A press inside that is released on the backdrop doesn't close, including a press on the surface's own padding.
+  - [x] 1.2.4 A click on the content doesn't close.
+- [x] 1.3 RED: add a `ProcessingWorkspace` drawer test: a backdrop click with an unsaved answer shows the close-blocked banner.
+- [x] 1.4 GREEN: implement the handler, and give `MediaCropDialog` the same backdrop handling through its close guard, with a test.
+- [x] 1.5 Run the frontend checks. Record a demo video (title card, click outside the drawer, end card) for the PR description.
 
 ## 2. Stepped question contracts
 
@@ -110,10 +110,10 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - **Verification:** `pnpm --filter @invimport/contracts test` and typecheck.
 - **Risks and decisions:** keep `/1` exports unchanged, so the runner paths compile untouched. The question DTO becomes a version-discriminated union: the `/1` variant keeps `spec`, the `/2` variant carries its steps, and both carry the shared fields; the normalised view is derived by `questionView`, not sent (see design).
 
-- [ ] 2.1 Read the shared code guidelines and the contracts README. Confirm every consumer of `SessionAskArgs`, `ProcessingAnswer`, `SessionInboxItem` and the question DTO.
-- [ ] 2.2 RED: tests for the `/2` ask, covering 1–4 steps, 2–6 options and the label, detail and prompt lengths. Add `/2` answer tests and envelope and inbox decoding of both versions.
-- [ ] 2.3 GREEN: add the schemas, types and the normalised question view.
-- [ ] 2.4 Run the contracts tests and the workspace typecheck.
+- [x] 2.1 Read the shared code guidelines and the contracts README. Confirm every consumer of `SessionAskArgs`, `ProcessingAnswer`, `SessionInboxItem` and the question DTO.
+- [x] 2.2 RED: tests for the `/2` ask, covering 1–4 steps, 2–6 options and the label, detail and prompt lengths. Add `/2` answer tests and envelope and inbox decoding of both versions.
+- [x] 2.3 GREEN: add the schemas, types and the normalised question view.
+- [x] 2.4 Run the contracts tests and the workspace typecheck.
 
 ## 3. Server: ask, answers and agent guidance
 
@@ -137,26 +137,26 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - **Verification:** `pnpm db:intake test` on the affected files, and `test:process` for sessions. Both need `INTAKE_MEDIA_DECODER_IMAGE` and `INTAKE_MEDIA_PROBE_IMAGE`.
 - **Risks and decisions:** the note line format is "prompt — answer", one line per step; record any change in `notes.md`. The `ask` tool must not advertise `/2` in a build without task 4's form, which is why tasks 2–4 share PR-B.
 
-- [ ] 3.1 Read the shared and intake-server code guidelines and `intake-server/ARCHITECTURE.md`. Map where `/1` question specs are decoded for the read model and the answer route.
-- [ ] 3.2 RED: write the `ask` handler PG tests.
-  - [ ] 3.2.1 Store a valid `/2` question.
-  - [ ] 3.2.2 Refuse duplicate step IDs or option IDs, two number steps, a number step without a live lot, and a number step whose question doesn't list `quantity` in its fields, asserting that each tool response names the affected step by index or ID; and schema refusals (five steps, one option) whose issue paths name `/steps` or the step's options; and an ask within every field limit whose sealed envelope exceeds 32,768 bytes, refused as a correctable tool error with nothing stored.
-  - [ ] 3.2.3 A batch near the snapshot limit with retained `/1` questions and `/2` asks that fit the per-attempt question budget still reads in the Processing snapshot, each question's content carried once.
-- [ ] 3.3 RED: write the answer PG tests.
-  - [ ] 3.3.1 A quantity plus a note, applied in one transaction.
-  - [ ] 3.3.2 Rollback when the note edit is refused after the quantity edit, with the refusal injected.
-  - [ ] 3.3.3 Refusal of a combined note over the 8192-character limit, before any edit, with the response naming the step, and of an answer whose note fits but whose payload, measured as PostgreSQL's `jsonb` text, exceeds 32,768 bytes, including one that fits as compact JSON.
-  - [ ] 3.3.4 Refusal of a wrong kind, an unknown option or a missing step.
-  - [ ] 3.3.5 A number step answered in words is accepted: the text reaches the inbox, the note is written and the lot quantity is unchanged.
-  - [ ] 3.3.6 Same-key replay returns the first receipt; a different payload under that key is refused; a new key with the same payload adopts the answer; a new key with a different payload gets `payload_conflict`.
-  - [ ] 3.3.7 A number answer marks a proposal relying on the lot's quantity stale.
-  - [ ] 3.3.8 An inbox payload carrying the option ID and the number step's basis.
-  - [ ] 3.3.9 A `/1` answer still accepted.
-  - [ ] 3.3.10 A `/2` answer to an earlier runner question is refused before the runner branch reads `input.value`, and retained `/1` runner answers still succeed.
-- [ ] 3.4 RED: an attention read PG test with an open `/2` stepped question, a `/1` session question and an earlier runner question, each carrying its title and kind or step count, with assumptions where recorded and none for the runner question; `/2` lot and Part questions count against their affected lots.
-- [ ] 3.5 GREEN: implement the `ask` and answer branches and the version-discriminated read model.
-- [ ] 3.6 Update the `ask` description and the runner's opening instructions. Teach the fake CLI and the synthetic session a stepped ask, and add a process test that answers it and reads the inbox.
-- [ ] 3.7 Update `intake-server/src/agents/ARCHITECTURE.md` (the question shape and answer effects). Run the intake unit, PG and process tiers, including a read of a database already holding `/2` questions and answers.
+- [x] 3.1 Read the shared and intake-server code guidelines and `intake-server/ARCHITECTURE.md`. Map where `/1` question specs are decoded for the read model and the answer route.
+- [x] 3.2 RED: write the `ask` handler PG tests.
+  - [x] 3.2.1 Store a valid `/2` question.
+  - [x] 3.2.2 Refuse duplicate step IDs or option IDs, two number steps, a number step without a live lot, and a number step whose question doesn't list `quantity` in its fields, asserting that each tool response names the affected step by index or ID; and schema refusals (five steps, one option) whose issue paths name `/steps` or the step's options; and an ask within every field limit whose sealed envelope exceeds 32,768 bytes, refused as a correctable tool error with nothing stored.
+  - [x] 3.2.3 A batch near the snapshot limit with retained `/1` questions and `/2` asks that fit the per-attempt question budget still reads in the Processing snapshot, each question's content carried once.
+- [x] 3.3 RED: write the answer PG tests.
+  - [x] 3.3.1 A quantity plus a note, applied in one transaction.
+  - [x] 3.3.2 Rollback when the note edit is refused after the quantity edit, with the refusal injected.
+  - [x] 3.3.3 Refusal of a combined note over the 8192-character limit, before any edit, with the response naming the step, and of an answer whose note fits but whose payload, measured as PostgreSQL's `jsonb` text, exceeds 32,768 bytes, including one that fits as compact JSON.
+  - [x] 3.3.4 Refusal of a wrong kind, an unknown option or a missing step.
+  - [x] 3.3.5 A number step answered in words is accepted: the text reaches the inbox, the note is written and the lot quantity is unchanged.
+  - [x] 3.3.6 Same-key replay returns the first receipt; a different payload under that key is refused; a new key with the same payload adopts the answer; a new key with a different payload gets `payload_conflict`.
+  - [x] 3.3.7 A number answer marks a proposal relying on the lot's quantity stale.
+  - [x] 3.3.8 An inbox payload carrying the option ID and the number step's basis.
+  - [x] 3.3.9 A `/1` answer still accepted.
+  - [x] 3.3.10 A `/2` answer to an earlier runner question is refused before the runner branch reads `input.value`, and retained `/1` runner answers still succeed.
+- [x] 3.4 RED: an attention read PG test with an open `/2` stepped question, a `/1` session question and an earlier runner question, each carrying its title and kind or step count, with assumptions where recorded and none for the runner question; `/2` lot and Part questions count against their affected lots.
+- [x] 3.5 GREEN: implement the `ask` and answer branches and the version-discriminated read model.
+- [x] 3.6 Update the `ask` description and the runner's opening instructions. Teach the fake CLI and the synthetic session a stepped ask, and add a process test that answers it and reads the inbox.
+- [x] 3.7 Update `intake-server/src/agents/ARCHITECTURE.md` (the question shape and answer effects). Run the intake unit, PG and process tiers, including a read of a database already holding `/2` questions and answers.
 
 ## 4. Stepped answer form, option cards and Needs you rows
 
@@ -186,20 +186,20 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
   - a demo video of a stepped question answered with options, plus prose rejected in a number step and then answered in words.
 - **Risks and decisions:** none open; a choice is picked, then sent.
 
-- [ ] 4.1 Read the shared and frontend code guidelines, the frontend architecture and the canvas boards. A choice is picked, then sent (decided 2026-11-23).
-- [ ] 4.2 RED: component tests:
-  - [ ] 4.2.1 A one-step choice: send with Send, and "Something else" text.
-  - [ ] 4.2.2 Steps: Back and Next, the summary with Change, and "Send N answers".
-  - [ ] 4.2.3 A number step: the inline error for prose, blocked Next, and "Answer in words".
-  - [ ] 4.2.4 The `/1` question fallback, and draft pinning across a supersede with every step kept.
-  - [ ] 4.2.5 Needs you rows with kind, step count and assumptions, from the attention read.
-  - [ ] 4.2.6 Review shows the answer form on the affected lot for `/2` lot and Part questions, through the shared `subject_id`.
-  - [ ] 4.2.7 A `/2` question on the Inventory step, on a job card and in Review shows its title, steps and `reason` from the shared fields, the Inventory comparison included, and a `/1` question shows as before.
-  - [ ] 4.2.8 The drawer's chat renders after a `/2` answer is saved, with `/1` and `/2` answers both in its timeline.
-  - [ ] 4.2.9 A confirmed 422 naming a step, submitted from the drawer through `perform()`, keeps the draft editable and marks that step; an uncertain failure retries only the original payload and key.
-- [ ] 4.3 GREEN: implement the form, the option cards and the rows. Remove `OPTIONS_NOT_CARRIED` and its placeholders.
-- [ ] 4.4 Update the fixtures (`ProcessingProof`) with a stepped and a choice question for the demo. Update the frontend architecture if component ownership changes.
-- [ ] 4.5 Run the frontend checks. Record the demo video for the PR description.
+- [x] 4.1 Read the shared and frontend code guidelines, the frontend architecture and the canvas boards. A choice is picked, then sent (decided 2026-11-23).
+- [x] 4.2 RED: component tests:
+  - [x] 4.2.1 A one-step choice: send with Send, and "Something else" text.
+  - [x] 4.2.2 Steps: Back and Next, the summary with Change, and "Send N answers".
+  - [x] 4.2.3 A number step: the inline error for prose, blocked Next, and "Answer in words".
+  - [x] 4.2.4 The `/1` question fallback, and draft pinning across a supersede with every step kept.
+  - [x] 4.2.5 Needs you rows with kind, step count and assumptions, from the attention read.
+  - [x] 4.2.6 Review shows the answer form on the affected lot for `/2` lot and Part questions, through the shared `subject_id`.
+  - [x] 4.2.7 A `/2` question on the Inventory step, on a job card and in Review shows its title, steps and `reason` from the shared fields, the Inventory comparison included, and a `/1` question shows as before.
+  - [x] 4.2.8 The drawer's chat renders after a `/2` answer is saved, with `/1` and `/2` answers both in its timeline.
+  - [x] 4.2.9 A confirmed 422 naming a step, submitted from the drawer through `perform()`, keeps the draft editable and marks that step; an uncertain failure retries only the original payload and key.
+- [x] 4.3 GREEN: implement the form, the option cards and the rows. Remove `OPTIONS_NOT_CARRIED` and its placeholders.
+- [x] 4.4 Update the fixtures (`ProcessingProof`) with a stepped and a choice question for the demo. Update the frontend architecture if component ownership changes.
+- [x] 4.5 Run the frontend checks. Record the demo video for the PR description.
 
 ## 5. Photo views and agent-reported web sources
 

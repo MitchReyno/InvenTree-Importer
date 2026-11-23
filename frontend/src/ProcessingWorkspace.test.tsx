@@ -1,8 +1,10 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { IntakeRequestError } from '@invimport/contracts/client'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
 import { setDebugMode } from '#/test/debug-mode'
-import { onlineManager } from '@tanstack/react-query'
+import { onlineManager, type QueryClient } from '@tanstack/react-query'
+import { freshReads } from './queries/fresh-reads'
 import { validate, type CaptureSnapshotDto, type ProcessingSnapshotDto } from '@invimport/contracts'
 import { ProcessingWorkspace } from './components/processing/ProcessingWorkspace'
 import { ServerStateProvider } from './components/query/ServerStateProvider'
@@ -76,9 +78,9 @@ const snapshot: ProcessingSnapshotDto = {
           input_sha256: 'a'.repeat(64),
           revision: '1',
           state: 'open',
+          subject_id: subjectId,
           spec: {
             kind: 'quantity',
-            subject_id: subjectId,
             prompt: 'How many are in Packet A?',
             reason: 'The label is unclear.',
           },
@@ -89,6 +91,14 @@ const snapshot: ProcessingSnapshotDto = {
 }
 validate('CaptureSnapshot', batch)
 validate('ProcessingSnapshot', snapshot)
+
+/** A `/1` question's spec, which these fixtures all carry. */
+function legacySpec(question: ProcessingSnapshotDto['jobs'][number]['questions'][number]) {
+  if (!('spec' in question)) {
+    throw new Error('expected a /1 question')
+  }
+  return question.spec
+}
 
 function clientFixture() {
   return {
@@ -140,8 +150,31 @@ function mount(client: ProcessingClient, cache = createServerQueryClient()) {
   return { cache, dirty, navigate, rerender: view.rerender }
 }
 
+/** A command that can't be used now, whether disabled or quietly waiting for a read. */
+function expectUnavailable(control: HTMLElement) {
+  expect(control.hasAttribute('disabled') || control.getAttribute('aria-disabled') === 'true').toBe(
+    true,
+  )
+}
+
+/** A command that can be used now. */
+function expectAvailable(control: HTMLElement) {
+  expect(control).toBeEnabled()
+  expect(control).not.toHaveAttribute('aria-disabled')
+}
+
 afterEach(() => {
   onlineManager.setOnline(true)
+})
+
+test('shows no processing profile notice and no qualification tag on job cards', async () => {
+  const client = clientFixture()
+  mount(client)
+  expect((await screen.findAllByText(/How many are in Packet A\?/)).length).toBeGreaterThan(0)
+
+  expect(screen.queryByText(/Synthetic processing fixture|Native agent profile/)).toBeNull()
+  expect(screen.queryByText(/synthetic fixture only|live provider not qualified/)).toBeNull()
+  expect(screen.queryByText(/Closing this browser/)).toBeNull()
 })
 
 test('warm cache and cache writes cannot authorize commands; failed reads retain a pinned dirty answer', async () => {
@@ -157,8 +190,8 @@ test('warm cache and cache writes cannot authorize commands; failed reads retain
   await user.click(screen.getByRole('checkbox', { name: 'Packet A' }))
   const queue = screen.getByRole('button', { name: 'Queue new processing attempts' })
   const cancel = screen.getByRole('button', { name: 'Cancel this attempt' })
-  expect(queue).toBeDisabled()
-  expect(cancel).toBeDisabled()
+  expectUnavailable(queue)
+  expectUnavailable(cancel)
   expect(
     screen.queryByRole('button', { name: 'Save answer and queue continuation' }),
   ).not.toBeInTheDocument()
@@ -166,14 +199,14 @@ test('warm cache and cache writes cannot authorize commands; failed reads retain
   act(() => {
     cache.setQueryData(key, { ...snapshot, cursor: { ...snapshot.cursor, sequence: '99' } })
   })
-  expect(queue).toBeDisabled()
+  expectUnavailable(queue)
   expect(screen.queryByLabelText('Quantity')).not.toBeInTheDocument()
   expect(client.start).not.toHaveBeenCalled()
   await act(async () => {
     fresh.resolve(snapshot)
     await fresh.promise
   })
-  await waitFor(() => expect(queue).toBeEnabled())
+  await waitFor(() => expectAvailable(queue))
   const field = await screen.findByLabelText('Quantity')
   await user.type(field, '37')
   const answer = screen.getByRole('button', { name: 'Save answer and queue continuation' })
@@ -185,8 +218,8 @@ test('warm cache and cache writes cannot authorize commands; failed reads retain
     await cache.refetchQueries({ queryKey: key })
   })
   expect(await screen.findByText(/Processing status unavailable/)).toBeInTheDocument()
-  expect(queue).toBeDisabled()
-  expect(cancel).toBeDisabled()
+  expectUnavailable(queue)
+  expectUnavailable(cancel)
   expect(answer).toBeDisabled()
   expect(field).toHaveValue('37')
   expect(mounted.dirty).toHaveBeenLastCalledWith(true)
@@ -202,7 +235,7 @@ test('warm cache and cache writes cannot authorize commands; failed reads retain
     ...newer.jobs[0].questions[0],
     id: 'e0000000-0000-4000-8000-000000000005',
     state: 'open',
-    spec: { ...newer.jobs[0].questions[0].spec, prompt: 'Replacement count question' },
+    spec: { ...legacySpec(newer.jobs[0].questions[0]), prompt: 'Replacement count question' },
   })
   client.read.mockResolvedValue(newer)
   await act(async () => {
@@ -246,7 +279,7 @@ test('cold mount pins only the fresh question state, never the stale warm-cache 
     input_sha256: 'b'.repeat(64),
     revision: '1',
     state: 'open',
-    spec: { ...current.jobs[0].questions[0].spec, prompt: 'The new current question' },
+    spec: { ...legacySpec(current.jobs[0].questions[0]), prompt: 'The new current question' },
   })
   validate('ProcessingSnapshot', current)
   await act(async () => {
@@ -300,7 +333,7 @@ test('a paused read blocks cached commands and stays blocked until the resumed r
   await screen.findByLabelText('Quantity')
   await user.click(screen.getByRole('checkbox', { name: 'Packet A' }))
   const queue = screen.getByRole('button', { name: 'Queue new processing attempts' })
-  await waitFor(() => expect(queue).toBeEnabled())
+  await waitFor(() => expectAvailable(queue))
   const resumed = deferredRead()
   client.read.mockReturnValueOnce(resumed.promise)
   const key = serverQueryKey(scope, 'processing', batchId)
@@ -309,18 +342,18 @@ test('a paused read blocks cached commands and stays blocked until the resumed r
     void cache.invalidateQueries({ queryKey: key })
   })
   await waitFor(() => expect(cache.getQueryState(key)?.fetchStatus).toBe('paused'))
-  expect(queue).toBeDisabled()
-  expect(screen.getByRole('button', { name: 'Cancel this attempt' })).toBeDisabled()
+  expectUnavailable(queue)
+  expectUnavailable(screen.getByRole('button', { name: 'Cancel this attempt' }))
   act(() => {
     onlineManager.setOnline(true)
   })
   await waitFor(() => expect(client.read).toHaveBeenCalledTimes(2))
-  expect(queue).toBeDisabled()
+  expectUnavailable(queue)
   await act(async () => {
     resumed.resolve(snapshot)
     await resumed.promise
   })
-  await waitFor(() => expect(queue).toBeEnabled())
+  await waitFor(() => expectAvailable(queue))
 })
 
 test('archiving a verified workspace preserves the draft but refuses every mutation', async () => {
@@ -465,7 +498,10 @@ function mountView(
   )
 
   const mounted = render(element(sessionId))
-  return { rerenderWith: (session?: string) => mounted.rerender(element(session)) }
+  return {
+    queryClient,
+    rerenderWith: (session?: string) => mounted.rerender(element(session)),
+  }
 }
 
 test('the fixture profile shows its jobs and questions by step, and claims no live session', async () => {
@@ -522,8 +558,11 @@ test('a job with a session opens its timeline and chat in a drawer', async () =>
   expect(drawer).toHaveAttribute('data-placement', 'side')
 
   await waitFor(() => expect(session).toHaveBeenCalledWith(batchId, jobId))
+  // Every session drawer answers its questions in place, not only Inventory's.
   expect(
-    within(drawer).getByRole('link', { name: 'How many are in Packet A?' }),
+    await within(drawer).findByRole('form', {
+      name: 'Session question: How many are in Packet A?',
+    }),
   ).toBeInTheDocument()
   await userEvent.click(within(drawer).getByRole('button', { name: 'Close' }))
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -539,9 +578,9 @@ test('the Inventory drawer answers its open question through the question path',
       {
         ...snapshot.jobs[0].questions[0],
         assumption: 'Treating it as new until you say.',
+        subject_id: subjectId,
         spec: {
           kind: 'clarification' as const,
-          subject_id: subjectId,
           prompt: 'Is Packet A already in InvenTree?',
           reason: 'Stock #1712 has the same Part, date code and bin.',
         },
@@ -609,9 +648,9 @@ function inventorySnapshot(captureRevision = '8', answeredIds: string[] = []) {
     id,
     state: answeredIds.includes(id) ? ('answered' as const) : ('open' as const),
     assumption: 'Treating it as new until you say.',
+    subject_id: subjectId,
     spec: {
       kind: 'clarification' as const,
-      subject_id: subjectId,
       prompt,
       reason: 'Stock #1712 has the same Part, date code and bin.',
     },
@@ -699,6 +738,11 @@ function RemountingWorkspace({
 }
 
 /** Opens the Inventory drawer from a session link unless `fromRow` leaves it to the session row. */
+// Stands in for leaving Processing from another tab, so the open drawer doesn't block it.
+function toggleProcessing() {
+  fireEvent.click(screen.getByRole('button', { name: 'Toggle Processing', hidden: true }))
+}
+
 function mountInventoryDrawer(
   read: ProcessingSnapshotDto,
   pinnedQuestionId?: string,
@@ -808,20 +852,56 @@ test('closing the drawer with an unsaved answer asks first, and discards only on
   expect(dirty).toHaveBeenLastCalledWith(false)
 })
 
+// The dimmed page beside the drawer is its backdrop, rendered just before it. Radix starts
+// listening for outside presses a tick after the drawer opens.
+async function clickBesideDrawer(user: ReturnType<typeof userEvent.setup>, drawer: HTMLElement) {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+  const backdrop = drawer.previousElementSibling
+  if (!(backdrop instanceof HTMLElement)) {
+    throw new Error('the drawer has no backdrop')
+  }
+  await user.click(backdrop)
+}
+
+test('a click beside the drawer closes it and returns focus to its session row', async () => {
+  const user = userEvent.setup()
+  mountInventoryDrawer(inventorySnapshot(), undefined, { fromRow: true })
+  await user.click(
+    await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' }),
+  )
+  const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+
+  await clickBesideDrawer(user, drawer)
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Open session: Inventory · Packet A' })).toHaveFocus()
+})
+
+test('a click beside the drawer with an unsaved answer asks first, as Close does', async () => {
+  const user = userEvent.setup()
+  const { dirty } = mountInventoryDrawer(inventorySnapshot())
+  const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+  await within(drawer).findByRole('form', { name: /^Session question: Is Packet A already/ })
+  await user.type(answerBox('Is Packet A already in InvenTree?'), 'Different tube')
+
+  await clickBesideDrawer(user, drawer)
+  expect(screen.getByRole('dialog', { name: 'Inventory · Packet A' })).toBeInTheDocument()
+  expect(within(drawer).getByRole('alert')).toHaveTextContent(
+    'Save or discard your answer before closing this session.',
+  )
+  expect(answerBox('Is Packet A already in InvenTree?')).toHaveValue('Different tube')
+  expect(dirty).toHaveBeenLastCalledWith(true)
+})
+
 test('answering one drawer question leaves the other answerable, and focus moves to it', async () => {
   const user = userEvent.setup()
   // Opened from a session link; saving the answer remounts Processing, as Batch does.
   const { client } = mountInventoryDrawer(inventorySnapshot())
   const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
   await within(drawer).findByRole('form', { name: /^Session question: Is Packet A already/ })
-  // The session's options are shown disabled, with why; the answer goes in words.
-  const options = within(drawer).getByRole('radiogroup', {
-    name: 'Answer options: Is Packet A already in InvenTree?',
-  })
-  for (const option of within(options).getAllByRole('radio')) {
-    expect(option).toHaveAttribute('aria-disabled', 'true')
-    expect(option).toHaveAccessibleDescription(/don’t carry the session’s answer options yet/)
-  }
+  // A /1 question carries no options, so no placeholder cards stand in for them.
+  expect(within(drawer).queryByRole('radiogroup', { name: /^Answer options/ })).toBeNull()
 
   const first = 'Is Packet A already in InvenTree?'
   const second = 'Is Packet A the reel in drawer 2?'
@@ -909,6 +989,10 @@ test('a drawer draft survives its session leaving the read', async () => {
   const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
   await within(drawer).findByRole('form', { name: /^Session question: Is Packet A already/ })
   await user.type(answerBox('Is Packet A already in InvenTree?'), 'Different tube')
+  // The session row is behind the open drawer, so hidden from the accessibility tree.
+  expect(
+    screen.getByRole('button', { name: 'Open session: Inventory · Packet A', hidden: true }),
+  ).toBeInTheDocument()
 
   const gone = inventorySnapshot('9')
   delete gone.jobs[0].session_state
@@ -919,7 +1003,7 @@ test('a drawer draft survives its session leaving the read', async () => {
   // The session row leaves the step page once the read without the session is shown.
   await waitFor(() =>
     expect(
-      screen.queryByRole('button', { name: 'Open session: Inventory · Packet A' }),
+      screen.queryByRole('button', { name: 'Open session: Inventory · Packet A', hidden: true }),
     ).not.toBeInTheDocument(),
   )
   expect(screen.getByRole('dialog', { name: 'Inventory · Packet A' })).toBeInTheDocument()
@@ -1008,7 +1092,7 @@ test('other drawer forms are read-only while an answer saves', async () => {
 test('the page’s clean pinned answer follows a revision a drawer answer moved', async () => {
   const user = userEvent.setup()
   const { client } = mountInventoryDrawer(inventorySnapshot(), questionId)
-  await screen.findByRole('form', { name: 'Pinned application question' })
+  await screen.findByRole('form', { name: 'Pinned application question', hidden: true })
   const second = 'Is Packet A the reel in drawer 2?'
   await screen.findByRole('form', { name: `Session question: ${second}` })
   await user.type(answerBox(second), 'No')
@@ -1022,6 +1106,12 @@ test('the page’s clean pinned answer follows a revision a drawer answer moved'
     expect(screen.queryByRole('form', { name: `Session question: ${second}` })).toBeNull(),
   )
 
+  // The page behind the drawer is inert, so the drawer closes first.
+  await user.click(
+    within(screen.getByRole('dialog', { name: 'Inventory · Packet A' })).getByRole('button', {
+      name: 'Close',
+    }),
+  )
   const pinned = screen.getByRole('form', { name: 'Pinned application question' })
   expect(pinned).not.toHaveTextContent('superseded')
   await user.type(within(pinned).getByRole('textbox', { name: 'Clarification' }), 'Same tube')
@@ -1079,8 +1169,8 @@ test('a skipped reload leaves nothing to reopen the drawer on a later visit', as
   )
 
   // Leave Processing with the drawer open, then come back: it starts from its route alone.
-  await user.click(screen.getByRole('button', { name: 'Toggle Processing' }))
-  await user.click(screen.getByRole('button', { name: 'Toggle Processing' }))
+  toggleProcessing()
+  toggleProcessing()
   await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' })
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })
@@ -1108,9 +1198,9 @@ test('an answer’s failed reload leaves nothing for another tab’s reload to c
   )
 
   // Off to Records, whose save reloads the batch and re-keys every stage, then back.
-  await user.click(screen.getByRole('button', { name: 'Toggle Processing' }))
+  toggleProcessing()
   act(() => drawerRestore.carry())
-  await user.click(screen.getByRole('button', { name: 'Toggle Processing' }))
+  toggleProcessing()
   await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' })
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })
@@ -1212,21 +1302,25 @@ test('closing a drawer restored after a remount returns focus to its session row
 
 test('a drawer that focuses its own Close on opening still moves to the next question', async () => {
   const user = userEvent.setup()
-  // As browsers do: showModal opens the dialog and focuses its first focusable control. jsdom
-  // has no showModal, so Dialog would otherwise just set `open`.
-  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
-    configurable: true,
-    value(this: HTMLDialogElement) {
-      this.open = true
-      this.querySelector<HTMLElement>('button')?.focus()
-    },
-  })
-  try {
-    await answerFirstFromRow(user)
-    await waitFor(() => expect(answerBox('Is Packet A the reel in drawer 2?')).toHaveFocus())
-  } finally {
-    delete (HTMLDialogElement.prototype as Partial<HTMLDialogElement>).showModal
-  }
+  const { client } = mountInventoryDrawer(inventorySnapshot(), undefined, { fromRow: true })
+  await user.click(
+    await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' }),
+  )
+  // Opening places focus on the drawer's first control, its Close button.
+  const drawer = screen.getByRole('dialog', { name: 'Inventory · Packet A' })
+  expect(within(drawer).getByRole('button', { name: 'Close' })).toHaveFocus()
+
+  const first = 'Is Packet A already in InvenTree?'
+  await screen.findByRole('form', { name: `Session question: ${first}` })
+  await user.type(answerBox(first), 'Different tube')
+  client.read.mockResolvedValue(inventorySnapshot('9', [questionId]))
+  // Saving remounts Processing, and the restored drawer again focuses its Close on opening.
+  await user.click(
+    within(screen.getByRole('form', { name: `Session question: ${first}` })).getByRole('button', {
+      name: 'Send answer to the session',
+    }),
+  )
+  await waitFor(() => expect(answerBox('Is Packet A the reel in drawer 2?')).toHaveFocus())
 })
 
 test('saving a drawer’s last draft after its session left clears the session link', async () => {
@@ -1235,6 +1329,9 @@ test('saving a drawer’s last draft after its session left clears the session l
   const first = 'Is Packet A already in InvenTree?'
   await screen.findByRole('form', { name: `Session question: ${first}` })
   await user.type(answerBox(first), 'Different tube')
+  expect(
+    screen.getByRole('button', { name: 'Open session: Inventory · Packet A', hidden: true }),
+  ).toBeInTheDocument()
 
   // The session ends; its question is still open at the same capture revision.
   const ended = inventorySnapshot('8')
@@ -1245,7 +1342,7 @@ test('saving a drawer’s last draft after its session left clears the session l
   })
   await waitFor(() =>
     expect(
-      screen.queryByRole('button', { name: 'Open session: Inventory · Packet A' }),
+      screen.queryByRole('button', { name: 'Open session: Inventory · Packet A', hidden: true }),
     ).not.toBeInTheDocument(),
   )
   const answered = inventorySnapshot('9', [questionId])
@@ -1642,4 +1739,399 @@ test('returning to a route reopens only the session its link names, not an earli
     </ServerStateProvider>,
   )
   expect(screen.queryByRole('dialog', { name: 'Examine · Packet A' })).not.toBeInTheDocument()
+})
+
+/** An Inventory session waiting on one stepped question about Packet A. */
+function steppedInventorySnapshot() {
+  const value: ProcessingSnapshotDto = {
+    ...snapshot,
+    jobs: [
+      {
+        ...snapshot.jobs[0],
+        stage: 'inventory',
+        session_state: 'waiting_input',
+        questions: [
+          {
+            id: questionId,
+            job_id: jobId,
+            attempt_id: attemptId,
+            input_sha256: 'a'.repeat(64),
+            revision: '1',
+            state: 'open',
+            subject_id: subjectId,
+            schema_version: 'bench-intake-question/2',
+            fields: ['identity'],
+            title: 'Packet A and stock #1712',
+            reason: 'Stock #1712 has the same Part, date code and bin.',
+            steps: [
+              {
+                id: 'same_tube',
+                prompt: 'Is Packet A the tube already in stock?',
+                assumption: 'Treating it as new until you say.',
+                answer: {
+                  kind: 'choice',
+                  options: [
+                    { id: 'same', label: 'Same tube as stock #1712' },
+                    { id: 'new', label: 'Different tube: add new stock' },
+                  ],
+                  other: false,
+                },
+              },
+              {
+                id: 'note',
+                prompt: 'Anything to add?',
+                assumption: 'Nothing to add.',
+                answer: { kind: 'text' },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  }
+  validate('ProcessingSnapshot', value)
+  return value
+}
+
+test('a stepped drawer question is answered with live option cards, and a refused step stays editable', async () => {
+  const user = userEvent.setup()
+  const { client } = mountInventoryDrawer(steppedInventorySnapshot())
+  client.answer
+    .mockRejectedValueOnce(new IntakeRequestError(422, 'invalid_answer', 'note'))
+    .mockRejectedValueOnce(new Error('lost acknowledgement'))
+  const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+  const form = await within(drawer).findByRole('form', {
+    name: 'Session question: Packet A and stock #1712',
+  })
+  expect(within(form).getByText('Step 1 of 2')).toBeVisible()
+  // The options are live cards: picking one chooses it, sending waits for Send.
+  await user.click(within(form).getByRole('radio', { name: /Different tube: add new stock/ }))
+  expect(client.answer).not.toHaveBeenCalled()
+  await user.click(within(form).getByRole('button', { name: 'Next' }))
+  await user.type(within(form).getByLabelText('Your answer'), 'Bent leads')
+  await user.click(within(form).getByRole('button', { name: 'Next' }))
+  await user.click(within(form).getByRole('button', { name: 'Send 2 answers' }))
+
+  // Confirmed through perform(): the named step shows why and stays editable.
+  expect(await within(form).findByText('Step 2 of 2')).toBeVisible()
+  expect(within(form).getByText(/This answer wasn’t accepted/)).toBeVisible()
+  expect(within(drawer).queryByText(/Command not confirmed/)).toBeNull()
+  const box = within(form).getByLabelText('Your answer')
+  expect(box).toBeEnabled()
+  await user.clear(box)
+  await user.type(box, 'Leads are fine')
+  await user.click(within(form).getByRole('button', { name: 'Next' }))
+  await user.click(within(form).getByRole('button', { name: 'Send 2 answers' }))
+
+  // An uncertain failure keeps the exact payload and key for the retry.
+  const retry = await within(form).findByRole('button', { name: 'Retry exact answer' })
+  const answered = steppedInventorySnapshot()
+  answered.jobs[0].questions[0].state = 'answered'
+  client.read.mockResolvedValue(answered)
+  await user.click(retry)
+  // Once saved, the question leaves the drawer and focus goes to its heading.
+  await waitFor(() => expect(screen.queryByRole('form', { name: /^Session question/ })).toBeNull())
+  await waitFor(() =>
+    expect(
+      within(screen.getByRole('dialog')).getByRole('heading', { name: 'Inventory · Packet A' }),
+    ).toHaveFocus(),
+  )
+  const calls = client.answer.mock.calls
+  expect(calls).toHaveLength(3)
+  expect(calls[1][2]).toEqual(
+    expect.objectContaining({
+      schema_version: 'bench-intake-answer/2',
+      steps: [
+        { step_id: 'same_tube', value: { kind: 'choice', option_id: 'new' } },
+        { step_id: 'note', value: { kind: 'text', text: 'Leads are fine' } },
+      ],
+    }),
+  )
+  expect(calls[2]).toEqual(calls[1])
+  expect(calls[1][3]).not.toBe(calls[0][3])
+})
+
+test('a refused stepped answer whose refresh then fails says it wasn’t accepted, not unconfirmed', async () => {
+  const user = userEvent.setup()
+  const { client } = mountInventoryDrawer(steppedInventorySnapshot())
+  const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+  const form = await within(drawer).findByRole('form', {
+    name: 'Session question: Packet A and stock #1712',
+  })
+  await user.click(within(form).getByRole('radio', { name: /Same tube as stock #1712/ }))
+  await user.click(within(form).getByRole('button', { name: 'Next' }))
+  await user.type(within(form).getByLabelText('Your answer'), 'Bent leads')
+  await user.click(within(form).getByRole('button', { name: 'Next' }))
+  client.answer.mockRejectedValueOnce(new IntakeRequestError(422, 'invalid_answer', 'note'))
+  client.read.mockRejectedValue(new Error('read failed'))
+  await user.click(within(form).getByRole('button', { name: 'Send 2 answers' }))
+  expect(
+    await screen.findByText(/The answer wasn’t accepted, and current status is unavailable/),
+  ).toBeInTheDocument()
+  expect(screen.queryByText(/original delivery identity are kept/)).toBeNull()
+  expect(within(form).getByLabelText('Your answer')).toHaveValue('Bent leads')
+})
+
+test('a stepped answer sent from the drawer leaves Needs you and shows in the chat beside a /1 answer', async () => {
+  const user = userEvent.setup()
+  const answered = steppedInventorySnapshot()
+  answered.jobs[0].questions[0].state = 'answered'
+  const client = {
+    ...clientFixture(),
+    read: vi.fn().mockResolvedValue(steppedInventorySnapshot()),
+    session: vi.fn().mockResolvedValue({
+      job_id: jobId,
+      attempt_id: attemptId,
+      session_state: 'waiting_input',
+      outbox: [],
+      inbox: [],
+    }),
+    chat: vi.fn(),
+    answer: vi.fn().mockImplementation(() => {
+      client.read.mockResolvedValue(answered)
+      // The next session read holds an earlier /1 answer and this /2 one.
+      client.session.mockResolvedValue({
+        job_id: jobId,
+        attempt_id: attemptId,
+        session_state: 'queued',
+        outbox: [],
+        inbox: [
+          {
+            id: 'a1',
+            seq: '1',
+            kind: 'answer',
+            created_at: '2026-11-23T09:00:00.000Z',
+            payload: {
+              question_id: 'c0000000-0000-4000-8000-0000000000e1',
+              answer_id: 'c0000000-0000-4000-8000-0000000000e2',
+              value: { kind: 'quantity', value: '12', basis: 'counted' },
+            },
+          },
+          {
+            id: 'a2',
+            seq: '2',
+            kind: 'answer',
+            created_at: '2026-11-23T09:05:00.000Z',
+            payload: {
+              question_id: questionId,
+              answer_id: 'c0000000-0000-4000-8000-0000000000e3',
+              steps: [
+                {
+                  step_id: 'same_tube',
+                  value: { kind: 'choice', option_id: 'same', label: 'Same tube as stock #1712' },
+                },
+                { step_id: 'note', value: { kind: 'text', text: 'Bent leads' } },
+              ],
+            },
+          },
+        ],
+      })
+      return Promise.resolve()
+    }),
+  } satisfies ProcessingClient
+  const { queryClient } = mountView(client, 'overview', jobId)
+  // Needs you is on the page behind the open drawer, so hidden from the accessibility tree.
+  const needsYou = await screen.findByRole('region', { name: 'Needs you', hidden: true })
+  expect(
+    within(needsYou).getByRole('link', { name: 'Answer: Packet A and stock #1712', hidden: true }),
+  ).toBeInTheDocument()
+  const drawer = await screen.findByRole('dialog')
+  const form = await within(drawer).findByRole('form', {
+    name: 'Session question: Packet A and stock #1712',
+  })
+  await user.click(within(form).getByRole('radio', { name: /Same tube as stock #1712/ }))
+  await user.click(within(form).getByRole('button', { name: 'Next' }))
+  await user.type(within(form).getByLabelText('Your answer'), 'Bent leads')
+  await user.click(within(form).getByRole('button', { name: 'Next' }))
+  await user.click(within(form).getByRole('button', { name: 'Send 2 answers' }))
+  await waitFor(() =>
+    expect(
+      within(screen.getByRole('region', { name: 'Needs you', hidden: true })).queryByRole('link', {
+        name: 'Answer: Packet A and stock #1712',
+        hidden: true,
+      }),
+    ).toBeNull(),
+  )
+  // The saved answer's batch event invalidates the scoped reads, the session's included.
+  await act(() => queryClient.invalidateQueries())
+  const log = await within(screen.getByRole('dialog')).findByRole('log', {
+    name: 'Session messages',
+  })
+  await waitFor(() =>
+    expect(log).toHaveTextContent('Answered: Same tube as stock #1712 · Bent leads'),
+  )
+  expect(log).toHaveTextContent('Answered: 12')
+  expect(client.answer).toHaveBeenCalledTimes(1)
+})
+
+test('the Research page explains research lanes behind a help button beside its heading', async () => {
+  const user = userEvent.setup()
+  render(
+    <ServerStateProvider scope={scope} client={createServerQueryClient()}>
+      <ProcessingWorkspace
+        batch={batch}
+        client={clientFixture()}
+        view="research"
+        navigate={vi.fn()}
+        onDirtyChange={vi.fn()}
+        onSaved={vi.fn().mockResolvedValue(undefined)}
+      />
+    </ServerStateProvider>,
+  )
+  const heading = await screen.findByRole('heading', { name: 'Research', level: 2 })
+
+  expect(screen.queryByText(/research lane per account/)).not.toBeInTheDocument()
+  await user.click(within(heading.parentElement!).getByRole('button', { name: 'About Research' }))
+  const help = await screen.findByRole('dialog', { name: 'About Research' })
+  expect(help).toHaveTextContent(/one lot at a time/)
+})
+
+test('a first visit shows the Processing skeleton, not a reading line', async () => {
+  const client = clientFixture()
+  const fresh = deferredRead()
+  client.read.mockReturnValueOnce(fresh.promise)
+  mount(client)
+
+  expect(screen.getByRole('status', { name: '' })).toHaveTextContent('Loading')
+  expect(screen.queryByText(/Reading retained processing state/)).not.toBeInTheDocument()
+  await act(async () => {
+    fresh.resolve(snapshot)
+    await fresh.promise
+  })
+  expect((await screen.findAllByText(/How many are in Packet A\?/)).length).toBeGreaterThan(0)
+  expect(screen.queryByText('Loading')).not.toBeInTheDocument()
+})
+
+test('a return visit shows the cached page with no banner; commands say “Updating…” until the read lands', async () => {
+  const user = userEvent.setup()
+  const client = clientFixture()
+  const cache = createServerQueryClient()
+  cache.setQueryData(serverQueryKey(scope, 'processing', batchId), snapshot)
+  const fresh = deferredRead()
+  client.read.mockReturnValueOnce(fresh.promise)
+  mount(client, cache)
+
+  await user.click(screen.getByRole('checkbox', { name: 'Packet A' }))
+  const queue = screen.getByRole('button', { name: 'Queue new processing attempts' })
+  expect(screen.queryByText(/Verifying/)).not.toBeInTheDocument()
+  expect(screen.queryByRole('status', { name: /Verifying/ })).not.toBeInTheDocument()
+  expect(queue).toHaveAttribute('aria-disabled', 'true')
+  expect(queue).toHaveAccessibleDescription('Updating…')
+  await user.click(queue)
+  expect(client.start).not.toHaveBeenCalled()
+
+  await act(async () => {
+    fresh.resolve(snapshot)
+    await fresh.promise
+  })
+  await waitFor(() => expect(queue).not.toHaveAttribute('aria-disabled'))
+  expect(queue).toBeEnabled()
+})
+
+function mountPause(client: ProcessingClient, cache: QueryClient, pause: () => Promise<undefined>) {
+  return render(
+    <ServerStateProvider scope={scope} client={cache}>
+      <ApiClientsProvider
+        value={{
+          agents: {
+            sessions: vi.fn(async () => ({
+              sessions: [],
+              paused_batch_ids: [],
+              paused_truncated: true as const,
+              next_before: null,
+              sessions_supported: true,
+            })),
+            settings: vi.fn(async () => agentSettings('1', null, { session_concurrency: 1 })),
+            pause: vi.fn(pause),
+          },
+        }}
+      >
+        <ProcessingWorkspace
+          batch={batch}
+          client={client}
+          view="overview"
+          navigate={vi.fn()}
+          onDirtyChange={vi.fn()}
+          onSaved={vi.fn().mockResolvedValue(undefined)}
+        />
+      </ApiClientsProvider>
+    </ServerStateProvider>,
+  )
+}
+
+test('Pause waits for a read started after the last live hint, and is checked again when pressed', async () => {
+  const user = userEvent.setup()
+  const running = {
+    ...snapshot,
+    jobs: [{ ...snapshot.jobs[0], session_state: 'running' as const }],
+  }
+  const client = { ...clientFixture(), read: vi.fn().mockResolvedValue(running) }
+  const cache = createServerQueryClient()
+  const pause = vi.fn(async () => undefined)
+  mountPause(client, cache, pause)
+  const button = await screen.findByRole('button', { name: 'Pause all' })
+  await waitFor(() => expect(button).not.toHaveAttribute('aria-disabled'))
+  const registry = freshReads(cache)
+  const key = serverQueryKey(scope, 'processing', batchId)
+
+  // A hint arrives: during the reconciliation delay the settled read predates it.
+  act(() => registry.noteHint())
+  expect(button).toHaveAttribute('aria-disabled', 'true')
+  expect(button).toHaveAccessibleDescription('Updating…')
+  await user.click(button)
+  expect(pause).not.toHaveBeenCalled()
+
+  // Reconciliation queued behind a read that started before the hint: that read is not enough.
+  const before = deferredRead()
+  client.read.mockReturnValueOnce(before.promise)
+  act(() => {
+    void cache.refetchQueries({ queryKey: key })
+  })
+  act(() => registry.noteHint())
+  await act(async () => {
+    before.resolve(running)
+    await before.promise
+  })
+  expect(button).toHaveAttribute('aria-disabled', 'true')
+
+  // The reconciliation's own read lands, and Pause is available again.
+  await act(async () => {
+    await cache.invalidateQueries({ queryKey: key })
+  })
+  await waitFor(() => expect(button).not.toHaveAttribute('aria-disabled'))
+
+  // A hint between the last render and the press is caught when pressed.
+  await act(async () => {
+    registry.noteHint()
+    button.click()
+  })
+  expect(pause).not.toHaveBeenCalled()
+  expect(await screen.findByRole('alert')).toHaveTextContent('Pausing failed')
+})
+
+test('Resume waits for a read started after the last live hint, and is checked again when pressed', async () => {
+  const user = userEvent.setup()
+  const paused = {
+    ...snapshot,
+    jobs: [{ ...snapshot.jobs[0], session_state: 'running' as const }],
+    paused: true as const,
+  }
+  const client = { ...clientFixture(), read: vi.fn().mockResolvedValue(paused) }
+  const cache = createServerQueryClient()
+  const pause = vi.fn(async () => undefined)
+  mountPause(client, cache, pause)
+  const button = await screen.findByRole('button', { name: 'Resume' })
+  await waitFor(() => expect(button).not.toHaveAttribute('aria-disabled'))
+
+  act(() => freshReads(cache).noteHint())
+  expect(button).toHaveAccessibleDescription('Updating…')
+  await user.click(button)
+  expect(pause).not.toHaveBeenCalled()
+
+  await act(async () => {
+    await cache.invalidateQueries({ queryKey: serverQueryKey(scope, 'processing', batchId) })
+  })
+  await waitFor(() => expect(button).not.toHaveAttribute('aria-disabled'))
+  await user.click(button)
+  await waitFor(() => expect(pause).toHaveBeenCalledWith(batchId, false))
 })

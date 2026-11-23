@@ -34,6 +34,22 @@ export const Panel = styled.section`
   ${raisedOnField}
 `
 
+/**
+ * A page's top-level sections, one page gap apart. Sections keep no outer margins of their own,
+ * so an absent section leaves no gap and none adds to the rhythm.
+ */
+export const PageStack = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${space[7]};
+  min-width: 0;
+  /* Doubled to outrank a section's own margin rule, which has one class like this one. */
+  && > * {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+`
+
 /** Text placed directly on the page, which takes a ground patch behind the whole window. */
 type OnFieldProps = { $onField?: boolean }
 

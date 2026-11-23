@@ -1,4 +1,5 @@
-import { oldestQuestionFirst, type ProcessingSnapshotDto } from '@invimport/contracts'
+import { oldestQuestionFirst, questionView, type ProcessingSnapshotDto } from '@invimport/contracts'
+import { assumptionLine, questionKindLabel, stepKinds } from './question-summary'
 import { processingStepFor } from '#/navigation/batch-route'
 
 type Job = ProcessingSnapshotDto['jobs'][number]
@@ -36,7 +37,11 @@ export type SourceQuestion = {
   jobId: string
   step: WorkStep
   subject: string
-  prompt: string
+  /** A stepped question's title, or a one-step question's prompt. */
+  title: string
+  /** "3 steps", "choose one of 2", "a number" or "in words". */
+  kind: string
+  /** The agent's assumptions, one per step where it recorded one. */
   assumption: string | null
   /** The active lot the question is about, which Review can open. */
   lotId: string | null
@@ -202,14 +207,16 @@ export function retainedJobsSource(
     .sort((a, b) => oldestQuestionFirst(a.question, b.question))
     .map(({ job, question }) => {
       // The Examine lead session can ask about the whole batch.
-      const about = question.spec.subject_id
+      const about = question.subject_id
+      const view = questionView(question)
       return {
         id: question.id,
         jobId: job.id,
         step: workStep(job),
         subject: about === null ? 'Whole batch' : (subjects.get(about) ?? subject(job)),
-        prompt: question.spec.prompt,
-        assumption: question.assumption ?? null,
+        title: view.title,
+        kind: questionKindLabel(stepKinds(view.steps)),
+        assumption: assumptionLine(view.steps.map((step) => step.assumption)),
         lotId: about !== null && activeLotIds.has(about) ? about : null,
       }
     })

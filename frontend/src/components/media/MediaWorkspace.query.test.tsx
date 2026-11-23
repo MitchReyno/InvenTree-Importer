@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import { setDebugMode } from '#/test/debug-mode'
@@ -9,6 +9,7 @@ import { serverQueryKey } from '#/queries/scope'
 import { fixtureScope } from '#/test/render'
 import type { MediaClient } from '#/media/types'
 import { MediaWorkspace } from './MediaWorkspace'
+import { trackDialogOpeners } from '#/components/ui'
 
 const batch: CaptureSnapshotDto = {
   id: '10000000-0000-4000-8000-000000000001',
@@ -313,4 +314,78 @@ test('a tile shows the file and its lots; crop, download and byte identity live 
     within(viewer).getByRole('group', { name: 'Debug: Retained byte identity' }),
   ).toHaveTextContent(version.digest)
   setDebugMode(false)
+})
+
+test('a crop editor opened by a click that left focus elsewhere returns focus to its button', async () => {
+  const evidenceId = '44444444-0000-4000-8000-000000000004'
+  const version = {
+    id: '55555555-0000-4000-8000-000000000005',
+    evidence_id: evidenceId,
+    kind: 'original' as const,
+    digest: 'b'.repeat(64),
+    byte_size: '2048',
+    media_type: 'image/jpeg' as const,
+    state: 'ready' as const,
+    decoder_build: 'fixture/1',
+    recipe: null,
+    pages: [
+      { page: 1, width: 1200, height: 900, preview_id: '66666666-0000-4000-8000-000000000006' },
+    ],
+  }
+  const withFile: MediaSnapshotDto = {
+    ...snapshot,
+    evidence: [
+      {
+        id: evidenceId,
+        label: 'Packet front',
+        group_id: null,
+        linked_subject_ids: [],
+        versions: [version],
+      },
+    ],
+  }
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+
+      disconnect() {}
+
+      unobserve() {}
+    },
+  )
+  const stopTracking = trackDialogOpeners()
+  try {
+    const user = userEvent.setup()
+    render(
+      <ServerStateProvider scope={fixtureScope} client={createServerQueryClient()}>
+        <MediaWorkspace
+          batch={batch}
+          client={client(vi.fn(async () => withFile))}
+          disabled={false}
+          selectedSubject="defaults"
+          onDirtyChange={vi.fn()}
+        />
+      </ServerStateProvider>,
+    )
+    await user.click(await screen.findByRole('button', { name: 'Open Packet front' }))
+    const viewer = screen.getByRole('dialog', { name: 'Packet front' })
+    const cropButton = within(viewer).getByRole('button', { name: 'Prepare crop / rotation' })
+    expect(cropButton).not.toHaveFocus()
+
+    // As Safari does: the click opens the editor without focusing its button.
+    fireEvent.click(cropButton)
+    const editor = screen.getByRole('dialog', { name: 'Prepare documentary crop' })
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    await user.click(editor.previousElementSibling as HTMLElement)
+
+    expect(screen.queryByRole('dialog', { name: 'Prepare documentary crop' })).toBeNull()
+    expect(screen.getByRole('dialog', { name: 'Packet front' })).toBeInTheDocument()
+    await waitFor(() => expect(cropButton).toHaveFocus())
+  } finally {
+    stopTracking()
+    vi.unstubAllGlobals()
+  }
 })

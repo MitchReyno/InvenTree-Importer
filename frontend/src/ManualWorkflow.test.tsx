@@ -877,7 +877,8 @@ test('a cached preparation remains visible but cannot be approved before the mou
     { wrapper: Wrapper },
   )
   await screen.findByText('Packet A · 0.000001')
-  expect(screen.getByText(/Verifying current retained state/)).toBeVisible()
+  // The wait is quiet: no banner appears in the page while the mounted read lands.
+  expect(screen.queryByText(/Verifying/)).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Approve 1 lot and add to InvenTree' })).toBeDisabled()
   expect(client.approve).not.toHaveBeenCalled()
   const complete = finish
@@ -1002,4 +1003,63 @@ test('a selected lot that becomes approved no longer blocks the tenth selection'
   await user.click(screen.getByRole('checkbox', { name: 'Select Bag 11' }))
   expect(screen.getByRole('checkbox', { name: 'Select Bag 11' })).toBeChecked()
   expect(screen.getByText('10 selected')).toBeVisible()
+})
+
+test('Review reopened from cache says “Updating…” quietly, then its commands become available', async () => {
+  const client = fakeClient()
+  const cache = createServerQueryClient()
+  const cached = await client.workspace(batchId)
+  cache.setQueryData(serverQueryKey(fixtureScope, 'manual', batchId), cached)
+  let finish: ((value: ManualWorkspaceDto) => void) | undefined
+  vi.mocked(client.workspace).mockReturnValueOnce(
+    new Promise<ManualWorkspaceDto>((resolve) => {
+      finish = resolve
+    }),
+  )
+  const user = userEvent.setup()
+
+  function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <ServerStateProvider scope={fixtureScope} client={cache}>
+        {children}
+      </ServerStateProvider>
+    )
+  }
+
+  render(
+    <BatchCommandsProvider
+      value={batchCommands({
+        edit: vi.fn(async () => undefined),
+        reload: vi.fn(async () => undefined),
+      })}
+    >
+      <ManualWorkspace batch={batch} client={client} stage="review" navigate={vi.fn()} />
+    </BatchCommandsProvider>,
+    { wrapper: Wrapper },
+  )
+  // The cached page shows at once, with no banner in its flow.
+  expect(screen.queryByText(/Verifying/)).not.toBeInTheDocument()
+  const mark = screen.getByRole('button', { name: 'Mark selected reviewed' })
+  expect(mark).toHaveAttribute('aria-disabled', 'true')
+  expect(mark).toHaveAccessibleDescription('Updating…')
+  act(() => mark.focus())
+  expect(mark).toHaveFocus()
+  await user.click(mark)
+  expect(client.review).not.toHaveBeenCalled()
+
+  await act(async () => {
+    finish!(cached)
+  })
+  await waitFor(() => expect(mark).not.toHaveAttribute('aria-disabled'))
+  await user.click(screen.getByRole('checkbox', { name: 'Select Packet A' }))
+  expect(mark).toBeEnabled()
+
+  // A later background refresh keeps the command available.
+  vi.mocked(client.workspace).mockReturnValueOnce(new Promise(() => undefined))
+  act(() => {
+    void cache.invalidateQueries({ queryKey: serverQueryKey(fixtureScope, 'manual', batchId) })
+  })
+  await waitFor(() => expect(client.workspace).toHaveBeenCalledTimes(3))
+  expect(mark).toBeEnabled()
+  expect(mark).not.toHaveAttribute('aria-disabled')
 })

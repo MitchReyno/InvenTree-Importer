@@ -3,6 +3,8 @@ import type {
   CaptureSnapshotDto,
   OperatorLotDto,
   OperatorReviewDto,
+  ProcessingJobDto,
+  ProcessingQuestionV2Dto,
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
 import {
@@ -47,10 +49,10 @@ describe('the Needs answer filter', () => {
       {
         stage: 'identifying',
         questions: [
-          { id: 'q-a', state: 'open', spec: { subject_id: 'a' } },
-          { id: 'q-b', state: 'answered', spec: { subject_id: 'b' } },
-          { id: 'q-part', state: 'open', spec: { subject_id: 'p' } },
-          { id: 'q-none', state: 'open', spec: { subject_id: null } },
+          { id: 'q-a', state: 'open', subject_id: 'a' },
+          { id: 'q-b', state: 'answered', subject_id: 'b' },
+          { id: 'q-part', state: 'open', subject_id: 'p' },
+          { id: 'q-none', state: 'open', subject_id: null },
         ],
       },
     ],
@@ -84,7 +86,7 @@ describe('the Needs answer filter', () => {
             {
               id: 'q-new',
               state: 'open',
-              spec: { subject_id: 'a' },
+              subject_id: 'a',
               asked_at: '2026-11-08T05:00:00Z',
             },
           ],
@@ -95,7 +97,7 @@ describe('the Needs answer filter', () => {
             {
               id: 'q-old',
               state: 'open',
-              spec: { subject_id: 'a' },
+              subject_id: 'a',
               asked_at: '2026-11-08T04:00:00Z',
             },
           ],
@@ -129,5 +131,59 @@ describe('excluded lots', () => {
     expect(FILTER_LABELS.excluded).toBe('Excluded')
     expect(queueGroup(excluded)).toBe('excluded')
     expect(GROUP_LABELS.excluded).toBe('Excluded')
+  })
+})
+
+describe('stepped questions in Review', () => {
+  it('reach the affected lot, or every lot of a Part, through the shared subject', () => {
+    const jobId = '00000000-0000-4000-8000-000000000001'
+    const attemptId = '00000000-0000-4000-8000-000000000002'
+
+    const stepped = (id: string, subject: string) =>
+      ({
+        id,
+        job_id: jobId,
+        attempt_id: attemptId,
+        input_sha256: 'a'.repeat(64),
+        revision: '1',
+        state: 'open',
+        subject_id: subject,
+        schema_version: 'bench-intake-question/2',
+        fields: ['identity'],
+        reason: 'The date codes differ.',
+        steps: [{ id: 'why', prompt: 'Why?', assumption: 'Same MPN.', answer: { kind: 'text' } }],
+      }) satisfies ProcessingQuestionV2Dto
+
+    const job = {
+      id: jobId,
+      subject_id: null,
+      stage: 'research',
+      revision: '1',
+      state: 'waiting_for_user',
+      attempt_id: attemptId,
+      input_sha256: 'a'.repeat(64),
+      attempt_number: '1',
+      qualification: 'native_unverified',
+      proposals: [],
+      questions: [stepped('q-lot', 'a'), stepped('q-part', 'p')],
+    } satisfies ProcessingJobDto
+    const processing = {
+      runner_status: 'native_unverified',
+      batch_id: '00000000-0000-4000-8000-000000000003',
+      capture_revision: '4',
+      jobs: [job],
+      cursor: { stream_id: '00000000-0000-4000-8000-000000000004', sequence: '1' },
+    } satisfies ProcessingSnapshotDto
+    const batch = {
+      lots: [
+        { id: 'a', part_subject_id: null },
+        { id: 'b', part_subject_id: 'p' },
+        { id: 'c', part_subject_id: null },
+      ],
+    }
+    const questions = openQuestionsByLot(processing, batch)
+    expect(questions.get('a')?.id).toBe('q-lot')
+    expect(questions.get('b')?.id).toBe('q-part')
+    expect(questions.has('c')).toBe(false)
   })
 })

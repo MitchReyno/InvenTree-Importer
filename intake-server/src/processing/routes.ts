@@ -54,6 +54,7 @@ export function registerProcessing(
           ? 'refresh'
           : 'none',
         correlation_id: request.id,
+        ...(error instanceof ProcessingError && error.stepId ? { step_id: error.stepId } : {}),
       })
     })
     scope.get(

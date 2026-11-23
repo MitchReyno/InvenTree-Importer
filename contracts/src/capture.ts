@@ -34,7 +34,7 @@ import {
 } from './capture-intent.ts'
 
 export { CaptureRef }
-export { tagKey } from './capture-primitives.ts'
+export { tagKey, CAPTURE_NOTE_MAX_CHARACTERS } from './capture-primitives.ts'
 export * from './capture-location.ts'
 
 export const CaptureQuantity = inheritable(Quantity)

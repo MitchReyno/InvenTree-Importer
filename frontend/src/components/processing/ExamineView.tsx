@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useRef, useState, useSyncExternalStore } from 'react'
 import styled from 'styled-components'
 import type {
   CaptureSnapshotDto,
@@ -19,15 +19,13 @@ import {
   SourceChip,
   linkTouchArea,
   Small,
-  VisuallyHidden,
 } from '#/components/ui'
-import { Label, TextArea } from '#/forms'
 import { RegionStage } from '#/components/review/RegionStage'
 import { Card, CardTitle, Muted, plural } from './ProcessingParts'
 import { ProcessingSources } from './ProcessingSources'
 import type { CaptureEdit } from '#/capture/types'
 import { useDirtySources } from '#/operator/useDirtySources'
-import { useReportDirty } from '#/navigation/useReportDirty'
+import { ReadingEdit } from './ReadingEdit'
 
 type Observation = NonNullable<CaptureSnapshotDto['evidence_observations']>[number]
 type Job = ProcessingSnapshotDto['jobs'][number]
@@ -65,179 +63,6 @@ function photoNames(media: MediaSnapshotDto | undefined) {
   return names
 }
 
-/** The form a reading is saved in: trimmed, without empty markings. */
-function savedForm(markings: string[], text: string) {
-  return { markings: markings.map((marking) => marking.trim()).filter(Boolean), text: text.trim() }
-}
-
-/** A reading's markings and text, one field per marking. */
-function ReadingEdit({
-  observation,
-  save,
-  locked,
-  onDirty,
-}: {
-  observation: Observation
-  save: CaptureEdit
-  /** Another correction is unsaved, so this one waits. */
-  locked: boolean
-  onDirty: (dirty: boolean) => void
-}) {
-  const { readings } = observation
-  const name = (readings.markings.join(' · ') || readings.text || 'this region').replace(
-    /\s+/g,
-    ' ',
-  )
-  // One field per marking keeps each marking whole, whatever characters it holds.
-  const [markings, setMarkings] = useState<string[]>(readings.markings)
-  const [text, setText] = useState(readings.text ?? '')
-  const [saving, setSaving] = useState(false)
-
-  // A confirmed save is the baseline until new readings arrive; the draft then compares with them.
-  const over = JSON.stringify(readings)
-  const [confirmed, setConfirmed] = useState<{
-    markings: string[]
-    text: string
-    over: string
-  } | null>(null)
-  if (confirmed && confirmed.over !== over) {
-    setConfirmed(null)
-  }
-  const baseline =
-    confirmed && confirmed.over === over
-      ? confirmed
-      : { markings: readings.markings, text: readings.text ?? '' }
-
-  // Both sides are compared in saved form: spacing or an empty marking is not an unsaved change,
-  // and readings from an agent may carry spacing a save would trim.
-  const baselineForm = savedForm(baseline.markings, baseline.text)
-
-  const differs = (nextMarkings: string[], nextText: string) => {
-    const next = savedForm(nextMarkings, nextText)
-    return (
-      next.text !== baselineForm.text ||
-      next.markings.length !== baselineForm.markings.length ||
-      next.markings.some((marking, index) => marking !== baselineForm.markings[index])
-    )
-  }
-
-  const dirty = differs(markings, text)
-  useReportDirty(dirty, onDirty)
-  // Readings passed in by the parent can make the draft clean or dirty with no event here.
-  // Processing currently remounts on each revision, so this covers the component's contract.
-  useEffect(() => {
-    onDirty(dirty)
-  }, [dirty, onDirty])
-
-  function changeMarkings(next: string[]) {
-    setMarkings(next)
-    onDirty(differs(next, text))
-  }
-
-  function changeText(next: string) {
-    setText(next)
-    onDirty(differs(markings, next))
-  }
-
-  const busy = saving || locked
-  return (
-    <ReadingForm
-      aria-label={`Readings for ${name}`}
-      onSubmit={(event) => {
-        event.preventDefault()
-        setSaving(true)
-        const { markings: saved, text: kept } = savedForm(markings, text)
-        void save({
-          kind: 'observation',
-          observation_id: observation.id,
-          evidence_version_id: observation.evidence_version_id,
-          page: observation.page,
-          region: observation.region,
-          readings: {
-            markings: saved,
-            ...(kept ? { text: kept } : {}),
-          },
-        })
-          .then((result) => {
-            // The draft takes the saved form, so the reloaded readings match it and the guard stays
-            // released.
-            if (result !== false) {
-              setMarkings(saved)
-              setText(kept)
-              setConfirmed({ markings: saved, text: kept, over })
-              onDirty(false)
-            }
-          })
-          .finally(() => setSaving(false))
-      }}
-    >
-      {markings.map((marking, index) => (
-        <Label key={index}>
-          <VisuallyHidden>
-            Marking {index + 1} for {name}
-          </VisuallyHidden>
-          <MarkingField
-            rows={Math.max(1, marking.split('\n').length)}
-            value={marking}
-            disabled={busy}
-            onChange={(event) =>
-              changeMarkings(
-                markings.map((value, at) => (at === index ? event.target.value : value)),
-              )
-            }
-          />
-        </Label>
-      ))}
-      {markings.length < 32 && (
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={busy}
-          aria-label={`Add a marking for ${name}`}
-          onClick={() => changeMarkings([...markings, ''])}
-        >
-          Add a marking
-        </Button>
-      )}
-      <Label>
-        <VisuallyHidden>Text for {name}</VisuallyHidden>
-        <TextArea
-          rows={2}
-          placeholder="Other text read from the photo"
-          value={text}
-          disabled={busy}
-          onChange={(event) => changeText(event.target.value)}
-        />
-      </Label>
-      <Small>Clear a marking to remove it.</Small>
-      <span>
-        <Button
-          size="sm"
-          type="submit"
-          disabled={busy || !dirty}
-          aria-label={`Save readings for ${name}`}
-        >
-          Save
-        </Button>{' '}
-        {dirty && (
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={saving}
-            onClick={() => {
-              setMarkings(baseline.markings)
-              setText(baseline.text)
-              onDirty(false)
-            }}
-          >
-            Discard
-          </Button>
-        )}
-      </span>
-    </ReadingForm>
-  )
-}
-
 export type SharperRequests = Record<
   string,
   { key: string; name: string; state: 'sending' | 'failed' | 'sent' }
@@ -273,6 +98,7 @@ export function ExamineView({
   questionedLots = new Set(),
   edit,
   askSharper,
+  askSharperReason,
   onDirtyChange,
   locked = false,
   requestStore,
@@ -287,6 +113,8 @@ export function ExamineView({
   edit?: CaptureEdit
   /** Asks the Examine lead session, through its chat, for a sharper photo of the named file. */
   askSharper?: (name: string, key: string) => Promise<void>
+  /** Why asking waits, such as the read naming the lead session still landing. */
+  askSharperReason?: string
   /** Reports an unsaved correction to the navigation guard. */
   onDirtyChange?: (dirty: boolean) => void
   /** Another unsaved Processing draft would be lost when a correction reloads Processing. */
@@ -443,6 +271,8 @@ export function ExamineView({
                       size="sm"
                       variant="ghost"
                       disabled={requests[version]?.state === 'sending'}
+                      reasonDisplay="quiet"
+                      disabledReason={askSharperReason}
                       onClick={() =>
                         void requestSharper(version, named?.name ?? `Photo ${index + 1}`)
                       }
@@ -538,7 +368,6 @@ export function ExamineView({
         <FormedHead>
           <CardTitle>Lots formed</CardTitle>
           <Count value={formed.length} />
-          <Muted>Edit lots in Review › Map</Muted>
           <Button as="a" size="sm" href={batchHref(batch.id, { tab: 'review', view: 'map' })}>
             Open the map
           </Button>
@@ -723,19 +552,4 @@ const Pills = styled.span`
 const Candidate = styled.div`
   display: grid;
   gap: ${space[2]};
-`
-
-const ReadingForm = styled.form`
-  display: grid;
-  justify-items: start;
-  gap: ${space[3]};
-  max-width: 28rem;
-  label,
-  textarea {
-    width: 100%;
-  }
-`
-/** One line per marking line, rather than the default note height. */
-const MarkingField = styled(TextArea)`
-  min-height: 0;
 `

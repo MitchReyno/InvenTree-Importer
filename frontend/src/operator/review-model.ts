@@ -106,14 +106,14 @@ export type OpenQuestion = {
  */
 export function openQuestionsByLot(
   processing: ProcessingSnapshotDto | undefined,
-  batch: Pick<CaptureSnapshotDto, 'lots'>,
+  batch: { lots: readonly Pick<CaptureSnapshotDto['lots'][number], 'id' | 'part_subject_id'>[] },
 ): ReadonlyMap<string, OpenQuestion> {
   const bySubject = new Map<string, OpenQuestion>()
   const asked = (processing?.jobs ?? [])
     .flatMap((job) => job.questions.map((question) => ({ job, question })))
     .sort((a, b) => oldestQuestionFirst(a.question, b.question))
   for (const { job, question } of asked) {
-    const subject = question.spec.subject_id
+    const subject = question.subject_id
     if (question.state === 'open' && subject && !bySubject.has(subject)) {
       bySubject.set(subject, {
         id: question.id,

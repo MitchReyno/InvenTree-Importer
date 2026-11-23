@@ -57,6 +57,8 @@ export interface UploadQueue {
   /** Files still uploading or needing attention; a file in its group leaves the list. */
   items: UploadItem[]
   add: (files: File[], kind: UploadKind, groupId?: string) => void
+  /** Files of any kind, such as a drop or a paste, typed one by one and counted as one run. */
+  addMixed: (files: File[], groupId?: string) => void
   retry: (id: string) => void
   readAgain: (id: string) => void
   dismiss: (id: string) => void
@@ -68,6 +70,12 @@ const ACCEPTED_TYPES: Record<UploadKind, string[]> = {
   photos: ['image/jpeg', 'image/png'],
   document: ['application/pdf'],
 }
+
+/** The kind a file's type makes it; an unsupported type is checked as a photo and refused. */
+function kindOf(file: File): UploadKind {
+  return ACCEPTED_TYPES.document.includes(file.type) ? 'document' : 'photos'
+}
+
 const ACTIVE: UploadStatus[] = ['waiting', 'uploading', 'preparing']
 const UNSAVED: UploadStatus[] = [...ACTIVE, 'unconfirmed', 'unread']
 
@@ -283,10 +291,11 @@ export function useUploadQueue(ports: UploadQueuePorts): UploadQueue {
     }
   }
 
-  function add(files: File[], kind: UploadKind, groupId?: string) {
+  /** Queues files picked or dropped together as one run, each checked as the kind given for it. */
+  function enqueue(files: File[], kinds: (file: File) => UploadKind, groupId?: string) {
     const pickId = crypto.randomUUID()
     const added = files.map((file): QueueEntry => {
-      const reason = invalidReason(file, kind)
+      const reason = invalidReason(file, kinds(file))
       return {
         id: crypto.randomUUID(),
         name: file.name,
@@ -304,6 +313,14 @@ export function useUploadQueue(ports: UploadQueuePorts): UploadQueue {
     entries.current = [...entries.current, ...added]
     publish()
     void drain()
+  }
+
+  function add(files: File[], kind: UploadKind, groupId?: string) {
+    enqueue(files, () => kind, groupId)
+  }
+
+  function addMixed(files: File[], groupId?: string) {
+    enqueue(files, kindOf, groupId)
   }
 
   function retry(id: string) {
@@ -346,5 +363,5 @@ export function useUploadQueue(ports: UploadQueuePorts): UploadQueue {
     publish()
   }
 
-  return { items, add, retry, readAgain, dismiss, forgetPlaced }
+  return { items, add, addMixed, retry, readAgain, dismiss, forgetPlaced }
 }

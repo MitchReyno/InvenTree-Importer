@@ -3,7 +3,14 @@ import styled from 'styled-components'
 import { batchHref } from '#/navigation/batch-route'
 import type { ProcessingSource, StepProgress, WorkStep } from '#/processing/source'
 import { color, icon, radius, space, type, typeVar } from '#/theme/generated/tokens'
-import { Spinner, linkTouchArea, onField, groundBehindOnField } from '#/components/ui'
+import {
+  Spinner,
+  linkTouchArea,
+  onField,
+  groundBehindOnField,
+  PageStack,
+  HelpButton,
+} from '#/components/ui'
 import { Card, CardTitle, Muted, QuestionRows, SessionRows, stepOutcome } from './ProcessingParts'
 
 type Props = {
@@ -11,6 +18,8 @@ type Props = {
   step: WorkStep
   source: ProcessingSource
   onOpenSession: (jobId: string) => void
+  /** How the step works, behind a help button beside its heading. */
+  help?: string
   /** The step's outputs: readings, sources, crops or matches. */
   children?: ReactNode
 }
@@ -19,7 +28,7 @@ type Props = {
  * Every step page has the same parts in the same places: its state, questions, sessions and
  * outputs. Values link to Review and evidence to Capture; the page never edits lots itself.
  */
-export function StepPage({ batchId, step, source, onOpenSession, children }: Props) {
+export function StepPage({ batchId, step, source, onOpenSession, help, children }: Props) {
   const progress = source.steps.find((item) => item.step === step)
   const questions = source.questions.filter((question) => question.step === step)
   const sessions = source.sessions.filter((session) => session.step === step)
@@ -30,6 +39,7 @@ export function StepPage({ batchId, step, source, onOpenSession, children }: Pro
       <Head>
         {progress && <StateDisc progress={progress} />}
         <Title>{label}</Title>
+        {help && <HelpButton label={`About ${label}`} explanation={help} />}
         {progress && progress.jobs > 0 && <FieldNote>{stepOutcome(progress)}</FieldNote>}
         <CaptureLink href={batchHref(batchId, { tab: 'capture' })}>Evidence in Capture</CaptureLink>
       </Head>
@@ -103,11 +113,7 @@ const Disc = styled.span`
   }
 `
 
-const Page = styled.div`
-  display: grid;
-  gap: ${space[6]};
-  min-width: 0;
-`
+const Page = styled(PageStack)``
 
 const Head = styled.div`
   display: flex;

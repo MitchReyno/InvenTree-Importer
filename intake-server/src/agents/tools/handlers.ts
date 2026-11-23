@@ -12,7 +12,7 @@ import {
   type ProcessingProposalV5Dto,
   type ProcessingSourceDto,
   type ProcessingRelianceDto,
-  type SessionAskArgsDto,
+  type SessionAskArgsV2Dto,
   type SessionToolErrorDto,
   type SessionToolResultDto,
 } from '@invimport/contracts'
@@ -49,6 +49,7 @@ import { appendSessionOutbox, lastStatusAt } from './outbox.ts'
 import sharp from 'sharp'
 import { regionCropCache } from '#/media/region-crops.ts'
 import { pendingSessionInbox, readSessionInbox, sessionInboxItem } from './inbox.ts'
+import { stepRefusal, subjectRefusal } from './question-checks.ts'
 import { removedVersionIds, versionRemovedSql } from '#/media/removal.ts'
 
 export const SESSION_IMAGE_BUDGET_BYTES = 8 * 1024 * 1024
@@ -823,13 +824,16 @@ async function requireRoom(
   }
 }
 
+/** The stored envelope limit on `processing_message` (migration 0006). */
+const MAX_SESSION_MESSAGE_BYTES = 32768
+
 /** Retains a session proposal or question as an authenticated message, like runner envelopes. */
 async function retainSessionMessage(
   client: PoolClient,
   capture: LockedCapture,
   principal: SessionPrincipal,
   kind: 'proposal' | 'question',
-  payload: ProcessingProposalV5Dto | SessionAskArgsDto,
+  payload: ProcessingProposalV5Dto | SessionAskArgsV2Dto,
 ) {
   // withSession holds the capture, job, attempt and session locks.
   const attempts = await executeDatabaseQuery(
@@ -850,6 +854,13 @@ async function retainSessionMessage(
     kind,
     payload,
   })
+  // Text within every field limit can still outgrow the stored envelope once escaped or multibyte.
+  if (envelope.bytes.length > MAX_SESSION_MESSAGE_BYTES) {
+    refuse(
+      'validation_failed',
+      `This ${kind} is ${envelope.bytes.length} bytes once stored, over the ${MAX_SESSION_MESSAGE_BYTES}-byte limit. Shorten its text and retry.`,
+    )
+  }
   validate('SessionEnvelope', JSON.parse(envelope.bytes.toString('utf8')))
   const messageId = randomUUID()
   const db = queryDatabase(client)
@@ -1059,28 +1070,23 @@ export function sessionTools(context: SessionToolContext) {
 
     ask: (token: string, args: unknown) =>
       withSession(context, token, { capture: true }, async (client, principal, capture) => {
-        const ask = validated<SessionAskArgsDto>('SessionAskArgs', args)
-        await requireRoom(client, principal, 'questions', sealed(ask).bytes.length)
+        const ask = validated<SessionAskArgsV2Dto>('SessionAskArgsV2', args)
         // Only the lead session may ask about the whole batch or another subject of it.
-        const subjects = [
-          ...capture!.snapshot.lots.filter((lot) => !lot.retired).map((lot) => lot.id),
-          ...capture!.snapshot.parts.map((part) => part.id),
-        ]
+        const liveLots = capture!.snapshot.lots.filter((lot) => !lot.retired).map((lot) => lot.id)
+        const subjects = [...liveLots, ...capture!.snapshot.parts.map((part) => part.id)]
         if (
           principal.subjectId === null
             ? ask.subject_id !== null && !subjects.includes(ask.subject_id)
             : ask.subject_id !== principal.subjectId
         ) {
-          refuse('validation_failed', 'A question must be about this session’s lot.')
+          const wrongSubject = subjectRefusal(ask)
+          throw new ToolRefusal('validation_failed', wrongSubject.message, [wrongSubject.issue])
         }
-        // A quantity is answered on a lot, so a quantity question must name one.
-        const lots = capture!.snapshot.lots.filter((lot) => !lot.retired).map((lot) => lot.id)
-        if (
-          ask.kind === 'quantity' &&
-          (ask.subject_id === null || !lots.includes(ask.subject_id))
-        ) {
-          refuse('validation_failed', 'A quantity question must be about one live lot.')
+        const stepProblem = stepRefusal(ask, new Set(liveLots))
+        if (stepProblem) {
+          throw new ToolRefusal('validation_failed', stepProblem.message, [stepProblem.issue])
         }
+        await requireRoom(client, principal, 'questions', sealed(ask).bytes.length)
         const { messageId, streamId } = await retainSessionMessage(
           client,
           capture!,

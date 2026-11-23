@@ -89,9 +89,6 @@ export function DismissWarning({
         />
       </Label>
       {errors.reason && <Small role="alert">{errors.reason.message}</Small>}
-      <Small>
-        The dismissal binds to the current facts. Any later change to them brings the warning back.
-      </Small>
       {command.message && (
         <div role="alert">
           <Banner tone="bad">{command.message}</Banner>
@@ -118,6 +115,9 @@ export function DismissWarning({
           Cancel
         </Button>
       </span>
+      <Small>
+        A dismissal covers the facts as they are now. If they change later, the warning comes back.
+      </Small>
     </Form>
   )
 }

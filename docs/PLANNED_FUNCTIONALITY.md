@@ -104,6 +104,21 @@ Build the backend for the design-refresh controls that BI-014 shipped disabled, 
 - Prerequisites: BI-014 (`apply-design-refresh`) ships the disabled controls first. BI-014 is Done (satisfied).
 - OpenSpec: [complete-design-refresh-backend](../openspec/changes/complete-design-refresh-backend/)
 
+#### BI-022 — Agent stage inputs and outputs
+
+Give each processing agent its own job, the context earlier stages found, and an output something actually uses.
+- Examine, Research and Images each get a sealed brief that weighs the operator's corrections, answers and notes first.
+- Each stage publishes a typed output that the server keeps within the stage's scope, and Images proposes crop recipes the app renders.
+- The Inventory agent is replaced by an app-side Match step. Match searches InvenTree after Examine, after Research identifies an item, and before approval, and asks the operator before spending research or photo work on a Part that may already exist.
+- The repository's skills become per-stage instruction packs and intake MCP tools.
+- Research and Images sessions each handle several lots, up to separate configurable caps per stage.
+
+- Change: `agent-stage-inputs-outputs`
+- Status: Proposed — plan in review.
+- Size: XL — a new input version and typed outputs, an app Match step with its own questions, identity amendments, media decoder ports, records and approval effects, and multi-lot sessions with their caps, and a new profile with a live requalification, in eleven PRs after the plan.
+- Prerequisites: [BI-019](#bi-019--agent-interaction-improvements) (`improve-agent-interaction`) PR-B (satisfied, #251), PR-D1, PR-E, PR-F (the popover's Match row, before activation) and PR-G (for multi-lot session rows), which haven't merged yet. BI-017's web policy and instructions are shipped (satisfied). The live requalification needs Mitch's go-ahead.
+- OpenSpec: [agent-stage-inputs-outputs](../openspec/changes/agent-stage-inputs-outputs/)
+
 #### BI-017 — Simple web access and setup for VM agents
 
 Agents in the shared VM get provider web search (Claude WebSearch, Codex web search), Claude WebFetch, and Glob and Grep. A per-session "Allow public web pages" setting, on by default, is enforced by each turn's egress proxy. Protected hostnames are worked out automatically, so no web settings go in the environment. The `bench-web` command and the separate document reader are removed. A rerunnable `pnpm vm:setup` replaces the README's manual VM steps, and `pnpm dev` rebuilds and reloads a stale runner image. This item takes over BI-015's web research switches.
@@ -191,14 +206,14 @@ Make working with agents smoother. Clicking the dimmed page beside the session d
 Fix a selected row losing its top border in Review › Records, give every page one even spacing between sections, and remove the out-of-design Batch context disclosure and the outdated "live provider not qualified" agent profile notices. Replace the brief "Verifying current…" banners and about 20 one-off loading lines with one pattern: a skeleton on a first visit, cached data shown at once with a quiet background refresh, a progress line only when a refresh is noticeable, and commands disabled with a reason until a fresh read lands. Cached reads are kept in session storage so a reload shows the last data at once. Status reads the same everywhere: one set of state words, times that say which day, a masthead that names what failed (or says no agents are working), a Processing Needs you that agrees with the header, a per-lot stage table, and step pages that count their own step. Capture takes several files at once from any source: the phone's library with multi-select, and drag-and-drop or paste on desktop. Settings › Appearance gets a switch to stop the masthead's electronics animation while keeping the chosen masthead style. Settings › Agents saves switches and choices as they change, keeping Save only for text. Provider cards match the design, with a sign-in status read from the agent VM without the management key, switches, one searchable model picker across both providers, and sign-in in dialogs that check a token's shape and confirm the VM stored it. Dropdowns follow one guideline: the searchable picker for records and growing lists, and a segmented control or native select for short fixed lists, chosen case by case.
 
 - Change: `polish-ui-styling-and-loading`
-- Status: Proposed — plan in review (#247).
-- Size: XL — a page layout primitive applied to every page, small fixes, a shared freshness and persistence layer adopted by every screen, one state and time vocabulary, multi-file capture, agent settings autosave a read-only provider status from the agent VM, and a dropdown sweep, in nine PRs after the plan.
-- Prerequisites: None. Coordinate Processing and drawer edits with `improve-agent-interaction` (BI-019), and shared-VM edits with `simplify-vm-agent-web-and-setup` (BI-017). The provider status's live check needs Mitch's go-ahead.
+- Status: In progress — plan merged in #247 and #248; PR-A merged in #250; PR-B underway.
+- Size: XL — a page layout primitive applied to every page, small fixes, a shared freshness and persistence layer adopted by every screen, one state and time vocabulary, multi-file capture, agent settings autosave with save receipts, a read-only provider status from the agent VM, and a dropdown sweep, in nine PRs after the plan.
+- Prerequisites: None. Coordinate Processing and drawer edits with `improve-agent-interaction` (BI-019). The provider status's live check needs Mitch's go-ahead.
 - OpenSpec: [polish-ui-styling-and-loading](../openspec/changes/polish-ui-styling-and-loading/)
 
 #### BI-021 — Trust live-confirmed reads for commands
 
-On a return visit, let an audited set of commands become available at once when the cached read is consistent through the newest observed live-update cursor: a successful read whose request started after the newest relevant hint, within the same unbroken subscription and resource scope. Because hints can lag commits, only commands whose server-checked revision covers every fact they depend on qualify. Any new relevant hint, gap, reset, truncation, reconnect, polling fallback, scope change or failed read clears the proof, and the page waits for a read as it does today. Commands without a server-checked revision, such as batch Pause and Resume, always wait.
+On a return visit, let an audited set of commands become available at once when the cached read is consistent through the newest observed live-update cursor: a successful read whose request started after the newest relevant hint, within the same unbroken subscription and resource scope. Because hints can lag commits, only commands whose server-checked revision covers every fact they depend on qualify. Any new relevant hint, replacement cursor set, gap, reset, truncation, reconnect, polling fallback, scope change, manual cache write, cancelled read or failed read clears the proof, and the page waits for a read as it does today. Commands without a server-checked revision, such as batch Pause and Resume, always wait for a read started after the last hint. The server gains a replacement cursor set when a stream is removed, so a removal clears the proof too.
 
 - Change: `trust-live-confirmed-reads`
 - Status: Proposed — captured as a follow-up; planned in full when picked up.

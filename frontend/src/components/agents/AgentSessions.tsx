@@ -17,6 +17,8 @@ import {
   TableWrap,
   onField,
   raisedOnField,
+  PageStack,
+  HelpButton,
 } from '#/components/ui'
 import { SESSION_STATE, STEP_LABEL } from '#/components/processing/ProcessingParts'
 import { PauseButton } from './PauseButton'
@@ -152,15 +154,15 @@ export function AgentSessions({ client, batches }: Props) {
   return (
     <Page>
       <Head>
-        <div>
+        <TitleRow>
           <Title>
             <AiMark size="lg">Agents</AiMark>
           </Title>
-          <FieldNote>
-            Every agent session across your batches. Open a batch's Processing to see its steps and
-            chat with it.
-          </FieldNote>
-        </div>
+          <HelpButton
+            label="About Agents"
+            explanation="Every agent session across your batches. Open a batch's Processing to see its steps and chat with it."
+          />
+        </TitleRow>
         {query.data && supported && (
           <Button as="a" href="#settings">
             Agent settings
@@ -209,9 +211,14 @@ export function AgentSessions({ client, batches }: Props) {
               </span>
             </Block>
             <Block>
-              <Label>Waiting for you</Label>
+              <BlockHead>
+                <Label>Waiting for you</Label>
+                <HelpButton
+                  label="About waiting sessions"
+                  explanation="A session waiting for your answer does not use a slot, so another session can run meanwhile."
+                />
+              </BlockHead>
               <span>{sessions.filter(isWaiting).length} waiting for you</span>
-              <Muted>Waiting sessions hold no slot.</Muted>
             </Block>
             <Push>
               <PauseAllAgents pauseAll={client.pauseAll} list={query.data} />
@@ -340,9 +347,12 @@ export function AgentSessions({ client, batches }: Props) {
               >
                 Older sessions
               </Button>
+              <HelpButton
+                label="About session pages"
+                explanation="Filters and counts cover only the page of history shown."
+              />
             </Paging>
           )}
-          <FieldNote>Filters and counts cover this page of history.</FieldNote>
         </>
       )}
     </Page>
@@ -357,21 +367,20 @@ const COLUMNS = [
   { id: 'since', header: 'Since', mono: true, nowrap: true },
 ]
 
-const Page = styled.div`
-  display: grid;
-  gap: ${space[8]};
-`
+const Page = styled(PageStack)``
 
 const Head = styled.div`
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: ${space[4]} ${space[8]};
-  > div {
-    display: grid;
-    gap: ${space[2]};
-  }
+`
+
+const TitleRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${space[3]};
 `
 
 const Title = styled.h1`
@@ -407,6 +416,12 @@ const Summary = styled.section`
 const Block = styled.div`
   display: grid;
   gap: ${space[1]};
+`
+
+const BlockHead = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${space[2]};
 `
 
 const Label = styled.span`
@@ -465,5 +480,6 @@ const GroupHead = styled.div`
 const Paging = styled.nav`
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: ${space[4]};
 `

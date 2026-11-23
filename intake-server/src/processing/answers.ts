@@ -1,7 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
 import { and, eq, sql } from 'drizzle-orm'
-import { validate, type CaptureEditDto, type ProcessingAnswerDto } from '@invimport/contracts'
+import {
+  validate,
+  type CaptureEditDto,
+  type ProcessingAnswerDto,
+  type ProcessingAnswerV1Dto,
+} from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
 import {
   processingAnswers,
@@ -144,7 +149,7 @@ async function lockCurrentQuestion(
 async function answerEdit(
   client: PoolClient,
   question: QuestionRow,
-  input: ProcessingAnswerDto,
+  input: ProcessingAnswerV1Dto,
   subjectId: string,
   captureRevision: string,
 ): Promise<CaptureEditDto> {
@@ -224,6 +229,11 @@ export async function answerQuestion(
         const capture = await lockCapture(client, config, batchId, input.expected_capture_revision)
         return answerSessionQuestion(client, config, capture, batchId, questionId, input)
       }
+      // Earlier runner questions have one value; a stepped answer can't be about one of them.
+      if (input.schema_version !== 'bench-intake-answer/1') {
+        fail('invalid_answer', 422)
+      }
+      const runnerInput = input
 
       const capture = await lockCapture(client, config, batchId, input.expected_capture_revision)
       const affectedSubjects = await continuationSubjectIds(client, batchId, input.attempt_id)
@@ -254,7 +264,7 @@ export async function answerQuestion(
       const edit = await answerEdit(
         client,
         question,
-        input,
+        runnerInput,
         job.subject_id,
         capture.snapshot.revision,
       )

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { createElectronicsCurrent } from '#/electronics-current/scene'
+import { mastheadMotionController } from '#/theme/masthead-motion'
 import { mastheadStyleController } from '#/theme/masthead-style'
 import { Masthead } from './Masthead'
 
@@ -13,6 +14,9 @@ function stubController() {
     setPointer: vi.fn(),
     clearPointer: vi.fn(),
     setTheme: vi.fn(),
+    pause: vi.fn(),
+    resume: vi.fn(),
+    setReducedMotion: vi.fn(),
     dispose: vi.fn(),
   }
   createScene.mockReturnValue(controller)
@@ -33,6 +37,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  mastheadMotionController().choose('on')
 })
 
 function precedes(first: Element, second: Element) {
@@ -101,12 +106,63 @@ test('starts the scene with the reduced-motion preference and forwards the point
   await waitFor(() => expect(createScene).toHaveBeenCalledTimes(1))
   expect(createScene.mock.calls[0][1]).toEqual({
     reducedMotion: true,
+    paused: false,
     theme: 'light',
     layout: 'band',
   })
 
   fireEvent.pointerMove(window, { clientX: 40, clientY: 20 })
   expect(controller.setPointer).toHaveBeenCalled()
+})
+
+test('starts the scene paused with the animation off, and follows the switch after', async () => {
+  vi.stubGlobal('WebGL2RenderingContext', function WebGL2RenderingContext() {})
+  stubReducedMotion(false)
+  const controller = stubController()
+  mastheadMotionController().choose('off')
+  render(<Masthead />)
+
+  await waitFor(() => expect(createScene).toHaveBeenCalledTimes(1))
+  expect(createScene.mock.calls[0][1]).toMatchObject({ reducedMotion: false, paused: true })
+
+  mastheadMotionController().choose('on')
+  expect(controller.resume).toHaveBeenCalledTimes(1)
+  mastheadMotionController().choose('off')
+  expect(controller.pause).toHaveBeenCalledTimes(1)
+  expect(createScene).toHaveBeenCalledTimes(1)
+})
+
+test('stills the scene when the system asks for reduced motion while the page is open', async () => {
+  vi.stubGlobal('WebGL2RenderingContext', function WebGL2RenderingContext() {})
+  const listeners = new Set<() => void>()
+  const query = {
+    matches: false,
+    addEventListener: (_type: string, listener: () => void) => listeners.add(listener),
+    removeEventListener: (_type: string, listener: () => void) => listeners.delete(listener),
+  }
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn(() => query),
+  )
+  const controller = stubController()
+  const { unmount } = render(<Masthead />)
+  await waitFor(() => expect(createScene).toHaveBeenCalledTimes(1))
+
+  query.matches = true
+  listeners.forEach((listener) => listener())
+  expect(controller.setReducedMotion).toHaveBeenLastCalledWith(true)
+
+  // The device switch never overrides the system's setting.
+  mastheadMotionController().choose('off')
+  mastheadMotionController().choose('on')
+  expect(controller.setReducedMotion).toHaveBeenLastCalledWith(true)
+
+  query.matches = false
+  listeners.forEach((listener) => listener())
+  expect(controller.setReducedMotion).toHaveBeenLastCalledWith(false)
+
+  unmount()
+  expect(listeners.size).toBe(0)
 })
 
 test('disposes the scene on unmount', async () => {
@@ -143,6 +199,7 @@ test('starts the scene in the page theme and follows theme changes', async () =>
   await waitFor(() => expect(createScene).toHaveBeenCalledTimes(1))
   expect(createScene.mock.calls[0][1]).toEqual({
     reducedMotion: false,
+    paused: false,
     theme: 'dark',
     layout: 'band',
   })

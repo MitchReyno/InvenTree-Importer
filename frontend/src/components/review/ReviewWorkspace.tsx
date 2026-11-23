@@ -7,10 +7,10 @@ import {
   Panel,
   Paragraph,
   Small,
-  Summary,
   Button,
   ShortcutsButton,
-  groundBehindOnField,
+  DebugDetails,
+  HelpButton,
   raisedOnField,
 } from '#/components/ui'
 import { subjectStatuses, type LotStatus } from '#/processing/source'
@@ -24,7 +24,6 @@ import type {
   ProcessingAnswerDto,
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
-import { CaptureContextSummary } from '#/components/capture/CaptureContextSummary'
 import { ReviewQueue, visibleQueueLotIds } from './ReviewQueue'
 import {
   blockingIssues,
@@ -60,6 +59,12 @@ interface Props {
   processing?: ProcessingSnapshotDto
   /** True only after a successful mounted Processing read at the displayed capture revision. */
   processingCurrent?: boolean
+  /** `processingCurrent` checked again on the cache when a candidate is accepted. */
+  processingCurrentNow?: () => boolean
+  /** Drawn from restored snapshots before Capture's read lands; commands are already disabled. */
+  displayOnly?: boolean
+  /** Why commands wait for a read still landing; they then stay focusable and say so quietly. */
+  waitReason?: string
   selected: string[]
   maxSelected: number
   busy: boolean
@@ -69,6 +74,8 @@ interface Props {
   reviewLots: (ids: string[]) => void
   /** Answers a lot's open question in place; absent without a Processing client. */
   answerQuestion?: (questionId: string, input: ProcessingAnswerDto, key: string) => Promise<void>
+  /** Why answering a Processing question waits for this visit's own Processing read. */
+  answerWaitReason?: string
   /** Replaces the shared selection; the Table may select more than the Workspace cap. */
   setSelection: (ids: string[]) => void
   prepare: () => void
@@ -175,6 +182,9 @@ export function ReviewWorkspace({
   mediaLoading,
   processing,
   processingCurrent = false,
+  processingCurrentNow,
+  displayOnly = false,
+  waitReason,
   selected,
   maxSelected,
   busy,
@@ -183,6 +193,7 @@ export function ReviewWorkspace({
   review,
   reviewLots,
   answerQuestion,
+  answerWaitReason,
   setSelection,
   prepare,
   onDirtyChange,
@@ -192,7 +203,9 @@ export function ReviewWorkspace({
   const currentOperatorReview =
     observedOperatorReview?.revision === batch.revision ? observedOperatorReview : undefined
   const operatorReview = useAcceptedOperatorReview(currentOperatorReview)
-  const reviewUnavailable = operator !== undefined && currentOperatorReview === undefined
+  // Restored data has no operator review read yet; that is a wait, not an unavailable review.
+  const reviewUnavailable =
+    !displayOnly && operator !== undefined && currentOperatorReview === undefined
   const drafts = useDirtySources(onDirtyChange)
   const [navigationBlocked, setNavigationBlocked] = useState(false)
   const [route, setRoute] = useState(() => initialLocation(batch))
@@ -213,7 +226,9 @@ export function ReviewWorkspace({
   const autoShown = useRef(false)
   const skipEvidenceFocus = useRef(false)
   useEffect(() => {
+    // Restored data shown before Capture lands never changes the URL; the live workspace does.
     if (
+      displayOnly ||
       autoShown.current ||
       listChosen() ||
       route.view !== 'evidence' ||
@@ -316,7 +331,7 @@ export function ReviewWorkspace({
       },
       viewEvidence: () => evidenceRef.current?.focus(),
     },
-    route.view === 'evidence',
+    route.view === 'evidence' && !displayOnly,
   )
 
   const lot = batch.lots.find((value) => value.id === focused)
@@ -341,10 +356,6 @@ export function ReviewWorkspace({
           </Banner>
         </div>
       )}
-      <ContextFold>
-        <Summary>Batch context</Summary>
-        <CaptureContextSummary batch={batch} subjectId={focused ?? undefined} />
-      </ContextFold>
       <ScopeBar>
         <div>
           <strong>{selected.length} selected</strong>
@@ -354,13 +365,16 @@ export function ReviewWorkspace({
         <Button
           size="sm"
           disabled={
-            drafts.dirty ||
-            reviewUnavailable ||
-            busy ||
-            stale ||
-            Boolean(problem) ||
-            !selected.length
+            !waitReason &&
+            (drafts.dirty ||
+              reviewUnavailable ||
+              busy ||
+              stale ||
+              Boolean(problem) ||
+              !selected.length)
           }
+          reasonDisplay="quiet"
+          disabledReason={waitReason}
           onClick={review}
         >
           Mark selected reviewed
@@ -368,8 +382,11 @@ export function ReviewWorkspace({
         <Button
           size="sm"
           disabled={
-            drafts.dirty || reviewUnavailable || busy || stale || Boolean(problem) || !reviewed
+            !waitReason &&
+            (drafts.dirty || reviewUnavailable || busy || stale || Boolean(problem) || !reviewed)
           }
+          reasonDisplay="quiet"
+          disabledReason={waitReason}
           onClick={prepare}
         >
           Prepare exact selected effects
@@ -523,6 +540,7 @@ export function ReviewWorkspace({
                 mediaLoading={mediaLoading}
                 processing={processing}
                 processingCurrent={processingCurrent}
+                processingCurrentNow={processingCurrentNow}
                 // Accepting remounts Review at the new revision, so any open draft fences it.
                 editDisabled={busy || stale || batch.archived || drafts.dirty}
               />
@@ -558,6 +576,7 @@ export function ReviewWorkspace({
                 markReviewed={() => reviewLots([lot.id])}
                 openQuestion={openQuestions.get(lot.id) ?? null}
                 answerQuestion={answerQuestion}
+                answerWaitReason={answerWaitReason}
                 agent={agentLines.get(lot.id) ?? null}
                 editPart={openEditor}
                 subjectsDisabled={busy || batch.archived || drafts.dirty}
@@ -567,10 +586,21 @@ export function ReviewWorkspace({
                 onDirtyChange={drafts.forSource('workspace')}
               />
             ) : (
-              <Paragraph>
-                Marking reviewed changes no inventory. Preparation performs bounded read-only
-                checks, then freezes the selected effects.
-              </Paragraph>
+              <>
+                <ChooseLot>
+                  <Paragraph>Choose a lot to review.</Paragraph>
+                  <HelpButton
+                    label="About reviewing"
+                    explanation="Marking a lot reviewed changes nothing in InvenTree. Nothing is added until you approve it in Changes."
+                  />
+                </ChooseLot>
+                <DebugDetails label="Decision">
+                  <p>
+                    Preparation performs bounded read-only checks, then freezes the selected
+                    effects.
+                  </p>
+                </DebugDetails>
+              </>
             )}
           </Panel>
         </ReviewGrid>
@@ -584,7 +614,6 @@ const ScopeBar = styled.div`
   align-items: center;
   gap: ${space[6]};
   flex-wrap: wrap;
-  margin-bottom: ${space[4]};
   padding: ${space[3]} ${space[5]};
   background: ${color.surface};
   border: 1px solid ${color.line};
@@ -613,11 +642,6 @@ const SubjectActions = styled.div`
   gap: ${space[3]};
   margin-right: auto;
 `
-const ContextFold = styled.details`
-  margin-bottom: ${space[4]};
-  color: ${color.muted};
-  ${groundBehindOnField}
-`
 // Phones have no keyboard to use the shortcuts with.
 const KeyboardHelp = styled.span`
   ${media.compact} {
@@ -630,7 +654,6 @@ const Toolbar = styled.div`
   justify-content: space-between;
   flex-wrap: wrap;
   gap: ${space[4]} ${space[8]};
-  margin-bottom: ${space[3]};
 `
 const ReviewGrid = styled.div<{ $focused: boolean }>`
   display: grid;
@@ -670,4 +693,13 @@ const BackButton = styled(Button)`
 `
 const QueueFocus = styled.div`
   min-width: 0;
+`
+
+const ChooseLot = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${space[3]};
+  > p {
+    margin: 0;
+  }
 `

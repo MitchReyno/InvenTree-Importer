@@ -105,7 +105,8 @@ const Layout = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: ${space[12]};
+  /* Stacked, the nav and content are page sections and take the page gap. */
+  gap: ${space[7]} ${space[12]};
 `
 
 const NavColumn = styled.div`

@@ -81,7 +81,27 @@ async function callTool(name, toolArgs) {
 }
 
 /** Calls status, then (in delivery mode) waits for an in-turn message naming an inbox item. */
-async function work(waitForDelivery) {
+// A three-step question about the session's lot: a choice, a number and a choice.
+function steppedQuestion(subjectId) {
+  return {
+    schema_version: 'bench-intake-question/2',
+    subject_id: subjectId,
+    reason: 'Two packets look alike and the count is unclear.',
+    fields: ['identity', 'quantity'],
+    title: 'Same Part, how many left and where it goes',
+    steps: [
+      { id: 'same_part', prompt: 'Are both packets the same Part?', assumption: 'The same Part.',
+        answer: { kind: 'choice', other: true, options: [
+          { id: 'same', label: 'Yes, same Part' }, { id: 'different', label: 'No, different Parts' }] } },
+      { id: 'left', prompt: 'How many are left?', assumption: 'About 380.', answer: { kind: 'number' } },
+      { id: 'place', prompt: 'Where does it go?', assumption: 'Drawer R4.',
+        answer: { kind: 'choice', other: false, options: [
+          { id: 'drawer_r4', label: 'Drawer R4' }, { id: 'reel_rack', label: 'Reel rack' }] } },
+    ],
+  }
+}
+
+async function work(waitForDelivery, opening) {
   log({ event: 'capability', value: toolTarget().token })
   await callTool('status', { text: 'Reading the evidence' })
   if (mode === 'crash') {
@@ -104,6 +124,18 @@ async function work(waitForDelivery) {
     const seq = /sequence (\d+)/.exec(delivered)?.[1]
     if (seq) {
       await callTool('read_inbox', { after_seq: seq })
+    }
+  }
+  // Asks once; the turn after the operator answers reads the answer and acknowledges it.
+  if (mode === 'ask-steps') {
+    const read = await callTool('read_inbox', { after_seq: '0' })
+    const answer = (read.items ?? []).find((item) => item.kind === 'answer')
+    if (answer) {
+      log({ event: 'answer', payload: answer.payload })
+      await callTool('read_inbox', { after_seq: read.items.at(-1).seq })
+    } else {
+      const asked = await callTool('ask', steppedQuestion(JSON.parse(opening).subject_id))
+      log({ event: 'asked', ok: asked?.ok, id: asked?.id, error: asked?.error })
     }
   }
   if (mode === 'reply') {
@@ -222,7 +254,7 @@ if (args[0] === 'app-server') {
         send({ method: 'error', params: { threadId, turnId, willRetry: true,
           error: { message: 'retrying', codexErrorInfo: { responseStreamDisconnected: { httpStatusCode: 502 } } } } })
       }
-      await work(() => deliveries.next())
+      await work(() => deliveries.next(), frame.params.input[0].text)
       send({ method: 'turn/completed', params: { turn: { id: turnId, status: 'completed' } } })
     }
     if (frame.method === 'turn/steer') {
@@ -309,7 +341,7 @@ if (args[0] === 'app-server') {
         is_error: true, session_id: sessionId, api_error_status: unlisted ? 42 : 529 })
       return
     }
-    await work(() => deliveries.next())
+    await work(() => deliveries.next(), text)
     send({ type: 'result', subtype: 'success', is_error: false, session_id: sessionId })
   })
   lines.on('close', () => process.exit(0))
