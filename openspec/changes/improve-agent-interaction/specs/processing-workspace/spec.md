@@ -98,7 +98,7 @@ When expanded, a proposal SHALL show its summary, its sources, what it relies on
 
 ### Requirement: Your inputs in the session history
 
-A session's history SHALL include the operator's answers, with what they changed, and instructions, marked as theirs and placed at the time they were sent or saved, and the app's notices of new evidence and revisions, marked as the app's. An input the session has not read yet SHALL say so. Chat messages SHALL stay in the chat.
+A session's history SHALL include the operator's answers, with what they changed, and instructions, marked as theirs and placed at the time they were sent, and the app's notices of new evidence and revisions, marked as the app's. An input the session has not read yet SHALL say so. Chat messages SHALL stay in the chat.
 
 #### Scenario: Answer in the history
 
@@ -149,7 +149,7 @@ The session page SHALL be reached from the drawer's "Open full session", the Age
 
 - **GIVEN** a running Research session's page
 - **WHEN** the operator sends "Check the Microchip PB datasheet first"
-- **THEN** it appears in the conversation as theirs, reaches the session's inbox once, and the agent's reply appears below it.
+- **THEN** it appears in the conversation as theirs and reaches the session's inbox once, and any reply the agent sends afterwards appears below it.
 
 #### Scenario: Answer on the page
 

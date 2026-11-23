@@ -24,7 +24,7 @@
 | 4. Stepped answer form, option cards and Needs you rows | Frontend behavior | 2, 3 | processing-workspace "Answer a question step by step", "Answer kinds in the drawer", "Inventory session drawer"; pipeline "Unclear quantity" and "Related steps in one question" (Needs you rows) |
 | 5. Photo views and agent-reported web sources | Contracts, migration and intake server | None | processing-agent-sessions "Photo views are recorded", "Agent-reported web page sources" ("Invalid URL", and acceptance in "Cited datasheet"), "Bounded status lines and delivered citations" |
 | 6. Session history read and photo-view crops | Contracts and intake server | 3, 5 | processing-workspace "Expandable session history", "Lot-forming entries expand with links", "Proposal, question and failure entries expand with links", "Your inputs in the session history", "Reaching and reading the session page" (Long history, scope) |
-| 7. Expandable timeline and the session page | Frontend behavior | 4, 6 | processing-workspace history requirements, "Drawer and session page split", "Agent session page", "Session page header and panels", "Reaching and reading the session page"; agents-overview "Agents page" ("Open a session's page"); processing-agent-sessions "Cited datasheet" (source chip and web read) |
+| 7. Expandable timeline and the session page | Frontend behavior | 4, 6 | processing-workspace history requirements, "Drawer and session page split", "Agent session page", "Session page header and panels", "Reaching and reading the session page"; agents-overview "Agents page" ("Open a session's page"); processing-agent-sessions "Cited datasheet" (web read on the session page) |
 | 8. Stage counts and the paused flag | Contracts and intake server | None | header-workflow-status "Stage rows in workflow details" (counts), "Stage bar states" (paused) |
 | 9. Activity popover stage rows and bar states | Frontend behavior | 8 | header-workflow-status "Stage rows in workflow details", "Stage bar states", "Only working stages animate", "Expand work steps and existing actions" (Resume) |
 | 10. Session rows, failures in plain words and Agents filters | Contracts, intake server and frontend | 7; 9 or polish for the shared components | agents-overview "Agents page", "Session rows", "Failed rows offer recovery"; processing-workspace "Failures in plain words" |
@@ -111,17 +111,18 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 - [ ] 3.1 Read the shared and intake-server code guidelines and `intake-server/ARCHITECTURE.md`. Map where `/1` question specs are decoded for the read model and the answer route.
 - [ ] 3.2 RED: write the `ask` handler PG tests.
   - [ ] 3.2.1 Store a valid `/2` question.
-  - [ ] 3.2.2 Refuse duplicate step IDs or option IDs, two number steps, and a number step without a live lot, asserting that each tool response names the affected step by index or ID; and schema refusals (five steps, one option) whose issue paths name `/steps` or the step's options.
+  - [ ] 3.2.2 Refuse duplicate step IDs or option IDs, two number steps, a number step without a live lot, and a number step whose question doesn't list `quantity` in its fields, asserting that each tool response names the affected step by index or ID; and schema refusals (five steps, one option) whose issue paths name `/steps` or the step's options.
 - [ ] 3.3 RED: write the answer PG tests.
   - [ ] 3.3.1 A quantity plus a note, applied in one transaction.
   - [ ] 3.3.2 Rollback when the note edit is refused after the quantity edit, with the refusal injected.
   - [ ] 3.3.3 Refusal of a combined note over the 8192-character limit, before any edit, with the response naming the step.
   - [ ] 3.3.4 Refusal of a wrong kind, an unknown option or a missing step.
-  - [ ] 3.3.9 A number step answered in words is accepted: the text reaches the inbox, the note is written and the lot quantity is unchanged.
-  - [ ] 3.3.5 Same-key replay returns the first receipt; a different payload under that key is refused; a new key with the same payload adopts the answer; a new key with a different payload gets `payload_conflict`.
-  - [ ] 3.3.6 An inbox payload carrying the option ID and the number step's basis.
-  - [ ] 3.3.7 A `/1` answer still accepted.
-  - [ ] 3.3.8 A `/2` answer to an earlier runner question is refused before the runner branch reads `input.value`, and retained `/1` runner answers still succeed.
+  - [ ] 3.3.5 A number step answered in words is accepted: the text reaches the inbox, the note is written and the lot quantity is unchanged.
+  - [ ] 3.3.6 Same-key replay returns the first receipt; a different payload under that key is refused; a new key with the same payload adopts the answer; a new key with a different payload gets `payload_conflict`.
+  - [ ] 3.3.7 A number answer marks a proposal relying on the lot's quantity stale.
+  - [ ] 3.3.8 An inbox payload carrying the option ID and the number step's basis.
+  - [ ] 3.3.9 A `/1` answer still accepted.
+  - [ ] 3.3.10 A `/2` answer to an earlier runner question is refused before the runner branch reads `input.value`, and retained `/1` runner answers still succeed.
 - [ ] 3.4 RED: an attention read PG test with an open `/2` stepped question and a `/1` question, each carrying its title, kind or step count and assumptions.
 - [ ] 3.5 GREEN: implement the `ask` and answer branches and the normalised read model.
 - [ ] 3.6 Update the `ask` description and the runner's opening instructions. Teach the fake CLI and the synthetic session a stepped ask, and add a process test that answers it and reads the inbox.
@@ -178,9 +179,9 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - `intake-server/src/agents/tools/handlers.ts`: `fetchEvidenceImage` reserves the image budget before its final transaction and appends the view in it; it releases the reservation on a refusal or a known rollback, and keeps it on a commit with an unknown outcome, returning no image in either case; the delivered-citation check skips `web_page`;
   - the `propose` tool description;
   - where Review and Inventory read sources, so `web_page` is treated as unverified;
-  - the existing frontend readers, so they keep working before PR-E: `ProcessingSources.tsx` names a `web_page` source instead of assuming a `receipt_id`, and the old `SessionTimeline.tsx` gives `photo_view` a plain label rather than its raw kind.
+  - the existing frontend readers, so they keep working before PR-E: `ProcessingSources.tsx` shows a `web_page` source as a "Web page" chip marked agent-reported instead of assuming a `receipt_id`, and the old `SessionTimeline.tsx` gives `photo_view` a plain label rather than its raw kind.
 - **Prerequisites:** none.
-- **Acceptance:** "Photo views are recorded", all scenarios; "Agent-reported web page sources", scenario "Invalid URL" and the proposal's acceptance in "Cited datasheet"; "Bounded status lines and delivered citations". Task 7 owns the chip and the session page listing.
+- **Acceptance:** "Photo views are recorded", all scenarios; "Agent-reported web page sources", scenario "Invalid URL", and the proposal's acceptance and its agent-reported chip in "Cited datasheet"; "Bounded status lines and delivered citations". Task 7 owns the session page's web-read entry.
 - **TDD approach:** PG tests fail first for a delivered versus refused fetch, and for the `web_page` scheme, length and credential checks.
 - **Verification:** contracts tests; `pnpm db:intake test` on the handler and evidence tests; the frontend typecheck, lint and tests.
 - **Risks and decisions:** every consumer of proposal sources must accept `/6`; list them in 5.1.
@@ -191,7 +192,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - [ ] 5.2.2 A refused or over-budget fetch appends nothing, and a refused final transaction releases the budget and returns no image, including when a removal or a capability revocation races the final transaction; a commit with an unknown outcome keeps the reservation and returns no image.
   - [ ] 5.2.3 A `web_page` source is accepted for `https` without a delivery check, refused for `file:`, credentials or a URL over 2048 characters, and refused in `relies_on` or catalogue sources.
   - [ ] 5.2.4 A `/6` proposal with a `web_page` source goes through the advertised `propose` tool, is stored, and reads through the retained decoder and the ordinary Processing snapshot read, beside a retained `/5` proposal.
-  - [ ] 5.2.5 Frontend: the existing source list shows a stored `/6` proposal's `web_page` source, and the old timeline labels a `photo_view`.
+  - [ ] 5.2.5 Frontend: the existing source list shows a stored `/6` proposal's `web_page` source as a "Web page" chip marked agent-reported, and the old timeline labels a `photo_view`.
 - [ ] 5.3 GREEN: implement both. Make the source readers treat `web_page` as unverified.
 - [ ] 5.4 Update the `propose` description to say how to cite a page read with WebFetch. Run the intake unit and PG tiers.
 
@@ -222,8 +223,8 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - [ ] 6.2.1 Each entry kind resolves its summary, details and links.
   - [ ] 6.2.2 A retired lot or a removed version gives a "gone" link.
   - [ ] 6.2.3 With rows written by the existing append paths, answers and chat appear as the operator's from their actor, an instruction as the operator's at its save time and labelled relayed when sent to a later attempt, and `evidence` and `revision` notices (including an identity revision from another session) as the app's, and one above the acknowledgement cursor reads as not read yet; a `read_inbox` call that advances the cursor publishes `session_changed` in its transaction, and one that doesn't move it publishes nothing.
-  - [ ] 6.2.4 Attempt headers say how an attempt ended, and why it started where the retained input shows it; turns within an attempt are not attempts; a failure or resume with no new inbox or outbox item still updates its header on the next read; the span runs from the queue time, not a turn's `started_at`; an attempt cancelled before its first turn, one cancelled after a settled turn, and an idle attempt superseded by Start fresh after a prior turn show the end time of their terminal transition, not an earlier turn's `finished_at`.
-  - [ ] 6.2.5 A regroup with recorded moves shows them, and a mixed regroup shows which moves were applied and which only suggested; an older regroup lists its destination lots; an observation revised in place shows its values labelled current in both its entries; earlier attempts' failures resolve; a lot edited after formation shows its values labelled current.
+  - [ ] 6.2.4 Attempt headers say how an attempt ended, and why it started where the retained input shows it; turns within an attempt are not attempts; a failure or resume with no new inbox or outbox item still updates its header on the next read; the span runs from the queue time, not a turn's `started_at`; an attempt cancelled before its first turn, one cancelled after a settled turn, an idle attempt superseded by Start fresh after a prior turn, and an attempt that finished, was resumed and was then cancelled show the end time of their latest terminal transition, not an earlier turn's.
+  - [ ] 6.2.5 A regroup with recorded moves shows them, and a mixed regroup shows which moves were applied and which only suggested; an older regroup lists its destination lots; an observation revised in place shows its values labelled current in both its entries; earlier attempts' failures resolve; a lot edited after formation shows its values labelled current, and after an operator's quantity change shows the selected quantity apart from the agent's estimate and basis.
   - [ ] 6.2.6 The `before` cursor pages without gaps or duplicates across retries with repeated sequences and equal timestamps, and across inbox and outbox rows with equal timestamps; the page, its cursor and the metadata come from one snapshot; every read returns the metadata and acknowledgement cursor, including a read of the newest page with no new entries.
   - [ ] 6.2.7 A proposal links every open question that makes it provisional, with two matching questions.
   - [ ] 6.2.8 The session metadata for a retried session, including the web setting from each attempt's manifest.
@@ -248,7 +249,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - the processing fixtures;
   - removal of the old timeline response.
 - **Prerequisites:** tasks 4 and 6.
-- **Acceptance:** "Expandable session history", "Lot-forming entries expand with links", "Proposal, question and failure entries expand with links", "Your inputs in the session history", "Drawer and session page split", "Agent session page", "Session page header and panels", "Reaching and reading the session page" (including "Message from the page", "Answer on the page", "Long history" and "Many entries between refreshes"), and agents-overview "Open a session's page"; processing-agent-sessions "Cited datasheet" (the chip and the web read). The Start fresh clause of "Proposal, question and failure entries expand with links" belongs to task 10; this task shows the failure summary and its details link.
+- **Acceptance:** "Expandable session history", "Lot-forming entries expand with links", "Proposal, question and failure entries expand with links", "Your inputs in the session history", "Drawer and session page split", "Agent session page", "Session page header and panels", "Reaching and reading the session page" (including "Message from the page", "Answer on the page", "Long history" and "Many entries between refreshes"), and agents-overview "Open a session's page"; processing-agent-sessions "Cited datasheet" (the web read on the session page). The Start fresh clause of "Proposal, question and failure entries expand with links" belongs to task 10; this task shows the failure summary and its details link.
 - **TDD approach:** component and route tests per scenario fail first, before the renderer and page exist.
 - **Verification:**
   - the frontend typecheck, lint, tests and build;
@@ -285,7 +286,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 - **Risks and decisions:** keep the counts in the existing queries; no extra per-step query.
 
 - [ ] 8.1 Read the shared and intake-server code guidelines. Map how `stepJobs` and `stepWork` are counted today.
-- [ ] 8.2 RED: contract tests for the new fields. PG tests for a batch with one waiting-for-you, one queued, one running and one ready job, with open questions, retired lots, a stage with live lots but no jobs yet, a ready Part job beside a live lot with no job at that step, a paused batch, and a failed Research job beside running Images in a batch other than the open one.
+- [ ] 8.2 RED: contract tests for the new fields. PG tests for a batch with one waiting-for-you, one queued, one running and one ready job, with open questions, retired lots, a stage with live lots but no jobs yet, a ready Part job beside a live lot with no job at that step, a paused batch, a batch paused with no jobs, and a failed Research job beside running Images in a batch other than the open one.
 - [ ] 8.3 GREEN: implement the counts and the paused flag in both reads.
 - [ ] 8.4 Run the contracts tests and the intake unit and PG tiers.
 
@@ -314,7 +315,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - [ ] 9.2.2 A stage with no jobs yet is never done.
   - [ ] 9.2.3 No fill without counts, and an uncounted running stage and an uncounted waiting stage read working and waiting for you from their retained jobs.
   - [ ] 9.2.4 Examine waiting on questions reads as waiting for you.
-- [ ] 9.3 RED: tests for `ProgressSegments`' states, patterns and animation (only working, none under reduced motion), and for the popover's stage rows, links, counts, status lines and Resume, including a finished stage and a stage whose sessions fall outside `active_sessions`, which show a reason rather than an agent line ("Stage with no listed session").
+- [ ] 9.3 RED: tests for `ProgressSegments`' states, patterns and animation (only working, none under reduced motion), and for the popover's stage rows, links, counts, status lines and Resume (including an open batch paused with no jobs), no animation on rows from a failed or stale read, including a finished stage and a stage whose sessions fall outside `active_sessions`, which show a reason rather than an agent line ("Stage with no listed session").
 - [ ] 9.4 GREEN: implement the states, the popover layout and the rows. Update the component gallery.
 - [ ] 9.5 Run the frontend checks. Record the demo video for the PR description.
 

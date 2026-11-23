@@ -60,7 +60,7 @@ The asking session SHALL receive one `answer` inbox item carrying each step's va
 
 #### Scenario: Choice answer delivered with its option
 
-- **GIVEN** a running session that asked a one-step choice question
+- **GIVEN** a running session that asked a one-step choice question, with fewer than 20 unread inbox items
 - **WHEN** the operator sends the option "ATmega328PB-AU"
 - **THEN** a note records the question and "ATmega328PB-AU", and the session's next read_inbox returns the answer with that option's ID.
 
