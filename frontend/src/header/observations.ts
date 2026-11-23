@@ -119,8 +119,6 @@ export function targetSummary(
   return targetStatus(target, unavailable, now).summary
 }
 
-export type HeaderWorkItem = HeaderWorkDto['work'][number]
-
 export function preferredWork(value: HeaderWorkDto | undefined, batchId?: string) {
   const work = value?.work ?? []
   const current = work.filter((item) => item.batch_id === batchId)

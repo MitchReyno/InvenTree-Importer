@@ -1,5 +1,5 @@
 import type { BatchAttentionDto, HeaderWorkDto, ProcessingJobDto } from '@invimport/contracts'
-import { WORK_STATE, type ProgressStep, type SegmentState, type WorkState } from '#/components/ui'
+import { type ProgressStep, type SegmentState, type WorkState } from '#/components/ui'
 
 type WorkItem = HeaderWorkDto['work'][number]
 /** The header read counts jobs only; the attention read also counts each step's failures. */
@@ -208,15 +208,6 @@ export function otherOpenJobs(work: WorkItem[], named: WorkItem | undefined) {
 /** A batch's Processing entry takes the most pressing of its jobs' states. */
 export function batchState(jobs: WorkItem[]): WorkState {
   return mostPressing(jobs.map(jobState)) ?? 'queued'
-}
-
-/** One short word for the phone pill; a held slot says so rather than the job's own state. */
-export function compactJobWord(item: WorkItem) {
-  if (slotHeld(item)) {
-    return 'Slot held'
-  }
-
-  return WORK_STATE[jobState(item)].word
 }
 
 /** Only a step that is working fills; queued and waiting steps hold no progress yet. */
