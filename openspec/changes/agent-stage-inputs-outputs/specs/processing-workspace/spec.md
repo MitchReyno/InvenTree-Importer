@@ -1,3 +1,21 @@
+## MODIFIED Requirements
+
+### Requirement: Step page pattern
+
+Each step page SHALL show the step's outputs: readings, sources, crops or matches. Corrections on the page apply to every lot that used that output. The page SHALL also show the step's questions and its sessions, with a session drawer that holds the status timeline, the open question and chat. A step without sessions, such as Match, SHALL show its questions on the page instead of a session drawer. Step pages SHALL link values to Review and evidence to Capture rather than editing lots themselves.
+
+#### Scenario: Correct a reading
+
+- **GIVEN** Examine shows a handwriting reading used by one lot
+- **WHEN** the operator corrects it
+- **THEN** the correction shows as “Your edit”, the affected lot is marked for re-examination, and other lots are unchanged.
+
+#### Scenario: Session drawer
+
+- **GIVEN** a running session on a step page or the Overview
+- **WHEN** the operator opens it
+- **THEN** a drawer shows its status timeline, its open question and a chat, and closing it returns to the page.
+
 ## REMOVED Requirements
 
 ### Requirement: Inventory step page
