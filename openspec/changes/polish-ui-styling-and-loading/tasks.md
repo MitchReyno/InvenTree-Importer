@@ -255,9 +255,9 @@
 - **Verification:** frontend checks; a capture of the switch; a manual check of all three styles with the switch off.
 - **Risks and decisions:** none.
 
-- [ ] 10.1 Read the guidelines, `theme/masthead-style.ts`, `device-preference.ts` and how `ElectronicsCurrent` starts the scene.
-- [ ] 10.2 RED: tests for the preference (default, bad storage, unknown value), the switch, the scene paused when off, turning it on after an off-state reload, a theme change while paused, OS reduced motion still winning, and switching off, scrolling the masthead out of view and back (still paused), then switching on (the same scene resumes); and resizing the window while paused redrawing the still frame at the new size with the same parts, which then resume.
-- [ ] 10.3 GREEN: implement the preference, the switch, and the controller's `pause()` and `resume()`, keeping the OS reduced-motion flag separate.
+- [x] 10.1 Read the guidelines, `theme/masthead-style.ts`, `device-preference.ts` and how `ElectronicsCurrent` starts the scene.
+- [x] 10.2 RED: tests for the preference (default, bad storage, unknown value), the switch, the scene paused when off, turning it on after an off-state reload, a theme change while paused, OS reduced motion still winning, and switching off, scrolling the masthead out of view and back (still paused), then switching on (the same scene resumes); and resizing the window while paused redrawing the still frame at the new size with the same parts, which then resume.
+- [x] 10.3 GREEN: implement the preference, the switch, and the controller's `pause()` and `resume()`, keeping the OS reduced-motion flag separate.
 - [ ] 10.4 Check the three styles with the switch off in the running app (the fixture runner freezes the scene). Update `frontend/ARCHITECTURE.md`, and run the frontend checks.
 
 ## 11. Agent settings autosave

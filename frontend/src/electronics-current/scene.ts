@@ -29,7 +29,10 @@ import { updateDisplay } from './parts/displays'
 export type CurrentLayout = 'band' | 'field'
 
 export interface ElectronicsCurrentOptions {
+  /** The operating system asks for reduced motion: one still frame, never a loop. */
   reducedMotion: boolean
+  /** The device's animation switch is off: built and drawn once, ready to resume. */
+  paused?: boolean
   theme?: ThemeId
   layout?: CurrentLayout
   random?: () => number
@@ -41,6 +44,10 @@ export interface ElectronicsCurrentController {
   clearPointer: () => void
   /** Re-tints parts and fog for the theme without rebuilding them. */
   setTheme: (theme: ThemeId) => void
+  /** Stops the animation where it is, keeping every part, until `resume`. */
+  pause: () => void
+  /** Continues from where `pause` stopped, unless reduced motion or visibility forbids it. */
+  resume: () => void
   dispose: () => void
 }
 
@@ -194,6 +201,9 @@ export function createElectronicsCurrent(
   let lastFrameAt = performance.now()
   let frameRequest = 0
   let running = false
+  let paused = options.paused ?? false
+  // Until the observer reports, the canvas counts as visible.
+  let visible = true
   let laidOutWidth = 0
   let laidOutHeight = 0
 
@@ -543,8 +553,9 @@ export function createElectronicsCurrent(
     frameRequest = requestAnimationFrame(frame)
   }
 
+  // Every start path comes here, so the switch, reduced motion and visibility each hold.
   function startLoop(): void {
-    if (running || options.reducedMotion) {
+    if (running || options.reducedMotion || paused || !visible) {
       return
     }
 
@@ -601,6 +612,11 @@ export function createElectronicsCurrent(
         fitPartsToHeight()
       }
 
+      // Stopped by the switch or off screen, nothing else draws; keep the parts and redraw them.
+      if (!running && parts.length > 0) {
+        render()
+      }
+
       return
     }
 
@@ -618,7 +634,7 @@ export function createElectronicsCurrent(
 
   // Pause while the masthead is scrolled out of view; resume when it returns.
   function handleVisibility(entries: IntersectionObserverEntry[]): void {
-    const visible = entries.some((entry) => entry.isIntersecting)
+    visible = entries.some((entry) => entry.isIntersecting)
 
     if (visible) {
       startLoop()
@@ -691,9 +707,20 @@ export function createElectronicsCurrent(
     }
 
     // A running loop picks the new colours up on its next frame; a still frame needs redrawing.
-    if (options.reducedMotion) {
+    if (!running) {
       render()
     }
+  }
+
+  function pause(): void {
+    paused = true
+    stopLoop()
+    pointer.active = false
+  }
+
+  function resume(): void {
+    paused = false
+    startLoop()
   }
 
   function dispose(): void {
@@ -706,5 +733,5 @@ export function createElectronicsCurrent(
     renderer?.dispose()
   }
 
-  return { setPointer, clearPointer, setTheme, dispose }
+  return { setPointer, clearPointer, setTheme, pause, resume, dispose }
 }
