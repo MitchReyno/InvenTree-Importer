@@ -57,6 +57,8 @@ const Card = styled.fieldset`
   margin: 0;
   padding: 0;
   overflow: hidden;
+  /* Agent text can hold a long unbroken word, such as a URL; it wraps rather than being clipped. */
+  overflow-wrap: anywhere;
   border: 1px solid ${color.warn};
   border-radius: ${radius.card};
   background: ${color.surface};

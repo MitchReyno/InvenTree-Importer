@@ -11,6 +11,7 @@ import { transaction } from '#/db/database.ts'
 import { sealed } from '#/processing/model.ts'
 import { startSessionToolServer } from '#/agents/tools/server.ts'
 import { submitSessionInbox } from '#/agents/tools/inbox.ts'
+import { ASK_GUIDANCE } from '#/agents/tools/ask-guidance.ts'
 import {
   interruptRunningSessions,
   queueSessionResume,
@@ -304,6 +305,11 @@ for (const provider of ['claude', 'codex'] as const) {
         await runSessionTurn(h.deps('ask-steps'), h.session.attempt, new AbortController().signal)
         const asked = (await h.events()).find((event) => event.event === 'asked')
         assert.equal(asked?.ok, true, JSON.stringify(await h.events()))
+        // The opening this provider's CLI received carries the one-question guidance.
+        const opening = (await h.events()).find((event) => event.event === 'opening')
+        const instructions = (JSON.parse(String(opening?.text)) as { instructions: string })
+          .instructions
+        assert.ok(instructions.includes(ASK_GUIDANCE), instructions)
         const batch = (await h.fixture.http(`/batches/${h.session.manifest.batch_id}`)).value as {
           revision: string
         }

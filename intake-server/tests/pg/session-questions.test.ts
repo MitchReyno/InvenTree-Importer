@@ -2,7 +2,11 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHash, randomUUID } from 'node:crypto'
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
-import type { CaptureEditDto, ProcessingSnapshotDto } from '@invimport/contracts'
+import type {
+  CaptureEditDto,
+  ProcessingAnswerV2Dto,
+  ProcessingSnapshotDto,
+} from '@invimport/contracts'
 import { strictJson } from '@invimport/contracts/json'
 import { processingFixture } from '../support/processing.ts'
 import { leadSession, legacySessionQuestion, lotSession } from '../support/sessions.ts'
@@ -187,7 +191,7 @@ async function askedQuestion(
     questionId: asked.id!,
     path: `/batches/${capture.batch.id}/questions/${asked.id}/answers`,
     base: {
-      schema_version: 'bench-intake-answer/2',
+      schema_version: 'bench-intake-answer/2' as const,
       expected_question_revision: '1',
       expected_capture_revision: revision,
       attempt_id: a.attempt,
@@ -196,7 +200,7 @@ async function askedQuestion(
   }
 }
 
-const fullAnswer = [
+const fullAnswer: ProcessingAnswerV2Dto['steps'] = [
   { step_id: 'same_part', value: { kind: 'choice', option_id: 'same' } },
   { step_id: 'left', value: { kind: 'number', value: '380', basis: 'estimated' } },
   { step_id: 'place', value: { kind: 'choice', option_id: 'drawer_r4' } },
@@ -310,7 +314,7 @@ test('ask refuses duplicate IDs, misplaced number steps and oversized questions,
     assert.equal(blank.error, 'validation_failed')
     assert.ok(blank.issues?.some((issue) => issue.path === '/steps/0/assumption'))
     // Within every field limit, but escaped control characters outgrow the stored envelope.
-    const escaped = '\u0001'.repeat(2048)
+    const escaped = `A${'\u0001'.repeat(2047)}`
     const oversized = await call(
       url,
       a.token,
@@ -493,7 +497,7 @@ test('a refused note edit after the quantity edit rolls the whole answer back', 
         capture.batch.id,
         questionId,
         randomUUID(),
-        { ...base, steps: fullAnswer } as never,
+        { ...base, steps: fullAnswer } satisfies ProcessingAnswerV2Dto,
       ),
       (error: { code?: string }) => error.code === 'subject_not_found',
     )

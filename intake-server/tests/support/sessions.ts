@@ -4,9 +4,13 @@ import { processingSubjectScope, sealed } from '#/processing/model.ts'
 import { transaction } from '#/db/database.ts'
 import { resolveMediaInputs } from '#/media/inputs.ts'
 import { sessionLotInputManifest } from '#/processing/session-input.ts'
+import type { CaptureBinding } from '#/capture/model.ts'
 
-type Fixture = Awaited<ReturnType<typeof processingFixture>>
-type Capture = Awaited<ReturnType<Fixture['seedCapture']>>
+type ProcessingFixture = Awaited<ReturnType<typeof processingFixture>>
+/** What the session helpers use, so the processing and manual fixtures both fit. */
+type Fixture = Pick<ProcessingFixture, 'db' | 'identity'> & { config: CaptureBinding }
+type SeededCapture = Awaited<ReturnType<ProcessingFixture['seedCapture']>>
+type Capture = Pick<SeededCapture, 'batch' | 'packetA'>
 
 /** A research session for one lot, seeded as the migration owner. */
 export async function lotSession(

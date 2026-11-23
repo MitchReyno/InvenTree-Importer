@@ -62659,13 +62659,13 @@
           "prompt": {
             "minLength": 1,
             "maxLength": 500,
-            "pattern": "\\S",
+            "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
             "type": "string"
           },
           "assumption": {
             "minLength": 1,
             "maxLength": 2048,
-            "pattern": "\\S",
+            "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
             "type": "string"
           },
           "answer": {
@@ -62702,7 +62702,7 @@
                         "label": {
                           "minLength": 1,
                           "maxLength": 80,
-                          "pattern": "\\S",
+                          "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
                           "type": "string"
                         },
                         "detail": {
@@ -66957,7 +66957,7 @@
               "title": {
                 "minLength": 1,
                 "maxLength": 120,
-                "pattern": "\\S",
+                "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
                 "type": "string"
               },
               "reason": {
@@ -66986,13 +66986,13 @@
                     "prompt": {
                       "minLength": 1,
                       "maxLength": 500,
-                      "pattern": "\\S",
+                      "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
                       "type": "string"
                     },
                     "assumption": {
                       "minLength": 1,
                       "maxLength": 2048,
-                      "pattern": "\\S",
+                      "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
                       "type": "string"
                     },
                     "answer": {
@@ -67029,7 +67029,7 @@
                                   "label": {
                                     "minLength": 1,
                                     "maxLength": 80,
-                                    "pattern": "\\S",
+                                    "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
                                     "type": "string"
                                   },
                                   "detail": {
@@ -67324,7 +67324,7 @@
           "title": {
             "minLength": 1,
             "maxLength": 120,
-            "pattern": "\\S",
+            "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
             "type": "string"
           },
           "reason": {
@@ -67353,13 +67353,13 @@
                 "prompt": {
                   "minLength": 1,
                   "maxLength": 500,
-                  "pattern": "\\S",
+                  "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
                   "type": "string"
                 },
                 "assumption": {
                   "minLength": 1,
                   "maxLength": 2048,
-                  "pattern": "\\S",
+                  "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
                   "type": "string"
                 },
                 "answer": {
@@ -67396,7 +67396,7 @@
                               "label": {
                                 "minLength": 1,
                                 "maxLength": 80,
-                                "pattern": "\\S",
+                                "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
                                 "type": "string"
                               },
                               "detail": {
@@ -70421,7 +70421,7 @@
                     "title": {
                       "minLength": 1,
                       "maxLength": 120,
-                      "pattern": "\\S",
+                      "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
                       "type": "string"
                     },
                     "reason": {
@@ -70450,13 +70450,13 @@
                           "prompt": {
                             "minLength": 1,
                             "maxLength": 500,
-                            "pattern": "\\S",
+                            "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
                             "type": "string"
                           },
                           "assumption": {
                             "minLength": 1,
                             "maxLength": 2048,
-                            "pattern": "\\S",
+                            "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
                             "type": "string"
                           },
                           "answer": {
@@ -70493,7 +70493,7 @@
                                         "label": {
                                           "minLength": 1,
                                           "maxLength": 80,
-                                          "pattern": "\\S",
+                                          "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
                                           "type": "string"
                                         },
                                         "detail": {
@@ -73562,7 +73562,7 @@
                           "title": {
                             "minLength": 1,
                             "maxLength": 120,
-                            "pattern": "\\S",
+                            "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
                             "type": "string"
                           },
                           "reason": {
@@ -73591,13 +73591,13 @@
                                 "prompt": {
                                   "minLength": 1,
                                   "maxLength": 500,
-                                  "pattern": "\\S",
+                                  "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
                                   "type": "string"
                                 },
                                 "assumption": {
                                   "minLength": 1,
                                   "maxLength": 2048,
-                                  "pattern": "\\S",
+                                  "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
                                   "type": "string"
                                 },
                                 "answer": {
@@ -73634,7 +73634,7 @@
                                               "label": {
                                                 "minLength": 1,
                                                 "maxLength": 80,
-                                                "pattern": "\\S",
+                                                "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
                                                 "type": "string"
                                               },
                                               "detail": {
@@ -80936,7 +80936,7 @@
                                           "label": {
                                             "minLength": 1,
                                             "maxLength": 80,
-                                            "pattern": "\\S",
+                                            "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
                                             "type": "string"
                                           }
                                         }
@@ -83600,7 +83600,7 @@
                   "title": {
                     "minLength": 1,
                     "maxLength": 120,
-                    "pattern": "\\S",
+                    "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
                     "type": "string"
                   },
                   "steps": {
@@ -83624,13 +83624,13 @@
                         "prompt": {
                           "minLength": 1,
                           "maxLength": 500,
-                          "pattern": "\\S",
+                          "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
                           "type": "string"
                         },
                         "assumption": {
                           "minLength": 1,
                           "maxLength": 2048,
-                          "pattern": "\\S",
+                          "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
                           "type": "string"
                         },
                         "answer": {
@@ -83667,7 +83667,7 @@
                                       "label": {
                                         "minLength": 1,
                                         "maxLength": 80,
-                                        "pattern": "\\S",
+                                        "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
                                         "type": "string"
                                       },
                                       "detail": {
@@ -83929,7 +83929,7 @@
           "title": {
             "minLength": 1,
             "maxLength": 120,
-            "pattern": "\\S",
+            "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
             "type": "string"
           },
           "steps": {
@@ -83953,13 +83953,13 @@
                 "prompt": {
                   "minLength": 1,
                   "maxLength": 500,
-                  "pattern": "\\S",
+                  "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
                   "type": "string"
                 },
                 "assumption": {
                   "minLength": 1,
                   "maxLength": 2048,
-                  "pattern": "\\S",
+                  "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
                   "type": "string"
                 },
                 "answer": {
@@ -83996,7 +83996,7 @@
                               "label": {
                                 "minLength": 1,
                                 "maxLength": 80,
-                                "pattern": "\\S",
+                                "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
                                 "type": "string"
                               },
                               "detail": {
@@ -84067,7 +84067,7 @@
               "label": {
                 "minLength": 1,
                 "maxLength": 80,
-                "pattern": "\\S",
+                "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
                 "type": "string"
               }
             }
@@ -84273,7 +84273,7 @@
                             "label": {
                               "minLength": 1,
                               "maxLength": 80,
-                              "pattern": "\\S",
+                              "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
                               "type": "string"
                             }
                           }
@@ -86793,7 +86793,7 @@
                                               "label": {
                                                 "minLength": 1,
                                                 "maxLength": 80,
-                                                "pattern": "\\S",
+                                                "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
                                                 "type": "string"
                                               }
                                             }
@@ -88208,7 +88208,7 @@
                                     "label": {
                                       "minLength": 1,
                                       "maxLength": 80,
-                                      "pattern": "\\S",
+                                      "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
                                       "type": "string"
                                     }
                                   }

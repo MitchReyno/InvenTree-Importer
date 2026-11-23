@@ -94,8 +94,8 @@ test('question items carry their title, kind or step count and assumptions, for 
   try {
     const seeded = await fixture.seedCapture()
     const batchId = seeded.batch.id
-    const capture = { batch: seeded.batch, packetA: seeded.a } as never
-    const lead = await leadSession(fixture as never, capture)
+    const capture = { batch: seeded.batch, packetA: seeded.a }
+    const lead = await leadSession(fixture, capture)
     const token = await transaction(runnerPool, (client) =>
       issueSessionCapability(client, lead.attempt),
     )
@@ -167,8 +167,8 @@ test('question items carry their title, kind or step count and assumptions, for 
     const partOnly = await read<BatchAttentionDto>(fixture, `/batches/${batchId}/attention`)
     assert.equal(partOnly.review.needs_answer, 2)
 
-    const lot = await lotSession(fixture as never, capture, seeded.a)
-    await legacySessionQuestion(fixture as never, lot, {
+    const lot = await lotSession(fixture, capture, seeded.a)
+    await legacySessionQuestion(fixture, lot, {
       kind: 'clarification',
       subject_id: seeded.a.id,
       prompt: 'Is the label torn?',

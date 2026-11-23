@@ -474,7 +474,10 @@ function mountView(
   )
 
   const mounted = render(element(sessionId))
-  return { rerenderWith: (session?: string) => mounted.rerender(element(session)) }
+  return {
+    queryClient,
+    rerenderWith: (session?: string) => mounted.rerender(element(session)),
+  }
 }
 
 test('the fixture profile shows its jobs and questions by step, and claims no live session', async () => {
@@ -1781,7 +1784,7 @@ test('a refused stepped answer whose refresh then fails says it wasn’t accepte
   expect(within(form).getByLabelText('Your answer')).toHaveValue('Bent leads')
 })
 
-test('a stepped answer sent from the drawer takes the question out of Needs you', async () => {
+test('a stepped answer sent from the drawer leaves Needs you and shows in the chat beside a /1 answer', async () => {
   const user = userEvent.setup()
   const answered = steppedInventorySnapshot()
   answered.jobs[0].questions[0].state = 'answered'
@@ -1798,10 +1801,47 @@ test('a stepped answer sent from the drawer takes the question out of Needs you'
     chat: vi.fn(),
     answer: vi.fn().mockImplementation(() => {
       client.read.mockResolvedValue(answered)
-      return Promise.resolve({ schema_version: 'bench-intake-answer-receipt/1' })
+      // The next session read holds an earlier /1 answer and this /2 one.
+      client.session.mockResolvedValue({
+        job_id: jobId,
+        attempt_id: attemptId,
+        session_state: 'queued',
+        outbox: [],
+        inbox: [
+          {
+            id: 'a1',
+            seq: '1',
+            kind: 'answer',
+            created_at: '2026-11-23T09:00:00.000Z',
+            payload: {
+              question_id: 'c0000000-0000-4000-8000-0000000000e1',
+              answer_id: 'c0000000-0000-4000-8000-0000000000e2',
+              value: { kind: 'quantity', value: '12', basis: 'counted' },
+            },
+          },
+          {
+            id: 'a2',
+            seq: '2',
+            kind: 'answer',
+            created_at: '2026-11-23T09:05:00.000Z',
+            payload: {
+              question_id: questionId,
+              answer_id: 'c0000000-0000-4000-8000-0000000000e3',
+              steps: [
+                {
+                  step_id: 'same_tube',
+                  value: { kind: 'choice', option_id: 'same', label: 'Same tube as stock #1712' },
+                },
+                { step_id: 'note', value: { kind: 'text', text: 'Bent leads' } },
+              ],
+            },
+          },
+        ],
+      })
+      return Promise.resolve()
     }),
   } satisfies ProcessingClient
-  mountView(client, 'overview', jobId)
+  const { queryClient } = mountView(client, 'overview', jobId)
   const needsYou = await screen.findByRole('region', { name: 'Needs you' })
   expect(
     within(needsYou).getByRole('link', { name: 'Answer: Packet A and stock #1712' }),
@@ -1822,5 +1862,14 @@ test('a stepped answer sent from the drawer takes the question out of Needs you'
       }),
     ).toBeNull(),
   )
+  // The saved answer's batch event invalidates the scoped reads, the session's included.
+  await act(() => queryClient.invalidateQueries())
+  const log = await within(screen.getByRole('dialog')).findByRole('log', {
+    name: 'Session messages',
+  })
+  await waitFor(() =>
+    expect(log).toHaveTextContent('Answered: Same tube as stock #1712 · Bent leads'),
+  )
+  expect(log).toHaveTextContent('Answered: 12')
   expect(client.answer).toHaveBeenCalledTimes(1)
 })

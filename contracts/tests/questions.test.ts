@@ -72,13 +72,17 @@ test('a /2 ask holds 1 to 4 steps, each with a prompt, an assumption and an answ
   )
   // Blank text shows the operator nothing, so it is refused like missing text.
   assert.ok(issuePaths('SessionAskArgsV2', { ...ask, title: '\t' }).includes('/title'))
-  for (const field of ['prompt', 'assumption']) {
-    const blank = { ...textStep, [field]: ' \n ' }
-    assert.ok(
-      issuePaths('SessionAskArgsV2', { ...ask, steps: [blank] }).includes(`/steps/0/${field}`),
-      field,
-    )
+  // Invisible characters alone show nothing either: a zero-width space, a BOM, a lone combining mark.
+  for (const invisible of [' \n ', '\u200b', '\ufeff\u00a0', '\u0301']) {
+    for (const field of ['prompt', 'assumption']) {
+      const blank = { ...textStep, [field]: invisible }
+      assert.ok(
+        issuePaths('SessionAskArgsV2', { ...ask, steps: [blank] }).includes(`/steps/0/${field}`),
+        `${field} ${JSON.stringify(invisible)}`,
+      )
+    }
   }
+  validate('SessionAskArgsV2', { ...ask, steps: [{ ...textStep, assumption: '\u200bTen.' }] })
   assert.throws(() => validate('SessionAskArgsV2', { ...ask, fields: [] }))
   const { fields: _fields, ...noFields } = ask
   assert.throws(() => validate('SessionAskArgsV2', noFields))
@@ -118,7 +122,7 @@ test('a /2 ask bounds options, labels, details, prompts and the title', () => {
     ).includes('/steps/0/answer/options/1/label'),
   )
   assert.ok(
-    issuePaths('SessionAskArgsV2', withOptions([option(1), { id: 'x', label: '  ' }])).includes(
+    issuePaths('SessionAskArgsV2', withOptions([option(1), { id: 'x', label: '\u200b' }])).includes(
       '/steps/0/answer/options/1/label',
     ),
   )

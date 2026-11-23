@@ -55,6 +55,8 @@ const Choice = styled.label`
   border-radius: ${radius.btn};
   background: ${color.surface};
   cursor: pointer;
+  /* A long unbroken label or detail wraps inside the card. */
+  overflow-wrap: anywhere;
   input {
     margin-top: 3px;
   }

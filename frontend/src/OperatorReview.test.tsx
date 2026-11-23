@@ -1828,72 +1828,78 @@ test('Batch sends the region move for a new lot at the revision that made the lo
   })
 })
 
-test('a stepped question about the lot’s Part is answered in place on the lot, step by step', async () => {
-  const user = userEvent.setup()
-  const question = {
-    id: 'c0000000-0000-4000-8000-0000000000d1',
-    job_id: 'c0000000-0000-4000-8000-0000000000d2',
-    attempt_id: 'c0000000-0000-4000-8000-0000000000d3',
-    input_sha256: 'a'.repeat(64),
-    revision: '1',
-    state: 'open',
-    subject_id: partId,
-    schema_version: 'bench-intake-question/2',
-    fields: ['identity'],
-    title: 'About the shared resistor',
-    reason: 'The two packets carry different date codes.',
-    steps: [
-      {
-        id: 'same',
-        prompt: 'Are both packets the same Part?',
-        assumption: 'The same Part.',
-        answer: {
-          kind: 'choice',
-          other: false,
-          options: [
-            { id: 'yes', label: 'Yes, same Part' },
-            { id: 'no', label: 'No, different Parts' },
-          ],
+test.each([
+  { about: 'the lot’s shared Part', subjectId: partId },
+  { about: 'the lot itself', subjectId: b },
+])(
+  'a stepped question about $about is answered in place on the lot, step by step',
+  async ({ subjectId }) => {
+    const user = userEvent.setup()
+    const question = {
+      id: 'c0000000-0000-4000-8000-0000000000d1',
+      job_id: 'c0000000-0000-4000-8000-0000000000d2',
+      attempt_id: 'c0000000-0000-4000-8000-0000000000d3',
+      input_sha256: 'a'.repeat(64),
+      revision: '1',
+      state: 'open',
+      subject_id: subjectId,
+      schema_version: 'bench-intake-question/2',
+      fields: ['identity'],
+      title: 'About the shared resistor',
+      reason: 'The two packets carry different date codes.',
+      steps: [
+        {
+          id: 'same',
+          prompt: 'Are both packets the same Part?',
+          assumption: 'The same Part.',
+          answer: {
+            kind: 'choice',
+            other: false,
+            options: [
+              { id: 'yes', label: 'Yes, same Part' },
+              { id: 'no', label: 'No, different Parts' },
+            ],
+          },
         },
-      },
-      { id: 'why', prompt: 'Why?', assumption: 'Same MPN.', answer: { kind: 'text' } },
-    ],
-  }
-  const snapshot = {
-    batch_id: batchId,
-    capture_revision: batch.revision,
-    jobs: [
-      {
-        id: question.job_id,
-        stage: 'research',
-        subject_id: partId,
-        proposals: [],
-        questions: [question],
-      },
-    ],
-  } as unknown as ProcessingSnapshotDto
-  const processing = {
-    read: vi.fn(async () => snapshot),
-    answer: vi.fn(async () => ({ status: 'accepted' })),
-  } as unknown as ProcessingClient
-  renderReview({ processing })
-  await user.click(await screen.findByRole('button', { name: 'Show Packet B' }))
-  const details = screen.getByRole('region', { name: 'Decision' })
-  await user.click(await within(details).findByRole('button', { name: 'Answer here' }))
-  expect(within(details).getByText('About the shared resistor')).toBeVisible()
-  expect(within(details).getByText('Step 1 of 2')).toBeVisible()
-  expect(within(details).getByText('The two packets carry different date codes.')).toBeVisible()
-  await user.click(within(details).getByRole('radio', { name: /Yes, same Part/ }))
-  await user.click(within(details).getByRole('button', { name: 'Next' }))
-  await user.type(within(details).getByLabelText('Your answer'), 'Same MPN and maker')
-  await user.click(within(details).getByRole('button', { name: 'Next' }))
-  await user.click(within(details).getByRole('button', { name: 'Send 2 answers' }))
-  await waitFor(() =>
-    expect(processing.answer).toHaveBeenCalledWith(
-      batchId,
-      question.id,
-      expect.objectContaining({ schema_version: 'bench-intake-answer/2' }),
-      expect.any(String),
-    ),
-  )
-})
+        { id: 'why', prompt: 'Why?', assumption: 'Same MPN.', answer: { kind: 'text' } },
+      ],
+    }
+    const snapshot = {
+      batch_id: batchId,
+      capture_revision: batch.revision,
+      jobs: [
+        {
+          id: question.job_id,
+          stage: 'research',
+          subject_id: subjectId,
+          proposals: [],
+          questions: [question],
+        },
+      ],
+    } as unknown as ProcessingSnapshotDto
+    const processing = {
+      read: vi.fn(async () => snapshot),
+      answer: vi.fn(async () => ({ status: 'accepted' })),
+    } as unknown as ProcessingClient
+    renderReview({ processing })
+    await user.click(await screen.findByRole('button', { name: 'Show Packet B' }))
+    const details = screen.getByRole('region', { name: 'Decision' })
+    await user.click(await within(details).findByRole('button', { name: 'Answer here' }))
+    expect(within(details).getByText('About the shared resistor')).toBeVisible()
+    expect(within(details).getByText('Step 1 of 2')).toBeVisible()
+    expect(within(details).getByText('The two packets carry different date codes.')).toBeVisible()
+    await user.click(within(details).getByRole('radio', { name: /Yes, same Part/ }))
+    await user.click(within(details).getByRole('button', { name: 'Next' }))
+    await user.type(within(details).getByLabelText('Your answer'), 'Same MPN and maker')
+    await user.click(within(details).getByRole('button', { name: 'Next' }))
+    await user.click(within(details).getByRole('button', { name: 'Send 2 answers' }))
+    await waitFor(() =>
+      expect(processing.answer).toHaveBeenCalledWith(
+        batchId,
+        question.id,
+        expect.objectContaining({ schema_version: 'bench-intake-answer/2' }),
+        expect.any(String),
+      ),
+    )
+  },
+)

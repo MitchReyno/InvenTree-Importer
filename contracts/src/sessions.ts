@@ -12,7 +12,9 @@ import {
   QuestionStepId,
   QuestionSteps,
   QuestionTitle,
-  QuestionStepValue,
+  QuestionNumberValue,
+  QuestionOtherValue,
+  QuestionTextValue,
   STATUS_LINE_MAX_CHARACTERS,
   statusLine,
 } from './processing.ts'
@@ -118,9 +120,9 @@ export const SessionAnswerStepValue = Type.Union([
     option_id: QuestionStepId,
     label: QuestionOption.properties.label,
   }),
-  QuestionStepValue.anyOf[1],
-  QuestionStepValue.anyOf[2],
-  QuestionStepValue.anyOf[3],
+  QuestionOtherValue,
+  QuestionNumberValue,
+  QuestionTextValue,
 ])
 /** The operator's answer as the asking session receives it: one value, or one per step. */
 export const SessionAnswerPayload = Type.Union([

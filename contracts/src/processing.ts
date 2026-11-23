@@ -344,9 +344,12 @@ export const QUESTION_STEP_PROMPT_MAX_CHARACTERS = 500
 export const QUESTION_OPTION_LABEL_MAX_CHARACTERS = 80
 export const QUESTION_OPTION_DETAIL_MAX_CHARACTERS = 160
 
-/** Text the operator reads, so it must show something: blank text is refused. */
+/**
+ * Text the operator reads, so it must show something. Blank text is refused, and so is text of only
+ * spaces, control or format characters (such as a zero-width space) and combining marks.
+ */
 function shownText(maxLength: number) {
-  return Type.String({ minLength: 1, maxLength, pattern: '\\S' })
+  return Type.String({ minLength: 1, maxLength, pattern: '[^\\s\\p{C}\\p{Z}\\p{M}]' })
 }
 
 export const QuestionOption = object({
@@ -380,15 +383,19 @@ export const QuestionTitle = shownText(QUESTION_TITLE_MAX_CHARACTERS)
  * One step's answer. A number step takes a quantity or, answered in words, text; every other step
  * takes the value of its own kind.
  */
+/** "Something else", answered in the operator's words. */
+export const QuestionOtherValue = object({ kind: Type.Literal('choice'), other: text })
+export const QuestionNumberValue = object({
+  kind: Type.Literal('number'),
+  value: Quantity,
+  basis: Type.Union([Type.Literal('counted'), Type.Literal('estimated')]),
+})
+export const QuestionTextValue = object({ kind: Type.Literal('text'), text })
 export const QuestionStepValue = Type.Union([
   object({ kind: Type.Literal('choice'), option_id: QuestionStepId }),
-  object({ kind: Type.Literal('choice'), other: text }),
-  object({
-    kind: Type.Literal('number'),
-    value: Quantity,
-    basis: Type.Union([Type.Literal('counted'), Type.Literal('estimated')]),
-  }),
-  object({ kind: Type.Literal('text'), text }),
+  QuestionOtherValue,
+  QuestionNumberValue,
+  QuestionTextValue,
 ])
 /** An answer to a `/2` session question: one value per step, sent together. */
 export const ProcessingAnswerV2 = object({
