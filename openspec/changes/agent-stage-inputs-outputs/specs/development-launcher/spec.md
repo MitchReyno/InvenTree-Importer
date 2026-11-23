@@ -60,5 +60,5 @@ The development launcher SHALL select the processing profile from `INTAKE_USE_MO
 #### Scenario: Drain then switch
 
 - **GIVEN** a VM actor with retained `shared-vm-agent/3` work
-- **WHEN** the developer runs `pnpm dev` with `INTAKE_VM_AGENT_DRAIN=true` until the drain completes, then without it
+- **WHEN** the developer runs `pnpm dev` with `INTAKE_USE_MOCK_AI_AGENTS=false`, `INTAKE_USE_AGENT_SESSIONS=true`, `INTAKE_RUN_AGENTS_IN_VM=true`, `INTAKE_VM_AGENT_TOOLS=true` and `INTAKE_VM_AGENT_DRAIN=true` until the drain completes, then with only the drain setting changed to false
 - **THEN** the first run serves `/3` with the fence set and the second serves `/4`, each through the session worker.

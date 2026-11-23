@@ -38,7 +38,7 @@ While an actor's cutover drain fence is set, and after it has switched to `/4`, 
 
 #### Scenario: Chat with a finished session
 
-- **GIVEN** a session that has finished, on an actor with no cutover drain fence set
+- **GIVEN** a finished session that can run on the actor's current profile, with no drain fence or Match hold applying to it
 - **WHEN** the operator sends a chat message
 - **THEN** the message is queued, the session's provider conversation is resumed with it, and the agent's reply appears in that session's chat.
 

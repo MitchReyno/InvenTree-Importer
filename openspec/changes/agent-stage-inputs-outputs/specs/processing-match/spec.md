@@ -216,13 +216,19 @@ Match's validation searches SHALL be preparation target reads, each with its com
 
 ### Requirement: Approval checks the latest search
 
-A preparation SHALL record each selected `/7` lot's validation search generation. Approval SHALL refuse it when a newer search for a lot has been requested, settled or not, when the validation read failed, or when the batch's lead is now `/7` and a selected lot has no recorded successful validation. An approval that already committed SHALL replay unchanged.
+A preparation SHALL record each selected `/7` lot's validation search generation. Approval SHALL refuse it when a newer search for a lot has been requested, settled or not, when the validation read failed, when the batch's lead is now `/7` and a selected lot has no recorded successful validation, or when, under the lot's Match lock, the lot has an open question or its identity or outcome revision differs from the one pass 3 pinned. An approval that already committed SHALL replay unchanged.
 
 #### Scenario: Check again before approval
 
 - **GIVEN** a prepared batch whose lot passed validation
 - **WHEN** the operator asks Match to check that lot again and approves before the search settles
 - **THEN** approval is refused until a new validation passes.
+
+#### Scenario: Question opened after preparation
+
+- **GIVEN** a prepared lot whose validation passed
+- **WHEN** a replacing amendment opens a question without a search, and the operator approves the original preparation
+- **THEN** approval is refused for the open question.
 
 #### Scenario: Prepared before an upgrade
 
