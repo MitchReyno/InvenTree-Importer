@@ -80,3 +80,11 @@ test('closing the editor with changes releases the guard', async () => {
   unmount()
   expect(onDirtyChange).toHaveBeenLastCalledWith(false)
 })
+
+test('the Location field says how to offer another location', () => {
+  renderEdit()
+
+  expect(
+    screen.getByText('Affects only this lot. Read another location in Capture to add it here.'),
+  ).toBeVisible()
+})
