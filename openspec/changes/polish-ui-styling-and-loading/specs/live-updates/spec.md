@@ -46,6 +46,12 @@ Once a workspace has a verified read, later background refreshes SHALL NOT disab
 
 A command that sends no expected revision (Pause, Resume, delivering instructions, and any other the audit finds) SHALL be available only with a settled verified read whose request started after the last relevant live hint was received, and SHALL be checked again when pressed.
 
+#### Scenario: Instructions saved during a hint
+
+- **GIVEN** Processing, where the operator saves an instruction edit and its live hint arrives before the save returns
+- **WHEN** the automatic delivery is due
+- **THEN** it waits as "Delivery pending" until a read started after the hint settles, then sends once, and Retry sends through the same gate.
+
 #### Scenario: Commands without a revision
 
 - **GIVEN** Processing, the Agents page or Settings › Agents showing Pause or Resume

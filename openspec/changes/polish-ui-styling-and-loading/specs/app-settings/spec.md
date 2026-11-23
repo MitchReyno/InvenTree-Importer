@@ -169,6 +169,12 @@ On Settings › Agents, switches, choices, selects and the sessions stepper SHAL
 - **WHEN** the operator reloads or closes the tab
 - **THEN** the browser's leave prompt shows, as for any unsaved change.
 
+#### Scenario: A change that can't be confirmed
+
+- **GIVEN** a switch's save whose response was lost and whose receipt has been pruned
+- **WHEN** it is resent and the server can't tell whether it applied
+- **THEN** the status says "Couldn't confirm this change" with Reload only, nothing is resent, and Reload shows the saved settings, discards that change and the subsection's later queued changes, and keeps text drafts.
+
 #### Scenario: Conflict
 
 - **GIVEN** settings changed in another tab
@@ -286,13 +292,13 @@ Each provider card SHALL open its subscription sign-in in a dialog that asks for
 
 ### Requirement: Closing a sign-in dialog drops its work
 
-Closing a sign-in dialog, or editing its key, SHALL drop the key, stop its polling, cancel queued requests that haven't been sent and ignore any late response.
+Closing a sign-in dialog, or editing its key, SHALL drop the key, stop its polling, cancel queued requests that haven't been sent and ignore any late response. Closing the Codex dialog SHALL first make one final protected poll and cancel a login still pending, as shared-vm-execution requires.
 
 #### Scenario: Closing during a request
 
 - **GIVEN** the Codex dialog polling a sign-in
 - **WHEN** the operator closes it and reopens it with a different key
-- **THEN** the old poll stops, its late answer is ignored, and the new dialog holds only the new key.
+- **THEN** one final poll runs and a login still pending is cancelled, later answers from the old dialog are ignored, and the new dialog holds only the new key.
 
 ### Requirement: One searchable model picker
 

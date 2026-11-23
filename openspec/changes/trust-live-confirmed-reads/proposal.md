@@ -36,9 +36,9 @@ In scope:
 
 - A per-query currency proof: a successful HTTP read whose request started after the newest hint relevant to that query, for a resource the subscription covers, within the current, complete subscription and resource scope.
 - The proof is cleared synchronously when a relevant hint is received, before the debounced reconciliation runs, and on a gap, reset or truncation, a reconnect, the fall-back to polling, a scope change, or a failed read.
-- A replacement `ready` frame on the same socket also clears it. The server sends one when the tracked streams or truncation change, and the client replaces its cursor list wholesale (`intake-server/src/live/routes.ts:77–97`, `LiveUpdates.tsx:141–151`). Any proof whose stream disappears, advances, or changes truncation in the new set is cleared, even with no `changed` frame.
+- A replacement `ready` frame on the same socket also clears it. Today the server sends one when a stream is newly tracked or truncation changes, and the client replaces its cursor list wholesale (`intake-server/src/live/routes.ts:77–97`, `LiveUpdates.tsx:141–151`). Any proof whose stream disappears, advances, or changes truncation in the new set is cleared, even with no `changed` frame.
 - **Prerequisite server change:** the server sends a replacement `ready` only for a newly tracked stream or a truncation change. A stream removed by itself triggers neither, though the server replaces its own cursor set, and the client then keeps the removed cursor (`routes.ts:77–97`, `LiveUpdates.tsx:141–158`). BI-021 adds a replacement `ready` on removal too, and tests a removal alone, with no cursor advance or truncation change, clearing the proof.
-- BI-020's rules still apply: a manual cache write, a cancelled or paused read, and an older request completing late never give a proof.
+- BI-020's rules still apply: a manual cache write, a cancelled or paused read, and an older request completing late never give a proof. Commands without a server-checked revision keep BI-020's gate in full: a settled read started after the last relevant hint, checked again at dispatch.
 - An audited allowlist of commands that may use the proof. For each, the audit shows the server-checked expected revision covers every fact the command's eligibility depends on. Commands without one, such as Pause and Resume, keep waiting for a settled read made since the page opened.
 - Tests for each way the proof can be cleared, including a replacement `ready` frame that drops or advances a stream, a manual cache write and a silent cancel; for a hint arriving during an in-flight read; and for a commit that lands before its hint is delivered (the command must be refused by the server, not applied).
 
@@ -63,7 +63,7 @@ None.
 
 ## Impact and dependencies
 
-- **Where the work is:** mainly the frontend (`queries/`, the live-update client). The command audit may find a revision check missing on the server.
+- **Where the work is:** mainly the frontend (`queries/`, the live-update client). The server sends a replacement `ready` frame when a stream is removed (`intake-server/src/live/routes.ts`). The command audit may find a revision check missing on the server.
 - **Prerequisite:** BI-020 merged.
 - **Trade-off:** this relaxes the rule that only a read made since the page opened can enable commands, for allowlisted commands with server-checked revisions only.
 

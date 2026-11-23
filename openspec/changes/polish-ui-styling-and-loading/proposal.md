@@ -161,7 +161,7 @@ None.
 - `capture-grouped-evidence`: several photos from a phone in one go; drop or paste files to add evidence.
 - `app-settings`: "Agent settings section" is modified (save as you change, provider status read automatically, dialogs, switches, segmented default provider, model picker). It is written on the synced requirement from `settings-debug-mode` and `simplify-vm-agent-web-and-setup`. Added: the electronics animation switch; saving as you change and text keeping an explicit Save; the read-only status and the separate sign-in failure line; controls matching the design; sign-in dialogs and dropping their work on close; the searchable model picker with its limits and exact IDs.
 - `ui-design-system` (also): the searchable picker for records and growing lists, and short fixed choices following a guideline. "Masthead and electronics current in both themes" is modified so the animation switch can still the current.
-- `shared-vm-execution`: a read-only provider sign-in status the server can read without the management key. It is added as its own requirements, apart from the existing pairing and turn requirements.
+- `shared-vm-execution`: a read-only provider sign-in status the server can read without the management key. It is added as its own requirements. "Personal Claude subscription token" is modified for the "Token saved" wording, and "ChatGPT sign-in for the runner" so closing the dialog completes or cancels a pending login.
 - `live-updates`: commands wait quietly for a current read; cached reads survive a reload within the session. "Live unverifiable workspace state" is unchanged.
 
 ## Impact and dependencies

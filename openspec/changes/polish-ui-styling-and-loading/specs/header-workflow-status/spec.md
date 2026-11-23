@@ -28,9 +28,9 @@ Inside a batch, the summary SHALL say the batch name with "no agents working" on
 
 #### Scenario: An incomplete read
 
-- **GIVEN** a truncated, stale or unavailable work read
+- **GIVEN** a stale read, a failed read, or a fresh read whose work list is truncated with no failed or waiting step visible
 - **WHEN** the masthead summary renders
-- **THEN** it says "Updating…" or "Status unavailable" rather than "no agents working".
+- **THEN** it says "Updating…" for the stale read, "Status unavailable" for the failed one and "Status incomplete" for the truncated one, never "no agents working". A fresh truncated read that shows a failed or waiting step names it without a count instead.
 
 #### Scenario: A truncated work list
 
