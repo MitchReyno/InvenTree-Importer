@@ -46,6 +46,16 @@ An import reference hit SHALL be an original-contribution hit, not an identity c
 - **WHEN** Match's question for it opens
 - **THEN** it links the earlier run and offers already imported, and no stage is queued for the lot.
 
+### Requirement: Earlier-run details follow run access
+
+An original-contribution hit SHALL block the lot across the whole target. Its question SHALL link the earlier run and report its stock status only when the operator may read that run; otherwise it SHALL say only that the contribution was already approved.
+
+#### Scenario: Hit from another actor
+
+- **GIVEN** a lot whose original contribution was approved by another actor, or under a target context since rotated
+- **WHEN** its question opens
+- **THEN** the lot is blocked and the question says the contribution was already approved, with no run link or stock status.
+
 ### Requirement: Already imported is a Match decision
 
 Already imported on an original-contribution hit SHALL be recorded on the Match decision, not as a Capture exclusion, and Review and Changes SHALL show the contribution as already approved.

@@ -240,7 +240,7 @@ A full lane leaves a claimed session `queued` (`session-runner.ts:543-545`); the
 | `instruction` | `agents/instructions.ts:114` | Each job's current session, except cancelling, cancelled and failed ones |
 | `revision` | `currentness.ts:31` (superseded fields, regroups, removals), `stable-identity.ts:120` | Relying sessions; the lot's Research and Images |
 
-Writes publish a `processing_changed` event for the batch, which the frontend uses to re-read. `status` and `reply` publish `session_changed` instead (`handlers.ts:958,989`), and a chat item publishes `session_inbox_changed` (`agents/tools/inbox.ts:167-169`).
+`propose` and `ask` publish a `processing_changed` event for the batch, which the frontend uses to re-read. Examine's Capture writes, `record_observation`, `propose_lot` and `regroup`, publish `capture_changed` through the Capture transaction and append their session outbox items (`handlers.ts:882-942,1055,1120`, `capture/repository.ts:1111-1145`). `status` and `reply` publish `session_changed` instead (`handlers.ts:958,989`), and a chat item publishes `session_inbox_changed` (`agents/tools/inbox.ts:167-169`).
 
 ## 1.8 Profiles and the VM
 

@@ -38,13 +38,19 @@ For a batch whose Examine lead input is `bench-intake-input/7`, which has no Inv
 
 ### Requirement: Unsupported record changes are honest
 
-Retained proposals the executor cannot apply SHALL be shown as “Not supported yet”, together with the nearest supported choice, and SHALL never be silently dropped. These include creating a category, a parameter template or a manufacturer company, changing fields of an existing Part, and supplier prices. The exception is a confirmed `/7` gaps fill of a missing datasheet, key parameter or Part image on an existing Part, which preparation turns into a capability-gated effect.
+Retained proposals the executor cannot apply SHALL be shown as “Not supported yet”, together with the nearest supported choice, and SHALL never be silently dropped. These include creating a category, a parameter template or a manufacturer company, changing fields of an existing Part, and supplier prices. The exceptions, each a capability-gated effect, are a confirmed `/7` gaps fill of a missing datasheet or key parameter, and a confirmed Part image for an image-less existing Part under either add stock decision.
 
 #### Scenario: New category proposed
 
 - **GIVEN** a retained proposal for a new sub-category
 - **WHEN** the Part record opens
 - **THEN** the category field explains that creating categories is not supported yet, and offers the existing categories, with the agent's reason.
+
+#### Scenario: Part image under plain add stock
+
+- **GIVEN** a `/7` lot decided as add stock to RES-0144, which has no image, with a confirmed Part image
+- **WHEN** the Part record opens
+- **THEN** the image shows as one approval can set, not as unsupported.
 
 #### Scenario: Confirmed gaps fill on an existing Part
 
