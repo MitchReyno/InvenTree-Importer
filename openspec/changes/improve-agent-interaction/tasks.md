@@ -351,7 +351,7 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
   - [x] 9.2.4 Examine waiting on questions reads as waiting for you.
 - [x] 9.3 RED: tests for `ProgressSegments`' states, patterns and animation (only working, none under reduced motion), and for the popover's stage rows, links, counts, status lines (a finished stage with a cancelled attempt still holding a slot shows a reason, not that attempt's line, as in "Cancelled attempt still holding a slot") and Resume (including an open batch paused with no jobs), no animation on rows from a failed or stale read, including a finished stage and a stage whose sessions fall outside `active_sessions`, which show a reason rather than an agent line ("Stage with no listed session").
 - [x] 9.4 GREEN: implement the states, the popover layout and the rows. Update the component gallery.
-- [ ] 9.5 Run the frontend checks. Record the demo video for the PR description.
+- [x] 9.5 Run the frontend checks. Record the demo video for the PR description.
 
 ## 10. Session rows, failures in plain words and Agents filters
 
