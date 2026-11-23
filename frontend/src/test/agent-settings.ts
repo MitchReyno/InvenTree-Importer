@@ -1,3 +1,4 @@
+import { expect } from 'vitest'
 import {
   AGENT_MODEL_SUGGESTIONS,
   type AgentProviderId,
@@ -41,12 +42,16 @@ export function agentSettings(
   }
 }
 
-/** The same settings as a whole update sent under `expectedRevision`. */
+/**
+ * The same settings as a whole update sent under `expectedRevision`, matching any save ID: the
+ * client generates one per save.
+ */
 export function agentSettingsUpdate(
   expectedRevision: string,
   selection: AgentSelectionDto | null,
   overrides: Partial<Omit<AgentSettingsDto, 'revision'>> = {},
 ): AgentSettingsUpdateDto {
   const { revision: _revision, ...fields } = agentSettings('0', selection, overrides)
-  return { ...fields, expected_revision: expectedRevision }
+  const anySaveId: string = expect.any(String)
+  return { ...fields, expected_revision: expectedRevision, save_id: anySaveId }
 }

@@ -24,8 +24,9 @@ function withinAgentsPage(from: string, to: string) {
 }
 
 /**
- * Accept routes only when the mounted fact form can safely be left. Also follows the screen that
- * opened Settings, which its back link returns to.
+ * Accept routes only when the mounted fact form can safely be left; a form that can save its
+ * changes is saved first, and the navigation continues once nothing is left unsaved. Also follows
+ * the screen that opened Settings, which its back link returns to.
  */
 export function useNavigationGuard() {
   const [route, setRoute] = useState(() => location.hash.slice(1))
@@ -34,18 +35,38 @@ export function useNavigationGuard() {
   const [navigationBlocked, setNavigationBlocked] = useState(false)
   const dirty = useRef(false)
   const protectedUrl = useRef<string | null>(null)
-  const onDirtyChange = useCallback((value: boolean) => {
-    if (value && !dirty.current) {
-      protectedUrl.current = location.href
-    }
-    dirty.current = value
-    if (!value) {
-      protectedUrl.current = null
-      setNavigationBlocked(false)
-    }
-  }, [])
+  // Saves what can be saved before leaving, answering whether nothing is left unsaved.
+  const beforeLeave = useRef<(() => Promise<boolean>) | undefined>(undefined)
+  const onDirtyChange = useCallback(
+    (value: boolean, saveBeforeLeaving?: () => Promise<boolean>) => {
+      if (value && !dirty.current) {
+        protectedUrl.current = location.href
+      }
+      dirty.current = value
+      beforeLeave.current = value ? saveBeforeLeaving : undefined
+      if (!value) {
+        protectedUrl.current = null
+        setNavigationBlocked(false)
+      }
+    },
+    [],
+  )
 
   useEffect(() => {
+    /**
+     * Saves first, then continues when nothing is left unsaved; otherwise stays, showing why.
+     * The page shows the failed save with its Try again.
+     */
+    function saveThenLeave(save: () => Promise<boolean>, leave: () => void) {
+      void save().then((saved) => {
+        if (saved && !dirty.current) {
+          leave()
+        } else {
+          setNavigationBlocked(true)
+        }
+      })
+    }
+
     function acceptRoute() {
       const next = location.hash.slice(1)
       if (dirty.current && withinAgentsPage(accepted.current.route, next)) {
@@ -60,7 +81,12 @@ export function useNavigationGuard() {
             '',
             protectedUrl.current,
           )
-          setNavigationBlocked(true)
+          if (beforeLeave.current) {
+            // The requested entry sits just behind the restored one.
+            saveThenLeave(beforeLeave.current, () => history.back())
+          } else {
+            setNavigationBlocked(true)
+          }
         }
         return
       }
@@ -107,7 +133,13 @@ export function useNavigationGuard() {
         target.hash !== location.hash
       ) {
         event.preventDefault()
-        setNavigationBlocked(true)
+        if (beforeLeave.current) {
+          saveThenLeave(beforeLeave.current, () => {
+            location.hash = target.hash
+          })
+        } else {
+          setNavigationBlocked(true)
+        }
       }
     }
 

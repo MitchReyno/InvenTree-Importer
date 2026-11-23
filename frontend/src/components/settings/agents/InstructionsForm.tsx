@@ -6,24 +6,28 @@ import { SaveBar } from './SaveBar'
 import { Stack } from './Stack'
 import { useSubsectionForm, type SubsectionFormProps } from './useSubsectionForm'
 import { storable } from './provider-form'
+import type { FieldKey } from './settings-fields'
 
 /** The batch instruction limit, so a copied instruction always fits. */
 const MAX_INSTRUCTIONS = 8192
 
 type Values = { text: string }
 
+const KEYS: readonly FieldKey[] = ['new_batch_instructions']
+
 const read = (settings: AgentSettingsDto): Values => ({ text: settings.new_batch_instructions })
+
+const write = ({ text }: Values) => ({ new_batch_instructions: text })
 
 /** Settings › Agents › Instructions: the text copied into each new batch's instructions. */
 export function InstructionsForm(props: SubsectionFormProps) {
-  const { form, state, busy, waiting, dirty, markDirty, save, reload, discard } = useSubsectionForm(
-    {
-      ...props,
-      id: 'instructions',
-      read,
-      write: ({ text }) => ({ new_batch_instructions: text }),
-    },
-  )
+  const { form, markEdited, text } = useSubsectionForm({
+    ...props,
+    id: 'instructions',
+    read,
+    write,
+    keys: KEYS,
+  })
   const tooLong = form.formState.errors.text
 
   return (
@@ -37,13 +41,13 @@ export function InstructionsForm(props: SubsectionFormProps) {
             <TextArea
               rows={4}
               {...named}
-              readOnly={busy}
+              readOnly={text.busy}
               aria-invalid={tooLong ? true : undefined}
               aria-describedby={tooLong ? 'instructions-error' : undefined}
               {...form.register('text', {
                 // Counted in characters, as the server counts them.
                 validate: (value) => [...value].length <= MAX_INSTRUCTIONS && storable(value),
-                onChange: markDirty,
+                onChange: () => markEdited('text'),
               })}
             />
             {tooLong && (
@@ -52,14 +56,15 @@ export function InstructionsForm(props: SubsectionFormProps) {
               </Small>
             )}
             <SaveBar
-              state={state}
-              busy={busy}
-              waiting={waiting}
+              state={text.state}
+              busy={text.busy}
+              waiting={text.waiting}
               savedMessage="Saved. Batches created from now on start with these instructions; existing batches keep theirs."
-              onSave={save}
-              onReload={reload}
-              onDiscard={discard}
-              dirty={dirty}
+              onSave={() => text.save()}
+              onRetry={text.retry}
+              onReload={text.reload}
+              onDiscard={text.discard}
+              dirty={text.dirty}
             />
           </Stack>
         )}

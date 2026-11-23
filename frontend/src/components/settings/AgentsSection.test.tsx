@@ -334,6 +334,9 @@ describe('the Codex card mirrors its sign-in panel', () => {
 /** A subsection's card, inside its region of the same name, to scope its own Save. */
 const card = (name: string) => screen.getAllByRole('region', { name }).at(-1)!
 
+/** Waits past the autosave pause, for a save sent on its own. */
+const autosaved = (assertion: () => void) => waitFor(assertion, { timeout: 3000 })
+
 const bothOn = agentSettings(
   '7',
   { provider: 'claude', authentication: 'subscription', model: 'sonnet' },
@@ -346,22 +349,18 @@ const bothOn = agentSettings(
   },
 )
 
-test('each provider card sets its own sign-in and model, and providers save with the steps', async () => {
+test('each provider card saves its switch and sign-in as they change, with the steps, and its model with Save', async () => {
   const api = await renderAgents()
   const codex = screen.getByRole('group', { name: 'Codex' })
   fireEvent.click(within(codex).getByRole('checkbox', { name: 'On' }))
   fireEvent.click(within(codex).getByRole('button', { name: 'API key' }))
   expect(within(codex).getByText('OPENAI_API_KEY')).toBeVisible()
   expect(screen.queryByLabelText('API key')).not.toBeInTheDocument()
-  fireEvent.change(within(codex).getByRole('combobox', { name: 'Default model' }), {
-    target: { value: 'gpt-6-luna' },
-  })
   const research = screen.getByRole('group', { name: 'Research' })
   fireEvent.change(within(research).getByRole('combobox', { name: 'Research provider' }), {
     target: { value: 'codex' },
   })
-  fireEvent.click(within(card('Provider and model per step')).getByRole('button', { name: 'Save' }))
-  await waitFor(() =>
+  await autosaved(() =>
     expect(api.saveSettings).toHaveBeenCalledWith(
       agentSettingsUpdate(
         '7',
@@ -369,16 +368,32 @@ test('each provider card sets its own sign-in and model, and providers save with
         {
           providers: {
             claude: { enabled: true, authentication: 'subscription', default_model: 'sonnet' },
-            codex: { enabled: true, authentication: 'api_key', default_model: 'gpt-6-luna' },
+            codex: { enabled: true, authentication: 'api_key', default_model: 'gpt-6.1-sol' },
           },
-          stage_selections: { research: { provider: 'codex', model: 'gpt-6-luna' } },
+          stage_selections: { research: { provider: 'codex', model: 'gpt-6.1-sol' } },
         },
       ),
     ),
   )
+  expect(api.saveSettings).toHaveBeenCalledTimes(1)
+  fireEvent.change(within(codex).getByRole('combobox', { name: 'Default model' }), {
+    target: { value: 'gpt-6-luna' },
+  })
+  fireEvent.click(within(card('Providers')).getByRole('button', { name: 'Save' }))
+  await waitFor(() =>
+    expect(api.saveSettings).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        expected_revision: '8',
+        providers: {
+          claude: { enabled: true, authentication: 'subscription', default_model: 'sonnet' },
+          codex: { enabled: true, authentication: 'api_key', default_model: 'gpt-6-luna' },
+        },
+      }),
+    ),
+  )
 })
 
-test('turning a provider off shows its steps on Default with a note, before saving', async () => {
+test('turning a provider off shows its steps on Default with a note, and saves at once', async () => {
   const api = client()
   api.settings.mockResolvedValue(bothOn)
   await renderAgents(api)
@@ -390,19 +405,14 @@ test('turning a provider off shows its steps on Default with a note, before savi
   expect(research.getByRole('combobox', { name: 'Research provider' })).toHaveValue('')
   expect(research.getByText(/now uses Default/)).toBeVisible()
   expect(screen.getByRole('radio', { name: 'Codex' })).toBeDisabled()
-  expect(api.saveSettings).not.toHaveBeenCalled()
-})
-
-test('with no provider on, Providers says so and sends nothing', async () => {
-  const api = await renderAgents()
-  fireEvent.click(
-    within(screen.getByRole('group', { name: 'Claude' })).getByRole('checkbox', { name: 'On' }),
+  await waitFor(() =>
+    expect(api.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providers: { ...bothOn.providers, codex: { ...bothOn.providers.codex, enabled: false } },
+        stage_selections: {},
+      }),
+    ),
   )
-  // The lower Save says why beside itself.
-  const steps = card('Provider and model per step')
-  fireEvent.click(within(steps).getByRole('button', { name: 'Save' }))
-  expect(await within(steps).findByText(/Turn on at least one provider/)).toBeVisible()
-  expect(api.saveSettings).not.toHaveBeenCalled()
 })
 
 test('on a fresh setup, Instructions save with no provider on', async () => {
@@ -429,8 +439,7 @@ test('a save sends the loaded values for other subsections, and keeps their unsa
       name: 'One fewer',
     }),
   )
-  fireEvent.click(within(card('Sessions')).getByRole('button', { name: 'Save' }))
-  await waitFor(() =>
+  await autosaved(() =>
     expect(api.saveSettings).toHaveBeenLastCalledWith(
       agentSettingsUpdate('7', initialSelection, { session_concurrency: 2 }),
     ),
@@ -467,13 +476,17 @@ test('typing a model holds the navigation guard', async () => {
     }),
     { target: { value: 'opus' } },
   )
-  expect(dirty).toHaveBeenLastCalledWith(true)
+  expect(dirty).toHaveBeenLastCalledWith(true, expect.any(Function))
 })
 
-test('pressing both Providers Saves at once sends one save', async () => {
+test('pressing Save twice sends one save', async () => {
   const api = await renderAgents()
-  fireEvent.click(within(card('Default provider')).getByRole('button', { name: 'Save' }))
-  fireEvent.click(within(card('Provider and model per step')).getByRole('button', { name: 'Save' }))
+  fireEvent.change(screen.getByRole('textbox', { name: 'Instructions for every new batch' }), {
+    target: { value: 'Mine' },
+  })
+  const save = within(card('Instructions')).getByRole('button', { name: 'Save' })
+  fireEvent.click(save)
+  fireEvent.click(save)
   await waitFor(() => expect(api.saveSettings).toHaveBeenCalledTimes(1))
   await new Promise((done) => setTimeout(done, 20))
   expect(api.saveSettings).toHaveBeenCalledTimes(1)
@@ -521,18 +534,21 @@ test('a refresh never mixes into a Providers draft, and saving it is a conflict'
     default_provider: 'codex',
     stage_selections: {},
   })
+  api.saveSettings.mockRejectedValue(new IntakeRequestError(412, 'revision_conflict'))
   await renderAgents(api)
   const claude = within(screen.getByRole('group', { name: 'Claude' }))
   const codex = within(screen.getByRole('group', { name: 'Codex' }))
-  fireEvent.click(codex.getByRole('checkbox', { name: 'On' }))
+  fireEvent.change(codex.getByRole('combobox', { name: 'Default model' }), {
+    target: { value: 'gpt-6-luna' },
+  })
   fireEvent.click(screen.getByRole('button', { name: 'Read settings again' }))
   await waitFor(() => expect(api.settings).toHaveBeenCalledTimes(2))
   await new Promise((done) => setTimeout(done, 20))
   expect(claude.getByRole('checkbox', { name: 'On' })).toBeChecked()
-  fireEvent.click(within(card('Default provider')).getByRole('button', { name: 'Save' }))
-  // Both of the form's Save bars report it.
-  expect((await screen.findAllByText(/changed in another tab/))[0]).toBeVisible()
-  expect(api.saveSettings).not.toHaveBeenCalled()
+  fireEvent.click(within(card('Providers')).getByRole('button', { name: 'Save' }))
+  expect(await screen.findByText(/changed in another tab/)).toBeVisible()
+  // Sent under the revision the edit was made over, so the server refuses it.
+  expect(api.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ expected_revision: '7' }))
 })
 
 test('a Reload answering late settles to the newest settings, not its own older answer', async () => {
@@ -555,16 +571,9 @@ test('a Reload answering late settles to the newest settings, not its own older 
   const instructions = screen.getByRole('textbox', { name: 'Instructions for every new batch' })
   fireEvent.change(instructions, { target: { value: 'Mine' } })
   fireEvent.click(within(card('Instructions')).getByRole('button', { name: 'Save' }))
-  // Revision 7 answers the Reload late; this page saves 8; a refresh loads 9 from elsewhere.
+  // Revision 7 answers the Reload late; a refresh loads 9 from elsewhere meanwhile.
   fireEvent.click(await screen.findByRole('button', { name: 'Reload' }))
   await waitFor(() => expect(api.settings).toHaveBeenCalledTimes(2))
-  fireEvent.click(
-    within(screen.getAllByRole('group', { name: 'Sessions at once' }).at(-1)!).getByRole('button', {
-      name: 'One fewer',
-    }),
-  )
-  fireEvent.click(within(card('Sessions')).getByRole('button', { name: 'Save' }))
-  expect(await screen.findByText('3 of 2 in use · 1 queued')).toBeVisible()
   fireEvent.click(screen.getByRole('button', { name: 'Read settings again' }))
   await waitFor(() => expect(api.settings).toHaveBeenCalledTimes(3))
   await act(async () => {
@@ -616,18 +625,15 @@ test('an edit made before a change from elsewhere is refused, keeping the edit a
   expect(screen.getByRole('button', { name: 'Reload' })).toBeVisible()
 })
 
-test('turning a provider on and off again leaves nothing unsaved', async () => {
+test('changing a sign-in and back within the pause sends nothing and leaves nothing unsaved', async () => {
   const dirty = vi.fn()
-  const api = client()
-  api.settings.mockResolvedValue(agentSettings('0', null))
-  await renderAgents(api, dirty)
-  const on = within(screen.getByRole('group', { name: 'Claude' })).getByRole('checkbox', {
-    name: 'On',
-  })
-  fireEvent.click(on)
-  expect(dirty).toHaveBeenLastCalledWith(true)
-  fireEvent.click(on)
-  expect(dirty).toHaveBeenLastCalledWith(false)
+  const api = await renderAgents(client(), dirty)
+  const claude = within(screen.getByRole('group', { name: 'Claude' }))
+  fireEvent.click(claude.getByRole('button', { name: 'API key' }))
+  expect(dirty).toHaveBeenLastCalledWith(true, expect.any(Function))
+  fireEvent.click(claude.getByRole('button', { name: 'Subscription' }))
+  await autosaved(() => expect(dirty).toHaveBeenLastCalledWith(false, undefined))
+  expect(api.saveSettings).not.toHaveBeenCalled()
 })
 
 test('a save answering after leaving Agents never releases the guard', async () => {
@@ -664,7 +670,7 @@ test('after an unconfirmed save, undoing the edit keeps the guard and Reload', a
   fireEvent.click(within(card('Instructions')).getByRole('button', { name: 'Save' }))
   expect(await screen.findByText(/wasn’t confirmed/)).toBeVisible()
   fireEvent.change(instructions, { target: { value: '' } })
-  expect(dirty).toHaveBeenLastCalledWith(true)
+  expect(dirty).toHaveBeenLastCalledWith(true, expect.any(Function))
   expect(screen.getByRole('button', { name: 'Reload' })).toBeVisible()
 })
 
@@ -722,29 +728,11 @@ test('when Reload keeps failing, Discard drops the edit and releases the guard',
   expect(await screen.findByText(/couldn’t be loaded/)).toBeVisible()
   fireEvent.click(screen.getByRole('button', { name: 'Discard my edit' }))
   expect(instructions).toHaveValue('')
-  expect(dirty).toHaveBeenLastCalledWith(false)
+  expect(dirty).toHaveBeenLastCalledWith(false, undefined)
   expect(screen.queryByRole('button', { name: 'Reload' })).toBeNull()
 })
 
-test('turning off the last provider can be discarded, restoring it and releasing the guard', async () => {
-  const dirty = vi.fn()
-  const api = client()
-  api.settings.mockResolvedValue(bothOn)
-  await renderAgents(api, dirty)
-  for (const name of ['Claude', 'Codex']) {
-    fireEvent.click(
-      within(screen.getByRole('group', { name })).getByRole('checkbox', { name: 'On' }),
-    )
-  }
-  fireEvent.click(within(card('Default provider')).getByRole('button', { name: 'Discard my edit' }))
-  expect(
-    within(screen.getByRole('group', { name: 'Codex' })).getByRole('checkbox', { name: 'On' }),
-  ).toBeChecked()
-  expect(screen.getByRole('combobox', { name: 'Research provider' })).toHaveValue('codex')
-  expect(dirty).toHaveBeenLastCalledWith(false)
-})
-
-test('a second subsection waits for the first save, then saves on its revision', async () => {
+test('a text Save waits for a running autosave, then saves on its revision', async () => {
   const api = client()
 
   let finish: (value: AgentSettingsDto) => void = () => undefined
@@ -752,7 +740,7 @@ test('a second subsection waits for the first save, then saves on its revision',
   api.saveSettings
     .mockImplementationOnce(() => new Promise<AgentSettingsDto>((resolve) => (finish = resolve)))
     .mockImplementationOnce(async (input) => {
-      const { expected_revision: _, ...fields } = input
+      const { expected_revision: _, save_id: _saveId, ...fields } = input
       return { ...fields, revision: '9' }
     })
   await renderAgents(api)
@@ -761,8 +749,7 @@ test('a second subsection waits for the first save, then saves on its revision',
       name: 'One fewer',
     }),
   )
-  fireEvent.click(within(card('Sessions')).getByRole('button', { name: 'Save' }))
-  await waitFor(() => expect(api.saveSettings).toHaveBeenCalledTimes(1))
+  await autosaved(() => expect(api.saveSettings).toHaveBeenCalledTimes(1))
   const instructions = screen.getByRole('textbox', { name: 'Instructions for every new batch' })
   fireEvent.change(instructions, { target: { value: 'Mine' } })
   const save = within(card('Instructions')).getByRole('button', { name: 'Save' })
@@ -788,30 +775,28 @@ test('a second subsection waits for the first save, then saves on its revision',
 test('Suggest tags for new batches saves on its own', async () => {
   const api = await renderAgents()
   fireEvent.click(screen.getByRole('checkbox', { name: 'Suggest tags for new batches' }))
-  fireEvent.click(within(card('Tag suggestions')).getByRole('button', { name: 'Save' }))
-  await waitFor(() =>
+  await autosaved(() =>
     expect(api.saveSettings).toHaveBeenCalledWith(
       agentSettingsUpdate('7', initialSelection, { auto_tags_default: true }),
     ),
   )
 })
 
-test('editing a segmented control or the stepper reports unsaved input, and a save releases it', async () => {
+test('editing a segmented control or the stepper reports unsaved input until their saves confirm', async () => {
   const dirty = vi.fn()
-  await renderAgents(client(), dirty)
+  const api = await renderAgents(client(), dirty)
   fireEvent.click(
     within(screen.getByRole('group', { name: 'Claude' })).getByRole('button', { name: 'API key' }),
   )
-  expect(dirty).toHaveBeenLastCalledWith(true)
+  expect(dirty).toHaveBeenLastCalledWith(true, expect.any(Function))
   fireEvent.click(
     within(screen.getAllByRole('group', { name: 'Sessions at once' }).at(-1)!).getByRole('button', {
       name: 'One more',
     }),
   )
-  fireEvent.click(within(card('Sessions')).getByRole('button', { name: 'Save' }))
-  // Claude's sign-in edit is still unsaved, so the guard stays held.
-  await waitFor(() => expect(screen.getByText(/^Saved\./)).toBeVisible())
-  expect(dirty).toHaveBeenLastCalledWith(true)
+  expect(dirty).toHaveBeenLastCalledWith(true, expect.any(Function))
+  await autosaved(() => expect(api.saveSettings).toHaveBeenCalledTimes(2))
+  await waitFor(() => expect(dirty).toHaveBeenLastCalledWith(false, undefined))
 })
 
 test('the slot meter reads the agent sessions list and links to it', async () => {
@@ -853,13 +838,12 @@ test('after a save the slot meter compares slot use with the saved limit', async
   const sessions = screen.getAllByRole('group', { name: 'Sessions at once' }).at(-1)!
   fireEvent.click(within(sessions).getByRole('button', { name: 'One fewer' }))
   expect(screen.getByText('3 of 3 in use · 1 queued')).toBeVisible()
-  fireEvent.click(within(card('Sessions')).getByRole('button', { name: 'Save' }))
 
-  expect(await screen.findByText('3 of 2 in use · 1 queued')).toBeVisible()
+  expect(await screen.findByText('3 of 2 in use · 1 queued', {}, { timeout: 3000 })).toBeVisible()
   expect(within(sessions).getByRole('status')).toHaveTextContent('2')
 })
 
-test('while a save is pending its controls show they are unavailable', async () => {
+test('while a model Save is pending its fields are read-only, and the switches stay usable', async () => {
   const api = client()
 
   let finish: (value: AgentSettingsDto) => void = () => undefined
@@ -868,13 +852,15 @@ test('while a save is pending its controls show they are unavailable', async () 
     () => new Promise<AgentSettingsDto>((resolve) => (finish = resolve)),
   )
   await renderAgents(api)
-  fireEvent.click(within(card('Default provider')).getByRole('button', { name: 'Save' }))
-  await waitFor(() => expect(api.saveSettings).toHaveBeenCalled())
   const claude = within(screen.getByRole('group', { name: 'Claude' }))
-
-  expect(claude.getByRole('button', { name: 'API key' })).toHaveAttribute('aria-disabled', 'true')
-  await act(async () => finish({ ...initial, revision: '8' }))
+  const model = claude.getByRole('combobox', { name: 'Default model' })
+  fireEvent.change(model, { target: { value: 'opus' } })
+  fireEvent.click(within(card('Providers')).getByRole('button', { name: 'Save' }))
+  await waitFor(() => expect(api.saveSettings).toHaveBeenCalled())
+  expect(model).toHaveAttribute('readonly')
   expect(claude.getByRole('button', { name: 'API key' })).not.toHaveAttribute('aria-disabled')
+  await act(async () => finish({ ...initial, revision: '8' }))
+  expect(model).not.toHaveAttribute('readonly')
 })
 
 test('an invalid default model is refused in the form and nothing is sent', async () => {
@@ -883,7 +869,7 @@ test('an invalid default model is refused in the form and nothing is sent', asyn
   fireEvent.change(claude.getByRole('combobox', { name: 'Default model' }), {
     target: { value: '-bad' },
   })
-  fireEvent.click(within(card('Default provider')).getByRole('button', { name: 'Save' }))
+  fireEvent.click(within(card('Providers')).getByRole('button', { name: 'Save' }))
   expect(await claude.findByText(/Choose a valid model ID for Claude/)).toBeVisible()
   expect(api.saveSettings).not.toHaveBeenCalled()
 })
@@ -965,8 +951,7 @@ test('a settings read that was already running cannot replace a confirmed save',
 
   const sessions = screen.getAllByRole('group', { name: 'Sessions at once' }).at(-1)!
   fireEvent.click(within(sessions).getByRole('button', { name: 'One fewer' }))
-  fireEvent.click(within(card('Sessions')).getByRole('button', { name: 'Save' }))
-  expect(await screen.findByText('3 of 2 in use · 1 queued')).toBeVisible()
+  expect(await screen.findByText('3 of 2 in use · 1 queued', {}, { timeout: 3000 })).toBeVisible()
   await act(async () => {
     answerStale(initial)
     await new Promise((done) => setTimeout(done, 20))
@@ -981,7 +966,7 @@ describe('Web research', () => {
   const datasheets = () =>
     screen.getByRole('checkbox', { name: 'Prefer manufacturer datasheets over distributor pages' })
 
-  test('both settings start on, explain provider search and save on their own', async () => {
+  test('both settings start on, explain provider search and save as they change', async () => {
     const api = await renderAgents()
     expect(publicPages()).toBeChecked()
     expect(datasheets()).toBeChecked()
@@ -989,8 +974,7 @@ describe('Web research', () => {
       /sessions in the VM.*Provider web search stays on either way/,
     )
     fireEvent.click(publicPages())
-    fireEvent.click(within(card('Web research')).getByRole('button', { name: 'Save' }))
-    await waitFor(() =>
+    await autosaved(() =>
       expect(api.saveSettings).toHaveBeenCalledWith(
         agentSettingsUpdate('7', initialSelection, {
           web: { public_pages: false, prefer_datasheets: true },
@@ -1027,29 +1011,28 @@ describe('Web research', () => {
     })
   }
 
-  test('an edit made before readiness says there is no web access shows the saved value and can be discarded', async () => {
+  test('a change made before readiness says there is no web access saves, and the disabled settings show it', async () => {
     readiness.set(undefined)
     const dirty = vi.fn()
     const api = await renderAgents(client(), dirty)
     fireEvent.click(publicPages())
-    await waitFor(() => expect(dirty).toHaveBeenLastCalledWith(true))
+    await waitFor(() => expect(dirty).toHaveBeenLastCalledWith(true, expect.any(Function)))
     act(() => readiness.set('unavailable'))
-    expect(publicPages()).toBeChecked()
-    fireEvent.click(within(card('Web research')).getByRole('button', { name: 'Discard my edit' }))
-    await waitFor(() => expect(dirty).toHaveBeenLastCalledWith(false))
-    expect(api.saveSettings).not.toHaveBeenCalled()
+    await autosaved(() => expect(api.saveSettings).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(publicPages()).not.toBeChecked())
+    expect(publicPages()).toHaveAttribute('aria-disabled', 'true')
+    expect(dirty).toHaveBeenLastCalledWith(false, undefined)
   })
 
   test('a save over settings changed elsewhere is a conflict that keeps the edit', async () => {
     const api = client()
-    api.saveSettings.mockRejectedValue(new IntakeRequestError(409, 'revision_conflict'))
+    api.saveSettings.mockRejectedValue(new IntakeRequestError(412, 'revision_conflict'))
     api.settings.mockResolvedValueOnce(initial).mockResolvedValueOnce({ ...initial, revision: '9' })
     await renderAgents(api)
     fireEvent.click(datasheets())
-    fireEvent.click(within(card('Web research')).getByRole('button', { name: 'Save' }))
-    expect(await screen.findByText(/changed in another tab/)).toBeVisible()
+    expect(await screen.findByText(/changed in another tab/, {}, { timeout: 3000 })).toBeVisible()
     expect(datasheets()).not.toBeChecked()
-    fireEvent.click(screen.getByRole('button', { name: 'Reload' }))
+    fireEvent.click(screen.getByRole('button', { name: /Reload/ }))
     await waitFor(() => expect(datasheets()).toBeChecked())
   })
 })

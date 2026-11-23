@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore } from 'react'
 import {
   useForm,
   type DefaultValues,
@@ -6,156 +6,478 @@ import {
   type Path,
   type PathValue,
 } from 'react-hook-form'
-import type { agentsClient } from '@invimport/contracts/client'
-import type { AgentSettingsDto, AgentSettingsUpdateDto } from '@invimport/contracts'
-import { useSettingsSave } from './useSettingsSave'
+import type {
+  AgentSettingsDto,
+  AgentSettingsStage,
+  AgentSettingsUpdateDto,
+} from '@invimport/contracts'
+import type { SaveResult } from './save-queue'
+import {
+  sameField,
+  withFields,
+  withUsableProviders,
+  type FieldKey,
+  type SettingsFields,
+} from './settings-fields'
+import { useSettingsSave, type SettingsPage, type SettingsSaveChannel } from './useSettingsSave'
 
 export type SubsectionFormProps = {
-  client: ReturnType<typeof agentsClient>
+  page: SettingsPage
+  /** The shared settings read, which an untouched form follows. */
   loaded: AgentSettingsDto
-  /** Publishes confirmed settings and answers with the newest settings known. */
-  onLoaded: (settings: AgentSettingsDto, source: 'save' | 'reload') => AgentSettingsDto
-  /** Revisions this page's own saves produced, which an edit may safely move past. */
-  localSaves: ReadonlySet<string>
-  /**
-   * One save at a time across the page: every subsection writes the same settings, so a second
-   * save sent under the same revision would refuse itself.
-   */
-  pageSave: PageSave
-  /** Reports this form's unsaved input to the shared navigation guard. */
-  reportDirty: (form: string, dirty: boolean) => void
 }
 
-export type PageSave = {
-  /** Whether a subsection's save is running. */
-  running: boolean
-  /** Takes the page's save turn; false while another subsection's save runs. */
-  start: () => boolean
-  finish: () => void
-}
+/** How an edit saves: on its own after a pause, or with its subsection's Save. */
+export type SaveMode = 'auto' | 'text'
 
-type Owned = Partial<Omit<AgentSettingsUpdateDto, 'expected_revision'>>
+/** Rapid changes, such as stepper clicks, coalesce into one save sent after this pause. */
+export const AUTOSAVE_DELAY_MS = 600
+/** Pauses before resending a save that got no answer; after the last, Try again is offered. */
+const RESEND_DELAYS_MS = [1000, 2000, 4000]
+
+/** A save whose outcome is unknown or contested, kept so Try again can send it again. */
+type Unresolved = { request: AgentSettingsUpdateDto; keys: FieldKey[] }
+
+function fieldsOf(settings: AgentSettingsDto): SettingsFields {
+  const { revision: _revision, ...fields } = settings
+  return fields
+}
 
 /**
  * The revision an edit is sent under. Only this page's own saves since the edit began may move
  * it on; a change from elsewhere keeps the edit's revision, so the server refuses it as a conflict.
  */
 function expectedRevision(
-  base: AgentSettingsDto | undefined,
-  loaded: AgentSettingsDto,
+  base: AgentSettingsDto,
+  newest: AgentSettingsDto,
   localSaves: ReadonlySet<string>,
 ) {
-  if (!base) {
-    return loaded.revision
-  }
-  for (let revision = BigInt(base.revision) + 1n; revision <= BigInt(loaded.revision); revision++) {
+  for (let revision = BigInt(base.revision) + 1n; revision <= BigInt(newest.revision); revision++) {
     if (!localSaves.has(revision.toString())) {
       return base.revision
     }
   }
-  return loaded.revision
+  return newest.revision
 }
 
 /**
- * One subsection's form over the loaded settings: it follows a newer load while untouched, keeps
- * an edit through another subsection's save, and saves only its own fields. An edit made over
- * values that have changed since is a conflict, never sent on top of them.
+ * One subsection's form over the shared settings. Non-text edits save on their own after a
+ * pause; text edits wait for Save. Each save is built when it is sent, from the newest settings
+ * this page confirmed plus only the fields this form changed, and goes through the page's queue.
+ * An edited form stays on the settings it started from, so a newer load never mixes into it.
  */
 export function useSubsectionForm<V extends FieldValues>({
   id,
-  client,
+  page,
   loaded,
-  onLoaded,
-  localSaves,
-  pageSave,
-  reportDirty,
   read,
   write,
+  keys,
+  onStepsReset,
 }: SubsectionFormProps & {
   id: string
   /** The form's values from saved settings; a module-level function, so it stays stable. */
   read: (settings: AgentSettingsDto) => V
-  /** The settings fields this form owns, from its values. */
-  write: (values: V) => Owned
+  /** The settings fields the form's values set. */
+  write: (values: V) => Partial<SettingsFields>
+  /** The fields this form's controls change. */
+  keys: readonly FieldKey[]
+  /** Steps a save reset to Default because their provider is off. */
+  onStepsReset?: (steps: readonly AgentSettingsStage[]) => void
 }) {
-  const saving = useSettingsSave({ client, loaded, onLoaded })
-  // The settings the current edit started from, while there is one. The form stays on them, so a
-  // newer load never mixes into an edit; it follows newer loads only while untouched.
-  const [base, setBase] = useState<AgentSettingsDto | undefined>(undefined)
+  const auto = useSettingsSave(page)
+  const text = useSettingsSave(page)
+  const channels: Record<SaveMode, SettingsSaveChannel> = { auto, text }
+  const owners: Record<SaveMode, string> = { auto: id, text: `${id}:text` }
+  const queue = useSyncExternalStore(page.queue.subscribe, page.queue.snapshot)
+  // The settings the current edit started from, while there is one.
+  const [base, setBaseState] = useState<AgentSettingsDto | undefined>(undefined)
+  const baseRef = useRef<AgentSettingsDto | undefined>(undefined)
   const values = useMemo(() => read(loaded), [read, loaded])
   const form = useForm<V>({
     defaultValues: values as DefaultValues<V>,
     values: base ? undefined : values,
   })
+  /** Each changed field and how it saves, until a confirmed save or a reload settles it. */
+  const touched = useRef(new Map<FieldKey, SaveMode>())
+  /** The draft as of the last edit, so the next edit can tell which fields it changed. */
+  const shown = useRef<SettingsFields | undefined>(undefined)
+  const unresolved = useRef<Partial<Record<SaveMode, Unresolved>>>({})
+  const resendTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const savedOnce = useRef(false)
   // Held from a press of Save until it settles, so validation can't let a second press through.
-  const pending = useRef(false)
+  const pendingText = useRef(false)
+  const [, rerender] = useReducer((count: number) => count + 1, 0)
 
-  const owned = (settings: AgentSettingsDto) => JSON.stringify(write(read(settings)))
+  // The resend timer is this form's own; the page owns the debounce and drops it on leaving.
+  useEffect(
+    () => () => {
+      clearTimeout(resendTimer.current)
+    },
+    [],
+  )
 
-  function settle(settings: AgentSettingsDto | undefined) {
-    if (settings) {
-      const next = read(settings)
-      form.reset(next)
-      // Reset alone leaves an uncontrolled field showing the old text until it re-registers.
-      for (const [name, value] of Object.entries(next)) {
-        form.setValue(name as Path<V>, value as PathValue<V, Path<V>>)
-      }
-      setBase(undefined)
-      reportDirty(id, false)
+  function setBase(next: AgentSettingsDto | undefined) {
+    baseRef.current = next
+    setBaseState(next)
+  }
+
+  /** The form's values over `start`, copied: the form's own values change in place. */
+  function draftOver(start: AgentSettingsDto): SettingsFields {
+    return structuredClone({ ...fieldsOf(start), ...write(form.getValues()) })
+  }
+
+  function touchedIn(mode: SaveMode) {
+    return [...touched.current].filter(([, saves]) => saves === mode).map(([key]) => key)
+  }
+
+  function unsettledNow() {
+    return auto.unsettledNow() || text.unsettledNow()
+  }
+
+  function dirtyNow() {
+    return touched.current.size > 0 || unsettledNow() || page.queue.pending(owners.auto)
+  }
+
+  function report() {
+    page.reportDirty(id, dirtyNow())
+    rerender()
+  }
+
+  function showValues(next: V) {
+    form.reset(next, { keepDefaultValues: true })
+    // Reset alone leaves an uncontrolled field showing the old text until it re-registers.
+    for (const [name, value] of Object.entries(next)) {
+      form.setValue(name as Path<V>, value as PathValue<V, Path<V>>)
     }
   }
 
+  /** Shows `settings` and forgets the edit: nothing is left unsaved. */
+  function settle(settings: AgentSettingsDto) {
+    showValues(read(settings))
+    touched.current.clear()
+    shown.current = undefined
+    setBase(undefined)
+    page.reportDirty(id, false)
+    rerender()
+  }
+
+  /** Moves the edit onto `settings`: its drafts stay, every other field shows `settings`. */
+  function rebase(settings: AgentSettingsDto) {
+    const draft = draftOver(baseRef.current ?? settings)
+    const next = withFields(fieldsOf(settings), draft, touched.current.keys())
+    showValues(read({ ...next, revision: settings.revision }))
+    shown.current = next
+    setBase(settings)
+    report()
+  }
+
+  /** Settles the form once nothing is left to save or resolve; otherwise reports what is. */
+  function tidy(settings: AgentSettingsDto) {
+    if (!dirtyNow()) {
+      settle(settings)
+    } else {
+      report()
+    }
+  }
+
+  /**
+   * Records an edit the operator just made. Non-text edits are saved after a pause, or at once
+   * when `now`; text edits wait for Save. Call from the control's own event.
+   */
+  function markEdited(mode: SaveMode, { now = false }: { now?: boolean } = {}) {
+    const start = baseRef.current ?? loaded
+    if (!baseRef.current) {
+      setBase(start)
+    }
+    const draft = draftOver(start)
+    const previous = shown.current ?? fieldsOf(start)
+    for (const key of keys) {
+      if (!sameField(draft, previous, key)) {
+        touched.current.set(key, mode)
+      }
+    }
+    shown.current = draft
+    if (mode === 'auto') {
+      // An unknown or contested outcome stays shown; this edit waits behind it.
+      if (!auto.unsettledNow()) {
+        auto.setState('pending')
+      }
+      page.queue.schedule(owners.auto, () => buildAndSend('auto'), now ? 0 : AUTOSAVE_DELAY_MS)
+    } else {
+      if (text.now() === 'saved') {
+        text.setState('idle')
+      }
+      // A text field undone back to its start is no longer unsaved, unless a save's outcome is
+      // still unknown: then only a Reload shows what is saved.
+      if (!text.unsettledNow()) {
+        for (const key of touchedIn('text')) {
+          if (sameField(draft, fieldsOf(start), key)) {
+            touched.current.delete(key)
+          }
+        }
+      }
+    }
+    if (!dirtyNow()) {
+      shown.current = undefined
+      setBase(undefined)
+    }
+    report()
+  }
+
+  /** Builds this form's save for `mode` from the newest confirmed settings, and sends it. */
+  async function buildAndSend(mode: SaveMode): Promise<SaveResult> {
+    const channel = channels[mode]
+    if (!channel.mounted.current) {
+      return 'done'
+    }
+    const newest = page.newest()
+    const start = baseRef.current ?? newest
+    const draft = draftOver(start)
+    const confirmed = fieldsOf(newest)
+    const changed = touchedIn(mode).filter((key) => !sameField(draft, confirmed, key))
+    // Fields already as confirmed have nothing to send.
+    for (const key of touchedIn(mode)) {
+      if (!changed.includes(key)) {
+        touched.current.delete(key)
+      }
+    }
+    if (changed.length === 0) {
+      channel.setState(mode === 'auto' && savedOnce.current ? 'saved' : 'idle')
+      tidy(newest)
+      return 'done'
+    }
+    const expected = expectedRevision(start, newest, page.localSaves)
+    const changedElsewhere = changed.some((key) => !sameField(fieldsOf(start), confirmed, key))
+    if (expected !== newest.revision && changedElsewhere) {
+      // A change to these fields from elsewhere is a conflict this edit hasn't seen.
+      channel.setState('conflict')
+      report()
+      return 'hold'
+    }
+    const sent = validatedAtDispatch(withFields(confirmed, draft, changed), changed)
+    if (sent.keys.every((key) => sameField(sent.settings, confirmed, key))) {
+      // Validation left nothing to change.
+      for (const key of sent.keys) {
+        touched.current.delete(key)
+      }
+      channel.setState(mode === 'auto' && savedOnce.current ? 'saved' : 'idle')
+      tidy(newest)
+      return 'done'
+    }
+    const request: AgentSettingsUpdateDto = {
+      ...sent.settings,
+      expected_revision: expected,
+      save_id: crypto.randomUUID(),
+    }
+    return deliver(mode, { request, keys: sent.keys })
+  }
+
+  /**
+   * A queued step choice for a provider that is now off is dropped: the step goes back to
+   * Default, with the reset note, and the save carries the reset instead.
+   */
+  function validatedAtDispatch(settings: SettingsFields, changed: FieldKey[]) {
+    const usable = withUsableProviders(settings)
+    const adjusted = keys.filter((key) => !sameField(usable.settings, settings, key))
+    if (adjusted.length > 0) {
+      const draft = draftOver(baseRef.current ?? loaded)
+      const next = withFields(draft, usable.settings, adjusted)
+      showValues(read({ ...next, revision: (baseRef.current ?? loaded).revision }))
+      shown.current = next
+      for (const key of adjusted) {
+        touched.current.set(key, 'auto')
+      }
+    }
+    if (usable.reset.length > 0) {
+      onStepsReset?.(usable.reset)
+    }
+    const sentKeys = [...new Set([...changed, ...adjusted])]
+    return { settings: usable.settings, keys: sentKeys }
+  }
+
+  /** Sends a save and records what is now known of it; `attempt` counts automatic resends. */
+  async function deliver(mode: SaveMode, save: Unresolved, attempt = 0): Promise<SaveResult> {
+    const channel = channels[mode]
+    const outcome = await channel.send(save.request)
+    if (!channel.mounted.current) {
+      return 'done'
+    }
+    switch (outcome.kind) {
+      case 'confirmed': {
+        unresolved.current[mode] = undefined
+        // Only the draft actually sent is acknowledged; a later edit saves again.
+        const draft = draftOver(baseRef.current ?? outcome.settings)
+        for (const key of save.keys) {
+          if (sameField(draft, save.request, key)) {
+            touched.current.delete(key)
+          }
+        }
+        if (mode === 'auto') {
+          savedOnce.current = true
+        }
+        tidy(outcome.settings)
+        return 'done'
+      }
+      case 'invalid':
+        unresolved.current[mode] = undefined
+        report()
+        return 'done'
+      case 'conflict':
+      case 'unresolved':
+        unresolved.current[mode] = save
+        report()
+        return 'hold'
+      case 'unknown':
+        unresolved.current[mode] = save
+        scheduleResend(mode, attempt)
+        report()
+        return 'hold'
+    }
+  }
+
+  function scheduleResend(mode: SaveMode, attempt: number) {
+    const delay = RESEND_DELAYS_MS[attempt]
+    if (delay === undefined) {
+      return
+    }
+    clearTimeout(resendTimer.current)
+    resendTimer.current = setTimeout(() => resend(mode, attempt + 1), delay)
+  }
+
+  /** Sends the unresolved save again, with the same ID, ahead of anything held behind it. */
+  function resend(mode: SaveMode, attempt: number) {
+    const save = unresolved.current[mode]
+    if (!save) {
+      return
+    }
+    void page.queue.run(owners[mode], () => resolving(mode, deliver(mode, save, attempt)), {
+      resolving: true,
+    })
+  }
+
+  /** Releases the queue once a resolving save's outcome is known. */
+  async function resolving(mode: SaveMode, result: Promise<SaveResult>) {
+    const settled = await result
+    if (settled === 'done') {
+      page.queue.release(owners[mode])
+    }
+    return settled
+  }
+
+  /** Try again: the same request after no answer, or the change over a fresh read after a conflict. */
+  function retry(mode: SaveMode) {
+    clearTimeout(resendTimer.current)
+    const channel = channels[mode]
+    if (channel.now() === 'failed') {
+      resend(mode, RESEND_DELAYS_MS.length)
+      return
+    }
+    void page.queue.run(
+      owners[mode],
+      () =>
+        resolving(
+          mode,
+          (async (): Promise<SaveResult> => {
+            const current = await channel.reload()
+            if (!current) {
+              report()
+              return 'hold'
+            }
+            unresolved.current[mode] = undefined
+            rebase(current)
+            return buildAndSend(mode)
+          })(),
+        ),
+      { resolving: true },
+    )
+  }
+
+  /**
+   * Reload: shows the saved settings and drops the unconfirmed values, every non-text edit for
+   * an autosave and the text edit for a Save. Other text drafts stay.
+   */
+  async function reload(mode: SaveMode) {
+    clearTimeout(resendTimer.current)
+    const current = await channels[mode].reload()
+    if (!current) {
+      report()
+      return
+    }
+    for (const key of touchedIn(mode)) {
+      touched.current.delete(key)
+    }
+    unresolved.current[mode] = undefined
+    if (mode === 'auto') {
+      page.queue.cancel(owners.auto)
+    }
+    page.queue.release(owners[mode])
+    if (touched.current.size === 0 && !unsettledNow()) {
+      settle(current)
+    } else {
+      rebase(current)
+    }
+  }
+
+  /** Save: sends the form's text edits, after the fields' own validation and `check`. */
+  function saveText(check?: (values: V) => boolean) {
+    if (pendingText.current || text.busy || queue.running || queue.held) {
+      return
+    }
+    pendingText.current = true
+    void form
+      .handleSubmit(async (current) => {
+        if (check && !check(current)) {
+          return
+        }
+        await page.queue.run(owners.text, () => buildAndSend('text'))
+      })()
+      .finally(() => {
+        pendingText.current = false
+      })
+  }
+
+  /** Drops the text edit for the loaded settings; what the server saved is left as it is. */
+  function discardText() {
+    if (text.busy) {
+      return
+    }
+    for (const key of touchedIn('text')) {
+      touched.current.delete(key)
+    }
+    unresolved.current.text = undefined
+    text.setState('idle')
+    page.queue.release(owners.text)
+    if (!dirtyNow()) {
+      settle(loaded)
+    } else {
+      rebase(baseRef.current ?? loaded)
+    }
+  }
+
+  const textDirty = touchedIn('text').length > 0
+
   return {
     form,
-    state: saving.state,
-    busy: saving.busy,
-    // Another subsection's save makes this Save wait; the draft stays editable meanwhile.
-    waiting: pageSave.running && !saving.busy,
-    dirty: base !== undefined,
-    markDirty: () => {
-      const start = base ?? loaded
-      saving.edited()
-      // An edit undone back to its start is no longer unsaved, unless a save's outcome is still
-      // unknown: then only a Reload shows what is saved.
-      if (!saving.unsettled && JSON.stringify(write(form.getValues())) === owned(start)) {
-        setBase(undefined)
-        reportDirty(id, false)
-        return
-      }
-      setBase(start)
-      reportDirty(id, true)
+    markEdited,
+    /** Keys with an edit awaiting Save, for placing a Save beside the fields it sends. */
+    textKeys: touchedIn('text'),
+    autosave: {
+      state: auto.state,
+      revision: loaded.revision,
+      retry: () => retry('auto'),
+      reload: () => void reload('auto'),
     },
-    /** `check` runs after the conflict check, for rules beyond the fields' own validation. */
-    save: (check?: (values: V) => boolean) => {
-      if (pending.current || saving.busy || !pageSave.start()) {
-        return
-      }
-      pending.current = true
-      void form
-        .handleSubmit(async (current) => {
-          // Another subsection's save moves the revision on harmlessly; a change to these
-          // fields from elsewhere is a conflict this edit hasn't seen.
-          if (base && owned(base) !== owned(loaded)) {
-            saving.refuse()
-            return
-          }
-          if (check && !check(current)) {
-            return
-          }
-          settle(await saving.save(write(current), expectedRevision(base, loaded, localSaves)))
-        })()
-        .finally(() => {
-          pending.current = false
-          pageSave.finish()
-        })
-    },
-    reload: () => void saving.reload().then(settle),
-    /** Drops the edit for the loaded settings; what the server saved is left as it is. */
-    discard: () => {
-      if (!saving.busy) {
-        settle(loaded)
-        saving.discarded()
-      }
+    text: {
+      state: text.state,
+      busy: text.busy,
+      // Another save is running or held: this Save waits; the draft stays editable.
+      waiting: (queue.running || queue.held) && !text.busy,
+      dirty: textDirty,
+      save: saveText,
+      retry: () => retry('text'),
+      reload: () => void reload('text'),
+      discard: discardText,
     },
   }
 }
