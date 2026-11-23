@@ -110,6 +110,43 @@ export class FreshReadRegistry {
     )
   }
 
+  /**
+   * Resolves once the cache adopts a read of this key that started after this call and after the
+   * last live hint, for a command with no revision that is held until then. Aborting rejects it.
+   */
+  waitForReadStartedNow(queryKey: QueryKey, signal: AbortSignal) {
+    const requested = this.nextOrder()
+
+    return new Promise<void>((resolve, reject) => {
+      const ready = () => {
+        const state = this.#client.getQueryState(queryKey)
+        const healthy = state?.status === 'success' && state.fetchStatus !== 'paused'
+        return healthy && this.settledAfterHint(queryKey, requested)
+      }
+
+      const stop = () => {
+        unsubscribe()
+        signal.removeEventListener('abort', abort)
+      }
+
+      const abort = () => {
+        stop()
+        reject(signal.reason)
+      }
+
+      const unsubscribe = this.subscribe(() => {
+        if (ready()) {
+          stop()
+          resolve()
+        }
+      })
+      signal.addEventListener('abort', abort)
+      if (signal.aborted) {
+        abort()
+      }
+    })
+  }
+
   /** Records that a live hint arrived, before any reconciliation it causes. */
   noteHint() {
     this.#lastHint = this.nextOrder()

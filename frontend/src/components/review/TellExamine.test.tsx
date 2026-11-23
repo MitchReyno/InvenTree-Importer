@@ -3,7 +3,10 @@ import userEvent from '@testing-library/user-event'
 import { expect, it, vi, type Mock } from 'vitest'
 import { RETAINED_POLL_INTERVAL_MS } from '#/queries/client'
 import type { ProcessingClient } from '#/processing/types'
-import { render } from '#/test/render'
+import { fixtureScope, render } from '#/test/render'
+import { useQueryClient, type QueryClient } from '@tanstack/react-query'
+import { freshReads } from '#/queries/fresh-reads'
+import { serverQueryKey } from '#/queries/scope'
 import { TellExamine } from './TellExamine'
 import { ApiClientsProvider } from '#/context'
 
@@ -215,4 +218,42 @@ it('locks the instruction while it is sending, and a new edit clears the failure
 
   await user.type(field, '!')
   expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+})
+
+it('on the Review Map, starts the shared Processing read and waits for one started after a live hint', async () => {
+  const user = userEvent.setup()
+  const processing = client(true)
+  let cache: QueryClient | undefined
+
+  function Grab() {
+    cache = useQueryClient()
+    return null
+  }
+
+  render(
+    <ApiClientsProvider value={{ processing }}>
+      <Grab />
+      <TellExamine batchId="b" />
+    </ApiClientsProvider>,
+  )
+  const field = await screen.findByLabelText('Instruction for Examine')
+  // TellExamine is the read's only observer here; its own request verifies it.
+  expect(processing.read).toHaveBeenCalledTimes(1)
+  await user.type(field, 'Split the reel')
+  const send = screen.getByRole('button', { name: 'Tell Examine' })
+  await waitFor(() => expect(send).not.toHaveAttribute('aria-disabled'))
+
+  // A live hint: the lead session it would name may have changed.
+  act(() => freshReads(cache!).noteHint())
+  expect(send).toHaveAttribute('aria-disabled', 'true')
+  expect(send).toHaveAccessibleDescription('Updating…')
+  await user.click(send)
+  expect(processing.chat).not.toHaveBeenCalled()
+
+  await act(async () => {
+    await cache!.invalidateQueries({ queryKey: serverQueryKey(fixtureScope, 'processing', 'b') })
+  })
+  await waitFor(() => expect(send).not.toHaveAttribute('aria-disabled'))
+  await user.click(send)
+  await waitFor(() => expect(processing.chat).toHaveBeenCalledTimes(1))
 })

@@ -1,8 +1,10 @@
-import { Paragraph, Banner, Button, DebugDetails } from '#/components/ui'
+import { Paragraph, Banner, Button, DebugDetails, DisplayOnly } from '#/components/ui'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey } from '#/queries/scope'
 import { useCachedData } from '#/queries/useCachedData'
+import { freshReads } from '#/queries/fresh-reads'
+import { useRestoredSnapshot, useSnapshotWriter } from '#/queries/useSnapshot'
 import { approvedLotIds, predecessorLotIds, retiredLotIds } from '#/operator/review-model'
 import { unusedEvidenceCount } from '#/operator/review-map'
 import { IntakeRequestError } from '@invimport/contracts/client'
@@ -110,7 +112,6 @@ export function Batch({
   const sharperRequests = useMemo(createSharperRequestStore, [id])
   // Above Processing's remount key, so a drawer open when an answer reloads comes back.
   const drawerRestore = useMemo(createDrawerRestore, [id])
-  const instructionDelivery = useInstructionDelivery(id, agents?.deliverInstructions)
   if (batchRoute?.tab === 'changes' && batchRoute.view === 'ready' && batchRoute.preparationId) {
     shownPreparation.current = batchRoute.preparationId
   }
@@ -134,6 +135,21 @@ export function Batch({
   const queryClient = useQueryClient()
   const queryKey = serverQueryKey(scope, 'capture', id)
   const captureQuery = useQuery({ queryKey, queryFn: () => client.read(id) })
+  const processingKey = serverQueryKey(scope, 'processing', id)
+
+  // Delivery sends no revision: it waits for a Processing read started after it was asked for and
+  // after the last live hint, and asks for one.
+  const waitForProcessingRead = async (signal: AbortSignal) => {
+    const read = freshReads(queryClient).waitForReadStartedNow(processingKey, signal)
+    void queryClient.invalidateQueries({ queryKey: processingKey })
+    await read
+  }
+
+  const instructionDelivery = useInstructionDelivery(
+    id,
+    agents?.deliverInstructions,
+    waitForProcessingRead,
+  )
   const operatorKey = serverQueryKey(scope, 'operator-review', id)
   const operatorQuery = useQuery({
     queryKey: operatorKey,
@@ -151,6 +167,8 @@ export function Batch({
   const editPending = useRef(false)
   const editIntent = useRef<{ request: CaptureEditDto; key: string } | null>(null)
 
+  // The batch as last accepted in this tab, shown read-only after a reload until Capture is read.
+  const restoredBatch = useRestoredSnapshot('batch', id)
   // The first fresh read becomes the retained snapshot; later reads never replace it silently.
   if (
     !batch &&
@@ -160,6 +178,8 @@ export function Batch({
   ) {
     setBatch(captureQuery.data)
   }
+
+  useSnapshotWriter('batch', id, batch ?? undefined)
 
   function acceptSavedBatch(value: CaptureSnapshotDto) {
     queryClient.setQueryData(queryKey, value)
@@ -528,22 +548,37 @@ export function Batch({
         settings={settingsPorts}
       />
     )
+  } else if (restoredBatch && !visibleError && displaysRestored(batchRoute, processing)) {
+    content = (
+      <DisplayOnly>
+        <RestoredTab
+          batch={restoredBatch}
+          route={batchRoute!}
+          manual={manual}
+          navigate={navigate}
+          onDirtyChange={reportDirty}
+        />
+      </DisplayOnly>
+    )
   } else {
     content = !visibleError && <Paragraph role="status">Resuming saved batch…</Paragraph>
   }
+  // After a reload the header shows the restored batch, fenced, until Capture's read lands.
+  const headerBatch = batch ?? (content && !visibleError && restoredBatch ? restoredBatch : null)
+  const restoredHeader = !batch && headerBatch !== null
 
   return (
     <>
-      {batch && batchRoute && (
+      {headerBatch && batchRoute && (
         <BatchHeader
-          batch={batch}
+          batch={headerBatch}
           route={batchRoute}
-          attention={attentionCurrent}
-          attentionUnavailable={attentionUnavailable}
-          unusedFiles={unusedFiles}
-          activeLotCount={batch.lots.length - retired.size}
-          busy={readOrCommandBusy || readUnavailable || draftDirty}
-          onArchive={() => void edit({ kind: 'batch', archived: !batch.archived })}
+          attention={restoredHeader ? undefined : attentionCurrent}
+          attentionUnavailable={restoredHeader ? false : attentionUnavailable}
+          unusedFiles={restoredHeader ? undefined : unusedFiles}
+          activeLotCount={headerBatch.lots.length - retired.size}
+          busy={restoredHeader || readOrCommandBusy || readUnavailable || draftDirty}
+          onArchive={() => void edit({ kind: 'batch', archived: !headerBatch.archived })}
         />
       )}
       <PageContent $width={batchRoute?.tab === 'review' ? 'review' : 'content'}>
@@ -617,3 +652,56 @@ const SnapshotFields = styled.pre`
   max-height: 300px;
   font-size: ${typeVar.mono.size};
 `
+
+/** The tabs a reload can show from restored snapshots while Capture's read is still landing. */
+function displaysRestored(route: BatchRoute | null, processing: unknown) {
+  if (route?.tab === 'processing') {
+    return processing !== undefined
+  }
+  return route?.tab === 'review' && (route.view === 'lots' || route.view === 'records')
+}
+
+/**
+ * The open tab drawn from restored snapshots, read-only: every command and edit is fenced, and the
+ * live workspace replaces it once Capture's fresh read lands.
+ */
+function RestoredTab({
+  batch,
+  route,
+  manual,
+  navigate,
+  onDirtyChange,
+}: {
+  batch: CaptureSnapshotDto
+  route: BatchRoute
+  manual: ManualClient
+  navigate: (stage: ManualStage, resourceId?: string, options?: { replace?: boolean }) => void
+  onDirtyChange: (dirty: boolean) => void
+}) {
+  const { processing, records } = useApiClients()
+  if (route.tab === 'processing' && processing) {
+    return (
+      <ProcessingStage
+        batch={batch}
+        client={processing}
+        step={route.step}
+        questionId={route.questionId}
+        onDirtyChange={onDirtyChange}
+        displayOnly
+      />
+    )
+  }
+  if (route.tab === 'review' && route.view === 'records') {
+    return <RecordsStage batch={batch} client={records} onDirtyChange={onDirtyChange} displayOnly />
+  }
+  return (
+    <ManualWorkspace
+      batch={batch}
+      client={manual}
+      stage="review"
+      navigate={navigate}
+      onDirtyChange={onDirtyChange}
+      displayOnly
+    />
+  )
+}

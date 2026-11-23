@@ -121,7 +121,7 @@ function NativeButton({
       type="button"
       {...button}
       disabled={disabled}
-      aria-disabled={quietlyUnavailable || undefined}
+      aria-disabled={quietlyUnavailable || button['aria-disabled']}
       aria-busy={busy || undefined}
       aria-describedby={disabledReason ? reasonId : button['aria-describedby']}
       onClick={handleClick}

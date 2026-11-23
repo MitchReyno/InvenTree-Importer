@@ -10,7 +10,8 @@ import { batchHref, parseBatchRoute, processingStepFor } from '#/navigation/batc
 import { serverQueryKey } from '#/queries/scope'
 import { ENDED_SESSIONS } from '#/processing/source'
 import { clearPending } from '#/processing/pending-messages'
-import { useQuery } from '@tanstack/react-query'
+import { useFreshRead } from '#/queries/useFreshRead'
+import { useRestoredSnapshot, useSnapshotWriter } from '#/queries/useSnapshot'
 import { useDirtySources } from '#/operator/useDirtySources'
 import { TYPE_LABELS, STATE_LABELS } from '#/records/model'
 import {
@@ -48,6 +49,7 @@ import {
   useRetainedPollInterval,
   ReloadContext,
   SavingContext,
+  AskReasonContext,
   useBatchCommands,
 } from '#/context'
 
@@ -62,6 +64,8 @@ type Props = {
   /** From the route: the type and record to open first. */
   initialType?: string
   initialRecord?: string
+  /** Drawn from restored snapshots before Capture's read lands; nothing can be changed. */
+  displayOnly?: boolean
 }
 
 /** Review › Records: every record the batch touches, by type, edited once for all its lots. */
@@ -73,6 +77,7 @@ export function RecordsStage({
   discarded = 0,
   initialType,
   initialRecord,
+  displayOnly = false,
 }: Props) {
   const { edit, observe } = useBatchCommands()
 
@@ -104,7 +109,21 @@ export function RecordsStage({
   if (query.data) {
     lastGood.current = query.data
   }
-  const records = query.data ?? lastGood.current
+  // After a reload, the records last read in this tab show read-only until their read lands.
+  const restoredRecords = useRestoredSnapshot('records', batch.id)
+  const restored =
+    restoredRecords?.revision === batch.revision && !query.data && !lastGood.current
+      ? restoredRecords
+      : undefined
+  const fromSnapshot = restored !== undefined
+  useSnapshotWriter(
+    'records',
+    batch.id,
+    query.isFetchedAfterMount && query.isSuccess && !query.isPlaceholderData
+      ? query.data
+      : undefined,
+  )
+  const records = query.data ?? lastGood.current ?? restored
   const type: RecordTypeDto =
     chosenType ??
     records?.counts.find((count) => count.new + count.existing + count.decide > 0)?.type ??
@@ -124,12 +143,16 @@ export function RecordsStage({
 
   const scope = useServerScope()
   const pollInterval = useRetainedPollInterval()
-  const sessions = useQuery({
+  // Shares Processing's read; an ask names its session from it and carries no revision, so it
+  // waits for a read started after the last live hint.
+  const sessions = useFreshRead({
     queryKey: serverQueryKey(scope, 'processing', batch.id),
     queryFn: () => processing!.read(batch.id),
     enabled: Boolean(processing?.chat),
     refetchInterval: pollInterval,
   })
+  const askReason =
+    displayOnly || !sessions.settledAfterHint ? (sessions.reason ?? 'Updating…') : undefined
 
   // The session of that step working on the record's Part or one of its lots.
   const askFor = (record: BatchRecordDto) => (step: string) => {
@@ -152,6 +175,9 @@ export function RecordsStage({
       return undefined
     }
     return async (text: string, key: string) => {
+      if (displayOnly || !sessions.settledAfterHintNow()) {
+        throw new Error('processing_fresh_read_required')
+      }
       await chat.call(processing, batch.id, job.id, { idempotency_key: key, text }, key)
     }
   }
@@ -194,7 +220,7 @@ export function RecordsStage({
   // Just after a save the previous read stands in until the new revision's read arrives.
   const refreshing = query.isPlaceholderData && query.isFetching
   const stale = query.isError || (!refreshing && records.revision !== batch.revision)
-  const disabled = stale || refreshing || batch.archived
+  const disabled = stale || refreshing || batch.archived || fromSnapshot || displayOnly
 
   const ofType = records.records.filter((record) => record.type === type)
   const shown = ofType.filter((record) => matchesFilter(record, filter))
@@ -218,107 +244,85 @@ export function RecordsStage({
 
   return (
     <ReloadContext.Provider value={reload}>
-      <SavingContext.Provider value={{ saving, setSaving }}>
-        <Header>
-          <PageHeading>Every InvenTree record this batch touches</PageHeading>
-          <FilterChips
-            label="Filter records"
-            value={filter}
-            onChange={(id) => setFilter(id as RecordFilter)}
-            options={RECORD_FILTERS.map(([id, label]) => ({
-              id,
-              label,
-              count: ofType.filter((record) => matchesFilter(record, id)).length,
-            }))}
-          />
-        </Header>
-        <Layout>
-          <Rail aria-label="Record types">
-            {records.counts.map((count) => (
-              <TypeButton
-                key={count.type}
-                type="button"
-                aria-current={count.type === type ? 'true' : undefined}
-                onClick={() => choose(count.type, null)}
-              >
-                <strong>{TYPE_LABELS[count.type]}</strong>
-                {count.decide > 0 ? (
-                  <Counts>
-                    <VisuallyHidden>
-                      {count.new} new · {count.existing} existing,{' '}
-                    </VisuallyHidden>
-                    <Pill tone="warn">{count.decide} to decide</Pill>
-                  </Counts>
-                ) : (
-                  <Counts>
-                    {count.new} new · {count.existing}
-                    <VisuallyHidden> existing</VisuallyHidden>
-                  </Counts>
-                )}
-              </TypeButton>
-            ))}
-          </Rail>
-          <List aria-label={TYPE_LABELS[type]}>
-            {ofType.length === 0 && (
-              <Small>No {TYPE_LABELS[type].toLowerCase()} in this batch.</Small>
-            )}
-            {ofType.length > 0 && shown.length === 0 && (
-              <Small>No {TYPE_LABELS[type].toLowerCase()} match this filter.</Small>
-            )}
-            {shown.map((record) => {
-              // A path still being read is left out of the row until it arrives.
-              const located =
-                record.type === 'location'
-                  ? locationPath(batch, record, existingRead(existing))
-                  : null
-              const path =
-                located && located.kind !== 'reading' ? locationPathText(located) : undefined
-              const detail = rowDetail(batch, record)
-
-              return (
-                <RecordButton
-                  key={record.key}
+      <AskReasonContext.Provider value={askReason}>
+        <SavingContext.Provider value={{ saving, setSaving }}>
+          <Header>
+            <PageHeading>Every InvenTree record this batch touches</PageHeading>
+            <FilterChips
+              label="Filter records"
+              value={filter}
+              onChange={(id) => setFilter(id as RecordFilter)}
+              options={RECORD_FILTERS.map(([id, label]) => ({
+                id,
+                label,
+                count: ofType.filter((record) => matchesFilter(record, id)).length,
+              }))}
+            />
+          </Header>
+          <Layout>
+            <Rail aria-label="Record types">
+              {records.counts.map((count) => (
+                <TypeButton
+                  key={count.type}
                   type="button"
-                  aria-label={record.label}
-                  aria-description={`${STATE_LABELS[record.state]}. ${detail}`}
-                  aria-current={record.key === selected?.key ? 'true' : undefined}
-                  onClick={() => choose(type, record.key)}
+                  aria-current={count.type === type ? 'true' : undefined}
+                  onClick={() => choose(count.type, null)}
                 >
-                  <strong>{record.label}</strong>
-                  <RecordStatePill state={record.state}>
-                    {STATE_LABELS[record.state]}
-                  </RecordStatePill>
-                  {path && <RowDetail>{path}</RowDetail>}
-                  {detail && <RowDetail>{detail}</RowDetail>}
-                </RecordButton>
-              )
-            })}
-          </List>
-          <Detail>
-            {stale && (
-              <Banner
-                tone="warn"
-                action={
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      void (async () => {
-                        await reload?.()
-                        await query.refetch()
-                      })()
-                    }}
+                  <strong>{TYPE_LABELS[count.type]}</strong>
+                  {count.decide > 0 ? (
+                    <Counts>
+                      <VisuallyHidden>
+                        {count.new} new · {count.existing} existing,{' '}
+                      </VisuallyHidden>
+                      <Pill tone="warn">{count.decide} to decide</Pill>
+                    </Counts>
+                  ) : (
+                    <Counts>
+                      {count.new} new · {count.existing}
+                      <VisuallyHidden> existing</VisuallyHidden>
+                    </Counts>
+                  )}
+                </TypeButton>
+              ))}
+            </Rail>
+            <List aria-label={TYPE_LABELS[type]}>
+              {ofType.length === 0 && (
+                <Small>No {TYPE_LABELS[type].toLowerCase()} in this batch.</Small>
+              )}
+              {ofType.length > 0 && shown.length === 0 && (
+                <Small>No {TYPE_LABELS[type].toLowerCase()} match this filter.</Small>
+              )}
+              {shown.map((record) => {
+                // A path still being read is left out of the row until it arrives.
+                const located =
+                  record.type === 'location'
+                    ? locationPath(batch, record, existingRead(existing))
+                    : null
+                const path =
+                  located && located.kind !== 'reading' ? locationPathText(located) : undefined
+                const detail = rowDetail(batch, record)
+
+                return (
+                  <RecordButton
+                    key={record.key}
+                    type="button"
+                    aria-label={record.label}
+                    aria-description={`${STATE_LABELS[record.state]}. ${detail}`}
+                    aria-current={record.key === selected?.key ? 'true' : undefined}
+                    onClick={() => choose(type, record.key)}
                   >
-                    Load current values
-                  </Button>
-                }
-              >
-                Records may be out of date, so editing waits for current values. Unsaved record
-                changes stay.
-              </Banner>
-            )}
-            {blocked && (
-              <div role="alert">
+                    <strong>{record.label}</strong>
+                    <RecordStatePill state={record.state}>
+                      {STATE_LABELS[record.state]}
+                    </RecordStatePill>
+                    {path && <RowDetail>{path}</RowDetail>}
+                    {detail && <RowDetail>{detail}</RowDetail>}
+                  </RecordButton>
+                )
+              })}
+            </List>
+            <Detail>
+              {stale && (
                 <Banner
                   tone="warn"
                   action={
@@ -326,105 +330,131 @@ export function RecordsStage({
                       size="sm"
                       variant="ghost"
                       onClick={() => {
-                        if (selected) {
-                          clearPending(`${batch.id}:ask:${selected.key}:`)
-                        }
-                        // The matrix's conflict questions are drafts of this page too.
-                        for (const record of records.records) {
-                          if (record.type === 'parameter') {
-                            clearPending(`${batch.id}:ask:${record.key}:conflict`)
-                          }
-                        }
-                        setDiscards((value) => value + 1)
-                        setBlocked(false)
+                        void (async () => {
+                          await reload?.()
+                          await query.refetch()
+                        })()
                       }}
                     >
-                      Discard changes
+                      Load current values
                     </Button>
                   }
                 >
-                  Save or discard this record’s changes before opening another.
+                  Records may be out of date, so editing waits for current values. Unsaved record
+                  changes stay.
                 </Banner>
-              </div>
-            )}
-            {type === 'parameter' && (
-              <ParameterMatrix
-                key={`${discards}:${discarded}`}
-                batch={batch}
-                records={records.records}
-                open={(key) => choose('parameter', key)}
-                edit={save}
-                ask={(record, step) => askFor(record)(step)}
-                disabled={disabled}
-                reportFor={drafts.forSource}
-              />
-            )}
-            {selected && (
-              <RecordNav aria-label="Record">
-                <Link href={batchHref(batch.id, { tab: 'review', view: 'records' })}>Records</Link>
-                <span aria-hidden="true">›</span>
-                <span>{TYPE_LABELS[type]}</span>
-                <span aria-hidden="true">›</span>
-                <strong>{selected.label}</strong>
-                <Steps>
-                  {(() => {
-                    const index = shown.findIndex((record) => record.key === selected.key)
-                    const previous = index > 0 ? shown[index - 1] : undefined
-                    const next = index >= 0 ? shown[index + 1] : undefined
-                    return (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={!previous}
-                          aria-label={`Previous record${previous ? `: ${previous.label}` : ''}`}
-                          onClick={() => previous && choose(type, previous.key)}
-                        >
-                          ‹
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={!next}
-                          aria-label={`Next record${next ? `: ${next.label}` : ''}`}
-                          onClick={() => next && choose(type, next.key)}
-                        >
-                          ›
-                        </Button>
-                      </>
-                    )
-                  })()}
-                </Steps>
-              </RecordNav>
-            )}
-            {selected ? (
-              <RecordDetail
-                key={`${selected.key}:${discards}:${discarded}`}
-                batch={batch}
-                record={selected}
-                records={records.records}
-                save={save}
-                disabled={disabled}
-                reportFor={drafts.forSource}
-                dirty={drafts.dirty}
-                ask={askFor(selected)}
-                // A new location's path comes from its parent's existing values.
-                existing={
-                  (selected.mapped || selected.type === 'location') && client?.existing
-                    ? existing
-                    : undefined
-                }
-              />
-            ) : (
-              <Empty>Choose a record to see its values and who set them.</Empty>
-            )}
-            <details>
-              <Summary>Read another existing record</Summary>
-              <MappingReader observe={observe} />
-            </details>
-          </Detail>
-        </Layout>
-      </SavingContext.Provider>
+              )}
+              {blocked && (
+                <div role="alert">
+                  <Banner
+                    tone="warn"
+                    action={
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          if (selected) {
+                            clearPending(`${batch.id}:ask:${selected.key}:`)
+                          }
+                          // The matrix's conflict questions are drafts of this page too.
+                          for (const record of records.records) {
+                            if (record.type === 'parameter') {
+                              clearPending(`${batch.id}:ask:${record.key}:conflict`)
+                            }
+                          }
+                          setDiscards((value) => value + 1)
+                          setBlocked(false)
+                        }}
+                      >
+                        Discard changes
+                      </Button>
+                    }
+                  >
+                    Save or discard this record’s changes before opening another.
+                  </Banner>
+                </div>
+              )}
+              {type === 'parameter' && (
+                <ParameterMatrix
+                  key={`${discards}:${discarded}`}
+                  batch={batch}
+                  records={records.records}
+                  open={(key) => choose('parameter', key)}
+                  edit={save}
+                  ask={(record, step) => askFor(record)(step)}
+                  disabled={disabled}
+                  reportFor={drafts.forSource}
+                />
+              )}
+              {selected && (
+                <RecordNav aria-label="Record">
+                  <Link href={batchHref(batch.id, { tab: 'review', view: 'records' })}>
+                    Records
+                  </Link>
+                  <span aria-hidden="true">›</span>
+                  <span>{TYPE_LABELS[type]}</span>
+                  <span aria-hidden="true">›</span>
+                  <strong>{selected.label}</strong>
+                  <Steps>
+                    {(() => {
+                      const index = shown.findIndex((record) => record.key === selected.key)
+                      const previous = index > 0 ? shown[index - 1] : undefined
+                      const next = index >= 0 ? shown[index + 1] : undefined
+                      return (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={!previous}
+                            aria-label={`Previous record${previous ? `: ${previous.label}` : ''}`}
+                            onClick={() => previous && choose(type, previous.key)}
+                          >
+                            ‹
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={!next}
+                            aria-label={`Next record${next ? `: ${next.label}` : ''}`}
+                            onClick={() => next && choose(type, next.key)}
+                          >
+                            ›
+                          </Button>
+                        </>
+                      )
+                    })()}
+                  </Steps>
+                </RecordNav>
+              )}
+              {selected ? (
+                <RecordDetail
+                  key={`${selected.key}:${discards}:${discarded}`}
+                  batch={batch}
+                  record={selected}
+                  records={records.records}
+                  save={save}
+                  disabled={disabled}
+                  reportFor={drafts.forSource}
+                  dirty={drafts.dirty}
+                  ask={askFor(selected)}
+                  // A new location's path comes from its parent's existing values.
+                  existing={
+                    (selected.mapped || selected.type === 'location') && client?.existing
+                      ? existing
+                      : undefined
+                  }
+                />
+              ) : (
+                <Empty>Choose a record to see its values and who set them.</Empty>
+              )}
+              <details>
+                <Summary>Read another existing record</Summary>
+                <MappingReader observe={observe} />
+              </details>
+            </Detail>
+          </Layout>
+        </SavingContext.Provider>
+      </AskReasonContext.Provider>
     </ReloadContext.Provider>
   )
 }

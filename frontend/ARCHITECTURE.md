@@ -92,9 +92,28 @@ Each file tile has an actions menu (`ActionsMenu`: Open, Move to group…, Delet
 
 Pinned TanStack Query coordinates bootstrap, batch reads, manual workspace and activity. The generated AJV-validated client façades remain the transport boundary. `queries/client.ts` explicitly disables retries and focus/reconnect refetch; manual/activity observers poll every two seconds. Loopback reads attempt even when browser connectivity reports offline. Existing client deadlines still bound requests; cache cancellation does not claim physical cancellation of non-abortable ports.
 
-`components/query/ServerStateProvider.tsx` owns an in-memory cache. App separates bootstrap from the private cache and keys its lifetime by origin, actor, target and target-context IDs. Scope replacement cancels and clears the previous private cache; no browser persistence is installed. `useServerScope()` and `serverQueryKey(scope, ...resourceIds)` provide the shared seam for additional readers.
+`components/query/ServerStateProvider.tsx` owns an in-memory cache. App separates bootstrap from the private cache and keys its lifetime by origin, actor, target and target-context IDs. Scope replacement cancels and clears the previous private cache, and deletes that scope's session snapshots (below). `useServerScope()` and `serverQueryKey(scope, ...resourceIds)` provide the shared seam for additional readers.
 
 Cache data is an observation, never edit or command authority. Capture retains its accepted loaded snapshot until a confirmed save or explicit reload. React Hook Form drafts, dirty navigation, pinned preparation identity, review selection, last preview and payload-bound delivery intents remain outside the cache. Repeated reads cannot reset them. A cached manual preview stays disabled until the mounted observer verifies a read; failed or paused reads retain history while disabling freshness-sensitive commands. Confirmed commands and subsequent failed status reads have separate outcomes.
+
+### Fresh reads
+
+`queries/useFreshRead.ts` wraps a read and says how fresh it is: `empty`, `cached`, `refreshing`, `current` (verified, and the page's own `current` test holds) or `failed` (an error or a paused fetch). Every caller of a key goes through it; Processing, Manual Review, Records and the Review Map's `TellExamine` share the Processing key this way.
+
+- **Verified:** `queries/fresh-reads.ts` keeps one registry per query client. Its query-function wrapper numbers each request, and the cache's `updated` event adopts a result only when it came from the newest request started. An observer is verified only while the adopted request started after it mounted. A manual `setQueryData` (even of equal data), an error, a pause, a removed query and a new scope clear the proof; a restored snapshot never has one. An observer that joined a request already running gets one follow-up fetch per key, so it is verified without polling.
+- **Cancelling:** the app cancels reads only through `cancelVerified`, which marks the in-flight request so it can never verify and keeps the result already adopted. `LiveUpdates` reconciles through it.
+- **Commands:** commands with a revision need `commandsReady` once and stay available through background refreshes. Commands with no revision (Pause and Resume, instruction delivery and the agent chat sends that name their session from the Processing read) need `settledAfterHint`: a verified read whose request started after the last live hint, which `LiveUpdates` records when a frame arrives, before its 100 ms reconciliation delay. Each is checked again when pressed. Review acceptance keeps its stricter `current` test: settled at the batch's capture revision.
+- **Instruction delivery:** `processing/instruction-delivery.ts` lives in `Batch`, above Processing's remounts. Delivery, automatic after a save or Retry, shows "Delivery pending" until a Processing read started after it was asked for, and after the last hint, is adopted; then it sends once.
+- **Showing the wait:** `ReadState` shows the page's skeleton until its first data, then the page with the same element tree in every phase, and the page's own failure banner when the read fails. It reports refreshing reads to `RefreshSignal` (mounted by `App`), which shows `RefreshLine` after 400 ms, a 2 px line in a zero-height layer under the masthead, still under reduced motion and announced as "Updating", and adds "Updating…" after 3 s. A command waiting only for its read uses `Button`'s `reasonDisplay="quiet"`: `aria-disabled`, still focusable, with "Updating…" as its description and a tooltip on hover or keyboard focus.
+
+### Session snapshots
+
+`queries/snapshots.ts` keeps display-only snapshots of four reads in the tab's `sessionStorage`, through the projections in `queries/snapshot-projections.ts`: Processing, the Review workspace, the batch (for the header and the tabs) and Records. Each projection is still a valid contract DTO and is validated on write and on read; it leaves out Capture's settings, reference drafts and context, the lots' agent session IDs, and Changes' preparations and runs. Nothing else is stored: no bootstrap or CSRF token, credentials, the Agents list, media, drafts or commands.
+
+- **Writing:** after each verified read (Records: each successful read this mount made, until Records moves onto `useFreshRead`), at most once per resource per second. A projection over 1 MB is not stored; a full storage clears every snapshot and is reported only in the debug panel.
+- **Reading:** a page reads its own snapshot once when it mounts, only for the scope bootstrap confirmed, and passes it to `useFreshRead` as `restored`. It is never put into the query cache, so it can't verify a command.
+- **Lifetime:** entries expire after 12 hours or with another build (`build.ts`, from the Vite `define` of the commit and build time). `ServerStateProvider` deletes other scopes', expired and malformed entries when a scope starts, and that scope's entries and waiting writes when it ends.
+- **After a reload:** until Capture's fresh read lands, `Batch` shows the batch header and the open Processing, Review › Lots or Records tab from their snapshots inside `DisplayOnly`, an inert wrapper, with `displayOnly` set so every command and edit stays closed. The live workspace replaces it once Capture is read.
 
 `ServerState.test.tsx` verifies scope isolation and late prior responses. App/manual component tests cover deduplication, periodic recovery, paused reads, accepted revisions, retained drafts, pinned preparation identity and lost acknowledgement.
 
@@ -154,8 +173,8 @@ Batch routing keeps Processing separate from the manual inventory stages. Its
 header and stage tabs preserve the app-wide dirty-input guard; question URLs pin
 an exact question rather than selecting the latest question from polling.
 Processing reads use the same actor/target/context query scope as Capture and
-manual review. Commands require a successful mounted read; cached data alone
-cannot establish answer or start authority.
+manual review. Commands require a read verified for this mount (see Fresh reads);
+cached or restored data alone cannot establish answer or start authority.
 
 The global indicator reports inventory runs and Processing lane occupancy
 separately. A stale-input worker that still physically occupies the lane remains
@@ -178,7 +197,7 @@ Lots the batch's Examine lead session forms appear while it works.
 
 ## Live server updates
 
-`components/operations/LiveUpdates.tsx` owns one scoped WebSocket lifetime beneath `ServerStateProvider`. Validated ready/change frames cancel older read publication before refreshing retained queries; hints arriving during that refresh are queued for another fresh read. No socket payload owns edits or executes a command. Exact cursor strings survive reconnect. Healthy channels suspend routine polling, disconnections restore the existing two-second fallback and truncated stream windows retain a slower safety poll. Returning to the foreground (focus, reconnect or the tab becoming visible, through `browser/useOnForeground`) reconciles retained reads. Malformed/regressing frames and incompatible protocol versions require an update without clearing unsaved input. Bootstrap refresh after restart rotates development authorization; private actor/target/context changes still replace the entire keyed cache. Settings autosave uses HTTP commands only; agent dialogue requires separately reviewed command semantics. Connection establishment is never command acknowledgement.
+`components/operations/LiveUpdates.tsx` owns one scoped WebSocket lifetime beneath `ServerStateProvider`. Validated ready/change frames record a live hint time, then cancel older read publication through `cancelVerified` before refreshing retained queries; hints arriving during that refresh are queued for another fresh read. No socket payload owns edits or executes a command. Exact cursor strings survive reconnect. Healthy channels suspend routine polling, disconnections restore the existing two-second fallback and truncated stream windows retain a slower safety poll. Returning to the foreground (focus, reconnect or the tab becoming visible, through `browser/useOnForeground`) reconciles retained reads. Malformed/regressing frames and incompatible protocol versions require an update without clearing unsaved input. Bootstrap refresh after restart rotates development authorization; private actor/target/context changes still replace the entire keyed cache. Settings autosave uses HTTP commands only; agent dialogue requires separately reviewed command semantics. Connection establishment is never command acknowledgement.
 
 ## Remaining mockup composition
 

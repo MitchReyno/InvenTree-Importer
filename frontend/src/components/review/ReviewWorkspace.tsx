@@ -59,6 +59,10 @@ interface Props {
   processing?: ProcessingSnapshotDto
   /** True only after a successful mounted Processing read at the displayed capture revision. */
   processingCurrent?: boolean
+  /** Drawn from restored snapshots before Capture's read lands; commands are already disabled. */
+  displayOnly?: boolean
+  /** Why commands wait for a read still landing; they then stay focusable and say so quietly. */
+  waitReason?: string
   selected: string[]
   maxSelected: number
   busy: boolean
@@ -174,6 +178,8 @@ export function ReviewWorkspace({
   mediaLoading,
   processing,
   processingCurrent = false,
+  displayOnly = false,
+  waitReason,
   selected,
   maxSelected,
   busy,
@@ -191,7 +197,9 @@ export function ReviewWorkspace({
   const currentOperatorReview =
     observedOperatorReview?.revision === batch.revision ? observedOperatorReview : undefined
   const operatorReview = useAcceptedOperatorReview(currentOperatorReview)
-  const reviewUnavailable = operator !== undefined && currentOperatorReview === undefined
+  // Restored data has no operator review read yet; that is a wait, not an unavailable review.
+  const reviewUnavailable =
+    !displayOnly && operator !== undefined && currentOperatorReview === undefined
   const drafts = useDirtySources(onDirtyChange)
   const [navigationBlocked, setNavigationBlocked] = useState(false)
   const [route, setRoute] = useState(() => initialLocation(batch))
@@ -349,13 +357,16 @@ export function ReviewWorkspace({
         <Button
           size="sm"
           disabled={
-            drafts.dirty ||
-            reviewUnavailable ||
-            busy ||
-            stale ||
-            Boolean(problem) ||
-            !selected.length
+            !waitReason &&
+            (drafts.dirty ||
+              reviewUnavailable ||
+              busy ||
+              stale ||
+              Boolean(problem) ||
+              !selected.length)
           }
+          reasonDisplay="quiet"
+          disabledReason={waitReason}
           onClick={review}
         >
           Mark selected reviewed
@@ -363,8 +374,11 @@ export function ReviewWorkspace({
         <Button
           size="sm"
           disabled={
-            drafts.dirty || reviewUnavailable || busy || stale || Boolean(problem) || !reviewed
+            !waitReason &&
+            (drafts.dirty || reviewUnavailable || busy || stale || Boolean(problem) || !reviewed)
           }
+          reasonDisplay="quiet"
+          disabledReason={waitReason}
           onClick={prepare}
         >
           Prepare exact selected effects

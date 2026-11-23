@@ -1,20 +1,28 @@
 # Implementation notes
 
-Implementation of the UI polish and calm loading plan, delivered as PR-A to PR-I after the plan PRs (#247, #248). PR-A is underway; PR-B to PR-I remain.
+Implementation of the UI polish and calm loading plan, delivered as PR-A to PR-I after the plan PRs (#247, #248). PR-A merged in #250; PR-B is underway; PR-C to PR-I remain.
 
 ## Changes to the plan
 
-None yet.
+- **2026-11-24T03:14+11:00, task 4 (PR-B):** `useFreshRead` takes the read's options (`queryKey`, `queryFn`, `enabled`, `refetchInterval`, plus `current` and `restored`) and calls `useQuery` itself, rather than taking a query result as the design's signature shows. It has to wrap the query function to number each request for the verified-reads registry, so it owns the `useQuery` call. The returned result still carries the query, `phase`, `verified` and the reason, plus `commandsReady` and `settledAfterHint` with their dispatch-time checks.
+- **2026-11-24T03:14+11:00, task 4 (PR-B):** the snapshot projections are subsets that stay valid instances of the existing contracts (`ProcessingSnapshot`, `ManualWorkspace`, `CaptureSnapshot`, `BatchRecords`), so the contracts' own validators check them on write and read and no contract schema was added. The Review workspace projection empties `runs` and `preparations`, so it is restored only on Review › Lots, never on Changes.
+- **2026-11-24T03:14+11:00, task 4 (PR-B):** Records' records read stays on `useBatchRecords` until PR-C moves Records onto the layer; only its Processing read moves here, as planned. Its snapshot is written after each successful read this mount made, and restored records (only at the batch's current revision) show with every record edit disabled, the same fence a stale read uses.
 
 ## Unexpected challenges
 
 - **Task 2 (PR-A):** `screenshots:frontend` cannot capture `header-disclosure`: Public Sans never loads on that fixture, before and after this change. The other ten fixture pages are compared.
+- **2026-11-24T03:14+11:00, task 4 (PR-B):** the revisionless-command audit (task 4.1) found three chat sends that name their session from the Processing read and carry no revision: Review Map's `TellExamine`, Records' Ask and Processing's sharper-photo request. TellExamine and Records' Ask show the quiet "Updating…" reason and are checked again at dispatch; the sharper-photo request is checked at dispatch only, since its button sits in Examine's region list and has no reason slot. The session drawer's chat is not gated: the operator opened that session explicitly, and its own timeline read owns it.
+- **2026-11-24T03:14+11:00, task 4 (PR-B):** no command on the Processing or Review keys writes its receipt with `setQueryData` today: Processing's commands, Pause and Review's answers already invalidate and reread. The rereads after receipt writes in PR-B are therefore those existing invalidations; Review Map's media receipt stays with PR-C.
 
 ## Decisions made during implementation
 
 - **2026-11-23T19:36+11:00, task 8 (PR-A):** Settings › Agents and the other Settings sections keep their row descriptions (`SettingRow` `help`, `SettingsSection` `lead`) as visible text. They are the design system's row-description pattern, not standing explanations under a heading; the sweep moved only Processing, Agents and Review text. "Not supported yet" reasons, legends of table marks and consequences of an action stay visible.
 - **2026-11-23T19:36+11:00, task 8 (PR-A):** `Popover` chooses its alignment when it opens (`chooseAlign`): it keeps the preferred edge while that side of the trigger has room and otherwise opens from the trigger's other edge, rather than letting the window edge push the panel away. The panel's width is read as it attaches, before Radix caps it to the room on the aligned side. Rejected: setting `align="start"` on the need-you panel only, which would leave every other popover with the same trap.
+- **2026-11-24T03:14+11:00, task 4 (PR-B):** a live hint is any validated `ready` or `changed` frame in the scope; the registry records one hint time per query client (one scope), so every revisionless command treats every hint as relevant. Narrower relevance would need the stream-to-resource mapping the frames don't carry. Foreground reconciliation is not a hint.
+- **2026-11-24T03:14+11:00, task 4 (PR-B):** instruction delivery waits for a Processing read that started after the delivery was asked for as well as after the last hint, and asks for one by invalidating the Processing read. Requiring only "after the hint" would let a read that predates the save's own hint, if the hint lags, release the send. A Retry while pending replaces the wait; a send in flight is never repeated.
+- **2026-11-24T03:14+11:00, task 4 (PR-B):** the quiet "Updating…" reason is used on each page's main commands while they wait only for their read: Processing's Queue, Cancel this attempt and Pause or Resume, Review's Mark selected reviewed and Prepare exact selected effects, Tell Examine and Records' Send. Other controls fenced by the same wait (answer forms, editors, selection checkboxes) stay natively disabled, as before; PR-C can extend the quiet form screen by screen.
+- **2026-11-24T03:14+11:00, task 4 (PR-B):** `ServerStateProvider` prunes other scopes', expired and malformed snapshots when its scope starts and deletes its own scope's snapshots and waiting writes when it ends. Reads filter by scope themselves, so a page that renders before that effect still never shows another scope's snapshot.
 
 ## Open items
 
-None yet.
+- **2026-11-24T03:14+11:00, task 4 (PR-B), for PR-C:** Review's "Current operator review is unavailable or changed" banner still shows while `Batch`'s operator-review read for the batch is pending (`ReviewWorkspace` reads a missing review as unavailable), so it can flash on the first entry into a batch. It is outside the reads PR-B moves; PR-C should show that wait quietly too.

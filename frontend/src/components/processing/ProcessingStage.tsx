@@ -27,6 +27,8 @@ interface Props {
     /** Sends the saved instructions to the agents again. */
     deliver?: () => Promise<void>
   }
+  /** Drawn from restored snapshots before Capture's read lands; nothing can be changed. */
+  displayOnly?: boolean
 }
 
 export function ProcessingStage({
@@ -40,6 +42,7 @@ export function ProcessingStage({
   onDirtyChange,
   retiredLotIds,
   instructions,
+  displayOnly,
 }: Props) {
   const { edit, reload } = useBatchCommands()
 
@@ -62,6 +65,7 @@ export function ProcessingStage({
       edit={edit}
       retiredLotIds={retiredLotIds}
       instructions={instructions}
+      displayOnly={displayOnly}
     />
   )
 }
