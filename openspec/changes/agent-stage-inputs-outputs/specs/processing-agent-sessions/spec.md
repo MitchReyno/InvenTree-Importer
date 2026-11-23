@@ -154,7 +154,7 @@ This requirement does not change the guest built-in and web tools a shared VM pr
 
 ### Requirement: Sessions start from a sealed brief
 
-A session whose input is `/7` SHALL start from a brief sealed into its input: the batch and its instructions, the human-provided facts marked as human, the questions already asked about its subject, the evidence it may fetch with the regions earlier stages used, the lot's match state, and its stage's additions (see the stage contract in the design). The opening SHALL render it within its budget and say when `read_lot` or `read_batch` holds the rest.
+A session whose input is `/7` SHALL start from a brief sealed into its input: the batch and its instructions, the human-provided facts marked as human, the questions already asked about its subject, the evidence it may fetch with the regions earlier stages used, the lot's match state, and its stage's additions (`docs/agent-sessions.md` §2.2). The opening SHALL render it within its budget and say when `read_lot` or `read_batch` holds the rest.
 
 #### Scenario: Research starts with Examine's findings
 

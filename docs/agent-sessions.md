@@ -125,7 +125,7 @@ The rules behind the diagram:
   - the evidence the lot uses.
 
   It doesn't see the identity it is pinned to, observation contents, or the catalogue vocabulary.
-- **Output:** a V5 proposal. The catalogue block is expected but not enforced. An existing category, company or template choice needs an `observation_id` (`contracts/src/effects.ts:14-19`; `catalogue-assessment.ts:42,76-124`). The session is never given those ids, so in practice its values are `proposed_new` or judged unsupported.
+- **Output:** a V5 proposal. The catalogue block is expected but not enforced. An existing category, company or template choice needs an `observation_id` (`contracts/src/effects.ts:14-19`; `catalogue-assessment.ts:42,76-124`). The session isn't given the browsable catalogue vocabulary, so beyond references already on its linked Part, which the opening serializes (`session-runner.ts:367`), its values are `proposed_new` or judged unsupported.
 - **Consumers:** Records attribution and the Part's "missing", "not reused" and "unsupported" lists (`contracts/src/records-projection.ts:156-230,672-746`). Inventory's gate.
 
 ### Images (per lot)
@@ -282,7 +282,7 @@ A lineage's working directory persists between its turns. Only `fetch_evidence` 
 
 1. **The three lot stages are interchangeable:** same instructions, same tools, no field restriction.
 2. **The hand-off is lost.** Successors are pinned to an identity they can't read, and observation readings never reach them.
-3. **Existing catalogue references are out of reach**, because the vocabulary observations aren't shown.
+3. **Existing catalogue references are mostly out of reach**, because the vocabulary observations aren't shown; only references already on the lot's linked Part are visible.
 4. **Images produces no image**, and its proposal mostly serves to satisfy Inventory's gate.
 5. **Inventory is never auto-queued and can't see its inputs** or InvenTree.
 6. **Operator Start bypasses the stable identity.**
@@ -430,7 +430,7 @@ flowchart TD
    | Already imported | skipped; lot left out | skipped |
 
 5. **Late matches.** If Research in full mode finds an alias or cross-reference that makes the lot searchable in a new way, it publishes it as a match note. Match searches again. A new candidate pauses Research for that lot and asks the question, as in pass 2; the session's other lots continue.
-6. **Pass 3, before approval.** Before Changes › Ready, Match searches again, as preparation target reads, with each selected `/7` lot's final identifiers and import references. It looks for a Part created in InvenTree since the decision, an approval of the lot's original contribution in this app's retained history, stock on the target Part with its batch code that the decision didn't already cover, and a final identity that no longer matches its decision. Each finding is a blocking item in Review. Approval's own idempotency covers only the preparation command and its retained plan and review bindings (`intake-server/src/review/approve-preparation.ts:64-75`); it doesn't make the barcode or import reference unique in InvenTree. So a preparation records each lot's pass-3 search generation, and approval refuses it when a newer search has been requested, settled or not, or the validation read failed.
+6. **Pass 3, before approval.** Before Changes › Ready, Match searches again, as preparation target reads, with each selected `/7` lot's final identifiers and import references. It compares against the lot's settled Match outcome, a clear verdict after a clean search or an operator decision, and looks for a Part created in InvenTree since that outcome, an approval of the lot's original contribution in this app's retained history, stock on the target Part with its batch code that the outcome didn't already cover, and a final identity that no longer matches that outcome. Each finding is a blocking item in Review. Approval's own idempotency covers only the preparation command and its retained plan and review bindings (`intake-server/src/review/approve-preparation.ts:64-75`); it doesn't make the barcode or import reference unique in InvenTree. So a preparation records each lot's pass-3 search generation, and approval refuses it when a newer search has been requested, settled or not, or the validation read failed.
 
 ### One identity, refined by more than one stage
 

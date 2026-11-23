@@ -18,9 +18,9 @@ The executor SHALL apply only plans whose version, build and capability match a 
 
 #### Scenario: Switch waits for retained runs
 
-- **GIVEN** a retained `bench-effects-plan/2` run that is queued or recovery-required
+- **GIVEN** a retained `bench-effects-plan/2` run that is queued, recovery-required, or settled incomplete with a recovery action offered
 - **WHEN** the operator activates the `/3` deployment
-- **THEN** activation is refused until that run settles on its own runner, so one writer holds the target.
+- **THEN** new earlier-version approvals are fenced under the target lock, and activation is refused until that run settles on its own runner, so one writer holds the target.
 
 #### Scenario: Part image effects on an older capability
 

@@ -132,6 +132,12 @@ The stages a lot's match state holds SHALL be recorded with it and checked whene
 - **WHEN** Examine republishes the identity as revision 4 before the search settles
 - **THEN** the revision 3 result is discarded and Match searches again on revision 4.
 
+#### Scenario: Search result after a replacing question
+
+- **GIVEN** a Check again in flight on a lot
+- **WHEN** a replacing amendment opens its question, and the search result then arrives
+- **THEN** the result is discarded, the question stays open, and Check again waits until it is resolved.
+
 #### Scenario: Searches settle out of order
 
 - **GIVEN** two searches on the same identity, the second requested by Check again
