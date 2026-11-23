@@ -20,6 +20,7 @@ import {
   EvidenceGrid,
 } from '#/components/ui'
 import { useEvidenceDropZone } from './EvidenceDropZone'
+import { useFileDrop } from './useFileDrop'
 import { EvidenceDragHandle } from './EvidenceDragHandle'
 import { MediaEvidenceCard } from './MediaEvidenceCard'
 import { EvidenceFileTile } from './EvidenceFileTile'
@@ -48,6 +49,10 @@ type Props = {
   dirty: (owner: string) => (value: boolean) => void
   select: (ids: string[]) => void
   choose: (kind: 'photos' | 'document', groupId?: string) => void
+  /** Files dragged in from outside the page and dropped on this group. */
+  dropFiles: (files: File[]) => void
+  /** Whether dropped files would start uploading, which the highlight shows. */
+  dropAccepting: boolean
   /** Picked files bound for this group, shown as tiles after its evidence. */
   uploads?: UploadItem[]
   /** Shown in the header as "Uploading 2 of 3". */
@@ -90,6 +95,8 @@ export function EvidenceGroupPanel({
   dirty,
   select,
   choose,
+  dropFiles,
+  dropAccepting,
   uploads = [],
   uploadProgress,
   uploadQueue,
@@ -161,12 +168,15 @@ export function EvidenceGroupPanel({
   const metaParts = [lineageKnown ? lotCount : null, uploadingText].filter(Boolean)
   const meta = metaParts.length ? metaParts.join(' · ') : undefined
   const drop = useEvidenceDropZone(groupId, label, frozen)
+  const fileDrop = useFileDrop(dropFiles, dropAccepting)
+  const dropState = drop.dropState === 'over' || fileDrop.over ? 'over' : 'none'
 
   return (
     <EvidenceGroup
       ref={drop.ref}
       id={regionId}
-      dropState={drop.dropState}
+      dropState={dropState}
+      fileDrop={fileDrop.handlers}
       name={name}
       count={evidence.length}
       meta={meta}

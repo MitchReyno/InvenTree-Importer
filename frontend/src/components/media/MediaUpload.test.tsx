@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, renderHook, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import type { MediaReceiptDto } from '@invimport/contracts'
@@ -89,6 +89,14 @@ test('pickers accept several files', () => {
   render(<Harness {...ports()} disabled={false} />)
   expect(screen.getByLabelText('Choose photos')).toHaveAttribute('multiple')
   expect(screen.getByLabelText('Choose document')).toHaveAttribute('multiple')
+})
+
+// Without `capture`, phones offer their own sheet: the camera, the photo library and files.
+test('the photos picker reaches the library as well as the camera', () => {
+  render(<Harness {...ports()} disabled={false} />)
+  const photos = screen.getByLabelText('Choose photos')
+  expect(photos).not.toHaveAttribute('capture')
+  expect(photos).toHaveAttribute('accept', 'image/jpeg,image/png')
 })
 
 test('several files upload one after another, each with its own key and the current revision', async () => {
@@ -454,4 +462,30 @@ test('progress counts every file picked together, including one already refused'
     ]),
   ).toEqual({ current: 2, total: 3 })
   expect(uploadProgress([{ ...pick, id: '1', name: 'a.png', status: 'not_added' }])).toBeNull()
+})
+
+test('a mixed set is typed per file and counted as one pick', async () => {
+  const first = deferred<MediaReceiptDto>()
+  const queue = ports({ upload: vi.fn(() => first.promise) })
+  const { result } = renderHook(() => useUploadQueue(queue))
+
+  act(() =>
+    result.current.addMixed(
+      [
+        new File(['jpeg'], 'a.jpg', { type: 'image/jpeg' }),
+        photo('b.png'),
+        new File(['pdf'], 'c.pdf', { type: 'application/pdf' }),
+        new File(['zip'], 'd.zip', { type: 'application/zip' }),
+      ],
+      'group',
+    ),
+  )
+
+  await waitFor(() => expect(queue.upload).toHaveBeenCalledOnce())
+  const items = result.current.items
+  expect(new Set(items.map((item) => item.pickId)).size).toBe(1)
+  expect(items.every((item) => item.groupId === 'group' && item.pickSize === 4)).toBe(true)
+  expect(items.map((item) => item.status)).toEqual(['uploading', 'waiting', 'waiting', 'not_added'])
+  expect(items[3].reason).toMatch(/JPEG or PNG photo, or a PDF/)
+  expect(uploadProgress(items)).toEqual({ current: 2, total: 4 })
 })
