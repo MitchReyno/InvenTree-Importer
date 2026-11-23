@@ -259,3 +259,46 @@ test('a dialog opened by a click that left focus elsewhere returns focus to the 
     stopTracking()
   }
 })
+
+test('a dialog opened from a menu item returns focus to the menu trigger, not the item', async () => {
+  const user = userEvent.setup()
+
+  // As ActionsMenu does: choosing an item focuses the trigger while the item animates out.
+  function MenuOpener() {
+    const [open, setOpen] = useState(false)
+    return (
+      <>
+        <button type="button" id="actions">
+          Actions for Front label
+        </button>
+        <div role="menu">
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              document.getElementById('actions')?.focus()
+              setOpen(true)
+            }}
+          >
+            Open
+          </button>
+        </div>
+        {open && (
+          <Dialog title="Front label" onClose={() => setOpen(false)}>
+            <p>Viewer</p>
+          </Dialog>
+        )}
+      </>
+    )
+  }
+
+  const stopTracking = trackDialogOpeners()
+  try {
+    render(<MenuOpener />)
+    await user.click(screen.getByRole('menuitem', { name: 'Open' }))
+    await user.click(screen.getByRole('button', { name: 'Close' }))
+    expect(screen.getByRole('button', { name: 'Actions for Front label' })).toHaveFocus()
+  } finally {
+    stopTracking()
+  }
+})

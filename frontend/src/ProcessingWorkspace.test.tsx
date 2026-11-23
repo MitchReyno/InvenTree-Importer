@@ -1269,21 +1269,25 @@ test('closing a drawer restored after a remount returns focus to its session row
 
 test('a drawer that focuses its own Close on opening still moves to the next question', async () => {
   const user = userEvent.setup()
-  // As browsers do: showModal opens the dialog and focuses its first focusable control. jsdom
-  // has no showModal, so Dialog would otherwise just set `open`.
-  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
-    configurable: true,
-    value(this: HTMLDialogElement) {
-      this.open = true
-      this.querySelector<HTMLElement>('button')?.focus()
-    },
-  })
-  try {
-    await answerFirstFromRow(user)
-    await waitFor(() => expect(answerBox('Is Packet A the reel in drawer 2?')).toHaveFocus())
-  } finally {
-    delete (HTMLDialogElement.prototype as Partial<HTMLDialogElement>).showModal
-  }
+  const { client } = mountInventoryDrawer(inventorySnapshot(), undefined, { fromRow: true })
+  await user.click(
+    await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' }),
+  )
+  // Opening places focus on the drawer's first control, its Close button.
+  const drawer = screen.getByRole('dialog', { name: 'Inventory · Packet A' })
+  expect(within(drawer).getByRole('button', { name: 'Close' })).toHaveFocus()
+
+  const first = 'Is Packet A already in InvenTree?'
+  await screen.findByRole('form', { name: `Session question: ${first}` })
+  await user.type(answerBox(first), 'Different tube')
+  client.read.mockResolvedValue(inventorySnapshot('9', [questionId]))
+  // Saving remounts Processing, and the restored drawer again focuses its Close on opening.
+  await user.click(
+    within(screen.getByRole('form', { name: `Session question: ${first}` })).getByRole('button', {
+      name: 'Send answer to the session',
+    }),
+  )
+  await waitFor(() => expect(answerBox('Is Packet A the reel in drawer 2?')).toHaveFocus())
 })
 
 test('saving a drawer’s last draft after its session left clears the session link', async () => {

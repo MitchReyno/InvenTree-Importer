@@ -1,7 +1,9 @@
 // Safari does not focus a button when it is clicked, so the focused element is not always the
 // control that opened a dialog. The click is recorded until the end of its task, which covers a
 // dialog that React opens while handling that click.
-const ACTIVATING = 'button, a[href], [role="button"], [role="menuitem"], summary'
+// Menu items are left out: a menu closes as it acts and returns focus to its own trigger.
+const ACTIVATING = 'button, a[href], [role="button"], summary'
+const TRANSIENT = '[role="menu"], [role="menuitem"]'
 
 let clicked: HTMLElement | null = null
 
@@ -10,7 +12,8 @@ function recordClick(event: MouseEvent) {
   if (!(target instanceof Element)) {
     return
   }
-  clicked = target.closest<HTMLElement>(ACTIVATING)
+  const control = target.closest<HTMLElement>(ACTIVATING)
+  clicked = control?.closest(TRANSIENT) ? null : control
   setTimeout(() => {
     clicked = null
   }, 0)
