@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { validate } from '../src/index.ts'
+import { validate, webPageUrlAccepted } from '../src/index.ts'
 
 const id = (n: number) => `7c3e1d04-92ab-4f6e-b81d-${n.toString(16).padStart(12, '0')}`
 const digest = (c: string) => c.repeat(64)
@@ -58,9 +58,16 @@ const outboxPayloads: Record<string, unknown> = {
   proposal: { proposal_id: id(6) },
   question: { question_id: id(7) },
   reply: { inbox_item_id: id(8), text: 'The reel is 1k ohm, so I will update the identity.' },
+  photo_view: {
+    evidence_id: id(11),
+    version_id: id(12),
+    page: 1,
+    region: { x: 10, y: 20, width: 300, height: 400 },
+    delivered: { width: 300, height: 400, media_type: 'image/png', sha256: digest('f') },
+  },
 }
 
-test('the outbox carries exactly seven kinds of item', () => {
+test('the outbox carries exactly eight kinds of item', () => {
   for (const [kind, payload] of Object.entries(outboxPayloads)) {
     validate('SessionOutboxItem', { ...outboxBase, kind, payload })
   }
@@ -77,6 +84,22 @@ test('the outbox carries exactly seven kinds of item', () => {
   assert.throws(() =>
     validate('SessionOutboxItem', { ...outboxBase, kind: 'lot', payload: outboxPayloads.status }),
   )
+})
+
+test('a photo view records what was cut and sent, never the image bytes', () => {
+  const view = outboxPayloads.photo_view as Record<string, unknown>
+  const { region: _region, ...wholePage } = view
+  validate('SessionPhotoView', wholePage)
+  validate('SessionOutboxItem', { ...outboxBase, kind: 'photo_view', payload: wholePage })
+  assert.throws(() => validate('SessionPhotoView', { ...view, base64: 'iVBORw0KGgo=' }))
+  assert.throws(() =>
+    validate('SessionPhotoView', {
+      ...view,
+      delivered: { ...(view.delivered as object), media_type: 'image/webp' },
+    }),
+  )
+  const { delivered: _delivered, ...undelivered } = view
+  assert.throws(() => validate('SessionPhotoView', undelivered))
 })
 
 const inboxBase = { id: id(20), seq: '3', created_at: '2026-11-06T01:02:03.004Z' }
@@ -230,6 +253,79 @@ test('proposal /5 carries a structured catalogue block with sourced choices', ()
   )
 })
 
+const webPage = {
+  kind: 'web_page',
+  url: 'https://www.yageo.com/upload/media/product/RC0603.pdf',
+  title: 'RC0603 datasheet',
+  read_at: '2026-11-23T04:05:06.007Z',
+}
+const proposalV6 = {
+  ...proposalV5,
+  schema_version: 'bench-intake-proposal/6',
+  sources: [mediaSource, webPage],
+}
+
+test('proposal /6 may cite an agent-reported web page in its top-level sources only', () => {
+  validate('ProcessingProposalV6', proposalV6)
+  validate('ProcessingProposal', proposalV6)
+  validate('SessionProposeArgs', { proposal: proposalV6 })
+  validate('SessionProposeArgs', { proposal: proposalV5 })
+  validate('ProcessingProposalV6', {
+    ...proposalV6,
+    sources: [{ kind: 'web_page', url: 'http://example.com' }],
+  })
+  // `/5` stays exact.
+  assert.throws(() => validate('ProcessingProposalV5', { ...proposalV5, sources: [webPage] }))
+  assert.throws(() =>
+    validate('ProcessingProposalV6', {
+      ...proposalV6,
+      relies_on: { ...relies, sources: [webPage] },
+    }),
+  )
+  assert.throws(() =>
+    validate('ProcessingProposalV6', {
+      ...proposalV6,
+      catalogue: { ...catalogue, category: { ...catalogue.category, sources: [webPage] } },
+    }),
+  )
+  assert.throws(() =>
+    validate('ProcessingProposalV6', {
+      ...proposalV6,
+      sources: [{ ...webPage, saved_copy: 'yes' }],
+    }),
+  )
+})
+
+test('a web page source is an absolute http(s) URL of at most 2048 characters, without credentials', () => {
+  const accepts = (url: string) => {
+    validate('WebPageSource', { kind: 'web_page', url })
+    assert.equal(webPageUrlAccepted(url), true, url)
+  }
+  const refuses = (url: string) => {
+    assert.throws(() => validate('WebPageSource', { kind: 'web_page', url }), url)
+    assert.equal(webPageUrlAccepted(url), false, url)
+  }
+  accepts('https://example.com/datasheet.pdf?rev=2#page=3')
+  accepts('http://example.com')
+  accepts('HTTPS://EXAMPLE.COM/path/with@sign')
+  accepts(`https://example.com/${'a'.repeat(2048 - 'https://example.com/'.length)}`)
+  refuses(`https://example.com/${'a'.repeat(2049 - 'https://example.com/'.length)}`)
+  refuses('file:///etc/passwd')
+  refuses('ftp://example.com/file')
+  refuses('javascript:alert(1)')
+  refuses('//example.com/relative')
+  refuses('/datasheet.pdf')
+  refuses('https://user:secret@example.com/')
+  refuses('https://token@example.com/')
+  refuses('https://example.com/a b')
+  refuses('https://example.com/\nnext')
+  refuses('https://exa\\mple.com/')
+  // The pattern can't see an empty host; the parser can.
+  assert.equal(webPageUrlAccepted('https://:443/'), false)
+  assert.throws(() => validate('WebPageSource', { ...webPage, read_at: 'yesterday' }))
+  assert.throws(() => validate('WebPageSource', { ...webPage, title: '' }))
+})
+
 const selection = { provider: 'claude', authentication: 'subscription', model: 'claude-sonnet-5-5' }
 const inputBase = {
   schema_version: 'bench-intake-input/6',
@@ -375,6 +471,12 @@ test('tool results report the pending inbox and typed errors', () => {
     error: 'status_rate_limited',
     message: 'Status lines are limited to one every 2 seconds.',
     pending_inbox: 1,
+  })
+  validate('SessionToolResult', {
+    ok: false,
+    error: 'outcome_uncertain',
+    message: 'The image was withheld because recording the view was not confirmed.',
+    pending_inbox: 0,
   })
   assert.throws(() =>
     validate('SessionToolResult', { ok: false, error: 'oops', pending_inbox: 0, message: 'x' }),

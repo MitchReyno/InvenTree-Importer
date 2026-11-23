@@ -41,7 +41,7 @@ const TOOLS = {
   propose: {
     schema: 'SessionProposeArgs',
     description:
-      'Publish a proposal for this lot, citing only delivered evidence and notes. Correct any returned field issues before retrying.',
+      'Publish a proposal for this lot, citing only delivered evidence and notes. To cite a web page you read with WebFetch, use schema_version bench-intake-proposal/6 and add {"kind":"web_page","url":...} to its top-level sources, with the page title and read_at time if you have them; the URL must be absolute http or https with no credentials. A web page is shown as agent-reported, never as verified evidence, and cannot appear in relies_on or catalogue sources. Correct any returned field issues before retrying.',
   },
   ask: {
     schema: 'SessionAskArgs',

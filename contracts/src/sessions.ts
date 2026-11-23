@@ -5,10 +5,10 @@ import {
   ProcessingFields,
   ProcessingMediaSource,
   SessionState,
-  ProcessingProposalV5,
   ProcessingQuestionSpec,
   ProcessingQuestionValue,
   STATUS_LINE_MAX_CHARACTERS,
+  SessionProposal,
   statusLine,
 } from './processing.ts'
 import { ContractValidationIssue } from './validation-issues.ts'
@@ -52,7 +52,7 @@ export const SessionFetchEvidenceArgs = object({
     }),
   ),
 })
-export const SessionProposeArgs = object({ proposal: ProcessingProposalV5 })
+export const SessionProposeArgs = object({ proposal: SessionProposal })
 
 export const SessionToolError = Type.Union(
   (
@@ -68,10 +68,36 @@ export const SessionToolError = Type.Union(
       'capacity_reached',
       'tool_failed',
       'media_evidence_removed',
+      /** The call's commit was not acknowledged, so its effect may or may not have happened. */
+      'outcome_uncertain',
     ] as const
   ).map((code) => Type.Literal(code)),
 )
 const outboxBase = { session_id: Id, seq: Revision, created_at: timestamp }
+/**
+ * One image `fetch_evidence` prepared for the tool response: what was cut and what was sent,
+ * never the bytes. It doesn't mean the provider read the image.
+ */
+export const SessionPhotoView = object({
+  evidence_id: Id,
+  version_id: Id,
+  page: Type.Integer({ minimum: 1, maximum: 10000 }),
+  /** The region requested, in page-preview pixels; absent for a whole page. */
+  region: Type.Optional(
+    object({
+      x: Type.Integer({ minimum: 0 }),
+      y: Type.Integer({ minimum: 0 }),
+      width: Type.Integer({ minimum: 1 }),
+      height: Type.Integer({ minimum: 1 }),
+    }),
+  ),
+  delivered: object({
+    width: Type.Integer({ minimum: 1 }),
+    height: Type.Integer({ minimum: 1 }),
+    media_type: Type.Union([Type.Literal('image/png'), Type.Literal('image/jpeg')]),
+    sha256: Digest,
+  }),
+})
 export const SessionOutboxItem = Type.Union([
   object({ ...outboxBase, kind: Type.Literal('status'), payload: SessionStatusArgs }),
   object({
@@ -90,6 +116,7 @@ export const SessionOutboxItem = Type.Union([
   object({ ...outboxBase, kind: Type.Literal('proposal'), payload: object({ proposal_id: Id }) }),
   object({ ...outboxBase, kind: Type.Literal('question'), payload: object({ question_id: Id }) }),
   object({ ...outboxBase, kind: Type.Literal('reply'), payload: SessionReplyArgs }),
+  object({ ...outboxBase, kind: Type.Literal('photo_view'), payload: SessionPhotoView }),
 ])
 
 const inboxBase = { id: Id, seq: Revision, created_at: timestamp }
@@ -207,7 +234,7 @@ const sessionBinding = {
   sequence: Revision,
 }
 export const SessionEnvelope = Type.Union([
-  object({ ...sessionBinding, kind: Type.Literal('proposal'), payload: ProcessingProposalV5 }),
+  object({ ...sessionBinding, kind: Type.Literal('proposal'), payload: SessionProposal }),
   object({ ...sessionBinding, kind: Type.Literal('question'), payload: SessionAskArgs }),
 ])
 /** A session's latest status line, shown as its current activity. */
@@ -248,6 +275,7 @@ export const sessionSchemas = {
   SessionToolError,
   SessionToolResult,
   SessionOutboxItem,
+  SessionPhotoView,
   SessionInboxItem,
   SessionInboxSubmission,
   SessionInboxReceipt,
@@ -265,6 +293,7 @@ export type SessionProposeArgsDto = Static<typeof SessionProposeArgs>
 export type SessionToolErrorDto = Static<typeof SessionToolError>
 export type SessionToolResultDto = Static<typeof SessionToolResult>
 export type SessionOutboxItemDto = Static<typeof SessionOutboxItem>
+export type SessionPhotoViewDto = Static<typeof SessionPhotoView>
 export type SessionInboxItemDto = Static<typeof SessionInboxItem>
 export type SessionInboxSubmissionDto = Static<typeof SessionInboxSubmission>
 export type SessionInboxReceiptDto = Static<typeof SessionInboxReceipt>

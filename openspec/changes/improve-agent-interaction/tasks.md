@@ -218,16 +218,16 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - **Verification:** contracts tests; `pnpm db:intake test` on the handler and evidence tests; the frontend typecheck, lint and tests.
 - **Risks and decisions:** every consumer of proposal sources must accept `/6`; list them in 5.1.
 
-- [ ] 5.1 Read the shared and intake-server code guidelines. List every reader of the outbox union and of proposal sources.
-- [ ] 5.2 RED: contract tests for `photo_view` and `web_page`. PG tests:
-  - [ ] 5.2.1 A delivered fetch appends one `photo_view` with the delivered size and digest, and publishes `session_changed` in the same transaction.
-  - [ ] 5.2.2 Through the MCP endpoint, a commit with an unknown outcome returns the uncertain-outcome result and no image, not "changed nothing". A refused or over-budget fetch appends nothing, and a refused final transaction releases the budget and returns no image, including when a removal, a capability revocation, or a cancellation or supersession committed after encoding but before the capability is revoked races the final transaction; a commit with an unknown outcome keeps the reservation and returns no image.
-  - [ ] 5.2.3 A `web_page` source is accepted for `https` without a delivery check, refused for `file:`, credentials or a URL over 2048 characters, and refused in `relies_on` or catalogue sources.
-  - [ ] 5.2.4 A `/6` proposal with a `web_page` source goes through the advertised `propose` tool, is stored, and reads through the retained decoder and the ordinary Processing snapshot read, beside a retained `/5` proposal.
-  - [ ] 5.2.5 Frontend: the existing source list shows a stored `/6` proposal's `web_page` source as a "Web page" chip marked agent-reported, and the old timeline labels a `photo_view`.
-  - [ ] 5.2.6 A `/6` proposal within every field limit whose sealed envelope exceeds 32,768 bytes (many long `web_page` URLs) is refused as a correctable tool error, with nothing stored or published.
-- [ ] 5.3 GREEN: implement both. Make the source readers treat `web_page` as unverified.
-- [ ] 5.4 Update the `propose` description to say how to cite a page read with WebFetch. Run the intake unit and PG tiers.
+- [x] 5.1 Read the shared and intake-server code guidelines. List every reader of the outbox union and of proposal sources.
+- [x] 5.2 RED: contract tests for `photo_view` and `web_page`. PG tests:
+  - [x] 5.2.1 A delivered fetch appends one `photo_view` with the delivered size and digest, and publishes `session_changed` in the same transaction.
+  - [x] 5.2.2 Through the MCP endpoint, a commit with an unknown outcome returns the uncertain-outcome result and no image, not "changed nothing". A refused or over-budget fetch appends nothing, and a refused final transaction releases the budget and returns no image, including when a removal, a capability revocation, or a cancellation or supersession committed after encoding but before the capability is revoked races the final transaction; a commit with an unknown outcome keeps the reservation and returns no image.
+  - [x] 5.2.3 A `web_page` source is accepted for `https` without a delivery check, refused for `file:`, credentials or a URL over 2048 characters, and refused in `relies_on` or catalogue sources.
+  - [x] 5.2.4 A `/6` proposal with a `web_page` source goes through the advertised `propose` tool, is stored, and reads through the retained decoder and the ordinary Processing snapshot read, beside a retained `/5` proposal.
+  - [x] 5.2.5 Frontend: the existing source list shows a stored `/6` proposal's `web_page` source as a "Web page" chip marked agent-reported, and the old timeline labels a `photo_view`.
+  - [x] 5.2.6 A `/6` proposal within every field limit whose sealed envelope exceeds 32,768 bytes (many long `web_page` URLs) is refused as a correctable tool error, with nothing stored or published.
+- [x] 5.3 GREEN: implement both. Make the source readers treat `web_page` as unverified.
+- [x] 5.4 Update the `propose` description to say how to cite a page read with WebFetch. Run the intake unit and PG tiers.
 
 ## 6. Session history read and photo-view crops
 

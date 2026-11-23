@@ -9,12 +9,15 @@ import {
   type ProposeLotArgsDto,
   type RecordObservationArgsDto,
   type RegroupArgsDto,
-  type ProcessingProposalV5Dto,
   type ProcessingSourceDto,
+  type SessionPhotoViewDto,
+  type SessionProposalDto,
+  type WebPageSourceDto,
   type ProcessingRelianceDto,
   type SessionAskArgsDto,
   type SessionToolErrorDto,
   type SessionToolResultDto,
+  webPageUrlAccepted,
 } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
 import { onLeadIdentity } from '#/processing/stable-identity.ts'
@@ -323,66 +326,147 @@ async function fetchEvidenceImage(
           AGENT_IMAGE_LONG_EDGE,
           preview.width <= AGENT_IMAGE_LONG_EDGE && preview.height <= AGENT_IMAGE_LONG_EDGE,
         )
-  // One final decision after the read and encoding: the session may have ended and the operator
-  // may have removed the evidence meanwhile. Nothing below it awaits before the grant.
-  // Removal first and the capability last, so the grant follows the latest capability read.
-  const final = await transaction(context.pool, async (client) => {
-    const removed = await removedVersionIds(client, batchId, [versionId])
-    const live = await resolveSessionCapability(client, token)
-
-    return { removed, live }
-  })
-  if (!final.live) {
-    return {
-      result: {
-        ok: false,
-        error: 'capability_refused',
-        message: 'This session capability is not valid.',
-        pending_inbox: 0,
-      },
-    }
-  }
-  if (final.removed.size) {
-    return {
-      result: {
-        ok: false,
-        error: 'media_evidence_removed',
-        message: 'That evidence was deleted by the operator.',
-        pending_inbox: 0,
-      },
-    }
-  }
   // An image too large to send at any quality comes back as metadata, like an exhausted budget.
-  if (!delivered) {
-    return authorized
+  // The budget is reserved before the final transaction, so concurrent fetches can't overspend.
+  const image =
+    delivered && reserveImageBudget(context, run, delivered.bytes.length) ? delivered : null
+  const view: SessionPhotoViewDto | null = image
+    ? {
+        evidence_id: plan.source.evidence_id,
+        version_id: versionId,
+        page: preview.page,
+        ...(region
+          ? { region: { x: region.x, y: region.y, width: region.width, height: region.height } }
+          : {}),
+        delivered: {
+          width: image.width,
+          height: image.height,
+          media_type: image.mediaType,
+          sha256: sha256(image.bytes).toString('hex'),
+        },
+      }
+    : null
+  // A refusal or a known rollback sends nothing, so it releases the reservation. An unknown
+  // commit keeps it: the view may exist for the withheld image.
+  let finished: FinalFetchOutcome
+  try {
+    finished = await finishEvidenceFetch(context, token, { batchId, versionId }, view)
+  } catch (error) {
+    if (image) {
+      releaseImageBudget(context, run, image.bytes.length)
+    }
+    throw error
   }
-  const bytes = delivered.bytes
-  // The image budget counts what reaches the agent, reserved for this provider run.
-  const used = context.imageBudget.get(run) ?? 0
-  if (bytes.length > SESSION_IMAGE_BUDGET_BYTES - used) {
-    return authorized
+  if (finished.kind === 'refused') {
+    if (image) {
+      releaseImageBudget(context, run, image.bytes.length)
+    }
+    return finished.output
   }
-  context.imageBudget.set(run, used + bytes.length)
+  if (finished.kind === 'uncertain') {
+    return {
+      result: {
+        ok: false,
+        error: 'outcome_uncertain',
+        message:
+          'The image was withheld because recording this view was not confirmed. Fetch it again if you still need it.',
+        pending_inbox: 0,
+      },
+    }
+  }
+  if (!image || !view) {
+    return { result: { ...authorized.result, pending_inbox: finished.pending } }
+  }
   const fetched = context.deliveredMedia.get(plan.jobId) ?? new Set<string>()
   fetched.add(plan.versionId)
   context.deliveredMedia.set(plan.jobId, fetched)
   return {
     result: {
       ...authorized.result,
+      pending_inbox: finished.pending,
       source: plan.source,
       delivered: {
         page: preview.page,
-        width: delivered.width,
-        height: delivered.height,
-        scale: delivered.scale,
-        ...(region
-          ? { region: { x: region.x, y: region.y, width: region.width, height: region.height } }
-          : {}),
-        media_type: delivered.mediaType,
-        sha256: sha256(bytes).toString('hex'),
+        width: image.width,
+        height: image.height,
+        scale: image.scale,
+        ...(view.region ? { region: view.region } : {}),
+        media_type: image.mediaType,
+        sha256: view.delivered.sha256,
       },
     },
-    images: [{ mediaType: delivered.mediaType, base64: bytes.toString('base64') }],
+    images: [{ mediaType: image.mediaType, base64: image.bytes.toString('base64') }],
+  }
+}
+
+/** Reserves image bytes for a provider run; false when they would exceed its budget. */
+function reserveImageBudget(context: SessionToolContext, run: string, bytes: number) {
+  const used = context.imageBudget.get(run) ?? 0
+  if (bytes > SESSION_IMAGE_BUDGET_BYTES - used) {
+    return false
+  }
+  context.imageBudget.set(run, used + bytes)
+  return true
+}
+
+function releaseImageBudget(context: SessionToolContext, run: string, bytes: number) {
+  const remaining = (context.imageBudget.get(run) ?? 0) - bytes
+  if (remaining > 0) {
+    context.imageBudget.set(run, remaining)
+  } else {
+    context.imageBudget.delete(run)
+  }
+}
+
+type FinalFetchOutcome =
+  | { kind: 'committed'; pending: number }
+  | { kind: 'refused'; output: SessionToolOutput }
+  | { kind: 'uncertain' }
+
+/**
+ * The fetch's final decision, after the read and encoding: the session may have ended, or the
+ * operator removed the evidence, meanwhile. Under the batch, job, attempt and session locks it
+ * re-checks what every tool call checks and records the view, so a removal, revocation,
+ * cancellation or supersession either commits first and refuses the fetch or waits for it.
+ */
+async function finishEvidenceFetch(
+  context: SessionToolContext,
+  token: string,
+  target: { batchId: string; versionId: string },
+  view: SessionPhotoViewDto | null,
+): Promise<FinalFetchOutcome> {
+  // Set once the transaction's work has returned: a throw after it came from COMMIT, whose
+  // outcome is unknown; a throw before it rolled back.
+  let workReturned = false
+  try {
+    const pending = await transaction(context.pool, async (client) => {
+      const found =
+        (await resolveSessionCapability(client, token)) ??
+        refuse('capability_refused', 'This session capability is not valid.')
+      await client.query('SELECT 1 FROM public.capture_batch WHERE id=$1 FOR SHARE', [
+        found.batchId,
+      ])
+      await requireRunningSession(client, token, found)
+      await refuseRemovedVersions(client, target.batchId, [target.versionId])
+      if (view) {
+        await appendSessionOutbox(client, found.attemptId, { kind: 'photo_view', payload: view })
+        await appendEvent(client, await batchStream(client, found.batchId), 'session_changed', {
+          batch_id: found.batchId,
+        })
+      }
+      const count = await pendingSessionInbox(client, found.lineageId!)
+      workReturned = true
+      return count
+    })
+    return { kind: 'committed', pending }
+  } catch (error) {
+    if (workReturned && view) {
+      return { kind: 'uncertain' }
+    }
+    if (error instanceof ToolRefusal) {
+      return { kind: 'refused', output: await refusalOutput(context, token, error) }
+    }
+    throw error
   }
 }
 
@@ -461,23 +545,7 @@ async function withSession(
       const capture = options.capture
         ? await lockCaptureForInputSettlement(client, context.config, found.batchId)
         : undefined
-      const { job, attempt } = await lockProcessingAttempt(client, found.jobId, found.attemptId)
-      const live = await executeDatabaseQuery(
-        queryDatabase(client)
-          .select({ attemptId: agentSessions.attemptId })
-          .from(agentSessions)
-          .where(
-            and(
-              eq(agentSessions.attemptId, found.attemptId),
-              eq(agentSessions.capabilitySha256, capabilityDigest(token)),
-              eq(agentSessions.sessionState, 'running'),
-            ),
-          )
-          .for('update'),
-      )
-      if (!live.length || attempt.state !== 'running' || job.current_attempt_id !== attempt.id) {
-        refuse('capability_refused', 'This session capability is not valid.')
-      }
+      await requireRunningSession(client, token, found)
       if (capture?.snapshot.archived) {
         refuse('session_not_running', 'This session can no longer publish results.')
       }
@@ -488,19 +556,52 @@ async function withSession(
     if (!(error instanceof ToolRefusal)) {
       throw error
     }
-    const pending = await transaction(context.pool, async (client) => {
-      const principal = await resolveSessionCapability(client, token)
-      return principal ? pendingSessionInbox(client, principal.lineageId!) : 0
-    })
-    return {
-      result: {
-        ok: false,
-        error: error.code,
-        message: error.message,
-        pending_inbox: pending,
-        ...(error.issues ? { issues: error.issues } : {}),
-      },
-    }
+    return refusalOutput(context, token, error)
+  }
+}
+
+/**
+ * Locks the job, attempt and session rows, after any capture or batch lock, and refuses unless
+ * the capability is still the running session's and its attempt is running and current.
+ */
+async function requireRunningSession(client: PoolClient, token: string, found: SessionPrincipal) {
+  const { job, attempt } = await lockProcessingAttempt(client, found.jobId, found.attemptId)
+  const live = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ attemptId: agentSessions.attemptId })
+      .from(agentSessions)
+      .where(
+        and(
+          eq(agentSessions.attemptId, found.attemptId),
+          eq(agentSessions.capabilitySha256, capabilityDigest(token)),
+          eq(agentSessions.sessionState, 'running'),
+        ),
+      )
+      .for('update'),
+  )
+  if (!live.length || attempt.state !== 'running' || job.current_attempt_id !== attempt.id) {
+    refuse('capability_refused', 'This session capability is not valid.')
+  }
+}
+
+/** A refused call's typed result, with the pending inbox read after its rollback. */
+async function refusalOutput(
+  context: SessionToolContext,
+  token: string,
+  error: ToolRefusal,
+): Promise<SessionToolOutput> {
+  const pending = await transaction(context.pool, async (client) => {
+    const principal = await resolveSessionCapability(client, token)
+    return principal ? pendingSessionInbox(client, principal.lineageId!) : 0
+  })
+  return {
+    result: {
+      ok: false,
+      error: error.code,
+      message: error.message,
+      pending_inbox: pending,
+      ...(error.issues ? { issues: error.issues } : {}),
+    },
   }
 }
 
@@ -592,19 +693,7 @@ async function withLeadSession(
     if (!(error instanceof ToolRefusal)) {
       throw error
     }
-    const pending = await transaction(context.pool, async (client) => {
-      const principal = await resolveSessionCapability(client, token)
-      return principal ? pendingSessionInbox(client, principal.lineageId!) : 0
-    })
-    return {
-      result: {
-        ok: false,
-        error: error.code,
-        message: error.message,
-        pending_inbox: pending,
-        ...(error.issues ? { issues: error.issues } : {}),
-      },
-    }
+    return refusalOutput(context, token, error)
   }
 }
 
@@ -633,7 +722,9 @@ async function refuseRemovedVersions(
 async function refuseRemovedSources(
   client: PoolClient,
   batchId: string,
-  sources: readonly (ProcessingSourceDto | ProcessingRelianceDto['sources'][number])[],
+  sources: readonly (
+    ProcessingSourceDto | WebPageSourceDto | ProcessingRelianceDto['sources'][number]
+  )[],
 ) {
   const versions: string[] = []
   const observations: string[] = []
@@ -668,6 +759,28 @@ async function refuseRemovedSources(
 }
 
 /**
+ * The contract's pattern bounds a web page URL's scheme, length and authority; the URL parser
+ * also has to accept it as an absolute http(s) URL with a host and no credentials.
+ */
+function refuseUnacceptedWebPages(proposal: SessionProposalDto) {
+  proposal.sources.forEach((source, index) => {
+    if (source.kind === 'web_page' && !webPageUrlAccepted(source.url)) {
+      throw new ToolRefusal(
+        'validation_failed',
+        'A web page source must be an absolute http or https URL without credentials.',
+        [
+          {
+            path: `/proposal/sources/${index}/url`,
+            rule: 'format',
+            reason: 'Use an absolute http or https URL without credentials.',
+          },
+        ],
+      )
+    }
+  })
+}
+
+/**
  * Every citation must come from what this session was given: notes from its opening manifest,
  * media it actually fetched, inbox items of its lineage, and proposals pinned for it or its own.
  */
@@ -675,7 +788,7 @@ async function requireDeliveredSources(
   client: PoolClient,
   context: SessionToolContext,
   principal: SessionPrincipal,
-  proposal: ProcessingProposalV5Dto,
+  proposal: SessionProposalDto,
 ) {
   const manifest = principal.manifest
   const inManifest = deliveredSourceCheck({
@@ -722,6 +835,10 @@ async function requireDeliveredSources(
   }
 
   for (const source of [...proposal.sources, ...catalogueSources(proposal)]) {
+    // An agent-reported web page is the one source the app never delivers.
+    if (source.kind === 'web_page') {
+      continue
+    }
     if (!delivered(source)) {
       refuse('source_not_delivered', 'A cited source was not delivered to this session.')
     }
@@ -823,13 +940,16 @@ async function requireRoom(
   }
 }
 
+/** `processing_message.envelope_bytes` holds at most this many bytes (migration 0006). */
+const MAX_SESSION_ENVELOPE_BYTES = 32_768
+
 /** Retains a session proposal or question as an authenticated message, like runner envelopes. */
 async function retainSessionMessage(
   client: PoolClient,
   capture: LockedCapture,
   principal: SessionPrincipal,
   kind: 'proposal' | 'question',
-  payload: ProcessingProposalV5Dto | SessionAskArgsDto,
+  payload: SessionProposalDto | SessionAskArgsDto,
 ) {
   // withSession holds the capture, job, attempt and session locks.
   const attempts = await executeDatabaseQuery(
@@ -850,6 +970,14 @@ async function retainSessionMessage(
     kind,
     payload,
   })
+  // Field limits can't bound the sealed bytes: escaped or multibyte text, or many long web page
+  // URLs, can still overrun the stored envelope's limit.
+  if (envelope.bytes.length > MAX_SESSION_ENVELOPE_BYTES) {
+    refuse(
+      'validation_failed',
+      `This ${kind} is ${envelope.bytes.length} bytes once sealed, over the ${MAX_SESSION_ENVELOPE_BYTES}-byte limit. Shorten its text or cite fewer sources.`,
+    )
+  }
   validate('SessionEnvelope', JSON.parse(envelope.bytes.toString('utf8')))
   const messageId = randomUUID()
   const db = queryDatabase(client)
@@ -1005,10 +1133,11 @@ export function sessionTools(context: SessionToolContext) {
         token,
         { capture: true, leadWriter: true },
         async (client, principal, capture, writer) => {
-          const { proposal } = validated<{ proposal: ProcessingProposalV5Dto }>(
+          const { proposal } = validated<{ proposal: SessionProposalDto }>(
             'SessionProposeArgs',
             args,
           )
+          refuseUnacceptedWebPages(proposal)
           // The lead session proposes for any live lot of its batch; a lot session for its own lot.
           const lots = capture!.snapshot.lots.filter((lot) => !lot.retired).map((lot) => lot.id)
           if (
