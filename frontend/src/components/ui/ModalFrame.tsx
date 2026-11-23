@@ -188,7 +188,8 @@ const DialogSurface = styled(RadixDialog.Content)<{ $wide: boolean; $side: boole
     $side &&
     css`
       inset: 0 0 0 auto;
-      width: min(420px, 100vw);
+      /* Leaves a strip of dimmed page beside the drawer on phones, to click to close it. */
+      width: min(420px, calc(100vw - 2 * ${space[8]}));
       height: 100dvh;
       max-height: 100dvh;
       margin: 0;
