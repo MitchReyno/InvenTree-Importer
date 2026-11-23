@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ConnectionStatusDto, InventoryCredentialDto } from '@invimport/contracts'
+import { freshReads } from '#/queries/fresh-reads'
 import { serverQueryKey } from '#/queries/scope'
 import { useNow } from '#/browser/useNow'
 import { useOnForeground } from '#/browser/useOnForeground'
@@ -35,13 +36,15 @@ export function useHeaderObservations(client: HeaderClient, batchId?: string) {
     },
     refetchInterval: HEADER_POLL_MS,
   })
+  const workKey = serverQueryKey(scope, 'header-work', batchId ?? 'all')
   const work = useQuery({
-    queryKey: serverQueryKey(scope, 'header-work', batchId ?? 'all'),
-    queryFn: async () => {
+    queryKey: workKey,
+    // Numbered, so Resume can tell a read that started after the last live hint.
+    queryFn: freshReads(queryClient).track(workKey, async () => {
       const result = await client.work(batchId ? { batch_id: batchId } : {})
       assertHeaderScope(result, scope)
       return result
-    },
+    }),
     refetchInterval: poll === false ? HEADER_POLL_MS : poll,
   })
   // Counts token commands, so a check sent before one can't describe the token after it.

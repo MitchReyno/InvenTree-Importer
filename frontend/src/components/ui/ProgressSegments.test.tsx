@@ -48,6 +48,18 @@ describe('ProgressSegments', () => {
     expect(new Set(states).size).toBe(7)
   })
 
+  it('gives each state its own pattern, so none differs by colour alone', () => {
+    const { container } = render(<ProgressSegments steps={ALL} />)
+    const patterns = [...container.querySelectorAll('[data-state]')].map((node) =>
+      node.getAttribute('data-pattern'),
+    )
+
+    expect(new Set(patterns).size).toBe(7)
+    expect(segment(container, 'Examine')).toHaveAttribute('data-pattern', 'solid')
+    expect(segment(container, 'Broken')).toHaveAttribute('data-pattern', 'crosshatch')
+    expect(segment(container, 'Images')).toHaveAttribute('data-pattern', 'dots')
+  })
+
   it('fills a counted stage to its ready share and invents none without a count', () => {
     const { container } = render(<ProgressSegments steps={ALL} />)
 

@@ -154,6 +154,20 @@ describe('processingSegments', () => {
     expect(paused).toBe(true)
     expect(steps[1].state).toBe('paused')
   })
+
+  it('takes the pause from the header read over a cached attention read, both ways', () => {
+    const header = (paused: boolean) =>
+      ({
+        paused_batches: paused ? [{ batch_id: batch, title: 'Heyyy' }] : [],
+        paused_truncated: false,
+        batch_steps: [],
+      }) as unknown as HeaderWorkDto
+
+    expect(batchPaused(header(true), batch, counts({}, 12, false))).toBe(true)
+    expect(batchPaused(header(false), batch, counts({}, 12, true))).toBe(false)
+    // Without the header read, the attention read's flag is all there is.
+    expect(batchPaused(undefined, batch, counts({}, 12, true))).toBe(true)
+  })
 })
 
 describe('stage rows', () => {

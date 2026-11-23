@@ -93,7 +93,9 @@ export function ActivityIndicator({
   // A held slot outranks the spinner on the phone pill, where its word stands in for the labels.
   const held = fresh && compact === 'Slot held'
   const showSegments = fresh && !!preferred && layout !== 'condensed'
-  const stepWords = segments.map((step) => `${step.label}: ${step.state}`).join(', ')
+  const stepWords = segments
+    .map((step) => `${step.label}: ${WORK_STATE[step.state].word.toLowerCase()}`)
+    .join(', ')
   const describedBy = [
     `${ids}-headline`,
     name ? `${ids}-name` : '',

@@ -146,17 +146,28 @@ export function batchStepCounts(
   return entry && { paused: entry.paused, lots: entry.lots, steps: entry.steps }
 }
 
-/** Whether a batch is paused: from its counts, else the header's list of paused batches. */
+/**
+ * Whether a batch is paused. The header read is polled and lists every scoped paused batch, so it
+ * decides whenever it has the batch; a cached attention read's flag is used only without it.
+ */
 export function batchPaused(
   data: HeaderWorkDto | undefined,
   batch: string | undefined,
   counts: BatchCounts | undefined,
 ) {
-  if (counts) {
-    return counts.paused
+  if (!batch) {
+    return false
+  }
+  const listed = data?.paused_batches.some((entry) => entry.batch_id === batch) ?? false
+  const entry = data?.batch_steps?.find((candidate) => candidate.batch_id === batch)
+  if (listed || entry) {
+    return listed || entry!.paused
+  }
+  if (data && !data.paused_truncated) {
+    return false
   }
 
-  return !!batch && !!data?.paused_batches.some((entry) => entry.batch_id === batch)
+  return counts?.paused ?? false
 }
 
 /** Examine is done once its lead job is ready; a lot stage once every live lot is ready there. */

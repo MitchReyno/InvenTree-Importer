@@ -1,7 +1,11 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { describe, expect, it, vi } from 'vitest'
 import type { BatchAttentionDto, HeaderWorkDto } from '@invimport/contracts'
+import { useServerScope } from '#/context'
+import { freshReads } from '#/queries/fresh-reads'
+import { serverQueryKey } from '#/queries/scope'
 import { fixtureScope, render } from '#/test/render'
 import type { AgentsRead } from '#/processing/types'
 import { ActivityPopover } from './ActivityPopover'
@@ -106,11 +110,34 @@ function workingBatch(overrides: Partial<HeaderWorkDto> = {}): HeaderWorkDto {
   }
 }
 
-function popover(
-  data: HeaderWorkDto,
-  options: { fresh?: boolean; agents?: Partial<AgentsRead>; attention?: BatchAttentionDto } = {},
-) {
-  return render(
+type PopoverOptions = {
+  fresh?: boolean
+  agents?: Partial<AgentsRead>
+  attention?: BatchAttentionDto
+  /** Answers the header work read; the first answer is `data`. */
+  read?: () => Promise<HeaderWorkDto>
+}
+
+let invalidateWork: () => Promise<void> = async () => {}
+
+let noteHint: () => void = () => {}
+
+/** The popover over a header work read held in the query cache, as the masthead holds it. */
+function WithWorkRead({ data, options }: { data: HeaderWorkDto; options: PopoverOptions }) {
+  const scope = useServerScope()
+  const queryClient = useQueryClient()
+  const key = serverQueryKey(scope, 'header-work', 'all')
+  const read = useQuery({
+    queryKey: key,
+    queryFn: freshReads(queryClient).track(key, options.read ?? (async () => data)),
+  })
+  invalidateWork = () => queryClient.invalidateQueries({ queryKey: key })
+  noteHint = () => freshReads(queryClient).noteHint()
+  if (!read.data) {
+    return null
+  }
+
+  return (
     <ActivityPopover
       data={data}
       batchId={batch}
@@ -118,9 +145,16 @@ function popover(
       attention={options.attention}
       unavailable={false}
       fresh={options.fresh ?? true}
-    />,
-    { clients: options.agents ? { agents: options.agents as AgentsRead } : {} },
+    />
   )
+}
+
+async function popover(data: HeaderWorkDto, options: PopoverOptions = {}) {
+  const result = render(<WithWorkRead data={data} options={options} />, {
+    clients: options.agents ? { agents: options.agents as AgentsRead } : {},
+  })
+  await screen.findAllByRole('region')
+  return result
 }
 
 function rows(group: HTMLElement) {
@@ -128,8 +162,8 @@ function rows(group: HTMLElement) {
 }
 
 describe('ActivityPopover stage rows', () => {
-  it('shows one row per stage with its count, state and status line, each opening its step', () => {
-    popover(workingBatch())
+  it('shows one row per stage with its count, state and status line, each opening its step', async () => {
+    await popover(workingBatch())
     const group = screen.getByRole('region', { name: 'Heyyy · Processing' })
     const links = rows(group)
 
@@ -148,14 +182,14 @@ describe('ActivityPopover stage rows', () => {
     expect(links[0]).toHaveTextContent('2 questions waiting for your answer')
   })
 
-  it('gives a stage with no listed session a plain reason, not an older agent line', () => {
-    popover(workingBatch())
+  it('gives a stage with no listed session a plain reason, not an older agent line', async () => {
+    await popover(workingBatch())
     const inventory = rows(screen.getByRole('region', { name: 'Heyyy · Processing' }))[3]
 
     expect(inventory).toHaveTextContent('Starts when Research and Images finish a lot')
   })
 
-  it('gives a finished stage whose cancelled attempt still holds a slot a reason, and shows the slot', () => {
+  it('gives a finished stage whose cancelled attempt still holds a slot a reason, and shows the slot', async () => {
     const data = workingBatch({
       work: [job('research', 'cancelled', 1)],
       active_sessions: [
@@ -167,7 +201,7 @@ describe('ActivityPopover stage rows', () => {
       ],
     })
     data.batch_steps![0].steps.research = { ...none, jobs: 12, ready: 12, ready_lots: 12 }
-    popover(data)
+    await popover(data)
     const group = screen.getByRole('region', { name: 'Heyyy · Processing' })
     const research = rows(group)[1]
 
@@ -176,16 +210,16 @@ describe('ActivityPopover stage rows', () => {
     expect(group).toHaveTextContent('Physical lane occupied')
   })
 
-  it('shows a stage outside the bounded session list with a reason rather than an agent line', () => {
+  it('shows a stage outside the bounded session list with a reason rather than an agent line', async () => {
     const data = workingBatch({ active_sessions: [], sessions_truncated: true })
-    popover(data)
+    await popover(data)
     const research = rows(screen.getByRole('region', { name: 'Heyyy · Processing' }))[1]
 
     expect(research).toHaveTextContent('An agent is working on this step')
   })
 
-  it('shows a stage the read does not count with its known state and no invented count', () => {
-    popover(workingBatch({ batch_steps: [] }))
+  it('shows a stage the read does not count with its known state and no invented count', async () => {
+    await popover(workingBatch({ batch_steps: [] }))
     const links = rows(screen.getByRole('region', { name: 'Heyyy · Processing' }))
 
     expect(links[1]).toHaveTextContent('Working')
@@ -193,8 +227,8 @@ describe('ActivityPopover stage rows', () => {
     expect(links[1]).toHaveTextContent('Checking the reel label')
   })
 
-  it('draws the rows still from a stale read, and animates only working stages from a fresh one', () => {
-    const { container, unmount } = popover(workingBatch())
+  it('draws the rows still from a stale read, and animates only working stages from a fresh one', async () => {
+    const { container, unmount } = await popover(workingBatch())
 
     const animated = () =>
       [...container.querySelectorAll('[data-animated="true"]')].map((node) =>
@@ -203,11 +237,11 @@ describe('ActivityPopover stage rows', () => {
 
     expect(animated()).toEqual(['working', 'working'])
     unmount()
-    const stale = popover(workingBatch(), { fresh: false })
+    const stale = await popover(workingBatch(), { fresh: false })
     expect(stale.container.querySelectorAll('[data-animated="true"]')).toHaveLength(0)
   })
 
-  it('reads Examine waiting on questions as waiting for you with nothing animated', () => {
+  it('reads Examine waiting on questions as waiting for you with nothing animated', async () => {
     const data = workingBatch({
       work: [job('examine', 'waiting_for_user', 5)],
       active_sessions: [
@@ -225,7 +259,7 @@ describe('ActivityPopover stage rows', () => {
       images: none,
       inventory: none,
     }
-    const { container } = popover(data, {
+    const { container } = await popover(data, {
       attention: {
         batch_id: batch,
         revision: '3',
@@ -262,7 +296,7 @@ describe('ActivityPopover Resume', () => {
     data.batch_steps![0].paused = true
     data.batch_steps![0].steps.research = { ...none, jobs: 12, running: 1, ready_lots: 7 }
     data.batch_steps![0].steps.images = { ...none, jobs: 12, ready: 6, ready_lots: 6 }
-    popover(data, { agents: { pause } })
+    await popover(data, { agents: { pause } })
     const group = screen.getByRole('region', { name: 'Heyyy · Processing' })
     const links = rows(group)
 
@@ -275,7 +309,7 @@ describe('ActivityPopover Resume', () => {
     await waitFor(() => expect(pause).toHaveBeenCalledWith(batch, false))
   })
 
-  it('lists a batch paused with no jobs, the open one included, by its name', () => {
+  it('lists a batch paused with no jobs, the open one included, by its name', async () => {
     const data = workingBatch({
       work: [],
       active_sessions: [],
@@ -287,7 +321,7 @@ describe('ActivityPopover Resume', () => {
       ],
       paused_truncated: true,
     })
-    popover(data, { agents: { pause: vi.fn() } })
+    await popover(data, { agents: { pause: vi.fn() } })
 
     for (const name of ['Heyyy · Processing', 'Resistor tray · Processing']) {
       const group = screen.getByRole('region', { name })
@@ -302,7 +336,7 @@ describe('ActivityPopover Resume', () => {
     const pause = vi.fn()
     const data = workingBatch({ paused_batches: [{ batch_id: batch, title: 'Heyyy' }] })
     data.batch_steps![0].paused = true
-    popover(data, { fresh: false, agents: { pause } })
+    await popover(data, { fresh: false, agents: { pause } })
     const group = screen.getByRole('region', { name: 'Heyyy · Processing' })
     const resume = within(group).getByRole('button', { name: 'Resume' })
 
@@ -310,5 +344,70 @@ describe('ActivityPopover Resume', () => {
     expect(group).toHaveTextContent('Resume waits for a current workflow read.')
     await user.click(resume)
     expect(pause).not.toHaveBeenCalled()
+  })
+
+  it('keeps Resume unavailable while a live update refresh is landing, and sends nothing', async () => {
+    const user = userEvent.setup()
+    const pause = vi.fn(async () => ({ batch_id: batch, paused: false }))
+    const data = workingBatch({ paused_batches: [{ batch_id: batch, title: 'Heyyy' }] })
+    data.batch_steps![0].paused = true
+
+    let release: (value: HeaderWorkDto) => void = () => {}
+
+    let reads = 0
+    await popover(data, {
+      agents: { pause },
+      read: () => {
+        reads += 1
+        if (reads === 1) {
+          return Promise.resolve(data)
+        }
+        return new Promise((resolve) => {
+          release = resolve
+        })
+      },
+    })
+    const group = screen.getByRole('region', { name: 'Heyyy · Processing' })
+    const resume = within(group).getByRole('button', { name: 'Resume' })
+    await waitFor(() => expect(resume).not.toHaveAttribute('aria-disabled'))
+
+    // A live hint arrives: the read shown started before it, so Resume waits.
+    act(() => noteHint())
+    expect(resume).toHaveAttribute('aria-disabled', 'true')
+    expect(resume).toHaveAccessibleDescription('Updating…')
+    await user.click(resume)
+    expect(pause).not.toHaveBeenCalled()
+
+    // The hint's refresh is held: still waiting until it lands.
+    act(() => {
+      void invalidateWork()
+    })
+    await waitFor(() => expect(reads).toBe(2))
+    expect(resume).toHaveAttribute('aria-disabled', 'true')
+    await act(async () => release(data))
+    await waitFor(() => expect(resume).not.toHaveAttribute('aria-disabled'))
+    await user.click(resume)
+    await waitFor(() => expect(pause).toHaveBeenCalledWith(batch, false))
+  })
+
+  it('says a Resume whose reply was lost is unconfirmed, and reads the batch again', async () => {
+    const user = userEvent.setup()
+    const pause = vi.fn(async () => {
+      throw new TypeError('Failed to fetch')
+    })
+    const data = workingBatch({ paused_batches: [{ batch_id: batch, title: 'Heyyy' }] })
+    data.batch_steps![0].paused = true
+    const read = vi.fn(async () => data)
+    await popover(data, { agents: { pause }, read })
+    const group = screen.getByRole('region', { name: 'Heyyy · Processing' })
+
+    await user.click(within(group).getByRole('button', { name: 'Resume' }))
+
+    expect(
+      await within(group).findByText(
+        "Resume wasn't confirmed; the batch shows as paused until the next read says otherwise.",
+      ),
+    ).toBeInTheDocument()
+    await waitFor(() => expect(read).toHaveBeenCalledTimes(2))
   })
 })
