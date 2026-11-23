@@ -146,14 +146,14 @@ No new third-party runtime dependency is needed: the decoder already ships `shar
   - Review confirmation of proposed values and targets;
   - the brief entry on the session page.
 - **Prerequisites:**
-  - BI-019 PR-B (stepped questions, needed by the match question), PR-D (history read, `photo_view`, web sources), PR-E (session page) and PR-G (the session-level read, recovery eligibility and slot totals that multi-lot session rows adapt);
+  - BI-019 PR-B (stepped questions, needed by the match question), PR-D1 (`photo_view`, web sources), PR-E (session page) and PR-G (the session-level read, recovery eligibility and slot totals that multi-lot session rows adapt);
   - coordinate instruction edits with BI-017;
   - BI-019 PR-F's activity popover, whose fourth stage row task 3 adapts to Match if PR-F has merged first;
   - Mitch's go-ahead for the live requalification.
 
 ## Delivery and parallel work
 
-The work is nine PRs after the plan. Tasks › "Parallel work" sets out exactly which can be built at the same time: six waves, with at most two PRs in progress at once and a critical path of PR-A → PR-B → PR-C → PR-D → PR-F → PR-G. It also proposes five re-carvings (PR-A off BI-019 PR-D; decoder ports split out of PR-E; the Match search core split out of PR-C; records split from approval in PR-F; guide content and the profile scaffold started early) that would allow up to four PRs at once. They are flagged for Mitch's decision and not yet applied.
+The work is eleven PRs after the plan. Tasks › "Parallel work" sets out exactly which can be built at the same time: six waves, with up to three PRs in progress at once and a critical path of PR-A → PR-B → PR-C → PR-D → PR-F → PR-G2. Mitch applied two re-carvings on 2026-11-23: the media decoder ports (PR-E1) start in wave 1, separate from the image tools and review (PR-E2), and the profile scaffold, packs and guides (PR-G1) land early behind the test-only switch, separate from activation and the live run (PR-G2). PR-A now waits for BI-019's early PR-D1 rather than its history read. Two further re-carvings stay proposals.
 
 ## Open decisions and assumptions
 
