@@ -202,7 +202,7 @@
   - [x] 7.2.4 The step `lot` parameter on a direct load.
   - [x] 7.2.5 The Research page's own counts, using the step section's filtering.
 - [x] 7.3 GREEN: share `NeedsYouPanel`'s list, replace Pipeline with the lot table, add the `lot` route parameter and focus, link the bar, scope the step counts, and remove the duplicate outer summary.
-- [ ] 7.4 Capture the Overview and step pages. Run the frontend checks, and record the demo video.
+- [x] 7.4 Capture the Overview and step pages. Run the frontend checks, and record the demo video.
 
 ## 8. Help buttons and popover placement
 
