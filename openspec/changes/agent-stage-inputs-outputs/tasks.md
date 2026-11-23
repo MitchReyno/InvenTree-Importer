@@ -341,7 +341,7 @@ With suggestions 3 and 4 also applied, Match's search core (PR-C1) would start i
   - two claimers racing, and a restart between queueing and claim, run with the deployed runner and `agent_writer` roles, with group creation on the `agent_writer` connection
   - a group whose combined evidence passes 64 media versions
   - the synthetic lot driver reading and proposing for every lot of its group, a cross-lot citation refused, an Images recipe for lot A over evidence exclusive to lot B refused, shared evidence accepted, and a proposal after release refused
-  - and one group giving one row and one slot in the totals
+  - one group giving one row and one slot in the totals
   - Frontend tests cover the settings fields and the session rows.
 - **Verification:** contracts tests, intake tiers, frontend checks, and a demo video.
 
