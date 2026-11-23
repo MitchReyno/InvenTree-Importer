@@ -112,6 +112,22 @@ VM tool sessions with the web tool surface SHALL run under `shared-vm-agent/3`, 
 - **WHEN** it runs
 - **THEN** it has the web tool surface under `/4`, and retained `shared-vm-agent/3` attempts ran under `/3` only until the cutover's drain; after it they stay readable, and the upgrade action carries waiting or parked ones into `/7`.
 
+### Requirement: Cancellation and recovery
+
+Cancelling a session SHALL abort its active turn and reap its process group before the session releases its slot. An unconfirmed reap SHALL keep the slot occupied and visible. After a worker restart, the system SHALL NOT silently continue a turn that was in flight. Such a session SHALL become interrupted, keep its outbox and pending inbox, and resume only through an explicit operator action, a new pending inbox item, or, for `/7` work, a committed Match continuation.
+
+#### Scenario: Worker restarts mid-turn
+
+- **GIVEN** a running session when the worker stops abruptly
+- **WHEN** the worker starts again
+- **THEN** the session is shown as interrupted, its delivered status lines and proposals remain, and no provider call is started until a resume is requested or triggered by the inbox.
+
+#### Scenario: Crash after a decision is acknowledged
+
+- **GIVEN** a `/7` session that acknowledged a lot's `match` item through `read_inbox`, committing its mode and continuation
+- **WHEN** the worker crashes before the turn settles, or after it settles and before the continuation dispatches
+- **THEN** the session resumes from the committed continuation under the new mode once the worker restarts, without another message.
+
 ## ADDED Requirements
 
 ### Requirement: Stage tool sets

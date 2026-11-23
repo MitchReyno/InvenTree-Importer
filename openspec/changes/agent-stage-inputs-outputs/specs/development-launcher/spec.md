@@ -2,7 +2,7 @@
 
 ### Requirement: Processing switches select the profile
 
-The development launcher SHALL select the processing profile from `INTAKE_USE_MOCK_AI_AGENTS` (default true), `INTAKE_USE_AGENT_SESSIONS` (default true), `INTAKE_RUN_AGENTS_IN_VM` (default false), `INTAKE_VM_AGENT_TOOLS` (default true) and `INTAKE_VM_AGENT_DRAIN` (default false), and SHALL pass only the resulting existing profile ID to its child processes.
+The development launcher SHALL select the processing profile from `INTAKE_USE_MOCK_AI_AGENTS` (default true), `INTAKE_USE_AGENT_SESSIONS` (default true), `INTAKE_RUN_AGENTS_IN_VM` (default false), `INTAKE_VM_AGENT_TOOLS` (default true) and `INTAKE_VM_AGENT_DRAIN` (default false), and SHALL pass to the API and worker children only the resulting existing profile ID, the synthetic route (`local` or `bridge`) and the drain setting.
 
 #### Scenario: Profile table
 
@@ -50,6 +50,12 @@ The development launcher SHALL select the processing profile from `INTAKE_USE_MO
 - **GIVEN** `INTAKE_RUN_AGENTS_IN_VM=true`
 - **WHEN** the UI process starts
 - **THEN** it serves the personal credential management proxy; with the VM switch off it does not.
+
+#### Scenario: Children share the route
+
+- **GIVEN** the default switches
+- **WHEN** `pnpm dev` starts
+- **THEN** the API and session worker children both receive `synthetic-session/1`, the `local` route and drain off through their environment allowlists.
 
 #### Scenario: Drain then switch
 
