@@ -34,7 +34,7 @@ export function HeaderDisclosure({
   return (
     <Popover
       label={title}
-      width={`min(360px, calc(100vw - ${space[12]}))`}
+      width={`min(${variant === 'activity' ? '520px' : '360px'}, calc(100vw - ${space[12]}))`}
       open={open}
       onOpenChange={onOpenChange}
       trigger={

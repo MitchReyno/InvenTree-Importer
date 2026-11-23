@@ -104,6 +104,8 @@ function retainedApi(activityAvailable: boolean) {
           steps_complete: false,
         })),
         active_sessions: [],
+        paused_batches: [],
+        paused_truncated: false,
         work_truncated: false,
         sessions_truncated: false,
         lane_occupied: true,

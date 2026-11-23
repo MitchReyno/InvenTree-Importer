@@ -5,6 +5,7 @@ import { color, radius, space, typeVar } from '#/theme/generated/tokens'
 import { observationFresh, preferredWork, workflowSummary } from '#/header/observations'
 import { useCachedBatchReads } from '#/header/useCachedBatchReads'
 import {
+  batchPaused,
   batchStepCounts,
   compactJobWord,
   jobGroup,
@@ -82,7 +83,7 @@ export function ActivityIndicator({
   const counts = batchStepCounts(data, preferred?.batch_id, attention)
   const segments =
     preferred?.kind === 'processing'
-      ? processingSegments(jobs, counts)
+      ? processingSegments(jobs, counts, batchPaused(data, preferred.batch_id, counts))
       : preferred
         ? segmentSteps(preferred)
         : []

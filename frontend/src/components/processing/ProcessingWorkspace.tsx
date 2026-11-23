@@ -764,6 +764,8 @@ export function ProcessingWorkspace({
               lotsFormed={lotsFormed(batch.lots)}
               sessionLimit={sessionLimit}
               pause={pause}
+              paused={snapshot?.paused === true}
+              still={!liveRead(snapshotQuery)}
             />
           ) : (
             <StepPage

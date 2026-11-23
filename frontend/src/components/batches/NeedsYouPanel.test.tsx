@@ -5,10 +5,46 @@ import { describe, expect, it } from 'vitest'
 import { NeedsYouPanel } from './NeedsYouPanel'
 
 const noSteps = {
-  examine: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
-  research: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
-  images: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
-  inventory: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
+  examine: {
+    questions: 0,
+    failed: 0,
+    jobs: 0,
+    ready: 0,
+    running: 0,
+    waiting: 0,
+    queued: 0,
+    ready_lots: 0,
+  },
+  research: {
+    questions: 0,
+    failed: 0,
+    jobs: 0,
+    ready: 0,
+    running: 0,
+    waiting: 0,
+    queued: 0,
+    ready_lots: 0,
+  },
+  images: {
+    questions: 0,
+    failed: 0,
+    jobs: 0,
+    ready: 0,
+    running: 0,
+    waiting: 0,
+    queued: 0,
+    ready_lots: 0,
+  },
+  inventory: {
+    questions: 0,
+    failed: 0,
+    jobs: 0,
+    ready: 0,
+    running: 0,
+    waiting: 0,
+    queued: 0,
+    ready_lots: 0,
+  },
 }
 
 const b = 'b0000000-0000-4000-8000-000000000001'
@@ -17,7 +53,7 @@ const run = 'r0000000-0000-4000-8000-000000000002'
 const attention: BatchAttentionDto = {
   batch_id: b,
   revision: '3',
-  processing: { questions: 1, failed: 0, running: 0, steps: noSteps },
+  processing: { questions: 1, failed: 0, running: 0, lots: 0, paused: false, steps: noSteps },
   review: { to_check: 1, changed_after_review: 1, needs_answer: 0, to_decide: 0, records: 0 },
   changes: { ready: 0, failed: 1, uncertain: 0, runs: 0 },
   items: [

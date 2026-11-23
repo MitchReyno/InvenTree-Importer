@@ -16,10 +16,10 @@ import { useHashRoute } from '#/navigation/useHashRoute'
 import { ApiClientsProvider } from '#/context'
 
 const noSteps = {
-  examine: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
-  research: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
-  images: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
-  inventory: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
+  examine: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0, waiting: 0, queued: 0, ready_lots: 0 },
+  research: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0, waiting: 0, queued: 0, ready_lots: 0 },
+  images: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0, waiting: 0, queued: 0, ready_lots: 0 },
+  inventory: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0, waiting: 0, queued: 0, ready_lots: 0 },
 }
 
 /** Owned browser fixture: synthetic clients only, no API, provider or InvenTree traffic. */
@@ -136,7 +136,7 @@ const media: MediaSnapshotDto = {
 const attention: BatchAttentionDto = {
   batch_id: batchId,
   revision: '7',
-  processing: { questions: 3, failed: 0, running: 0, steps: noSteps },
+  processing: { questions: 3, failed: 0, running: 0, lots: 0, paused: false, steps: noSteps },
   review: { to_check: 4, changed_after_review: 1, needs_answer: 1, to_decide: 2, records: 0 },
   changes: { ready: 1, failed: 0, uncertain: 0, runs: 0 },
   items: [

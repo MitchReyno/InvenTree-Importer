@@ -18,6 +18,8 @@ const step = (name: 'examine' | 'research' | 'images' | 'inventory', label: stri
   ready: 0,
   failed: 0,
   questions: 0,
+  readyLots: 0,
+  lots: 0,
 })
 
 const source: ProcessingSource = {
@@ -330,7 +332,7 @@ describe('InstructionField', () => {
     const progress = screen.getByRole('region', { name: 'Progress' })
     expect(within(progress).getByRole('heading', { name: '1 agent working' })).toBeVisible()
     expect(within(progress).getByRole('list', { name: 'Steps' })).toBeVisible()
-    expect(within(progress).getByText('Examine: running')).toBeInTheDocument()
+    expect(within(progress).getByText('Examine: working')).toBeInTheDocument()
     expect(within(progress).getByText('Research: failed')).toBeInTheDocument()
   })
 
@@ -437,7 +439,7 @@ describe('InstructionField', () => {
         ],
       },
     })
-    expect(screen.getByText('Examine: waiting')).toBeInTheDocument()
+    expect(screen.getByText('Examine: queued')).toBeInTheDocument()
   })
 
   it('describes each session row by its state and latest line', () => {
@@ -459,5 +461,32 @@ describe('InstructionField', () => {
     expect(
       screen.getByRole('button', { name: 'Open session: Research · Packet B' }),
     ).toHaveAccessibleDescription('Waiting for you Checking the datasheet')
+  })
+
+  it('draws the shared stage bar: paused stages hatched to their share, a running turn still working', () => {
+    const { container } = overview({
+      paused: true,
+      source: {
+        ...source,
+        steps: [
+          { ...source.steps[0], jobs: 1, ready: 1, running: 0, questions: 0 },
+          { ...source.steps[1], jobs: 4, running: 1, failed: 0, readyLots: 1, lots: 4 },
+          { ...source.steps[2], jobs: 4, ready: 3, readyLots: 3, lots: 4 },
+          { ...source.steps[3], lots: 4 },
+        ],
+      },
+    })
+
+    const bars = [...container.querySelectorAll<HTMLElement>('[data-state]')]
+    expect(bars.map((bar) => bar.dataset.state)).toEqual(['done', 'working', 'paused', 'paused'])
+    expect(bars[2].querySelector('i')).toHaveStyle({ width: '75%' })
+    expect(bars.filter((bar) => bar.dataset.animated === 'true')).toHaveLength(1)
+  })
+
+  it('keeps every bar still while its read is not current', () => {
+    const { container } = overview({ still: true })
+
+    expect(container.querySelector('[data-state="working"]')).not.toBeNull()
+    expect(container.querySelectorAll('[data-animated="true"]')).toHaveLength(0)
   })
 })

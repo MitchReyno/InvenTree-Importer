@@ -18,6 +18,8 @@ const source: ProcessingSource = {
       ready: 1,
       failed: 0,
       questions: 1,
+      readyLots: 0,
+      lots: 0,
     },
     {
       step: 'research',
@@ -29,6 +31,8 @@ const source: ProcessingSource = {
       ready: 0,
       failed: 0,
       questions: 0,
+      readyLots: 0,
+      lots: 0,
     },
     {
       step: 'images',
@@ -40,6 +44,8 @@ const source: ProcessingSource = {
       ready: 0,
       failed: 0,
       questions: 0,
+      readyLots: 0,
+      lots: 0,
     },
     {
       step: 'inventory',
@@ -51,6 +57,8 @@ const source: ProcessingSource = {
       ready: 0,
       failed: 0,
       questions: 0,
+      readyLots: 0,
+      lots: 0,
     },
   ],
   questions: [

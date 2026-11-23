@@ -69,6 +69,8 @@ function work(): HeaderWorkDto {
     observed_at: new Date().toISOString(),
     work: [],
     active_sessions: [],
+    paused_batches: [],
+    paused_truncated: false,
     work_truncated: false,
     sessions_truncated: false,
     lane_occupied: false,
@@ -204,8 +206,11 @@ test('current batch work, retained steps and logically cancelled occupied agents
         occupies_lane: true,
         session_state: null,
         latest_status: null,
+        current: true,
       },
     ],
+    paused_batches: [],
+    paused_truncated: false,
     work_truncated: true,
     sessions_truncated: true,
     lane_occupied: true,
@@ -506,6 +511,7 @@ test('a session shows its latest status line, and a waiting session holds no slo
           text: 'Comparing markings with datasheet candidates',
           at: '2026-11-06T01:02:03.000Z',
         },
+        current: true,
       },
       {
         ...row,
@@ -515,6 +521,7 @@ test('a session shows its latest status line, and a waiting session holds no slo
         occupies_lane: false,
         session_state: 'waiting_input',
         latest_status: { text: 'Asked how many reels there are', at: '2026-11-06T01:03:00.000Z' },
+        current: true,
       },
     ],
   })
@@ -571,7 +578,16 @@ test('the bar ends with activity, connection and the Settings button', async () 
     )
 })
 
-const stepCounts = { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 }
+const stepCounts = {
+  questions: 0,
+  failed: 0,
+  jobs: 0,
+  ready: 0,
+  running: 0,
+  waiting: 0,
+  queued: 0,
+  ready_lots: 0,
+}
 
 /** Stands in for the batch screen, which fills the capture and attention reads the header shares. */
 function BatchReads({ attention }: { attention: BatchAttentionDto }) {
@@ -596,6 +612,7 @@ function processingWork(): HeaderWorkDto {
     progress: 'responding' as const,
     session_state: 'running' as const,
     latest_status: null,
+    current: true,
   }
   return {
     ...work(),
@@ -646,6 +663,8 @@ const attention: BatchAttentionDto = {
     questions: 3,
     failed: 1,
     running: 2,
+    lots: 0,
+    paused: false,
     steps: {
       examine: { ...stepCounts, jobs: 4, ready: 4 },
       research: { ...stepCounts, jobs: 10, ready: 6, running: 2 },
@@ -681,24 +700,35 @@ test('inside its batch the activity label counts the agents holding a slot, with
   const steps = within(trigger).getAllByRole('listitem', { hidden: true })
   expect(steps.map((step) => step.textContent)).toEqual([
     'Examine: done',
-    'Research: running',
+    'Research: working',
     'Images: failed',
-    'Inventory: waiting',
+    'Inventory: not started',
   ])
 })
 
 test('away from the batch the header step counts give the partial fill and "Research: 3 of 5"', async () => {
   const user = userEvent.setup()
   const api = client()
-  const step = { jobs: 0, ready: 0, running: 0 }
+  const step = {
+    jobs: 0,
+    ready: 0,
+    running: 0,
+    waiting: 0,
+    queued: 0,
+    questions: 0,
+    failed: 0,
+    ready_lots: 0,
+  }
   vi.mocked(api.work).mockResolvedValue({
     ...processingWork(),
     batch_steps: [
       {
         batch_id: batchId,
+        paused: false,
+        lots: 5,
         steps: {
           examine: { ...step, jobs: 4, ready: 4 },
-          research: { jobs: 5, ready: 3, running: 1 },
+          research: { ...step, jobs: 5, ready: 3, running: 1, ready_lots: 3 },
           images: step,
           inventory: step,
         },
@@ -709,13 +739,13 @@ test('away from the batch the header step counts give the partial fill and "Rese
 
   const trigger = await screen.findByRole('button', { name: 'Workflow activity' })
   await waitFor(() => expect(trigger).toHaveAccessibleDescription(/Research: 3 of 5/))
-  const running = trigger.querySelector('[data-state="running"] i')
+  const running = trigger.querySelector('[data-state="working"] i')
   expect(running).toHaveStyle({ width: '60%' })
 
   await user.click(trigger)
   const panel = screen.getByRole('dialog', { name: 'Workflow details' })
   const job = within(panel).getByRole('region', { name: 'Other batch · Processing' })
-  expect(job.querySelector('[data-state="running"] i')).toHaveStyle({ width: '60%' })
+  expect(job.querySelector('[data-state="working"] i')).toHaveStyle({ width: '60%' })
 })
 
 test('a batch the header read does not count shows its running step without a fraction', async () => {
@@ -750,7 +780,7 @@ test('the workflow panel shows each job as step segments and keeps raw IDs out o
   expect(within(panel).queryByRole('button', { name: /Close/ })).toBeNull()
   expect(within(panel).queryByRole('list', { name: 'Retained steps' })).toBeNull()
   const job = within(panel).getByRole('region', { name: 'Current batch · Processing' })
-  expect(within(job).getByText('Research: running')).toBeInTheDocument()
+  expect(within(job).getByText('Research: working')).toBeInTheDocument()
   expect(within(job).getByText('Running')).toBeInTheDocument()
   expect(within(job).getByRole('link', { name: 'Open processing' })).toBeInTheDocument()
   const details = within(job).getByText('Details').closest('details')!
@@ -905,7 +935,7 @@ test('the planned steps come from all of the batch’s jobs, one step each', asy
       within(trigger)
         .getAllByRole('listitem', { hidden: true })
         .map((step) => step.textContent),
-    ).toEqual(['Examine: done', 'Research: running', 'Images: waiting', 'Inventory: waiting']),
+    ).toEqual(['Examine: done', 'Research: working', 'Images: queued', 'Inventory: not started']),
   )
 })
 
@@ -930,6 +960,7 @@ test('an import run keeps its own state, apart from Processing’s questions and
     active_sessions: busy.active_sessions.map((session) => ({
       ...session,
       latest_status: { text: 'Comparing supplier listings', at: new Date().toISOString() },
+      current: true,
     })),
   })
   render(
@@ -1064,7 +1095,7 @@ describe('at phone width', () => {
     expect(status.querySelector('[data-ai-mark]')).not.toBeNull()
     await waitFor(() =>
       expect(status).toHaveAccessibleDescription(
-        /Examine: done, Research: running, Images: failed, Inventory: waiting/,
+        /Examine: done, Research: working, Images: failed, Inventory: queued/,
       ),
     )
     expect(status.compareDocumentPosition(menu) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()

@@ -32,6 +32,8 @@ import { Popover } from '#/components/ui/Popover'
 import { Count, Pill, type PillStatus, type PillTone } from '#/components/ui/Pill'
 import { ProblemList } from '#/components/ui/ProblemCard'
 import { ProgressSegments } from '#/components/ui/ProgressSegments'
+import { StatePill } from '#/components/ui/StatePill'
+import { EventTime } from '#/components/ui/EventTime'
 import { Skeleton, Spinner } from '#/components/ui/Loading'
 import { QuestionCard } from '#/components/ui/QuestionCard'
 import { RecordChain } from '#/components/ui/RecordChain'
@@ -255,21 +257,47 @@ export function ComponentGallery() {
             <ProgressSegments
               steps={[
                 { label: 'Examine', state: 'done' },
-                { label: 'Research', state: 'running', fraction: 0.4 },
-                { label: 'Images', state: 'waiting' },
+                { label: 'Research', state: 'working', fraction: 0.4 },
+                { label: 'Images', state: 'waiting_for_you' },
               ]}
             />
             <Skeleton width="120px" height="16px" />
           </Row>
+          {/* Every stage state, counted where a share is shown and uncounted otherwise. */}
           <ProgressSegments
             size="lg"
             steps={[
               { label: 'Examine', state: 'done' },
-              { label: 'Research', state: 'running' },
-              { label: 'Images', state: 'waiting' },
-              { label: 'Inventory', state: 'waiting' },
+              { label: 'Research', state: 'working', fraction: 0.58 },
+              { label: 'Images', state: 'paused', fraction: 0.75 },
+              { label: 'Inventory', state: 'queued', fraction: 0 },
             ]}
           />
+          <ProgressSegments
+            size="lg"
+            steps={[
+              { label: 'Examine', state: 'waiting_for_you' },
+              { label: 'Research', state: 'working' },
+              { label: 'Images', state: 'failed' },
+              { label: 'Inventory', state: 'not_started' },
+            ]}
+          />
+          <Row>
+            {(
+              [
+                'working',
+                'waiting_for_you',
+                'queued',
+                'paused',
+                'done',
+                'failed',
+                'not_started',
+              ] as const
+            ).map((state) => (
+              <StatePill key={state} state={state} />
+            ))}
+            <EventTime at="2026-11-20T21:09:00.000Z" />
+          </Row>
         </Section>
 
         <Section title="Navigation">

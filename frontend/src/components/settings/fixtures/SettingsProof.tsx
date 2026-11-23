@@ -136,6 +136,8 @@ const header: HeaderClient = {
     observed_at: new Date().toISOString(),
     work: [],
     active_sessions: [],
+    paused_batches: [],
+    paused_truncated: false,
     work_truncated: false,
     sessions_truncated: false,
     lane_occupied: false,
