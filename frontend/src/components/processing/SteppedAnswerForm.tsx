@@ -100,6 +100,8 @@ export function SteppedAnswerForm({
   const started = drafts.some(draftStarted)
   const locked = formState.isSubmitting || readOnly || retrying
   const complete = drafts.every(stepComplete)
+  // Next only moves through the draft; the consequence line belongs beside Send.
+  const advancing = stepped && position !== 'review'
   const sendDisabled =
     disabled || readOnly || formState.isSubmitting || (!retrying && (stale || !complete))
 
@@ -275,7 +277,7 @@ export function SteppedAnswerForm({
                   Back
                 </Button>
               )}
-              {stepped && position !== 'review' ? (
+              {advancing ? (
                 <Button
                   variant="primary"
                   type="submit"
@@ -294,9 +296,11 @@ export function SteppedAnswerForm({
                 </Button>
               )}
             </Actions>
-            <Small>
-              Your answer updates the saved lot or note, and the agent working on it reads it.
-            </Small>
+            {!advancing && (
+              <Small>
+                Your answer updates the saved lot or note, and the agent working on it reads it.
+              </Small>
+            )}
           </>
         }
         secondary={

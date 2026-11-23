@@ -136,6 +136,7 @@ test('a question with steps goes Back and Next, then a summary with Change, then
   const { answer } = mount(threeSteps)
   expect(screen.getByText('About the 10 kΩ packets')).toBeVisible()
   expect(screen.getByText('Step 1 of 3')).toBeVisible()
+  expect(screen.queryByText(/Your answer updates the saved lot or note/)).toBeNull()
   expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument()
 
   const next = () => screen.getByRole('button', { name: 'Next' })
@@ -164,6 +165,8 @@ test('a question with steps goes Back and Next, then a summary with Change, then
   expect(rows.getByText('Drawer R3')).toBeVisible()
   // Each assumption stays in view until the answer is sent.
   expect(rows.getByText('Assuming until sent: An estimated 380.')).toBeVisible()
+  // What sending does is said beside Send, not beside Next.
+  expect(screen.getByText(/Your answer updates the saved lot or note/)).toBeVisible()
   await user.click(rows.getByRole('button', { name: 'Change: Where should packet B go?' }))
   expect(screen.getByText('Step 3 of 3')).toBeVisible()
   await user.click(screen.getByRole('radio', { name: /Drawer R4/ }))
