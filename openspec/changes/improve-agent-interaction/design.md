@@ -77,7 +77,7 @@ The locked capture edit handle (`lockCaptureForEdit` in `capture/repository.ts`)
 
 Any refusal rolls back everything. Because the capture lock is held throughout, the capture can't change between the two edits; the rollback test injects a refusal of the second edit.
 
-Replay keeps today's two mechanisms. The answer command binds the caller's idempotency key to the exact request payload: a replay with the same bytes returns the first answer, and a different payload under the same key is refused as `payload_conflict`. Separately, `answer:<question_id>` deduplicates the inbox item. A second submission from the other surface with a new key finds the question answered and gets `stale_question`.
+Replay keeps today's behavior. The answer command binds the caller's idempotency key to the canonical request payload, so a same-key replay returns the first receipt and a different payload under that key is refused. A submission under a new key adopts an existing answer to the question when its canonical payload matches, and is refused as `payload_conflict` when it differs, so the drawer and the page can't record two answers. Separately, `answer:<question_id>` deduplicates the inbox item.
 
 Rejected: changing `CaptureEdit` to carry several changes. That is a wider contract change for no gain, since sequential edits in one transaction are already atomic.
 
@@ -113,13 +113,14 @@ Rejected: changing `CaptureEdit` to carry several changes. That is a wider contr
 - **Resolution:** the server resolves IDs to labels and current or stale state from the same snapshot it already reads, so neither the drawer nor the page needs the whole Processing snapshot. A link to something retired becomes `{kind: 'gone', label: 'Lot retired'}`.
 - **Detail sources:** the outbox keeps IDs, so details come from the records they name:
   - an observation from its retained observation row;
-  - a lot from its capture record (observations used, quantity and basis, the separation note), shown as it is now;
+  - a lot from its capture record (observations, quantity and basis, the separation note), labelled as its current values, since the outbox keeps no snapshot of the lot as formed;
   - a regroup from its moves: the outbox payload gains `moves` (observation, from lot, to lot) for new entries, while older entries list only the affected lots;
   - a proposal or question from its retained row;
   - a failure from the attempt's retained failure, for every attempt, not only the latest;
   - where a detail isn't retained, the entry says so rather than showing current values as history.
 - **Attempts and turns:** each attempt gets a header entry with how it ended. Attempts record no reason for starting, so the header derives one from the retained input that preceded it (a revise request, a retry after a failure, or the first attempt) and otherwise says only "Attempt N". Further turns within one attempt, started by an answer, chat or new evidence, are not attempts: the inbox entry that woke the session marks them. The page shows these headers; the drawer hides them.
-- **Grouping:** this is presentation, done in one shared frontend function. Consecutive entries of the same kind and subject (or photo) are grouped. In the drawer, `photo_view` and `web_read` runs always collapse into one summary line linking to the page.
+- **Grouping:** this is presentation, done in one shared frontend function. Consecutive action entries of the same kind about the same subject or photo are grouped; observations from different photos stay separate. In the drawer, a run of `photo_view` and `web_read` entries, mixed or not, collapses into one summary line linking to the page.
+- **Inputs and attempts:** the inbox keeps one acknowledgement cursor per job, so which attempt read an input isn't retained. Inputs are placed by submission time, and an attempt divider by the attempt's start, without claiming which attempt consumed an input queued before a Start fresh.
 - **Rendering:** each entry is native `<details>`/`<summary>`. Links are built with the existing `batchHref` helpers, and external URLs open in a new tab with `rel="noreferrer"`.
 - **Rejected:** building entries in the frontend from the Processing snapshot. That duplicates resolution in two places, and the page would need snapshots of other batches when reached from the Agents page.
 
@@ -134,7 +135,7 @@ Rejected: changing `CaptureEdit` to carry several changes. That is a wider contr
 ### Agent-reported web page sources
 
 - A new proposal source kind, `{kind: 'web_page', url, title?, read_at?}`, is accepted in a `/6` session proposal's top-level `sources` only, beside the `ProcessingSource` kinds that `/5` uses, so `/5` stays exact. It can't appear in `relies_on` or catalogue sources.
-- **Delivery check:** the handler's delivered-citation check skips `web_page` sources, the one kind not delivered by the app. "Bounded status lines and delivered citations" is modified to state this exception. BI-017's delta already tells VM agents to cite web facts by URL; this gives that a place.
+- **Delivery check:** the handler's delivered-citation check skips `web_page` sources, the one kind not delivered by the app. The retained decoder (`retainedSessionProposal` in `processing/retained.ts`), which the Processing snapshot uses and which validates `/5` and rechecks delivery, accepts `/5` and `/6` and applies the same exception only to `/6` top-level `web_page` sources. "Bounded status lines and delivered citations" is modified to state this exception. BI-017's delta already tells VM agents to cite web facts by URL; this gives that a place.
 - **Validation:** the URL must be absolute `http(s)`, at most 2048 characters, with no credentials in the URL.
 - **Display:** the history derives a `web_read` entry from each cited URL (deduplicated per attempt), linked to the citing proposal. Source chips show "Web page" with the warn style and "agent-reported".
 - **Not verified:** Review and Inventory treat these sources as unverified. They can't stand in for a receipt anywhere a receipt is required today.
@@ -151,10 +152,11 @@ Rejected: changing `CaptureEdit` to carry several changes. That is a wider contr
   - the operator's inputs right-aligned;
   - attempt headers as dividers.
 - **Filters:** chips (All · Messages · Your inputs · Photos · Web) and Load older at the top.
+- **Command context:** answering in place needs the current question revision, attempt, digest and capture revision. The page mounts the batch's scoped Processing read for them, as the workspace does, and disables commands while that read is loading, failed or paused.
 - **Message box:** at the bottom; it posts to the existing inbox submission route with an idempotency key. The drawer and the page share the draft-pinning rules, so an answer saved in one shows the other's draft as superseded.
 - **Rejected:** option A, a timeline by attempt with chat and answering only in the drawer. These agents mostly act, but Mitch preferred one story in one place; A's filters and attempt dividers are kept.
 - The route is `/batches/:id/processing/:step/sessions/:jobId`: a new `{tab: 'processing', step, sessionJobId}` route variant, parsed and built by `batch-route.ts`. The drawer's `?session=` query stays for the drawer.
-- **Reuse:** the page uses the batch header, the history renderer, `QuestionAnswer`, `SessionFailureDetails` and the debug panel. It updates through the same scoped live invalidation as the drawer, which reacts to `session_changed` and `processing_changed`, with polling as the fallback. A refresh reads forward from the newest loaded entry with an `after` cursor, page by page until it catches up, so no entries are skipped when more than one page arrives between reads; older pages already loaded are kept.
+- **Reuse:** the page uses the batch header, the history renderer, `QuestionAnswer`, `SessionFailureDetails` and the debug panel. It updates through the same scoped live invalidation as the drawer, which reacts to `session_changed` and `processing_changed`, with polling as the fallback. A refresh reads forward with an `after` cursor of per-stream sequence watermarks (the inbox sequence, and the outbox sequence of each attempt), which are gap-free under their locks and so unaffected by commit order, page by page until it catches up, so no entries are skipped when more than one page arrives between reads; older pages already loaded are kept.
 - **Scope:** a job outside the batch or the caller's account gets the existing `session_not_found`.
 
 ### Stage counts and bar states
@@ -167,8 +169,8 @@ Rejected: changing `CaptureEdit` to carry several changes. That is a wider contr
   - All are counted in the same queries as the existing counts, in `header/processing.ts` and the attention read.
 - **States:** `SegmentState` becomes `done | working | waiting_for_you | paused | queued | not_started | failed`. `processingSegments` derives it in this order:
   1. failed;
-  2. paused, when the batch is paused and the step isn't done;
-  3. working, when `running > 0`;
+  2. working, when `running > 0`, even in a paused batch, because a turn already started finishes;
+  3. paused, when the batch is paused and the step isn't done;
   4. waiting for you;
   5. queued;
   6. done, when `ready_lots >= lots` with `lots > 0` for Research, Images and Inventory, or the lead job ready for Examine. A stage with no jobs yet is never done;

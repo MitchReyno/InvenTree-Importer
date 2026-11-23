@@ -62,7 +62,7 @@ A choice step SHALL show each option as a card the operator picks, and picking S
 
 ### Requirement: Expandable session history
 
-Each entry in a session's history that has more to show SHALL expand in place to its details and SHALL link to the pages it concerns. Consecutive entries of the same kind SHALL be grouped into one expandable entry. An entry with nothing more to show, such as a status line, SHALL stay one line.
+Each entry in a session's history that has more to show SHALL expand in place to its details and SHALL link to the pages it concerns. Consecutive entries of the same kind about the same subject or photo SHALL be grouped into one expandable entry. An entry with nothing more to show, such as a status line, SHALL stay one line.
 
 #### Scenario: Grouped observations
 
@@ -72,7 +72,7 @@ Each entry in a session's history that has more to show SHALL expand in place to
 
 ### Requirement: Lot-forming entries expand with links
 
-When expanded, an observation SHALL show its crop, its reading with the source chip and its visible count, linking to the photo in Capture and the map. A lot formed or extended SHALL show the observations used, its quantity and basis and why it is separate, linking to the lot in Review and the map. A regroup SHALL show which observations moved from which lot to which, linking to each affected lot; a regroup recorded before moves were kept SHALL list the affected lots.
+When expanded, an observation SHALL show its crop, its reading with the source chip and its visible count, linking to the photo in Capture and the map. A lot formed or extended SHALL show the lot's current observations, quantity and basis and why it is separate, labelled as current, linking to the lot in Review and the map. A regroup SHALL show which observations moved from which lot to which, linking to each affected lot; a regroup recorded before moves were kept SHALL list the affected lots.
 
 #### Scenario: Expand a formed lot
 
@@ -129,7 +129,7 @@ Each agent session SHALL have a page inside its batch's Processing that shows th
 
 - **GIVEN** a Research session that read pages, asked a question, received a chat message and a correction, and was then started fresh
 - **WHEN** its page opens
-- **THEN** the actions, the question card, the message, the agent's reply and the correction (as the operator's input) appear in time order within the first attempt, and a divider marks attempt 2, with its reason only where the retained data records one.
+- **THEN** the actions, the question card, the message, the agent's reply and the correction (as the operator's input) appear in time order within the first attempt, and a divider marks where attempt 2 started, with its reason only where the retained data records one; inputs are placed by when they were sent.
 
 ### Requirement: Session page header and panels
 

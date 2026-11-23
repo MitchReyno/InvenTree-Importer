@@ -11,7 +11,7 @@ Mitch reported these problems while working with agents in a live batch on 2026-
 5. **The activity bar misreports waiting work.** In the masthead activity popover, a stage that has made progress but waits on questions is drawn like a stage that hasn't started: `ProgressSegments` has one `waiting` state, drawn empty at 45% opacity, for both. A working stage only pulses its fill, and a paused batch looks the same as a running one.
 6. **The popover says too little per stage.** It shows one bar, the newest status line and one link, with no per-stage counts, status or navigation.
 7. **Sessions are hard to read and act on.** Found on the canvas "Fixes: before and after" page (v77–v78) and approved by Mitch:
-   - The Agents page and Processing's session list show one row per attempt, so retries flood them (Mitch's Heyyy batch showed 8 rows for 3 sessions).
+   - The Agents page shows one row per attempt, so retries flood it (Mitch's Heyyy batch showed 8 rows for 3 sessions). Processing's list already shows one card per job, but hides its earlier attempts.
    - Failures show generic category advice instead of the recorded cause.
    - Only a row's step name links, to the drawer; the row's title and the failure details don't open the session.
    - The drawer header says little.
@@ -99,7 +99,7 @@ In scope:
 - Per-step `waiting` and `queued` counts, `questions`, the batch's live `lots`, and the batch's `paused` flag in the header and attention reads.
 - Stage rows in the activity popover, and the new bar states and animation rules in `ProgressSegments` (also used on the Processing overview).
 - From the Fixes page:
-  - one row per session, with earlier attempts folded, from an Agents read that pages by session (S1);
+  - one row per session on the Agents page, from a read that pages by session, and earlier attempts folded beneath the row there and on Processing's job cards (S1);
   - failures in plain words from the recorded provider error and cause, carried in the failure summary so they show without debug mode, with advice behind help (S2);
   - row titles that open the session, and recovery actions on failed rows (S3);
   - the drawer header (S4);

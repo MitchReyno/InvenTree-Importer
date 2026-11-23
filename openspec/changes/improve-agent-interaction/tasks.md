@@ -32,6 +32,8 @@
 
 ## PR delivery map
 
+Every implementation bundle targets `interactive-app` once its listed prerequisites have merged.
+
 | Bundle | Outcome and included work | Task coverage | Why this boundary | Prerequisites and merge order | Base, branch and subject | Verification and merge gates |
 | --- | --- | --- | --- | --- | --- | --- |
 | PR-0 | This plan, BI-019 and the BI-015 hand-over | Planning only | Review the plan before code | None; first | `interactive-app` ← `docs/improve-agent-interaction`; `docs(improve-agent-interaction): plan agent interaction improvements` | `openspec validate --strict`, `pnpm workflow-sync` unaffected; read-only review; CI green |
@@ -114,7 +116,7 @@
   - [ ] 3.3.2 Rollback when the note edit is refused after the quantity edit, with the refusal injected.
   - [ ] 3.3.3 Refusal of a combined note over the 8192-character limit, before any edit.
   - [ ] 3.3.4 Refusal of a wrong kind, an unknown option or a missing step.
-  - [ ] 3.3.5 A replay with the same key and payload returns the first answer; a different payload under that key is refused; a second key after the answer gets `stale_question`.
+  - [ ] 3.3.5 Same-key replay returns the first receipt; a different payload under that key is refused; a new key with the same payload adopts the answer; a new key with a different payload gets `payload_conflict`.
   - [ ] 3.3.6 An inbox payload carrying the option ID and the number step's basis.
   - [ ] 3.3.7 A `/1` answer still accepted.
 - [ ] 3.4 GREEN: implement the `ask` and answer branches and the normalised read model.
@@ -177,6 +179,7 @@
   - [ ] 5.2.1 A delivered fetch appends one `photo_view` with the delivered size and digest, and publishes `session_changed` in the same transaction.
   - [ ] 5.2.2 A refused or over-budget fetch appends nothing, and a refused final transaction releases the budget and returns no image.
   - [ ] 5.2.3 A `web_page` source is accepted for `https` without a delivery check, refused for `file:`, credentials or a URL over 2048 characters, and refused in `relies_on` or catalogue sources.
+  - [ ] 5.2.4 A `/6` proposal with a `web_page` source reads through the retained decoder and the ordinary Processing snapshot read.
 - [ ] 5.3 GREEN: implement both. Make the source readers treat `web_page` as unverified.
 - [ ] 5.4 Update the `propose` description to say how to cite a page read with WebFetch. Run the intake unit and PG tiers.
 
@@ -207,8 +210,8 @@
   - [ ] 6.2.2 A retired lot or a removed version gives a "gone" link.
   - [ ] 6.2.3 Answers, instructions, evidence and revise items appear as the operator's.
   - [ ] 6.2.4 Attempt headers say how an attempt ended, and why it started where the retained input shows it; turns within an attempt are not attempts.
-  - [ ] 6.2.5 A regroup with recorded moves shows them; an older regroup lists only its lots; earlier attempts' failures resolve.
-  - [ ] 6.2.6 The `before` and `after` cursors page without gaps or duplicates across retries with repeated sequences and equal timestamps.
+  - [ ] 6.2.5 A regroup with recorded moves shows them; an older regroup lists only its lots; earlier attempts' failures resolve; a lot edited after formation shows its values labelled current.
+  - [ ] 6.2.6 The `before` and `after` cursors page without gaps or duplicates across retries with repeated sequences and equal timestamps, and the `after` watermark misses nothing when an inbox and an outbox write commit out of timestamp order.
   - [ ] 6.2.7 The session metadata for a retried session, including the web setting from each attempt's manifest.
   - [ ] 6.2.8 Another batch or account gets `session_not_found`.
 - [ ] 6.3 RED: route tests for the photo-view crop: the recorded region bounded as delivered, a full-page view, two attempts with the same sequence, 404 for a removed version, and scope.
@@ -226,7 +229,7 @@
   - `web_page` source chips marked agent-reported, and web reads on the page.
 - **Scope and approach:**
   - `frontend/src/components/processing/SessionTimeline.tsx` and a new session page component;
-  - `navigation/batch-route.ts` (the `sessionJobId` route);
+  - `navigation/batch-route.ts` (the `sessionJobId` route, and a Capture route naming one photo, which shows "Photo removed" for a removed one);
   - `components/agents/AgentSessions.tsx`, `SessionFailureDetails.tsx`;
   - the processing fixtures;
   - removal of the old timeline response.
@@ -250,8 +253,9 @@
   - [ ] 7.4.1 One conversation in time order, with attempt dividers.
   - [ ] 7.4.2 Filter chips, Load older, and the live merge without duplicates or gaps, including more than one page of new entries between refreshes.
   - [ ] 7.4.3 Sending a message once.
-  - [ ] 7.4.4 Answering a question in place, with the drawer's draft shown as superseded.
+  - [ ] 7.4.4 Answering a question in place, with the drawer's draft shown as superseded, and commands disabled while the page's Processing read is loading, failed or paused.
   - [ ] 7.4.5 Not found, and the debug block only in debug mode.
+  - [ ] 7.4.6 A correction sent before a Start fresh sits at its send time; observations from different photos stay ungrouped; a mixed photo and web run is one drawer line.
 - [ ] 7.5 GREEN: implement the renderer, the drawer change, the page and the entry points (Agents rows, session lists, failure details). Remove the old timeline response.
 - [ ] 7.6 Update the fixtures and the frontend architecture. Run the frontend checks, and the intake unit and PG tiers for the removed timeline response and its consumers. Record the demo video for the PR description.
 
@@ -292,7 +296,7 @@
 
 - [ ] 9.1 Read the shared and frontend code guidelines, the frontend architecture and the D42 board.
 - [ ] 9.2 RED: `workSegments` tests:
-  - [ ] 9.2.1 State precedence, including a stage with both working and failed jobs.
+  - [ ] 9.2.1 State precedence, including a stage with both working and failed jobs, and a turn still running after the batch is paused, which reads working while the batch shows Paused and Resume.
   - [ ] 9.2.2 A stage with no jobs yet is never done.
   - [ ] 9.2.3 No fill without counts.
   - [ ] 9.2.4 Examine waiting on questions reads as waiting for you.
@@ -316,7 +320,7 @@
 - **Prerequisites:** task 7, for the session page that row titles and failure details open; coordinate with polish on the shared words.
 - **Acceptance:** "Opens on what needs attention", "Archived batches only under All", "Retries fold into one row", "Failed row recovery", "Provider overloaded", "Old failure without a cause".
 - **TDD approach:** grouping, Needs attention derivation and failure-text tests fail first.
-- **Verification:** contracts tests, the intake unit and PG tiers for the read and the failure summary, frontend checks, and a demo video on a Heyyy-like fixture going from 8 rows to 3.
+- **Verification:** contracts tests, the intake unit and PG tiers for the read and the failure summary, frontend checks, and a demo video of the Agents page on a Heyyy-like fixture going from 8 rows to 3, and of earlier attempts expanding under a Processing job card.
 - **Risks and decisions:** the canvas boards FixSessionRows, FixFailureCause, FixSessionLinks and FixAgentsFilters are the reference.
 
 - [ ] 10.1 Read the code guidelines and the Fixes page boards.
