@@ -125,7 +125,7 @@ No new third-party runtime dependency is needed: the decoder already ships `shar
 - `processing-workspace`: the Match step replaces the Inventory step for `/7` batches, while batches with no lead or an earlier-version lead keep it; the Images step shows proposed crops; the brief on the session page.
 - `capture-media`: derived crops gain straightening and bounded light adjustments.
 - `processing-lot-forming`: a `/7` lot's estimated count comes from Examine's typed output.
-- `review-records`: agent values are proposed until confirmed.
+- `review-records`: agent values are proposed until confirmed; Records › Locations for `/7` batches shows app-proposed locations instead of the Inventory ask box.
 - `approval-preparation`: Match validation blocks approval; confirmed images and gaps fills become effects.
 
 ## Impact and dependencies
