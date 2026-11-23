@@ -4,7 +4,7 @@ Implementation of the UI polish and calm loading plan, delivered as PR-A to PR-I
 
 ## Changes to the plan
 
-None yet.
+- **2026-11-24T04:14+11:00, task 11.2.9 (PR-F):** the PG tier carries the replay and `save_outcome_unknown` through the Fastify route and the generated client; `useSettingsSave` adopting them is tested in the frontend suite against an in-memory server with the same receipt rules (`test/agent-settings-server.ts`), because the PG tier runs no browser code.
 
 ## Unexpected challenges
 
@@ -22,6 +22,12 @@ None yet.
   4. Start every process on the new build only.
 
   If the rollout fails after step 3, recover forward (fix and redeploy the new build), or restore the step 2 backup and start the older build. The older build can't run against the migrated schema, and the migration is never edited or reversed in place.
+- **2026-11-24T04:14+11:00, task 11.3 (PR-F), server details the design left open:** a reused `save_id` with another scope, base revision or field digest is refused as `save_receipt_mismatch` (409), and `save_outcome_unknown` is also 409, with `refresh` recovery like `revision_conflict`. The digest is SHA-256 of `canonicalRecord` of every submitted field except `expected_revision` and `save_id`. The pruning watermark is a column on `agent_settings` (`receipts_pruned_through`), since receipts exist only for scopes with a saved row. A save with no receipt over a base revision below the watermark is answered `save_outcome_unknown` even on its first send: the server can't tell a first send from a resend, and such a save would have been a conflict anyway.
+- **2026-11-24T04:14+11:00, task 11.3 (PR-F):** queued edits keep the revision they were made over, as the design says, so after a conflict in one subsection is reloaded, another subsection's edit queued over the old revision meets its own conflict rather than being sent over the reloaded one. Reload or Try again resolves each.
+- **2026-11-24T04:14+11:00, task 11.3 (PR-F):** in the interim Providers form, Reload after an autosave conflict moves the form onto the reloaded settings and keeps the model text drafts; a later model Save sends them under the reloaded revision, as the operator's explicit choice after seeing the reload.
+- **2026-11-24T04:14+11:00, task 11.3 (PR-F):** a save with no answer is resent automatically with the same `save_id` after 1, 2 and 4 seconds, then waits for Try again; this applies to text Saves too, and `SaveBar` offers Try again for that state. Turning off the last provider is refused whenever it is the only one on, including just after a fresh setup turns its first provider on.
+- **2026-11-24T04:14+11:00, task 11.3 (PR-F):** a Web research change made before readiness reports no web access now saves like any other change, so the "Discard my edit" button outside the disabled row is gone; the disabled settings show the saved values.
+- **2026-11-24T04:14+11:00, task 11.3 (PR-F):** the pre-navigation flush reaches `useNavigationGuard` as an optional second argument of `onDirtyChange`, so `App.tsx`, which PR-B is changing, is untouched. `AutosaveStatus` gains an `unresolved` state ("Couldn’t confirm this change", Reload only), optional `messages` and a `retryLabel` ("Try again" on Settings › Agents; Capture keeps "Retry"), and shows its retry button on a conflict when given one.
 
 ## Open items
 

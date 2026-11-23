@@ -276,19 +276,19 @@
 - **Risks and decisions:** keep the revision and page-lock guarantees exactly; review each changed save path against the old one.
 
 - [x] 11.1 Read the guidelines, `frontend/ARCHITECTURE.md`'s Settings › Agents section and the subsection forms. List each control as text or non-text. Read the intake server's migration and compatibility docs, and record in `notes.md` the rollout and recovery procedure for the receipt migration (one build for every intake process).
-- [ ] 11.2 RED: fake-timer tests:
-  - [ ] 11.2.1 Debounce coalescing, and the payload built at dispatch from the newest confirmed settings with only owned fields.
-  - [ ] 11.2.2 Same-page saves overlapping through the serial queue, and edits during a save saving again after it.
-  - [ ] 11.2.3 An external conflict and a lost acknowledgement (with and without a committed save) pausing the queue, reading again, and resolving through Reload or Try again.
-  - [ ] 11.2.7 Validation at dispatch: a provider-off save superseding a queued step choice for that provider.
-  - [ ] 11.2.8 Save identity: a timed-out save that commits after the recovery read, resolved as confirmed by resending its `save_id`; a lost acknowledgement followed by another tab's save, still confirmed; a conflict told apart from both; queued edits kept until the outcome is known.
-  - [ ] 11.2.10 The terminal unknown: Reload only, discarding the unresolved and later queued edits, keeping text drafts, and the navigation guard before and after Reload; a confirmed replay followed by a newer read from another tab, with queued edits still meeting the conflict path.
-  - [ ] 11.2.9 Intake PG tier: the receipt written in the settings transaction; a resend returning the minimal receipt, also after another tab saved; a resend with other fields, or equal fields over another base revision, refused; the replay receipt and `save_outcome_unknown` through the route, the generated client and `useSettingsSave`; a duplicate racing the original applying once; two concurrent first saves with one ID; pruning by count and by age, then a resend below the watermark answering `save_outcome_unknown`; the API role's grant.
-  - [ ] 11.2.4 Flush before in-app navigation (success continues, failure stays), and the leave prompt on reload.
-  - [ ] 11.2.5 The last-provider refusal, and the provider-off reset.
-  - [ ] 11.2.6 Text fields, including the interim model fields, keeping Save, shown only while edited.
-- [ ] 11.3 GREEN: add `save_id` to the agent settings contract, and the receipt table with its migration, grant, scope lock, pruning watermark and lookup before the revision check; the PUT's replay response and typed unknown error in the route, the generated client and `useSettingsSave`; add the autosave mode with field ownership and payloads built at dispatch, turn `PageSave` into a serial queue, add `AutosaveStatus` per subsection, the pre-navigation flush in `useNavigationGuard`, and the refusals. Remove the non-text Save bars; the interim model fields keep their own Save.
-- [ ] 11.4 Update `frontend/ARCHITECTURE.md` (the Settings › Agents save model). Run the frontend checks, and record the demo video.
+- [x] 11.2 RED: fake-timer tests:
+  - [x] 11.2.1 Debounce coalescing, and the payload built at dispatch from the newest confirmed settings with only owned fields.
+  - [x] 11.2.2 Same-page saves overlapping through the serial queue, and edits during a save saving again after it.
+  - [x] 11.2.3 An external conflict and a lost acknowledgement (with and without a committed save) pausing the queue, reading again, and resolving through Reload or Try again.
+  - [x] 11.2.7 Validation at dispatch: a provider-off save superseding a queued step choice for that provider.
+  - [x] 11.2.8 Save identity: a timed-out save that commits after the recovery read, resolved as confirmed by resending its `save_id`; a lost acknowledgement followed by another tab's save, still confirmed; a conflict told apart from both; queued edits kept until the outcome is known.
+  - [x] 11.2.10 The terminal unknown: Reload only, discarding the unresolved and later queued edits, keeping text drafts, and the navigation guard before and after Reload; a confirmed replay followed by a newer read from another tab, with queued edits still meeting the conflict path.
+  - [x] 11.2.9 Intake PG tier: the receipt written in the settings transaction; a resend returning the minimal receipt, also after another tab saved; a resend with other fields, or equal fields over another base revision, refused; the replay receipt and `save_outcome_unknown` through the route, the generated client and `useSettingsSave`; a duplicate racing the original applying once; two concurrent first saves with one ID; pruning by count and by age, then a resend below the watermark answering `save_outcome_unknown`; the API role's grant.
+  - [x] 11.2.4 Flush before in-app navigation (success continues, failure stays), and the leave prompt on reload.
+  - [x] 11.2.5 The last-provider refusal, and the provider-off reset.
+  - [x] 11.2.6 Text fields, including the interim model fields, keeping Save, shown only while edited.
+- [x] 11.3 GREEN: add `save_id` to the agent settings contract, and the receipt table with its migration, grant, scope lock, pruning watermark and lookup before the revision check; the PUT's replay response and typed unknown error in the route, the generated client and `useSettingsSave`; add the autosave mode with field ownership and payloads built at dispatch, turn `PageSave` into a serial queue, add `AutosaveStatus` per subsection, the pre-navigation flush in `useNavigationGuard`, and the refusals. Remove the non-text Save bars; the interim model fields keep their own Save.
+- [x] 11.4 Update `frontend/ARCHITECTURE.md` (the Settings › Agents save model). Run the frontend checks, and record the demo video.
 
 ## 12. Read-only provider status
 
