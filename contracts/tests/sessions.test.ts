@@ -399,7 +399,8 @@ test('a question keeps when it was asked, and an older question without the time
     input_sha256: digest('a'),
     revision: '1',
     state: 'open',
-    spec: { kind: 'quantity', subject_id: id(4), prompt: 'How many?', reason: 'Torn label.' },
+    subject_id: id(4),
+    spec: { kind: 'quantity', prompt: 'How many?', reason: 'Torn label.' },
   }
   validate('ProcessingQuestion', question)
   validate('ProcessingQuestion', { ...question, asked_at: '2026-11-08T04:30:24.952Z' })

@@ -110,9 +110,9 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - **Verification:** `pnpm --filter @invimport/contracts test` and typecheck.
 - **Risks and decisions:** keep `/1` exports unchanged, so the runner paths compile untouched. The question DTO becomes a version-discriminated union: the `/1` variant keeps `spec`, the `/2` variant carries its steps, and both carry the shared fields; the normalised view is derived by `questionView`, not sent (see design).
 
-- [ ] 2.1 Read the shared code guidelines and the contracts README. Confirm every consumer of `SessionAskArgs`, `ProcessingAnswer`, `SessionInboxItem` and the question DTO.
-- [ ] 2.2 RED: tests for the `/2` ask, covering 1–4 steps, 2–6 options and the label, detail and prompt lengths. Add `/2` answer tests and envelope and inbox decoding of both versions.
-- [ ] 2.3 GREEN: add the schemas, types and the normalised question view.
+- [x] 2.1 Read the shared code guidelines and the contracts README. Confirm every consumer of `SessionAskArgs`, `ProcessingAnswer`, `SessionInboxItem` and the question DTO.
+- [x] 2.2 RED: tests for the `/2` ask, covering 1–4 steps, 2–6 options and the label, detail and prompt lengths. Add `/2` answer tests and envelope and inbox decoding of both versions.
+- [x] 2.3 GREEN: add the schemas, types and the normalised question view.
 - [ ] 2.4 Run the contracts tests and the workspace typecheck.
 
 ## 3. Server: ask, answers and agent guidance

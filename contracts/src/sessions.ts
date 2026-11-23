@@ -8,6 +8,11 @@ import {
   ProcessingProposalV5,
   ProcessingQuestionSpec,
   ProcessingQuestionValue,
+  QuestionOption,
+  QuestionStepId,
+  QuestionSteps,
+  QuestionTitle,
+  QuestionStepValue,
   STATUS_LINE_MAX_CHARACTERS,
   statusLine,
 } from './processing.ts'
@@ -31,6 +36,20 @@ export const SessionAskArgs = object({
   reason: ProcessingQuestionSpec.properties.reason,
   fields: ProcessingFields,
   assumption: Type.String({ minLength: 1, maxLength: 2048 }),
+})
+/**
+ * The `ask` tool's question: one thing, in 1–4 steps answered together. Step and option IDs must be
+ * unique, a question has at most one number step and it is about a live lot; the handler checks
+ * those, since a schema can't.
+ */
+export const SessionAskArgsV2 = object({
+  schema_version: Type.Literal('bench-intake-question/2'),
+  subject_id: Type.Union([Id, Type.Null()]),
+  reason: ProcessingQuestionSpec.properties.reason,
+  fields: ProcessingFields,
+  /** Labels a stepped question in Needs you; a one-step question uses its prompt. */
+  title: Type.Optional(QuestionTitle),
+  steps: QuestionSteps,
 })
 export const SessionReplyArgs = object({ inbox_item_id: Id, text: message })
 /** Passing a cursor acknowledges every inbox item up to it. */
@@ -92,13 +111,32 @@ export const SessionOutboxItem = Type.Union([
   object({ ...outboxBase, kind: Type.Literal('reply'), payload: SessionReplyArgs }),
 ])
 
+/** A delivered step value; a picked option also carries its label, so the agent needn't look it up. */
+export const SessionAnswerStepValue = Type.Union([
+  object({
+    kind: Type.Literal('choice'),
+    option_id: QuestionStepId,
+    label: QuestionOption.properties.label,
+  }),
+  QuestionStepValue.anyOf[1],
+  QuestionStepValue.anyOf[2],
+  QuestionStepValue.anyOf[3],
+])
+/** The operator's answer as the asking session receives it: one value, or one per step. */
+export const SessionAnswerPayload = Type.Union([
+  object({ question_id: Id, answer_id: Id, value: ProcessingQuestionValue }),
+  object({
+    question_id: Id,
+    answer_id: Id,
+    steps: Type.Array(object({ step_id: QuestionStepId, value: SessionAnswerStepValue }), {
+      minItems: 1,
+      maxItems: 4,
+    }),
+  }),
+])
 const inboxBase = { id: Id, seq: Revision, created_at: timestamp }
 export const SessionInboxItem = Type.Union([
-  object({
-    ...inboxBase,
-    kind: Type.Literal('answer'),
-    payload: object({ question_id: Id, answer_id: Id, value: ProcessingQuestionValue }),
-  }),
+  object({ ...inboxBase, kind: Type.Literal('answer'), payload: SessionAnswerPayload }),
   object({ ...inboxBase, kind: Type.Literal('chat'), payload: object({ text: message }) }),
   object({
     ...inboxBase,
@@ -209,6 +247,7 @@ const sessionBinding = {
 export const SessionEnvelope = Type.Union([
   object({ ...sessionBinding, kind: Type.Literal('proposal'), payload: ProcessingProposalV5 }),
   object({ ...sessionBinding, kind: Type.Literal('question'), payload: SessionAskArgs }),
+  object({ ...sessionBinding, kind: Type.Literal('question'), payload: SessionAskArgsV2 }),
 ])
 /** A session's latest status line, shown as its current activity. */
 export const SessionLatestStatus = object({
@@ -241,6 +280,9 @@ export const sessionSchemas = {
   SessionState,
   SessionStatusArgs,
   SessionAskArgs,
+  SessionAskArgsV2,
+  SessionAnswerStepValue,
+  SessionAnswerPayload,
   SessionReplyArgs,
   SessionReadInboxArgs,
   SessionFetchEvidenceArgs,
@@ -258,6 +300,9 @@ export type SessionEnvelopeDto = Static<typeof SessionEnvelope>
 export type SessionStateDto = Static<typeof SessionState>
 export type SessionStatusArgsDto = Static<typeof SessionStatusArgs>
 export type SessionAskArgsDto = Static<typeof SessionAskArgs>
+export type SessionAskArgsV2Dto = Static<typeof SessionAskArgsV2>
+export type SessionAnswerStepValueDto = Static<typeof SessionAnswerStepValue>
+export type SessionAnswerPayloadDto = Static<typeof SessionAnswerPayload>
 export type SessionReplyArgsDto = Static<typeof SessionReplyArgs>
 export type SessionReadInboxArgsDto = Static<typeof SessionReadInboxArgs>
 export type SessionFetchEvidenceArgsDto = Static<typeof SessionFetchEvidenceArgs>

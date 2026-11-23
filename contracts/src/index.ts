@@ -24,7 +24,7 @@ import { manualSchemas } from './manual.ts'
 import { preparationTreeSchemas } from './preparation-tree.ts'
 export * from './preparation-tree.ts'
 import { mediaSchemas } from './media.ts'
-import { processingSchemas } from './processing.ts'
+import { processingSchemas, QuestionStepId } from './processing.ts'
 import { operatorReviewSchemas } from './operator-review.ts'
 import { researchSchemas } from './research.ts'
 import { agentSchemas } from './agents.ts'
@@ -48,6 +48,7 @@ export * from './capture-intent.ts'
 export * from './catalogue.ts'
 export * from './manual.ts'
 export * from './processing.ts'
+export * from './questions.ts'
 export * from './value-evidence.ts'
 export * from './research.ts'
 export * from './media.ts'
@@ -148,6 +149,8 @@ export const ErrorDto = object({
     (['refresh', 'wait', 'review', 'none'] as const).map((value) => Type.Literal(value)),
   ),
   correlation_id: Type.String({ maxLength: 64 }),
+  /** `invalid_answer` only: the question step the refusal is about. */
+  step_id: Type.Optional(QuestionStepId),
 })
 export const Bootstrap = object({
   mode: Type.Literal('development-key'),
