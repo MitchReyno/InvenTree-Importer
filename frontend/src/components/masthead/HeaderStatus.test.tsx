@@ -1262,3 +1262,13 @@ test('a background read that started before a check never replaces its result', 
   })
   expect(screen.queryByText('InvenTree unreachable')).toBeNull()
 })
+
+test('before the work is first read, the phone pill shows a skeleton rather than a word', async () => {
+  const api = client()
+  vi.mocked(api.work).mockReturnValue(new Promise(() => undefined))
+  render(<HeaderStatus client={api} batchId={batchId} />)
+  const trigger = await screen.findByRole('button', { name: 'Workflow activity' })
+
+  expect(trigger.querySelector('[data-short]')).toBeNull()
+  expect(trigger.querySelector('[data-reading]')).not.toBeNull()
+})

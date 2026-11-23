@@ -6,9 +6,10 @@ import { useQuery } from '@tanstack/react-query'
 import type { ProcessingJobDto } from '@invimport/contracts'
 import type { ProcessingClient } from '#/processing/types'
 import { serverQueryKey } from '#/queries/scope'
-import { Small } from '#/components/ui'
+import { ReadState, Small } from '#/components/ui'
 import { chatMessages, SessionChatPanel } from './SessionChatPanel'
 import { SessionTimeline } from './SessionTimeline'
+import { SessionSkeleton } from './SessionSkeleton'
 import { useServerScope, useRetainedPollInterval } from '#/context'
 
 interface Props {
@@ -30,8 +31,12 @@ export function SessionPanel({ batchId, job, client, startFresh, freshDisabled }
     refetchInterval: pollInterval,
   })
   if (!timeline.data) {
-    return (
-      <Small>{timeline.isError ? 'Session history is unavailable.' : 'Loading session…'}</Small>
+    return timeline.isError ? (
+      <Small>Session history is unavailable.</Small>
+    ) : (
+      <ReadState phase="empty" skeleton={<SessionSkeleton />}>
+        {null}
+      </ReadState>
     )
   }
   return (
