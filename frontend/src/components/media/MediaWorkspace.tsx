@@ -1,7 +1,7 @@
 import { mediaDisplayLabels, mediaIdentityLabels } from '#/media/identity-labels'
-import { useId, useRef, useState, type ReactNode } from 'react'
+import { useId, useImperativeHandle, useRef, useState, type ReactNode, type Ref } from 'react'
 import styled from 'styled-components'
-import { color, radius, ring, space, type } from '#/theme/generated/tokens'
+import { color, radius, space, type } from '#/theme/generated/tokens'
 import type {
   CaptureSnapshotDto,
   MediaEvidenceDto,
@@ -15,7 +15,6 @@ import { useEvidenceWorkspace } from '#/media/useEvidenceWorkspace'
 import { uploadProgress, useUploadQueue, type UploadItem } from '#/media/useUploadQueue'
 import { uploadRefusal } from '#/media/upload-gate'
 import { usePastedFiles } from '#/browser/usePastedFiles'
-import { useFileDrop } from './useFileDrop'
 import { RefusedFilesNotice } from './RefusedFilesNotice'
 import { MediaUpload, type EvidenceUploadHandle } from './MediaUpload'
 import { MediaCropDialog } from './MediaCropDialog'
@@ -28,7 +27,16 @@ import { DeletedFiles } from './DeletedFiles'
 import { approvalRefusal, bulkApprovalRefusal, fileNames, MAX_BATCH_FILES } from '#/media/removal'
 import type { CaptureEdit } from '#/capture/types'
 
+/** Lets the panel around the workspace hand it files dropped outside any group. */
+export type EvidenceFilesHandle = {
+  /** Adds files to Ungrouped, or shows why they can't be added now. */
+  add: (files: File[]) => void
+  /** Whether files would start uploading now. */
+  accepts: () => boolean
+}
+
 interface Props {
+  ref?: Ref<EvidenceFilesHandle>
   batch: CaptureSnapshotDto
   client: MediaClient
   disabled: boolean
@@ -101,6 +109,7 @@ const SELECTION_HELD = 'Clear the selection first.'
 type UnconfirmedToast = Confirmation | { removed: string[]; message: string }
 
 export function MediaWorkspace({
+  ref,
   batch,
   client,
   disabled,
@@ -219,7 +228,10 @@ export function MediaWorkspace({
     uploads.addMixed(files, groupId)
   }
 
-  const panelDrop = useFileDrop((files) => addFiles(files), uploadGate === null)
+  useImperativeHandle(ref, () => ({
+    add: (files) => addFiles(files),
+    accepts: () => uploadGate === null,
+  }))
   usePastedFiles((files) => addFiles(files))
 
   // Retry and Read again never touch the selection, so a held selection must not lock them.
@@ -472,11 +484,7 @@ export function MediaWorkspace({
   )
 
   return (
-    <Workspace
-      aria-label="Retained evidence"
-      data-drop={panelDrop.over ? 'over' : undefined}
-      {...panelDrop.handlers}
-    >
+    <Workspace aria-label="Retained evidence">
       <MediaUpload
         ref={upload}
         chooseDisabled={uploadGate !== null}
@@ -749,12 +757,6 @@ const Workspace = styled.section`
   flex-direction: column;
   gap: ${space[7]};
   min-width: 0;
-  border-radius: ${radius.card};
-  /* Files dragged over the panel, outside any group, go to Ungrouped. */
-  &[data-drop='over'] {
-    outline: ${ring.width} dashed ${color.accent};
-    outline-offset: ${space[3]};
-  }
 `
 const LabelRow = styled.div`
   display: flex;

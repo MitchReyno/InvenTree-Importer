@@ -168,7 +168,7 @@ export function EvidenceGroupPanel({
   const metaParts = [lineageKnown ? lotCount : null, uploadingText].filter(Boolean)
   const meta = metaParts.length ? metaParts.join(' · ') : undefined
   const drop = useEvidenceDropZone(groupId, label, frozen)
-  const fileDrop = useFileDrop(dropFiles, dropAccepting)
+  const fileDrop = useFileDrop(dropFiles, () => dropAccepting)
   const dropState = drop.dropState === 'over' || fileDrop.over ? 'over' : 'none'
 
   return (

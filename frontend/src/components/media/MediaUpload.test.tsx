@@ -91,8 +91,8 @@ test('pickers accept several files', () => {
   expect(screen.getByLabelText('Choose document')).toHaveAttribute('multiple')
 })
 
-// Without `capture`, phones offer their own sheet: the camera, the photo library and files.
-test('the photos picker reaches the library as well as the camera', () => {
+// Without `capture` a phone may offer its own sheet; which routes it offers is checked on devices.
+test('the photos picker takes several JPEG or PNG files and sets no capture', () => {
   render(<Harness {...ports()} disabled={false} />)
   const photos = screen.getByLabelText('Choose photos')
   expect(photos).not.toHaveAttribute('capture')

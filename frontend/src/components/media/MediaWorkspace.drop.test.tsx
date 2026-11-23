@@ -9,7 +9,7 @@ import type {
 } from '@invimport/contracts'
 import { fixtureScope, render } from '#/test/render'
 import type { MediaClient } from '#/media/types'
-import { MediaWorkspace } from './MediaWorkspace'
+import { EvidencePanel } from '#/components/capture/EvidencePanel'
 
 const batch: CaptureSnapshotDto = {
   id: '10000000-0000-4000-8000-000000000001',
@@ -129,13 +129,13 @@ function renderWorkspace(
   { disabled = false, archived = false }: { disabled?: boolean; archived?: boolean } = {},
 ) {
   return render(
-    <MediaWorkspace
+    <EvidencePanel
       batch={{ ...batch, archived }}
-      client={client}
-      disabled={disabled}
-      selectedSubject="defaults"
-      onDirtyChange={vi.fn()}
+      frozen={disabled}
+      onMediaDirtyChange={vi.fn()}
+      onNoteDirtyChange={vi.fn()}
     />,
+    { clients: { media: client } },
   )
 }
 
@@ -153,7 +153,7 @@ test('three photos and a PDF dropped on a group upload into it as one run of fou
   const { client, gate } = mediaStore()
   renderWorkspace(client)
   const group = await editable()
-  const panel = screen.getByRole('region', { name: 'Retained evidence' })
+  const panel = screen.getByRole('region', { name: 'Evidence' })
 
   fireEvent.dragEnter(group, fileDrag([jpeg('a.jpg')]))
   expect(group).toHaveAttribute('data-drop', 'over')
@@ -201,7 +201,7 @@ test('files dropped on the panel outside a group go to Ungrouped', async () => {
   const { client } = mediaStore()
   renderWorkspace(client)
   await editable()
-  const panel = screen.getByRole('region', { name: 'Retained evidence' })
+  const panel = screen.getByRole('region', { name: 'Evidence' })
   const actions = screen.getByRole('button', { name: 'Take photos' })
 
   fireEvent.dragEnter(actions, fileDrag([png('shot.png')]))
@@ -215,6 +215,20 @@ test('files dropped on the panel outside a group go to Ungrouped', async () => {
   expect(client.upload).toHaveBeenCalledOnce()
   expect(client.edit).not.toHaveBeenCalled()
   expect(panel).not.toHaveAttribute('data-drop', 'over')
+})
+
+test('files dropped on the panel itself, beside the evidence, go to Ungrouped', async () => {
+  const { client } = mediaStore()
+  renderWorkspace(client)
+  await editable()
+  const panel = screen.getByRole('region', { name: 'Evidence' })
+
+  dropOn(panel, [png('loose.png')])
+
+  const ungrouped = screen.getByRole('region', { name: /Ungrouped/ })
+  await waitFor(() =>
+    expect(within(ungrouped).getByRole('checkbox', { name: 'Select loose.png' })).toBeVisible(),
+  )
 })
 
 test('a drop on a group inside the panel is taken once, by the group', async () => {
@@ -298,7 +312,14 @@ test('a file dropped inside an open viewer stays out of the evidence behind it',
   await user.click(screen.getByRole('button', { name: 'Open Front label' }))
   const viewer = await screen.findByRole('dialog', { name: 'Front label' })
 
-  dropOn(within(viewer).getByRole('button', { name: 'Close' }), [png('inside.png')])
+  const close = within(viewer).getByRole('button', { name: 'Close' })
+  const drag = {
+    dataTransfer: { files: [png('inside.png')], types: ['Files'], dropEffect: 'copy' },
+  }
+  // Refused outright, so the browser neither drops nor opens the file there.
+  expect(fireEvent.dragOver(close, drag)).toBe(false)
+  expect(drag.dataTransfer.dropEffect).toBe('none')
+  fireEvent.drop(close, drag)
 
   await act(async () => undefined)
   expect(client.upload).not.toHaveBeenCalled()
@@ -319,7 +340,7 @@ test('pasted text outside a text field is ignored', async () => {
 
 async function expectRefused(reason: RegExp, client: MediaClient) {
   const user = userEvent.setup()
-  const panel = screen.getByRole('region', { name: 'Retained evidence' })
+  const panel = screen.getByRole('region', { name: 'Evidence' })
   const group = screen.queryByRole('region', { name: /Resistor packets/ })
   fireEvent.dragEnter(group ?? panel, fileDrag([png('drop.png')]))
   expect(group ?? panel).not.toHaveAttribute('data-drop', 'over')

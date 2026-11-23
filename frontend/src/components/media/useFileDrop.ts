@@ -1,4 +1,4 @@
-import { useRef, useState, type DragEvent } from 'react'
+import { useEffect, useRef, useState, type DragEvent } from 'react'
 
 export type FileDropHandlers = {
   onDragEnter: (event: DragEvent<HTMLElement>) => void
@@ -8,29 +8,57 @@ export type FileDropHandlers = {
 }
 
 /**
- * The node under files dragged in from outside the page, when it lies inside this element, or
- * null. Dragging a tile within the page carries no files, and React also bubbles events from a
- * portal, such as a modal viewer, that sits elsewhere in the document.
+ * Where files dragged in from outside the page are, as seen by this element: over it (`here`, with
+ * the node under them), over a portal it renders elsewhere in the document, such as a modal viewer
+ * whose events React still bubbles here, or neither. Dragging a tile within the page carries no
+ * files.
  */
-function fileDragTarget(event: DragEvent<HTMLElement>): Node | null {
+type FileDragPlace = { kind: 'here'; node: Node } | { kind: 'portal' } | { kind: 'none' }
+
+function fileDragPlace(event: DragEvent<HTMLElement>): FileDragPlace {
   const target = event.target
-  if (!(target instanceof Node) || !event.currentTarget.contains(target)) {
-    return null
+  if (!Array.from(event.dataTransfer?.types ?? []).includes('Files')) {
+    return { kind: 'none' }
   }
-  return Array.from(event.dataTransfer?.types ?? []).includes('Files') ? target : null
+  if (!(target instanceof Node) || !event.currentTarget.contains(target)) {
+    return { kind: 'portal' }
+  }
+  return { kind: 'here', node: target }
 }
 
 /**
  * Makes an element a target for files dragged from outside the page. The innermost target takes
  * the files and stops them reaching the targets around it. A refused drop is still taken, so the
- * browser doesn't open the file instead, and `onFiles` says why; `accepting` only sets the
- * highlight.
+ * browser doesn't open the file instead, and `onFiles` says why; `accepts` only sets the
+ * highlight, read as the files arrive. Files over a portal, such as a modal dialog, can't be
+ * dropped there at all.
  */
-export function useFileDrop(onFiles: (files: File[]) => void, accepting: boolean) {
+export function useFileDrop(onFiles: (files: File[]) => void, accepts: () => boolean) {
   // The elements the files are over. Entering a child fires before leaving its parent, and a
   // child removed while hovered never reports leaving, so removed ones are dropped on each event.
   const entered = useRef(new Set<Node>())
+  const owner = useRef<HTMLElement | null>(null)
   const [over, setOver] = useState(false)
+
+  // A hovered child removed under the files never reports leaving, so while highlighted the
+  // document is watched for the files moving outside this element.
+  useEffect(() => {
+    if (!over) {
+      return
+    }
+
+    function handleDocumentDragOver(event: globalThis.DragEvent) {
+      const target = event.target
+      if (target instanceof Node && owner.current?.contains(target)) {
+        return
+      }
+      entered.current.clear()
+      setOver(false)
+    }
+
+    document.addEventListener('dragover', handleDocumentDragOver, true)
+    return () => document.removeEventListener('dragover', handleDocumentDragOver, true)
+  }, [over])
 
   function keepConnected(target: HTMLElement) {
     for (const node of entered.current) {
@@ -41,47 +69,54 @@ export function useFileDrop(onFiles: (files: File[]) => void, accepting: boolean
   }
 
   function handleDragEnter(event: DragEvent<HTMLElement>) {
-    const target = fileDragTarget(event)
-    if (!target) {
+    const place = fileDragPlace(event)
+    if (place.kind !== 'here') {
       return
     }
     event.preventDefault()
     event.stopPropagation()
-    entered.current.add(target)
+    owner.current = event.currentTarget
+    entered.current.add(place.node)
     keepConnected(event.currentTarget)
-    setOver(true)
+    setOver(accepts())
   }
 
   function handleDragOver(event: DragEvent<HTMLElement>) {
-    if (!fileDragTarget(event)) {
+    const place = fileDragPlace(event)
+    if (place.kind === 'none') {
       return
     }
-    // Cancelling dragover is what lets the drop land here.
+    // Cancelling dragover is what lets the drop land, or with `none` refuses it outright.
     event.preventDefault()
     event.stopPropagation()
-    event.dataTransfer.dropEffect = 'copy'
+    event.dataTransfer.dropEffect = place.kind === 'here' ? 'copy' : 'none'
   }
 
   function handleDragLeave(event: DragEvent<HTMLElement>) {
-    const target = fileDragTarget(event)
-    if (!target) {
+    const place = fileDragPlace(event)
+    if (place.kind !== 'here') {
       return
     }
     event.stopPropagation()
-    entered.current.delete(target)
+    entered.current.delete(place.node)
     keepConnected(event.currentTarget)
-    setOver(entered.current.size > 0)
+    if (entered.current.size === 0) {
+      setOver(false)
+    }
   }
 
   function handleDrop(event: DragEvent<HTMLElement>) {
-    if (!fileDragTarget(event)) {
+    const place = fileDragPlace(event)
+    if (place.kind === 'none') {
       return
     }
     event.preventDefault()
     event.stopPropagation()
     entered.current.clear()
     setOver(false)
-    onFiles(Array.from(event.dataTransfer.files))
+    if (place.kind === 'here') {
+      onFiles(Array.from(event.dataTransfer.files))
+    }
   }
 
   const handlers: FileDropHandlers = {
@@ -90,5 +125,5 @@ export function useFileDrop(onFiles: (files: File[]) => void, accepting: boolean
     onDragLeave: handleDragLeave,
     onDrop: handleDrop,
   }
-  return { over: over && accepting, handlers }
+  return { over, handlers }
 }

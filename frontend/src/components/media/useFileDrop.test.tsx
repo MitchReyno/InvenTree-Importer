@@ -3,7 +3,7 @@ import { expect, test, vi } from 'vitest'
 import { useFileDrop } from './useFileDrop'
 
 function Target({ withTile, onFiles }: { withTile: boolean; onFiles: (files: File[]) => void }) {
-  const drop = useFileDrop(onFiles, true)
+  const drop = useFileDrop(onFiles, () => true)
   return (
     <section aria-label="Target" data-drop={drop.over ? 'over' : undefined} {...drop.handlers}>
       {withTile && <button type="button">Tile</button>}
@@ -29,6 +29,18 @@ test('the highlight clears on leaving even after the hovered child was removed',
   fireEvent.dragEnter(other, files)
   fireEvent.dragLeave(tile, files)
   fireEvent.dragLeave(other, files)
+
+  expect(target).not.toHaveAttribute('data-drop', 'over')
+})
+
+test('the highlight clears when files leave straight from a removed child', () => {
+  const view = render(<Target withTile onFiles={vi.fn()} />)
+  const target = screen.getByRole('region', { name: 'Target' })
+  fireEvent.dragEnter(screen.getByRole('button', { name: 'Tile' }), files)
+  expect(target).toHaveAttribute('data-drop', 'over')
+
+  view.rerender(<Target withTile={false} onFiles={vi.fn()} />)
+  fireEvent.dragOver(document.body, files)
 
   expect(target).not.toHaveAttribute('data-drop', 'over')
 })

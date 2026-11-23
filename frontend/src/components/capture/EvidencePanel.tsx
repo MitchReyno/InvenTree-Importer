@@ -1,9 +1,9 @@
-import { useCallback, useState, type ReactNode } from 'react'
+import { useCallback, useRef, useState, type ReactNode } from 'react'
 import { DebugDetails, Summary, raisedOnField } from '#/components/ui'
 import type { Snapshot } from '#/capture/types'
 import styled from 'styled-components'
-import { color, radius, space, type } from '#/theme/generated/tokens'
-import { MediaWorkspace } from '#/components/media/MediaWorkspace'
+import { color, radius, ring, space, type } from '#/theme/generated/tokens'
+import { MediaWorkspace, type EvidenceFilesHandle } from '#/components/media/MediaWorkspace'
 import type { OperatorReviewDto } from '@invimport/contracts'
 import { CaptureActions } from './CaptureActions'
 import { EvidenceNoteForm } from './EvidenceNoteForm'
@@ -61,20 +61,33 @@ export function EvidencePanel({
 
   const writeNote = () => setWriting(true)
 
-  // Without media storage, dropped and pasted files are still taken, so the browser doesn't open
-  // them in place of Capture, and refused with the reason. With it, MediaWorkspace owns them.
+  // Files dropped on the panel outside any group go to Ungrouped through the media workspace.
+  // Without media storage they are still taken, so the browser doesn't open them in place of
+  // Capture, and refused with the reason, as pasted ones are.
+  const mediaFiles = useRef<EvidenceFilesHandle>(null)
   const [refusedFiles, setRefusedFiles] = useState(false)
-  const unavailableDrop = useFileDrop(() => setRefusedFiles(true), false)
+  const panelDrop = useFileDrop(
+    (files) => {
+      if (mediaFiles.current) {
+        mediaFiles.current.add(files)
+      } else {
+        setRefusedFiles(true)
+      }
+    },
+    () => mediaFiles.current?.accepts() ?? false,
+  )
   usePastedFiles(() => setRefusedFiles(true), !media)
 
   return (
     <EvidenceArea
       data-area="context"
       aria-labelledby="evidence"
-      {...(media ? undefined : unavailableDrop.handlers)}
+      data-drop={panelDrop.over ? 'over' : undefined}
+      {...panelDrop.handlers}
     >
       {media && (
         <MediaWorkspace
+          ref={mediaFiles}
           review={review}
           reload={reload}
           onWriteNote={writeNote}
@@ -149,6 +162,11 @@ const EvidenceArea = styled.section`
   border-radius: ${radius.card};
   background: ${color.surface};
   ${raisedOnField}
+  /* Files dragged over the panel, outside any group, go to Ungrouped. */
+  &[data-drop='over'] {
+    border-color: ${color.accent};
+    box-shadow: 0 0 0 ${ring.width} ${color.accentWeak};
+  }
 `
 const EvidenceLabel = styled.h2`
   margin: 0;
