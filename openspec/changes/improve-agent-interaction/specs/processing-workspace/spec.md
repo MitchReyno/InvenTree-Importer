@@ -209,7 +209,7 @@ The session drawer's header SHALL show the session's state, model, where it ran 
 
 ### Requirement: Activity in the app's words
 
-Processing's recent activity SHALL lead each entry with the app's recorded event in plain words, linked to its lot or record, such as "Research proposed an identity for GE S2CN1 diodes", with the agent's status line as a muted "Agent: …" note.
+Processing's recent activity SHALL lead each entry with the app's recorded event in plain words, linked to what it concerns (its lot or record, or Capture for an observation made before any lot exists), such as "Research proposed an identity for GE S2CN1 diodes", with the agent's status line as a muted "Agent: …" note.
 
 #### Scenario: Proposal in recent activity
 
