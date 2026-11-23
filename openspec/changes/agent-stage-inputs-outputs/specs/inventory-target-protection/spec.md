@@ -36,7 +36,7 @@ Owned-fake mutation kinds SHALL require the matching capability on the owned pro
 
 ### Requirement: Match search reads
 
-The transport SHALL add bounded Match list reads: `search_parts`, `list_manufacturer_parts`, `list_supplier_parts`, `list_stock`, `list_part_parameters`, `list_part_attachments` and `list_category_parameters`. Each SHALL use a fixed path and ordering, the same limit, offset and search bounds, and only named filters the pinned API offers: search text, MPN, SKU, batch code, `nsn:` stock tag, or a manufacturer, supplier, Part or category PK. Other filters SHALL be refused unsent.
+The transport SHALL add bounded Match list reads: `search_parts`, `list_manufacturer_parts`, `list_supplier_parts`, `list_stock`, `list_part_parameters`, `list_part_attachments` and `list_category_parameters`. Each SHALL use a fixed path, a fixed ordering where offered, the same limit, offset and search bounds, and only named filters the pinned API offers: search text, MPN, SKU, batch code, `nsn:` stock tag, or a manufacturer, supplier, Part or category PK. Other filters SHALL be refused unsent.
 
 #### Scenario: Stock by Part and batch
 
@@ -61,6 +61,16 @@ The transport SHALL add bounded Match list reads: `search_parts`, `list_manufact
 - **GIVEN** a `list_supplier_parts` read carrying an unnamed `ordering` or a raw query string
 - **WHEN** it is requested
 - **THEN** it is refused before any request is sent.
+
+### Requirement: Category mappings in one response
+
+`list_category_parameters` SHALL read a category's mappings in one bounded response, since the pinned API offers no ordering for them, and Match SHALL sort them locally. A response that is incomplete or over the bound SHALL make the key parameters unavailable.
+
+#### Scenario: More mappings than one response holds
+
+- **GIVEN** a category with more parameter mappings than the read's bound
+- **WHEN** Match runs its sufficiency check
+- **THEN** the key parameters are reported unavailable, and no page is merged.
 
 ### Requirement: Part-scoped reads name their model
 
