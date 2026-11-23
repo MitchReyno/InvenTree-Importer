@@ -4,7 +4,7 @@
 
 For `native-agent/2` work under the earlier session profiles, the stage order SHALL be a batch-level Examine lead session (see processing-lot-forming), then per-lot Research and Images in parallel, then per-lot Inventory. For each lot, Examine SHALL propose the markings with citations to its observations, an identity with ranked candidates, and an optional quantity estimate with its basis. Inventory SHALL wait for the lot's current Research and Images proposals.
 
-For `shared-vm-agent/4` and `synthetic-session/1` work, the stage order SHALL be the Examine lead session, then the app's Match step for each lot (see processing-match), then per-lot Research and Images in the modes Match sets. No Inventory agent session SHALL be queued. Examine SHALL publish the same findings, with the markings verbatim, as one `examine-identity/1` proposal per lot.
+A batch SHALL follow its Examine lead's sealed input version at every queueing entry point, including Start and replacement. For work whose lead input is `bench-intake-input/7` (`shared-vm-agent/4` and `synthetic-session/1`), the stage order SHALL be the Examine lead session, then the app's Match step for each lot (see processing-match), then per-lot Research and Images in the modes Match sets. No Inventory agent session SHALL be queued. Examine SHALL publish the same findings, with the markings verbatim, as one `examine-identity/1` proposal per lot.
 
 #### Scenario: Legacy batch display
 
@@ -35,6 +35,28 @@ For `shared-vm-agent/4` and `synthetic-session/1`, they SHALL also start only wh
 - **GIVEN** a lot whose identity was published and whose Research is queued but not yet started
 - **WHEN** the lead session moves one of its observations to another lot
 - **THEN** the identity is no longer stable, Research does not start from it, and it starts once Examine republishes an identity for the regrouped lot.
+
+### Requirement: Evidence-based currentness
+
+Each proposal SHALL record the observations, evidence versions, notes and answers it relies on, including the lot's observation set, and, for `/7` work, the Match decision and stage mode it was produced under. It SHALL become stale only when one of those changes or is removed.
+
+#### Scenario: Evidence removed
+
+- **GIVEN** a current proposal citing an observation
+- **WHEN** that observation is moved out of the lot
+- **THEN** the proposal is shown as stale, and the owning session is notified to revise it.
+
+#### Scenario: Unrelated edit keeps a proposal current
+
+- **GIVEN** a current identity proposal for lot A
+- **WHEN** the operator edits lot B and a note that the proposal does not cite
+- **THEN** the proposal for lot A stays current.
+
+#### Scenario: Mode changed by a new decision
+
+- **GIVEN** a Research proposal produced in full mode
+- **WHEN** a late match is decided as add stock
+- **THEN** the proposal is shown as stale.
 
 ## ADDED Requirements
 

@@ -52,7 +52,7 @@ A lot with candidates SHALL get one app-owned question, listed in Needs you, quo
 
 ### Requirement: Match questions are pinned
 
-A match question SHALL be pinned to the lot's match revision and the candidates it quotes. An answer to a question that a later search replaced SHALL be refused, and the replacing question shown.
+A match question SHALL be pinned to the lot's match revision and the candidates it quotes. While a newer search for the lot is requested and not yet settled, or after it has replaced the question, an answer SHALL be refused and nothing queued from it. Match questions are app questions; the non-blocking rule for agent questions doesn't stop them holding Research and Images.
 
 #### Scenario: Candidates changed before the answer
 
@@ -94,7 +94,7 @@ The operator's decision SHALL set the lot's target and its stages' modes: new Pa
 
 ### Requirement: Validation before approval
 
-Before approval preparation, Match SHALL search again with each lot's final identifiers and import references. A Part created since the decision, stock that now exists with the same barcode and batch, or a final identity that no longer fits the decision SHALL be a blocking item until the operator decides again. A preparation SHALL record the validation it was built from, and approval SHALL refuse a preparation whose validation is older than the lot's latest match revision.
+Before approval preparation, Match SHALL search again with each lot's final identifiers and import references. A Part created since the decision, stock that now exists with the same barcode and batch, or a final identity that no longer fits the decision SHALL be a blocking item until the operator decides again. A preparation SHALL record the validation it was built from, and approval SHALL refuse a preparation whose validation is older than the lot's latest requested search.
 
 #### Scenario: Part created meanwhile
 

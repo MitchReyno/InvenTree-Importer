@@ -94,7 +94,7 @@ Session instructions SHALL weigh human-provided facts above the evidence as the 
 
 - **GIVEN** an Images session with a photo of a single diode
 - **WHEN** it previews a recipe with a quarter turn and a 3.5° straightening and then proposes it
-- **THEN** the preview and the later derived crop are the same pixels, and the proposal names the source version and recipe.
+- **THEN** the recipe render behind the preview and the later derived crop are the same pixels before montage labels, downscaling or encoding, the montage depicts that render, and the proposal names the source version and recipe.
 
 ### Requirement: Stage guides on demand
 
