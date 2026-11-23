@@ -48,7 +48,13 @@ The transport SHALL add bounded list reads for Match: `search_parts`, `list_manu
 
 - **GIVEN** a candidate Part whose category maps a key parameter template it has no value row for
 - **WHEN** Match runs its sufficiency check
-- **THEN** it reads the mappings with `list_category_parameters` by category PK and lists that parameter as missing.
+- **THEN** it reads the mappings with `list_category_parameters` by category PK, keeps only mappings of that category or its ancestors, and lists that parameter as missing.
+
+#### Scenario: Category gone
+
+- **GIVEN** a candidate Part whose category can't be read, or was deleted
+- **WHEN** Match runs its sufficiency check
+- **THEN** the key parameters are reported as unavailable, and no mapping becomes a fill candidate.
 
 #### Scenario: Unnamed filter refused
 

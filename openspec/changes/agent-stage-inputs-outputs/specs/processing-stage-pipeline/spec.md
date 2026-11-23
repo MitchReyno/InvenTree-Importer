@@ -90,6 +90,16 @@ For `/7` work, a lot whose identity has no strong search key SHALL start Researc
 - **WHEN** Examine publishes its identity and the import reference lookup completes without a hit
 - **THEN** Research starts in identify mode, Images waits, and when Research amends the identity with MPN 1N4148W-7-F and the alias TK-1N4148, Match searches with both.
 
+### Requirement: Unresolved identification
+
+When identify mode cannot establish a strong key, Research SHALL publish its `research-identity/1` amendment marked unresolved, with what it tried. Match SHALL then ask the operator, offering new Part (Research and Images in full mode on what is known), already imported, or something else, and Images SHALL wait for that answer.
+
+#### Scenario: Nothing found
+
+- **GIVEN** a reel with only an unknown house number
+- **WHEN** identify-mode Research finds no MPN or other strong key
+- **THEN** it publishes an unresolved amendment, Match asks the operator, and Images starts only after the answer.
+
 ### Requirement: Identity amendments update the lot
 
 For `/7` work, a lot SHALL have one current identity: Examine's base merged with Research's amendments, each field recording its stage, proposal and source. An amendment MAY add identifiers and aliases and refine fields, which update an agent-made, unedited lot's proposed label and draft Part. It SHALL NOT silently replace Examine's identity with a different part, and SHALL NOT change an operator's value. Successors SHALL pin the merged identity's revision.

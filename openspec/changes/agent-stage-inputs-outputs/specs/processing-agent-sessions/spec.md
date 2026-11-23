@@ -158,7 +158,7 @@ For `/7` work, a Research or Images session SHALL serve a lot group: 1 to N lot 
 
 ### Requirement: Lots per session settings
 
-Settings › Agents › Sessions SHALL hold "Lots per Research session" and "Lots per Images session", each an integer from 1 to 20, defaulting to 5 and 8, sealed into each new attempt. A cap of 1 SHALL give one-lot sessions.
+Settings › Agents › Sessions SHALL hold "Lots per Research session" and "Lots per Images session", each an integer from 1 to 20, defaulting to 5 and 8, sealed into each new `/7` Research and Images attempt. A cap of 1 SHALL give one-lot sessions.
 
 #### Scenario: Cap changed mid-batch
 
@@ -220,7 +220,7 @@ For `/7` work, an Examine proposal SHALL name any live lot of its batch, and a R
 
 ### Requirement: Human facts take precedence
 
-Session instructions SHALL weigh human-provided facts above the evidence as the agent reads it, that evidence above earlier stages' readings, and those above web sources. When evidence contradicts a human fact, the session SHALL ask once, citing the conflict, and SHALL NOT replace the human value.
+`/7` stage packs SHALL weigh human-provided facts above the evidence as the agent reads it, that evidence above earlier stages' readings, and those above web sources. When evidence contradicts a human fact, the session SHALL ask once, citing the conflict, and SHALL NOT replace the human value.
 
 #### Scenario: Doubting a correction
 
