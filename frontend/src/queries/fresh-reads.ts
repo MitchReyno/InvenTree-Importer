@@ -26,6 +26,8 @@ interface KeyEntry {
   adoptedData?: unknown
   /** The query's data update count at the last manual write, to tell which write is newest. */
   manualUpdate?: number
+  /** `cancel` is running, so a state change restoring the adopted data is its revert. */
+  expectRevert?: boolean
   /** Each mounted observer's mount order. */
   observers: Map<symbol, number>
   followUpScheduled: boolean
@@ -51,10 +53,12 @@ export class FreshReadRegistry {
 
   constructor(client: QueryClient) {
     this.#client = client
-    this.attach()
   }
 
-  /** Follows the client's cache; the owner of the client attaches and detaches it. */
+  /**
+   * Follows the client's cache. The client's owner attaches it before any read can start (a layout
+   * Effect, ahead of TanStack's own subscription) and detaches it when the client's lifetime ends.
+   */
   attach() {
     this.#unsubscribeCache ??= this.#client
       .getQueryCache()
@@ -171,14 +175,22 @@ export class FreshReadRegistry {
    * adopted: a reverting or silent cancel leaves that same data in the cache.
    */
   async cancel(filters: QueryFilters, options: { silent?: boolean; revert?: boolean } = {}) {
+    const entries: KeyEntry[] = []
     for (const query of this.#client.getQueryCache().findAll(filters)) {
       const entry = this.#entries.get(query.queryHash)
       if (entry?.newest && query.state.fetchStatus !== 'idle') {
         entry.cancelled.add(entry.newest.generation)
         entry.produced = undefined
+        entry.expectRevert = true
+        entries.push(entry)
       }
     }
-    await this.#client.cancelQueries(filters, options)
+    // A reverting cancel restores state synchronously, inside this call.
+    const cancelled = this.#client.cancelQueries(filters, options)
+    for (const entry of entries) {
+      entry.expectRevert = false
+    }
+    await cancelled
   }
 
   #entry(hash: string) {
@@ -243,8 +255,10 @@ export class FreshReadRegistry {
         this.#clear(entry)
         return
       case 'setState':
-        // A reverting cancel restores the adopted data itself; any other state replaces the proof.
+        // Only `cancel`'s own revert, restoring the adopted data, keeps the proof; any other state
+        // change, even of equal data or the fetch status, replaces it.
         if (
+          !entry.expectRevert ||
           event.query.state.data !== entry.adoptedData ||
           event.query.state.status !== 'success'
         ) {

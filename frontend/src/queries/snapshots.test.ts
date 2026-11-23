@@ -282,7 +282,7 @@ test('a full storage clears every snapshot and is reported for debug only', () =
   expect(snapshots.lastFailure()).toBe('Session storage full; snapshots cleared')
 })
 
-test('the Processing projection drops session inbox sources from nested proposals', () => {
+test('the Processing projection leaves out proposals that relied on a session inbox message', () => {
   const job = {
     id: '30000000-0000-4000-8000-000000000003',
     subject_id: null,
@@ -315,7 +315,8 @@ test('the Processing projection drops session inbox sources from nested proposal
     jobs: [job],
   } as unknown as ProcessingSnapshotDto)
 
+  // The proposal that relied on an inbox message is left out; the job stays.
   const text = JSON.stringify(projected)
   expect(text).not.toContain(SENTINEL_ID)
-  expect(text).toContain('observation_set')
+  expect(projected.jobs[0].proposals).toEqual([])
 })

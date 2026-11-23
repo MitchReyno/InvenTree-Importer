@@ -422,3 +422,34 @@ test('a state change that replaces the adopted data clears the proof', async () 
   })
   await waitFor(() => expect(state('A')).toContain('unverified'))
 })
+
+test('a state change that keeps the data, or marks a running read idle, is not a verified settled read', async () => {
+  const { read, pending } = scriptedReads<{ value: string }>()
+  render(
+    <>
+      <Grab />
+      <Observer name="A" read={read} />
+    </>,
+  )
+  await act(async () => pending[0].resolve({ value: 'read' }))
+  await waitFor(() => expect(state('A')).toContain(' verified'))
+  const query = client!.getQueryCache().find({ queryKey: key })!
+
+  act(() => query.setState({ data: query.state.data }))
+  await waitFor(() => expect(state('A')).toContain('unverified'))
+
+  // A newer read verifies again; while another runs, forcing the status idle settles nothing.
+  act(() => {
+    void client!.refetchQueries({ queryKey: key })
+  })
+  await waitFor(() => expect(pending).toHaveLength(2))
+  await act(async () => pending[1].resolve({ value: 'two' }))
+  await waitFor(() => expect(state('A')).toBe('current verified after-hint two'))
+  act(() => {
+    void client!.refetchQueries({ queryKey: key })
+  })
+  await waitFor(() => expect(pending).toHaveLength(3))
+  act(() => query.setState({ fetchStatus: 'idle' }))
+  await waitFor(() => expect(state('A')).toContain('unverified'))
+  expect(state('A')).toContain('before-hint')
+})

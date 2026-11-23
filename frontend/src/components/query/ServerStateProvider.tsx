@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react'
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query'
 import { createServerQueryClient } from '#/queries/client'
 import { type ServerScope } from '#/queries/scope'
@@ -19,7 +19,8 @@ export function ServerStateProvider({ children, scope, client }: Props) {
   // The fresh-read registry belongs to the client: made with it, so it follows the cache before
   // any read starts, and detached when the client's lifetime ends.
   const [registry] = useState(() => freshReads(queryClient))
-  useEffect(() => {
+  // A layout Effect runs before TanStack's passive subscription can start the first read.
+  useLayoutEffect(() => {
     registry.attach()
     return () => registry.detach()
   }, [registry])

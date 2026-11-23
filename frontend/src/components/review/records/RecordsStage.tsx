@@ -152,8 +152,9 @@ export function RecordsStage({
     enabled: Boolean(processing?.chat),
     refetchInterval: pollInterval,
   })
-  const askReason =
-    displayOnly || !sessions.settledAfterHint ? (sessions.reason ?? 'Updating…') : undefined
+  // An ask names its session from the records shown, so restored records can't send one either.
+  const askWaits = displayOnly || fromSnapshot || !sessions.settledAfterHint
+  const askReason = askWaits ? (sessions.reason ?? 'Updating…') : undefined
 
   // The session of that step working on the record's Part or one of its lots.
   const askFor = (record: BatchRecordDto) => (step: string) => {
@@ -176,7 +177,7 @@ export function RecordsStage({
       return undefined
     }
     return async (text: string, key: string) => {
-      if (displayOnly || !sessions.settledAfterHintNow()) {
+      if (displayOnly || fromSnapshot || !sessions.settledAfterHintNow()) {
         throw new Error('processing_fresh_read_required')
       }
       await chat.call(processing, batch.id, job.id, { idempotency_key: key, text }, key)

@@ -22,11 +22,12 @@ export function ReadState({ phase, hasData = true, skeleton, failure, children }
   useReportRefreshing(phase === 'refreshing')
 
   if (phase === 'empty') {
+    // The announcement sits outside the busy region, which assistive technology may hold back.
     return (
-      <div aria-busy="true">
+      <>
         <VisuallyHidden role="status">Loading</VisuallyHidden>
-        {skeleton}
-      </div>
+        <div aria-busy="true">{skeleton}</div>
+      </>
     )
   }
   const failed = phase === 'failed'

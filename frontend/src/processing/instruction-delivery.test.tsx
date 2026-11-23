@@ -3,7 +3,7 @@ import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { expect, test, vi } from 'vitest'
 import { render } from '#/test/render'
-import { freshReads } from '#/queries/fresh-reads'
+import { cancelVerified, freshReads } from '#/queries/fresh-reads'
 import { useFreshRead } from '#/queries/useFreshRead'
 import { useInstructionDelivery } from './instruction-delivery'
 
@@ -109,4 +109,35 @@ test('a failed read while delivery is pending reports the delivery as failed, wi
   })
   await waitFor(() => expect(screen.getByLabelText('Delivery')).toHaveTextContent('failed'))
   expect(send).not.toHaveBeenCalled()
+})
+
+test('reconciliation cancelling the read delivery waits on keeps it pending, then it sends once', async () => {
+  const reads: ReturnType<typeof deferred<string>>[] = []
+  const read = vi.fn(() => {
+    const next = deferred<string>()
+    reads.push(next)
+    return next.promise
+  })
+  const send = vi.fn(async () => ({ sessions: 1, woken: 0 }))
+  render(<Owner send={send} read={read} />)
+  await act(async () => reads[0].resolve('before'))
+
+  act(() => freshReads(client!).noteHint())
+  act(() => {
+    void deliver!()
+  })
+  await waitFor(() => expect(reads).toHaveLength(2))
+  // Live reconciliation: cancel the running read, then read again.
+  await act(async () => {
+    await cancelVerified(client!, { queryKey: key }, { silent: true })
+    void client!.invalidateQueries({ queryKey: key })
+  })
+  expect(screen.getByLabelText('Delivery')).toHaveTextContent('pending')
+  await act(async () => reads[1].resolve('cancelled'))
+  await waitFor(() => expect(reads.length).toBeGreaterThan(2))
+  for (const next of reads.slice(2)) {
+    await act(async () => next.resolve('replacement'))
+  }
+  await waitFor(() => expect(screen.getByLabelText('Delivery')).toHaveTextContent('sent'))
+  expect(send).toHaveBeenCalledTimes(1)
 })
