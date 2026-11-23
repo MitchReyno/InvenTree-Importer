@@ -1,8 +1,10 @@
 import * as RadixDialog from '@radix-ui/react-dialog'
-import { useCallback, useLayoutEffect, useRef, type ReactNode } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import styled, { css } from 'styled-components'
 import { color, radius, shadow, space, type, zIndex } from '#/theme/generated/tokens'
+import { ModalContainerContext } from '#/context/ModalContainerContext'
 import { Button } from './Button'
+import { dialogOpener } from './dialog-opener'
 import { motion } from './motion'
 
 type DialogProps = {
@@ -82,6 +84,8 @@ export function ModalFrame({
   children,
 }: ModalFrameProps) {
   const surface = useRef<HTMLDivElement | null>(null)
+  // Popovers opened inside portal here, once the surface has mounted.
+  const [container, setContainer] = useState<HTMLDivElement | null>(null)
   const opener = useRef<HTMLElement | null>(null)
   const mounted = useRef(false)
   const fallback = useRef(returnFocus)
@@ -89,13 +93,13 @@ export function ModalFrame({
     fallback.current = returnFocus
   })
 
-  // Runs before Radix moves focus into the dialog, so the opener is still focused.
+  // Runs before Radix moves focus into the dialog, so the opener is still focused or just clicked.
   useLayoutEffect(() => {
     mounted.current = true
-    const active = document.activeElement
+    const candidate = dialogOpener()
     // Keeps the recorded opener when a StrictMode replay finds focus already inside.
-    if (active instanceof HTMLElement && !surface.current?.contains(active)) {
-      opener.current = active
+    if (candidate && !surface.current?.contains(candidate)) {
+      opener.current = candidate
     }
     return () => {
       mounted.current = false
@@ -106,6 +110,7 @@ export function ModalFrame({
   // Radix then finds focus inside and leaves it.
   const attachSurface = useCallback((element: HTMLDivElement | null) => {
     surface.current = element
+    setContainer(element)
     if (element && !element.contains(document.activeElement)) {
       element.querySelector<HTMLElement>(TABBABLE)?.focus()
     }
@@ -159,7 +164,9 @@ export function ModalFrame({
             }
           }}
         >
-          {children}
+          <ModalContainerContext.Provider value={container}>
+            {children}
+          </ModalContainerContext.Provider>
         </DialogSurface>
       </RadixDialog.Portal>
     </RadixDialog.Root>

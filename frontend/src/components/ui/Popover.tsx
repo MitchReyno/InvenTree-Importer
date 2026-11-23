@@ -2,6 +2,7 @@ import * as RadixPopover from '@radix-ui/react-popover'
 import type { ReactElement, ReactNode } from 'react'
 import styled from 'styled-components'
 import { color, radius, shadow, space, zIndex } from '#/theme/generated/tokens'
+import { useModalContainer } from '#/context/ModalContainerContext'
 import { motion } from './motion'
 
 type PopoverProps = {
@@ -36,10 +37,12 @@ export function Popover({
   onCloseAutoFocus,
   children,
 }: PopoverProps) {
+  // Inside a modal, the panel portals into it, so it stacks above the modal.
+  const modal = useModalContainer()
   return (
     <RadixPopover.Root open={open} onOpenChange={onOpenChange} modal={false}>
       <RadixPopover.Trigger asChild>{trigger}</RadixPopover.Trigger>
-      <RadixPopover.Portal>
+      <RadixPopover.Portal container={modal}>
         <Surface
           align={align}
           sideOffset={8}

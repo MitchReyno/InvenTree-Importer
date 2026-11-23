@@ -95,9 +95,9 @@ export const easing = {
 
 export const zIndex = {
   raised: 'var(--z-raised)',
-  dialog: 'var(--z-dialog)',
   popover: 'var(--z-popover)',
   toast: 'var(--z-toast)',
+  dialog: 'var(--z-dialog)',
 } as const
 
 export const breakpoint = {

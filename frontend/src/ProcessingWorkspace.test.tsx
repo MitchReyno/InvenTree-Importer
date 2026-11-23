@@ -956,6 +956,10 @@ test('a drawer draft survives its session leaving the read', async () => {
   const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
   await within(drawer).findByRole('form', { name: /^Session question: Is Packet A already/ })
   await user.type(answerBox('Is Packet A already in InvenTree?'), 'Different tube')
+  // The session row is behind the open drawer, so hidden from the accessibility tree.
+  expect(
+    screen.getByRole('button', { name: 'Open session: Inventory · Packet A', hidden: true }),
+  ).toBeInTheDocument()
 
   const gone = inventorySnapshot('9')
   delete gone.jobs[0].session_state
@@ -966,7 +970,7 @@ test('a drawer draft survives its session leaving the read', async () => {
   // The session row leaves the step page once the read without the session is shown.
   await waitFor(() =>
     expect(
-      screen.queryByRole('button', { name: 'Open session: Inventory · Packet A' }),
+      screen.queryByRole('button', { name: 'Open session: Inventory · Packet A', hidden: true }),
     ).not.toBeInTheDocument(),
   )
   expect(screen.getByRole('dialog', { name: 'Inventory · Packet A' })).toBeInTheDocument()
@@ -1288,6 +1292,9 @@ test('saving a drawer’s last draft after its session left clears the session l
   const first = 'Is Packet A already in InvenTree?'
   await screen.findByRole('form', { name: `Session question: ${first}` })
   await user.type(answerBox(first), 'Different tube')
+  expect(
+    screen.getByRole('button', { name: 'Open session: Inventory · Packet A', hidden: true }),
+  ).toBeInTheDocument()
 
   // The session ends; its question is still open at the same capture revision.
   const ended = inventorySnapshot('8')
@@ -1298,7 +1305,7 @@ test('saving a drawer’s last draft after its session left clears the session l
   })
   await waitFor(() =>
     expect(
-      screen.queryByRole('button', { name: 'Open session: Inventory · Packet A' }),
+      screen.queryByRole('button', { name: 'Open session: Inventory · Packet A', hidden: true }),
     ).not.toBeInTheDocument(),
   )
   const answered = inventorySnapshot('9', [questionId])

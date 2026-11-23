@@ -1,8 +1,9 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { StrictMode, useState } from 'react'
 import { expect, test, vi } from 'vitest'
 import { Dialog } from './Dialog'
+import { trackDialogOpeners } from './dialog-opener'
 import { Popover } from './Popover'
 
 function Opener({ closeDisabled = false }: { closeDisabled?: boolean }) {
@@ -137,7 +138,10 @@ test('a popover opened inside a dialog stays usable and does not close the dialo
   await afterOpen()
 
   await user.click(screen.getByRole('button', { name: 'Quantity' }))
-  await user.click(await screen.findByRole('button', { name: 'Estimated' }))
+  const option = await screen.findByRole('button', { name: 'Estimated' })
+  // It renders inside the dialog, so it stacks above it and stays in its focus scope.
+  expect(screen.getByRole('dialog', { name: 'Lot settings' })).toContainElement(option)
+  await user.click(option)
   expect(choose).toHaveBeenCalledOnce()
   expect(screen.getByRole('dialog', { name: 'Lot settings' })).toBeInTheDocument()
 })
@@ -233,4 +237,25 @@ test('focus the owner moves on close stays where the owner put it', async () => 
   await user.click(screen.getByRole('button', { name: 'Delete file' }))
   await user.click(screen.getByRole('button', { name: 'Delete' }))
   expect(screen.getByRole('button', { name: 'Undo' })).toHaveFocus()
+})
+
+test('a dialog opened by a click that left focus elsewhere returns focus to the clicked control', async () => {
+  const user = userEvent.setup()
+  const stopTracking = trackDialogOpeners()
+  try {
+    render(
+      <>
+        <button type="button">Elsewhere</button>
+        <Opener />
+      </>,
+    )
+    screen.getByRole('button', { name: 'Elsewhere' }).focus()
+    // As Safari does: the click opens the dialog without focusing its button.
+    fireEvent.click(screen.getByRole('button', { name: 'Merge lots' }))
+
+    await user.click(screen.getByRole('button', { name: 'Close' }))
+    expect(screen.getByRole('button', { name: 'Merge lots' })).toHaveFocus()
+  } finally {
+    stopTracking()
+  }
 })
