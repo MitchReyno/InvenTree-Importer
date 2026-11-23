@@ -62,7 +62,7 @@ A match question SHALL be pinned to the lot's match revision and the candidates 
 
 ### Requirement: Match waits are recorded
 
-The stages a lot's match state holds SHALL be recorded with it and checked whenever a stage is claimed, resumed, started or replaced. An inbox item other than the `match` item that delivers a mode SHALL NOT resume a waiting stage. A search SHALL run outside the transaction that requested it and settle only if it is the lot's latest search request.
+The stages a lot's match state holds SHALL be recorded with it and checked whenever a stage is claimed, resumed, started or replaced. An inbox item other than the `match` item that delivers a mode SHALL NOT resume a waiting stage. A search SHALL run outside the transaction that requested it and settle only if it is the lot's latest search request; a committed request SHALL still run after a restart.
 
 #### Scenario: Unrelated message while waiting
 
@@ -76,6 +76,12 @@ The stages a lot's match state holds SHALL be recorded with it and checked whene
 - **WHEN** Examine republishes the identity as revision 4 before the search settles
 - **THEN** the revision 3 result is discarded and Match searches again on revision 4.
 
+#### Scenario: Searches settle out of order
+
+- **GIVEN** two searches on the same identity, the second requested by Check again
+- **WHEN** the second settles before the first
+- **THEN** the first result is discarded when it arrives.
+
 ### Requirement: Decisions set stage modes
 
 The operator's decision SHALL set the lot's target and its stages' modes: new Part (Research full, Images full); fill what's missing (Research for the missing fields only; Images stock, with a Part image only if the Part has none); add stock (Research skipped; Images as for fill); already imported (the lot left out). A paused identify-mode Research session SHALL receive its mode, or be closed when Research is skipped.
@@ -85,12 +91,6 @@ The operator's decision SHALL set the lot's target and its stages' modes: new Pa
 - **GIVEN** the decision "add stock to RES-0144", whose Part already has an image
 - **WHEN** it is recorded
 - **THEN** no Research session runs for the lot, Images runs for stock images only, and the lot targets RES-0144.
-
-#### Scenario: Searches settle out of order
-
-- **GIVEN** two searches on the same identity, the second requested by Check again
-- **WHEN** the second settles before the first
-- **THEN** the first result is discarded when it arrives.
 
 ### Requirement: Validation before approval
 

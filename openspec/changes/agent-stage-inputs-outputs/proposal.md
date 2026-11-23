@@ -72,7 +72,7 @@ In scope:
 - **Multi-lot sessions:** lot groups claimed up to each stage's sealed cap, per-lot brief sections and `read_lot` scope, per-lot waits, release and requeue on an identity change, per-lot retry after a failure, one slot per session, and the two settings.
 - **Records:** confirmed values into Parts and lots, Match decisions into targets, recipes into Part and stock images, and gaps mode into update effects for existing Parts.
 - **UI:**
-  - the Processing › Match step, replacing Inventory;
+  - the Processing › Match step, replacing Inventory for `/7` batches;
   - the Images step's proposed crops;
   - the match question;
   - Review confirmation;
@@ -122,7 +122,7 @@ No new third-party runtime dependency is needed: the decoder already ships `shar
 
 - `processing-stage-pipeline`: the stage order without the Inventory agent, successors started by Match, identify mode, identity amendments, and revisions that carry the change.
 - `processing-agent-sessions`: the tool boundary per stage, stage briefs, typed outputs and boundaries, precedence, no repeated questions, re-reading the brief, image and logo tools, and stage guides.
-- `processing-workspace`: the Match step replaces the Inventory step and drawer; the Images step shows proposed crops; the brief on the session page.
+- `processing-workspace`: the Match step replaces the Inventory step for `/7` batches, while earlier-version batches keep it; the Images step shows proposed crops; the brief on the session page.
 - `capture-media`: derived crops gain straightening and bounded light adjustments.
 - `review-records`: agent values are proposed until confirmed.
 - `approval-preparation`: Match validation blocks approval; confirmed images and gaps fills become effects.

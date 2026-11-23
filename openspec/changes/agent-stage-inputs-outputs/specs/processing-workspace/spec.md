@@ -16,25 +16,29 @@ Each step page SHALL show the step's outputs: readings, sources, crops or matche
 - **WHEN** the operator opens it
 - **THEN** a drawer shows its status timeline, its open question and a chat, and closing it returns to the page.
 
-## REMOVED Requirements
-
 ### Requirement: Inventory step page
 
-**Reason**: The Inventory agent session is replaced by the app's Match step (processing-match).
+Processing › Inventory SHALL follow the step page pattern. Its main column lists each lot's Part match and why, a side-by-side comparison for each open Inventory clarification about a lot (such as possible duplicate stock), built from the retained question and Review's records, and location and company matches linking to Review › Records. Fields the retained data doesn't hold SHALL read "Not known" rather than being invented.
 
-**Migration**: Processing › Match replaces Processing › Inventory; retained Inventory jobs stay readable from the session list.
+The Inventory step SHALL appear only for a batch whose Examine lead input is earlier than `bench-intake-input/7`, which keeps the Inventory pipeline. A batch whose lead input is `/7` SHALL show Processing › Match in its place.
 
-### Requirement: Inventory session drawer
+#### Scenario: Duplicate stock question
 
-**Reason**: No Inventory sessions are queued for new work.
+- **GIVEN** Inventory asked whether a tube is existing stock #1712
+- **WHEN** the operator opens Processing › Inventory
+- **THEN** the comparison shows this batch's Part, location and quantity, and the InvenTree record's fields read "Not known" until questions carry the existing record (BI-015)
 
-**Migration**: Retained Inventory sessions open in the ordinary session drawer.
+#### Scenario: Retained batch keeps Inventory
+
+- **GIVEN** a batch whose lead input is `/6`, with an Inventory question open, and a `/7` batch
+- **WHEN** the operator opens Processing for each
+- **THEN** the `/6` batch shows the Inventory step with its question answerable, and the `/7` batch shows Match instead.
 
 ## ADDED Requirements
 
 ### Requirement: Processing › Match
 
-Processing SHALL have a Match step listing each lot with what it matched by, its result (exact, possible, already imported, identifying, decided, new) and what runs in which mode, with an Answer for open match questions and Check InvenTree again. Match has no sessions, so its step page SHALL show the match question and candidates where other steps show a session drawer.
+For a batch whose lead input is `/7`, Processing SHALL have a Match step listing each lot with what it matched by, its result (exact, possible, already imported, identifying, decided, new) and what runs in which mode, with an Answer for open match questions and Check InvenTree again. Match has no sessions, so its step page SHALL show the match question and candidates where other steps show a session drawer.
 
 #### Scenario: A batch mid-way
 

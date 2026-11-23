@@ -38,9 +38,9 @@ For `/7` work, they SHALL also start only when Match allows them: Match has eith
 
 ### Requirement: Evidence-based currentness
 
-Each proposal SHALL record the observations, evidence versions, notes and answers it relies on, including the lot's observation set. It SHALL become stale only when one of those changes or is removed.
+Each proposal SHALL record the observations, evidence versions, notes and answers it relies on, including the lot's observation set. It SHALL become stale only when one of those changes or is removed, or, for `/7` work, when one of the pins below changes.
 
-For `/7` work, outputs that establish the identity and outputs that depend on it SHALL record different pins. Examine's `examine-identity/1` proposals record only the inputs above. A `research-identity/1` amendment SHALL also record the identity revision its session started from, and no Match decision, because it is published before Match decides. A `research/1` or `images/1` proposal SHALL also record the pinned identity revision and the Match decision and stage mode it was produced under.
+For `/7` work, outputs that establish the identity and outputs that depend on it SHALL record different pins. An `examine-identity/1` proposal has no further pins. A `research-identity/1` amendment SHALL also pin the identity revision its session started from, and SHALL stay current when its own merge advances the revision or Match then records a decision; it becomes stale when another change advances the revision. A `research/1` or `images/1` proposal SHALL also pin the identity revision and the Match decision and stage mode it was produced under, and becomes stale when any of them changes.
 
 #### Scenario: Evidence removed
 
