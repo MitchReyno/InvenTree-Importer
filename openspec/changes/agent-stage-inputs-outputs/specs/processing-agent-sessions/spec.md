@@ -138,7 +138,7 @@ Session instructions SHALL weigh human-provided facts above the evidence as the 
 
 ### Requirement: Image and logo tools run in the app
 
-`inspect_region`, `preview_images` and `match_logo` SHALL run in the media decoder on the retained original the session may fetch, and return their images and results to the agent within the frame and image limits. `preview_images` SHALL render a recipe exactly as approval would derive it. `propose_images` SHALL publish only recipes over evidence the session may fetch.
+`inspect_region`, `preview_images` and `match_logo` SHALL run in the media decoder on the retained original the session may fetch, and return their images and results to the agent within the frame and image limits. `preview_images` SHALL render a recipe exactly as approval would derive it. `propose_images` SHALL publish only recipes whose source versions are in scope for the lot it names.
 
 #### Scenario: Preview then propose
 
