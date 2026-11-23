@@ -169,8 +169,8 @@ async function notes(fixture: Fixture, batchId: string, subjectId: string) {
   return batch.notes.filter((note) => note.subject_id === subjectId).map((note) => note.text)
 }
 
-/** The batch's published `capture_changed` events, oldest first, with the revision each carries. */
-async function captureChanges(fixture: Fixture, batchId: string) {
+/** The batch's published `capture_changed` payloads, oldest first, as parsed JSON. */
+async function captureChanges(fixture: Fixture, batchId: string): Promise<unknown[]> {
   const rows = await fixture.db.pool.query<{ payload: string }>(
     `SELECT convert_from(e.public_bytes, 'UTF8') AS payload
        FROM ui_event e JOIN ui_stream s ON s.id = e.stream_id
@@ -178,7 +178,7 @@ async function captureChanges(fixture: Fixture, batchId: string) {
       ORDER BY e.sequence`,
     [`capture:${batchId}`],
   )
-  return rows.rows.map((row) => (JSON.parse(row.payload) as { revision: string }).revision)
+  return rows.rows.map((row): unknown => JSON.parse(row.payload))
 }
 
 async function answerRows(fixture: Fixture, jobId: string) {
@@ -465,7 +465,7 @@ test('a stepped answer sets the quantity and one note in one transaction and rea
     // Published once, at the final revision, never at the one between the two edits.
     assert.deepEqual(
       (await captureChanges(fixture, capture.batch.id)).slice(publishedBefore.length),
-      [receipt.capture_revision],
+      [{ batch_id: capture.batch.id, revision: receipt.capture_revision }],
     )
     assert.deepEqual(await lotQuantity(fixture, capture.batch.id, capture.packetA.id), {
       mode: 'set',
