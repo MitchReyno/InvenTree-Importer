@@ -27,6 +27,7 @@ export async function activeHeaderSessions(
         session: agentSessions,
         attempt: processingAttempts,
         stage: processingJobs.stage,
+        currentAttempt: processingJobs.currentAttemptId,
         bytes: processingInputs.manifestBytes,
         digest: processingInputs.manifestDigest,
         laneAttempt: processingLanes.attemptId,
@@ -89,6 +90,7 @@ export async function activeHeaderSessions(
       occupies_lane: row.laneAttempt === row.attempt.id || row.slotAttempt === row.attempt.id,
       session_state: row.session.sessionState,
       latest_status: statuses.get(row.attempt.id) ?? null,
+      current: row.currentAttempt === row.attempt.id,
     })
   }
   return { sessions, truncated: rows.length > 50 }

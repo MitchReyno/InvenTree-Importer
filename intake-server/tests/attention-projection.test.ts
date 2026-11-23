@@ -33,6 +33,17 @@ function question(n: number, state: 'open' | 'answered' | 'superseded', assumpti
   }
 }
 
+const noWork = {
+  questions: 0,
+  failed: 0,
+  jobs: 0,
+  ready: 0,
+  running: 0,
+  waiting: 0,
+  queued: 0,
+  ready_lots: 0,
+}
+
 function job(n: number, stage: string, questions: ReturnType<typeof question>[]) {
   return {
     id: id(n),
@@ -159,11 +170,13 @@ test('counts each tab from the same reads the screens use', () => {
     questions: 2,
     failed: 0,
     running: 0,
+    lots: 4,
+    paused: false,
     steps: {
-      examine: { questions: 1, failed: 0, jobs: 1, ready: 0, running: 0 },
-      research: { questions: 1, failed: 0, jobs: 1, ready: 0, running: 0 },
-      images: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
-      inventory: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
+      examine: { ...noWork, questions: 1, jobs: 1, waiting: 1 },
+      research: { ...noWork, questions: 1, jobs: 1, waiting: 1 },
+      images: noWork,
+      inventory: noWork,
     },
   })
   assert.deepEqual(attention.review, {
@@ -258,11 +271,13 @@ test('a failed or interrupted attempt needs the operator in its step', () => {
     questions: 2,
     failed: 2,
     running: 0,
+    lots: 4,
+    paused: false,
     steps: {
-      examine: { questions: 1, failed: 1, jobs: 2, ready: 0, running: 0 },
-      research: { questions: 1, failed: 1, jobs: 3, ready: 0, running: 0 },
-      images: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
-      inventory: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
+      examine: { ...noWork, questions: 1, failed: 1, jobs: 2, waiting: 1 },
+      research: { ...noWork, questions: 1, failed: 1, jobs: 3, waiting: 1 },
+      images: noWork,
+      inventory: noWork,
     },
   })
   assert.deepEqual(
@@ -381,11 +396,12 @@ test('each step reports its attempts, how many are ready and how many are runnin
   validate('BatchAttention', attention)
   assert.equal(attention.processing.running, 2)
   assert.deepEqual(attention.processing.steps.research, {
-    questions: 0,
-    failed: 0,
+    ...noWork,
     jobs: 4,
     ready: 1,
     running: 2,
+    queued: 1,
+    ready_lots: 1,
   })
 })
 
@@ -481,11 +497,12 @@ test('each lot job counts toward its step, so failed or replaced work is never d
 
   // Each job is one lot's current attempt; nothing replaces a failed, superseded or cancelled one.
   assert.deepEqual(attention.processing.steps.research, {
-    questions: 0,
+    ...noWork,
     failed: 1,
     jobs: 5,
     ready: 2,
-    running: 0,
+    // Both ready jobs are lot 1's, so one lot is ready.
+    ready_lots: 1,
   })
 })
 
@@ -516,11 +533,65 @@ test('a retired lot’s superseded job leaves its step, so the step can still re
   })
 
   validate('BatchAttention', attention)
+  // The ready job with no subject is no lot's, so only lot 1 is ready.
   assert.deepEqual(attention.processing.steps.research, {
-    questions: 0,
-    failed: 0,
+    ...noWork,
     jobs: 2,
     ready: 2,
-    running: 0,
+    ready_lots: 1,
   })
+})
+
+test('each step counts work waiting for the operator, queued work and ready lots, and the batch says whether it is paused', () => {
+  const part = id(7)
+  const onLot = (n: number, subject: string, state: string, stage = 'research') => ({
+    ...job(n, stage, []),
+    subject_id: subject,
+    state,
+  })
+  const jobs = [
+    onLot(10, lot(1), 'ready'),
+    onLot(11, lot(2), 'running'),
+    onLot(12, lot(3), 'waiting_for_user'),
+    onLot(13, lot(4), 'waiting_for_login'),
+    onLot(14, part, 'ready'),
+    onLot(15, lot(1), 'queued', 'images'),
+    onLot(16, lot(2), 'waiting_for_capacity', 'images'),
+    {
+      ...job(17, 'examine', [question(17, 'open'), question(18, 'open')]),
+      subject_id: null,
+      state: 'ready',
+    },
+  ]
+  const attention = projectAttention({
+    batchId: batch,
+    processing: { ...processing, jobs, paused: true } as unknown as ProcessingSnapshotDto,
+    review,
+    manual,
+    records,
+  })
+
+  validate('BatchAttention', attention)
+  assert.equal(attention.processing.lots, 4)
+  assert.equal(attention.processing.paused, true)
+  // The Part's ready job is work done, but no lot's.
+  assert.deepEqual(attention.processing.steps.research, {
+    ...noWork,
+    jobs: 5,
+    ready: 2,
+    running: 1,
+    waiting: 2,
+    ready_lots: 1,
+  })
+  assert.deepEqual(attention.processing.steps.images, { ...noWork, jobs: 2, queued: 2 })
+  assert.deepEqual(attention.processing.steps.examine, {
+    ...noWork,
+    jobs: 1,
+    ready: 1,
+    questions: 2,
+  })
+  assert.deepEqual(attention.processing.steps.inventory, noWork)
+
+  const running = projectAttention({ batchId: batch, processing, review, manual, records })
+  assert.equal(running.processing.paused, false)
 })

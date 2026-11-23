@@ -10,7 +10,7 @@ import type { ProcessingConfig } from '#/processing/attempts.ts'
 import { processingSnapshot } from '#/processing/read.ts'
 import { processingJobs } from '#/processing/schema.ts'
 import { captureInTransaction } from '#/capture/repository.ts'
-import { activeSubjectJobs, countSteps, retiredLotIds } from '#/processing/steps.ts'
+import { activeSubjectJobs, countStageWork, liveLotIds, retiredLotIds } from '#/processing/steps.ts'
 
 type BatchSteps = NonNullable<HeaderWorkDto['batch_steps']>
 
@@ -27,7 +27,13 @@ export async function processingHeaderWork(
     const capture = await captureInTransaction(client, config, id)
     const current = await processingSnapshot(client, config, capture.snapshot)
     const counted = activeSubjectJobs(current.jobs, retiredLotIds(capture.snapshot))
-    batchSteps.push({ batch_id: id, steps: countSteps(counted) })
+    const live = liveLotIds(capture.snapshot)
+    batchSteps.push({
+      batch_id: id,
+      paused: current.paused === true,
+      lots: live.size,
+      steps: countStageWork(counted, live),
+    })
     return current.jobs
   }
 

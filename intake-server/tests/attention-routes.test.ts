@@ -6,12 +6,17 @@ import { devConfig } from '#/config.ts'
 import { registerAttention } from '#/attention/routes.ts'
 import { CaptureError } from '#/capture/model.ts'
 
-const noSteps = {
-  examine: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
-  research: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
-  images: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
-  inventory: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
+const none = {
+  questions: 0,
+  failed: 0,
+  jobs: 0,
+  ready: 0,
+  running: 0,
+  waiting: 0,
+  queued: 0,
+  ready_lots: 0,
 }
+const noSteps = { examine: none, research: none, images: none, inventory: none }
 
 const batch = '00000000-0000-4000-8000-0000000000b1'
 const config = devConfig({
@@ -23,7 +28,7 @@ const config = devConfig({
 const empty: BatchAttentionDto = {
   batch_id: batch,
   revision: '1',
-  processing: { questions: 0, failed: 0, running: 0, steps: noSteps },
+  processing: { questions: 0, failed: 0, running: 0, lots: 0, paused: false, steps: noSteps },
   review: { to_check: 0, changed_after_review: 0, needs_answer: 0, to_decide: 0, records: 0 },
   changes: { ready: 0, failed: 0, uncertain: 0, runs: 0 },
   items: [],
