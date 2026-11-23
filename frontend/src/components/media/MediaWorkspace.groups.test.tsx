@@ -1103,13 +1103,13 @@ test('a move confirmed while a viewer is open keeps its Undo out of reach until 
   })
   expect(await screen.findByText('Moved 1 file to Packet B')).toBeInTheDocument()
   const undo = screen.getByText('Undo').closest('button')
-  expect(undo).toHaveAttribute('inert')
-  expect(undo).toHaveAttribute('aria-hidden', 'true')
+  expect(undo?.closest('[inert]')).not.toBeNull()
+  expect(undo?.closest('[aria-hidden="true"]')).not.toBeNull()
   expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull()
 
   await user.keyboard('{Escape}')
   expect(screen.queryByRole('dialog')).toBeNull()
-  expect(screen.getByRole('button', { name: 'Undo' })).not.toHaveAttribute('inert')
+  expect(screen.getByRole('button', { name: 'Undo' }).closest('[inert]')).toBeNull()
 })
 
 test('Undo waits while another draft is open, so the draft is not lost', async () => {

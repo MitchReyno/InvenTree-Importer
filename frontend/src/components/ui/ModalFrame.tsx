@@ -4,7 +4,6 @@ import styled, { css } from 'styled-components'
 import { color, radius, shadow, space, zIndex } from '#/theme/generated/tokens'
 import { ModalContainerContext } from '#/context/ModalContainerContext'
 import { dialogOpener } from './dialog-opener'
-import { registerOpenModal } from './open-modals'
 import { hidePageBehind } from './page-behind-modal'
 import { motion } from './motion'
 
@@ -45,8 +44,6 @@ export function ModalFrame({
   useLayoutEffect(() => {
     fallback.current = returnFocus
   })
-
-  useLayoutEffect(() => registerOpenModal(), [])
 
   // Syncs the page outside React's tree: inert behind the modal, as a native modal made it.
   useEffect(() => {

@@ -445,12 +445,62 @@ test('a toast that appears while a dialog is open keeps its Undo out of reach un
   render(<LateToast />)
   await user.click(screen.getByRole('button', { name: 'Confirm the move' }))
   expect(screen.getByText('Moved 1 file')).toBeInTheDocument()
-  // Inert and hidden itself, so it stays out of reach wherever the toast is mounted.
+  // It mounts inside the page the dialog made inert, so it is out of reach too.
   const undo = screen.getByText('Undo').closest('button')
-  expect(undo).toHaveAttribute('inert')
-  expect(undo).toHaveAttribute('aria-hidden', 'true')
+  expect(undo?.closest('[inert]')).not.toBeNull()
+  expect(undo?.closest('[aria-hidden="true"]')).not.toBeNull()
 
   await user.click(screen.getByRole('button', { name: 'Close' }))
-  expect(screen.getByRole('button', { name: 'Undo' })).not.toHaveAttribute('inert')
-  expect(screen.getByRole('button', { name: 'Undo' })).not.toHaveAttribute('aria-hidden')
+  expect(screen.getByRole('button', { name: 'Undo' }).closest('[inert]')).toBeNull()
+})
+
+test('the page stays inert while the crop editor stays open over a viewer that closed beneath it', async () => {
+  const user = userEvent.setup()
+
+  // As MediaWorkspace mounts them: the viewer and the crop editor are separate modals, and a
+  // refresh that moves the file unmounts the viewer while the crop editor stays open.
+  function Stacked() {
+    const [viewer, setViewer] = useState(true)
+    const [crop, setCrop] = useState(false)
+    return (
+      <>
+        <button type="button">
+          Workflow activity <span aria-live="polite">2 running</span>
+        </button>
+        {viewer && (
+          <Dialog title="Front label" onClose={() => setViewer(false)}>
+            <button type="button" onClick={() => setCrop(true)}>
+              Prepare crop / rotation
+            </button>
+          </Dialog>
+        )}
+        {crop && (
+          <Dialog title="Prepare documentary crop" onClose={() => setCrop(false)}>
+            <button type="button" onClick={() => setViewer(false)}>
+              Refresh moves the file
+            </button>
+          </Dialog>
+        )}
+      </>
+    )
+  }
+
+  render(<Stacked />)
+  await user.click(screen.getByRole('button', { name: 'Prepare crop / rotation' }))
+  await afterOpen()
+  await user.click(screen.getByRole('button', { name: 'Refresh moves the file' }))
+  expect(screen.queryByRole('dialog', { name: 'Front label' })).toBeNull()
+
+  const page = screen.getByText('2 running')
+  expect(page.closest('[inert]')).not.toBeNull()
+  expect(page.closest('[aria-hidden="true"]')).not.toBeNull()
+  expect(screen.queryByRole('button', { name: /Workflow activity/ })).toBeNull()
+
+  await user.click(
+    within(screen.getByRole('dialog', { name: 'Prepare documentary crop' })).getByRole('button', {
+      name: 'Close',
+    }),
+  )
+  expect(screen.getByRole('button', { name: /Workflow activity/ })).toBeInTheDocument()
+  expect(document.querySelector('[inert]')).toBeNull()
 })
