@@ -91,6 +91,10 @@ function matches(session: Session, filter: Filter) {
 }
 
 function sessionState(session: Session): WorkState {
+  // A session still holding its slot is working, whatever its logical state or its batch's pause.
+  if (session.occupies_lane) {
+    return 'working'
+  }
   // A paused batch's unfinished session starts nothing new until Resume.
   if (session.paused && !FINISHED.has(session.state) && session.session_state !== 'finished') {
     return 'paused'

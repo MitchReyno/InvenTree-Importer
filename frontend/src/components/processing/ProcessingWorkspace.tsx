@@ -492,7 +492,8 @@ export function ProcessingWorkspace({
   const stage = lotStage(view)
   const focusRow = stage && lotRows.find((row) => row.lotId === focusLotId)
   const focusStep = focusRow ? focusRow.steps[stage!] : undefined
-  const focusKey = focusRow ? `${view}:${focusRow.lotId}` : null
+  // The target changes when output first appears, so a restored read's entry gives way to it.
+  const focusKey = focusRow ? `${view}:${focusRow.lotId}:${focusStep!.hasOutput}` : null
   const loaded = snapshot !== undefined
   const scrolledTo = useRef<string | null>(null)
   // Brings the focused lot's output into view once per address, after it has rendered.
@@ -652,9 +653,7 @@ export function ProcessingWorkspace({
       {jobs.map((job) => (
         <FocusTarget
           key={job.id}
-          data-focused-lot={
-            (focusStep?.state === 'done' && focusStep.job?.id === job.id) || undefined
-          }
+          data-focused-lot={(focusStep?.hasOutput && focusStep.job?.id === job.id) || undefined}
           data-highlighted={focusStep?.job?.id === job.id || undefined}
         >
           {focusStep?.job?.id === job.id && focusStep.partId && (
@@ -841,7 +840,11 @@ export function ProcessingWorkspace({
                 )}
                 focus={
                   focusRow && focusStep
-                    ? { label: focusRow.label, state: focusStep.state }
+                    ? {
+                        label: focusRow.label,
+                        state: focusStep.state,
+                        hasOutput: focusStep.hasOutput,
+                      }
                     : undefined
                 }
                 onOpenSession={setSessionJobId}

@@ -145,7 +145,7 @@ test('failed activity reads stay unavailable and a missing target URL has no inv
   // At phone width a short drawn word keeps the control from going blank.
   expect(
     screen.getByRole('button', { name: 'Workflow activity' }).querySelector('[data-short]'),
-  ).toHaveAttribute('data-short', 'Offline')
+  ).toHaveAttribute('data-short', 'Unavailable')
   await user.click(screen.getByRole('button', { name: 'Connection status' }))
   const panel = screen.getByRole('dialog', { name: 'Connection details' })
   expect(within(panel).queryByRole('link', { name: 'Open InvenTree' })).toBeNull()
@@ -875,7 +875,7 @@ test('at phone width a failed job still draws a word, never an empty pill', asyn
 
   expect(
     screen.getByRole('button', { name: 'Workflow activity' }).querySelector('[data-short]'),
-  ).toHaveAttribute('data-short', 'Failed')
+  ).toHaveAttribute('data-short', 'Research · 1')
 })
 
 /** The server's shape: one retained job per step, each with that one step. */
@@ -970,7 +970,7 @@ test('at phone width a read that is not current names its state, with no cached 
 
   // The pill carries no question count; the batch header owns it.
   await waitFor(() => expect(trigger.querySelector('[data-short]')).not.toBeNull())
-  expect(trigger.querySelector('[data-short]')).toHaveAttribute('data-short', 'Offline')
+  expect(trigger.querySelector('[data-short]')).toHaveAttribute('data-short', 'Unavailable')
   expect(trigger).not.toHaveTextContent('3')
 })
 
@@ -1161,7 +1161,7 @@ describe('at phone width', () => {
     const status = await screen.findByRole('button', { name: 'Workflow activity' })
 
     await waitFor(() =>
-      expect(status.querySelector('[data-short]')).toHaveAttribute('data-short', 'Failed'),
+      expect(status.querySelector('[data-short]')).toHaveAttribute('data-short', 'Images · 1'),
     )
     expect(status).toHaveAccessibleDescription(/^Images failed · 1/)
   })

@@ -406,3 +406,21 @@ test('behind the whole window, a session group is raised and the table inside it
     document.documentElement.dataset.masthead = 'bar'
   }
 })
+
+test('a cancelled session still holding its slot reads Working in the Working filter', async () => {
+  const holder: Session = {
+    ...base,
+    attempt_id: 'cancelled-holding',
+    state: 'cancelled',
+    session_state: 'cancelled',
+    occupies_lane: true,
+    paused: true,
+  }
+  render(<AgentSessions client={client({ sessions: [holder] })} batches={batches} />)
+  await screen.findByRole('region', { name: 'Mouser order' })
+
+  fireEvent.click(screen.getByRole('button', { name: /^Working/ }))
+  const row = screen.getAllByRole('row').find((r) => within(r).queryAllByRole('cell').length > 0)!
+  expect(within(row).getByText('Working')).toBeInTheDocument()
+  expect(within(row).queryByText(/Not started|Paused/)).toBeNull()
+})

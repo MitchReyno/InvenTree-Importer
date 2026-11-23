@@ -23,6 +23,8 @@ export type LotStep = {
   job: Job | null
   /** The Part whose job covers the lot, when the output is shared through it. */
   partId: string | null
+  /** The job has something to show: it is done, or it has proposed candidates. */
+  hasOutput: boolean
 }
 
 export type LotSteps = { lotId: string; label: string; steps: Record<LotStage, LotStep> }
@@ -47,13 +49,15 @@ function lotStep(jobs: Job[], lot: Lot, step: LotStage, paused: boolean): LotSte
   const shared = own ? undefined : currentJob(jobsOn(jobs, lot.part_subject_id, step))
   const job = own ?? shared
   if (!job) {
-    return { state: 'not_started', job: null, partId: null }
+    return { state: 'not_started', job: null, partId: null, hasOutput: false }
   }
+  const state = workState(job.state, { paused })
 
   return {
-    state: workState(job.state, { paused }),
+    state,
     job,
     partId: shared ? lot.part_subject_id : null,
+    hasOutput: state === 'done' || job.proposals.length > 0,
   }
 }
 
@@ -101,7 +105,9 @@ export function stepSummary(
   if (step === 'examine') {
     // The lead session's state when there is one; older Reading and Identifying jobs otherwise.
     const lead = examineJobs.find((job) => job.subject_id === null && job.session_state)
-    const states = (lead ? [lead] : examineJobs).map((job) => workState(job.state, { paused }))
+    const states = lead
+      ? [workState(lead.session_state ?? lead.state, { paused })]
+      : examineJobs.map((job) => workState(job.state, { paused }))
     const state = mostPressing(states) ?? 'not_started'
     const text = rows.length ? `${plural(rows.length, 'lot')} formed` : 'No lots formed yet'
     return { text, state }

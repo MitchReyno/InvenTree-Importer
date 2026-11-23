@@ -2134,7 +2134,10 @@ test('Resume waits for a read started after the last live hint, and is checked a
 })
 
 /** The fixture batch with a finished Research job for Packet A. */
-function researchClient(state: ProcessingSnapshotDto['jobs'][number]['state']) {
+function researchClient(
+  state: ProcessingSnapshotDto['jobs'][number]['state'],
+  proposals: ProcessingSnapshotDto['jobs'][number]['proposals'] = [],
+) {
   const researched: ProcessingSnapshotDto = {
     ...snapshot,
     jobs: [
@@ -2144,6 +2147,7 @@ function researchClient(state: ProcessingSnapshotDto['jobs'][number]['state']) {
         id: 'e0000000-0000-4000-8000-00000000000e',
         stage: 'research',
         state,
+        proposals,
         questions: [],
       },
     ],
@@ -2191,6 +2195,23 @@ test('a step page loaded with a lot in its address scrolls to that lot’s outpu
   expect(card).toHaveTextContent('Packet A · research')
   await waitFor(() => expect(scroll).toHaveBeenCalledOnce())
   expect(scroll.mock.contexts[0]).toBe(card)
+  expect(screen.queryByText(/output for this lot yet/)).toBeNull()
+})
+
+test('a lot whose step is unfinished but has a candidate opens on that output', async () => {
+  const scroll = stubScroll()
+  const candidate = {
+    id: 'f0000000-0000-4000-8000-00000000000f',
+    message_id: 'f1000000-0000-4000-8000-00000000000f',
+    value: { subject_id: subjectId, summary: 'RES-0144, 10 kΩ 0603', sources: [] },
+    currentness: { state: 'provisional' },
+  } as unknown as ProcessingSnapshotDto['jobs'][number]['proposals'][number]
+  mountFocused(researchClient('waiting_for_user', [candidate]), 'research')
+  const outputs = await screen.findByRole('region', { name: 'Outputs' })
+  const card = outputs.querySelector('[data-highlighted]')!
+
+  expect(card).toHaveTextContent('RES-0144, 10 kΩ 0603')
+  await waitFor(() => expect(scroll.mock.contexts[0]).toBe(card))
   expect(screen.queryByText(/output for this lot yet/)).toBeNull()
 })
 

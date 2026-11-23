@@ -10,6 +10,8 @@ export type WorkSummary = {
   headline: string
   /** What follows the headline, such as the waiting count after a failure. */
   detail?: string
+  /** The headline's step and count alone ("Research · 1"), for the phone pill beside its glyph. */
+  short?: string
   /** Absent while the read cannot say, and for a proven idle batch. */
   state?: WorkState
   /** Only a fresh, complete read with nothing working, waiting or failed and no lane held. */
@@ -75,13 +77,17 @@ function attention(work: WorkItem[], sessions: Session[], counted: boolean, fail
   const failed = failures ? stepsIn('failed', work, sessions) : []
   const waiting = stepsIn('waiting_for_you', work, sessions)
 
+  const short = (entry: Entry) => (counted ? `${entry.step} · ${entry.jobs}` : entry.step)
+
   return [
     ...failed.map((entry) => ({
       text: phrase(entry, 'failed', counted),
+      short: short(entry),
       state: 'failed' as const,
     })),
     ...waiting.map((entry) => ({
       text: phrase(entry, 'waiting for you', counted),
+      short: short(entry),
       state: 'waiting_for_you' as const,
     })),
   ]
@@ -152,6 +158,7 @@ export function workSummary({
     const after = [...rest.map((entry) => entry.text), active].filter(Boolean)
     return {
       headline: first.text,
+      short: first.short,
       detail: after.length ? after.join(', ') : undefined,
       state: first.state,
       idle: false,

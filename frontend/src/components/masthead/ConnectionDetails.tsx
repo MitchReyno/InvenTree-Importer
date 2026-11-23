@@ -43,12 +43,6 @@ function checkTime(at: string | number, now: number) {
   return (instant && eventTimeText(instant, now)) ?? 'Unknown time'
 }
 
-/** A check's time as an event time, with the full instant on hover and to assistive technology. */
-function CheckTime({ at, now }: { at: string | number; now: number }) {
-  const instant = checkInstant(at)
-  return instant ? <EventTime at={instant} now={now} /> : <>Unknown time</>
-}
-
 /** The server menu: host, last check and the Dev badge, then its actions; diagnostics show in debug mode. */
 export function ConnectionDetails({
   target,
@@ -60,6 +54,9 @@ export function ConnectionDetails({
   check,
 }: Props) {
   const apiFresh = apiChecked > 0 && timestampFresh(apiChecked, now)
+  // The check instants as ISO strings, shown as event times with the full instant on hover.
+  const apiCheckedAt = apiChecked ? checkInstant(apiChecked) : null
+  const transportObservedAt = health.observedAt === null ? null : checkInstant(health.observedAt)
   const targetFresh =
     target && target.freshness === 'fresh' && observationFresh(target.observed_at, now)
   const transportObserved = health.observedAt !== null && Number.isFinite(health.observedAt)
@@ -138,13 +135,14 @@ export function ConnectionDetails({
       <DebugDetails label="Connection details">
         <p>{apiStatus}</p>
         <p>
-          Last API read: {apiChecked ? <CheckTime at={apiChecked} now={now} /> : 'Not yet checked'}
+          Last API read:{' '}
+          {apiCheckedAt ? <EventTime at={apiCheckedAt} now={now} /> : 'Not yet checked'}
         </p>
         <p>{transport}</p>
         <p>
           Transport observation: {transportFreshness} ·{' '}
-          {transportObserved && health.observedAt !== null ? (
-            <CheckTime at={health.observedAt} now={now} />
+          {transportObserved && transportObservedAt ? (
+            <EventTime at={transportObservedAt} now={now} />
           ) : (
             'Not yet observed'
           )}

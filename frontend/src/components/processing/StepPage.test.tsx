@@ -156,7 +156,7 @@ describe('StepPage', () => {
         step="images"
         source={source}
         summary={{ text: 'No work yet', state: 'not_started' }}
-        focus={{ label: 'GE S2CN1 diodes', state: 'not_started' }}
+        focus={{ label: 'GE S2CN1 diodes', state: 'not_started', hasOutput: false }}
         onOpenSession={vi.fn()}
       />,
     )
@@ -166,14 +166,14 @@ describe('StepPage', () => {
     expect(within(focus).getByText('Not started')).toBeInTheDocument()
   })
 
-  it('leaves the focused lot to its outputs once it has a result', () => {
+  it('leaves the focused lot to its outputs once it has any, done or not', () => {
     render(
       <StepPage
         batchId={b}
         step="research"
         source={source}
         summary={{ text: '1 lot · 1 done', state: 'done' }}
-        focus={{ label: 'GE S2CN1 diodes', state: 'done' }}
+        focus={{ label: 'GE S2CN1 diodes', state: 'waiting_for_you', hasOutput: true }}
         onOpenSession={vi.fn()}
       />,
     )

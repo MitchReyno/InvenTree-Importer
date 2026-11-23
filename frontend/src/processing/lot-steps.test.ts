@@ -50,7 +50,12 @@ describe('lotSteps', () => {
     const resistorSteps = rows[1].steps
     expect(resistorSteps.research).toMatchObject({ state: 'done', job: { id: id(2) } })
     expect(resistorSteps.images.state).toBe('working')
-    expect(resistorSteps.inventory).toEqual({ state: 'not_started', job: null, partId: null })
+    expect(resistorSteps.inventory).toEqual({
+      state: 'not_started',
+      job: null,
+      partId: null,
+      hasOutput: false,
+    })
   })
 
   it('puts a Part’s job under each of its lots, shared through the Part', () => {
@@ -80,6 +85,17 @@ describe('lotSteps', () => {
       job: { id: id(7) },
       partId: null,
     })
+  })
+
+  it('counts a job with candidates as output before it is done', () => {
+    const researching = {
+      ...job(9, resistors, 'research', 'waiting_for_user'),
+      proposals: [{ id: id(70) }],
+    } as Job
+    const cell = lotSteps([researching], lots).find((row) => row.lotId === resistors)!.steps
+      .research
+
+    expect(cell).toMatchObject({ state: 'waiting_for_you', hasOutput: true })
   })
 
   it('reads queued work in a paused batch as paused', () => {
@@ -125,7 +141,8 @@ describe('stepSummary', () => {
   })
 
   it('gives Examine its lead’s state, paused with the batch, over older Reading jobs', () => {
-    const lead = { ...job(1, null, 'examine', 'queued'), session_state: 'queued' } as Job
+    // The lead's job reads ready while its session is still queued: the session's state counts.
+    const lead = { ...job(1, null, 'examine', 'ready'), session_state: 'queued' } as Job
     const reading = job(2, resistors, 'reading', 'failed')
 
     expect(stepSummary('examine', lotSteps([], lots), [lead, reading], { paused: true })).toEqual({

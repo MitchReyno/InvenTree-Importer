@@ -84,15 +84,15 @@ const attention: BatchAttentionDto = {
 
 const diodes = 'a0000000-0000-4000-8000-00000000000a'
 
-const notStarted = { state: 'not_started' as const, job: null, partId: null }
+const notStarted = { state: 'not_started' as const, job: null, partId: null, hasOutput: false }
 
 const lots: LotSteps[] = [
   {
     lotId: diodes,
     label: 'GE S2CN1 diodes',
     steps: {
-      research: { state: 'done', job: { id: 'j2' } as never, partId: null },
-      images: { state: 'working', job: { id: 'j3' } as never, partId: 'p1' },
+      research: { state: 'done', job: { id: 'j2' } as never, partId: null, hasOutput: true },
+      images: { state: 'working', job: { id: 'j3' } as never, partId: 'p1', hasOutput: false },
       inventory: notStarted,
     },
   },

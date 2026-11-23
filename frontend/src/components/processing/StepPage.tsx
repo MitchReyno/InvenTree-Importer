@@ -22,7 +22,7 @@ type Props = {
   /** This step's own count and state, as its section below reads them. */
   summary: StepSummary
   /** The lot the address asks to focus, with its state at this step. */
-  focus?: { label: string; state: WorkState }
+  focus?: { label: string; state: WorkState; hasOutput: boolean }
   onOpenSession: (jobId: string) => void
   /** How the step works, behind a help button beside its heading. */
   help?: string
@@ -60,7 +60,7 @@ export function StepPage({
         </FieldNote>
         <CaptureLink href={batchHref(batchId, { tab: 'capture' })}>Evidence in Capture</CaptureLink>
       </Head>
-      {focus && focus.state !== 'done' && (
+      {focus && !focus.hasOutput && (
         <Focus aria-label={focus.label} data-focused-lot>
           <b>{focus.label}</b>
           <span>No {label} output for this lot yet</span>

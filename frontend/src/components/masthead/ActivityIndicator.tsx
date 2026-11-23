@@ -121,7 +121,8 @@ export function ActivityIndicator({
             </Glyph>
           )}
           {running && (
-            <SpinnerSlot data-held={held}>
+            // At phone width a held slot's or an urgent headline's word takes the spinner's place.
+            <SpinnerSlot data-held={held || (fresh && urgent(summary))}>
               <Spinner />
             </SpinnerSlot>
           )}
@@ -141,7 +142,7 @@ export function ActivityIndicator({
             <ShortText aria-hidden="true" data-short={compact} />
           )}
           {showSegments && (
-            <Segments>
+            <Segments data-named={fresh && urgent(summary)}>
               <ProgressSegments steps={segments} />
             </Segments>
           )}
@@ -225,6 +226,10 @@ function compactSummaryWord(summary: WorkSummary, held: boolean) {
   if (held && !urgent(summary)) {
     return 'Slot held'
   }
+  // A failure or a wait names its step and count beside its glyph, as the full headline does.
+  if (summary.short) {
+    return summary.short
+  }
   if (summary.state) {
     return WORK_STATE[summary.state].word
   }
@@ -235,7 +240,7 @@ function compactSummaryWord(summary: WorkSummary, held: boolean) {
 /** At phone width the labels hide, so a workflow read that is not current names its state. */
 function compactWord(unavailable: boolean, loaded: boolean) {
   if (unavailable) {
-    return 'Offline'
+    return 'Unavailable'
   }
 
   return loaded ? 'Stale' : 'Reading…'
@@ -331,6 +336,10 @@ const WideOnly = styled.span`
 const Segments = styled.span`
   display: contents;
   ${media.compact} {
+    /* A named failure or wait says which step itself, so the segments give way to the brand. */
+    &[data-named='true'] {
+      display: none;
+    }
     [data-state] {
       /* literal-allowed: a phone segment's width, as ProgressSegments' own 14px; no token has this role */
       width: 8px;

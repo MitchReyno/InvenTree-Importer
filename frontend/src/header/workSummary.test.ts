@@ -73,7 +73,12 @@ describe('workSummary inside a batch', () => {
       data: read({ work: [job('research', 'failed'), job('images', 'ready')] }),
     })
 
-    expect(summary).toMatchObject({ headline: 'Research failed · 1', state: 'failed', idle: false })
+    expect(summary).toMatchObject({
+      headline: 'Research failed · 1',
+      short: 'Research · 1',
+      state: 'failed',
+      idle: false,
+    })
   })
 
   it('names the failure first and still shows what waits for the operator', () => {
