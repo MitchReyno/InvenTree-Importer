@@ -1,3 +1,27 @@
+## MODIFIED Requirements
+
+### Requirement: Expand work steps and existing actions
+
+Expanding the workflow indicator SHALL show authorized work identities, current state, known steps and relevant navigation actions. The system SHALL derive steps from retained processing/manual-run state, never timer-based progress or invented percentages. Bounded or truncated lists SHALL disclose partial coverage and link to the owning full view. The header MUST NOT add mutation authority, except Resume for a paused batch, which SHALL use the existing pause route and its server authorization and SHALL be unavailable while the work read is loading, failed or stale.
+
+#### Scenario: Concurrent and partially loaded work
+
+- **GIVEN** multiple jobs and a truncated global result
+- **WHEN** the workflow details open
+- **THEN** they show available jobs and actual step states, visibly identify incomplete coverage, and offer navigation to the appropriate Processing, Results or agent-session view.
+
+#### Scenario: Unknown step detail
+
+- **GIVEN** a job lacks known fine-grained progress
+- **WHEN** its details render
+- **THEN** the UI shows the known stage/state and an unknown detail label rather than fabricated counts or progress.
+
+#### Scenario: Resume while the work read is stale
+
+- **GIVEN** a paused batch in the workflow details whose work read has failed or holds only old data
+- **WHEN** the details render
+- **THEN** Resume is unavailable with the read's stale or unavailable state shown, and no command is sent.
+
 ## ADDED Requirements
 
 ### Requirement: Stage rows in workflow details

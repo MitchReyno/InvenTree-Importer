@@ -31,4 +31,4 @@ A question SHALL name the field or fields it affects and, for each of its steps,
 
 - **GIVEN** a question with five steps, a choice step with one option, or a number step about no live lot
 - **WHEN** the tool server validates it
-- **THEN** it is refused with a validation error naming the step, and no question is stored.
+- **THEN** it is refused with a validation error naming the affected field or step, and no question is stored.

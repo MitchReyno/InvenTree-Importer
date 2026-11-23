@@ -82,13 +82,13 @@ When expanded, an observation SHALL show its crop, its reading with the source c
 
 ### Requirement: Proposal, question and failure entries expand with links
 
-When expanded, a proposal SHALL show its proposed fields with source chips, what it relies on and whether it is current, linking to the lot in Review, the Part in Records, each source and every open question that makes it provisional (an open question on the same subject sharing one of its fields). A question SHALL show its steps and assumptions, linking to Answer and the lot. A failure or stop SHALL show its summary, linking to the failure details and, where allowed, Start fresh.
+When expanded, a proposal SHALL show its summary, its sources, what it relies on and whether it is current, linking to the lot in Review, each source and every open question that makes it provisional; retained structured values SHALL show with their source chips, and a named Part SHALL link to Records. A question SHALL show its steps and assumptions, linking to Answer and the lot. A failure or stop SHALL show its summary, linking to the failure details and, where allowed, Start fresh.
 
 #### Scenario: Expand a proposal
 
-- **GIVEN** a Research session's history holding "Proposed ATmega328P-AU · provisional"
+- **GIVEN** a Research session's history holding "Proposed ATmega328P-AU · provisional", whose retained proposal carries the MPN and manufacturer with their sources
 - **WHEN** the operator expands it
-- **THEN** it shows the MPN, manufacturer and package with their source chips and the open questions that make it provisional, with links to the lot in Review, the Part in Records and each of those questions.
+- **THEN** it shows its summary, the MPN and manufacturer with their source chips and the open questions that make it provisional, with links to the lot in Review and each of those questions.
 
 #### Scenario: Linked record no longer exists
 
@@ -98,7 +98,7 @@ When expanded, a proposal SHALL show its proposed fields with source chips, what
 
 ### Requirement: Your inputs in the session history
 
-A session's history SHALL include the operator's inputs sent to the session, marked as theirs and placed at the time they were sent: answers with what they changed, instructions, new evidence and requests to revise. An input the session has not read yet SHALL say so. A notice the app sent, such as a lot's revised identity, SHALL be marked as the app's, not the operator's. Chat messages SHALL stay in the chat.
+A session's history SHALL include the operator's answers, with what they changed, and instructions, marked as theirs and placed at the time they were sent or saved, and the app's notices of new evidence and revisions, marked as the app's. An input the session has not read yet SHALL say so. Chat messages SHALL stay in the chat.
 
 #### Scenario: Answer in the history
 

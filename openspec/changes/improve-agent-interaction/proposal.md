@@ -30,7 +30,7 @@ The outcome sought:
 - A number step checks the value as it is typed, with a plain fix, and offers "Answer in words" when a number can't be given.
 - The agent states the assumption it works on for each step, and the drawer and Needs you show it.
 
-- Every history entry with more to show expands in place to its details, and links to the pages it concerns. Runs of the same action are grouped. The operator's inputs (answers, instructions, new photos, revise notices) appear in the history; chat stays in the chat.
+- Every history entry with more to show expands in place to its details, and links to the pages it concerns. Runs of the same action are grouped. The operator's inputs (answers and instructions) and the app's notices of new photos and revisions appear in the history; chat stays in the chat.
 - Each session gets a page inside its batch's Processing that shows it as one conversation, oldest first: action rows, chat bubbles, question cards answered in place, the operator's inputs and attempt dividers. It has filters, a message box, side panels for the photos it viewed and the sources it cited, and debug details. The drawer summarises photo views and web reads in one line and links to the page.
 - The activity popover is 520 px wide on desktop, with one row per stage linking to its step page, showing a count where there is one, a state and a short status line.
 - Each stage's bar shows done, working, waiting for you, paused, queued, not started or failed. Only a stage being worked on now animates, and a paused batch is hatched and offers Resume.
@@ -151,7 +151,7 @@ None.
 
 - `processing-workspace`: the session drawer closes from its backdrop, and steps are answered in the drawer. The Inventory drawer's option cards become live. Expandable history with links, the operator's inputs in it, the drawer/page split and the session page.
 - `agents-overview`: each session row links to its session page.
-- `header-workflow-status`: stage rows in the workflow details, the stage bar states, and only working stages animating.
+- `header-workflow-status`: stage rows in the workflow details, the stage bar states, only working stages animating, and Resume as the one command in the workflow details.
 - `agents-overview` also gains session rows, recovery actions and the Needs attention filter. `processing-workspace` gains failures in plain words, the drawer header, activity in the app's words and the labelled message box. `processing-agent-sessions` gains readable status lines.
 - `processing-stage-pipeline`: non-blocking questions are one question with 1–4 steps, each with an answer kind and an assumption.
 - `processing-agent-sessions`: the `ask` tool's structured question, the delivery of stepped answers to the session, recorded photo views and agent-reported web page sources, which "Bounded status lines and delivered citations" now allows as the one undelivered source kind.
