@@ -30,6 +30,6 @@ The executor SHALL apply only plans whose version, build and capability match a 
 
 #### Scenario: Add stock under the third effects version
 
-- **GIVEN** a runner with `owned-fake-effects/3` and `owned-fake-media/1`, and a `bench-effects-plan/3` plan that sets an existing Part's image, creates stock and attaches its stock image
+- **GIVEN** a `/3` runner deployment with `owned-fake-effects/3` and `owned-fake-media/1` beside the existing `/2` deployment, and a `bench-effects-plan/3` plan that sets an existing Part's image, creates stock and attaches its stock image
 - **WHEN** it applies
-- **THEN** all three effects run under that runner, and a retained `bench-effects-plan/2` plan applies on the same runner.
+- **THEN** all three effects run under the `/3` runner, and a retained `bench-effects-plan/2` plan applies on its own `/2` runner with its approved bytes unchanged.

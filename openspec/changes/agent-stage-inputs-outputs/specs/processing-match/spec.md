@@ -170,13 +170,19 @@ A paused identify-mode Research lot SHALL receive its decision's mode, or have i
 
 ### Requirement: A decision binds only its lot
 
-When lots share a draft Part and one is decided as add stock to an existing Part, the decision SHALL relink only that lot to the existing Part, in the same commit, and SHALL leave the other lots on the draft.
+When lots share a draft Part and one is decided as add stock to an existing Part, the decision SHALL relink only that lot to the existing Part, in the same commit, and SHALL leave the other lots on the draft. A later new Part decision SHALL relink that lot back to a draft Part of its own, leaving its peers' bindings unchanged.
 
 #### Scenario: Shared draft, one switch
 
 - **GIVEN** lots A and B sharing a draft Part
 - **WHEN** lot A is decided as add stock to RES-0144
 - **THEN** A targets RES-0144 and B stays on the draft Part.
+
+#### Scenario: Back to a new Part
+
+- **GIVEN** lot A decided as add stock to RES-0144 while lot C also targets RES-0144
+- **WHEN** lot A is decided again as new Part
+- **THEN** A moves to a draft Part of its own, and C keeps RES-0144.
 
 ### Requirement: Validation before approval
 
