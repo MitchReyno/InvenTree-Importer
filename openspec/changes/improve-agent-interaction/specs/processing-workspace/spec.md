@@ -72,7 +72,7 @@ Each entry in a session's history that has more to show SHALL expand in place to
 
 ### Requirement: Lot-forming entries expand with links
 
-When expanded, an observation SHALL show its crop, its reading with the source chip and its visible count, linking to the photo in Capture and the map. A lot formed or extended SHALL show the lot's current observations, quantity and basis and why it is separate, labelled as current, linking to the lot in Review and the map. A regroup SHALL show which observations moved from which lot to which, linking to each affected lot; a regroup recorded before moves were kept SHALL list the lots it moved observations to.
+When expanded, an observation SHALL show its crop, its reading with the source chip and its visible count, linking to the photo in Capture and the map. A lot formed or extended SHALL show the lot's current observations, quantity and basis and why it is separate, labelled as current, linking to the lot in Review and the map. A regroup SHALL show which observations moved from which lot to which, linking to each affected lot; an older regroup SHALL list its destination lots.
 
 #### Scenario: Expand a formed lot
 

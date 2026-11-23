@@ -72,13 +72,19 @@ The asking session SHALL receive one `answer` inbox item carrying each step's va
 
 ### Requirement: Photo views are recorded
 
-Each image delivered by `fetch_evidence` SHALL be recorded in the session's history with the evidence, version, page, region, and the delivered size and digest, in the final transaction before the image is returned. A view records an image authorized and prepared for the tool response, not one the provider is known to have read. A refused or over-budget fetch SHALL NOT be recorded as a view, and an image whose view can't be confirmed as recorded SHALL NOT be returned, so a commit with an unknown outcome may leave a view for an image that was withheld.
+Each image delivered by `fetch_evidence` SHALL be recorded in the session's history with the evidence, version, page, region, and the delivered size and digest, in the final transaction before the image is returned. A refused or over-budget fetch SHALL NOT be recorded as a view, and an image whose view can't be confirmed as recorded SHALL NOT be returned. A view means the image was prepared for the tool response, not that the provider read it.
 
 #### Scenario: Delivered and refused fetches
 
 - **GIVEN** a session fetches one region successfully and then exceeds its image budget
 - **WHEN** its history is read
 - **THEN** it holds one photo view, for the delivered region, with the delivered dimensions.
+
+#### Scenario: Commit outcome unknown
+
+- **GIVEN** a fetch whose final transaction loses its commit acknowledgement
+- **WHEN** the handler finishes
+- **THEN** no image is returned and the budget stays reserved, and a view may exist for the withheld image.
 
 ### Requirement: Agent-reported web page sources
 
