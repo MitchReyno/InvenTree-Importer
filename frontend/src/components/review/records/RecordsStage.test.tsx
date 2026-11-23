@@ -264,6 +264,16 @@ async function open(user: ReturnType<typeof userEvent.setup>, type: RegExp, reco
   await user.click(screen.getByRole('button', { name: record }))
 }
 
+/** Injected component rules whose selector matches `element`. */
+function matchingRules(element: Element) {
+  const rules = [...document.styleSheets].flatMap((sheet) => [...sheet.cssRules])
+
+  return rules.filter(
+    (rule): rule is CSSStyleRule =>
+      rule instanceof CSSStyleRule && element.matches(rule.selectorText),
+  )
+}
+
 function stageWith(read: BatchRecordsDto) {
   render(
     <BatchCommandsProvider
@@ -347,6 +357,21 @@ describe('RecordsStage', () => {
     await user.click(screen.getByRole('button', { name: /^Next record/ }))
     expect(rows[1]).toHaveAttribute('aria-current', 'true')
     expect(screen.getByRole('button', { name: /^Previous record/ })).toBeEnabled()
+  })
+
+  it('keeps the whole accent border on a selected first row', async () => {
+    const user = userEvent.setup()
+    stage()
+    await user.click(await screen.findByRole('button', { name: /^Parts/ }))
+    const list = screen.getByRole('region', { name: 'Parts' })
+    const first = within(list).getAllByRole('button')[0]
+    await user.click(first)
+    expect(first).toHaveAttribute('aria-current', 'true')
+
+    const clearing = matchingRules(first).filter(
+      (rule) => rule.style.getPropertyValue('border-top-color') === 'transparent',
+    )
+    expect(clearing.map((rule) => rule.selectorText)).toEqual([])
   })
 
   it('shows Parameters as a Part by template matrix per category, with its legend', async () => {

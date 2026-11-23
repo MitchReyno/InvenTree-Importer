@@ -1,7 +1,7 @@
 import styled from 'styled-components'
 import { color, radius, space } from '#/theme/generated/tokens'
 import type { CaptureSnapshotDto, OperatorReviewDto } from '@invimport/contracts'
-import { DebugDetails, Heading, Panel, Small, Pill } from '#/components/ui'
+import { DebugDetails, Heading, HelpButton, Panel, Small, Pill } from '#/components/ui'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -16,11 +16,13 @@ function label(batch: CaptureSnapshotDto, id: string) {
 export function RetiredLots({ batch, review }: Props) {
   return (
     <Panel aria-label="Retired lot history">
-      <Heading>Retired lots</Heading>
-      <Small>
-        Split or merged before approval. Their notes and evidence stay with the history and are
-        shown on successor lots.
-      </Small>
+      <TitleRow>
+        <Heading>Retired lots</Heading>
+        <HelpButton
+          label="About retired lots"
+          explanation="These lots were split or merged before approval. Their notes and evidence stay in the history and show on the lots that replaced them."
+        />
+      </TitleRow>
       {!review.retired_lots.length && <Small>No lots have been split or merged.</Small>}
       <List>
         {review.retired_lots.map((lot) => (
@@ -41,6 +43,16 @@ export function RetiredLots({ batch, review }: Props) {
     </Panel>
   )
 }
+
+const TitleRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${space[3]};
+  margin-bottom: ${space[6]};
+  ${Heading} {
+    margin: 0;
+  }
+`
 
 const List = styled.ul`
   display: grid;

@@ -18,6 +18,11 @@ type ModalFrameProps = {
   /** A wider surface, for editors. */
   wide?: boolean
   returnFocus?: () => HTMLElement | null
+  /**
+   * The `ModalTitle`'s id, so the dialog is labelled from its first render; Radix adds the label
+   * only on a later one, after its content's first Effects have run.
+   */
+  labelledBy?: string
   /** Must include a `ModalTitle`, which names the dialog. */
   children: ReactNode
 }
@@ -33,6 +38,7 @@ export function ModalFrame({
   placement = 'center',
   wide = false,
   returnFocus,
+  labelledBy,
   children,
 }: ModalFrameProps) {
   const surface = useRef<HTMLDivElement | null>(null)
@@ -125,6 +131,8 @@ export function ModalFrame({
           $side={placement === 'side'}
           $wide={wide}
           aria-describedby={undefined}
+          // Left to Radix when absent, so an undefined prop doesn't remove its label.
+          {...(labelledBy ? { 'aria-labelledby': labelledBy } : {})}
           onCloseAutoFocus={restoreFocus}
           onEscapeKeyDown={(event) => {
             if (closeDisabled || !closeOnEscape) {

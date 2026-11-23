@@ -133,3 +133,55 @@ describe('NeedsYouPanel', () => {
     expect(screen.getByRole('button', { name: '3+ need you' })).toBeInTheDocument()
   })
 })
+
+describe('NeedsYouPanel question rows', () => {
+  it('show each question with its kind or step count and the agent’s assumptions', async () => {
+    const user = userEvent.setup()
+
+    const question = (
+      key: string,
+      title: string,
+      steps: NonNullable<BatchAttentionDto['items'][number]['question']>['steps'],
+    ) => ({
+      key,
+      group: 'question' as const,
+      tab: 'processing' as const,
+      title,
+      detail: steps[0].assumption,
+      question: { steps },
+      route: `${b}/processing/examine/${key}`,
+    })
+
+    render(
+      <NeedsYouPanel
+        attention={{
+          ...attention,
+          items: [
+            question('q1', 'About the 10 kΩ packets', [
+              { kind: 'choice', options: 2, assumption: 'Same Part' },
+              { kind: 'number', assumption: '~380 left' },
+              { kind: 'choice', options: 2, assumption: 'Drawer R3' },
+            ]),
+            question('q2', 'Which ATmega328P variant is this?', [
+              { kind: 'choice', options: 2, assumption: 'ATmega328P-AU' },
+            ]),
+            question('q3', 'How many 1N4148 diodes are in the bag?', [
+              { kind: 'number', assumption: 'Using 200 (estimate)' },
+            ]),
+            question('q4', 'Is the label torn?', [{ kind: 'text', assumption: null }]),
+          ],
+        }}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: '4 need you' }))
+    const rows = within(screen.getByRole('dialog', { name: 'Needs you' })).getAllByRole('listitem')
+    expect(rows[0]).toHaveTextContent('About the 10 kΩ packets · 3 steps')
+    expect(rows[0]).toHaveTextContent('Same Part · ~380 left · Drawer R3')
+    expect(rows[1]).toHaveTextContent('Which ATmega328P variant is this? · choose one of 2')
+    expect(rows[1]).toHaveTextContent('ATmega328P-AU')
+    expect(rows[2]).toHaveTextContent('· a number')
+    expect(rows[2]).toHaveTextContent('Using 200 (estimate)')
+    // An earlier runner question recorded no assumption.
+    expect(rows[3]).toHaveTextContent('Is the label torn? · in words')
+  })
+})

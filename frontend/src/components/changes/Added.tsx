@@ -13,6 +13,7 @@ import {
   Small,
   TargetChip,
   groundBehindOnField,
+  PageStack,
 } from '#/components/ui'
 import { leftOutLots, readyLotIds } from '#/changes/model'
 import type { CaptureSnapshotDto, ManualRunDto, ManualWorkspaceDto } from '@invimport/contracts'
@@ -193,10 +194,7 @@ export function Added({ batch, workspace, focusedRunId, busy, command, targetUrl
   )
 }
 
-const Layout = styled.div`
-  display: grid;
-  gap: ${space[6]};
-`
+const Layout = styled(PageStack)``
 /** Rounds beside the batch's other outcomes; one column below bp-stacked. */
 const Columns = styled.div`
   display: grid;

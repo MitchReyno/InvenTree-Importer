@@ -58,10 +58,10 @@
 - **Verification:** frontend tests; a before and after capture of Review › Records.
 - **Risks and decisions:** none.
 
-- [ ] 1.1 Read the shared and frontend code guidelines and the frontend architecture. List every shared-divider list with a selected state.
-- [ ] 1.2 RED: a `RecordsStage` test showing that the selected first row's top border is cleared.
-- [ ] 1.3 GREEN: guard the divider rule with `:not([aria-current='true'])` in `RecordButton` and every list found in 1.1.
-- [ ] 1.4 Run the frontend tests, and capture the lists before and after for the PR.
+- [x] 1.1 Read the shared and frontend code guidelines and the frontend architecture. List every shared-divider list with a selected state.
+- [x] 1.2 RED: a `RecordsStage` test showing that the selected first row's top border is cleared.
+- [x] 1.3 GREEN: guard the divider rule with `:not([aria-current='true'])` in `RecordButton` and every list found in 1.1.
+- [x] 1.4 Run the frontend tests, and capture the lists before and after for the PR.
 
 ## 2. Page sections evenly spaced
 
@@ -77,11 +77,11 @@
 - **Verification:** frontend checks; a Playwright capture script over the fixture pages and the dev app (kept outside the repository, or under `frontend/scripts/` if it proves reusable), with the captures attached to the PR.
 - **Risks and decisions:** pages with their own grid rhythm (the Review grid) keep it inside the stack.
 
-- [ ] 2.1 Map the canvas page gap (14 px) to its frontend space token. Read every page root, and list the top-level sections with outer margins.
-- [ ] 2.2 Capture every page at 1440 and 390 px as the baseline, and note each touching pair, starting with Review's banner and toolbar, and the filters and grid.
-- [ ] 2.3 Add `PageStack`, with its unit test.
-- [ ] 2.4 Move each page root onto `PageStack` and remove the outer margins.
-- [ ] 2.5 Capture again, compare with 2.2 and fix any remaining touching sections. Run the frontend checks.
+- [x] 2.1 Map the canvas page gap (14 px) to its frontend space token. Read every page root, and list the top-level sections with outer margins.
+- [x] 2.2 Capture every page at 1440 and 390 px as the baseline, and note each touching pair, starting with Review's banner and toolbar, and the filters and grid.
+- [x] 2.3 Add `PageStack`, with its unit test.
+- [x] 2.4 Move each page root onto `PageStack` and remove the outer margins.
+- [x] 2.5 Capture again, compare with 2.2 and fix any remaining touching sections. Run the frontend checks.
 
 ## 3. Remove Batch context and the profile notices
 
@@ -98,10 +98,10 @@
 - **Verification:** frontend tests; captures of Review and Processing.
 - **Risks and decisions:** none.
 
-- [ ] 3.1 Find every test, fixture and doc that mentions Batch context, `native_unverified` text or "live provider not qualified".
-- [ ] 3.2 RED: assert their absence, and assert the debug row.
-- [ ] 3.3 GREEN: remove them, add the debug row and move the help sentence.
-- [ ] 3.4 Update `frontend/ARCHITECTURE.md` where it describes them. Run the frontend checks.
+- [x] 3.1 Find every test, fixture and doc that mentions Batch context, `native_unverified` text or "live provider not qualified".
+- [x] 3.2 RED: assert their absence, and assert the debug row.
+- [x] 3.3 GREEN: remove them, add the debug row and move the help sentence.
+- [x] 3.4 Update `frontend/ARCHITECTURE.md` where it describes them. Run the frontend checks.
 
 ## 4. Freshness layer and persisted reads
 
@@ -218,10 +218,10 @@
 - **Verification:** frontend checks; captures.
 - **Risks and decisions:** keep each sentence's meaning while rewording; list each move in the PR.
 
-- [ ] 8.1 List every standing explanation and developer-facing sentence, and classify each: help, debug or delete.
-- [ ] 8.2 RED: tests for the three named sentences and the popover placement.
-- [ ] 8.3 GREEN: move them, and fix the need-you popover's anchoring and row layout.
-- [ ] 8.4 Capture the affected screens. Run the frontend checks.
+- [x] 8.1 List every standing explanation and developer-facing sentence, and classify each: help, debug or delete.
+- [x] 8.2 RED: tests for the three named sentences and the popover placement.
+- [x] 8.3 GREEN: move them, and fix the need-you popover's anchoring and row layout.
+- [x] 8.4 Capture the affected screens. Run the frontend checks.
 
 ## 9. Several files at once from any source
 
@@ -255,10 +255,10 @@
 - **Verification:** frontend checks; a capture of the switch; a manual check of all three styles with the switch off.
 - **Risks and decisions:** none.
 
-- [ ] 10.1 Read the guidelines, `theme/masthead-style.ts`, `device-preference.ts` and how `ElectronicsCurrent` starts the scene.
-- [ ] 10.2 RED: tests for the preference (default, bad storage, unknown value), the switch, the scene paused when off, turning it on after an off-state reload, a theme change while paused, OS reduced motion still winning, and switching off, scrolling the masthead out of view and back (still paused), then switching on (the same scene resumes); and resizing the window while paused redrawing the still frame at the new size with the same parts, which then resume.
-- [ ] 10.3 GREEN: implement the preference, the switch, and the controller's `pause()` and `resume()`, keeping the OS reduced-motion flag separate.
-- [ ] 10.4 Check the three styles with the switch off in the running app (the fixture runner freezes the scene). Update `frontend/ARCHITECTURE.md`, and run the frontend checks.
+- [x] 10.1 Read the guidelines, `theme/masthead-style.ts`, `device-preference.ts` and how `ElectronicsCurrent` starts the scene.
+- [x] 10.2 RED: tests for the preference (default, bad storage, unknown value), the switch, the scene paused when off, turning it on after an off-state reload, a theme change while paused, OS reduced motion still winning, and switching off, scrolling the masthead out of view and back (still paused), then switching on (the same scene resumes); and resizing the window while paused redrawing the still frame at the new size with the same parts, which then resume.
+- [x] 10.3 GREEN: implement the preference, the switch, and the controller's `pause()` and `resume()`, keeping the OS reduced-motion flag separate.
+- [x] 10.4 Check the three styles with the switch off in the running app (the fixture runner freezes the scene). Update `frontend/ARCHITECTURE.md`, and run the frontend checks.
 
 ## 11. Agent settings autosave
 
@@ -372,8 +372,8 @@
 
 ## Delivery evidence and lifecycle follow-up
 
-- [ ] PR-0: review both plans read-only (`codex exec -m gpt-6.2-sol -s read-only`; Mitch's standing rule: at most three rounds, with the last round's fixes noted on the PR; material issues left after round three are fixed and listed on the PR for Mitch), fix, publish, CI green, merge.
-- [ ] PR-0 follow-up: review the merged plan again (rounds 4–6, same rule), fix, publish, CI green, merge.
+- [x] PR-0: review both plans read-only (`codex exec -m gpt-6.2-sol -s read-only`; Mitch's standing rule: at most three rounds, with the last round's fixes noted on the PR; material issues left after round three are fixed and listed on the PR for Mitch), fix, publish, CI green, merge (#247).
+- [x] PR-0 follow-up: review the merged plan again (rounds 4–6, same rule), fix, publish, CI green, merge (#248).
 - [ ] PR-A: implement tasks 1–3, 8 and 10, review the exact head, publish with captures and the demo, CI green, merge.
 - [ ] PR-B: implement task 4, review the exact head, publish with the demo, CI green, merge.
 - [ ] PR-C: implement task 5, review the exact head, publish with captures and the demo, CI green, merge.

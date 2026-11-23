@@ -6,6 +6,8 @@ import {
   validate,
   type CaptureSnapshotDto,
   type ProcessingJobDto,
+  type ProcessingQuestionV1Dto,
+  type ProcessingQuestionV2Dto,
   type ProcessingSnapshotDto,
   type ProcessingStateDto,
   type ProcessingActivityDto,
@@ -35,6 +37,7 @@ import {
   retainedProposalValue,
   retainedSessionProposal,
   retainedSessionQuestion,
+  type RetainedQuestionSeal,
 } from './retained.ts'
 import { decodeJobInput } from './session-input.ts'
 import { agentSessions } from '#/agents/schema.ts'
@@ -275,7 +278,7 @@ async function questionsForJob(
       input_sha256: question.manifestDigest.toString('hex'),
       revision: question.revision.toString(),
       state: staleOpenQuestion ? 'superseded' : question.state,
-      ...questionSpec(question, job.subjectId, batchSubjects),
+      ...questionContent(question, job.subjectId, batchSubjects),
       ...(question.askedAt ? { asked_at: question.askedAt.toISOString() } : {}),
     }
   })
@@ -540,27 +543,49 @@ function jobManifestQualification(
     : 'fixture_only'
 }
 
-/** Session questions also carry the fields they affect and the assumption in use. */
-function questionSpec(
-  question: Parameters<typeof retainedQuestionSpec>[0],
+type QuestionContent =
+  | Pick<ProcessingQuestionV1Dto, 'subject_id' | 'spec' | 'fields' | 'assumption'>
+  | Pick<
+      ProcessingQuestionV2Dto,
+      'subject_id' | 'schema_version' | 'fields' | 'title' | 'reason' | 'steps'
+    >
+
+/**
+ * Each question's content once, in its version's shape. Session questions also carry the fields
+ * they affect and their assumptions; an earlier runner question has neither.
+ */
+function questionContent(
+  question: RetainedQuestionSeal,
   subjectId: string | null,
   batchSubjects: ReadonlySet<string>,
-): Pick<ProcessingJobDto['questions'][number], 'spec' | 'fields' | 'assumption'> {
+): QuestionContent {
   if (!isSessionMessage(question)) {
+    const spec = retainedQuestionSpec(
+      question,
+      subjectId ?? fail('retained_question_binding_invalid'),
+    )
     return {
-      spec: retainedQuestionSpec(question, subjectId ?? fail('retained_question_binding_invalid')),
+      subject_id: spec.subject_id,
+      spec: { kind: spec.kind, prompt: spec.prompt, reason: spec.reason },
     }
   }
   const ask = retainedSessionQuestion(question, subjectId, batchSubjects)
-  return {
-    spec: {
-      kind: ask.kind,
-      // Only the lead session may ask about the whole batch.
-      subject_id:
-        ask.subject_id ?? (subjectId === null ? null : fail('retained_question_binding_invalid')),
-      prompt: ask.prompt,
+  // Only the lead session may ask about the whole batch.
+  const askedSubject =
+    ask.subject_id ?? (subjectId === null ? null : fail('retained_question_binding_invalid'))
+  if ('steps' in ask) {
+    return {
+      subject_id: askedSubject,
+      schema_version: ask.schema_version,
+      fields: ask.fields,
+      ...(ask.title ? { title: ask.title } : {}),
       reason: ask.reason,
-    },
+      steps: ask.steps,
+    }
+  }
+  return {
+    subject_id: askedSubject,
+    spec: { kind: ask.kind, prompt: ask.prompt, reason: ask.reason },
     fields: ask.fields,
     assumption: ask.assumption,
   }

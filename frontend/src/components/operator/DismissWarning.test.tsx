@@ -91,3 +91,14 @@ test('clearing the reason again releases the guard', async () => {
   await user.clear(reason)
   expect(onDirtyChange).toHaveBeenLastCalledWith(false)
 })
+
+test('says beside its buttons that the warning returns when its facts change', () => {
+  renderDismiss(vi.fn() as never)
+
+  expect(
+    screen.getByText(
+      'A dismissal covers the facts as they are now. If they change later, the warning comes back.',
+    ),
+  ).toBeVisible()
+  expect(screen.queryByRole('button', { name: 'About dismissing' })).not.toBeInTheDocument()
+})

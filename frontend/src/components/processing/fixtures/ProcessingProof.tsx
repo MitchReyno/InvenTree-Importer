@@ -79,8 +79,94 @@ const question = (n: number, subject: string, prompt: string, assumption?: strin
   input_sha256: 'a'.repeat(64),
   revision: '1',
   state: 'open',
-  spec: { kind: 'clarification', subject_id: subject, prompt, reason: 'The marking is worn.' },
+  subject_id: subject,
+  spec: { kind: 'clarification', prompt, reason: 'The marking is worn.' },
   ...(assumption ? { assumption } : {}),
+})
+
+/** Questions answered in this fixture; an answer is accepted and the next read shows it. */
+const answered = new Set<string>()
+
+const askedState = (questionId: string) => (answered.has(questionId) ? 'answered' : 'open')
+
+/** The lead session's three related steps about two resistor packets. */
+const steppedQuestion = () => ({
+  id: id(45),
+  job_id: id(5),
+  attempt_id: id(25),
+  input_sha256: 'a'.repeat(64),
+  revision: '1',
+  state: askedState(id(45)),
+  subject_id: lot(1),
+  schema_version: 'bench-intake-question/2',
+  fields: ['identity', 'quantity'],
+  title: 'About the 10 kΩ packets',
+  reason: 'Same MPN on both labels, but the date codes differ (2341 and 2407).',
+  asked_at: '2026-11-06T09:02:00.000Z',
+  steps: [
+    {
+      id: 'same_part',
+      prompt: 'Are packets A and B the same Part?',
+      assumption: 'Treating them as the same Part.',
+      answer: {
+        kind: 'choice',
+        options: [
+          { id: 'same', label: 'Yes, same Part', detail: 'RES-0144, two lots' },
+          { id: 'different', label: 'No, different Parts' },
+        ],
+        other: true,
+      },
+    },
+    {
+      id: 'left',
+      prompt: 'How many are left in packet B?',
+      assumption: 'An estimated 380, from the “~380 left” label.',
+      answer: { kind: 'number' },
+    },
+    {
+      id: 'place',
+      prompt: 'Where should packet B go?',
+      assumption: 'Drawer R3, with packet A.',
+      answer: {
+        kind: 'choice',
+        options: [
+          { id: 'r3', label: 'Drawer R3', detail: 'with packet A' },
+          { id: 'r4', label: 'Drawer R4' },
+        ],
+        other: true,
+      },
+    },
+  ],
+})
+
+/** Research's one-step choice between two variants. */
+const choiceQuestion = () => ({
+  id: id(46),
+  job_id: id(6),
+  attempt_id: id(26),
+  input_sha256: 'a'.repeat(64),
+  revision: '1',
+  state: askedState(id(46)),
+  subject_id: lot(2),
+  schema_version: 'bench-intake-question/2',
+  fields: ['identity'],
+  reason: 'The top marking is worn; “P” and “PB” both fit what is legible.',
+  asked_at: '2026-11-06T09:03:00.000Z',
+  steps: [
+    {
+      id: 'variant',
+      prompt: 'Which ATmega328P variant is this?',
+      assumption: 'Working on ATmega328P-AU.',
+      answer: {
+        kind: 'choice',
+        options: [
+          { id: 'p', label: 'ATmega328P-AU', detail: 'matches slip line 3' },
+          { id: 'pb', label: 'ATmega328PB-AU' },
+        ],
+        other: true,
+      },
+    },
+  ],
 })
 
 const snapshot = (withSessions: boolean) =>
@@ -121,6 +207,26 @@ const snapshot = (withSessions: boolean) =>
           : {},
       ),
       job(4, 'images', 'failed', lot(1), withSessions ? { session_state: 'failed' } : {}),
+      ...(withSessions
+        ? [
+            job(5, 'examine', 'running', null, {
+              session_state: 'running',
+              latest_status: {
+                text: 'Checking whether packet A’s two photos show one bag',
+                at: '2026-11-06T09:05:00.000Z',
+              },
+              questions: [steppedQuestion()],
+            }),
+            job(6, 'research', 'running', lot(2), {
+              session_state: 'running',
+              latest_status: {
+                text: 'Comparing the ATmega328P and PB datasheets',
+                at: '2026-11-06T09:05:30.000Z',
+              },
+              questions: [choiceQuestion()],
+            }),
+          ]
+        : []),
     ],
   }) as unknown as ProcessingSnapshotDto
 
@@ -263,8 +369,16 @@ export function ProcessingProof() {
     cancel: async () => {
       throw new Error('fixture commands are disabled')
     },
-    answer: async () => {
-      throw new Error('fixture commands are disabled')
+    // Answers are accepted in memory, so the stepped form can be shown end to end.
+    answer: async (_batch: string, questionId: string) => {
+      answered.add(questionId)
+      return {
+        answer_id: id(95),
+        question_id: questionId,
+        attempt_id: id(25),
+        capture_revision: batch.revision,
+        command_id: id(96),
+      }
     },
     session: async (_batch: string, jobId: string) => ({
       job_id: jobId,

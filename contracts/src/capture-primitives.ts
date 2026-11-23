@@ -6,7 +6,9 @@ export const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
 
 export const label = Type.String({ minLength: 1, maxLength: 256 })
-export const note = Type.String({ maxLength: 8192 })
+/** A capture note's length limit, in characters as JSON Schema counts them (code points). */
+export const CAPTURE_NOTE_MAX_CHARACTERS = 8192
+export const note = Type.String({ maxLength: CAPTURE_NOTE_MAX_CHARACTERS })
 export const CaptureRef = object({
   observation_id: Id,
   target_context_id: Id,

@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { media, Paragraph, Small } from '#/components/ui'
+import { DebugDetails, media, Paragraph } from '#/components/ui'
 import { color, space, typeVar } from '#/theme/generated/tokens'
 import type { CaptureSnapshotDto, OperatorImpactDto } from '@invimport/contracts'
 
@@ -41,7 +41,7 @@ export function ImpactSummary({ batch, impact, selectedLotIds, excludedLotIds = 
   return (
     <section aria-label="Impact preview">
       <Paragraph>
-        <strong>Preview only.</strong> The server ran this change and rolled it back.
+        <strong>Preview only.</strong> Nothing has been saved.
       </Paragraph>
       <List>
         <Names
@@ -74,9 +74,10 @@ export function ImpactSummary({ batch, impact, selectedLotIds, excludedLotIds = 
           <dd>{impact.stale_preparation_ids.length}</dd>
         </Row>
       </List>
-      <Small>
-        Applying sends the same change with the batch revision shown when you previewed.
-      </Small>
+      <DebugDetails label="Impact preview">
+        <p>The server ran this change and rolled it back.</p>
+        <p>Applying sends the same change with the batch revision shown when you previewed.</p>
+      </DebugDetails>
     </section>
   )
 }

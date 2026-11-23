@@ -7,10 +7,10 @@ import {
   Panel,
   Paragraph,
   Small,
-  Summary,
   Button,
   ShortcutsButton,
-  groundBehindOnField,
+  DebugDetails,
+  HelpButton,
   raisedOnField,
 } from '#/components/ui'
 import { subjectStatuses, type LotStatus } from '#/processing/source'
@@ -24,7 +24,6 @@ import type {
   ProcessingAnswerDto,
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
-import { CaptureContextSummary } from '#/components/capture/CaptureContextSummary'
 import { ReviewQueue, visibleQueueLotIds } from './ReviewQueue'
 import {
   blockingIssues,
@@ -341,10 +340,6 @@ export function ReviewWorkspace({
           </Banner>
         </div>
       )}
-      <ContextFold>
-        <Summary>Batch context</Summary>
-        <CaptureContextSummary batch={batch} subjectId={focused ?? undefined} />
-      </ContextFold>
       <ScopeBar>
         <div>
           <strong>{selected.length} selected</strong>
@@ -567,10 +562,21 @@ export function ReviewWorkspace({
                 onDirtyChange={drafts.forSource('workspace')}
               />
             ) : (
-              <Paragraph>
-                Marking reviewed changes no inventory. Preparation performs bounded read-only
-                checks, then freezes the selected effects.
-              </Paragraph>
+              <>
+                <ChooseLot>
+                  <Paragraph>Choose a lot to review.</Paragraph>
+                  <HelpButton
+                    label="About reviewing"
+                    explanation="Marking a lot reviewed changes nothing in InvenTree. Nothing is added until you approve it in Changes."
+                  />
+                </ChooseLot>
+                <DebugDetails label="Decision">
+                  <p>
+                    Preparation performs bounded read-only checks, then freezes the selected
+                    effects.
+                  </p>
+                </DebugDetails>
+              </>
             )}
           </Panel>
         </ReviewGrid>
@@ -584,7 +590,6 @@ const ScopeBar = styled.div`
   align-items: center;
   gap: ${space[6]};
   flex-wrap: wrap;
-  margin-bottom: ${space[4]};
   padding: ${space[3]} ${space[5]};
   background: ${color.surface};
   border: 1px solid ${color.line};
@@ -613,11 +618,6 @@ const SubjectActions = styled.div`
   gap: ${space[3]};
   margin-right: auto;
 `
-const ContextFold = styled.details`
-  margin-bottom: ${space[4]};
-  color: ${color.muted};
-  ${groundBehindOnField}
-`
 // Phones have no keyboard to use the shortcuts with.
 const KeyboardHelp = styled.span`
   ${media.compact} {
@@ -630,7 +630,6 @@ const Toolbar = styled.div`
   justify-content: space-between;
   flex-wrap: wrap;
   gap: ${space[4]} ${space[8]};
-  margin-bottom: ${space[3]};
 `
 const ReviewGrid = styled.div<{ $focused: boolean }>`
   display: grid;
@@ -670,4 +669,13 @@ const BackButton = styled(Button)`
 `
 const QueueFocus = styled.div`
   min-width: 0;
+`
+
+const ChooseLot = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${space[3]};
+  > p {
+    margin: 0;
+  }
 `

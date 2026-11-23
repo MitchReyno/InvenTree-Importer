@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
 import styled from 'styled-components'
 import { space, type } from '#/theme/generated/tokens'
 import { Button } from './Button'
@@ -33,16 +33,21 @@ export function Dialog({
   returnFocus,
   children,
 }: DialogProps) {
+  const titleId = useId()
+
   return (
     <ModalFrame
       onClose={onClose}
       closeDisabled={closeDisabled}
       placement={placement}
       returnFocus={returnFocus}
+      labelledBy={titleId}
     >
       <TitleRow>
         {/* Focusable by script, so focus can land on the title when content it held leaves. */}
-        <Title tabIndex={-1}>{title}</Title>
+        <Title id={titleId} tabIndex={-1}>
+          {title}
+        </Title>
         <Button size="sm" disabled={closeDisabled} onClick={onClose}>
           Close
         </Button>

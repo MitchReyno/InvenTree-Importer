@@ -4,13 +4,15 @@ import styled from 'styled-components'
 import { size, space } from '#/theme/generated/tokens'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey } from '#/queries/scope'
-import type {
-  CaptureSnapshotDto,
-  ProcessingAnswerDto,
-  ProcessingQuestionDto,
-  ProcessingSnapshotDto,
-  ProcessingStartDto,
+import {
+  questionView,
+  type CaptureSnapshotDto,
+  type ProcessingAnswerDto,
+  type ProcessingQuestionDto,
+  type ProcessingSnapshotDto,
+  type ProcessingStartDto,
 } from '@invimport/contracts'
+import { confirmedAnswerRefusal } from '#/processing/question-summary'
 import type { ProcessingClient, ProcessingView } from '#/processing/types'
 import {
   AiMark,
@@ -23,6 +25,8 @@ import {
   Button,
   Dialog,
   onField,
+  PageStack,
+  HelpButton,
 } from '#/components/ui'
 import { ProcessingImages } from './ProcessingImages'
 import { ProcessingInventory } from './ProcessingInventory'
@@ -47,6 +51,13 @@ import { useApiClients, useServerScope, useRetainedPollInterval } from '#/contex
 import type { CaptureEdit } from '#/capture/types'
 
 const ACTIVITY_LIMIT = 6
+
+/** How a step works, behind the help button beside its page heading. */
+const STEP_HELP: Partial<Record<ProcessingView, string>> = {
+  research:
+    'Each account researches one lot at a time. A lot waiting for your answer steps aside, so another lot can research meanwhile.',
+}
+
 const clock = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' })
 
 /** The batch's newest agent status lines, oldest first; the newest is current while it runs. */
@@ -309,28 +320,43 @@ export function ProcessingWorkspace({
     setBusy(true)
     setError('')
     let commandFailed = false
+    let refusedAnswer: IntakeRequestError | null = null
     try {
       await work()
     } catch (failure) {
       commandFailed = true
-      setError(
-        failure instanceof IntakeRequestError && failure.code === 'subject_retired'
-          ? 'A selected lot was split or merged. Choose its successor lots instead.'
-          : 'Command not confirmed. Inspect retained status before deciding whether to submit another command.',
-      )
+      // The server read the answer and refused it; its form marks the step and keeps the draft.
+      refusedAnswer = confirmedAnswerRefusal(failure)
+      if (!refusedAnswer) {
+        setError(
+          failure instanceof IntakeRequestError && failure.code === 'subject_retired'
+            ? 'A selected lot was split or merged. Choose its successor lots instead.'
+            : 'Command not confirmed. Inspect retained status before deciding whether to submit another command.',
+        )
+      }
     }
 
     try {
       await refresh()
     } catch {
-      const message = commandFailed
-        ? 'Command not confirmed and current status is unavailable. Your input and original delivery identity are kept.'
-        : 'The command was saved, but current status is unavailable. Refresh retained status before further commands.'
+      let message =
+        'The command was saved, but current status is unavailable. Refresh retained status before further commands.'
+      if (refusedAnswer) {
+        // A refusal is confirmed: nothing was saved, and the form already keeps the draft.
+        message =
+          'The answer wasn\u2019t accepted, and current status is unavailable. Refresh before sending it again.'
+      } else if (commandFailed) {
+        message =
+          'Command not confirmed and current status is unavailable. Your input and original delivery identity are kept.'
+      }
       setError(message)
     } finally {
       setBusy(false)
     }
 
+    if (refusedAnswer) {
+      throw refusedAnswer
+    }
     if (commandFailed) {
       throw new Error('processing_command_not_confirmed')
     }
@@ -466,10 +492,9 @@ export function ProcessingWorkspace({
   const sessionJob =
     liveSessionJob ??
     (unsavedInDrawer && lastDrawerJob?.id === sessionJobId ? lastDrawerJob : undefined)
-  // An Inventory session's drawer answers its questions in place (`DrawerAnswers`); other steps
-  // link to the question on its step page. A question already pinned on the page is answered there.
-  const answersInDrawer =
-    sessionJob !== undefined && processingStepFor(sessionJob.stage) === 'inventory'
+  // Every session drawer answers its questions in place (`DrawerAnswers`); a question already
+  // pinned on the page is answered there and linked from the drawer.
+  const answersInDrawer = sessionJob !== undefined
 
   // A drawer with an unsaved answer stays open until the answer is saved or discarded.
   const [closeBlocked, setCloseBlocked] = useState(false)
@@ -503,7 +528,7 @@ export function ProcessingWorkspace({
         }}
         href={batchHref(batch.id, { tab: 'processing', step, questionId: question.id })}
       >
-        {question.spec.prompt}
+        {questionView(question).title}
       </Link>
     )
   }
@@ -567,15 +592,20 @@ export function ProcessingWorkspace({
           ),
         )}
       </Selection>
-      <Button
-        disabled={
-          runnerDisabled || !selected.length || snapshot.capture_revision !== batch.revision
-        }
-        onClick={start}
-      >
-        Queue new processing attempts
-      </Button>
-      <Small>New attempts preserve saved human values and previous results.</Small>
+      <QueueActions>
+        <Button
+          disabled={
+            runnerDisabled || !selected.length || snapshot.capture_revision !== batch.revision
+          }
+          onClick={start}
+        >
+          Queue new processing attempts
+        </Button>
+        <HelpButton
+          label="About new attempts"
+          explanation="A new attempt keeps the values you saved and the results of earlier attempts."
+        />
+      </QueueActions>
     </details>
   )
   const jobCards = (
@@ -638,12 +668,6 @@ export function ProcessingWorkspace({
           </Banner>
         </div>
       )}
-      <Banner tone="info">
-        {snapshot?.runner_status === 'native_unverified'
-          ? 'Native agent profile · requires a saved default and supervised worker. Live provider access has not been qualified.'
-          : 'Synthetic processing fixture · actual provider support is not qualified.'}{' '}
-        Closing this browser does not cancel saved work.
-      </Banner>
       {offline && (
         <div role="alert">
           <Banner tone="bad">
@@ -674,9 +698,6 @@ export function ProcessingWorkspace({
                 {snapshot.jobs.filter((job) => job.state === 'waiting_for_user').length} need
                 answers · {snapshot.jobs.filter((job) => job.state === 'ready').length} ready
               </Heading>
-              <Small>
-                One research lane per account. A waiting question frees the lane for other lots.
-              </Small>
               {queue}
             </Panel>
           )}
@@ -771,6 +792,7 @@ export function ProcessingWorkspace({
               step={view}
               source={source}
               onOpenSession={setSessionJobId}
+              help={STEP_HELP[view]}
             >
               {view === 'images' || jobs.length > 0 ? (
                 <>
@@ -885,13 +907,13 @@ function clearSessionLink(jobId?: string) {
 
 const NO_RETIRED_LOTS: ReadonlySet<string> = new Set()
 
-const Workspace = styled.section`
-  display: grid;
-  gap: ${space[6]};
-  min-width: 0;
-  > ${Panel} {
-    margin-bottom: 0;
-  }
+const Workspace = styled(PageStack).attrs({ as: 'section' })``
+
+const QueueActions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[4]};
 `
 
 const Selection = styled.fieldset`

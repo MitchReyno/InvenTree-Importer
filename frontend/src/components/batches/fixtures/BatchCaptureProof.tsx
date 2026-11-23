@@ -565,9 +565,9 @@ const processingSnapshot = {
           input_sha256: 'a'.repeat(64),
           revision: '1',
           state: 'open',
+          subject_id: null,
           spec: {
             kind: 'clarification',
-            subject_id: null,
             prompt: 'Is the capacitor reel label the same part as the loose capacitors?',
             reason: 'Both read 100nF, but only the reel shows a part number.',
           },
@@ -600,9 +600,9 @@ const processingSnapshot = {
           input_sha256: 'a'.repeat(64),
           revision: '1',
           state: 'open',
+          subject_id: lotId(2),
           spec: {
             kind: 'quantity',
-            subject_id: lotId(2),
             prompt: 'How many resistors are in packet B?',
             reason: 'The label is torn where the count is printed.',
           },
@@ -632,14 +632,14 @@ const processingClient = {
   ) => {
     // The fixture's jobs differ in shape, so they are read through what an answer touches.
     const jobs = processingSnapshot.jobs as {
-      questions: { id: string; spec: { subject_id: string | null } }[]
+      questions: { id: string; subject_id: string | null }[]
       session_state: string
     }[]
     const job = jobs.find((item) => item.questions.some((question) => question.id === questionId))
     if (!job) {
       throw new Error('fixture question not found')
     }
-    const subject = job.questions.find((question) => question.id === questionId)!.spec.subject_id
+    const subject = job.questions.find((question) => question.id === questionId)!.subject_id
     job.questions = job.questions.filter((question) => question.id !== questionId)
     job.session_state = 'running'
     if (input.value.kind === 'quantity' && input.value.value && subject) {
