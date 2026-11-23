@@ -42,7 +42,7 @@ The transport SHALL add bounded Match list reads: `search_parts`, `list_manufact
 
 - **GIVEN** Match searching a candidate Part's stock for a batch code
 - **WHEN** it sends `list_stock` with the Part PK and batch filters and a limit of 20
-- **THEN** the request uses the fixed stock path with its fixed ordering, exactly those filters, the limit and offset.
+- **THEN** the request uses the fixed stock path with its fixed ordering and `include_variants=false`, exactly those filters, the limit and offset, so a variant's stock with the same batch code isn't returned.
 
 #### Scenario: Missing category parameter
 

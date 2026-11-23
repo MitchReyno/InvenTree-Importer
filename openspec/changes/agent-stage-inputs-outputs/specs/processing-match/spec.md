@@ -82,6 +82,16 @@ Match SHALL search after Examine's stable identity when it has a strong key (a l
 - **WHEN** Research's match note adds the cross-reference 1N914
 - **THEN** Match searches with it, and a new candidate pauses Research and opens a match question.
 
+### Requirement: Lots the operator adds
+
+A lot the operator adds without evidence for Examine SHALL enter Match from its operator-entered identifiers once they are confirmed: with a strong key Match searches, and without one it asks the operator as for an unresolved identification. Pass 3 SHALL gate it like any other `/7` lot.
+
+#### Scenario: Note-only lot after the lead finishes
+
+- **GIVEN** a `/7` batch whose lead has finished, and an operator-added lot with only a note and a confirmed MPN
+- **WHEN** the MPN is confirmed
+- **THEN** Match searches for it, and preparation runs pass 3 for the lot.
+
 ### Requirement: When Match doesn't search
 
 A lot still awaiting its first identify-mode amendment SHALL NOT be searched remotely for a match-note alias. Unresolved and replacing amendments, including any match notes they carry, SHALL open app-owned match questions, under the lot's Match lock, instead of a key search.
