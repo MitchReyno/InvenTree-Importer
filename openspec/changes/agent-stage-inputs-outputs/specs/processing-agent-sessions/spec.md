@@ -32,7 +32,7 @@ A session whose input is `bench-intake-input/7` (`shared-vm-agent/4` or `synthet
 
 When a waiting, paused or finished session has a pending inbox item, the system SHALL schedule a resume of that session's provider conversation with the queued items, within the concurrency limit.
 
-For `/7` work, an item for a lot that Match holds SHALL NOT wake the session; it stays pending until that lot's wait ends. A `match` item that ends a held lot's wait SHALL wake it.
+For `/7` work, an item for a lot that Match holds SHALL NOT wake the session on its own. A current `match` item that ends the wait SHALL wake it and make the lot's earlier contiguous items deliverable in order ahead of it; the lot's stage work stays held until that `match` item is acknowledged.
 
 While an actor's cutover drain fence is set, and after it has switched to `/4`, no `/3` resume SHALL be scheduled; the item stays pending for the upgrade action.
 
