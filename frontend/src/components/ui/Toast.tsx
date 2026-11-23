@@ -13,6 +13,7 @@ import {
   zIndex,
 } from '#/theme/generated/tokens'
 import { media } from './media'
+import { useAnyModalOpen } from './open-modals'
 
 type ToastProps = {
   message: string
@@ -35,6 +36,8 @@ export function Toast({
   const [focused, setFocused] = useState(false)
   const [leaving, setLeaving] = useState(false)
   const paused = hovered || focused
+  // Behind an open modal the action is out of reach, even for a toast that appeared after it.
+  const behindModal = useAnyModalOpen()
 
   useEffect(() => {
     if (paused || leaving) {
@@ -67,7 +70,12 @@ export function Toast({
         {message}
       </span>
       {action && (
-        <Action type="button" onClick={action.onClick}>
+        <Action
+          type="button"
+          onClick={action.onClick}
+          inert={behindModal}
+          aria-hidden={behindModal || undefined}
+        >
           {action.label}
         </Action>
       )}

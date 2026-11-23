@@ -1063,6 +1063,55 @@ test('confirms a move with a toast whose Undo moves the files back', async () =>
   )
 })
 
+test('a move confirmed while a viewer is open keeps its Undo out of reach until the viewer closes', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+
+  let confirmMove: (snapshot: MediaSnapshotDto) => void = () => {
+    throw new Error('the move was not sent')
+  }
+
+  vi.mocked(client.edit).mockReturnValueOnce(
+    new Promise<MediaSnapshotDto>((resolve) => {
+      confirmMove = resolve
+    }),
+  )
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={client}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  await user.click(await screen.findByRole('checkbox', { name: 'Select Front label' }))
+  await user.selectOptions(screen.getByLabelText('Move selected evidence to'), 'Packet B')
+  await user.click(screen.getByRole('button', { name: 'Move selected evidence' }))
+  await user.click(screen.getByRole('button', { name: 'Open Back marking' }))
+  expect(screen.getByRole('dialog', { name: 'Back marking' })).toBeInTheDocument()
+
+  // The toast mounts behind the open viewer, where its Undo is out of reach.
+  await act(async () => {
+    confirmMove({
+      ...initial,
+      revision: '2',
+      evidence: initial.evidence.map((item) =>
+        item.id === front ? { ...item, group_id: groupB } : item,
+      ),
+    })
+  })
+  expect(await screen.findByText('Moved 1 file to Packet B')).toBeInTheDocument()
+  const undo = screen.getByText('Undo').closest('button')
+  expect(undo).toHaveAttribute('inert')
+  expect(undo).toHaveAttribute('aria-hidden', 'true')
+  expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull()
+
+  await user.keyboard('{Escape}')
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(screen.getByRole('button', { name: 'Undo' })).not.toHaveAttribute('inert')
+})
+
 test('Undo waits while another draft is open, so the draft is not lost', async () => {
   const user = userEvent.setup()
   const client = mediaClient()

@@ -408,3 +408,42 @@ test('a dialog over another whose opener became disabled returns focus to the di
   )
   expect(screen.getByRole('heading', { name: 'Front label' })).toHaveFocus()
 })
+
+test('a toast that appears while a dialog is open keeps its Undo out of reach until it closes', async () => {
+  const user = userEvent.setup()
+
+  function LateToast() {
+    const [open, setOpen] = useState(true)
+    const [toast, setToast] = useState(false)
+    return (
+      <>
+        {toast && (
+          <Toast
+            message="Moved 1 file"
+            action={{ label: 'Undo', onClick: vi.fn() }}
+            onDismiss={vi.fn()}
+          />
+        )}
+        {open && (
+          <Dialog title="Back marking" onClose={() => setOpen(false)}>
+            <button type="button" onClick={() => setToast(true)}>
+              Confirm the move
+            </button>
+          </Dialog>
+        )}
+      </>
+    )
+  }
+
+  render(<LateToast />)
+  await user.click(screen.getByRole('button', { name: 'Confirm the move' }))
+  expect(screen.getByText('Moved 1 file')).toBeInTheDocument()
+  // Inert and hidden itself, so it stays out of reach wherever the toast is mounted.
+  const undo = screen.getByText('Undo').closest('button')
+  expect(undo).toHaveAttribute('inert')
+  expect(undo).toHaveAttribute('aria-hidden', 'true')
+
+  await user.click(screen.getByRole('button', { name: 'Close' }))
+  expect(screen.getByRole('button', { name: 'Undo' })).not.toHaveAttribute('inert')
+  expect(screen.getByRole('button', { name: 'Undo' })).not.toHaveAttribute('aria-hidden')
+})

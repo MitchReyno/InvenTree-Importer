@@ -4,6 +4,7 @@ import styled, { css } from 'styled-components'
 import { color, radius, shadow, space, zIndex } from '#/theme/generated/tokens'
 import { ModalContainerContext } from '#/context/ModalContainerContext'
 import { dialogOpener } from './dialog-opener'
+import { registerOpenModal } from './open-modals'
 import { motion } from './motion'
 
 type ModalFrameProps = {
@@ -43,6 +44,8 @@ export function ModalFrame({
   useLayoutEffect(() => {
     fallback.current = returnFocus
   })
+
+  useLayoutEffect(() => registerOpenModal(), [])
 
   // Runs before Radix moves focus into the dialog, so the opener is still focused or just clicked.
   useLayoutEffect(() => {
