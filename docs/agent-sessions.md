@@ -54,8 +54,8 @@ The rules behind the diagram:
 
 - **Examine starts from evidence.** The Examine trigger sends each new ready original, after a 20 s quiet period, to the lead session as an `evidence` item, or creates the lead job (`intake-server/src/processing/examine-trigger.ts:25,40-110,155-207`). Media for Examine is originals only (`intake-server/src/media/inputs.ts:199-215`).
 - **A stable identity starts Research and Images.** A lead proposal that names `identity` in `relies_on.fields` and cites `{kind: 'observation_set', lot_id, version}` at the lot's current version is stable. `onLeadIdentity` queues Research and Images pinned to it (`intake-server/src/processing/stable-identity.ts:28-38,65-161`).
-  - A successor that is queued but has never run is replaced.
-  - One that has run gets a `revision` inbox item instead.
+  - A successor that is queued but has never run, or that is `superseded`, `cancelled` or `failed`, gets a new attempt, subject to provider availability.
+  - Any other successor gets a `revision` inbox item instead (`stable-identity.ts:25,115-138`).
   - An identity citing an older version is stale at once (`lot_regrouped`).
 - **Inventory is never queued by the pipeline.** Only operator Start (`intake-server/src/processing/commands.ts:38,79-107`) and session replacement queue it. Its claim waits for `successorsCurrent`: a non-stale proposal on the current attempt of both Research and Images (`stable-identity.ts:186-196`; `session-runner.ts:535-542`).
 - **Operator Start can bypass the lead.** Start queues Research and Images with no pinned identity (`commands.ts:99-107`). With a session profile it sends all stages at once, and the whole request fails with 409 `inventory_waiting` if Research and Images aren't current (`frontend/src/components/processing/ProcessingWorkspace.tsx:395-401`).
@@ -174,7 +174,7 @@ The rules behind the diagram:
 | Operator corrects an observation, or marks it the same item as another | Nobody | Sets `operator_edited` and the lot's `reexamine` (`evidence-observations.ts:812-873,945-992`) | None | No; the lead sees it only on its next `read_batch` |
 | Operator moves, splits or merges | Research and Images through observation notices; lead only if one of its identities went stale (`currentness.ts:286-313`) | `revision` | Relying identities: `lot_regrouped` | Partly |
 | Operator corrects a lot's identity or quantity | Sessions relying on the field, matched by subject | `revision` from `fieldsSuperseded` (`intake-server/src/capture/repository.ts:1388-1406`) | Relying proposals | Yes |
-| Examine publishes another stable identity | The lot's Research and Images that have run | `revision` with "The lot's identity was revised: ‹summary›" (`stable-identity.ts:115-135`) | None for the earlier identity; a new identity citing an older observation set is stale at once (`lot_regrouped`). Regrouping, not publication, makes relying proposals stale (`regroup.ts:13-67`). | Yes; unstarted successors are replaced |
+| Examine publishes another stable identity | The lot's Research and Images that have run and aren't superseded, cancelled or failed | `revision` with "The lot's identity was revised: ‹summary›" (`stable-identity.ts:115-135`) | None for the earlier identity; a new identity citing an older observation set is stale at once (`lot_regrouped`). Regrouping, not publication, makes relying proposals stale (`regroup.ts:13-67`). | Yes; unstarted, superseded, cancelled and failed successors get a new attempt instead |
 | Answer to a session question | The asker, plus sessions relying on the fields | `answer` (asker) and `revision` (others) (`intake-server/src/processing/session-answers.ts:134-155`) | Relying proposals | Yes |
 | Chat message | That session | `chat` (`intake-server/src/processing/routes.ts:128-146`) | None | Yes |
 | Batch or group instruction | Every session of the batch | `instruction` (`intake-server/src/agents/instructions.ts:16-25,141-159`) | None | Yes |
@@ -389,10 +389,12 @@ flowchart TD
   IR -->|"no"| K{"Strong key?"}
   K -->|"no"| RI["Research, identify mode (Images waits)"]
   RI -->|"research-identity/1: canonical MPN and aliases"| S2["Match search, pass 2"]
+  RI -->|"unresolved amendment"| UQ["Unresolved question: new Part on what is known, already imported, or something else (Images waits)"]
+  UQ -->|"new Part"| NEW
   K -->|"yes"| S1["Match search, pass 1"]
   S1 --> V{"Verdict"}
   S2 --> V
-  V -->|"no match"| NEW["Research full, Images full"]
+  V -->|"no match, usable keys"| NEW["Research full, Images full"]
   V -->|"exact, possible or duplicate"| Q["Match question (Research and Images wait)"]
   Q -->|"new Part"| NEW
   Q -->|"add stock"| STOCK["Research skipped, Images stock"]

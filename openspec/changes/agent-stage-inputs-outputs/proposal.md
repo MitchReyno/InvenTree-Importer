@@ -44,7 +44,7 @@ The visible parts are on the canvas page "Agent stages" (v81; design log D44–D
 - **BI-022** (new): Agent stage inputs and outputs. It replaces the abandoned BI-020 plan `lot-session-handoff`. BI-020 and BI-021 now belong to `polish-ui-styling-and-loading` and its follow-up.
 - Related:
   - BI-019 (`improve-agent-interaction`, #243) provides the stepped `ask`, the session history, the `photo_view` record, agent-reported web sources and the session page. Its session rows and drawer assume one subject per session; this change's PRs adapt them for multi-lot sessions, and #243 isn't changed.
-  - BI-017 also edits the session instructions.
+  - BI-017 (Done) shipped the web policy and session instructions this change builds on.
   - BI-015 keeps the existing-record comparison fields; Match takes over its Inventory questions.
 
 ## Current behavior and evidence
@@ -129,6 +129,7 @@ No new third-party runtime dependency is needed: the decoder already ships `shar
 - `approval-preparation`: Match validation blocks approval; add-stock lots need their photos; confirmed images and gaps fills become effects.
 - `inventory-target-protection`: bounded Match list reads with named filters in the target read allowlist, and `owned-fake-effects/3` gating the Part image and gaps fill effects.
 - `apply-execution`: `owned-fake-effects/3` joins the supported capability scope.
+- `development-launcher`: VM tools select `shared-vm-agent/4`, and a drain setting selects `/3` with the cutover fence.
 
 ## Impact and dependencies
 
@@ -150,7 +151,7 @@ No new third-party runtime dependency is needed: the decoder already ships `shar
   - the brief entry on the session page.
 - **Prerequisites:**
   - BI-019 PR-B (stepped questions, needed by the match question), PR-D1 (`photo_view`, web sources), PR-E (session page) and PR-G (the session-level read, recovery eligibility and slot totals that multi-lot session rows adapt);
-  - coordinate instruction edits with BI-017;
+  - BI-017's shipped web policy and instructions (Done, satisfied);
   - BI-019 PR-F's activity popover, whose fourth stage row task 11 adapts to Match before activation;
   - Mitch's go-ahead for the live requalification.
 
