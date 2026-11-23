@@ -10,6 +10,7 @@ import {
   Button,
   ShortcutsButton,
   DebugDetails,
+  HelpButton,
   raisedOnField,
 } from '#/components/ui'
 import { subjectStatuses, type LotStatus } from '#/processing/source'
@@ -561,12 +562,21 @@ export function ReviewWorkspace({
                 onDirtyChange={drafts.forSource('workspace')}
               />
             ) : (
-              <DebugDetails label="Decision">
-                <p>
-                  Marking reviewed changes no inventory. Preparation performs bounded read-only
-                  checks, then freezes the selected effects.
-                </p>
-              </DebugDetails>
+              <>
+                <ChooseLot>
+                  <Paragraph>Choose a lot to review.</Paragraph>
+                  <HelpButton
+                    label="About reviewing"
+                    explanation="Marking a lot reviewed changes nothing in InvenTree. Nothing is added until you approve it in Changes."
+                  />
+                </ChooseLot>
+                <DebugDetails label="Decision">
+                  <p>
+                    Preparation performs bounded read-only checks, then freezes the selected
+                    effects.
+                  </p>
+                </DebugDetails>
+              </>
             )}
           </Panel>
         </ReviewGrid>
@@ -659,4 +669,13 @@ const BackButton = styled(Button)`
 `
 const QueueFocus = styled.div`
   min-width: 0;
+`
+
+const ChooseLot = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${space[3]};
+  > p {
+    margin: 0;
+  }
 `

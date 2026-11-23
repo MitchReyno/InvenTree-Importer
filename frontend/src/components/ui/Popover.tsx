@@ -92,9 +92,10 @@ export function Popover({
 }: PopoverProps) {
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [placement, setPlacement] = useState<Placement | null>(null)
-  // The panel's own width is read as it attaches, before any cap, so the choice compares the width
-  // it wants with the room each side has; the panel is then capped to the chosen side's room. While
-  // it is open, a window resize or a change in the trigger's size chooses again.
+  // The choice compares the width the panel wants with the room each side of the trigger has, and
+  // the panel is then capped to the chosen side's room. While it is open, it chooses again whenever
+  // the trigger moves or resizes, or the window changes width; the wanted width is read with the cap
+  // lifted, so a responsive width is followed too.
   const measurePanel = useCallback(
     (panel: HTMLDivElement | null) => {
       if (!panel) {
@@ -103,33 +104,49 @@ export function Popover({
         return
       }
 
-      const wantedWidth = panel.offsetWidth
+      let lastKey = ''
+      let frame = 0
+
+      function wantedWidth(target: HTMLDivElement): number {
+        const cap = target.style.maxWidth
+        target.style.maxWidth = 'none'
+        const width = target.offsetWidth
+        target.style.maxWidth = cap
+
+        return width
+      }
 
       function choose(): void {
         const triggerElement = triggerRef.current
-        if (!triggerElement) {
+        if (!triggerElement || !panel) {
           return
         }
 
         const viewportWidth = document.documentElement.clientWidth
         const triggerBox = triggerElement.getBoundingClientRect()
-        const chosen = chooseAlign(align, triggerBox, wantedWidth, viewportWidth)
+        const chosen = chooseAlign(align, triggerBox, wantedWidth(panel), viewportWidth)
         setPlacement({ align: chosen, room: roomFor(chosen, triggerBox, viewportWidth) })
       }
 
-      choose()
-      window.addEventListener('resize', choose)
-      const triggerObserver =
-        typeof ResizeObserver === 'function' && triggerRef.current
-          ? new ResizeObserver(choose)
-          : null
-      if (triggerRef.current) {
-        triggerObserver?.observe(triggerRef.current)
+      // Layout shifts can move the trigger without resizing it, so its place is checked each frame.
+      function watch(): void {
+        const triggerElement = triggerRef.current
+        if (triggerElement) {
+          const box = triggerElement.getBoundingClientRect()
+          const key = `${Math.round(box.left)}:${Math.round(box.right)}:${document.documentElement.clientWidth}`
+          if (key !== lastKey) {
+            lastKey = key
+            choose()
+          }
+        }
+
+        frame = requestAnimationFrame(watch)
       }
 
+      watch()
+
       return () => {
-        window.removeEventListener('resize', choose)
-        triggerObserver?.disconnect()
+        cancelAnimationFrame(frame)
         setPlacement(null)
       }
     },

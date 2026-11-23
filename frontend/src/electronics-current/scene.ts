@@ -618,7 +618,8 @@ export function createElectronicsCurrent(
     camera.bottom = (-height * UNITS_PER_PX) / 2
     camera.updateProjectionMatrix()
 
-    if (!reducedMotion) {
+    // A scene the switch stopped keeps its parts through a resize, whatever reduced motion says.
+    if (!reducedMotion || paused) {
       // The loop adapts the count; a field's parts also keep their place in the new height.
       if (layout === 'field' && parts.length > 0 && height !== laidOutHeight) {
         fitPartsToHeight()

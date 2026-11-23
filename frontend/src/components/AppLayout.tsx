@@ -11,6 +11,11 @@ export const PageContent = styled(PageStack)<{ $width: 'content' | 'review' }>`
   ${media.compact} {
     padding: ${space[8]} ${space[8]} 0;
   }
+  /* App alerts, the page and its debug panel each have a wrapper; after the first, the page gap
+     separates them rather than a second top inset. */
+  & + & {
+    padding-top: ${space[7]};
+  }
 `
 
 export const Main = styled.main`

@@ -68,7 +68,7 @@ test('the consequence of answering stays visible beside Submit, with no help pop
 
   expect(
     screen.getByText(
-      'Your answer updates the saved lot or note, and the agent starts again with it.',
+      'Your answer updates the saved lot or note, and a continuation is queued for the agent.',
     ),
   ).toBeVisible()
   expect(screen.queryByRole('button', { name: 'About answers' })).not.toBeInTheDocument()

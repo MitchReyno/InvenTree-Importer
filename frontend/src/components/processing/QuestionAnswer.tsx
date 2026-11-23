@@ -264,7 +264,7 @@ export function QuestionAnswer({
             <Small>
               {question.assumption
                 ? 'Your answer updates the saved lot or note, and the agent working on it reads it.'
-                : 'Your answer updates the saved lot or note, and the agent starts again with it.'}
+                : 'Your answer updates the saved lot or note, and a continuation is queued for the agent.'}
             </Small>
           </>
         }

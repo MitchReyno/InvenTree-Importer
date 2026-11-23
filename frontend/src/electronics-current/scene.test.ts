@@ -756,3 +756,24 @@ test('a scene started under reduced motion animates once the system allows it, a
   expect(currentRenderer().renders).toBe(renders + 1)
   controller.dispose()
 })
+
+test('a resize with the animation off keeps the parts even under reduced motion', () => {
+  const canvas = sizedCanvas(1440, 900)
+  const controller = createElectronicsCurrent(canvas, {
+    reducedMotion: true,
+    paused: true,
+    layout: 'field',
+    random: seededRandom(7),
+  })!
+  const parts = partObjects(currentRenderer().lastScene)
+
+  setCanvasSize(canvas, 1440, 450)
+  resizeCallback?.()
+
+  expect(partObjects(currentRenderer().lastScene)).toEqual(parts)
+  controller.setReducedMotion(false)
+  controller.resume()
+  runFrames(1)
+  expect(partObjects(currentRenderer().lastScene).slice(0, 5)).toEqual(parts.slice(0, 5))
+  controller.dispose()
+})
