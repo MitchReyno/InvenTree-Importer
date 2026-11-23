@@ -90,7 +90,7 @@ A lot the operator adds without evidence for Examine SHALL enter Match from its 
 
 - **GIVEN** a `/7` batch whose lead has finished, and an operator-added lot with only a note and a confirmed MPN
 - **WHEN** the MPN is confirmed
-- **THEN** Match searches for it, and preparation runs pass 3 for the lot.
+- **THEN** the confirmed MPN becomes the lot's revisioned operator identity, Match searches for it, Research and Images can then be claimed after a clear verdict or a decision that runs them, and preparation runs pass 3 for the lot.
 
 ### Requirement: When Match doesn't search
 

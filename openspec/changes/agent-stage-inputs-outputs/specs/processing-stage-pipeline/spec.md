@@ -20,7 +20,7 @@ A batch SHALL follow its Examine lead's sealed input version at every queueing e
 
 ### Requirement: Successors start on a stable identity
 
-Research and Images for a lot SHALL each start as soon as that lot's identity is stable: Examine has published a current identity proposal for it, and the lot's observations have not changed since. They SHALL NOT wait for each other, for other lots, or for Examine to finish.
+Research and Images for a lot SHALL each start as soon as that lot's identity is stable: Examine has published a current identity proposal for it, and the lot's observations have not changed since. For a `/7` lot without evidence for Examine, the operator's confirmed identifiers, kept as a revisioned identity, take the place of Examine's proposal. They SHALL NOT wait for each other, for other lots, or for Examine to finish.
 
 For `/7` work, every lot SHALL also start them only when Match allows them: Match has either found no match or recorded an operator's decision that runs the stage. Only identify mode is exempt from this gate: a lot without a strong search key SHALL start Research in identify mode before any key search, once Match's import reference lookup has completed without a hit, while Images waits for Match.
 
