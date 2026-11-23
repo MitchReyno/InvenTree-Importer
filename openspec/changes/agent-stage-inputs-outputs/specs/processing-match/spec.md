@@ -16,7 +16,7 @@ Match SHALL search InvenTree (Parts, manufacturer Parts, supplier Parts and stoc
 
 #### Scenario: Stock known only by NSN
 
-- **GIVEN** a lot with NSN 5961-01-123-4567 and InvenTree stock tagged `nsn:5961011234567` whose Part has no matching MPN
+- **GIVEN** a lot with NSN 5961-01-123-4567 and InvenTree stock tagged `nsn:5961-01-123-4567`, the importer's canonical form, whose Part has no matching MPN
 - **WHEN** Match searches
 - **THEN** it finds the stock by its tag, resolves its Part, and records that Part as a candidate matched by NSN.
 
