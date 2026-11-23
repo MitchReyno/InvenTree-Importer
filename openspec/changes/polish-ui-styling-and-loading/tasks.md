@@ -275,7 +275,7 @@
 - **Verification:** frontend checks; contracts tests; intake unit and PG tiers; a demo video of a stepper, a switch, a conflict and an instruction edit.
 - **Risks and decisions:** keep the revision and page-lock guarantees exactly; review each changed save path against the old one.
 
-- [ ] 11.1 Read the guidelines, `frontend/ARCHITECTURE.md`'s Settings › Agents section and the subsection forms. List each control as text or non-text. Read the intake server's migration and compatibility docs, and record in `notes.md` the rollout and recovery procedure for the receipt migration (one build for every intake process).
+- [x] 11.1 Read the guidelines, `frontend/ARCHITECTURE.md`'s Settings › Agents section and the subsection forms. List each control as text or non-text. Read the intake server's migration and compatibility docs, and record in `notes.md` the rollout and recovery procedure for the receipt migration (one build for every intake process).
 - [ ] 11.2 RED: fake-timer tests:
   - [ ] 11.2.1 Debounce coalescing, and the payload built at dispatch from the newest confirmed settings with only owned fields.
   - [ ] 11.2.2 Same-page saves overlapping through the serial queue, and edits during a save saving again after it.
