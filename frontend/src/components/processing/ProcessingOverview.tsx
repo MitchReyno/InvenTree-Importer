@@ -12,6 +12,7 @@ import {
   StatusTimeline,
   type TimelineEntry,
   NeedsYou,
+  HelpButton,
 } from '#/components/ui'
 import { PauseButton } from '#/components/agents/PauseButton'
 import {
@@ -100,6 +101,10 @@ export function ProcessingOverview({
             <CardTitle>
               {working ? `${plural(working, 'agent')} working` : 'No agents working'}
             </CardTitle>
+            <HelpButton
+              label="About Processing"
+              explanation="Agents work on the server. Closing this browser does not cancel saved work."
+            />
             {(started || lotsFormed) && (
               <Muted>
                 {[started && `Started ${started}`, lotsFormed].filter(Boolean).join(' · ')}
@@ -191,7 +196,8 @@ export function ProcessingOverview({
 const Columns = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: ${space[9]};
+  /* Wrapped, the columns are stacked page sections and take the page gap. */
+  gap: ${space[7]} ${space[9]};
   align-items: flex-start;
 `
 

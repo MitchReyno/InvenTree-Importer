@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import { color, space, typeVar } from '#/theme/generated/tokens'
 import { questionView, type CaptureSnapshotDto, type ProcessingJobDto } from '@invimport/contracts'
 import { assumptionLine, questionKindLabel, stepKinds } from '#/processing/question-summary'
-import { Heading, Paragraph, Panel, Small, Button, Pill } from '#/components/ui'
+import { Heading, HelpButton, Paragraph, Panel, Small, Button, Pill } from '#/components/ui'
 import { ProcessingSources } from './ProcessingSources'
 
 type Job = ProcessingJobDto
@@ -73,18 +73,21 @@ export function ProcessingJobCard({
   return (
     <Panel>
       <Row>
-        <Heading>
-          {job.subject_id === null ? 'Whole batch' : (subject?.label ?? 'Retained subject')} ·{' '}
-          {job.stage}
-        </Heading>
+        <Title>
+          <Heading>
+            {job.subject_id === null ? 'Whole batch' : (subject?.label ?? 'Retained subject')} ·{' '}
+            {job.stage}
+          </Heading>
+          {job.proposals.length > 0 && (
+            <HelpButton
+              label="About candidates"
+              explanation="Candidates are what the agent found. They never replace the values you chose."
+            />
+          )}
+        </Title>
         <Status>{labels[job.state]}</Status>
       </Row>
-      <Small>
-        Attempt {job.attempt_number} ·{' '}
-        {job.qualification === 'fixture_only'
-          ? 'synthetic fixture only'
-          : 'native agent · live provider not qualified'}
-      </Small>
+      <Small>Attempt {job.attempt_number}</Small>
       {job.blocked_code && <Paragraph role="status">{blockerLabels[job.blocked_code]}</Paragraph>}
       {job.proposals.map((proposal) => (
         <div key={proposal.id}>
@@ -96,7 +99,6 @@ export function ProcessingJobCard({
             {proposal.currentness?.state === 'provisional' && (
               <Pill tone="neutral">Provisional · a question is open</Pill>
             )}
-            <Small>Candidate assertions do not replace your selections.</Small>
           </Paragraph>
           <ProcessingSources proposal={proposal.value} />
         </div>
@@ -142,6 +144,16 @@ const Row = styled.div`
   align-items: baseline;
   gap: ${space[8]};
   flex-wrap: wrap;
+`
+
+const Title = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${space[3]};
+  margin-bottom: ${space[6]};
+  ${Heading} {
+    margin: 0;
+  }
 `
 
 const Status = styled.span`

@@ -258,6 +258,11 @@ export function SingleAnswerForm({
                 </Button>
               )}
             </Actions>
+            <Small>
+              {question.assumption
+                ? 'Your answer updates the saved lot or note, and the agent working on it reads it.'
+                : 'Your answer updates the saved lot or note, and a continuation is queued for the agent.'}
+            </Small>
           </>
         }
         secondary={
@@ -277,11 +282,6 @@ export function SingleAnswerForm({
           { label: 'Question revision', value: question.revision },
         ]}
       />
-      <Small>
-        {question.assumption
-          ? 'This human answer updates the saved lot or note and reaches the agent session.'
-          : 'This human answer updates the saved lot or note and queues a new attempt.'}
-      </Small>
     </Form>
   )
 }
@@ -295,6 +295,7 @@ const Form = styled.form`
 const Actions = styled.div`
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: ${space[4]};
 `
 

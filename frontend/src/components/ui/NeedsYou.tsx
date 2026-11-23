@@ -37,19 +37,19 @@ export function NeedsYou({ items, onChoose }: { items: NeedsYouItem[]; onChoose?
               <img src={item.thumb} alt="" />
             </Thumb>
           )}
-          <span>
-            {item.step && <StepChip>{item.step}</StepChip>}
-            {item.mark && (
-              <Mark>
-                <Pill tone={item.mark.tone} glyph={item.mark.glyph}>
-                  <VisuallyHidden>{item.mark.word}</VisuallyHidden>
-                </Pill>
-              </Mark>
-            )}
+          {item.step && <StepChip>{item.step}</StepChip>}
+          {item.mark && (
+            <Mark>
+              <Pill tone={item.mark.tone} glyph={item.mark.glyph}>
+                <VisuallyHidden>{item.mark.word}</VisuallyHidden>
+              </Pill>
+            </Mark>
+          )}
+          <Text>
             <Title>{item.title}</Title>
             {item.kind && <Kind> · {item.kind}</Kind>}
             <Assumption>{item.assumption}</Assumption>
-          </span>
+          </Text>
           <Button
             as="a"
             href={item.href}
@@ -66,15 +66,18 @@ export function NeedsYou({ items, onChoose }: { items: NeedsYouItem[]; onChoose?
   )
 }
 
+const Text = styled.span``
+
 const List = styled.ul`
   display: flex;
   flex-direction: column;
   margin: 0;
   padding: 0;
   list-style: none;
+  /* The thumbnail, the leading chip or mark, the text and the action each keep their own column,
+     so a wrapping title never runs under the chip. */
   li {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    display: flex;
     align-items: center;
     gap: ${space[5]};
     padding: ${space[5]} ${space[6]};
@@ -82,8 +85,12 @@ const List = styled.ul`
     /* An agent's title or assumption can hold a long unbroken word; it wraps in its column. */
     overflow-wrap: anywhere;
   }
-  li:has(> [data-thumb]) {
-    grid-template-columns: 44px minmax(0, 1fr) auto;
+  li > * {
+    flex: none;
+  }
+  li > ${Text} {
+    flex: 1 1 auto;
+    min-width: 0;
   }
   li:first-child {
     border-top: 0;
@@ -108,7 +115,6 @@ const Thumb = styled.span`
 
 const StepChip = styled.span`
   display: inline-flex;
-  margin-right: ${space[3]};
   padding: ${space[1]} calc(${space[5]} - 1px);
   border-radius: ${radius.pill};
   background: ${color.surface2};
@@ -118,8 +124,6 @@ const StepChip = styled.span`
 
 const Mark = styled.span`
   display: inline-flex;
-  margin-right: ${space[3]};
-  vertical-align: middle;
 `
 
 const Kind = styled.span`

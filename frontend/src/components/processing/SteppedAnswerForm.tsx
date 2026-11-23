@@ -294,6 +294,9 @@ export function SteppedAnswerForm({
                 </Button>
               )}
             </Actions>
+            <Small>
+              Your answer updates the saved lot or note, and the agent working on it reads it.
+            </Small>
           </>
         }
         secondary={
@@ -313,7 +316,6 @@ export function SteppedAnswerForm({
           { label: 'Question revision', value: question.revision },
         ]}
       />
-      <Small>This human answer updates the saved lot or note and reaches the agent session.</Small>
     </Form>
   )
 }
@@ -384,6 +386,7 @@ const Assuming = styled.span`
 const Actions = styled.div`
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: ${space[4]};
 `
 

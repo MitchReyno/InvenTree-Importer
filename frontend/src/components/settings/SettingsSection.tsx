@@ -1,7 +1,7 @@
 import { useId, type ReactNode } from 'react'
 import styled from 'styled-components'
 import { color, space, type, typeVar } from '#/theme/generated/tokens'
-import { AiMark, onField } from '#/components/ui'
+import { AiMark, onField, PageStack } from '#/components/ui'
 
 type Props = {
   title: string
@@ -27,12 +27,7 @@ export function SettingsSection({ title, lead, agent, children }: Props) {
   )
 }
 
-const Section = styled.section`
-  display: flex;
-  flex-direction: column;
-  gap: ${space[8]};
-  min-width: 0;
-`
+const Section = styled(PageStack).attrs({ as: 'section' })``
 
 const Head = styled.div`
   display: flex;
