@@ -63,6 +63,8 @@ export function NeedsYou({ items, onChoose }: { items: NeedsYouItem[]; onChoose?
   )
 }
 
+const Text = styled.span``
+
 const List = styled.ul`
   display: flex;
   flex-direction: column;
@@ -80,6 +82,10 @@ const List = styled.ul`
   }
   li > * {
     flex: none;
+  }
+  li > ${Text} {
+    flex: 1 1 auto;
+    min-width: 0;
   }
   li:first-child {
     border-top: 0;
@@ -100,11 +106,6 @@ const Thumb = styled.span`
     height: 100%;
     object-fit: cover;
   }
-`
-
-const Text = styled.span`
-  flex: 1 1 auto;
-  min-width: 0;
 `
 
 const StepChip = styled.span`

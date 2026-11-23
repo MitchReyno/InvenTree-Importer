@@ -72,6 +72,7 @@ export function NeedsYouPanel({ attention, compact = false }: NeedsYouPanelProps
   return (
     <Popover
       label="Needs you"
+      align="start"
       width={`min(420px, calc(100vw - ${space[12]}))`}
       open={open}
       onOpenChange={setOpen}
