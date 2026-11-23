@@ -98,13 +98,23 @@ A lot whose identity is changed after the claim by anyone but the group's own se
 
 ### Requirement: Typed stage outputs
 
-For `/7` sessions, each agent stage SHALL publish only its own output kind: `examine-identity/1` for Examine, `research-identity/1` and `research/1` (each with match notes) for Research, and `images/1` for Images. Earlier profiles keep publishing their existing proposal versions. Each proposal SHALL name a lot of the session's group. The server SHALL refuse a proposal of another kind, for another lot, or carrying fields the stage or its mode may not propose.
+For `/7` sessions, each agent stage SHALL publish only its own output kind: `examine-identity/1` for Examine, `research-identity/1` and `research/1` (each with match notes) for Research, and `images/1` for Images. Earlier profiles keep publishing their existing proposal versions. The server SHALL refuse a proposal of another kind, or carrying fields the stage or its mode may not propose.
 
 #### Scenario: Images can't research
 
 - **GIVEN** an Images session
 - **WHEN** it proposes a category or description
 - **THEN** the proposal is refused with a correctable validation result naming the disallowed fields.
+
+### Requirement: Proposals name their lot
+
+An Examine proposal SHALL name any live lot of its batch. A Research or Images proposal SHALL name an active member of its session's group, and the server SHALL refuse one naming another lot.
+
+#### Scenario: A lot outside the group
+
+- **GIVEN** a Research session serving lots A and B, and Examine leading the same batch
+- **WHEN** Research proposes for lot C and Examine proposes for lot C
+- **THEN** Research's proposal is refused naming the lot, and Examine's is accepted.
 
 ### Requirement: Human facts take precedence
 

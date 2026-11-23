@@ -38,7 +38,7 @@ For `/7` work, they SHALL also start only when Match allows them: Match has eith
 
 ### Requirement: Evidence-based currentness
 
-Each proposal SHALL record the observations, evidence versions, notes and answers it relies on, including the lot's observation set, and, for `/7` work, the Match decision and stage mode it was produced under. It SHALL become stale only when one of those changes or is removed.
+Each proposal SHALL record the observations, evidence versions, notes and answers it relies on, including the lot's observation set, and, for `/7` work, the pinned identity revision and the Match decision and stage mode it was produced under. It SHALL become stale only when one of those changes or is removed.
 
 #### Scenario: Evidence removed
 
