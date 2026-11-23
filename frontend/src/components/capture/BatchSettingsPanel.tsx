@@ -6,6 +6,7 @@ import { color, size, space } from '#/theme/generated/tokens'
 import {
   media,
   AutosaveStatus,
+  EventTime,
   type AutosaveState,
   Heading,
   Link,
@@ -611,9 +612,13 @@ export function BatchSettingsPanel({
                 />
               </Label>
               <Small data-version={instructionRecord?.version}>
-                {instructionRecord
-                  ? `Saved ${new Date(instructionRecord.created_at).toLocaleString()}`
-                  : 'No custom instructions saved yet.'}{' '}
+                {instructionRecord ? (
+                  <>
+                    Saved <EventTime at={instructionRecord.created_at} />
+                  </>
+                ) : (
+                  'No custom instructions saved yet.'
+                )}{' '}
                 Versioned human context for research; instructions do not approve inventory values.
               </Small>
               <AutosaveStatus

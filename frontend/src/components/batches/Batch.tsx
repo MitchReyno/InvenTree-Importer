@@ -1,8 +1,10 @@
-import { Paragraph, Banner, Button, DebugDetails } from '#/components/ui'
+import { Paragraph, Banner, Button, DebugDetails, DisplayOnly, ReadState } from '#/components/ui'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey } from '#/queries/scope'
 import { useCachedData } from '#/queries/useCachedData'
+import { freshReads } from '#/queries/fresh-reads'
+import { useRestoredSnapshot, useSnapshotWriter } from '#/queries/useSnapshot'
 import { approvedLotIds, predecessorLotIds, retiredLotIds } from '#/operator/review-model'
 import { unusedEvidenceCount } from '#/operator/review-map'
 import { IntakeRequestError } from '@invimport/contracts/client'
@@ -26,6 +28,7 @@ import { ManualWorkspace } from '#/components/review/ManualWorkspace'
 import {
   batchHref,
   parseBatchRoute,
+  lotFromQuery,
   sessionFromQuery,
   type BatchRoute,
 } from '#/navigation/batch-route'
@@ -36,6 +39,7 @@ import {
   useApiClients,
   useServerScope,
   useRetainedPollInterval,
+  useReportRefreshing,
   BatchCommandsProvider,
 } from '#/context'
 import { RecordsStage } from '#/components/review/records/RecordsStage'
@@ -44,6 +48,8 @@ import { createSharperRequestStore } from '#/components/processing/ExamineView'
 import { useInstructionDelivery } from '#/processing/instruction-delivery'
 import { createDrawerRestore } from '#/processing/drawer-restore'
 import { useAcceptedOperatorReview } from '#/operator/useAcceptedOperatorReview'
+import { displaysRestored, RestoredTab } from './RestoredTab'
+import { TabSkeleton } from './TabSkeleton'
 
 /** The screen each Review and Changes route mounts until their redesigns replace them. */
 function manualStage(route: BatchRoute | null): ManualStage {
@@ -110,7 +116,6 @@ export function Batch({
   const sharperRequests = useMemo(createSharperRequestStore, [id])
   // Above Processing's remount key, so a drawer open when an answer reloads comes back.
   const drawerRestore = useMemo(createDrawerRestore, [id])
-  const instructionDelivery = useInstructionDelivery(id, agents?.deliverInstructions)
   if (batchRoute?.tab === 'changes' && batchRoute.view === 'ready' && batchRoute.preparationId) {
     shownPreparation.current = batchRoute.preparationId
   }
@@ -134,6 +139,19 @@ export function Batch({
   const queryClient = useQueryClient()
   const queryKey = serverQueryKey(scope, 'capture', id)
   const captureQuery = useQuery({ queryKey, queryFn: () => client.read(id) })
+  const processingKey = serverQueryKey(scope, 'processing', id)
+
+  // Delivery sends no revision: it waits for a Processing read started after it was asked for and
+  // after the last live hint, and asks for one.
+  const requestProcessingRead = processing
+    ? () => freshReads(queryClient).requestRead(processingKey, () => processing.read(id))
+    : undefined
+
+  const instructionDelivery = useInstructionDelivery(
+    id,
+    agents?.deliverInstructions,
+    requestProcessingRead,
+  )
   const operatorKey = serverQueryKey(scope, 'operator-review', id)
   const operatorQuery = useQuery({
     queryKey: operatorKey,
@@ -151,6 +169,8 @@ export function Batch({
   const editPending = useRef(false)
   const editIntent = useRef<{ request: CaptureEditDto; key: string } | null>(null)
 
+  // The batch as last accepted in this tab, shown read-only after a reload until Capture is read.
+  const restoredBatch = useRestoredSnapshot('batch', id)
   // The first fresh read becomes the retained snapshot; later reads never replace it silently.
   if (
     !batch &&
@@ -160,6 +180,8 @@ export function Batch({
   ) {
     setBatch(captureQuery.data)
   }
+
+  useSnapshotWriter('batch', id, batch ?? undefined)
 
   function acceptSavedBatch(value: CaptureSnapshotDto) {
     queryClient.setQueryData(queryKey, value)
@@ -393,6 +415,14 @@ export function Batch({
   // A refresh that failed keeps the old data; it is withheld, so nothing old reads as current.
   const attentionUnavailable = attentionQuery.isError || attentionQuery.fetchStatus === 'paused'
   const attentionCurrent = attentionUnavailable ? undefined : attentionQuery.data
+  // The Overview lists items as current, so it takes only a read of this batch at the revision on
+  // screen: never the previous revision's carried over, nor a newer one read under this key.
+  const attentionForRevision =
+    !attentionQuery.isPlaceholderData &&
+    attentionCurrent?.batch_id === id &&
+    attentionCurrent.revision === batch?.revision
+      ? attentionCurrent
+      : undefined
   // Capture, the Map, Lots and Images own the media read and its polling. This disabled observer
   // only keeps their snapshot while other tabs show, with the same fetch function so their refreshes
   // still work; the counts come from `useCachedData`, which drops it once invalidated and unrefreshed.
@@ -432,6 +462,7 @@ export function Batch({
   }
 
   let content: ReactNode
+  let showingRestored = false
   if (redirectTo) {
     content = null
   } else if (batch && processingSelected && batchRoute?.tab === 'processing') {
@@ -443,6 +474,9 @@ export function Batch({
         step={batchRoute.step}
         questionId={batchRoute.questionId}
         sessionId={parsed.kind === 'route' ? sessionFromQuery(parsed.query) : null}
+        focusLotId={parsed.kind === 'route' ? lotFromQuery(parsed.query) : null}
+        attention={attentionForRevision}
+        attentionUnavailable={attentionUnavailable}
         sharperRequests={sharperRequests}
         drawerRestore={drawerRestore}
         onDirtyChange={reportDirty}
@@ -528,22 +562,48 @@ export function Batch({
         settings={settingsPorts}
       />
     )
+  } else if (restoredBatch && !visibleError && displaysRestored(batchRoute, processing)) {
+    showingRestored = true
+    content = (
+      <DisplayOnly>
+        <RestoredTab
+          batch={restoredBatch}
+          route={batchRoute!}
+          focusLotId={parsed.kind === 'route' ? lotFromQuery(parsed.query) : null}
+          manual={manual}
+          navigate={navigate}
+          onDirtyChange={reportDirty}
+        />
+      </DisplayOnly>
+    )
+  } else if (!visibleError && batchRoute && displaysRestored(batchRoute, processing)) {
+    // A first visit to these tabs shows their layout until Capture's read lands.
+    content = (
+      <ReadState phase="empty" skeleton={<TabSkeleton route={batchRoute} />}>
+        {null}
+      </ReadState>
+    )
   } else {
     content = !visibleError && <Paragraph role="status">Resuming saved batch…</Paragraph>
   }
+  // Capture's read holds the restored tab fenced, so a slow one shows refresh progress.
+  useReportRefreshing(showingRestored && captureQuery.isFetching)
+  // After a reload the header shows the restored batch, fenced, until Capture's read lands.
+  const headerBatch = batch ?? (content && !visibleError && restoredBatch ? restoredBatch : null)
+  const restoredHeader = !batch && headerBatch !== null
 
   return (
     <>
-      {batch && batchRoute && (
+      {headerBatch && batchRoute && (
         <BatchHeader
-          batch={batch}
+          batch={headerBatch}
           route={batchRoute}
-          attention={attentionCurrent}
-          attentionUnavailable={attentionUnavailable}
-          unusedFiles={unusedFiles}
-          activeLotCount={batch.lots.length - retired.size}
-          busy={readOrCommandBusy || readUnavailable || draftDirty}
-          onArchive={() => void edit({ kind: 'batch', archived: !batch.archived })}
+          attention={restoredHeader ? undefined : attentionCurrent}
+          attentionUnavailable={restoredHeader ? false : attentionUnavailable}
+          unusedFiles={restoredHeader ? undefined : unusedFiles}
+          activeLotCount={headerBatch.lots.length - retired.size}
+          busy={restoredHeader || readOrCommandBusy || readUnavailable || draftDirty}
+          onArchive={() => void edit({ kind: 'batch', archived: !headerBatch.archived })}
         />
       )}
       <PageContent $width={batchRoute?.tab === 'review' ? 'review' : 'content'}>

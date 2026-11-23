@@ -12,6 +12,8 @@ type Props = {
   change: (paused: boolean) => Promise<unknown>
   pauseLabel?: string
   resumeLabel?: string
+  /** Why the change waits, such as a read still landing; shown quietly, without moving the page. */
+  unavailableReason?: string
 }
 
 /**
@@ -23,6 +25,7 @@ export function PauseButton({
   change,
   pauseLabel = 'Pause all',
   resumeLabel = 'Resume',
+  unavailableReason,
 }: Props) {
   const { busy, error, run } = useAsyncAction()
 
@@ -31,6 +34,8 @@ export function PauseButton({
       <Button
         size="sm"
         disabled={busy}
+        reasonDisplay="quiet"
+        disabledReason={unavailableReason}
         onClick={() =>
           void run(
             () => change(!paused),

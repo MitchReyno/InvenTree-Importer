@@ -1,5 +1,5 @@
 import { mediaDisplayLabels, mediaIdentityLabels } from '#/media/identity-labels'
-import { useId, useRef, useState, type ReactNode } from 'react'
+import { useId, useImperativeHandle, useRef, useState, type ReactNode, type Ref } from 'react'
 import styled from 'styled-components'
 import { color, radius, space, type } from '#/theme/generated/tokens'
 import type {
@@ -13,6 +13,9 @@ import { Label, Select } from '#/forms'
 import type { MediaClient } from '#/media/types'
 import { useEvidenceWorkspace } from '#/media/useEvidenceWorkspace'
 import { uploadProgress, useUploadQueue, type UploadItem } from '#/media/useUploadQueue'
+import { uploadRefusal } from '#/media/upload-gate'
+import { usePastedFiles } from '#/browser/usePastedFiles'
+import { RefusedFilesNotice } from './RefusedFilesNotice'
 import { MediaUpload, type EvidenceUploadHandle } from './MediaUpload'
 import { MediaCropDialog } from './MediaCropDialog'
 import { EvidenceDragContext } from './EvidenceDragContext'
@@ -24,7 +27,16 @@ import { DeletedFiles } from './DeletedFiles'
 import { approvalRefusal, bulkApprovalRefusal, fileNames, MAX_BATCH_FILES } from '#/media/removal'
 import type { CaptureEdit } from '#/capture/types'
 
+/** Lets the panel around the workspace hand it files dropped outside any group. */
+export type EvidenceFilesHandle = {
+  /** Adds files to Ungrouped, or shows why they can't be added now. */
+  add: (files: File[]) => void
+  /** Whether files would start uploading now. */
+  accepts: () => boolean
+}
+
 interface Props {
+  ref?: Ref<EvidenceFilesHandle>
   batch: CaptureSnapshotDto
   client: MediaClient
   disabled: boolean
@@ -97,6 +109,7 @@ const SELECTION_HELD = 'Clear the selection first.'
 type UnconfirmedToast = Confirmation | { removed: string[]; message: string }
 
 export function MediaWorkspace({
+  ref,
   batch,
   client,
   disabled,
@@ -146,6 +159,8 @@ export function MediaWorkspace({
   const [newGroup, setNewGroup] = useState(false)
   const [destinationGroup, setDestinationGroup] = useState('')
   const [toast, setToast] = useState<Confirmation | null>(null)
+  // Why the last dropped or pasted files were not added.
+  const [refusedFiles, setRefusedFiles] = useState<string | null>(null)
   const [removal, setRemoval] = useState<PendingRemoval | null>(null)
   // A restored file's actions button takes focus when it mounts; Undo and Restore set this.
   const focusOnMount = useRef<string | null>(null)
@@ -189,6 +204,35 @@ export function MediaWorkspace({
   const frozen = disabled || command.busy || command.pending || !snapshot || state.unavailable
 
   const blocked = (owner: string) => frozen || drafts.hasOtherSources(owner)
+
+  // Picking, dropping and pasting files share one gate.
+  const uploadGate = uploadRefusal({
+    archived: batch.archived,
+    disabled,
+    current: Boolean(snapshot) && !state.unavailable,
+    sending: command.busy,
+    unconfirmed: command.pending,
+    otherDraftOpen: drafts.hasOtherSources('upload'),
+  })
+
+  /** Dropped or pasted files start as picked ones do; when the gate refuses them, it says why. */
+  function addFiles(files: File[], groupId?: string) {
+    if (!files.length) {
+      return
+    }
+    if (uploadGate) {
+      setRefusedFiles(uploadGate.reason)
+      return
+    }
+    setRefusedFiles(null)
+    uploads.addMixed(files, groupId)
+  }
+
+  useImperativeHandle(ref, () => ({
+    add: (files) => addFiles(files),
+    accepts: () => uploadGate === null,
+  }))
+  usePastedFiles((files) => addFiles(files))
 
   // Retry and Read again never touch the selection, so a held selection must not lock them.
   const uploadActionsDisabled = frozen || drafts.hasOtherSources('upload', 'selection')
@@ -443,11 +487,14 @@ export function MediaWorkspace({
     <Workspace aria-label="Retained evidence">
       <MediaUpload
         ref={upload}
-        chooseDisabled={blocked('upload')}
+        chooseDisabled={uploadGate !== null}
         noteDisabled={noteDisabled}
         onWriteNote={onWriteNote}
         queue={uploads}
       />
+      {refusedFiles && (
+        <RefusedFilesNotice reason={refusedFiles} onDismiss={() => setRefusedFiles(null)} />
+      )}
       {afterActions}
       <LabelRow>
         <EvidenceLabel id={headingId}>Evidence</EvidenceLabel>
@@ -591,14 +638,20 @@ export function MediaWorkspace({
                     selected={state.selected}
                     edit={edit}
                     captureEdit={captureEdit}
-                    blocked={(owner) =>
-                      owner === 'selection'
-                        ? frozen || drafts.hasOtherSources('selection', 'drag')
-                        : blocked(owner)
-                    }
+                    blocked={(owner) => {
+                      if (owner === 'upload') {
+                        return uploadGate !== null
+                      }
+                      if (owner === 'selection') {
+                        return frozen || drafts.hasOtherSources('selection', 'drag')
+                      }
+                      return blocked(owner)
+                    }}
                     dirty={drafts.forSource}
                     select={state.select}
                     choose={(kind, id) => upload.current?.choose(kind, id)}
+                    dropFiles={(files) => addFiles(files, groupId ?? undefined)}
+                    dropAccepting={uploadGate === null}
                     uploads={groupUploads}
                     uploadProgress={uploadProgress(groupUploads)}
                     uploadQueue={uploads}

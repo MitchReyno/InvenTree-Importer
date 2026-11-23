@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   batchHref,
   batchRouteHash,
+  lotFocusHref,
+  lotFromQuery,
   pageWidthFor,
   parseBatchRoute,
   sessionFromQuery,
@@ -133,5 +135,18 @@ describe('session links', () => {
     const parsed = parseBatchRoute(href.slice(1))
     expect(parsed.kind === 'route' && sessionFromQuery(parsed.query)).toBe('job 1')
     expect(sessionFromQuery('')).toBeNull()
+  })
+})
+
+describe('lot focus links', () => {
+  it('opens a step page with one lot in focus through a query the batch reads back', () => {
+    const href = lotFocusHref(b, 'research', lot)
+    expect(href).toBe(`#${b}/processing/research?lot=${lot}`)
+    const parsed = parseBatchRoute(href.slice(1))
+
+    expect(parsed).toMatchObject({ kind: 'route', route: { tab: 'processing', step: 'research' } })
+    expect(parsed.kind === 'route' && lotFromQuery(parsed.query)).toBe(lot)
+    expect(lotFromQuery('')).toBeNull()
+    expect(lotFromQuery('?session=job')).toBeNull()
   })
 })

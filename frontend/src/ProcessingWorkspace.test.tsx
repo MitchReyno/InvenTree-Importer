@@ -1,9 +1,10 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import userEvent from '@testing-library/user-event'
-import { afterEach, expect, test, vi } from 'vitest'
+import { afterEach, expect, onTestFinished, test, vi } from 'vitest'
 import { setDebugMode } from '#/test/debug-mode'
-import { onlineManager } from '@tanstack/react-query'
+import { onlineManager, type QueryClient } from '@tanstack/react-query'
+import { freshReads } from './queries/fresh-reads'
 import { validate, type CaptureSnapshotDto, type ProcessingSnapshotDto } from '@invimport/contracts'
 import { ProcessingWorkspace } from './components/processing/ProcessingWorkspace'
 import { ServerStateProvider } from './components/query/ServerStateProvider'
@@ -149,6 +150,19 @@ function mount(client: ProcessingClient, cache = createServerQueryClient()) {
   return { cache, dirty, navigate, rerender: view.rerender }
 }
 
+/** A command that can't be used now, whether disabled or quietly waiting for a read. */
+function expectUnavailable(control: HTMLElement) {
+  expect(control.hasAttribute('disabled') || control.getAttribute('aria-disabled') === 'true').toBe(
+    true,
+  )
+}
+
+/** A command that can be used now. */
+function expectAvailable(control: HTMLElement) {
+  expect(control).toBeEnabled()
+  expect(control).not.toHaveAttribute('aria-disabled')
+}
+
 afterEach(() => {
   onlineManager.setOnline(true)
 })
@@ -176,8 +190,8 @@ test('warm cache and cache writes cannot authorize commands; failed reads retain
   await user.click(screen.getByRole('checkbox', { name: 'Packet A' }))
   const queue = screen.getByRole('button', { name: 'Queue new processing attempts' })
   const cancel = screen.getByRole('button', { name: 'Cancel this attempt' })
-  expect(queue).toBeDisabled()
-  expect(cancel).toBeDisabled()
+  expectUnavailable(queue)
+  expectUnavailable(cancel)
   expect(
     screen.queryByRole('button', { name: 'Save answer and queue continuation' }),
   ).not.toBeInTheDocument()
@@ -185,14 +199,14 @@ test('warm cache and cache writes cannot authorize commands; failed reads retain
   act(() => {
     cache.setQueryData(key, { ...snapshot, cursor: { ...snapshot.cursor, sequence: '99' } })
   })
-  expect(queue).toBeDisabled()
+  expectUnavailable(queue)
   expect(screen.queryByLabelText('Quantity')).not.toBeInTheDocument()
   expect(client.start).not.toHaveBeenCalled()
   await act(async () => {
     fresh.resolve(snapshot)
     await fresh.promise
   })
-  await waitFor(() => expect(queue).toBeEnabled())
+  await waitFor(() => expectAvailable(queue))
   const field = await screen.findByLabelText('Quantity')
   await user.type(field, '37')
   const answer = screen.getByRole('button', { name: 'Save answer and queue continuation' })
@@ -204,8 +218,8 @@ test('warm cache and cache writes cannot authorize commands; failed reads retain
     await cache.refetchQueries({ queryKey: key })
   })
   expect(await screen.findByText(/Processing status unavailable/)).toBeInTheDocument()
-  expect(queue).toBeDisabled()
-  expect(cancel).toBeDisabled()
+  expectUnavailable(queue)
+  expectUnavailable(cancel)
   expect(answer).toBeDisabled()
   expect(field).toHaveValue('37')
   expect(mounted.dirty).toHaveBeenLastCalledWith(true)
@@ -319,7 +333,7 @@ test('a paused read blocks cached commands and stays blocked until the resumed r
   await screen.findByLabelText('Quantity')
   await user.click(screen.getByRole('checkbox', { name: 'Packet A' }))
   const queue = screen.getByRole('button', { name: 'Queue new processing attempts' })
-  await waitFor(() => expect(queue).toBeEnabled())
+  await waitFor(() => expectAvailable(queue))
   const resumed = deferredRead()
   client.read.mockReturnValueOnce(resumed.promise)
   const key = serverQueryKey(scope, 'processing', batchId)
@@ -328,18 +342,18 @@ test('a paused read blocks cached commands and stays blocked until the resumed r
     void cache.invalidateQueries({ queryKey: key })
   })
   await waitFor(() => expect(cache.getQueryState(key)?.fetchStatus).toBe('paused'))
-  expect(queue).toBeDisabled()
-  expect(screen.getByRole('button', { name: 'Cancel this attempt' })).toBeDisabled()
+  expectUnavailable(queue)
+  expectUnavailable(screen.getByRole('button', { name: 'Cancel this attempt' }))
   act(() => {
     onlineManager.setOnline(true)
   })
   await waitFor(() => expect(client.read).toHaveBeenCalledTimes(2))
-  expect(queue).toBeDisabled()
+  expectUnavailable(queue)
   await act(async () => {
     resumed.resolve(snapshot)
     await resumed.promise
   })
-  await waitFor(() => expect(queue).toBeEnabled())
+  await waitFor(() => expectAvailable(queue))
 })
 
 test('archiving a verified workspace preserves the draft but refuses every mutation', async () => {
@@ -494,15 +508,12 @@ test('the fixture profile shows its jobs and questions by step, and claims no li
   mountView(clientFixture(), 'overview')
   const steps = await screen.findByRole('list', { name: 'Steps' })
 
-  expect(within(steps).getByText('1 waiting · 1 question')).toBeInTheDocument()
+  expect(within(steps).getByRole('link', { name: 'Examine · 0 of 1' })).toBeInTheDocument()
   expect(
     within(screen.getByRole('region', { name: 'Needs you' })).getByRole('link', {
       name: 'Answer: How many are in Packet A?',
     }),
   ).toHaveAttribute('href', `#${batchId}/processing/examine/${questionId}`)
-  expect(
-    within(screen.getByRole('region', { name: 'Needs you' })).getByText('Oldest first'),
-  ).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /Open session/ })).not.toBeInTheDocument()
   cleanup()
 
@@ -1479,7 +1490,7 @@ test('a step with no retained work has no empty outputs region', async () => {
     </ServerStateProvider>,
   )
 
-  expect(await screen.findByText('No retained work on Research yet.')).toBeInTheDocument()
+  expect(await screen.findByText('No work yet')).toBeInTheDocument()
   expect(screen.queryByRole('region', { name: 'Outputs' })).not.toBeInTheDocument()
 })
 
@@ -1970,4 +1981,265 @@ test('the Research page explains research lanes behind a help button beside its 
   await user.click(within(heading.parentElement!).getByRole('button', { name: 'About Research' }))
   const help = await screen.findByRole('dialog', { name: 'About Research' })
   expect(help).toHaveTextContent(/one lot at a time/)
+})
+
+test('a first visit shows the Processing skeleton, not a reading line', async () => {
+  const client = clientFixture()
+  const fresh = deferredRead()
+  client.read.mockReturnValueOnce(fresh.promise)
+  mount(client)
+
+  expect(screen.getByRole('status', { name: '' })).toHaveTextContent('Loading')
+  expect(screen.queryByText(/Reading retained processing state/)).not.toBeInTheDocument()
+  await act(async () => {
+    fresh.resolve(snapshot)
+    await fresh.promise
+  })
+  expect((await screen.findAllByText(/How many are in Packet A\?/)).length).toBeGreaterThan(0)
+  expect(screen.queryByText('Loading')).not.toBeInTheDocument()
+})
+
+test('a return visit shows the cached page with no banner; commands say “Updating…” until the read lands', async () => {
+  const user = userEvent.setup()
+  const client = clientFixture()
+  const cache = createServerQueryClient()
+  cache.setQueryData(serverQueryKey(scope, 'processing', batchId), snapshot)
+  const fresh = deferredRead()
+  client.read.mockReturnValueOnce(fresh.promise)
+  mount(client, cache)
+
+  await user.click(screen.getByRole('checkbox', { name: 'Packet A' }))
+  const queue = screen.getByRole('button', { name: 'Queue new processing attempts' })
+  expect(screen.queryByText(/Verifying/)).not.toBeInTheDocument()
+  expect(screen.queryByRole('status', { name: /Verifying/ })).not.toBeInTheDocument()
+  expect(queue).toHaveAttribute('aria-disabled', 'true')
+  expect(queue).toHaveAccessibleDescription('Updating…')
+  await user.click(queue)
+  expect(client.start).not.toHaveBeenCalled()
+
+  await act(async () => {
+    fresh.resolve(snapshot)
+    await fresh.promise
+  })
+  await waitFor(() => expect(queue).not.toHaveAttribute('aria-disabled'))
+  expect(queue).toBeEnabled()
+})
+
+function mountPause(client: ProcessingClient, cache: QueryClient, pause: () => Promise<undefined>) {
+  return render(
+    <ServerStateProvider scope={scope} client={cache}>
+      <ApiClientsProvider
+        value={{
+          agents: {
+            sessions: vi.fn(async () => ({
+              sessions: [],
+              paused_batch_ids: [],
+              paused_truncated: true as const,
+              next_before: null,
+              sessions_supported: true,
+            })),
+            settings: vi.fn(async () => agentSettings('1', null, { session_concurrency: 1 })),
+            pause: vi.fn(pause),
+          },
+        }}
+      >
+        <ProcessingWorkspace
+          batch={batch}
+          client={client}
+          view="overview"
+          navigate={vi.fn()}
+          onDirtyChange={vi.fn()}
+          onSaved={vi.fn().mockResolvedValue(undefined)}
+        />
+      </ApiClientsProvider>
+    </ServerStateProvider>,
+  )
+}
+
+test('Pause waits for a read started after the last live hint, and is checked again when pressed', async () => {
+  const user = userEvent.setup()
+  const running = {
+    ...snapshot,
+    jobs: [{ ...snapshot.jobs[0], session_state: 'running' as const }],
+  }
+  const client = { ...clientFixture(), read: vi.fn().mockResolvedValue(running) }
+  const cache = createServerQueryClient()
+  const pause = vi.fn(async () => undefined)
+  mountPause(client, cache, pause)
+  const button = await screen.findByRole('button', { name: 'Pause all' })
+  await waitFor(() => expect(button).not.toHaveAttribute('aria-disabled'))
+  const registry = freshReads(cache)
+  const key = serverQueryKey(scope, 'processing', batchId)
+
+  // A hint arrives: during the reconciliation delay the settled read predates it.
+  act(() => registry.noteHint())
+  expect(button).toHaveAttribute('aria-disabled', 'true')
+  expect(button).toHaveAccessibleDescription('Updating…')
+  await user.click(button)
+  expect(pause).not.toHaveBeenCalled()
+
+  // Reconciliation queued behind a read that started before the hint: that read is not enough.
+  const before = deferredRead()
+  client.read.mockReturnValueOnce(before.promise)
+  act(() => {
+    void cache.refetchQueries({ queryKey: key })
+  })
+  act(() => registry.noteHint())
+  await act(async () => {
+    before.resolve(running)
+    await before.promise
+  })
+  expect(button).toHaveAttribute('aria-disabled', 'true')
+
+  // The reconciliation's own read lands, and Pause is available again.
+  await act(async () => {
+    await cache.invalidateQueries({ queryKey: key })
+  })
+  await waitFor(() => expect(button).not.toHaveAttribute('aria-disabled'))
+
+  // A hint between the last render and the press is caught when pressed.
+  await act(async () => {
+    registry.noteHint()
+    button.click()
+  })
+  expect(pause).not.toHaveBeenCalled()
+  expect(await screen.findByRole('alert')).toHaveTextContent('Pausing failed')
+})
+
+test('Resume waits for a read started after the last live hint, and is checked again when pressed', async () => {
+  const user = userEvent.setup()
+  const paused = {
+    ...snapshot,
+    jobs: [{ ...snapshot.jobs[0], session_state: 'running' as const }],
+    paused: true as const,
+  }
+  const client = { ...clientFixture(), read: vi.fn().mockResolvedValue(paused) }
+  const cache = createServerQueryClient()
+  const pause = vi.fn(async () => undefined)
+  mountPause(client, cache, pause)
+  const button = await screen.findByRole('button', { name: 'Resume' })
+  await waitFor(() => expect(button).not.toHaveAttribute('aria-disabled'))
+
+  act(() => freshReads(cache).noteHint())
+  expect(button).toHaveAccessibleDescription('Updating…')
+  await user.click(button)
+  expect(pause).not.toHaveBeenCalled()
+
+  await act(async () => {
+    await cache.invalidateQueries({ queryKey: serverQueryKey(scope, 'processing', batchId) })
+  })
+  await waitFor(() => expect(button).not.toHaveAttribute('aria-disabled'))
+  await user.click(button)
+  await waitFor(() => expect(pause).toHaveBeenCalledWith(batchId, false))
+})
+
+/** The fixture batch with a finished Research job for Packet A. */
+function researchClient(
+  state: ProcessingSnapshotDto['jobs'][number]['state'],
+  proposals: ProcessingSnapshotDto['jobs'][number]['proposals'] = [],
+) {
+  const researched: ProcessingSnapshotDto = {
+    ...snapshot,
+    jobs: [
+      ...snapshot.jobs,
+      {
+        ...snapshot.jobs[0],
+        id: 'e0000000-0000-4000-8000-00000000000e',
+        stage: 'research',
+        state,
+        proposals,
+        questions: [],
+      },
+    ],
+  }
+  return { ...clientFixture(), read: vi.fn().mockResolvedValue(researched) }
+}
+
+/** jsdom has no scrolling; the stub records which element was brought into view. */
+function stubScroll() {
+  const scroll = vi.fn()
+  Element.prototype.scrollIntoView = scroll
+  onTestFinished(() => {
+    delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView
+  })
+  return scroll
+}
+
+function mountFocused(client: ProcessingClient, view: 'overview' | 'research' | 'images') {
+  const cache = createServerQueryClient()
+
+  const element = (shown: typeof view, focus: string | null) => (
+    <ServerStateProvider scope={scope} client={cache}>
+      <ProcessingWorkspace
+        batch={batch}
+        client={client}
+        view={shown}
+        focusLotId={focus}
+        navigate={vi.fn()}
+        onDirtyChange={vi.fn()}
+        onSaved={vi.fn().mockResolvedValue(undefined)}
+      />
+    </ServerStateProvider>
+  )
+
+  const mounted = render(element(view, subjectId))
+  return (shown: typeof view, focus: string | null) => mounted.rerender(element(shown, focus))
+}
+
+test('a step page loaded with a lot in its address scrolls to that lot’s output and highlights it', async () => {
+  const scroll = stubScroll()
+  mountFocused(researchClient('ready'), 'research')
+  const outputs = await screen.findByRole('region', { name: 'Outputs' })
+  const card = outputs.querySelector('[data-highlighted]')!
+
+  expect(card).toHaveTextContent('Packet A · research')
+  await waitFor(() => expect(scroll).toHaveBeenCalledOnce())
+  expect(scroll.mock.contexts[0]).toBe(card)
+  expect(screen.queryByText(/output for this lot yet/)).toBeNull()
+})
+
+test('a lot whose step is unfinished but has a candidate opens on that output', async () => {
+  const scroll = stubScroll()
+  const candidate = {
+    id: 'f0000000-0000-4000-8000-00000000000f',
+    message_id: 'f1000000-0000-4000-8000-00000000000f',
+    value: { subject_id: subjectId, summary: 'RES-0144, 10 kΩ 0603', sources: [] },
+    currentness: { state: 'provisional' },
+  } as unknown as ProcessingSnapshotDto['jobs'][number]['proposals'][number]
+  mountFocused(researchClient('waiting_for_user', [candidate]), 'research')
+  const outputs = await screen.findByRole('region', { name: 'Outputs' })
+  const card = outputs.querySelector('[data-highlighted]')!
+
+  expect(card).toHaveTextContent('RES-0144, 10 kΩ 0603')
+  await waitFor(() => expect(scroll.mock.contexts[0]).toBe(card))
+  expect(screen.queryByText(/output for this lot yet/)).toBeNull()
+})
+
+test('a step page loaded with a lot that has no output there says so with the lot’s state', async () => {
+  const scroll = stubScroll()
+  mountFocused(researchClient('ready'), 'images')
+  const focus = await screen.findByRole('region', { name: 'Packet A' })
+
+  expect(focus).toHaveTextContent('No Images output for this lot yet')
+  expect(within(focus).getByText('Not started')).toBeInTheDocument()
+  await waitFor(() => expect(scroll.mock.contexts[0]).toBe(focus))
+})
+
+test('returning to the same lot from the Overview brings its output into view again', async () => {
+  const scroll = stubScroll()
+  const show = mountFocused(researchClient('ready'), 'research')
+  await waitFor(() => expect(scroll).toHaveBeenCalledOnce())
+
+  show('overview', null)
+  await screen.findByRole('table', { name: 'Lots' })
+  show('research', subjectId)
+  await waitFor(() => expect(scroll).toHaveBeenCalledTimes(2))
+})
+
+test('the Research page counts its own step, not every step in the batch', async () => {
+  mountFocused(researchClient('ready'), 'research')
+  const heading = await screen.findByRole('heading', { name: 'Research' })
+
+  expect(heading.parentElement).toHaveTextContent('1 lot · 1 done')
+  expect(screen.queryByText(/need answers|\d ready/)).toBeNull()
 })

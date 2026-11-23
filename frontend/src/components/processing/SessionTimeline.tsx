@@ -11,9 +11,6 @@ const stepText: Partial<Record<Outbox['kind'], string>> = {
   regroup: 'Regrouped lots',
 }
 
-const time = (value: string) =>
-  new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-
 /**
  * The session's steps from its status lines and results, as a `StatusTimeline` with the newest
  * status current. Only the current activity is announced; the chat is in `SessionChatPanel`.
@@ -42,7 +39,7 @@ export function SessionTimeline({ timeline }: { timeline: SessionTimelineDto }) 
               item.kind === 'status'
                 ? (item.payload as { text: string }).text
                 : (stepText[item.kind] ?? item.kind),
-            time: time(item.created_at),
+            at: item.created_at,
             current: item === latest,
           }))}
         />

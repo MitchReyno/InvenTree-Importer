@@ -1,8 +1,9 @@
 import styled from 'styled-components'
 import { color, radius, ring, space, typeVar, zIndex } from '#/theme/generated/tokens'
+import { EventTime } from './EventTime'
 
-/** `at` is the machine-readable instant behind the shown `time`, when one is known. */
-export type TimelineEntry = { text: string; time: string; at?: string; current?: boolean }
+/** `at` is the entry's instant, shown as an event time, when one is known. */
+export type TimelineEntry = { text: string; at?: string; current?: boolean }
 
 /** Session status lines, newest last. */
 export function StatusTimeline({ label, entries }: { label: string; entries: TimelineEntry[] }) {
@@ -10,13 +11,13 @@ export function StatusTimeline({ label, entries }: { label: string; entries: Tim
     <List aria-label={label}>
       {entries.map((entry, index) => (
         <li
-          key={`${index}-${entry.time}`}
+          key={`${index}-${entry.at ?? ''}`}
           aria-current={entry.current ? 'step' : undefined}
           data-current={entry.current ?? false}
         >
           <Marker aria-hidden="true" />
           <span>{entry.text}</span>
-          <time dateTime={entry.at}>{entry.time}</time>
+          {entry.at ? <EventTime at={entry.at} /> : <span />}
         </li>
       ))}
     </List>

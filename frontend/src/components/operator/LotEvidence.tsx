@@ -27,6 +27,8 @@ interface Props {
   media?: MediaSnapshotDto
   processing?: ProcessingSnapshotDto
   processingCurrent?: boolean
+  /** `processingCurrent` checked again on the cache when a candidate is accepted. */
+  processingCurrentNow?: () => boolean
   mediaUnavailable?: boolean
   mediaLoading?: boolean
   editDisabled?: boolean
@@ -78,6 +80,7 @@ export function LotEvidence({
   media,
   processing,
   processingCurrent = false,
+  processingCurrentNow,
   mediaUnavailable,
   mediaLoading,
   editDisabled = true,
@@ -157,6 +160,7 @@ export function LotEvidence({
                 proposal={proposal.value}
                 defaultQuantity={batch.defaults.quantity}
                 current={processingCurrent && job.state === 'ready'}
+                currentNow={processingCurrentNow}
                 disabled={editDisabled}
                 edit={edit}
               />

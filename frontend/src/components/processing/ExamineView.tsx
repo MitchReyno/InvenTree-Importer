@@ -98,6 +98,7 @@ export function ExamineView({
   questionedLots = new Set(),
   edit,
   askSharper,
+  askSharperReason,
   onDirtyChange,
   locked = false,
   requestStore,
@@ -112,6 +113,8 @@ export function ExamineView({
   edit?: CaptureEdit
   /** Asks the Examine lead session, through its chat, for a sharper photo of the named file. */
   askSharper?: (name: string, key: string) => Promise<void>
+  /** Why asking waits, such as the read naming the lead session still landing. */
+  askSharperReason?: string
   /** Reports an unsaved correction to the navigation guard. */
   onDirtyChange?: (dirty: boolean) => void
   /** Another unsaved Processing draft would be lost when a correction reloads Processing. */
@@ -268,6 +271,8 @@ export function ExamineView({
                       size="sm"
                       variant="ghost"
                       disabled={requests[version]?.state === 'sending'}
+                      reasonDisplay="quiet"
+                      disabledReason={askSharperReason}
                       onClick={() =>
                         void requestSharper(version, named?.name ?? `Photo ${index + 1}`)
                       }

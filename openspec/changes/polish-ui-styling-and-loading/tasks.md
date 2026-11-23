@@ -128,17 +128,17 @@
   - a demo video of returning to Review and Processing (no banner), a slow refresh throttled in DevTools, and a reload.
 - **Risks and decisions:** keep the gate's guarantees exactly; review each replaced condition against the old one.
 
-- [ ] 4.1 Read the guidelines and the frontend architecture's query and live-update sections. Write down the exact current gate conditions in Processing and Review, every `cancelQueries` call, every command that writes its receipt with `setQueryData`, and every command that sends no expected revision (Pause, Resume, instruction delivery and `TellExamine`'s chat send at least).
-- [ ] 4.2 Define the first snapshot allowlist and its display projections (Processing, the Review workspace, the batch header, Records), with the contracts' validators.
-- [ ] 4.3 RED: hook and component tests:
-  - [ ] 4.3.1 `useFreshRead` phases and `commandsReady`, including the scope change and the `current` predicate.
-  - [ ] 4.3.2 `RefreshSignal` at 400 ms and 3 s, reduced motion, and the announced status.
-  - [ ] 4.3.3 `Button`'s quiet disabled reason, which adds no layout.
-  - [ ] 4.3.4 Snapshots: a hard reload with bootstrap complete and Capture held in flight showing the open tab's snapshot read-only with commands and edits fenced; sentinel values in excluded fields, keys and nested DTOs never stored; validation on read; restore only after a matching bootstrap and never into the query cache; expiry by age and build; scope change dropping pending writes; the size cap and quota failure.
-  - [ ] 4.3.5 Verification, with the real `QueryClient`: a `setQueryData` write before and after verification (including equal data), a successful read of equal data still verifying, a silent cancel and replace through `cancelVerified`, the real reconciliation path with one settled query (staying verified) and one in-flight background refresh (cancelled, never verifying), an observer joining a fetch mid-flight with polling off and no further hints (the first observer verified at once, the second only after the single follow-up fetch), an older request completing late, a removed query, a shared in-flight fetch, failed and paused reads, and a receipt writer's reread; separate refresh cases for Processing commands, Pause, Resume and instruction delivery (a settled read started after the last hint, rechecked at dispatch, including a dispatch during the 100 ms debounce and while reconciliation is queued behind a running read; and an instruction save whose hint arrives before it returns, holding the automatic delivery as pending across the reload and sending it once), Review's manual workflow and acceptance.
-- [ ] 4.4 GREEN: implement the hook with the verified-reads registry and request generations, `cancelVerified` (used by `LiveUpdates`), the hint times for Pause and Resume, the rereads after receipt writes on Processing and Review, `ReadState`, `RefreshSignal`, the focusable quiet button option, the build constant, and the snapshot module.
-- [ ] 4.5 Move Processing, Review, Records' and `TellExamine`'s Processing queries onto them, with a Review Map regression where `TellExamine` starts the shared fetch. Remove the two "Verifying…" banners and "Reading retained processing state…", and add their skeletons. Rerun their gate and draft tests.
-- [ ] 4.6 Measure the persisted sizes, update `frontend/ARCHITECTURE.md` (reads, freshness, persistence), and run the frontend checks.
+- [x] 4.1 Read the guidelines and the frontend architecture's query and live-update sections. Write down the exact current gate conditions in Processing and Review, every `cancelQueries` call, every command that writes its receipt with `setQueryData`, and every command that sends no expected revision (Pause, Resume, instruction delivery and `TellExamine`'s chat send at least).
+- [x] 4.2 Define the first snapshot allowlist and its display projections (Processing, the Review workspace, the batch header, Records), with the contracts' validators.
+- [x] 4.3 RED: hook and component tests:
+  - [x] 4.3.1 `useFreshRead` phases and `commandsReady`, including the scope change and the `current` predicate.
+  - [x] 4.3.2 `RefreshSignal` at 400 ms and 3 s, reduced motion, and the announced status.
+  - [x] 4.3.3 `Button`'s quiet disabled reason, which adds no layout.
+  - [x] 4.3.4 Snapshots: a hard reload with bootstrap complete and Capture held in flight showing the open tab's snapshot read-only with commands and edits fenced; sentinel values in excluded fields, keys and nested DTOs never stored; validation on read; restore only after a matching bootstrap and never into the query cache; expiry by age and build; scope change dropping pending writes; the size cap and quota failure.
+  - [x] 4.3.5 Verification, with the real `QueryClient`: a `setQueryData` write before and after verification (including equal data), a successful read of equal data still verifying, a silent cancel and replace through `cancelVerified`, the real reconciliation path with one settled query (staying verified) and one in-flight background refresh (cancelled, never verifying), an observer joining a fetch mid-flight with polling off and no further hints (the first observer verified at once, the second only after the single follow-up fetch), an older request completing late, a removed query, a shared in-flight fetch, failed and paused reads, and a receipt writer's reread; separate refresh cases for Processing commands, Pause, Resume and instruction delivery (a settled read started after the last hint, rechecked at dispatch, including a dispatch during the 100 ms debounce and while reconciliation is queued behind a running read; and an instruction save whose hint arrives before it returns, holding the automatic delivery as pending across the reload and sending it once), Review's manual workflow and acceptance.
+- [x] 4.4 GREEN: implement the hook with the verified-reads registry and request generations, `cancelVerified` (used by `LiveUpdates`), the hint times for Pause and Resume, the rereads after receipt writes on Processing and Review, `ReadState`, `RefreshSignal`, the focusable quiet button option, the build constant, and the snapshot module.
+- [x] 4.5 Move Processing, Review, Records' and `TellExamine`'s Processing queries onto them, with a Review Map regression where `TellExamine` starts the shared fetch. Remove the two "Verifying…" banners and "Reading retained processing state…", and add their skeletons. Rerun their gate and draft tests.
+- [x] 4.6 Measure the persisted sizes, update `frontend/ARCHITECTURE.md` (reads, freshness, persistence), and run the frontend checks.
 
 ## 5. Every screen on the freshness layer
 
@@ -174,10 +174,10 @@
 - **Verification:** frontend checks; captures of each place a state or time shows.
 - **Risks and decisions:** agree the shared types with `improve-agent-interaction` (see design).
 
-- [ ] 6.1 Read the guidelines and the frontend architecture. List every place a work state or event time renders, and every word it uses today.
-- [ ] 6.2 RED: tests for "no agents working" needing a complete active-session read with no held lane (a cancelled session still holding one; `lane_occupied: true` with no visible holder); the precedence of stale, failed and truncated reads (a truncated work list naming visible steps without counts, or "Status incomplete"), with work and session truncation tested separately; the summary outside a batch never claiming no failures; the state mapping, `StatePill` glyphs, `EventTime` formats and hover text, and the masthead summary: a failure first, then waiting; "no agents working" only from a fresh, complete read; a truncated, stale or unavailable read saying "Updating…" or "Status unavailable"; "all done" never shown.
-- [ ] 6.3 GREEN: implement them, and replace the per-screen words and time formats.
-- [ ] 6.4 Update affected tests and `frontend/ARCHITECTURE.md`. Run the frontend checks.
+- [x] 6.1 Read the guidelines and the frontend architecture. List every place a work state or event time renders, and every word it uses today.
+- [x] 6.2 RED: tests for "no agents working" needing a complete active-session read with no held lane (a cancelled session still holding one; `lane_occupied: true` with no visible holder); the precedence of stale, failed and truncated reads (a truncated work list naming visible steps without counts, or "Status incomplete"), with work and session truncation tested separately; the summary outside a batch never claiming no failures; the state mapping, `StatePill` glyphs, `EventTime` formats and hover text, and the masthead summary: a failure first, then waiting; "no agents working" only from a fresh, complete read; a truncated, stale or unavailable read saying "Updating…" or "Status unavailable"; "all done" never shown.
+- [x] 6.3 GREEN: implement them, and replace the per-screen words and time formats.
+- [x] 6.4 Update affected tests and `frontend/ARCHITECTURE.md`. Run the frontend checks.
 
 ## 7. Overview and step page counts
 
@@ -194,15 +194,15 @@
 - **Verification:** frontend checks; captures of the Overview and each step page; demo video.
 - **Risks and decisions:** none.
 
-- [ ] 7.1 Read the Overview, step page and `NeedsYouPanel` code and the attention read's shape.
-- [ ] 7.2 RED: tests for:
-  - [ ] 7.2.1 Needs you agreeing with the header, including its truncation note.
-  - [ ] 7.2.2 The bar's linked counts.
-  - [ ] 7.2.3 The lot table, including Part-subject jobs.
-  - [ ] 7.2.4 The step `lot` parameter on a direct load.
-  - [ ] 7.2.5 The Research page's own counts, using the step section's filtering.
-- [ ] 7.3 GREEN: share `NeedsYouPanel`'s list, replace Pipeline with the lot table, add the `lot` route parameter and focus, link the bar, scope the step counts, and remove the duplicate outer summary.
-- [ ] 7.4 Capture the Overview and step pages. Run the frontend checks, and record the demo video.
+- [x] 7.1 Read the Overview, step page and `NeedsYouPanel` code and the attention read's shape.
+- [x] 7.2 RED: tests for:
+  - [x] 7.2.1 Needs you agreeing with the header, including its truncation note.
+  - [x] 7.2.2 The bar's linked counts.
+  - [x] 7.2.3 The lot table, including Part-subject jobs.
+  - [x] 7.2.4 The step `lot` parameter on a direct load.
+  - [x] 7.2.5 The Research page's own counts, using the step section's filtering.
+- [x] 7.3 GREEN: share `NeedsYouPanel`'s list, replace Pipeline with the lot table, add the `lot` route parameter and focus, link the bar, scope the step counts, and remove the duplicate outer summary.
+- [x] 7.4 Capture the Overview and step pages. Run the frontend checks, and record the demo video.
 
 ## 8. Help buttons and popover placement
 
@@ -239,9 +239,9 @@
   - a demo video.
 - **Risks and decisions:** if a tested phone's sheet lacks the camera or the library, Take photos opens a Camera / Photo library choice (design), and both inputs are tested on that platform.
 
-- [ ] 9.1 Read the guidelines, the media upload code and the capture-grouped-evidence spec.
-- [ ] 9.2 RED: tests for the photos input attributes (`multiple`, JPEG and PNG, no `capture`), and, if 9.4 needs the fallback, the library input without `capture` and the camera input with it; validator typing of dropped and pasted files, including an unsupported one; a mixed drop as one operation with one count; a nested group drop handled once; paste outside and inside a note; and every picker refusal (disabled, archived, stale, pending command, conflicting draft) refusing drop and paste.
-- [ ] 9.3 GREEN: remove `capture`, add `addMixed` to the upload queue, extract the shared start gate (returning its reason, and keeping the picker-return behaviour), and add the drop targets with their highlight and the paste listener behind it.
+- [x] 9.1 Read the guidelines, the media upload code and the capture-grouped-evidence spec.
+- [x] 9.2 RED: tests for the photos input attributes (`multiple`, JPEG and PNG, no `capture`), and, if 9.4 needs the fallback, the library input without `capture` and the camera input with it; validator typing of dropped and pasted files, including an unsupported one; a mixed drop as one operation with one count; a nested group drop handled once; paste outside and inside a note; and every picker refusal (disabled, archived, stale, pending command, conflicting draft) refusing drop and paste.
+- [x] 9.3 GREEN: remove `capture`, add `addMixed` to the upload queue, extract the shared start gate (returning its reason, and keeping the picker-return behaviour), and add the drop targets with their highlight and the paste listener behind it.
 - [ ] 9.4 Check on iOS Safari and Android Chrome (library multi-select and the camera option) and desktop Chrome and Safari (drop and paste). If a phone's sheet lacks the camera or the library, add the Camera / Photo library choice inside Take photos, and test both flows on that platform. Run the frontend checks, and record the demo video.
 
 ## 10. Electronics animation switch
@@ -374,7 +374,7 @@
 
 - [x] PR-0: review both plans read-only (`codex exec -m gpt-6.2-sol -s read-only`; Mitch's standing rule: at most three rounds, with the last round's fixes noted on the PR; material issues left after round three are fixed and listed on the PR for Mitch), fix, publish, CI green, merge (#247).
 - [x] PR-0 follow-up: review the merged plan again (rounds 4–6, same rule), fix, publish, CI green, merge (#248).
-- [ ] PR-A: implement tasks 1–3, 8 and 10, review the exact head, publish with captures and the demo, CI green, merge.
+- [x] PR-A: implement tasks 1–3, 8 and 10, review the exact head, publish with captures and the demo, CI green, merge.
 - [ ] PR-B: implement task 4, review the exact head, publish with the demo, CI green, merge.
 - [ ] PR-C: implement task 5, review the exact head, publish with captures and the demo, CI green, merge.
 - [ ] PR-D: implement tasks 6 and 7, review the exact head, publish with captures and the demo, CI green, merge.

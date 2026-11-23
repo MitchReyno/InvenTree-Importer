@@ -67,6 +67,8 @@ interface Props {
   openQuestion?: OpenQuestion | null
   /** Answers the open question in place, queued to the asking session. */
   answerQuestion?: (questionId: string, input: ProcessingAnswerDto, key: string) => Promise<void>
+  /** Why answering here waits, such as the question coming from a read still landing. */
+  answerWaitReason?: string
   /** Marks this one lot reviewed; refused while it has unresolved problems. */
   markReviewed?: () => void
   /** Opens Review's shared Part editor for this Part. */
@@ -181,6 +183,7 @@ export function DecisionPanel({
   markReviewed,
   openQuestion = null,
   answerQuestion,
+  answerWaitReason,
   editPart,
   subjectsDisabled = false,
   openEvidence,
@@ -282,7 +285,12 @@ export function DecisionPanel({
           Processing has an open question about this lot.{' '}
           {answerQuestion && !answering && (
             <>
-              <Button size="sm" onClick={() => setAnswering(openQuestion)}>
+              <Button
+                size="sm"
+                reasonDisplay="quiet"
+                disabledReason={answerWaitReason}
+                onClick={() => setAnswering(openQuestion)}
+              >
                 Answer here
               </Button>{' '}
             </>
@@ -306,7 +314,10 @@ export function DecisionPanel({
             captureRevision={answering.captureRevision}
             currentQuestion={openQuestion?.id === answering.id ? openQuestion.question : undefined}
             currentCaptureRevision={openQuestion?.captureRevision ?? answering.captureRevision}
-            disabled={disabled || drafts.hasOtherSources('answer')}
+            disabled={
+              disabled || drafts.hasOtherSources('answer') || answerWaitReason !== undefined
+            }
+            blockedReason={answerWaitReason}
             answer={async (questionId, input, key) => {
               await answerQuestion(questionId, input, key)
               drafts.forSource('answer')(false)

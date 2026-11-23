@@ -57,7 +57,6 @@ export function MediaUpload({ ref, chooseDisabled, noteDisabled, onWriteNote, qu
         type="file"
         multiple
         accept="image/jpeg,image/png"
-        capture="environment"
         disabled={chooseDisabled}
         onChange={(event) => selected(event.target.files, 'photos')}
       />

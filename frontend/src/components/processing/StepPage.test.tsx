@@ -77,20 +77,28 @@ const source: ProcessingSource = {
   ],
   lead: null,
   jobsOn: () => [],
-  pipeline: { lead: null, lots: [] },
 }
 
 describe('StepPage', () => {
   it('shows the step state, its questions, its sessions and its outputs, and links to Capture', async () => {
     const onOpenSession = vi.fn()
     render(
-      <StepPage batchId={b} step="examine" source={source} onOpenSession={onOpenSession}>
+      <StepPage
+        batchId={b}
+        step="examine"
+        source={source}
+        summary={{ text: '3 lots formed', state: 'working' }}
+        onOpenSession={onOpenSession}
+      >
         <p>Output cards</p>
       </StepPage>,
     )
 
     expect(screen.getByRole('heading', { name: 'Examine' })).toBeInTheDocument()
-    expect(screen.getByText('1 ready · 1 running · 1 question')).toBeInTheDocument()
+    const head = screen.getByRole('heading', { name: 'Examine' }).parentElement!
+    // The step's own sessions are counted with it; the other steps' are not.
+    expect(head).toHaveTextContent('3 lots formed · 1 session')
+    expect(within(head).getByText('Working')).toBeInTheDocument()
     expect(
       within(screen.getByRole('region', { name: 'Questions' })).getByRole('link', {
         name: 'Is it a P?',
@@ -108,10 +116,68 @@ describe('StepPage', () => {
   })
 
   it('says a step has no retained work instead of inventing progress or sessions', () => {
-    render(<StepPage batchId={b} step="research" source={source} onOpenSession={vi.fn()} />)
+    render(
+      <StepPage
+        batchId={b}
+        step="research"
+        source={source}
+        summary={{ text: 'No work yet', state: 'not_started' }}
+        onOpenSession={vi.fn()}
+      />,
+    )
 
-    expect(screen.getByText('No retained work on Research yet.')).toBeInTheDocument()
+    expect(screen.getByText('No work yet')).toBeInTheDocument()
+    expect(screen.getByText('Not started')).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Sessions' })).not.toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Questions' })).not.toBeInTheDocument()
+  })
+
+  it('counts only its own step, as its own section does', () => {
+    render(
+      <StepPage
+        batchId={b}
+        step="research"
+        source={source}
+        summary={{ text: '1 lot · 1 done', state: 'done' }}
+        onOpenSession={vi.fn()}
+      />,
+    )
+    const head = screen.getByRole('heading', { name: 'Research' }).parentElement!
+
+    expect(head).toHaveTextContent('Research')
+    expect(head).toHaveTextContent('1 lot · 1 done')
+    expect(head).not.toHaveTextContent(/ready|session/)
+  })
+
+  it('opens with the focused lot’s state when the step has no output for it yet', () => {
+    render(
+      <StepPage
+        batchId={b}
+        step="images"
+        source={source}
+        summary={{ text: 'No work yet', state: 'not_started' }}
+        focus={{ label: 'GE S2CN1 diodes', state: 'not_started', hasOutput: false }}
+        onOpenSession={vi.fn()}
+      />,
+    )
+    const focus = screen.getByRole('region', { name: 'GE S2CN1 diodes' })
+
+    expect(focus).toHaveTextContent('No Images output for this lot yet')
+    expect(within(focus).getByText('Not started')).toBeInTheDocument()
+  })
+
+  it('leaves the focused lot to its outputs once it has any, done or not', () => {
+    render(
+      <StepPage
+        batchId={b}
+        step="research"
+        source={source}
+        summary={{ text: '1 lot · 1 done', state: 'done' }}
+        focus={{ label: 'GE S2CN1 diodes', state: 'waiting_for_you', hasOutput: true }}
+        onOpenSession={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByText(/output for this lot yet/)).toBeNull()
   })
 })

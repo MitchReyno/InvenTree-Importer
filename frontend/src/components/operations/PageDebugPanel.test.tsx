@@ -5,6 +5,7 @@ import { serverQueryKey } from '#/queries/scope'
 import { setDebugMode } from '#/test/debug-mode'
 import { fixtureScope, render } from '#/test/render'
 import { PageDebugPanel } from './PageDebugPanel'
+import { snapshots } from '#/queries/snapshots'
 
 const batchId = 'b0000000-0000-4000-8000-000000000001'
 
@@ -82,4 +83,19 @@ test('names the processing profile from the cached Processing read', async () =>
   const panel = screen.getByText('Debug · processing › overview').closest('details')!
 
   await waitFor(() => expect(panel).toHaveTextContent('Processing profilenative_unverified'))
+})
+
+test('a session storage failure shows only in the debug panel', async () => {
+  const failure = vi
+    .spyOn(snapshots, 'lastFailure')
+    .mockReturnValue('Session storage full; snapshots cleared')
+  try {
+    render(<PageDebugPanel route={`${batchId}/processing/overview`} batchId={batchId} />)
+    setDebugMode(true)
+    fireEvent.click(await screen.findByText('Debug · processing › overview'))
+    const panel = screen.getByText('Debug · processing › overview').closest('details')!
+    expect(panel).toHaveTextContent('Session snapshotsSession storage full; snapshots cleared')
+  } finally {
+    failure.mockRestore()
+  }
 })
