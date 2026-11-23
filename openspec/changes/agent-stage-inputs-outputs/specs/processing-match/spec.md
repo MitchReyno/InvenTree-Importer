@@ -14,6 +14,12 @@ Match SHALL search InvenTree (Parts, manufacturer Parts, supplier Parts and stoc
 - **WHEN** Match searches
 - **THEN** it records RES-0144 as an exact candidate matched by MPN and manufacturer.
 
+#### Scenario: Stock known only by NSN
+
+- **GIVEN** a lot with NSN 5961-01-123-4567 and InvenTree stock tagged `nsn:5961011234567` whose Part has no matching MPN
+- **WHEN** Match searches
+- **THEN** it finds the stock by its tag, resolves its Part, and records that Part as a candidate matched by NSN.
+
 #### Scenario: InvenTree unavailable
 
 - **GIVEN** the InvenTree read fails
@@ -38,7 +44,7 @@ When a lot's identity becomes stable, before any identify-mode Research, Match S
 
 ### Requirement: Original-contribution hits
 
-An import reference hit SHALL be an original-contribution hit, not an identity candidate. Its question SHALL offer only already imported (leave the lot out) and inspecting or recovering the earlier run, never new Part or add stock, and no Research or Images SHALL run for the lot. The lot SHALL stay ineligible for another stock approval, as preparation's contribution history requires.
+An import reference hit SHALL be an original-contribution hit, not an identity candidate. Its question SHALL offer only already imported (leave the lot out) and, when the operator may read the earlier run, inspecting or recovering it, never new Part or add stock, and no Research or Images SHALL run for the lot. The lot SHALL stay ineligible for another stock approval, as preparation's contribution history requires.
 
 #### Scenario: Hit on an approved contribution
 

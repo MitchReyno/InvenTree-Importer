@@ -36,7 +36,7 @@ Owned-fake mutation kinds SHALL require the matching capability on the owned pro
 
 ### Requirement: Match search reads
 
-The transport SHALL add bounded list reads for Match: `search_parts`, `list_manufacturer_parts`, `list_supplier_parts`, `list_stock`, `list_part_parameters`, `list_part_attachments` and `list_category_parameters`. Each SHALL use a fixed path and ordering, the same limit, offset and search bounds, and only named filters the pinned InvenTree API offers: search text, MPN, SKU, batch code, or a manufacturer, supplier, Part or category PK. Other filters SHALL be refused unsent.
+The transport SHALL add bounded Match list reads: `search_parts`, `list_manufacturer_parts`, `list_supplier_parts`, `list_stock`, `list_part_parameters`, `list_part_attachments` and `list_category_parameters`. Each SHALL use a fixed path and ordering, the same limit, offset and search bounds, and only named filters the pinned API offers: search text, MPN, SKU, batch code, `nsn:` stock tag, or a manufacturer, supplier, Part or category PK. Other filters SHALL be refused unsent.
 
 #### Scenario: Stock by Part and batch
 

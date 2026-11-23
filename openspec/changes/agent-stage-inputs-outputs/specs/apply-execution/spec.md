@@ -44,7 +44,7 @@ The executor SHALL apply only plans whose version, build and capability match a 
 
 - **GIVEN** a completed `bench-effects-plan/2` run that offers `verify_effect`, on a target now served by the `/3` deployment
 - **WHEN** the operator asks to verify it
-- **THEN** the earlier runner, kept in verify-only mode, performs the read-only check, and no earlier-version write is dispatched.
+- **THEN** a read-only verification entry point, keeping the run's original build and journal bindings and holding no writer claim, performs the check, and no earlier-version write can be dispatched.
 
 #### Scenario: Part image effects on an older capability
 
