@@ -4,6 +4,7 @@ import { media } from './media'
 import { Badge, type CountTone } from './Pill'
 import { Spinner } from './Loading'
 import { hoverTransition } from './motion'
+import { WORK_STATE, type WorkState } from './StatePill'
 
 /** A tab's one count: the number or progress it shows, its words when read, and its tone. */
 export type TabItemCount = { value: string; label: string; tone: CountTone }
@@ -30,11 +31,18 @@ type TabsProps = {
   announceCurrent?: boolean
 }
 
+/** A tab's status icon in the shared state words. */
+const TAB_STATE: Record<NonNullable<TabItem['status']>, WorkState> = {
+  running: 'working',
+  failed: 'failed',
+  done: 'done',
+}
+
 function accessibleName(item: TabItem) {
   // The icons are decorative, so their meaning is read here.
   const parts = [item.label]
   if (item.status) {
-    parts.push(item.status)
+    parts.push(WORK_STATE[TAB_STATE[item.status]].word.toLowerCase())
   }
   if (item.count) {
     parts.push(item.count.label)

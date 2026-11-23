@@ -1,53 +1,16 @@
-import type { BatchAttentionDto, HeaderWorkDto } from '@invimport/contracts'
-import {
-  type PillStatus,
-  type ProgressStep,
-  type SegmentState,
-  type WorkState,
-  workStateWord,
-} from '#/components/ui'
+import type { BatchAttentionDto, HeaderWorkDto, ProcessingJobDto } from '@invimport/contracts'
+import { WORK_STATE, type ProgressStep, type WorkState } from '#/components/ui'
 
 type WorkItem = HeaderWorkDto['work'][number]
 type Session = HeaderWorkDto['active_sessions'][number]
 
 /** The Processing stages, in plan order. */
-export const STAGES = ['examine', 'research', 'images', 'inventory'] as const
+export const PLANNED = ['examine', 'research', 'images', 'inventory'] as const
 
-export type Stage = (typeof STAGES)[number]
-
-/** One stage's counted work; the header and attention reads count the same fields. */
-export type StageCounts = BatchAttentionDto['processing']['steps']['examine']
-
-/** A counted batch: its live lots, whether it is paused, and each stage's work. */
-export type BatchCounts = { paused: boolean; lots: number; steps: Record<Stage, StageCounts> }
-
-function capitalised(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1)
-}
-
-function plural(count: number, noun: string) {
-  return `${count} ${count === 1 ? noun : `${noun}s`}`
-}
-
-/** State words as a reader says them: `waiting_for_user` reads "waiting for user". */
-export function stateWords(state: string) {
-  return state.replaceAll('_', ' ')
-}
-
-function stepName(step: WorkItem['steps'][number]) {
-  return 'stage' in step ? step.stage : step.name
-}
-
-/** An import run's own steps; it fills only what its retained states say. */
-export function segmentSteps(item: WorkItem): ProgressStep[] {
-  return item.steps.map((step) => ({
-    label: capitalised(stepName(step)),
-    state: segmentState(step.state),
-  }))
-}
+export type Stage = (typeof PLANNED)[number]
 
 /** Reading and Identifying are the Examine step on the redesigned Processing tab. */
-const STAGE_OF: Record<string, Stage> = {
+export const PLANNED_STEP: Record<string, Stage> = {
   reading: 'examine',
   identifying: 'examine',
   examine: 'examine',
@@ -56,9 +19,113 @@ const STAGE_OF: Record<string, Stage> = {
   inventory: 'inventory',
 }
 
+/** One stage's counted work; the header and attention reads count the same fields. */
+export type StageCounts = BatchAttentionDto['processing']['steps']['examine']
+
+/** A counted batch: its live lots, whether it is paused, and each stage's work. */
+export type BatchCounts = { paused: boolean; lots: number; steps: Record<Stage, StageCounts> }
+
+export function capitalised(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1)
+}
+
+/** Every retained state a job, session, import run or import step can be in. */
+export type RetainedState =
+  | WorkItem['state']
+  | WorkItem['steps'][number]['state']
+  | NonNullable<ProcessingJobDto['session_state']>
+
+const RETAINED: Record<RetainedState, WorkState> = {
+  queued: 'queued',
+  running: 'working',
+  waiting_for_user: 'waiting_for_you',
+  waiting_input: 'waiting_for_you',
+  // Signing in is the operator's to do.
+  waiting_for_login: 'waiting_for_you',
+  waiting_for_capacity: 'queued',
+  ready: 'done',
+  finished: 'done',
+  confirmed: 'done',
+  settled_complete: 'done',
+  failed: 'failed',
+  interrupted: 'failed',
+  resume_unavailable: 'failed',
+  settled_incomplete: 'failed',
+  recovery_required: 'failed',
+  // A replaced attempt's work runs again once its subject is settled.
+  superseded: 'queued',
+  // Stopped by the operator: nothing is done and nothing runs until it is started again.
+  cancelled: 'not_started',
+  cancelling: 'working',
+  stopping: 'working',
+  not_requested: 'not_started',
+  none: 'not_started',
+  // An import step whose effect is uncertain needs the operator to check it.
+  unknown: 'waiting_for_you',
+  mixed: 'waiting_for_you',
+}
+
+/**
+ * The one mapping from retained states to the shared state words. A job still holding its slot is
+ * working whatever its logical state; queued work in a paused batch is paused, while a turn still
+ * running is still working.
+ */
+export function workState(
+  state: RetainedState,
+  context: { occupiesLane?: boolean; paused?: boolean } = {},
+): WorkState {
+  const own = RETAINED[state]
+  if (context.occupiesLane) {
+    return 'working'
+  }
+
+  return context.paused && own === 'queued' ? 'paused' : own
+}
+
+const PRESSING: WorkState[] = [
+  'failed',
+  'waiting_for_you',
+  'working',
+  'paused',
+  'queued',
+  'not_started',
+  'done',
+]
+
+/** The state that most needs saying: failures, then the operator, then work under way. */
+export function mostPressing(states: WorkState[]): WorkState | undefined {
+  return PRESSING.find((state) => states.includes(state))
+}
+
+/** A Processing job's state, counting a held slot as working. */
+export function jobState(item: WorkItem): WorkState {
+  return workState(item.state, { occupiesLane: item.kind === 'processing' && item.occupies_lane })
+}
+
+/** Whether a job holds its slot although its logical state has stopped working. */
+export function slotHeld(item: WorkItem) {
+  return item.kind === 'processing' && item.occupies_lane && workState(item.state) !== 'working'
+}
+
+function plural(count: number, noun: string) {
+  return `${count} ${count === 1 ? noun : `${noun}s`}`
+}
+
+function stepName(step: WorkItem['steps'][number]) {
+  return 'stage' in step ? step.stage : step.name
+}
+
+/** An import run's own steps, in the shared state words. */
+export function segmentSteps(item: WorkItem): ProgressStep[] {
+  return item.steps.map((step) => ({
+    label: capitalised(stepName(step)),
+    state: workState(step.state),
+  }))
+}
+
 /** The Processing stage a retained stage belongs to, if any. */
 export function stageOf(stage: string): Stage | undefined {
-  return STAGE_OF[stage]
+  return PLANNED_STEP[stage]
 }
 
 /** A batch's step counts: the open batch's attention read, else the header read's own count. */
@@ -126,22 +193,9 @@ function countedState(stage: Stage, counts: StageCounts, lots: number, paused: b
   return done ? 'done' : 'not_started'
 }
 
-const RETAINED_STATE: Record<string, WorkState> = {
-  running: 'working',
-  stopping: 'working',
-  waiting_for_user: 'waiting_for_you',
-  waiting_for_login: 'waiting_for_you',
-  queued: 'queued',
-  waiting_for_capacity: 'queued',
-  ready: 'done',
-  failed: 'failed',
-  interrupted: 'failed',
-  cancelled: 'failed',
-}
-
 /** An uncounted stage reads its retained jobs' states, so it is never drawn as not started. */
-function retainedState(states: readonly string[], paused: boolean): WorkState {
-  const own = states.map((state) => RETAINED_STATE[state] ?? 'not_started')
+function retainedState(states: readonly RetainedState[], paused: boolean): WorkState {
+  const own = states.map((state) => workState(state))
   const done = own.length > 0 && own.every((state) => state === 'done')
   for (const state of ['failed', 'working'] as const) {
     if (own.includes(state)) {
@@ -166,7 +220,7 @@ export function stageSegment(
   counts: StageCounts | undefined,
   lots: number | undefined,
   paused: boolean,
-  retained: readonly string[] = [],
+  retained: readonly RetainedState[] = [],
 ): ProgressStep {
   const label = capitalised(stage)
   if (!counts || lots === undefined) {
@@ -189,7 +243,7 @@ export function processingSegments(
   paused: boolean,
 ): ProgressStep[] {
   const retained = items.flatMap((item) => (item.kind === 'processing' ? item.steps : []))
-  return STAGES.map((stage) => {
+  return PLANNED.map((stage) => {
     const states = retained
       .filter((own) => 'stage' in own && stageOf(own.stage) === stage)
       .map((own) => own.state)
@@ -199,7 +253,7 @@ export function processingSegments(
 
 /** "Research: 7 of 12" for the first stage counted as working. */
 export function processingProgress(counts: BatchCounts | undefined) {
-  for (const stage of STAGES) {
+  for (const stage of PLANNED) {
     const own = counts?.steps[stage]
     if (!counts || !own || own.running === 0) {
       continue
@@ -235,7 +289,7 @@ export function stagePillWord(state: WorkState, counts: StageCounts | undefined)
     return `${counts.running} working`
   }
 
-  return workStateWord(state)
+  return WORK_STATE[state].word
 }
 
 const ENDED_ATTEMPTS = new Set(['cancelled', 'superseded'])
@@ -323,89 +377,7 @@ export function otherOpenJobs(work: WorkItem[], named: WorkItem | undefined) {
   return others.size
 }
 
-type JobPill = { status: PillStatus; word: string }
-
-const JOB_PILL: Record<string, JobPill> = {
-  running: { status: 'running', word: 'Running' },
-  stopping: { status: 'running', word: 'Stopping' },
-  queued: { status: 'queued', word: 'Queued' },
-  waiting_for_capacity: { status: 'queued', word: 'Queued' },
-  waiting_for_user: { status: 'needs-answer', word: 'Waiting for you' },
-  waiting_for_login: { status: 'warning', word: 'Waiting for login' },
-  failed: { status: 'failed', word: 'Failed' },
-  interrupted: { status: 'failed', word: 'Interrupted' },
-  recovery_required: { status: 'failed', word: 'Needs recovery' },
-  settled_incomplete: { status: 'failed', word: 'Incomplete' },
-  ready: { status: 'complete', word: 'Done' },
-  settled_complete: { status: 'complete', word: 'Done' },
-  cancelled: { status: 'excluded', word: 'Cancelled' },
-  superseded: { status: 'excluded', word: 'Superseded' },
-}
-
-/** A job's state pill. A job that still holds its slot says so, whatever its logical state. */
-export function jobPill(item: WorkItem): JobPill {
-  const own = JOB_PILL[item.state] ?? {
-    status: 'draft' as const,
-    word: capitalised(stateWords(item.state)),
-  }
-  if (item.kind === 'processing' && item.occupies_lane && own.status !== 'running') {
-    return { status: 'running', word: `${own.word} · slot held` }
-  }
-
-  return own
-}
-
-const PILL_RANK: PillStatus[] = [
-  'failed',
-  'needs-answer',
-  'warning',
-  'running',
-  'queued',
-  'complete',
-]
-
-/** A batch's Processing entry takes the most pressing of its jobs' pills. */
-export function batchPill(jobs: WorkItem[]): JobPill {
-  const pills = jobs.map(jobPill)
-
-  const rank = (pill: JobPill) => {
-    const index = PILL_RANK.indexOf(pill.status)
-    return index === -1 ? PILL_RANK.length : index
-  }
-
-  return pills.sort((a, b) => rank(a) - rank(b))[0] ?? JOB_PILL.queued
-}
-
-/** One short word for the phone pill; a held slot outranks the job's logical state. */
-export function compactJobWord(item: WorkItem) {
-  if (item.kind === 'processing' && item.occupies_lane && segmentState(item.state) !== 'working') {
-    return 'Slot held'
-  }
-
-  return jobPill(item).word
-}
-
-/** A retained step state as a work state; an import step that is unknown or mixed is not started. */
-function segmentState(state: string): SegmentState {
-  return RETAINED_STATE[state] ?? (stepTone(state) === 'done' ? 'done' : 'not_started')
-}
-
-type StepTone = 'done' | 'running' | 'failed' | 'other'
-
-const STEP_TONE: Record<string, StepTone> = {
-  ready: 'done',
-  confirmed: 'done',
-  finished: 'done',
-  queued: 'running',
-  running: 'running',
-  waiting_for_user: 'running',
-  waiting_for_login: 'running',
-  waiting_for_capacity: 'running',
-  failed: 'failed',
-  interrupted: 'failed',
-  cancelled: 'failed',
-}
-
-export function stepTone(state: string): StepTone {
-  return STEP_TONE[state] ?? 'other'
+/** A batch's Processing entry takes the most pressing of its jobs' states. */
+export function batchState(jobs: WorkItem[]): WorkState {
+  return mostPressing(jobs.map(jobState)) ?? 'queued'
 }

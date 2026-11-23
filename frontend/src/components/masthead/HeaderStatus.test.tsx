@@ -8,6 +8,7 @@ import { render, fixtureScope } from '#/test/render'
 import { stubPhoneViewport } from '#/test/viewport'
 import { serverQueryKey } from '#/queries/scope'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
+import { eventTimeText } from '#/components/ui'
 import { HeaderStatus } from './HeaderStatus'
 import type { HeaderClient } from '#/header/types'
 import { HeaderObservationsProvider, UpdateHealthContext } from '#/context'
@@ -98,8 +99,6 @@ function showDetails(panel: HTMLElement) {
   setDebugMode(true)
 }
 
-const SHORT_TIME: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' }
-
 test('healthy live transport never implies target reachability and Open InvenTree sits only in the server menu', async () => {
   const user = userEvent.setup()
   render(
@@ -143,12 +142,12 @@ test('failed activity reads stay unavailable and a missing target URL has no inv
   })
   const user = userEvent.setup()
   render(<HeaderStatus client={api} batchId={batchId} />)
-  await screen.findByText('Workflow unavailable')
-  expect(screen.queryByText('Idle')).toBeNull()
+  await screen.findByText('Status unavailable')
+  expect(screen.queryByText(/no agents working/)).toBeNull()
   // At phone width a short drawn word keeps the control from going blank.
   expect(
     screen.getByRole('button', { name: 'Workflow activity' }).querySelector('[data-short]'),
-  ).toHaveAttribute('data-short', 'Offline')
+  ).toHaveAttribute('data-short', 'Unavailable')
   await user.click(screen.getByRole('button', { name: 'Connection status' }))
   const panel = screen.getByRole('dialog', { name: 'Connection details' })
   expect(within(panel).queryByRole('link', { name: 'Open InvenTree' })).toBeNull()
@@ -167,7 +166,7 @@ test('local expiry and visibility recomputation mark an old successful observati
   await screen.findByText('InvenTree status stale')
   await user.click(screen.getByRole('button', { name: 'Connection status' }))
   expect(screen.getByRole('dialog', { name: 'Connection details' })).toHaveTextContent(
-    `Last check${new Date(old).toLocaleTimeString([], SHORT_TIME)}`,
+    `Last check${eventTimeText(old, Date.now())}`,
   )
   fireEvent(document, new Event('visibilitychange'))
   await waitFor(() => expect(api.connection).toHaveBeenCalledTimes(2))
@@ -221,12 +220,12 @@ test('current batch work, retained steps and logically cancelled occupied agents
       <HeaderStatus client={api} batchId={batchId} />
     </>,
   )
-  // The cancelled session still holds a slot, and the session list is partial.
-  await screen.findByText('1+ agents working')
+  // The cancelled session still holds a slot, but the work list is cut: it cannot say more.
+  await screen.findByText('Status incomplete')
   await user.click(screen.getByRole('button', { name: 'Workflow activity' }))
   const panel = screen.getByRole('dialog', { name: 'Workflow details' })
   expect(panel).toHaveTextContent('Current batch')
-  expect(panel).toHaveTextContent('cancelled')
+  expect(panel).toHaveTextContent('logical state Not started')
   expect(panel).toHaveTextContent('Physical lane occupied')
   expect(panel).toHaveTextContent('Fine-grained step coverage is incomplete')
   expect(panel).toHaveTextContent('Active-session coverage is partial')
@@ -245,13 +244,13 @@ test('scope-mismatched responses cannot supply a target URL or an idle claim', a
   vi.mocked(api.work).mockResolvedValue({ ...work(), target_context_id: id })
   const user = userEvent.setup()
   render(<HeaderStatus client={api} />)
-  await screen.findByText('Workflow unavailable')
+  await screen.findByText('Status unavailable')
   await user.click(screen.getByRole('button', { name: 'Connection status' }))
   expect(screen.getByRole('dialog', { name: 'Connection details' })).toHaveTextContent(
     'Open InvenTree unavailable',
   )
   expect(screen.queryByRole('link', { name: 'Open InvenTree' })).toBeNull()
-  expect(screen.queryByText('Idle')).toBeNull()
+  expect(screen.queryByText(/no agents working/)).toBeNull()
 })
 
 test('healthy sockets retain foreground target polling and local expiry while a later read is pending', async () => {
@@ -345,7 +344,8 @@ test('workflow retains original-run navigation and shared observers deduplicate 
       <HeaderStatus client={api} />
     </>,
   )
-  await screen.findAllByText(/Needs attention/)
+  // Outside a batch a failed run is not named: other batches' settled failures are not read.
+  await screen.findAllByText('Agent activity')
   expect(api.connection).toHaveBeenCalledOnce()
   expect(api.work).toHaveBeenCalledOnce()
   await user.click(screen.getAllByRole('button', { name: 'Workflow activity' })[0])
@@ -438,10 +438,10 @@ test('current-batch work takes priority over another running batch without losin
     ],
   })
   render(<HeaderStatus client={api} batchId={batchId} />)
-  await screen.findByText('Needs attention · research')
+  await screen.findByText('Research waiting for you · 1')
   await userEvent.setup().click(screen.getByRole('button', { name: 'Workflow activity' }))
-  expect(screen.getByRole('dialog')).toHaveTextContent('images · running')
-  expect(screen.getByRole('dialog')).toHaveTextContent('research · waiting for user')
+  expect(screen.getByRole('dialog')).toHaveTextContent('images · Working')
+  expect(screen.getByRole('dialog')).toHaveTextContent('research · Waiting for you')
 })
 
 test('foreground clock reconciliation cannot report an old live transport as connected', async () => {
@@ -678,7 +678,7 @@ const attention: BatchAttentionDto = {
   items_truncated: false,
 }
 
-test('inside its batch the activity label counts the agents holding a slot, with no batch name or question count', async () => {
+test('inside its batch the activity label names what waits, then counts the agents holding a slot, with no batch name or question count', async () => {
   const api = client()
   vi.mocked(api.work).mockResolvedValue(processingWork())
   render(
@@ -688,10 +688,12 @@ test('inside its batch the activity label counts the agents holding a slot, with
     </>,
   )
 
-  expect(await screen.findByText('2 agents working')).toBeInTheDocument()
+  expect(await screen.findByText('Research waiting for you · 1')).toBeInTheDocument()
   const trigger = screen.getByRole('button', { name: 'Workflow activity' })
   await waitFor(() =>
-    expect(trigger).toHaveAccessibleDescription('2 agents working Research: 6 of 10'),
+    expect(trigger).toHaveAccessibleDescription(
+      'Research waiting for you · 1 2 agents working Research: 6 of 10',
+    ),
   )
   expect(trigger).not.toHaveTextContent('Mouser 3381-22')
   expect(trigger).not.toHaveTextContent('3')
@@ -754,7 +756,7 @@ test('a batch the header read does not count shows its running step without a fr
   render(<HeaderStatus client={api} />)
 
   const trigger = await screen.findByRole('button', { name: 'Workflow activity' })
-  await screen.findByText('2 agents working')
+  await screen.findByText('Research waiting for you · 1')
   expect(trigger).not.toHaveAccessibleDescription(/ of /)
 })
 
@@ -763,9 +765,9 @@ test('without the batch reads the label still names the work and leaves out the 
   vi.mocked(api.work).mockResolvedValue(processingWork())
   render(<HeaderStatus client={api} batchId={batchId} />)
 
-  expect(await screen.findByText('2 agents working')).toBeInTheDocument()
+  expect(await screen.findByText('Research waiting for you · 1')).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Workflow activity' })).toHaveAccessibleDescription(
-    '2 agents working',
+    'Research waiting for you · 1 2 agents working',
   )
 })
 
@@ -781,7 +783,8 @@ test('the workflow panel shows each job as step segments and keeps raw IDs out o
   expect(within(panel).queryByRole('list', { name: 'Retained steps' })).toBeNull()
   const job = within(panel).getByRole('region', { name: 'Current batch · Processing' })
   expect(within(job).getByText('Research: working')).toBeInTheDocument()
-  expect(within(job).getByText('Running')).toBeInTheDocument()
+  // The batch's pill and the uncounted Research row both read Working.
+  expect(within(job).getAllByText('Working')).toHaveLength(2)
   expect(within(job).getByRole('link', { name: 'Open processing' })).toBeInTheDocument()
   const details = within(job).getByText('Details').closest('details')!
   expect(details).not.toHaveAttribute('open')
@@ -795,9 +798,10 @@ test('the workflow panel shows each job as step segments and keeps raw IDs out o
 test('with nothing retained the activity pill says so plainly and drops its accent', async () => {
   render(<HeaderStatus client={client()} batchId={batchId} />)
 
-  expect(await screen.findByText('Idle')).toBeInTheDocument()
+  expect(await screen.findByText('This batch · no agents working')).toBeInTheDocument()
   const trigger = screen.getByRole('button', { name: 'Workflow activity' })
-  expect(trigger).toHaveAccessibleDescription('Idle Nothing running')
+  expect(trigger).toHaveAccessibleDescription('This batch · no agents working')
+  expect(trigger.querySelector('[data-short]')).toHaveAttribute('data-short', 'Idle')
   expect(trigger).toHaveAttribute('data-active', 'false')
   expect(trigger.querySelector('[data-ai-mark]')).toBeNull()
 })
@@ -822,9 +826,9 @@ test('other open jobs show as +N beside the named one', async () => {
   })
   render(<HeaderStatus client={api} batchId={batchId} />)
 
-  await screen.findByText('2 agents working')
+  await screen.findByText('Research waiting for you · 1')
   expect(screen.getByRole('button', { name: 'Workflow activity' })).toHaveAccessibleDescription(
-    '2 agents working 1 more job',
+    'Research waiting for you · 1 2 agents working 1 more job',
   )
 })
 
@@ -847,7 +851,9 @@ test('the connection panel leads with host, last check and Open InvenTree, and n
   const panel = screen.getByRole('dialog', { name: 'Connection details' })
 
   expect(panel).toHaveTextContent('Hostinventory.example.test')
-  expect(panel).toHaveTextContent(`Last check${new Date(at).toLocaleTimeString([], SHORT_TIME)}`)
+  expect(panel).toHaveTextContent(`Last check${eventTimeText(at, Date.now())}`)
+  // The time says which day, with the full date and seconds on hover and to assistive technology.
+  expect(within(panel).getByText(eventTimeText(at, Date.now())!)).toHaveAttribute('datetime', at)
   expect(within(panel).getAllByText(/test InvenTree/)).toHaveLength(1)
   expect(within(panel).getByRole('link', { name: 'Open InvenTree' })).toBeVisible()
   expect(within(panel).queryByText(/Application API/)).toBeNull()
@@ -896,11 +902,11 @@ test('at phone width a failed job still draws a word, never an empty pill', asyn
     active_sessions: [],
   })
   render(<HeaderStatus client={api} batchId={batchId} />)
-  await screen.findByText('Needs attention · research')
+  await screen.findByText('Research failed · 1')
 
   expect(
     screen.getByRole('button', { name: 'Workflow activity' }).querySelector('[data-short]'),
-  ).toHaveAttribute('data-short', 'Failed')
+  ).toHaveAttribute('data-short', 'Research · 1')
 })
 
 /** The server's shape: one retained job per step, each with that one step. */
@@ -973,11 +979,13 @@ test('an import run keeps its own state, apart from Processing’s questions and
   const panel = screen.getByRole('dialog', { name: 'Workflow details' })
 
   const run = within(panel).getByRole('region', { name: /· Import$/ })
-  expect(within(run).getByText('Needs recovery')).toBeInTheDocument()
+  expect(within(run).getByText('Failed')).toBeInTheDocument()
   expect(run).not.toHaveTextContent('need you')
   expect(run).not.toHaveTextContent('Comparing supplier listings')
   const processing = within(panel).getByRole('region', { name: /· Processing$/ })
-  await waitFor(() => expect(within(processing).getByText('3 need you')).toBeInTheDocument())
+  await waitFor(() =>
+    expect(within(processing).getByText('Waiting for you · 3')).toBeInTheDocument(),
+  )
 })
 
 test('at phone width a read that is not current names its state, with no cached count', async () => {
@@ -989,12 +997,12 @@ test('at phone width a read that is not current names its state, with no cached 
       <HeaderStatus client={api} batchId={batchId} />
     </>,
   )
-  await screen.findByText('Workflow unavailable')
+  await screen.findByText('Status unavailable')
   const trigger = screen.getByRole('button', { name: 'Workflow activity' })
 
   // The pill carries no question count; the batch header owns it.
   await waitFor(() => expect(trigger.querySelector('[data-short]')).not.toBeNull())
-  expect(trigger.querySelector('[data-short]')).toHaveAttribute('data-short', 'Offline')
+  expect(trigger.querySelector('[data-short]')).toHaveAttribute('data-short', 'Unavailable')
   expect(trigger).not.toHaveTextContent('3')
 })
 
@@ -1015,7 +1023,7 @@ test('a cancelled attempt that still holds its slot says so, on the pill and in 
     expect(trigger.querySelector('[data-short]')).toHaveAttribute('data-short', 'Slot held'),
   )
   await user.click(trigger)
-  expect(within(screen.getByRole('dialog')).getByText('Cancelled · slot held')).toBeInTheDocument()
+  expect(within(screen.getByRole('dialog')).getByText('Working · slot held')).toBeInTheDocument()
 })
 
 test('another batch’s cancelled job still holding its slot counts in +N', async () => {
@@ -1067,8 +1075,43 @@ test('outside a batch the activity label names the batch it shows, from that bat
 
   const trigger = await screen.findByRole('button', { name: 'Workflow activity' })
   await waitFor(() =>
-    expect(trigger).toHaveAccessibleDescription(/^2 agents working Mouser 3381-22 \+ bench bag/),
+    expect(trigger).toHaveAccessibleDescription(
+      /^Research waiting for you · 1 Mouser 3381-22 \+ bench bag/,
+    ),
   )
+})
+
+test('outside a batch the pill shows only the work of the batch its headline names', async () => {
+  const api = client()
+  const other = 'c0000000-0000-4000-8000-00000000000c'
+  vi.mocked(api.work).mockResolvedValue({
+    ...work(),
+    // The waiting batch's own work rows are cut from the list; only its session remains.
+    work: [{ ...job('images', 'running', 9), batch_id: other } as HeaderWorkDto['work'][number]],
+    active_sessions: [
+      {
+        attempt_id: id,
+        batch_id: batchId,
+        job_id: id,
+        stage: 'research',
+        state: 'waiting_for_user',
+        selection: null,
+        actual_model: null,
+        progress: 'settled',
+        occupies_lane: false,
+        session_state: 'waiting_input',
+        latest_status: null,
+        current: true,
+      },
+    ],
+    work_truncated: true,
+    lane_occupied: true,
+  })
+  render(<HeaderStatus client={api} />)
+  const trigger = await screen.findByRole('button', { name: 'Workflow activity' })
+
+  await screen.findByText('Research waiting for you')
+  expect(within(trigger).queryAllByRole('listitem', { hidden: true })).toHaveLength(0)
 })
 
 describe('at phone width', () => {
@@ -1140,10 +1183,26 @@ describe('at phone width', () => {
     ).toBe(false)
   })
 
+  test('a failure keeps its word beside the spinner of work still running', async () => {
+    const api = client()
+    vi.mocked(api.work).mockResolvedValue({
+      ...work(),
+      work: [job('research', 'running', 1), job('images', 'failed', 2)],
+      lane_occupied: true,
+    })
+    render(<HeaderStatus client={api} batchId={batchId} />)
+    const status = await screen.findByRole('button', { name: 'Workflow activity' })
+
+    await waitFor(() =>
+      expect(status.querySelector('[data-short]')).toHaveAttribute('data-short', 'Images · 1'),
+    )
+    expect(status).toHaveAccessibleDescription(/^Images failed · 1/)
+  })
+
   test('the agents status button always carries the AI mark, even with nothing running', async () => {
     render(<HeaderStatus client={client()} batchId={batchId} />)
 
-    expect(await screen.findByText('Idle')).toBeInTheDocument()
+    expect(await screen.findByText('This batch · no agents working')).toBeInTheDocument()
     const status = screen.getByRole('button', { name: 'Workflow activity' })
     expect(status.querySelector('[data-ai-mark]')).not.toBeNull()
   })

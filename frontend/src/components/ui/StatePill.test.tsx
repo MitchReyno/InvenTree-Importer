@@ -1,37 +1,40 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { StatePill, type WorkState } from './StatePill'
-
-const WORDS: [WorkState, string, string][] = [
-  ['working', 'Working', '⟳'],
-  ['waiting_for_you', 'Waiting for you', '?'],
-  ['queued', 'Queued', '…'],
-  ['paused', 'Paused', '‖'],
-  ['done', 'Done', '✓'],
-  ['failed', 'Failed', '×'],
-  ['not_started', 'Not started', '○'],
-]
+import { StatePill, WORK_STATE, type WorkState } from './StatePill'
 
 describe('StatePill', () => {
-  it('draws each work state with its own word and glyph', () => {
-    const { container } = render(
-      <>
-        {WORDS.map(([state]) => (
-          <StatePill key={state} state={state} />
-        ))}
-      </>,
-    )
+  it.each([
+    ['working', 'Working', '⟳', 'acc'],
+    ['waiting_for_you', 'Waiting for you', '?', 'warn'],
+    ['queued', 'Queued', '…', 'outline'],
+    ['paused', 'Paused', '⏸', 'neutral'],
+    ['done', 'Done', '✓', 'ok'],
+    ['failed', 'Failed', '×', 'bad'],
+    ['not_started', 'Not started', '–', 'outline'],
+  ] as const)('draws %s as its word beside its own glyph', (state, word, glyph, tone) => {
+    render(<StatePill state={state} />)
+    const pill = screen.getByText(word).parentElement!
 
-    const pills = [...container.querySelectorAll('[data-tone]')]
-    expect(pills.map((pill) => pill.textContent)).toEqual(
-      WORDS.map(([, word, glyph]) => `${glyph}${word}`),
-    )
-    expect(new Set(WORDS.map(([, , glyph]) => glyph)).size).toBe(WORDS.length)
+    expect(pill).toHaveAttribute('data-tone', tone)
+    expect(pill.querySelector('[aria-hidden="true"]')).toHaveTextContent(glyph)
   })
 
-  it('takes a fuller word, such as how many are working', () => {
-    render(<StatePill state="working">2 working</StatePill>)
+  it('gives every state a glyph of its own, so colour is never the only cue', () => {
+    const glyphs = Object.values(WORK_STATE).map((entry) => entry.glyph)
+
+    expect(new Set(glyphs).size).toBe(Object.keys(WORK_STATE).length)
+  })
+
+  it('adds a detail after the state word', () => {
+    render(<StatePill state={'waiting_for_you' satisfies WorkState} detail="2" />)
+
+    expect(screen.getByText('Waiting for you · 2')).toBeInTheDocument()
+  })
+
+  it('puts a leading count in place of the state word', () => {
+    render(<StatePill state="working" label="2 working" />)
 
     expect(screen.getByText('2 working')).toBeInTheDocument()
+    expect(screen.queryByText('Working')).not.toBeInTheDocument()
   })
 })

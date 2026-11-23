@@ -1,7 +1,7 @@
 import styled, { css, keyframes } from 'styled-components'
 import { color, duration, easing, opacity, space } from '#/theme/generated/tokens'
 import { media } from './media'
-import { workStateWord, type WorkState } from './StatePill'
+import { WORK_STATE, type WorkState } from './StatePill'
 import { useMediaQuery } from './useMediaQuery'
 import { VisuallyHidden } from './VisuallyHidden'
 
@@ -54,7 +54,7 @@ export function ProgressSegments({ steps, size = 'sm', still = false }: Progress
       </Segments>
       <VisuallyHidden as="ul">
         {steps.map((step) => (
-          <li key={step.label}>{`${step.label}: ${workStateWord(step.state).toLowerCase()}`}</li>
+          <li key={step.label}>{`${step.label}: ${WORK_STATE[step.state].word.toLowerCase()}`}</li>
         ))}
       </VisuallyHidden>
     </>

@@ -1,81 +1,62 @@
 import { useMinute } from './RelativeTime'
-import { VisuallyHidden } from './VisuallyHidden'
 
-function startOfDay(time: number) {
-  const day = new Date(time)
-  day.setHours(0, 0, 0, 0)
-  return day.getTime()
+/** The hour and minute in the locale's own 12- or 24-hour clock. */
+const CLOCK: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit' }
+const DATE: Intl.DateTimeFormatOptions = { weekday: 'short', day: 'numeric', month: 'short' }
+const FULL: Intl.DateTimeFormatOptions = { dateStyle: 'full', timeStyle: 'medium' }
+
+function sameDay(a: Date, b: Date) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  )
 }
 
-/** The clock time in the device's own 12- or 24-hour format; a 24-hour clock reads "09:05". */
-function clock(time: number, locale?: string) {
-  const { hourCycle } = new Intl.DateTimeFormat(locale, { hour: 'numeric' }).resolvedOptions()
-  const twentyFour = hourCycle === 'h23' || hourCycle === 'h24'
-  return new Intl.DateTimeFormat(locale, {
-    hour: twentyFour ? '2-digit' : 'numeric',
-    minute: '2-digit',
-  }).format(time)
-}
-
-/** "Fri 20 Nov", with the year added outside `now`'s year, in that order whatever the locale. */
-function day(time: number, now: number, locale?: string) {
-  const otherYear = new Date(time).getFullYear() !== new Date(now).getFullYear()
-  const parts = new Intl.DateTimeFormat(locale, {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    ...(otherYear ? { year: 'numeric' } : {}),
-  }).formatToParts(time)
-
-  const part = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((entry) => entry.type === type)?.value
-
-  return [part('weekday'), part('day'), part('month'), part('year')]
-    .filter((value) => value !== undefined)
-    .join(' ')
+function readable(at: string) {
+  const time = Date.parse(at)
+  return Number.isNaN(time) ? null : new Date(time)
 }
 
 /**
- * When an event happened, saying which day: "Today 13:35", "Yesterday 23:56" or
- * "Fri 20 Nov · 21:09". Null for a missing or unreadable time.
+ * "Today 13:35", "Yesterday 23:56" or "Fri 20 Nov · 21:09", with the year outside the current
+ * one; null for an unreadable time. Days are the viewer's local calendar days.
  */
-export function eventTime(at: string, now: number, locale?: string) {
-  const time = Date.parse(at)
-  if (Number.isNaN(time)) {
+export function eventTimeText(at: string, now: number, locale?: string) {
+  const event = readable(at)
+  if (!event) {
     return null
   }
-
-  const eventDay = startOfDay(time)
-  const today = startOfDay(now)
-  if (eventDay === today) {
-    return `Today ${clock(time, locale)}`
+  const today = new Date(now)
+  const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1)
+  const clock = new Intl.DateTimeFormat(locale, CLOCK).format(event)
+  if (sameDay(event, today)) {
+    return `Today ${clock}`
   }
-  // A day can be 23 or 25 hours long, so yesterday is the day holding the instant before today.
-  if (eventDay === startOfDay(today - 1)) {
-    return `Yesterday ${clock(time, locale)}`
+  if (sameDay(event, yesterday)) {
+    return `Yesterday ${clock}`
   }
 
-  return `${day(time, now, locale)} · ${clock(time, locale)}`
+  const options =
+    event.getFullYear() === today.getFullYear() ? DATE : { ...DATE, year: 'numeric' as const }
+  return `${new Intl.DateTimeFormat(locale, options).format(event).replaceAll(',', '')} · ${clock}`
 }
 
 /** The full date and time with seconds, for hover and assistive technology. */
-function fullTime(time: number) {
-  return new Date(time).toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'medium' })
+export function eventTimeTitle(at: string, locale?: string) {
+  const event = readable(at)
+  return event ? new Intl.DateTimeFormat(locale, FULL).format(event) : null
 }
 
-/** An event's time in the app's one format, with its full date and seconds on hover. */
+/** An event's time, saying which day it was; the exact instant is its machine value and title. */
 export function EventTime({ at, now }: { at: string; now?: number }) {
-  const minute = useMinute()
-  const text = eventTime(at, now ?? minute)
-  if (text === null) {
-    return <span>Time not recorded</span>
-  }
+  const clock = useMinute()
+  const text = eventTimeText(at, now ?? clock)
+  const title = eventTimeTitle(at)
 
-  const full = fullTime(Date.parse(at))
   return (
-    <time dateTime={at} title={full}>
-      <span aria-hidden="true">{text}</span>
-      <VisuallyHidden>{full}</VisuallyHidden>
+    <time dateTime={at} title={title ?? undefined}>
+      {text ?? at}
     </time>
   )
 }

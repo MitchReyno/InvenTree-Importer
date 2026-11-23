@@ -54,7 +54,7 @@ function subscribe(listener: () => void) {
   }
 }
 
-/** The shared minute clock, for times that read differently as the day moves on. */
+/** The page's shared minute clock, so every shown time moves on together. */
 export function useMinute() {
   return useSyncExternalStore(subscribe, () => minute)
 }

@@ -8,6 +8,7 @@ import type {
   ManualWorkspaceDto,
 } from '@invimport/contracts'
 import { render } from '#/test/render'
+import { eventTimeText } from '#/components/ui'
 import { Added } from './Added'
 
 const id = (n: number) => `00000000-0000-4000-8000-${n.toString(16).padStart(12, '0')}`
@@ -434,8 +435,7 @@ describe('Added', () => {
   })
 
   it('gives each round in the activity log the time it was approved', () => {
-    const at = (iso: string) =>
-      new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    const at = (iso: string) => eventTimeText(iso, Date.now())
 
     setup([
       { ...confirmed, approved_at: '2026-11-08T09:42:00.000Z' },
