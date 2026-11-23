@@ -331,11 +331,11 @@ export function stageStatus(stage: Stage, sessions: readonly Session[]) {
     .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0]
 }
 
-function lotStageDone(counts: BatchCounts, stage: 'research' | 'images') {
-  return counts.lots > 0 && counts.steps[stage].ready_lots >= counts.lots
-}
-
-/** What a stage waits on before it can start, or undefined when nothing earlier holds it. */
+/**
+ * What a stage waits on before it can start, or undefined when the counts can't say. Batch totals
+ * can't tell which lot a queued Inventory job is for, so Inventory waits on Research and Images
+ * only while one of them has no ready lot at all.
+ */
 function waitsOn(stage: Stage, counts: BatchCounts | undefined) {
   if (stage === 'examine' || !counts) {
     return undefined
@@ -343,10 +343,9 @@ function waitsOn(stage: Stage, counts: BatchCounts | undefined) {
   if (counts.lots === 0) {
     return 'Starts when Examine forms lots'
   }
-  if (
-    stage === 'inventory' &&
-    !(lotStageDone(counts, 'research') && lotStageDone(counts, 'images'))
-  ) {
+  const noLotPastBoth =
+    counts.steps.research.ready_lots === 0 || counts.steps.images.ready_lots === 0
+  if (stage === 'inventory' && noLotPastBoth) {
     return 'Starts when Research and Images finish a lot'
   }
 
@@ -372,7 +371,7 @@ export function stageReason(stage: Stage, state: WorkState, counts: BatchCounts 
         ? `${plural(own.questions, 'question')} waiting for your answer`
         : 'Waiting for you'
     case 'queued':
-      return waitsOn(stage, counts) ?? 'Queued for a free slot'
+      return waitsOn(stage, counts) ?? 'Waiting to start'
     case 'done':
       return stage === 'examine' ? 'Examine finished' : 'Every lot is done'
     case 'not_started':

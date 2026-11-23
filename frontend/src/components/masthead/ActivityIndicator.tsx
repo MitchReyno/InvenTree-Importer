@@ -5,7 +5,7 @@ import { color, radius, space, typeVar } from '#/theme/generated/tokens'
 import { observationFresh, preferredWork } from '#/header/observations'
 import { useCachedBatchReads } from '#/header/useCachedBatchReads'
 import { useServerScope } from '#/context'
-import { useReadAfterHint } from '#/queries/useReadAfterHint'
+import { useReadAfterHint, useReadNewer } from '#/queries/useReadAfterHint'
 import { serverQueryKey } from '#/queries/scope'
 import {
   batchPaused,
@@ -62,18 +62,20 @@ export function ActivityIndicator({
   const cached = useCachedBatchReads(batchId)
   const fresh = !unavailable && !!data && observationFresh(data.observed_at, now)
   const scope = useServerScope()
-  const workAfterHint = useReadAfterHint(
-    serverQueryKey(scope, 'header-work', batchId ?? 'all'),
-    'shown',
-  )
-  const attentionAfterHint = useReadAfterHint(
+  const workKey = serverQueryKey(scope, 'header-work', batchId ?? 'all')
+  const attentionKey =
     batchId && cached.revision
       ? serverQueryKey(scope, 'attention', batchId, cached.revision)
-      : undefined,
-    'shown',
-  )
+      : undefined
+  const workAfterHint = useReadAfterHint(workKey, 'shown')
+  const attentionAfterHint = useReadAfterHint(attentionKey, 'shown')
+  // The open batch's counts come from whichever read is newer, else from attention when the
+  // header doesn't count the batch.
+  const attentionNewer = useReadNewer(attentionKey, workKey)
+  const headerCounts = !!data?.batch_steps?.some((entry) => entry.batch_id === batchId)
+  const countsFromAttention = !!cached.attention && (attentionNewer || !headerCounts)
   // Bars move only while the reads that drew them started after the newest change the app heard of.
-  const moving = fresh && workAfterHint && (!cached.attention || attentionAfterHint)
+  const moving = fresh && workAfterHint && (!countsFromAttention || attentionAfterHint)
   const summary = workSummary({ data, batchId, batchTitle: cached.title, unavailable, fresh })
   const preferred = shownWork(data, batchId, summary)
   const ownBatch = !!batchId && preferred?.batch_id === batchId
@@ -94,7 +96,11 @@ export function ActivityIndicator({
   // Processing work is agent work, so a fresh desktop pill for it leads with the AI mark. The phone
   // button is the agents status button, so it always carries it.
   const showMark = layout !== 'bar' || (fresh && preferred?.kind === 'processing')
-  const counts = batchStepCounts(data, preferred?.batch_id, attention)
+  const counts = batchStepCounts(
+    data,
+    preferred?.batch_id,
+    countsFromAttention ? attention : undefined,
+  )
   const segments =
     preferred?.kind === 'processing'
       ? processingSegments(jobs, counts, batchPaused(data, preferred.batch_id, counts))
@@ -192,6 +198,7 @@ export function ActivityIndicator({
         unavailable={unavailable}
         fresh={fresh}
         moving={moving}
+        countsFromAttention={countsFromAttention}
       />
     </HeaderDisclosure>
   )

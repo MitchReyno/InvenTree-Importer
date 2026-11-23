@@ -54,12 +54,14 @@ export function ResumeBatch({ batchId, readKey, unavailable }: Props) {
   }
 
   if (reason) {
+    // An unconfirmed Resume stays said even once a failed read makes Resume unavailable.
     return (
       <Control>
         <Button size="sm" disabled>
           Resume
         </Button>
         <Small>{reason}</Small>
+        {error && <Failed role="alert">{error}</Failed>}
       </Control>
     )
   }

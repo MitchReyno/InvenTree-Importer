@@ -193,9 +193,12 @@ describe('stage rows', () => {
   })
 
   it('gives a plain reason for a stage waiting on earlier ones', () => {
-    expect(stageReason('inventory', 'queued', working)).toBe(
+    const noImages = counts({ research: { ready_lots: 7 }, inventory: { jobs: 1, queued: 1 } })
+    expect(stageReason('inventory', 'queued', noImages)).toBe(
       'Starts when Research and Images finish a lot',
     )
+    // A lot may be past both, so a queued Inventory job's blocker is unknown: no cause is given.
+    expect(stageReason('inventory', 'queued', working)).toBe('Waiting to start')
     expect(stageReason('research', 'not_started', counts({}, 0))).toBe(
       'Starts when Examine forms lots',
     )

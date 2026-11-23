@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import styled from 'styled-components'
 import type { BatchAttentionDto, ConnectionStatusDto, HeaderWorkDto } from '@invimport/contracts'
 import { createServerQueryClient } from '#/queries/client'
+import { freshReads } from '#/queries/fresh-reads'
 import { serverQueryKey } from '#/queries/scope'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { GlobalStyle } from '#/components/GlobalStyle'
@@ -197,9 +198,11 @@ export function HeaderStatusProof() {
       }
       if (scenario.current === 'stages') {
         const staged = stagesWork(paused.current)
-        // The open batch's own attention read gives its counts, as on the batch screen.
+        // The open batch's own attention read gives its counts, as on the batch screen, read
+        // through the fresh-read registry as that screen reads it.
         const counted = staged.batch_steps![0]
-        cache.setQueryData<BatchAttentionDto>(serverQueryKey(scope, 'attention', batchId, '4'), {
+        const attentionKey = serverQueryKey(scope, 'attention', batchId, '4')
+        const counts: BatchAttentionDto = {
           ...attention,
           processing: {
             questions: 2,
@@ -209,6 +212,11 @@ export function HeaderStatusProof() {
             paused: counted.paused,
             steps: counted.steps,
           },
+        }
+        void cache.fetchQuery({
+          queryKey: attentionKey,
+          queryFn: freshReads(cache).track(attentionKey, async () => counts),
+          staleTime: 0,
         })
         return staged
       }

@@ -45,6 +45,8 @@ interface Props {
   fresh: boolean
   /** The reads behind the bars started after the last live hint, so working stages may move. */
   moving: boolean
+  /** The open batch's counts come from its attention read, which is newer than the header's. */
+  countsFromAttention: boolean
 }
 
 /** A retained state in the shared words, for the diagnostics under Details. */
@@ -61,6 +63,7 @@ export function ActivityPopover({
   unavailable,
   fresh,
   moving,
+  countsFromAttention,
 }: Props) {
   const scope = useServerScope()
   const work = data?.work ?? []
@@ -116,7 +119,8 @@ export function ActivityPopover({
       )}
       {data && !fresh && <Note role="status">This workflow observation is stale.</Note>}
       {batches.map((batch) => {
-        const counts = batchStepCounts(data, batch, batch === batchId ? attention : undefined)
+        const ownCounts = batch === batchId && countsFromAttention ? attention : undefined
+        const counts = batchStepCounts(data, batch, ownCounts)
         return (
           <ProcessingJob
             key={batch}

@@ -40,3 +40,19 @@ export function useReadAfterHint(key: QueryKey | undefined, level: AfterHint) {
 
   return useSyncExternalStore(subscribe, () => (key ? readAfterHint(client, key, level) : false))
 }
+
+/** Whether read `a`'s adopted request started after read `b`'s; false while `a` has none. */
+export function useReadNewer(a: QueryKey | undefined, b: QueryKey) {
+  const client = useQueryClient()
+  const subscribe = useCallback(
+    (notify: () => void) => freshReads(client).subscribe(notify),
+    [client],
+  )
+
+  return useSyncExternalStore(subscribe, () => {
+    const registry = freshReads(client)
+    const own = a ? registry.adoptedOrder(a) : undefined
+    const other = registry.adoptedOrder(b)
+    return own !== undefined && (other === undefined || own > other)
+  })
+}

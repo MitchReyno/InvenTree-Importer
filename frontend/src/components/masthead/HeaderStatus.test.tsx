@@ -738,6 +738,50 @@ test('bars stop moving after a live hint until both the work and attention reads
   await waitFor(() => expect(moving()).toBeGreaterThan(0))
 })
 
+test('counts from a newer header read win over older attention counts, so a finished stage stops moving', async () => {
+  const user = userEvent.setup()
+  const api = client()
+  const finished = processingWork()
+  finished.work = [
+    {
+      ...finished.work[0],
+      state: 'ready',
+      occupies_lane: false,
+      steps: [{ stage: 'research', state: 'ready' }],
+    } as HeaderWorkDto['work'][number],
+  ]
+  finished.active_sessions = []
+  finished.lane_occupied = false
+  finished.batch_steps = [
+    {
+      batch_id: batchId,
+      paused: false,
+      lots: 10,
+      steps: {
+        examine: { ...stepCounts, jobs: 4, ready: 4 },
+        research: { ...stepCounts, jobs: 10, ready: 10, ready_lots: 10 },
+        images: stepCounts,
+        inventory: stepCounts,
+      },
+    },
+  ]
+  vi.mocked(api.work).mockResolvedValue(finished)
+  const cache = createServerQueryClient()
+  render(
+    <ServerStateProvider scope={fixtureScope} client={cache}>
+      {/* The batch screen's attention read starts first, so it is the older read. */}
+      <BatchReads attention={attention} />
+      <HeaderStatus client={api} batchId={batchId} />
+    </ServerStateProvider>,
+  )
+  await user.click(await screen.findByRole('button', { name: 'Workflow activity' }))
+  const panel = await screen.findByRole('dialog', { name: 'Workflow details' })
+  const research = await within(panel).findByRole('link', { name: /^Research/ })
+
+  await waitFor(() => expect(research).toHaveTextContent('Done'))
+  expect(document.querySelectorAll('[data-animated="true"]')).toHaveLength(0)
+})
+
 test('inside its batch the activity label names what waits, then counts the agents holding a slot, with no batch name or question count', async () => {
   const api = client()
   vi.mocked(api.work).mockResolvedValue(processingWork())

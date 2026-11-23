@@ -156,8 +156,9 @@ function WithWorkRead({ data, options }: { data: HeaderWorkDto; options: Popover
       batchTitle="Heyyy"
       attention={options.attention}
       unavailable={false}
-      fresh={options.fresh ?? true}
+      fresh={options.fresh ?? !read.isError}
       moving={options.moving ?? options.fresh ?? true}
+      countsFromAttention={options.attention !== undefined}
     />
   )
 }
@@ -196,7 +197,10 @@ describe('ActivityPopover stage rows', () => {
   })
 
   it('gives a stage with no listed session a plain reason, not an older agent line', async () => {
-    await popover(workingBatch())
+    const data = workingBatch()
+    // No lot has finished Images yet, so none can be past both Research and Images.
+    data.batch_steps![0].steps.images = { ...none, jobs: 12, running: 1 }
+    await popover(data)
     const inventory = rows(screen.getByRole('region', { name: 'Heyyy · Processing' }))[3]
 
     expect(inventory).toHaveTextContent('Starts when Research and Images finish a lot')
@@ -466,5 +470,33 @@ describe('ActivityPopover Resume', () => {
     await waitFor(() => expect(resume).not.toHaveAttribute('aria-disabled'))
     await user.click(resume)
     await waitFor(() => expect(pause).toHaveBeenCalledWith(batch, false))
+  })
+
+  it('keeps saying a lost Resume is unconfirmed when the read after it also fails', async () => {
+    const user = userEvent.setup()
+    const pause = vi.fn(async () => {
+      throw new TypeError('Failed to fetch')
+    })
+    const data = workingBatch({ paused_batches: [{ batch_id: batch, title: 'Heyyy' }] })
+    data.batch_steps![0].paused = true
+    let reads = 0
+    await popover(data, {
+      agents: { pause },
+      read: async () => {
+        reads += 1
+        if (reads > 1) {
+          throw new Error('work_read_failed')
+        }
+        return data
+      },
+    })
+    const group = screen.getByRole('region', { name: 'Heyyy · Processing' })
+
+    await user.click(within(group).getByRole('button', { name: 'Resume' }))
+
+    await waitFor(() =>
+      expect(group).toHaveTextContent('Resume waits for a current workflow read.'),
+    )
+    expect(within(group).getByRole('alert')).toHaveTextContent("Resume wasn't confirmed")
   })
 })

@@ -1,5 +1,5 @@
 import styled, { keyframes } from 'styled-components'
-import { color, duration, easing, opacity, space } from '#/theme/generated/tokens'
+import { color, duration, easing, space } from '#/theme/generated/tokens'
 import { media } from './media'
 import { WORK_STATE, type WorkState } from './StatePill'
 import { useMediaQuery } from './useMediaQuery'
@@ -36,7 +36,7 @@ export const BAR_PATTERN: Record<WorkState, string> = {
   waiting_for_you: 'dots',
   paused: 'hatch',
   queued: 'outline',
-  not_started: 'faint',
+  not_started: 'dashed',
   failed: 'crosshatch',
 }
 
@@ -184,7 +184,17 @@ const Segment = styled.span<{ $size: 'sm' | 'lg' }>`
     box-shadow: inset 0 0 0 1px ${color.muted};
     pointer-events: none;
   }
-  &[data-pattern='faint'] {
-    opacity: ${opacity.muted};
+  /* A dashed line along the middle of an empty track: not started, unlike a solid done bar. */
+  &[data-pattern='dashed'] {
+    background-color: transparent;
+    background-image: repeating-linear-gradient(
+      90deg,
+      ${color.muted} 0 3px,
+      transparent 3px 6px
+    );
+    /* literal-allowed: the dash line's thickness, not a size role */
+    background-size: 100% 2px;
+    background-position: center;
+    background-repeat: no-repeat;
   }
 `
