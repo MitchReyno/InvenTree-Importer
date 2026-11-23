@@ -76,6 +76,34 @@ For `/7` sessions, delivery authority SHALL be a release recorded for the view o
 - **WHEN** the worker restarts and the same attempt continues and cites both
 - **THEN** the released view's citation is accepted, and the other is refused until the photo is fetched again.
 
+### Requirement: Web tools run under a new VM profile version
+
+VM tool sessions with the web tool surface SHALL run under `shared-vm-agent/3`, or under `shared-vm-agent/4` for `/7` work, each a profile with its own fixed instructions, instruction digest and tool profile version, added without changing an earlier profile or any earlier migration. A worker serving `shared-vm-agent/3` SHALL settle any `shared-vm-agent/2` attempt it finds, queued or requeued by a resume, as failed with `agent_profile_retired`, keeping its history, and SHALL NOT run it under either surface.
+
+#### Scenario: Attempt queued before the upgrade
+
+- **GIVEN** a `shared-vm-agent/2` attempt queued before the upgrade and never started
+- **WHEN** the worker now serving `shared-vm-agent/3` claims work
+- **THEN** that attempt fails with `agent_profile_retired` and a summary saying to run the step again, and no provider process starts
+
+#### Scenario: Message to a finished session from before the upgrade
+
+- **GIVEN** a finished `shared-vm-agent/2` session with its transcript and proposals
+- **WHEN** the operator sends it a message after the upgrade
+- **THEN** the requeued attempt fails with `agent_profile_retired` instead of waiting, the session's history and proposals stay, and the message stays pending for a new attempt
+
+#### Scenario: Retained instructions stay valid
+
+- **GIVEN** retained `shared-vm-agent/2` attempts and their sealed instruction digests
+- **WHEN** the new profile is added
+- **THEN** the `shared-vm-agent/2` profile row and its digest are unchanged, so those attempts still decode and display
+
+#### Scenario: Web access under the stage profile
+
+- **GIVEN** a new `/7` Research session on `shared-vm-agent/4` with public web pages allowed
+- **WHEN** it runs
+- **THEN** it has the web tool surface under `/4`, and retained `shared-vm-agent/3` attempts keep running under `/3`.
+
 ## ADDED Requirements
 
 ### Requirement: Stage tool sets
@@ -146,7 +174,7 @@ A lot whose identity is changed after the claim by anyone but the group's own se
 
 ### Requirement: Typed stage outputs
 
-For `/7` sessions, each agent stage SHALL publish only its own output kind: `examine-identity/1` for Examine, `research-identity/1` and `research/1` (each with match notes) for Research, and `images/1` for Images. Earlier profiles keep publishing their existing proposal versions. The server SHALL refuse a proposal of another kind, or carrying fields the stage or its mode may not propose.
+For `/7` sessions, each agent stage SHALL publish only its own output kind: `examine-identity/1` for Examine, `research-identity/1` and `research/1` (each with match notes) for Research, and `images/1` for Images. Research MAY publish `research-identity/1` in identify mode and in any later mode. Earlier profiles keep publishing their existing proposal versions. The server SHALL refuse a proposal of another kind, or carrying fields the stage or its mode may not propose.
 
 #### Scenario: Images can't research
 
@@ -181,7 +209,7 @@ In a session whose input is `bench-intake-input/7`, `ask` SHALL return the exist
 #### Scenario: Examine already asked
 
 - **GIVEN** an answered question on the lot about identity and quantity, and a `/7` Research session
-- **WHEN** Research asks about the same fields with no new evidence
+- **WHEN** Research asks about the same fields with no new evidence or conflict
 - **THEN** ask returns the answered question and its answer, and nothing new appears in Needs you.
 
 ### Requirement: Image and logo tools run in the app
