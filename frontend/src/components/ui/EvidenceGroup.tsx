@@ -1,4 +1,12 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type Ref } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type HTMLAttributes,
+  type KeyboardEvent,
+  type ReactNode,
+  type Ref,
+} from 'react'
 import styled, { css } from 'styled-components'
 import { color, radius, ring, size, space, typeVar } from '#/theme/generated/tokens'
 import { media } from './media'
@@ -14,6 +22,11 @@ type EvidenceGroupProps = {
   note?: string
   actions?: ReactNode
   dropState?: 'none' | 'over'
+  /** Handlers that let files dragged in from outside the page land on the group. */
+  fileDrop?: Pick<
+    HTMLAttributes<HTMLElement>,
+    'onDragEnter' | 'onDragOver' | 'onDragLeave' | 'onDrop'
+  >
   /** Files not yet in a group: a dashed box whose name can't be edited. */
   ungrouped?: boolean
   /** The region's name; defaults to the group name. */
@@ -101,6 +114,8 @@ export function EvidenceGroup(props: EvidenceGroupProps) {
       id={props.id}
       aria-label={props.label ?? (draft || name)}
       tabIndex={props.tabIndex}
+      data-drop={dropState === 'over' ? 'over' : undefined}
+      {...props.fileDrop}
       $ungrouped={ungrouped}
       $over={dropState === 'over'}
     >
