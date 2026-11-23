@@ -167,7 +167,7 @@ The complexity is high. The change touches every session's input and output, add
   - Match search against a fake InvenTree read model: verdicts, sufficiency, questions, modes, late matches, pass 3;
   - the identity merge and the label proposal;
   - effects for images and gaps.
-- **Media decoder:** parity tests for each port against the scripts' outputs on fixtures, including the hue-preservation check on resistor bands.
+- **Media decoder:** parity tests against the scripts' outputs on fixtures for geometry and bounded white balance, a cast-reduction check on a neutral reference, and hue checks on resistor bands for white balance and the luminance adjustments.
 - **Process tier:** a fake session per stage running through briefs and tools; an identify-then-match flow end to end.
 - **Multi-lot sessions (PG and process):** grouping by stage, mode and cap; the cap from sealed settings; per-lot pause in identify mode; release and requeue on an identity change; per-lot retry after a failure; `read_lot` scope.
 - **Frontend:** the Match step, the match question, the Images review, Review confirmation, the brief entry, the lots on session rows and pages, and the two settings.
