@@ -113,9 +113,9 @@ test(
     assert.equal(question.state, 'open')
     assert.deepEqual(
       question.steps.map((step) => step.id),
-      ['same_part', 'left', 'place'],
+      ['left', 'packing'],
     )
-    assert.equal(question.steps[1].assumption, 'Treating the lot as one item until answered.')
+    assert.equal(question.steps[0].assumption, 'Treating the lot as one item until answered.')
 
     const batch = (await fixture.http(`/batches/${capture.batch.id}`)).value as { revision: string }
     const answered = await fixture.http(
@@ -127,9 +127,8 @@ test(
         attempt_id: waiting.attempt_id,
         input_sha256: waiting.input_sha256,
         steps: [
-          { step_id: 'same_part', value: { kind: 'choice', option_id: 'same' } },
           { step_id: 'left', value: { kind: 'number', value: '12', basis: 'counted' } },
-          { step_id: 'place', value: { kind: 'choice', other: 'Shelf 3' } },
+          { step_id: 'packing', value: { kind: 'choice', other: 'In a tube' } },
         ],
       },
       randomUUID(),

@@ -113,7 +113,7 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - [x] 2.1 Read the shared code guidelines and the contracts README. Confirm every consumer of `SessionAskArgs`, `ProcessingAnswer`, `SessionInboxItem` and the question DTO.
 - [x] 2.2 RED: tests for the `/2` ask, covering 1–4 steps, 2–6 options and the label, detail and prompt lengths. Add `/2` answer tests and envelope and inbox decoding of both versions.
 - [x] 2.3 GREEN: add the schemas, types and the normalised question view.
-- [ ] 2.4 Run the contracts tests and the workspace typecheck.
+- [x] 2.4 Run the contracts tests and the workspace typecheck.
 
 ## 3. Server: ask, answers and agent guidance
 
@@ -186,19 +186,19 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
   - a demo video of a stepped question answered with options, plus prose rejected in a number step and then answered in words.
 - **Risks and decisions:** none open; a choice is picked, then sent.
 
-- [ ] 4.1 Read the shared and frontend code guidelines, the frontend architecture and the canvas boards. A choice is picked, then sent (decided 2026-11-23).
-- [ ] 4.2 RED: component tests:
-  - [ ] 4.2.1 A one-step choice: send with Send, and "Something else" text.
-  - [ ] 4.2.2 Steps: Back and Next, the summary with Change, and "Send N answers".
-  - [ ] 4.2.3 A number step: the inline error for prose, blocked Next, and "Answer in words".
-  - [ ] 4.2.4 The `/1` question fallback, and draft pinning across a supersede with every step kept.
-  - [ ] 4.2.5 Needs you rows with kind, step count and assumptions, from the attention read.
-  - [ ] 4.2.6 Review shows the answer form on the affected lot for `/2` lot and Part questions, through the shared `subject_id`.
-  - [ ] 4.2.7 A `/2` question on the Inventory step, on a job card and in Review shows its title, steps and `reason` from the shared fields, the Inventory comparison included, and a `/1` question shows as before.
-  - [ ] 4.2.8 The drawer's chat renders after a `/2` answer is saved, with `/1` and `/2` answers both in its timeline.
-  - [ ] 4.2.9 A confirmed 422 naming a step, submitted from the drawer through `perform()`, keeps the draft editable and marks that step; an uncertain failure retries only the original payload and key.
-- [ ] 4.3 GREEN: implement the form, the option cards and the rows. Remove `OPTIONS_NOT_CARRIED` and its placeholders.
-- [ ] 4.4 Update the fixtures (`ProcessingProof`) with a stepped and a choice question for the demo. Update the frontend architecture if component ownership changes.
+- [x] 4.1 Read the shared and frontend code guidelines, the frontend architecture and the canvas boards. A choice is picked, then sent (decided 2026-11-23).
+- [x] 4.2 RED: component tests:
+  - [x] 4.2.1 A one-step choice: send with Send, and "Something else" text.
+  - [x] 4.2.2 Steps: Back and Next, the summary with Change, and "Send N answers".
+  - [x] 4.2.3 A number step: the inline error for prose, blocked Next, and "Answer in words".
+  - [x] 4.2.4 The `/1` question fallback, and draft pinning across a supersede with every step kept.
+  - [x] 4.2.5 Needs you rows with kind, step count and assumptions, from the attention read.
+  - [x] 4.2.6 Review shows the answer form on the affected lot for `/2` lot and Part questions, through the shared `subject_id`.
+  - [x] 4.2.7 A `/2` question on the Inventory step, on a job card and in Review shows its title, steps and `reason` from the shared fields, the Inventory comparison included, and a `/1` question shows as before.
+  - [x] 4.2.8 The drawer's chat renders after a `/2` answer is saved, with `/1` and `/2` answers both in its timeline.
+  - [x] 4.2.9 A confirmed 422 naming a step, submitted from the drawer through `perform()`, keeps the draft editable and marks that step; an uncertain failure retries only the original payload and key.
+- [x] 4.3 GREEN: implement the form, the option cards and the rows. Remove `OPTIONS_NOT_CARRIED` and its placeholders.
+- [x] 4.4 Update the fixtures (`ProcessingProof`) with a stepped and a choice question for the demo. Update the frontend architecture if component ownership changes.
 - [ ] 4.5 Run the frontend checks. Record the demo video for the PR description.
 
 ## 5. Photo views and agent-reported web sources

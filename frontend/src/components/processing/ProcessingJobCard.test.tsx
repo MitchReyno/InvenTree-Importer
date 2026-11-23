@@ -55,3 +55,62 @@ it('labels stale and provisional candidates', () => {
   expect(screen.getByText('Provisional · a question is open')).toBeVisible()
   expect(screen.getAllByText(/Stale|Provisional/)).toHaveLength(2)
 })
+
+it('shows a stepped question by its title, step count, reason and assumptions, and a /1 one as before', () => {
+  const props = { batch, disabled: false, cancel: vi.fn(), chooseQuestion: vi.fn() }
+  const open = { job_id: 'j', attempt_id: 'a', input_sha256: 'x', revision: '1', state: 'open' }
+  render(
+    <ProcessingJobCard
+      job={
+        {
+          ...job('l1'),
+          questions: [
+            {
+              ...open,
+              id: 'q2',
+              subject_id: 'l1',
+              schema_version: 'bench-intake-question/2',
+              fields: ['identity'],
+              title: 'Same Part, and where it goes',
+              reason: 'The date codes differ.',
+              steps: [
+                {
+                  id: 'same',
+                  prompt: 'Same Part?',
+                  assumption: 'Same Part',
+                  answer: {
+                    kind: 'choice',
+                    other: false,
+                    options: [
+                      { id: 'y', label: 'Yes' },
+                      { id: 'n', label: 'No' },
+                    ],
+                  },
+                },
+                {
+                  id: 'where',
+                  prompt: 'Where?',
+                  assumption: 'Drawer R3',
+                  answer: { kind: 'text' },
+                },
+              ],
+            },
+            {
+              ...open,
+              id: 'q1',
+              subject_id: 'l1',
+              spec: { kind: 'quantity', prompt: 'How many reels?', reason: 'Folded label.' },
+              assumption: 'One reel',
+            },
+          ],
+        } as unknown as ProcessingJobDto
+      }
+      {...props}
+    />,
+  )
+  expect(screen.getByText('Same Part, and where it goes')).toBeVisible()
+  expect(screen.getByText('2 steps · The date codes differ.')).toBeVisible()
+  expect(screen.getByText('Continuing on: Same Part · Drawer R3')).toBeVisible()
+  expect(screen.getByText('How many reels?')).toBeVisible()
+  expect(screen.getByText('Continuing on: One reel')).toBeVisible()
+})

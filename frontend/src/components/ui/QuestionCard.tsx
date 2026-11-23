@@ -5,16 +5,19 @@ import { color, radius, space, type, typeVar } from '#/theme/generated/tokens'
 export type Closeup = { label: string; image: string }
 
 type QuestionCardProps = {
+  /** A line above the question, such as a stepped question's title and "Step 2 of 3". */
+  context?: ReactNode
   question: string
   why: string
   /** The assumption the agent is working with until the operator answers. */
-  assumption: string
+  assumption?: string
   closeups?: Closeup[]
   answer: ReactNode
   secondary?: ReactNode
 }
 
 export function QuestionCard({
+  context,
   question,
   why,
   assumption,
@@ -25,8 +28,9 @@ export function QuestionCard({
   return (
     <Card>
       <Question>
+        {context && <Context>{context}</Context>}
         <Icon aria-hidden="true">?</Icon>
-        <span>{question}</span>
+        <Prompt>{question}</Prompt>
       </Question>
       <Why>{why}</Why>
       <Body>
@@ -40,7 +44,7 @@ export function QuestionCard({
             ))}
           </Closeups>
         )}
-        <Assumption>{assumption}</Assumption>
+        {assumption && <Assumption>{assumption}</Assumption>}
         {answer}
         {secondary}
       </Body>
@@ -66,12 +70,24 @@ const Icon = styled.span`
 const Question = styled.legend`
   float: left;
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: ${space[4]};
   width: 100%;
   padding: ${space[5]} ${space[7]} ${space[2]};
   background: ${color.warnWeak};
   ${type.h3}
+`
+
+const Prompt = styled.span`
+  flex: 1 1 0;
+  min-width: 0;
+`
+
+const Context = styled.span`
+  flex: 1 0 100%;
+  font-weight: ${typeVar.small.weight};
+  font-size: ${typeVar.small.size};
 `
 
 const Why = styled.p`

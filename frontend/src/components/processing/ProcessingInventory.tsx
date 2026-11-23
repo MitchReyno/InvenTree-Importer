@@ -1,9 +1,10 @@
 import styled from 'styled-components'
-import type {
-  BatchRecordDto,
-  BatchRecordsDto,
-  CaptureSnapshotDto,
-  ProcessingJobDto,
+import {
+  questionView,
+  type BatchRecordDto,
+  type BatchRecordsDto,
+  type CaptureSnapshotDto,
+  type ProcessingJobDto,
 } from '@invimport/contracts'
 import { useApiClients } from '#/context'
 import { batchHref } from '#/navigation/batch-route'
@@ -29,27 +30,21 @@ type OpenQuestion = { id: string; jobId: string; lot: Lot; prompt: string; reaso
 
 /**
  * Open Inventory clarifications about one of the batch's lots, with the job whose session asked.
- * A quantity question asks for a count, not about an existing record, so it has no comparison.
+ * A question that only asks for a count isn't about an existing record, so it has no comparison.
  */
 function lotQuestions(batch: CaptureSnapshotDto, jobs: ProcessingJobDto[]): OpenQuestion[] {
   return jobs.flatMap((job) =>
     job.questions
-      .filter((question) => question.state === 'open' && question.spec.kind !== 'quantity')
+      .filter((question) => question.state === 'open')
       .flatMap((question) => {
-        const lot = batch.lots.find((item) => item.id === question.spec.subject_id)
-        if (!lot) {
+        const view = questionView(question)
+        const lot = batch.lots.find((item) => item.id === question.subject_id)
+        const onlyACount = view.steps.every((step) => step.answer.kind === 'number')
+        if (!lot || onlyACount) {
           return []
         }
 
-        return [
-          {
-            id: question.id,
-            jobId: job.id,
-            lot,
-            prompt: question.spec.prompt,
-            reason: question.spec.reason,
-          },
-        ]
+        return [{ id: question.id, jobId: job.id, lot, prompt: view.title, reason: view.reason }]
       }),
   )
 }

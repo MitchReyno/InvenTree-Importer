@@ -9,47 +9,33 @@ export interface SyntheticResult {
   items?: { id: string; seq: string; kind: string; payload?: Record<string, unknown> }[]
 }
 
-/** One question in three related steps, so the stepped form and its effects can be exercised. */
+/**
+ * One question in two related steps about the lot's count, so the stepped form and its effects
+ * can be exercised without touching the lot's identity.
+ */
 export function syntheticQuestion(subjectId: string) {
   return {
     schema_version: 'bench-intake-question/2',
     subject_id: subjectId,
-    reason: 'The synthetic session cannot see the packet, count it or know where it goes.',
-    fields: ['identity', 'quantity'],
-    title: 'Same Part, how many left and where it goes',
+    reason: 'The synthetic session cannot count the lot or see how it is packed.',
+    fields: ['quantity'],
+    title: 'How many, and how they are packed',
     steps: [
       {
-        id: 'same_part',
-        prompt: 'Are both packets the same Part?',
-        assumption: 'Treating them as the same Part.',
-        answer: {
-          kind: 'choice',
-          options: [
-            { id: 'same', label: 'Yes, same Part' },
-            {
-              id: 'different',
-              label: 'No, different Parts',
-              detail: 'Each packet gets its own lot.',
-            },
-          ],
-          other: true,
-        },
-      },
-      {
         id: 'left',
-        prompt: 'How many are left in this packet?',
+        prompt: 'How many items are in this lot?',
         assumption: 'Treating the lot as one item until answered.',
         answer: { kind: 'number' },
       },
       {
-        id: 'place',
-        prompt: 'Where does it go?',
-        assumption: 'Leaving the location to the batch default.',
+        id: 'packing',
+        prompt: 'How are they packed?',
+        assumption: 'Loose in a bag.',
         answer: {
           kind: 'choice',
           options: [
-            { id: 'drawer_r4', label: 'Drawer R4' },
-            { id: 'reel_rack', label: 'Reel rack' },
+            { id: 'bag', label: 'Loose in a bag' },
+            { id: 'reel', label: 'On a reel', detail: 'Count from the reel label.' },
           ],
           other: true,
         },

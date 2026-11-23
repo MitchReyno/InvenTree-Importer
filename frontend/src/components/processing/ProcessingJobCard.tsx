@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
 import { color, space, typeVar } from '#/theme/generated/tokens'
-import type { CaptureSnapshotDto, ProcessingJobDto } from '@invimport/contracts'
+import { questionView, type CaptureSnapshotDto, type ProcessingJobDto } from '@invimport/contracts'
+import { assumptionLine, questionKindLabel, stepKinds } from '#/processing/question-summary'
 import { Heading, Paragraph, Panel, Small, Button, Pill } from '#/components/ui'
 import { ProcessingSources } from './ProcessingSources'
 
@@ -102,18 +103,27 @@ export function ProcessingJobCard({
       ))}
       {job.questions
         .filter((question) => question.state === 'open')
-        .map((question) => (
-          // Each question keeps its own button beside it, so several stay distinguishable.
-          <Question key={question.id}>
-            <Paragraph>
-              {question.spec.prompt}
-              {question.assumption && <Small>Continuing on: {question.assumption}</Small>}
-            </Paragraph>
-            <Button disabled={disabled} onClick={() => chooseQuestion(question.id)}>
-              Open this question
-            </Button>
-          </Question>
-        ))}
+        .map((question) => {
+          const view = questionView(question)
+          const assumptions = assumptionLine(view.steps.map((step) => step.assumption))
+
+          return (
+            // Each question keeps its own button beside it, so several stay distinguishable.
+            <Question key={question.id}>
+              <Paragraph>
+                {view.title}
+                <Small>
+                  {questionKindLabel(stepKinds(view.steps))}
+                  {view.version === 2 && ` · ${view.reason}`}
+                </Small>
+                {assumptions && <Small>Continuing on: {assumptions}</Small>}
+              </Paragraph>
+              <Button disabled={disabled} onClick={() => chooseQuestion(question.id)}>
+                Open this question
+              </Button>
+            </Question>
+          )
+        })}
       {session}
       <Actions>
         {cancellable && (

@@ -11,9 +11,9 @@ const question: ProcessingQuestionDto = {
   input_sha256: 'a'.repeat(64),
   revision: '1',
   state: 'open',
+  subject_id: 'lot',
   spec: {
     kind: 'quantity',
-    subject_id: 'lot',
     prompt: 'How many reels?',
     reason: 'The count is folded.',
   },

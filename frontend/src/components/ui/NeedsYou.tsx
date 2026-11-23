@@ -11,6 +11,8 @@ export type NeedsYouItem = {
   id: string
   thumb?: string
   title: string
+  /** What kind of answer it takes, such as "3 steps"; shown after the title. */
+  kind?: string
   assumption: string
   step?: string
   mark?: NeedsYouMark
@@ -45,6 +47,7 @@ export function NeedsYou({ items, onChoose }: { items: NeedsYouItem[]; onChoose?
               </Mark>
             )}
             <Title>{item.title}</Title>
+            {item.kind && <Kind> · {item.kind}</Kind>}
             <Assumption>{item.assumption}</Assumption>
           </span>
           <Button
@@ -115,6 +118,11 @@ const Mark = styled.span`
   display: inline-flex;
   margin-right: ${space[3]};
   vertical-align: middle;
+`
+
+const Kind = styled.span`
+  font-size: ${typeVar.small.size};
+  color: ${color.muted};
 `
 
 const Title = styled.b`

@@ -47,10 +47,10 @@ describe('the Needs answer filter', () => {
       {
         stage: 'identifying',
         questions: [
-          { id: 'q-a', state: 'open', spec: { subject_id: 'a' } },
-          { id: 'q-b', state: 'answered', spec: { subject_id: 'b' } },
-          { id: 'q-part', state: 'open', spec: { subject_id: 'p' } },
-          { id: 'q-none', state: 'open', spec: { subject_id: null } },
+          { id: 'q-a', state: 'open', subject_id: 'a' },
+          { id: 'q-b', state: 'answered', subject_id: 'b' },
+          { id: 'q-part', state: 'open', subject_id: 'p' },
+          { id: 'q-none', state: 'open', subject_id: null },
         ],
       },
     ],
@@ -84,7 +84,7 @@ describe('the Needs answer filter', () => {
             {
               id: 'q-new',
               state: 'open',
-              spec: { subject_id: 'a' },
+              subject_id: 'a',
               asked_at: '2026-11-08T05:00:00Z',
             },
           ],
@@ -95,7 +95,7 @@ describe('the Needs answer filter', () => {
             {
               id: 'q-old',
               state: 'open',
-              spec: { subject_id: 'a' },
+              subject_id: 'a',
               asked_at: '2026-11-08T04:00:00Z',
             },
           ],
@@ -129,5 +129,32 @@ describe('excluded lots', () => {
     expect(FILTER_LABELS.excluded).toBe('Excluded')
     expect(queueGroup(excluded)).toBe('excluded')
     expect(GROUP_LABELS.excluded).toBe('Excluded')
+  })
+})
+
+describe('stepped questions in Review', () => {
+  it('reach the affected lot, or every lot of a Part, through the shared subject', () => {
+    const stepped = (id: string, subject: string) => ({
+      id,
+      state: 'open',
+      subject_id: subject,
+      schema_version: 'bench-intake-question/2',
+      steps: [],
+    })
+
+    const processing = {
+      jobs: [{ stage: 'research', questions: [stepped('q-lot', 'a'), stepped('q-part', 'p')] }],
+    } as unknown as ProcessingSnapshotDto
+    const batch = {
+      lots: [
+        { id: 'a', part_subject_id: null },
+        { id: 'b', part_subject_id: 'p' },
+        { id: 'c', part_subject_id: null },
+      ],
+    } as unknown as CaptureSnapshotDto
+    const questions = openQuestionsByLot(processing, batch)
+    expect(questions.get('a')?.id).toBe('q-lot')
+    expect(questions.get('b')?.id).toBe('q-part')
+    expect(questions.has('c')).toBe(false)
   })
 })

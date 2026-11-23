@@ -5,6 +5,7 @@ import {
   questionView,
   validate,
   validationIssues,
+  type ProcessingAnswerV2Dto,
   type ProcessingQuestionDto,
 } from '../src/index.ts'
 import { IntakeRequestError, processingClient } from '../generated/client.ts'
@@ -328,10 +329,11 @@ test('an invalid answer may name its step, and the client keeps it on the error'
   const client = processingClient('http://127.0.0.1:4310', '', async () =>
     Response.json(body, { status: 422 }),
   )
-  const input = {
+  const input: ProcessingAnswerV2Dto = {
     ...answerBase,
+    schema_version: 'bench-intake-answer/2',
     steps: [{ step_id: 'left', value: { kind: 'number', value: '380', basis: 'counted' } }],
-  } as const
+  }
   await assert.rejects(
     client.answer(id(1), id(8), input, id(9)),
     (error) =>

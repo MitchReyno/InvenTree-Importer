@@ -123,10 +123,10 @@ export function QuestionRows({
                 questionId: question.id,
               })}
             >
-              {question.prompt}
+              {question.title}
             </a>
             <Muted>
-              {STEP_LABEL[question.step]} · {question.subject}
+              {STEP_LABEL[question.step]} · {question.subject} · {question.kind}
               {question.assumption && ` · ${question.assumption}`}
             </Muted>
           </span>

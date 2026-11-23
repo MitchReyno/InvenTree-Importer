@@ -2,23 +2,25 @@ import styled from 'styled-components'
 import { color, radius, size, space, typeVar } from '#/theme/generated/tokens'
 import { media } from '#/components/ui/media'
 
-export type Option = { id: string; title: string; detail: string }
+export type Option = { id: string; title: string; detail?: string }
 
 type OptionRowProps = {
   name: string
   /** Names the radio group when it isn't already inside a labelled fieldset. */
   legend?: string
   options: Option[]
-  /** Always offered last, so the operator is never forced into a wrong answer. */
-  escape: Option
+  /** Offered last, so the operator is never forced into a wrong answer. */
+  escape?: Option
   value: string | undefined
   onChange: (id: string) => void
 }
 
 export function OptionRow({ name, legend, options, escape, value, onChange }: OptionRowProps) {
+  const offered = escape ? [...options, escape] : options
+
   return (
     <Options role={legend ? 'radiogroup' : undefined} aria-label={legend}>
-      {[...options, escape].map((option) => (
+      {offered.map((option) => (
         <Choice key={option.id}>
           <input
             type="radio"
@@ -28,7 +30,8 @@ export function OptionRow({ name, legend, options, escape, value, onChange }: Op
             onChange={() => onChange(option.id)}
           />
           <span>
-            <strong>{option.title}</strong> <Detail>{option.detail}</Detail>
+            <strong>{option.title}</strong>
+            {option.detail && <Detail>{option.detail}</Detail>}
           </span>
         </Choice>
       ))}

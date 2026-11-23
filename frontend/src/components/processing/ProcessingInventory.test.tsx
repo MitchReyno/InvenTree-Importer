@@ -146,9 +146,9 @@ const question = {
   input_sha256: 'a'.repeat(64),
   revision: '1',
   state: 'open',
+  subject_id: tube,
   spec: {
     kind: 'clarification',
-    subject_id: tube,
     prompt: 'Is the LM358 tube already in InvenTree?',
     reason: 'Stock #1712 has the same Part, date code and bin.',
   },
@@ -158,9 +158,9 @@ const question = {
 const countQuestion = {
   ...question,
   id: id(401),
+  subject_id: resistors,
   spec: {
     kind: 'quantity',
-    subject_id: resistors,
     prompt: 'How many resistors are in the bag?',
     reason: 'The estimate is rough.',
   },
@@ -199,19 +199,16 @@ const jobs = [
         ...question,
         id: id(402),
         job_id: id(310),
-        spec: {
-          ...question.spec,
-          subject_id: resistors,
-          prompt: 'Are these the reel in drawer 2?',
-        },
+        subject_id: resistors,
+        spec: { ...question.spec, prompt: 'Are these the reel in drawer 2?' },
       },
     ],
   },
 ] as unknown as ProcessingJobDto[]
 
-function mount(read = vi.fn(async () => records)) {
+function mount(read = vi.fn(async () => records), shown = jobs) {
   const onOpenSession = vi.fn()
-  render(<ProcessingInventory batch={batch} jobs={jobs} onOpenSession={onOpenSession} />, {
+  render(<ProcessingInventory batch={batch} jobs={shown} onOpenSession={onOpenSession} />, {
     clients: { records: { read } },
   })
   return { onOpenSession, read }
@@ -304,5 +301,56 @@ describe('ProcessingInventory', () => {
       .getAllByRole('cell')
       .map((cell) => cell.textContent)
     expect(quantity).toEqual(['About 12 pcs · Examine’s estimate, not yet accepted', 'Not known'])
+  })
+
+  it('compares a stepped question by its title and reason, but not one that only asks for a count', async () => {
+    const stepped = {
+      ...question,
+      id: id(403),
+      spec: undefined,
+      assumption: undefined,
+      schema_version: 'bench-intake-question/2',
+      fields: ['identity'],
+      title: 'The LM358 tube and stock #1712',
+      reason: 'Stock #1712 has the same Part, date code and bin.',
+      steps: [
+        {
+          id: 'same',
+          prompt: 'Is it the tube in stock?',
+          assumption: 'Treating it as new.',
+          answer: {
+            kind: 'choice',
+            other: false,
+            options: [
+              { id: 'same', label: 'Same tube as stock #1712' },
+              { id: 'new', label: 'Different tube: add new stock' },
+            ],
+          },
+        },
+      ],
+    }
+    const countOnly = {
+      ...stepped,
+      id: id(404),
+      subject_id: resistors,
+      title: 'How many resistors are left?',
+      steps: [
+        { id: 'left', prompt: 'How many?', assumption: 'About 12.', answer: { kind: 'number' } },
+      ],
+    }
+    const shown = [
+      { ...jobs[0], questions: [stepped] },
+      { ...jobs[1], questions: [countOnly] },
+    ] as unknown as ProcessingJobDto[]
+    mount(undefined, shown)
+    await screen.findByRole('region', { name: 'Parts' })
+    const card = screen.getByRole('region', {
+      name: 'Compare before answering: LM358 op-amps (tube)',
+    })
+    expect(card).toHaveTextContent('The LM358 tube and stock #1712')
+    expect(card).toHaveTextContent('Stock #1712 has the same Part, date code and bin.')
+    expect(
+      screen.queryByRole('region', { name: 'Compare before answering: 10 kΩ resistors' }),
+    ).toBeNull()
   })
 })

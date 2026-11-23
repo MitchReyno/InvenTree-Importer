@@ -3,6 +3,7 @@ import styled from 'styled-components'
 import { space } from '#/theme/generated/tokens'
 import type { SessionStateDto, SessionTimelineDto } from '@invimport/contracts'
 import { SessionChat, type ChatMessage, Paragraph, Small, Button } from '#/components/ui'
+import { answerPayloadText } from '#/processing/question-summary'
 
 interface Props {
   /** Identifies the session, so a send in flight or unconfirmed survives leaving and returning. */
@@ -76,18 +77,18 @@ type Timeline = SessionTimelineDto
 /** The session's conversation, oldest first: the operator's messages and answers, the replies. */
 export function chatMessages(timeline: Timeline): ChatMessage[] {
   return [
-    ...timeline.inbox
-      .filter((item) => item.kind === 'chat' || item.kind === 'answer')
-      .map((item) => ({
-        id: `in:${item.id}`,
-        at: item.created_at,
-        who: 'You',
-        mine: true,
-        text:
-          item.kind === 'chat'
-            ? (item.payload as { text: string }).text
-            : `Answered: ${answerText(item.payload)}`,
-      })),
+    ...timeline.inbox.flatMap((item) => {
+      let text: string
+      if (item.kind === 'chat') {
+        text = item.payload.text
+      } else if (item.kind === 'answer') {
+        text = `Answered: ${answerPayloadText(item.payload)}`
+      } else {
+        return []
+      }
+
+      return [{ id: `in:${item.id}`, at: item.created_at, who: 'You', mine: true, text }]
+    }),
     ...timeline.outbox
       .filter((item) => item.kind === 'reply')
       .map((item) => ({
@@ -101,11 +102,6 @@ export function chatMessages(timeline: Timeline): ChatMessage[] {
   ]
     .sort((a, b) => a.at.localeCompare(b.at))
     .map(({ id, who, mine, text }) => ({ id, who, mine, text }))
-}
-
-function answerText(payload: unknown) {
-  const value = (payload as { value: { kind: string; value?: string; text?: string } }).value
-  return value.kind === 'quantity' ? `${value.value}` : (value.text ?? '')
 }
 
 /**

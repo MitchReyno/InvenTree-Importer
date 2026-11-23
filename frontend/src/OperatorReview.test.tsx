@@ -1428,9 +1428,9 @@ test('a lot answers its open question in place, queued to the asking session', a
     input_sha256: 'a'.repeat(64),
     revision: '1',
     state: 'open',
+    subject_id: b,
     spec: {
       kind: 'quantity',
-      subject_id: b,
       prompt: 'How many are in Packet B?',
       reason: 'The label is torn.',
     },
@@ -1482,7 +1482,8 @@ test('a warning cannot be dismissed while an inline answer is unsaved', async ()
     input_sha256: 'c'.repeat(64),
     revision: '1',
     state: 'open',
-    spec: { kind: 'quantity', subject_id: b, prompt: 'How many?', reason: 'Torn label.' },
+    subject_id: b,
+    spec: { kind: 'quantity', prompt: 'How many?', reason: 'Torn label.' },
   }
   const snapshot = {
     batch_id: batchId,
@@ -1520,7 +1521,7 @@ test('Needs answer lists only lots with an open question, in the Workspace and t
         stage: 'identifying',
         subject_id: a,
         proposals: [],
-        questions: [{ id: 'q', state: 'open', spec: { subject_id: a } }],
+        questions: [{ id: 'q', state: 'open', subject_id: a }],
       },
     ],
   } as unknown as ProcessingSnapshotDto
@@ -1554,7 +1555,7 @@ test('a lot with an open question links to it even when no problem asks for an a
         stage: 'identifying',
         subject_id: b,
         proposals: [],
-        questions: [{ id: 'q-b', state: 'open', spec: { subject_id: b } }],
+        questions: [{ id: 'q-b', state: 'open', subject_id: b }],
       },
     ],
   } as unknown as ProcessingSnapshotDto
@@ -1825,4 +1826,74 @@ test('Batch sends the region move for a new lot at the revision that made the lo
     expected_revision: '13',
     change: { kind: 'observation_move', observation_id: region.id, lot_id: e },
   })
+})
+
+test('a stepped question about the lot’s Part is answered in place on the lot, step by step', async () => {
+  const user = userEvent.setup()
+  const question = {
+    id: 'c0000000-0000-4000-8000-0000000000d1',
+    job_id: 'c0000000-0000-4000-8000-0000000000d2',
+    attempt_id: 'c0000000-0000-4000-8000-0000000000d3',
+    input_sha256: 'a'.repeat(64),
+    revision: '1',
+    state: 'open',
+    subject_id: partId,
+    schema_version: 'bench-intake-question/2',
+    fields: ['identity'],
+    title: 'About the shared resistor',
+    reason: 'The two packets carry different date codes.',
+    steps: [
+      {
+        id: 'same',
+        prompt: 'Are both packets the same Part?',
+        assumption: 'The same Part.',
+        answer: {
+          kind: 'choice',
+          other: false,
+          options: [
+            { id: 'yes', label: 'Yes, same Part' },
+            { id: 'no', label: 'No, different Parts' },
+          ],
+        },
+      },
+      { id: 'why', prompt: 'Why?', assumption: 'Same MPN.', answer: { kind: 'text' } },
+    ],
+  }
+  const snapshot = {
+    batch_id: batchId,
+    capture_revision: batch.revision,
+    jobs: [
+      {
+        id: question.job_id,
+        stage: 'research',
+        subject_id: partId,
+        proposals: [],
+        questions: [question],
+      },
+    ],
+  } as unknown as ProcessingSnapshotDto
+  const processing = {
+    read: vi.fn(async () => snapshot),
+    answer: vi.fn(async () => ({ status: 'accepted' })),
+  } as unknown as ProcessingClient
+  renderReview({ processing })
+  await user.click(await screen.findByRole('button', { name: 'Show Packet B' }))
+  const details = screen.getByRole('region', { name: 'Decision' })
+  await user.click(await within(details).findByRole('button', { name: 'Answer here' }))
+  expect(within(details).getByText('About the shared resistor')).toBeVisible()
+  expect(within(details).getByText('Step 1 of 2')).toBeVisible()
+  expect(within(details).getByText('The two packets carry different date codes.')).toBeVisible()
+  await user.click(within(details).getByRole('radio', { name: /Yes, same Part/ }))
+  await user.click(within(details).getByRole('button', { name: 'Next' }))
+  await user.type(within(details).getByLabelText('Your answer'), 'Same MPN and maker')
+  await user.click(within(details).getByRole('button', { name: 'Next' }))
+  await user.click(within(details).getByRole('button', { name: 'Send 2 answers' }))
+  await waitFor(() =>
+    expect(processing.answer).toHaveBeenCalledWith(
+      batchId,
+      question.id,
+      expect.objectContaining({ schema_version: 'bench-intake-answer/2' }),
+      expect.any(String),
+    ),
+  )
 })
