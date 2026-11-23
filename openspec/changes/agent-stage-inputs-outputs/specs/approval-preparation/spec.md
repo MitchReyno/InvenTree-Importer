@@ -42,6 +42,16 @@ Preparation SHALL include a confirmed Part image as the image of the created Par
 - **WHEN** preparation runs
 - **THEN** the plan sets RES-0144's image, adds the stock with its image attached, and changes nothing else on RES-0144.
 
+### Requirement: One Part image per Part
+
+Preparation SHALL plan at most one Part image effect per target Part. When selected lots targeting the same Part confirm different Part images, preparation SHALL be blocked until the operator chooses one; each lot's stock images SHALL stay its own.
+
+#### Scenario: Two lots, one Part
+
+- **GIVEN** lots A and B decided as add stock to RES-0144, which has no image, each with a different confirmed Part image
+- **WHEN** preparation runs
+- **THEN** it is blocked asking which image RES-0144 gets, and after the choice the plan sets that image once and attaches each lot's stock images to its own stock.
+
 ### Requirement: Existing-Part writes expect an empty field
 
 Each gaps fill SHALL carry the value it expects to be missing, and an existing Part's image effect SHALL expect the Part to have no image. The executor SHALL re-read the field or image just before the write and refuse the effect as a conflict when it is no longer empty. InvenTree has no conditional update, so a competing write between that re-read and the write MAY still be overwritten; the effect SHALL state this window.

@@ -21,3 +21,9 @@ The executor SHALL apply only plans whose version, build and capability match a 
 - **GIVEN** a deployment with `owned-fake-effects/2` and a lot whose confirmed Part image targets an existing Part
 - **WHEN** the lot is prepared
 - **THEN** preparation reports that the Part image effect is unavailable, and retained `bench-effects-plan/2` plans still apply.
+
+#### Scenario: Add stock under the third effects version
+
+- **GIVEN** a runner with `owned-fake-effects/3` and `owned-fake-media/1`, and a `bench-effects-plan/3` plan that sets an existing Part's image, creates stock and attaches its stock image
+- **WHEN** it applies
+- **THEN** all three effects run under that runner, and a retained `bench-effects-plan/2` plan applies on the same runner.

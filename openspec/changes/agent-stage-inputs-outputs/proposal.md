@@ -170,6 +170,6 @@ Open, recorded in the doc's open questions (2.10):
 
 Assumed:
 
-- **Strong keys:** an MPN or type with a manufacturer, an NSN, a label IPN or SKU, or the import reference or barcode with the batch.
+- **Strong keys:** an MPN or type with a manufacturer, an NSN, a label IPN or SKU, or a label barcode with the batch; the generated import reference is looked up for duplicates only.
 - **The brief budget** is 48 KiB.
 - **Per-stage instruction text:** decided in the design: base text in the profile row and per-stage packs in an immutable `processing_stage_instructions` table, digest-sealed in the input.

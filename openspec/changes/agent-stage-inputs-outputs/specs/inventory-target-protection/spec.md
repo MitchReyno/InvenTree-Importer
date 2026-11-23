@@ -18,7 +18,7 @@ The transport SHALL accept only named semantic reads (Part, tagged Part, locatio
 
 ### Requirement: Target effect capability gating
 
-Owned-fake mutation kinds SHALL require the matching capability on the owned profile: location and company creation need `owned-fake-effects/2`; Part, parameter, manufacturer, supplier, stock and Part attachment effects accept `owned-fake-effects/1` or `/2`; stock attachments need `owned-fake-media/1`; Part image and gaps fill effects need `owned-fake-effects/3`. A missing capability MUST refuse the send before transport.
+Owned-fake mutation kinds SHALL require the matching capability on the owned profile: location and company creation need `owned-fake-effects/2` or `/3`; Part, parameter, manufacturer, supplier, stock and Part attachment effects accept `owned-fake-effects/1`, `/2` or `/3`; stock attachments need `owned-fake-media/1`; Part image and gaps fill effects need `owned-fake-effects/3`. A missing capability MUST refuse the send before transport.
 
 #### Scenario: Record create under the first effects version
 
@@ -46,9 +46,9 @@ The transport SHALL add bounded list reads for Match's searches and sufficiency 
 
 #### Scenario: Import reference with no label barcode
 
-- **GIVEN** a lot with an import reference and no barcode read from a label
-- **WHEN** Match searches for existing stock
-- **THEN** it sends `list_stock` with the import reference as the barcode filter, because the executor writes it as each stock item's barcode.
+- **GIVEN** a lot with a generated import reference and no barcode read from a label
+- **WHEN** Match looks the import reference up
+- **THEN** it sends `list_stock` with only the barcode filter set to the import reference, and no batch filter.
 
 #### Scenario: Unnamed filter refused
 
