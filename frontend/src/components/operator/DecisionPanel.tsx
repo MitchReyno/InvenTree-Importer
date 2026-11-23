@@ -13,6 +13,7 @@ import {
   type KeyValueRow,
   RecordChain,
   type RecordLink,
+  DebugDetails,
 } from '#/components/ui'
 import styled from 'styled-components'
 import { color, space, typeVar } from '#/theme/generated/tokens'
@@ -322,7 +323,10 @@ export function DecisionPanel({
       )}
       <KeyValue rows={lotRows} />
       <PartExtras aria-label="Shared Part proposal">
-        <Small>{part?.label ?? 'No shared proposal'} · shared prerequisite only</Small>
+        <Small>{part?.label ?? 'No shared proposal'}</Small>
+        <DebugDetails label="Shared Part proposal">
+          <p>Shared prerequisite only.</p>
+        </DebugDetails>
         {sharing.length > 0 && (
           <SharedLine aria-label="Lots sharing this Part proposal">
             Shared with {sharing.length} other lot{sharing.length === 1 ? '' : 's'}:{' '}

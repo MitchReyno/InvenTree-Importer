@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
-import { Small, Button } from '#/components/ui'
+import { Small, Button, HelpButton } from '#/components/ui'
 import { Fieldset, Form, Input, Label, Select } from '#/forms'
 import { useReportDirty } from '#/navigation/useReportDirty'
 import type { CaptureEdit } from '#/capture/types'
@@ -152,7 +152,6 @@ export function QuickLotEdit({ batch, lot, disabled, edit, onDirtyChange }: Prop
             ))}
           </Select>
         </Label>
-        <Small>Affects only this lot. Read another location in Capture to add it here.</Small>
         <Button type="submit" disabled={!isDirty}>
           Save lot values
         </Button>
@@ -167,6 +166,10 @@ export function QuickLotEdit({ batch, lot, disabled, edit, onDirtyChange }: Prop
       >
         Discard lot edits
       </Button>
+      <HelpButton
+        label="About lot values"
+        explanation="These values change only this lot. To offer another location here, read it in Capture first."
+      />
     </Form>
   )
 }

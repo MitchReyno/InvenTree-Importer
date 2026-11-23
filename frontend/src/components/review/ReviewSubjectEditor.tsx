@@ -7,7 +7,7 @@ import type { MediaClient } from '#/media/types'
 import { useEvidenceWorkspace } from '#/media/useEvidenceWorkspace'
 import { CaptureEditor } from '#/components/capture/CaptureEditor'
 import { SubjectAttachmentChoice } from '#/components/media/SubjectAttachmentChoice'
-import { Heading, HeadingRow, Panel, Small, Button } from '#/components/ui'
+import { DebugDetails, Heading, HeadingRow, Panel, Small, Button } from '#/components/ui'
 import { useApiClients, useBatchCommands } from '#/context'
 import type { CaptureEdit } from '#/capture/types'
 
@@ -79,13 +79,17 @@ export function ReviewSubjectEditor({
           Close editor{dirty ? ' · save or discard first' : ''}
         </Button>
       </HeadingRow>
-      <Small>Saved values are human choices, not inferred or approved inventory effects.</Small>
       {part && (
         <Small>
           Affects {batch.lots.filter((item) => item.part_subject_id === part.id).length} lots.
-          Sharing a Part does not combine their quantities or contribution identities.
         </Small>
       )}
+      <DebugDetails label="Saved values">
+        <p>Saved values are human choices, not inferred or approved inventory effects.</p>
+        {part && (
+          <p>Sharing a Part does not combine their quantities or contribution identities.</p>
+        )}
+      </DebugDetails>
       <CaptureEditor
         key={subjectId}
         batch={batch}

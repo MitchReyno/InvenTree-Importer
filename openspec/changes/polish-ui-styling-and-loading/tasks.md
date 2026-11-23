@@ -218,9 +218,9 @@
 - **Verification:** frontend checks; captures.
 - **Risks and decisions:** keep each sentence's meaning while rewording; list each move in the PR.
 
-- [ ] 8.1 List every standing explanation and developer-facing sentence, and classify each: help, debug or delete.
-- [ ] 8.2 RED: tests for the three named sentences and the popover placement.
-- [ ] 8.3 GREEN: move them, and fix the need-you popover's anchoring and row layout.
+- [x] 8.1 List every standing explanation and developer-facing sentence, and classify each: help, debug or delete.
+- [x] 8.2 RED: tests for the three named sentences and the popover placement.
+- [x] 8.3 GREEN: move them, and fix the need-you popover's anchoring and row layout.
 - [ ] 8.4 Capture the affected screens. Run the frontend checks.
 
 ## 9. Several files at once from any source

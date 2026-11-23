@@ -2,7 +2,7 @@ import { IntakeRequestError } from '@invimport/contracts/client'
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import { color, space, typeVar } from '#/theme/generated/tokens'
-import { AiMark, Button, Small } from '#/components/ui'
+import { AiMark, Button, HelpButton, Small } from '#/components/ui'
 import { TextArea } from '#/forms'
 import { deliveryMessage, type InstructionDelivery } from '#/processing/instruction-delivery'
 import { useReportDirty } from '#/navigation/useReportDirty'
@@ -93,9 +93,15 @@ export function InstructionField({
 
   return (
     <Field>
-      <label htmlFor="batch-instructions">
-        <AiMark size="sm">Instructions for the whole batch</AiMark>
-      </label>
+      <LabelRow>
+        <label htmlFor="batch-instructions">
+          <AiMark size="sm">Instructions for the whole batch</AiMark>
+        </label>
+        <HelpButton
+          label="About batch instructions"
+          explanation="Saved for the batch and sent to its agents. Running agents pick them up as they work, and finished ones start again to apply them. Instructions do not approve inventory values."
+        />
+      </LabelRow>
       <TextArea
         id="batch-instructions"
         value={value}
@@ -144,10 +150,6 @@ export function InstructionField({
       ) : (
         <Small>{readOnlyReason ?? 'Instructions are not available in this setup.'}</Small>
       )}
-      <Small>
-        Saved for the batch and sent to its agents: running ones pick it up as they work, and
-        finished ones are woken to apply it. Instructions do not approve inventory values.
-      </Small>
     </Field>
   )
 }
@@ -158,6 +160,12 @@ const Field = styled.div`
   label {
     font-weight: ${typeVar.bodyStrong.weight};
   }
+`
+
+const LabelRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${space[3]};
 `
 
 const Actions = styled.div`

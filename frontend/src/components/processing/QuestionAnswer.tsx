@@ -7,7 +7,7 @@ import {
   type ProcessingAnswerDto,
   type ProcessingQuestionDto,
 } from '@invimport/contracts'
-import { Small, Banner, QuestionCard, Button, DebugDetails } from '#/components/ui'
+import { Small, Banner, QuestionCard, Button, DebugDetails, HelpButton } from '#/components/ui'
 import { Fieldset, Input, Label, TextArea, OptionRow } from '#/forms'
 
 interface Props {
@@ -255,6 +255,14 @@ export function QuestionAnswer({
               <Button variant="primary" disabled={submitDisabled} type="submit">
                 {actionLabel}
               </Button>
+              <HelpButton
+                label="About answers"
+                explanation={
+                  question.assumption
+                    ? 'Your answer updates the saved lot or note, and the agent working on it reads it.'
+                    : 'Your answer updates the saved lot or note, and the agent starts again with it.'
+                }
+              />
               {(formState.isDirty || retrying) && (
                 <Button type="button" disabled={formState.isSubmitting} onClick={discard}>
                   Discard unsaved answer
@@ -280,11 +288,6 @@ export function QuestionAnswer({
           { label: 'Question revision', value: question.revision },
         ]}
       />
-      <Small>
-        {question.assumption
-          ? 'This human answer updates the saved lot or note and reaches the agent session.'
-          : 'This human answer updates the saved lot or note and queues a new attempt.'}
-      </Small>
     </Form>
   )
 }
@@ -298,6 +301,7 @@ const Form = styled.form`
 const Actions = styled.div`
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: ${space[4]};
 `
 

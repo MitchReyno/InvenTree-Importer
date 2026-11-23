@@ -14,6 +14,7 @@ import {
   Button,
   Count,
   DebugDetails,
+  HelpButton,
   Pill,
   SegmentedControl,
   SourceChip,
@@ -209,7 +210,6 @@ function ReadingEdit({
           onChange={(event) => changeText(event.target.value)}
         />
       </Label>
-      <Small>Clear a marking to remove it.</Small>
       <span>
         <Button
           size="sm"
@@ -232,7 +232,11 @@ function ReadingEdit({
           >
             Discard
           </Button>
-        )}
+        )}{' '}
+        <HelpButton
+          label={`About markings for ${name}`}
+          explanation="To remove a marking, clear its text and save."
+        />
       </span>
     </ReadingForm>
   )
@@ -538,7 +542,6 @@ export function ExamineView({
         <FormedHead>
           <CardTitle>Lots formed</CardTitle>
           <Count value={formed.length} />
-          <Muted>Edit lots in Review › Map</Muted>
           <Button as="a" size="sm" href={batchHref(batch.id, { tab: 'review', view: 'map' })}>
             Open the map
           </Button>

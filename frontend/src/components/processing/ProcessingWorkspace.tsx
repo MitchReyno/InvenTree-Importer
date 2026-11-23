@@ -24,6 +24,7 @@ import {
   Dialog,
   onField,
   PageStack,
+  HelpButton,
 } from '#/components/ui'
 import { ProcessingImages } from './ProcessingImages'
 import { ProcessingInventory } from './ProcessingInventory'
@@ -48,6 +49,13 @@ import { useApiClients, useServerScope, useRetainedPollInterval } from '#/contex
 import type { CaptureEdit } from '#/capture/types'
 
 const ACTIVITY_LIMIT = 6
+
+/** How a step works, behind the help button beside its page heading. */
+const STEP_HELP: Partial<Record<ProcessingView, string>> = {
+  research:
+    'Each account researches one lot at a time. A lot waiting for your answer steps aside, so another lot can research meanwhile.',
+}
+
 const clock = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' })
 
 /** The batch's newest agent status lines, oldest first; the newest is current while it runs. */
@@ -568,15 +576,20 @@ export function ProcessingWorkspace({
           ),
         )}
       </Selection>
-      <Button
-        disabled={
-          runnerDisabled || !selected.length || snapshot.capture_revision !== batch.revision
-        }
-        onClick={start}
-      >
-        Queue new processing attempts
-      </Button>
-      <Small>New attempts preserve saved human values and previous results.</Small>
+      <QueueActions>
+        <Button
+          disabled={
+            runnerDisabled || !selected.length || snapshot.capture_revision !== batch.revision
+          }
+          onClick={start}
+        >
+          Queue new processing attempts
+        </Button>
+        <HelpButton
+          label="About new attempts"
+          explanation="A new attempt keeps the values you saved and the results of earlier attempts."
+        />
+      </QueueActions>
     </details>
   )
   const jobCards = (
@@ -669,9 +682,6 @@ export function ProcessingWorkspace({
                 {snapshot.jobs.filter((job) => job.state === 'waiting_for_user').length} need
                 answers · {snapshot.jobs.filter((job) => job.state === 'ready').length} ready
               </Heading>
-              <Small>
-                One research lane per account. A waiting question frees the lane for other lots.
-              </Small>
               {queue}
             </Panel>
           )}
@@ -766,6 +776,7 @@ export function ProcessingWorkspace({
               step={view}
               source={source}
               onOpenSession={setSessionJobId}
+              help={STEP_HELP[view]}
             >
               {view === 'images' || jobs.length > 0 ? (
                 <>
@@ -881,6 +892,13 @@ function clearSessionLink(jobId?: string) {
 const NO_RETIRED_LOTS: ReadonlySet<string> = new Set()
 
 const Workspace = styled(PageStack).attrs({ as: 'section' })``
+
+const QueueActions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[4]};
+`
 
 const Selection = styled.fieldset`
   border: 0;

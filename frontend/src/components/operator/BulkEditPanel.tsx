@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Banner, Panel, Paragraph, Small, Button } from '#/components/ui'
+import { Banner, DebugDetails, Panel, Paragraph, Small, Button } from '#/components/ui'
 import { useConfirmation } from '#/context'
 import { Fieldset, Form, Input, Label, Select } from '#/forms'
 import { useForm } from 'react-hook-form'
@@ -169,9 +169,11 @@ export function BulkEditPanel({
   return (
     <Panel aria-label="Bulk edit selected lots">
       <Paragraph>
-        <strong>{selectedIds.length} selected</strong> · bulk edits apply to every selected lot or
-        to none.
+        <strong>{selectedIds.length} selected</strong>
       </Paragraph>
+      <DebugDetails label="Bulk edit">
+        <p>Bulk edits apply to every selected lot or to none.</p>
+      </DebugDetails>
       <Button
         type="button"
         disabled={locked || !isDirty}

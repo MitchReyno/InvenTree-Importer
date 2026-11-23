@@ -13,6 +13,7 @@ import {
   Paragraph,
   Small,
   Banner,
+  DebugDetails,
   groundBehindOnField,
 } from '#/components/ui'
 import { batchHref } from '#/navigation/batch-route'
@@ -37,10 +38,12 @@ export function ProcessingImages({ batchId, client }: { batchId: string; client?
   return (
     <Outputs aria-label="Retained image outputs">
       <Heading>Originals and documentary crops</Heading>
-      <Paragraph>
-        Inspect saved outputs before choosing attachments. A prepared crop is not an approved
-        inventory effect.
-      </Paragraph>
+      <DebugDetails label="Image outputs">
+        <p>
+          Inspect saved outputs before choosing attachments. A prepared crop is not an approved
+          inventory effect.
+        </p>
+      </DebugDetails>
       <Link href={batchHref(batchId, { tab: 'capture' })}>
         Add evidence or prepare another crop in Capture
       </Link>

@@ -127,6 +127,17 @@ test('the Agents heading carries the AI mark; session rows do not', async () => 
   expect(document.querySelectorAll('[data-ai-mark]')).toHaveLength(1)
 })
 
+test('the Waiting for you block explains that waiting sessions hold no slot behind its help button', async () => {
+  render(<AgentSessions client={client()} batches={batches} />)
+  const summary = await screen.findByRole('region', { name: 'Summary' })
+
+  expect(within(summary).queryByText('Waiting sessions hold no slot.')).not.toBeInTheDocument()
+  const block = within(summary).getByText('Waiting for you').parentElement!
+  fireEvent.click(within(block).getByRole('button', { name: 'About waiting sessions' }))
+  const help = await screen.findByRole('dialog', { name: 'About waiting sessions' })
+  expect(help).toHaveTextContent(/does not use a slot/)
+})
+
 test('waiting sessions do not count as running: 3 of 3 slots, 2 waiting, each holding no slot', async () => {
   const running = (id: string): Session => ({
     ...base,

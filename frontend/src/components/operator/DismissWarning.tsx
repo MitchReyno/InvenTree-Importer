@@ -1,4 +1,4 @@
-import { Banner, Small, Button } from '#/components/ui'
+import { Banner, Small, Button, HelpButton } from '#/components/ui'
 import { Form, Label, TextArea } from '#/forms'
 import { useForm } from 'react-hook-form'
 import type { CaptureSnapshotDto, OperatorIssueDto } from '@invimport/contracts'
@@ -89,9 +89,6 @@ export function DismissWarning({
         />
       </Label>
       {errors.reason && <Small role="alert">{errors.reason.message}</Small>}
-      <Small>
-        The dismissal binds to the current facts. Any later change to them brings the warning back.
-      </Small>
       {command.message && (
         <div role="alert">
           <Banner tone="bad">{command.message}</Banner>
@@ -116,7 +113,11 @@ export function DismissWarning({
           }}
         >
           Cancel
-        </Button>
+        </Button>{' '}
+        <HelpButton
+          label="About dismissing"
+          explanation="A dismissal covers the facts as they are now. If they change later, the warning comes back."
+        />
       </span>
     </Form>
   )

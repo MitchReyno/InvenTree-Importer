@@ -1653,3 +1653,25 @@ test('returning to a route reopens only the session its link names, not an earli
   )
   expect(screen.queryByRole('dialog', { name: 'Examine · Packet A' })).not.toBeInTheDocument()
 })
+
+test('the Research page explains research lanes behind a help button beside its heading', async () => {
+  const user = userEvent.setup()
+  render(
+    <ServerStateProvider scope={scope} client={createServerQueryClient()}>
+      <ProcessingWorkspace
+        batch={batch}
+        client={clientFixture()}
+        view="research"
+        navigate={vi.fn()}
+        onDirtyChange={vi.fn()}
+        onSaved={vi.fn().mockResolvedValue(undefined)}
+      />
+    </ServerStateProvider>,
+  )
+  const heading = await screen.findByRole('heading', { name: 'Research', level: 2 })
+
+  expect(screen.queryByText(/research lane per account/)).not.toBeInTheDocument()
+  await user.click(within(heading.parentElement!).getByRole('button', { name: 'About Research' }))
+  const help = await screen.findByRole('dialog', { name: 'About Research' })
+  expect(help).toHaveTextContent(/one lot at a time/)
+})

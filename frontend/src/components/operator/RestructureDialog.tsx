@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Banner, media, Paragraph, Small, Button, Dialog } from '#/components/ui'
+import { Banner, media, Paragraph, Button, Dialog, HelpButton } from '#/components/ui'
 import { CheckboxLabel, Fieldset, Form, Input, Label, Select } from '#/forms'
 import { useFieldArray, useForm, type FieldErrors } from 'react-hook-form'
 import styled from 'styled-components'
@@ -244,14 +244,28 @@ export function RestructureDialog({
 
   return (
     <Dialog title={TITLES[kind]} onClose={onClose} closeDisabled={locked || isDirty}>
-      <Paragraph>
-        {kind === 'split' &&
-          `Split ${lotLabels(batch, lotIds)[0]} into separate physical lots. The original is retired and kept as history.`}
-        {kind === 'merge' &&
-          `Merge ${lotLabels(batch, lotIds).join(', ')} into one physical lot. The originals are retired and kept as history.`}
-        {kind === 'move' &&
-          `Move ${lotLabels(batch, lotIds).join(', ')} to another Part proposal. Each lot stays a separate physical lot.`}
-      </Paragraph>
+      <Lead>
+        <Paragraph>
+          {kind === 'split' &&
+            `Split ${lotLabels(batch, lotIds)[0]} into separate physical lots. The original is retired and kept as history.`}
+          {kind === 'merge' &&
+            `Merge ${lotLabels(batch, lotIds).join(', ')} into one physical lot. The originals are retired and kept as history.`}
+          {kind === 'move' &&
+            `Move ${lotLabels(batch, lotIds).join(', ')} to another Part proposal. Each lot stays a separate physical lot.`}
+        </Paragraph>
+        {kind === 'split' && (
+          <HelpButton
+            label="About splitting"
+            explanation="Each new lot keeps the Part proposal and location choice, with its own exact quantity."
+          />
+        )}
+        {kind === 'merge' && (
+          <HelpButton
+            label="About merging"
+            explanation="If the lots had different locations, the merged lot uses the batch default until you choose one."
+          />
+        )}
+      </Lead>
       <Button
         type="button"
         disabled={locked || !isDirty}
@@ -322,10 +336,6 @@ export function RestructureDialog({
                   ))}
                 </Fieldset>
               )}
-              <Small>
-                Each new lot keeps the Part proposal and location choice, with its own exact
-                quantity.
-              </Small>
             </>
           )}
           {kind === 'merge' && (
@@ -359,10 +369,6 @@ export function RestructureDialog({
                 />
                 These are one physical contribution, not just the same Part
               </CheckboxLabel>
-              <Small>
-                If the lots had different locations, the merged lot uses the batch default until you
-                choose one.
-              </Small>
             </>
           )}
           {kind === 'move' && (
@@ -483,6 +489,12 @@ function RestructureErrors({ errors }: { errors: FieldErrors<Values> }) {
     </div>
   )
 }
+
+const Lead = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${space[3]};
+`
 
 const ChildRow = styled.fieldset`
   display: grid;

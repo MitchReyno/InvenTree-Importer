@@ -9,6 +9,7 @@ import {
   Small,
   Button,
   ShortcutsButton,
+  DebugDetails,
   raisedOnField,
 } from '#/components/ui'
 import { subjectStatuses, type LotStatus } from '#/processing/source'
@@ -560,10 +561,12 @@ export function ReviewWorkspace({
                 onDirtyChange={drafts.forSource('workspace')}
               />
             ) : (
-              <Paragraph>
-                Marking reviewed changes no inventory. Preparation performs bounded read-only
-                checks, then freezes the selected effects.
-              </Paragraph>
+              <DebugDetails label="Decision">
+                <p>
+                  Marking reviewed changes no inventory. Preparation performs bounded read-only
+                  checks, then freezes the selected effects.
+                </p>
+              </DebugDetails>
             )}
           </Panel>
         </ReviewGrid>

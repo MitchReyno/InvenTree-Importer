@@ -2,7 +2,7 @@ import styled from 'styled-components'
 import { radius, space } from '#/theme/generated/tokens'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { coverSizes, observationImage } from '#/media/images'
-import { Small, Subheading, Button } from '#/components/ui'
+import { HelpButton, Small, Subheading, Button } from '#/components/ui'
 import { Field } from '#/forms'
 import { ObservationMove } from './ObservationMove'
 import { observationNames } from './observation-names'
@@ -40,8 +40,13 @@ export function UnassignedObservations({ batch, edit, disabled }: Props) {
 
   return (
     <section aria-label="Unassigned observations">
-      <Subheading>Unassigned observations</Subheading>
-      <Small>Items the Examine session or you recorded that are in no live lot.</Small>
+      <TitleRow>
+        <Subheading>Unassigned observations</Subheading>
+        <HelpButton
+          label="About unassigned observations"
+          explanation="Items you or the Examine agent recorded that are not in any current lot."
+        />
+      </TitleRow>
       <List>
         {unassigned.map((observation) => {
           const revisions = observations.filter(
@@ -146,6 +151,16 @@ export function UnassignedObservations({ batch, edit, disabled }: Props) {
     </section>
   )
 }
+
+const TitleRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${space[3]};
+  margin-bottom: ${space[5]};
+  ${Subheading} {
+    margin: 0;
+  }
+`
 
 const List = styled.ul`
   display: grid;
