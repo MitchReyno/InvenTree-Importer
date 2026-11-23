@@ -28,19 +28,23 @@ When a lot's identity becomes stable, before any identify-mode Research, Match S
 
 - **GIVEN** a house-numbered lot whose import reference an earlier approval already created as stock
 - **WHEN** its identity becomes stable
-- **THEN** Match records a duplicate candidate and opens the match question, and identify-mode Research waits for the answer.
-
-#### Scenario: Kept after a duplicate hit
-
-- **GIVEN** that match question
-- **WHEN** the operator answers new Part or something else that keeps the lot
-- **THEN** the lot, still without a strong key, starts Research in identify mode.
+- **THEN** Match records an original-contribution hit and opens its question, and identify-mode Research doesn't start.
 
 #### Scenario: Uncertain earlier create
 
 - **GIVEN** a lot whose import reference has a stock create with an uncertain outcome
 - **WHEN** Match or pass 3 looks it up
 - **THEN** the lookup is reported as unavailable, and pass 3 blocks the lot.
+
+### Requirement: Original-contribution hits
+
+An import reference hit SHALL be an original-contribution hit, not an identity candidate. Its question SHALL offer only already imported (leave the lot out) and inspecting or recovering the earlier run, never new Part or add stock, and no Research or Images SHALL run for the lot. The lot SHALL stay ineligible for another stock approval, as preparation's contribution history requires.
+
+#### Scenario: Hit on an approved contribution
+
+- **GIVEN** a lot whose original contribution an earlier round approved
+- **WHEN** Match's question for it opens
+- **THEN** it links the earlier run and offers already imported, and no stage is queued for the lot.
 
 ### Requirement: When Match searches
 

@@ -368,7 +368,7 @@ The server refuses a proposal whose kind doesn't match the session's stage or mo
 
 **What it searches**
 
-- InvenTree Parts (name, IPN, keywords), manufacturer Parts (MPN), supplier Parts (SKU) and stock (batch, barcode, import reference). Searches are read-only, using the app's read token. Today the target transport allows only fixed semantic reads and two list reads (`intake-server/src/inventory/transport.ts:44`), so the change adds bounded Match list reads with named filters only: Part search, manufacturer and supplier Parts, stock, and a Part's parameters and attachments. The pinned InvenTree 1.5.0 stock list has no barcode filter, so the generated import reference (`bi1:<source>:<contribution>`, `intake-server/src/execution/plan.ts:56-60`) is looked up in this app's execution records of the stock each approval created, and each hit is confirmed with a stock read by PK; an uncertain earlier create makes the lookup unavailable. A hit opens the match question and holds both stages, including identify-mode Research. The category's key parameters come from a `list_category_parameters` read by category PK, so a mapped parameter with no value row on the Part still shows as missing.
+- InvenTree Parts (name, IPN, keywords), manufacturer Parts (MPN), supplier Parts (SKU) and stock (batch, barcode, import reference). Searches are read-only, using the app's read token. Today the target transport allows only fixed semantic reads and two list reads (`intake-server/src/inventory/transport.ts:44`), so the change adds bounded Match list reads with named filters only: Part search, manufacturer and supplier Parts, stock, and a Part's parameters and attachments. The pinned InvenTree 1.5.0 stock list has no barcode filter, so the generated import reference (`bi1:<source>:<contribution>`, `intake-server/src/execution/plan.ts:56-60`) is looked up in this app's execution records of the stock each approval created, and each hit is confirmed with a stock read by PK; an uncertain earlier create makes the lookup unavailable. A hit is an original-contribution hit: approval already refuses that contribution (`intake-server/src/review/authority.ts:92-100`), so its question offers only already imported or inspecting the earlier run, and no stage runs for the lot. The category's key parameters come from a `list_category_parameters` read by category PK, so a mapped parameter with no value row on the Part still shows as missing.
 - This app's other unapproved lots with the same keys, to detect a competing lot before two batches both create one Part. This is detection, not a uniqueness guarantee across batches.
 
 **What it records**
@@ -384,7 +384,9 @@ The server refuses a proposal whose kind doesn't match the session's stage or mo
 
 ```mermaid
 flowchart TD
-  ID["Examine: stable identity"] --> K{"Strong key?"}
+  ID["Examine: stable identity"] --> IR{"Import reference already approved?"}
+  IR -->|"yes"| HIT["Original-contribution question: already imported, or inspect the earlier run"]
+  IR -->|"no"| K{"Strong key?"}
   K -->|"no"| RI["Research, identify mode (Images waits)"]
   RI -->|"research-identity/1: canonical MPN and aliases"| S2["Match search, pass 2"]
   K -->|"yes"| S1["Match search, pass 1"]

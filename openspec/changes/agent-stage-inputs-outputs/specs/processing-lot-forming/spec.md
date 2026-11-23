@@ -13,5 +13,5 @@ The system SHALL record each agent-created observation, lot, observation link an
 #### Scenario: Estimate from the typed output
 
 - **GIVEN** a `/7` Examine session
-- **WHEN** it proposes a lot with a count, and then publishes `examine-identity/1` with a quantity estimate of 50
-- **THEN** the lot's count argument is refused, and the estimate of 50 reaches Review as an estimated suggestion attributed to the session that the operator must accept or replace before approval.
+- **WHEN** it proposes a lot with a count, retries without the count, and then publishes `examine-identity/1` for the created lot with a quantity estimate of 50
+- **THEN** the first call is refused naming the count argument, the retry creates the lot, and the estimate of 50 reaches Review as an estimated suggestion attributed to the session that the operator must accept or replace before approval.

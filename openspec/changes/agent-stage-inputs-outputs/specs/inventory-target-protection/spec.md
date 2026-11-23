@@ -6,7 +6,7 @@ The transport SHALL accept only named semantic reads (Part, tagged Part, locatio
 
 #### Scenario: Bounded list read
 
-- **GIVEN** a list read with `limit` 1–100, `offset` at most 10,000 and an optional search of at most 100 characters without control characters
+- **GIVEN** a `list_locations` or `list_supplier_companies` read with `limit` 1–100, `offset` at most 10,000 and an optional search of at most 100 characters without control characters
 - **WHEN** it is sent
 - **THEN** the request uses the fixed path with `ordering=name` and an always-present limit, and a caller timeout may only shorten the five-second deadline.
 
@@ -36,13 +36,13 @@ Owned-fake mutation kinds SHALL require the matching capability on the owned pro
 
 ### Requirement: Match search reads
 
-The transport SHALL add bounded list reads for Match: `search_parts`, `list_manufacturer_parts`, `list_supplier_parts`, `list_stock`, `list_part_parameters`, `list_part_attachments` and `list_category_parameters`. Each SHALL use a fixed path, the list bounds above and only named filters that the pinned InvenTree API offers: a search text, an exact MPN, manufacturer PK, SKU, supplier PK, Part PK, category PK or batch code. Any other filter SHALL be refused before a request is sent.
+The transport SHALL add bounded list reads for Match: `search_parts`, `list_manufacturer_parts`, `list_supplier_parts`, `list_stock`, `list_part_parameters`, `list_part_attachments` and `list_category_parameters`. Each SHALL use a fixed path and ordering, the same limit, offset and search bounds, and only named filters the pinned InvenTree API offers: search text, MPN, SKU, batch code, or a manufacturer, supplier, Part or category PK. Other filters SHALL be refused unsent.
 
 #### Scenario: Stock by Part and batch
 
 - **GIVEN** Match searching a candidate Part's stock for a batch code
 - **WHEN** it sends `list_stock` with the Part PK and batch filters and a limit of 20
-- **THEN** the request uses the fixed stock path with exactly those filters and the limit.
+- **THEN** the request uses the fixed stock path with its fixed ordering, exactly those filters, the limit and offset.
 
 #### Scenario: Missing category parameter
 

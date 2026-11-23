@@ -12,7 +12,7 @@ The executor SHALL apply only plans whose version, build and capability match a 
 
 #### Scenario: Record drafts without the record-creation capability
 
-- **GIVEN** a batch with a new-location draft and a deployment without `owned-fake-effects/2`
+- **GIVEN** a batch with a new-location draft and a deployment with only `owned-fake-effects/1`
 - **WHEN** a lot using that location is prepared
 - **THEN** preparation reports `record_creation_unavailable` and nothing is created.
 
@@ -21,6 +21,12 @@ The executor SHALL apply only plans whose version, build and capability match a 
 - **GIVEN** a deployment with `owned-fake-effects/2` and a lot whose confirmed Part image targets an existing Part
 - **WHEN** the lot is prepared
 - **THEN** preparation reports that the Part image effect is unavailable, and retained `bench-effects-plan/2` plans still apply.
+
+#### Scenario: New location under the third effects version
+
+- **GIVEN** a runner with only `owned-fake-effects/3` and a batch with a new-location draft
+- **WHEN** a lot using that location is prepared and applied
+- **THEN** the location is created and the lot's stock uses it.
 
 #### Scenario: Add stock under the third effects version
 

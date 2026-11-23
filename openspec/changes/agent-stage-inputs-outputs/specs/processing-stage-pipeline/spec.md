@@ -22,7 +22,7 @@ A batch SHALL follow its Examine lead's sealed input version at every queueing e
 
 Research and Images for a lot SHALL each start as soon as that lot's identity is stable: Examine has published a current identity proposal for it, and the lot's observations have not changed since. They SHALL NOT wait for each other, for other lots, or for Examine to finish.
 
-For `/7` work, a lot with a strong search key SHALL also start them only when Match allows them: Match has either found no match or recorded an operator's decision that runs the stage. Identify mode is exempt from this gate: a lot without a strong search key SHALL start Research in identify mode before any key search, once Match's import reference lookup finds no duplicate, while Images waits for Match.
+For `/7` work, a lot with a strong search key SHALL also start them only when Match allows them: Match has either found no match or recorded an operator's decision that runs the stage. Identify mode is exempt from this gate: a lot without a strong search key SHALL start Research in identify mode before any key search, once Match's import reference lookup has completed without a hit, while Images waits for Match.
 
 #### Scenario: Parallel start
 
