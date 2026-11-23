@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { StrictMode, useState } from 'react'
 import { expect, test, vi } from 'vitest'
@@ -370,4 +370,41 @@ test('a dialog opened by a click that left focus on the page closes from its bac
   } finally {
     stopTracking()
   }
+})
+
+test('a dialog over another whose opener became disabled returns focus to the dialog beneath', async () => {
+  const user = userEvent.setup()
+
+  // As the crop editor over the evidence viewer: a failed read disables its opener meanwhile.
+  function Stacked() {
+    const [inner, setInner] = useState(false)
+    const [disabled, setDisabled] = useState(false)
+    return (
+      <Dialog title="Front label" onClose={vi.fn()}>
+        <button type="button" disabled={disabled} onClick={() => setInner(true)}>
+          Prepare crop / rotation
+        </button>
+        {inner && (
+          <Dialog
+            title="Prepare documentary crop"
+            onClose={() => {
+              setDisabled(true)
+              setInner(false)
+            }}
+          >
+            <p>Crop</p>
+          </Dialog>
+        )}
+      </Dialog>
+    )
+  }
+
+  render(<Stacked />)
+  await user.click(screen.getByRole('button', { name: 'Prepare crop / rotation' }))
+  await user.click(
+    within(screen.getByRole('dialog', { name: 'Prepare documentary crop' })).getByRole('button', {
+      name: 'Close',
+    }),
+  )
+  expect(screen.getByRole('heading', { name: 'Front label' })).toHaveFocus()
 })

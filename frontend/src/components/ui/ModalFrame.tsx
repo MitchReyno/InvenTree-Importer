@@ -77,11 +77,21 @@ export function ModalFrame({
     if (current && current !== document.body) {
       return
     }
-    const back = opener.current
-    if (back?.isConnected && back !== document.body) {
-      back.focus()
-    } else {
-      fallback.current?.()?.focus()
+    // The opener, then `returnFocus`, then the title of a modal still open beneath; each may be
+    // gone or disabled by now, so the next is tried until one takes focus.
+    const candidates = [
+      () => (opener.current === document.body ? null : opener.current),
+      () => fallback.current?.() ?? null,
+      () => openModalTitle(),
+    ]
+    for (const candidate of candidates) {
+      const target = candidate()
+      if (target?.isConnected) {
+        target.focus()
+      }
+      if (target && document.activeElement === target) {
+        return
+      }
     }
   }
 
@@ -132,6 +142,15 @@ const TABBABLE = [
   'textarea:not([disabled])',
   '[tabindex]:not([tabindex="-1"])',
 ].join(', ')
+
+// The topmost open modal's title, which is focusable by script.
+function openModalTitle(): HTMLElement | null {
+  const modals = document.querySelectorAll<HTMLElement>(OPEN_MODAL_SELECTOR)
+  const top = modals[modals.length - 1]
+  const titleId = top?.getAttribute('aria-labelledby')
+  const title = titleId ? document.getElementById(titleId) : null
+  return title ?? top ?? null
+}
 
 /** Names a `ModalFrame`; renders the child heading in place with `asChild`. */
 export const ModalTitle = RadixDialog.Title

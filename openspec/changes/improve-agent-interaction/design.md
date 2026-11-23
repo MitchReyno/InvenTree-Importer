@@ -4,9 +4,9 @@
 
 The change touches three layers that already exist. No new service or table is needed; the only new dependency is `@radix-ui/react-dialog`, for task 1.
 
-| Layer | Today | Evidence |
+| Layer | Before this change | Evidence |
 | --- | --- | --- |
-| Dialog | A native `<dialog>` opened with `showModal()`. It closes on `cancel` (Esc) or Close through the owner's `onClose`, and has no backdrop handling | `frontend/src/components/ui/Dialog.tsx`; owners guard unsaved work in `onClose` (`ProcessingWorkspace.tsx`, the drawer) |
+| Dialog | A native `<dialog>` opened with `showModal()`. It closed on `cancel` (Esc) or Close through the owner's `onClose`, and had no backdrop handling. Task 1 replaced it with Radix Dialog (see below) | `frontend/src/components/ui/Dialog.tsx`; owners guard unsaved work in `onClose` (`ProcessingWorkspace.tsx`, the drawer) |
 | Question contract | `SessionAskArgs` holds one `kind` (`quantity` or `clarification`) and one `prompt`. The retained envelope is `bench-intake-session/1` with the question payload | `contracts/src/sessions.ts`, `intake-server/src/agents/tools/handlers.ts` (`ask`) |
 | Answer | `bench-intake-answer/1` holds one value. A session answer becomes one capture edit (a lot quantity or a note), plus an `answer` inbox item and relying-session notices, in one transaction | `intake-server/src/processing/session-answers.ts`, `contracts/src/sessions.ts` (`SessionInboxItem`) |
 | UI | `QuestionAnswer` is a single field, validated on submit with a generic message. `DrawerAnswers` pins drafts per question and shows disabled option placeholders | `frontend/src/components/processing/QuestionAnswer.tsx`, `DrawerAnswers.tsx` |

@@ -48,7 +48,7 @@ Mitch will add more agent-interaction items to this change. This proposal covers
 ## Current behavior and evidence
 
 - **The drawer:**
-  - `frontend/src/components/ui/Dialog.tsx` opens a native `<dialog>` with `showModal()` and closes only on `cancel` (Esc) or its Close button. It has no pointer handling for the backdrop.
+  - Before this change, `frontend/src/components/ui/Dialog.tsx` opened a native `<dialog>` with `showModal()` and closed only on `cancel` (Esc) or its Close button, with no pointer handling for the backdrop. Task 1 rebuilt it on Radix Dialog.
   - `ProcessingWorkspace.tsx` passes an `onClose` that shows "Save or discard your answer before closing this session" while an answer draft is unsaved.
 - **The ask tool:**
   - `SessionAskArgs` in `contracts/src/sessions.ts` takes `{kind: quantity|clarification, subject_id, prompt, reason, fields, assumption}`; `prompt` is free text of up to 2048 characters.
