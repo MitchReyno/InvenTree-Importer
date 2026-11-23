@@ -8,6 +8,7 @@ None yet.
 
 ## Unexpected challenges
 
+- **2026-11-24T02:56+11:00, task 9 (PR-E):** The Capture fixtures' media clients refuse uploads on purpose, so the drop and paste checks and the demo used a throwaway copy of `GroupedCaptureProof` with a slowed in-memory upload, not committed. Headless browsers have no file manager or clipboard files, so drops and pastes were dispatched with a real `DataTransfer` of files. The installed Playwright has no matching WebKit build, so desktop Safari was not checked.
 - **Task 2 (PR-A):** `screenshots:frontend` cannot capture `header-disclosure`: Public Sans never loads on that fixture, before and after this change. The other ten fixture pages are compared.
 
 ## Decisions made during implementation
@@ -19,4 +20,4 @@ None yet.
 
 ## Open items
 
-None yet.
+- **2026-11-24T02:56+11:00, task 9 (PR-E):** Task 9.4's phone checks (iOS Safari and Android Chrome: Take photos offers the camera and the library, and the library picks several photos) and the desktop Safari drop and paste check are for Mitch to run on real devices. The Camera / Photo library fallback is added only if a phone's sheet lacks one route.
