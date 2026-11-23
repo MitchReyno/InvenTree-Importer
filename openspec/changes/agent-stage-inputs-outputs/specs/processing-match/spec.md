@@ -68,7 +68,7 @@ Match SHALL search after Examine's stable identity when it has a strong key (a l
 
 ### Requirement: When Match doesn't search
 
-A lot still awaiting its first identify-mode amendment SHALL NOT be searched remotely for a match-note alias. Unresolved and replacing amendments SHALL open their questions instead of a key search.
+A lot still awaiting its first identify-mode amendment SHALL NOT be searched remotely for a match-note alias. Unresolved and replacing amendments SHALL open app-owned match questions, under the lot's Match lock, instead of a key search.
 
 #### Scenario: Replacing amendment
 
