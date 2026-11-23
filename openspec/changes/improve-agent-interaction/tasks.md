@@ -74,7 +74,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 
 - **PR delivery:** PR-B.
 - **Outcome:** `/2` question and answer shapes, the envelope and inbox unions reading both versions, and the normalised question view for the read model.
-- **Scope and approach:** `contracts/src/sessions.ts` and `processing.ts` (the read-model question DTO), and `attention.ts` (the attention item gains the question's title, kind or step count and per-step assumptions), plus tests in `contracts/tests/`. The shapes are in the design.
+- **Scope and approach:** `contracts/src/sessions.ts` and `processing.ts` (the read-model question DTO), and `attention.ts` (the attention item gains the question's title, kind or step count and per-step assumptions); the error body's optional `step_id` for `invalid_answer`, kept on `IntakeRequestError` by `client-policy.ts`; plus tests in `contracts/tests/`. The shapes are in the design.
 - **Prerequisites:** none.
 - **Acceptance:** "Structured session questions", scenario "Invalid structure" (contract limits); pipeline "Malformed steps" (contract limits).
 - **TDD approach:** contract tests for the valid and invalid shapes fail before the schemas exist.
@@ -97,7 +97,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - The tool description, the runner instructions and the fakes are updated.
 - **Scope and approach:**
   - `intake-server/src/agents/tools/handlers.ts` and `server.ts`;
-  - `processing/session-answers.ts` and the question read in `processing/`;
+  - `processing/session-answers.ts` and the question read in `processing/`, and the error handler in `processing/routes.ts`, which sends `step_id` with an `invalid_answer` that names a step;
   - `attention/projection.ts`, whose question items today carry only `spec.prompt` and one assumption, so the masthead's Needs you rows get the normalised view;
   - `capture/repository.ts`: an ordered form of the locked edit handle that applies several edits under one lock and publishes once;
   - `agents/session/session-runner.ts` (coordinate with `simplify-vm-agent-web-and-setup`);
@@ -115,7 +115,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 - [ ] 3.3 RED: write the answer PG tests.
   - [ ] 3.3.1 A quantity plus a note, applied in one transaction.
   - [ ] 3.3.2 Rollback when the note edit is refused after the quantity edit, with the refusal injected.
-  - [ ] 3.3.3 Refusal of a combined note over the 8192-character limit, before any edit.
+  - [ ] 3.3.3 Refusal of a combined note over the 8192-character limit, before any edit, with the response naming the step.
   - [ ] 3.3.4 Refusal of a wrong kind, an unknown option or a missing step.
   - [ ] 3.3.5 Same-key replay returns the first receipt; a different payload under that key is refused; a new key with the same payload adopts the answer; a new key with a different payload gets `payload_conflict`.
   - [ ] 3.3.6 An inbox payload carrying the option ID and the number step's basis.
@@ -140,6 +140,8 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - `frontend/src/components/processing/QuestionAnswer.tsx`, `DrawerAnswers.tsx`;
   - `components/ui/QuestionCard.tsx`;
   - the Needs you and Overview rows (`components/batches/NeedsYouPanel.tsx`, `processing/ProcessingOverview.tsx`);
+  - `SessionChatPanel.tsx`, whose `answerText` reads `payload.value` and would throw on a stepped answer, so it reads both answer payloads;
+  - `QuestionAnswer.tsx`'s submit handler, so a confirmed `invalid_answer` clears the pinned submission and marks the named step, while an uncertain failure keeps the original payload and key;
   - the other readers of `question.spec.kind`, `prompt` or `reason`, which move to the normalised view: `ProcessingInventory.tsx` (open questions beside the comparison), `ProcessingJobCard.tsx`, `ProcessingWorkspace.tsx` and `processing/source.ts`;
   - the processing fixtures.
 - **Prerequisites:** tasks 2 and 3, in the same PR.
@@ -158,6 +160,8 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - [ ] 4.2.4 The `/1` question fallback, and draft pinning across a supersede with every step kept.
   - [ ] 4.2.5 Needs you rows with kind, step count and assumptions, from the attention read.
   - [ ] 4.2.6 A `/2` question on the Inventory step and on a job card shows its title and steps, and a `/1` question shows as before.
+  - [ ] 4.2.7 The drawer's chat renders after a `/2` answer is saved, with `/1` and `/2` answers both in its timeline.
+  - [ ] 4.2.8 A confirmed 422 naming a step keeps the draft editable and marks that step; an uncertain failure retries only the original payload and key.
 - [ ] 4.3 GREEN: implement the form, the option cards and the rows. Remove `OPTIONS_NOT_CARRIED` and its placeholders.
 - [ ] 4.4 Update the fixtures (`ProcessingProof`) with a stepped and a choice question for the demo. Update the frontend architecture if component ownership changes.
 - [ ] 4.5 Run the frontend checks. Record the demo video for the PR description.
@@ -182,7 +186,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 - [ ] 5.1 Read the shared and intake-server code guidelines. List every reader of the outbox union and of proposal sources.
 - [ ] 5.2 RED: contract tests for `photo_view` and `web_page`. PG tests:
   - [ ] 5.2.1 A delivered fetch appends one `photo_view` with the delivered size and digest, and publishes `session_changed` in the same transaction.
-  - [ ] 5.2.2 A refused or over-budget fetch appends nothing, and a refused final transaction releases the budget and returns no image, including when a removal or a capability revocation races the final transaction.
+  - [ ] 5.2.2 A refused or over-budget fetch appends nothing, and a refused final transaction releases the budget and returns no image, including when a removal or a capability revocation races the final transaction; a commit with an unknown outcome keeps the reservation and returns no image.
   - [ ] 5.2.3 A `web_page` source is accepted for `https` without a delivery check, refused for `file:`, credentials or a URL over 2048 characters, and refused in `relies_on` or catalogue sources.
   - [ ] 5.2.4 A `/6` proposal with a `web_page` source reads through the retained decoder and the ordinary Processing snapshot read.
   - [ ] 5.2.5 Frontend: the existing source list shows a stored `/6` proposal's `web_page` source, and the old timeline labels a `photo_view`.
@@ -214,10 +218,10 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 - [ ] 6.2 RED: PG tests:
   - [ ] 6.2.1 Each entry kind resolves its summary, details and links.
   - [ ] 6.2.2 A retired lot or a removed version gives a "gone" link.
-  - [ ] 6.2.3 Answers, instructions, evidence and revise items appear as the operator's.
+  - [ ] 6.2.3 Answers, instructions, evidence and revise items appear as the operator's at their send time, and one above the acknowledgement cursor reads as not read yet.
   - [ ] 6.2.4 Attempt headers say how an attempt ended, and why it started where the retained input shows it; turns within an attempt are not attempts; a failure or resume with no new inbox or outbox item still updates its header on the next read; the span runs from the queue time, not a turn's `started_at`.
   - [ ] 6.2.5 A regroup with recorded moves shows them; an older regroup lists only its lots; earlier attempts' failures resolve; a lot edited after formation shows its values labelled current.
-  - [ ] 6.2.6 The `before` and `after` cursors page without gaps or duplicates across retries with repeated sequences and equal timestamps, and the `after` watermark misses nothing when an inbox and an outbox write commit out of timestamp order, or when a later sequence in one stream has an earlier timestamp across a page boundary.
+  - [ ] 6.2.6 The `before` and `after` cursors page without gaps or duplicates across retries with repeated sequences and equal timestamps, and the `after` watermark misses nothing when an inbox and an outbox write commit out of timestamp order, or when a later sequence in one stream has an earlier timestamp across a page boundary; a forward read cut off at 200 leaves out nothing on the next read, including a delayed write timed inside the loaded range.
   - [ ] 6.2.7 A proposal links every open question that makes it provisional, with two matching questions.
   - [ ] 6.2.8 The session metadata for a retried session, including the web setting from each attempt's manifest.
   - [ ] 6.2.9 Another batch or account gets `session_not_found`.
@@ -258,7 +262,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - [ ] 7.3.4 The drawer's summary lines and "Open full session".
 - [ ] 7.4 RED: page tests:
   - [ ] 7.4.1 One conversation in time order, with attempt dividers.
-  - [ ] 7.4.2 Filter chips, Load older, and the live merge without duplicates or gaps, including more than one page of new entries between refreshes.
+  - [ ] 7.4.2 Filter chips, Load older, and the live merge without duplicates or gaps, including more than one page of new entries between refreshes; answering a matching question in another job refreshes a loaded proposal's provisional links.
   - [ ] 7.4.3 Sending a message once.
   - [ ] 7.4.4 Answering a question in place, with the drawer's draft shown as superseded, and commands disabled while the page's Processing read is loading, failed or paused, including a warm cache whose mounted read is still pending.
   - [ ] 7.4.5 Not found, and the debug block only in debug mode.
@@ -307,7 +311,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - [ ] 9.2.2 A stage with no jobs yet is never done.
   - [ ] 9.2.3 No fill without counts.
   - [ ] 9.2.4 Examine waiting on questions reads as waiting for you.
-- [ ] 9.3 RED: tests for `ProgressSegments`' states, patterns and animation (only working, none under reduced motion), and for the popover's stage rows, links, counts, status lines and Resume.
+- [ ] 9.3 RED: tests for `ProgressSegments`' states, patterns and animation (only working, none under reduced motion), and for the popover's stage rows, links, counts, status lines and Resume, including a finished stage and a stage whose sessions fall outside `active_sessions`, which show a reason rather than an agent line.
 - [ ] 9.4 GREEN: implement the states, the popover layout and the rows. Update the component gallery.
 - [ ] 9.5 Run the frontend checks. Record the demo video for the PR description.
 
@@ -320,7 +324,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - titles that open the session, and recovery actions on failed rows;
   - Agents filter chips opening on Needs attention, with batches that need nothing collapsed and archived batches only under All.
 - **Scope and approach:**
-  - `contracts/src/agents.ts` and `intake-server/src/agents/session/sessions.ts`: a session-level read paging by job, with each job's earlier attempts, the batch's archived flag, where it ran and its sealed web setting;
+  - `contracts/src/agents.ts` and `intake-server/src/agents/session/sessions.ts`: a session-level read paging by job, with the selected filter applied before paging, scoped chip and batch counts, each job's earlier attempts, the batch's archived flag, where it ran and its sealed web setting;
   - `contracts/src/session-failures.ts` and `agents/failures.ts`: a sanitized `cause` on the failure summary, built from the recorded provider error and cause code, under the same read scope;
   - `frontend/src/components/agents/AgentSessions.tsx`, the Processing session list in `components/processing/`, `components/agents/SessionFailureDetails.tsx`, and the failure-text mapping beside the contracts' allowlists (`CLAUDE_ERROR_KINDS`, `CODEX_ERROR_KINDS`, cause codes).
   - It uses the shared state words and time format from `polish-ui-styling-and-loading`.
@@ -331,7 +335,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 - **Risks and decisions:** the canvas boards FixSessionRows, FixFailureCause, FixSessionLinks and FixAgentsFilters are the reference.
 
 - [ ] 10.1 Read the code guidelines and the Fixes page boards.
-- [ ] 10.2 RED: PG tests for the session-level read (a retry chain that would have spanned two attempt pages, the archived flag) and the failure summary's `cause` with debug mode off; frontend tests for folded attempts, Needs attention (including a failure followed by success), collapsed and archived batches, failure sentences for each recorded kind and the "not recorded" case, and row links and actions.
+- [ ] 10.2 RED: PG tests for the session-level read (a retry chain that would have spanned two attempt pages, the archived flag, the selected filter applied before paging, and chip and batch counts that include a failed session beyond the first page of all sessions) and the failure summary's `cause` with debug mode off; frontend tests for folded attempts, Needs attention (including a failure followed by success), collapsed and archived batches, failure sentences for each recorded kind and the "not recorded" case, and row links and actions.
 - [ ] 10.3 GREEN: implement the read, the failure cause and the rows.
 - [ ] 10.4 Run the contracts tests, the intake unit and PG tiers and the frontend checks, and record the demo video.
 

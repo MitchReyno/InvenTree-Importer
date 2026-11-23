@@ -2,7 +2,7 @@
 
 ### Requirement: Stage rows in workflow details
 
-On desktop the workflow details SHALL be wide enough for one row per Processing stage of a batch, and on a phone a full-width sheet. Each row SHALL link to that stage's step page and show its state, a count where the stage has one (lots ready of the batch's lots; Examine shows lots formed and open questions), and a short status line: the stage's newest agent status line with its time, or a plain reason such as "Starts when Research and Images finish a lot".
+On desktop the workflow details SHALL be wide enough for one row per Processing stage of a batch, and on a phone a full-width sheet. Each row SHALL link to that stage's step page and show its state, a count where the stage has one (lots ready of the batch's lots; Examine shows lots formed and open questions), and a short status line: the newest status line of a session active on that stage, with its time, or otherwise a plain reason such as "Starts when Research and Images finish a lot".
 
 #### Scenario: Stage rows for a working batch
 

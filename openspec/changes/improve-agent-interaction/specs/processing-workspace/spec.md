@@ -98,7 +98,7 @@ When expanded, a proposal SHALL show its proposed fields with source chips, what
 
 ### Requirement: Your inputs in the session history
 
-A session's history SHALL include the operator's inputs that reached the session, marked as theirs: answers with what they changed, instructions picked up, new evidence delivered and requests to revise. Chat messages SHALL stay in the chat.
+A session's history SHALL include the operator's inputs sent to the session, marked as theirs and placed at the time they were sent: answers with what they changed, instructions, new evidence and requests to revise. An input the session has not read yet SHALL say so. Chat messages SHALL stay in the chat.
 
 #### Scenario: Answer in the history
 
