@@ -57,7 +57,7 @@ The outcome:
 - **States:** one set of state words with glyphs (Working, Waiting for you, Queued, Paused, Done, Failed, Not started), used by sessions, steps and the masthead. The masthead names what failed, and with nothing running says "no agents working" (it can't prove "all done").
 - **Overview:** Needs you lists everything the header counts, tagged with its tab. A per-lot table with state pills replaces Pipeline, and the bar's step counts link to the step pages.
 - **Step pages** count only their own step.
-- **Capture:** several files at once from any source. On a phone, Take photos offers the camera and the library, with multi-select. On desktop, files can be dropped onto the evidence panel or a group, or pasted.
+- **Capture:** several files at once from any source. On a phone, Take photos offers the camera and the library, with multi-select. On the phones tested (iOS Safari, Android Chrome), the system's own sheet is expected to offer both once `capture` is dropped; task 9.4 confirms it. On desktop, files can be dropped onto the evidence panel or a group, or pasted.
 - **Appearance:** an "Animate the electronics" switch under the Masthead choice, on by default and stored on the device. Off shows a still frame in whichever masthead style is chosen.
 - **Agent settings autosave:** switches, choices, selects and the stepper save on their own about 600 ms after the last change, with a quiet Saving… / Saved status. Text fields (Instructions, Part description style) keep a Save and Discard that appear only while they hold an edit.
 - **Provider settings like the design:**
@@ -77,7 +77,7 @@ Option 3 is to let reads confirmed current by the live-update stream enable comm
 - Change: `polish-ui-styling-and-loading`. Branches are `fix/polish-ui-styling-and-loading-<suffix>` or `feat/…`, with subjects `type(polish-ui-styling-and-loading): …`.
 - **BI-020** (new): UI polish and calm loading.
 - **BI-021** (new) is the option 3 follow-up, `trust-live-confirmed-reads`.
-- BI-019 is reserved by the `improve-agent-interaction` plan, which is not merged yet.
+- BI-019 is the `improve-agent-interaction` plan, merged in #243.
 
 ## Current behavior and evidence
 
@@ -150,14 +150,14 @@ None.
 - `processing-workspace`: the Overview's Needs you, step bar and lot table ("Processing overview"); step pages count their own step.
 - `header-workflow-status`: the masthead summary names what needs attention.
 - `capture-grouped-evidence`: several photos from a phone in one go; drop or paste files to add evidence.
-- `app-settings`: "Agent settings section" is modified (save as you change, provider status read automatically, dialogs, switches, segmented default provider, model picker). It is based on `simplify-vm-agent-web-and-setup`'s version, which builds on `settings-debug-mode`'s, so it syncs after both. Added: the electronics animation switch; saving as you change and text keeping an explicit Save; the read-only status and the separate sign-in failure line; controls matching the design; sign-in dialogs and dropping their work on close; the searchable model picker with its limits and exact IDs.
-- `ui-design-system` (also): the searchable picker for records and growing lists, and short fixed choices following a guideline.
-- `shared-vm-execution`: a read-only provider sign-in status the server can read without the management key. This is added as its own requirement, because `masthead-appearance-options` (merged in #222, not yet archived) still modifies "InvenTree and appearance sections".
+- `app-settings`: "Agent settings section" is modified (save as you change, provider status read automatically, dialogs, switches, segmented default provider, model picker). It is written on the synced requirement from `settings-debug-mode` and `simplify-vm-agent-web-and-setup`. Added: the electronics animation switch; saving as you change and text keeping an explicit Save; the read-only status and the separate sign-in failure line; controls matching the design; sign-in dialogs and dropping their work on close; the searchable model picker with its limits and exact IDs.
+- `ui-design-system` (also): the searchable picker for records and growing lists, and short fixed choices following a guideline. "Masthead and electronics current in both themes" is modified so the animation switch can still the current.
+- `shared-vm-execution`: a read-only provider sign-in status the server can read without the management key. It is added as its own requirements, apart from the existing pairing and turn requirements.
 - `live-updates`: commands wait quietly for a current read; cached reads survive a reload within the session. "Live unverifiable workspace state" is unchanged.
 
 ## Impact and dependencies
 
-- **Frontend only.** It touches:
+- **Frontend:** it touches:
   - `components/ui` (`PageStack`, `ReadState`, the progress line);
   - `queries/` (`useFreshRead`, the snapshot module);
   - every page's top-level layout and loading states;
@@ -171,7 +171,10 @@ None.
   - `settings/MastheadChoice.tsx`, a new device preference beside `theme/masthead-style.ts`, and `masthead/ElectronicsCurrent.tsx`;
   - `settings/agents/` (`SaveBar`, `useSubsectionForm`, `useSettingsSave`, `useDirtyForms` and each subsection form).
 - **Dependencies:** none new.
-- **Server and VM:** only the provider status (task 12) needs them. It adds per-provider status-only endpoints in the guest's credential processes with private relay routes, a `credential_meta` side table, an intake read API and a contract. Agent settings saves also gain a `save_id` in the contract and server (PR-F). Everything else is frontend only.
+- **Server, VM and contracts:** two PRs need them.
+  - PR-F (task 11): agent settings saves gain a `save_id` and a bounded receipt table in the intake database, with its migration, runtime grants and contract change.
+  - PR-G (task 12): per-provider status-only endpoints in the guest's credential processes, a worker-to-guest status path, a `credential_meta` side table, an intake read API and a contract.
+  - Everything else is frontend only.
 - **Coordination:**
   - `improve-agent-interaction` also edits `ProcessingWorkspace.tsx`, `ActivityPopover` and the session drawer. The first to merge rebases the other.
   - `trust-live-confirmed-reads` builds on this change's `useFreshRead`.

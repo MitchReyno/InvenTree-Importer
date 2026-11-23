@@ -36,8 +36,10 @@ In scope:
 
 - A per-query currency proof: a successful HTTP read whose request started after the newest hint relevant to that query, for a resource the subscription covers, within the current, complete subscription and resource scope.
 - The proof is cleared synchronously when a relevant hint is received, before the debounced reconciliation runs, and on a gap, reset or truncation, a reconnect, the fall-back to polling, a scope change, or a failed read.
+- A replacement `ready` frame on the same socket also clears it. The server sends one when the tracked streams or truncation change, and the client replaces its cursor list wholesale (`intake-server/src/live/routes.ts:77–97`, `LiveUpdates.tsx:141–151`). Any proof whose stream disappears, advances, or changes truncation in the new set is cleared, even with no `changed` frame.
+- BI-020's rules still apply: a manual cache write, a cancelled or paused read, and an older request completing late never give a proof.
 - An audited allowlist of commands that may use the proof. For each, the audit shows the server-checked expected revision covers every fact the command's eligibility depends on. Commands without one, such as Pause and Resume, keep waiting for a settled read made since the page opened.
-- Tests for each way the proof can be cleared, for a hint arriving during an in-flight read, and for a commit that lands before its hint is delivered (the command must be refused by the server, not applied).
+- Tests for each way the proof can be cleared, including a replacement `ready` frame that drops or advances a stream, a manual cache write and a silent cancel; for a hint arriving during an in-flight read; and for a commit that lands before its hint is delivered (the command must be refused by the server, not applied).
 
 Non-goals:
 

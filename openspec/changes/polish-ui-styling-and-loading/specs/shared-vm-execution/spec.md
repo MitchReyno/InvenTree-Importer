@@ -18,7 +18,7 @@ The intake server SHALL be able to read each VM provider's sign-in status withou
 
 ### Requirement: Status reads never change the guest
 
-Each provider's status read SHALL reach that provider's credential process through a status-only endpoint, on a private listener reachable only through the paired relay, needing no management key and offering no mutating action. A provider whose service is missing, older, busy or times out SHALL read as unknown, independently of the other, never as signed out.
+Each provider's status read SHALL reach that provider's credential process through a status-only endpoint that accepts only the authenticated paired worker, needs no management key and offers no mutating action. A timed-out read SHALL be abandoned on both sides. A provider whose service is missing, older, busy or times out SHALL read as unknown, independently of the other, never as signed out.
 
 #### Scenario: Older guest
 
@@ -46,6 +46,12 @@ Each provider's status read SHALL reach that provider's credential process throu
 
 #### Scenario: Not reachable from the browser
 
-- **GIVEN** the browser-facing management listener
-- **WHEN** a request is sent through it to a status-only path
-- **THEN** it is refused, and only the paired relay reaches the status endpoints.
+- **GIVEN** the browser-facing management listener, or a process in another namespace
+- **WHEN** it sends a request to a status-only path
+- **THEN** it is refused, and only the authenticated paired worker reaches the status endpoints.
+
+#### Scenario: One provider times out
+
+- **GIVEN** a deployment running both providers, where Codex's credential process doesn't answer
+- **WHEN** the server reads provider status
+- **THEN** Claude's status is reported, Codex reads as unknown because it timed out, and the abandoned Codex request leaves no work running on the guest.

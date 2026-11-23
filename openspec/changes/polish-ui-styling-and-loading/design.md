@@ -2,14 +2,14 @@
 
 ## Context and grounding
 
-The change is mostly frontend, and large: visual fixes, one shared loading and freshness pattern adopted across about 15 screens, Settings › Agents rework, and a dropdown sweep. Task 12 alone adds server, VM guest and contract work (the read-only provider status). There is no data migration.
+The change is mostly frontend, and large: visual fixes, one shared loading and freshness pattern adopted across about 15 screens, Settings › Agents rework, and a dropdown sweep. Two tasks add server and contract work: task 11 (agent settings save receipts, with an intake migration) and task 12 (the read-only provider status, with VM guest work).
 
 | Area | Today | Evidence |
 | --- | --- | --- |
 | Selected row border | `RecordButton`'s `&:first-of-type { border-top-color: transparent }` ties in specificity with `choice`'s `&[aria-current='true'] { border-color }`, and wins by order | `components/review/records/RecordsStage.tsx` |
 | Page spacing | Top-level blocks are fragment siblings with their own `margin-bottom`; some have none | `components/review/ReviewWorkspace.tsx` (`ScopeBar`, `ContextFold`, `Toolbar`; `Banner` and `ReviewFilters` without margins) |
 | Profile notice | An info banner keyed on `snapshot.runner_status`, plus a job card tag | `ProcessingWorkspace.tsx`, `ProcessingJobCard.tsx` |
-| Reads | TanStack Query 5.105.1, memory cache, `staleTime: Infinity` | `queries/client.ts`, `App.tsx` |
+| Reads | TanStack Query 5.105.1, memory cache. The shared client uses `staleTime: 0` and `refetchOnMount: 'always'`; only bootstrap uses `staleTime: Infinity` | `queries/client.ts:9–17`, `App.tsx:51–55` |
 | Command gating | Processing commands use `waitingForRead`, from a successful-read latch set inside its own `queryFn` (`successfulRead`), but Pause and Resume are built from `liveRead(snapshotQuery)` without it and send no revision (`AgentPauseUpdate`); Review's manual workflow uses `waitingForFirstRead` (`isFetchedAfterMount`); acceptance, computed in `ManualWorkspace`, uses `processingCurrent` (fetched this mount, success, no refetch error, not fetching, capture revision matches). Processing, Manual Review and Records share the Processing query key | `ProcessingWorkspace.tsx:169–243`, `review/ManualWorkspace.tsx:89–102,325–337`, `review/records/RecordsStage.tsx:127–132`, `contracts/src/agents.ts:120–122` |
 | Loading lines | 22 bespoke "Reading…/Loading…" lines; `Skeleton` and `Spinner` exist and are used by a few components (`ProposedLotsGlance`, `StepPage`, `Tabs`, upload tiles) but by no page-level loading state | `components/**`, `components/ui/Loading.tsx` |
 
@@ -56,9 +56,15 @@ useFreshRead(query, { current?: (data) => boolean, restored?: Snapshot }) →
 ```
 
 - **Verification bound to the cache update, not the data object:** object identity can't tell reads apart, because structural sharing can keep the old object for equal data, and an equal `setQueryData` can keep a verified one.
-  - A `verifiedReads` registry subscribes to the query cache and records, per query hash, the last update.
-    - An `updated` event with a non-manual `success` action, from a fetch whose request started after the observer's mount, marks it verified, with that request's start time. The query function records request start times per query hash.
-    - A manual `success` (any `setQueryData`) clears it, whatever the data, and so do an error, a cancelled fetch, a paused fetch and a scope change.
+  - A `verifiedReads` registry records, per query hash, the request generation that verified it.
+    - The query function numbers each request it starts, recording its generation and start time, and on success records which generation produced the data.
+    - An `updated` cache event with a non-manual `success` action verifies the query only when the data came from the newest generation started, and that request started after the observer's mount. An older request completing late never verifies.
+    - A manual `success` (any `setQueryData`) clears it, whatever the data, and so do an error, a paused fetch and a scope change.
+  - Cancellation isn't visible to a cache subscription: TanStack Query 5.105.1 handles a silent cancel without dispatching an `error`, and a reverting cancel restores state through `setState` (`query-core/src/query.ts:844–852,890–909`). So:
+    - the app cancels only through a `cancelVerified` helper, which clears the entry first, and `LiveUpdates`' silent `cancelQueries` (`LiveUpdates.tsx:85`) uses it;
+    - a `removed` cache event clears the entry;
+    - a cancelled request's generation can never verify, because a newer one has started or the entry was cleared.
+  - **Receipt writers:** a confirmed command that writes its receipt with `setQueryData` clears verification, and healthy live mode can turn polling off (`LiveUpdates.tsx:221`). So each such writer also invalidates and rereads its query, to give mounted controls a verified read again. Review Map's media receipt (`ReviewMapStage.tsx:45–49,58–79`) is one; task 4.1 lists the rest.
   - Every observer of a shared key reads the same registry entry, so a joined in-flight fetch verifies them all only if its request started after each one's mount.
   - A restored snapshot is never in the cache, so it never verifies.
 - **Phases:**
@@ -69,7 +75,10 @@ useFreshRead(query, { current?: (data) => boolean, restored?: Snapshot }) →
   - `failed`: `isError`, or a paused fetch.
 - **Gating:** each screen keeps its own command conditions, built on `verified` rather than `isFetchedAfterMount`:
   - **Processing:** queue, cancel and answer need `verified` once, and stay available through later background refreshes, as today.
-  - **Pause and Resume** send no revision, so they need a settled verified read: verified, and not refreshing after a relevant invalidation. This is rechecked at dispatch. It applies to every surface that sends them: Processing (PR-B), and the Agents page's batch and global controls and Settings › Agents' Pause all (PR-C).
+  - **Pause and Resume** send no revision (`intake-server/src/agents/routes.ts:40–53`), so they need a settled verified read whose request started after the last relevant live hint was received.
+    - `LiveUpdates` waits 100 ms before reconciling and can queue reconciliation behind a read in flight (`LiveUpdates.tsx:65–88,141–158`), so a query can look settled after a hint has arrived. On receipt of a relevant hint, before that debounce, it records a hint time for the batch and account-wide agent reads, and the gate needs a verified read whose request started after it.
+    - The gate is checked again at dispatch.
+    - It applies to every surface that sends them: Processing (PR-B), and the Agents page's batch and global controls and Settings › Agents' Pause all (PR-C).
   - **Review's manual workflow:** needs `verified` once, then stays available through refreshes.
   - **Review acceptance:** computed in `ManualWorkspace`, it keeps its stricter check (not fetching, no refetch error, capture revision matches) through the `current` predicate, so it waits during a refresh.
   - Commands that carry an expected revision keep sending it, and draft checks are unchanged.
@@ -116,7 +125,10 @@ useFreshRead(query, { current?: (data) => boolean, restored?: Snapshot }) →
   - `improve-agent-interaction`'s activity popover bar uses the same type.
 - **Masthead summary:** it reads failed and waiting steps from the header work read (already loaded).
   - Failures lead: "‹Step› failed" with a count of failed jobs, not lots, because work items don't carry their subject. Then "‹Step› waiting for you · N".
-  - With nothing working, waiting or failed, and a fresh, complete active-session read showing no session holding a lane (`occupies_lane`, as the masthead checks today), it says "‹Batch› · no agents working". A cancelled or superseded session still holding a lane keeps it showing as working. The header's counts describe jobs that exist, not which steps or lots still need work, so the app can't prove "all done" and never says it.
+  - With nothing working, waiting or failed, a fresh, complete active-session read, the aggregate `lane_occupied` false and no session row with `occupies_lane`, it says "‹Batch› · no agents working".
+    - The server sets `lane_occupied` even when the holder belongs to another target or context and so isn't listed (`processing/read.ts:412–424,493–496`); the activity popover already handles that case (`ActivityPopover.tsx:61–68,98–102`).
+    - A cancelled or superseded session still holding a lane, or a lane held by an unlisted session, keeps it showing as working.
+  - **Scope of failures:** only the open batch has a complete step projection. The header loads full job state for the selected batch, and other batches come from an activity projection that leaves out settled failures (`header/processing.ts:26–55,89–95`, `processing/read.ts:362–369,483–485`). So the failure and waiting headline, and "no agents working", are for the open batch. Outside a batch, the summary names only active and waiting work across batches, and never says there are no failures or no agents. The header's counts describe jobs that exist, not which steps or lots still need work, so the app can't prove "all done" and never says it.
   - A stale, truncated or unavailable read says "Updating…" or "Status unavailable". It never says "Retained work".
   - S7's "all done" canvas example is replaced by "no agents working" for this reason.
 - **Times:**
@@ -145,7 +157,7 @@ useFreshRead(query, { current?: (data) => boolean, restored?: Snapshot }) →
 
 - **Phone picker:**
   - The photos input drops `capture="environment"`. Without it, iOS Safari and Android Chrome show their own sheet (take a photo, the photo library, files), and the library allows multi-select. The input keeps `multiple` and its `accept` of JPEG and PNG.
-  - The promise is bounded to the combinations checked in task 9.4, iOS Safari and Android Chrome. If removing `capture` loses the camera option on either, a separate "Take a photo" control with `capture` is added beside "Choose photos" in the same task.
+  - The promise is bounded to the combinations checked in task 9.4, iOS Safari and Android Chrome. If either phone's sheet lacks the camera or the library, Take photos opens a short Camera / Photo library choice instead, as the spec says: Camera uses an input with `capture`, and Photo library one without it, with `multiple`.
 - **Drop and paste:**
   - The evidence panel and each group become drop targets: `dragover`/`drop` with `dataTransfer.files`, highlighting the target while files hover. A drop on a group is handled there once and doesn't also reach the panel.
   - Paste is a `paste` listener on Capture that ignores events from text fields and note editors, and takes `clipboardData.files`.
@@ -167,8 +179,9 @@ useFreshRead(query, { current?: (data) => boolean, restored?: Snapshot }) →
   - Turning it on resumes from there, unless the OS asks for reduced motion.
   - A page loaded with the switch off builds the scene normally, renders one frame, then pauses, so turning it on later works without recreating the scene. Recreating it would reset time and re-randomise the parts.
   - A theme change while paused redraws the still frame in the new palette.
+  - **Every start path checks the preference:** scrolling the canvas back into view calls `startLoop()`, which today checks only `running` and the OS setting (`electronics-current/scene.ts:546–558,619–651`). `startLoop()` itself checks visibility, the device preference and OS reduced motion, so the visibility handler, `resume()` and a style change can't restart a paused scene.
 - **What stays the same:** the masthead style, its ground and masks are untouched.
-- **Spec follow-up:** once `masthead-appearance-options` syncs, its masthead requirement (`ui-design-system`, "Masthead and electronics current in both themes") is updated in full so pointer stir, pulses and display cycling are qualified by the switch.
+- **Spec:** the masthead requirement (`ui-design-system`, "Masthead and electronics current in both themes"), synced from `masthead-appearance-options`, is modified in full so pointer stir, pulses and display cycling are qualified by the switch.
 - **Rejected:** hiding the parts when off. Mitch asked to keep the chosen appearance and only stop the movement.
 
 ### Agent settings autosave
@@ -187,14 +200,18 @@ useFreshRead(query, { current?: (data) => boolean, restored?: Snapshot }) →
   - A lost acknowledgement leaves the field unconfirmed, with Try again, until a read shows what is saved.
 - **Debounce:** a change starts a 600 ms debounce; further changes restart it, so stepper clicks coalesce.
 - **Validating at dispatch:** a save is validated when it is sent, against the newest confirmed settings. A queued step choice for a provider that is now off is dropped. Turning a provider off supersedes queued choices for it: its save carries the reset of its steps to Default, and any queued step save naming that provider is discarded with the existing reset note.
-- **Save identity:** today settings saves share one revision, with no request receipt (`intake-server/src/agents/settings.ts`), so after a lost response a read can't tell this tab's save from another tab's.
-  - Each save carries a client-generated `save_id`. The server stores the last applied `save_id` with the revision, and returns it on reads and on a retried save with the same ID. This is a contract and server change in PR-F.
+- **Save identity:** today settings saves share one revision, with no request receipt, and a stale revision is refused as `revision_conflict` with HTTP 412 (`intake-server/src/agents/settings.ts:187–222`). After a lost response, a read can't tell this tab's save from another tab's, and a single "last applied" ID couldn't either: "mine committed, then another tab saved" and "mine never committed" both end with a newer revision and another ID.
+  - Each save carries a client-generated `save_id`. In the same transaction as the settings update, the server writes a receipt: `save_id` (unique), the settings scope, a hash of the submitted fields, and the revision it produced.
+  - Receipts are bounded: the newest 200 per scope, and none older than 7 days.
+  - A save whose `save_id` already has a receipt is resolved before the revision check, under the same settings row lock. With the same scope and hash it returns the original result and applies nothing; otherwise it is refused. The unique key means a duplicate never applies twice, even if the original is still running.
+  - Definite refusals keep the typed `revision_conflict` response.
+  - This is a contract, migration and server change in PR-F, with the API role's grant on the receipt table (`intake-server/src/processing/grants.ts`).
 - **After an unconfirmed result:** the queue distinguishes three outcomes.
-  - **Confirmed:** the response, or a read showing this `save_id`.
-  - **Conflict:** a 409, or a read showing a newer revision with another `save_id`.
-  - **Unknown:** no response, and a read that still shows the old revision; the save may still be running.
+  - **Confirmed:** the response, or a resend of the same `save_id` returning its receipt.
+  - **Conflict:** `revision_conflict` for the save or its resend, which, because the receipt is checked first, means this save never applied.
+  - **Unknown:** no response to the save or its resend.
 - An unknown or conflicting outcome pauses the queue. Queued edits and their revision bases are kept until the outcome is known.
-  - **Unknown:** re-reading with backoff, or Try again, which resends the same `save_id` and is therefore safe to repeat.
+  - **Unknown:** resending the same `save_id` with backoff, or Try again, which is safe to repeat.
   - **Conflict:** Reload adopts the saved settings and discards the unconfirmed non-text values, keeping text drafts; Try again re-sends them over the new revision, validated again.
   - The queue resumes once every outcome is known.
 - **Status:** each subsection heading shows `AutosaveStatus` (Saving…, Saved, a failure with Try again, a conflict with Reload). A failure keeps the control's value.
@@ -216,8 +233,12 @@ useFreshRead(query, { current?: (data) => boolean, restored?: Snapshot }) →
   - The turn entry point (`guest-main.ts`) exists only during a turn, so it can't answer between turns.
 - **Status-only path, per provider:** each credential process gains a status-only endpoint on its own private listener, separate from the browser-facing management listener.
   - It needs no management key and offers no mutating action.
-  - Each is reachable only through a private relay route from the session worker, one per provider. The deployment scripts and relay change in task 12.
-  - A test proves the browser-facing management listener can't reach either status endpoint.
+  - **No path exists yet.** The relay today carries a guest-initiated connection into the worker's namespace, and each turn launch selects one provider (`tooling/deployment/bridge/relay.mjs:10–14,26–58,63–88`). There is no worker-to-credential-service path.
+  - Task 12.1.1 designs one, and the decision must state:
+    - how the status endpoint authenticates the paired worker, so nothing else on the host or guest can call it;
+    - how one request reaches both providers' services in a deployment that runs both;
+    - how a timed-out call is abandoned and its guest-side work released, with a deadline the guest enforces too.
+  - The deployment scripts and relay change in task 12.
   - The session worker owns the pairing and keeps it. The intake API asks the worker through a bounded local request with a 2 s timeout; task 12.1 chooses the transport from what the two processes already share.
   - Each provider answers independently. A missing service, an older image without the endpoint, a busy process, a stopped or unpaired VM, or a timeout makes that provider unknown, with the reason, and never signed out.
 - **Guest answer, read only:**
@@ -227,8 +248,11 @@ useFreshRead(query, { current?: (data) => boolean, restored?: Snapshot }) →
   - The answer carries no token, account email, key or pairing material.
 - **Intake server:**
   - `GET /api/v1/agents/provider-status` (read authority, short cache) returns that answer. It is display-only: it never carries a credential revision for the browser to save with.
-  - **The last-session line:** for each provider, the server selects that provider's latest session in either sign-in mode, ordered by start time.
-    - The line shows only if that session used the subscription, and its failure carries retained evidence that the provider refused sign-in: a recorded provider error of the authentication kind or with HTTP 401 (from #239).
+  - **The last-session line:** for each provider, the server selects that provider's latest started session in the authorized scope, in either sign-in mode.
+    - If several share the latest start time, the line shows only if every one of them qualifies.
+    - The line shows only if that session used the subscription, and its current turn's retained provider error (from #239) has Claude's kind `authentication_failed`, Codex's kind `unauthorized`, or HTTP 401 (`contracts/src/session-failures.ts:22–56`).
+    - The broader `authentication` category doesn't count, because it also covers missing credentials (`failure-model.ts:9–12`).
+    - The session summary strips `provider_error`, so the route reads the scoped diagnostic projection (`agents/failures.ts:41–79`).
     - `agent_login_required` alone doesn't count, because it also covers a missing guest connection and missing credentials before any provider call (`coordinator.ts`, `native-turn.ts`). Neither does `agent_credentials_unavailable`.
     - A newer session of either mode that didn't fail sign-in hides it.
   - A contract `ProviderStatus` sits in `contracts/src/agents.ts`.
@@ -285,8 +309,9 @@ Authority is unchanged: no command is enabled by cached, restored or cache-writt
 ## Verification strategy
 
 - **Provider status (intake PG and process tiers):**
-  - each provider's status endpoint answering independently, one unknown while the other answers; the browser-facing management listener unable to reach either;
-  - the last-session line for a missing token, an unreachable guest, a provider refusal with evidence, and a newer API-key session;
+  - each provider's status endpoint answering independently, one timing out while the other answers; direct requests from the browser-facing management listener and from other namespaces refused;
+  - the deployed topology with both providers, read before any turn;
+  - the last-session line for a missing token, an unreachable guest, a provider refusal with evidence, a newer API-key session, and an API-key session with the same start time;
   - `credential_meta` through upgrade, rollback, replace or remove on the older image, and re-upgrade, showing no stale time;
   - the status endpoint with a fake guest: Claude saved with and without `credential_meta`; Codex signed in, signing in, and expired-but-uncancelled left untouched;
   - a paired VM with zero turns and a pending Codex login, and a status read overlapping an active turn;
@@ -295,10 +320,11 @@ Authority is unchanged: no command is enabled by cached, restored or cache-writt
   - the last-session line: hidden after a newer success or API-key session, not shown for unavailable credentials;
   - the credential store opening on an older image after `credential_meta` exists, and on the new image with an existing token;
   - no secret in any response; the management endpoints unchanged.
+- **Intake PG tier, save receipts:** the receipt written with the update; a resend returning the original result without applying; a resend with other fields refused; a duplicate racing the original applying once; a lost acknowledgement followed by another tab's save; pruning by count and age; the API role's grant.
 - **Dropdowns:** each converted field keeps its value, validation and form wiring (its existing tests, updated for the control); a picker per kind is tested for search and keyboard; captures at 1440 and 390 px for every changed field.
 - **Unit (frontend), provider cards and dialogs:** the model picker (search by name and ID, grouping, a provider that's off disabled with its reason, exact IDs per provider and their validation, a pick setting both provider and model and autosaving, the record picker unchanged on the shared base); the pill states, Check again, the switches, the segmented default provider, the dialog shape checks, Save staying disabled while checking, failures keeping the dialog open, and the Codex dialog closing on confirmation.
 - **Manual (provider status):** on the real VM, Settings shows the status with no key typed, and a failed sign-in shows as the last-session line.
-- **Unit (frontend), agent settings autosave:** under fake timers (also: a timed-out save that commits after the recovery read, resolved by its `save_id`; a provider-off save superseding a queued step choice; a conflict and a lost acknowledgement, with and without a committed save, pausing the queue and resolving through Reload or Try again):
+- **Unit (frontend), agent settings autosave:** under fake timers (also: a timed-out save that commits after the recovery read, resolved by resending its `save_id`; a lost acknowledgement followed by another tab's save, still resolved as confirmed; a provider-off save superseding a queued step choice; a conflict and a lost acknowledgement, with and without a committed save, pausing the queue and resolving through Reload or Try again):
   - debounce coalescing;
   - the payload built at dispatch from the newest confirmed settings with only owned fields;
   - same-page saves overlapping through the queue, and edits during a save saving again after it;
@@ -306,7 +332,7 @@ Authority is unchanged: no command is enabled by cached, restored or cache-writt
   - flush before in-app navigation, success and failure, and the leave prompt on reload;
   - the last-provider refusal and the provider-off reset;
   - text fields keeping Save, including the interim model fields in PR-F.
-- **Unit (frontend), animation switch:** the default, storage failure and an unknown stored value; the scene paused when off, and still under OS reduced motion; turning it on after an off-state reload resuming without recreating the scene; a theme change while paused; each masthead style kept. The motion itself is checked in the running app, because the fixture runner freezes animation and hides the masthead scene (`frontend/README.md`).
+- **Unit (frontend), animation switch:** the default, storage failure and an unknown stored value; the scene paused when off, and still under OS reduced motion; turning it on after an off-state reload resuming without recreating the scene; a theme change while paused; scrolling out of view and back while off staying paused; each masthead style kept. The motion itself is checked in the running app, because the fixture runner freezes animation and hides the masthead scene (`frontend/README.md`).
 - **Unit (frontend), capture:** the photos input has `multiple` and no `capture`; a mixed drop on a group is one operation with the right kinds and count; a drop on a nested group is handled once; a paste outside text fields queues images, and inside a note it doesn't; every picker refusal (disabled, archived, stale, pending command, conflicting draft) refuses drop and paste too.
 - **Manual (capture):** picking several photos from the library on an iPhone and an Android phone, and dropping files on desktop Chrome and Safari, recorded in the PR.
 - **Unit (frontend), the review fixes:**
@@ -318,7 +344,9 @@ Authority is unchanged: no command is enabled by cached, restored or cache-writt
   - popover placement near the window's edges.
 - **Unit (frontend):**
   - `useFreshRead` phases and `verified` under fake timers and a fake query client:
-    - never verifying: a `setQueryData` write before or after verification, including one with equal data; a successful read returning equal data verifying even though structural sharing keeps the object; a restored snapshot, a cancelled fetch's late response, a scope change, and failed or paused reads;
+    - never verifying, with the real `QueryClient`: a `setQueryData` write before or after verification, including one with equal data; a restored snapshot; a silent cancel and replace; an older request completing after a newer one started; a removed query; a scope change; failed or paused reads;
+    - a successful read returning equal data verifying even though structural sharing keeps the object;
+    - a receipt writer's reread restoring verification;
     - a shared in-flight fetch verifying its observers once;
     - separate refresh tests for Processing commands, Pause and Resume, Review's manual workflow and Review acceptance;
     - the quiet reason reachable by keyboard focus;
@@ -332,7 +360,7 @@ Authority is unchanged: no command is enabled by cached, restored or cache-writt
 
 ## Migration, rollout and recovery
 
-- **Rollout:** a new build invalidates stored snapshots. The only stored-data change is the guest's `credential_meta` side table (task 12), which older images ignore.
+- **Rollout:** a new build invalidates stored snapshots. Two stored-data changes: the intake database's agent settings save receipt table (task 11), added by a forward migration that older servers ignore; and the guest's `credential_meta` side table (task 12), which older images ignore.
 - **Rollback:** removing the snapshot module leaves nothing to migrate; sessions start without snapshots.
 - **Build identifier:** the Vite `define` adds one build constant; the Dev mode popover's build summary can show it too.
 
@@ -341,7 +369,7 @@ Authority is unchanged: no command is enabled by cached, restored or cache-writt
 - **Skeletons can drift from the page layout.** Mitigation: each skeleton sits beside its page and is part of the visual pass.
 - **Snapshot size.** Mitigation: the 1 MB cap per projection and quota handling; actual sizes are measured in task 4 and reported in the PR description.
 - **Conflicts with `improve-agent-interaction`'s Processing and drawer edits.** Mitigation: whichever merges second rebases. Its activity popover and session rows take `WorkState` and `EventTime` from here, so whichever lands first defines them and the other adopts them.
-- **Overlapping spec edits.** `pnpm openspec:overlap` reports errors until `settings-debug-mode` and `simplify-vm-agent-web-and-setup` sync, because all three modify "Agent settings section". This change's MODIFIED block is written on that change's version. Sync order: `settings-debug-mode`, `simplify-vm-agent-web-and-setup`, then this change, rebasing the block in full first (tasks, lifecycle).
+- **Overlapping spec edits.** `settings-debug-mode`, `simplify-vm-agent-web-and-setup` and `masthead-appearance-options` have synced, and this change's two MODIFIED blocks are written on the synced text. If another active change edits either requirement and syncs first, this change rebases the block in full before syncing (tasks, lifecycle).
 - **Renaming states touches many tests.** Mitigation: one mapping function, with the old words removed in one PR.
 - **Provider token verification** is out of scope; task 12.1.3 only investigates it.
 - **Open: credential attribution.** Sessions don't record which credential revision they used, so failures are shown as "last session" diagnostics, not as the token's status. Recording it is a possible follow-up.
