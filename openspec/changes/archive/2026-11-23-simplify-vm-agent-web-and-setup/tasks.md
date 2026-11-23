@@ -5,7 +5,7 @@
 - [Proposal](proposal.md), [design assessment](design.md) and delta specs under `specs/` (`shared-vm-execution`, `processing-agent-sessions`, `app-settings`, `development-launcher`, `operations-backup-restore`).
 - Reuse recommendation: extend the existing per-turn egress proxy and `guest_destinations.py`, orchestrate the existing bridge scripts, and label images with a content digest. No new runtime dependency.
 - Change name: `simplify-vm-agent-web-and-setup`. Every branch and commit or PR subject includes it.
-- Linked item: BI-017 in [`docs/PLANNED_FUNCTIONALITY.md`](../../../docs/PLANNED_FUNCTIONALITY.md). The index owns its current status.
+- Linked item: BI-017 in [`docs/PLANNED_FUNCTIONALITY.md`](../../../../docs/PLANNED_FUNCTIONALITY.md). The index owns its current status.
 
 ## Completion and commit ordering
 

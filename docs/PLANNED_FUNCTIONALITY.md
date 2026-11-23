@@ -112,7 +112,7 @@ Agents in the shared VM get provider web search (Claude WebSearch, Codex web sea
 - Status: Done — PR-A to PR-E merged in #229, #230, #231, #234 and #237, with fixes #235 and #236; the live requalification passed on Claude and Codex with web on and off (#237).
 - Size: L — provider tool admission, the egress proxy policy, a sealed agent setting, launcher setup automation and documentation.
 - Prerequisites: BI-016 (`settings-debug-mode`) for the Settings › Agents structure (#226) and agent-setting sealing (#227), both merged. Read BI-010 before changing the Codex tool surface. Requalifying needs Mitch's fresh go-ahead for a live provider run.
-- OpenSpec: [simplify-vm-agent-web-and-setup](../openspec/changes/simplify-vm-agent-web-and-setup/)
+- OpenSpec: [simplify-vm-agent-web-and-setup](../openspec/changes/archive/2026-11-23-simplify-vm-agent-web-and-setup/)
 
 ## Fixes
 
@@ -126,7 +126,7 @@ Agent sessions could be sent evidence images a provider refuses: lot sessions go
 - Status: Done — bounded agent images (#238), the provider's turn error (#239), the specific code behind a VM turn failure (#240), Claude's output limits in VM tool sessions (#241) and the live check (#242) merged. The planned live observation of a 6144 × 8160 lot fetch and a live provider error was not made; Mitch accepted the change without it, and it is an open item in the archived notes.
 - Size: M — the tool server's evidence delivery, guest staging, provider adapters, the guest frame and the diagnostic panel.
 - Prerequisites: None. Found during BI-017's requalification; the live check needs Mitch's go-ahead.
-- OpenSpec: [bound-agent-evidence-images](../openspec/changes/bound-agent-evidence-images/)
+- OpenSpec: [bound-agent-evidence-images](../openspec/changes/archive/2026-11-23-bound-agent-evidence-images/)
 
 #### BI-010 — Harden native agent sessions
 
@@ -184,7 +184,7 @@ Make most of the Settings rows that BI-014 shipped disabled work. These are new-
 - Status: Done — PR-A to PR-E merged in #225, #226, #227, #228 and #232.
 - Size: XL — agent settings contract and sealing, a creation snapshot, a stored read credential, the Settings structure and debug gating across most screens, in five PRs (PR-A to PR-E) after the planning PR.
 - Prerequisites: None. It takes over the Settings rows from BI-015 that it builds; coordinate `.env.example` and launcher edits with `default-env-settings`.
-- OpenSpec: [settings-debug-mode](../openspec/changes/settings-debug-mode/)
+- OpenSpec: [settings-debug-mode](../openspec/changes/archive/2026-11-23-settings-debug-mode/)
 
 #### BI-013 — Preview renditions for media
 
