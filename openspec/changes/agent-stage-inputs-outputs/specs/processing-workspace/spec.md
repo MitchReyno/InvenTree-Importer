@@ -52,6 +52,16 @@ Processing › Images SHALL show each lot's proposed crops as the app's renderin
 - **WHEN** the operator confirms the Part image and the stock image
 - **THEN** both become derived versions selected for the Part and the stock, and the extra stays unselected.
 
+### Requirement: Sessions show the lots they serve
+
+Session rows and session pages SHALL name the lots a session serves, such as "Research · 3 lots: …", and each lot's status SHALL come from its lot job.
+
+#### Scenario: A three-lot session
+
+- **GIVEN** a Research session serving three lots, one of them waiting on Match
+- **WHEN** the operator opens the Agents list
+- **THEN** the row reads "Research · 3 lots" with their labels, and the waiting lot shows as waiting.
+
 ### Requirement: The brief on the session page
 
 A session's page SHALL show the brief it started from as the first, collapsible item of its conversation, with the operator's corrections marked as theirs.

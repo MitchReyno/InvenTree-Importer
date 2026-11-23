@@ -13,6 +13,7 @@ The outcome sought:
   - Examine and Research add judgement as match notes.
   - Before any research or photo work, the operator decides: add stock, fill what's missing, new Part, or already imported. Research and Images then run in the mode that decision calls for.
 - **Items without a useful identifier are identified first.** Research runs in an identify mode before anything is matched. Its identity amendment updates the lot's key details: the MPN, manufacturer and aliases.
+- **Research and Images sessions serve several lots.** A session takes a group of lots of the same stage and mode, up to a configurable cap per stage, while each lot keeps its own job, decision and status.
 - **Images produces images.** It proposes crop recipes for the Part image, stock images and extras. The app renders them from the originals, and the operator confirms them.
 - **The skills are ported.** The deterministic scripts (grid overlay, crop and montage, logo matcher) become intake MCP tools. The skills' rules become per-stage instruction packs, with long reference text behind a `read_guide` tool.
 - **Outputs reach records.**
@@ -30,7 +31,8 @@ Mitch's decisions, 2026-11-23:
 - Match replaces the Inventory agent;
 - a lot waiting on its match question doesn't start Research or Images;
 - "add stock" takes a stock photo, and a Part photo only when the Part has none;
-- Research's identify round updates the lot's key details.
+- Research's identify round updates the lot's key details;
+- Research and Images sessions each serve several lots, with separate caps: "Lots per Research session" and "Lots per Images session", 1–20, defaulting to 5 and 8.
 
 The visible parts are on the canvas page "Agent stages" (v81; design log D44–D46). The brief on the session page is D43, carried over from the abandoned `lot-session-handoff` (#244).
 
@@ -39,7 +41,7 @@ The visible parts are on the canvas page "Agent stages" (v81; design log D44–D
 - Change: `agent-stage-inputs-outputs`. Branches are `feat/agent-stage-inputs-outputs-<suffix>`, and subjects are `type(agent-stage-inputs-outputs): …`.
 - **BI-022** (new): Agent stage inputs and outputs. It replaces the abandoned BI-020 plan `lot-session-handoff`. BI-020 and BI-021 now belong to `polish-ui-styling-and-loading` and its follow-up.
 - Related:
-  - BI-019 (`improve-agent-interaction`, #243) provides the stepped `ask`, the session history, the `photo_view` record, agent-reported web sources and the session page.
+  - BI-019 (`improve-agent-interaction`, #243) provides the stepped `ask`, the session history, the `photo_view` record, agent-reported web sources and the session page. Its session rows and drawer assume one subject per session; this change's PRs adapt them for multi-lot sessions, and #243 isn't changed.
   - BI-017 also edits the session instructions.
   - BI-015 keeps the existing-record comparison fields; Match takes over its Inventory questions.
 
@@ -65,13 +67,15 @@ In scope:
 - **MCP tools:** `inspect_region`, `preview_images`, `propose_images`, `match_logo`, `read_guide`, `read_lot`, `read_vocabulary`.
 - **Images:** crop recipes with straightening and bounded light adjustments, rendered by the media decoder.
 - **Profile:** a new profile `shared-vm-agent/4` with per-stage instruction packs, admission, and a live requalification on Claude and Codex.
+- **Multi-lot sessions:** lot groups claimed up to each stage's sealed cap, per-lot brief sections and `read_lot` scope, per-lot waits, release and requeue on an identity change, per-lot retry after a failure, one slot per session, and the two settings.
 - **Records:** confirmed values into Parts and lots, Match decisions into targets, recipes into Part and stock images, and gaps mode into update effects for existing Parts.
 - **UI:**
   - the Processing › Match step, replacing Inventory;
   - the Images step's proposed crops;
   - the match question;
   - Review confirmation;
-  - the brief on the session page.
+  - the brief on the session page;
+  - the lots a session serves on session rows and pages, and the two caps in Settings › Agents › Sessions.
 - **Legacy:** Inventory stage removal for new work, and the default profile changing to the synthetic session fixture.
 
 Non-goals:
@@ -123,7 +127,7 @@ No new third-party runtime dependency is needed: the decoder already ships `shar
 
 ## Impact and dependencies
 
-- **Contracts:** the input `/7`, briefs, the typed proposals, `revision/2`, `match` inbox items, match records and questions, the new tool argument and result schemas, and the recipe `/2`.
+- **Contracts:** the input `/7` with its lot group, the two agent settings, briefs, the typed proposals, `revision/2`, `match` inbox items, match records and questions, the new tool argument and result schemas, and the recipe `/2`.
 - **Intake server:**
   - `processing/` (a Match module, stage queueing, the stable identity's merge);
   - `agents/tools/` (new tools, stage checks);

@@ -92,6 +92,19 @@ The complexity is high. The change touches every session's input and output, add
 - Task 7 extends each of them to `/4`, with the worker image and deployment changes, a paired `/4` turn test, and a test that retained `/3` attempts drain on a `/3` worker.
 - Until then, PR-A to PR-F exercise the new behaviour through `synthetic-session/1`, which takes the new contracts from PR-A; its process tests are the activation path.
 
+### Multi-lot sessions (Mitch's decision)
+
+- **Model:** jobs stay per lot. `processing_attempt` binds 1 to N lot jobs of one stage and mode through a new `processing_attempt_lot` table, and each lot job's current attempt points at the attempt holding it. The group's session lineage gets its own id; existing one-job lineages keep the job id.
+- **Claim:** the claim takes up to the sealed cap of queued lot jobs of one stage and mode in the batch, oldest first, that Match allows: no Match wait, the current search generation, not superseded or stale. It seals the group into the `/7` input under the same lock that checks the waits. Lots that become ready later go to a new session.
+- **Caps:** `research_lots_per_session` (default 5) and `images_lots_per_session` (default 8), integers 1–20, in the agent settings contract and Settings › Agents › Sessions, sealed per attempt as `settings-debug-mode` seals its settings. A cap of 1 reproduces one-lot sessions.
+- **Brief:** a shared section, then one section per lot, each with an equal share of the 48 KiB budget and the rest in the page store. `read_lot(lot_id)` refuses lots outside the group.
+- **Outputs:** typed proposals name their lot; `subject_id` must be in the group. Release records stay per attempt.
+- **Waits:** Match waits stay per lot. The session works on its other lots while one waits, and is parked, holding no slot, only when all its lots wait or are done. A lot's `match` item resumes that lot.
+- **Routing:** revisions, `match` items and answers for a lot go to the lineage holding it. A lot whose identity changes after the claim is released: its partial work is stale, it is requeued as its own job, and the session gets a `revision/2`.
+- **Failure:** a session failure requeues each incomplete lot individually. Start fresh on one lot moves it to a new session. A session holds one slot whatever its lot count.
+- **UI:** session rows and pages list the lots served; lot status comes from lot jobs. BI-019's one-subject session rows and drawer are adapted in this change's PRs.
+- **Rejected:** adding lots to a running session (breaks the sealed input); one job per group (loses per-lot state, decisions and staleness).
+
 ### Re-steering and delivery
 
 - `revision/2` items carry typed `changes` and a `source`.
@@ -120,6 +133,8 @@ The complexity is high. The change touches every session's input and output, add
 | Amendment conflicts with Examine or a human value | Not merged; a question settles it |
 | A paused identify session whose decision skips research | The session is closed as finished; its identity amendment stays |
 | Tool results too large | Previews and montages are sized to the frame and image limits from BI-018 |
+| A session fails holding several lots | Each incomplete lot is requeued individually; finished lots keep their proposals |
+| A lot's identity changes after claim | That lot is released and requeued; the session is told, and keeps its other lots |
 | Earlier profiles (`native-agent/2`, `shared-vm-agent/1` and `/3`) | No briefs, no Match; they keep the Inventory pipeline, run as before and stay readable |
 
 ## Verification strategy
@@ -135,7 +150,8 @@ The complexity is high. The change touches every session's input and output, add
   - effects for images and gaps.
 - **Media decoder:** parity tests for each port against the scripts' outputs on fixtures, including the hue-preservation check on resistor bands.
 - **Process tier:** a fake session per stage running through briefs and tools; an identify-then-match flow end to end.
-- **Frontend:** the Match step, the match question, the Images review, Review confirmation and the brief entry.
+- **Multi-lot sessions (PG and process):** grouping by stage, mode and cap; the cap from sealed settings; per-lot pause in identify mode; release and requeue on an identity change; per-lot retry after a failure; `read_lot` scope.
+- **Frontend:** the Match step, the match question, the Images review, Review confirmation, the brief entry, the lots on session rows and pages, and the two settings.
 - **Live:** a requalification on Claude and Codex with Mitch's go-ahead. It covers an exact match decided before research, a house-numbered item identified then matched, and Images producing a Part image.
 
 ## Migration, rollout and recovery

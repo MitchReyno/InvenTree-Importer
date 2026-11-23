@@ -111,10 +111,11 @@ Give each processing agent its own job, the context earlier stages found, and an
 - Each stage publishes a typed output that the server keeps within the stage's scope, and Images proposes crop recipes the app renders.
 - The Inventory agent is replaced by an app-side Match step. Match searches InvenTree after Examine, after Research identifies an item, and before approval, and asks the operator before spending research or photo work on a Part that may already exist.
 - The repository's skills become per-stage instruction packs and intake MCP tools.
+- Research and Images sessions each handle several lots, up to separate configurable caps per stage.
 
 - Change: `agent-stage-inputs-outputs`
 - Status: Proposed — plan in review.
-- Size: XL — a new input version and typed outputs, an app Match step with its own questions, identity amendments, media decoder ports, records and approval effects, and a new profile with a live requalification, in eight PRs after the plan.
+- Size: XL — a new input version and typed outputs, an app Match step with its own questions, identity amendments, media decoder ports, records and approval effects, and multi-lot sessions with their caps, and a new profile with a live requalification, in nine PRs after the plan.
 - Prerequisites: BI-019 (`improve-agent-interaction`) PR-B, PR-D and PR-E; coordinate session instruction edits with BI-017. The live requalification needs Mitch's go-ahead.
 - OpenSpec: [agent-stage-inputs-outputs](../openspec/changes/agent-stage-inputs-outputs/)
 

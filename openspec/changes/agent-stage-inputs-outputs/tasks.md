@@ -30,8 +30,9 @@
 | 4. Identify mode and identity amendments | Intake server | 3 | pipeline "Identify first when nothing can be searched", "Identity amendments update the lot", "Successors start on a stable identity" (identify-mode start); match "When Match searches" ("Alias found during research"), "Decisions set stage modes" (a paused identify session) |
 | 5. Image and logo tools in the media decoder, and the Images review | Media decoder, intake server, frontend | 2 | capture-media "Media immutable derived crops"; agent-sessions "Image and logo tools run in the app", "Stage tool sets" (image tools); workspace "Images step shows proposed crops" |
 | 6. Outputs into records and approval, and validation before approval | Intake server, frontend | 3, 4, 5 | review-records "Agent values are proposed until confirmed"; approval-preparation both requirements; match "Validation before approval" |
-| 7. Profile `shared-vm-agent/4`, instruction packs, guides and live requalification | Intake server, migration, live | 1–6 | agent-sessions "Human facts take precedence" (instructions), "Stage guides on demand", "Stage tool sets" (read_guide and admission); live evidence |
+| 7. Profile `shared-vm-agent/4`, instruction packs, guides and live requalification | Intake server, migration, live | 1–6, 9 | agent-sessions "Human facts take precedence" (instructions), "Stage guides on demand", "Stage tool sets" (read_guide and admission); live evidence |
 | 8. The brief on the session page | Frontend | 1; BI-019 PR-E | workspace "The brief on the session page" |
+| 9. Multi-lot Research and Images sessions | Contracts, intake server, migration, frontend | 3, 4; BI-019 PR-E | agent-sessions "Research and Images sessions serve lot groups", "Lots per session settings", "Per-lot handling inside a group", "Typed stage outputs" (the lot); workspace "Sessions show the lots they serve" |
 
 ## PR delivery map
 
@@ -44,7 +45,8 @@
 | PR-D | Identify mode and identity amendments | 4 | Builds on Match's search passes | PR-C | `interactive-app` ← `feat/agent-stage-inputs-outputs-identify`; `feat(agent-stage-inputs-outputs): identify items before matching them` | Intake tiers; review; CI |
 | PR-E | Image and logo tools, recipe `/2` and the Images review | 5 | Decoder ports with their consumers | PR-B | `interactive-app` ← `feat/agent-stage-inputs-outputs-images`; `feat(agent-stage-inputs-outputs): images proposed as recipes and rendered by the app` | Decoder parity tests, intake tiers, frontend checks; demo video; review; CI |
 | PR-F | Outputs into records and approval, and validation before approval | 6 | Everything that reaches InvenTree, reviewed together | PR-C, PR-D, PR-E | `interactive-app` ← `feat/agent-stage-inputs-outputs-records`; `feat(agent-stage-inputs-outputs): confirmed agent output reaches records and approval` | Intake tiers including execution tests, frontend checks; review; CI |
-| PR-G | The new profile, instruction packs and guides, live-qualified | 7 | The behaviour change and its live proof together | PR-A to PR-F; Mitch's go-ahead for the live run | `interactive-app` ← `feat/agent-stage-inputs-outputs-profile`; `feat(agent-stage-inputs-outputs): stage instruction packs in a new agent profile` | Admission tests, intake tiers, live evidence on the PR; review; CI |
+| PR-G | The new profile, instruction packs and guides, live-qualified | 7 | The behaviour change and its live proof together | PR-A to PR-F and PR-I; Mitch's go-ahead for the live run | `interactive-app` ← `feat/agent-stage-inputs-outputs-profile`; `feat(agent-stage-inputs-outputs): stage instruction packs in a new agent profile` | Admission tests, intake tiers, live evidence on the PR; review; CI |
+| PR-I | Multi-lot Research and Images sessions | 9 | One session model change with its settings, claim, routing and UI | PR-D; BI-019 PR-E | `interactive-app` ← `feat/agent-stage-inputs-outputs-lot-groups`; `feat(agent-stage-inputs-outputs): run research and images sessions over several lots` | Contracts tests, intake tiers, frontend checks; demo video; review; CI |
 | PR-H | The brief on the session page | 8 | UI over PR-A, after the page exists | PR-A; BI-019 PR-E | `interactive-app` ← `feat/agent-stage-inputs-outputs-brief-page`; `feat(agent-stage-inputs-outputs): show the brief a session started from` | Frontend checks; demo video; review; CI |
 
 ## 1. Briefs, input `/7`, read tools and stage packs scaffold
@@ -213,10 +215,32 @@
 - [ ] 8.2 GREEN: implement them.
 - [ ] 8.3 Run the checks, and record the demo video.
 
+## 9. Multi-lot Research and Images sessions
+
+- **PR delivery:** PR-I.
+- **Outcome:**
+  - an attempt binds 1 to N lot jobs of one stage and mode (`processing_attempt_lot`), each lot job pointing at the attempt that holds it;
+  - the claim groups queued lots that Match allows, oldest first, up to the attempt's sealed cap, and seals the group into the `/7` input;
+  - "Lots per Research session" (default 5) and "Lots per Images session" (default 8), integers 1–20, in the agent settings and Settings › Agents › Sessions, sealed per attempt;
+  - one brief section per lot within the budget split, and `read_lot` scoped to the group;
+  - typed proposals naming a lot of the group;
+  - per-lot Match waits and identify pauses inside a running session;
+  - revisions, `match` items and answers routed to the session holding the lot, and a lot released and requeued when its identity changes after the claim;
+  - per-lot retry after a session failure, Start fresh moving one lot, and one slot per session;
+  - session rows and pages naming the lots they serve, adapting BI-019's one-subject rows and drawer.
+- **Scope:** `contracts/src/agents.ts` and `processing.ts`; `processing/session-attempts.ts`, the claim in `agents/session/session-runner.ts` and `session-execution.ts`; inbox routing; `processing/session-replacement.ts`; a migration; `frontend/src/components/settings/` and `frontend/src/components/processing/` session rows and page.
+- **TDD approach:** PG and process tests fail first. They cover grouping by stage, mode and cap; the cap taken from sealed settings after a settings change; a lot that is waiting, superseded or stale left out of a claim; a per-lot pause in identify mode while the session works on another lot; release and requeue on an identity change after the claim; per-lot retry after a failure; Start fresh on one lot; `read_lot` refusing a lot outside the group; a proposal naming another lot refused; and one slot per session. Frontend tests cover the settings fields and the session rows.
+- **Verification:** contracts tests, intake tiers, frontend checks, and a demo video.
+
+- [ ] 9.1 Read the guidelines and the `settings-debug-mode` settings pattern. Map every reader of a job's current attempt and of a lineage's single subject.
+- [ ] 9.2 RED: write the tests listed above.
+- [ ] 9.3 GREEN: implement the group model, claim, settings, brief sections, routing, release, retry and UI.
+- [ ] 9.4 Run the checks, and record the demo video.
+
 ## Delivery evidence and lifecycle follow-up
 
 - [ ] PR-0: review the plan read-only, fix findings, publish, CI green, merge.
-- [ ] PR-A to PR-H: each implemented, reviewed at its exact head, published (with a demo where the UI changes), CI green and merged, in the order above.
-- [ ] Update BI-022 as PRs merge. It is Done only after PR-H merges and the live evidence is accepted.
+- [ ] PR-A to PR-I: each implemented, reviewed at its exact head, published (with a demo where the UI changes), CI green and merged, in the order above.
+- [ ] Update BI-022 as PRs merge. It is Done only after every PR has merged and the live evidence is accepted.
 - [ ] Mark design log D43–D46 Built.
 - [ ] Before archiving, reconcile the deltas with the specs after BI-019's sync: BI-019 modifies `Inventory session drawer`, which this change removes, and `Step page pattern`, which PR-C rebases; and it changes the pipeline's quantity-question scenario. Then run `pnpm openspec:overlap --change agent-stage-inputs-outputs`, sync after BI-019 (both edit `processing-workspace`, `processing-agent-sessions` and `processing-stage-pipeline`), and record open items in `notes.md`.

@@ -56,9 +56,45 @@ A session of `shared-vm-agent/4` or `synthetic-session/1` SHALL start from a bri
 - **WHEN** the lot's Research session starts
 - **THEN** its opening holds the identity with its id, both observations with their readings and regions, the operator's facts, the asked questions and the evidence list.
 
+### Requirement: Research and Images sessions serve lot groups
+
+For `/7` work, a Research or Images session SHALL serve a lot group: 1 to N lot jobs of its stage and mode in one batch, taken at claim, oldest first, from queued lots that Match allows and that are neither superseded nor stale. N SHALL be the attempt's sealed cap for its stage. A lot that becomes ready after the claim SHALL go to a new session. Each lot SHALL keep its own job, and the session SHALL hold one concurrency slot.
+
+#### Scenario: Three lots in one session
+
+- **GIVEN** a Research cap of 5 and three lots decided as new Parts while a fourth waits on its match question
+- **WHEN** a Research session is claimed
+- **THEN** it serves the three decided lots, and the fourth joins a later session once decided.
+
+### Requirement: Lots per session settings
+
+Settings › Agents › Sessions SHALL hold "Lots per Research session" and "Lots per Images session", each an integer from 1 to 20, defaulting to 5 and 8, sealed into each new attempt. A cap of 1 SHALL give one-lot sessions.
+
+#### Scenario: Cap changed mid-batch
+
+- **GIVEN** a running Images session sealed with a cap of 8
+- **WHEN** the operator sets the cap to 2
+- **THEN** the running session keeps its lots, and the next Images session takes at most 2.
+
+### Requirement: Per-lot handling inside a group
+
+Each lot section of the brief SHALL hold the lot's identity, observations, human facts, asked questions, evidence and match state and mode. `read_lot` SHALL return only lots in the group. A lot waiting on Match SHALL not stop the session's other lots. A lot whose identity changes after the claim SHALL be released and requeued, with the session told. A failed session's incomplete lots SHALL be requeued one by one, and Start fresh on a lot SHALL move it to a new session.
+
+#### Scenario: One lot pauses in identify mode
+
+- **GIVEN** a Research session identifying two lots
+- **WHEN** one lot's amendment opens a match question
+- **THEN** the session keeps working on the other lot, and resumes the first when its mode arrives.
+
+#### Scenario: Session fails
+
+- **GIVEN** an Images session that finished one of its three lots
+- **WHEN** it fails
+- **THEN** the two unfinished lots are requeued individually, and the finished lot keeps its proposal.
+
 ### Requirement: Typed stage outputs
 
-For `shared-vm-agent/4` and `synthetic-session/1`, each agent stage SHALL publish only its own output kind: `examine-identity/1` for Examine, `research-identity/1` and `research/1` (each with match notes) for Research, and `images/1` for Images. Earlier profiles keep publishing their existing proposal versions. The server SHALL refuse a proposal of another kind, or one carrying fields the stage or its mode may not propose.
+For `shared-vm-agent/4` and `synthetic-session/1`, each agent stage SHALL publish only its own output kind: `examine-identity/1` for Examine, `research-identity/1` and `research/1` (each with match notes) for Research, and `images/1` for Images. Earlier profiles keep publishing their existing proposal versions. Each proposal SHALL name a lot of the session's group. The server SHALL refuse a proposal of another kind, for another lot, or carrying fields the stage or its mode may not propose.
 
 #### Scenario: Images can't research
 
