@@ -7,7 +7,7 @@ A question SHALL name the field or fields it affects and, for each of its steps,
 - A session question SHALL ask one thing. It has one step, or up to four related steps that are answered together. Each step SHALL have one answer kind: a choice among 2–6 options the agent offers, a number that is a lot's quantity, or text.
 - Proposals that rely on an open question SHALL show that dependency and be labelled provisional until the question is answered.
 - An agent MAY enter waiting-for-input only when no useful work remains without an answer, and SHALL say so in its status line.
-- Every open question in a batch SHALL appear in one Needs you list, ordered by the time it was asked, showing its answer kind or step count and the agent's assumptions.
+- Every open question in a batch SHALL appear in one Needs you list, ordered by the time it was asked, showing its answer kind or step count and the agent's assumptions where they were recorded; questions from earlier runner profiles carry none.
 
 #### Scenario: Unclear quantity
 

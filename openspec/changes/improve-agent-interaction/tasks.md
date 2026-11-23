@@ -115,7 +115,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 - [ ] 3.3 RED: write the answer PG tests.
   - [ ] 3.3.1 A quantity plus a note, applied in one transaction.
   - [ ] 3.3.2 Rollback when the note edit is refused after the quantity edit, with the refusal injected.
-  - [ ] 3.3.3 Refusal of a combined note over the 8192-character limit, before any edit, with the response naming the step, and of an answer whose note fits but whose encoded inbox payload exceeds 32,768 bytes.
+  - [ ] 3.3.3 Refusal of a combined note over the 8192-character limit, before any edit, with the response naming the step, and of an answer whose note fits but whose payload, measured as PostgreSQL's `jsonb` text, exceeds 32,768 bytes, including one that fits as compact JSON.
   - [ ] 3.3.4 Refusal of a wrong kind, an unknown option or a missing step.
   - [ ] 3.3.5 A number step answered in words is accepted: the text reaches the inbox, the note is written and the lot quantity is unchanged.
   - [ ] 3.3.6 Same-key replay returns the first receipt; a different payload under that key is refused; a new key with the same payload adopts the answer; a new key with a different payload gets `payload_conflict`.
@@ -123,7 +123,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - [ ] 3.3.8 An inbox payload carrying the option ID and the number step's basis.
   - [ ] 3.3.9 A `/1` answer still accepted.
   - [ ] 3.3.10 A `/2` answer to an earlier runner question is refused before the runner branch reads `input.value`, and retained `/1` runner answers still succeed.
-- [ ] 3.4 RED: an attention read PG test with an open `/2` stepped question and a `/1` question, each carrying its title, kind or step count and assumptions.
+- [ ] 3.4 RED: an attention read PG test with an open `/2` stepped question, a `/1` session question and an earlier runner question, each carrying its title and kind or step count, with assumptions where recorded and none for the runner question; `/2` lot and Part questions count against their affected lots.
 - [ ] 3.5 GREEN: implement the `ask` and answer branches and the normalised read model.
 - [ ] 3.6 Update the `ask` description and the runner's opening instructions. Teach the fake CLI and the synthetic session a stepped ask, and add a process test that answers it and reads the inbox.
 - [ ] 3.7 Update `intake-server/src/agents/ARCHITECTURE.md` (the question shape and answer effects). Run the intake unit, PG and process tiers, including a read of a database already holding `/2` questions and answers.
@@ -145,6 +145,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - the Needs you and Overview rows (`components/batches/NeedsYouPanel.tsx`, `processing/ProcessingOverview.tsx`);
   - `SessionChatPanel.tsx`, whose `answerText` reads `payload.value` and would throw on a stepped answer, so it reads both answer payloads;
   - `QuestionAnswer.tsx`'s submit handler, so a confirmed `invalid_answer` clears the pinned submission and marks the named step, while an uncertain failure keeps the original payload and key; and `perform()` in `ProcessingWorkspace.tsx`, which today replaces every failure with `processing_command_not_confirmed`, so it rethrows a confirmed `invalid_answer` with its code and `step_id`;
+  - the readers of `question.spec.subject_id`, which move to the shared `subject_id`: `operator/review-model.ts` (which lots show an answer form in Review) and, in task 3, `attention/projection.ts`;
   - the other readers of `question.spec.kind`, `prompt` or `reason`, which move to the normalised view: `ProcessingInventory.tsx` (open questions beside the comparison), `ProcessingJobCard.tsx`, `ProcessingWorkspace.tsx` and `processing/source.ts`;
   - the processing fixtures.
 - **Prerequisites:** tasks 2 and 3, in the same PR.
@@ -162,9 +163,10 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - [ ] 4.2.3 A number step: the inline error for prose, blocked Next, and "Answer in words".
   - [ ] 4.2.4 The `/1` question fallback, and draft pinning across a supersede with every step kept.
   - [ ] 4.2.5 Needs you rows with kind, step count and assumptions, from the attention read.
-  - [ ] 4.2.6 A `/2` question on the Inventory step, on a job card and in Review shows its title, steps and `reason` from the shared fields, the Inventory comparison included, and a `/1` question shows as before.
-  - [ ] 4.2.7 The drawer's chat renders after a `/2` answer is saved, with `/1` and `/2` answers both in its timeline.
-  - [ ] 4.2.8 A confirmed 422 naming a step, submitted from the drawer through `perform()`, keeps the draft editable and marks that step; an uncertain failure retries only the original payload and key.
+  - [ ] 4.2.6 Review shows the answer form on the affected lot for `/2` lot and Part questions, through the shared `subject_id`.
+  - [ ] 4.2.7 A `/2` question on the Inventory step, on a job card and in Review shows its title, steps and `reason` from the shared fields, the Inventory comparison included, and a `/1` question shows as before.
+  - [ ] 4.2.8 The drawer's chat renders after a `/2` answer is saved, with `/1` and `/2` answers both in its timeline.
+  - [ ] 4.2.9 A confirmed 422 naming a step, submitted from the drawer through `perform()`, keeps the draft editable and marks that step; an uncertain failure retries only the original payload and key.
 - [ ] 4.3 GREEN: implement the form, the option cards and the rows. Remove `OPTIONS_NOT_CARRIED` and its placeholders.
 - [ ] 4.4 Update the fixtures (`ProcessingProof`) with a stepped and a choice question for the demo. Update the frontend architecture if component ownership changes.
 - [ ] 4.5 Run the frontend checks. Record the demo video for the PR description.
@@ -189,7 +191,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 - [ ] 5.1 Read the shared and intake-server code guidelines. List every reader of the outbox union and of proposal sources.
 - [ ] 5.2 RED: contract tests for `photo_view` and `web_page`. PG tests:
   - [ ] 5.2.1 A delivered fetch appends one `photo_view` with the delivered size and digest, and publishes `session_changed` in the same transaction.
-  - [ ] 5.2.2 A refused or over-budget fetch appends nothing, and a refused final transaction releases the budget and returns no image, including when a removal, a capability revocation, or a cancellation or supersession committed after encoding but before the capability is revoked races the final transaction; a commit with an unknown outcome keeps the reservation and returns no image.
+  - [ ] 5.2.2 Through the MCP endpoint, a commit with an unknown outcome returns the uncertain-outcome result and no image, not "changed nothing". A refused or over-budget fetch appends nothing, and a refused final transaction releases the budget and returns no image, including when a removal, a capability revocation, or a cancellation or supersession committed after encoding but before the capability is revoked races the final transaction; a commit with an unknown outcome keeps the reservation and returns no image.
   - [ ] 5.2.3 A `web_page` source is accepted for `https` without a delivery check, refused for `file:`, credentials or a URL over 2048 characters, and refused in `relies_on` or catalogue sources.
   - [ ] 5.2.4 A `/6` proposal with a `web_page` source goes through the advertised `propose` tool, is stored, and reads through the retained decoder and the ordinary Processing snapshot read, beside a retained `/5` proposal.
   - [ ] 5.2.5 Frontend: the existing source list shows a stored `/6` proposal's `web_page` source as a "Web page" chip marked agent-reported, and the old timeline labels a `photo_view`.
@@ -222,7 +224,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 - [ ] 6.2 RED: PG tests:
   - [ ] 6.2.1 Each entry kind resolves its summary, details and links.
   - [ ] 6.2.2 A retired lot or a removed version gives a "gone" link.
-  - [ ] 6.2.3 With rows written by the existing append paths, answers and chat appear as the operator's from their actor, an instruction as the operator's at its save time and labelled relayed when sent to a later attempt, and `evidence` and `revision` notices (including an identity revision from another session) as the app's, and one above the acknowledgement cursor reads as not read yet; a `read_inbox` call that advances the cursor publishes `session_changed` in its transaction, and one that doesn't move it publishes nothing.
+  - [ ] 6.2.3 With rows written by the existing append paths, answers and chat appear as the operator's from their actor, an instruction saved before a Start fresh and relayed to the new attempt placed at its relay time, with its save time in its details and labelled relayed, and `evidence` and `revision` notices (including an identity revision from another session) as the app's, and one above the acknowledgement cursor reads as not read yet; a `read_inbox` call that advances the cursor publishes `session_changed` in its transaction, and one that doesn't move it publishes nothing.
   - [ ] 6.2.4 Attempt headers say how an attempt ended, and why it started where the retained input shows it; turns within an attempt are not attempts; a failure or resume with no new inbox or outbox item still updates its header on the next read; the span runs from the queue time, not a turn's `started_at`; an attempt cancelled before its first turn, one cancelled after a settled turn, an idle attempt superseded by Start fresh after a prior turn, and an attempt that finished, was resumed and was then cancelled show the end time of their latest terminal transition, not an earlier turn's.
   - [ ] 6.2.5 A regroup with recorded moves shows them, and a mixed regroup shows which moves were applied and which only suggested; an older regroup lists its destination lots; an observation revised in place shows its values labelled current in both its entries; earlier attempts' failures resolve; a lot edited after formation shows its values labelled current, and after an operator's quantity change shows the selected quantity apart from the agent's estimate and basis.
   - [ ] 6.2.6 The `before` cursor pages without gaps or duplicates across retries with repeated sequences and equal timestamps, and across inbox and outbox rows with equal timestamps; the page, its cursor and the metadata come from one snapshot; every read returns the metadata and acknowledgement cursor, including a read of the newest page with no new entries.
