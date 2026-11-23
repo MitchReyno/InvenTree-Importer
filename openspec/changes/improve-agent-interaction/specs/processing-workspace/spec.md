@@ -161,7 +161,7 @@ The session page SHALL be reached from the drawer's "Open full session", the Age
 
 - **GIVEN** a session with more entries than one read returns
 - **WHEN** the operator reaches the oldest shown entry and chooses Load older
-- **THEN** the next older entries appear above in order without duplicates, and new entries appear in time order when the newest entries are next re-read.
+- **THEN** the next older entries appear above in order without duplicates, and new entries returned by the next re-read of the newest entries appear in time order; an entry written slowly enough to sort behind entries already shown appears when the page is next opened.
 
 #### Scenario: Many entries between refreshes
 

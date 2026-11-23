@@ -24,9 +24,9 @@ The Agents page SHALL list every agent session in authorised scope, grouped by b
 
 #### Scenario: Opens on what needs attention
 
-- **GIVEN** batch Heyyy with one session whose latest attempt failed, one waiting for an answer and one whose failed attempt was followed by a successful one, and another batch with nothing needing attention
+- **GIVEN** batch Heyyy with one session whose latest attempt failed, one waiting for an answer and one whose failed attempt was followed by a successful one, and batch Spill with one session that can't resume, and another batch with nothing needing attention
 - **WHEN** the Agents page opens
-- **THEN** the Needs attention chip is selected and counts 2, Heyyy shows those two sessions, the recovered session is not listed, and the other batch collapses to one line saying nothing needs attention.
+- **THEN** the Needs attention chip is selected and counts 3, Heyyy shows those two sessions, Spill shows its session, the recovered session is not listed, and the other batch collapses to one line saying nothing needs attention.
 
 #### Scenario: Archived batches only under All
 
