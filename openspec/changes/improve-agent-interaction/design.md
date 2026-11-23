@@ -169,6 +169,23 @@ Rejected: changing `CaptureEdit` to carry several changes. That is a wider contr
   - Resume uses the existing pause route.
 - **Rejected:** a timer-based progress estimate. The header spec forbids invented progress.
 
+### Session rows, failures and the Agents page (Fixes page S1–S3, S6)
+
+- **One row per session.** The Agents read already lists attempts with `job_id` and `latest_on_job` (`contracts/src/agents.ts`). Rows group by job in the frontend; the current attempt leads, and earlier attempts fold with their time and cause. No new read is needed.
+- **Needs attention:** a session whose latest attempt failed, or which is waiting for the operator. A failure followed by a success on the same job doesn't count. Counts are sessions. Batches with nothing needing attention collapse to one line, and archived batches appear only under All.
+- **Failures in plain words:**
+  - One mapping turns the recorded `provider_error` (#239: kind, result type, HTTP status) and the cause code (#240) into a sentence, for example `overloaded_error` + 529 → "Couldn't reach Claude: the API was overloaded (HTTP 529)".
+  - The category's advice moves behind a help button. Codes show only in debug mode.
+  - Failures recorded before causes existed say the cause wasn't recorded.
+- **Rows and actions:** the title links to the drawer on Processing and to the session page from Agents. Failed rows offer Start fresh, Open session, Failure details and Open lot in Review.
+
+### Drawer header, activity feed and message box (S4, S8, O6)
+
+- **Header:** built from the session's attempt and agent selection, its sealed web setting, its time span and its retry count. It uses the shared time format from `polish-ui-styling-and-loading`.
+- **Activity feed:** built from the history entries' app-side summaries (task 6), which already resolve lots and records. Each entry leads with the event and links to its lot; the agent's status line follows as a muted "Agent: …".
+- **Status lines:** the opening's `instructions` gain one sentence asking for plain status lines without internal IDs. That text isn't digest-bound, so no profile change is needed.
+- **Message box:** labelled "Message <step>", with the placeholder and an Enter / Shift+Enter hint. Send is disabled while the box is empty. It is shared by the drawer and the session page.
+
 ## State, authority and failure behavior
 
 | Case | Outcome |

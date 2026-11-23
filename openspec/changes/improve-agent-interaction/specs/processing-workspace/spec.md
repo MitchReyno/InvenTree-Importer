@@ -168,3 +168,49 @@ The session page SHALL be reached from the drawer's "Open full session", the Age
 - **GIVEN** a session page address for a job outside the batch or the caller's scope
 - **WHEN** it is opened
 - **THEN** the page says the session was not found and shows no history.
+
+### Requirement: Failures in plain words
+
+A failed or stopped session SHALL lead with its recorded cause in plain words, built from its recorded provider error and cause code, such as "Couldn't reach Claude: the API was overloaded (HTTP 529)", with what it was doing and when. The failure category's general advice SHALL be offered once behind a help button, and codes SHALL show only in debug mode. A failure recorded before causes were kept SHALL say the cause wasn't recorded.
+
+#### Scenario: Provider overloaded
+
+- **GIVEN** a Research session whose turn failed with provider error kind `overloaded_error` and HTTP status 529
+- **WHEN** its row, drawer or page shows the failure
+- **THEN** it reads "Couldn't reach Claude: the API was overloaded (HTTP 529)" with its last status line and time, the advice is behind a help button, and no code shows unless debug mode is on.
+
+#### Scenario: Old failure without a cause
+
+- **GIVEN** a session that failed before causes were recorded
+- **WHEN** it is shown
+- **THEN** it says the cause wasn't recorded instead of showing generic advice as if it were the cause.
+
+### Requirement: Session drawer header
+
+The session drawer's header SHALL show the session's state, model, where it ran (agent VM or host), whether web pages were allowed, its time span, "Attempt N · M earlier failed ▸" when it has retries, and Open full session.
+
+#### Scenario: Retried session in the drawer
+
+- **GIVEN** a Research session on its third attempt after two failures
+- **WHEN** its drawer opens
+- **THEN** the header reads its state, "Claude Opus 5.5 · agent VM · web on", the span "Today 13:02–13:13", "Attempt 3 · 2 earlier failed ▸" and Open full session.
+
+### Requirement: Activity in the app's words
+
+Processing's recent activity SHALL lead each entry with the app's recorded event in plain words, linked to its lot or record, such as "Research proposed an identity for GE S2CN1 diodes", with the agent's status line as a muted "Agent: …" note.
+
+#### Scenario: Proposal in recent activity
+
+- **GIVEN** a Research session that published an identity proposal for the GE S2CN1 diode lot
+- **WHEN** recent activity shows it
+- **THEN** the entry reads "Research proposed an identity for GE S2CN1 diodes" linking to the lot, with the agent's latest status line as a muted note, and no internal ID is shown.
+
+### Requirement: Labelled message box
+
+The message box in the session drawer and on the session page SHALL be labelled "Message <step>", with the placeholder "Ask why, or tell it what to check next" and the hint "Enter to send · Shift+Enter for a new line". Send SHALL be available once there is text.
+
+#### Scenario: Sending a message
+
+- **GIVEN** an empty message box for a Research session
+- **WHEN** the operator types a message and presses Enter
+- **THEN** it is sent once, Shift+Enter inserts a new line instead, and Send was unavailable while the box was empty.

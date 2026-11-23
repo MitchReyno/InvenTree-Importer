@@ -26,6 +26,8 @@
 | 6. Session history read and photo-view crops | Contracts and intake server | 3, 5 | processing-workspace "Expandable session history", "Lot-forming entries expand with links", "Proposal, question and failure entries expand with links", "Your inputs in the session history", "Reaching and reading the session page" (Long history, scope) |
 | 7. Expandable timeline and the session page | Frontend behavior | 4, 6 | processing-workspace history requirements, "Drawer and session page split", "Agent session page", "Session page header and panels", "Reaching and reading the session page"; agents-overview "Agents page" |
 | 8. Stage counts and the paused flag | Contracts and intake server | None | header-workflow-status "Stage rows in workflow details" (counts), "Stage bar states" (paused) |
+| 10. Session rows, failures in plain words and Agents filters | Frontend behavior | None | agents-overview "Agents page", "Session rows", "Failed rows offer recovery"; processing-workspace "Failures in plain words" |
+| 11. Drawer header, activity feed and message box | Frontend behavior, plus one instruction sentence | 6, 7 | processing-workspace "Session drawer header", "Activity in the app's words", "Labelled message box"; processing-agent-sessions "Status lines stay readable" |
 | 9. Activity popover stage rows and bar states | Frontend behavior | 8 | header-workflow-status "Stage rows in workflow details", "Stage bar states", "Only working stages animate" |
 
 ## PR delivery map
@@ -38,6 +40,8 @@
 | PR-C | The drawer's stepped form, live option cards and Needs you rows | 4 | The UI over PR-B's contract | PR-B merged | `feat/improve-agent-interaction-answer-form`; `feat(improve-agent-interaction): answer agent questions step by step` | Frontend checks; demo video; review; CI |
 | PR-D | Recorded photo views, web page sources, the paged history read and the photo-view crop route | 5, 6 | The server side of the history; the old timeline view keeps working until PR-E switches to it | PR-B merged (the history resolves `/2` questions) | `feat/improve-agent-interaction-session-history`; `feat(improve-agent-interaction): record and read a session's full history` | Contracts tests, intake unit, PG and process tiers; review; CI |
 | PR-E | Expandable, grouped, linked entries in the drawer and the session page as a conversation | 7 | The UI over PR-D; one entry renderer for both places | PR-C and PR-D merged | `feat/improve-agent-interaction-session-page`; `feat(improve-agent-interaction): expandable agent history and session page` | Frontend checks; demo video; review; CI |
+| PR-G | One row per session, failures in plain words, recovery actions and the Agents page filters | 10 | Independent, frontend-only, and immediately useful | PR-0 | `feat/improve-agent-interaction-session-rows`; `feat(improve-agent-interaction): one row per session with its real failure` | Frontend checks; demo video; review; CI |
+| PR-H | Drawer header, recent activity in the app's words, the labelled message box and readable status lines | 11 | Builds on the history read and session page | PR-D and PR-E merged | `feat/improve-agent-interaction-session-details`; `feat(improve-agent-interaction): clearer session header, activity and message box` | Frontend checks, intake unit tier for the instruction text; demo video; review; CI |
 | PR-F | Per-stage counts and the paused flag, stage rows in the activity popover and the new bar states | 8, 9 | Independent of questions and history, small enough to review end to end | PR-0 | `feat/improve-agent-interaction-activity-stages`; `feat(improve-agent-interaction): show each stage's state and counts in the activity popover` | Contracts tests, intake PG tier, frontend checks; demo video; review; CI |
 
 ## 1. Dialogs close from their backdrop
@@ -288,6 +292,46 @@
 - [ ] 9.4 GREEN: implement the states, the popover layout and the rows. Update the component gallery.
 - [ ] 9.5 Run the frontend checks. Record the demo video for the PR description.
 
+## 10. Session rows, failures in plain words and Agents filters
+
+- **PR delivery:** PR-G.
+- **Outcome:**
+  - one row per session on the Agents page and Processing's session list, with earlier attempts folded;
+  - failures in plain words from the recorded provider error and cause, with advice behind help and codes only in debug mode;
+  - titles that open the session, and recovery actions on failed rows;
+  - Agents filter chips opening on Needs attention, with batches that need nothing collapsed and archived batches only under All.
+- **Scope and approach:** `frontend/src/components/agents/AgentSessions.tsx`, the Processing session list in `components/processing/`, `components/agents/SessionFailureDetails.tsx`, and a failure-text mapping beside the contracts' allowlists (`CLAUDE_ERROR_KINDS`, `CODEX_ERROR_KINDS`, cause codes). It uses the shared state words and time format from `polish-ui-styling-and-loading`.
+- **Prerequisites:** none; coordinate with polish on the shared words.
+- **Acceptance:** "Opens on what needs attention", "Archived batches only under All", "Retries fold into one row", "Failed row recovery", "Provider overloaded", "Old failure without a cause".
+- **TDD approach:** grouping, Needs attention derivation and failure-text tests fail first.
+- **Verification:** frontend checks, and a demo video on a Heyyy-like fixture going from 8 rows to 3.
+- **Risks and decisions:** the canvas boards FixSessionRows, FixFailureCause, FixSessionLinks and FixAgentsFilters are the reference.
+
+- [ ] 10.1 Read the code guidelines and the Fixes page boards.
+- [ ] 10.2 RED: tests for job grouping, folded attempts, Needs attention (including a failure followed by success), collapsed and archived batches, failure sentences for each recorded kind and the "not recorded" case, and row links and actions.
+- [ ] 10.3 GREEN: implement them.
+- [ ] 10.4 Run the frontend checks, and record the demo video.
+
+## 11. Drawer header, activity feed and message box
+
+- **PR delivery:** PR-H.
+- **Outcome:**
+  - the drawer header with state, model, where it ran, web, time span, retries and Open full session;
+  - recent activity in the app's words, linked to the lot, with the agent's note muted;
+  - the labelled message box;
+  - one instruction sentence asking for plain status lines without internal IDs.
+- **Scope and approach:** the drawer in `ProcessingWorkspace.tsx` (it rebases on polish's edits), `ProcessingOverview.tsx` recent activity from the history entries, the shared message box component, and `openingText` in `agents/session/session-runner.ts`.
+- **Prerequisites:** tasks 6 and 7.
+- **Acceptance:** "Retried session in the drawer", "Proposal in recent activity", "Sending a message", "Status after proposing".
+- **TDD approach:** component tests, and a session-runner test for the instruction sentence, fail first.
+- **Verification:** frontend checks, the intake unit tier, and a demo video.
+- **Risks and decisions:** the boards FixDrawerHeader, FixActivityFeed and FixMessageBox are the reference.
+
+- [ ] 11.1 Read the code guidelines and the Fixes page boards.
+- [ ] 11.2 RED: header, activity entry and message box tests, plus the opening-instructions test.
+- [ ] 11.3 GREEN: implement them.
+- [ ] 11.4 Run the checks, and record the demo video.
+
 ## Delivery evidence and lifecycle follow-up
 
 - [ ] PR-0: review the plan read-only (`codex exec -m gpt-6.2-sol -s read-only`, at most three rounds), fix findings, publish, CI green, merge.
@@ -297,6 +341,8 @@
 - [ ] PR-D: implement tasks 5 and 6, review the exact head, publish, CI green, merge.
 - [ ] PR-E: implement task 7, review the exact head, publish with the demo, CI green, merge.
 - [ ] PR-F: implement tasks 8 and 9, review the exact head, publish with the demo, CI green, merge.
-- [ ] Update BI-019's status as PRs merge. It is Done only after PR-E and PR-F merge and its acceptance is evidenced.
+- [ ] PR-G: implement task 10, review the exact head, publish with the demo, CI green, merge.
+- [ ] PR-H: implement task 11, review the exact head, publish with the demo, CI green, merge.
+- [ ] Update BI-019's status as PRs merge. It is Done only after PR-E, PR-F, PR-G and PR-H merge and its acceptance is evidenced.
 - [ ] Mark the design log entries D37, D39, D41 and D42 Built (D40's page layout was replaced by D41), with their PRs.
 - [ ] Before archiving, run `pnpm openspec:overlap --change improve-agent-interaction`, sync the specs, and record final open items in `notes.md`.

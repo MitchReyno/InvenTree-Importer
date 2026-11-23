@@ -77,3 +77,13 @@ A proposal MAY cite a web page by URL, with an optional title and the time the a
 - **GIVEN** a proposal citing `file:///etc/passwd` or a URL over 2048 characters
 - **WHEN** the tool server validates it
 - **THEN** it returns a correctable validation result naming the source, and nothing is stored.
+
+### Requirement: Status lines stay readable
+
+The session instructions SHALL tell the agent to write status lines in plain words about the item, without internal IDs such as proposal, observation or attempt identifiers.
+
+#### Scenario: Status after proposing
+
+- **GIVEN** a Research session that has just published a proposal
+- **WHEN** it reports status
+- **THEN** the instructions it received ask for a line such as "Proposed GE S2CN1 diodes as a 1N4148-class switching diode", not "Proposal f067afc5 published".
