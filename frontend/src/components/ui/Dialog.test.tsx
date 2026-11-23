@@ -33,6 +33,20 @@ function backdrop() {
   return element
 }
 
+// Browsers refuse focus inside an inert subtree; jsdom does not, so it is modelled here.
+function enforceInertFocus() {
+  const realFocus = HTMLElement.prototype.focus
+  return vi.spyOn(HTMLElement.prototype, 'focus').mockImplementation(function (
+    this: HTMLElement,
+    options?: FocusOptions,
+  ) {
+    if (this.closest('[inert]')) {
+      return
+    }
+    realFocus.call(this, options)
+  })
+}
+
 // Radix starts listening for outside presses a tick after the dialog opens.
 async function afterOpen() {
   await act(async () => {
@@ -260,7 +274,7 @@ test('closing returns focus to a connected opener rather than the fallback', asy
 test('focus the owner moves on close stays where the owner put it', async () => {
   const user = userEvent.setup()
 
-  // As a confirmed delete does: the closed dialog's result takes focus as it mounts.
+  // The dialog's result takes focus as it mounts, so the page must be live again by then.
   function MovesFocus() {
     const [deleted, setDeleted] = useState(false)
     const [open, setOpen] = useState(false)
@@ -291,10 +305,15 @@ test('focus the owner moves on close stays where the owner put it', async () => 
     )
   }
 
-  render(<MovesFocus />)
-  await user.click(screen.getByRole('button', { name: 'Delete file' }))
-  await user.click(screen.getByRole('button', { name: 'Delete' }))
-  expect(screen.getByRole('button', { name: 'Undo' })).toHaveFocus()
+  const focus = enforceInertFocus()
+  try {
+    render(<MovesFocus />)
+    await user.click(screen.getByRole('button', { name: 'Delete file' }))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    expect(screen.getByRole('button', { name: 'Undo' })).toHaveFocus()
+  } finally {
+    focus.mockRestore()
+  }
 })
 
 test('a dialog opened by a click that left focus elsewhere returns focus to the clicked control', async () => {
@@ -503,4 +522,33 @@ test('the page stays inert while the crop editor stays open over a viewer that c
   )
   expect(screen.getByRole('button', { name: /Workflow activity/ })).toBeInTheDocument()
   expect(document.querySelector('[inert]')).toBeNull()
+})
+
+test('of two dialogs that open in the same commit, the later one stays usable on top', async () => {
+  const user = userEvent.setup()
+  const onCrop = vi.fn()
+  const focus = enforceInertFocus()
+  try {
+    render(
+      <>
+        <Dialog title="Front label" onClose={vi.fn()}>
+          <p>Viewer</p>
+        </Dialog>
+        <Dialog title="Prepare documentary crop" onClose={vi.fn()}>
+          <button type="button" onClick={onCrop}>
+            Prepare new version
+          </button>
+        </Dialog>
+      </>,
+    )
+    const top = screen.getByRole('dialog', { name: 'Prepare documentary crop' })
+    expect(top.closest('[inert]')).toBeNull()
+    expect(top.closest('[aria-hidden="true"]')).toBeNull()
+    expect(screen.getByText('Viewer').closest('[inert]')).not.toBeNull()
+
+    await user.click(within(top).getByRole('button', { name: 'Prepare new version' }))
+    expect(onCrop).toHaveBeenCalledOnce()
+  } finally {
+    focus.mockRestore()
+  }
 })

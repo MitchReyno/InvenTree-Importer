@@ -1,5 +1,5 @@
 import * as RadixDialog from '@radix-ui/react-dialog'
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import styled, { css } from 'styled-components'
 import { color, radius, shadow, space, zIndex } from '#/theme/generated/tokens'
 import { ModalContainerContext } from '#/context/ModalContainerContext'
@@ -45,8 +45,9 @@ export function ModalFrame({
     fallback.current = returnFocus
   })
 
-  // Syncs the page outside React's tree: inert behind the modal, as a native modal made it.
-  useEffect(() => {
+  // Syncs the page outside React's tree: inert behind the modal, as a native modal made it. A
+  // layout Effect, so the page is live again before a closing owner's new content takes focus.
+  useLayoutEffect(() => {
     if (!container) {
       return
     }
