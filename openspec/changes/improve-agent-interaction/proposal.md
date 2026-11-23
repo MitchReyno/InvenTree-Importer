@@ -21,7 +21,7 @@ Mitch reported these problems while working with agents in a live batch on 2026-
 
 The outcome sought:
 
-- Any dialog, the session drawer included, closes when the operator clicks its backdrop, as Esc does. An unsaved answer still stops the close and shows the existing warning.
+- Any dialog, the session drawer included, closes when the operator clicks its backdrop, through its own close guard; where Esc closes the dialog, the backdrop does the same. An unsaved answer still stops the close and shows the existing warning. The crop editor, which ignores Esc, closes from its backdrop only when its crop is unsent or confirmed.
 - An agent asks **one question per `ask`**. A question has one step, or up to four related steps that the drawer shows one at a time and sends together.
 - Each step has its own answer kind:
   - **choice**: 2–6 options from the agent, shown as clickable cards, with an optional "Something else…" text answer;
@@ -48,7 +48,7 @@ Mitch will add more agent-interaction items to this change. This proposal covers
 ## Current behavior and evidence
 
 - **The drawer:**
-  - `frontend/src/components/ui/Dialog.tsx` opens a native `<dialog>` with `showModal()` and closes only on `cancel` (Esc) or its Close button. It has no pointer handling for the backdrop.
+  - Before this change, `frontend/src/components/ui/Dialog.tsx` opened a native `<dialog>` with `showModal()` and closed only on `cancel` (Esc) or its Close button, with no pointer handling for the backdrop. Task 1 rebuilt it on Radix Dialog.
   - `ProcessingWorkspace.tsx` passes an `onClose` that shows "Save or discard your answer before closing this session" while an answer draft is unsaved.
 - **The ask tool:**
   - `SessionAskArgs` in `contracts/src/sessions.ts` takes `{kind: quantity|clarification, subject_id, prompt, reason, fields, assumption}`; `prompt` is free text of up to 2048 characters.
@@ -129,17 +129,18 @@ Compatibility:
 | --- | --- | --- | --- | --- |
 | Native `<dialog closedby="any">` light dismiss | No JavaScript; routes through `cancel`, so the existing guard applies | Not supported in Safari, including 26.x previews; iOS light dismiss is tracked separately. Mitch uses Safari and a phone, so a fallback is needed anyway | [caniuse wf-dialog-closedby](https://caniuse.com/wf-dialog-closedby), [WebKit 284592](https://bugs.webkit.org/show_bug.cgi?id=284592), [Chrome light-dismiss guide](https://developer.chrome.com/docs/modern-web-guidance/guides/ui-behaviors/light-dismiss-a-dialog.md.txt), checked 2026-11-23 | Behavior under jsdom tests |
 | `dialog-closedby-polyfill` (npm) | Fills Safari | A new runtime dependency for a few lines of code; the package page sits under a supply-chain incident notice | [socket.dev listing](https://socket.dev/npm/package/dialog-closedby-polyfill), checked 2026-11-23 | Maintenance and provenance |
-| Extend `Dialog.tsx`: pointerdown and click on the dialog element outside its content box, calling `onClose` (recommended) | Works in every browser; one path for all dialogs; the existing `onClose` guard and `closeDisabled` apply unchanged; testable in jsdom | Small custom code to keep | The current `Dialog.tsx`; the [Chrome guide's fallback pattern](https://developer.chrome.com/docs/modern-web-guidance/guides/ui-behaviors/light-dismiss-a-dialog.md.txt) | None material |
+| Extend `Dialog.tsx`: pointerdown and click on the dialog element outside its content box, calling `onClose` (first recommended, then replaced) | Works in every browser; no dependency | Four review rounds found pointer and click edge cases in the custom handler, with one still open | The superseded handler (`ui/useBackdropClick.ts` in this change's earlier commits; see notes.md); the [Chrome guide's fallback pattern](https://developer.chrome.com/docs/modern-web-guidance/guides/ui-behaviors/light-dismiss-a-dialog.md.txt) | Each browser's pointer and click reporting |
+| `@radix-ui/react-dialog` 1.3.1 (recommended; Mitch's decision, 2026-11-23) | Owns outside-press, Escape, focus trapping and nested layers; one modal system for every dialog; the existing `onClose` guard and `closeDisabled` apply through `preventDefault()` | One new package. It pins the same shared primitives as the installed `@radix-ui/react-popover` 1.3.1, released the same day. MIT licence, as the installed Radix packages. No GitHub security advisory for it or `@radix-ui/react-popover`; `pnpm audit --prod` reports nothing in the Radix packages; the release carries npm provenance attestations | [npm @radix-ui/react-dialog](https://www.npmjs.com/package/@radix-ui/react-dialog), released 2026-10-12; the [GitHub advisory database](https://github.com/advisories?query=ecosystem%3Anpm+radix-ui); checked 2026-11-23 | Behaviour under jsdom tests. Radix alone only sets `aria-hidden` on the page behind, and leaves live regions exposed; `ModalFrame` adds the `inert` page, as the native modal had it. The provenance attestations were listed, not independently verified |
 | Expandable entries: native `<details>`/`<summary>` | Built-in keyboard and screen-reader behavior, no dependency; the canvas draws it this way | Styling of the marker varies a little by browser | MDN `<details>`; the canvas v71 boards | None material |
 | Stepped questions: a form or wizard library | — | The repository already uses `react-hook-form` and its own `OptionRow`, `Fieldset` and `QuestionCard`; a wizard library adds nothing these can't do | `frontend/package.json`, `frontend/src/forms` | — |
 | Stepped questions: extend contracts, `QuestionAnswer` and `DrawerAnswers` (recommended) | Keeps the TypeBox contract as the single source for the agent schema, server validation and the form | Custom UI work | The current source listed above | — |
 
 **Recommendation:**
 
-- Extend `Dialog.tsx` for the backdrop click. If `closedby` reaches every target browser later, it can replace the handler.
+- Rebuild `Dialog.tsx` on `@radix-ui/react-dialog` for the backdrop click, with the crop editor on the same layer.
 - Build the stepped question on the existing contracts and form stack.
 - Use native `<details>` for expandable entries, and the existing route helpers for links.
-- No new dependency is justified.
+- `@radix-ui/react-dialog` is the only new dependency.
 
 ## Capabilities
 

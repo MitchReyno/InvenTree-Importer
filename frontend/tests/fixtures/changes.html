@@ -3,7 +3,9 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { themeController } from '/src/theme/theme.ts';
+import { trackDialogOpeners } from '/src/components/ui/dialog-opener.ts';
 import { ChangesProof } from '/src/components/changes/fixtures/ChangesProof.tsx';
 themeController();
+trackDialogOpeners();
 createRoot(document.getElementById('root')).render(React.createElement(ChangesProof));
 </script></body></html>
