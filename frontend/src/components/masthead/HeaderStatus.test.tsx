@@ -821,6 +821,8 @@ test('the connection panel leads with host, last check and Open InvenTree, and n
 
   expect(panel).toHaveTextContent('Hostinventory.example.test')
   expect(panel).toHaveTextContent(`Last check${eventTimeText(at, Date.now())}`)
+  // The time says which day, with the full date and seconds on hover and to assistive technology.
+  expect(within(panel).getByText(eventTimeText(at, Date.now())!)).toHaveAttribute('datetime', at)
   expect(within(panel).getAllByText(/test InvenTree/)).toHaveLength(1)
   expect(within(panel).getByRole('link', { name: 'Open InvenTree' })).toBeVisible()
   expect(within(panel).queryByText(/Application API/)).toBeNull()
@@ -1114,6 +1116,22 @@ describe('at phone width', () => {
     expect(
       screen.queryAllByRole('status').some((node) => node.textContent === 'InvenTree unreachable'),
     ).toBe(false)
+  })
+
+  test('a failure keeps its word beside the spinner of work still running', async () => {
+    const api = client()
+    vi.mocked(api.work).mockResolvedValue({
+      ...work(),
+      work: [job('research', 'running', 1), job('images', 'failed', 2)],
+      lane_occupied: true,
+    })
+    render(<HeaderStatus client={api} batchId={batchId} />)
+    const status = await screen.findByRole('button', { name: 'Workflow activity' })
+
+    await waitFor(() =>
+      expect(status.querySelector('[data-short]')).toHaveAttribute('data-short', 'Failed'),
+    )
+    expect(status).toHaveAccessibleDescription(/^Images failed · 1/)
   })
 
   test('the agents status button always carries the AI mark, even with nothing running', async () => {

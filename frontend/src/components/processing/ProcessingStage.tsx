@@ -17,6 +17,8 @@ interface Props {
   focusLotId?: string | null
   /** The batch attention read the header counts from. */
   attention?: BatchAttentionDto
+  /** The attention read failed, so Needs you cannot list everything the header counts. */
+  attentionUnavailable?: boolean
   sharperRequests?: SharperRequestStore
   drawerRestore?: DrawerRestoreStore
   onDirtyChange: (dirty: boolean) => void
@@ -43,6 +45,7 @@ export function ProcessingStage({
   sessionId,
   focusLotId,
   attention,
+  attentionUnavailable,
   sharperRequests,
   drawerRestore,
   onDirtyChange,
@@ -65,6 +68,7 @@ export function ProcessingStage({
       sessionId={sessionId}
       focusLotId={focusLotId}
       attention={attention}
+      attentionUnavailable={attentionUnavailable}
       sharperRequests={sharperRequests}
       drawerRestore={drawerRestore}
       navigate={navigateProcessing}

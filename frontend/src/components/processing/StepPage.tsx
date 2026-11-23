@@ -55,7 +55,9 @@ export function StepPage({
         <StatePill state={summary.state} />
         <Title>{label}</Title>
         {help && <HelpButton label={`About ${label}`} explanation={help} />}
-        <FieldNote>{summary.text}</FieldNote>
+        <FieldNote>
+          {[summary.text, sessionCount(sessions.length)].filter(Boolean).join(' · ')}
+        </FieldNote>
         <CaptureLink href={batchHref(batchId, { tab: 'capture' })}>Evidence in Capture</CaptureLink>
       </Head>
       {focus && focus.state !== 'done' && (
@@ -74,12 +76,21 @@ export function StepPage({
       {sessions.length > 0 && (
         <Card aria-label="Sessions">
           <CardTitle>Sessions</CardTitle>
-          <SessionRows sessions={sessions} onOpen={onOpenSession} />
+          <SessionRows sessions={sessions} paused={source.paused} onOpen={onOpenSession} />
         </Card>
       )}
       {children && <Outputs aria-label="Outputs">{children}</Outputs>}
     </Page>
   )
+}
+
+/** The step's own sessions, counted beside its lots; nothing when it has none. */
+function sessionCount(count: number) {
+  if (count === 0) {
+    return ''
+  }
+
+  return count === 1 ? '1 session' : `${count} sessions`
 }
 
 const Page = styled(PageStack)``

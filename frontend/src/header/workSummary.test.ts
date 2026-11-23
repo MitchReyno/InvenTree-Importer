@@ -239,4 +239,33 @@ describe('workSummary outside a batch', () => {
       }).headline,
     ).toBe('1 agent working')
   })
+
+  it('scopes its headline to one batch and names that batch', () => {
+    const summary = workSummary({
+      ...outside,
+      data: read({
+        work: [
+          job('images', 'running', { batch_id: other, occupies_lane: true }),
+          job('research', 'waiting_for_user', { batch_id: batch }),
+        ],
+        active_sessions: [session('images', { batch_id: other })],
+        lane_occupied: true,
+      }),
+    })
+
+    expect(summary).toMatchObject({ headline: 'Research waiting for you · 1', batchId: batch })
+  })
+
+  it('names the working batch when nothing waits', () => {
+    const summary = workSummary({
+      ...outside,
+      data: read({
+        work: [job('images', 'running', { batch_id: other, occupies_lane: true })],
+        active_sessions: [session('images', { batch_id: other })],
+        lane_occupied: true,
+      }),
+    })
+
+    expect(summary).toMatchObject({ headline: '1 agent working', batchId: other })
+  })
 })

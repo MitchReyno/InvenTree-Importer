@@ -115,6 +115,8 @@ interface Props {
   focusLotId?: string | null
   /** The batch attention read the header counts from, for the Overview's Needs you. */
   attention?: BatchAttentionDto
+  /** The attention read failed or paused; Needs you says so rather than waiting. */
+  attentionUnavailable?: boolean
   navigate: (view: ProcessingView, questionId?: string) => void
   onDirtyChange: (dirty: boolean) => void
   onSaved: () => Promise<void>
@@ -148,6 +150,7 @@ export function ProcessingWorkspace({
   questionId,
   focusLotId = null,
   attention,
+  attentionUnavailable = false,
   navigate,
   onDirtyChange,
   onSaved,
@@ -494,7 +497,12 @@ export function ProcessingWorkspace({
   const scrolledTo = useRef<string | null>(null)
   // Brings the focused lot's output into view once per address, after it has rendered.
   useEffect(() => {
-    if (!focusKey || scrolledTo.current === focusKey) {
+    if (!focusKey) {
+      // Leaving the focus lets a later visit to the same lot scroll to it again.
+      scrolledTo.current = null
+      return
+    }
+    if (scrolledTo.current === focusKey) {
       return
     }
     const target = document.querySelector<HTMLElement>('[data-focused-lot]')
@@ -659,6 +667,7 @@ export function ProcessingWorkspace({
             job={job}
             batch={batch}
             disabled={disabled}
+            paused={snapshot?.paused === true}
             waitReason={waitReason}
             chooseQuestion={(id) => navigate(view, id)}
             cancel={() => {
@@ -812,6 +821,7 @@ export function ProcessingWorkspace({
                 activity={activity}
                 queue={queue}
                 attention={attention}
+                attentionUnavailable={attentionUnavailable}
                 lots={lotRows}
                 startedAt={started}
                 lotsFormed={lotsFormed(batch.lots)}

@@ -468,6 +468,7 @@ export function Batch({
         sessionId={parsed.kind === 'route' ? sessionFromQuery(parsed.query) : null}
         focusLotId={parsed.kind === 'route' ? lotFromQuery(parsed.query) : null}
         attention={attentionCurrent}
+        attentionUnavailable={attentionUnavailable}
         sharperRequests={sharperRequests}
         drawerRestore={drawerRestore}
         onDirtyChange={reportDirty}
@@ -560,6 +561,7 @@ export function Batch({
         <RestoredTab
           batch={restoredBatch}
           route={batchRoute!}
+          focusLotId={parsed.kind === 'route' ? lotFromQuery(parsed.query) : null}
           manual={manual}
           navigate={navigate}
           onDirtyChange={reportDirty}

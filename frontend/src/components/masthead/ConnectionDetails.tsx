@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import type { ConnectionStatusDto } from '@invimport/contracts'
 import { color, space, typeVar } from '#/theme/generated/tokens'
 import { LIVE_UPDATE_FRESH_MS } from '#/components/operations/LiveUpdates'
-import { Button, DebugDetails, eventTimeText, KeyValue } from '#/components/ui'
+import { Button, DebugDetails, EventTime, eventTimeText, KeyValue } from '#/components/ui'
 import { observationFresh, safeTargetNavigation, timestampFresh } from '#/header/observations'
 import { DevBadge } from './DevBadge'
 import { type UpdateHealth } from '#/context'
@@ -103,6 +103,9 @@ export function ConnectionDetails({
           {
             label: 'Last check',
             value: target?.observed_at ? checkTime(target.observed_at, now) : 'Not yet checked',
+            content: target?.observed_at ? (
+              <EventTime at={target.observed_at} now={now} />
+            ) : undefined,
             state: 'plain' as const,
           },
         ]}

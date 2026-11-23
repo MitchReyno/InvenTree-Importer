@@ -96,7 +96,8 @@ describe('StepPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Examine' })).toBeInTheDocument()
     const head = screen.getByRole('heading', { name: 'Examine' }).parentElement!
-    expect(head).toHaveTextContent('3 lots formed')
+    // The step's own sessions are counted with it; the other steps' are not.
+    expect(head).toHaveTextContent('3 lots formed · 1 session')
     expect(within(head).getByText('Working')).toBeInTheDocument()
     expect(
       within(screen.getByRole('region', { name: 'Questions' })).getByRole('link', {
@@ -145,7 +146,7 @@ describe('StepPage', () => {
 
     expect(head).toHaveTextContent('Research')
     expect(head).toHaveTextContent('1 lot · 1 done')
-    expect(head).not.toHaveTextContent(/ready/)
+    expect(head).not.toHaveTextContent(/ready|session/)
   })
 
   it('opens with the focused lot’s state when the step has no output for it yet', () => {

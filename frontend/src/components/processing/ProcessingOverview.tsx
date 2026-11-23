@@ -31,8 +31,10 @@ type Props = {
   activity: TimelineEntry[]
   /** Starting work by hand, folded into the progress card. */
   queue?: ReactNode
-  /** The batch attention read the header counts from; absent while it is unavailable. */
+  /** The batch attention read the header counts from; absent while it loads or has failed. */
   attention?: BatchAttentionDto
+  /** The attention read failed or paused, so Needs you cannot list everything. */
+  attentionUnavailable?: boolean
   /** Each live lot's Research, Images and Inventory state. */
   lots: LotSteps[]
   /** When this batch's first agent session started. */
@@ -88,6 +90,7 @@ export function ProcessingOverview({
   activity,
   queue,
   attention,
+  attentionUnavailable = false,
   lots,
   startedAt,
   lotsFormed,
@@ -144,7 +147,12 @@ export function ProcessingOverview({
 
         <Card aria-label="Needs you">
           <CardTitle>Needs you</CardTitle>
-          <NeedsYouCard batchId={batchId} attention={attention} source={source} />
+          <NeedsYouCard
+            batchId={batchId}
+            attention={attention}
+            unavailable={attentionUnavailable}
+            source={source}
+          />
         </Card>
 
         {lots.length > 0 && (
@@ -185,7 +193,7 @@ export function ProcessingOverview({
               )}
             </TitleRow>
             {pause?.paused && <Muted>Paused: no session starts new work until you resume.</Muted>}
-            <SessionRows sessions={source.sessions} onOpen={onOpenSession} />
+            <SessionRows sessions={source.sessions} paused={source.paused} onOpen={onOpenSession} />
             <SmallLink href="#agents">All sessions, every batch</SmallLink>
           </Card>
         </Aside>
@@ -195,16 +203,19 @@ export function ProcessingOverview({
 }
 
 /**
- * Everything the batch header counts, from the same attention read and list. Until that read is
- * available, only the agent questions this read holds show, and nothing claims the list is empty.
+ * Everything the batch header counts, from the same attention read and list. Without that read,
+ * only the agent questions this read holds show, and nothing claims the list is empty; a failed
+ * read says the list is partial.
  */
 function NeedsYouCard({
   batchId,
   attention,
+  unavailable,
   source,
 }: {
   batchId: string
   attention?: BatchAttentionDto
+  unavailable: boolean
   source: ProcessingSource
 }) {
   if (attention) {
@@ -214,10 +225,26 @@ function NeedsYouCard({
       </Inset>
     )
   }
+  const partial = unavailable && (
+    <Muted role="status">
+      Needs you is unavailable, so Review and Changes items are not listed.
+      {source.questions.length > 0 && ' Agent questions are shown.'}
+    </Muted>
+  )
   if (source.questions.length === 0) {
-    return <Muted>Updating…</Muted>
+    return partial || <Muted>Updating…</Muted>
   }
 
+  return (
+    <>
+      {partial}
+      <AgentQuestions batchId={batchId} source={source} />
+    </>
+  )
+}
+
+/** The Processing read's own agent questions, oldest first. */
+function AgentQuestions({ batchId, source }: { batchId: string; source: ProcessingSource }) {
   return (
     <NeedsYou
       items={source.questions.map((question) => ({

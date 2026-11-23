@@ -62,6 +62,8 @@ export type ProcessingSource = {
   /** The batch's Examine lead session. */
   lead: SourceSession | null
   jobsOn: (step: WorkStep) => Job[]
+  /** The batch's agents are paused, so queued sessions read Paused. */
+  paused?: boolean
 }
 
 const WAITING = new Set(['waiting_for_user', 'waiting_for_login', 'waiting_for_capacity'])
@@ -191,5 +193,6 @@ export function retainedJobsSource(
     sessions,
     lead: sessions.find((session) => session.jobId === examineLead(snapshot)?.id) ?? null,
     jobsOn,
+    paused: snapshot.paused === true,
   }
 }

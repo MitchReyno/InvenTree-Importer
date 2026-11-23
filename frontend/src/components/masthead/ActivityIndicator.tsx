@@ -57,7 +57,9 @@ export function ActivityIndicator({
   const ids = useId()
   const cached = useCachedBatchReads(batchId)
   const fresh = !unavailable && !!data && observationFresh(data.observed_at, now)
-  const preferred = preferredWork(data, batchId)
+  const summary = workSummary({ data, batchId, batchTitle: cached.title, unavailable, fresh })
+  // Outside a batch the segments and name show the batch the headline is about.
+  const preferred = preferredWork(data, batchId ?? summary.batchId)
   const ownBatch = !!batchId && preferred?.batch_id === batchId
   // Outside its batch the pill names the batch it shows, from that batch's cached read.
   const shown = useCachedBatchReads(ownBatch ? undefined : preferred?.batch_id)
@@ -70,7 +72,6 @@ export function ActivityIndicator({
       : []
   // Only steps actually running spin; queued and waiting steps do not.
   const running = jobs.some((item) => item.steps.some((step) => step.state === 'running'))
-  const summary = workSummary({ data, batchId, batchTitle: cached.title, unavailable, fresh })
   const idle = summary.idle
   const headline = summary.headline
   const name = summaryName(summary, batchId, preferred && !ownBatch ? shown.title : undefined)
@@ -137,7 +138,9 @@ export function ActivityIndicator({
           </Labels>
           {/* At phone width a read that is not current says so first, then the spinner or the
               job's word, beside the step segments. */}
-          {(!fresh || !running || held) && <ShortText aria-hidden="true" data-short={compact} />}
+          {(!fresh || !running || held || urgent(summary)) && (
+            <ShortText aria-hidden="true" data-short={compact} />
+          )}
           {showSegments && (
             <Segments>
               <ProgressSegments steps={segments} />
@@ -186,12 +189,21 @@ function summaryName(summary: WorkSummary, batchId: string | undefined, shownTit
   return summary.state ? (shownTitle ?? 'Application-wide') : ''
 }
 
+/** A failure, a wait or an incomplete read keeps its word on the phone pill beside a spinner. */
+function urgent(summary: WorkSummary) {
+  return (
+    summary.state === 'failed' ||
+    summary.state === 'waiting_for_you' ||
+    summary.headline === 'Status incomplete'
+  )
+}
+
 /** One short word for the phone pill: the summary's state, or a held slot's. */
 function compactSummaryWord(summary: WorkSummary, held: boolean) {
   if (summary.idle) {
     return 'Idle'
   }
-  if (held) {
+  if (held && !urgent(summary)) {
     return 'Slot held'
   }
   if (summary.state) {

@@ -194,6 +194,26 @@ describe('ProcessingOverview', () => {
     expect(needs).not.toHaveTextContent(/Nothing needs you|No open questions/)
   })
 
+  it('says Needs you is partial when the attention read failed, keeping the agent questions', () => {
+    const { unmount } = overview({ attention: undefined, attentionUnavailable: true })
+    const needs = screen.getByRole('region', { name: 'Needs you' })
+    expect(needs).toHaveTextContent('Review and Changes items are not listed')
+    expect(
+      within(needs).getByRole('link', { name: 'Answer: Is the last letter a P?' }),
+    ).toBeVisible()
+    expect(needs).not.toHaveTextContent('Updating…')
+    unmount()
+
+    overview({
+      attention: undefined,
+      attentionUnavailable: true,
+      source: { ...source, questions: [] },
+    })
+    const empty = screen.getByRole('region', { name: 'Needs you' })
+    expect(empty).toHaveTextContent('Needs you is unavailable')
+    expect(empty).not.toHaveTextContent(/Updating…|Nothing needs you/)
+  })
+
   it('shows each lot’s Research, Images and Inventory as state pills linking to that lot’s step', () => {
     overview()
     const table = screen.getByRole('table', { name: 'Lots' })

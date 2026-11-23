@@ -2161,20 +2161,25 @@ function stubScroll() {
   return scroll
 }
 
-function mountFocused(client: ProcessingClient, view: 'research' | 'images') {
-  render(
-    <ServerStateProvider scope={scope} client={createServerQueryClient()}>
+function mountFocused(client: ProcessingClient, view: 'overview' | 'research' | 'images') {
+  const cache = createServerQueryClient()
+
+  const element = (shown: typeof view, focus: string | null) => (
+    <ServerStateProvider scope={scope} client={cache}>
       <ProcessingWorkspace
         batch={batch}
         client={client}
-        view={view}
-        focusLotId={subjectId}
+        view={shown}
+        focusLotId={focus}
         navigate={vi.fn()}
         onDirtyChange={vi.fn()}
         onSaved={vi.fn().mockResolvedValue(undefined)}
       />
-    </ServerStateProvider>,
+    </ServerStateProvider>
   )
+
+  const mounted = render(element(view, subjectId))
+  return (shown: typeof view, focus: string | null) => mounted.rerender(element(shown, focus))
 }
 
 test('a step page loaded with a lot in its address scrolls to that lot’s output and highlights it', async () => {
@@ -2197,6 +2202,17 @@ test('a step page loaded with a lot that has no output there says so with the lo
   expect(focus).toHaveTextContent('No Images output for this lot yet')
   expect(within(focus).getByText('Not started')).toBeInTheDocument()
   await waitFor(() => expect(scroll.mock.contexts[0]).toBe(focus))
+})
+
+test('returning to the same lot from the Overview brings its output into view again', async () => {
+  const scroll = stubScroll()
+  const show = mountFocused(researchClient('ready'), 'research')
+  await waitFor(() => expect(scroll).toHaveBeenCalledOnce())
+
+  show('overview', null)
+  await screen.findByRole('table', { name: 'Lots' })
+  show('research', subjectId)
+  await waitFor(() => expect(scroll).toHaveBeenCalledTimes(2))
 })
 
 test('the Research page counts its own step, not every step in the batch', async () => {

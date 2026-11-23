@@ -14,6 +14,8 @@ export type WorkSummary = {
   state?: WorkState
   /** Only a fresh, complete read with nothing working, waiting or failed and no lane held. */
   idle: boolean
+  /** The batch the headline is about, so what is shown beside it names the same batch. */
+  batchId?: string
 }
 
 export type WorkSummaryInput = {
@@ -97,6 +99,23 @@ function working(work: WorkItem[], sessions: Session[], truncated: boolean): str
   return step && `${step.step} working`
 }
 
+/**
+ * Outside a batch, the one batch the headline describes: the first waiting for the operator, else
+ * the first with work under way, else the first with queued work.
+ */
+function focusBatch(data: HeaderWorkDto) {
+  const batchesIn = (state: WorkState) => [
+    ...data.work.filter((item) => jobState(item) === state).map((item) => item.batch_id),
+    ...data.active_sessions
+      .filter((session) => sessionState(session) === state)
+      .map((session) => session.batch_id),
+  ]
+
+  return (['waiting_for_you', 'working', 'queued'] as const)
+    .map((state) => batchesIn(state)[0])
+    .find((batch) => batch !== undefined)
+}
+
 const UNAVAILABLE: WorkSummary = { headline: 'Status unavailable', idle: false }
 const UPDATING: WorkSummary = { headline: 'Updating…', idle: false }
 const INCOMPLETE: WorkSummary = { headline: 'Status incomplete', idle: false }
@@ -121,10 +140,9 @@ export function workSummary({
   }
 
   const inBatch = batchId !== undefined
-  const work = inBatch ? data.work.filter((item) => item.batch_id === batchId) : data.work
-  const sessions = inBatch
-    ? data.active_sessions.filter((session) => session.batch_id === batchId)
-    : data.active_sessions
+  const scope = batchId ?? focusBatch(data)
+  const work = data.work.filter((item) => item.batch_id === scope)
+  const sessions = data.active_sessions.filter((session) => session.batch_id === scope)
   const counted = !data.work_truncated
   const needs = attention(work, sessions, counted, inBatch)
   const active = working(work, sessions, data.sessions_truncated)
@@ -137,13 +155,14 @@ export function workSummary({
       detail: after.length ? after.join(', ') : undefined,
       state: first.state,
       idle: false,
+      batchId: scope,
     }
   }
   if (inBatch && data.work_truncated) {
     return INCOMPLETE
   }
   if (active) {
-    return { headline: active, state: 'working', idle: false }
+    return { headline: active, state: 'working', idle: false, batchId: scope }
   }
   // The holder can belong to another batch, target or context the read does not list.
   const laneHeld =
@@ -153,7 +172,7 @@ export function workSummary({
   }
   const queued = stepsIn('queued', work, sessions)[0]
   if (queued) {
-    return { headline: `${queued.step} queued`, state: 'queued', idle: false }
+    return { headline: `${queued.step} queued`, state: 'queued', idle: false, batchId: scope }
   }
   if (!inBatch) {
     return { headline: 'Agent activity', idle: false }
@@ -162,5 +181,9 @@ export function workSummary({
     return INCOMPLETE
   }
 
-  return { headline: `${batchTitle ?? 'This batch'} · no agents working`, idle: true }
+  return {
+    headline: `${batchTitle ?? 'This batch'} · no agents working`,
+    idle: true,
+    batchId: scope,
+  }
 }

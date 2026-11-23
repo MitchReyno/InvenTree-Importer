@@ -25,9 +25,12 @@ export function plural(count: number, one: string, many = `${one}s`) {
 
 export function SessionRows({
   sessions,
+  paused = false,
   onOpen,
 }: {
   sessions: SourceSession[]
+  /** The batch's agents are paused, so queued sessions read Paused. */
+  paused?: boolean
   onOpen: (jobId: string) => void
 }) {
   return (
@@ -50,7 +53,7 @@ export function SessionRows({
               <b>{session.subject}</b>
             </SessionLabel>
             <span id={`session-${session.jobId}-state`}>
-              <StatePill state={workState(session.state)} />
+              <StatePill state={workState(session.state, { paused })} />
             </span>
             {session.status && (
               <SessionStatus id={`session-${session.jobId}-status`}>{session.status}</SessionStatus>

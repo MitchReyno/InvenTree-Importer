@@ -24,7 +24,7 @@ const STATE_REASON: Partial<Record<Job['state'], string>> = {
   waiting_for_capacity: 'Waiting for subscription capacity.',
   interrupted: 'Interrupted. Start a new attempt to continue.',
   cancelled: 'Cancelled.',
-  superseded: 'Replaced by a newer attempt.',
+  superseded: 'Its inputs changed since it ran.',
 }
 
 /** Why a candidate stopped being current, in the operator's terms. */
@@ -57,6 +57,7 @@ export function ProcessingJobCard({
   cancel,
   chooseQuestion,
   session,
+  paused = false,
 }: {
   job: Job
   batch: CaptureSnapshotDto
@@ -67,6 +68,8 @@ export function ProcessingJobCard({
   chooseQuestion: (questionId: string) => void
   /** The session's steps and chat, for session profiles. */
   session?: ReactNode
+  /** The batch's agents are paused, so queued work reads Paused. */
+  paused?: boolean
 }) {
   const subject = [...batch.lots, ...batch.parts].find((value) => value.id === job.subject_id)
   const cancellable =
@@ -94,7 +97,7 @@ export function ProcessingJobCard({
             />
           )}
         </Title>
-        <StatePill state={workState(job.state)} />
+        <StatePill state={workState(job.state, { paused })} />
       </Row>
       <Small>
         Attempt {job.attempt_number}
