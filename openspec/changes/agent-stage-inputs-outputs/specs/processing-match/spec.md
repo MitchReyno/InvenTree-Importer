@@ -236,7 +236,13 @@ For a selected `/7` lot the operator decided as new Part with no strong key, pas
 
 - **GIVEN** a lot whose identification was unresolved and that the operator decided as new Part
 - **WHEN** preparation runs
-- **THEN** pass 3 records a no-searchable-key validation bound to that decision, and approval accepts it; after Research later adds an MPN, approval needs a new validation search.
+- **THEN** pass 3 records a no-searchable-key validation bound to that decision, and approval accepts it.
+
+#### Scenario: Strong key after preparation
+
+- **GIVEN** that preparation, not yet approved
+- **WHEN** Research adds an MPN before approval
+- **THEN** the identity revision changes, approval refuses the old preparation, and a new preparation runs the normal validation search.
 
 ### Requirement: Validation searches are preparation reads
 

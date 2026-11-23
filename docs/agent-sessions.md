@@ -206,6 +206,7 @@ stateDiagram-v2
 | --- | --- | --- |
 | `queued` | `queued` | No |
 | `running`, `cancelling` | `running` | Yes |
+| `running` (cancellation pending reap) | `cancelled`, committed before the reap (`processing/commands.ts:156`, `session-runner.ts:707`) | Yes, until the reap is confirmed |
 | `waiting_input` | `waiting_for_user` | No |
 | `finished` | `ready` | No |
 | `cancelled` | `cancelled` | No |

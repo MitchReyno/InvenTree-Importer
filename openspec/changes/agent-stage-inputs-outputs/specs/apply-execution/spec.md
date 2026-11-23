@@ -63,3 +63,25 @@ The executor SHALL apply only plans whose version, build and capability match a 
 - **GIVEN** a `/3` runner deployment with `owned-fake-effects/3` and `owned-fake-media/1`, activated after every retained `/2` run settled, and a `bench-effects-plan/3` plan that sets an existing Part's image, creates stock and attaches its stock image
 - **WHEN** it applies
 - **THEN** all three effects run under the `/3` runner, which is the target's only writer.
+
+### Requirement: Apply single physical writer
+
+Before any request, the supervisor SHALL hold a non-expiring host-level claim and the writer SHALL hold a dedicated, never-reconnected PostgreSQL advisory connection for the deployment. A replacement writer MUST NOT start until the supervisor has observed the original child exit, and no heartbeat, timeout or stale-process check SHALL release a claim. The read-only verification entry point for an earlier run is exempt: it holds no writer claim, sends only reads, journals each read intent before sending it, and can't dispatch a mutation; every mutation-capable path keeps both claims.
+
+#### Scenario: Database connection lost
+
+- **GIVEN** a physical child whose dedicated database connection drops while it survives
+- **WHEN** another writer tries to start
+- **THEN** the host claim refuses it until the original child is reaped, and the original sends no further request.
+
+#### Scenario: Supervisor killed mid-request
+
+- **GIVEN** a supervisor killed while its child's stock request is in flight
+- **WHEN** apply is attempted again
+- **THEN** the claim is still held and exactly one stock record exists.
+
+#### Scenario: Read-only verification beside the writer
+
+- **GIVEN** the `/3` writer holding its claims
+- **WHEN** an earlier run's `verify_attachment` runs through the read-only entry point
+- **THEN** it journals and sends only its read, takes no writer claim, and the `/3` writer's claims are unchanged.

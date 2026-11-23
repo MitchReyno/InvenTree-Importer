@@ -10,6 +10,12 @@ Values from `/7` typed outputs, Examine's identity and Research's output, SHALL 
 - **WHEN** the operator opens the Part in Review › Records
 - **THEN** the frequency shows as proposed by Research with its source, and confirming it makes it the Part's value.
 
+#### Scenario: Confirming a different MPN
+
+- **GIVEN** a `/7` lot whose merged identity has MPN 1N4148W-7-F, with a proposed MPN 1N4148WS-7-F on its Part
+- **WHEN** the operator confirms 1N4148WS-7-F
+- **THEN** the lot's identity revision advances with the operator as source, and Match searches again before the lot can be prepared.
+
 #### Scenario: Retained earlier proposal
 
 - **GIVEN** a retained `/6` Research proposal with a frequency
