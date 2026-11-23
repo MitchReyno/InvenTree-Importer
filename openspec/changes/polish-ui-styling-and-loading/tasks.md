@@ -61,7 +61,7 @@
 - [x] 1.1 Read the shared and frontend code guidelines and the frontend architecture. List every shared-divider list with a selected state.
 - [x] 1.2 RED: a `RecordsStage` test showing that the selected first row's top border is cleared.
 - [x] 1.3 GREEN: guard the divider rule with `:not([aria-current='true'])` in `RecordButton` and every list found in 1.1.
-- [ ] 1.4 Run the frontend tests, and capture the lists before and after for the PR.
+- [x] 1.4 Run the frontend tests, and capture the lists before and after for the PR.
 
 ## 2. Page sections evenly spaced
 
@@ -81,7 +81,7 @@
 - [x] 2.2 Capture every page at 1440 and 390 px as the baseline, and note each touching pair, starting with Review's banner and toolbar, and the filters and grid.
 - [x] 2.3 Add `PageStack`, with its unit test.
 - [x] 2.4 Move each page root onto `PageStack` and remove the outer margins.
-- [ ] 2.5 Capture again, compare with 2.2 and fix any remaining touching sections. Run the frontend checks.
+- [x] 2.5 Capture again, compare with 2.2 and fix any remaining touching sections. Run the frontend checks.
 
 ## 3. Remove Batch context and the profile notices
 
@@ -221,7 +221,7 @@
 - [x] 8.1 List every standing explanation and developer-facing sentence, and classify each: help, debug or delete.
 - [x] 8.2 RED: tests for the three named sentences and the popover placement.
 - [x] 8.3 GREEN: move them, and fix the need-you popover's anchoring and row layout.
-- [ ] 8.4 Capture the affected screens. Run the frontend checks.
+- [x] 8.4 Capture the affected screens. Run the frontend checks.
 
 ## 9. Several files at once from any source
 
