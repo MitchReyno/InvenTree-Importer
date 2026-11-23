@@ -335,7 +335,7 @@ Status: proposed. Mitch's decisions on 2026-11-23:
 
 The brief is sealed into a new input version, `bench-intake-input/7`, and rendered within a 48 KiB budget. Past the budget it is summarised. The sealed manifest stays within the retained-input cap (`MAX_PROCESSING_SNAPSHOT_BYTES`, 240 KiB, `intake-server/src/processing/limits.ts:2`). What doesn't fit goes to an immutable, bounded page store written with the input, whose page ids and digests the manifest seals; a brief beyond that bound is refused with `processing_input_capacity`, as today.
 
-The read tools serve two views. `read_lot` and `read_batch` with the sealed revision return the rest of the brief the session started from, in pages; without it they return the current view and its revision, so an edit between queueing and the first read never mixes two revisions in one page sequence.
+The read tools serve two views. `read_lot` and `read_batch` with the sealed revision return the rest of the brief the session started from, in pages; without it they return the current view and its revision, so an edit between queueing and the first read never mixes two revisions in one page sequence. Each page returns a continuation token bound to its revision, and a current-view read keeps that revision's pages in the attempt's bounded page store, so an edit between pages doesn't change the sequence; the page says a newer revision exists, and the session can start again without a token.
 
 ### Agent stages
 
@@ -368,7 +368,7 @@ The server refuses a proposal whose kind doesn't match the session's stage or mo
 
 **What it searches**
 
-- InvenTree Parts (name, IPN, keywords), manufacturer Parts (MPN), supplier Parts (SKU) and stock (batch, barcode, import reference). Searches are read-only, using the app's read token.
+- InvenTree Parts (name, IPN, keywords), manufacturer Parts (MPN), supplier Parts (SKU) and stock (batch, barcode, import reference). Searches are read-only, using the app's read token. Today the target transport allows only fixed semantic reads and two list reads (`intake-server/src/inventory/transport.ts:44`), so the change adds bounded Match list reads with named filters only: Part search, manufacturer and supplier Parts, stock, and a Part's parameters and attachments.
 - This app's other unapproved lots with the same keys, to detect a competing lot before two batches both create one Part. This is detection, not a uniqueness guarantee across batches.
 
 **What it records**
@@ -378,7 +378,7 @@ The server refuses a proposal whose kind doesn't match the session's stage or mo
 
 **Ordering.** A search reads InvenTree, so it never runs inside the proposal or answer transaction that triggers it. A durable sweep picks up committed, unsettled requests after a restart. The trigger commits a search request with the next per-lot search generation, naming the identity revision and the keys searched. The search runs after commit, and its result settles in a new transaction only if its generation is still the lot's latest; an older result is discarded, so two searches on the same identity can't settle out of order. A settled generation also supersedes any match question from an older one. The verdict, any match question or decision, and the stage queueing commit together. The generation advances when the request commits, so while a newer search is pending, answers to the older question are refused and approval waits. Batch answers and pass 3 follow the same rule.
 
-**Sufficiency check.** For a candidate Part, the app reads what InvenTree holds: datasheet, the category's key parameters, Part image, manufacturer Part, and supplier Part for this supplier. It lists what is missing, which decides whether "fill what's missing" is offered and which fields gaps mode fills.
+**Sufficiency check.** For a candidate Part, the app reads what InvenTree holds: datasheet, the category's key parameters, Part image, manufacturer Part, and supplier Part for this supplier. It lists what is missing. Only the datasheet, key parameters and Part image are fillable, and they decide whether "fill what's missing" is offered and which fields gaps mode fills. A missing manufacturer or supplier Part is shown for information; filling those on an existing Part needs related-record effects this change doesn't add.
 
 ### The lot's path through Match
 
@@ -415,7 +415,7 @@ flowchart TD
    - Match then searches with every alias (pass 2).
    - With no match, the same Research session receives its mode (full) by inbox and continues, and Images is queued.
    - With candidates, the match question is asked, and the paused session receives the decision's mode, or is closed if the decision skips research.
-3. **The match question.** It is an app question on the lot, using the stepped-question form from BI-019. It is listed in Needs you, and it quotes the candidates, their reasons, the agents' match notes and what the Part is missing. Options depend on the verdict: add stock to the Part, add stock and fill what's missing (only when something is), new Part, already imported (leave the lot out), or something else. Several lots with exact matches can be offered as one batch-level question, with exceptions listed.
+3. **The match question.** It is an app question on the lot, using the stepped-question form from BI-019. It is listed in Needs you, and it quotes the candidates, their reasons, the agents' match notes and what the Part is missing. Options depend on the verdict: add stock to the Part, add stock and fill what's missing (only when a fillable field is missing), new Part, already imported (leave the lot out), or something else. Several lots with exact matches can be offered as one batch-level question, with exceptions listed.
 4. **Modes.** Each answer sets the stage modes, which are sealed into the brief or delivered to a paused session:
 
    | Answer | Research | Images |
@@ -578,7 +578,7 @@ The skills' deterministic scripts become intake MCP tools, run by the app on the
 
 ## 2.7 Instruction packs and profile
 
-- **A new profile.** `shared-vm-agent/4` has shared base instructions in its profile row and one instruction pack per stage in an immutable `processing_stage_instructions` table, whose digest the input seals and the claim checks, as the change's design decides. Its tool profile is `native-session-stage-tools/1`.
+- **A new profile.** `shared-vm-agent/4` has shared base instructions in its profile row and one instruction pack per stage in an immutable `processing_stage_instructions` table, whose digest the input seals and the claim checks, as the change's design decides. Its tool profile is `native-session-stage-tools/1`. `synthetic-session/1` keeps its profile row and `native-session-tools/1` for `/6`; for `/7` it gets fixture stage packs in the same table, and its `/7` inputs seal those packs and `native-session-stage-tools/1`.
 - **Each pack:**
   - the stage's scope and what it may not do;
   - never inventing (from `inventree-stock-import`);

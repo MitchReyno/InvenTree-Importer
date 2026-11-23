@@ -132,6 +132,12 @@ A session whose input is `/7` SHALL start from a brief sealed into its input: th
 - **WHEN** the lot's Research session starts
 - **THEN** its opening holds the identity with its id, both observations with their readings and regions, the operator's facts, the asked questions and the evidence list.
 
+#### Scenario: Brief edited between pages
+
+- **GIVEN** a session that read page one of its lot's current view at revision 5
+- **WHEN** the operator edits the lot, and the session asks for page two with the returned token
+- **THEN** page two comes from revision 5 and says that a newer revision exists.
+
 ### Requirement: Research and Images sessions serve lot groups
 
 For `/7` work, a Research or Images session SHALL serve a lot group: 1 to N lot jobs of its stage, all in the same mode at claim, in one batch, taken at claim, oldest first, from queued lots that Match allows and that are neither superseded nor stale. N SHALL be the attempt's sealed cap for its stage. A lot that becomes ready after the claim SHALL go to a new session. Each lot SHALL keep its own job, and the session SHALL hold one concurrency slot.

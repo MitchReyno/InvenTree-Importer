@@ -11,7 +11,7 @@ The outcome sought:
 - **The Inventory agent is replaced by an app-side Match step.**
   - The app searches InvenTree deterministically after Examine, again after Research identifies an item, and once more before approval.
   - Examine and Research add judgement as match notes.
-  - Before any research or photo work, the operator decides: add stock, fill what's missing, new Part, or already imported. Research and Images then run in the mode that decision calls for.
+  - When the search finds candidates, the operator decides before any research or photo work: add stock, fill what's missing, new Part, or already imported. Research and Images then run in the mode that decision calls for. A clean search starts both in full mode without a question, and a lot with nothing to search starts Research in identify mode before any search.
 - **Items without a useful identifier are identified first.** Research runs in an identify mode before anything is matched. Its identity amendment updates the lot's key details: the MPN, manufacturer and aliases.
 - **Research and Images sessions serve several lots.** A session takes a group of lots of the same stage and mode, up to a configurable cap per stage, while each lot keeps its own job, decision and status.
 - **Images produces images.** It proposes crop recipes for the Part image, stock images and extras. The app renders them from the originals, and the operator confirms them.
@@ -126,7 +126,8 @@ No new third-party runtime dependency is needed: the decoder already ships `shar
 - `capture-media`: derived crops gain straightening and bounded light adjustments.
 - `processing-lot-forming`: a `/7` lot's estimated count comes from Examine's typed output.
 - `review-records`: agent values are proposed until confirmed; Records › Locations for `/7` batches shows app-proposed locations instead of the Inventory ask box.
-- `approval-preparation`: Match validation blocks approval; confirmed images and gaps fills become effects.
+- `approval-preparation`: Match validation blocks approval; add-stock lots need their photos; confirmed images and gaps fills become effects.
+- `inventory-target-protection`: bounded Match list reads with named filters in the target read allowlist.
 
 ## Impact and dependencies
 

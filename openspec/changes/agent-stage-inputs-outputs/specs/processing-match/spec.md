@@ -6,7 +6,7 @@ The Match step decides, before research or photo work is spent, whether each lot
 
 ### Requirement: Deterministic search by strong keys
 
-Match SHALL search InvenTree (Parts, manufacturer Parts, supplier Parts and stock) through the app's read credential, and this app's other unapproved lots, using every strong key of the lot's current identity: an MPN or type with a manufacturer, an NSN, an IPN or SKU read from a label, or the import reference or barcode with the batch. Each candidate SHALL record the keys that matched.
+Match SHALL search InvenTree (Parts, manufacturer Parts, supplier Parts and stock) through the app's read credential and the transport's Match search reads (see inventory-target-protection), and this app's other unapproved lots, using every strong key of the lot's current identity: an MPN or type with a manufacturer, an NSN, an IPN or SKU read from a label, or the import reference or barcode with the batch. Each candidate SHALL record the keys that matched.
 
 #### Scenario: Exact match
 
@@ -40,9 +40,19 @@ Match SHALL give each lot a verdict: no match, exact (a strong key and the manuf
 - **WHEN** Match records it
 - **THEN** it lists "datasheet" and the two parameters as missing.
 
+### Requirement: Fillable gaps
+
+Only a missing datasheet, key parameters and Part image SHALL be fillable on an existing Part. A missing manufacturer or supplier Part SHALL be shown in the match question, but SHALL NOT by itself offer fill what's missing or produce an effect.
+
+#### Scenario: Only a supplier Part missing
+
+- **GIVEN** an exact candidate Part that lacks only a supplier Part for this supplier
+- **WHEN** the match question is asked
+- **THEN** it shows the missing supplier Part and offers add stock, but not add stock and fill what's missing.
+
 ### Requirement: The match question
 
-A lot with candidates SHALL get one app-owned question, listed in Needs you, quoting the candidates, the keys that matched, the agents' match notes and what the Part is missing. Its options SHALL be add stock, add stock and fill what's missing (only when something is missing), new Part, already imported (leave the lot out) and something else. Research and Images for the lot SHALL NOT start while it is open. Several lots with exact matches MAY be offered as one batch question listing each.
+A lot with candidates SHALL get one app-owned question, listed in Needs you, quoting the candidates, the keys that matched, the agents' match notes and what the Part is missing. Its options SHALL be add stock, add stock and fill what's missing (only when a fillable field is missing), new Part, already imported (leave the lot out) and something else. Research and Images for the lot SHALL NOT start while it is open. Several lots with exact matches MAY be offered as one batch question listing each.
 
 #### Scenario: Waiting for the decision
 

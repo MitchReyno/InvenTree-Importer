@@ -4,7 +4,7 @@
 
 For `native-agent/2` work under the earlier session profiles, the stage order SHALL be a batch-level Examine lead session (see processing-lot-forming), then per-lot Research and Images in parallel, then per-lot Inventory. For each lot, Examine SHALL propose the markings with citations to its observations, an identity with ranked candidates, and an optional quantity estimate with its basis. Inventory SHALL wait for the lot's current Research and Images proposals.
 
-A batch SHALL follow its Examine lead's sealed input version at every queueing entry point, including Start and replacement. For work whose lead input is `bench-intake-input/7` (`shared-vm-agent/4` and `synthetic-session/1`), the stage order SHALL be the Examine lead session, then the app's Match step for each lot (see processing-match), then per-lot Research and Images in the modes Match sets. No Inventory agent session SHALL be queued. Examine SHALL publish the same findings, with the markings verbatim, as one `examine-identity/1` proposal per lot.
+A batch SHALL follow its Examine lead's sealed input version at every queueing entry point, including Start and replacement. For work whose lead input is `bench-intake-input/7` (`shared-vm-agent/4` and `synthetic-session/1`), the stage order SHALL be the Examine lead session, then the app's Match step for each lot (see processing-match), then per-lot Research and Images in the modes Match sets; a lot without a strong search key runs identify-mode Research before Match instead. No Inventory agent session SHALL be queued. Examine SHALL publish the same findings, with the markings verbatim, as one `examine-identity/1` proposal per lot.
 
 #### Scenario: Legacy batch display
 
