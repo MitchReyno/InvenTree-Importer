@@ -10,6 +10,22 @@ Preparation SHALL be blocked for a selected `/7` lot with an open match question
 - **WHEN** preparation runs
 - **THEN** it is blocked for that lot with the finding named.
 
+### Requirement: Existing-Part targets need their photos
+
+Preparation SHALL be blocked for a selected `/7` lot decided as add stock, or add stock and fill what's missing, that has no confirmed stock image. It SHALL also need a confirmed Part image when the target Part has none, and SHALL NOT need one when the Part has an image.
+
+#### Scenario: Missing stock photo
+
+- **GIVEN** a lot decided as add stock to RES-0144, which has an image, with no confirmed stock image
+- **WHEN** preparation runs
+- **THEN** it is blocked for that lot, naming the missing stock photo, and doesn't ask for a Part image.
+
+#### Scenario: Missing Part photo
+
+- **GIVEN** a lot decided as add stock to RES-0144, which has no image, with a confirmed stock image and no confirmed Part image
+- **WHEN** preparation runs
+- **THEN** it is blocked for that lot, naming the missing Part photo.
+
 ### Requirement: Confirmed images and gap fills become effects
 
 Preparation SHALL include a confirmed Part image as the image of the created Part, or of an existing target Part that has none, where the target's capability allows it, confirmed stock images as stock attachments, and, for a lot decided as fill what's missing, update effects for only the existing Part's missing fields.

@@ -22,13 +22,13 @@ A batch SHALL follow its Examine lead's sealed input version at every queueing e
 
 Research and Images for a lot SHALL each start as soon as that lot's identity is stable: Examine has published a current identity proposal for it, and the lot's observations have not changed since. They SHALL NOT wait for each other, for other lots, or for Examine to finish.
 
-For `/7` work, they SHALL also start only when Match allows them: Match has either found no match or recorded the operator's decision. A lot without a strong search key SHALL start Research in identify mode while Images waits.
+For `/7` work, a lot with a strong search key SHALL also start them only when Match allows them: Match has either found no match or recorded an operator's decision that runs the stage. Identify mode is exempt from this gate: a lot without a strong search key SHALL start Research in identify mode before any search, while Images waits for Match.
 
 #### Scenario: Parallel start
 
 - **GIVEN** an Examine lead session that has published an identity for one lot and is still grouping other observations
 - **WHEN** concurrency slots are free
-- **THEN** Research and Images sessions for that lot start (under the new profiles, once Match finds no match for it), and both appear as running at the same time as the lead session when slots allow.
+- **THEN** Research and Images sessions for that lot start, and both appear as running at the same time as the lead session when slots allow. Under the new profiles this needs the identity's strong key and either Match's settled no-match verdict or a recorded decision that runs both stages.
 
 #### Scenario: Lot regrouped before successors start
 

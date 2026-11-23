@@ -102,7 +102,7 @@ VM tool sessions with the web tool surface SHALL run under `shared-vm-agent/3`, 
 
 - **GIVEN** a new `/7` Research session on `shared-vm-agent/4` with public web pages allowed
 - **WHEN** it runs
-- **THEN** it has the web tool surface under `/4`, and retained `shared-vm-agent/3` attempts keep running under `/3`.
+- **THEN** it has the web tool surface under `/4`, and retained `shared-vm-agent/3` attempts ran under `/3` only until the cutover's drain; after it they stay readable, and the upgrade action carries waiting or parked ones into `/7`.
 
 ## ADDED Requirements
 
@@ -161,6 +161,12 @@ Each lot section of the brief SHALL hold the lot's identity, observations, human
 - **GIVEN** a Research session identifying two lots
 - **WHEN** one lot's amendment opens a match question
 - **THEN** the session keeps working on the other lot, and resumes the first when its mode arrives.
+
+#### Scenario: Late candidate for one lot
+
+- **GIVEN** a running Images session serving lots A and B
+- **WHEN** a late candidate for lot A opens a match question
+- **THEN** only lot A's membership is held: the session stops work on A at the end of its turn, publishes B's proposal while the question is open, and resumes A when its mode arrives.
 
 ### Requirement: Lots leave a group individually
 
