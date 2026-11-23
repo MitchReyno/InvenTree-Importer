@@ -567,7 +567,8 @@ const RecordButton = styled.button`
   ${type.body}
   border-top-color: ${color.line};
   border-radius: 0;
-  &:first-of-type {
+  /* The selected rule ties on specificity and comes first, so the divider rule must skip it. */
+  &:first-of-type:not([aria-current='true']) {
     border-top-color: transparent;
   }
   &[aria-current='true'] {

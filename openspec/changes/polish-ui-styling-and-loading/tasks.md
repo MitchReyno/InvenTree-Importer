@@ -58,9 +58,9 @@
 - **Verification:** frontend tests; a before and after capture of Review › Records.
 - **Risks and decisions:** none.
 
-- [ ] 1.1 Read the shared and frontend code guidelines and the frontend architecture. List every shared-divider list with a selected state.
-- [ ] 1.2 RED: a `RecordsStage` test showing that the selected first row's top border is cleared.
-- [ ] 1.3 GREEN: guard the divider rule with `:not([aria-current='true'])` in `RecordButton` and every list found in 1.1.
+- [x] 1.1 Read the shared and frontend code guidelines and the frontend architecture. List every shared-divider list with a selected state.
+- [x] 1.2 RED: a `RecordsStage` test showing that the selected first row's top border is cleared.
+- [x] 1.3 GREEN: guard the divider rule with `:not([aria-current='true'])` in `RecordButton` and every list found in 1.1.
 - [ ] 1.4 Run the frontend tests, and capture the lists before and after for the PR.
 
 ## 2. Page sections evenly spaced
