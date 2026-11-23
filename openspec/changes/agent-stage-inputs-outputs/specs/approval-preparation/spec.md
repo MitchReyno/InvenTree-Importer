@@ -16,6 +16,16 @@ Preparation SHALL be blocked for a selected `/7` lot with an open match question
 - **WHEN** preparation runs
 - **THEN** it is blocked for that lot with the finding named.
 
+### Requirement: Contribution-history issues follow run access
+
+Every preparation issue about an earlier approval, from pass 3 or the contribution history check, SHALL include the earlier run's id only when the operator may read that run, and SHALL otherwise carry no run id, while still blocking the lot.
+
+#### Scenario: Another actor's approval
+
+- **GIVEN** a lot whose original contribution another actor approved
+- **WHEN** preparation runs
+- **THEN** the lot is blocked, and no part of the response names the earlier run.
+
 ### Requirement: Existing-Part targets need their photos
 
 Preparation SHALL be blocked for a selected `/7` lot decided as add stock, or add stock and fill what's missing, that has no confirmed stock image. It SHALL also need a confirmed Part image when the target Part has none, and SHALL NOT need one when the Part has an image.
@@ -34,7 +44,13 @@ Preparation SHALL be blocked for a selected `/7` lot decided as add stock, or ad
 
 ### Requirement: Confirmed images and gap fills become effects
 
-Preparation SHALL include a confirmed Part image as the image of the created Part, or of an existing target Part that has none, where the target's capability allows it, every confirmed stock image of the lot, each as its own stock attachment (at most 8 per stock operation and 64 per plan, with a lot or preparation over either limit blocked, naming it), and, for a lot decided as fill what's missing, update effects for only the existing Part's missing fields.
+For `/7` lots, preparation SHALL include a confirmed Part image as the image of the created Part, or of an existing target Part that has none, where the target's capability allows it, every confirmed stock image of the lot, each as its own stock attachment, and, for a lot decided as fill what's missing, update effects for only the existing Part's missing fields.
+
+#### Scenario: Retained `/6` lot on the third effects version
+
+- **GIVEN** a retained `/6` batch's lot with one selected attachment, prepared on a `/3` effects deployment
+- **WHEN** preparation runs
+- **THEN** the plan keeps today's single attachment and plans no Part image, extra stock image or gaps fill.
 
 #### Scenario: Fill what's missing
 
@@ -77,6 +93,16 @@ A gaps fill for a key parameter SHALL create the value when the Part has no row 
 - **GIVEN** a planned create of MCU-0012's missing tolerance parameter
 - **WHEN** someone adds that parameter before the effect runs
 - **THEN** the executor's re-read finds the row, refuses the effect as a conflict and records it, and creates nothing.
+
+### Requirement: Stock image limits
+
+A `/7` lot SHALL have at most 8 stock attachments per stock operation, and a preparation SHALL stay within the existing 64-version evidence cap, counting each derived crop and its original. A lot or preparation over either limit SHALL be blocked, naming it.
+
+#### Scenario: Ninth stock image
+
+- **GIVEN** a lot with nine confirmed stock images
+- **WHEN** preparation runs
+- **THEN** it is blocked for that lot, naming the 8-image limit.
 
 ### Requirement: Existing-Part writes expect an empty field
 
