@@ -22,7 +22,7 @@ A batch SHALL follow its Examine lead's sealed input version at every queueing e
 
 Research and Images for a lot SHALL each start as soon as that lot's identity is stable: Examine has published a current identity proposal for it, and the lot's observations have not changed since. For a `/7` lot without evidence for Examine, the operator's confirmed identifiers, kept as a revisioned identity, take the place of Examine's proposal. They SHALL NOT wait for each other, for other lots, or for Examine to finish.
 
-For `/7` work, every lot SHALL also start them only when Match allows them: Match has either found no match or recorded an operator's decision that runs the stage. Only identify mode is exempt from this gate: a lot without a strong search key SHALL start Research in identify mode before any key search, once Match's import reference lookup has completed without a hit, while Images waits for Match.
+For `/7` work, every lot SHALL also start them only when Match allows them: Match has either found no match or recorded an operator's decision that runs the stage. Only identify mode is exempt from this gate: a lot with Examine evidence and no strong search key SHALL start Research in identify mode before any key search, once Match's import reference lookup has completed without a hit, while Images waits for Match.
 
 #### Scenario: Parallel start
 
@@ -110,7 +110,7 @@ New evidence SHALL go first to the Examine lead session. When an observation is 
 
 ### Requirement: Identify first when nothing can be searched
 
-For `/7` work, a lot whose identity has no strong search key SHALL start Research in identify mode once Match's import reference lookup has completed without a hit. Research SHALL resolve the canonical MPN, the manufacturer and every alias it can source (house numbers, packaging codes, cross-references, alternate markings), publish them as a `research-identity/1` amendment, and pause until Match has searched with them.
+For `/7` work, a lot with Examine evidence whose identity has no strong search key SHALL start Research in identify mode once Match's import reference lookup has completed without a hit. Research SHALL resolve the canonical MPN, the manufacturer and every alias it can source (house numbers, packaging codes, cross-references, alternate markings), publish them as a `research-identity/1` amendment, and pause until Match has searched with them.
 
 #### Scenario: House-numbered reel
 

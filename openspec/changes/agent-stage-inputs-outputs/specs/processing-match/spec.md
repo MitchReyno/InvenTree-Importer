@@ -84,13 +84,13 @@ Match SHALL search after Examine's stable identity when it has a strong key (a l
 
 ### Requirement: Lots the operator adds
 
-In a batch with a `/7` lead, a lot the operator adds without evidence for Examine SHALL enter Match from its operator-entered identifiers once they are confirmed: with a strong key Match searches, and without one it asks the operator as for an unresolved identification. Pass 3 SHALL gate it like any other `/7` lot.
+In a batch with a `/7` lead, or with no lead under a configuration that seals `/7`, a lot the operator adds without evidence for Examine SHALL enter Match from its operator-entered identifiers once they are confirmed: after the import reference lookup, with a strong key Match searches, and without one it asks the operator as for an unresolved identification, without identify-mode Research. Pass 3 SHALL gate it like any other `/7` lot.
 
 #### Scenario: Note-only lot after the lead finishes
 
-- **GIVEN** a `/7` batch whose lead has finished, and an operator-added lot with only a note and a confirmed MPN
-- **WHEN** the MPN is confirmed
-- **THEN** the confirmed MPN becomes the lot's revisioned operator identity, Match searches for it, Research and Images can then be claimed after a clear verdict or a decision that runs them, and preparation runs pass 3 for the lot.
+- **GIVEN** a `/7` batch whose lead has finished, and an operator-added lot with only a note, a confirmed MPN and a confirmed manufacturer
+- **WHEN** they are confirmed
+- **THEN** the confirmed identifiers become the lot's revisioned operator identity, Match searches with them, Research and Images can then be claimed after a clear verdict or a decision that runs them, and preparation runs pass 3 for the lot.
 
 ### Requirement: When Match doesn't search
 
