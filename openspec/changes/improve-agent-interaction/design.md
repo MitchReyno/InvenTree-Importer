@@ -161,6 +161,8 @@ Rejected: changing `CaptureEdit` to carry several changes. That is a wider contr
 
 ### Stage counts and bar states
 
+- **The fourth stage will change.** BI-022 (`agent-stage-inputs-outputs`, planned) replaces the Inventory agent session with an app-side Match step: a deterministic InvenTree search, a match question, and validation before approval. This change builds the Inventory row on the step counts, not on agent sessions, so the same row shows Match's counts (matched, waiting for you, new) once BI-022 lands. Nothing in this change depends on an Inventory agent.
+
 - **Counts:**
   - The header read's `stepJobs` gains `waiting` (jobs waiting for the operator), `queued` and `questions`.
   - The attention read's `stepWork` gains `waiting` and `queued`.
