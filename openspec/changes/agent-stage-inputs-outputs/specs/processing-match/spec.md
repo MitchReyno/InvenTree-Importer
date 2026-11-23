@@ -6,7 +6,7 @@ The Match step decides, before research or photo work is spent, whether each lot
 
 ### Requirement: Deterministic search by strong keys
 
-Match SHALL search InvenTree (Parts, manufacturer Parts, supplier Parts and stock) through the Match search reads (see inventory-target-protection), and this app's other unapproved lots, using every strong key of the lot's current identity: an MPN or type with a manufacturer, an NSN, an IPN or SKU read from a label, or a candidate Part's stock with the label's batch code. Each candidate SHALL record the keys that matched.
+Match SHALL search InvenTree (Parts, manufacturer Parts, supplier Parts and stock) through the Match search reads (see inventory-target-protection), and this app's other unapproved lots within the configured actor, target and target context, using every strong key of the lot's current identity: an MPN or type with a manufacturer, an NSN, an IPN or SKU read from a label, or a candidate Part's stock with the label's batch code. Each candidate SHALL record the keys that matched.
 
 #### Scenario: Exact match
 
@@ -45,6 +45,16 @@ An import reference hit SHALL be an original-contribution hit, not an identity c
 - **GIVEN** a lot whose original contribution an earlier round approved
 - **WHEN** Match's question for it opens
 - **THEN** it links the earlier run and offers already imported, and no stage is queued for the lot.
+
+### Requirement: Already imported is a Match decision
+
+Already imported on an original-contribution hit SHALL be recorded on the Match decision, not as a Capture exclusion, and Review and Changes SHALL show the contribution as already approved.
+
+#### Scenario: Answered already imported with no stock
+
+- **GIVEN** that question, where the earlier approval created no stock
+- **WHEN** the operator answers already imported
+- **THEN** the answer is recorded on the Match decision, Review shows the contribution as already approved, and the Capture exclusion guard and approval history are unchanged.
 
 ### Requirement: When Match searches
 
