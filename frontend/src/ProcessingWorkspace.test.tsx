@@ -144,6 +144,16 @@ afterEach(() => {
   onlineManager.setOnline(true)
 })
 
+test('shows no processing profile notice and no qualification tag on job cards', async () => {
+  const client = clientFixture()
+  mount(client)
+  expect((await screen.findAllByText(/How many are in Packet A\?/)).length).toBeGreaterThan(0)
+
+  expect(screen.queryByText(/Synthetic processing fixture|Native agent profile/)).toBeNull()
+  expect(screen.queryByText(/synthetic fixture only|live provider not qualified/)).toBeNull()
+  expect(screen.queryByText(/Closing this browser/)).toBeNull()
+})
+
 test('warm cache and cache writes cannot authorize commands; failed reads retain a pinned dirty answer', async () => {
   const user = userEvent.setup()
   const client = clientFixture()
@@ -1642,4 +1652,26 @@ test('returning to a route reopens only the session its link names, not an earli
     </ServerStateProvider>,
   )
   expect(screen.queryByRole('dialog', { name: 'Examine · Packet A' })).not.toBeInTheDocument()
+})
+
+test('the Research page explains research lanes behind a help button beside its heading', async () => {
+  const user = userEvent.setup()
+  render(
+    <ServerStateProvider scope={scope} client={createServerQueryClient()}>
+      <ProcessingWorkspace
+        batch={batch}
+        client={clientFixture()}
+        view="research"
+        navigate={vi.fn()}
+        onDirtyChange={vi.fn()}
+        onSaved={vi.fn().mockResolvedValue(undefined)}
+      />
+    </ServerStateProvider>,
+  )
+  const heading = await screen.findByRole('heading', { name: 'Research', level: 2 })
+
+  expect(screen.queryByText(/research lane per account/)).not.toBeInTheDocument()
+  await user.click(within(heading.parentElement!).getByRole('button', { name: 'About Research' }))
+  const help = await screen.findByRole('dialog', { name: 'About Research' })
+  expect(help).toHaveTextContent(/one lot at a time/)
 })

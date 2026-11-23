@@ -585,3 +585,195 @@ test('a running field keeps its parts inside a shorter window after a height-onl
   ).toBe(true)
   controller.dispose()
 })
+
+function startPaused(canvas = document.createElement('canvas'), layout: 'band' | 'field' = 'band') {
+  const controller = createElectronicsCurrent(canvas, {
+    reducedMotion: false,
+    paused: true,
+    layout,
+    random: seededRandom(7),
+  })
+
+  if (!controller) {
+    throw new Error('expected a controller with the fake renderer')
+  }
+
+  return controller
+}
+
+test('a scene started with the animation off draws one frame and starts no loop', () => {
+  const controller = startPaused()
+  setVisible(true)
+
+  expect(requestAnimationFrame).not.toHaveBeenCalled()
+  expect(currentRenderer().renders).toBe(1)
+  controller.dispose()
+})
+
+test('resuming continues the same parts from where they stopped', () => {
+  const controller = startPaused()
+  const parts = partObjects(currentRenderer().lastScene)
+
+  controller.resume()
+  runFrames(2)
+
+  expect(currentRenderer().renders).toBe(3)
+  expect(partObjects(currentRenderer().lastScene).slice(0, 5)).toEqual(parts.slice(0, 5))
+  controller.dispose()
+})
+
+test('pausing stops the loop, and scrolling out of view and back does not restart it', () => {
+  const controller = start(false)
+  runFrames(2)
+
+  controller.pause()
+  const rendersWhenPaused = currentRenderer().renders
+  runFrames(3)
+  setVisible(false)
+  setVisible(true)
+  runFrames(3)
+
+  expect(currentRenderer().renders).toBe(rendersWhenPaused)
+  expect(frames).toHaveLength(0)
+
+  controller.resume()
+  runFrames(1)
+  expect(currentRenderer().renders).toBe(rendersWhenPaused + 1)
+  controller.dispose()
+})
+
+test('a scene out of view stays stopped when the animation is switched back on', () => {
+  const controller = start(false)
+  setVisible(false)
+  controller.pause()
+  controller.resume()
+  const rendersWhileHidden = currentRenderer().renders
+  runFrames(3)
+
+  expect(currentRenderer().renders).toBe(rendersWhileHidden)
+
+  setVisible(true)
+  runFrames(1)
+  expect(currentRenderer().renders).toBe(rendersWhileHidden + 1)
+  controller.dispose()
+})
+
+test('a theme change while paused redraws the still frame', () => {
+  const controller = startPaused()
+  const renders = currentRenderer().renders
+
+  controller.setTheme('dark')
+
+  expect(currentRenderer().renders).toBe(renders + 1)
+  expect(requestAnimationFrame).not.toHaveBeenCalled()
+  controller.dispose()
+})
+
+test('resizing while paused keeps the same parts and redraws them at the new size', () => {
+  const canvas = sizedCanvas(1440, 900)
+  const controller = startPaused(canvas, 'field')
+  const parts = partObjects(currentRenderer().lastScene)
+  const renders = currentRenderer().renders
+
+  setCanvasSize(canvas, 1440, 450)
+  resizeCallback?.()
+
+  expect(currentRenderer().renders).toBe(renders + 1)
+  expect(partObjects(currentRenderer().lastScene)).toEqual(parts)
+  expect(
+    screenOffsets(currentRenderer().lastScene).every((offset) => Math.abs(offset.y) <= 225),
+  ).toBe(true)
+  expect(requestAnimationFrame).not.toHaveBeenCalled()
+
+  controller.resume()
+  runFrames(1)
+  expect(currentRenderer().renders).toBe(renders + 2)
+  controller.dispose()
+})
+
+test('reduced motion keeps the scene still even when the animation is switched on', () => {
+  const controller = start(true)
+
+  controller.resume()
+
+  expect(requestAnimationFrame).not.toHaveBeenCalled()
+  controller.dispose()
+})
+
+function hangingPositions(): number[] {
+  const layer = currentRenderer().lastScene?.getObjectByName(HANGING_LAYER_NAME)
+
+  return (layer?.children ?? []).flatMap((child) =>
+    Array.from((child as Mesh).geometry.getAttribute('position').array),
+  )
+}
+
+test('redraws while paused leave every loose end where it hung, even with the pointer moving', () => {
+  catalogue.forcedType = 'solderWick'
+  const canvas = sizedCanvas(1440, 120)
+  const controller = createElectronicsCurrent(canvas, {
+    reducedMotion: false,
+    random: seededRandom(7),
+  })!
+  vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 1440, 120))
+  runFrames(30)
+  controller.pause()
+  const hung = hangingPositions()
+
+  controller.setPointer(700, 60)
+  controller.setPointer(720, 62)
+  controller.setTheme('dark')
+  controller.setTheme('light')
+
+  expect(hangingPositions()).toEqual(hung)
+  controller.dispose()
+})
+
+test('a disposed scene never starts again', () => {
+  const controller = start(false)
+  controller.pause()
+  controller.dispose()
+  const scheduled = vi.mocked(requestAnimationFrame).mock.calls.length
+
+  controller.resume()
+
+  expect(vi.mocked(requestAnimationFrame).mock.calls.length).toBe(scheduled)
+})
+
+test('a scene started under reduced motion animates once the system allows it, and stills again', () => {
+  const controller = start(true)
+  expect(requestAnimationFrame).not.toHaveBeenCalled()
+
+  const stillRenders = currentRenderer().renders
+  controller.setReducedMotion(false)
+  runFrames(2)
+  const renders = currentRenderer().renders
+  expect(renders).toBe(stillRenders + 2)
+
+  // Stilling draws one still frame, then no loop frame follows.
+  controller.setReducedMotion(true)
+  runFrames(3)
+  expect(currentRenderer().renders).toBe(renders + 1)
+  controller.dispose()
+})
+
+test('a resize with the animation off keeps the parts even under reduced motion', () => {
+  const canvas = sizedCanvas(1440, 900)
+  const controller = createElectronicsCurrent(canvas, {
+    reducedMotion: true,
+    paused: true,
+    layout: 'field',
+    random: seededRandom(7),
+  })!
+  const parts = partObjects(currentRenderer().lastScene)
+
+  setCanvasSize(canvas, 1440, 450)
+  resizeCallback?.()
+
+  expect(partObjects(currentRenderer().lastScene)).toEqual(parts)
+  controller.setReducedMotion(false)
+  controller.resume()
+  runFrames(1)
+  expect(partObjects(currentRenderer().lastScene).slice(0, 5)).toEqual(parts.slice(0, 5))
+  controller.dispose()
+})

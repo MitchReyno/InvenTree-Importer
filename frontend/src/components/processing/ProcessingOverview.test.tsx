@@ -163,6 +163,16 @@ describe('ProcessingOverview', () => {
     expect(within(needs).getByRole('heading', { name: 'Needs you' })).toBeVisible()
     expect(within(needs).queryByText('1')).toBeNull()
   })
+
+  it('says behind its help that closing the browser does not cancel saved work', async () => {
+    const user = userEvent.setup()
+    overview()
+    const progress = screen.getByRole('region', { name: 'Progress' })
+
+    expect(progress).not.toHaveTextContent('Closing this browser')
+    await user.click(within(progress).getByRole('button', { name: 'About Processing' }))
+    expect(screen.getByText(/Closing this browser does not cancel saved work/)).toBeVisible()
+  })
 })
 
 describe('InstructionField', () => {
@@ -283,13 +293,19 @@ describe('InstructionField', () => {
     expect(screen.getByText(/not available in this setup/)).toBeInTheDocument()
   })
 
-  it('says a saved instruction reaches running agents and wakes finished ones', () => {
-    render(<InstructionField text="" revision="4" instruct={undefined} onDirtyChange={vi.fn()} />)
+  it('says beside Save that saving reaches running agents and wakes finished ones', async () => {
+    const user = userEvent.setup()
+    render(<InstructionField text="" revision="4" instruct={vi.fn()} onDirtyChange={vi.fn()} />)
+
     expect(
       screen.getByText(
-        'Saved for the batch and sent to its agents: running ones pick it up as they work, and finished ones are woken to apply it. Instructions do not approve inventory values.',
+        "Saving sends them to the batch's agents: running ones pick them up as they work, and finished ones start again to apply them.",
       ),
-    ).toBeInTheDocument()
+    ).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'About batch instructions' }))
+    expect(
+      await screen.findByRole('dialog', { name: 'About batch instructions' }),
+    ).toHaveTextContent('They do not approve inventory values.')
   })
 
   it('says when saved instructions could not reach the agents, and offers to send them again', async () => {

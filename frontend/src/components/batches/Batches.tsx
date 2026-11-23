@@ -1,4 +1,4 @@
-import { Banner, Button, media, onField } from '#/components/ui'
+import { Banner, Button, media, onField, PageStack } from '#/components/ui'
 import { Input } from '#/forms'
 import { useEffect, useRef, useState } from 'react'
 import { NewBatchForm } from './NewBatchForm'
@@ -10,7 +10,7 @@ import type { CaptureListQueryDto } from '@invimport/contracts'
 import type { BatchCreate } from '@invimport/contracts/api'
 import type { Client } from '#/capture/client'
 import styled from 'styled-components'
-import { color, pageWidth, size, space, type, typeVar } from '#/theme/generated/tokens'
+import { color, size, space, type, typeVar } from '#/theme/generated/tokens'
 import { useQuery } from '@tanstack/react-query'
 import { serverQueryKey } from '#/queries/scope'
 import { useServerScope } from '#/context'
@@ -187,12 +187,7 @@ export function Batches({ client, onDirtyChange }: Props) {
   )
 }
 
-const Inbox = styled.section`
-  display: grid;
-  gap: ${space[9]};
-  max-width: ${pageWidth.content};
-  margin: 0 auto;
-`
+const Inbox = styled(PageStack).attrs({ as: 'section' })``
 
 const PageHead = styled.div`
   display: flex;

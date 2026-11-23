@@ -65,3 +65,21 @@ test('a failed read shows as failed with the age of its data, and opening sends 
   expect(panel).toHaveTextContent('Agent settings revision12')
   expect(read).toHaveBeenCalledTimes(2)
 })
+
+test('names the processing profile from the cached Processing read', async () => {
+  function ProcessingScreen() {
+    useQuery({
+      queryKey: serverQueryKey(fixtureScope, 'processing', batchId),
+      queryFn: async () => ({ runner_status: 'native_unverified' }),
+    })
+
+    return <PageDebugPanel route={`${batchId}/processing/overview`} batchId={batchId} />
+  }
+
+  render(<ProcessingScreen />)
+  setDebugMode(true)
+  fireEvent.click(await screen.findByText('Debug · processing › overview'))
+  const panel = screen.getByText('Debug · processing › overview').closest('details')!
+
+  await waitFor(() => expect(panel).toHaveTextContent('Processing profilenative_unverified'))
+})

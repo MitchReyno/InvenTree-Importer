@@ -169,8 +169,7 @@ export function BulkEditPanel({
   return (
     <Panel aria-label="Bulk edit selected lots">
       <Paragraph>
-        <strong>{selectedIds.length} selected</strong> · bulk edits apply to every selected lot or
-        to none.
+        <strong>{selectedIds.length} selected</strong>
       </Paragraph>
       <Button
         type="button"
@@ -282,6 +281,7 @@ export function BulkEditPanel({
               Apply to {preview.lotIds.length} lot{preview.lotIds.length === 1 ? '' : 's'}
             </Button>
           )}
+          <Small>The change applies to every selected lot, or to none of them.</Small>
         </PreviewBox>
       )}
     </Panel>

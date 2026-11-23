@@ -100,3 +100,15 @@ test('closing the panel with changes releases the guard', async () => {
   unmount()
   expect(onDirtyChange).toHaveBeenLastCalledWith(false)
 })
+
+test('the apply action says the change reaches every selected lot or none', async () => {
+  const user = userEvent.setup()
+  const { quantity } = renderPanel(vi.fn().mockResolvedValueOnce(previewed))
+  await user.selectOptions(quantity, 'unknown')
+  await user.click(screen.getByRole('button', { name: 'Preview bulk edit' }))
+  await screen.findByRole('button', { name: 'Apply to 2 lots' })
+
+  expect(
+    screen.getByText('The change applies to every selected lot, or to none of them.'),
+  ).toBeVisible()
+})

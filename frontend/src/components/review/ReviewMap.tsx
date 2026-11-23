@@ -6,6 +6,7 @@ import {
   Banner,
   Button,
   HelpButton,
+  PageStack,
   Pill,
   raisedOnField,
 } from '#/components/ui'
@@ -670,10 +671,8 @@ function useConnectorPaths(
   return paths
 }
 
-const Diagram = styled.div`
-  display: grid;
-  gap: ${space[4]};
-`
+/** The map's notice, title and diagram are the page's top-level sections. */
+const Diagram = styled(PageStack)``
 
 const TitleRow = styled.div`
   display: flex;

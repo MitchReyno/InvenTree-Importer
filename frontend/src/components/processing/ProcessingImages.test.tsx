@@ -1,4 +1,5 @@
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import { render } from '#/test/render'
 import { ProcessingImages } from './ProcessingImages'
@@ -65,4 +66,23 @@ test('failed media reads report unavailable, not an empty successful gallery', a
   render(<ProcessingImages batchId="batch" client={client} />)
   expect(await screen.findByRole('alert')).toHaveTextContent('Current media status is unavailable')
   expect(screen.queryByText('No retained images or documents yet.')).not.toBeInTheDocument()
+})
+
+test('a help button beside the outputs heading says preparing a crop does not approve it', async () => {
+  const user = userEvent.setup()
+  const client = {
+    snapshot: vi.fn(async () => saved),
+    removalImpact: vi.fn(),
+    upload: vi.fn(),
+    edit: vi.fn(),
+  }
+  render(<ProcessingImages batchId="batch" client={client} />)
+  const heading = screen.getByRole('heading', { name: 'Originals and documentary crops' })
+
+  await user.click(
+    within(heading.parentElement!).getByRole('button', { name: 'About image outputs' }),
+  )
+  expect(await screen.findByRole('dialog', { name: 'About image outputs' })).toHaveTextContent(
+    'Preparing a crop does not approve it for inventory.',
+  )
 })

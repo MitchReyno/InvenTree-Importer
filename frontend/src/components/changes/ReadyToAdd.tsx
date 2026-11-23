@@ -379,10 +379,15 @@ const Layout = styled.div`
     /* literal-allowed: the canvas's 320px lot column beside the Tree */
     grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
   }
-  gap: ${space[6]};
+  gap: ${space[7]};
   align-items: start;
   > :not(section) {
     grid-column: 1 / -1;
+  }
+  /* The page gap spaces the panels, so they keep no outer margins; doubled to outrank Panel's. */
+  && > * {
+    margin-top: 0;
+    margin-bottom: 0;
   }
   ${media.stacked} {
     &,
