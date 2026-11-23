@@ -516,24 +516,32 @@ test('a refused note edit after the quantity edit rolls the whole answer back', 
 test('a combined note over the limit or an inbox payload over its limit is refused before any edit', async () => {
   await withSessions(async ({ fixture, capture, url, a }) => {
     const prompt = (n: number) => `${n} `.padEnd(500, 'p')
-    const textSteps = [1, 2, 3, 4].map((n) => ({
+    // Three text steps and a number step answered in words: all four lines count.
+    const longSteps = [1, 2, 3, 4].map((n) => ({
       id: `t${n}`,
       prompt: prompt(n),
       assumption: 'None yet.',
-      answer: { kind: 'text' },
+      answer: { kind: n === 4 ? 'number' : 'text' },
     }))
-    const long = await askedQuestion({ fixture, capture, url, a }, textSteps)
+    const long = await askedQuestion({ fixture, capture, url, a }, longSteps)
     const words = 'w'.repeat(2048)
     const overNote = await fixture.http(long.path, {
       ...long.base,
-      steps: textSteps.map((step) => ({ step_id: step.id, value: { kind: 'text', text: words } })),
+      steps: longSteps.map((step) => ({ step_id: step.id, value: { kind: 'text', text: words } })),
     })
     assert.equal(overNote.status, 422)
-    // Three lines fit in 8192 characters; the fourth crosses the limit.
+    // Three lines fit in 8192 characters; the number step's line in words crosses the limit.
     assert.deepEqual(
       [(overNote.value as { code: string }).code, (overNote.value as { step_id?: string }).step_id],
       ['invalid_answer', 't4'],
     )
+    const stillOpen = (await snapshot(fixture, capture.batch.id)).jobs
+      .find((job) => job.id === a.job)!
+      .questions.find((item) => item.id === long.questionId)!
+    assert.equal(stillOpen.state, 'open')
+    assert.deepEqual(await lotQuantity(fixture, capture.batch.id, capture.packetA.id), {
+      mode: 'inherit',
+    })
 
     // The note fits, but escaped text in the delivered payload doesn't, as jsonb measures it.
     const short = [1, 2, 3].map((n) => ({
@@ -902,5 +910,38 @@ test('Unclear quantity: the lead asks one number step, its estimate is provision
     })
     assert.equal(research.ok, true, JSON.stringify(research))
     // The attention read's number row for this question is checked in attention.test.ts.
+  })
+})
+
+test('a one-step choice is stored open, the session keeps running, and the picked option reaches it', async () => {
+  await withSessions(async ({ fixture, capture, url, a }) => {
+    const { path, base, questionId } = await askedQuestion({ fixture, capture, url, a }, [
+      placeStep,
+    ])
+    const asked = (await snapshot(fixture, capture.batch.id)).jobs
+      .find((job) => job.id === a.job)!
+      .questions.find((item) => item.id === questionId)!
+    assert.equal(asked.state, 'open')
+    const attempt = await fixture.db.pool.query<{ state: string }>(
+      'SELECT state FROM processing_attempt WHERE id=$1',
+      [a.attempt],
+    )
+    assert.equal(attempt.rows[0].state, 'running')
+
+    const answered = await fixture.http(path, {
+      ...base,
+      steps: [{ step_id: 'place', value: { kind: 'choice', option_id: 'drawer_r4' } }],
+    })
+    assert.equal(answered.status, 200, JSON.stringify(answered.value))
+    assert.ok(
+      (await notes(fixture, capture.batch.id, capture.packetA.id)).includes(
+        'Where does it go? — Drawer R4',
+      ),
+    )
+    const read = await call(url, a.token, 'read_inbox', { after_seq: '0' })
+    const answer = read.items!.find((item) => item.kind === 'answer')!
+    assert.deepEqual(answer.payload.steps, [
+      { step_id: 'place', value: { kind: 'choice', option_id: 'drawer_r4', label: 'Drawer R4' } },
+    ])
   })
 })

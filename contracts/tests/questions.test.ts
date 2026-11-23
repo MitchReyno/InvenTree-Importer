@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   LEGACY_QUESTION_STEP_ID,
   questionView,
+  schemas,
   validate,
   validationIssues,
   type ProcessingAnswerV2Dto,
@@ -47,7 +48,7 @@ const ask = {
   steps: [choiceStep, numberStep, textStep],
 }
 
-function issuePaths(name: Parameters<typeof validationIssues>[0], value: unknown) {
+function issuePaths(name: keyof typeof schemas, value: unknown) {
   return validationIssues(name, value).map((issue) => issue.path)
 }
 

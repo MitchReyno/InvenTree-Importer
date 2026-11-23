@@ -166,6 +166,9 @@ const Question = styled.div`
   gap: ${space[4]};
   > p {
     flex: 1 1 240px;
+    min-width: 0;
     margin: 0;
+    /* A question's title or assumption can hold a long unbroken word. */
+    overflow-wrap: anywhere;
   }
 `

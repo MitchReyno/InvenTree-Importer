@@ -148,6 +148,8 @@ export const Card = styled.section`
   display: grid;
   gap: ${space[4]};
   min-width: 0;
+  /* Agent text, such as a question's prompt or assumption, can hold a long unbroken word. */
+  overflow-wrap: anywhere;
   padding: ${space[7]} ${space[8]};
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
@@ -177,6 +179,7 @@ const Rows = styled.ul`
     gap: ${space[4]};
     padding: ${space[4]} 0;
     border-top: 1px solid ${color.line};
+    overflow-wrap: anywhere;
   }
   li:first-child {
     border-top: 0;
