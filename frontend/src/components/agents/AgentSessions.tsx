@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueries, useQueryClient } from '@tanstack/react-query'
 import styled from 'styled-components'
 import type { AgentSessionListDto, AgentSettingsDto } from '@invimport/contracts'
 import { batchHref, processingStepFor, sessionHref } from '#/navigation/batch-route'
 import { serverQueryKey } from '#/queries/scope'
+import { useFreshRead } from '#/queries/useFreshRead'
 import { color, radius, space, type, typeVar } from '#/theme/generated/tokens'
 import {
   AiMark,
@@ -19,6 +20,7 @@ import {
   onField,
   raisedOnField,
   PageStack,
+  ReadState,
   HelpButton,
   StatePill,
   WORK_STATE,
@@ -28,6 +30,7 @@ import { STEP_LABEL } from '#/components/processing/ProcessingParts'
 import { workState } from '#/header/workSegments'
 import { PauseButton } from './PauseButton'
 import { PauseAllAgents } from './PauseAllAgents'
+import { AgentsSkeleton } from './AgentsSkeleton'
 import { slotUse } from './slot-use'
 import {
   FAILED_SESSION_STATES,
@@ -121,15 +124,18 @@ export function AgentSessions({ client, batches }: Props) {
   const [filter, setFilter] = useState<Filter>('all')
   const [before, setBefore] = useState<string>()
   // Global history can include streams beyond the bounded live subscription.
-  const query = useQuery({
+  const fresh = useFreshRead({
     queryKey: serverQueryKey(scope, 'agent-sessions', before ?? 'newest'),
     queryFn: () => client.sessions(before),
     refetchInterval: poll === false ? 10000 : poll,
   })
-  const settings = useQuery({
+  const query = fresh.query
+  const settings = useFreshRead({
     queryKey: serverQueryKey(scope, 'agent-settings'),
     queryFn: () => client.settings(),
-  })
+  }).query
+  // Pause and Resume send no revision, so they wait for a read started after the last live hint.
+  const pauseReason = fresh.settledAfterHint ? undefined : (fresh.reason ?? 'Updating…')
   const sessions = query.data?.sessions ?? []
   const batchIds = [...new Set(sessions.map((session) => session.batch_id))]
   const names = useQueries({
@@ -171,192 +177,211 @@ export function AgentSessions({ client, batches }: Props) {
           </Button>
         )}
       </Head>
-      {unavailable && (
-        <div role="alert">
-          <Banner tone="bad" action={<Button onClick={() => void query.refetch()}>Retry</Button>}>
-            Session connection unavailable. Retained results may be stale.
+      <ReadState
+        phase={fresh.phase}
+        hasData={query.data !== undefined}
+        skeleton={<AgentsSkeleton />}
+        failure={
+          <div role="alert">
+            <Banner tone="bad" action={<Button onClick={() => void query.refetch()}>Retry</Button>}>
+              Session connection unavailable. Retained results may be stale.
+            </Banner>
+          </div>
+        }
+      >
+        {query.data && !supported && (
+          <Banner tone="info">
+            Agent sessions are not available for this setup: the server's processing profile does
+            not run agent sessions. Processing still shows its retained work.
           </Banner>
-        </div>
-      )}
-      {query.isPending && <FieldNote role="status">Loading sessions…</FieldNote>}
-      {query.data && !supported && (
-        <Banner tone="info">
-          Agent sessions are not available for this setup: the server's processing profile does not
-          run agent sessions. Processing still shows its retained work.
-        </Banner>
-      )}
-      {query.data && supported && (
-        <>
-          <Summary aria-label="Summary">
-            <Block>
-              <Label>Working now</Label>
-              {limit !== undefined && (
-                <Slots aria-hidden="true">
-                  {Array.from({ length: limit }, (_, index) => (
-                    <span key={index} data-used={index < inUse} />
-                  ))}
-                </Slots>
-              )}
-              <Muted>
-                {limit === undefined
-                  ? `${inUse} slots in use`
-                  : `${inUse} of ${limit} slots in use`}
-                {queued > 0 && ` · ${queued} queued`}
-              </Muted>
-            </Block>
-            <Block>
-              <Label>Default for new sessions</Label>
-              <span>
-                {settings.data?.default_provider
-                  ? `${settings.data.default_provider === 'codex' ? 'Codex' : 'Claude Code'} · ${settings.data.providers[settings.data.default_provider].default_model}`
-                  : 'No model chosen'}
-              </span>
-            </Block>
-            <Block>
-              <BlockHead>
-                <Label>Waiting for you</Label>
-                <HelpButton
-                  label="About waiting sessions"
-                  explanation="A session waiting for your answer does not use a slot, so another session can run meanwhile."
+        )}
+        {query.data && supported && (
+          <>
+            <Summary aria-label="Summary">
+              <Block>
+                <Label>Working now</Label>
+                {limit !== undefined && (
+                  <Slots aria-hidden="true">
+                    {Array.from({ length: limit }, (_, index) => (
+                      <span key={index} data-used={index < inUse} />
+                    ))}
+                  </Slots>
+                )}
+                <Muted>
+                  {limit === undefined
+                    ? `${inUse} slots in use`
+                    : `${inUse} of ${limit} slots in use`}
+                  {queued > 0 && ` · ${queued} queued`}
+                </Muted>
+              </Block>
+              <Block>
+                <Label>Default for new sessions</Label>
+                <span>
+                  {settings.data?.default_provider
+                    ? `${settings.data.default_provider === 'codex' ? 'Codex' : 'Claude Code'} · ${settings.data.providers[settings.data.default_provider].default_model}`
+                    : 'No model chosen'}
+                </span>
+              </Block>
+              <Block>
+                <BlockHead>
+                  <Label>Waiting for you</Label>
+                  <HelpButton
+                    label="About waiting sessions"
+                    explanation="A session waiting for your answer does not use a slot, so another session can run meanwhile."
+                  />
+                </BlockHead>
+                <span>{sessions.filter(isWaiting).length} waiting for you</span>
+              </Block>
+              <Push>
+                <PauseAllAgents
+                  pauseAll={client.pauseAll}
+                  list={query.data}
+                  unavailableReason={pauseReason}
+                  readyNow={fresh.settledAfterHintNow}
                 />
-              </BlockHead>
-              <span>{sessions.filter(isWaiting).length} waiting for you</span>
-            </Block>
-            <Push>
-              <PauseAllAgents pauseAll={client.pauseAll} list={query.data} />
-            </Push>
-          </Summary>
-          <FilterChips
-            label="Session filters"
-            options={FILTERS.map((item) => ({
-              id: item.id,
-              label: item.label,
-              count: sessions.filter((session) => matches(session, item.id)).length,
-            }))}
-            value={filter}
-            onChange={(value) => setFilter(value as Filter)}
-          />
-          {shown.length === 0 && <FieldNote>No sessions match this filter on this page.</FieldNote>}
-          {batchIds
-            .filter((batchId) => shown.some((session) => session.batch_id === batchId))
-            .map((batchId) => {
-              const named = nameOf(batchId)
+              </Push>
+            </Summary>
+            <FilterChips
+              label="Session filters"
+              options={FILTERS.map((item) => ({
+                id: item.id,
+                label: item.label,
+                count: sessions.filter((session) => matches(session, item.id)).length,
+              }))}
+              value={filter}
+              onChange={(value) => setFilter(value as Filter)}
+            />
+            {shown.length === 0 && (
+              <FieldNote>No sessions match this filter on this page.</FieldNote>
+            )}
+            {batchIds
+              .filter((batchId) => shown.some((session) => session.batch_id === batchId))
+              .map((batchId) => {
+                const named = nameOf(batchId)
 
-              // Counted over the page's sessions, so the filter does not hide who is waiting.
-              const waitingIn = (id: string) =>
-                sessions.filter((session) => session.batch_id === id && isWaiting(session)).length
+                // Counted over the page's sessions, so the filter does not hide who is waiting.
+                const waitingIn = (id: string) =>
+                  sessions.filter((session) => session.batch_id === id && isWaiting(session)).length
 
-              const title = named?.title ?? 'Batch'
-              const rows = shown
-                .filter((session) => session.batch_id === batchId)
-                .map((session) => {
-                  const subject =
-                    session.subject_id === null
-                      ? 'Whole batch'
-                      : (named?.subjects.get(session.subject_id) ?? 'Unknown subject')
-                  const step = STEP_LABEL[processingStepFor(session.stage)] ?? 'Processing'
-                  const state = sessionState(session)
-                  const notes = [
-                    session.latest_status?.text,
-                    !session.latest_on_job && 'an earlier attempt',
-                    isWaiting(session) && 'holds no slot',
-                    session.occupies_lane &&
-                      FINISHED.has(session.state) &&
-                      'still holds its slot until the command is confirmed stopped',
-                  ].filter(Boolean)
-                  return {
-                    id: session.attempt_id,
-                    label: `${step} · ${subject}`,
-                    cells: {
-                      step: {
-                        value: step,
-                        content: (
-                          <Link
-                            href={sessionHref(
-                              batchId,
-                              processingStepFor(session.stage),
-                              session.job_id,
-                            )}
-                            // The drawer shows a job's latest attempt, so an earlier row says so.
-                            aria-label={`${session.latest_on_job ? 'Open session' : 'Open latest session'}: ${step} · ${subject}`}
-                          >
-                            {step}
-                          </Link>
-                        ),
+                const title = named?.title ?? 'Batch'
+                const rows = shown
+                  .filter((session) => session.batch_id === batchId)
+                  .map((session) => {
+                    const subject =
+                      session.subject_id === null
+                        ? 'Whole batch'
+                        : (named?.subjects.get(session.subject_id) ?? 'Unknown subject')
+                    const step = STEP_LABEL[processingStepFor(session.stage)] ?? 'Processing'
+                    const state = sessionState(session)
+                    const notes = [
+                      session.latest_status?.text,
+                      !session.latest_on_job && 'an earlier attempt',
+                      isWaiting(session) && 'holds no slot',
+                      session.occupies_lane &&
+                        FINISHED.has(session.state) &&
+                        'still holds its slot until the command is confirmed stopped',
+                    ].filter(Boolean)
+                    return {
+                      id: session.attempt_id,
+                      label: `${step} · ${subject}`,
+                      cells: {
+                        step: {
+                          value: step,
+                          content: (
+                            <Link
+                              href={sessionHref(
+                                batchId,
+                                processingStepFor(session.stage),
+                                session.job_id,
+                              )}
+                              // The drawer shows a job's latest attempt, so an earlier row says so.
+                              aria-label={`${session.latest_on_job ? 'Open session' : 'Open latest session'}: ${step} · ${subject}`}
+                            >
+                              {step}
+                            </Link>
+                          ),
+                        },
+                        lot: { value: subject },
+                        status: {
+                          value: notes.join(' · '),
+                          // A failed session's retained diagnostics open beside its status line.
+                          ...(session.failure ||
+                          FAILED_SESSION_STATES.has(session.session_state ?? session.state)
+                            ? {
+                                content: (
+                                  <>
+                                    {notes.join(' · ')}
+                                    <SessionFailureDetails
+                                      key={`${session.attempt_id}:${session.failure?.id ?? 'legacy'}`}
+                                      attemptId={session.attempt_id}
+                                      failure={session.failure}
+                                      load={client.failure}
+                                    />
+                                  </>
+                                ),
+                              }
+                            : {}),
+                        },
+                        state: {
+                          value: WORK_STATE[state].word,
+                          content: <StatePill state={state} />,
+                        },
+                        since: {
+                          value: since(session),
+                          content: <EventTime at={since(session)} />,
+                        },
                       },
-                      lot: { value: subject },
-                      status: {
-                        value: notes.join(' · '),
-                        // A failed session's retained diagnostics open beside its status line.
-                        ...(session.failure ||
-                        FAILED_SESSION_STATES.has(session.session_state ?? session.state)
-                          ? {
-                              content: (
-                                <>
-                                  {notes.join(' · ')}
-                                  <SessionFailureDetails
-                                    key={`${session.attempt_id}:${session.failure?.id ?? 'legacy'}`}
-                                    attemptId={session.attempt_id}
-                                    failure={session.failure}
-                                    load={client.failure}
-                                  />
-                                </>
-                              ),
+                    }
+                  })
+                return (
+                  <Group key={batchId} aria-label={title}>
+                    <GroupHead>
+                      <h2>{title}</h2>
+                      {waitingIn(batchId) > 0 && (
+                        <Pill status="needs-answer">{waitingIn(batchId)} need you</Pill>
+                      )}
+                      {client.pause && (
+                        <PauseButton
+                          paused={pausedBatches.has(batchId)}
+                          unavailableReason={pauseReason}
+                          change={async (paused) => {
+                            if (!fresh.settledAfterHintNow()) {
+                              throw new Error('agent_sessions_fresh_read_required')
                             }
-                          : {}),
-                      },
-                      state: {
-                        value: WORK_STATE[state].word,
-                        content: <StatePill state={state} />,
-                      },
-                      since: { value: since(session), content: <EventTime at={since(session)} /> },
-                    },
-                  }
-                })
-              return (
-                <Group key={batchId} aria-label={title}>
-                  <GroupHead>
-                    <h2>{title}</h2>
-                    {waitingIn(batchId) > 0 && (
-                      <Pill status="needs-answer">{waitingIn(batchId)} need you</Pill>
-                    )}
-                    {client.pause && (
-                      <PauseButton
-                        paused={pausedBatches.has(batchId)}
-                        change={async (paused) => {
-                          await client.pause!(batchId, paused)
-                          await reread()
-                        }}
-                      />
-                    )}
-                    <a href={batchHref(batchId, { tab: 'processing', step: 'overview' })}>
-                      Open Processing
-                    </a>
-                  </GroupHead>
-                  <DataTable caption={`${title} sessions`} columns={COLUMNS} rows={rows} />
-                </Group>
-              )
-            })}
-          {(before || query.data.next_before) && (
-            <Paging aria-label="Session pages">
-              <Button size="sm" disabled={!before} onClick={() => setBefore(undefined)}>
-                Newest sessions
-              </Button>
-              <Button
-                size="sm"
-                disabled={!query.data.next_before || unavailable}
-                onClick={() => setBefore(query.data?.next_before ?? undefined)}
-              >
-                Older sessions
-              </Button>
-              <HelpButton
-                label="About session pages"
-                explanation="Filters and counts cover only the page of history shown."
-              />
-            </Paging>
-          )}
-        </>
-      )}
+                            await client.pause!(batchId, paused)
+                            await reread()
+                          }}
+                        />
+                      )}
+                      <a href={batchHref(batchId, { tab: 'processing', step: 'overview' })}>
+                        Open Processing
+                      </a>
+                    </GroupHead>
+                    <DataTable caption={`${title} sessions`} columns={COLUMNS} rows={rows} />
+                  </Group>
+                )
+              })}
+            {(before || query.data.next_before) && (
+              <Paging aria-label="Session pages">
+                <Button size="sm" disabled={!before} onClick={() => setBefore(undefined)}>
+                  Newest sessions
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={!query.data.next_before || unavailable}
+                  onClick={() => setBefore(query.data?.next_before ?? undefined)}
+                >
+                  Older sessions
+                </Button>
+                <HelpButton
+                  label="About session pages"
+                  explanation="Filters and counts cover only the page of history shown."
+                />
+              </Paging>
+            )}
+          </>
+        )}
+      </ReadState>
     </Page>
   )
 }

@@ -1,13 +1,15 @@
 import { useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Banner, Button, Paragraph, SettingRow, Switch } from '#/components/ui'
+import { useQueryClient } from '@tanstack/react-query'
+import { Banner, Button, DisplayOnly, ReadState, SettingRow, Switch } from '#/components/ui'
 import { serverQueryKey } from '#/queries/scope'
-import { useApiClients, useServerScope } from '#/context'
+import { useFreshRead } from '#/queries/useFreshRead'
+import { useApiClients, useReportRefreshing, useServerScope } from '#/context'
 import type { BatchDefaultsDto } from '@invimport/contracts'
 import { BatchDefaultsForm } from './BatchDefaultsForm'
 import { SettingsCard } from './SettingsCard'
 import { newestRevision } from './newest-revision'
 import { SettingsSection } from './SettingsSection'
+import { SettingsSkeleton } from './SettingsSkeleton'
 
 /** Settings › Batch defaults: the location and supplier each new batch starts with. */
 export function BatchDefaultsSection({
@@ -19,21 +21,23 @@ export function BatchDefaultsSection({
   const scope = useServerScope()
   const queryClient = useQueryClient()
   const key = serverQueryKey(scope, 'batch-defaults')
-  const saved = useQuery({
+  const fresh = useFreshRead({
     queryKey: key,
     queryFn: () => batchDefaults!.read(),
     enabled: batchDefaults !== undefined,
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: false,
   })
+  const saved = fresh.query
 
   // The form opens only once a read has succeeded this visit, never on cached defaults; a later
   // failed refresh keeps it, and its choice, open.
   const [readThisVisit, setReadThisVisit] = useState(false)
-  if (!readThisVisit && saved.isFetchedAfterMount && saved.isSuccess) {
+  if (!readThisVisit && fresh.commandsReady) {
     setReadThisVisit(true)
   }
   const loaded = readThisVisit ? saved.data : undefined
+  // Until then, defaults cached from an earlier visit show read-only.
+  const cached = loaded ? undefined : saved.data
+  useReportRefreshing(cached !== undefined && saved.isFetching)
 
   /**
    * Publishes confirmed defaults and answers with the newest known. A read already running, or a
@@ -67,10 +71,20 @@ export function BatchDefaultsSection({
           </Banner>
         </div>
       )}
-      {batchDefaults && !loaded && !saved.isError && (
-        <Paragraph role="status" $onField>
-          Loading saved defaults…
-        </Paragraph>
+      {batchDefaults && !loaded && !cached && !saved.isError && (
+        <ReadState phase="empty" skeleton={<SettingsSkeleton />}>
+          {null}
+        </ReadState>
+      )}
+      {batchDefaults && cached && (
+        <DisplayOnly>
+          <BatchDefaultsForm
+            client={batchDefaults}
+            loaded={cached}
+            onLoaded={adopt}
+            onDirtyChange={onDirtyChange}
+          />
+        </DisplayOnly>
       )}
       {batchDefaults && loaded && (
         <BatchDefaultsForm

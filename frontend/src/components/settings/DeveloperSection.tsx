@@ -11,7 +11,7 @@ export function DeveloperSection() {
   const { enabled, setEnabled } = useDebugMode()
   // The section is mounted only while open, so the check runs only then.
   const readiness = useReadiness(true)
-  const failed = readiness.isError || readiness.fetchStatus === 'paused'
+  const failed = readiness.phase === 'failed'
 
   return (
     <SettingsSection

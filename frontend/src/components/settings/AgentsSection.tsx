@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import type { AgentSettingsDto } from '@invimport/contracts'
 import type { agentsClient } from '@invimport/contracts/client'
 import { serverQueryKey } from '#/queries/scope'
+import { useFreshRead } from '#/queries/useFreshRead'
 import type { AgentSubsectionId } from '#/navigation/app-route'
-import { useRetainedPollInterval, useServerScope } from '#/context'
-import { Banner, Button, Paragraph, SettingRow } from '#/components/ui'
+import { useReportRefreshing, useRetainedPollInterval, useServerScope } from '#/context'
+import { Banner, Button, DisplayOnly, ReadState, SettingRow } from '#/components/ui'
 import { ChatGPTSignIn } from '#/components/agents/ChatGPTSignIn'
 import { PauseAllAgents } from '#/components/agents/PauseAllAgents'
 import { PersonalClaudeCredential } from '#/components/agents/PersonalClaudeCredential'
@@ -13,6 +14,7 @@ import { useChatGPTSignIn } from '#/components/agents/useChatGPTSignIn'
 import { usePersonalClaudeCredential } from '#/components/agents/usePersonalClaudeCredential'
 import { newestRevision } from './newest-revision'
 import { SettingsSection } from './SettingsSection'
+import { SettingsSkeleton } from './SettingsSkeleton'
 import { AgentSubsection, subsectionHeadingId } from './agents/AgentSubsection'
 import { DescriptionsCard } from './agents/DescriptionsCard'
 import { SlotMeter } from './agents/SlotMeter'
@@ -49,26 +51,33 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
   // Says whether this profile's sessions have web access; until it answers, the form stays usable.
   const readiness = useReadiness(true)
   const settingsKey = serverQueryKey(scope, 'agent-settings')
-  const settings = useQuery({
+  const settingsFresh = useFreshRead({
     queryKey: settingsKey,
     queryFn: () => client.settings(),
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: false,
   })
+  const settings = settingsFresh.query
   // The Agents page's list; its first page gives the slot use it shows too.
-  const sessions = useQuery({
+  const sessionsFresh = useFreshRead({
     queryKey: serverQueryKey(scope, 'agent-sessions', 'newest'),
     queryFn: () => client.sessions(),
     refetchInterval: poll === false ? 10000 : poll,
   })
+  const sessions = sessionsFresh.query
+  // Pause all sends no revision, so it waits for a list read started after the last live hint.
+  const pauseReason = sessionsFresh.settledAfterHint
+    ? undefined
+    : (sessionsFresh.reason ?? 'Updating…')
   // Forms open only once a read has succeeded this visit, never on cached settings after a
   // failed one; a later failed refresh keeps them, and their drafts, open.
   const [readThisVisit, setReadThisVisit] = useState(false)
-  if (!readThisVisit && settings.isFetchedAfterMount && settings.isSuccess) {
+  if (!readThisVisit && settingsFresh.commandsReady) {
     setReadThisVisit(true)
   }
   const loaded = readThisVisit && settings.data
   const ready = Boolean(loaded)
+  // Until then, settings cached from an earlier visit show read-only.
+  const cached = loaded ? undefined : settings.data
+  useReportRefreshing(!loaded && cached !== undefined && settings.isFetching)
   const focused = useRef<AgentSubsectionId | undefined>(undefined)
   // Every subsection saves through one queue, which owns their debounces.
   const [queue] = useState(createSaveQueue)
@@ -136,18 +145,15 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
       </Banner>
     </div>
   )
-  const waiting = (
-    <Paragraph role="status" $onField>
-      Waiting for the saved settings…
-    </Paragraph>
-  )
-  const page: SettingsPage | undefined = loaded
+  const waiting = settings.isError ? null : <SettingsSkeleton />
+  const shown = loaded || cached
+  const page: SettingsPage | undefined = shown
     ? {
         client,
         queue,
         newest: () =>
           newestRevision(
-            loaded,
+            shown,
             newest.current,
             queryClient.getQueryData<AgentSettingsDto>(settingsKey),
           ),
@@ -157,7 +163,7 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
         reportDirty: reportDirty.report,
       }
     : undefined
-  const form = loaded && page && { page, loaded }
+  const form = shown && page && { page, loaded: shown }
   const sessionsSubsection = form ? (
     <SessionsForm
       {...form}
@@ -165,7 +171,7 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
         <SlotMeter
           list={sessions.data}
           failed={sessions.isError}
-          limit={settings.data.session_concurrency}
+          limit={shown.session_concurrency}
         />
       }
       pause={
@@ -173,7 +179,12 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
           label="Pause all agents"
           help="Paused batches keep their place and resume where they stopped."
         >
-          <PauseAllAgents pauseAll={client.pauseAll} list={sessions.data} />
+          <PauseAllAgents
+            pauseAll={client.pauseAll}
+            list={sessions.data}
+            unavailableReason={pauseReason}
+            readyNow={sessionsFresh.settledAfterHintNow}
+          />
         </SettingRow>
       }
     />
@@ -181,13 +192,8 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
     <AgentSubsection id="sessions">{waiting}</AgentSubsection>
   )
 
-  return (
-    <SettingsSection
-      title="Agents"
-      lead="Everything that shapes how agents work, for every batch. A running turn finishes with the settings it started with."
-      agent
-    >
-      {unavailable}
+  const body = (
+    <>
       {form ? (
         <ProvidersAndSteps
           {...form}
@@ -201,10 +207,10 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
       ) : (
         <>
           <AgentSubsection id="providers">
-            {!settings.isFetchedAfterMount && (
-              <Paragraph role="status" $onField>
-                Loading saved settings…
-              </Paragraph>
+            {waiting && (
+              <ReadState phase="empty" skeleton={waiting}>
+                {null}
+              </ReadState>
             )}
           </AgentSubsection>
           {sessionsSubsection}
@@ -230,6 +236,17 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
       ) : (
         <AgentSubsection id="research">{waiting}</AgentSubsection>
       )}
+    </>
+  )
+
+  return (
+    <SettingsSection
+      title="Agents"
+      lead="Everything that shapes how agents work, for every batch. A running turn finishes with the settings it started with."
+      agent
+    >
+      {unavailable}
+      {cached ? <DisplayOnly>{body}</DisplayOnly> : body}
     </SettingsSection>
   )
 }

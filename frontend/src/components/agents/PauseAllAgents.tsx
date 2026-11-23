@@ -10,6 +10,10 @@ type Props = {
   pauseAll?: (paused: boolean) => Promise<unknown>
   /** The agent sessions list, which says which batches are paused. */
   list: AgentSessionListDto | undefined
+  /** Why the change waits for the list's read; neither sends a revision. */
+  unavailableReason?: string
+  /** Checked again when pressed: a settled read started after the last live hint. */
+  readyNow: () => boolean
 }
 
 /** True while any batch is paused, from the list's paused batches or its session rows. */
@@ -27,7 +31,7 @@ function somePaused(list: AgentSessionListDto | undefined) {
  * Pause all agents, with Resume all agents beside it while any batch is paused, since some can be
  * paused while others run. The shown state follows the next read of the sessions list.
  */
-export function PauseAllAgents({ pauseAll, list }: Props) {
+export function PauseAllAgents({ pauseAll, list, unavailableReason, readyNow }: Props) {
   const scope = useServerScope()
   const queryClient = useQueryClient()
 
@@ -42,14 +46,29 @@ export function PauseAllAgents({ pauseAll, list }: Props) {
   const pause = pauseAll
 
   async function change(paused: boolean) {
+    if (!readyNow()) {
+      throw new Error('agent_sessions_fresh_read_required')
+    }
     await pause(paused)
     await queryClient.invalidateQueries({ queryKey: serverQueryKey(scope, 'agent-sessions') })
   }
 
   return (
     <>
-      <PauseButton paused={false} change={change} pauseLabel="Pause all agents" />
-      {somePaused(list) && <PauseButton paused change={change} resumeLabel="Resume all agents" />}
+      <PauseButton
+        paused={false}
+        change={change}
+        pauseLabel="Pause all agents"
+        unavailableReason={unavailableReason}
+      />
+      {somePaused(list) && (
+        <PauseButton
+          paused
+          change={change}
+          resumeLabel="Resume all agents"
+          unavailableReason={unavailableReason}
+        />
+      )}
     </>
   )
 }

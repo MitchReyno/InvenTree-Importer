@@ -216,18 +216,18 @@ export function ProcessingWorkspace({
   )
   const snapshot = fresh.data
   // The Agents page's own reads, so both share one cache entry.
-  const agentSessions = useQuery({
+  const agentSessions = useFreshRead({
     queryKey: serverQueryKey(scope, 'agent-sessions', 'newest'),
     queryFn: () => agents!.sessions(),
     enabled: agents !== undefined && view === 'overview',
     refetchInterval: pollInterval,
-  })
-  const agentSettings = useQuery({
+  }).query
+  const agentSettings = useFreshRead({
     queryKey: serverQueryKey(scope, 'agent-settings'),
     queryFn: () => agents!.settings(),
     enabled: agents !== undefined && view === 'overview',
     refetchInterval: pollInterval,
-  })
+  }).query
 
   // A read that failed or paused keeps old data; it is withheld rather than shown as current.
   const liveRead = (read: { isSuccess: boolean; isError: boolean; fetchStatus: string }) =>
