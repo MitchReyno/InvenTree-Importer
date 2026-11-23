@@ -60,6 +60,7 @@ test('opens a dialog named by its title and closes from its Close button', async
   await user.click(screen.getByRole('button', { name: 'Merge lots' }))
 
   expect(screen.getByRole('dialog', { name: 'Merge 2 lots' })).toBeVisible()
+  expect(screen.getByRole('dialog', { name: 'Merge 2 lots' })).toHaveAttribute('aria-modal', 'true')
   expect(screen.getByRole('heading', { name: 'Merge 2 lots' })).toBeVisible()
   await user.click(screen.getByRole('button', { name: 'Close' }))
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()

@@ -120,6 +120,8 @@ export function ModalFrame({
           ref={attachSurface}
           data-placement={placement}
           data-modal-dialog=""
+          // Radix leaves this out; showModal exposed the dialog as modal.
+          aria-modal="true"
           $side={placement === 'side'}
           $wide={wide}
           aria-describedby={undefined}
