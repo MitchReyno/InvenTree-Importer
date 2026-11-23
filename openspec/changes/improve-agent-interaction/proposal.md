@@ -152,7 +152,7 @@ None.
 - `processing-workspace`: the session drawer closes from its backdrop, and steps are answered in the drawer. The Inventory drawer's option cards become live. Expandable history with links, the operator's inputs in it, the drawer/page split and the session page.
 - `agents-overview`: each session row links to its session page.
 - `header-workflow-status`: stage rows in the workflow details, the stage bar states, only working stages animating, and Resume as the one command in the workflow details.
-- `agents-overview` also gains session rows, recovery actions and the Needs attention filter. `processing-workspace` gains failures in plain words, the drawer header, activity in the app's words and the labelled message box. `processing-agent-sessions` gains readable status lines.
+- `agents-overview` also gains session rows, recovery actions and the Needs attention and Done today filter rules. `processing-workspace` gains failures in plain words, the drawer header, activity in the app's words and the labelled message box. `processing-agent-sessions` gains readable status lines.
 - `processing-stage-pipeline`: non-blocking questions are one question with 1–4 steps, each with an answer kind and an assumption.
 - `processing-agent-sessions`: the `ask` tool's structured question, the delivery of stepped answers to the session, recorded photo views and agent-reported web page sources, which "Bounded status lines and delivered citations" now allows as the one undelivered source kind.
 - `ui-design-system`: dialogs close from their backdrop.

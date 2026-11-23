@@ -36,6 +36,22 @@ The Agents page SHALL list every agent session in authorised scope, grouped by b
 
 ## ADDED Requirements
 
+### Requirement: Agents filter rules
+
+Needs attention SHALL list the sessions whose current attempt failed, was interrupted, can't resume, waits for sign-in or waits for an answer. Done today SHALL list the sessions whose current attempt ended, by when it ended rather than when it last ran, within the operator's local day. The server SHALL apply both to the rows and to the chip counts.
+
+#### Scenario: Waiting for sign-in needs attention
+
+- **GIVEN** a Research session whose current attempt waits for the provider's sign-in
+- **WHEN** the Agents page opens
+- **THEN** it is listed and counted under Needs attention.
+
+#### Scenario: Cancelled today after settling yesterday
+
+- **GIVEN** a session whose current attempt last settled a turn yesterday and was cancelled this morning
+- **WHEN** the operator views the chips
+- **THEN** Done today counts and lists it, and a session that ended yesterday is not counted.
+
 ### Requirement: Session rows
 
 The Agents page and Processing's session list SHALL show one row per session (job), not per attempt, with its current attempt's state first. Earlier attempts SHALL fold under "N earlier attempts failed ▸" (or ended), each with its time and cause. State words SHALL be the shared set defined by `polish-ui-styling-and-loading`.

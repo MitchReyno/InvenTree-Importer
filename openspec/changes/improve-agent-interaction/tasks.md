@@ -27,7 +27,7 @@
 | 7. Expandable timeline and the session page | Frontend behavior | 4, 6 | processing-workspace history requirements, "Drawer and session page split", "Agent session page", "Session page header and panels", "Reaching and reading the session page"; agents-overview "Agents page" ("Open a session's page"); processing-agent-sessions "Cited datasheet" (web read on the session page) |
 | 8. Stage counts and the paused flag | Contracts and intake server | None | header-workflow-status "Stage rows in workflow details" (counts), "Stage bar states" (paused) |
 | 9. Activity popover stage rows and bar states | Frontend behavior | 8 | header-workflow-status "Stage rows in workflow details", "Stage bar states", "Only working stages animate", "Expand work steps and existing actions" (Resume) |
-| 10. Session rows, failures in plain words and Agents filters | Contracts, intake server and frontend | 7; 9 or polish for the shared components | agents-overview "Agents page", "Session rows", "Failed rows offer recovery"; processing-workspace "Failures in plain words" |
+| 10. Session rows, failures in plain words and Agents filters | Contracts, intake server and frontend | 7; 9 or polish for the shared components | agents-overview "Agents page", "Agents filter rules", "Session rows", "Failed rows offer recovery"; processing-workspace "Failures in plain words" |
 | 11. Drawer header, activity feed and message box | Contracts, intake server and frontend, plus one instruction sentence | 6, 7, 10; 9 or polish for the shared components | processing-workspace "Session drawer header", "Activity in the app's words", "Labelled message box"; processing-agent-sessions "Status lines stay readable" |
 
 ## PR delivery map
@@ -73,13 +73,13 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 ## 2. Stepped question contracts
 
 - **PR delivery:** PR-B.
-- **Outcome:** `/2` question and answer shapes, the envelope and inbox unions reading both versions, and the normalised question view for the read model.
+- **Outcome:** `/2` question and answer shapes, the envelope and inbox unions reading both versions, and the `questionView` function that derives the normalised view from either variant.
 - **Scope and approach:** `contracts/src/sessions.ts` and `processing.ts` (the read-model question DTO), and `attention.ts` (the attention item gains the question's title, kind or step count and per-step assumptions); the error body's optional `step_id` for `invalid_answer`, kept on `IntakeRequestError` by `client-policy.ts`; plus tests in `contracts/tests/`. The shapes are in the design.
 - **Prerequisites:** none.
 - **Acceptance:** "Structured session questions", scenario "Invalid structure" (contract limits); pipeline "Malformed steps" (contract limits).
 - **TDD approach:** contract tests for the valid and invalid shapes fail before the schemas exist.
 - **Verification:** `pnpm --filter @invimport/contracts test` and typecheck.
-- **Risks and decisions:** keep `/1` exports unchanged, so the runner paths compile untouched. The question DTO becomes a version-discriminated union: the `/1` variant keeps `spec`, the `/2` variant carries its steps, and both carry the shared fields and the normalised view (see design).
+- **Risks and decisions:** keep `/1` exports unchanged, so the runner paths compile untouched. The question DTO becomes a version-discriminated union: the `/1` variant keeps `spec`, the `/2` variant carries its steps, and both carry the shared fields; the normalised view is derived by `questionView`, not sent (see design).
 
 - [ ] 2.1 Read the shared code guidelines and the contracts README. Confirm every consumer of `SessionAskArgs`, `ProcessingAnswer`, `SessionInboxItem` and the question DTO.
 - [ ] 2.2 RED: tests for the `/2` ask, covering 1–4 steps, 2–6 options and the label, detail and prompt lengths. Add `/2` answer tests and envelope and inbox decoding of both versions.
@@ -93,7 +93,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - `ask` stores `/2` questions, with handler checks for unique IDs, one number step and a lot subject.
   - `/2` answers apply up to two capture edits atomically and deliver one inbox item with option IDs.
   - `/1` questions still answer.
-  - The read model returns the normalised view.
+  - The read model returns each question's content once, in its version's variant.
   - The tool description, the runner instructions and the fakes are updated.
 - **Scope and approach:**
   - `intake-server/src/agents/tools/handlers.ts` and `server.ts`;
@@ -112,7 +112,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 - [ ] 3.2 RED: write the `ask` handler PG tests.
   - [ ] 3.2.1 Store a valid `/2` question.
   - [ ] 3.2.2 Refuse duplicate step IDs or option IDs, two number steps, a number step without a live lot, and a number step whose question doesn't list `quantity` in its fields, asserting that each tool response names the affected step by index or ID; and schema refusals (five steps, one option) whose issue paths name `/steps` or the step's options; and an ask within every field limit whose sealed envelope exceeds 32,768 bytes, refused as a correctable tool error with nothing stored.
-  - [ ] 3.2.3 An ask that fits the per-attempt question budget still reads in the Processing snapshot, with its steps carried once.
+  - [ ] 3.2.3 A batch near the snapshot limit with retained `/1` questions and `/2` asks that fit the per-attempt question budget still reads in the Processing snapshot, each question's content carried once.
 - [ ] 3.3 RED: write the answer PG tests.
   - [ ] 3.3.1 A quantity plus a note, applied in one transaction.
   - [ ] 3.3.2 Rollback when the note edit is refused after the quantity edit, with the refusal injected.
@@ -125,7 +125,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - [ ] 3.3.9 A `/1` answer still accepted.
   - [ ] 3.3.10 A `/2` answer to an earlier runner question is refused before the runner branch reads `input.value`, and retained `/1` runner answers still succeed.
 - [ ] 3.4 RED: an attention read PG test with an open `/2` stepped question, a `/1` session question and an earlier runner question, each carrying its title and kind or step count, with assumptions where recorded and none for the runner question; `/2` lot and Part questions count against their affected lots.
-- [ ] 3.5 GREEN: implement the `ask` and answer branches and the normalised read model.
+- [ ] 3.5 GREEN: implement the `ask` and answer branches and the version-discriminated read model.
 - [ ] 3.6 Update the `ask` description and the runner's opening instructions. Teach the fake CLI and the synthetic session a stepped ask, and add a process test that answers it and reads the inbox.
 - [ ] 3.7 Update `intake-server/src/agents/ARCHITECTURE.md` (the question shape and answer effects). Run the intake unit, PG and process tiers, including a read of a database already holding `/2` questions and answers.
 
@@ -179,7 +179,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 - **Scope and approach:**
   - `contracts/src/sessions.ts`: the outbox union, and `SessionProposeArgs` and the `SessionEnvelope` proposal variant, which accept only `/5` today and validate before the retained decoder sees the version, so both accept `/5` and `/6`; `processing.ts`: a `/6` session proposal accepting a `web_page` source in its top-level `sources`, and the validated Processing projection;
   - a migration extending the outbox `kind` check (0018) to allow `photo_view`;
-  - `intake-server/src/agents/tools/handlers.ts`: `fetchEvidenceImage` reserves the image budget before its final transaction and appends the view in it; it releases the reservation on a refusal or a known rollback, and keeps it on a commit with an unknown outcome, returning no image in either case; the delivered-citation check skips `web_page`;
+  - `intake-server/src/agents/tools/handlers.ts`: `fetchEvidenceImage` reserves the image budget before its final transaction and appends the view in it; it releases the reservation on a refusal or a known rollback, and keeps it on a commit with an unknown outcome, returning no image in either case; the delivered-citation check skips `web_page`; the shared envelope writer's size check, unless task 3 has already added it;
   - the `propose` tool description;
   - where Review and Inventory read sources, so `web_page` is treated as unverified;
   - the existing frontend readers, so they keep working before PR-E: `ProcessingSources.tsx` shows a `web_page` source as a "Web page" chip marked agent-reported instead of assuming a `receipt_id`, and the old `SessionTimeline.tsx` gives `photo_view` a plain label rather than its raw kind.
@@ -196,6 +196,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - [ ] 5.2.3 A `web_page` source is accepted for `https` without a delivery check, refused for `file:`, credentials or a URL over 2048 characters, and refused in `relies_on` or catalogue sources.
   - [ ] 5.2.4 A `/6` proposal with a `web_page` source goes through the advertised `propose` tool, is stored, and reads through the retained decoder and the ordinary Processing snapshot read, beside a retained `/5` proposal.
   - [ ] 5.2.5 Frontend: the existing source list shows a stored `/6` proposal's `web_page` source as a "Web page" chip marked agent-reported, and the old timeline labels a `photo_view`.
+  - [ ] 5.2.6 A `/6` proposal within every field limit whose sealed envelope exceeds 32,768 bytes (many long `web_page` URLs) is refused as a correctable tool error, with nothing stored or published.
 - [ ] 5.3 GREEN: implement both. Make the source readers treat `web_page` as unverified.
 - [ ] 5.4 Update the `propose` description to say how to cite a page read with WebFetch. Run the intake unit and PG tiers.
 
@@ -333,18 +334,18 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - Agents filter chips opening on Needs attention, with batches that need nothing collapsed and archived batches only under All.
 - **Scope and approach:**
   - `contracts/src/agents.ts` and `intake-server/src/agents/session/sessions.ts`: a session-level read paging by job, with the selected filter applied before paging, scoped chip and batch counts, slot and waiting totals independent of the filter, a summary of every batch in scope including those with no matching sessions, each job's earlier attempts, the batch's archived flag, where it ran and its sealed web setting;
-  - the `start_fresh` eligibility predicate extracted from `processing/session-replacement.ts`, with read-only checks of media availability from `media/inputs.ts` and of the profile and agent settings from `processing/session-attempts.ts`, on the session-level read's rows, the history metadata and the Processing snapshot's jobs, used by the Agents rows, the Processing step cards and the session page;
+  - the `start_fresh` eligibility predicate extracted from `processing/session-replacement.ts`, as a read-only preflight of every check the command makes before its first write, including media from `media/inputs.ts` and the profile, agent settings and input size from `processing/session-attempts.ts`, on the session-level read's rows, the history metadata and the Processing snapshot's jobs, used by the Agents rows, the Processing step cards and the session page;
   - `contracts/src/session-failures.ts` and `agents/failures.ts`: a sanitized `cause` on the failure summary, built from the recorded provider error and cause code, under the same read scope;
   - `frontend/src/components/agents/AgentSessions.tsx`, the Processing session list in `components/processing/`, the other readers of the Agents read (`settings/agents/SlotMeter.tsx` through `AgentsSection.tsx`, and `firstStart` in `ProcessingWorkspace.tsx`), which move to its scoped totals, `components/agents/SessionFailureDetails.tsx`, and the failure-text mapping beside the contracts' allowlists (`CLAUDE_ERROR_KINDS`, `CODEX_ERROR_KINDS`, cause codes).
   - It uses the shared state words and time format from `polish-ui-styling-and-loading`.
 - **Prerequisites:** task 7, for the session page that row titles and failure details open; the shared components from task 9 or polish, whichever merged first.
-- **Acceptance:** "Opens on what needs attention", "Archived batches only under All", "Retries fold into one row", "Failed row recovery", "Provider overloaded", "Old failure without a cause"; and the Start fresh clause of processing-workspace "Proposal, question and failure entries expand with links", on the session page's failure entries.
+- **Acceptance:** "Opens on what needs attention", "Archived batches only under All", "Agents filter rules" ("Waiting for sign-in needs attention" and "Cancelled today after settling yesterday"), "Retries fold into one row", "Failed row recovery", "Provider overloaded", "Old failure without a cause"; and the Start fresh clause of processing-workspace "Proposal, question and failure entries expand with links", on the session page's failure entries.
 - **TDD approach:** grouping, Needs attention derivation and failure-text tests fail first.
 - **Verification:** contracts tests, the intake unit and PG tiers for the read and the failure summary, frontend checks, and a demo video of the Agents page on a Heyyy-like fixture going from 8 rows to 3, and of earlier attempts expanding under a Processing job card.
 - **Risks and decisions:** the canvas boards FixSessionRows, FixFailureCause, FixSessionLinks and FixAgentsFilters are the reference.
 
 - [ ] 10.1 Read the code guidelines and the Fixes page boards.
-- [ ] 10.2 RED: PG tests for the session-level read (a retry chain that would have spanned two attempt pages, the archived flag, the selected filter applied before paging, and chip and batch counts that include a failed session beyond the first page of all sessions; slot use, queued and waiting totals and each batch's first start that count sessions hidden by the Needs attention filter or beyond the first page, with the first start taken from the earliest running transition so a resumed attempt doesn't move it; `start_fresh` eligibility for a slot held by an earlier attempt of the job, a stale pinned identity, an archived batch, a retired lot, a lot whose linked evidence is still preparing and a failed session whose step's provider was disabled after the attempt, including on a Processing step card for a failed job with no history open and outside the first Agents page; Needs attention including a current attempt that can't resume and one waiting for sign-in, and excluding a failure superseded by a successful retry; Done today's count and filter using the browser's day bounds across a client/server date boundary, the count checked while another chip is selected, and an attempt that last settled yesterday and was cancelled today counted as done today; and a batch summary that lists a batch with no matching sessions as collapsed) and the failure summary's `cause` with debug mode off; frontend tests for folded attempts, Needs attention (including a failure followed by success), collapsed and archived batches, failure sentences for each recorded kind and the "not recorded" case, row links and actions, Start fresh from the Agents page running only under the session page's command guard and disabled with its reason for an archived batch or retired lot, and opening failure details never starting a retry; and Settings' slot meter and the Processing overview's start time read from the new totals.
+- [ ] 10.2 RED: PG tests for the session-level read (a retry chain that would have spanned two attempt pages, the archived flag, the selected filter applied before paging, and chip and batch counts that include a failed session beyond the first page of all sessions; slot use, queued and waiting totals and each batch's first start that count sessions hidden by the Needs attention filter or beyond the first page, with the first start taken from the earliest running transition so a resumed attempt doesn't move it; `start_fresh` eligibility for a slot held by an earlier attempt of the job, a stale pinned identity, an archived batch, a retired lot, a lot whose linked evidence is still preparing and a failed session whose step's provider was disabled after the attempt, an otherwise eligible session whose new input would exceed its size limit, including on a Processing step card for a failed job with no history open and outside the first Agents page; Needs attention including a current attempt that can't resume and one waiting for sign-in, and excluding a failure superseded by a successful retry; Done today's count and filter using the browser's day bounds across a client/server date boundary, the count checked while another chip is selected, and an attempt that last settled yesterday and was cancelled today counted as done today; and a batch summary that lists a batch with no matching sessions as collapsed) and the failure summary's `cause` with debug mode off; frontend tests for folded attempts, Needs attention (including a failure followed by success), collapsed and archived batches, failure sentences for each recorded kind and the "not recorded" case, row links and actions, Start fresh from the Agents page running only under the session page's command guard and disabled with its reason for an archived batch or retired lot, and opening failure details never starting a retry; a settings save in the same tab refreshing an open Processing card's and session page's Start fresh, and a stale Start fresh in another tab refused with its reason and refreshing the reads; and Settings' slot meter and the Processing overview's start time read from the new totals.
 - [ ] 10.3 GREEN: implement the read, the failure cause and the rows.
 - [ ] 10.4 Run the contracts tests, the intake unit and PG tiers and the frontend checks, and record the demo video.
 
