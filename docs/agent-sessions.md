@@ -499,11 +499,13 @@ Every change is delivered as a `revision/2` item carrying `changes`: `{field, fr
 | New evidence | `evidence` + resume | — | after Examine assigns it: `evidence` | after Examine assigns it: `evidence` |
 | Observation corrected by the operator | `revision/2` + resume | Re-search if a key changed | `revision/2`; relying proposals stale. If the identity changes, a claimed lot is released and requeued through Match, and its group gets a release `revision/2` | same as Research |
 | Identity revised by Examine | — | Re-search; a changed verdict reopens the question | A claimed lot is released and requeued through Match; its group gets a release `revision/2` | same as Research |
-| Research publishes an identity amendment | `revision/2` naming the added and refined fields | Merges the identity; searches (pass 2, or a late match) | The amending session keeps the lot; pauses if a question is asked | An unclaimed lot pins the merged identity; a lot in a claimed Images group is released and requeued, and that session gets `revision/2` |
+| Research's amendment is applied (adds or refines fields) | `revision/2` naming the added and refined fields | Merges the identity; searches (pass 2, or a late match) | The amending session keeps the lot; pauses if a question is asked | An unclaimed lot pins the merged identity; a lot in a claimed Images group is released and requeued, and that session gets `revision/2` |
+| Research publishes a replacing amendment | — | Opens a match question; no merge or search | The lot pauses for the question | The lot is held, not released, since the identity hasn't changed |
+| Research publishes an unresolved amendment | — | Asks the operator; no search | The lot waits for the answer | Waits for the answer |
 | Research adds an alias as a match note, identity unchanged | — | Searches (a late match) | Keeps the lot; that lot pauses if a candidate opens a question | A claimed Images lot keeps its membership; a candidate holds only that lot until the decision |
 | Match decision | — | Records the decision | Mode delivered to the lot, or the lot's membership closed if skipped; the session closes only when none of its lots needs it | Queued in its mode, or skipped |
 | Answer to an agent's question | asker: `answer`; relying sessions: `revision/2` | Re-search if keys changed | `revision/2`; if the answer changes the identity, a claimed lot is released and requeued through Match, with a release `revision/2` to its group | same as Research |
-| InvenTree changes before approval | — | Pass 3 finding, blocks approval | — | — |
+| InvenTree changes before preparation | — | A qualifying change observed by pass 3 during preparation blocks approval; a change after preparation is seen only by a fresh preparation | — | — |
 | Duplicate ask | `ask` returns the existing question | — | same | same |
 
 ## 2.5 State and queueing changes
