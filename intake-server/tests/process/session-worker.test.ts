@@ -21,7 +21,12 @@ type Job = {
       relies_on?: { sources: { kind: string; inbox_item_id?: string }[] }
     }
   }[]
-  questions: { id: string; state: string; revision: string; assumption?: string }[]
+  questions: {
+    id: string
+    state: string
+    revision: string
+    steps: { id: string; assumption: string }[]
+  }[]
 }
 
 test(
@@ -106,18 +111,25 @@ test(
     assert.equal(waiting.proposals.length, 1)
     const question = waiting.questions[0]
     assert.equal(question.state, 'open')
-    assert.equal(question.assumption, 'Treating the lot as one item until answered.')
+    assert.deepEqual(
+      question.steps.map((step) => step.id),
+      ['left', 'packing'],
+    )
+    assert.equal(question.steps[0].assumption, 'Treating the lot as one item until answered.')
 
     const batch = (await fixture.http(`/batches/${capture.batch.id}`)).value as { revision: string }
     const answered = await fixture.http(
       `/batches/${capture.batch.id}/questions/${question.id}/answers`,
       {
-        schema_version: 'bench-intake-answer/1',
+        schema_version: 'bench-intake-answer/2',
         expected_question_revision: question.revision,
         expected_capture_revision: batch.revision,
         attempt_id: waiting.attempt_id,
         input_sha256: waiting.input_sha256,
-        value: { kind: 'quantity', value: '12', basis: 'counted' },
+        steps: [
+          { step_id: 'left', value: { kind: 'number', value: '12', basis: 'counted' } },
+          { step_id: 'packing', value: { kind: 'choice', other: 'In a tube' } },
+        ],
       },
       randomUUID(),
     )

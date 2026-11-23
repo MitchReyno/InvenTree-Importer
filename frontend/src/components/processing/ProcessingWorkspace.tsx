@@ -4,13 +4,15 @@ import styled from 'styled-components'
 import { size, space } from '#/theme/generated/tokens'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey } from '#/queries/scope'
-import type {
-  CaptureSnapshotDto,
-  ProcessingAnswerDto,
-  ProcessingQuestionDto,
-  ProcessingSnapshotDto,
-  ProcessingStartDto,
+import {
+  questionView,
+  type CaptureSnapshotDto,
+  type ProcessingAnswerDto,
+  type ProcessingQuestionDto,
+  type ProcessingSnapshotDto,
+  type ProcessingStartDto,
 } from '@invimport/contracts'
+import { confirmedAnswerRefusal } from '#/processing/question-summary'
 import type { ProcessingClient, ProcessingView } from '#/processing/types'
 import {
   AiMark,
@@ -318,28 +320,43 @@ export function ProcessingWorkspace({
     setBusy(true)
     setError('')
     let commandFailed = false
+    let refusedAnswer: IntakeRequestError | null = null
     try {
       await work()
     } catch (failure) {
       commandFailed = true
-      setError(
-        failure instanceof IntakeRequestError && failure.code === 'subject_retired'
-          ? 'A selected lot was split or merged. Choose its successor lots instead.'
-          : 'Command not confirmed. Inspect retained status before deciding whether to submit another command.',
-      )
+      // The server read the answer and refused it; its form marks the step and keeps the draft.
+      refusedAnswer = confirmedAnswerRefusal(failure)
+      if (!refusedAnswer) {
+        setError(
+          failure instanceof IntakeRequestError && failure.code === 'subject_retired'
+            ? 'A selected lot was split or merged. Choose its successor lots instead.'
+            : 'Command not confirmed. Inspect retained status before deciding whether to submit another command.',
+        )
+      }
     }
 
     try {
       await refresh()
     } catch {
-      const message = commandFailed
-        ? 'Command not confirmed and current status is unavailable. Your input and original delivery identity are kept.'
-        : 'The command was saved, but current status is unavailable. Refresh retained status before further commands.'
+      let message =
+        'The command was saved, but current status is unavailable. Refresh retained status before further commands.'
+      if (refusedAnswer) {
+        // A refusal is confirmed: nothing was saved, and the form already keeps the draft.
+        message =
+          'The answer wasn\u2019t accepted, and current status is unavailable. Refresh before sending it again.'
+      } else if (commandFailed) {
+        message =
+          'Command not confirmed and current status is unavailable. Your input and original delivery identity are kept.'
+      }
       setError(message)
     } finally {
       setBusy(false)
     }
 
+    if (refusedAnswer) {
+      throw refusedAnswer
+    }
     if (commandFailed) {
       throw new Error('processing_command_not_confirmed')
     }
@@ -475,10 +492,9 @@ export function ProcessingWorkspace({
   const sessionJob =
     liveSessionJob ??
     (unsavedInDrawer && lastDrawerJob?.id === sessionJobId ? lastDrawerJob : undefined)
-  // An Inventory session's drawer answers its questions in place (`DrawerAnswers`); other steps
-  // link to the question on its step page. A question already pinned on the page is answered there.
-  const answersInDrawer =
-    sessionJob !== undefined && processingStepFor(sessionJob.stage) === 'inventory'
+  // Every session drawer answers its questions in place (`DrawerAnswers`); a question already
+  // pinned on the page is answered there and linked from the drawer.
+  const answersInDrawer = sessionJob !== undefined
 
   // A drawer with an unsaved answer stays open until the answer is saved or discarded.
   const [closeBlocked, setCloseBlocked] = useState(false)
@@ -512,7 +528,7 @@ export function ProcessingWorkspace({
         }}
         href={batchHref(batch.id, { tab: 'processing', step, questionId: question.id })}
       >
-        {question.spec.prompt}
+        {questionView(question).title}
       </Link>
     )
   }

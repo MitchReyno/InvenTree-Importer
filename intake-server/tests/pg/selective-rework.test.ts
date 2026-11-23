@@ -88,12 +88,15 @@ test('Unclear quantity: the estimate is provisional, and its answer leaves the i
   const answered = await formed.fixture.http(
     `/batches/${formed.batchId}/questions/${question.id}/answers`,
     {
-      schema_version: 'bench-intake-answer/1',
+      schema_version: 'bench-intake-answer/2',
       expected_question_revision: question.revision,
       expected_capture_revision: (await formed.read()).revision,
       attempt_id: question.attempt_id,
       input_sha256: question.input_sha256,
-      value: { kind: 'quantity', value: '480', basis: 'counted' },
+      steps: [
+        { step_id: 'left', value: { kind: 'number', value: '480', basis: 'counted' } },
+        { step_id: 'packing', value: { kind: 'choice', option_id: 'reel' } },
+      ],
     },
   )
   assert.equal(answered.status, 200, JSON.stringify(answered.value))

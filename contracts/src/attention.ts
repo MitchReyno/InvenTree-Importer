@@ -38,6 +38,21 @@ export const AttentionItem = object({
   tab: AttentionTab,
   title: Type.String({ minLength: 1, maxLength: 2048 }),
   detail: Type.Union([Type.String({ minLength: 1, maxLength: 2048 }), Type.Null()]),
+  /** Question items only: each step's answer kind and the agent's assumption, where recorded. */
+  question: Type.Optional(
+    object({
+      steps: Type.Array(
+        object({
+          kind: Type.Union([Type.Literal('choice'), Type.Literal('number'), Type.Literal('text')]),
+          /** Choice steps: how many options the agent offered. */
+          options: Type.Optional(Type.Integer({ minimum: 2, maximum: 6 })),
+          /** Null for an earlier runner question, which recorded none. */
+          assumption: Type.Union([Type.String({ minLength: 1, maxLength: 2048 }), Type.Null()]),
+        }),
+        { minItems: 1, maxItems: 4 },
+      ),
+    }),
+  ),
   /** An in-app hash route under the batch, without the leading `#`. */
   route: Type.String({
     maxLength: 512,

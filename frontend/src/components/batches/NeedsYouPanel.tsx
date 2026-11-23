@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { AttentionItemDto, BatchAttentionDto } from '@invimport/contracts'
 import styled from 'styled-components'
+import { assumptionLine, questionKindLabel } from '#/processing/question-summary'
 import { color, radius, size, space, type, typeVar } from '#/theme/generated/tokens'
 import {
   media,
@@ -50,6 +51,19 @@ function stepOf(item: AttentionItemDto) {
   }
 
   return step.charAt(0).toUpperCase() + step.slice(1)
+}
+
+/** A question's kind or step count and its assumptions; other items keep their detail. */
+function questionDetail(item: AttentionItemDto) {
+  const steps = item.question?.steps
+  if (!steps) {
+    return { assumption: item.detail ?? '' }
+  }
+
+  return {
+    kind: questionKindLabel(steps),
+    assumption: assumptionLine(steps.map((step) => step.assumption)) ?? '',
+  }
 }
 
 type NeedsYouPanelProps = {
@@ -123,7 +137,7 @@ export function NeedsYouPanel({ attention, compact = false }: NeedsYouPanelProps
                   items={items.map((item) => ({
                     id: item.key,
                     title: item.title,
-                    assumption: item.detail ?? '',
+                    ...questionDetail(item),
                     step: group === 'question' ? stepOf(item) : undefined,
                     ...KIND[group],
                     href: `#${item.route}`,

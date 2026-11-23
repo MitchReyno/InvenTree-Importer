@@ -11,6 +11,8 @@ export type NeedsYouItem = {
   id: string
   thumb?: string
   title: string
+  /** What kind of answer it takes, such as "3 steps"; shown after the title. */
+  kind?: string
   assumption: string
   step?: string
   mark?: NeedsYouMark
@@ -45,6 +47,7 @@ export function NeedsYou({ items, onChoose }: { items: NeedsYouItem[]; onChoose?
           )}
           <Text>
             <Title>{item.title}</Title>
+            {item.kind && <Kind> · {item.kind}</Kind>}
             <Assumption>{item.assumption}</Assumption>
           </Text>
           <Button
@@ -79,6 +82,8 @@ const List = styled.ul`
     gap: ${space[5]};
     padding: ${space[5]} ${space[6]};
     border-top: 1px solid ${color.line};
+    /* An agent's title or assumption can hold a long unbroken word; it wraps in its column. */
+    overflow-wrap: anywhere;
   }
   li > * {
     flex: none;
@@ -119,6 +124,11 @@ const StepChip = styled.span`
 
 const Mark = styled.span`
   display: inline-flex;
+`
+
+const Kind = styled.span`
+  font-size: ${typeVar.small.size};
+  color: ${color.muted};
 `
 
 const Title = styled.b`

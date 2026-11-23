@@ -138,7 +138,8 @@ export function ProcessingOverview({
               items={source.questions.map((question) => ({
                 id: question.id,
                 step: STEP_LABEL[question.step],
-                title: question.prompt,
+                title: question.title,
+                kind: question.kind,
                 assumption: [question.subject, question.assumption].filter(Boolean).join(' · '),
                 href: batchHref(batchId, {
                   tab: 'processing',

@@ -1,18 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import styled from 'styled-components'
-import type { ProcessingAnswerDto, ProcessingQuestionDto } from '@invimport/contracts'
-import { DisabledFeature } from '#/components/ui'
-import { color, radius, space, typeVar } from '#/theme/generated/tokens'
+import {
+  questionView,
+  type ProcessingAnswerDto,
+  type ProcessingQuestionDto,
+} from '@invimport/contracts'
+import { space } from '#/theme/generated/tokens'
 import { QuestionAnswer } from './QuestionAnswer'
-
-const OPTIONS_NOT_CARRIED =
-  'Questions don’t carry the session’s answer options yet, so answer in words below.'
-
-/** Placeholders for the options a session will offer; true for any question. */
-const OPTIONS = [
-  { id: 'first', title: 'First option from the session', detail: 'Not carried yet' },
-  { id: 'second', title: 'Second option from the session', detail: 'Not carried yet' },
-]
 
 /** A question as its form pinned it, with the capture revision the answer is checked against. */
 type Pin = { question: ProcessingQuestionDto; revision: string }
@@ -149,24 +143,8 @@ export function DrawerAnswers(props: Props) {
 
     return (
       <div key={`${id}:${pin.revision}`}>
-        {question.spec.kind === 'clarification' && (
-          <DisabledFeature explanation={OPTIONS_NOT_CARRIED}>
-            {(control) => (
-              <Options role="radiogroup" aria-label={`Answer options: ${question.spec.prompt}`}>
-                {OPTIONS.map((option) => (
-                  <Option key={option.id}>
-                    <input type="radio" name={`options-${id}`} {...control} />
-                    <span>
-                      <strong>{option.title}</strong> <Detail>{option.detail}</Detail>
-                    </span>
-                  </Option>
-                ))}
-              </Options>
-            )}
-          </DisabledFeature>
-        )}
         <QuestionAnswer
-          label={`Session question: ${question.spec.prompt}`}
+          label={`Session question: ${questionView(question).title}`}
           question={question}
           captureRevision={pin.revision}
           currentQuestion={lookup(id)}
@@ -223,29 +201,4 @@ const Answers = styled.div`
   display: grid;
   gap: ${space[6]};
   min-width: 0;
-`
-
-const Options = styled.div`
-  display: grid;
-  align-self: stretch;
-  gap: ${space[3]};
-`
-
-// Doubled so it outranks DisabledFeature's own `label` rule.
-const Option = styled.label`
-  && {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: start;
-    gap: ${space[5]};
-    padding: ${space[5]} ${space[6]};
-    border: 1px solid ${color.lineStrong};
-    border-radius: ${radius.btn};
-    background: ${color.surface};
-  }
-`
-
-const Detail = styled.span`
-  color: ${color.muted};
-  font-size: ${typeVar.small.size};
 `

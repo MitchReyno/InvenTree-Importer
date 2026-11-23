@@ -1,12 +1,16 @@
 import { createHash, randomUUID } from 'node:crypto'
 import type { processingFixture } from './processing.ts'
-import { sealed } from '#/processing/model.ts'
+import { processingSubjectScope, sealed } from '#/processing/model.ts'
 import { transaction } from '#/db/database.ts'
 import { resolveMediaInputs } from '#/media/inputs.ts'
 import { sessionLotInputManifest } from '#/processing/session-input.ts'
+import type { CaptureBinding } from '#/capture/model.ts'
 
-type Fixture = Awaited<ReturnType<typeof processingFixture>>
-type Capture = Awaited<ReturnType<Fixture['seedCapture']>>
+type ProcessingFixture = Awaited<ReturnType<typeof processingFixture>>
+/** What the session helpers use, so the processing and manual fixtures both fit. */
+type Fixture = Pick<ProcessingFixture, 'db' | 'identity'> & { config: CaptureBinding }
+type SeededCapture = Awaited<ReturnType<ProcessingFixture['seedCapture']>>
+type Capture = Pick<SeededCapture, 'batch' | 'packetA'>
 
 /** A research session for one lot, seeded as the migration owner. */
 export async function lotSession(
@@ -29,7 +33,13 @@ export async function lotSession(
     command: randomUUID(),
   }
   return transaction(fixture.db.pool, async (client) => {
-    const media = await resolveMediaInputs(client, fixture.config, capture.batch.id, [lot.id])
+    // A lot linked to a shared Part takes the Part's media scope too.
+    const media = await resolveMediaInputs(
+      client,
+      fixture.config,
+      capture.batch.id,
+      processingSubjectScope(capture.batch, lot.id),
+    )
     const manifest = sessionLotInputManifest(
       capture.batch,
       lot.id,
@@ -158,9 +168,12 @@ export async function leadSession(
   await transaction(fixture.db.pool, async (client) => {
     // A lot manifest switched to the batch-level Examine scope; batch-scoped media pinning is
     // the lead job's own concern.
-    const media = await resolveMediaInputs(client, fixture.config, capture.batch.id, [
-      capture.packetA.id,
-    ])
+    const media = await resolveMediaInputs(
+      client,
+      fixture.config,
+      capture.batch.id,
+      processingSubjectScope(capture.batch, capture.packetA.id),
+    )
     const lot = sessionLotInputManifest(
       capture.batch,
       capture.packetA.id,
@@ -217,4 +230,97 @@ export async function leadSession(
     )
   })
   return ids
+}
+
+/** The `/1` ask shape sessions sent before stepped questions. */
+export interface LegacyAsk {
+  kind: 'quantity' | 'clarification'
+  subject_id: string | null
+  prompt: string
+  reason: string
+  fields: string[]
+  assumption: string
+}
+
+/** A `/1` ask as the one-step `/2` question the `ask` tool now takes. */
+export function oneStepAsk(ask: LegacyAsk) {
+  return {
+    schema_version: 'bench-intake-question/2',
+    subject_id: ask.subject_id,
+    reason: ask.reason,
+    fields: ask.fields,
+    steps: [
+      {
+        id: 'answer',
+        prompt: ask.prompt,
+        assumption: ask.assumption,
+        answer: { kind: ask.kind === 'quantity' ? 'number' : 'text' },
+      },
+    ],
+  }
+}
+
+/**
+ * A `/1` session question retained before stepped questions existed, stored as the earlier `ask`
+ * handler stored it: the sealed envelope, the question row and its outbox item.
+ */
+export async function legacySessionQuestion(
+  fixture: Fixture,
+  session: { job: string; attempt: string; input: string; command: string },
+  ask: LegacyAsk,
+) {
+  return transaction(fixture.db.pool, async (client) => {
+    const attempt = await client.query<{
+      batch_id: string
+      last_sequence: string
+      manifest_digest: Buffer
+    }>(
+      `SELECT a.batch_id, a.last_sequence::text, i.manifest_digest FROM processing_attempt a
+       JOIN processing_input i ON i.id=a.input_id WHERE a.id=$1`,
+      [session.attempt],
+    )
+    const {
+      batch_id: batchId,
+      last_sequence: lastSequence,
+      manifest_digest: digest,
+    } = attempt.rows[0]
+    const sequence = (BigInt(lastSequence) + 1n).toString()
+    const envelope = sealed({
+      schema_version: 'bench-intake-session/1',
+      job_id: session.job,
+      attempt_id: session.attempt,
+      command_id: session.command,
+      input_sha256: digest.toString('hex'),
+      sequence,
+      kind: 'question',
+      payload: ask,
+    })
+    const messageId = randomUUID()
+    await client.query(
+      `INSERT INTO processing_message(id,attempt_id,sequence,envelope_bytes,envelope_digest,disposition)
+       VALUES($1,$2,$3,$4,$5,'accepted')`,
+      [messageId, session.attempt, sequence, envelope.bytes, envelope.digest],
+    )
+    await client.query('UPDATE processing_attempt SET last_sequence=$2 WHERE id=$1', [
+      session.attempt,
+      sequence,
+    ])
+    const spec = sealed(ask)
+    const questionId = randomUUID()
+    await client.query(
+      `INSERT INTO processing_question(id,batch_id,job_id,attempt_id,message_id,input_id,state,spec_bytes,spec_digest)
+       VALUES($1,$2,$3,$4,$5,$6,'open',$7,$8)`,
+      [
+        questionId,
+        batchId,
+        session.job,
+        session.attempt,
+        messageId,
+        session.input,
+        spec.bytes,
+        spec.digest,
+      ],
+    )
+    return questionId
+  })
 }

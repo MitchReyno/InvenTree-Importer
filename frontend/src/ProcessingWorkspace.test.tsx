@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { IntakeRequestError } from '@invimport/contracts/client'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
 import { setDebugMode } from '#/test/debug-mode'
@@ -76,9 +77,9 @@ const snapshot: ProcessingSnapshotDto = {
           input_sha256: 'a'.repeat(64),
           revision: '1',
           state: 'open',
+          subject_id: subjectId,
           spec: {
             kind: 'quantity',
-            subject_id: subjectId,
             prompt: 'How many are in Packet A?',
             reason: 'The label is unclear.',
           },
@@ -89,6 +90,14 @@ const snapshot: ProcessingSnapshotDto = {
 }
 validate('CaptureSnapshot', batch)
 validate('ProcessingSnapshot', snapshot)
+
+/** A `/1` question's spec, which these fixtures all carry. */
+function legacySpec(question: ProcessingSnapshotDto['jobs'][number]['questions'][number]) {
+  if (!('spec' in question)) {
+    throw new Error('expected a /1 question')
+  }
+  return question.spec
+}
 
 function clientFixture() {
   return {
@@ -212,7 +221,7 @@ test('warm cache and cache writes cannot authorize commands; failed reads retain
     ...newer.jobs[0].questions[0],
     id: 'e0000000-0000-4000-8000-000000000005',
     state: 'open',
-    spec: { ...newer.jobs[0].questions[0].spec, prompt: 'Replacement count question' },
+    spec: { ...legacySpec(newer.jobs[0].questions[0]), prompt: 'Replacement count question' },
   })
   client.read.mockResolvedValue(newer)
   await act(async () => {
@@ -256,7 +265,7 @@ test('cold mount pins only the fresh question state, never the stale warm-cache 
     input_sha256: 'b'.repeat(64),
     revision: '1',
     state: 'open',
-    spec: { ...current.jobs[0].questions[0].spec, prompt: 'The new current question' },
+    spec: { ...legacySpec(current.jobs[0].questions[0]), prompt: 'The new current question' },
   })
   validate('ProcessingSnapshot', current)
   await act(async () => {
@@ -475,7 +484,10 @@ function mountView(
   )
 
   const mounted = render(element(sessionId))
-  return { rerenderWith: (session?: string) => mounted.rerender(element(session)) }
+  return {
+    queryClient,
+    rerenderWith: (session?: string) => mounted.rerender(element(session)),
+  }
 }
 
 test('the fixture profile shows its jobs and questions by step, and claims no live session', async () => {
@@ -532,8 +544,11 @@ test('a job with a session opens its timeline and chat in a drawer', async () =>
   expect(drawer).toHaveAttribute('data-placement', 'side')
 
   await waitFor(() => expect(session).toHaveBeenCalledWith(batchId, jobId))
+  // Every session drawer answers its questions in place, not only Inventory's.
   expect(
-    within(drawer).getByRole('link', { name: 'How many are in Packet A?' }),
+    await within(drawer).findByRole('form', {
+      name: 'Session question: How many are in Packet A?',
+    }),
   ).toBeInTheDocument()
   await userEvent.click(within(drawer).getByRole('button', { name: 'Close' }))
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -549,9 +564,9 @@ test('the Inventory drawer answers its open question through the question path',
       {
         ...snapshot.jobs[0].questions[0],
         assumption: 'Treating it as new until you say.',
+        subject_id: subjectId,
         spec: {
           kind: 'clarification' as const,
-          subject_id: subjectId,
           prompt: 'Is Packet A already in InvenTree?',
           reason: 'Stock #1712 has the same Part, date code and bin.',
         },
@@ -619,9 +634,9 @@ function inventorySnapshot(captureRevision = '8', answeredIds: string[] = []) {
     id,
     state: answeredIds.includes(id) ? ('answered' as const) : ('open' as const),
     assumption: 'Treating it as new until you say.',
+    subject_id: subjectId,
     spec: {
       kind: 'clarification' as const,
-      subject_id: subjectId,
       prompt,
       reason: 'Stock #1712 has the same Part, date code and bin.',
     },
@@ -824,14 +839,8 @@ test('answering one drawer question leaves the other answerable, and focus moves
   const { client } = mountInventoryDrawer(inventorySnapshot())
   const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
   await within(drawer).findByRole('form', { name: /^Session question: Is Packet A already/ })
-  // The session's options are shown disabled, with why; the answer goes in words.
-  const options = within(drawer).getByRole('radiogroup', {
-    name: 'Answer options: Is Packet A already in InvenTree?',
-  })
-  for (const option of within(options).getAllByRole('radio')) {
-    expect(option).toHaveAttribute('aria-disabled', 'true')
-    expect(option).toHaveAccessibleDescription(/don’t carry the session’s answer options yet/)
-  }
+  // A /1 question carries no options, so no placeholder cards stand in for them.
+  expect(within(drawer).queryByRole('radiogroup', { name: /^Answer options/ })).toBeNull()
 
   const first = 'Is Packet A already in InvenTree?'
   const second = 'Is Packet A the reel in drawer 2?'
@@ -1652,6 +1661,227 @@ test('returning to a route reopens only the session its link names, not an earli
     </ServerStateProvider>,
   )
   expect(screen.queryByRole('dialog', { name: 'Examine · Packet A' })).not.toBeInTheDocument()
+})
+
+/** An Inventory session waiting on one stepped question about Packet A. */
+function steppedInventorySnapshot() {
+  const value: ProcessingSnapshotDto = {
+    ...snapshot,
+    jobs: [
+      {
+        ...snapshot.jobs[0],
+        stage: 'inventory',
+        session_state: 'waiting_input',
+        questions: [
+          {
+            id: questionId,
+            job_id: jobId,
+            attempt_id: attemptId,
+            input_sha256: 'a'.repeat(64),
+            revision: '1',
+            state: 'open',
+            subject_id: subjectId,
+            schema_version: 'bench-intake-question/2',
+            fields: ['identity'],
+            title: 'Packet A and stock #1712',
+            reason: 'Stock #1712 has the same Part, date code and bin.',
+            steps: [
+              {
+                id: 'same_tube',
+                prompt: 'Is Packet A the tube already in stock?',
+                assumption: 'Treating it as new until you say.',
+                answer: {
+                  kind: 'choice',
+                  options: [
+                    { id: 'same', label: 'Same tube as stock #1712' },
+                    { id: 'new', label: 'Different tube: add new stock' },
+                  ],
+                  other: false,
+                },
+              },
+              {
+                id: 'note',
+                prompt: 'Anything to add?',
+                assumption: 'Nothing to add.',
+                answer: { kind: 'text' },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  }
+  validate('ProcessingSnapshot', value)
+  return value
+}
+
+test('a stepped drawer question is answered with live option cards, and a refused step stays editable', async () => {
+  const user = userEvent.setup()
+  const { client } = mountInventoryDrawer(steppedInventorySnapshot())
+  client.answer
+    .mockRejectedValueOnce(new IntakeRequestError(422, 'invalid_answer', 'note'))
+    .mockRejectedValueOnce(new Error('lost acknowledgement'))
+  const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+  const form = await within(drawer).findByRole('form', {
+    name: 'Session question: Packet A and stock #1712',
+  })
+  expect(within(form).getByText('Step 1 of 2')).toBeVisible()
+  // The options are live cards: picking one chooses it, sending waits for Send.
+  await user.click(within(form).getByRole('radio', { name: /Different tube: add new stock/ }))
+  expect(client.answer).not.toHaveBeenCalled()
+  await user.click(within(form).getByRole('button', { name: 'Next' }))
+  await user.type(within(form).getByLabelText('Your answer'), 'Bent leads')
+  await user.click(within(form).getByRole('button', { name: 'Next' }))
+  await user.click(within(form).getByRole('button', { name: 'Send 2 answers' }))
+
+  // Confirmed through perform(): the named step shows why and stays editable.
+  expect(await within(form).findByText('Step 2 of 2')).toBeVisible()
+  expect(within(form).getByText(/This answer wasn’t accepted/)).toBeVisible()
+  expect(within(drawer).queryByText(/Command not confirmed/)).toBeNull()
+  const box = within(form).getByLabelText('Your answer')
+  expect(box).toBeEnabled()
+  await user.clear(box)
+  await user.type(box, 'Leads are fine')
+  await user.click(within(form).getByRole('button', { name: 'Next' }))
+  await user.click(within(form).getByRole('button', { name: 'Send 2 answers' }))
+
+  // An uncertain failure keeps the exact payload and key for the retry.
+  const retry = await within(form).findByRole('button', { name: 'Retry exact answer' })
+  const answered = steppedInventorySnapshot()
+  answered.jobs[0].questions[0].state = 'answered'
+  client.read.mockResolvedValue(answered)
+  await user.click(retry)
+  // Once saved, the question leaves the drawer and focus goes to its heading.
+  await waitFor(() => expect(screen.queryByRole('form', { name: /^Session question/ })).toBeNull())
+  await waitFor(() =>
+    expect(
+      within(screen.getByRole('dialog')).getByRole('heading', { name: 'Inventory · Packet A' }),
+    ).toHaveFocus(),
+  )
+  const calls = client.answer.mock.calls
+  expect(calls).toHaveLength(3)
+  expect(calls[1][2]).toEqual(
+    expect.objectContaining({
+      schema_version: 'bench-intake-answer/2',
+      steps: [
+        { step_id: 'same_tube', value: { kind: 'choice', option_id: 'new' } },
+        { step_id: 'note', value: { kind: 'text', text: 'Leads are fine' } },
+      ],
+    }),
+  )
+  expect(calls[2]).toEqual(calls[1])
+  expect(calls[1][3]).not.toBe(calls[0][3])
+})
+
+test('a refused stepped answer whose refresh then fails says it wasn’t accepted, not unconfirmed', async () => {
+  const user = userEvent.setup()
+  const { client } = mountInventoryDrawer(steppedInventorySnapshot())
+  const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+  const form = await within(drawer).findByRole('form', {
+    name: 'Session question: Packet A and stock #1712',
+  })
+  await user.click(within(form).getByRole('radio', { name: /Same tube as stock #1712/ }))
+  await user.click(within(form).getByRole('button', { name: 'Next' }))
+  await user.type(within(form).getByLabelText('Your answer'), 'Bent leads')
+  await user.click(within(form).getByRole('button', { name: 'Next' }))
+  client.answer.mockRejectedValueOnce(new IntakeRequestError(422, 'invalid_answer', 'note'))
+  client.read.mockRejectedValue(new Error('read failed'))
+  await user.click(within(form).getByRole('button', { name: 'Send 2 answers' }))
+  expect(
+    await screen.findByText(/The answer wasn’t accepted, and current status is unavailable/),
+  ).toBeInTheDocument()
+  expect(screen.queryByText(/original delivery identity are kept/)).toBeNull()
+  expect(within(form).getByLabelText('Your answer')).toHaveValue('Bent leads')
+})
+
+test('a stepped answer sent from the drawer leaves Needs you and shows in the chat beside a /1 answer', async () => {
+  const user = userEvent.setup()
+  const answered = steppedInventorySnapshot()
+  answered.jobs[0].questions[0].state = 'answered'
+  const client = {
+    ...clientFixture(),
+    read: vi.fn().mockResolvedValue(steppedInventorySnapshot()),
+    session: vi.fn().mockResolvedValue({
+      job_id: jobId,
+      attempt_id: attemptId,
+      session_state: 'waiting_input',
+      outbox: [],
+      inbox: [],
+    }),
+    chat: vi.fn(),
+    answer: vi.fn().mockImplementation(() => {
+      client.read.mockResolvedValue(answered)
+      // The next session read holds an earlier /1 answer and this /2 one.
+      client.session.mockResolvedValue({
+        job_id: jobId,
+        attempt_id: attemptId,
+        session_state: 'queued',
+        outbox: [],
+        inbox: [
+          {
+            id: 'a1',
+            seq: '1',
+            kind: 'answer',
+            created_at: '2026-11-23T09:00:00.000Z',
+            payload: {
+              question_id: 'c0000000-0000-4000-8000-0000000000e1',
+              answer_id: 'c0000000-0000-4000-8000-0000000000e2',
+              value: { kind: 'quantity', value: '12', basis: 'counted' },
+            },
+          },
+          {
+            id: 'a2',
+            seq: '2',
+            kind: 'answer',
+            created_at: '2026-11-23T09:05:00.000Z',
+            payload: {
+              question_id: questionId,
+              answer_id: 'c0000000-0000-4000-8000-0000000000e3',
+              steps: [
+                {
+                  step_id: 'same_tube',
+                  value: { kind: 'choice', option_id: 'same', label: 'Same tube as stock #1712' },
+                },
+                { step_id: 'note', value: { kind: 'text', text: 'Bent leads' } },
+              ],
+            },
+          },
+        ],
+      })
+      return Promise.resolve()
+    }),
+  } satisfies ProcessingClient
+  const { queryClient } = mountView(client, 'overview', jobId)
+  const needsYou = await screen.findByRole('region', { name: 'Needs you' })
+  expect(
+    within(needsYou).getByRole('link', { name: 'Answer: Packet A and stock #1712' }),
+  ).toBeInTheDocument()
+  const drawer = await screen.findByRole('dialog')
+  const form = await within(drawer).findByRole('form', {
+    name: 'Session question: Packet A and stock #1712',
+  })
+  await user.click(within(form).getByRole('radio', { name: /Same tube as stock #1712/ }))
+  await user.click(within(form).getByRole('button', { name: 'Next' }))
+  await user.type(within(form).getByLabelText('Your answer'), 'Bent leads')
+  await user.click(within(form).getByRole('button', { name: 'Next' }))
+  await user.click(within(form).getByRole('button', { name: 'Send 2 answers' }))
+  await waitFor(() =>
+    expect(
+      within(screen.getByRole('region', { name: 'Needs you' })).queryByRole('link', {
+        name: 'Answer: Packet A and stock #1712',
+      }),
+    ).toBeNull(),
+  )
+  // The saved answer's batch event invalidates the scoped reads, the session's included.
+  await act(() => queryClient.invalidateQueries())
+  const log = await within(screen.getByRole('dialog')).findByRole('log', {
+    name: 'Session messages',
+  })
+  await waitFor(() =>
+    expect(log).toHaveTextContent('Answered: Same tube as stock #1712 · Bent leads'),
+  )
+  expect(log).toHaveTextContent('Answered: 12')
+  expect(client.answer).toHaveBeenCalledTimes(1)
 })
 
 test('the Research page explains research lanes behind a help button beside its heading', async () => {
