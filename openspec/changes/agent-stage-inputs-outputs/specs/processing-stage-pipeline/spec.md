@@ -46,7 +46,7 @@ For `/7` work, a lot with a strong search key SHALL also start them only when Ma
 
 Each proposal SHALL record the observations, evidence versions, notes and answers it relies on, including the lot's observation set. It SHALL become stale only when one of those changes or is removed, or, for `/7` work, when one of the pins below changes.
 
-For `/7` work, outputs that establish the identity and outputs that depend on it SHALL record different pins. An `examine-identity/1` proposal has no further pins. A `research-identity/1` amendment SHALL also pin the identity revision it was based on when published (the sealed starting revision, or the merged revision a later `match` item delivered), with the sealed starting revision recorded separately, and SHALL stay current when its own merge, a later amendment of the same session, or Match's decision advances the revision; it becomes stale when a change by anyone else advances it. Each merged field SHALL keep its source amendment. While one of a session's amendments for a lot awaits the app, another for that lot SHALL be refused as correctable. A `research/1` or `images/1` proposal SHALL also pin the identity revision and the Match outcome revision (a recorded decision, or a clear verdict) and stage mode it was produced under, which an equivalent repeat search keeps, and becomes stale when any of them changes.
+For `/7` work, outputs that establish the identity and outputs that depend on it SHALL record different pins. An `examine-identity/1` proposal has no further pins. A `research-identity/1` amendment SHALL also pin the identity revision it was based on when published (the sealed starting revision, the merged revision a later `match` item delivered, or the applied revision a `revision/2` delivered to the amending session), with the sealed starting revision recorded separately, and SHALL stay current when its own merge, a later amendment of the same session, or Match's decision advances the revision; it becomes stale when a change by anyone else advances it. Each merged field SHALL keep its source amendment. While one of a session's amendments for a lot awaits the app, another for that lot SHALL be refused as correctable. A `research/1` or `images/1` proposal SHALL also pin the identity revision and the Match outcome revision (a recorded decision, or a clear verdict) and stage mode it was produced under, which an equivalent repeat search keeps, and becomes stale when any of them changes.
 
 #### Scenario: Evidence removed
 
@@ -111,6 +111,16 @@ For `/7` work, a lot whose identity has no strong search key SHALL start Researc
 - **GIVEN** a reel whose label carries only the distributor's number TK-1N4148
 - **WHEN** Examine publishes its identity and the import reference lookup completes without a hit
 - **THEN** Research starts in identify mode, Images waits, and when Research amends the identity with MPN 1N4148W-7-F and the alias TK-1N4148, Match searches with both.
+
+### Requirement: Identify then continue
+
+When Match's search after an identify-mode amendment settles with no candidates, the same Research session SHALL continue that lot in full mode and Images SHALL be queued, with no operator answer.
+
+#### Scenario: Clean search after identification
+
+- **GIVEN** a reel identified in identify mode as 1N4148W-7-F
+- **WHEN** pass 2 settles with no candidates
+- **THEN** the same Research session receives full mode for the lot and Images is queued, without a question.
 
 ### Requirement: Unresolved identification
 

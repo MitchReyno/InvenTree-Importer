@@ -32,7 +32,7 @@ When a lot's identity becomes stable, before any identify-mode Research, Match S
 
 #### Scenario: Approved but no stock now
 
-- **GIVEN** a lot whose original contribution was approved, and whose stock was never created, is uncertain, or was later deleted
+- **GIVEN** a lot whose original contribution was approved in a run the operator may read, and whose stock was never created, is uncertain, or was later deleted
 - **WHEN** Match looks it up
 - **THEN** it is still an original-contribution hit that links the earlier run and reports its stock status, and no stage runs for the lot.
 
@@ -42,7 +42,7 @@ An import reference hit SHALL be an original-contribution hit, not an identity c
 
 #### Scenario: Hit on an approved contribution
 
-- **GIVEN** a lot whose original contribution an earlier round approved
+- **GIVEN** a lot whose original contribution an earlier round the operator may read approved
 - **WHEN** Match's question for it opens
 - **THEN** it links the earlier run and offers already imported, and no stage is queued for the lot.
 
@@ -68,7 +68,7 @@ Already imported on an original-contribution hit SHALL be recorded on the Match 
 
 ### Requirement: When Match searches
 
-Match SHALL search after Examine's stable identity when it has a strong key (a lot without one is identified first, as the pipeline's "Identify first when nothing can be searched" requires), after each identity amendment the app applies that yields searchable keys, when a session adds an alias as a match note, and when the operator asks to check again.
+Match SHALL search after Examine's stable identity when it has a strong key (a lot without one is identified first, as the pipeline's "Identify first when nothing can be searched" requires), after each identity amendment the app applies that yields searchable keys, when a session adds an alias as a match note in a proposal that isn't an amendment, and when the operator asks to check again.
 
 #### Scenario: Alias found during research
 
@@ -78,7 +78,7 @@ Match SHALL search after Examine's stable identity when it has a strong key (a l
 
 ### Requirement: When Match doesn't search
 
-A lot still awaiting its first identify-mode amendment SHALL NOT be searched remotely for a match-note alias. Unresolved and replacing amendments SHALL open app-owned match questions, under the lot's Match lock, instead of a key search.
+A lot still awaiting its first identify-mode amendment SHALL NOT be searched remotely for a match-note alias. Unresolved and replacing amendments, including any match notes they carry, SHALL open app-owned match questions, under the lot's Match lock, instead of a key search.
 
 #### Scenario: Replacing amendment
 

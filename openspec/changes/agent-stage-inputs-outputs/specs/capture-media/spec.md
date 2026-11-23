@@ -2,7 +2,7 @@
 
 ### Requirement: Media immutable derived crops
 
-A derived image SHALL be produced from an immutable recipe naming the exact source version, digest, page and dimensions, with coordinates in the orientation-normalized source, and its output bytes, dimensions and decoder toolchain SHALL be retained. A recipe MAY also straighten by an angle of at most 15° and apply bounded light adjustments (white balance, contrast, gamma, sharpening) that keep hue, so colours that carry information are unchanged. A changed request SHALL create a new derivation rather than alter an old one.
+A derived image SHALL be produced from an immutable recipe naming the exact source version, digest, page and dimensions, with coordinates in the orientation-normalized source, and its output bytes, dimensions and decoder toolchain SHALL be retained. A recipe MAY also straighten by an angle of at most 15° and apply bounded light adjustments: contrast, gamma and sharpening that keep hue, and a white balance whose per-channel gains are bounded so colours that carry information stay distinguishable. A changed request SHALL create a new derivation rather than alter an old one.
 
 #### Scenario: Crop then rotate
 
@@ -26,4 +26,4 @@ A derived image SHALL be produced from an immutable recipe naming the exact sour
 
 - **GIVEN** a recipe with a quarter turn, −3.5° straightening and white balance on a photo of a resistor
 - **WHEN** it is derived
-- **THEN** the output is cut from the upright source, straightened without exposing unfilled corners, and the resistor's band colours keep their hue.
+- **THEN** the output is cut from the upright source, straightened without exposing unfilled corners, and the colour cast is reduced while the resistor's band colours shift at most 5° in hue.

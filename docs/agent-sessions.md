@@ -579,7 +579,7 @@ The skills' deterministic scripts become intake MCP tools, run by the app on the
 
 **Delivery.** Tool replies with images use the same size limits as `fetch_evidence`. On the VM relay only `fetch_evidence` gets the larger image envelope today (`intake-server/src/agents/shared-vm/evidence-request.ts`), and only its replies are staged into the guest, so the relay is extended to `inspect_region`, `preview_images` and `match_logo` with one aggregate per-run image budget. Montages and logo sheets are tested over the real relay.
 
-**Parity.** Parity with the scripts is checked on the rendered crop pixels, before labels, downscaling or delivery encoding, for crop, quarter turns and straightening. The light adjustments are hue-preserving versions of their own, tested for hue retention on coloured-pixel and colour-cast fixtures rather than for parity.
+**Parity.** Parity with the scripts is checked on the rendered crop pixels, before labels, downscaling or delivery encoding, for crop, quarter turns and straightening. White balance keeps the script's per-channel gains, bounded to ±15% so resistor bands shift at most 5° in hue. Contrast, gamma and sharpening are luminance versions of their own, tested for hue retention rather than parity.
 
 **Not in the VM.** The runner image doesn't carry the scripts today (`tooling/deployment/guest/Dockerfile`), and they aren't added.
 

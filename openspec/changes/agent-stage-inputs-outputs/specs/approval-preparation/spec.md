@@ -119,3 +119,27 @@ Each gaps fill SHALL carry the value it expects to be missing, and an existing P
 - **GIVEN** a prepared plan that sets RES-0144's image because it had none
 - **WHEN** someone adds an image to RES-0144 before the effect runs
 - **THEN** the executor re-reads the Part just before the upload, refuses the effect as a conflict and records it, and doesn't replace the image.
+
+## MODIFIED Requirements
+
+### Requirement: Preparation cumulative contribution history
+
+Review, preparation and approval SHALL be blocked with `source_history_unsettled` while an earlier run holds the source or is queued or recovery-required, and with `original_contribution_already_approved` for a lot whose original contribution already has an approval. Each accepted approval SHALL be a new numbered round, and earlier rounds SHALL remain unchanged. An issue SHALL name an earlier run only when the operator may read it, and SHALL still block when it can't.
+
+#### Scenario: Later round
+
+- **GIVEN** round 1 approved lot A and settled
+- **WHEN** lot B is prepared and approved
+- **THEN** round 2 contains only B, reuses A's confirmed Part output, and round 1 is unchanged.
+
+#### Scenario: Deleted stock is not replenished
+
+- **GIVEN** A's confirmed stock was later deleted from the target
+- **WHEN** A is selected for a new preparation
+- **THEN** it is blocked with `original_contribution_already_approved` and no stock create is planned.
+
+#### Scenario: Unknown earlier result
+
+- **GIVEN** round 1 left A's stock create unknown
+- **WHEN** B is prepared
+- **THEN** it is blocked by the unsettled earlier run, which is named when the operator may read it; otherwise the blocker names no run.
