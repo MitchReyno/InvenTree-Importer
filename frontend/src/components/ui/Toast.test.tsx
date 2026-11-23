@@ -17,10 +17,14 @@ describe('Toast', () => {
     render(<Toast message="Lot moved" onDismiss={onDismiss} />)
 
     expect(screen.getByRole('status')).toHaveTextContent('Lot moved')
+
+    // The live region is the message; the toast around it carries the fade state.
+    const toast = () => screen.getByRole('status').parentElement
+
     await act(() => vi.advanceTimersByTime(4999))
-    expect(screen.getByRole('status')).toHaveAttribute('data-state', 'open')
+    expect(toast()).toHaveAttribute('data-state', 'open')
     await act(() => vi.advanceTimersByTime(1))
-    expect(screen.getByRole('status')).toHaveAttribute('data-state', 'leaving')
+    expect(toast()).toHaveAttribute('data-state', 'leaving')
     expect(onDismiss).not.toHaveBeenCalled()
     await act(() => vi.advanceTimersByTime(120))
     expect(onDismiss).toHaveBeenCalledTimes(1)

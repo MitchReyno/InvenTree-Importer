@@ -56,14 +56,16 @@ export function Toast({
   return (
     <Body
       data-state={leaving ? 'leaving' : 'open'}
-      role="status"
-      aria-live="polite"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
     >
-      <span>{message}</span>
+      {/* The live region holds only the message: an open modal hides the rest, Undo included,
+          and a live region would keep it exposed. */}
+      <span role="status" aria-live="polite">
+        {message}
+      </span>
       {action && (
         <Action type="button" onClick={action.onClick}>
           {action.label}

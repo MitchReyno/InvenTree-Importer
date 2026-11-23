@@ -2,7 +2,7 @@
 
 ### Requirement: Dialogs close from their backdrop
 
-A modal dialog, centred or docked as a drawer, SHALL close when the operator clicks its dimmed backdrop, exactly as Esc or its Close button would: through the dialog owner's close handling, so a guard against losing unsaved work applies the same way. A dialog whose close is disabled SHALL stay open. A press that starts inside the dialog and ends on the backdrop, such as selecting text, SHALL NOT close it.
+A modal dialog, centred or docked as a drawer, SHALL close when the operator clicks its dimmed backdrop, through the dialog owner's close handling, so a guard against losing unsaved work applies. Where Esc closes the dialog, the backdrop click SHALL behave exactly as Esc does. A dialog whose close is disabled SHALL stay open. A press that starts inside the dialog and ends on the backdrop, such as selecting text, SHALL NOT close it.
 
 #### Scenario: Click beside the session drawer
 
@@ -21,3 +21,9 @@ A modal dialog, centred or docked as a drawer, SHALL close when the operator cli
 - **GIVEN** a dialog whose close is disabled while its work is pending, or an operator selecting text who releases the pointer over the backdrop
 - **WHEN** the click reaches the backdrop
 - **THEN** the dialog stays open.
+
+#### Scenario: Unresolved crop request
+
+- **GIVEN** the crop editor, which ignores Esc, while its crop request is still sending or after its outcome was not confirmed
+- **WHEN** the operator clicks the backdrop
+- **THEN** the editor stays open: a sending request shows its progress, and an unconfirmed one keeps its retry and discard controls. Once the request is confirmed, or if the crop was never sent, a backdrop click closes the editor.

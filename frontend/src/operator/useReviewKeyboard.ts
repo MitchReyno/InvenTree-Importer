@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { OPEN_MODAL_SELECTOR } from '#/components/ui'
 
 export interface ReviewShortcuts {
   next: () => void
@@ -13,7 +14,7 @@ export function isShortcutTarget(event: KeyboardEvent): boolean {
   if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) {
     return false
   }
-  if (document.querySelector('dialog[open]')) {
+  if (document.querySelector(OPEN_MODAL_SELECTOR)) {
     return false
   }
   const target = event.target

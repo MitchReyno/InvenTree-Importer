@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { test, expect, vi } from 'vitest'
 import type { CaptureSnapshotDto, MediaSnapshotDto, OperatorReviewDto } from '@invimport/contracts'
@@ -872,8 +872,8 @@ test('the viewer cannot close over an unsaved note, so the draft is never lost',
   const viewer = screen.getByRole('dialog', { name: 'Front label' })
 
   expect(within(viewer).getByRole('button', { name: 'Close' })).toBeDisabled()
-  // jsdom does not turn Escape into the dialog's cancel event, so send it as the browser does.
-  fireEvent(viewer, new Event('cancel', { cancelable: true }))
+  await user.keyboard('{Escape}')
+  expect(screen.getByRole('dialog', { name: 'Front label' })).toBeInTheDocument()
   expect(screen.getByLabelText('Note for Front label')).toHaveValue('Keep both sides together.')
 
   await user.click(within(viewer).getByRole('button', { name: /^Discard note for front label/i }))
@@ -901,10 +901,7 @@ test('a read-only workspace still lets the viewer close', async () => {
     }),
   ).toBeEnabled()
 
-  fireEvent(
-    screen.getByRole('dialog', { name: 'Front label' }),
-    new Event('cancel', { cancelable: true }),
-  )
+  await user.keyboard('{Escape}')
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })
 
@@ -1024,7 +1021,10 @@ test('opens a file’s note from its tile', async () => {
   )
   await user.click(await screen.findByRole('button', { name: 'Note: Front label' }))
   expect(screen.getByRole('textbox', { name: 'Note for Front label' })).toBeVisible()
-  expect(screen.getByRole('region', { name: /Packet A/ })).toHaveTextContent('2 files · 0 lots')
+  // The group behind the open viewer is inert, but still shows its counts.
+  expect(screen.getByRole('region', { name: /Packet A/, hidden: true })).toHaveTextContent(
+    '2 files · 0 lots',
+  )
 })
 
 test('confirms a move with a toast whose Undo moves the files back', async () => {
@@ -1061,6 +1061,55 @@ test('confirms a move with a toast whose Undo moves the files back', async () =>
       expect.any(String),
     ),
   )
+})
+
+test('a move confirmed while a viewer is open keeps its Undo out of reach until the viewer closes', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+
+  let confirmMove: (snapshot: MediaSnapshotDto) => void = () => {
+    throw new Error('the move was not sent')
+  }
+
+  vi.mocked(client.edit).mockReturnValueOnce(
+    new Promise<MediaSnapshotDto>((resolve) => {
+      confirmMove = resolve
+    }),
+  )
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={client}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  await user.click(await screen.findByRole('checkbox', { name: 'Select Front label' }))
+  await user.selectOptions(screen.getByLabelText('Move selected evidence to'), 'Packet B')
+  await user.click(screen.getByRole('button', { name: 'Move selected evidence' }))
+  await user.click(screen.getByRole('button', { name: 'Open Back marking' }))
+  expect(screen.getByRole('dialog', { name: 'Back marking' })).toBeInTheDocument()
+
+  // The toast mounts behind the open viewer, where its Undo is out of reach.
+  await act(async () => {
+    confirmMove({
+      ...initial,
+      revision: '2',
+      evidence: initial.evidence.map((item) =>
+        item.id === front ? { ...item, group_id: groupB } : item,
+      ),
+    })
+  })
+  expect(await screen.findByText('Moved 1 file to Packet B')).toBeInTheDocument()
+  const undo = screen.getByText('Undo').closest('button')
+  expect(undo?.closest('[inert]')).not.toBeNull()
+  expect(undo?.closest('[aria-hidden="true"]')).not.toBeNull()
+  expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull()
+
+  await user.keyboard('{Escape}')
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(screen.getByRole('button', { name: 'Undo' }).closest('[inert]')).toBeNull()
 })
 
 test('Undo waits while another draft is open, so the draft is not lost', async () => {

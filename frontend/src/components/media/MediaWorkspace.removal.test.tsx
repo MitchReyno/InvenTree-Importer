@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
@@ -683,8 +683,8 @@ test('Escape closes the delete dialog and returns focus to the file’s menu but
   renderWorkspace(client)
   await chooseDelete(user, 'Front label')
   const dialog = await screen.findByRole('dialog', { name: 'Delete Front label?' })
-  // jsdom doesn't turn Escape into the native dialog's cancel event, so the test sends it.
-  fireEvent(dialog, new Event('cancel', { cancelable: true }))
+  expect(dialog).toBeInTheDocument()
+  await user.keyboard('{Escape}')
 
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   expect(screen.getByRole('button', { name: 'Actions for Front label' })).toHaveFocus()

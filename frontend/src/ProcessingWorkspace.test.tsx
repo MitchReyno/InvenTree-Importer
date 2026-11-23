@@ -738,6 +738,11 @@ function RemountingWorkspace({
 }
 
 /** Opens the Inventory drawer from a session link unless `fromRow` leaves it to the session row. */
+// Stands in for leaving Processing from another tab, so the open drawer doesn't block it.
+function toggleProcessing() {
+  fireEvent.click(screen.getByRole('button', { name: 'Toggle Processing', hidden: true }))
+}
+
 function mountInventoryDrawer(
   read: ProcessingSnapshotDto,
   pinnedQuestionId?: string,
@@ -847,6 +852,48 @@ test('closing the drawer with an unsaved answer asks first, and discards only on
   expect(dirty).toHaveBeenLastCalledWith(false)
 })
 
+// The dimmed page beside the drawer is its backdrop, rendered just before it. Radix starts
+// listening for outside presses a tick after the drawer opens.
+async function clickBesideDrawer(user: ReturnType<typeof userEvent.setup>, drawer: HTMLElement) {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+  const backdrop = drawer.previousElementSibling
+  if (!(backdrop instanceof HTMLElement)) {
+    throw new Error('the drawer has no backdrop')
+  }
+  await user.click(backdrop)
+}
+
+test('a click beside the drawer closes it and returns focus to its session row', async () => {
+  const user = userEvent.setup()
+  mountInventoryDrawer(inventorySnapshot(), undefined, { fromRow: true })
+  await user.click(
+    await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' }),
+  )
+  const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+
+  await clickBesideDrawer(user, drawer)
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Open session: Inventory · Packet A' })).toHaveFocus()
+})
+
+test('a click beside the drawer with an unsaved answer asks first, as Close does', async () => {
+  const user = userEvent.setup()
+  const { dirty } = mountInventoryDrawer(inventorySnapshot())
+  const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+  await within(drawer).findByRole('form', { name: /^Session question: Is Packet A already/ })
+  await user.type(answerBox('Is Packet A already in InvenTree?'), 'Different tube')
+
+  await clickBesideDrawer(user, drawer)
+  expect(screen.getByRole('dialog', { name: 'Inventory · Packet A' })).toBeInTheDocument()
+  expect(within(drawer).getByRole('alert')).toHaveTextContent(
+    'Save or discard your answer before closing this session.',
+  )
+  expect(answerBox('Is Packet A already in InvenTree?')).toHaveValue('Different tube')
+  expect(dirty).toHaveBeenLastCalledWith(true)
+})
+
 test('answering one drawer question leaves the other answerable, and focus moves to it', async () => {
   const user = userEvent.setup()
   // Opened from a session link; saving the answer remounts Processing, as Batch does.
@@ -942,6 +989,10 @@ test('a drawer draft survives its session leaving the read', async () => {
   const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
   await within(drawer).findByRole('form', { name: /^Session question: Is Packet A already/ })
   await user.type(answerBox('Is Packet A already in InvenTree?'), 'Different tube')
+  // The session row is behind the open drawer, so hidden from the accessibility tree.
+  expect(
+    screen.getByRole('button', { name: 'Open session: Inventory · Packet A', hidden: true }),
+  ).toBeInTheDocument()
 
   const gone = inventorySnapshot('9')
   delete gone.jobs[0].session_state
@@ -952,7 +1003,7 @@ test('a drawer draft survives its session leaving the read', async () => {
   // The session row leaves the step page once the read without the session is shown.
   await waitFor(() =>
     expect(
-      screen.queryByRole('button', { name: 'Open session: Inventory · Packet A' }),
+      screen.queryByRole('button', { name: 'Open session: Inventory · Packet A', hidden: true }),
     ).not.toBeInTheDocument(),
   )
   expect(screen.getByRole('dialog', { name: 'Inventory · Packet A' })).toBeInTheDocument()
@@ -1041,7 +1092,7 @@ test('other drawer forms are read-only while an answer saves', async () => {
 test('the page’s clean pinned answer follows a revision a drawer answer moved', async () => {
   const user = userEvent.setup()
   const { client } = mountInventoryDrawer(inventorySnapshot(), questionId)
-  await screen.findByRole('form', { name: 'Pinned application question' })
+  await screen.findByRole('form', { name: 'Pinned application question', hidden: true })
   const second = 'Is Packet A the reel in drawer 2?'
   await screen.findByRole('form', { name: `Session question: ${second}` })
   await user.type(answerBox(second), 'No')
@@ -1055,6 +1106,12 @@ test('the page’s clean pinned answer follows a revision a drawer answer moved'
     expect(screen.queryByRole('form', { name: `Session question: ${second}` })).toBeNull(),
   )
 
+  // The page behind the drawer is inert, so the drawer closes first.
+  await user.click(
+    within(screen.getByRole('dialog', { name: 'Inventory · Packet A' })).getByRole('button', {
+      name: 'Close',
+    }),
+  )
   const pinned = screen.getByRole('form', { name: 'Pinned application question' })
   expect(pinned).not.toHaveTextContent('superseded')
   await user.type(within(pinned).getByRole('textbox', { name: 'Clarification' }), 'Same tube')
@@ -1112,8 +1169,8 @@ test('a skipped reload leaves nothing to reopen the drawer on a later visit', as
   )
 
   // Leave Processing with the drawer open, then come back: it starts from its route alone.
-  await user.click(screen.getByRole('button', { name: 'Toggle Processing' }))
-  await user.click(screen.getByRole('button', { name: 'Toggle Processing' }))
+  toggleProcessing()
+  toggleProcessing()
   await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' })
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })
@@ -1141,9 +1198,9 @@ test('an answer’s failed reload leaves nothing for another tab’s reload to c
   )
 
   // Off to Records, whose save reloads the batch and re-keys every stage, then back.
-  await user.click(screen.getByRole('button', { name: 'Toggle Processing' }))
+  toggleProcessing()
   act(() => drawerRestore.carry())
-  await user.click(screen.getByRole('button', { name: 'Toggle Processing' }))
+  toggleProcessing()
   await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' })
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })
@@ -1245,21 +1302,25 @@ test('closing a drawer restored after a remount returns focus to its session row
 
 test('a drawer that focuses its own Close on opening still moves to the next question', async () => {
   const user = userEvent.setup()
-  // As browsers do: showModal opens the dialog and focuses its first focusable control. jsdom
-  // has no showModal, so Dialog would otherwise just set `open`.
-  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
-    configurable: true,
-    value(this: HTMLDialogElement) {
-      this.open = true
-      this.querySelector<HTMLElement>('button')?.focus()
-    },
-  })
-  try {
-    await answerFirstFromRow(user)
-    await waitFor(() => expect(answerBox('Is Packet A the reel in drawer 2?')).toHaveFocus())
-  } finally {
-    delete (HTMLDialogElement.prototype as Partial<HTMLDialogElement>).showModal
-  }
+  const { client } = mountInventoryDrawer(inventorySnapshot(), undefined, { fromRow: true })
+  await user.click(
+    await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' }),
+  )
+  // Opening places focus on the drawer's first control, its Close button.
+  const drawer = screen.getByRole('dialog', { name: 'Inventory · Packet A' })
+  expect(within(drawer).getByRole('button', { name: 'Close' })).toHaveFocus()
+
+  const first = 'Is Packet A already in InvenTree?'
+  await screen.findByRole('form', { name: `Session question: ${first}` })
+  await user.type(answerBox(first), 'Different tube')
+  client.read.mockResolvedValue(inventorySnapshot('9', [questionId]))
+  // Saving remounts Processing, and the restored drawer again focuses its Close on opening.
+  await user.click(
+    within(screen.getByRole('form', { name: `Session question: ${first}` })).getByRole('button', {
+      name: 'Send answer to the session',
+    }),
+  )
+  await waitFor(() => expect(answerBox('Is Packet A the reel in drawer 2?')).toHaveFocus())
 })
 
 test('saving a drawer’s last draft after its session left clears the session link', async () => {
@@ -1268,6 +1329,9 @@ test('saving a drawer’s last draft after its session left clears the session l
   const first = 'Is Packet A already in InvenTree?'
   await screen.findByRole('form', { name: `Session question: ${first}` })
   await user.type(answerBox(first), 'Different tube')
+  expect(
+    screen.getByRole('button', { name: 'Open session: Inventory · Packet A', hidden: true }),
+  ).toBeInTheDocument()
 
   // The session ends; its question is still open at the same capture revision.
   const ended = inventorySnapshot('8')
@@ -1278,7 +1342,7 @@ test('saving a drawer’s last draft after its session left clears the session l
   })
   await waitFor(() =>
     expect(
-      screen.queryByRole('button', { name: 'Open session: Inventory · Packet A' }),
+      screen.queryByRole('button', { name: 'Open session: Inventory · Packet A', hidden: true }),
     ).not.toBeInTheDocument(),
   )
   const answered = inventorySnapshot('9', [questionId])
@@ -1866,9 +1930,10 @@ test('a stepped answer sent from the drawer leaves Needs you and shows in the ch
     }),
   } satisfies ProcessingClient
   const { queryClient } = mountView(client, 'overview', jobId)
-  const needsYou = await screen.findByRole('region', { name: 'Needs you' })
+  // Needs you is on the page behind the open drawer, so hidden from the accessibility tree.
+  const needsYou = await screen.findByRole('region', { name: 'Needs you', hidden: true })
   expect(
-    within(needsYou).getByRole('link', { name: 'Answer: Packet A and stock #1712' }),
+    within(needsYou).getByRole('link', { name: 'Answer: Packet A and stock #1712', hidden: true }),
   ).toBeInTheDocument()
   const drawer = await screen.findByRole('dialog')
   const form = await within(drawer).findByRole('form', {
@@ -1881,8 +1946,9 @@ test('a stepped answer sent from the drawer leaves Needs you and shows in the ch
   await user.click(within(form).getByRole('button', { name: 'Send 2 answers' }))
   await waitFor(() =>
     expect(
-      within(screen.getByRole('region', { name: 'Needs you' })).queryByRole('link', {
+      within(screen.getByRole('region', { name: 'Needs you', hidden: true })).queryByRole('link', {
         name: 'Answer: Packet A and stock #1712',
+        hidden: true,
       }),
     ).toBeNull(),
   )

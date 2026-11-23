@@ -239,9 +239,9 @@
   - a demo video.
 - **Risks and decisions:** if a tested phone's sheet lacks the camera or the library, Take photos opens a Camera / Photo library choice (design), and both inputs are tested on that platform.
 
-- [ ] 9.1 Read the guidelines, the media upload code and the capture-grouped-evidence spec.
-- [ ] 9.2 RED: tests for the photos input attributes (`multiple`, JPEG and PNG, no `capture`), and, if 9.4 needs the fallback, the library input without `capture` and the camera input with it; validator typing of dropped and pasted files, including an unsupported one; a mixed drop as one operation with one count; a nested group drop handled once; paste outside and inside a note; and every picker refusal (disabled, archived, stale, pending command, conflicting draft) refusing drop and paste.
-- [ ] 9.3 GREEN: remove `capture`, add `addMixed` to the upload queue, extract the shared start gate (returning its reason, and keeping the picker-return behaviour), and add the drop targets with their highlight and the paste listener behind it.
+- [x] 9.1 Read the guidelines, the media upload code and the capture-grouped-evidence spec.
+- [x] 9.2 RED: tests for the photos input attributes (`multiple`, JPEG and PNG, no `capture`), and, if 9.4 needs the fallback, the library input without `capture` and the camera input with it; validator typing of dropped and pasted files, including an unsupported one; a mixed drop as one operation with one count; a nested group drop handled once; paste outside and inside a note; and every picker refusal (disabled, archived, stale, pending command, conflicting draft) refusing drop and paste.
+- [x] 9.3 GREEN: remove `capture`, add `addMixed` to the upload queue, extract the shared start gate (returning its reason, and keeping the picker-return behaviour), and add the drop targets with their highlight and the paste listener behind it.
 - [ ] 9.4 Check on iOS Safari and Android Chrome (library multi-select and the camera option) and desktop Chrome and Safari (drop and paste). If a phone's sheet lacks the camera or the library, add the Camera / Photo library choice inside Take photos, and test both flows on that platform. Run the frontend checks, and record the demo video.
 
 ## 10. Electronics animation switch
