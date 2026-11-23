@@ -73,12 +73,18 @@ async function askLead(fixture: Fixture, attemptId: string) {
       const asked = await client.callTool({
         name: 'ask',
         arguments: {
-          kind: 'clarification',
+          schema_version: 'bench-intake-question/2',
           subject_id: null,
-          prompt: 'Are these all from one order?',
           reason: 'Two invoices are in the photos.',
           fields: ['identity'],
-          assumption: 'Treating them as one order.',
+          steps: [
+            {
+              id: 'order',
+              prompt: 'Are these all from one order?',
+              assumption: 'Treating them as one order.',
+              answer: { kind: 'text' },
+            },
+          ],
         },
       })
       assert.equal((asked.structuredContent as { ok: boolean }).ok, true)
