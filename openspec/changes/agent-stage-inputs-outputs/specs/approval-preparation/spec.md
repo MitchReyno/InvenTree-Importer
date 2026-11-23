@@ -86,7 +86,13 @@ Preparation SHALL plan at most one gaps fill per target Part and field. Identica
 
 ### Requirement: Datasheet fills are attachments
 
-A datasheet fill SHALL add a Part attachment commented "Datasheet", as the importer does, and SHALL leave the Part's `link` unchanged. A datasheet counts as present when the Part has an attachment commented "Datasheet"; the executor SHALL re-read the Part's attachments just before the send.
+A datasheet fill SHALL add a Part attachment commented "Datasheet", as the importer does, from a retained PDF version in the batch whose digest and destination preparation binds, and SHALL leave the Part's `link` unchanged. A proposal with only a URL SHALL block the fill until the operator adds the file. A datasheet counts as present when the Part has an attachment commented "Datasheet"; the executor SHALL re-read the Part's attachments just before the send.
+
+#### Scenario: Datasheet proposed as a URL only
+
+- **GIVEN** a confirmed Research datasheet that is only a URL, with no retained PDF in the batch
+- **WHEN** preparation runs
+- **THEN** the fill is blocked, asking the operator to add the datasheet file in Capture.
 
 #### Scenario: Product page in the link
 

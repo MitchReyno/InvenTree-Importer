@@ -12,7 +12,7 @@ The executor SHALL apply only plans whose version, build and capability match a 
 
 #### Scenario: Record drafts without the record-creation capability
 
-- **GIVEN** a batch with a new-location draft and a deployment with only `owned-fake-effects/1`
+- **GIVEN** a batch with a new-location draft and a deployment with neither `owned-fake-effects/2` nor `/3`
 - **WHEN** a lot using that location is prepared
 - **THEN** preparation reports `record_creation_unavailable` and nothing is created.
 

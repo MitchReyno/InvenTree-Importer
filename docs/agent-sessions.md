@@ -448,7 +448,7 @@ A lot has one current **identity**, built in layers. Examine publishes the base 
 
 **What changes when an amendment lands**
 
-- **The lot's key details:** the lot's proposed label and its draft Part are updated, when the lot is agent-made and the operator hasn't edited them, for example "Reel TK-1N4148" becomes "1N4148W-7-F diodes (TK-1N4148)". On an edited lot they become suggestions the operator accepts in Review. Today's edited-lot suggestions cover observation membership only (`capture/evidence-observations.ts:541-555`), so task 4 adds label and draft Part suggestions.
+- **The lot's key details:** the lot's proposed label and its draft Part are updated, when the lot is agent-made, the operator hasn't edited them and no other lot shares the draft Part, for example "Reel TK-1N4148" becomes "1N4148W-7-F diodes (TK-1N4148)". On an edited lot they become suggestions the operator accepts in Review. Today's edited-lot suggestions cover observation membership only (`capture/evidence-observations.ts:541-555`), so task 4 adds label and draft Part suggestions.
 - **Pins:** successors pin to the merged identity's revision, not to Examine's proposal alone. Images and a later Research session start from the refined identity.
 - **Match:** Match searches with the merged keys: pass 2, or a late match.
 - **Examine:** Examine receives a `revision/2` naming the added and refined fields. Its later identity proposals build on them instead of reverting them.
@@ -579,7 +579,7 @@ The skills' deterministic scripts become intake MCP tools, run by the app on the
 
 **Delivery.** Tool replies with images use the same size limits as `fetch_evidence`. On the VM relay only `fetch_evidence` gets the larger image envelope today (`intake-server/src/agents/shared-vm/evidence-request.ts`), and only its replies are staged into the guest, so the relay is extended to `inspect_region`, `preview_images` and `match_logo` with one aggregate per-run image budget. Montages and logo sheets are tested over the real relay.
 
-**Parity.** Parity with the scripts is checked on the rendered crop pixels, before labels, downscaling or delivery encoding, for crop, quarter turns and straightening. White balance keeps the script's per-channel gains, bounded to ±15% so resistor bands shift at most 5° in hue. Contrast, gamma and sharpening are luminance versions of their own, tested for hue retention rather than parity.
+**Parity.** Parity with the scripts is checked on the rendered crop pixels, before labels, downscaling or delivery encoding, for crop, quarter turns and straightening. White balance keeps the script's per-channel gains, bounded to ±15%, and a guard scales them back until saturated colours such as resistor bands shift at most 5° in hue; parity holds only when the guard leaves the gains intact. Contrast, gamma and sharpening are luminance versions of their own, tested for hue retention rather than parity.
 
 **Not in the VM.** The runner image doesn't carry the scripts today (`tooling/deployment/guest/Dockerfile`), and they aren't added.
 
@@ -608,7 +608,7 @@ The skills' deterministic scripts become intake MCP tools, run by the app on the
 
 ## 2.8 Outputs into records and approval
 
-- **Research and Examine:** the merged identity updates an agent-made lot's proposed label and draft Part. Accepted values fill an agent-made Part's spec as proposed values that the operator confirms in Review. They never overwrite operator values. In gaps mode they fill only the existing Part's missing fields.
+- **Research and Examine:** the merged identity updates an agent-made lot's proposed label and draft Part; while the draft Part is shared with other lots, the values stay on the lot until the operator applies them to the shared Part or gives the lot its own draft. Accepted values fill an agent-made Part's spec as proposed values that the operator confirms in Review. They never overwrite operator values. In gaps mode they fill only the existing Part's missing fields.
 - **Records** take each field from the stage that owns it.
 - **Images:** a confirmed recipe becomes a retained derived version, through the existing crop pipeline extended with straightening and light adjustments. It is selected as the Part image or a stock attachment. A Part image effect, gated by the target's capability, sets it on the created Part or on an existing Part that has none, and effects attach stock images.
 - **Match:** the decision sets the lot's target: a new Part, an existing Part with new stock, or left out as a duplicate. Gaps mode produces update effects for the existing Part's missing fields. Pass 3 findings block approval. An add-stock or fill lot also needs a confirmed stock image, and a confirmed Part image only when the Part has none, before preparation can include it.
