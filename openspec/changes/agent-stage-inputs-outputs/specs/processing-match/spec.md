@@ -273,7 +273,7 @@ For a selected `/7` lot the operator decided as new Part with no strong key, pas
 #### Scenario: Strong key after preparation
 
 - **GIVEN** that preparation, not yet approved
-- **WHEN** Research adds an MPN before approval
+- **WHEN** Research adds an MPN and its manufacturer before approval
 - **THEN** the identity revision changes, approval refuses the old preparation, and a new preparation runs the normal validation search.
 
 ### Requirement: Validation searches are preparation reads

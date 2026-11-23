@@ -38,7 +38,7 @@ A batch whose Examine lead input is `bench-intake-input/7` SHALL show Processing
 
 ### Requirement: Processing › Match
 
-For a batch whose lead input is `/7`, Processing SHALL have a Match step listing each lot with what it matched by, its result (exact, possible, already imported, identifying, decided, new) and what runs in which mode, with an Answer for open match questions and Check InvenTree again. Match has no sessions, so its step page SHALL show the match question and candidates where other steps show a session drawer.
+For a batch whose effective pipeline version is `/7` (its lead's input, or its configuration when it has no lead), Processing SHALL have a Match step listing each lot with what it matched by, its result (exact, possible, already imported, identifying, decided, new) and what runs in which mode, with an Answer for open match questions and Check InvenTree again. Match has no sessions, so its step page SHALL show the match question and candidates where other steps show a session drawer.
 
 #### Scenario: A batch mid-way
 
