@@ -48,7 +48,8 @@ export function useBackdropClick(onBackdropClick: () => void): BackdropHandlers 
 }
 
 // A modal's ::backdrop reports the dialog as its target, as does the dialog's own padding,
-// so only a point outside the dialog's border box is the backdrop.
+// so only a point outside the dialog's border box is the backdrop. The right and bottom edges
+// are outside, as in the browser's own hit test.
 function isOnBackdrop(event: MouseEvent<HTMLDialogElement>): boolean {
   const dialog = event.currentTarget
   if (event.target !== dialog) {
@@ -56,7 +57,7 @@ function isOnBackdrop(event: MouseEvent<HTMLDialogElement>): boolean {
   }
 
   const box = dialog.getBoundingClientRect()
-  const insideX = event.clientX >= box.left && event.clientX <= box.right
-  const insideY = event.clientY >= box.top && event.clientY <= box.bottom
+  const insideX = event.clientX >= box.left && event.clientX < box.right
+  const insideY = event.clientY >= box.top && event.clientY < box.bottom
   return !(insideX && insideY)
 }

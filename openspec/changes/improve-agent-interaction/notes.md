@@ -4,7 +4,7 @@ Task 1 (dialogs close from their backdrop) is delivered through PR-A. The other 
 
 ## Changes to the plan
 
-- **2026-11-23T17:56+11:00, task 1 (PR-A):** Review showed two gaps in the design's handler, which recorded one press and checked both points on `click`: a second pointer could arm another pointer's release, and a browser may round `click` coordinates across a fractional edge. The handler now tracks each pointer's press, checks the release on `pointerup`, and checks only the target on `click`. A ui-design-system scenario now covers the crop editor's case, a pending or uncertain request staying open, which the design's "own close guard" implied. design.md and the spec delta are updated.
+- **2026-11-23T17:56+11:00, task 1 (PR-A):** Review showed two gaps in the design's handler, which recorded one press and checked both points on `click`: a second pointer could arm another pointer's release, and a browser may round `click` coordinates across a fractional edge. The handler now tracks each pointer's press, checks the release on `pointerup`, and checks only the target on `click`. The box's right and bottom edges count as outside, matching Chromium's native hit test. The ui-design-system requirement now promises Esc parity only where Esc closes the dialog, and a scenario covers the crop editor, which ignores Esc and keeps a sending or unconfirmed request open, as the design's "own close guard" implied. design.md and the spec delta are updated.
 
 ## Unexpected challenges
 

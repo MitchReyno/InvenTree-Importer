@@ -232,6 +232,17 @@ test('a release just outside a fractional edge closes, though the click is round
   expect(onClose).toHaveBeenCalledTimes(1)
 })
 
+test('the right and bottom edges are backdrop, the left and top edges are dialog', () => {
+  const { dialog, onClose } = renderBackdropDialog()
+  gesture(dialog, { clientX: 500, clientY: 300 }, dialog, { clientX: 500, clientY: 300 })
+  gesture(dialog, { clientX: 200, clientY: 600 }, dialog, { clientX: 200, clientY: 600 })
+  expect(onClose).toHaveBeenCalledTimes(2)
+
+  gesture(dialog, { clientX: 100, clientY: 300 }, dialog, { clientX: 100, clientY: 300 })
+  gesture(dialog, { clientX: 200, clientY: 0 }, dialog, { clientX: 200, clientY: 0 })
+  expect(onClose).toHaveBeenCalledTimes(2)
+})
+
 test('a click on the content does not close the dialog', () => {
   const { onClose } = renderBackdropDialog()
   const content = screen.getByText('Timeline')
