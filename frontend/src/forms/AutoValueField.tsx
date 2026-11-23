@@ -6,6 +6,7 @@ import { Small } from '#/components/ui/primitives'
 import { Input } from './inputs'
 import { media } from '#/components/ui/media'
 import { hoverTransition } from '#/components/ui/motion'
+import { useModalContainer } from '#/context/ModalContainerContext'
 
 export type AutoValue = { mode: 'auto' } | { mode: 'none' } | { mode: 'manual'; value: string }
 
@@ -42,6 +43,8 @@ export function AutoValueField({
 }: Props) {
   const id = useId()
   const [open, setOpen] = useState(false)
+  // Inside a modal, the panel portals into it, so it stacks above the modal.
+  const modal = useModalContainer()
   const lastManual = useRef(value.mode === 'manual' ? value.value : '')
   const manualInput = useRef<HTMLInputElement>(null)
   const focusManual = useRef(false)
@@ -85,7 +88,7 @@ export function AutoValueField({
             </TriggerHint>
           </Trigger>
         </Popover.Trigger>
-        <Popover.Portal>
+        <Popover.Portal container={modal}>
           <Content align="start" sideOffset={6} collisionPadding={12}>
             <Choices role="radiogroup" aria-labelledby={`${id}-title`}>
               <Title id={`${id}-title`}>{label}</Title>

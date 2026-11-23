@@ -4280,6 +4280,7 @@ export interface components {
             message: string;
             recovery: "refresh" | "wait" | "review" | "none";
             correlation_id: string;
+            step_id?: string;
         };
         Bootstrap: {
             /** @constant */
@@ -7142,6 +7143,13 @@ export interface components {
             tab: "processing" | "review" | "changes";
             title: string;
             detail: string | null;
+            question?: {
+                steps: {
+                    kind: "choice" | "number" | "text";
+                    options?: number;
+                    assumption: string | null;
+                }[];
+            };
             route: string;
         };
         BatchAttention: {
@@ -7202,6 +7210,13 @@ export interface components {
                 tab: "processing" | "review" | "changes";
                 title: string;
                 detail: string | null;
+                question?: {
+                    steps: {
+                        kind: "choice" | "number" | "text";
+                        options?: number;
+                        assumption: string | null;
+                    }[];
+                };
                 route: string;
             }[];
             items_truncated: boolean;
@@ -16607,6 +16622,126 @@ export interface components {
                 kind: "clarification";
                 text: string;
             };
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-answer/2";
+            /** Format: int64 */
+            expected_question_revision: string;
+            /** Format: int64 */
+            expected_capture_revision: string;
+            attempt_id: string;
+            input_sha256: string;
+            steps: {
+                step_id: string;
+                value: {
+                    /** @constant */
+                    kind: "choice";
+                    option_id: string;
+                } | {
+                    /** @constant */
+                    kind: "choice";
+                    other: string;
+                } | {
+                    /** @constant */
+                    kind: "number";
+                    value: string;
+                    basis: "counted" | "estimated";
+                } | {
+                    /** @constant */
+                    kind: "text";
+                    text: string;
+                };
+            }[];
+        };
+        ProcessingAnswerV1: {
+            /** @constant */
+            schema_version: "bench-intake-answer/1";
+            /** Format: int64 */
+            expected_question_revision: string;
+            /** Format: int64 */
+            expected_capture_revision: string;
+            attempt_id: string;
+            input_sha256: string;
+            value: {
+                /** @constant */
+                kind: "quantity";
+                value: string;
+                basis: "counted" | "estimated";
+            } | {
+                /** @constant */
+                kind: "clarification";
+                text: string;
+            };
+        };
+        ProcessingAnswerV2: {
+            /** @constant */
+            schema_version: "bench-intake-answer/2";
+            /** Format: int64 */
+            expected_question_revision: string;
+            /** Format: int64 */
+            expected_capture_revision: string;
+            attempt_id: string;
+            input_sha256: string;
+            steps: {
+                step_id: string;
+                value: {
+                    /** @constant */
+                    kind: "choice";
+                    option_id: string;
+                } | {
+                    /** @constant */
+                    kind: "choice";
+                    other: string;
+                } | {
+                    /** @constant */
+                    kind: "number";
+                    value: string;
+                    basis: "counted" | "estimated";
+                } | {
+                    /** @constant */
+                    kind: "text";
+                    text: string;
+                };
+            }[];
+        };
+        QuestionStepValue: {
+            /** @constant */
+            kind: "choice";
+            option_id: string;
+        } | {
+            /** @constant */
+            kind: "choice";
+            other: string;
+        } | {
+            /** @constant */
+            kind: "number";
+            value: string;
+            basis: "counted" | "estimated";
+        } | {
+            /** @constant */
+            kind: "text";
+            text: string;
+        };
+        QuestionStep: {
+            id: string;
+            prompt: string;
+            assumption: string;
+            answer: {
+                /** @constant */
+                kind: "choice";
+                options: {
+                    id: string;
+                    label: string;
+                    detail?: string;
+                }[];
+                other: boolean;
+            } | {
+                /** @constant */
+                kind: "number";
+            } | {
+                /** @constant */
+                kind: "text";
+            };
         };
         ProcessingQuestionSpec: {
             kind: "quantity" | "clarification";
@@ -17765,15 +17900,106 @@ export interface components {
             /** Format: int64 */
             revision: string;
             state: "open" | "answered" | "superseded";
+            subject_id: string | null;
+            asked_at?: string;
             spec: {
                 kind: "quantity" | "clarification";
-                subject_id: string | null;
                 prompt: string;
                 reason: string;
             };
             fields?: ("markings" | "identity" | "quantity" | "research" | "images")[];
             assumption?: string;
+        } | {
+            id: string;
+            job_id: string;
+            attempt_id: string;
+            input_sha256: string;
+            /** Format: int64 */
+            revision: string;
+            state: "open" | "answered" | "superseded";
+            subject_id: string | null;
             asked_at?: string;
+            /** @constant */
+            schema_version: "bench-intake-question/2";
+            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+            title?: string;
+            reason: string;
+            steps: {
+                id: string;
+                prompt: string;
+                assumption: string;
+                answer: {
+                    /** @constant */
+                    kind: "choice";
+                    options: {
+                        id: string;
+                        label: string;
+                        detail?: string;
+                    }[];
+                    other: boolean;
+                } | {
+                    /** @constant */
+                    kind: "number";
+                } | {
+                    /** @constant */
+                    kind: "text";
+                };
+            }[];
+        };
+        ProcessingQuestionV1: {
+            id: string;
+            job_id: string;
+            attempt_id: string;
+            input_sha256: string;
+            /** Format: int64 */
+            revision: string;
+            state: "open" | "answered" | "superseded";
+            subject_id: string | null;
+            asked_at?: string;
+            spec: {
+                kind: "quantity" | "clarification";
+                prompt: string;
+                reason: string;
+            };
+            fields?: ("markings" | "identity" | "quantity" | "research" | "images")[];
+            assumption?: string;
+        };
+        ProcessingQuestionV2: {
+            id: string;
+            job_id: string;
+            attempt_id: string;
+            input_sha256: string;
+            /** Format: int64 */
+            revision: string;
+            state: "open" | "answered" | "superseded";
+            subject_id: string | null;
+            asked_at?: string;
+            /** @constant */
+            schema_version: "bench-intake-question/2";
+            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+            title?: string;
+            reason: string;
+            steps: {
+                id: string;
+                prompt: string;
+                assumption: string;
+                answer: {
+                    /** @constant */
+                    kind: "choice";
+                    options: {
+                        id: string;
+                        label: string;
+                        detail?: string;
+                    }[];
+                    other: boolean;
+                } | {
+                    /** @constant */
+                    kind: "number";
+                } | {
+                    /** @constant */
+                    kind: "text";
+                };
+            }[];
         };
         ProcessingJob: {
             id: string;
@@ -18624,7 +18850,7 @@ export interface components {
                     reason: "source_superseded" | "evidence_removed" | "answer_received" | "operator_correction" | "lot_regrouped" | "subject_retired";
                 };
             }[];
-            questions: {
+            questions: ({
                 id: string;
                 job_id: string;
                 attempt_id: string;
@@ -18632,16 +18858,52 @@ export interface components {
                 /** Format: int64 */
                 revision: string;
                 state: "open" | "answered" | "superseded";
+                subject_id: string | null;
+                asked_at?: string;
                 spec: {
                     kind: "quantity" | "clarification";
-                    subject_id: string | null;
                     prompt: string;
                     reason: string;
                 };
                 fields?: ("markings" | "identity" | "quantity" | "research" | "images")[];
                 assumption?: string;
+            } | {
+                id: string;
+                job_id: string;
+                attempt_id: string;
+                input_sha256: string;
+                /** Format: int64 */
+                revision: string;
+                state: "open" | "answered" | "superseded";
+                subject_id: string | null;
                 asked_at?: string;
-            }[];
+                /** @constant */
+                schema_version: "bench-intake-question/2";
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                title?: string;
+                reason: string;
+                steps: {
+                    id: string;
+                    prompt: string;
+                    assumption: string;
+                    answer: {
+                        /** @constant */
+                        kind: "choice";
+                        options: {
+                            id: string;
+                            label: string;
+                            detail?: string;
+                        }[];
+                        other: boolean;
+                    } | {
+                        /** @constant */
+                        kind: "number";
+                    } | {
+                        /** @constant */
+                        kind: "text";
+                    };
+                }[];
+            })[];
         };
         ProcessingSnapshot: {
             runner_status: "unconfigured" | "fixture_only" | "native_unverified";
@@ -19497,7 +19759,7 @@ export interface components {
                         reason: "source_superseded" | "evidence_removed" | "answer_received" | "operator_correction" | "lot_regrouped" | "subject_retired";
                     };
                 }[];
-                questions: {
+                questions: ({
                     id: string;
                     job_id: string;
                     attempt_id: string;
@@ -19505,16 +19767,52 @@ export interface components {
                     /** Format: int64 */
                     revision: string;
                     state: "open" | "answered" | "superseded";
+                    subject_id: string | null;
+                    asked_at?: string;
                     spec: {
                         kind: "quantity" | "clarification";
-                        subject_id: string | null;
                         prompt: string;
                         reason: string;
                     };
                     fields?: ("markings" | "identity" | "quantity" | "research" | "images")[];
                     assumption?: string;
+                } | {
+                    id: string;
+                    job_id: string;
+                    attempt_id: string;
+                    input_sha256: string;
+                    /** Format: int64 */
+                    revision: string;
+                    state: "open" | "answered" | "superseded";
+                    subject_id: string | null;
                     asked_at?: string;
-                }[];
+                    /** @constant */
+                    schema_version: "bench-intake-question/2";
+                    fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                    title?: string;
+                    reason: string;
+                    steps: {
+                        id: string;
+                        prompt: string;
+                        assumption: string;
+                        answer: {
+                            /** @constant */
+                            kind: "choice";
+                            options: {
+                                id: string;
+                                label: string;
+                                detail?: string;
+                            }[];
+                            other: boolean;
+                        } | {
+                            /** @constant */
+                            kind: "number";
+                        } | {
+                            /** @constant */
+                            kind: "text";
+                        };
+                    }[];
+                })[];
             }[];
             cursor: {
                 stream_id: string;
@@ -20720,6 +21018,31 @@ export interface components {
                         kind: "clarification";
                         text: string;
                     };
+                } | {
+                    question_id: string;
+                    answer_id: string;
+                    steps: {
+                        step_id: string;
+                        value: {
+                            /** @constant */
+                            kind: "choice";
+                            option_id: string;
+                            label: string;
+                        } | {
+                            /** @constant */
+                            kind: "choice";
+                            other: string;
+                        } | {
+                            /** @constant */
+                            kind: "number";
+                            value: string;
+                            basis: "counted" | "estimated";
+                        } | {
+                            /** @constant */
+                            kind: "text";
+                            text: string;
+                        };
+                    }[];
                 };
             } | {
                 id: string;
@@ -21547,6 +21870,46 @@ export interface components {
                 fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
                 assumption: string;
             };
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-session/1";
+            job_id: string;
+            attempt_id: string;
+            command_id: string;
+            input_sha256: string;
+            /** Format: int64 */
+            sequence: string;
+            /** @constant */
+            kind: "question";
+            payload: {
+                /** @constant */
+                schema_version: "bench-intake-question/2";
+                subject_id: string | null;
+                reason: string;
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                title?: string;
+                steps: {
+                    id: string;
+                    prompt: string;
+                    assumption: string;
+                    answer: {
+                        /** @constant */
+                        kind: "choice";
+                        options: {
+                            id: string;
+                            label: string;
+                            detail?: string;
+                        }[];
+                        other: boolean;
+                    } | {
+                        /** @constant */
+                        kind: "number";
+                    } | {
+                        /** @constant */
+                        kind: "text";
+                    };
+                }[];
+            };
         };
         SessionState: "queued" | "running" | "waiting_input" | "finished" | "cancelling" | "cancelled" | "interrupted" | "failed" | "waiting_for_login" | "waiting_for_capacity" | "resume_unavailable";
         SessionStatusArgs: {
@@ -21559,6 +21922,93 @@ export interface components {
             reason: string;
             fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
             assumption: string;
+        };
+        SessionAskArgsV2: {
+            /** @constant */
+            schema_version: "bench-intake-question/2";
+            subject_id: string | null;
+            reason: string;
+            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+            title?: string;
+            steps: {
+                id: string;
+                prompt: string;
+                assumption: string;
+                answer: {
+                    /** @constant */
+                    kind: "choice";
+                    options: {
+                        id: string;
+                        label: string;
+                        detail?: string;
+                    }[];
+                    other: boolean;
+                } | {
+                    /** @constant */
+                    kind: "number";
+                } | {
+                    /** @constant */
+                    kind: "text";
+                };
+            }[];
+        };
+        SessionAnswerStepValue: {
+            /** @constant */
+            kind: "choice";
+            option_id: string;
+            label: string;
+        } | {
+            /** @constant */
+            kind: "choice";
+            other: string;
+        } | {
+            /** @constant */
+            kind: "number";
+            value: string;
+            basis: "counted" | "estimated";
+        } | {
+            /** @constant */
+            kind: "text";
+            text: string;
+        };
+        SessionAnswerPayload: {
+            question_id: string;
+            answer_id: string;
+            value: {
+                /** @constant */
+                kind: "quantity";
+                value: string;
+                basis: "counted" | "estimated";
+            } | {
+                /** @constant */
+                kind: "clarification";
+                text: string;
+            };
+        } | {
+            question_id: string;
+            answer_id: string;
+            steps: {
+                step_id: string;
+                value: {
+                    /** @constant */
+                    kind: "choice";
+                    option_id: string;
+                    label: string;
+                } | {
+                    /** @constant */
+                    kind: "choice";
+                    other: string;
+                } | {
+                    /** @constant */
+                    kind: "number";
+                    value: string;
+                    basis: "counted" | "estimated";
+                } | {
+                    /** @constant */
+                    kind: "text";
+                    text: string;
+                };
+            }[];
         };
         SessionReplyArgs: {
             inbox_item_id: string;
@@ -22367,6 +22817,31 @@ export interface components {
                         kind: "clarification";
                         text: string;
                     };
+                } | {
+                    question_id: string;
+                    answer_id: string;
+                    steps: {
+                        step_id: string;
+                        value: {
+                            /** @constant */
+                            kind: "choice";
+                            option_id: string;
+                            label: string;
+                        } | {
+                            /** @constant */
+                            kind: "choice";
+                            other: string;
+                        } | {
+                            /** @constant */
+                            kind: "number";
+                            value: string;
+                            basis: "counted" | "estimated";
+                        } | {
+                            /** @constant */
+                            kind: "text";
+                            text: string;
+                        };
+                    }[];
                 };
             } | {
                 id: string;
@@ -22640,6 +23115,31 @@ export interface components {
                     kind: "clarification";
                     text: string;
                 };
+            } | {
+                question_id: string;
+                answer_id: string;
+                steps: {
+                    step_id: string;
+                    value: {
+                        /** @constant */
+                        kind: "choice";
+                        option_id: string;
+                        label: string;
+                    } | {
+                        /** @constant */
+                        kind: "choice";
+                        other: string;
+                    } | {
+                        /** @constant */
+                        kind: "number";
+                        value: string;
+                        basis: "counted" | "estimated";
+                    } | {
+                        /** @constant */
+                        kind: "text";
+                        text: string;
+                    };
+                }[];
             };
         } | {
             id: string;
@@ -23039,11 +23539,17 @@ export type ProcessingStart = components['schemas']['ProcessingStart']
 export type ProcessingCancellation = components['schemas']['ProcessingCancellation']
 export type ProcessingQuestionValue = components['schemas']['ProcessingQuestionValue']
 export type ProcessingAnswer = components['schemas']['ProcessingAnswer']
+export type ProcessingAnswerV1 = components['schemas']['ProcessingAnswerV1']
+export type ProcessingAnswerV2 = components['schemas']['ProcessingAnswerV2']
+export type QuestionStepValue = components['schemas']['QuestionStepValue']
+export type QuestionStep = components['schemas']['QuestionStep']
 export type ProcessingQuestionSpec = components['schemas']['ProcessingQuestionSpec']
 export type ProcessingProposal = components['schemas']['ProcessingProposal']
 export type ProcessingProposalV4 = components['schemas']['ProcessingProposalV4']
 export type ProcessingEnvelope = components['schemas']['ProcessingEnvelope']
 export type ProcessingQuestion = components['schemas']['ProcessingQuestion']
+export type ProcessingQuestionV1 = components['schemas']['ProcessingQuestionV1']
+export type ProcessingQuestionV2 = components['schemas']['ProcessingQuestionV2']
 export type ProcessingJob = components['schemas']['ProcessingJob']
 export type ProcessingSnapshot = components['schemas']['ProcessingSnapshot']
 export type ProcessingReceipt = components['schemas']['ProcessingReceipt']
@@ -23106,6 +23612,9 @@ export type SessionEnvelope = components['schemas']['SessionEnvelope']
 export type SessionState = components['schemas']['SessionState']
 export type SessionStatusArgs = components['schemas']['SessionStatusArgs']
 export type SessionAskArgs = components['schemas']['SessionAskArgs']
+export type SessionAskArgsV2 = components['schemas']['SessionAskArgsV2']
+export type SessionAnswerStepValue = components['schemas']['SessionAnswerStepValue']
+export type SessionAnswerPayload = components['schemas']['SessionAnswerPayload']
 export type SessionReplyArgs = components['schemas']['SessionReplyArgs']
 export type SessionReadInboxArgs = components['schemas']['SessionReadInboxArgs']
 export type SessionFetchEvidenceArgs = components['schemas']['SessionFetchEvidenceArgs']

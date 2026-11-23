@@ -13,6 +13,7 @@ import {
   type ProcessingInputV6Dto,
   type SessionProposalDto,
   type SessionAskArgsDto,
+  type SessionAskArgsV2Dto,
   type SessionEnvelopeDto,
   type ProcessingEnvelopeDto,
   type ProcessingQuestionSpecDto,
@@ -50,8 +51,11 @@ function acceptedProducer(seal: MessageSeal): ProcessingEnvelopeDto {
   return envelope
 }
 
+/** A retained question's sealed message, with the stored spec bytes and their digest. */
+export type RetainedQuestionSeal = MessageSeal & { specBytes: Buffer; specDigest: Buffer }
+
 export function retainedQuestionSpec(
-  seal: MessageSeal & { specBytes: Buffer; specDigest: Buffer },
+  seal: RetainedQuestionSeal,
   subjectId: string,
 ): ProcessingQuestionSpecDto {
   const envelope = acceptedProducer(seal)
@@ -169,15 +173,21 @@ export function retainedSessionProposal(
 }
 
 export function retainedSessionQuestion(
-  seal: MessageSeal & { specBytes: Buffer; specDigest: Buffer },
+  seal: RetainedQuestionSeal,
   subjectId: string | null,
   /** For the lead job: the batch's subjects a question may be about, besides the whole batch. */
   batchSubjects: ReadonlySet<string> = new Set(),
-): SessionAskArgsDto {
+): SessionAskArgsDto | SessionAskArgsV2Dto {
   const envelope = acceptedSessionMessage(seal)
   const value = unseal(seal.specBytes, seal.specDigest)
-  validate('SessionAskArgs', value)
-  const ask = value as SessionAskArgsDto
+  const stepped =
+    typeof value === 'object' &&
+    value !== null &&
+    'schema_version' in value &&
+    value.schema_version === 'bench-intake-question/2'
+  validate(stepped ? 'SessionAskArgsV2' : 'SessionAskArgs', value)
+  // Validated above against the version the stored bytes name.
+  const ask = value as SessionAskArgsDto | SessionAskArgsV2Dto
   if (
     envelope.kind !== 'question' ||
     canonical(envelope.payload) !== canonical(ask) ||

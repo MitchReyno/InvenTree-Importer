@@ -14,7 +14,7 @@ import {
   type SessionProposalDto,
   type WebPageSourceDto,
   type ProcessingRelianceDto,
-  type SessionAskArgsDto,
+  type SessionAskArgsV2Dto,
   type SessionToolErrorDto,
   type SessionToolResultDto,
   webPageUrlAccepted,
@@ -52,6 +52,7 @@ import { appendSessionOutbox, lastStatusAt } from './outbox.ts'
 import sharp from 'sharp'
 import { regionCropCache } from '#/media/region-crops.ts'
 import { pendingSessionInbox, readSessionInbox, sessionInboxItem } from './inbox.ts'
+import { stepRefusal, subjectRefusal } from './question-checks.ts'
 import { removedVersionIds, versionRemovedSql } from '#/media/removal.ts'
 
 export const SESSION_IMAGE_BUDGET_BYTES = 8 * 1024 * 1024
@@ -971,7 +972,7 @@ async function sealSessionEnvelope(
   client: PoolClient,
   principal: SessionPrincipal,
   kind: 'proposal' | 'question',
-  payload: SessionProposalDto | SessionAskArgsDto,
+  payload: SessionProposalDto | SessionAskArgsV2Dto,
 ): Promise<SealedSessionEnvelope> {
   // withSession holds the capture, job, attempt and session locks, so the sequence is stable.
   const attempts = await executeDatabaseQuery(
@@ -1219,29 +1220,24 @@ export function sessionTools(context: SessionToolContext) {
 
     ask: (token: string, args: unknown) =>
       withSession(context, token, { capture: true }, async (client, principal, capture) => {
-        const ask = validated<SessionAskArgsDto>('SessionAskArgs', args)
-        const envelope = await sealSessionEnvelope(client, principal, 'question', ask)
-        await requireRoom(client, principal, 'questions', sealed(ask).bytes.length)
+        const ask = validated<SessionAskArgsV2Dto>('SessionAskArgsV2', args)
         // Only the lead session may ask about the whole batch or another subject of it.
-        const subjects = [
-          ...capture!.snapshot.lots.filter((lot) => !lot.retired).map((lot) => lot.id),
-          ...capture!.snapshot.parts.map((part) => part.id),
-        ]
+        const liveLots = capture!.snapshot.lots.filter((lot) => !lot.retired).map((lot) => lot.id)
+        const subjects = [...liveLots, ...capture!.snapshot.parts.map((part) => part.id)]
         if (
           principal.subjectId === null
             ? ask.subject_id !== null && !subjects.includes(ask.subject_id)
             : ask.subject_id !== principal.subjectId
         ) {
-          refuse('validation_failed', 'A question must be about this session’s lot.')
+          const wrongSubject = subjectRefusal(ask)
+          throw new ToolRefusal('validation_failed', wrongSubject.message, [wrongSubject.issue])
         }
-        // A quantity is answered on a lot, so a quantity question must name one.
-        const lots = capture!.snapshot.lots.filter((lot) => !lot.retired).map((lot) => lot.id)
-        if (
-          ask.kind === 'quantity' &&
-          (ask.subject_id === null || !lots.includes(ask.subject_id))
-        ) {
-          refuse('validation_failed', 'A quantity question must be about one live lot.')
+        const stepProblem = stepRefusal(ask, new Set(liveLots))
+        if (stepProblem) {
+          throw new ToolRefusal('validation_failed', stepProblem.message, [stepProblem.issue])
         }
+        const envelope = await sealSessionEnvelope(client, principal, 'question', ask)
+        await requireRoom(client, principal, 'questions', sealed(ask).bytes.length)
         const { messageId, streamId } = await retainSessionMessage(
           client,
           capture!,

@@ -9,6 +9,41 @@ export interface SyntheticResult {
   items?: { id: string; seq: string; kind: string; payload?: Record<string, unknown> }[]
 }
 
+/**
+ * One question in two related steps about the lot's count, so the stepped form and its effects
+ * can be exercised without touching the lot's identity.
+ */
+export function syntheticQuestion(subjectId: string) {
+  return {
+    schema_version: 'bench-intake-question/2',
+    subject_id: subjectId,
+    reason: 'The synthetic session cannot count the lot or see how it is packed.',
+    fields: ['quantity'],
+    title: 'How many, and how they are packed',
+    steps: [
+      {
+        id: 'left',
+        prompt: 'How many items are in this lot?',
+        assumption: 'Treating the lot as one item until answered.',
+        answer: { kind: 'number' },
+      },
+      {
+        id: 'packing',
+        prompt: 'How are they packed?',
+        assumption: 'Loose in a bag.',
+        answer: {
+          kind: 'choice',
+          options: [
+            { id: 'bag', label: 'Loose in a bag' },
+            { id: 'reel', label: 'On a reel', detail: 'Count from the reel label.' },
+          ],
+          other: true,
+        },
+      },
+    ],
+  }
+}
+
 export async function syntheticTurn(
   turn: Pick<SessionTurn, 'resume'>,
   context: Pick<SessionDriverContext, 'manifest' | 'cwd'>,
@@ -89,14 +124,7 @@ export async function syntheticTurn(
   }
   const answered = items.some((item) => item.kind === 'answer')
   if (!answered && !turn.resume && context.manifest.subject_id) {
-    await call('ask', {
-      kind: 'quantity',
-      subject_id: context.manifest.subject_id,
-      prompt: 'How many items are in this lot?',
-      reason: 'The synthetic session cannot count.',
-      fields: ['quantity'],
-      assumption: 'Treating the lot as one item until answered.',
-    })
+    await call('ask', syntheticQuestion(context.manifest.subject_id))
   }
   const last = items.at(-1)
   if (last) {

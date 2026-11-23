@@ -103,9 +103,9 @@ const snapshot: ProcessingSnapshotDto = {
           input_sha256: 'a'.repeat(64),
           revision: '1',
           state: 'open',
+          subject_id: active,
           spec: {
             kind: 'quantity',
-            subject_id: active,
             prompt: 'How many?',
             reason: 'Unclear label.',
           },

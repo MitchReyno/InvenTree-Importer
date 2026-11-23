@@ -6,6 +6,7 @@ import { Button, Small } from '#/components/ui'
 import { TextArea } from '#/forms'
 import { useReportDirty } from '#/navigation/useReportDirty'
 import { useAsyncAction } from '#/lifecycle/useAsyncAction'
+import { useAskReason } from '#/context'
 
 const NOT_CONFIRMED =
   'Not confirmed, and it may already be queued. Sending again cannot queue it twice.'
@@ -35,6 +36,8 @@ export function AskControl({
   const [text, setText] = useState(kept || prefill)
   const [asked, setAsked] = useState(false)
   const { busy, error, run } = useAsyncAction()
+  // Asking waits quietly while the read naming the session is still landing.
+  const unavailableReason = useAskReason()
   // The field value the ask was about; a different value means the answer may have arrived.
   const [askedValue, setAskedValue] = useState(value)
   const focus = useRef<'asked' | 'ask' | 'message' | null>(null)
@@ -99,6 +102,9 @@ export function AskControl({
     <Form
       onSubmit={(event) => {
         event.preventDefault()
+        if (unavailableReason) {
+          return
+        }
         // Made before the run, so a failure to make a key is not reported as a possibly queued send.
         const key = sendKey(storeKey, text)
         void run(() => ask(key), NOT_CONFIRMED)
@@ -117,7 +123,13 @@ export function AskControl({
         }}
       />
       <Row>
-        <Button type="submit" size="sm" disabled={busy || !text.trim()}>
+        <Button
+          type="submit"
+          size="sm"
+          disabled={busy || !text.trim()}
+          reasonDisplay="quiet"
+          disabledReason={unavailableReason}
+        >
           Send to {step}
         </Button>
         <Button

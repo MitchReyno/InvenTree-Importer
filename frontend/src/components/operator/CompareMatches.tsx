@@ -2,7 +2,7 @@ import { useState } from 'react'
 import styled from 'styled-components'
 import { color, radius, space, type, typeVar } from '#/theme/generated/tokens'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
-import { Paragraph, Small, Button, Dialog, localTime } from '#/components/ui'
+import { DebugDetails, Paragraph, Small, Button, Dialog, localTime } from '#/components/ui'
 import { OptionRow } from '#/forms'
 import { useReportDirty } from '#/navigation/useReportDirty'
 import type { CaptureEdit } from '#/capture/types'
@@ -88,10 +88,10 @@ export function CompareMatches({
       onClose={onClose}
       closeDisabled={pending !== null || saving}
     >
-      <Paragraph>
-        Candidates are existing Parts read from the fixed target. ≠ marks a candidate another Part
-        proposal in this batch already uses.
-      </Paragraph>
+      <Paragraph>≠ marks a candidate another Part proposal in this batch already uses.</Paragraph>
+      <DebugDetails label="Match candidates">
+        <p>Candidates are existing Parts read from the fixed target.</p>
+      </DebugDetails>
       {!candidates.length && (
         <Paragraph>
           No existing Parts have been read for this batch yet.{' '}

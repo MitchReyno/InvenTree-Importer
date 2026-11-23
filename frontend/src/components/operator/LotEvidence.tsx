@@ -5,9 +5,9 @@ import type {
   OperatorLotDto,
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
-import { Paragraph, Small, Subheading, Pill, localTime } from '#/components/ui'
+import { HelpButton, Paragraph, Small, Subheading, Pill, localTime } from '#/components/ui'
 import { Field } from '#/forms'
-import { color, type } from '#/theme/generated/tokens'
+import { color, space, type } from '#/theme/generated/tokens'
 import { mediaDisplayLabels } from '#/media/identity-labels'
 import { EvidenceViewer } from './EvidenceViewer'
 import { ProcessingSources } from '#/components/processing/ProcessingSources'
@@ -27,6 +27,8 @@ interface Props {
   media?: MediaSnapshotDto
   processing?: ProcessingSnapshotDto
   processingCurrent?: boolean
+  /** `processingCurrent` checked again on the cache when a candidate is accepted. */
+  processingCurrentNow?: () => boolean
   mediaUnavailable?: boolean
   mediaLoading?: boolean
   editDisabled?: boolean
@@ -78,6 +80,7 @@ export function LotEvidence({
   media,
   processing,
   processingCurrent = false,
+  processingCurrentNow,
   mediaUnavailable,
   mediaLoading,
   editDisabled = true,
@@ -137,7 +140,13 @@ export function LotEvidence({
       ))}
       {proposals.length > 0 && (
         <section aria-label="Processing candidates">
-          <Subheading>Processing candidates</Subheading>
+          <TitleRow>
+            <Subheading>Processing candidates</Subheading>
+            <HelpButton
+              label="About candidates"
+              explanation="A candidate is what processing found, not a value you chose. Choose the facts yourself below."
+            />
+          </TitleRow>
           {proposals.map(({ job, proposal }) => (
             <Field key={proposal.id}>
               <span>
@@ -151,10 +160,10 @@ export function LotEvidence({
                 proposal={proposal.value}
                 defaultQuantity={batch.defaults.quantity}
                 current={processingCurrent && job.state === 'ready'}
+                currentNow={processingCurrentNow}
                 disabled={editDisabled}
                 edit={edit}
               />
-              <Small>A candidate, not a chosen value. Choose facts explicitly below.</Small>
             </Field>
           ))}
         </section>
@@ -162,6 +171,16 @@ export function LotEvidence({
     </>
   )
 }
+
+const TitleRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${space[3]};
+  margin-bottom: ${space[5]};
+  ${Subheading} {
+    margin: 0;
+  }
+`
 
 const OriginalNote = styled(Paragraph)`
   white-space: pre-wrap;

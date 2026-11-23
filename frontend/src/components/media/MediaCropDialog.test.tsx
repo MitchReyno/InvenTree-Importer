@@ -1,5 +1,5 @@
 import { render } from '#/test/render'
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { act, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
@@ -36,12 +36,6 @@ const snapshot: MediaSnapshotDto = {
 }
 
 beforeEach(() => {
-  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
-    configurable: true,
-    value: function (this: HTMLDialogElement) {
-      this.open = true
-    },
-  })
   vi.stubGlobal(
     'ResizeObserver',
     class {
@@ -235,48 +229,47 @@ function CropDialogHarness({ save }: CropDialogHarnessProps) {
   )
 }
 
-function forceNativeClose(dialog: HTMLDialogElement) {
-  fireEvent(dialog, new Event('cancel', { cancelable: false }))
-  dialog.open = false
-  fireEvent(dialog, new Event('close'))
+// The dimmed backdrop is the element rendered just before the dialog. Radix starts listening
+// for outside presses a tick after the dialog opens.
+async function clickBackdrop(user: ReturnType<typeof userEvent.setup>) {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+  const backdrop = screen.getByRole('dialog').previousElementSibling
+  if (!(backdrop instanceof HTMLElement)) {
+    throw new Error('the crop dialog has no backdrop')
+  }
+  await user.click(backdrop)
 }
 
-test('forced native dismissal discards an unsent draft, releases its guard and permits reopening', async () => {
+test('Escape never discards a crop', async () => {
+  const user = userEvent.setup()
+  render(<CropDialogHarness save={vi.fn()} />)
+  await user.keyboard('{Escape}')
+  expect(screen.getByRole('dialog', { name: 'Prepare documentary crop' })).toBeInTheDocument()
+  expect(screen.getByText('Crop guard active')).toBeInTheDocument()
+})
+
+test('a backdrop click closes an unsent crop, but not a press dragged out of the editor', async () => {
   const user = userEvent.setup()
   const save = vi.fn<(input: MediaEditDto, key: string) => Promise<void>>()
   render(<CropDialogHarness save={save} />)
-  const dialog = screen.getByRole<HTMLDialogElement>('dialog', {
-    name: 'Prepare documentary crop',
-  })
-  const firstCancel = new Event('cancel', { cancelable: true })
-  fireEvent(dialog, firstCancel)
-  expect(firstCancel.defaultPrevented).toBe(true)
-  expect(dialog.open).toBe(true)
-
-  forceNativeClose(dialog)
-
+  await clickBackdrop(user)
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-  expect(screen.getByText('Crop guard released')).toBeVisible()
-  expect(save).not.toHaveBeenCalled()
+  expect(screen.getByText('Crop guard released')).toBeInTheDocument()
+
   await user.click(screen.getByRole('button', { name: 'Open crop editor' }))
-  expect(screen.getByRole('dialog', { name: 'Prepare documentary crop' })).toBeVisible()
+  const backdrop = screen.getByRole('dialog').previousElementSibling as HTMLElement
+  await user.pointer([
+    { keys: '[MouseLeft>]', target: screen.getByRole('spinbutton', { name: 'Width' }) },
+    { target: backdrop },
+    { keys: '[/MouseLeft]' },
+  ])
+  expect(screen.getByRole('dialog', { name: 'Prepare documentary crop' })).toBeInTheDocument()
+  expect(save).not.toHaveBeenCalled()
 })
 
-test('forced native dismissal after confirmed preparation closes the view and clears the parent guard', async () => {
-  const user = userEvent.setup()
-  const save = vi.fn<(input: MediaEditDto, key: string) => Promise<void>>(async () => undefined)
-  render(<CropDialogHarness save={save} />)
-  await user.click(screen.getByRole('button', { name: 'Prepare new version' }))
-  expect(screen.getByRole('button', { name: 'Close prepared crop' })).toBeEnabled()
-
-  forceNativeClose(screen.getByRole<HTMLDialogElement>('dialog'))
-
-  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-  expect(screen.getByText('Crop guard released')).toBeVisible()
-  expect(save).toHaveBeenCalledTimes(1)
-})
-
-test('forced close preserves a pending request, its uncertain retry and explicit discard', async () => {
+test('a backdrop click keeps a sending or unconfirmed crop request open', async () => {
   const user = userEvent.setup()
 
   let rejectPending: (error: Error) => void = () => {
@@ -290,61 +283,81 @@ test('forced close preserves a pending request, its uncertain retry and explicit
         rejectPending = reject
       }),
   )
-  save.mockRejectedValue(new Error('lost acknowledgement'))
+  save.mockResolvedValueOnce(undefined)
   render(<CropDialogHarness save={save} />)
   await user.click(screen.getByRole('button', { name: 'Prepare new version' }))
-  const original = save.mock.calls[0]
-  const dialog = screen.getByRole<HTMLDialogElement>('dialog')
 
-  forceNativeClose(dialog)
+  await clickBackdrop(user)
+  expect(screen.getByRole('button', { name: 'Retaining crop request…' })).toBeInTheDocument()
+  expect(screen.getByText('Crop guard active')).toBeInTheDocument()
 
-  expect(dialog.open).toBe(true)
-  expect(screen.getByText('Crop guard active')).toBeVisible()
-  expect(screen.getByRole('button', { name: 'Discard and close' })).toBeDisabled()
-  expect(save).toHaveBeenCalledTimes(1)
-
-  rejectPending(new Error('lost acknowledgement'))
+  await act(async () => {
+    rejectPending(new Error('lost acknowledgement'))
+  })
   await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('not confirmed'))
-  forceNativeClose(dialog)
-  expect(dialog.open).toBe(true)
-  expect(screen.getByRole('spinbutton', { name: 'Width' })).toBeDisabled()
-  await user.click(screen.getByRole('button', { name: 'Retry exact preparation request' }))
-  expect(save.mock.calls[1]).toEqual(original)
-  expect(save).toHaveBeenCalledTimes(2)
+  await clickBackdrop(user)
+  expect(screen.getByRole('button', { name: 'Retry exact preparation request' })).toBeEnabled()
+  expect(screen.getByRole('button', { name: 'Discard and close' })).toBeEnabled()
+  expect(screen.getByText('Crop guard active')).toBeInTheDocument()
 
-  await user.click(screen.getByRole('button', { name: 'Discard and close' }))
+  // Once the exact retry is confirmed, the backdrop closes the editor again.
+  await user.click(screen.getByRole('button', { name: 'Retry exact preparation request' }))
+  expect(save.mock.calls[1]).toEqual(save.mock.calls[0])
+  await screen.findByRole('button', { name: 'Close prepared crop' })
+  await clickBackdrop(user)
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-  expect(screen.getByText('Crop guard released')).toBeVisible()
+  expect(screen.getByText('Crop guard released')).toBeInTheDocument()
 })
 
-test('failed native modal restoration leaves the uncertain request and recovery controls visible', async () => {
+test('Discard and close drops an unconfirmed request on request', async () => {
   const user = userEvent.setup()
   const save = vi.fn<(input: MediaEditDto, key: string) => Promise<void>>(async () => {
     throw new Error('lost acknowledgement')
   })
   render(<CropDialogHarness save={save} />)
   await user.click(screen.getByRole('button', { name: 'Prepare new version' }))
-  const original = save.mock.calls[0]
-  const dialog = screen.getByRole<HTMLDialogElement>('dialog')
-  vi.spyOn(dialog, 'showModal').mockImplementationOnce(() => {
-    throw new DOMException('modal unavailable', 'InvalidStateError')
-  })
+  await screen.findByRole('button', { name: 'Retry exact preparation request' })
 
-  forceNativeClose(dialog)
-
-  expect(dialog.open).toBe(true)
-  expect(screen.getByRole('alert')).toHaveTextContent('modal view')
-  expect(screen.getByRole('button', { name: 'Retry exact preparation request' })).toBeVisible()
-  expect(screen.getByText('Crop guard active')).toBeVisible()
-  await user.click(screen.getByRole('button', { name: 'Retry exact preparation request' }))
-  expect(save.mock.calls[1]).toEqual(original)
   await user.click(screen.getByRole('button', { name: 'Discard and close' }))
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-  expect(screen.getByText('Crop guard released')).toBeVisible()
+  expect(screen.getByText('Crop guard released')).toBeInTheDocument()
+})
+
+test('closing the crop editor returns focus to its opener', async () => {
+  const user = userEvent.setup()
+
+  function Opener() {
+    const [open, setOpen] = useState(false)
+    return (
+      <>
+        <button type="button" onClick={() => setOpen(true)}>
+          Prepare crop / rotation
+        </button>
+        {open && (
+          <MediaCropDialog
+            batchId={snapshot.batch_id}
+            version={version}
+            pageNumber={1}
+            revision="5"
+            snapshot={snapshot}
+            readUnavailable={false}
+            save={vi.fn()}
+            close={() => setOpen(false)}
+            onDirtyChange={vi.fn()}
+          />
+        )}
+      </>
+    )
+  }
+
+  render(<Opener />)
+  await user.click(screen.getByRole('button', { name: 'Prepare crop / rotation' }))
+  await clickBackdrop(user)
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Prepare crop / rotation' })).toHaveFocus()
 })
 
 test('a replaced dirty callback hears the open editor without reopening the modal', () => {
-  const showModal = vi.spyOn(HTMLDialogElement.prototype, 'showModal')
   const first = vi.fn()
   const second = vi.fn()
   const props = {
@@ -358,10 +371,8 @@ test('a replaced dirty callback hears the open editor without reopening the moda
     close: vi.fn(),
   }
   const view = render(<MediaCropDialog {...props} onDirtyChange={first} />)
-  expect(showModal).toHaveBeenCalledOnce()
   expect(first).toHaveBeenLastCalledWith(true)
   view.rerender(<MediaCropDialog {...props} onDirtyChange={second} />)
-  expect(showModal).toHaveBeenCalledOnce()
   expect(second).toHaveBeenLastCalledWith(true)
   expect(first).not.toHaveBeenCalledWith(false)
   view.unmount()

@@ -86,6 +86,8 @@ const Log = styled.div`
 const Message = styled.p<{ $mine: boolean }>`
   max-width: 85%;
   margin: 0;
+  /* A message or answer can hold a long unbroken word, such as a URL. */
+  overflow-wrap: anywhere;
   padding: ${space[4]} ${space[5]};
   border-radius: ${radius.card};
   align-self: ${({ $mine }) => ($mine ? 'flex-end' : 'flex-start')};

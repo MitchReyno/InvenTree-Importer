@@ -7,6 +7,8 @@ export interface LockedCapture {
   snapshot: CaptureSnapshotDto
   streamId: string
   apply(input: CaptureEditDto): Promise<CaptureSnapshotDto>
+  /** Several edits under the one lock, each against the revision the previous produced. */
+  applyInOrder(inputs: readonly CaptureEditDto[]): Promise<CaptureSnapshotDto>
   publish(): Promise<void>
 }
 

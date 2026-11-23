@@ -291,3 +291,50 @@ test('replies from a replacement session keep their own identity', () => {
   } as unknown as SessionTimelineDto).map((message) => message.id)
   expect(new Set(ids).size).toBe(2)
 })
+
+test('the chat shows /1 and /2 answers beside the messages', () => {
+  const answered: SessionTimelineDto = {
+    ...timeline,
+    outbox: [],
+    inbox: [
+      {
+        id: 'a1',
+        seq: '1',
+        kind: 'answer',
+        created_at: at(4),
+        payload: {
+          question_id: 'q1',
+          answer_id: 'x1',
+          value: { kind: 'quantity', value: '12', basis: 'counted' },
+        },
+      },
+      {
+        id: 'a2',
+        seq: '2',
+        kind: 'answer',
+        created_at: at(5),
+        payload: {
+          question_id: 'q2',
+          answer_id: 'x2',
+          steps: [
+            { step_id: 'same', value: { kind: 'choice', option_id: 'yes', label: 'same Part' } },
+            { step_id: 'left', value: { kind: 'number', value: '380', basis: 'estimated' } },
+            { step_id: 'place', value: { kind: 'choice', other: 'Drawer R4' } },
+          ],
+        },
+      },
+    ],
+  }
+  render(
+    <SessionChat
+      storeKey="batch:answers"
+      state="running"
+      messages={chatMessages(answered)}
+      send={vi.fn()}
+      startFresh={vi.fn()}
+    />,
+  )
+  const messages = [...screen.getByRole('log', { name: 'Session messages' }).children]
+  expect(messages[0]).toHaveTextContent('Answered: 12')
+  expect(messages[1]).toHaveTextContent('Answered: same Part · 380 estimated · Drawer R4')
+})

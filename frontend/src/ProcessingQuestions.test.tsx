@@ -11,9 +11,9 @@ const question: ProcessingQuestionDto = {
   input_sha256: 'a'.repeat(64),
   revision: '2',
   state: 'open',
+  subject_id: '40000000-0000-4000-8000-000000000004',
   spec: {
     kind: 'quantity',
-    subject_id: '40000000-0000-4000-8000-000000000004',
     prompt: 'How many are in Packet A?',
     reason: 'The count is unclear.',
   },

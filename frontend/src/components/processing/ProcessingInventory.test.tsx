@@ -6,6 +6,8 @@ import type {
   BatchRecordsDto,
   CaptureSnapshotDto,
   ProcessingJobDto,
+  ProcessingQuestionV2Dto,
+  QuestionStepDto,
 } from '@invimport/contracts'
 import { render } from '#/test/render'
 import { ProcessingInventory } from './ProcessingInventory'
@@ -146,9 +148,9 @@ const question = {
   input_sha256: 'a'.repeat(64),
   revision: '1',
   state: 'open',
+  subject_id: tube,
   spec: {
     kind: 'clarification',
-    subject_id: tube,
     prompt: 'Is the LM358 tube already in InvenTree?',
     reason: 'Stock #1712 has the same Part, date code and bin.',
   },
@@ -158,9 +160,9 @@ const question = {
 const countQuestion = {
   ...question,
   id: id(401),
+  subject_id: resistors,
   spec: {
     kind: 'quantity',
-    subject_id: resistors,
     prompt: 'How many resistors are in the bag?',
     reason: 'The estimate is rough.',
   },
@@ -199,19 +201,16 @@ const jobs = [
         ...question,
         id: id(402),
         job_id: id(310),
-        spec: {
-          ...question.spec,
-          subject_id: resistors,
-          prompt: 'Are these the reel in drawer 2?',
-        },
+        subject_id: resistors,
+        spec: { ...question.spec, prompt: 'Are these the reel in drawer 2?' },
       },
     ],
   },
 ] as unknown as ProcessingJobDto[]
 
-function mount(read = vi.fn(async () => records)) {
+function mount(read = vi.fn(async () => records), shown = jobs) {
   const onOpenSession = vi.fn()
-  render(<ProcessingInventory batch={batch} jobs={jobs} onOpenSession={onOpenSession} />, {
+  render(<ProcessingInventory batch={batch} jobs={shown} onOpenSession={onOpenSession} />, {
     clients: { records: { read } },
   })
   return { onOpenSession, read }
@@ -304,5 +303,74 @@ describe('ProcessingInventory', () => {
       .getAllByRole('cell')
       .map((cell) => cell.textContent)
     expect(quantity).toEqual(['About 12 pcs · Examine’s estimate, not yet accepted', 'Not known'])
+  })
+
+  it('compares a stepped question by its title and reason, but not one that only asks for a count', async () => {
+    const choiceStep = {
+      id: 'same',
+      prompt: 'Is it the tube in stock?',
+      assumption: 'Treating it as new.',
+      answer: {
+        kind: 'choice',
+        other: false,
+        options: [
+          { id: 'same', label: 'Same tube as stock #1712' },
+          { id: 'new', label: 'Different tube: add new stock' },
+        ],
+      },
+    } satisfies QuestionStepDto
+    const stepped = {
+      id: id(403),
+      job_id: job,
+      attempt_id: id(301),
+      input_sha256: 'a'.repeat(64),
+      revision: '1',
+      state: 'open',
+      subject_id: tube,
+      schema_version: 'bench-intake-question/2',
+      fields: ['identity'],
+      title: 'The LM358 tube and stock #1712',
+      reason: 'Stock #1712 has the same Part, date code and bin.',
+      steps: [choiceStep],
+    } satisfies ProcessingQuestionV2Dto
+    const countOnly = {
+      ...stepped,
+      id: id(404),
+      job_id: id(310),
+      subject_id: resistors,
+      fields: ['quantity'],
+      title: 'How many resistors are left?',
+      steps: [
+        { id: 'left', prompt: 'How many?', assumption: 'About 12.', answer: { kind: 'number' } },
+      ],
+    } satisfies ProcessingQuestionV2Dto
+    const twoSteps = {
+      ...stepped,
+      id: id(405),
+      title: 'Where the LM358 tube goes',
+      steps: [
+        choiceStep,
+        { id: 'why', prompt: 'Why?', assumption: 'No reason given.', answer: { kind: 'text' } },
+      ],
+    } satisfies ProcessingQuestionV2Dto
+    const shown: ProcessingJobDto[] = [
+      { ...jobs[0], questions: [stepped, twoSteps] },
+      { ...jobs[1], questions: [countOnly] },
+    ]
+    mount(undefined, shown)
+    await screen.findByRole('region', { name: 'Parts' })
+    const [card, stepsCard] = screen.getAllByRole('region', {
+      name: 'Compare before answering: LM358 op-amps (tube)',
+    })
+    // A one-step question is labelled by its prompt, with its kind and assumption.
+    expect(card).toHaveTextContent('Is it the tube in stock? · choose one of 2')
+    expect(card).toHaveTextContent('Stock #1712 has the same Part, date code and bin.')
+    expect(card).toHaveTextContent('Continuing on: Treating it as new.')
+    // A question with steps is labelled by its title, with its step count and every assumption.
+    expect(stepsCard).toHaveTextContent('Where the LM358 tube goes · 2 steps')
+    expect(stepsCard).toHaveTextContent('Continuing on: Treating it as new. · No reason given.')
+    expect(
+      screen.queryByRole('region', { name: 'Compare before answering: 10 kΩ resistors' }),
+    ).toBeNull()
   })
 })

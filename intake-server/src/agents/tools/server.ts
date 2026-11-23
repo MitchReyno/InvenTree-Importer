@@ -10,6 +10,7 @@ import type { ProcessingConfig } from '#/processing/attempts.ts'
 import type { BlobStore } from '#/media/blob-store.ts'
 import { resolveSessionCapability } from './capability.ts'
 import { sessionTools, type SessionToolOutput } from './handlers.ts'
+import { ASK_GUIDANCE } from './ask-guidance.ts'
 
 const DEFAULT_STATUS_INTERVAL_MS = 2000
 
@@ -44,9 +45,8 @@ const TOOLS = {
       'Publish a proposal for this lot, citing only delivered evidence and notes. To cite a web page you read with WebFetch, use schema_version bench-intake-proposal/6 and add {"kind":"web_page","url":...} to its top-level sources, with the page title and read_at time if you have them; the URL must be absolute http or https with no credentials. A web page is shown as agent-reported, never as verified evidence, and cannot appear in relies_on or catalogue sources. Correct any returned field issues before retrying.',
   },
   ask: {
-    schema: 'SessionAskArgs',
-    description:
-      'Ask the operator a question. Name the fields it affects and the assumption you continue with; keep working.',
+    schema: 'SessionAskArgsV2',
+    description: `${ASK_GUIDANCE} Name the fields it affects, use a number step only for a lot's quantity, and keep working.`,
   },
   reply: {
     schema: 'SessionReplyArgs',

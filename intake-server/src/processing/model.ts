@@ -79,6 +79,8 @@ export class ProcessingError extends Error {
   constructor(
     public readonly code: string,
     public readonly statusCode = 409,
+    /** The question step an `invalid_answer` is about, when it is about one. */
+    public readonly stepId?: string,
   ) {
     super(code)
   }
@@ -86,6 +88,11 @@ export class ProcessingError extends Error {
 
 export function fail(code: string, status = 409): never {
   throw new ProcessingError(code, status)
+}
+
+/** Refuses an answer because of one of its question's steps, which the response names. */
+export function failStep(stepId: string): never {
+  throw new ProcessingError('invalid_answer', 422, stepId)
 }
 
 export function sealed(value: unknown) {

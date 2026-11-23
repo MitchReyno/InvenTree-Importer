@@ -270,7 +270,8 @@ export const ProcessingQuestionValue = Type.Union([
   }),
   object({ kind: Type.Literal('clarification'), text }),
 ])
-export const ProcessingAnswer = object({
+/** An answer to an earlier runner question or a `/1` session question: one value. */
+export const ProcessingAnswerV1 = object({
   schema_version: Type.Literal('bench-intake-answer/1'),
   expected_question_revision: Revision,
   expected_capture_revision: Revision,
@@ -333,6 +334,82 @@ export const ProcessingFields = Type.Array(ProcessingField, {
   maxItems: 5,
   uniqueItems: true,
 })
+
+/** Agent-chosen step and option IDs: short, stable and readable in the agent's own answers. */
+export const QuestionStepId = Type.String({ pattern: '^[a-z0-9][a-z0-9_-]{0,39}$' })
+export const QUESTION_MAX_STEPS = 4
+export const QUESTION_TITLE_MAX_CHARACTERS = 120
+/** One step asks one thing, so its prompt stays one question long. */
+export const QUESTION_STEP_PROMPT_MAX_CHARACTERS = 500
+export const QUESTION_OPTION_LABEL_MAX_CHARACTERS = 80
+export const QUESTION_OPTION_DETAIL_MAX_CHARACTERS = 160
+
+/**
+ * Text the operator reads, so it must show something. Blank text is refused, and so is text of only
+ * spaces, control or format characters (such as a zero-width space) and combining marks.
+ */
+function shownText(maxLength: number) {
+  return Type.String({ minLength: 1, maxLength, pattern: '[^\\s\\p{C}\\p{Z}\\p{M}]' })
+}
+
+export const QuestionOption = object({
+  id: QuestionStepId,
+  label: shownText(QUESTION_OPTION_LABEL_MAX_CHARACTERS),
+  detail: Type.Optional(
+    Type.String({ minLength: 1, maxLength: QUESTION_OPTION_DETAIL_MAX_CHARACTERS }),
+  ),
+})
+/** How a step is answered: one of 2–6 options, a lot's quantity, or text. */
+export const QuestionStepAnswer = Type.Union([
+  object({
+    kind: Type.Literal('choice'),
+    options: Type.Array(QuestionOption, { minItems: 2, maxItems: 6 }),
+    /** Whether "Something else" may be answered in words. */
+    other: Type.Boolean(),
+  }),
+  object({ kind: Type.Literal('number') }),
+  object({ kind: Type.Literal('text') }),
+])
+export const QuestionStep = object({
+  id: QuestionStepId,
+  prompt: shownText(QUESTION_STEP_PROMPT_MAX_CHARACTERS),
+  /** What the agent keeps working on until this step is answered. */
+  assumption: shownText(2048),
+  answer: QuestionStepAnswer,
+})
+export const QuestionSteps = Type.Array(QuestionStep, { minItems: 1, maxItems: QUESTION_MAX_STEPS })
+export const QuestionTitle = shownText(QUESTION_TITLE_MAX_CHARACTERS)
+/**
+ * One step's answer. A number step takes a quantity or, answered in words, text; every other step
+ * takes the value of its own kind.
+ */
+/** "Something else", answered in the operator's words. */
+export const QuestionOtherValue = object({ kind: Type.Literal('choice'), other: text })
+export const QuestionNumberValue = object({
+  kind: Type.Literal('number'),
+  value: Quantity,
+  basis: Type.Union([Type.Literal('counted'), Type.Literal('estimated')]),
+})
+export const QuestionTextValue = object({ kind: Type.Literal('text'), text })
+export const QuestionStepValue = Type.Union([
+  object({ kind: Type.Literal('choice'), option_id: QuestionStepId }),
+  QuestionOtherValue,
+  QuestionNumberValue,
+  QuestionTextValue,
+])
+/** An answer to a `/2` session question: one value per step, sent together. */
+export const ProcessingAnswerV2 = object({
+  schema_version: Type.Literal('bench-intake-answer/2'),
+  expected_question_revision: Revision,
+  expected_capture_revision: Revision,
+  attempt_id: Id,
+  input_sha256: Digest,
+  // An empty list still reaches the stored question, which names the missing step.
+  steps: Type.Array(object({ step_id: QuestionStepId, value: QuestionStepValue }), {
+    maxItems: QUESTION_MAX_STEPS,
+  }),
+})
+export const ProcessingAnswer = Type.Union([ProcessingAnswerV1, ProcessingAnswerV2])
 /** What a session proposal relies on; it stays current while every source is current. */
 export const ProcessingReliance = object({
   fields: ProcessingFields,
@@ -607,7 +684,7 @@ export const ProcessingBlocker = Type.Union([
   Type.Literal('worker_version_conflict'),
 ])
 
-export const ProcessingQuestion = object({
+const questionBase = {
   id: Id,
   job_id: Id,
   attempt_id: Id,
@@ -615,16 +692,33 @@ export const ProcessingQuestion = object({
   revision: Revision,
   state: Type.Union([Type.Literal('open'), Type.Literal('answered'), Type.Literal('superseded')]),
   /** A lead-session question about the whole batch has a null subject. */
+  subject_id: Type.Union([Id, Type.Null()]),
+  /** When the question was asked; absent for questions retained before the time was kept. */
+  asked_at: Type.Optional(IsoTime),
+}
+/** An earlier runner question or a `/1` session question: one quantity or clarification prompt. */
+export const ProcessingQuestionV1 = object({
+  ...questionBase,
   spec: object({
-    ...ProcessingQuestionSpec.properties,
-    subject_id: Type.Union([Id, Type.Null()]),
+    kind: ProcessingQuestionSpec.properties.kind,
+    prompt: ProcessingQuestionSpec.properties.prompt,
+    reason: ProcessingQuestionSpec.properties.reason,
   }),
   /** Session questions only: the fields affected and the assumption the agent continues with. */
   fields: Type.Optional(ProcessingFields),
   assumption: Type.Optional(Type.String({ minLength: 1, maxLength: 2048 })),
-  /** When the question was asked; absent for questions retained before the time was kept. */
-  asked_at: Type.Optional(IsoTime),
 })
+/** A `/2` session question: its steps carry their own prompts, answer kinds and assumptions. */
+export const ProcessingQuestionV2 = object({
+  ...questionBase,
+  schema_version: Type.Literal('bench-intake-question/2'),
+  fields: ProcessingFields,
+  title: Type.Optional(QuestionTitle),
+  reason: text,
+  steps: QuestionSteps,
+})
+/** Each question's content is sent once, in its version's shape; `questionView` normalises it. */
+export const ProcessingQuestion = Type.Union([ProcessingQuestionV1, ProcessingQuestionV2])
 
 /** Orders questions oldest first; a question retained before its time was kept comes last. */
 export function oldestQuestionFirst(a: { asked_at?: string }, b: { asked_at?: string }): number {
@@ -778,11 +872,17 @@ export const processingSchemas = {
   ProcessingCancellation,
   ProcessingQuestionValue,
   ProcessingAnswer,
+  ProcessingAnswerV1,
+  ProcessingAnswerV2,
+  QuestionStepValue,
+  QuestionStep,
   ProcessingQuestionSpec,
   ProcessingProposal,
   ProcessingProposalV4,
   ProcessingEnvelope,
   ProcessingQuestion,
+  ProcessingQuestionV1,
+  ProcessingQuestionV2,
   ProcessingJob,
   ProcessingSnapshot,
   ProcessingReceipt,
@@ -791,6 +891,12 @@ export const processingSchemas = {
 export type ProcessingStartDto = Static<typeof ProcessingStart>
 export type ProcessingCancellationDto = Static<typeof ProcessingCancellation>
 export type ProcessingAnswerDto = Static<typeof ProcessingAnswer>
+export type ProcessingAnswerV1Dto = Static<typeof ProcessingAnswerV1>
+export type ProcessingAnswerV2Dto = Static<typeof ProcessingAnswerV2>
+export type QuestionStepDto = Static<typeof QuestionStep>
+export type QuestionStepAnswerDto = Static<typeof QuestionStepAnswer>
+export type QuestionStepValueDto = Static<typeof QuestionStepValue>
+export type QuestionOptionDto = Static<typeof QuestionOption>
 export type ProcessingQuestionSpecDto = Static<typeof ProcessingQuestionSpec>
 export type ProcessingEnvelopeDto = Static<typeof ProcessingEnvelope>
 export type ProcessingSnapshotDto = Static<typeof ProcessingSnapshot>
@@ -806,6 +912,8 @@ export type ProcessingProposalDto = Static<typeof ProcessingProposal>
 export type ProcessingStateDto = Static<typeof ProcessingState>
 export type ProcessingJobDto = Static<typeof ProcessingJob>
 export type ProcessingQuestionDto = Static<typeof ProcessingQuestion>
+export type ProcessingQuestionV1Dto = Static<typeof ProcessingQuestionV1>
+export type ProcessingQuestionV2Dto = Static<typeof ProcessingQuestionV2>
 
 export type ProcessingInputV1Dto = Static<typeof ProcessingInputV1>
 export type ProcessingInputV2Dto = Static<typeof ProcessingInputV2>

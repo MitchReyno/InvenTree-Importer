@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import { radius, space } from '#/theme/generated/tokens'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { coverSizes, observationImage } from '#/media/images'
-import { Small, Subheading, Button, Pill, SourceChip } from '#/components/ui'
+import { HelpButton, Small, Subheading, Button, Pill, SourceChip } from '#/components/ui'
 import { Field } from '#/forms'
 import { ObservationMove } from './ObservationMove'
 import { readingSource } from '#/operator/value-evidence'
@@ -110,10 +110,15 @@ export function LotObservations({ batch, lot, edit, disabled }: Props) {
           ))}
       </Subheading>
       {lot.estimated_quantity && (
-        <Small>
-          Estimated {lot.estimated_quantity} · {lot.quantity_basis}. An estimate, not a chosen
-          quantity.
-        </Small>
+        <Estimate>
+          <Small>
+            Estimated {lot.estimated_quantity} · {lot.quantity_basis}
+          </Small>
+          <HelpButton
+            label="About the estimate"
+            explanation="An estimate is not the lot's quantity. Set the quantity yourself to use it."
+          />
+        </Estimate>
       )}
       <List>
         {active.map((observation) => (
@@ -193,6 +198,12 @@ export function LotObservations({ batch, lot, edit, disabled }: Props) {
     </section>
   )
 }
+
+const Estimate = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${space[3]};
+`
 
 const List = styled.ul`
   display: grid;

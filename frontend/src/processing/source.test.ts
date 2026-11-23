@@ -35,7 +35,8 @@ function question(n: number, state: 'open' | 'answered', assumption?: string) {
     input_sha256: digest,
     revision: '1',
     state,
-    spec: { kind: 'clarification', subject_id: lot, prompt: `Question ${n}?`, reason: 'Unclear' },
+    subject_id: lot as string | null,
+    spec: { kind: 'clarification' as const, prompt: `Question ${n}?`, reason: 'Unclear' },
     ...(assumption ? { assumption } : {}),
   }
 }
@@ -184,7 +185,8 @@ describe('retainedJobsSource', () => {
         jobId: id(1),
         step: 'examine',
         subject: 'Packet A',
-        prompt: 'Question 1?',
+        title: 'Question 1?',
+        kind: 'in words',
         assumption: 'Assuming 10 kΩ',
         lotId: lot,
       },
@@ -193,7 +195,8 @@ describe('retainedJobsSource', () => {
         jobId: id(3),
         step: 'research',
         subject: 'Packet A',
-        prompt: 'Question 3?',
+        title: 'Question 3?',
+        kind: 'in words',
         assumption: null,
         lotId: lot,
       },
@@ -250,7 +253,7 @@ describe('retainedJobsSource', () => {
       snapshot([
         job(5, 'examine', 'waiting_for_user', {
           subject_id: null,
-          questions: [{ ...open, spec: { ...open.spec, subject_id: null } }],
+          questions: [{ ...open, subject_id: null }],
         } as Partial<Job>),
       ]),
       subjects,
@@ -258,7 +261,7 @@ describe('retainedJobsSource', () => {
     )
 
     expect(source.questions).toEqual([
-      expect.objectContaining({ subject: 'Whole batch', lotId: null, prompt: 'Question 5?' }),
+      expect.objectContaining({ subject: 'Whole batch', lotId: null, title: 'Question 5?' }),
     ])
   })
 
@@ -321,10 +324,7 @@ it('links a question to Review only when it is about an active lot', () => {
   const source = retainedJobsSource(
     snapshot([
       job(1, 'research', 'waiting_for_user', {
-        questions: [
-          question(1, 'open'),
-          { ...question(2, 'open'), spec: { ...question(2, 'open').spec, subject_id: part } },
-        ],
+        questions: [question(1, 'open'), { ...question(2, 'open'), subject_id: part }],
       } as Partial<Job>),
     ]),
     new Map([

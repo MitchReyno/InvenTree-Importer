@@ -7,6 +7,15 @@
     "${workspaceFolder}/backend/.venv/Scripts/ruff.exe"
   ],
   "ruff.configuration": "${workspaceFolder}/backend/pyproject.toml",
+  "files.watcherExclude": {
+    "**/.claude/worktrees/**": true
+  },
+  "search.exclude": {
+    "**/.claude/worktrees": true
+  },
+  "git.detectWorktrees": true,
+  "git.repositoryScanIgnoredFolders": ["node_modules", ".claude"],
+  "js/ts.preferences.autoImportFileExcludePatterns": ["**/.claude/worktrees/**/*"],
   "[javascript][javascriptreact][typescript][typescriptreact][json][jsonc][css]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": true
