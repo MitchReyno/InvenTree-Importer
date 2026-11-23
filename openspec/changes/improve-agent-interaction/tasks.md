@@ -58,16 +58,16 @@ How the PR map above lets work run at the same time. A PR can start once every P
 | 4 | PR-G | PR-E; PR-F or polish for the shared components |
 | 5 | PR-H | PR-D2, PR-E and PR-G; PR-F or polish |
 
-- **Critical path:** PR-B → PR-D2 → PR-E → PR-G → PR-H, five PRs in sequence. PR-A, PR-D1 and PR-F have slack and can be done any time after PR-0.
+- **Critical path:** PR-B → PR-D2 → PR-E → PR-G → PR-H, five PRs in sequence. PR-A and PR-F have slack and can be done any time after PR-0. PR-D1 runs beside PR-B; PR-D2 starts once the later of the two merges.
 - **Most parallel moment:** wave 1, four PRs. After it, only one PR is ready at a time.
-- **Conflicts to expect between parallel PRs:** PR-B and PR-F both change the Processing read the frontend uses (questions and step counts), and both touch `ProcessingWorkspace.tsx`, which `polish-ui-styling-and-loading` also edits; whichever merges later rebases.
+- **Conflicts to expect between parallel PRs:** PR-B and PR-F both change the Processing read the frontend uses (questions and step counts), and both touch `ProcessingWorkspace.tsx`, which `polish-ui-styling-and-loading` also edits. PR-B and PR-D1 both change `contracts/src/sessions.ts`, `processing.ts` and `agents/tools/handlers.ts`, and whichever lands first adds the shared envelope writer's size check. Whichever merges later rebases.
 - **Effect on BI-022:** `agent-stage-inputs-outputs` waits for this change's PR-B (stepped questions), PR-D1 (`photo_view`), PR-E (session page) and PR-G (session rows). PR-D1 is in wave 1, so it doesn't hold BI-022 back.
 
 ### Re-carving that would allow more parallel work
 
 Mitch applied the first suggestion on 2026-11-23; the map above includes it. The others stay proposals and are not applied.
 
-1. **Applied: split PR-D into photo views and the history read.** Task 5 (recorded photo views and agent-reported web sources) has no prerequisites, but rides in PR-D, which waits for PR-B. As **PR-D1** it can run in wave 1. **PR-D2** keeps task 6 (the history read and crop route) after PR-B. This also unblocks BI-022 sooner: BI-022's PR-A and PR-B need only the `photo_view` record, so they could wait for PR-D1 instead of the whole history read. Cost: one more PR and a migration landing before its main reader.
+1. **Applied: split PR-D into photo views and the history read.** Task 5 (recorded photo views and agent-reported web sources) has no prerequisites, so as **PR-D1** it runs in wave 1 instead of waiting for PR-B with the history read. **PR-D2** keeps task 6 (the history read and crop route) after PR-B. This also unblocks BI-022 sooner: BI-022's PR-A and PR-B need only the `photo_view` record, so they wait for PR-D1 instead of the whole history read. Cost: one more PR and a migration landing before its main reader.
 2. **Split PR-G into the session-level read and the session-page links.** Task 10's server read, failures in plain words, recovery actions, row grouping and Agents filters don't need the session page; only the row title opening the session page does. **PR-G1** could run in wave 2, once PR-F or polish provides the shared state words; the link (**PR-G2**) folds into PR-E or follows it. That takes PR-G off the critical path. Cost: the Agents rows link to the drawer until PR-E lands.
 3. **Split PR-H into the message box and the rest.** The labelled message box and the status-line instruction sentence (O6 and part of task 11) depend on nothing else in this change. **PR-H1** could run in wave 1; the drawer header and recent activity (**PR-H2**) still need the history read, the session page and the session-level read. Cost: one more small PR.
 4. **Stack PR-E on PR-D2.** PR-E's renderer and page can be built against PR-D2's contract as soon as that contract is settled, on a branch stacked on PR-D2, and merged straight after it. This shortens wall-clock time without changing the merge order. Cost: rebasing PR-E if PR-D2's contract changes in review.
