@@ -1,11 +1,8 @@
 import styled from 'styled-components'
 import { color, space, typeVar } from '#/theme/generated/tokens'
-import {
-  webPageUrlAccepted,
-  type ProcessingProposalDto,
-  type WebPageSourceDto,
-} from '@invimport/contracts'
+import type { ProcessingProposalDto, WebPageSourceDto } from '@invimport/contracts'
 import { DebugDetails, SourceChip } from '#/components/ui'
+import { WebPageLink } from './WebPageLink'
 
 type SourceItem = { key: string; text: string; id: string; evidenceId?: string }
 
@@ -99,19 +96,6 @@ export function ProcessingSources({ proposal }: { proposal: ProcessingProposalDt
         </DebugDetails>
       )}
     </>
-  )
-}
-
-/** The page's title or address; only a URL the contract accepts becomes a link. */
-function WebPageLink({ page }: { page: WebPageSourceDto }) {
-  const label = page.title ?? page.url
-  if (!webPageUrlAccepted(page.url)) {
-    return <span>{label}</span>
-  }
-  return (
-    <a href={page.url} target="_blank" rel="noopener noreferrer">
-      {label}
-    </a>
   )
 }
 

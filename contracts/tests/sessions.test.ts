@@ -310,6 +310,10 @@ test('a web page source is an absolute http(s) URL of at most 2048 characters, w
   accepts('HTTPS://EXAMPLE.COM/path/with@sign')
   accepts(`https://example.com/${'a'.repeat(2048 - 'https://example.com/'.length)}`)
   refuses(`https://example.com/${'a'.repeat(2049 - 'https://example.com/'.length)}`)
+  // The limit counts characters as JSON Schema does: code points, not UTF-16 code units.
+  const base = 'https://example.com/'
+  accepts(`${base}${'\u{1F4C4}'.repeat(2048 - base.length)}`)
+  refuses(`${base}${'\u{1F4C4}'.repeat(2049 - base.length)}`)
   refuses('file:///etc/passwd')
   refuses('ftp://example.com/file')
   refuses('javascript:alert(1)')

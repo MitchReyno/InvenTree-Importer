@@ -9,7 +9,7 @@ const stepText: Partial<Record<Outbox['kind'], string>> = {
   observation: 'Recorded an observation',
   lot: 'Proposed a lot',
   regroup: 'Regrouped lots',
-  photo_view: 'Viewed a photo',
+  photo_view: 'Prepared a photo for the agent',
 }
 
 const time = (value: string) =>

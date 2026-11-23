@@ -370,7 +370,7 @@ async function fetchEvidenceImage(
         error: 'outcome_uncertain',
         message:
           'The image was withheld because recording this view was not confirmed. Fetch it again if you still need it.',
-        pending_inbox: 0,
+        pending_inbox: finished.pending,
       },
     }
   }
@@ -421,7 +421,7 @@ function releaseImageBudget(context: SessionToolContext, run: string, bytes: num
 type FinalFetchOutcome =
   | { kind: 'committed'; pending: number }
   | { kind: 'refused'; output: SessionToolOutput }
-  | { kind: 'uncertain' }
+  | { kind: 'uncertain'; pending: number }
 
 /**
  * The fetch's final decision, after the read and encoding: the session may have ended, or the
@@ -438,6 +438,7 @@ async function finishEvidenceFetch(
   // Set once the transaction's work has returned: a throw after it came from COMMIT, whose
   // outcome is unknown; a throw before it rolled back.
   let workReturned = false
+  let pendingBeforeCommit = 0
   try {
     const pending = await transaction(context.pool, async (client) => {
       const found =
@@ -455,13 +456,15 @@ async function finishEvidenceFetch(
         })
       }
       const count = await pendingSessionInbox(client, found.lineageId!)
+      pendingBeforeCommit = count
       workReturned = true
       return count
     })
     return { kind: 'committed', pending }
   } catch (error) {
+    // The fetch doesn't touch the inbox or its cursor, so the count read before COMMIT holds.
     if (workReturned && view) {
-      return { kind: 'uncertain' }
+      return { kind: 'uncertain', pending: pendingBeforeCommit }
     }
     if (error instanceof ToolRefusal) {
       return { kind: 'refused', output: await refusalOutput(context, token, error) }
@@ -943,22 +946,30 @@ async function requireRoom(
 /** `processing_message.envelope_bytes` holds at most this many bytes (migration 0006). */
 const MAX_SESSION_ENVELOPE_BYTES = 32_768
 
-/** Retains a session proposal or question as an authenticated message, like runner envelopes. */
-async function retainSessionMessage(
+interface SealedSessionEnvelope {
+  sequence: bigint
+  bytes: Buffer
+  digest: Buffer
+}
+
+/**
+ * Seals a session proposal or question as its attempt's next authenticated message, like runner
+ * envelopes, and refuses one too large to store. Callers seal before any capacity check, so an
+ * oversized result is always a correctable `validation_failed`.
+ */
+async function sealSessionEnvelope(
   client: PoolClient,
-  capture: LockedCapture,
   principal: SessionPrincipal,
   kind: 'proposal' | 'question',
   payload: SessionProposalDto | SessionAskArgsDto,
-) {
-  // withSession holds the capture, job, attempt and session locks.
+): Promise<SealedSessionEnvelope> {
+  // withSession holds the capture, job, attempt and session locks, so the sequence is stable.
   const attempts = await executeDatabaseQuery(
     queryDatabase(client)
       .select({ lastSequence: processingAttempts.lastSequence })
       .from(processingAttempts)
       .where(eq(processingAttempts.id, principal.attemptId)),
   )
-  const attempt = { id: principal.attemptId }
   const sequence = attempts[0].lastSequence + 1n
   const envelope = sealed({
     schema_version: 'bench-intake-session/1',
@@ -979,13 +990,23 @@ async function retainSessionMessage(
     )
   }
   validate('SessionEnvelope', JSON.parse(envelope.bytes.toString('utf8')))
+  return { sequence, bytes: envelope.bytes, digest: envelope.digest }
+}
+
+/** Stores a sealed envelope as the attempt's next message. */
+async function retainSessionMessage(
+  client: PoolClient,
+  capture: LockedCapture,
+  principal: SessionPrincipal,
+  envelope: SealedSessionEnvelope,
+) {
   const messageId = randomUUID()
   const db = queryDatabase(client)
   await executeDatabaseQuery(
     db.insert(processingMessages).values({
       id: messageId,
-      attemptId: attempt.id,
-      sequence,
+      attemptId: principal.attemptId,
+      sequence: envelope.sequence,
       envelopeBytes: envelope.bytes,
       envelopeDigest: envelope.digest,
       disposition: 'accepted',
@@ -994,8 +1015,8 @@ async function retainSessionMessage(
   await executeDatabaseQuery(
     db
       .update(processingAttempts)
-      .set({ lastSequence: sequence })
-      .where(eq(processingAttempts.id, attempt.id)),
+      .set({ lastSequence: envelope.sequence })
+      .where(eq(processingAttempts.id, principal.attemptId)),
   )
   return { messageId, streamId: capture.streamId }
 }
@@ -1153,13 +1174,13 @@ export function sessionTools(context: SessionToolContext) {
             ...catalogueSources(proposal),
             ...proposal.relies_on.sources,
           ])
+          const envelope = await sealSessionEnvelope(client, principal, 'proposal', proposal)
           await requireRoom(client, principal, 'proposals', sealed(proposal).bytes.length)
           const { messageId, streamId } = await retainSessionMessage(
             client,
             capture!,
             principal,
-            'proposal',
-            proposal,
+            envelope,
           )
           const value = sealed(proposal)
           const id = randomUUID()
@@ -1189,6 +1210,7 @@ export function sessionTools(context: SessionToolContext) {
     ask: (token: string, args: unknown) =>
       withSession(context, token, { capture: true }, async (client, principal, capture) => {
         const ask = validated<SessionAskArgsDto>('SessionAskArgs', args)
+        const envelope = await sealSessionEnvelope(client, principal, 'question', ask)
         await requireRoom(client, principal, 'questions', sealed(ask).bytes.length)
         // Only the lead session may ask about the whole batch or another subject of it.
         const subjects = [
@@ -1214,8 +1236,7 @@ export function sessionTools(context: SessionToolContext) {
           client,
           capture!,
           principal,
-          'question',
-          ask,
+          envelope,
         )
         const spec = sealed(ask)
         const id = randomUUID()

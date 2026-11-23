@@ -482,7 +482,9 @@ export type WebPageSourceDto = Static<typeof WebPageSource>
 
 /** True when the URL also parses as an absolute http(s) URL with a host and no credentials. */
 export function webPageUrlAccepted(value: string): boolean {
-  if (value.length > WEB_PAGE_URL_MAX_CHARACTERS || !webPageUrlPattern.test(value)) {
+  // JSON Schema's maxLength counts code points, not UTF-16 code units.
+  const characters = [...value].length
+  if (characters > WEB_PAGE_URL_MAX_CHARACTERS || !webPageUrlPattern.test(value)) {
     return false
   }
   let url: URL

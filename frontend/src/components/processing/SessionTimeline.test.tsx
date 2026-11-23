@@ -88,7 +88,7 @@ test('a photo view reads as a plain step, not its raw kind', () => {
   }
   render(<SessionTimeline timeline={viewed} />)
   const steps = within(screen.getByRole('list', { name: 'Session steps' })).getAllByRole('listitem')
-  expect(steps.at(-1)).toHaveTextContent('Viewed a photo')
+  expect(steps.at(-1)).toHaveTextContent('Prepared a photo for the agent')
   expect(screen.queryByText('photo_view')).toBeNull()
 })
 

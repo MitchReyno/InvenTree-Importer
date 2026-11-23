@@ -247,20 +247,68 @@ const races = {
   },
 }
 
+/**
+ * A pool that runs `beforeConnect` before handing out each connection, and `afterQuery` after
+ * each statement, so a test can act between the fetch's phases.
+ */
+function steppedPool(
+  pool: Pool,
+  hooks: {
+    beforeConnect?: () => Promise<void>
+    afterQuery?: (text: string) => Promise<void>
+  },
+): Pool {
+  const connect = async () => {
+    await hooks.beforeConnect?.()
+    const client = await pool.connect()
+    const query = async (...args: unknown[]) => {
+      const first = args[0] as string | { text?: string }
+      const text = typeof first === 'string' ? first : (first?.text ?? '')
+      const result = await (client.query as (...values: unknown[]) => Promise<unknown>)(...args)
+      await hooks.afterQuery?.(text)
+      return result
+    }
+    return new Proxy(client, {
+      get(target, property) {
+        if (property === 'query') {
+          return query
+        }
+        const value: unknown = Reflect.get(target, property)
+        return typeof value === 'function' ? value.bind(target) : value
+      },
+    }) as PoolClient
+  }
+  return new Proxy(pool, {
+    get(target, property) {
+      if (property === 'connect') {
+        return connect
+      }
+      const value: unknown = Reflect.get(target, property)
+      return typeof value === 'function' ? value.bind(target) : value
+    },
+  })
+}
+
 for (const [name, race] of Object.entries(races)) {
   test(`a ${name} committed after encoding refuses the fetch, records nothing and releases the budget`, async () => {
     await withPhotoSession(async (setup) => {
-      const { fixture, capture, session, token, context, args, store } = setup
-      const read = store.read.bind(store)
-      store.read = async (blob: string) => {
-        const bytes = await read(blob)
-        await race(fixture, setup)
-        return bytes
-      }
+      const { fixture, capture, session, token, context, args } = setup
+      const run = capabilityRun(token)
+      let raced = false
+      // The final transaction is the first connection after the image is encoded and reserved.
+      const pool = steppedPool(fixture.runner.pool, {
+        beforeConnect: async () => {
+          if (!raced && (context.imageBudget.get(run) ?? 0) > 0) {
+            raced = true
+            await race(fixture, setup)
+          }
+        },
+      })
       const before = await sessionChangedEvents(fixture, capture.batch.id)
 
-      const output = await sessionTools(context).fetch_evidence(token, args)
+      const output = await sessionTools({ ...context, pool }).fetch_evidence(token, args)
       validate('SessionToolResult', output.result)
+      assert.equal(raced, true, 'the race ran after encoding and reservation')
       assert.equal(output.result.ok, false)
       assert.equal(output.images, undefined)
       assert.equal(
@@ -269,11 +317,53 @@ for (const [name, race] of Object.entries(races)) {
       )
       assert.equal((await photoViews(fixture, session.attempt)).length, 0)
       assert.equal((await sessionChangedEvents(fixture, capture.batch.id)).length, before.length)
-      assert.equal(context.imageBudget.get(capabilityRun(token)) ?? 0, 0)
+      assert.equal(context.imageBudget.get(run) ?? 0, 0)
       assert.equal(context.deliveredMedia.get(session.job)?.has(args.version_id) ?? false, false)
     })
   })
 }
+
+test('a removal started while the final transaction holds its locks waits for the view', async () => {
+  await withPhotoSession(async (setup) => {
+    const { fixture, capture, session, token, context, args } = setup
+    await grantMedia(fixture.db.pool, fixture.api.name, 'api')
+    const media = mediaEditor(fixture.api.pool, fixture.config, capture.batch.id)
+    let removal: Promise<unknown> | undefined
+    let removalDone = false
+    const pool = steppedPool(fixture.runner.pool, {
+      afterQuery: async (text) => {
+        if (removal || !/insert into "agent_session_outbox"/i.test(text)) {
+          return
+        }
+        removal = media
+          .applied({ kind: 'remove', evidence_ids: [args.evidence_id] })
+          .then((result) => {
+            removalDone = true
+            return result
+          })
+        // Hold the fetch until the removal is seen waiting on a lock.
+        for (let attempt = 0; attempt < 100; attempt += 1) {
+          const waiting = await fixture.db.pool.query<{ count: string }>(
+            "SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock'",
+          )
+          if (Number(waiting.rows[0].count) > 0) {
+            return
+          }
+          await new Promise((resolve) => setTimeout(resolve, 50))
+        }
+        throw new Error('removal_never_waited')
+      },
+    })
+
+    const output = await sessionTools({ ...context, pool }).fetch_evidence(token, args)
+    assert.equal(removalDone, false, 'the removal waited for the fetch to commit')
+    delivered(output)
+    assert.equal(output.images?.length, 1)
+    assert.equal((await photoViews(fixture, session.attempt)).length, 1)
+    await removal
+    assert.equal(removalDone, true)
+  })
+})
 
 for (const outcome of ['committed', 'rolled_back'] as const) {
   test(`a lost COMMIT acknowledgement (${outcome}) keeps the reservation and returns no image`, async () => {
@@ -353,6 +443,11 @@ test('through the MCP endpoint, an unknown commit returns the uncertain-outcome 
       store: context.store,
       cropCacheDir: context.cropCacheDir,
     })
+    // A pending item, so the result must carry the count read before the lost COMMIT.
+    await fixture.db.pool.query(
+      "INSERT INTO agent_session_inbox(id,session_lineage_id,seq,kind,payload,idempotency_key) VALUES($1,$2,1,'evidence',$3,$4)",
+      [randomUUID(), session.job, args, args.version_id],
+    )
     const client = await connect(server.url, token)
     try {
       const result = await client.callTool({ name: 'fetch_evidence', arguments: args })
@@ -362,8 +457,13 @@ test('through the MCP endpoint, an unknown commit returns the uncertain-outcome 
         content.map((item) => item.type),
         ['text'],
       )
-      const structured = result.structuredContent as { error: string; message: string }
+      const structured = result.structuredContent as {
+        error: string
+        message: string
+        pending_inbox: number
+      }
       assert.equal(structured.error, 'outcome_uncertain')
+      assert.equal(structured.pending_inbox, 1)
       assert.doesNotMatch(structured.message, /changed nothing/)
       assert.equal((await photoViews(fixture, session.attempt)).length, 1)
     } finally {
@@ -544,8 +644,9 @@ test('a /6 proposal within its field limits but over the sealed envelope limit i
   await withPhotoSession(async (setup) => {
     const { fixture, capture, session, token, context } = setup
     const { noteSource, v6 } = proposals(setup)
-    // Twenty long URLs fit every field limit but not the 32,768-byte stored envelope.
-    const pages = Array.from({ length: 20 }, (_, index) => ({
+    // Seventy long URLs fit every field limit but neither the 32,768-byte stored envelope nor
+    // the batch's result budget; the envelope refusal comes first, as a correctable error.
+    const pages = Array.from({ length: 70 }, (_, index) => ({
       kind: 'web_page',
       url: `https://example.com/${index}/${'a'.repeat(2000)}`,
     }))
