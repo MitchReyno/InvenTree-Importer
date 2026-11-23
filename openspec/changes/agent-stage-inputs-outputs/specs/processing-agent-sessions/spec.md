@@ -38,7 +38,7 @@ While an actor's cutover drain fence is set, no `/3` resume SHALL be scheduled; 
 
 #### Scenario: Chat with a finished session
 
-- **GIVEN** a session that has finished
+- **GIVEN** a session that has finished, on an actor with no cutover drain fence set
 - **WHEN** the operator sends a chat message
 - **THEN** the message is queued, the session's provider conversation is resumed with it, and the agent's reply appears in that session's chat.
 
@@ -118,7 +118,7 @@ Cancelling a session SHALL abort its active turn and reap its process group befo
 
 #### Scenario: Worker restarts mid-turn
 
-- **GIVEN** a running session when the worker stops abruptly
+- **GIVEN** a running session with no committed Match continuation when the worker stops abruptly
 - **WHEN** the worker starts again
 - **THEN** the session is shown as interrupted, its delivered status lines and proposals remain, and no provider call is started until a resume is requested or triggered by the inbox.
 

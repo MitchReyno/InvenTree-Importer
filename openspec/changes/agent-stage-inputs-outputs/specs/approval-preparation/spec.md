@@ -2,7 +2,13 @@
 
 ### Requirement: Match findings block approval
 
-Preparation SHALL be blocked for a selected `/7` lot with an open match question or an unresolved finding from Match's validation before approval.
+Preparation SHALL be blocked for a selected `/7` lot with an open match question, a pending interactive search, or an unresolved finding from Match's validation before approval. Validation SHALL run only on a settled Match outcome, record its own result, and SHALL NOT supersede a match question.
+
+#### Scenario: Open question at preparation
+
+- **GIVEN** a selected `/7` lot with an open match question, or with an interactive search still pending
+- **WHEN** preparation runs
+- **THEN** it is blocked for that lot, runs no validation search for it, and the question stays open.
 
 #### Scenario: Unresolved finding
 

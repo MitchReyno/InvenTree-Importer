@@ -58,13 +58,23 @@ Already imported on an original-contribution hit SHALL be recorded on the Match 
 
 ### Requirement: When Match searches
 
-Match SHALL search after Examine's stable identity when it has a strong key (a lot without one is identified first, as the pipeline's "Identify first when nothing can be searched" requires), after each identity amendment, when a session adds an alias as a match note, and when the operator asks to check again. A lot still awaiting its first identify-mode amendment SHALL NOT be searched remotely for a match-note alias; the amendment's search covers it.
+Match SHALL search after Examine's stable identity when it has a strong key (a lot without one is identified first, as the pipeline's "Identify first when nothing can be searched" requires), after each identity amendment the app applies that yields searchable keys, when a session adds an alias as a match note, and when the operator asks to check again.
 
 #### Scenario: Alias found during research
 
 - **GIVEN** a lot decided as new, with Research running in full mode
 - **WHEN** Research's match note adds the cross-reference 1N914
 - **THEN** Match searches with it, and a new candidate pauses Research and opens a match question.
+
+### Requirement: When Match doesn't search
+
+A lot still awaiting its first identify-mode amendment SHALL NOT be searched remotely for a match-note alias. Unresolved and replacing amendments SHALL open their questions instead of a key search.
+
+#### Scenario: Replacing amendment
+
+- **GIVEN** a lot whose Research amendment says the markings decode to a different part
+- **WHEN** it is published
+- **THEN** a question opens and no remote key search runs until the question is resolved.
 
 ### Requirement: Verdicts and sufficiency
 
