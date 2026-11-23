@@ -6,4 +6,4 @@ Backend for the design-refresh controls that `apply-design-refresh` ships disabl
 - description fields for manufacturer parts, supplier parts and agent-proposed companies, categories and parameter templates;
 - reading existing manufacturer part, supplier part and location type descriptions;
 - deleting written batch notes;
-- Inventory questions that carry the session's answer options (for the drawer's option cards) and the existing record's fields (for the Inventory comparison).
+- Inventory questions that carry the existing record's fields (for the Inventory comparison). Answer options for questions moved to `improve-agent-interaction` (BI-019).

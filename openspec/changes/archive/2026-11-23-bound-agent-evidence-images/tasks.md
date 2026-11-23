@@ -106,7 +106,7 @@ Check an action off only after it is done and verified, in the same commit as th
 
 - [x] 6.1 Ask Mitch for the go-ahead.
 - [x] 6.2 Rerun Mitch's failing Examine session on the VM after #241, and record the outcome in `notes.md`.
-- [ ] 6.3 Observe a lot session fetching a 6144 × 8160 original, and a failed turn showing a live provider error.
+6.3 (observing a lot session fetching a 6144 × 8160 original, and a failed turn showing a live provider error) was not done. Mitch accepted the change without it on 2026-11-23; it is recorded under Open items in `notes.md`.
 
 ## 7. Follow-ups found by the live check
 
@@ -123,5 +123,4 @@ Each PR's review stopped at the agreed three-round limit, with the last round's 
 - [x] PR-A merged (#238), CI green.
 - [x] PR-B merged (#239), CI green.
 - [x] Follow-ups merged (#240, #241), CI green.
-- [ ] PR-C: CI green; merged.
-- [ ] Each PR: exact-head review clean.
+- [x] PR-C merged (#242), CI green.

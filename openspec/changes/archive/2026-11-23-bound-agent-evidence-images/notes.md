@@ -28,7 +28,11 @@ PR-A (#238) bounds every `fetch_evidence` image and PR-B (#239) records the prov
 
 - **2026-11-22T22:56+11:00, task 2:** A lot session's pinned derived versions stay fetchable: the lead session's originals-only filter now applies to Examine only, since the merged path would otherwise have refused derived versions the old original branch served. Undecoded and encrypted versions never reach `fetch_evidence`: a lot manifest refuses them as `media_not_ready` and Examine leaves them out. The fetch-time refusal is for a requested page without a preview, tested as page 2 of a one-page photo.
 
+- **2026-11-23T16:53+11:00, delivery and archive:** Mitch accepted the change without task 6.3's live observations and marked BI-018 Done on the merged work (#238–#242), its tests for bounding large originals and recording provider errors, and the retried Examine and Images sessions on his VM. Before archiving, this change's processing-agent-sessions › "Categorized failures with diagnostic disclosure" block was merged with `settings-debug-mode`'s version of it, which it predated, so syncing it keeps debug mode's Show details and recovery guidance rules.
+
 ## Open items
+
+- **Task 6.3 was not observed live.** No lot session has been seen fetching a 6144 × 8160 original on the VM, and no failed turn has shown a live provider error; both are covered by tests only. Accepted by Mitch on 2026-11-23.
 
 - **Output limits for other image routes and for parsing.** `shared-vm-agent/1` sessions also receive `fetch_evidence` images over MCP but keep the 256 KiB line limit, like host sessions. And a 4 MiB line of many small JSON values could still take a few hundred MiB to parse; Claude's output echoes tool results the app supplies, so the per-line limit was lowered rather than a structural parsing budget added. Found reviewing the frame fix, 2026-11-23T08:42+11:00.
 

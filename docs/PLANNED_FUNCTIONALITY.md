@@ -96,7 +96,7 @@ Add Google Antigravity (`agy` CLI) as a third native agent provider beside Claud
 
 #### BI-015 — Design refresh backend follow-ups
 
-Build the backend for the design-refresh controls that BI-014 shipped disabled, each with its reason. BI-016 (`settings-debug-mode`) takes over most of the Settings rows, and BI-017 (`simplify-vm-agent-web-and-setup`) the web research settings. This item keeps the per-record "Fill descriptions for" switches, the supplier part description source and "Tag every Part with its batch name". In Records it is storing and reading manufacturer part, supplier part and agent-proposed company descriptions, and reading location types and their descriptions; descriptions for agent-proposed categories and parameter templates, which the app lists as not supported yet, belong here too. The rest is deleting written batch notes, and Inventory questions that carry their answer options and the existing record's fields, for the disabled option cards and the comparison's InvenTree column and date code.
+Build the backend for the design-refresh controls that BI-014 shipped disabled, each with its reason. BI-016 (`settings-debug-mode`) takes over most of the Settings rows, and BI-017 (`simplify-vm-agent-web-and-setup`) the web research settings. This item keeps the per-record "Fill descriptions for" switches, the supplier part description source and "Tag every Part with its batch name". In Records it is storing and reading manufacturer part, supplier part and agent-proposed company descriptions, and reading location types and their descriptions; descriptions for agent-proposed categories and parameter templates, which the app lists as not supported yet, belong here too. The rest is deleting written batch notes, and Inventory questions that carry the existing record's fields, for the comparison's InvenTree column and date code. BI-019 (`improve-agent-interaction`) takes over answer options for questions.
 
 - Change: `complete-design-refresh-backend`
 - Status: Proposed
@@ -124,10 +124,10 @@ Give each processing agent its own job, the context earlier stages found, and an
 Agents in the shared VM get provider web search (Claude WebSearch, Codex web search), Claude WebFetch, and Glob and Grep. A per-session "Allow public web pages" setting, on by default, is enforced by each turn's egress proxy. Protected hostnames are worked out automatically, so no web settings go in the environment. The `bench-web` command and the separate document reader are removed. A rerunnable `pnpm vm:setup` replaces the README's manual VM steps, and `pnpm dev` rebuilds and reloads a stale runner image. This item takes over BI-015's web research switches.
 
 - Change: `simplify-vm-agent-web-and-setup`
-- Status: In progress — PR-A (the egress web policy, #229), PR-B (`shared-vm-agent/3`, web tools and readiness, #230), PR-C (the web settings, #231) and PR-D (one-command setup, #234) merged, with the `TodoWrite` fix in #235 and the Codex shell proxy admission fix in #236. PR-E (the live requalification, which passed on both providers with web on and off) is in review.
+- Status: Done — PR-A to PR-E merged in #229, #230, #231, #234 and #237, with fixes #235 and #236; the live requalification passed on Claude and Codex with web on and off (#237).
 - Size: L — provider tool admission, the egress proxy policy, a sealed agent setting, launcher setup automation and documentation.
 - Prerequisites: BI-016 (`settings-debug-mode`) for the Settings › Agents structure (#226) and agent-setting sealing (#227), both merged. Read BI-010 before changing the Codex tool surface. Requalifying needs Mitch's fresh go-ahead for a live provider run.
-- OpenSpec: [simplify-vm-agent-web-and-setup](../openspec/changes/simplify-vm-agent-web-and-setup/)
+- OpenSpec: [simplify-vm-agent-web-and-setup](../openspec/changes/archive/2026-11-23-simplify-vm-agent-web-and-setup/)
 
 ## Fixes
 
@@ -138,10 +138,10 @@ Agents in the shared VM get provider web search (Claude WebSearch, Codex web sea
 Agent sessions could be sent evidence images a provider refuses: lot sessions got the original upload unchanged and Examine region crops were unscaled, so a 6144 × 8160 photo broke Claude's pixel limits. A failed turn kept only `agent_turn_failed`, so the operator couldn't tell why. Every `fetch_evidence` image is now bounded to 2,576 px from the decoded preview (the older single-result native prompt still sends originals). A failed turn records the provider's own error kind when the provider gives one, and a VM turn the specific code behind its failure, whenever the guest's final frame reaches the host.
 
 - Change: `bound-agent-evidence-images`
-- Status: In progress — bounded agent images (#238), the provider's turn error (#239), the specific code behind a VM turn failure (#240) and Claude's output limits in VM tool sessions (#241) merged, and on the paired VM Mitch's retried Examine session reached its question for him and an Images session finished. The planned lot fetch of a 6144 × 8160 original and a live provider error have not been observed yet.
+- Status: Done — bounded agent images (#238), the provider's turn error (#239), the specific code behind a VM turn failure (#240), Claude's output limits in VM tool sessions (#241) and the live check (#242) merged. The planned live observation of a 6144 × 8160 lot fetch and a live provider error was not made; Mitch accepted the change without it, and it is an open item in the archived notes.
 - Size: M — the tool server's evidence delivery, guest staging, provider adapters, the guest frame and the diagnostic panel.
 - Prerequisites: None. Found during BI-017's requalification; the live check needs Mitch's go-ahead.
-- OpenSpec: [bound-agent-evidence-images](../openspec/changes/bound-agent-evidence-images/)
+- OpenSpec: [bound-agent-evidence-images](../openspec/changes/archive/2026-11-23-bound-agent-evidence-images/)
 
 #### BI-010 — Harden native agent sessions
 
@@ -191,6 +191,36 @@ Repository Markdown is uneven. Some documents are long unbroken paragraphs, head
 
 ### Unassessed
 
+#### BI-019 — Agent interaction improvements
+
+Make working with agents smoother. Clicking the dimmed page beside the session drawer, or any dialog, closes it as Esc does, while an unsaved answer still stops the close. An agent asks one question per `ask`, with one step or up to four related steps answered one at a time and sent together. Each step is a choice among options the agent offers, a lot's quantity checked as it is typed, or text, and states the assumption the agent keeps working on. Each session's history entries expand to their details and link to the pages they concern, and every session gets a page showing it as one conversation, with the photos it viewed and the web pages it cited. The activity popover shows each stage's state, counts and status, with bars that distinguish working, waiting for you and paused. Sessions also show as one row each with their retries folded and Start fresh offered only where it can run, failures say their recorded cause in plain words, and the Agents page opens on what needs attention.
+
+- Change: `improve-agent-interaction`
+- Status: Proposed — plan in review (#243).
+- Size: XL — a versioned question and answer contract and answer path, a resolved and paged session history, recorded photo views and web sources, a reworked answer form, a new session page and per-stage activity counts and bar states, in eight PRs after the plan.
+- Prerequisites: None. Takes over BI-015's answer options; coordinate session-runner prompt edits with BI-017.
+- OpenSpec: [improve-agent-interaction](../openspec/changes/improve-agent-interaction/)
+
+#### BI-020 — UI polish and calm loading
+
+Fix a selected row losing its top border in Review › Records, give every page one even spacing between sections, and remove the out-of-design Batch context disclosure and the outdated "live provider not qualified" agent profile notices. Replace the brief "Verifying current…" banners and about 20 one-off loading lines with one pattern: a skeleton on a first visit, cached data shown at once with a quiet background refresh, a progress line only when a refresh is noticeable, and commands disabled with a reason until a fresh read lands. Cached reads are kept in session storage so a reload shows the last data at once. Status reads the same everywhere: one set of state words, times that say which day, a masthead that names what failed (or says no agents are working), a Processing Needs you that agrees with the header, a per-lot stage table, and step pages that count their own step. Capture takes several files at once from any source: the phone's library with multi-select, and drag-and-drop or paste on desktop. Settings › Appearance gets a switch to stop the masthead's electronics animation while keeping the chosen masthead style. Settings › Agents saves switches and choices as they change, keeping Save only for text. Provider cards match the design, with a sign-in status read from the agent VM without the management key, switches, one searchable model picker across both providers, and sign-in in dialogs that check a token's shape and confirm the VM stored it. Dropdowns follow one guideline: the searchable picker for records and growing lists, and a segmented control or native select for short fixed lists, chosen case by case.
+
+- Change: `polish-ui-styling-and-loading`
+- Status: Proposed — plan in review (#247).
+- Size: XL — a page layout primitive applied to every page, small fixes, a shared freshness and persistence layer adopted by every screen, one state and time vocabulary, multi-file capture, agent settings autosave a read-only provider status from the agent VM, and a dropdown sweep, in nine PRs after the plan.
+- Prerequisites: None. Coordinate Processing and drawer edits with `improve-agent-interaction` (BI-019), and shared-VM edits with `simplify-vm-agent-web-and-setup` (BI-017). The provider status's live check needs Mitch's go-ahead.
+- OpenSpec: [polish-ui-styling-and-loading](../openspec/changes/polish-ui-styling-and-loading/)
+
+#### BI-021 — Trust live-confirmed reads for commands
+
+On a return visit, let an audited set of commands become available at once when the cached read is consistent through the newest observed live-update cursor: a successful read whose request started after the newest relevant hint, within the same unbroken subscription and resource scope. Because hints can lag commits, only commands whose server-checked revision covers every fact they depend on qualify. Any new relevant hint, gap, reset, truncation, reconnect, polling fallback, scope change or failed read clears the proof, and the page waits for a read as it does today. Commands without a server-checked revision, such as batch Pause and Resume, always wait.
+
+- Change: `trust-live-confirmed-reads`
+- Status: Proposed — captured as a follow-up; planned in full when picked up.
+- Size: M — a freshness rule over the live channel with tests for every way it can break.
+- Prerequisites: BI-020 (`polish-ui-styling-and-loading`), for its freshness hook.
+- OpenSpec: [trust-live-confirmed-reads](../openspec/changes/trust-live-confirmed-reads/)
+
 #### BI-016 — Settings rows, independent providers and debug mode
 
 Make most of the Settings rows that BI-014 shipped disabled work. These are new-batch instructions, the Part description style, a tag-suggestion default, default location and supplier for new batches, an on-demand token check, Replace token for the InvenTree read token, and the import reference shown read-only. Claude and Codex become separately configured providers, and each processing step picks its own provider and model. Settings › Agents gathers every agent-behaviour setting as subsections with sub-nav links. A device-local debug mode hides developer details unless it is on and adds a Debug panel to each screen; the Dev mode pill opens a popover of developer tools.
@@ -199,7 +229,7 @@ Make most of the Settings rows that BI-014 shipped disabled work. These are new-
 - Status: Done — PR-A to PR-E merged in #225, #226, #227, #228 and #232.
 - Size: XL — agent settings contract and sealing, a creation snapshot, a stored read credential, the Settings structure and debug gating across most screens, in five PRs (PR-A to PR-E) after the planning PR.
 - Prerequisites: None. It takes over the Settings rows from BI-015 that it builds; coordinate `.env.example` and launcher edits with `default-env-settings`.
-- OpenSpec: [settings-debug-mode](../openspec/changes/settings-debug-mode/)
+- OpenSpec: [settings-debug-mode](../openspec/changes/archive/2026-11-23-settings-debug-mode/)
 
 #### BI-013 — Preview renditions for media
 

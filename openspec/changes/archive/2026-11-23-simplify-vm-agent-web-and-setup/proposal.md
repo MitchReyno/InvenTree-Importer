@@ -19,7 +19,7 @@ The outcome Mitch asked for on 2026-11-19:
 
 Change name: `simplify-vm-agent-web-and-setup`. Delivering branches include it, for example `feat/simplify-vm-agent-web-and-setup-egress`, and subjects use `type(simplify-vm-agent-web-and-setup): description`.
 
-Linked item: BI-017 in [`docs/PLANNED_FUNCTIONALITY.md`](../../../docs/PLANNED_FUNCTIONALITY.md). It takes over BI-015's web research switches. BI-016 (`settings-debug-mode`) is a prerequisite, and BI-010 governs the Codex tool surface.
+Linked item: BI-017 in [`docs/PLANNED_FUNCTIONALITY.md`](../../../../docs/PLANNED_FUNCTIONALITY.md). It takes over BI-015's web research switches. BI-016 (`settings-debug-mode`) is a prerequisite, and BI-010 governs the Codex tool surface.
 
 ## Current behavior and evidence
 

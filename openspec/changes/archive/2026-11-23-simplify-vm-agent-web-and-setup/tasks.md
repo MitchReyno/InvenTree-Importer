@@ -5,7 +5,7 @@
 - [Proposal](proposal.md), [design assessment](design.md) and delta specs under `specs/` (`shared-vm-execution`, `processing-agent-sessions`, `app-settings`, `development-launcher`, `operations-backup-restore`).
 - Reuse recommendation: extend the existing per-turn egress proxy and `guest_destinations.py`, orchestrate the existing bridge scripts, and label images with a content digest. No new runtime dependency.
 - Change name: `simplify-vm-agent-web-and-setup`. Every branch and commit or PR subject includes it.
-- Linked item: BI-017 in [`docs/PLANNED_FUNCTIONALITY.md`](../../../docs/PLANNED_FUNCTIONALITY.md). The index owns its current status.
+- Linked item: BI-017 in [`docs/PLANNED_FUNCTIONALITY.md`](../../../../docs/PLANNED_FUNCTIONALITY.md). The index owns its current status.
 
 ## Completion and commit ordering
 
@@ -301,11 +301,13 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 
 For each bundle, record the reviewed commit, check results and published or merged state only after they exist:
 
-- [ ] Plan PR: independent exact-head review clean; PR published; merged.
-- [ ] PR-A: exact-head review clean; CI green; merged.
-- [ ] PR-B: exact-head review clean; CI green; merged.
-- [ ] PR-C: exact-head review clean; CI green; merged.
-- [ ] PR-D: exact-head review clean; CI green; merged.
-- [ ] PR-E: exact-head review clean; merged.
+None of the PRs is recorded as review clean: each review stopped before a round came back clean, with the last round's fixes not reviewed again. PR-A's review ran 55 rounds before its egress refactor (see `notes.md`); the agreed three-round limit governed the later reviews.
+
+- [x] Plan PR published and merged (#223), CI green.
+- [x] PR-A merged (#229), CI green.
+- [x] PR-B merged (#230), CI green.
+- [x] PR-C merged (#231), CI green.
+- [x] PR-D merged (#234), CI green, with the follow-up fixes #235 and #236.
+- [x] PR-E merged (#237), CI green: the live requalification passed on Claude and Codex with web on and off.
 
 Keep `notes.md` current, attach evidence to PR descriptions rather than committing it, and update BI-017's status as evidence arrives. Done needs the merged implementation and the requalification evidence. Sync and archive only when authorized, then update the index link.
