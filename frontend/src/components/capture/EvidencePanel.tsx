@@ -12,6 +12,7 @@ import { useApiClients, useBatchCommands } from '#/context'
 import { usePastedFiles } from '#/browser/usePastedFiles'
 import { MEDIA_UNAVAILABLE_REASON } from '#/media/upload-gate'
 import { useFileDrop } from '#/components/media/useFileDrop'
+import { useSlotFileDrop } from '#/components/media/useSlotFileDrop'
 import { RefusedFilesNotice } from '#/components/media/RefusedFilesNotice'
 
 type Props = {
@@ -77,9 +78,20 @@ export function EvidencePanel({
     () => mediaFiles.current?.accepts() ?? false,
   )
   usePastedFiles(() => setRefusedFiles(true), !media)
+  const panel = useRef<HTMLElement>(null)
+  const [notesElement, setNotesElement] = useState<HTMLElement | null>(null)
+  useSlotFileDrop(notesElement, panel, panelDrop.handlers)
+  const attachNotes = useCallback(
+    (element: HTMLElement | null) => {
+      setNotesElement(element)
+      notesSlot?.(element)
+    },
+    [notesSlot],
+  )
 
   return (
     <EvidenceArea
+      ref={panel}
       data-area="context"
       aria-labelledby="evidence"
       data-drop={panelDrop.over ? 'over' : undefined}
@@ -127,7 +139,7 @@ export function EvidencePanel({
           onClose={() => setWriting(false)}
         />
       )}
-      {notesSlot && <div ref={notesSlot} />}
+      {notesSlot && <div ref={attachNotes} />}
       {latestNote && <HumanNote note={latestNote} batch={batch} />}
       {notes.length > 1 && (
         <details>

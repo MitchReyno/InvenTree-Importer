@@ -1,10 +1,30 @@
-import { useEffect, useRef, useState, type DragEvent } from 'react'
+import { useEffect, useRef, useState } from 'react'
+
+/** The parts of a drag event a drop target reads; React's and the DOM's both provide them. */
+export type FileDragEvent = {
+  target: EventTarget | null
+  currentTarget: HTMLElement
+  dataTransfer: DataTransfer | null
+  preventDefault: () => void
+  stopPropagation: () => void
+}
 
 export type FileDropHandlers = {
-  onDragEnter: (event: DragEvent<HTMLElement>) => void
-  onDragOver: (event: DragEvent<HTMLElement>) => void
-  onDragLeave: (event: DragEvent<HTMLElement>) => void
-  onDrop: (event: DragEvent<HTMLElement>) => void
+  onDragEnter: (event: FileDragEvent) => void
+  onDragOver: (event: FileDragEvent) => void
+  onDragLeave: (event: FileDragEvent) => void
+  onDrop: (event: FileDragEvent) => void
+}
+
+// Every element that has taken files, so the document can tell which target is nearest.
+const dropTargets = new WeakSet<Node>()
+
+function nearestDropTarget(node: Node | null) {
+  let current = node
+  while (current && !dropTargets.has(current)) {
+    current = current.parentNode
+  }
+  return current
 }
 
 /**
@@ -15,7 +35,7 @@ export type FileDropHandlers = {
  */
 type FileDragPlace = { kind: 'here'; node: Node } | { kind: 'portal' } | { kind: 'none' }
 
-function fileDragPlace(event: DragEvent<HTMLElement>): FileDragPlace {
+function fileDragPlace(event: FileDragEvent): FileDragPlace {
   const target = event.target
   if (!Array.from(event.dataTransfer?.types ?? []).includes('Files')) {
     return { kind: 'none' }
@@ -41,23 +61,31 @@ export function useFileDrop(onFiles: (files: File[]) => void, accepts: () => boo
   const [over, setOver] = useState(false)
 
   // A hovered child removed under the files never reports leaving, so while highlighted the
-  // document is watched for the files moving outside this element.
+  // document is watched for the files moving to another target or outside this one, and for a
+  // drop anywhere.
   useEffect(() => {
     if (!over) {
       return
     }
 
-    function handleDocumentDragOver(event: globalThis.DragEvent) {
-      const target = event.target
-      if (target instanceof Node && owner.current?.contains(target)) {
-        return
-      }
+    function forget() {
       entered.current.clear()
       setOver(false)
     }
 
+    function handleDocumentDragOver(event: globalThis.DragEvent) {
+      const target = event.target
+      if (!(target instanceof Node) || nearestDropTarget(target) !== owner.current) {
+        forget()
+      }
+    }
+
     document.addEventListener('dragover', handleDocumentDragOver, true)
-    return () => document.removeEventListener('dragover', handleDocumentDragOver, true)
+    document.addEventListener('drop', forget, true)
+    return () => {
+      document.removeEventListener('dragover', handleDocumentDragOver, true)
+      document.removeEventListener('drop', forget, true)
+    }
   }, [over])
 
   function keepConnected(target: HTMLElement) {
@@ -68,7 +96,7 @@ export function useFileDrop(onFiles: (files: File[]) => void, accepts: () => boo
     }
   }
 
-  function handleDragEnter(event: DragEvent<HTMLElement>) {
+  function handleDragEnter(event: FileDragEvent) {
     const place = fileDragPlace(event)
     if (place.kind !== 'here') {
       return
@@ -76,12 +104,13 @@ export function useFileDrop(onFiles: (files: File[]) => void, accepts: () => boo
     event.preventDefault()
     event.stopPropagation()
     owner.current = event.currentTarget
+    dropTargets.add(event.currentTarget)
     entered.current.add(place.node)
     keepConnected(event.currentTarget)
     setOver(accepts())
   }
 
-  function handleDragOver(event: DragEvent<HTMLElement>) {
+  function handleDragOver(event: FileDragEvent) {
     const place = fileDragPlace(event)
     if (place.kind === 'none') {
       return
@@ -89,10 +118,16 @@ export function useFileDrop(onFiles: (files: File[]) => void, accepts: () => boo
     // Cancelling dragover is what lets the drop land, or with `none` refuses it outright.
     event.preventDefault()
     event.stopPropagation()
-    event.dataTransfer.dropEffect = place.kind === 'here' ? 'copy' : 'none'
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = place.kind === 'here' ? 'copy' : 'none'
+    }
+    // The gate can open or close while the files hover; the highlight follows it.
+    if (place.kind === 'here' && entered.current.size > 0) {
+      setOver(accepts())
+    }
   }
 
-  function handleDragLeave(event: DragEvent<HTMLElement>) {
+  function handleDragLeave(event: FileDragEvent) {
     const place = fileDragPlace(event)
     if (place.kind !== 'here') {
       return
@@ -105,7 +140,7 @@ export function useFileDrop(onFiles: (files: File[]) => void, accepts: () => boo
     }
   }
 
-  function handleDrop(event: DragEvent<HTMLElement>) {
+  function handleDrop(event: FileDragEvent) {
     const place = fileDragPlace(event)
     if (place.kind === 'none') {
       return
@@ -115,7 +150,7 @@ export function useFileDrop(onFiles: (files: File[]) => void, accepts: () => boo
     entered.current.clear()
     setOver(false)
     if (place.kind === 'here') {
-      onFiles(Array.from(event.dataTransfer.files))
+      onFiles(Array.from(event.dataTransfer?.files ?? []))
     }
   }
 

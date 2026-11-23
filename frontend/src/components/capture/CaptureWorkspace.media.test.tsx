@@ -624,3 +624,40 @@ test('without media storage, a dropped or pasted file is refused with the reason
     await within(evidence).findByText(/Files not added\. Media storage is unavailable/),
   ).toBeVisible()
 })
+
+test('a file dropped on the batch notes, inside the evidence panel, goes to Ungrouped once', async () => {
+  const media = mediaClient()
+  render(
+    <ApiClientsProvider value={{ media }}>
+      <BatchCommandsProvider
+        value={batchCommands({
+          edit: vi.fn(async () => undefined),
+          observe: vi.fn(async () => null),
+        })}
+      >
+        <CaptureWorkspace batch={batch} busy={false} settings={ports()} />
+      </BatchCommandsProvider>
+    </ApiClientsProvider>,
+  )
+  const evidence = await screen.findByRole('region', { name: 'Evidence' })
+  await waitFor(() =>
+    expect(within(evidence).getByRole('button', { name: 'Take photos' })).toBeEnabled(),
+  )
+  const notes = within(evidence).getByRole('textbox', { name: 'Notes for the whole batch' })
+  const drag = {
+    dataTransfer: {
+      files: [new File(['png'], 'shot.png', { type: 'image/png' })],
+      types: ['Files'],
+    },
+  }
+
+  fireEvent.dragEnter(notes, drag)
+  expect(evidence).toHaveAttribute('data-drop', 'over')
+  fireEvent.dragOver(notes, drag)
+  const taken = !fireEvent.drop(notes, drag)
+
+  expect(taken).toBe(true)
+  const ungrouped = within(evidence).getByRole('region', { name: /Ungrouped/ })
+  expect(await within(ungrouped).findByRole('group', { name: 'Upload of shot.png' })).toBeVisible()
+  await waitFor(() => expect(media.upload).toHaveBeenCalledOnce())
+})

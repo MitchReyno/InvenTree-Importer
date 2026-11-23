@@ -55,3 +55,61 @@ test('a drag that carries no files is left alone', () => {
   expect(notCancelled).toBe(true)
   expect(target).not.toHaveAttribute('data-drop', 'over')
 })
+
+function Inner() {
+  const drop = useFileDrop(vi.fn(), () => true)
+  return (
+    <section aria-label="Inner" data-drop={drop.over ? 'over' : undefined} {...drop.handlers}>
+      Inner
+    </section>
+  )
+}
+
+function Outer({ withTile }: { withTile: boolean }) {
+  const drop = useFileDrop(vi.fn(), () => true)
+  return (
+    <section aria-label="Outer" data-drop={drop.over ? 'over' : undefined} {...drop.handlers}>
+      {withTile && <button type="button">Tile</button>}
+      <Inner />
+    </section>
+  )
+}
+
+test('moving from a removed child onto an inner target leaves only the inner one highlighted', () => {
+  const view = render(<Outer withTile />)
+  const outer = screen.getByRole('region', { name: 'Outer' })
+  fireEvent.dragEnter(screen.getByRole('button', { name: 'Tile' }), files)
+  expect(outer).toHaveAttribute('data-drop', 'over')
+
+  view.rerender(<Outer withTile={false} />)
+  const inner = screen.getByRole('region', { name: 'Inner' })
+  fireEvent.dragEnter(inner, files)
+  fireEvent.dragOver(inner, files)
+
+  expect(inner).toHaveAttribute('data-drop', 'over')
+  expect(outer).not.toHaveAttribute('data-drop', 'over')
+})
+
+function Gated({ open }: { open: boolean }) {
+  const drop = useFileDrop(vi.fn(), () => open)
+  return (
+    <section aria-label="Gated" data-drop={drop.over ? 'over' : undefined} {...drop.handlers}>
+      Gated
+    </section>
+  )
+}
+
+test('the highlight follows the gate while files hover', () => {
+  const view = render(<Gated open={false} />)
+  const target = screen.getByRole('region', { name: 'Gated' })
+  fireEvent.dragEnter(target, files)
+  expect(target).not.toHaveAttribute('data-drop', 'over')
+
+  view.rerender(<Gated open />)
+  fireEvent.dragOver(target, files)
+  expect(target).toHaveAttribute('data-drop', 'over')
+
+  view.rerender(<Gated open={false} />)
+  fireEvent.dragOver(target, files)
+  expect(target).not.toHaveAttribute('data-drop', 'over')
+})
