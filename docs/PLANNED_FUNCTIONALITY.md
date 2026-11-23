@@ -96,7 +96,7 @@ Add Google Antigravity (`agy` CLI) as a third native agent provider beside Claud
 
 #### BI-015 — Design refresh backend follow-ups
 
-Build the backend for the design-refresh controls that BI-014 shipped disabled, each with its reason. BI-016 (`settings-debug-mode`) takes over most of the Settings rows, and BI-017 (`simplify-vm-agent-web-and-setup`) the web research settings. This item keeps the per-record "Fill descriptions for" switches, the supplier part description source and "Tag every Part with its batch name". In Records it is storing and reading manufacturer part, supplier part and agent-proposed company descriptions, and reading location types and their descriptions; descriptions for agent-proposed categories and parameter templates, which the app lists as not supported yet, belong here too. The rest is deleting written batch notes, and Inventory questions that carry their answer options and the existing record's fields, for the disabled option cards and the comparison's InvenTree column and date code.
+Build the backend for the design-refresh controls that BI-014 shipped disabled, each with its reason. BI-016 (`settings-debug-mode`) takes over most of the Settings rows, and BI-017 (`simplify-vm-agent-web-and-setup`) the web research settings. This item keeps the per-record "Fill descriptions for" switches, the supplier part description source and "Tag every Part with its batch name". In Records it is storing and reading manufacturer part, supplier part and agent-proposed company descriptions, and reading location types and their descriptions; descriptions for agent-proposed categories and parameter templates, which the app lists as not supported yet, belong here too. The rest is deleting written batch notes, and Inventory questions that carry the existing record's fields, for the comparison's InvenTree column and date code. BI-019 (`improve-agent-interaction`) takes over answer options for questions.
 
 - Change: `complete-design-refresh-backend`
 - Status: Proposed
@@ -175,6 +175,16 @@ Repository Markdown is uneven. Some documents are long unbroken paragraphs, head
 - OpenSpec: [improve-markdown-readability](../openspec/changes/improve-markdown-readability/)
 
 ### Unassessed
+
+#### BI-019 — Agent interaction improvements
+
+Make working with agents smoother. Clicking the dimmed page beside the session drawer, or any dialog, closes it as Esc does, while an unsaved answer still stops the close. An agent asks one question per `ask`, with one step or up to four related steps answered one at a time and sent together. Each step is a choice among options the agent offers, a lot's quantity checked as it is typed, or text, and states the assumption the agent keeps working on. Each session's history entries expand to their details and link to the pages they concern, and every session gets a page showing it as one conversation, with the photos it viewed and the web pages it cited. The activity popover shows each stage's state, counts and status, with bars that distinguish working, waiting for you and paused. Sessions also show as one row each with their retries folded and Start fresh offered only where it can run, failures say their recorded cause in plain words, and the Agents page opens on what needs attention.
+
+- Change: `improve-agent-interaction`
+- Status: Proposed — plan in review (#243).
+- Size: XL — a versioned question and answer contract and answer path, a resolved and paged session history, recorded photo views and web sources, a reworked answer form, a new session page and per-stage activity counts and bar states, in eight PRs after the plan.
+- Prerequisites: None. Takes over BI-015's answer options; coordinate session-runner prompt edits with BI-017.
+- OpenSpec: [improve-agent-interaction](../openspec/changes/improve-agent-interaction/)
 
 #### BI-016 — Settings rows, independent providers and debug mode
 
