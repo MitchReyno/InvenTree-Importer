@@ -2,7 +2,7 @@
 
 ### Requirement: Read-only provider sign-in status
 
-The intake server SHALL be able to read each VM provider's sign-in status without the management key: whether a Claude subscription token is saved (with its revision and save time), and whether Codex is signed in to a ChatGPT account. It SHALL ask the guest over the existing paired channel, and the answer SHALL carry no token, account identifier or key. Changing a credential SHALL still need the management key.
+The intake server SHALL be able to read each VM provider's sign-in status without the management key: whether a Claude subscription token is stored (with its revision, and its save time where recorded), and whether Codex has a committed ChatGPT account or a sign-in in progress. The answer SHALL carry no token, account identifier, key or pairing material.
 
 #### Scenario: Status without the key
 
@@ -16,8 +16,18 @@ The intake server SHALL be able to read each VM provider's sign-in status withou
 - **WHEN** the server reads provider status
 - **THEN** it reports the VM as unreachable rather than any provider as signed out.
 
-#### Scenario: Last session outcome
+### Requirement: Status reads never change the guest
 
-- **GIVEN** the latest Claude session failed with a refused credential after the token was saved
+The status read SHALL reach the guest through a bounded, read-only capability, never through the management actions. A guest without the capability, a busy guest or a timeout SHALL read as unknown, not signed out.
+
+#### Scenario: Older guest
+
+- **GIVEN** a paired guest image without the status capability
 - **WHEN** the server reads provider status
-- **THEN** Claude is reported as saved but refused, with the failure time.
+- **THEN** it reports the status as unknown with the reason, and changes nothing on the guest.
+
+#### Scenario: Reading leaves sign-in untouched
+
+- **GIVEN** a Codex device sign-in that has expired but not been cancelled
+- **WHEN** the server reads provider status
+- **THEN** it reports the sign-in state without cancelling, completing or otherwise changing the login.

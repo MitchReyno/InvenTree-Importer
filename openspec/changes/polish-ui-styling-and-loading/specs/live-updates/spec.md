@@ -1,24 +1,40 @@
 ## ADDED Requirements
 
-### Requirement: Commands wait quietly for a current read
+### Requirement: Commands wait quietly for a verified read
 
-A workspace showing cached data SHALL keep its commands disabled until a read made since it opened succeeds, as today. While it waits, each disabled command SHALL give the reason "Updating…" on hover and to assistive technology, and inputs SHALL keep their typed values. No banner SHALL announce the wait unless it lasts over 3 s or the read fails.
+A workspace showing cached or restored data SHALL keep its commands disabled until a successful HTTP read for that resource and scope has completed since it opened. A cache write, a restored entry, or a failed or paused read SHALL NOT count. While waiting, disabled commands SHALL give the reason "Updating…" on hover and to assistive technology, inputs SHALL keep their values, and no banner SHALL show unless the wait passes 3 s or the read fails.
 
 #### Scenario: Answer typed during a refresh
 
-- **GIVEN** Processing reopened from cache, with its refresh still running
+- **GIVEN** Processing reopened from cache, with its first read still running
 - **WHEN** the operator types an answer and hovers Send
 - **THEN** Send is disabled with "Updating…", the typed answer is kept, and Send becomes available when the read lands.
 
+#### Scenario: A cache write is not a verified read
+
+- **GIVEN** Processing reopened while another view wrote its snapshot into the cache
+- **WHEN** no HTTP read has completed since it opened
+- **THEN** its commands stay disabled until its own read succeeds.
+
 #### Scenario: Read fails
 
-- **GIVEN** a cached workspace whose refresh fails
+- **GIVEN** a cached workspace whose read fails
 - **WHEN** it renders
 - **THEN** the existing "Status unavailable…" banner shows and the commands stay disabled, as "Live unverifiable workspace state" requires.
 
+### Requirement: Background refreshes keep commands available
+
+Once a workspace has a verified read, later background refreshes SHALL NOT disable its commands beyond each command's own conditions; for example, Review's acceptance still waits for its read to settle at the current capture revision. Each command SHALL keep its own expected revision and draft checks.
+
+#### Scenario: Background refresh after verification
+
+- **GIVEN** Review verified by a read since it opened
+- **WHEN** a later live hint starts a background refresh
+- **THEN** its commands stay available, and each still sends its own expected revision.
+
 ### Requirement: Cached reads survive a reload in the same session
 
-The app SHALL keep allowed reads in the browser tab's session storage, so a reload shows the last data at once as cached data while it refreshes. Persisted reads SHALL expire after 12 hours or when the app build changes, and SHALL be dropped when the actor, target or target context changes. Credentials, token commands and debug reads SHALL NOT be persisted.
+The app SHALL keep allowlisted display reads in the browser tab's session storage, so a reload shows the last data at once as cached data while it refreshes. Persisted reads SHALL expire after 12 hours or when the app build changes, and SHALL be restored only after a fresh bootstrap confirms the same actor, target and target context.
 
 #### Scenario: Reload on Review
 
@@ -29,5 +45,15 @@ The app SHALL keep allowed reads in the browser tab's session storage, so a relo
 #### Scenario: New build or another target
 
 - **GIVEN** reads persisted under one app build and target
-- **WHEN** the app loads with a new build, or connects to another target
+- **WHEN** the app loads with a new build, or bootstrap reports another target
 - **THEN** none of the persisted reads are shown.
+
+### Requirement: Only allowlisted reads are stored
+
+Only allowlisted endpoints and fields SHALL be persisted. Bootstrap and its CSRF token, credentials and sign-in payloads, session identifiers, media bytes, drafts, mutations and command intent SHALL NOT be.
+
+#### Scenario: What is stored
+
+- **GIVEN** a session with Review, Processing and Agents read, and a credential dialog used
+- **WHEN** session storage is inspected
+- **THEN** it holds only the allowlisted display reads, with no CSRF token, credential, session identifier, draft or pending mutation.

@@ -20,16 +20,16 @@
 | 1. Selected rows keep their whole border | Frontend fix | None | ui-design-system "Selected rows show their whole border" |
 | 2. Page sections evenly spaced | Frontend fix and sweep | None | ui-design-system "Page sections are evenly spaced" |
 | 3. Remove Batch context and the profile notices | Frontend removal | None | Proposal items 3 and 4 (no spec requirement covers them) |
-| 4. Freshness layer and persisted reads | Frontend behavior | None | ui-design-system "Reads load without shifting the page", "Refresh progress takes no space"; live-updates "Commands wait quietly for a current read", "Cached reads survive a reload in the same session" |
+| 4. Freshness layer and persisted reads | Frontend behavior | None | ui-design-system "Reads load without shifting the page", "Refresh progress takes no space"; live-updates "Commands wait quietly for a verified read", "Background refreshes keep commands available", "Cached reads survive a reload in the same session", "Only allowlisted reads are stored" |
 | 5. Every screen on the freshness layer | Frontend migration | 2, 4 | The same requirements on every screen; live-updates "Live unverifiable workspace state" kept |
 | 6. One state vocabulary and one time format | Frontend behavior | None | ui-design-system "One set of state words", "Times say which day"; header-workflow-status "The summary names what needs attention" |
-| 7. Overview and step page counts | Frontend behavior | 6 | processing-workspace "Processing overview" (Needs you, the bar, the lot table), "Step pages count their own step" |
+| 7. Overview and step page counts | Frontend behavior | 6 | processing-workspace "Processing overview" (Needs you, the bar, the lot table), "Step pages count their own step", "Step pages can focus one lot" |
 | 8. Help buttons and popover placement | Frontend fix and sweep | None | ui-design-system "Explanations behind help buttons", "Popovers open at their control" |
 | 9. Several files at once from any source | Frontend behavior | None | capture-grouped-evidence "Several photos from a phone in one go", "Drop or paste files to add evidence" |
 | 10. Electronics animation switch | Frontend behavior | None | app-settings "Electronics animation switch" |
 | 11. Agent settings autosave | Frontend behavior | None | app-settings "Agent settings save as they change", "Agent settings text keeps an explicit Save" |
-| 12. Read-only provider status | Intake server, VM guest and contracts | None | shared-vm-execution "Read-only provider sign-in status" |
-| 13. Provider cards, switches, model picker and sign-in dialogs | Frontend behavior | 11, 12 | app-settings "Provider status is checked automatically", "Agent settings controls match the design", "Subscription sign-in in a dialog", "One searchable model picker", "Model picker limits and exact IDs" |
+| 12. Read-only provider status | Intake server, VM guest and contracts | None | shared-vm-execution "Read-only provider sign-in status", "Status reads never change the guest" |
+| 13. Provider cards, switches, model picker and sign-in dialogs | Frontend behavior | 6, 11, 12 | app-settings "Agent settings section" (modified), "Provider sign-in status is read automatically", "Sign-in failures shown apart from the status", "Agent settings controls match the design", "Subscription sign-in in a dialog", "Closing a sign-in dialog drops its work", "One searchable model picker", "Model picker limits and exact IDs" |
 | 14. Dropdowns follow the guideline | Frontend sweep | 13 | ui-design-system "Searchable picker for records and growing lists", "Short fixed choices follow a guideline" |
 
 ## PR delivery map
@@ -43,7 +43,7 @@
 | PR-E | Several files at once: phone library multi-select, drop and paste | 9 | A small, self-contained Capture change | PR-0 | `feat/polish-ui-styling-and-loading-multi-file`; `feat(polish-ui-styling-and-loading): add several evidence files at once` | Frontend checks; phone and desktop checks recorded; demo video; review; CI |
 | PR-F | Debounced autosave for non-text agent settings | 11 | One settings behaviour change, reviewed with its save-ordering tests | PR-0 | `feat/polish-ui-styling-and-loading-settings-autosave`; `feat(polish-ui-styling-and-loading): agent settings save as they change` | Frontend checks; demo video; review; CI |
 | PR-G | The read-only provider status: guest question, intake API and contract, and the token check if the CLI allows | 12 | Server and VM work, reviewed on its own with the process tier | PR-0 | `feat/polish-ui-styling-and-loading-provider-status`; `feat(polish-ui-styling-and-loading): read provider sign-in status without the key` | Contracts tests, intake unit, PG and process tiers with the decoder and probe images; a live check on the VM with Mitch's go-ahead; review; CI |
-| PR-H | Provider cards with status pills, switches, the segmented default provider and the sign-in dialogs | 13 | The UI over PR-G, after PR-F's autosave changes to the same forms | PR-F and PR-G merged | `feat/polish-ui-styling-and-loading-provider-cards`; `feat(polish-ui-styling-and-loading): provider cards and sign-in dialogs like the design` | Frontend checks; demo video; review; CI |
+| PR-H | Provider cards with status pills, switches, the segmented default provider and the sign-in dialogs | 13 | The UI over PR-G, after PR-F's autosave changes to the same forms | PR-D, PR-F and PR-G merged | `feat/polish-ui-styling-and-loading-provider-cards`; `feat(polish-ui-styling-and-loading): provider cards and sign-in dialogs like the design` | Frontend checks; demo video; review; CI |
 | PR-I | Every dropdown on the guideline: searchable pickers for records and growing lists, segmented or native for short fixed lists | 14 | A broad but mechanical sweep, reviewed with captures | PR-H merged (the `SearchablePicker` base) | `feat/polish-ui-styling-and-loading-dropdowns`; `feat(polish-ui-styling-and-loading): one dropdown guideline across the app` | Frontend checks; captures of each changed field; demo video; review; CI |
 | PR-D | One state vocabulary and time format, the masthead summary, the Overview's Needs you and lot table, and step page counts | 6, 7 | One coherent "status reads the same everywhere" change; independent of the loading work | PR-0; rebase on PR-A if it merged first | `feat/polish-ui-styling-and-loading-status`; `feat(polish-ui-styling-and-loading): one way to show status and time` | Frontend checks; captures of Overview, step pages, Agents and the masthead; demo video; review; CI |
 
@@ -121,11 +121,11 @@
   - `processing/ProcessingWorkspace.tsx`, `review/ManualWorkspace.tsx`, `review/ReviewWorkspace.tsx`.
   - Add `@tanstack/react-query-persist-client` and `@tanstack/query-sync-storage-persister` at 5.105.1.
 - **Prerequisites:** none.
-- **Acceptance:** "Reads load without shifting the page" (all scenarios), "Refresh progress takes no space", "Commands wait quietly for a current read", "Cached reads survive a reload in the same session"; "Live unverifiable workspace state" still passes.
+- **Acceptance:** "Reads load without shifting the page" (all scenarios), "Refresh progress takes no space", "Commands wait quietly for a verified read", "Background refreshes keep commands available", "Cached reads survive a reload in the same session", "Only allowlisted reads are stored"; "Live unverifiable workspace state" still passes.
 - **TDD approach:** hook, signal, button and persistence tests fail first. The existing Processing and Review gate tests are rewritten against the hook and must keep their guarantees.
 - **Verification:**
   - `pnpm --filter frontend typecheck`, `lint`, `test` and `build`;
-  - the persisted sizes of the Processing and Review reads measured and noted in `notes.md`;
+  - the persisted sizes of the Processing and Review projections, measured and reported in the PR description (a `notes.md` entry only if they change the design);
   - a demo video of returning to Review and Processing (no banner), a slow refresh throttled in DevTools, and a reload.
 - **Risks and decisions:** keep the gate's guarantees exactly; review each replaced condition against the old one.
 
@@ -136,7 +136,7 @@
   - [ ] 4.3.2 `RefreshSignal` at 400 ms and 3 s, reduced motion, and the announced status.
   - [ ] 4.3.3 `Button`'s quiet disabled reason, which adds no layout.
   - [ ] 4.3.4 Persistence: `meta.persist`, the buster, `maxAge`, scope clearing, the size cap, quota failure, and a restore as `cached`.
-- [ ] 4.4 GREEN: implement the hook, `ReadState`, `RefreshSignal`, the button option, the build constant and the persister.
+- [ ] 4.4 GREEN: implement the hook with its successful-read latch, `ReadState`, `RefreshSignal`, the button option, the build constant, and the persister: allowlist projections, no mutation dehydration, restore only after a matching bootstrap.
 - [ ] 4.5 Move Processing and Review onto them. Remove the two "Verifying…" banners and "Reading retained processing state…", and add their skeletons. Rerun their gate and draft tests.
 - [ ] 4.6 Measure the persisted sizes, update `frontend/ARCHITECTURE.md` (reads, freshness, persistence), and run the frontend checks.
 
@@ -169,13 +169,13 @@
   - `masthead/ActivityIndicator.tsx`;
   - the session list, step tabs, Processing cards, the step pages, the Agents page rows and the drawer timeline.
 - **Prerequisites:** none.
-- **Acceptance:** "One set of state words", "Times say which day" (both scenarios), "The summary names what needs attention" (both scenarios).
+- **Acceptance:** "One set of state words", "Times say which day" (both scenarios), "The summary names what needs attention" (all scenarios).
 - **TDD approach:** mapping, `EventTime` and summary tests fail first. Existing tests asserting Finished, Ready or Retained work are updated to the new words.
 - **Verification:** frontend checks; captures of each place a state or time shows.
 - **Risks and decisions:** agree the shared types with `improve-agent-interaction` (see design).
 
 - [ ] 6.1 Read the guidelines and the frontend architecture. List every place a work state or event time renders, and every word it uses today.
-- [ ] 6.2 RED: tests for the state mapping, `StatePill` glyphs, `EventTime` formats and hover text, and the masthead summary wording.
+- [ ] 6.2 RED: tests for the state mapping, `StatePill` glyphs, `EventTime` formats and hover text, and the masthead summary: a failure first, then waiting; "All done" only from a fresh complete read; an unstarted, truncated, stale or unavailable read never saying "All done".
 - [ ] 6.3 GREEN: implement them, and replace the per-screen words and time formats.
 - [ ] 6.4 Update affected tests and `frontend/ARCHITECTURE.md`. Run the frontend checks.
 
@@ -189,14 +189,19 @@
   - step page summaries count their own step.
 - **Scope and approach:** `processing/ProcessingOverview.tsx`, `batches/NeedsYouPanel.tsx` (shared list), the step page summaries (`processing/StepPage.tsx` and the step views), using the attention read.
 - **Prerequisites:** task 6.
-- **Acceptance:** "Processing overview" (all scenarios), "Step pages count their own step".
+- **Acceptance:** "Processing overview" (all scenarios), "Step pages count their own step", "Step pages can focus one lot".
 - **TDD approach:** Overview and step page tests for Needs you with Review items, the lot table and the counts fail first.
 - **Verification:** frontend checks; captures of the Overview and each step page; demo video.
 - **Risks and decisions:** none.
 
 - [ ] 7.1 Read the Overview, step page and `NeedsYouPanel` code and the attention read's shape.
-- [ ] 7.2 RED: tests for Needs you agreeing with the header, the bar's linked counts, the lot table, and the Research page's own counts.
-- [ ] 7.3 GREEN: share the Needs you list, replace Pipeline with the lot table, link the bar, and scope the step counts.
+- [ ] 7.2 RED: tests for:
+  - [ ] 7.2.1 Needs you agreeing with the header, including its truncation note.
+  - [ ] 7.2.2 The bar's linked counts.
+  - [ ] 7.2.3 The lot table, including Part-subject jobs.
+  - [ ] 7.2.4 The step `lot` parameter on a direct load.
+  - [ ] 7.2.5 The Research page's own counts, using the step section's filtering.
+- [ ] 7.3 GREEN: share `NeedsYouPanel`'s list, replace Pipeline with the lot table, add the `lot` route parameter and focus, link the bar, scope the step counts, and remove the duplicate outer summary.
 - [ ] 7.4 Capture the Overview and step pages. Run the frontend checks, and record the demo video.
 
 ## 8. Help buttons and popover placement
@@ -235,8 +240,8 @@
 - **Risks and decisions:** phones without the system sheet fall back to their file picker, which still allows several files.
 
 - [ ] 9.1 Read the guidelines, the media upload code and the capture-grouped-evidence spec.
-- [ ] 9.2 RED: tests for the photos input attributes, drop into a group with mixed kinds, paste outside and inside a note, and disabled media.
-- [ ] 9.3 GREEN: remove `capture`, and add the drop targets with their highlight and the paste listener.
+- [ ] 9.2 RED: tests for the photos input attributes; a mixed drop as one operation with one count; a nested group drop handled once; paste outside and inside a note; and every picker refusal (disabled, archived, stale, pending command, conflicting draft) refusing drop and paste.
+- [ ] 9.3 GREEN: remove `capture`, add `addMixed` to the upload queue, and add the drop targets with their highlight and the paste listener behind the picker's gate.
 - [ ] 9.4 Check on real phones and desktop browsers. Run the frontend checks, and record the demo video.
 
 ## 10. Electronics animation switch
@@ -252,8 +257,8 @@
 
 - [ ] 10.1 Read the guidelines, `theme/masthead-style.ts`, `device-preference.ts` and how `ElectronicsCurrent` starts the scene.
 - [ ] 10.2 RED: tests for the preference (default, bad storage, unknown value), the switch, and the scene started still when off.
-- [ ] 10.3 GREEN: implement the preference, the switch and the still start with a restart on change.
-- [ ] 10.4 Check the three styles with the switch off. Update `frontend/ARCHITECTURE.md`, and run the frontend checks.
+- [ ] 10.3 GREEN: implement the preference, the switch, the still start, and the controller's `pause()`/`resume()` used on change.
+- [ ] 10.4 Check the three styles with the switch off in the running app (the fixture runner freezes the scene). Update `frontend/ARCHITECTURE.md`, and run the frontend checks.
 
 ## 11. Agent settings autosave
 
@@ -272,13 +277,13 @@
 
 - [ ] 11.1 Read the guidelines, `frontend/ARCHITECTURE.md`'s Settings › Agents section and the subsection forms. List each control as text or non-text.
 - [ ] 11.2 RED: fake-timer tests:
-  - [ ] 11.2.1 Debounce coalescing, and the revision sent.
-  - [ ] 11.2.2 Queueing behind the page lock.
-  - [ ] 11.2.3 Flush on leave, and the guard on failure.
-  - [ ] 11.2.4 A conflict with Reload, and a failure with Try again.
+  - [ ] 11.2.1 Debounce coalescing, and the payload built at dispatch from the newest confirmed settings with only owned fields.
+  - [ ] 11.2.2 Same-page saves overlapping through the serial queue, and edits during a save saving again after it.
+  - [ ] 11.2.3 An external conflict with Reload, a failure with Try again, and a lost acknowledgement left unconfirmed.
+  - [ ] 11.2.4 Flush before in-app navigation (success continues, failure stays), and the leave prompt on reload.
   - [ ] 11.2.5 The last-provider refusal, and the provider-off reset.
-  - [ ] 11.2.6 Text fields keeping Save, shown only while edited.
-- [ ] 11.3 GREEN: add the autosave mode, `AutosaveStatus` per subsection, and the flush and refusals. Remove the non-text Save bars.
+  - [ ] 11.2.6 Text fields, including the interim model fields, keeping Save, shown only while edited.
+- [ ] 11.3 GREEN: add the autosave mode with field ownership and payloads built at dispatch, turn `PageSave` into a serial queue, add `AutosaveStatus` per subsection, the pre-navigation flush in `useNavigationGuard`, and the refusals. Remove the non-text Save bars; the interim model fields keep their own Save.
 - [ ] 11.4 Update `frontend/ARCHITECTURE.md` (the Settings › Agents save model). Run the frontend checks, and record the demo video.
 
 ## 12. Read-only provider status
@@ -286,7 +291,7 @@
 - **PR delivery:** PR-G.
 - **Outcome:**
   - the server reads each provider's sign-in status from the guest without the management key;
-  - `GET /api/v1/agents/provider-status` reports Signed in, Not signed in, Token refused or VM unreachable, with save and check times and no secrets;
+  - `GET /api/v1/agents/provider-status` reports Claude token saved or not (with its save time where recorded), Codex signed in, signing in or not, or unknown with a reason (VM unreachable, an older guest, busy, timeout), plus each provider's latest subscription-session sign-in failure, with no secrets;
   - where the CLI allows it, the guest checks a candidate Claude token before storing it.
 - **Scope and approach:**
   - `intake-server/src/agents/shared-vm/` (`frames.ts`, `coordinator.ts`, `guest-main.ts`, `claude-credential.ts`, `codex-login.ts`, `credential-http.ts` for the pre-save check);
@@ -294,18 +299,26 @@
   - `contracts/src/agents.ts`;
   - the deployment README's Settings › Agents steps.
 - **Prerequisites:** none.
-- **Acceptance:** "Read-only provider sign-in status", all scenarios.
+- **Acceptance:** "Read-only provider sign-in status" and "Status reads never change the guest", all scenarios.
 - **TDD approach:** frame, route and contract tests fail first, using a fake guest. A test proves that no response carries a token, account or key.
 - **Verification:**
   - contracts tests; intake unit, PG and process tiers;
   - a live check on the real VM. That's a live provider run, so it needs Mitch's go-ahead.
 - **Risks and decisions:**
-  - Whether a cheap token check exists (12.1). Without one, Save confirms storage only, and the pill catches a refusal after the first session.
+  - Provider token verification is out of scope here (12.1.3 only investigates it). Save confirms shape and storage, and failures show as the last-session line.
   - A guest image change means `pnpm dev` rebuilds the runner image.
 
-- [ ] 12.1 Investigate whether the Claude CLI in the guest can confirm a setup token cheaply without starting a session, and record the answer in `notes.md`.
-- [ ] 12.2 RED: tests for the guest status frame (Claude configured with its revision and time, Codex signed in or out, no secrets); the route's combinations, including the last session refused after the save and an unreachable VM; and the contract.
-- [ ] 12.3 GREEN: implement the frame, the coordinator call, the route and the contract, plus the pre-save token check if 12.1 found one.
+- [ ] 12.1 Investigate and decide, recording each decision and its reason in `notes.md`:
+  - [ ] 12.1.1 The transport for the API-to-worker status request.
+  - [ ] 12.1.2 That Codex `account/read` without refresh has no side effects.
+  - [ ] 12.1.3 Whether the Claude CLI in the guest can confirm a setup token cheaply without starting a session. If it can, propose it as a follow-up requirement; it is not part of this task.
+- [ ] 12.2 RED: tests for:
+  - [ ] 12.2.1 The guest capability: Claude saved with and without `saved_at`; Codex signed in, signing in, and an expired login left untouched; no secrets.
+  - [ ] 12.2.2 Older, busy and timed-out guests reading as unknown.
+  - [ ] 12.2.3 The API-to-worker request and its timeout.
+  - [ ] 12.2.4 The route, with the last-session sign-in failure alongside, and an unreachable VM.
+  - [ ] 12.2.5 The contract.
+- [ ] 12.3 GREEN: implement the capability, the `saved_at` column (nullable for existing tokens), the worker request, the route and the contract.
 - [ ] 12.4 Update the deployment README and `intake-server/src/agents/ARCHITECTURE.md`. Run the tiers, and ask Mitch before the live VM check.
 
 ## 13. Provider cards, switches, model picker and sign-in dialogs
@@ -317,14 +330,14 @@
   - one searchable `ModelPicker` per step and for each card's Default model, on a `SearchablePicker` base shared with `SearchableReferencePicker`;
   - "Subscription token…" and "Sign in to ChatGPT…" open dialogs. The Claude dialog checks the token's shape, then saves and closes only on confirmation; the Codex dialog closes once the account is confirmed.
 - **Scope and approach:** `components/settings/agents/` (`ProviderCard`, `ProvidersAndSteps`, `TagSuggestionsForm`, `WebResearchForm`, `DescriptionsCard`), `components/agents/` (`PersonalClaudeCredential`, `ChatGPTSignIn` and their hooks, now in dialogs), a provider-status query, and `components/ui` (`Switch`, `SegmentedControl`, `Dialog`, `StatePill` from task 6).
-- **Prerequisites:** tasks 11 (the same forms) and 12 (the status read). It uses task 6's `StatePill` if that has merged, and otherwise defines it.
-- **Acceptance:** "Provider status is checked automatically", "Agent settings controls match the design", "Subscription sign-in in a dialog", "One searchable model picker", "Model picker limits and exact IDs", all scenarios.
+- **Prerequisites:** task 6 (`StatePill`, owned by PR-D), task 11 (the same forms) and task 12 (the status read).
+- **Acceptance:** "Agent settings section" (the modified scenarios), "Provider sign-in status is read automatically", "Sign-in failures shown apart from the status", "Agent settings controls match the design", "Subscription sign-in in a dialog", "Closing a sign-in dialog drops its work", "One searchable model picker", "Model picker limits and exact IDs", all scenarios.
 - **TDD approach:** card, control and dialog tests for each scenario fail first. The existing credential panel tests move with the dialogs.
-- **Verification:** frontend checks; a demo video of the cards, a refused token and the Codex sign-in, using fixtures.
+- **Verification:** frontend checks; a demo video of the cards, a refused save and the Codex sign-in, using fixtures.
 - **Risks and decisions:** the management key must never be kept after a dialog closes. A test checks this.
 
 - [ ] 13.1 Read the guidelines, `frontend/ARCHITECTURE.md`'s Settings › Agents section and the credential hooks.
-- [ ] 13.2 RED: tests for the model picker (search, groups, a provider that's off, exact IDs, both fields set by one pick), the pill states and Check again, the switches, the segmented default provider, the dialogs' shape checks, Save disabled while checking, failures keeping the dialog open, the Codex dialog closing on confirmation, and the key being dropped on close.
+- [ ] 13.2 RED: tests for the model picker (search, groups, a provider that's off, exact IDs, both fields set by one pick), the pill states and Check again, the switches, the segmented default provider, the dialogs' shape checks, Save disabled while checking, failures keeping the dialog open, the Codex dialog closing on confirmation, and dialog generations (closing with a queued call, then reopening with a different key: the old call is not sent, polling stops, late answers are ignored).
 - [ ] 13.3 GREEN: extract `SearchablePicker` from `SearchableReferencePicker` (its tests must pass unchanged), add `ModelPicker`, and implement the cards, the controls and the dialogs.
 - [ ] 13.4 Update `frontend/ARCHITECTURE.md`. Run the frontend checks, and record the demo video.
 
@@ -335,7 +348,7 @@
   - records, growing lists and exact-value fields use the searchable picker;
   - short fixed lists become a segmented control or stay a styled native select, chosen per screen;
   - the design system documents the guideline.
-- **Scope and approach:** the 43 selects in 27 components (Capture, Review, Records, the operator panels, media, Changes and the bulk bar), using `forms/SearchablePicker` (task 13), `SearchableReferencePicker` and `SegmentedControl` (design: "Choosing a dropdown control").
+- **Scope and approach:** the 46 native select JSX sites in 28 components (Capture, Review, the Review Map, Records, the operator panels, media, Changes and the bulk bar), counted as in the design and refreshed after PR-H removes `StepChoices`, using `forms/SearchablePicker` (task 13), `SearchableReferencePicker` and `SegmentedControl` (design: "Choosing a dropdown control").
 - **Prerequisites:** task 13 merged.
 - **Acceptance:** "Searchable picker for records and growing lists", "Short fixed choices follow a guideline".
 - **TDD approach:** each converted field's existing tests are updated for the new control first, and fail until it's converted. A new test for a record field checks search.
@@ -353,7 +366,7 @@
 
 ## Delivery evidence and lifecycle follow-up
 
-- [ ] PR-0: review both plans read-only (`codex exec -m gpt-6.2-sol -s read-only`, at most three rounds), fix, publish, CI green, merge.
+- [ ] PR-0: review both plans read-only (`codex exec -m gpt-6.2-sol -s read-only`; Mitch's standing rule allows at most three rounds, with the last round's fixes noted on the PR), fix, publish, CI green, merge.
 - [ ] PR-A: implement tasks 1–3, 8 and 10, review the exact head, publish with captures and the demo, CI green, merge.
 - [ ] PR-B: implement task 4, review the exact head, publish with the demo, CI green, merge.
 - [ ] PR-C: implement task 5, review the exact head, publish with captures and the demo, CI green, merge.
@@ -363,6 +376,6 @@
 - [ ] PR-H: implement task 13, review the exact head, publish with the demo, CI green, merge.
 - [ ] PR-I: implement task 14, review the exact head, publish with the audit, captures and the demo, CI green, merge.
 - [ ] PR-D: implement tasks 6 and 7, review the exact head, publish with captures and the demo, CI green, merge.
-- [ ] Update BI-020 as PRs merge. It is Done only after PR-C to PR-I merge and its acceptance is evidenced.
+- [ ] Update BI-020 as PRs merge. It is Done only after every implementation PR (PR-A to PR-I) merges and its acceptance is evidenced.
 - [ ] Mark this change's "Fixes: before and after" entries (S5, S7, O1–O5, O7–O11) in the design log as Built, with their PRs.
 - [ ] Before archiving, run `pnpm openspec:overlap --change polish-ui-styling-and-loading`, sync the specs and record open items in `notes.md`.

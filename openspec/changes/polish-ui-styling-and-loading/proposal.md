@@ -13,7 +13,7 @@ Mitch found these while using the app on 2026-11-23:
 4. **The agent profile notice is outdated.**
    - Processing opens with "Native agent profile · requires a saved default and supervised worker. Live provider access has not been qualified." (or "Synthetic processing fixture · …").
    - Each job card says "native agent · live provider not qualified".
-   - VM agents have been qualified live since #237.
+   - VM agent sessions on the `shared-vm-agent/3` profile passed live requalification for Claude and Codex in #237.
 5. **Brief, unreadable messages shift the page.**
    - Each time Review or Processing opens, a "Verifying current retained state; commands are disabled." or "Verifying current processing state. Cached results cannot authorize commands." banner pushes the page down for a fraction of a second, then disappears.
    - A full reload shows "Reading retained…" text instead.
@@ -40,7 +40,7 @@ Mitch found these while using the app on 2026-11-23:
     - Each step's model is a provider select plus a hand-typed model ID, and each card's default model is a text field with suggestions.
     - Mitch asked for one dropdown with optional search listing both providers' models, using the same component as Capture's batch settings (`forms/SearchableReferencePicker.tsx`, built on react-select).
 
-11. **Dropdowns are mixed** (Mitch, 2026-11-23). The app has 43 native selects across 27 components, including long InvenTree record lists (categories, locations, companies, templates) and lot or group pickers that grow with the batch. Only three fields use the searchable batch-settings picker.
+11. **Dropdowns are mixed** (Mitch, 2026-11-23). The app has 46 native select JSX sites across 28 components (excluding tests, fixtures and the generic `TextField` wrapper), including long InvenTree record lists (categories, locations, companies, templates) and lot or group pickers that grow with the batch. Only three fields use the searchable batch-settings picker.
 
 The outcome:
 
@@ -64,7 +64,7 @@ The outcome:
   - a status pill read automatically from a new read-only VM status that needs no key (option 1, chosen by Mitch);
   - switches for every on/off setting, and a segmented default provider;
   - one searchable model picker per step, listing Default and both providers' models; picking a model picks its provider. The cards' Default model uses the same picker, limited to that provider;
-  - sign-in in a dialog. The Claude token dialog checks the token before Save can close it; the Codex dialog runs the ChatGPT device sign-in and closes when it's confirmed.
+  - sign-in in a dialog. The Claude token dialog checks the token's shape and closes only once the VM confirms it is stored; the Codex dialog runs the ChatGPT device sign-in and closes when it's confirmed. A failed sign-in in a later session shows as a separate "Last session couldn't sign in" line.
 - **Dropdowns:** records and growing lists use the searchable picker. Short fixed lists follow a soft guideline, chosen case by case: usually a segmented control for two to four short options, and a styled native select otherwise. The guideline is documented in the design system with examples.
 - **Popovers** open at their control. **Explanations** move behind help buttons; developer-only text moves to debug mode.
 
@@ -97,7 +97,7 @@ Option 3 is to let reads confirmed current by the live-update stream enable comm
   - `queries/client.ts` creates the TanStack Query client (`@tanstack/react-query` 5.105.1); `App.tsx` reads bootstrap with `staleTime: Infinity`. The cache is memory-only.
   - Processing derives `waitingForRead` from `isFetchedAfterMount`, `isSuccess` and scope. Review's manual workflow uses `waitingForFirstRead`, and acceptance needs `processingCurrent` (`isFetchedAfterMount`, no refetch error, not fetching, and a matching capture revision).
   - Commands are disabled until then. The rule is deliberate, because cached data must never authorise a command, and it stays.
-  - `components/ui/Loading.tsx` has `Spinner` and `Skeleton`, unused by any screen.
+  - `components/ui/Loading.tsx` has `Spinner` and `Skeleton`, used by a few components (`ProposedLotsGlance`, `StepPage`, `Tabs`, upload tiles) but by no page-level loading state.
   - 22 one-off status lines exist, such as "Loading saved settings…", "Reading records…", "Reading retained processing state…" and "Loading retained batches…".
 - **Spec:** live-updates "Live unverifiable workspace state" covers failed reads, and stays.
 
@@ -150,7 +150,7 @@ None.
 - `processing-workspace`: the Overview's Needs you, step bar and lot table ("Processing overview"); step pages count their own step.
 - `header-workflow-status`: the masthead summary names what needs attention.
 - `capture-grouped-evidence`: several photos from a phone in one go; drop or paste files to add evidence.
-- `app-settings`: the electronics animation switch; agent settings that save as they change, with text keeping an explicit Save; provider status checked automatically; controls matching the design; subscription sign-in in a dialog; one searchable model picker, with its limits and exact IDs.
+- `app-settings`: "Agent settings section" is modified (save as you change, provider status read automatically, dialogs, switches, segmented default provider, model picker). It is based on `simplify-vm-agent-web-and-setup`'s version, which builds on `settings-debug-mode`'s, so it syncs after both. Added: the electronics animation switch; saving as you change and text keeping an explicit Save; the read-only status and the separate sign-in failure line; controls matching the design; sign-in dialogs and dropping their work on close; the searchable model picker with its limits and exact IDs.
 - `ui-design-system` (also): the searchable picker for records and growing lists, and short fixed choices following a guideline.
 - `shared-vm-execution`: a read-only provider sign-in status the server can read without the management key. This is added as its own requirement, because `masthead-appearance-options` (merged in #222, not yet archived) still modifies "InvenTree and appearance sections".
 - `live-updates`: commands wait quietly for a current read; cached reads survive a reload within the session. "Live unverifiable workspace state" is unchanged.

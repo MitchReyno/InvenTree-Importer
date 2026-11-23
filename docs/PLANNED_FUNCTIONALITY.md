@@ -188,7 +188,7 @@ Fix a selected row losing its top border in Review › Records, give every page 
 
 #### BI-021 — Trust live-confirmed reads for commands
 
-When the live-update stream has refreshed a cached read after its latest change hint and stayed unbroken since, let that read enable commands at once on a return visit instead of waiting for another read. Any gap, reset, reconnect, polling fallback or scope change falls back to waiting. Server revision checks still refuse a command made on stale data.
+On a return visit, let an audited set of commands become available at once when the cached read has its own proof of currency: a successful read completed after the newest relevant live-update hint, within the same unbroken subscription and resource scope. Any new relevant hint, gap, reset, truncation, reconnect, polling fallback, scope change or failed read clears the proof, and the page waits for a read as it does today. Commands without a server-checked revision, such as batch Pause and Resume, always wait.
 
 - Change: `trust-live-confirmed-reads`
 - Status: Proposed — captured as a follow-up; planned in full when picked up.

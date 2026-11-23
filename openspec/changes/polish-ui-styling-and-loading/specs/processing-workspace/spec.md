@@ -37,14 +37,30 @@ It SHALL NOT list lots as an editing surface, and it SHALL NOT repeat the Review
 - **WHEN** Overview opens
 - **THEN** the bar shows each step's count once, the lot table shows each lot's Research, Images and Inventory state as state pills, and no other card repeats them.
 
+#### Scenario: Truncated Needs you
+
+- **GIVEN** more items need the operator than the attention read lists
+- **WHEN** Overview's Needs you renders
+- **THEN** it says how many more there are, as the header popover does, rather than implying the list is complete.
+
 ## ADDED Requirements
 
 ### Requirement: Step pages count their own step
 
-A step page's summary SHALL count only that step's lots and sessions; counts across the batch stay on the Overview.
+A step page's summary SHALL count only that step: the distinct lots its jobs cover, and its sessions, using the same rules as the step's section below it. Examine, which runs once for the whole batch, SHALL count lots formed. Counts across the batch stay on the Overview.
 
 #### Scenario: Research page counts
 
 - **GIVEN** a batch where Examine, Research and Images each have one finished job
 - **WHEN** the Research step page opens
 - **THEN** its summary reads "Research · 1 lot · 1 done", not "3 ready".
+
+### Requirement: Step pages can focus one lot
+
+A step page SHALL accept a lot to focus in its address, so the Overview's lot table can link to that step for that lot, and SHALL scroll to and highlight that lot's output, including on a direct load.
+
+#### Scenario: Open a lot's Research from the table
+
+- **GIVEN** the Overview lot table
+- **WHEN** the operator opens GE S2CN1 diodes' Research pill, or loads that address directly
+- **THEN** the Research page opens with that lot's output in view and highlighted.

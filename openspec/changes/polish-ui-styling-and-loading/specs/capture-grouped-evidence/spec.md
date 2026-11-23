@@ -18,7 +18,7 @@ On a phone, Take photos SHALL offer both the camera and the photo library, and t
 
 ### Requirement: Drop or paste files to add evidence
 
-Files dropped onto the evidence panel or onto one of its groups, or pasted while Capture has focus, SHALL upload exactly as if picked: several at once, into the group they were dropped on (or the batch's ungrouped evidence), under the same limits and states. While files are dragged over it, the target SHALL show where they will go. Unsupported files SHALL show "Not added" with the reason, as for picked files.
+Files dropped onto the evidence panel or onto one of its groups, or pasted while Capture has focus, SHALL upload exactly as if picked: as one operation for all the files, photos and documents together, into the group they were dropped on (or the batch's ungrouped evidence), under the same limits, states and refusal conditions as the picker. While files are dragged over it, the target SHALL show where they will go. Unsupported files SHALL show "Not added" with the reason, as for picked files.
 
 #### Scenario: Drop three photos and a PDF on a group
 
@@ -34,6 +34,12 @@ Files dropped onto the evidence panel or onto one of its groups, or pasted while
 
 #### Scenario: Drop while media is unavailable
 
-- **GIVEN** media disabled or the batch archived
-- **WHEN** files are dropped on the panel
-- **THEN** nothing uploads, and the panel says why, as the disabled actions do.
+- **GIVEN** media disabled, the batch archived, media state not yet current, a command pending or a conflicting draft open
+- **WHEN** files are dropped on the panel or pasted
+- **THEN** nothing uploads, and the panel says why, as the picker's disabled actions do.
+
+#### Scenario: A drop on a group inside the panel
+
+- **GIVEN** a group inside the evidence panel
+- **WHEN** files are dropped on the group
+- **THEN** they upload once, into that group, and the panel does not also take them.
