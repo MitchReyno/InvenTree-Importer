@@ -9,6 +9,10 @@ import { CaptureActions } from './CaptureActions'
 import { EvidenceNoteForm } from './EvidenceNoteForm'
 import { HumanNote } from './HumanNote'
 import { useApiClients, useBatchCommands } from '#/context'
+import { usePastedFiles } from '#/browser/usePastedFiles'
+import { MEDIA_UNAVAILABLE_REASON } from '#/media/upload-gate'
+import { useFileDrop } from '#/components/media/useFileDrop'
+import { RefusedFilesNotice } from '#/components/media/RefusedFilesNotice'
 
 type Props = {
   batch: Snapshot
@@ -57,8 +61,18 @@ export function EvidencePanel({
 
   const writeNote = () => setWriting(true)
 
+  // Without media storage, dropped and pasted files are still taken, so the browser doesn't open
+  // them in place of Capture, and refused with the reason. With it, MediaWorkspace owns them.
+  const [refusedFiles, setRefusedFiles] = useState(false)
+  const unavailableDrop = useFileDrop(() => setRefusedFiles(true), false)
+  usePastedFiles(() => setRefusedFiles(true), !media)
+
   return (
-    <EvidenceArea data-area="context" aria-labelledby="evidence">
+    <EvidenceArea
+      data-area="context"
+      aria-labelledby="evidence"
+      {...(media ? undefined : unavailableDrop.handlers)}
+    >
       {media && (
         <MediaWorkspace
           review={review}
@@ -82,6 +96,12 @@ export function EvidencePanel({
           takePhotos={() => undefined}
           addDocument={() => undefined}
           unavailable
+        />
+      )}
+      {!media && refusedFiles && (
+        <RefusedFilesNotice
+          reason={MEDIA_UNAVAILABLE_REASON}
+          onDismiss={() => setRefusedFiles(false)}
         />
       )}
       {!media && afterActions}

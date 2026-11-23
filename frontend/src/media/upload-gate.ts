@@ -13,6 +13,9 @@ export interface UploadGateState {
   otherDraftOpen: boolean
 }
 
+/** Why nothing can be added when Capture has no media storage at all. */
+export const MEDIA_UNAVAILABLE_REASON = 'Media storage is unavailable.'
+
 export type UploadRefusalKind = 'archived' | 'disabled' | 'stale' | 'pending' | 'draft'
 
 export interface UploadRefusal {

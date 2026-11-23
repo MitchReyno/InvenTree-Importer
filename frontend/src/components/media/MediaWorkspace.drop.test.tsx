@@ -277,6 +277,34 @@ test('a paste while a file is open in its viewer stays out of the evidence', asy
   expect(client.upload).not.toHaveBeenCalled()
 })
 
+test('a pasted file of an unsupported type shows Not added', async () => {
+  const { client } = mediaStore()
+  renderWorkspace(client)
+  await editable()
+
+  pasteInto(document.body, [new File(['gif'], 'clip.gif', { type: 'image/gif' })])
+
+  const ungrouped = screen.getByRole('region', { name: /Ungrouped/ })
+  const refused = await within(ungrouped).findByRole('group', { name: 'Upload of clip.gif' })
+  expect(within(refused).getByRole('alert')).toHaveTextContent(/Not added.*JPEG or PNG/)
+  expect(client.upload).not.toHaveBeenCalled()
+})
+
+test('a file dropped inside an open viewer stays out of the evidence behind it', async () => {
+  const user = userEvent.setup()
+  const { client } = mediaStore()
+  renderWorkspace(client)
+  await editable()
+  await user.click(screen.getByRole('button', { name: 'Open Front label' }))
+  const viewer = await screen.findByRole('dialog', { name: 'Front label' })
+
+  dropOn(within(viewer).getByRole('button', { name: 'Close' }), [png('inside.png')])
+
+  await act(async () => undefined)
+  expect(client.upload).not.toHaveBeenCalled()
+  expect(screen.queryByRole('group', { name: 'Upload of inside.png' })).toBeNull()
+})
+
 test('pasted text outside a text field is ignored', async () => {
   const { client } = mediaStore()
   renderWorkspace(client)
@@ -290,14 +318,19 @@ test('pasted text outside a text field is ignored', async () => {
 })
 
 async function expectRefused(reason: RegExp, client: MediaClient) {
+  const user = userEvent.setup()
   const panel = screen.getByRole('region', { name: 'Retained evidence' })
   const group = screen.queryByRole('region', { name: /Resistor packets/ })
   fireEvent.dragEnter(group ?? panel, fileDrag([png('drop.png')]))
   expect(group ?? panel).not.toHaveAttribute('data-drop', 'over')
   dropOn(group ?? panel, [png('drop.png')])
   expect(await screen.findByText(reason)).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'Dismiss' }))
+  expect(screen.queryByText(reason)).toBeNull()
+
+  // A paste is refused on its own, with the same reason.
   pasteInto(document.body, [png('paste.png')])
-  await act(async () => undefined)
+  expect(await screen.findByText(reason)).toBeVisible()
   expect(client.upload).not.toHaveBeenCalled()
   expect(screen.queryByRole('group', { name: /^Upload of/ })).toBeNull()
 }
@@ -334,6 +367,18 @@ test('drop and paste are refused while an evidence change is unconfirmed', async
   await user.click(screen.getByRole('button', { name: 'Move selected evidence' }))
   await screen.findByRole('button', { name: 'Retry exact media request' })
   await expectRefused(/retried or discarded/, client)
+})
+
+test('drop and paste are refused while an evidence change is being sent', async () => {
+  const user = userEvent.setup()
+  const { client } = mediaStore()
+  vi.mocked(client.edit).mockReturnValue(new Promise(() => undefined))
+  renderWorkspace(client)
+  await editable()
+  await user.click(screen.getByRole('checkbox', { name: 'Select Front label' }))
+  await user.click(screen.getByRole('button', { name: 'Move selected evidence' }))
+  await waitFor(() => expect(client.edit).toHaveBeenCalledOnce())
+  await expectRefused(/evidence change being sent/, client)
 })
 
 test('drop and paste are refused while another evidence draft is open', async () => {

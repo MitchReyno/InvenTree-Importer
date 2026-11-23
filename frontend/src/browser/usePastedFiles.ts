@@ -10,13 +10,17 @@ function keepsItsPaste(target: EventTarget | null) {
 }
 
 /**
- * Receives files pasted anywhere on the page while mounted, such as a screenshot. Pastes into text
- * fields and dialogs, and pastes without files, are left to the browser.
+ * Receives files pasted anywhere on the page while mounted and `enabled`, such as a screenshot.
+ * Pastes into text fields and dialogs, and pastes without files, are left to the browser.
  */
-export function usePastedFiles(onFiles: (files: File[]) => void) {
+export function usePastedFiles(onFiles: (files: File[]) => void, enabled = true) {
   const pasted = useEffectEvent(onFiles)
 
   useEffect(() => {
+    if (!enabled) {
+      return
+    }
+
     // The document hears a paste wherever focus is, including on the page body.
     function handlePaste(event: ClipboardEvent) {
       if (keepsItsPaste(event.target)) {
@@ -32,5 +36,5 @@ export function usePastedFiles(onFiles: (files: File[]) => void) {
 
     document.addEventListener('paste', handlePaste)
     return () => document.removeEventListener('paste', handlePaste)
-  }, [])
+  }, [enabled])
 }

@@ -7,9 +7,17 @@ export type FileDropHandlers = {
   onDrop: (event: DragEvent<HTMLElement>) => void
 }
 
-/** Files dragged in from outside the page; dragging a tile within it carries none. */
-function carriesFiles(event: DragEvent<HTMLElement>) {
-  return Array.from(event.dataTransfer?.types ?? []).includes('Files')
+/**
+ * The node under files dragged in from outside the page, when it lies inside this element, or
+ * null. Dragging a tile within the page carries no files, and React also bubbles events from a
+ * portal, such as a modal viewer, that sits elsewhere in the document.
+ */
+function fileDragTarget(event: DragEvent<HTMLElement>): Node | null {
+  const target = event.target
+  if (!(target instanceof Node) || !event.currentTarget.contains(target)) {
+    return null
+  }
+  return Array.from(event.dataTransfer?.types ?? []).includes('Files') ? target : null
 }
 
 /**
@@ -19,22 +27,33 @@ function carriesFiles(event: DragEvent<HTMLElement>) {
  * highlight.
  */
 export function useFileDrop(onFiles: (files: File[]) => void, accepting: boolean) {
-  // Entering a child fires before leaving its parent, so the highlight counts entries.
-  const entered = useRef(0)
+  // The elements the files are over. Entering a child fires before leaving its parent, and a
+  // child removed while hovered never reports leaving, so removed ones are dropped on each event.
+  const entered = useRef(new Set<Node>())
   const [over, setOver] = useState(false)
 
+  function keepConnected(target: HTMLElement) {
+    for (const node of entered.current) {
+      if (!target.contains(node)) {
+        entered.current.delete(node)
+      }
+    }
+  }
+
   function handleDragEnter(event: DragEvent<HTMLElement>) {
-    if (!carriesFiles(event)) {
+    const target = fileDragTarget(event)
+    if (!target) {
       return
     }
     event.preventDefault()
     event.stopPropagation()
-    entered.current += 1
+    entered.current.add(target)
+    keepConnected(event.currentTarget)
     setOver(true)
   }
 
   function handleDragOver(event: DragEvent<HTMLElement>) {
-    if (!carriesFiles(event)) {
+    if (!fileDragTarget(event)) {
       return
     }
     // Cancelling dragover is what lets the drop land here.
@@ -44,23 +63,23 @@ export function useFileDrop(onFiles: (files: File[]) => void, accepting: boolean
   }
 
   function handleDragLeave(event: DragEvent<HTMLElement>) {
-    if (!carriesFiles(event)) {
+    const target = fileDragTarget(event)
+    if (!target) {
       return
     }
     event.stopPropagation()
-    entered.current = Math.max(0, entered.current - 1)
-    if (entered.current === 0) {
-      setOver(false)
-    }
+    entered.current.delete(target)
+    keepConnected(event.currentTarget)
+    setOver(entered.current.size > 0)
   }
 
   function handleDrop(event: DragEvent<HTMLElement>) {
-    if (!carriesFiles(event)) {
+    if (!fileDragTarget(event)) {
       return
     }
     event.preventDefault()
     event.stopPropagation()
-    entered.current = 0
+    entered.current.clear()
     setOver(false)
     onFiles(Array.from(event.dataTransfer.files))
   }

@@ -16,6 +16,7 @@ import { uploadProgress, useUploadQueue, type UploadItem } from '#/media/useUplo
 import { uploadRefusal } from '#/media/upload-gate'
 import { usePastedFiles } from '#/browser/usePastedFiles'
 import { useFileDrop } from './useFileDrop'
+import { RefusedFilesNotice } from './RefusedFilesNotice'
 import { MediaUpload, type EvidenceUploadHandle } from './MediaUpload'
 import { MediaCropDialog } from './MediaCropDialog'
 import { EvidenceDragContext } from './EvidenceDragContext'
@@ -484,18 +485,7 @@ export function MediaWorkspace({
         queue={uploads}
       />
       {refusedFiles && (
-        <div role="status">
-          <Banner
-            tone="warn"
-            action={
-              <Button size="sm" variant="ghost" onClick={() => setRefusedFiles(null)}>
-                Dismiss
-              </Button>
-            }
-          >
-            Files not added. {refusedFiles}
-          </Banner>
-        </div>
+        <RefusedFilesNotice reason={refusedFiles} onDismiss={() => setRefusedFiles(null)} />
       )}
       {afterActions}
       <LabelRow>

@@ -3,7 +3,7 @@ import { createServerQueryClient } from '#/queries/client'
 import { serverQueryKey } from '#/queries/scope'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { render, fixtureScope } from '#/test/render'
-import { act, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
@@ -590,4 +590,37 @@ test('focus on the settings fold moves to the heading when the phone layout ends
   })
   expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Batch settings' }))
   delete (window as { matchMedia?: unknown }).matchMedia
+})
+
+test('without media storage, a dropped or pasted file is refused with the reason', async () => {
+  const user = userEvent.setup()
+  render(
+    <ApiClientsProvider value={{}}>
+      <BatchCommandsProvider
+        value={batchCommands({
+          edit: vi.fn(async () => undefined),
+          observe: vi.fn(async () => null),
+        })}
+      >
+        <CaptureWorkspace batch={batch} busy={false} settings={ports()} />
+      </BatchCommandsProvider>
+    </ApiClientsProvider>,
+  )
+  const evidence = await screen.findByRole('region', { name: 'Evidence' })
+  const file = new File(['png'], 'shot.png', { type: 'image/png' })
+  const drag = { dataTransfer: { files: [file], types: ['Files'] } }
+
+  fireEvent.dragOver(evidence, drag)
+  const handled = !fireEvent.drop(evidence, drag)
+
+  // Taken, so the browser doesn't open the file in place of Capture.
+  expect(handled).toBe(true)
+  expect(within(evidence).getByText(/Files not added\. Media storage is unavailable/)).toBeVisible()
+  await user.click(within(evidence).getByRole('button', { name: 'Dismiss' }))
+  expect(within(evidence).queryByText(/Files not added/)).toBeNull()
+
+  fireEvent.paste(document.body, { clipboardData: { files: [file], types: ['Files'] } })
+  expect(
+    await within(evidence).findByText(/Files not added\. Media storage is unavailable/),
+  ).toBeVisible()
 })
