@@ -10,6 +10,7 @@ import type {
   ProposeLotArgsDto,
   RecordObservationArgsDto,
   RegroupArgsDto,
+  RegroupMoveDto,
 } from '@invimport/contracts'
 import { lotItemCount } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
@@ -35,7 +36,15 @@ export interface LeadWriter {
 }
 
 export type LotFormingResult =
-  | { ok: true; revision: string; id: string; suggested: boolean; partSubjectId?: string }
+  | {
+      ok: true
+      revision: string
+      id: string
+      suggested: boolean
+      partSubjectId?: string
+      /** `regroup` only: each move with its source lot and whether it applied or was suggested. */
+      moves?: RegroupMoveDto[]
+    }
   | { ok: false; error: 'stale'; revision: string; conflicts: LotFormingConflictDto[] }
 
 const MAX_LOTS_AND_PARTS = 100
@@ -661,13 +670,19 @@ export async function regroup(
     return { ok: false, error: 'stale', revision: locked.revision, conflicts }
   }
   const next = BigInt(locked.nextRevision)
-  let suggested = false
+  const moves: RegroupMoveDto[] = []
   for (const move of args.moves) {
     const row = observations.get(move.observation_id)!
     const from = row.lotId ? lots.get(row.lotId) : undefined
     const to = lots.get(move.to_lot_id)!
-    if (editedObservation(row) || editedLot(to) || (from && editedLot(from))) {
-      suggested = true
+    const onlySuggested = editedObservation(row) || editedLot(to) || (from && editedLot(from))
+    moves.push({
+      observation_id: move.observation_id,
+      from_lot_id: row.lotId,
+      to_lot_id: move.to_lot_id,
+      outcome: onlySuggested ? 'suggested' : 'applied',
+    })
+    if (onlySuggested) {
       await suggestMembership(
         client,
         writer.batchId,
@@ -692,7 +707,8 @@ export async function regroup(
     await requireLotRoom(client, target)
   }
   const revision = await locked.finish({ tool: 'regroup', ...args }, writer.sessionId)
-  return { ok: true, revision, id: targets[0], suggested }
+  const suggested = moves.some((move) => move.outcome === 'suggested')
+  return { ok: true, revision, id: targets[0], suggested, moves }
 }
 
 type ObservationChange = Extract<

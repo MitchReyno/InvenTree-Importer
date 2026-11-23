@@ -5,6 +5,7 @@ import { mkdtemp, mkdir, readFile, writeFile, readdir, unlink } from 'node:fs/pr
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
+import { validate, type SessionHistoryDto } from '@invimport/contracts'
 import { processingFixture } from '../support/processing.ts'
 import { lotSession } from '../support/sessions.ts'
 import { transaction } from '#/db/database.ts'
@@ -349,6 +350,22 @@ for (const provider of ['claude', 'codex'] as const) {
             },
           ],
         })
+        // The fake session's history: its question, the operator's answer, read by the session.
+        const read = await h.fixture.http(
+          `/batches/${h.session.manifest.batch_id}/processing/${h.session.job}/history`,
+        )
+        assert.equal(read.status, 200, JSON.stringify(read.value))
+        validate('SessionHistory', read.value)
+        const history = read.value as SessionHistoryDto
+        const question = history.entries.find((entry) => entry.details.kind === 'question')
+        assert.equal(question?.who, 'agent')
+        const answer = history.entries.find((entry) => entry.details.kind === 'answer')
+        assert.equal(answer?.summary, 'You answered: Yes, same Part · 380 estimated · Drawer R4')
+        assert.ok(answer?.who === 'operator' && answer.read)
+        assert.deepEqual(
+          history.session.attempts.map((attempt) => [attempt.number, attempt.runs_on]),
+          [[1, 'host']],
+        )
       } finally {
         await h.dispose()
       }
