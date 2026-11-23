@@ -322,7 +322,7 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - [x] 8.1 Read the shared and intake-server code guidelines. Map how `stepJobs` and `stepWork` are counted today.
 - [x] 8.2 RED: contract tests for the new fields. PG tests for a batch with one waiting-for-you, one queued, one running and one ready job, with open questions, retired lots, a stage with live lots but no jobs yet, a ready Part job beside a live lot with no job at that step, a paused batch, a batch paused with no jobs, more than five paused batches with one that has no work (in `paused_batches`, not cut by the `batch_steps` cap), more than 20 (truncated), `current` false on an earlier attempt of the job that still holds its slot (set up in the fixture, since Start fresh refuses while any attempt of the job holds one), and a failed Research job beside running Images in a batch other than the open one.
 - [x] 8.3 GREEN: implement the counts and the paused flag in both reads.
-- [ ] 8.4 Run the contracts tests and the intake unit and PG tiers.
+- [x] 8.4 Run the contracts tests and the intake unit and PG tiers.
 
 ## 9. Activity popover stage rows and bar states
 

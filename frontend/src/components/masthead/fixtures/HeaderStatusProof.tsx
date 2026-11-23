@@ -75,6 +75,7 @@ const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).
  */
 function stagesWork(paused: boolean): HeaderWorkDto {
   const id = (n: number) => `2000000${n}-0000-4000-8000-00000000000${n}`
+
   const session = (n: number, stage: 'examine' | 'research', text: string, minutes: number) => ({
     attempt_id: id(n),
     batch_id: batchId,
@@ -93,6 +94,7 @@ function stagesWork(paused: boolean): HeaderWorkDto {
     latest_status: { text, at: minutesAgo(minutes) },
     current: true,
   })
+
   const job = (n: number, stage: string, state: HeaderWorkDto['work'][number]['state']) =>
     ({
       kind: 'processing' as const,
@@ -107,6 +109,7 @@ function stagesWork(paused: boolean): HeaderWorkDto {
       steps: [{ stage, state }],
       steps_complete: false,
     }) as HeaderWorkDto['work'][number]
+
   return {
     ...identity,
     observed_at: new Date().toISOString(),

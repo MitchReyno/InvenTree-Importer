@@ -494,7 +494,7 @@ describe('InstructionField', () => {
       },
     })
 
-    const bars = [...container.querySelectorAll<HTMLElement>('[data-state]')]
+    const bars = [...container.querySelectorAll<HTMLElement>('[data-animated]')]
     expect(bars.map((bar) => bar.dataset.state)).toEqual(['done', 'working', 'paused', 'paused'])
     expect(bars[2].querySelector('i')).toHaveStyle({ width: '75%' })
     expect(bars.filter((bar) => bar.dataset.animated === 'true')).toHaveLength(1)
