@@ -55,7 +55,7 @@ The cards SHALL keep the existing personal Claude credential (save, replace, rem
 
 - **GIVEN** the Codex sign-in dialog is open and signing in
 - **WHEN** the operator closes it
-- **THEN** its polling stops and the card shows the VM's current status, "Signing in" or "Not signed in", rather than the dialog's last result
+- **THEN** its polling stops and the card shows a fresh status read from the VM ("Signed in", "Signing in", "Not signed in", or unknown with its reason) rather than the dialog's last result
 
 #### Scenario: Editing the key while signing in
 
@@ -73,7 +73,7 @@ The cards SHALL keep the existing personal Claude credential (save, replace, rem
 
 - **GIVEN** a status read that fails (the VM stopped, unpaired or not answering)
 - **WHEN** the card reads its status, or the operator chooses Check again
-- **THEN** the pill reads "Can't reach the agent VM", and no provider is shown as signed out
+- **THEN** the pill shows the unknown state with its reason, such as "Can't reach the agent VM", and no provider is shown as signed out
 
 #### Scenario: Mixing providers across steps
 
@@ -87,7 +87,7 @@ The cards SHALL keep the existing personal Claude credential (save, replace, rem
 - **WHEN** the operator turns Codex off
 - **THEN** Research shows "Default" with a note that its choice was reset, Codex can't be the default provider, and both changes save together
 
-#### Scenario: The last provider
+#### Scenario: No provider on
 
 - **GIVEN** Codex is off
 - **WHEN** the operator tries to turn Claude off too
@@ -169,6 +169,12 @@ On Settings › Agents, switches, choices, selects and the sessions stepper SHAL
 - **WHEN** the operator reloads or closes the tab
 - **THEN** the browser's leave prompt shows, as for any unsaved change.
 
+#### Scenario: A change that can't be confirmed
+
+- **GIVEN** a switch's save whose response was lost and whose receipt has been pruned
+- **WHEN** it is resent and the server can't tell whether it applied
+- **THEN** the status says "Couldn't confirm this change" with Reload only, nothing is resent, and Reload shows the saved settings, discards that change and the subsection's later queued changes, and keeps text drafts.
+
 #### Scenario: Conflict
 
 - **GIVEN** settings changed in another tab
@@ -193,7 +199,7 @@ On Settings › Agents, text fields (Instructions and the Part description style
 
 ### Requirement: Provider sign-in status is read automatically
 
-Each provider card SHALL show its sign-in status as a state pill read from the agent VM when the section opens, after a sign-in change and on "Check again", with no key needed. The pill SHALL say only what the VM can report: for Claude "Token saved" or "No token"; for Codex "Signed in", "Signing in" or "Not signed in"; for either "Checking…" or "Can't reach the agent VM".
+Each provider card SHALL show its sign-in status as a state pill read from the agent VM when the section opens, after a sign-in change and on "Check again", with no key needed. The pill SHALL say only what the VM can report: for Claude "Token saved" or "No token"; for Codex "Signed in", "Signing in" or "Not signed in"; for either "Checking…", or an unknown state naming its reason: "Can't reach the agent VM", "Agent VM needs an update", "Agent VM busy" or "Status timed out".
 
 #### Scenario: Opening Settings
 
@@ -207,9 +213,19 @@ Each provider card SHALL show its sign-in status as a state pill read from the a
 - **WHEN** the card renders
 - **THEN** the pill says "Can't reach the agent VM", not "No token" or "Not signed in".
 
+### Requirement: Each provider's status stands alone
+
+Each provider card's status SHALL come from that provider's own answer, so one provider can be unknown while the other is known.
+
+#### Scenario: One provider unknown
+
+- **GIVEN** a guest whose Codex service is busy and whose Claude service answers
+- **WHEN** the cards render
+- **THEN** Claude's pill shows its status, and Codex's says "Agent VM busy".
+
 ### Requirement: Sign-in failures shown apart from the status
 
-When a provider's latest session, in either sign-in mode, used its subscription and failed with retained evidence that the provider refused sign-in, its card SHALL say so on a separate line, "Last session couldn't sign in" with its time, without changing the status pill. Missing credentials or an unreachable guest SHALL NOT show it, and a newer session that didn't fail sign-in hides it.
+When a provider's most recently queued session, in either sign-in mode, used its subscription and its retained provider error shows the provider refused sign-in (Claude `authentication_failed`, Codex `unauthorized`, or HTTP 401), its card SHALL say so on a separate line, "Last session couldn't sign in" with its time, without changing the status pill. Missing credentials or an unreachable guest SHALL NOT show it, and a newer session that didn't fail sign-in hides it.
 
 #### Scenario: A session that couldn't sign in
 
@@ -227,6 +243,12 @@ When a provider's latest session, in either sign-in mode, used its subscription 
 #### Scenario: A newer API-key session
 
 - **GIVEN** a Claude subscription session refused sign-in, followed by a Claude API-key session that succeeded
+- **WHEN** the card renders
+- **THEN** no "Last session couldn't sign in" line shows.
+
+#### Scenario: Two sessions queued together
+
+- **GIVEN** a Claude subscription session that was refused sign-in and a Claude API-key session queued at the same time
 - **WHEN** the card renders
 - **THEN** no "Last session couldn't sign in" line shows.
 
@@ -270,13 +292,13 @@ Each provider card SHALL open its subscription sign-in in a dialog that asks for
 
 ### Requirement: Closing a sign-in dialog drops its work
 
-Closing a sign-in dialog, or editing its key, SHALL drop the key, stop its polling, cancel queued requests that haven't been sent and ignore any late response.
+Closing a sign-in dialog, or editing its key, SHALL drop the key, stop its polling, cancel queued requests that haven't been sent and ignore any late response. Closing the Codex dialog SHALL first make one final protected poll and cancel a login still pending, as shared-vm-execution requires.
 
 #### Scenario: Closing during a request
 
 - **GIVEN** the Codex dialog polling a sign-in
 - **WHEN** the operator closes it and reopens it with a different key
-- **THEN** the old poll stops, its late answer is ignored, and the new dialog holds only the new key.
+- **THEN** one final poll runs and a login still pending is cancelled, later answers from the old dialog are ignored, and the new dialog holds only the new key.
 
 ### Requirement: One searchable model picker
 
