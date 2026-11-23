@@ -5,6 +5,7 @@ import {
   type ProcessingAnswerDto,
   type ProcessingQuestionDto,
 } from '@invimport/contracts'
+import { OPEN_MODAL_SELECTOR } from '#/components/ui'
 import { space } from '#/theme/generated/tokens'
 import { QuestionAnswer } from './QuestionAnswer'
 
@@ -91,8 +92,8 @@ export function DrawerAnswers(props: Props) {
   // Where focus was when the move was promised; the move is skipped if the operator moves it.
   const promisedFrom = useRef<Element | null>(null)
 
-  // On a remount, the drawer opens in Dialog's layout Effect, which runs before this one, so
-  // focus has settled where its opening put it.
+  // On a remount, ModalFrame places the drawer's initial focus as its surface attaches, before
+  // this Effect runs, so focus has settled where its opening put it.
   useEffect(() => {
     if (focusNext) {
       promisedFrom.current = document.activeElement
@@ -117,7 +118,7 @@ export function DrawerAnswers(props: Props) {
       return
     }
     answered.current = false
-    const dialog = container.current?.closest('dialog')
+    const dialog = container.current?.closest<HTMLElement>(OPEN_MODAL_SELECTOR)
     const headingId = dialog?.getAttribute('aria-labelledby')
     const heading = headingId ? document.getElementById(headingId) : null
     if (operatorMovedFocus(promisedFrom.current, dialog ?? null, heading)) {

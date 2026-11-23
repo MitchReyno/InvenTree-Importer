@@ -1,9 +1,8 @@
-import { useId, useLayoutEffect, useRef, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
-import styled, { css } from 'styled-components'
-import { color, radius, shadow, space, type } from '#/theme/generated/tokens'
+import { useId, type ReactNode } from 'react'
+import styled from 'styled-components'
+import { space, type } from '#/theme/generated/tokens'
 import { Button } from './Button'
-import { motion } from './motion'
+import { ModalFrame, ModalTitle } from './ModalFrame'
 
 type DialogProps = {
   /** Names the dialog; it may hold an `AiMark`, which stays out of the accessible name. */
@@ -16,13 +15,16 @@ type DialogProps = {
   /**
    * Where focus goes on close when the opener can't take it back: focus was on the page itself
    * when the dialog opened, such as a drawer restored after a remount, or the opener was removed
-   * before the dialog closed. A connected opener always takes focus back instead.
+   * or disabled before the dialog closed. Failing both, a modal still open beneath takes it.
    */
   returnFocus?: () => HTMLElement | null
   children: ReactNode
 }
 
-/** A modal step: the native dialog keeps focus inside, and focus returns to the opener on close. */
+/**
+ * A modal step: focus stays inside, Esc, Close or a click on the dimmed backdrop closes it, and
+ * focus returns to the opener on close.
+ */
 export function Dialog({
   title,
   onClose,
@@ -31,61 +33,15 @@ export function Dialog({
   returnFocus,
   children,
 }: DialogProps) {
-  const dialog = useRef<HTMLDialogElement>(null)
   const titleId = useId()
 
-  // The element that had focus before the dialog opened, which gets it back on close.
-  const opener = useRef<HTMLElement | null>(null)
-  const fallback = useRef(returnFocus)
-  useLayoutEffect(() => {
-    fallback.current = returnFocus
-  })
-
-  // A layout Effect, so the dialog is open and focus settled before its children's Effects run.
-  useLayoutEffect(() => {
-    const element = dialog.current
-    const active = document.activeElement
-    // Keeps the recorded opener if focus is already inside the dialog.
-    if (active instanceof HTMLElement && !element?.contains(active)) {
-      opener.current = active
-    }
-    if (element && !element.open) {
-      if (typeof element.showModal === 'function') {
-        element.showModal()
-      } else {
-        element.open = true
-      }
-    }
-    return () => {
-      // The opener is inert while the modal is open, so the dialog closes before focus returns.
-      if (element?.open) {
-        if (typeof element.close === 'function') {
-          element.close()
-        } else {
-          element.open = false
-        }
-      }
-      const back = opener.current
-      if (back?.isConnected && back !== document.body) {
-        back.focus()
-      } else {
-        fallback.current?.()?.focus()
-      }
-    }
-  }, [])
-
-  return createPortal(
-    <DialogSurface
-      ref={dialog}
-      data-placement={placement}
-      $side={placement === 'side'}
-      aria-labelledby={titleId}
-      onCancel={(event) => {
-        event.preventDefault()
-        if (!closeDisabled) {
-          onClose()
-        }
-      }}
+  return (
+    <ModalFrame
+      onClose={onClose}
+      closeDisabled={closeDisabled}
+      placement={placement}
+      returnFocus={returnFocus}
+      labelledBy={titleId}
     >
       <TitleRow>
         {/* Focusable by script, so focus can land on the title when content it held leaves. */}
@@ -97,42 +53,9 @@ export function Dialog({
         </Button>
       </TitleRow>
       {children}
-    </DialogSurface>,
-    document.body,
+    </ModalFrame>
   )
 }
-
-/** The modal surface, for dialogs that manage their own native lifecycle; `$wide` fits editors. */
-export const DialogSurface = styled.dialog<{ $wide?: boolean; $side?: boolean }>`
-  width: min(${({ $wide }) => ($wide ? '1400px' : '960px')}, calc(100vw - 2 * ${space[8]}));
-  max-height: calc(100dvh - 2 * ${space[8]});
-  overflow: auto;
-  padding: ${space[10]};
-  border: 1px solid ${color.line};
-  border-radius: ${radius.dialog};
-  background: ${color.surface};
-  color: ${color.fg};
-  box-shadow: ${shadow};
-  &[open] {
-    ${motion.enter}
-  }
-  a {
-    color: ${color.accent};
-  }
-  &::backdrop {
-    background: ${color.overlay};
-  }
-  ${({ $side }) =>
-    $side &&
-    css`
-      width: min(420px, 100vw);
-      height: 100dvh;
-      max-height: 100dvh;
-      margin: 0 0 0 auto;
-      border-width: 0 0 0 1px;
-      border-radius: 0;
-    `}
-`
 
 const TitleRow = styled.div`
   display: flex;
@@ -142,7 +65,7 @@ const TitleRow = styled.div`
   margin-bottom: ${space[6]};
 `
 
-const Title = styled.h2`
+const Title = styled(ModalTitle)`
   margin: 0;
   ${type.h2}
 `

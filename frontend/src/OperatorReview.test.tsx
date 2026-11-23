@@ -819,7 +819,7 @@ test('an actual Batch revision conflict retains the compared shared Part choice'
   await screen.findByText(/Another client saved first/)
   expect(screen.getByRole('dialog', { name: 'Compare matches · Shared resistor' })).toBeVisible()
   expect(screen.getByRole('button', { name: 'Use #31 for 2 lots' })).toBeVisible()
-  expect(screen.getByRole('button', { name: 'Archive batch' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Archive batch', hidden: true })).toBeDisabled()
   expect(client.edit).toHaveBeenCalledTimes(1)
   await user.click(screen.getByRole('button', { name: 'Discard Part choice' }))
   await user.click(screen.getByRole('button', { name: 'Close' }))

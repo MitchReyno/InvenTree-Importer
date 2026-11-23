@@ -2,6 +2,7 @@ import * as RadixPopover from '@radix-ui/react-popover'
 import { useCallback, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import styled from 'styled-components'
 import { color, radius, shadow, space, zIndex } from '#/theme/generated/tokens'
+import { useModalContainer } from '#/context/ModalContainerContext'
 import { motion } from './motion'
 
 type Align = 'start' | 'center' | 'end'
@@ -153,12 +154,15 @@ export function Popover({
     [align],
   )
 
+  // Inside a modal, the panel portals into it, so it stacks above the modal.
+  const modal = useModalContainer()
+
   return (
     <RadixPopover.Root open={open} onOpenChange={onOpenChange} modal={false}>
       <RadixPopover.Trigger ref={triggerRef} asChild>
         {trigger}
       </RadixPopover.Trigger>
-      <RadixPopover.Portal>
+      <RadixPopover.Portal container={modal}>
         <Surface
           ref={measurePanel}
           align={placement?.align ?? align}

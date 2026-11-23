@@ -1,8 +1,7 @@
-import { createPortal } from 'react-dom'
-import { useEffect, useRef, useState, type SyntheticEvent } from 'react'
+import { useRef, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import styled from 'styled-components'
-import { media, Heading, Paragraph, Small, Button, DialogSurface } from '#/components/ui'
+import { media, Heading, Paragraph, Small, Button, ModalFrame, ModalTitle } from '#/components/ui'
 import { color, space } from '#/theme/generated/tokens'
 import type {
   MediaEditDto,
@@ -40,7 +39,6 @@ export function MediaCropDialog({
   onDirtyChange,
 }: Props) {
   const page = version.pages.find((item) => item.page === pageNumber)!
-  const dialog = useRef<HTMLDialogElement>(null)
   const intent = useRef<CropIntent | null>(null)
   const draftRevision = useRef(revision)
   const [submitted, setSubmitted] = useState(false)
@@ -70,13 +68,6 @@ export function MediaCropDialog({
 
   // An open crop editor is unsaved work until it closes.
   useReportDirty(true, onDirtyChange)
-  // Opens the native modal once; a replaced callback must not call showModal on an open dialog.
-  useEffect(() => {
-    const element = dialog.current
-    if (element && !element.open) {
-      element.showModal()
-    }
-  }, [])
 
   async function prepare() {
     if (!currentRecipe) {
@@ -113,29 +104,9 @@ export function MediaCropDialog({
     }
   }
 
-  function reconcileNativeClose(event: SyntheticEvent<HTMLDialogElement>) {
-    const nativeDialog = event.currentTarget
-    if (!nativeDialog.isConnected || nativeDialog.open) {
-      return
-    }
-
-    const unconfirmedRequest = intent.current !== null && !submitted
-    if (!busy && !unconfirmedRequest) {
-      close()
-      return
-    }
-
-    // A repeated platform close request can bypass cancel.preventDefault().
-    // Keep the same pending/uncertain intent reachable until explicit discard.
-    try {
-      nativeDialog.showModal()
-    } catch {
-      nativeDialog.open = true
-      setError(
-        'Your crop request is preserved, but the modal view could not be restored. Retry the exact request or discard it when the controls become available.',
-      )
-    }
-  }
+  // Unsent or confirmed views may close; a pending or uncertain request waits for explicit discard.
+  const unconfirmedRequest = intent.current !== null && !submitted
+  const canCloseWithoutDiscard = !busy && !unconfirmedRequest
 
   const retained = snapshot.derivations.find((item) => item.id === intent.current?.derivationId)
   const output = snapshot.evidence
@@ -154,15 +125,12 @@ export function MediaCropDialog({
       ? output.pages[0]
       : null
 
-  return createPortal(
-    <DialogSurface
-      $wide
-      ref={dialog}
-      aria-labelledby="crop-title"
-      onCancel={(event) => event.preventDefault()}
-      onClose={reconcileNativeClose}
-    >
-      <Heading id="crop-title">Prepare documentary crop</Heading>
+  // Esc never discards a crop; a backdrop click closes only an unsent or confirmed view.
+  return (
+    <ModalFrame wide onClose={close} closeDisabled={!canCloseWithoutDiscard} closeOnEscape={false}>
+      <ModalTitle asChild>
+        <Heading>Prepare documentary crop</Heading>
+      </ModalTitle>
       <Paragraph>
         Drag the crop box. Resize at a corner; drag just outside a corner to rotate the box. The
         source image stays fixed.
@@ -259,8 +227,7 @@ export function MediaCropDialog({
           </Small>
         </Output>
       </CropBody>
-    </DialogSurface>,
-    document.body,
+    </ModalFrame>
   )
 }
 

@@ -2,6 +2,8 @@
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Grouped Capture qualification</title></head><body><div id="root"></div><script type="module">
 import React from 'react';
 import { createRoot } from 'react-dom/client';
+import { trackDialogOpeners } from '/src/components/ui/dialog-opener.ts';
 import { GroupedCaptureProof } from '/src/components/media/fixtures/GroupedCaptureProof.tsx';
+trackDialogOpeners();
 createRoot(document.getElementById('root')).render(React.createElement(GroupedCaptureProof));
 </script></body></html>
