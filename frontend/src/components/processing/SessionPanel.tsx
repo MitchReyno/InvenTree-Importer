@@ -10,7 +10,7 @@ import { ReadState, Small } from '#/components/ui'
 import { chatMessages, SessionChatPanel } from './SessionChatPanel'
 import { SessionTimeline } from './SessionTimeline'
 import { SessionSkeleton } from './SessionSkeleton'
-import { useServerScope, useRetainedPollInterval } from '#/context'
+import { useServerScope, useRetainedPollInterval, useReportRefreshing } from '#/context'
 
 interface Props {
   batchId: string
@@ -30,6 +30,7 @@ export function SessionPanel({ batchId, job, client, startFresh, freshDisabled }
     queryFn: () => client.session(batchId, job.id),
     refetchInterval: pollInterval,
   })
+  useReportRefreshing(timeline.data !== undefined && timeline.isFetching)
   if (!timeline.data) {
     return timeline.isError ? (
       <Small>Session history is unavailable.</Small>
@@ -41,7 +42,7 @@ export function SessionPanel({ batchId, job, client, startFresh, freshDisabled }
   }
   return (
     <>
-      {timeline.isRefetchError && (
+      {(timeline.isRefetchError || timeline.fetchStatus === 'paused') && (
         <Small role="status">Session history could not be refreshed; showing the last copy.</Small>
       )}
       {(timeline.data.failure || FAILED_SESSION_STATES.has(timeline.data.session_state)) && (

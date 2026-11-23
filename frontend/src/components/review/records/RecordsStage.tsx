@@ -156,7 +156,13 @@ export function RecordsStage({
     refetchInterval: pollInterval,
   })
   // An ask names its session from the records shown, so restored records can't send one either.
-  const askWaits = displayOnly || fromSnapshot || !sessions.settledAfterHint
+  // It names its session from the records shown, so they must be this mount's own read as well.
+  const askWaits =
+    displayOnly ||
+    fromSnapshot ||
+    !recordsFresh.commandsReady ||
+    query.isPlaceholderData ||
+    !sessions.settledAfterHint
   const askReason = askWaits ? (sessions.reason ?? 'Updating…') : undefined
 
   // The session of that step working on the record's Part or one of its lots.
@@ -180,7 +186,8 @@ export function RecordsStage({
       return undefined
     }
     return async (text: string, key: string) => {
-      if (displayOnly || fromSnapshot || !sessions.settledAfterHintNow()) {
+      const recordsShown = recordsFresh.commandsReadyNow() && !query.isPlaceholderData
+      if (displayOnly || fromSnapshot || !recordsShown || !sessions.settledAfterHintNow()) {
         throw new Error('processing_fresh_read_required')
       }
       await chat.call(processing, batch.id, job.id, { idempotency_key: key, text }, key)

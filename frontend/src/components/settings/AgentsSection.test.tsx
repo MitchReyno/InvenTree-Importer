@@ -867,10 +867,13 @@ test('Pause all agents uses the pause command the Agents page uses', async () =>
 
 test('Pause all agents waits for a list read started after the last live hint, and is checked again when pressed', async () => {
   const api = client()
+  const paused = await api.sessions()
+  api.sessions.mockResolvedValue({ ...paused, paused_batch_ids: ['batch-a'] })
   const cache = createServerQueryClient()
   render(<Harness api={api} />, { cache })
   await screen.findByRole('group', { name: 'Claude' })
   const pause = await screen.findByRole('button', { name: 'Pause all agents' })
+  const resume = screen.getByRole('button', { name: 'Resume all agents' })
   await waitFor(() => expect(pause).not.toHaveAttribute('aria-disabled'))
   const registry = freshReads(cache)
   const key = serverQueryKey(fixtureScope, 'agent-sessions', 'newest')
@@ -895,6 +898,7 @@ test('Pause all agents waits for a list read started after the last live hint, a
     await before.promise
   })
   expect(pause).toHaveAttribute('aria-disabled', 'true')
+  expect(resume).toHaveAttribute('aria-disabled', 'true')
 
   // The reconciliation's own read lands, and Pause all is available again.
   await act(async () => {
@@ -906,6 +910,7 @@ test('Pause all agents waits for a list read started after the last live hint, a
   await act(async () => {
     registry.noteHint()
     pause.click()
+    resume.click()
   })
   expect(api.pauseAll).not.toHaveBeenCalled()
   expect(screen.queryByText(/Pausing failed/)).not.toBeInTheDocument()

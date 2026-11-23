@@ -533,7 +533,9 @@ test.each([
       before.resolve(pausedList)
       await before.promise
     })
-    expect(resume).toHaveAttribute('aria-disabled', 'true')
+    for (const button of buttons) {
+      expect(button).toHaveAttribute('aria-disabled', 'true')
+    }
 
     // The reconciliation's own read lands, and they are available again.
     await act(async () => {
@@ -544,10 +546,12 @@ test.each([
       expect(button).not.toHaveAttribute('aria-disabled')
     }
 
-    // A hint between the last render and the press is caught when pressed.
+    // A hint between the last render and the press is caught when pressed, in either direction.
     await act(async () => {
       registry.noteHint()
-      resume.click()
+      for (const button of buttons) {
+        button.click()
+      }
     })
     expect(api.pause).not.toHaveBeenCalled()
     expect(api.pauseAll).not.toHaveBeenCalled()

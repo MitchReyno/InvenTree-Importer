@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { fixtureScope, render } from '#/test/render'
 import { deferred } from '#/test/deferred'
 import { createServerQueryClient } from '#/queries/client'
+import { freshReads } from '#/queries/fresh-reads'
 import { serverQueryKey } from '#/queries/scope'
 import type { MediaClient } from '#/media/types'
 import type { ProcessingClient } from '#/processing/types'
@@ -222,6 +223,37 @@ describe('ReviewMapStage', () => {
       ),
     )
     expect(screen.queryByText(/its file is not linked/)).not.toBeInTheDocument()
+  })
+
+  it('leaves a new lot’s file unlinked, and says so, when only a receipt is cached by then', async () => {
+    const client = media()
+    const withLot = {
+      ...batch,
+      revision: '5',
+      lots: [...batch.lots, lot('n', 'Stray photo')],
+    } as unknown as CaptureSnapshotDto
+    const saving = deferred<CaptureSnapshotDto>()
+    const cache = createServerQueryClient()
+    render(<ReviewMapStage batch={batch} retiredLotIds={new Set()} onDirtyChange={vi.fn()} />, {
+      cache,
+      commands: { edit: vi.fn(() => saving.promise), reload: vi.fn(async () => undefined) },
+      clients: { media: client },
+    })
+    const make = await screen.findByRole('button', { name: 'New lot from this: Stray photo' })
+    await waitFor(() => expect(make).toBeEnabled())
+    fireEvent.click(make)
+
+    // A cache write replaces the read while the lot is saved: it is not a read of the media.
+    act(() => {
+      cache.setQueryData(serverQueryKey(fixtureScope, 'media', batch.id), snapshot)
+    })
+    vi.mocked(client.snapshot).mockReturnValue(new Promise(() => undefined))
+    await act(async () => {
+      saving.resolve(withLot)
+      await saving.promise
+    })
+    expect(await screen.findByText(/its file is not linked/)).toBeVisible()
+    expect(client.edit).not.toHaveBeenCalled()
   })
 
   it('sends no link when the new lot was not saved', async () => {
@@ -671,11 +703,13 @@ describe('ReviewMapStage', () => {
     } as MediaSnapshotDto
     const reread = deferred<MediaSnapshotDto>()
     vi.mocked(client.edit).mockResolvedValueOnce(linked)
+    const cache = createServerQueryClient()
     render(
       <RetainedPollIntervalContext.Provider value={false}>
         <ReviewMapStage batch={batch} retiredLotIds={new Set()} onDirtyChange={vi.fn()} />
       </RetainedPollIntervalContext.Provider>,
       {
+        cache,
         clients: { media: client },
         commands: { edit: vi.fn(async () => true), reload: vi.fn(async () => undefined) },
       },
@@ -693,6 +727,9 @@ describe('ReviewMapStage', () => {
     expect(unlink).toBeDisabled()
     expect(client.snapshot).toHaveBeenCalledTimes(2)
 
+    // A live hint while the reread is in flight: the edit carries its revision, so the reread is
+    // enough.
+    act(() => freshReads(cache).noteHint())
     await act(async () => {
       reread.resolve(linked)
       await reread.promise

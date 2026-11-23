@@ -2398,4 +2398,50 @@ describe('CompanyDecision', () => {
     })
     await waitFor(() => expect(within(detail).getByLabelText('Name')).toBeEnabled())
   })
+
+  it('Send waits for the records read as well as Processing’s, since it names its session from them', async () => {
+    const user = userEvent.setup()
+    const chat = vi.fn(async () => ({ id: 'inbox' }))
+    const processing = {
+      read: vi.fn(async () => ({
+        jobs: [
+          { id: 'research-job', stage: 'research', subject_id: partA, session_state: 'running' },
+        ],
+      })),
+      session: vi.fn(),
+      chat,
+    } as unknown as ProcessingClient
+    const read = deferred<BatchRecordsDto>()
+    const cache = createServerQueryClient()
+    cache.setQueryData(serverQueryKey(fixtureScope, 'records', batch.id, batch.revision), records)
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(() => read.promise) }}
+        onDirtyChange={vi.fn()}
+      />,
+      {
+        cache,
+        clients: { processing },
+        commands: { edit: vi.fn(async () => true), observe: vi.fn(async () => null) },
+      },
+    )
+    await open(user, /^Parts/, 'Carbon film resistor')
+    const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
+    const category = within(detail).getByRole('row', { name: 'Category as saved' })
+    await user.click(await within(category).findByRole('button', { name: 'Ask Research' }))
+    const send = within(detail).getByRole('button', { name: 'Send to Research' })
+    await waitFor(() => expect(processing.read).toHaveBeenCalled())
+    expect(send).toHaveAttribute('aria-disabled', 'true')
+    await user.click(send)
+    expect(chat).not.toHaveBeenCalled()
+
+    await act(async () => {
+      read.resolve(records)
+      await read.promise
+    })
+    await waitFor(() => expect(send).not.toHaveAttribute('aria-disabled'))
+    await user.click(send)
+    await waitFor(() => expect(chat).toHaveBeenCalledOnce())
+  })
 })

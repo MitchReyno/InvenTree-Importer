@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { serverQueryKey } from '#/queries/scope'
 import { useFreshRead } from '#/queries/useFreshRead'
+import { freshReads } from '#/queries/fresh-reads'
 import { RestructureDialog } from '#/components/operator/RestructureDialog'
 
 import { ReviewMap } from './ReviewMap'
@@ -95,10 +96,14 @@ export function ReviewMapStage({
     }
   }
 
-  /** The media read in the cache is a successful one, neither failed nor paused. */
+  /**
+   * The cache holds an HTTP read of the media, neither failed nor paused; a receipt written since
+   * does not count. It may be newer than the read the Map showed.
+   */
   function mediaReadCurrent() {
     const state = queryClient.getQueryState(key)
-    return state?.status === 'success' && state.fetchStatus !== 'paused'
+    const adopted = freshReads(queryClient).adoptedOrder(key) !== undefined
+    return state?.status === 'success' && state.fetchStatus !== 'paused' && adopted
   }
 
   /** Makes a lot, then links its file or moves its region into it once the save is confirmed. */
@@ -232,6 +237,14 @@ export function ReviewMapStage({
           yet.
         </Banner>
       )}
+      {fresh.phase === 'failed' && query.data && (
+        <div role="alert">
+          <Banner tone="bad">
+            Evidence status is unavailable. The map shows the last read, and its edits wait for a
+            fresh one.
+          </Banner>
+        </div>
+      )}
       {!media ? (
         <div role="status">
           <Banner tone="bad">Evidence is not available in this setup.</Banner>
@@ -241,7 +254,7 @@ export function ReviewMapStage({
           batch={batch}
           evidence={query.data?.evidence}
           removed={query.data?.removed}
-          loading={query.isPending}
+          loading={fresh.phase === 'empty'}
           approvedLotIds={approvedLotIds}
           restructureUnavailable={restructureUnavailable}
           retiredLotIds={retiredLotIds}
