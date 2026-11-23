@@ -177,7 +177,7 @@ None.
 
 ## Delivery and parallel work
 
-The work is seven PRs after the plan. Tasks › "Parallel work" sets out exactly which can be built at the same time: PR-A, PR-B and PR-F together first, then PR-D, PR-E, PR-G and PR-H one after another, a critical path of five. It also proposes four re-carvings (photo views split out of PR-D; the session-level Agents read split from its session-page links; the message box split out of PR-H; PR-E stacked on PR-D) that would shorten the critical path to four and allow up to five PRs at once. The first of them also lets BI-022 start sooner. They are flagged for Mitch's decision and not yet applied.
+The work is eight PRs after the plan. Tasks › "Parallel work" sets out exactly which can be built at the same time: PR-A, PR-B, PR-D1 and PR-F together first, then PR-D2, PR-E, PR-G and PR-H one after another, a critical path of five. Mitch applied one re-carving on 2026-11-23: recorded photo views and web sources (PR-D1) are split from the history read (PR-D2), so they start in wave 1 and BI-022 can start without the history read. Three further re-carvings stay proposals.
 
 ## Open decisions and assumptions
 

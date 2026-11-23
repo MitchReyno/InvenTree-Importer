@@ -39,10 +39,11 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 | PR-0 | This plan, BI-019 and the BI-015 hand-over | Planning only | Review the plan before code | None; first | `interactive-app` ← `docs/improve-agent-interaction`; `docs(improve-agent-interaction): plan agent interaction improvements` | `openspec validate --strict`, `pnpm workflow-sync` unaffected; read-only review; CI green |
 | PR-A | Backdrop click closes every dialog | 1 | Small, independent and immediately useful | PR-0 | `feat/improve-agent-interaction-dialog-backdrop`; `fix(improve-agent-interaction): close dialogs from their backdrop` | Frontend typecheck, lint, tests and build; demo video; review; CI |
 | PR-B | `/2` questions and answers end to end: contracts, the server path, agent guidance, and the drawer's stepped form, live option cards and Needs you rows | 2, 3, 4 | Today's form can't answer a `/2` question, so the ask and the form that answers it ship together; no build asks questions its UI can't answer | PR-0 | `feat/improve-agent-interaction-question-steps`; `feat(improve-agent-interaction): ask and answer stepped questions with options` | Contracts tests, intake unit, PG and process tiers with the decoder and probe images; frontend checks; demo video; rollback note and the session worker rollout steps in the PR body; review; CI |
-| PR-D | Recorded photo views, web page sources, the paged history read with session metadata and the photo-view crop route | 5, 6 | The server side of the history; the old timeline view keeps working until PR-E switches to it | PR-B merged (the history resolves `/2` questions) | `feat/improve-agent-interaction-session-history`; `feat(improve-agent-interaction): record and read a session's full history` | Contracts tests, intake unit, PG and process tiers; frontend checks, since the existing source list and timeline must read `/6` proposals and photo views; rollback note and the session worker rollout steps in the PR body; review; CI |
-| PR-E | Expandable, grouped, linked entries in the drawer and the session page as a conversation | 7 | The UI over PR-D; one entry renderer for both places | PR-B and PR-D merged | `feat/improve-agent-interaction-session-page`; `feat(improve-agent-interaction): expandable agent history and session page` | Frontend checks; intake unit and PG tiers for the timeline route removal and its consumers; demo video; review; CI |
+| PR-D1 | Recorded photo views and agent-reported web page sources | 5 | Has no prerequisites, so it starts in wave 1; it also unblocks BI-022, which needs only the `photo_view` record | PR-0 | `feat/improve-agent-interaction-photo-views`; `feat(improve-agent-interaction): record photo views and web page sources` | Contracts tests, intake unit, PG and process tiers; frontend checks, since the existing source list and timeline must read `/6` proposals and photo views; rollback note and the session worker rollout steps in the PR body; review; CI |
+| PR-D2 | The paged history read with session metadata and the photo-view crop route | 6 | The server side of the history; the old timeline view keeps working until PR-E switches to it | PR-B (the history resolves `/2` questions) and PR-D1 merged | `feat/improve-agent-interaction-session-history`; `feat(improve-agent-interaction): read a session's full history` | Contracts tests, intake unit, PG and process tiers; rollback note and the session worker rollout steps in the PR body; review; CI |
+| PR-E | Expandable, grouped, linked entries in the drawer and the session page as a conversation | 7 | The UI over PR-D2; one entry renderer for both places | PR-B and PR-D2 merged | `feat/improve-agent-interaction-session-page`; `feat(improve-agent-interaction): expandable agent history and session page` | Frontend checks; intake unit and PG tiers for the timeline route removal and its consumers; demo video; review; CI |
 | PR-G | A session-level Agents read, one row per session, failures in plain words, recovery actions and the Agents page filters | 10 | One read and its rows; its links and failure display reach the session page | PR-E merged, and PR-F or polish merged for the shared components | `feat/improve-agent-interaction-session-rows`; `feat(improve-agent-interaction): one row per session with its real failure` | Contracts tests, intake unit and PG tiers, frontend checks; demo video; review; CI |
-| PR-H | Drawer header, recent activity in the app's words, the labelled message box and readable status lines | 11 | Builds on the history read, the session page and the session-level read | PR-D, PR-E and PR-G merged, and PR-F or polish merged for the shared components | `feat/improve-agent-interaction-session-details`; `feat(improve-agent-interaction): clearer session header, activity and message box` | Contracts tests, intake unit and PG tiers for the batch activity read and the instruction text, frontend checks; demo video; review; CI |
+| PR-H | Drawer header, recent activity in the app's words, the labelled message box and readable status lines | 11 | Builds on the history read, the session page and the session-level read | PR-D2, PR-E and PR-G merged, and PR-F or polish merged for the shared components | `feat/improve-agent-interaction-session-details`; `feat(improve-agent-interaction): clearer session header, activity and message box` | Contracts tests, intake unit and PG tiers for the batch activity read and the instruction text, frontend checks; demo video; review; CI |
 | PR-F | Per-stage counts and the paused flag, stage rows in the activity popover and the new bar states; the shared `WorkState`, `StatePill` and `EventTime` components if `polish-ui-styling-and-loading` hasn't merged first | 8, 9 | Independent of questions and history, small enough to review end to end | PR-0; whichever of PR-F and polish merges second reuses the other's shared components | `feat/improve-agent-interaction-activity-stages`; `feat(improve-agent-interaction): show each stage's state and counts in the activity popover` | Contracts tests, intake PG tier, frontend checks; demo video; review; CI |
 
 ## Parallel work
@@ -51,27 +52,27 @@ How the PR map above lets work run at the same time. A PR can start once every P
 
 | Wave | Can run in parallel | Waits for |
 | --- | --- | --- |
-| 1 | PR-A · PR-B · PR-F | PR-0 (all three); PR-F coordinates its shared components with `polish-ui-styling-and-loading` |
-| 2 | PR-D | PR-B |
-| 3 | PR-E | PR-B and PR-D |
+| 1 | PR-A · PR-B · PR-D1 · PR-F | PR-0 (all four); PR-F coordinates its shared components with `polish-ui-styling-and-loading` |
+| 2 | PR-D2 | PR-B and PR-D1 |
+| 3 | PR-E | PR-B and PR-D2 |
 | 4 | PR-G | PR-E; PR-F or polish for the shared components |
-| 5 | PR-H | PR-D, PR-E and PR-G; PR-F or polish |
+| 5 | PR-H | PR-D2, PR-E and PR-G; PR-F or polish |
 
-- **Critical path:** PR-B → PR-D → PR-E → PR-G → PR-H, five PRs in sequence. PR-A and PR-F have slack and can be done any time after PR-0.
-- **Most parallel moment:** wave 1, three PRs. After it, only one PR is ready at a time.
+- **Critical path:** PR-B → PR-D2 → PR-E → PR-G → PR-H, five PRs in sequence. PR-A, PR-D1 and PR-F have slack and can be done any time after PR-0.
+- **Most parallel moment:** wave 1, four PRs. After it, only one PR is ready at a time.
 - **Conflicts to expect between parallel PRs:** PR-B and PR-F both change the Processing read the frontend uses (questions and step counts), and both touch `ProcessingWorkspace.tsx`, which `polish-ui-styling-and-loading` also edits; whichever merges later rebases.
-- **Effect on BI-022:** `agent-stage-inputs-outputs` waits for this change's PR-B (stepped questions), PR-D (`photo_view`), PR-E (session page) and PR-G (session rows). PR-D is therefore on BI-022's critical path too.
+- **Effect on BI-022:** `agent-stage-inputs-outputs` waits for this change's PR-B (stepped questions), PR-D1 (`photo_view`), PR-E (session page) and PR-G (session rows). PR-D1 is in wave 1, so it doesn't hold BI-022 back.
 
-### Re-carving that would allow more parallel work (proposed, not applied)
+### Re-carving that would allow more parallel work
 
-These are suggestions for Mitch; the map above is unchanged until one is agreed.
+Mitch applied the first suggestion on 2026-11-23; the map above includes it. The others stay proposals and are not applied.
 
-1. **Split PR-D into photo views and the history read.** Task 5 (recorded photo views and agent-reported web sources) has no prerequisites, but rides in PR-D, which waits for PR-B. As **PR-D1** it can run in wave 1. **PR-D2** keeps task 6 (the history read and crop route) after PR-B. This also unblocks BI-022 sooner: BI-022's PR-A and PR-B need only the `photo_view` record, so they could wait for PR-D1 instead of the whole history read. Cost: one more PR and a migration landing before its main reader.
+1. **Applied: split PR-D into photo views and the history read.** Task 5 (recorded photo views and agent-reported web sources) has no prerequisites, but rides in PR-D, which waits for PR-B. As **PR-D1** it can run in wave 1. **PR-D2** keeps task 6 (the history read and crop route) after PR-B. This also unblocks BI-022 sooner: BI-022's PR-A and PR-B need only the `photo_view` record, so they could wait for PR-D1 instead of the whole history read. Cost: one more PR and a migration landing before its main reader.
 2. **Split PR-G into the session-level read and the session-page links.** Task 10's server read, failures in plain words, recovery actions, row grouping and Agents filters don't need the session page; only the row title opening the session page does. **PR-G1** could run in wave 2, once PR-F or polish provides the shared state words; the link (**PR-G2**) folds into PR-E or follows it. That takes PR-G off the critical path. Cost: the Agents rows link to the drawer until PR-E lands.
 3. **Split PR-H into the message box and the rest.** The labelled message box and the status-line instruction sentence (O6 and part of task 11) depend on nothing else in this change. **PR-H1** could run in wave 1; the drawer header and recent activity (**PR-H2**) still need the history read, the session page and the session-level read. Cost: one more small PR.
-4. **Stack PR-E on PR-D.** PR-E's renderer and page can be built against PR-D's contract as soon as that contract is settled, on a branch stacked on PR-D, and merged straight after it. This shortens wall-clock time without changing the merge order. Cost: rebasing PR-E if PR-D's contract changes in review.
+4. **Stack PR-E on PR-D2.** PR-E's renderer and page can be built against PR-D2's contract as soon as that contract is settled, on a branch stacked on PR-D2, and merged straight after it. This shortens wall-clock time without changing the merge order. Cost: rebasing PR-E if PR-D2's contract changes in review.
 
-With all four applied, the waves would be: 1 — PR-A, PR-B, PR-D1, PR-F, PR-H1; 2 — PR-D2, PR-G1; 3 — PR-E (built on a stack during wave 2, with PR-G2's link); 4 — PR-H2. The critical path drops from five PRs to four (PR-B → PR-D2 → PR-E → PR-H2), and up to five PRs can be in progress at once instead of three.
+With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, PR-F, PR-H1; 2 — PR-D2, PR-G1; 3 — PR-E (built on a stack during wave 2, with PR-G2's link); 4 — PR-H2. The critical path would drop from five PRs to four (PR-B → PR-D2 → PR-E → PR-H2), and up to five PRs could be in progress at once.
 
 ## 1. Dialogs close from their backdrop
 
@@ -202,7 +203,7 @@ With all four applied, the waves would be: 1 — PR-A, PR-B, PR-D1, PR-F, PR-H1;
 
 ## 5. Photo views and agent-reported web sources
 
-- **PR delivery:** PR-D.
+- **PR delivery:** PR-D1.
 - **Outcome:** each delivered `fetch_evidence` image appends a `photo_view` outbox item, and proposals can cite an agent-reported `web_page` URL.
 - **Scope and approach:**
   - `contracts/src/sessions.ts`: the outbox union, and `SessionProposeArgs` and the `SessionEnvelope` proposal variant, which accept only `/5` today and validate before the retained decoder sees the version, so both accept `/5` and `/6`; `processing.ts`: a `/6` session proposal accepting a `web_page` source in its top-level `sources`, and the validated Processing projection;
@@ -230,7 +231,7 @@ With all four applied, the waves would be: 1 — PR-A, PR-B, PR-D1, PR-F, PR-H1;
 
 ## 6. Session history read and photo-view crops
 
-- **PR delivery:** PR-D.
+- **PR delivery:** PR-D2.
 - **Outcome:**
   - `readSessionHistory` returns resolved entries (summary, details, typed links, `who`, attempt headers), newest page first, in pages of 200 with one opaque `before` cursor and no forward read, each page and its metadata taken from one snapshot;
   - the operator's inputs are included;
@@ -402,11 +403,12 @@ With all four applied, the waves would be: 1 — PR-A, PR-B, PR-D1, PR-F, PR-H1;
 - [ ] PR-0: review the plan read-only (`codex exec -m gpt-6.2-sol -s read-only`, round by round), fix findings, publish, CI green, merge.
 - [ ] PR-A: implement task 1, review the exact head, publish with the demo, CI green, merge.
 - [ ] PR-B: implement tasks 2, 3 and 4, review the exact head, publish with the demo, CI green, merge.
-- [ ] PR-D: implement tasks 5 and 6, review the exact head, publish, CI green, merge.
+- [ ] PR-D1: implement task 5, review the exact head, publish, CI green, merge.
+- [ ] PR-D2: implement task 6, review the exact head, publish, CI green, merge.
 - [ ] PR-E: implement task 7, review the exact head, publish with the demo, CI green, merge.
 - [ ] PR-F: implement tasks 8 and 9, review the exact head, publish with the demo, CI green, merge.
 - [ ] PR-G: implement task 10, review the exact head, publish with the demo, CI green, merge.
 - [ ] PR-H: implement task 11, review the exact head, publish with the demo, CI green, merge.
-- [ ] Update BI-019's status as PRs merge. It is Done only after PR-A, PR-B, PR-D, PR-E, PR-F, PR-G and PR-H merge and its acceptance is evidenced.
+- [ ] Update BI-019's status as PRs merge. It is Done only after PR-A, PR-B, PR-D1, PR-D2, PR-E, PR-F, PR-G and PR-H merge and its acceptance is evidenced.
 - [ ] Mark the design log entries D37 (PR-A), D38 (PR-B), D39 and D41 (PR-E) and D42 (PR-F) Built, with their PRs (D40's page layout was replaced by D41).
 - [ ] Before archiving, run `pnpm openspec:overlap --change improve-agent-interaction`, sync the specs, and record final open items in `notes.md`.

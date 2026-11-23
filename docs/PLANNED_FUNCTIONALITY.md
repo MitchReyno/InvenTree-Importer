@@ -181,8 +181,8 @@ Repository Markdown is uneven. Some documents are long unbroken paragraphs, head
 Make working with agents smoother. Clicking the dimmed page beside the session drawer, or any dialog, closes it as Esc does, while an unsaved answer still stops the close. An agent asks one question per `ask`, with one step or up to four related steps answered one at a time and sent together. Each step is a choice among options the agent offers, a lot's quantity checked as it is typed, or text, and states the assumption the agent keeps working on. Each session's history entries expand to their details and link to the pages they concern, and every session gets a page showing it as one conversation, with the photos it viewed and the web pages it cited. The activity popover shows each stage's state, counts and status, with bars that distinguish working, waiting for you and paused. Sessions also show as one row each with their retries folded and Start fresh offered only where it can run, failures say their recorded cause in plain words, and the Agents page opens on what needs attention.
 
 - Change: `improve-agent-interaction`
-- Status: Proposed — plan awaiting Mitch's review.
-- Size: XL — a versioned question and answer contract and answer path, a resolved and paged session history, recorded photo views and web sources, a reworked answer form, a new session page and per-stage activity counts and bar states, in seven PRs after the plan.
+- Status: Proposed — plan in review (#243).
+- Size: XL — a versioned question and answer contract and answer path, a resolved and paged session history, recorded photo views and web sources, a reworked answer form, a new session page and per-stage activity counts and bar states, in eight PRs after the plan.
 - Prerequisites: None. Takes over BI-015's answer options; coordinate session-runner prompt edits with BI-017.
 - OpenSpec: [improve-agent-interaction](../openspec/changes/improve-agent-interaction/)
 
