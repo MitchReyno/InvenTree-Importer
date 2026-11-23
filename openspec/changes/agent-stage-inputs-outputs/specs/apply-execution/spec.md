@@ -16,6 +16,12 @@ The executor SHALL apply only plans whose version, build and capability match a 
 - **WHEN** a lot using that location is prepared
 - **THEN** preparation reports `record_creation_unavailable` and nothing is created.
 
+#### Scenario: Switch waits for retained runs
+
+- **GIVEN** a retained `bench-effects-plan/2` run that is queued or recovery-required
+- **WHEN** the operator activates the `/3` deployment
+- **THEN** activation is refused until that run settles on its own runner, so one writer holds the target.
+
 #### Scenario: Part image effects on an older capability
 
 - **GIVEN** a deployment with `owned-fake-effects/2` and a lot whose confirmed Part image targets an existing Part
@@ -30,6 +36,6 @@ The executor SHALL apply only plans whose version, build and capability match a 
 
 #### Scenario: Add stock under the third effects version
 
-- **GIVEN** a `/3` runner deployment with `owned-fake-effects/3` and `owned-fake-media/1` beside the existing `/2` deployment, and a `bench-effects-plan/3` plan that sets an existing Part's image, creates stock and attaches its stock image
+- **GIVEN** a `/3` runner deployment with `owned-fake-effects/3` and `owned-fake-media/1`, activated after every retained `/2` run settled, and a `bench-effects-plan/3` plan that sets an existing Part's image, creates stock and attaches its stock image
 - **WHEN** it applies
-- **THEN** all three effects run under the `/3` runner, and a retained `bench-effects-plan/2` plan applies on its own `/2` runner with its approved bytes unchanged.
+- **THEN** all three effects run under the `/3` runner, which is the target's only writer.

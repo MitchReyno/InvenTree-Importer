@@ -84,6 +84,22 @@ For `/7` Research and Images sessions, which serve lot groups, an identity chang
 - **WHEN** the operator corrects lot A's identity, and the session's own amendment refines lot B's identity
 - **THEN** lot A is released and requeued through Match with the session told, and lot B stays in the group.
 
+### Requirement: Lot sessions pick up observation changes
+
+New evidence SHALL go first to the Examine lead session. When an observation is added to or removed from a lot, that lot's running or resumable Research and Images sessions SHALL receive a notice and be able to fetch the observation's crop within the session's media limits. A finished session SHALL be resumed to consider it. For `/7` work, the notice SHALL follow the lot's Match waits and group membership: a held lot's notice stays pending without waking the session, and a released lot's notice moves with it.
+
+#### Scenario: Photo added mid-run
+
+- **GIVEN** a running Research session for a lot
+- **WHEN** the lead session adds an observation from a new close-up photo to that lot
+- **THEN** the Research session receives a notice, fetches the observation's crop, and its next proposals may cite it, without restarting from scratch.
+
+#### Scenario: Notice for a held `/7` lot
+
+- **GIVEN** a finished `/7` Images session whose lot is held on a late candidate
+- **WHEN** an observation is added to that lot
+- **THEN** the notice stays pending without resuming the session, and is delivered when the lot's mode arrives.
+
 ## ADDED Requirements
 
 ### Requirement: Identify first when nothing can be searched

@@ -186,13 +186,19 @@ When lots share a draft Part and one is decided as add stock to an existing Part
 
 ### Requirement: Validation before approval
 
-Preparation SHALL run Match's search again for each selected lot of a batch whose lead input is `/7`, with the lot's final identifiers and import references. A Part created since the decision, an approval of the lot's original contribution in this app's retained history, stock on the target Part with its batch code that the decision didn't already cover, or a final identity that no longer fits the decision SHALL be a blocking item until the operator decides again.
+Preparation SHALL run Match's search again for each selected lot of a batch whose lead input is `/7`, with the lot's final identifiers and import references. Findings are measured against the lot's settled Match outcome, a clear verdict or a decision. A Part created since it, an approval of the lot's original contribution, target-Part stock with its batch code the outcome didn't cover, or a final identity that no longer fits it SHALL block until the operator decides again.
 
 #### Scenario: Stock the decision already covered
 
 - **GIVEN** a lot decided as add stock to RES-0144 after the question showed stock with its batch code
 - **WHEN** pass 3 finds that same stock unchanged
 - **THEN** it is not a finding, while stock with the batch code that appeared after the decision blocks the lot.
+
+#### Scenario: Part appears after a clear verdict
+
+- **GIVEN** a lot whose search found no match, so Research and Images ran in full mode without a question
+- **WHEN** a Part with its MPN is added to InvenTree before preparation
+- **THEN** pass 3 reports the new Part as a finding against the clear verdict, and approval waits for the operator's decision.
 
 #### Scenario: Part created meanwhile
 
@@ -251,4 +257,3 @@ Under the lot's Match lock, approval SHALL refuse a preparation whose `/7` lot h
 - **GIVEN** a prepared lot whose validation passed
 - **WHEN** a replacing amendment opens a question without a search, and the operator approves the original preparation
 - **THEN** approval is refused for the open question.
-
