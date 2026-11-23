@@ -75,7 +75,7 @@ Mitch will add more agent-interaction items to this change. This proposal covers
 - **Agents and failures:**
   - The Agents read (`agents/session/sessions.ts`) pages by attempt, 50 at a time, with `job_id` and `latest_on_job`; it carries no batch archive flag or web setting.
   - Its failure summary (`agents/failures.ts`) holds the category, summary and recovery. The provider error and cause are loaded only when the details are opened in debug mode (`SessionFailureDetails.tsx`).
-  - The regroup outbox item keeps only the affected lot IDs, and an attempt records no reason for starting.
+  - The regroup outbox item keeps only the destination lot IDs, and an attempt records no reason for starting.
 - **Unverified:** the exact prompt of the failed question in Mitch's screenshot. That its answer was prose to a `quantity` question is inferred from the only client-side message of that shape.
 
 ## Scope and non-goals
