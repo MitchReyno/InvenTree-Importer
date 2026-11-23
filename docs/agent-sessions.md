@@ -70,11 +70,11 @@ The rules behind the diagram:
 | Input | Source | Notes |
 | --- | --- | --- |
 | System prompt | The profile's `instruction_bytes`, checked against `manifest.instruction_sha256` at claim (`session-runner.ts:508-513,616`) | Same text for every stage. `shared-vm-agent/3`: `intake-server/migrations/0033_shared_vm_web_tools.sql:12-14`. It asks for URL citations, which the proposal contract can't hold. |
-| Opening (fresh session) | `openingText` | JSON of `stage`, `capture_revision`, `subject_id`, `subject` (the lot record), `linked_part`, `defaults`, notes with `text_sha256`, evidence ids and digests, `pending_inbox`, `part_description_style`, and an `instructions` string. |
+| Opening (fresh session) | `openingText` | JSON of `stage`, `capture_revision`, `subject_id`, `subject` (the lot record), `linked_part`, `defaults`, notes with `text_sha256` (less the automation-intent note, which `evidenceNotes` filters out: `session-runner.ts:374`, `intake-server/src/capture/context-input.ts:61-63`), evidence ids and digests, `pending_inbox`, `part_description_style`, and an `instructions` string. |
 | `instructions` in the opening | `session-runner.ts:389-394` | `LEAD_INSTRUCTIONS` for Examine only, then style guidance, web guidance (profile-dependent) and one generic paragraph about status, propose, ask, inbox and the catalogue block. Research, Images and Inventory get identical text. It isn't covered by any digest, but is rendered deterministically from the sealed manifest. |
 | Opening (resumed session) | `session-runner.ts:359-361` | Only "You have N new inbox item(s). Call read_inbox and continue." |
 | Tools | `intake-server/src/agents/tools/server.ts:16-67` | Every session: `status`, `propose`, `ask`, `reply`, `fetch_evidence`, `read_inbox`. Examine only: `read_batch`, `record_observation`, `propose_lot`, `regroup`. VM Claude adds `Bash, Read, Write, Edit, Glob, Grep, WebSearch, WebFetch` (`session-adapters.ts:87-96`). VM Codex adds shell, view_image and live web search (`session-adapters.ts:322-335`). |
-| Inbox delivery | `session-adapters.ts:51-84`; `session-runner.ts:623-656,768,783` | Polled every 500 ms in a turn and steered in. Acknowledged only when the turn finishes live. Pending items at turn end re-queue the session. Each item is rendered as `Inbox item <id> (sequence N, <kind>): <payload JSON>`. |
+| Inbox delivery | `session-adapters.ts:51-84`; `session-runner.ts:623-656,768,783` | Polled every 500 ms in a turn and steered in. Steered items are acknowledged only when the turn finishes live; a `read_inbox` call advances the cursor at once (`intake-server/src/agents/tools/inbox.ts:233-236`). Pending items at turn end re-queue the session. Each item is rendered as `Inbox item <id> (sequence N, <kind>): <payload JSON>`. |
 
 **Sealed but never shown to the agent** (`contracts/src/processing.ts:119-140`; `session-runner.ts:367-395`):
 
@@ -87,7 +87,7 @@ The rules behind the diagram:
 
 ### Examine (batch lead)
 
-- **Input:** the opening above with a null subject. Notes include automation-intent, group and evidence notes, recast as `producer: 'human'` (`intake-server/src/processing/session-input.ts:94-153`). `pinned_proposal_ids` is empty.
+- **Input:** the opening above with a null subject. The manifest's notes include automation-intent, group and evidence notes, recast as `producer: 'human'` (`intake-server/src/processing/session-input.ts:94-153`); the opening leaves out the automation-intent note. `pinned_proposal_ids` is empty.
 - **`read_batch`** returns `LeadBatchView` (`contracts/src/evidence-observations.ts:102-140`; `intake-server/src/capture/evidence-observations.ts:1151-1255`):
   - the revision;
   - lots with origin, `operator_edited`, `reexamine`, `estimated_quantity`, `observation_set_version`, and member and suggested observation ids;
@@ -136,7 +136,7 @@ The rules behind the diagram:
 - **Output:** a V5 proposal with no image content. No session tool creates or selects media.
   - `fetch_evidence` crops go to a private cache and "are never evidence versions" (`intake-server/src/media/region-crops.ts:12-16`).
   - Retained crops (`documentary-crop/1`, `documentary-rotated-region/1`, `contracts/src/media.ts:98-134`) come only from the operator's `derive` and `select_attachment` edits.
-- **Consumers:** only Inventory's gate, which any non-stale proposal satisfies. Processing › Images (`frontend/src/components/processing/ProcessingImages.tsx`) lists Capture's originals and crops, not session output.
+- **Consumers:** Inventory's gate, which any non-stale proposal satisfies, and the Records catalogue selection, which takes the first current proposal of any stage (`contracts/src/records-projection.ts:672-746`). Processing › Images (`frontend/src/components/processing/ProcessingImages.tsx`) lists Capture's originals and crops, not session output.
 - **Observed (dev batch `0b02578a…`, 2026-11-22/23):** both Images attempts read the markings, counted 25 diodes, tried to research the part and published a catalogue proposal (category "Diodes", description, quantity estimate). Neither produced an image.
 
 ### Inventory (per lot)
@@ -144,7 +144,7 @@ The rules behind the diagram:
 - **Queued:** only by Start or replacement, after its gate passes. `onLeadIdentity` loops over Research and Images only (`stable-identity.ts:95`).
 - **Input:** the same as Research, with `pinned_proposal_ids: []`.
   - It can't read Research or Images proposals, or cite them (`handlers.ts:747`).
-  - It gets no evidence or revision notices (`intake-server/src/processing/currentness.ts:61-72`).
+  - It gets none of the lot's observation or identity notices (`intake-server/src/processing/currentness.ts:61-72`). Evidence removal still notifies the owner of any proposal citing the removed evidence, Inventory included (`currentness.ts:363-409`).
   - It has no inventory read; the profile forbids inventory access.
 - **Output:** a V5 proposal. Matches, duplicates and locations have no contract.
 - **Consumers:** none specific. Processing › Inventory shows record projections, and its "In InvenTree" column is always "Not known" (`frontend/src/components/processing/ProcessingInventory.tsx:140-153`).
@@ -152,13 +152,13 @@ The rules behind the diagram:
 ## 1.4 From agent output to InvenTree
 
 - **Records are capture state.** `projectRecords` builds them from capture state (`contracts/src/records-projection.ts:442-944`).
-- **Proposals only annotate records:**
-  - they label a field's origin step when a capture value equals a proposal value (`:117-140,251-360`);
+- **Proposals annotate and project records; none of their values is applied to capture state or approval:**
+  - they label a field's origin step when a capture value equals a proposal value, with a parameter's alternatives (`:117-140,251-360`);
   - they add Part details (`required_missing`, `not_reused`, `category_reason`);
   - they list `unsupported` catalogue values, taking the first current proposal of any stage (`:672-746`);
   - they add a "company proposed new" record that says creating one is not supported yet (`:750-777`).
 - **Nothing applies a catalogue to a Part spec.** `applicableCatalogueSpec` (`intake-server/src/processing/catalogue.ts:20`) has no production caller. Lead-created Parts are bare rows.
-- **Quantity and tags from current proposals are ignored.** The suggestions UI acts only on `bench-intake-proposal/4` (`frontend/src/components/operator/ProcessingSuggestions.tsx:44`). Stock quantity comes from the lead's `propose_lot` estimate (`records-projection.ts:890-920`).
+- **Quantity and tags from current proposals are ignored.** The suggestions UI acts only on `bench-intake-proposal/4` (`frontend/src/components/operator/ProcessingSuggestions.tsx:44`). Stock quantity comes from the lead's `propose_lot` estimate, projected for the operator to confirm (`records-projection.ts:890-920`).
 - **Approval never reads proposals** (`intake-server/src/review/approve-preparation.ts`).
   - `create_part` sends name, description, category and tags, with no image (`intake-server/src/execution/effects/effects-body.ts:68-76`).
   - A Part attachment comes only from an operator-selected media version (`effects-plan.ts:494-572`).
@@ -199,8 +199,7 @@ stateDiagram-v2
   cancelling --> cancelled
   running --> failed
   running --> interrupted
-  queued --> waiting_for_login
-  queued --> waiting_for_capacity
+  running --> waiting_for_login: login required
   running --> resume_unavailable
 ```
 
@@ -216,7 +215,7 @@ stateDiagram-v2
 | `waiting_for_login` | `waiting_for_login` | No |
 | `waiting_for_capacity` | `waiting_for_capacity` | No |
 
-A new inbox item resumes `waiting_input`, `finished` and `interrupted` sessions (`session-runner.ts:83`; `intake-server/src/agents/session/session-execution.ts:112-145`). A running session receives it in its turn.
+A full lane leaves a claimed session `queued` (`session-runner.ts:543-545`); the runner doesn't set `waiting_for_capacity` for it. A new inbox item resumes `waiting_input`, `finished` and `interrupted` sessions (`session-runner.ts:83`; `intake-server/src/agents/session/session-execution.ts:112-145`). A running session receives it in its turn.
 
 ## 1.7 Event mapping
 
@@ -242,7 +241,7 @@ A new inbox item resumes `waiting_input`, `finished` and `interrupted` sessions 
 | `instruction` | `agents/instructions.ts:114` | Every session of the batch |
 | `revision` | `currentness.ts:31` (superseded fields, regroups, removals), `stable-identity.ts:120` | Relying sessions; the lot's Research and Images |
 
-Every write publishes a `processing_changed` event for the batch, which the frontend uses to re-read.
+Writes publish a `processing_changed` event for the batch, which the frontend uses to re-read. `status` and `reply` publish `session_changed` instead (`handlers.ts:958,989`).
 
 ## 1.8 Profiles and the VM
 
@@ -285,11 +284,11 @@ A lineage's working directory persists between its turns. Only `fetch_evidence` 
 1. **The three lot stages are interchangeable:** same instructions, same tools, no field restriction.
 2. **The hand-off is lost.** Successors are pinned to an identity they can't read, and observation readings never reach them.
 3. **Existing catalogue references are out of reach**, because the vocabulary observations aren't shown.
-4. **Images produces nothing**, and its stage exists only to satisfy Inventory's gate.
+4. **Images produces no image**, and its proposal mostly serves to satisfy Inventory's gate.
 5. **Inventory is never auto-queued and can't see its inputs** or InvenTree.
 6. **Operator Start bypasses the stable identity.**
 7. **Web citations can't be stored**, although the instructions ask for them.
-8. **Several outputs have no consumer:** catalogue values, `/5` quantity and tags, supplier price, alternatives, and any Part image.
+8. **Several outputs are never applied:** catalogue values, `/5` quantity and tags, supplier price, alternatives, and any Part image.
 9. **Records take the first catalogue from any stage.**
 10. **Operator corrections don't reach the lead**, and an identity revision is a one-line summary.
 11. **Nothing prevents asking a question twice.**
@@ -333,7 +332,9 @@ Status: proposed. Mitch's decisions on 2026-11-23:
 - **`match`:** the lot's match state, its candidates with the reason each matched, and the decision and mode when one exists.
 - **`revision`:** the brief's revision, which `read_lot` or `read_batch` return again.
 
-The brief is sealed into a new input version, `bench-intake-input/7`, and rendered within a 48 KiB budget. Past the budget it is summarised, and the read tools return the rest in pages.
+The brief is sealed into a new input version, `bench-intake-input/7`, and rendered within a 48 KiB budget. Past the budget it is summarised. The sealed manifest stays within the retained-input cap (`MAX_PROCESSING_SNAPSHOT_BYTES`, 240 KiB, `intake-server/src/processing/limits.ts:2`): the brief keeps references and counts for what doesn't fit, and a batch whose references alone exceed the cap is refused with `processing_input_capacity`, as today.
+
+The read tools serve two views. `read_lot` and `read_batch` with the sealed revision return the rest of the brief the session started from, in pages; without it they return the current view and its revision, so an edit between queueing and the first read never mixes two revisions in one page sequence.
 
 ### Agent stages
 
@@ -342,7 +343,7 @@ The brief is sealed into a new input version, `bench-intake-input/7`, and render
 | Starts when | New evidence; a correction to an observation it made; an answer to its question | Match says so: **identify** mode when the lot has no searchable identifier; **full** or **gaps** mode after a decision or a clean search | Match says so: **full** or **stock** mode, after a decision or a clean search |
 | Brief adds | Every observation with readings, source and confidence; lots with exclusion and `reexamine` reasons; match candidates for its lots | Pinned identity with its id; the lot's observations; the catalogue vocabulary; its mode and, for gaps, the fields to fill; the matched Part's current data | The lot's observations with regions and orientation; items to keep out of frame; its mode; whether the matched Part has an image |
 | Tools | as today + `read_batch` (full readings), `inspect_region`, `match_logo`, `read_guide` | `read_lot`, `read_vocabulary`, `fetch_evidence`, `match_logo`, `read_guide`, web (VM) | `read_lot`, `fetch_evidence`, `inspect_region`, `preview_images`, `propose_images`, `read_guide` |
-| Typed output | `examine-identity/1`: markings verbatim per observation; ranked identity candidates; maker or logo id with method; packaging and seal state; date code; condition; NOS signals; visible NSN; quantity estimate and basis (the only quantity route); **match notes** | `research-identity/1` (identify mode): canonical MPN, manufacturer, every alias with its kind and source, cross-references, **match notes**. `research/1`: category, name, type, MPN, manufacturer, description, parameters with sources and pages, datasheet and pages, web sources (agent-reported), notes by record, conflicts, config gaps (gaps mode fills only the named fields) | `images/1`: image recipes with role (Part image, stock image, extra), source version, region, rotation, straightening, bounded light adjustments and flags (stock mode: stock images, plus the Part image only when the matched Part has none) |
+| Typed output | `examine-identity/1`: markings verbatim per observation; ranked identity candidates; maker or logo id with method; packaging and seal state; date code; condition; NOS signals; visible NSN; quantity estimate and basis (the only quantity route); **match notes** | `research-identity/1` (identify mode): canonical MPN, manufacturer, every alias with its kind and source, cross-references, **match notes**. `research/1`: category, name, type, MPN, manufacturer, description, parameters with sources and pages, datasheet and pages, web sources (agent-reported), notes by record, conflicts, config gaps, **match notes** (gaps mode fills only the named fields) | `images/1`: image recipes with role (Part image, stock image, extra), source version, region, rotation, straightening, bounded light adjustments and flags (stock mode: stock images, plus the Part image only when the matched Part has none) |
 | May not propose | research or image fields | quantity, images or match decisions | anything except images |
 | Consumers | Match (search keys), Research and Images briefs, Review lots, Records | Match (search keys), Records Part spec (proposed values), Review | Review image choice, approval (Part image, stock attachments) |
 
@@ -373,6 +374,8 @@ The server refuses a proposal whose kind doesn't match the session's stage or mo
 
 - **Candidates:** each with the keys that matched and the strength of the match.
 - **A verdict:** `no_match`, `exact` (a strong key and manufacturer agree), `possible` (a weak key, or a partial agreement), or `duplicate` (the same import reference or barcode with the batch).
+
+**Ordering.** A search reads InvenTree, so it never runs inside the proposal or answer transaction that triggers it. The trigger commits a search request naming the lot's identity revision. The search runs after commit, and its result settles in a new transaction only if the lot's identity revision is unchanged; otherwise it is discarded and the search reruns on the new revision. The verdict, any match question or decision, and the stage queueing commit together against that revision. Batch answers and pass 3 follow the same rule.
 
 **Sufficiency check.** For a candidate Part, the app reads what InvenTree holds: datasheet, the category's key parameters, Part image, manufacturer Part, and supplier Part for this supplier. It lists what is missing, which decides whether "fill what's missing" is offered and which fields gaps mode fills.
 
@@ -422,7 +425,7 @@ flowchart TD
    | Already imported | skipped; lot left out | skipped |
 
 5. **Late matches.** If Research in full mode finds an alias or cross-reference that makes the lot searchable in a new way, it publishes it as a match note. Match searches again. A new candidate pauses Research and asks the question, as in pass 2.
-6. **Pass 3, before approval.** Before Changes › Ready, Match searches again with each lot's final identifiers and import references. It looks for a Part created in InvenTree since the decision, stock that now exists with the same barcode and batch, and a final identity that no longer matches its decision. Each finding is a blocking item in Review. Approval's idempotency on the import reference and barcode remains the last guard.
+6. **Pass 3, before approval.** Before Changes › Ready, Match searches again with each lot's final identifiers and import references. It looks for a Part created in InvenTree since the decision, stock that now exists with the same barcode and batch, and a final identity that no longer matches its decision. Each finding is a blocking item in Review. Approval's own idempotency covers only the preparation command and its retained plan and review bindings (`intake-server/src/review/approve-preparation.ts:64-75`); it doesn't make the barcode or import reference unique in InvenTree. So a preparation records the pass-3 result it was built from, and approval refuses a preparation whose pass-3 result is older than the lot's latest match revision.
 
 ### One identity, refined by more than one stage
 
@@ -514,10 +517,11 @@ Every change is delivered as a `revision/2` item carrying `changes`: `{field, fr
 
 - **The Inventory stage and its gate are removed.** Successors are queued by Match, not by the stable identity alone.
 - **Start pins the identity.** Operator Start pins Research and Images to the lot's current identity. It refuses lots without one ("Examine hasn't identified this lot yet") and respects the lot's match state.
-- **A paused Research session is `waiting_input`, holding no slot.** The mode arrives as an inbox item, `match`, which wakes it.
-- **Durable delivery tracking.** Delivered evidence is recorded in the outbox as `photo_view` items (shared with `improve-agent-interaction`). Citation checks read it, so a worker restart doesn't lose it.
+- **Match waits are persisted, not inferred from the session state.** Today `waiting_input` holds only while the job has an open question of its own (`session-runner.ts:770-790`), and any unread inbox item resumes it (`session-execution.ts:112-145`). So `processing_match` records which of the lot's stages wait for Match. Claim, resume, Start and replacement all check it: a waiting stage stays parked, holding no slot, and unrelated inbox items stay pending until the wait ends. The decision's mode arrives as a `match` inbox item, which ends the wait and wakes the session.
+- **Late candidates.** A late candidate sets the lot's waits. Queued sessions stay unclaimed. A running session gets a `match` item telling it to stop at the end of its turn and is then held by the wait. Proposals already published under the old mode stay retained, and are marked stale when the decision changes the mode.
+- **Durable delivery tracking.** Fetches are recorded in the outbox as `photo_view` items (shared with `improve-agent-interaction`). A `photo_view` records a fetch prepared for response, which may have been withheld or lost, so it alone isn't proof of delivery. A citation is admitted only for a view on the session's current attempt whose reply was released to the provider. Tests cover a withheld reply and a view from an older attempt.
 
-**App-owned questions.** Today every question belongs to an agent attempt. The match question has no attempt, so questions need an owner kind (`session` or `app`), with the subject lot and an answer route. The Processing tab's fourth step becomes **Match**, showing matched, waiting-for-you and new counts. The activity popover's fourth row in BI-019 is built on step counts, so it carries over.
+**App-owned questions.** Today every question belongs to an agent attempt: `processing_question` requires a job, attempt, input and message (`intake-server/migrations/0006_processing.sql:81-100`), its answer requires a continuation attempt, and the read joins all of them (`intake-server/src/processing/read.ts:248-262`). The match question exists before any Research or Images job, so it gets its own store: `processing_match_question` and its answer, pinned to the lot's match revision and the candidate set it quotes, with an answer route that records the decision. Needs you reads both stores. An answer to a question that a later search made stale is refused, and the new question is shown. The Processing tab's fourth step becomes **Match**, showing matched, waiting-for-you and new counts. The activity popover's fourth row in BI-019 is built on step counts, so it carries over.
 
 ## 2.6 MCP tools ported from the skills
 
@@ -544,13 +548,17 @@ The skills' deterministic scripts become intake MCP tools, run by the app on the
 
 **Where they run.** In the media decoder, which already owns orientation, crops and renditions. The decoder is TypeScript on `sharp` and `@napi-rs/canvas`, so the Python scripts are reimplemented there rather than called, and tested for parity with the scripts' outputs. The logo set is bundled read-only with the decoder image.
 
-**What stays in the VM.** The scripts remain in the runner image under `/opt/bench-toolkits` for scratch inspection. They are never a route to an output.
+**Delivery.** Tool replies with images use the same size limits as `fetch_evidence`. On the VM relay only `fetch_evidence` gets the larger image envelope today (`intake-server/src/agents/shared-vm/evidence-request.ts`), and only its replies are staged into the guest, so the relay is extended to `inspect_region`, `preview_images` and `match_logo` with one aggregate per-run image budget. Montages and logo sheets are tested over the real relay.
+
+**Parity.** Parity with the scripts is checked on the rendered crop pixels, before labels, downscaling or delivery encoding.
+
+**Not in the VM.** The runner image doesn't carry the scripts today (`tooling/deployment/guest/Dockerfile`), and they aren't added.
 
 **Instruction text.** The skills' text is split. Each stage's system prompt carries the short rules: scope, never invent, precedence and the output contract. `read_guide` holds the long reference material on demand. MCP resources can't be used for this, because admission refuses an intake server that exposes resources.
 
 ## 2.7 Instruction packs and profile
 
-- **A new profile.** `shared-vm-agent/4` has one instruction text per stage (stage-keyed bytes and digests in the profile row, or one profile id per stage; decided in the change's design) and a tool profile `native-session-stage-tools/1`.
+- **A new profile.** `shared-vm-agent/4` has shared base instructions in its profile row and one instruction pack per stage in an immutable `processing_stage_instructions` table, whose digest the input seals and the claim checks, as the change's design decides. Its tool profile is `native-session-stage-tools/1`.
 - **Each pack:**
   - the stage's scope and what it may not do;
   - never inventing (from `inventree-stock-import`);
@@ -575,10 +583,12 @@ The skills' deterministic scripts become intake MCP tools, run by the app on the
 - **Records** take each field from the stage that owns it.
 - **Images:** a confirmed recipe becomes a retained derived version, through the existing crop pipeline extended with straightening and light adjustments. It is selected as the Part image or a stock attachment. `create_part` gains the Part image, and effects attach stock images.
 - **Match:** the decision sets the lot's target: a new Part, an existing Part with new stock, or left out as a duplicate. Gaps mode produces update effects for the existing Part's missing fields. Pass 3 findings block approval.
+- **New execution authority.** Today `create_part` is a JSON create with no image (`intake-server/src/execution/effects/effects-body.ts:68-76`), and the inventory transport has no Part update (`intake-server/src/inventory/transport.ts`). The Part image on a created or existing Part, and the gaps fill, are new effect kinds in a new plan version, each gated by the target's declared capability. A gaps fill carries the value it expects to be missing, and the executor refuses it as a conflict when the field is no longer empty. Retained plans of the earlier version still execute. Uncertain effects follow the existing no-blind-replay rules.
 
 ## 2.9 Legacy
 
 - **The new contracts apply only to** `shared-vm-agent/4` and `synthetic-session/1`. Earlier profiles stay readable for retained attempts, but are not extended. Retained Inventory attempts remain readable.
+- **Rollback.** The last safe rollback point is before the first `/7` input or typed proposal is written. After that, recovery is a fix forward, as BI-019 adopted. The new build reads every earlier format.
 - **The default profile changes.** `synthetic-research/2` stops being the default when `INTAKE_PROCESSING_PROFILE` is unset; the synthetic session fixture replaces it.
 - **Removing the legacy handlers** stays with `remove-unused-legacy-code`.
 

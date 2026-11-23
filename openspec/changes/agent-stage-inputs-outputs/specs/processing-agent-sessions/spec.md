@@ -11,11 +11,8 @@ A `native-agent/2` session SHALL reach the application only through an app-owned
 - reply
 - fetch_evidence
 - read_inbox
-- read_lot (Research and Images)
-- read_guide (every stage of `shared-vm-agent/4`)
-- read_vocabulary (Research of `shared-vm-agent/4`)
-- inspect_region and match_logo (Examine and Research, or Images for inspect_region, of `shared-vm-agent/4`)
-- preview_images and propose_images (Images of `shared-vm-agent/4`)
+
+A session of `shared-vm-agent/4` or `synthetic-session/1` SHALL additionally offer its stage's tools from "Stage tool sets", and no others.
 
 The session SHALL have no shell, filesystem, web, arbitrary code execution, collaboration, image generation, arbitrary MCP, inventory-write or approval tools. Codex MAY expose only the previously accepted inert exceptions list_mcp_resources, list_mcp_resource_templates, read_mcp_resource and request_user_input: the intake server SHALL expose no resources and server-initiated requests SHALL be refused. User skill catalogues and deferred callable tools outside this boundary MUST NOT be available.
 
@@ -33,9 +30,25 @@ The session SHALL have no shell, filesystem, web, arbitrary code execution, coll
 
 ## ADDED Requirements
 
+### Requirement: Stage tool sets
+
+For `shared-vm-agent/4` and `synthetic-session/1`, the intake tool server SHALL add these tools to the common set:
+
+- Examine: read_batch with full readings, inspect_region, match_logo and read_guide.
+- Research: read_lot, read_vocabulary, match_logo and read_guide.
+- Images: read_lot, inspect_region, preview_images, propose_images and read_guide.
+
+This requirement does not change the guest built-in and web tools a shared VM profile adds outside the intake tool server.
+
+#### Scenario: Images has no vocabulary
+
+- **GIVEN** an Images session of `shared-vm-agent/4`
+- **WHEN** admission compares its intake tool list
+- **THEN** the list holds the common tools plus read_lot, read_guide, inspect_region, preview_images and propose_images, and nothing else.
+
 ### Requirement: Sessions start from a sealed brief
 
-A session of `shared-vm-agent/4` SHALL start from a brief sealed into its input: the batch and its instructions, the human-provided facts marked as human, the questions already asked about its subject, the evidence it may fetch with the regions earlier stages used, the lot's match state, and its stage's additions (see the stage contract in the design). The opening SHALL render it within its budget and say when `read_lot` or `read_batch` holds the rest.
+A session of `shared-vm-agent/4` or `synthetic-session/1` SHALL start from a brief sealed into its input: the batch and its instructions, the human-provided facts marked as human, the questions already asked about its subject, the evidence it may fetch with the regions earlier stages used, the lot's match state, and its stage's additions (see the stage contract in the design). The opening SHALL render it within its budget and say when `read_lot` or `read_batch` holds the rest.
 
 #### Scenario: Research starts with Examine's findings
 
@@ -45,7 +58,7 @@ A session of `shared-vm-agent/4` SHALL start from a brief sealed into its input:
 
 ### Requirement: Typed stage outputs
 
-Each agent stage SHALL publish only its own output kind: `examine-identity/1` for Examine, `research-identity/1` and `research/1` for Research, and `images/1` for Images. The server SHALL refuse a proposal of another kind, or one carrying fields the stage or its mode may not propose.
+For `shared-vm-agent/4` and `synthetic-session/1`, each agent stage SHALL publish only its own output kind: `examine-identity/1` for Examine, `research-identity/1` and `research/1` (each with match notes) for Research, and `images/1` for Images. Earlier profiles keep publishing their existing proposal versions. The server SHALL refuse a proposal of another kind, or one carrying fields the stage or its mode may not propose.
 
 #### Scenario: Images can't research
 

@@ -12,6 +12,7 @@
   - BI-019's stepped questions, history and session page.
 - **Change name:** `agent-stage-inputs-outputs`. Branches are `feat/agent-stage-inputs-outputs-<suffix>`, and subjects are `type(agent-stage-inputs-outputs): …`.
 - **Items:** BI-022.
+- **Activation before the profile:** `synthetic-session/1` takes the new contracts from PR-A, so PR-A to PR-F exercise them in process tests before PR-G adds `shared-vm-agent/4`. Earlier profiles keep today's pipeline.
 
 ## Completion and commit ordering
 
@@ -23,13 +24,13 @@
 
 | Task | Type | Prerequisites | Acceptance |
 | --- | --- | --- | --- |
-| 1. Briefs, input `/7`, read tools and stage packs scaffold | Contracts, intake server, migration | BI-019 PR-D (`photo_view`) | agent-sessions "Sessions start from a sealed brief", "Session tool boundary" (read tools) |
-| 2. Typed outputs, boundaries, revisions and no repeated questions | Contracts, intake server | 1; BI-019 PR-B | agent-sessions "Typed stage outputs", "Human facts take precedence" (data), "Questions are not asked twice"; pipeline "Revisions carry the change" |
-| 3. Match: search, verdicts, questions, modes and queueing | Intake server, migration, frontend | 2; BI-019 PR-B | processing-match (all but validation); pipeline "Examine stage and parallel successors", "Successors start on a stable identity"; workspace "Processing › Match", the Inventory removals |
-| 4. Identify mode and identity amendments | Intake server | 3 | pipeline "Identify first when nothing can be searched", "Identity amendments update the lot"; match "When Match searches" |
-| 5. Image and logo tools in the media decoder, and the Images review | Media decoder, intake server, frontend | 2 | capture-media "Media immutable derived crops"; agent-sessions "Image and logo tools run in the app"; workspace "Images step shows proposed crops" |
+| 1. Briefs, input `/7`, read tools and stage packs scaffold | Contracts, intake server, migration | BI-019 PR-D (`photo_view`) | agent-sessions "Sessions start from a sealed brief", "Session tool boundary" and "Stage tool sets" (read tools) |
+| 2. Typed outputs, boundaries, revisions and no repeated questions | Contracts, intake server | 1; BI-019 PR-B and PR-D | agent-sessions "Typed stage outputs", "Human facts take precedence" (data), "Questions are not asked twice"; pipeline "Revisions carry the change"; the design's citation admission over `photo_view` |
+| 3. Match: search, verdicts, questions, modes and queueing | Intake server, migration, frontend | 2; BI-019 PR-B | processing-match "Deterministic search by strong keys", "Verdicts and sufficiency", "The match question", "Decisions set stage modes" ("Add stock"), "When Match searches" (after Examine and Check again), "Match questions are pinned", "Match waits are recorded"; pipeline "Examine stage and parallel successors", "Successors start on a stable identity" ("Parallel start", "Lot regrouped before successors start"); workspace "Processing › Match", the Inventory removals |
+| 4. Identify mode and identity amendments | Intake server | 3 | pipeline "Identify first when nothing can be searched", "Identity amendments update the lot", "Successors start on a stable identity" (identify-mode start); match "When Match searches" ("Alias found during research"), "Decisions set stage modes" (a paused identify session) |
+| 5. Image and logo tools in the media decoder, and the Images review | Media decoder, intake server, frontend | 2 | capture-media "Media immutable derived crops"; agent-sessions "Image and logo tools run in the app", "Stage tool sets" (image tools); workspace "Images step shows proposed crops" |
 | 6. Outputs into records and approval, and validation before approval | Intake server, frontend | 3, 5 | review-records "Agent values are proposed until confirmed"; approval-preparation both requirements; match "Validation before approval" |
-| 7. Profile `shared-vm-agent/4`, instruction packs, guides and live requalification | Intake server, migration, live | 1–6 | agent-sessions "Human facts take precedence" (instructions), "Stage guides on demand"; live evidence |
+| 7. Profile `shared-vm-agent/4`, instruction packs, guides and live requalification | Intake server, migration, live | 1–6 | agent-sessions "Human facts take precedence" (instructions), "Stage guides on demand", "Stage tool sets" (read_guide and admission); live evidence |
 | 8. The brief on the session page | Frontend | 1; BI-019 PR-E | workspace "The brief on the session page" |
 
 ## PR delivery map
@@ -38,8 +39,8 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | PR-0 | This plan, the design doc and BI-022 | Planning | Review before code | None | `interactive-app` ← `docs/agent-stage-inputs-outputs`; `docs(agent-stage-inputs-outputs): plan agent stage inputs and outputs` | `openspec validate --strict`; review; CI |
 | PR-A | Sealed briefs and read tools | 1 | The data path everything else reads | PR-0; BI-019 PR-D | `interactive-app` ← `feat/agent-stage-inputs-outputs-briefs`; `feat(agent-stage-inputs-outputs): give every session a sealed brief` | Contracts, intake unit, PG and process tiers; review; CI |
-| PR-B | Typed outputs, boundaries, revisions and the duplicate check | 2 | The contract every stage publishes to | PR-A; BI-019 PR-B | `interactive-app` ← `feat/agent-stage-inputs-outputs-typed-outputs`; `feat(agent-stage-inputs-outputs): typed stage outputs with enforced boundaries` | Intake tiers; review; CI |
-| PR-C | Match replaces the Inventory agent | 3 | One pipeline change with its UI and question | PR-B | `interactive-app` ← `feat/agent-stage-inputs-outputs-match`; `feat(agent-stage-inputs-outputs): match lots against InvenTree before research` | Intake tiers, frontend checks; demo video; review; CI |
+| PR-B | Typed outputs, boundaries, revisions and the duplicate check | 2 | The contract every stage publishes to | PR-A; BI-019 PR-B and PR-D | `interactive-app` ← `feat/agent-stage-inputs-outputs-typed-outputs`; `feat(agent-stage-inputs-outputs): typed stage outputs with enforced boundaries` | Intake tiers; review; CI |
+| PR-C | Match replaces the Inventory agent | 3 | One pipeline change with its UI and question | PR-B; coordinate with BI-019 PR-F's popover if it has merged | `interactive-app` ← `feat/agent-stage-inputs-outputs-match`; `feat(agent-stage-inputs-outputs): match lots against InvenTree before research` | Intake tiers, frontend checks; demo video; review; CI |
 | PR-D | Identify mode and identity amendments | 4 | Builds on Match's search passes | PR-C | `interactive-app` ← `feat/agent-stage-inputs-outputs-identify`; `feat(agent-stage-inputs-outputs): identify items before matching them` | Intake tiers; review; CI |
 | PR-E | Image and logo tools, recipe `/2` and the Images review | 5 | Decoder ports with their consumers | PR-B | `interactive-app` ← `feat/agent-stage-inputs-outputs-images`; `feat(agent-stage-inputs-outputs): images proposed as recipes and rendered by the app` | Decoder parity tests, intake tiers, frontend checks; demo video; review; CI |
 | PR-F | Outputs into records and approval, and validation before approval | 6 | Everything that reaches InvenTree, reviewed together | PR-C, PR-E | `interactive-app` ← `feat/agent-stage-inputs-outputs-records`; `feat(agent-stage-inputs-outputs): confirmed agent output reaches records and approval` | Intake tiers including execution tests, frontend checks; review; CI |
@@ -52,14 +53,16 @@
 - **Outcome:**
   - every new session's input seals its brief (shared plus stage), rendered in the opening within 48 KiB;
   - `read_lot` and full `read_batch` return the current brief;
-  - the stage instruction table and the input's `stage_instructions_sha256` exist, initially empty for earlier profiles.
+  - the stage instruction table and the input's `stage_instructions_sha256` exist, initially empty for earlier profiles;
+  - read tools page the sealed brief by its revision, or return the current view with its revision;
+  - the manifest stays within the 240 KiB retained-input cap.
 - **Scope:**
   - `contracts/src/processing.ts` (`/7`, the brief);
   - `intake-server/src/processing/session-input.ts` and queueing;
   - `agents/session/session-runner.ts` (opening, claim check);
   - `agents/tools/` (read tools);
   - a migration for `processing_stage_instructions`.
-- **TDD approach:** PG tests for assembly of each section, the human marking, the asked-list scope, regions, budget summaries, and read-tool scope and paging fail first.
+- **TDD approach:** PG tests for assembly of each section, the human marking, the asked-list scope, regions, budget summaries, the retained-input cap, read-tool scope and paging, and an edit between queueing and the first page read fail first.
 - **Verification:** contracts tests, and `pnpm db:intake test` and `test:process` (with the decoder and probe images).
 
 - [ ] 1.1 Read the code guidelines, the intake architecture and the doc's Part 1. Check whether correcting an observation keeps its earlier readings, and record the answer in `notes.md`.
@@ -74,9 +77,10 @@
   - the typed proposals and their stage and mode checks;
   - `revision/2` with typed changes from every sender;
   - Examine woken by operator corrections;
-  - `ask` returning an existing question unless it names new evidence.
+  - `ask` returning an existing question unless it names new evidence;
+  - citations admitted only for a `photo_view` on the current attempt whose reply was released.
 - **Scope:** the contracts, `agents/tools/handlers.ts`, `processing/currentness.ts`, `stable-identity.ts`, `session-answers.ts`, and the capture correction paths.
-- **TDD approach:** PG tests for kind and field refusals, each revision sender's changes, the correction wake, and the duplicate-check cases fail first.
+- **TDD approach:** PG tests for kind and field refusals, each revision sender's changes, the correction wake, the duplicate-check cases, a withheld reply and a view from an older attempt fail first.
 - **Verification:** intake tiers.
 
 - [ ] 2.1 Map every revision sender and every proposal reader.
@@ -89,18 +93,21 @@
 - **PR delivery:** PR-C.
 - **Outcome:**
   - the Match module with key extraction, InvenTree and cross-batch search, verdicts, the sufficiency check and the `processing_match` state;
-  - app-owned match questions on BI-019's stepped form, including the batch form;
+  - app-owned match questions on BI-019's stepped form in their own store, pinned to the match revision and candidates, including the batch form;
+  - searches run after commit and settle only against an unchanged identity revision;
+  - persisted Match waits checked at claim, resume, Start and replacement, with late candidates holding running and queued stages;
   - decisions setting modes and queueing Research and Images, which replaces `onLeadIdentity`'s direct queueing;
   - Inventory no longer queued for the new profile;
   - Processing › Match replacing Inventory.
 - **Scope:**
   - a new `intake-server/src/processing/match/`;
   - `inventory/` read helpers;
-  - `processing_question` gains an owner kind;
+  - the match question store and its Needs you read;
   - a migration;
+  - the activity popover's fourth row, if BI-019 PR-F has merged;
   - `frontend/src/components/processing/` (Match step, Needs you);
   - removal of the Inventory step for new work.
-- **TDD approach:** PG tests against a fake InvenTree read model fail first. They cover every verdict, sufficiency, question options, each decision's modes, waiting stages, the search-failure state and the batch question. Frontend tests cover the Match step rows.
+- **TDD approach:** PG tests against a fake InvenTree read model fail first. They cover every verdict, sufficiency, question options, each decision's modes, waiting stages, the search-failure state, the batch question, Needs you before any lot job exists, a stale question's refused answer, a search settling after the identity changed, a late candidate while Images runs, and an unrelated inbox item arriving while Research waits. Frontend tests cover the Match step rows.
 - **Verification:** intake tiers, frontend checks, and a demo video.
 - **Risks and decisions:** the search strategy and normalisation are open questions. Record the chosen rules in `notes.md`.
 
@@ -133,9 +140,10 @@
   - recipe `/2`: straightening of at most 15° and hue-keeping light adjustments;
   - `inspect_region`, `preview_images` and `match_logo` ported to TypeScript in the decoder, with the logo set bundled;
   - `propose_images` publishing `images/1`;
+  - the VM relay carrying the new tools' image replies within one aggregate per-run budget;
   - Processing › Images showing proposed crops to confirm, redo or crop in Capture.
-- **Scope:** `media-decoder/src/`, `contracts/src/media.ts`, `intake-server/src/media/` and `agents/tools/`, and `frontend/src/components/processing/ProcessingImages.tsx`.
-- **TDD approach:** parity tests against the skills' scripts' outputs on fixtures fail first, including resistor-band hue and the corner guard, matcher top-1 on degraded logos, and grid labels in source pixels. Then the tool scope tests and the frontend review tests.
+- **Scope:** `media-decoder/src/`, `contracts/src/media.ts`, `intake-server/src/media/`, `agents/tools/` and the relay in `agents/shared-vm/` (`evidence-request.ts`, `native-turn.ts`), and `frontend/src/components/processing/ProcessingImages.tsx`.
+- **TDD approach:** parity tests against the skills' scripts' outputs on fixtures fail first, measured on the rendered crop pixels before labels, downscaling or encoding. They include resistor-band hue and the corner guard, matcher top-1 on degraded logos, and grid labels in source pixels. Then the tool scope tests, montage and logo-sheet replies over the real relay, and the frontend review tests.
 - **Verification:** decoder tests, intake tiers, frontend checks, and a demo video.
 - **Risks and decisions:** the light-adjustment bounds are open; record the chosen bounds in `notes.md`.
 
@@ -152,9 +160,10 @@
   - Match decisions as lot targets;
   - confirmed images as the Part image and stock attachments;
   - gaps-mode update effects;
-  - Match pass 3 as a preparation gate.
-- **Scope:** `contracts/src/records-projection.ts`, `intake-server/src/records/` and `review/`, `execution/effects/`, and the Review frontend.
-- **TDD approach:** projection, preparation and effects tests fail first. They cover proposed and confirmed values, never overwriting operator values, the existing-Part target, the image effects, gaps-only effects, and the pass-3 block.
+  - the Part image and gaps fill as new effect kinds in a new plan version, gated by the target's capability;
+  - Match pass 3 as a preparation gate, recorded on the preparation and checked at approval.
+- **Scope:** `contracts/src/records-projection.ts`, `intake-server/src/records/` and `review/`, `execution/effects/`, `inventory/transport.ts`, and the Review frontend.
+- **TDD approach:** projection, preparation and effects tests fail first. They cover proposed and confirmed values, never overwriting operator values, the existing-Part target, the image effects on a created and an existing Part, gaps-only effects, a gaps fill refused when the field was filled meanwhile, retained earlier-version plans, uncertain effects against the owned fake, the pass-3 block, and approval refusing a preparation older than the latest match revision.
 - **Verification:** intake tiers including the execution tests, and frontend checks.
 
 - [ ] 6.1 RED: write the tests listed above.
@@ -173,10 +182,12 @@
 - **Scope:**
   - migrations;
   - `processing/session-policy.ts`, `config.ts` and `agents/session/session-admission.ts`;
+  - pairing and driver selection in `agents/session/session-worker-main.ts`, and `agents/shared-vm/coordinator.ts`, `guest-turn.ts` and `tool-worker.ts`;
+  - the worker image and deployment;
   - the guides;
   - `tooling/dev/` and the README;
   - the live harness.
-- **TDD approach:** admission and profile tests fail first. The live run is manual evidence.
+- **TDD approach:** admission and profile tests fail first, with a paired `/4` turn and retained `/3` attempts draining on a `/3` worker. The live run is manual evidence.
 - **Verification:** intake tiers, plus live runs on `bench-agent-m1-local` recorded on the PR. They cover an exact match decided before research, a house-numbered item identified then matched, and Images producing a Part image.
 - **Risks and decisions:** Mitch reviews the instruction wording before the live run.
 
@@ -203,4 +214,4 @@
 - [ ] PR-A to PR-H: each implemented, reviewed at its exact head, published (with a demo where the UI changes), CI green and merged, in the order above.
 - [ ] Update BI-022 as PRs merge. It is Done only after PR-H merges and the live evidence is accepted.
 - [ ] Mark design log D43–D46 Built.
-- [ ] Before archiving, run `pnpm openspec:overlap --change agent-stage-inputs-outputs`, sync the specs after BI-019's (both edit `processing-workspace` and `processing-agent-sessions`), and record open items in `notes.md`.
+- [ ] Before archiving, reconcile the deltas with the specs after BI-019's sync: BI-019 modifies `Inventory session drawer`, which this change removes, and `Step page pattern`, whose session drawer the sessionless Match step doesn't have; and it changes the pipeline's quantity-question scenario. Then run `pnpm openspec:overlap --change agent-stage-inputs-outputs`, sync after BI-019 (both edit `processing-workspace`, `processing-agent-sessions` and `processing-stage-pipeline`), and record open items in `notes.md`.

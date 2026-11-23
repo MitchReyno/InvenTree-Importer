@@ -2,7 +2,9 @@
 
 ### Requirement: Examine stage and parallel successors
 
-For `shared-vm-agent/4` work, the stage order SHALL be a batch-level Examine lead session (see processing-lot-forming), then the app's Match step for each lot (see processing-match), then per-lot Research and Images in the modes Match sets. No Inventory agent session SHALL be queued. For each lot, Examine SHALL propose the markings verbatim with citations to its observations, an identity with ranked candidates, and an optional quantity estimate with its basis, as one `examine-identity/1` proposal.
+For `native-agent/2` work under the earlier session profiles, the stage order SHALL be a batch-level Examine lead session (see processing-lot-forming), then per-lot Research and Images in parallel, then per-lot Inventory. For each lot, Examine SHALL propose the markings with citations to its observations, an identity with ranked candidates, and an optional quantity estimate with its basis. Inventory SHALL wait for the lot's current Research and Images proposals.
+
+For `shared-vm-agent/4` and `synthetic-session/1` work, the stage order SHALL be the Examine lead session, then the app's Match step for each lot (see processing-match), then per-lot Research and Images in the modes Match sets. No Inventory agent session SHALL be queued. Examine SHALL publish the same findings, with the markings verbatim, as one `examine-identity/1` proposal per lot.
 
 #### Scenario: Legacy batch display
 
@@ -12,19 +14,21 @@ For `shared-vm-agent/4` work, the stage order SHALL be a batch-level Examine lea
 
 #### Scenario: No Inventory session
 
-- **GIVEN** a lot whose Research and Images outputs are current under `shared-vm-agent/4`
+- **GIVEN** a lot whose Research and Images outputs are current under `shared-vm-agent/4` or `synthetic-session/1`
 - **WHEN** processing continues
 - **THEN** no Inventory session is queued, and the lot's target comes from its Match decision.
 
 ### Requirement: Successors start on a stable identity
 
-Research and Images for a lot SHALL start only when Match allows them: the lot's identity is stable (Examine has published a current identity for it and its observations have not changed since) and Match has either found no match or recorded the operator's decision. A lot without a strong search key SHALL start Research in identify mode while Images waits. They SHALL NOT wait for each other, for other lots, or for Examine to finish.
+Research and Images for a lot SHALL each start as soon as that lot's identity is stable: Examine has published a current identity proposal for it, and the lot's observations have not changed since. They SHALL NOT wait for each other, for other lots, or for Examine to finish.
+
+For `shared-vm-agent/4` and `synthetic-session/1`, they SHALL also start only when Match allows them: Match has either found no match or recorded the operator's decision. A lot without a strong search key SHALL start Research in identify mode while Images waits.
 
 #### Scenario: Parallel start
 
 - **GIVEN** an Examine lead session that has published an identity for one lot and is still grouping other observations
 - **WHEN** concurrency slots are free
-- **THEN** once Match finds no match for that lot, Research and Images sessions for it start, and both appear as running at the same time as the lead session when slots allow.
+- **THEN** Research and Images sessions for that lot start (under the new profiles, once Match finds no match for it), and both appear as running at the same time as the lead session when slots allow.
 
 #### Scenario: Lot regrouped before successors start
 
@@ -36,7 +40,7 @@ Research and Images for a lot SHALL start only when Match allows them: the lot's
 
 ### Requirement: Identify first when nothing can be searched
 
-A lot whose identity has no strong search key SHALL start Research in identify mode. Research SHALL resolve the canonical MPN, the manufacturer and every alias it can source (house numbers, packaging codes, cross-references, alternate markings), publish them as a `research-identity/1` amendment, and pause until Match has searched with them.
+Under `shared-vm-agent/4` and `synthetic-session/1`, a lot whose identity has no strong search key SHALL start Research in identify mode. Research SHALL resolve the canonical MPN, the manufacturer and every alias it can source (house numbers, packaging codes, cross-references, alternate markings), publish them as a `research-identity/1` amendment, and pause until Match has searched with them.
 
 #### Scenario: House-numbered reel
 
@@ -46,7 +50,7 @@ A lot whose identity has no strong search key SHALL start Research in identify m
 
 ### Requirement: Identity amendments update the lot
 
-A lot SHALL have one current identity: Examine's base merged with Research's amendments, each field recording the stage, proposal and source it came from. An amendment MAY add identifiers and aliases and refine fields, which then update an agent-made, unedited lot's proposed label and draft Part. It SHALL NOT silently replace Examine's identity with a different part, and SHALL NOT change an operator's value. Successors SHALL pin the merged identity's revision.
+Under `shared-vm-agent/4` and `synthetic-session/1`, a lot SHALL have one current identity: Examine's base merged with Research's amendments, each field recording its stage, proposal and source. An amendment MAY add identifiers and aliases and refine fields, which update an agent-made, unedited lot's proposed label and draft Part. It SHALL NOT silently replace Examine's identity with a different part, and SHALL NOT change an operator's value. Successors SHALL pin the merged identity's revision.
 
 #### Scenario: Refined identifiers
 
@@ -62,7 +66,7 @@ A lot SHALL have one current identity: Examine's base merged with Research's ame
 
 ### Requirement: Revisions carry the change
 
-A revision delivered to a session SHALL name each change with its previous and new value (a field, a reading, a proposal, or a match decision), who made it (the operator, a session or Match), and the new brief revision.
+A revision delivered to a session of `shared-vm-agent/4` or `synthetic-session/1` SHALL name each change with its previous and new value (a field, a reading, a proposal, or a match decision), who made it (the operator, a session or Match), and the new brief revision.
 
 #### Scenario: Reading corrected by the operator
 

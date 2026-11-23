@@ -50,6 +50,32 @@ A lot with candidates SHALL get one app-owned question, listed in Needs you, quo
 - **WHEN** the match question is open
 - **THEN** Research and Images for that lot stay unstarted, and other lots continue.
 
+### Requirement: Match questions are pinned
+
+A match question SHALL be pinned to the lot's match revision and the candidates it quotes. An answer to a question that a later search replaced SHALL be refused, and the replacing question shown.
+
+#### Scenario: Candidates changed before the answer
+
+- **GIVEN** an open match question quoting RES-0144
+- **WHEN** a new search adds RES-0201 and replaces the question, and the operator then answers the old one
+- **THEN** the answer is refused and Needs you shows the new question.
+
+### Requirement: Match waits are recorded
+
+The stages a lot's match state holds SHALL be recorded with it and checked whenever a stage is claimed, resumed, started or replaced. An inbox item other than the `match` item that delivers a mode SHALL NOT resume a waiting stage. A search SHALL run outside the transaction that requested it and settle only if the lot's identity revision is unchanged.
+
+#### Scenario: Unrelated message while waiting
+
+- **GIVEN** a Research session paused in identify mode while its match question is open
+- **WHEN** the operator sends it a chat message
+- **THEN** the message stays pending, the session stays parked, and it resumes when the decision's mode arrives.
+
+#### Scenario: Identity changed during a search
+
+- **GIVEN** a search running on a lot's identity revision 3
+- **WHEN** Examine republishes the identity as revision 4 before the search settles
+- **THEN** the revision 3 result is discarded and Match searches again on revision 4.
+
 ### Requirement: Decisions set stage modes
 
 The operator's decision SHALL set the lot's target and its stages' modes: new Part (Research full, Images full); fill what's missing (Research for the missing fields only; Images stock, with a Part image only if the Part has none); add stock (Research skipped; Images as for fill); already imported (the lot left out). A paused identify-mode Research session SHALL receive its mode, or be closed when Research is skipped.
@@ -62,7 +88,7 @@ The operator's decision SHALL set the lot's target and its stages' modes: new Pa
 
 ### Requirement: Validation before approval
 
-Before approval preparation, Match SHALL search again with each lot's final identifiers and import references. A Part created since the decision, stock that now exists with the same barcode and batch, or a final identity that no longer fits the decision SHALL be a blocking item until the operator decides again.
+Before approval preparation, Match SHALL search again with each lot's final identifiers and import references. A Part created since the decision, stock that now exists with the same barcode and batch, or a final identity that no longer fits the decision SHALL be a blocking item until the operator decides again. A preparation SHALL record the validation it was built from, and approval SHALL refuse a preparation whose validation is older than the lot's latest match revision.
 
 #### Scenario: Part created meanwhile
 

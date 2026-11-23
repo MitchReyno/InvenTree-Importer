@@ -16,7 +16,7 @@
 
 ### Requirement: Processing › Match
 
-Processing SHALL have a Match step listing each lot with what it matched by, its result (exact, possible, already imported, identifying, decided, new) and what runs in which mode, with an Answer for open match questions and Check InvenTree again.
+Processing SHALL have a Match step listing each lot with what it matched by, its result (exact, possible, already imported, identifying, decided, new) and what runs in which mode, with an Answer for open match questions and Check InvenTree again. Match has no sessions, so its step page SHALL show the match question and candidates where other steps show a session drawer.
 
 #### Scenario: A batch mid-way
 

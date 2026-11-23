@@ -49,8 +49,8 @@ The visible parts are on the canvas page "Agent stages" (v81; design log D44–D
 
 - **One prompt for every stage.** Research, Images and Inventory get identical instructions, and nothing restricts what a stage may propose.
 - **Sealed context never shown.** The opening leaves out the pinned identity, observation readings and the catalogue vocabulary, so successors redo Examine's work and can't reference existing records.
-- **No outputs from Images or Inventory.** Images has no output path. Inventory is never auto-queued and reads nothing.
-- **Nothing reaches InvenTree.** No proposal value reaches a Part spec or an approval effect.
+- **No useful output from Images or Inventory.** Images has no image output; its proposal mostly satisfies Inventory's gate. Inventory is never auto-queued and reads no other stage's output.
+- **Nothing reaches InvenTree.** Proposals annotate and project records, but no proposal value is applied to a Part spec or an approval effect.
 - **Weak re-steering.** Revisions are one-line summaries, corrections don't reach Examine, and nothing prevents repeated questions.
 
 ## Scope and non-goals
@@ -130,7 +130,8 @@ No new third-party runtime dependency is needed: the decoder already ships `shar
   - `agents/session/` (opening, profile);
   - `capture/` (lot key-detail updates);
   - `records/` and `review/` (proposed values, effects);
-  - migrations (the profile, match tables, question owner, outbox and inbox kinds).
+  - migrations (the profile, stage instructions, match tables, the match question store, outbox and inbox kinds);
+  - `agents/shared-vm/` and the session worker (pairing, guest and tool-worker checks for the new profile).
 - **Media decoder:** TypeScript ports on `sharp` and `@napi-rs/canvas`: recipe rendering with straightening and light adjustments, the grid overlay, the montage, and the logo matcher with its data.
 - **Frontend:**
   - Processing › Match;
@@ -141,6 +142,7 @@ No new third-party runtime dependency is needed: the decoder already ships `shar
 - **Prerequisites:**
   - BI-019 PR-B (stepped questions, needed by the match question), PR-D (history read, `photo_view`, web sources) and PR-E (session page);
   - coordinate instruction edits with BI-017;
+  - BI-019 PR-F's activity popover, whose fourth stage row task 3 adapts to Match if PR-F has merged first;
   - Mitch's go-ahead for the live requalification.
 
 ## Open decisions and assumptions
@@ -157,4 +159,4 @@ Assumed:
 
 - **Strong keys:** an MPN or type with a manufacturer, an NSN, a label IPN or SKU, or the import reference or barcode with the batch.
 - **The brief budget** is 48 KiB.
-- **Per-stage instruction text:** one profile row with stage-keyed instruction bytes, versus one profile id per stage, is settled in the design (task 1).
+- **Per-stage instruction text:** decided in the design: base text in the profile row and per-stage packs in an immutable `processing_stage_instructions` table, digest-sealed in the input.

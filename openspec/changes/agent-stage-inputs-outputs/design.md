@@ -29,14 +29,15 @@ The complexity is high. The change touches every session's input and output, add
 - Each stage's pack is in a new immutable table `processing_stage_instructions(profile_id, stage, bytes, digest)`.
 - The session input seals `stage_instructions_sha256`, and the claim checks it as it checks the profile digest today.
 - The system prompt is the base followed by the stage pack.
-- **Rejected:** one profile id per stage (`shared-vm-agent/4-examine` …). The worker is paired to one profile (`session-runner.ts:499-507`), and the config allow-list is one profile per worker, so per-stage profiles would need four paired workers or a pairing redesign.
+- **Rejected:** one profile id per stage (`shared-vm-agent/4-examine` …). The worker is paired to one profile (`session-runner.ts:499-507`), and the config allow-list is one profile per worker, so per-stage profiles would need a paired worker per stage or a pairing redesign.
 - **Rejected:** keeping per-stage text in the unsealed opening. It isn't digest-bound, and these rules are authority.
 
 ### Briefs are built at queue time and sealed
 
 - `queueJob` and the lead input builder assemble the brief from retained state into `bench-intake-input/7`.
-- `read_lot` and `read_batch` rebuild the same view at call time with its current revision.
+- `read_lot` and `read_batch` serve two views: with the sealed revision, the pages of the brief the session started from; without it, the current view and its revision. Tests cover an edit between queueing and the first page read.
 - The opening renders the sealed brief within 48 KiB, and summarises past it.
+- The sealed manifest stays within the existing 240 KiB retained-input cap (`processing/limits.ts:2`), keeping references and counts for what doesn't fit; a batch whose references alone exceed it is refused with `processing_input_capacity`, as today.
 - **Rejected:** building the brief at turn time. That breaks the sealed-input guarantee.
 
 ### Typed outputs replace the generic proposal for new work
@@ -54,8 +55,10 @@ The complexity is high. The change touches every session's input and output, add
   - search over the InvenTree read credential (`intake-server/src/inventory/`) and this app's unapproved lots;
   - verdicts, sufficiency, decisions and pass-3 validation.
 - **State:** per-lot match state in a `processing_match` table (keys, candidates with reasons, verdict, decision, modes, revision).
-- **Questions:** `processing_question` gains an owner kind (`session` or `app`) and a nullable attempt. Match questions use BI-019's stepped question contract, and answers go through a Match answer route that records the decision and queues stages.
-- **Queueing:** Match queues Research and Images with their modes, replacing `onLeadIdentity`'s direct queueing. A paused identify-mode session gets a `match` inbox item.
+- **Questions:** a separate store, `processing_match_question` and its answer. `processing_question` can't hold them: it requires a job, attempt, input and message, its answer requires a continuation attempt (`migrations/0006_processing.sql:81-100`), and `processing/read.ts:248-262` reads through inner joins to all of them, while the match question exists before any lot job. Match questions use BI-019's stepped question contract and are pinned to the match revision and the candidate set they quote. Answers go through a Match answer route that records the decision and queues stages; an answer to a stale question is refused. Needs you reads both stores. Tests cover Needs you before any lot job exists and after a search makes a question stale.
+- **Ordering:** search is a remote read, so it never runs in the transaction that triggers it (today `onLeadIdentity` runs inside the proposal transaction, `handlers.ts:1051`). The trigger commits a search request naming the identity revision; the search runs after commit; its result settles only if the revision is unchanged, and the verdict, question or decision, and queueing commit together against that revision. Otherwise the result is discarded and the search reruns. Batch answers and pass 3 follow the same rule.
+- **Queueing:** Match queues Research and Images with their modes, replacing `onLeadIdentity`'s direct queueing for the new profiles.
+- **Waits:** `processing_match` persists which of the lot's stages wait for Match, because `waiting_input` holds only while the job has its own open question and any inbox item resumes it (`session-runner.ts:770-790`, `session-execution.ts:112-145`). Claim, resume, Start and replacement check the wait. A paused identify-mode session, or one held by a late candidate, stays parked with unrelated inbox items pending, until a `match` inbox item delivers its mode. A running session told of a late candidate stops at the end of its turn. Proposals published under a mode the decision changes are marked stale. Tests cover a late candidate while Images runs and an unrelated inbox item arriving while Research waits.
 - **Rejected:**
   - an Inventory agent with a search tool (unrecorded search, a session per lot);
   - asking through an agent (it costs a session to relay an app decision).
@@ -77,9 +80,17 @@ The complexity is high. The change touches every session's input and output, add
 - **Parity tests:** each port is tested against outputs from the original scripts on fixtures.
 - **The logo set** (6.9 MB, private use approved) is bundled with the decoder image.
 - **The intake MCP tools** call the decoder through the existing dispatcher, so the decoder role stays restricted.
+- **Delivery:** on the VM relay only `fetch_evidence` gets the larger image envelope and has its replies staged (`agents/shared-vm/evidence-request.ts`, `native-turn.ts`). The relay is extended to the new image tools with one aggregate per-run image budget, and montage and logo-sheet replies are tested over the real relay.
+- **Parity** is measured on the rendered crop pixels, before labels, downscaling or delivery encoding.
 - **Rejected:**
   - Python in the decoder (a second runtime);
   - scripts in the VM as the output route (no provenance).
+
+### Worker, guest and pairing for `shared-vm-agent/4`
+
+- The VM profile ids are hard-coded beyond policy and admission: worker pairing and driver selection (`agents/session/session-worker-main.ts:42,128-129`), the coordinator's tool-worker choice (`agents/shared-vm/coordinator.ts:120-128,244-245`), and the guest and tool-worker manifest checks (`agents/shared-vm/guest-turn.ts:100-109`, `tool-worker.ts:32`).
+- Task 7 extends each of them to `/4`, with the worker image and deployment changes, a paired `/4` turn test, and a test that retained `/3` attempts drain on a `/3` worker.
+- Until then, PR-A to PR-F exercise the new behaviour through `synthetic-session/1`, which takes the new contracts from PR-A; its process tests are the activation path.
 
 ### Re-steering and delivery
 
@@ -87,17 +98,18 @@ The complexity is high. The change touches every session's input and output, add
 - Every revision sender fills them: `currentness.ts`, `stable-identity.ts`, the correction and answer paths, and Match.
 - Operator observation corrections now send Examine a revision and wake it.
 - `ask`'s duplicate check matches subject and overlapping fields across open and answered questions, unless `new_evidence` names evidence not cited before.
-- Delivered evidence is tracked durably through BI-019's `photo_view` outbox items.
+- Delivered evidence is tracked durably through BI-019's `photo_view` outbox items. A view records a fetch prepared for response, which may have been withheld, so a citation is admitted only for a view on the session's current attempt whose reply was released. Tests cover a withheld reply and a view from an older attempt.
 
 ### Outputs into records and approval
 
 - Confirmed proposed values become the capture spec through the existing human edit path. Confirming is the operator's act.
 - Match decisions set the lot's target, and approval effects gain:
   - an existing-Part target;
-  - the Part image (`create_part`);
+  - the Part image, on a created or an existing Part;
   - stock attachments;
   - update effects restricted to gaps-mode fields.
-- Validation before approval runs as a preparation gate.
+- These need new execution authority: `create_part` is a JSON create with no image (`execution/effects/effects-body.ts:68-76`), and `inventory/transport.ts` has no Part update. The Part image and the gaps fill are new effect kinds in a new plan version, each gated by the target's declared capability. A gaps fill carries the value it expects to be missing, and the executor refuses it as a conflict when the field is no longer empty. Retained plans of the earlier version still execute, and uncertain effects follow the existing no-blind-replay rules; PR-F tests them against the owned fake.
+- Validation before approval runs as a preparation gate. A preparation records the pass-3 result it was built from, and approval refuses one older than the lot's latest match revision. Approval's own idempotency is per command and binding (`review/approve-preparation.ts:64-75`), not a uniqueness guarantee in InvenTree.
 
 ## State, authority and failure behavior
 
@@ -108,7 +120,7 @@ The complexity is high. The change touches every session's input and output, add
 | Amendment conflicts with Examine or a human value | Not merged; a question settles it |
 | A paused identify session whose decision skips research | The session is closed as finished; its identity amendment stays |
 | Tool results too large | Previews and montages are sized to the frame and image limits from BI-018 |
-| Earlier profiles | No briefs, no Match; they run as before and stay readable |
+| Earlier profiles (`native-agent/2`, `shared-vm-agent/1` and `/3`) | No briefs, no Match; they keep the Inventory pipeline, run as before and stay readable |
 
 ## Verification strategy
 
@@ -128,8 +140,8 @@ The complexity is high. The change touches every session's input and output, add
 
 ## Migration, rollout and recovery
 
-- Migrations add the profile, the stage instructions, `processing_match`, the question owner kind, and the new outbox and inbox kinds.
-- Rollout is forward-only: an older build can't read `/7` inputs or typed proposals. Before rolling back, let new attempts settle or cancel them. This is recorded in each PR body.
+- Migrations add the profile, the stage instructions, `processing_match`, the match question store, and the new outbox and inbox kinds.
+- Rollout is forward-only. Settling or cancelling attempts leaves `/7` inputs and typed proposals retained, which older readers such as `session-input.ts` reject. The last safe rollback point is before the first such write; after it, recovery is a fix forward, as BI-019 adopted. The new build reads every earlier format. Each PR body says so.
 - The default profile change from `synthetic-research/2` to `synthetic-session/1` affects dev setups without `INTAKE_PROCESSING_PROFILE`. It is called out in the README.
 
 ## Risks and open decisions
