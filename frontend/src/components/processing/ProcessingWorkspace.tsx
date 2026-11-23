@@ -1,13 +1,14 @@
 import { IntakeRequestError } from '@invimport/contracts/client'
 import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { size, space } from '#/theme/generated/tokens'
+import { color, radius, ring, size, space } from '#/theme/generated/tokens'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey } from '#/queries/scope'
 import { useFreshRead } from '#/queries/useFreshRead'
 import { useRestoredSnapshot, useSnapshotWriter } from '#/queries/useSnapshot'
 import {
   questionView,
+  type BatchAttentionDto,
   type CaptureSnapshotDto,
   type ProcessingAnswerDto,
   type ProcessingQuestionDto,
@@ -18,7 +19,6 @@ import { confirmedAnswerRefusal } from '#/processing/question-summary'
 import type { ProcessingClient, ProcessingView } from '#/processing/types'
 import {
   AiMark,
-  Heading,
   Link,
   Panel,
   Small,
@@ -45,6 +45,7 @@ import { InstructionField } from './InstructionField'
 import { STEP_LABEL } from './ProcessingParts'
 import { batchHref, processingStepFor } from '#/navigation/batch-route'
 import { lotsFormed } from '#/processing/lots-formed'
+import { lotSteps, stepSummary, type LotStage } from '#/processing/lot-steps'
 import { retainedJobsSource } from '#/processing/source'
 import { useDirtySources } from '#/operator/useDirtySources'
 import { openQuestionsByLot } from '#/operator/review-model'
@@ -61,8 +62,6 @@ const STEP_HELP: Partial<Record<ProcessingView, string>> = {
     'Each account researches one lot at a time. A lot waiting for your answer steps aside, so another lot can research meanwhile.',
 }
 
-const clock = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' })
-
 /** The batch's newest agent status lines, oldest first; the newest is current while it runs. */
 function recentActivity(
   snapshot: ProcessingSnapshotDto | undefined,
@@ -73,24 +72,26 @@ function recentActivity(
     .sort((a, b) => a.latest_status!.at.localeCompare(b.latest_status!.at))
     .slice(-ACTIVITY_LIMIT)
 
-  return lines.map((job, index) => {
-    const at = new Date(job.latest_status!.at)
-    return {
-      text: `${STEP_LABEL[processingStepFor(job.stage)] ?? 'Processing'} · ${subjectLabel(job.subject_id)}: ${job.latest_status!.text}`,
-      time: Number.isNaN(at.getTime()) ? job.latest_status!.at : clock.format(at),
-      current: index === lines.length - 1 && job.session_state === 'running',
-    }
-  })
+  return lines.map((job, index) => ({
+    text: `${STEP_LABEL[processingStepFor(job.stage)] ?? 'Processing'} · ${subjectLabel(job.subject_id)}: ${job.latest_status!.text}`,
+    at: job.latest_status!.at,
+    current: index === lines.length - 1 && job.session_state === 'running',
+  }))
 }
 
-/** When this batch's first agent session started, as a clock time. */
+/** When this batch's first agent session started. */
 function firstStart(sessions: AgentSessionListDto['sessions'] | undefined, batchId: string) {
   const starts = (sessions ?? [])
     .filter((session) => session.batch_id === batchId && session.started_at)
     .map((session) => session.started_at!)
     .sort()
-  const at = starts[0] ? new Date(starts[0]) : undefined
-  return at && !Number.isNaN(at.getTime()) ? clock.format(at) : undefined
+
+  return starts[0]
+}
+
+/** The per-lot steps a lot table pill can focus; Examine runs once for the batch. */
+function lotStage(view: ProcessingView): LotStage | null {
+  return view === 'research' || view === 'images' || view === 'inventory' ? view : null
 }
 
 /** Whether a job belongs on a Processing step; Examine covers the Reading and Identifying stages. */
@@ -110,6 +111,10 @@ interface Props {
   client: ProcessingClient
   view: ProcessingView
   questionId?: string
+  /** A lot whose output this step opens in view and highlighted, from the address. */
+  focusLotId?: string | null
+  /** The batch attention read the header counts from, for the Overview's Needs you. */
+  attention?: BatchAttentionDto
   navigate: (view: ProcessingView, questionId?: string) => void
   onDirtyChange: (dirty: boolean) => void
   onSaved: () => Promise<void>
@@ -141,6 +146,8 @@ export function ProcessingWorkspace({
   client,
   view,
   questionId,
+  focusLotId = null,
+  attention,
   navigate,
   onDirtyChange,
   onSaved,
@@ -471,12 +478,31 @@ export function ProcessingWorkspace({
   const subjectLabel = (id: string | null) =>
     id === null ? 'Whole batch' : (subjects.get(id) ?? 'Unknown subject')
 
-  const activeLotIds = new Set(
-    batch.lots.filter((lot) => !retiredLotIds.has(lot.id)).map((lot) => lot.id),
-  )
+  const liveLots = batch.lots.filter((lot) => !retiredLotIds.has(lot.id))
+  const activeLotIds = new Set(liveLots.map((lot) => lot.id))
   const source = snapshot
     ? retainedJobsSource(snapshot, subjects, activeLotIds, retiredLotIds)
     : null
+  const lotRows = snapshot
+    ? lotSteps(snapshot.jobs, liveLots, { paused: snapshot.paused === true })
+    : []
+  const stage = lotStage(view)
+  const focusRow = stage && lotRows.find((row) => row.lotId === focusLotId)
+  const focusStep = focusRow ? focusRow.steps[stage!] : undefined
+  const focusKey = focusRow ? `${view}:${focusRow.lotId}` : null
+  const loaded = snapshot !== undefined
+  const scrolledTo = useRef<string | null>(null)
+  // Brings the focused lot's output into view once per address, after it has rendered.
+  useEffect(() => {
+    if (!focusKey || scrolledTo.current === focusKey) {
+      return
+    }
+    const target = document.querySelector<HTMLElement>('[data-focused-lot]')
+    if (target) {
+      scrolledTo.current = focusKey
+      target.scrollIntoView?.({ block: 'center' })
+    }
+  }, [focusKey, loaded])
   const liveSessionJob = snapshot?.jobs.find((job) => job.id === sessionJobId && job.session_state)
 
   /** An answer form other than this source has an unsaved draft. */
@@ -616,7 +642,18 @@ export function ProcessingWorkspace({
   const jobCards = (
     <>
       {jobs.map((job) => (
-        <div key={job.id}>
+        <FocusTarget
+          key={job.id}
+          data-focused-lot={
+            (focusStep?.state === 'done' && focusStep.job?.id === job.id) || undefined
+          }
+          data-highlighted={focusStep?.job?.id === job.id || undefined}
+        >
+          {focusStep?.job?.id === job.id && focusStep.partId && (
+            <Small>
+              {focusRow!.label} uses this output through {subjectLabel(focusStep.partId)}.
+            </Small>
+          )}
           <ProcessingJobCard
             key={job.id}
             job={job}
@@ -651,7 +688,7 @@ export function ProcessingWorkspace({
                 Open this lot in Review
               </Button>
             )}
-        </div>
+        </FocusTarget>
       ))}
     </>
   )
@@ -693,16 +730,7 @@ export function ProcessingWorkspace({
       >
         {snapshot && source && (
           <>
-            {view !== 'overview' && (
-              <Panel>
-                <Heading>
-                  {snapshot.jobs.filter((job) => job.state === 'running').length} running ·{' '}
-                  {snapshot.jobs.filter((job) => job.state === 'waiting_for_user').length} need
-                  answers · {snapshot.jobs.filter((job) => job.state === 'ready').length} ready
-                </Heading>
-                {queue}
-              </Panel>
-            )}
+            {view !== 'overview' && <Panel>{queue}</Panel>}
             {questionId && pinned?.question.id === questionId ? (
               <>
                 <QuestionAnswer
@@ -783,7 +811,9 @@ export function ProcessingWorkspace({
                 }
                 activity={activity}
                 queue={queue}
-                started={started}
+                attention={attention}
+                lots={lotRows}
+                startedAt={started}
                 lotsFormed={lotsFormed(batch.lots)}
                 sessionLimit={sessionLimit}
                 pause={pause}
@@ -793,6 +823,16 @@ export function ProcessingWorkspace({
                 batchId={batch.id}
                 step={view}
                 source={source}
+                summary={stepSummary(
+                  view,
+                  lotRows,
+                  snapshot.jobs.filter((job) => onStep(job.stage, 'examine')),
+                )}
+                focus={
+                  focusRow && focusStep
+                    ? { label: focusRow.label, state: focusStep.state }
+                    : undefined
+                }
                 onOpenSession={setSessionJobId}
                 help={STEP_HELP[view]}
               >
@@ -916,6 +956,16 @@ function clearSessionLink(jobId?: string) {
 const NO_RETIRED_LOTS: ReadonlySet<string> = new Set()
 
 const Workspace = styled(PageStack).attrs({ as: 'section' })``
+
+/** A job card the address focuses: its lot's output, highlighted. */
+const FocusTarget = styled.div`
+  display: grid;
+  gap: ${space[3]};
+  border-radius: ${radius.card};
+  &[data-highlighted] {
+    box-shadow: 0 0 0 ${ring.width} ${color.accent};
+  }
+`
 
 const QueueActions = styled.div`
   display: flex;

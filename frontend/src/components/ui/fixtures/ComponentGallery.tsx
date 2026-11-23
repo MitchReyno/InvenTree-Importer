@@ -42,6 +42,8 @@ import { SettingsNav } from '#/components/ui/SettingsNav'
 import { SharedTagsInput, type SharedTags } from '#/forms/SharedTagsInput'
 import { SourceChip } from '#/components/ui/SourceChip'
 import { StatusTimeline } from '#/components/ui/StatusTimeline'
+import { StatePill, WORK_STATE, type WorkState } from '#/components/ui/StatePill'
+import { EventTime } from '#/components/ui/EventTime'
 import { StickyFooter } from '#/components/ui/StickyFooter'
 import { Switch } from '#/components/ui/Switch'
 import { SubTabs, Tabs } from '#/components/ui/Tabs'
@@ -181,6 +183,17 @@ export function ComponentGallery() {
                 {word}
               </Pill>
             ))}
+          </Row>
+          <Row aria-label="Work states">
+            {(Object.keys(WORK_STATE) as WorkState[]).map((state) => (
+              <StatePill key={state} state={state} />
+            ))}
+          </Row>
+          <Row aria-label="Event times">
+            {/* Fixed instants, so the gallery draws the same on every run. */}
+            <EventTime at="2026-11-20T21:09:15Z" now={Date.parse('2026-11-23T09:00:00Z')} />
+            <EventTime at="2026-11-22T23:56:00Z" now={Date.parse('2026-11-23T09:00:00Z')} />
+            <EventTime at="2025-11-20T21:09:00Z" now={Date.parse('2026-11-23T09:00:00Z')} />
           </Row>
           <Row>
             <SourceChip
@@ -576,8 +589,8 @@ export function ComponentGallery() {
             <StatusTimeline
               label="Research session"
               entries={[
-                { text: 'Read the datasheet for RC0603', time: '10:02' },
-                { text: 'Checking the reel label', time: '10:04', current: true },
+                { text: 'Read the datasheet for RC0603', at: '2026-11-20T10:02:00Z' },
+                { text: 'Checking the reel label', at: '2026-11-20T10:04:00Z', current: true },
               ]}
             />
           </Card>

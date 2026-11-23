@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { AiMark, Banner, Small, Button, DebugDetails } from '#/components/ui'
+import { AiMark, Banner, Small, Button, DebugDetails, EventTime } from '#/components/ui'
 import { Form, Label, TextArea } from '#/forms'
 import { useForm } from 'react-hook-form'
 import type { CaptureSnapshotDto, OperatorReviewDto } from '@invimport/contracts'
@@ -88,9 +88,13 @@ export function InstructionForm({
       </Label>
       {errors.text && <Small role="alert">{errors.text.message}</Small>}
       <Small>
-        {latest
-          ? `Saved ${new Date(latest.created_at).toLocaleString()}`
-          : 'No instructions saved yet.'}
+        {latest ? (
+          <>
+            Saved <EventTime at={latest.created_at} />
+          </>
+        ) : (
+          'No instructions saved yet.'
+        )}
       </Small>
       {latest && (
         <DebugDetails

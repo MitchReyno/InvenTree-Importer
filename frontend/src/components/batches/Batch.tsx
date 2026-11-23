@@ -28,6 +28,7 @@ import { ManualWorkspace } from '#/components/review/ManualWorkspace'
 import {
   batchHref,
   parseBatchRoute,
+  lotFromQuery,
   sessionFromQuery,
   type BatchRoute,
 } from '#/navigation/batch-route'
@@ -465,6 +466,8 @@ export function Batch({
         step={batchRoute.step}
         questionId={batchRoute.questionId}
         sessionId={parsed.kind === 'route' ? sessionFromQuery(parsed.query) : null}
+        focusLotId={parsed.kind === 'route' ? lotFromQuery(parsed.query) : null}
+        attention={attentionCurrent}
         sharperRequests={sharperRequests}
         drawerRestore={drawerRestore}
         onDirtyChange={reportDirty}

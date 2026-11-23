@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import type { ConnectionStatusDto } from '@invimport/contracts'
 import { color, space, typeVar } from '#/theme/generated/tokens'
 import { LIVE_UPDATE_FRESH_MS } from '#/components/operations/LiveUpdates'
-import { Button, DebugDetails, KeyValue } from '#/components/ui'
+import { Button, DebugDetails, eventTimeText, KeyValue } from '#/components/ui'
 import { observationFresh, safeTargetNavigation, timestampFresh } from '#/header/observations'
 import { DevBadge } from './DevBadge'
 import { type UpdateHealth } from '#/context'
@@ -20,8 +20,6 @@ interface Props {
   check: ReactNode
 }
 
-const SHORT_TIME: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' }
-
 /** Where to fix a refused read token, by which token the server used. */
 function refusedToken(source: string | undefined) {
   if (source === 'saved') {
@@ -33,8 +31,14 @@ function refusedToken(source: string | undefined) {
   return 'InvenTree refused the read token.'
 }
 
-function shortTime(at: string | number) {
-  return new Date(at).toLocaleTimeString([], SHORT_TIME)
+/** A check's time in the one event-time format, which says which day it was. */
+function checkTime(at: string | number, now: number) {
+  const time = typeof at === 'number' ? at : Date.parse(at)
+  if (!Number.isFinite(time)) {
+    return 'Unknown time'
+  }
+
+  return eventTimeText(new Date(time).toISOString(), now) ?? 'Unknown time'
 }
 
 /** The server menu: host, last check and the Dev badge, then its actions; diagnostics show in debug mode. */
@@ -98,7 +102,7 @@ export function ConnectionDetails({
             : []),
           {
             label: 'Last check',
-            value: target?.observed_at ? shortTime(target.observed_at) : 'Not yet checked',
+            value: target?.observed_at ? checkTime(target.observed_at, now) : 'Not yet checked',
             state: 'plain' as const,
           },
         ]}
@@ -122,12 +126,12 @@ export function ConnectionDetails({
       </Actions>
       <DebugDetails label="Connection details">
         <p>{apiStatus}</p>
-        <p>Last API read: {apiChecked ? shortTime(apiChecked) : 'Not yet checked'}</p>
+        <p>Last API read: {apiChecked ? checkTime(apiChecked, now) : 'Not yet checked'}</p>
         <p>{transport}</p>
         <p>
           Transport observation: {transportFreshness} ·{' '}
           {transportObserved && health.observedAt !== null
-            ? shortTime(health.observedAt)
+            ? checkTime(health.observedAt, now)
             : 'Not yet observed'}
           {health.truncated ? ' · update coverage partial; polling remains enabled' : ''}
         </p>

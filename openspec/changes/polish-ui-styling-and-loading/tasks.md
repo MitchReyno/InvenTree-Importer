@@ -174,10 +174,10 @@
 - **Verification:** frontend checks; captures of each place a state or time shows.
 - **Risks and decisions:** agree the shared types with `improve-agent-interaction` (see design).
 
-- [ ] 6.1 Read the guidelines and the frontend architecture. List every place a work state or event time renders, and every word it uses today.
-- [ ] 6.2 RED: tests for "no agents working" needing a complete active-session read with no held lane (a cancelled session still holding one; `lane_occupied: true` with no visible holder); the precedence of stale, failed and truncated reads (a truncated work list naming visible steps without counts, or "Status incomplete"), with work and session truncation tested separately; the summary outside a batch never claiming no failures; the state mapping, `StatePill` glyphs, `EventTime` formats and hover text, and the masthead summary: a failure first, then waiting; "no agents working" only from a fresh, complete read; a truncated, stale or unavailable read saying "Updating…" or "Status unavailable"; "all done" never shown.
-- [ ] 6.3 GREEN: implement them, and replace the per-screen words and time formats.
-- [ ] 6.4 Update affected tests and `frontend/ARCHITECTURE.md`. Run the frontend checks.
+- [x] 6.1 Read the guidelines and the frontend architecture. List every place a work state or event time renders, and every word it uses today.
+- [x] 6.2 RED: tests for "no agents working" needing a complete active-session read with no held lane (a cancelled session still holding one; `lane_occupied: true` with no visible holder); the precedence of stale, failed and truncated reads (a truncated work list naming visible steps without counts, or "Status incomplete"), with work and session truncation tested separately; the summary outside a batch never claiming no failures; the state mapping, `StatePill` glyphs, `EventTime` formats and hover text, and the masthead summary: a failure first, then waiting; "no agents working" only from a fresh, complete read; a truncated, stale or unavailable read saying "Updating…" or "Status unavailable"; "all done" never shown.
+- [x] 6.3 GREEN: implement them, and replace the per-screen words and time formats.
+- [x] 6.4 Update affected tests and `frontend/ARCHITECTURE.md`. Run the frontend checks.
 
 ## 7. Overview and step page counts
 
@@ -194,14 +194,14 @@
 - **Verification:** frontend checks; captures of the Overview and each step page; demo video.
 - **Risks and decisions:** none.
 
-- [ ] 7.1 Read the Overview, step page and `NeedsYouPanel` code and the attention read's shape.
-- [ ] 7.2 RED: tests for:
-  - [ ] 7.2.1 Needs you agreeing with the header, including its truncation note.
-  - [ ] 7.2.2 The bar's linked counts.
-  - [ ] 7.2.3 The lot table, including Part-subject jobs.
-  - [ ] 7.2.4 The step `lot` parameter on a direct load.
-  - [ ] 7.2.5 The Research page's own counts, using the step section's filtering.
-- [ ] 7.3 GREEN: share `NeedsYouPanel`'s list, replace Pipeline with the lot table, add the `lot` route parameter and focus, link the bar, scope the step counts, and remove the duplicate outer summary.
+- [x] 7.1 Read the Overview, step page and `NeedsYouPanel` code and the attention read's shape.
+- [x] 7.2 RED: tests for:
+  - [x] 7.2.1 Needs you agreeing with the header, including its truncation note.
+  - [x] 7.2.2 The bar's linked counts.
+  - [x] 7.2.3 The lot table, including Part-subject jobs.
+  - [x] 7.2.4 The step `lot` parameter on a direct load.
+  - [x] 7.2.5 The Research page's own counts, using the step section's filtering.
+- [x] 7.3 GREEN: share `NeedsYouPanel`'s list, replace Pipeline with the lot table, add the `lot` route parameter and focus, link the bar, scope the step counts, and remove the duplicate outer summary.
 - [ ] 7.4 Capture the Overview and step pages. Run the frontend checks, and record the demo video.
 
 ## 8. Help buttons and popover placement

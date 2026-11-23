@@ -14,13 +14,18 @@ import {
   FilterChips,
   Pill,
   DataTable,
+  EventTime,
   TableWrap,
   onField,
   raisedOnField,
   PageStack,
   HelpButton,
+  StatePill,
+  WORK_STATE,
+  type WorkState,
 } from '#/components/ui'
-import { SESSION_STATE, STEP_LABEL } from '#/components/processing/ProcessingParts'
+import { STEP_LABEL } from '#/components/processing/ProcessingParts'
+import { workState } from '#/header/workSegments'
 import { PauseButton } from './PauseButton'
 import { PauseAllAgents } from './PauseAllAgents'
 import { slotUse } from './slot-use'
@@ -52,10 +57,10 @@ type Props = {
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: 'all', label: 'All' },
-  { id: 'running', label: 'Running' },
+  { id: 'running', label: 'Working' },
   { id: 'waiting', label: 'Waiting for you' },
   { id: 'queued', label: 'Queued' },
-  { id: 'finished', label: 'Finished today' },
+  { id: 'finished', label: 'Done today' },
 ]
 
 const FINISHED = new Set(['ready', 'failed', 'cancelled', 'superseded', 'interrupted'])
@@ -85,25 +90,18 @@ function matches(session: Session, filter: Filter) {
   }
 }
 
-function stateWord(session: Session) {
+function sessionState(session: Session): WorkState {
   // A paused batch's unfinished session starts nothing new until Resume.
   if (session.paused && !FINISHED.has(session.state) && session.session_state !== 'finished') {
-    return { word: 'Paused', tone: 'neutral' as const }
+    return 'paused'
   }
-  if (session.session_state) {
-    return SESSION_STATE[session.session_state]
-  }
-  return { word: session.state.replaceAll('_', ' '), tone: 'neutral' as const }
+
+  return workState(session.session_state ?? session.state)
 }
 
-/** When the session entered its current state, as a short 24-hour time. */
+/** When the session entered its current state. */
 function since(session: Session) {
-  const at = session.finished_at ?? session.started_at ?? session.queued_at
-  return new Date(at).toLocaleTimeString(undefined, {
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  })
+  return session.finished_at ?? session.started_at ?? session.queued_at
 }
 
 /** Every agent session in scope, grouped by batch, with capacity and what waits for the operator. */
@@ -187,7 +185,7 @@ export function AgentSessions({ client, batches }: Props) {
         <>
           <Summary aria-label="Summary">
             <Block>
-              <Label>Running now</Label>
+              <Label>Working now</Label>
               {limit !== undefined && (
                 <Slots aria-hidden="true">
                   {Array.from({ length: limit }, (_, index) => (
@@ -253,7 +251,7 @@ export function AgentSessions({ client, batches }: Props) {
                       ? 'Whole batch'
                       : (named?.subjects.get(session.subject_id) ?? 'Unknown subject')
                   const step = STEP_LABEL[processingStepFor(session.stage)] ?? 'Processing'
-                  const state = stateWord(session)
+                  const state = sessionState(session)
                   const notes = [
                     session.latest_status?.text,
                     !session.latest_on_job && 'an earlier attempt',
@@ -304,10 +302,10 @@ export function AgentSessions({ client, batches }: Props) {
                           : {}),
                       },
                       state: {
-                        value: state.word,
-                        content: <Pill tone={state.tone}>{state.word}</Pill>,
+                        value: WORK_STATE[state].word,
+                        content: <StatePill state={state} />,
                       },
-                      since: { value: since(session) },
+                      since: { value: since(session), content: <EventTime at={since(session)} /> },
                     },
                   }
                 })

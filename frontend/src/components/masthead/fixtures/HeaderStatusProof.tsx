@@ -66,6 +66,7 @@ type Scenario =
   | 'offline'
   | 'unconfigured'
   | 'transport-stale'
+  | 'attention'
 
 export function HeaderStatusProof() {
   const [cache] = useState(batchReads)
@@ -122,12 +123,22 @@ export function HeaderStatusProof() {
       }
       if (scenario.current !== 'idle' && scenario.current !== 'unconfigured') {
         // The server's shape: one retained job per Processing step, each carrying that step.
-        for (const [index, stage, state] of [
-          [1, 'examine', 'ready'],
-          [2, 'research', 'running'],
-          [3, 'images', 'queued'],
-          [4, 'inventory', 'queued'],
-        ] as const) {
+        // A failed Research job and an Examine question, with Images still working.
+        const steps =
+          scenario.current === 'attention'
+            ? ([
+                [1, 'examine', 'waiting_for_user'],
+                [2, 'images', 'running'],
+                [3, 'research', 'failed'],
+                [4, 'inventory', 'queued'],
+              ] as const)
+            : ([
+                [1, 'examine', 'ready'],
+                [2, 'research', 'running'],
+                [3, 'images', 'queued'],
+                [4, 'inventory', 'queued'],
+              ] as const)
+        for (const [index, stage, state] of steps) {
           const jobId = index === 2 ? attempt : `2000000${index}-0000-4000-8000-00000000000${index}`
           value.work.push({
             kind: 'processing',
@@ -137,7 +148,7 @@ export function HeaderStatusProof() {
             stage,
             state,
             input_current: true,
-            occupies_lane: stage === 'research',
+            occupies_lane: state === 'running',
             blocked_code: null,
             steps: [{ stage, state }],
             steps_complete: false,
@@ -160,7 +171,7 @@ export function HeaderStatusProof() {
           attempt_id: attempt,
           batch_id: batchId,
           job_id: attempt,
-          stage: 'research',
+          stage: scenario.current === 'attention' ? 'images' : 'research',
           state: scenario.current === 'cancelled' ? 'cancelled' : 'running',
           selection: {
             provider: 'codex',
@@ -214,6 +225,7 @@ export function HeaderStatusProof() {
               'offline',
               'unconfigured',
               'transport-stale',
+              'attention',
             ] satisfies Scenario[]
           ).map((state) => (
             <button

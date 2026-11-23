@@ -1,10 +1,13 @@
 import type { ReactNode } from 'react'
+import type { BatchAttentionDto } from '@invimport/contracts'
 import styled from 'styled-components'
 import { batchHref } from '#/navigation/batch-route'
 import type { ProcessingSource, StepProgress } from '#/processing/source'
+import type { LotSteps } from '#/processing/lot-steps'
 import { color, space, type, typeVar } from '#/theme/generated/tokens'
 import {
   AiMark,
+  EventTime,
   linkTouchArea,
   Count,
   ProgressSegments,
@@ -15,16 +18,9 @@ import {
   HelpButton,
 } from '#/components/ui'
 import { PauseButton } from '#/components/agents/PauseButton'
-import {
-  Card,
-  CardTitle,
-  Muted,
-  PipelineRows,
-  STEP_LABEL,
-  SessionRows,
-  plural,
-  stepOutcome,
-} from './ProcessingParts'
+import { NeedsYouList } from '#/components/batches/NeedsYouList'
+import { Card, CardTitle, Muted, STEP_LABEL, SessionRows, plural } from './ProcessingParts'
+import { LotTable } from './LotTable'
 
 type Props = {
   batchId: string
@@ -35,10 +31,14 @@ type Props = {
   activity: TimelineEntry[]
   /** Starting work by hand, folded into the progress card. */
   queue?: ReactNode
-  /** When this batch's first agent session started, as a clock time. */
-  started?: string
-  /** "N lots formed by HH:MM", when every current lot's time is known. */
-  lotsFormed?: string
+  /** The batch attention read the header counts from; absent while it is unavailable. */
+  attention?: BatchAttentionDto
+  /** Each live lot's Research, Images and Inventory state. */
+  lots: LotSteps[]
+  /** When this batch's first agent session started. */
+  startedAt?: string
+  /** How many current lots were formed and when the last was, when every time is known. */
+  lotsFormed?: { count: number; at: string }
   /** How many sessions may run at once, from the agent settings. */
   sessionLimit?: number
   /** Whether the batch's sessions are paused, and how to pause or resume them. */
@@ -87,7 +87,9 @@ export function ProcessingOverview({
   instructions,
   activity,
   queue,
-  started,
+  attention,
+  lots,
+  startedAt,
   lotsFormed,
   sessionLimit,
   pause,
@@ -110,9 +112,19 @@ export function ProcessingOverview({
               label="About Processing"
               explanation="Agents work on the server. Closing this browser does not cancel saved work."
             />
-            {(started || lotsFormed) && (
+            {(startedAt || lotsFormed) && (
               <Muted>
-                {[started && `Started ${started}`, lotsFormed].filter(Boolean).join(' · ')}
+                {startedAt && (
+                  <>
+                    Started <EventTime at={startedAt} />
+                  </>
+                )}
+                {startedAt && lotsFormed && ' · '}
+                {lotsFormed && (
+                  <>
+                    {plural(lotsFormed.count, 'lot')} formed by <EventTime at={lotsFormed.at} />
+                  </>
+                )}
               </Muted>
             )}
           </TitleRow>
@@ -121,9 +133,8 @@ export function ProcessingOverview({
             {source.steps.map((step) => (
               <li key={step.step}>
                 <a href={batchHref(batchId, { tab: 'processing', step: step.step })}>
-                  {step.label}
+                  {step.jobs > 0 ? `${step.label} · ${step.ready} of ${step.jobs}` : step.label}
                 </a>
-                <span>{stepOutcome(step)}</span>
               </li>
             ))}
           </StepLabels>
@@ -132,34 +143,14 @@ export function ProcessingOverview({
         </Card>
 
         <Card aria-label="Needs you">
-          <TitleRow>
-            <CardTitle>Needs you</CardTitle>
-            {source.questions.length > 0 && <Muted>Oldest first</Muted>}
-          </TitleRow>
-          {source.questions.length === 0 ? (
-            <Muted>No open questions.</Muted>
-          ) : (
-            <NeedsYou
-              items={source.questions.map((question) => ({
-                id: question.id,
-                step: STEP_LABEL[question.step],
-                title: question.title,
-                kind: question.kind,
-                assumption: [question.subject, question.assumption].filter(Boolean).join(' · '),
-                href: batchHref(batchId, {
-                  tab: 'processing',
-                  step: question.step,
-                  questionId: question.id,
-                }),
-              }))}
-            />
-          )}
+          <CardTitle>Needs you</CardTitle>
+          <NeedsYouCard batchId={batchId} attention={attention} source={source} />
         </Card>
 
-        {(source.pipeline.lead || source.pipeline.lots.length > 0) && (
-          <Card aria-label="Pipeline">
-            <CardTitle>Pipeline</CardTitle>
-            <PipelineRows pipeline={source.pipeline} />
+        {lots.length > 0 && (
+          <Card aria-label="Lots">
+            <CardTitle>Lots</CardTitle>
+            <LotTable batchId={batchId} lots={lots} />
           </Card>
         )}
 
@@ -182,7 +173,7 @@ export function ProcessingOverview({
               </CardTitle>
               <Count value={source.sessions.length} />
               <Muted>
-                {runningSessions} running
+                {runningSessions} working
                 {sessionLimit !== undefined && ` · limit ${sessionLimit}`}
               </Muted>
               {pause && (
@@ -202,6 +193,54 @@ export function ProcessingOverview({
     </Columns>
   )
 }
+
+/**
+ * Everything the batch header counts, from the same attention read and list. Until that read is
+ * available, only the agent questions this read holds show, and nothing claims the list is empty.
+ */
+function NeedsYouCard({
+  batchId,
+  attention,
+  source,
+}: {
+  batchId: string
+  attention?: BatchAttentionDto
+  source: ProcessingSource
+}) {
+  if (attention) {
+    return (
+      <Inset>
+        <NeedsYouList attention={attention} />
+      </Inset>
+    )
+  }
+  if (source.questions.length === 0) {
+    return <Muted>Updating…</Muted>
+  }
+
+  return (
+    <NeedsYou
+      items={source.questions.map((question) => ({
+        id: question.id,
+        step: STEP_LABEL[question.step],
+        title: question.title,
+        kind: question.kind,
+        assumption: [question.subject, question.assumption].filter(Boolean).join(' · '),
+        href: batchHref(batchId, {
+          tab: 'processing',
+          step: question.step,
+          questionId: question.id,
+        }),
+      }))}
+    />
+  )
+}
+
+/** The shared list's sections carry the popover's inset; in a card they sit on its padding. */
+const Inset = styled.div`
+  display: grid;
+  margin: 0 calc(-1 * ${space[6]});
+`
 
 // The canvas's flex bases, as on Capture: the main column takes the room until both no longer fit.
 const Columns = styled.div`

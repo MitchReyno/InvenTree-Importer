@@ -1,22 +1,28 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
 import { batchHref } from '#/navigation/batch-route'
-import type { ProcessingSource, StepProgress, WorkStep } from '#/processing/source'
-import { color, icon, radius, space, type, typeVar } from '#/theme/generated/tokens'
+import type { ProcessingSource, WorkStep } from '#/processing/source'
+import type { StepSummary } from '#/processing/lot-steps'
+import { color, space, type } from '#/theme/generated/tokens'
 import {
-  Spinner,
   linkTouchArea,
   onField,
   groundBehindOnField,
   PageStack,
   HelpButton,
+  StatePill,
+  type WorkState,
 } from '#/components/ui'
-import { Card, CardTitle, Muted, QuestionRows, SessionRows, stepOutcome } from './ProcessingParts'
+import { Card, CardTitle, Muted, QuestionRows, SessionRows } from './ProcessingParts'
 
 type Props = {
   batchId: string
   step: WorkStep
   source: ProcessingSource
+  /** This step's own count and state, as its section below reads them. */
+  summary: StepSummary
+  /** The lot the address asks to focus, with its state at this step. */
+  focus?: { label: string; state: WorkState }
   onOpenSession: (jobId: string) => void
   /** How the step works, behind a help button beside its heading. */
   help?: string
@@ -28,7 +34,16 @@ type Props = {
  * Every step page has the same parts in the same places: its state, questions, sessions and
  * outputs. Values link to Review and evidence to Capture; the page never edits lots itself.
  */
-export function StepPage({ batchId, step, source, onOpenSession, help, children }: Props) {
+export function StepPage({
+  batchId,
+  step,
+  source,
+  summary,
+  focus,
+  onOpenSession,
+  help,
+  children,
+}: Props) {
   const progress = source.steps.find((item) => item.step === step)
   const questions = source.questions.filter((question) => question.step === step)
   const sessions = source.sessions.filter((session) => session.step === step)
@@ -37,13 +52,19 @@ export function StepPage({ batchId, step, source, onOpenSession, help, children 
   return (
     <Page>
       <Head>
-        {progress && <StateDisc progress={progress} />}
+        <StatePill state={summary.state} />
         <Title>{label}</Title>
         {help && <HelpButton label={`About ${label}`} explanation={help} />}
-        {progress && progress.jobs > 0 && <FieldNote>{stepOutcome(progress)}</FieldNote>}
+        <FieldNote>{summary.text}</FieldNote>
         <CaptureLink href={batchHref(batchId, { tab: 'capture' })}>Evidence in Capture</CaptureLink>
       </Head>
-      {progress?.jobs === 0 && <FieldNote>No retained work on {label} yet.</FieldNote>}
+      {focus && focus.state !== 'done' && (
+        <Focus aria-label={focus.label} data-focused-lot>
+          <b>{focus.label}</b>
+          <span>No {label} output for this lot yet</span>
+          <StatePill state={focus.state} />
+        </Focus>
+      )}
       {questions.length > 0 && (
         <Card aria-label="Questions">
           <CardTitle>Questions</CardTitle>
@@ -60,58 +81,6 @@ export function StepPage({ batchId, step, source, onOpenSession, help, children 
     </Page>
   )
 }
-
-/** The step's state at a glance: a spinner only while work runs, a tick once all is ready. */
-function StateDisc({ progress }: { progress: StepProgress }) {
-  if (progress.running > 0) {
-    return (
-      <Disc data-state="running" aria-hidden="true">
-        <Spinner size={11} />
-      </Disc>
-    )
-  }
-  if (progress.jobs > 0 && progress.ready === progress.jobs) {
-    return (
-      <Disc data-state="done" aria-hidden="true">
-        ✓
-      </Disc>
-    )
-  }
-  if (progress.failed > 0) {
-    return (
-      <Disc data-state="failed" aria-hidden="true">
-        ×
-      </Disc>
-    )
-  }
-  return <Disc data-state="waiting" aria-hidden="true" />
-}
-
-const Disc = styled.span`
-  display: inline-grid;
-  place-items: center;
-  width: ${icon.lg};
-  height: ${icon.lg};
-  border: 1.5px solid ${color.lineStrong};
-  border-radius: ${radius.round};
-  color: ${color.muted};
-  font-size: ${typeVar.pill.size};
-  &[data-state='running'] {
-    border-color: ${color.accent};
-    background: ${color.accentWeak};
-    color: ${color.accent};
-  }
-  &[data-state='done'] {
-    border-color: ${color.ok};
-    background: ${color.okWeak};
-    color: ${color.ok};
-  }
-  &[data-state='failed'] {
-    border-color: ${color.bad};
-    background: ${color.badWeak};
-    color: ${color.bad};
-  }
-`
 
 const Page = styled(PageStack)``
 
@@ -131,6 +100,19 @@ const Title = styled.h2`
   margin: 0;
   ${type.h2}
   ${onField}
+`
+
+/** The focused lot's entry while the step has no output for it, highlighted as its outputs are. */
+const Focus = styled(Card)`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[3]} ${space[5]};
+  border-color: ${color.accent};
+  span {
+    ${type.small}
+    color: ${color.muted};
+  }
 `
 
 const Outputs = styled.section`

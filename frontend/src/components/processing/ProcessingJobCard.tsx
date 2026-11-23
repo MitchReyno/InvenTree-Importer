@@ -1,24 +1,30 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
-import { color, space, typeVar } from '#/theme/generated/tokens'
+import { space } from '#/theme/generated/tokens'
 import { questionView, type CaptureSnapshotDto, type ProcessingJobDto } from '@invimport/contracts'
 import { assumptionLine, questionKindLabel, stepKinds } from '#/processing/question-summary'
-import { Heading, HelpButton, Paragraph, Panel, Small, Button, Pill } from '#/components/ui'
+import {
+  Heading,
+  HelpButton,
+  Paragraph,
+  Panel,
+  Small,
+  Button,
+  Pill,
+  StatePill,
+} from '#/components/ui'
+import { workState } from '#/header/workSegments'
 import { ProcessingSources } from './ProcessingSources'
 
 type Job = ProcessingJobDto
 
-const labels: Record<Job['state'], string> = {
-  queued: 'Queued',
-  running: 'Running',
-  waiting_for_user: 'Needs your answer',
-  waiting_for_login: 'Waiting for provider sign-in',
-  waiting_for_capacity: 'Waiting for subscription capacity',
-  ready: 'Ready for human review',
-  failed: 'Failed',
-  cancelled: 'Cancelled',
-  superseded: 'Superseded',
-  interrupted: 'Interrupted — start a new attempt',
+/** Why a job in this state is not moving, beside its state pill. */
+const STATE_REASON: Partial<Record<Job['state'], string>> = {
+  waiting_for_login: 'The provider needs signing in.',
+  waiting_for_capacity: 'Waiting for subscription capacity.',
+  interrupted: 'Interrupted. Start a new attempt to continue.',
+  cancelled: 'Cancelled.',
+  superseded: 'Replaced by a newer attempt.',
 }
 
 /** Why a candidate stopped being current, in the operator's terms. */
@@ -88,9 +94,12 @@ export function ProcessingJobCard({
             />
           )}
         </Title>
-        <Status>{labels[job.state]}</Status>
+        <StatePill state={workState(job.state)} />
       </Row>
-      <Small>Attempt {job.attempt_number}</Small>
+      <Small>
+        Attempt {job.attempt_number}
+        {STATE_REASON[job.state] && ` · ${STATE_REASON[job.state]}`}
+      </Small>
       {job.blocked_code && <Paragraph role="status">{blockerLabels[job.blocked_code]}</Paragraph>}
       {job.proposals.map((proposal) => (
         <div key={proposal.id}>
@@ -162,12 +171,6 @@ const Title = styled.div`
   ${Heading} {
     margin: 0;
   }
-`
-
-const Status = styled.span`
-  font-size: ${typeVar.small.size};
-  font-weight: ${typeVar.bodyStrong.weight};
-  color: ${color.muted};
 `
 
 const Actions = styled.div`

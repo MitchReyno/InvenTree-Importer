@@ -5,16 +5,11 @@ import {
   media,
   Pill,
   raisedOnField,
-  type PillTone,
+  StatePill,
 } from '#/components/ui'
+import { workState } from '#/header/workSegments'
 import { batchHref } from '#/navigation/batch-route'
-import type {
-  PipelineCell,
-  ProcessingSource,
-  SourceQuestion,
-  SourceSession,
-  StepProgress,
-} from '#/processing/source'
+import type { SourceQuestion, SourceSession } from '#/processing/source'
 import { color, radius, size, space, type, typeVar } from '#/theme/generated/tokens'
 
 export const STEP_LABEL: Record<string, string> = {
@@ -24,42 +19,8 @@ export const STEP_LABEL: Record<string, string> = {
   inventory: 'Inventory',
 }
 
-export const SESSION_STATE: Record<
-  SourceSession['state'],
-  { word: string; tone: PillTone; glyph?: string }
-> = {
-  queued: { word: 'Queued', tone: 'outline', glyph: '…' },
-  running: { word: 'Running', tone: 'acc' },
-  waiting_input: { word: 'Waiting for you', tone: 'warn' },
-  waiting_for_login: { word: 'Waiting for sign-in', tone: 'warn' },
-  waiting_for_capacity: { word: 'Waiting for a slot', tone: 'neutral' },
-  finished: { word: 'Finished', tone: 'ok' },
-  cancelling: { word: 'Cancelling', tone: 'neutral' },
-  cancelled: { word: 'Cancelled', tone: 'neutral' },
-  interrupted: { word: 'Interrupted', tone: 'bad' },
-  resume_unavailable: { word: 'Cannot resume', tone: 'bad' },
-  failed: { word: 'Failed', tone: 'bad' },
-}
-
 export function plural(count: number, one: string, many = `${one}s`) {
   return `${count} ${count === 1 ? one : many}`
-}
-
-/** A step's retained state in words; never a single percentage. */
-export function stepOutcome(step: StepProgress) {
-  if (step.jobs === 0) {
-    return 'No work yet'
-  }
-  const parts = [
-    step.ready && `${step.ready} ready`,
-    step.running && `${step.running} running`,
-    step.queued && `${step.queued} queued`,
-    step.waiting && `${step.waiting} waiting`,
-    step.failed && `${step.failed} failed`,
-    step.questions && plural(step.questions, 'question'),
-  ].filter(Boolean)
-
-  return parts.length ? parts.join(' · ') : plural(step.jobs, 'attempt')
 }
 
 export function SessionRows({
@@ -88,12 +49,9 @@ export function SessionRows({
               </Pill>
               <b>{session.subject}</b>
             </SessionLabel>
-            <Pill
-              tone={SESSION_STATE[session.state].tone}
-              glyph={SESSION_STATE[session.state].glyph}
-            >
-              <span id={`session-${session.jobId}-state`}>{SESSION_STATE[session.state].word}</span>
-            </Pill>
+            <span id={`session-${session.jobId}-state`}>
+              <StatePill state={workState(session.state)} />
+            </span>
             {session.status && (
               <SessionStatus id={`session-${session.jobId}-status`}>{session.status}</SessionStatus>
             )}
@@ -193,109 +151,6 @@ const Rows = styled.ul`
     color: ${color.fg};
     font-weight: ${typeVar.bodyStrong.weight};
     ${linkTouchArea}
-  }
-`
-
-/** A Processing job's state in words for the pipeline. */
-export const JOB_STATE: Record<string, { word: string; tone: PillTone }> = {
-  queued: { word: 'Queued', tone: 'neutral' },
-  running: { word: 'Running', tone: 'acc' },
-  waiting_for_user: { word: 'Waiting for you', tone: 'warn' },
-  waiting_for_login: { word: 'Waiting for sign-in', tone: 'warn' },
-  waiting_for_capacity: { word: 'Waiting for a slot', tone: 'neutral' },
-  ready: { word: 'Ready', tone: 'ok' },
-  failed: { word: 'Failed', tone: 'bad' },
-  cancelled: { word: 'Cancelled', tone: 'neutral' },
-  superseded: { word: 'Waiting for identity', tone: 'neutral' },
-  interrupted: { word: 'Interrupted', tone: 'bad' },
-}
-
-function PipelineStep({ label, cell }: { label: string; cell: PipelineCell }) {
-  const state = cell ? (JOB_STATE[cell.state] ?? { word: cell.state, tone: 'neutral' }) : null
-  return (
-    <Step role="group" aria-label={`${label}: ${state?.word ?? 'Not started'}`}>
-      <span>{label}</span>
-      {state ? (
-        <Pill tone={state.tone}>{state.word}</Pill>
-      ) : (
-        <Pill tone="outline">Not started</Pill>
-      )}
-      {cell && cell.stale > 0 && <Pill tone="warn">{plural(cell.stale, 'stale result')}</Pill>}
-      {cell && cell.provisional > 0 && <Pill tone="neutral">{cell.provisional} provisional</Pill>}
-    </Step>
-  )
-}
-
-/**
- * The batch's Examine lead session, then each lot's Research ∥ Images → Inventory. Research and
- * Images start together once the lot's identity is stable; Inventory waits for both.
- */
-export function PipelineRows({ pipeline }: { pipeline: ProcessingSource['pipeline'] }) {
-  const lead = pipeline.lead ? (JOB_STATE[pipeline.lead.state] ?? null) : null
-  return (
-    <Pipeline>
-      {pipeline.lead && (
-        <li aria-label="Examine · Whole batch">
-          <strong>Examine · Whole batch</strong>
-          {lead && <Pill tone={lead.tone}>{lead.word}</Pill>}
-        </li>
-      )}
-      {pipeline.lots.map((lot) => (
-        <li key={lot.lotId} aria-label={`Pipeline for ${lot.label}`}>
-          <strong>{lot.label}</strong>
-          <Lanes>
-            <PipelineStep label="Research" cell={lot.cells.research} />
-            <Parallel aria-hidden>·</Parallel>
-            <PipelineStep label="Images" cell={lot.cells.images} />
-            <Parallel aria-hidden>→</Parallel>
-            <PipelineStep label="Inventory" cell={lot.cells.inventory} />
-          </Lanes>
-        </li>
-      ))}
-    </Pipeline>
-  )
-}
-
-const Pipeline = styled.ul`
-  display: grid;
-  gap: ${space[4]};
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  li {
-    display: grid;
-    justify-items: start;
-    gap: ${space[2]};
-    padding: ${space[4]} 0;
-    border-top: 1px solid ${color.line};
-  }
-  li:first-child {
-    border-top: 0;
-  }
-`
-
-const Lanes = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: ${space[2]} ${space[4]};
-`
-
-const Step = styled.span`
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: ${space[2]};
-  ${type.small}
-  > span:first-child {
-    color: ${color.muted};
-  }
-`
-
-const Parallel = styled.span`
-  color: ${color.muted};
-  ${media.phone} {
-    display: none;
   }
 `
 
