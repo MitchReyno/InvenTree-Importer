@@ -18,7 +18,13 @@ While a workspace waits for a verified read, its disabled commands SHALL give th
 
 - **GIVEN** Review reopened from cache with a lot edit still open, and its first read still running
 - **WHEN** the operator hovers or tabs to "Mark selected reviewed"
-- **THEN** the command is announced as unavailable with "Updating…", stays focusable, does nothing when pressed, the draft is kept, and the command becomes available when the read lands.
+- **THEN** the command is announced as unavailable with "Updating…", stays focusable and does nothing when pressed; when the read lands, the draft is kept and the command stays unavailable because the lot edit is unsaved.
+
+#### Scenario: A clean selection during a refresh
+
+- **GIVEN** Review reopened from cache with lots selected, no edit open, and its first read still running
+- **WHEN** that read is adopted
+- **THEN** "Mark selected reviewed" becomes available.
 
 #### Scenario: Read fails
 
@@ -36,11 +42,21 @@ Once a workspace has a verified read, later background refreshes SHALL NOT disab
 - **WHEN** a later live hint starts a background refresh
 - **THEN** its manual-workflow commands stay available and each still sends its own expected revision, while acceptance waits for the read to settle at the current capture revision.
 
+### Requirement: Commands without a revision wait for a settled read
+
+A command that sends no expected revision (Pause, Resume, delivering instructions, and any other the audit finds) SHALL be available only with a settled verified read whose request started after the last relevant live hint was received, and SHALL be checked again when pressed.
+
+#### Scenario: Instructions saved during a hint
+
+- **GIVEN** Processing, where the operator saves an instruction edit and its live hint arrives before the save returns
+- **WHEN** the automatic delivery is due
+- **THEN** it waits as "Delivery pending" until a read started after the hint settles, then sends once, and Retry sends through the same gate.
+
 #### Scenario: Commands without a revision
 
 - **GIVEN** Processing, the Agents page or Settings › Agents showing Pause or Resume
-- **WHEN** a read hasn't landed yet, or a live hint has started a refresh
-- **THEN** Pause and Resume, which send no expected revision, are unavailable until the read settles, and are checked again when pressed.
+- **WHEN** a read hasn't landed yet, or a relevant live hint has arrived, including during the reconciliation delay or while reconciliation waits behind a read already running
+- **THEN** Pause and Resume, which send no expected revision, are unavailable until a read started after that hint settles, and are checked again when pressed.
 
 ### Requirement: Cached reads survive a reload in the same session
 
