@@ -96,7 +96,7 @@ export const SessionToolError = Type.Union(
 )
 const outboxBase = { session_id: Id, seq: Revision, created_at: timestamp }
 /**
- * One image `fetch_evidence` prepared for the tool response: what was cut and what was sent,
+ * One image `fetch_evidence` prepared for the tool response: what was cut and what was prepared,
  * never the bytes. It doesn't mean the provider read the image.
  */
 export const SessionPhotoView = object({

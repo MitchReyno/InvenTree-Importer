@@ -86,7 +86,7 @@ test('the outbox carries exactly eight kinds of item', () => {
   )
 })
 
-test('a photo view records what was cut and sent, never the image bytes', () => {
+test('a photo view records what was cut and prepared, never the image bytes', () => {
   const view = outboxPayloads.photo_view as Record<string, unknown>
   const { region: _region, ...wholePage } = view
   validate('SessionPhotoView', wholePage)
