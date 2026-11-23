@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ProgressSegments, type ProgressStep } from './ProgressSegments'
 
 const ALL: ProgressStep[] = [
@@ -16,6 +16,10 @@ function segment(container: HTMLElement, label: string) {
   const index = ALL.findIndex((step) => step.label === label)
   return container.querySelectorAll<HTMLElement>('[data-state]')[index]
 }
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe('ProgressSegments', () => {
   it('hides the bars and lists every step and state as text', () => {
@@ -68,6 +72,21 @@ describe('ProgressSegments', () => {
     rerender(<ProgressSegments steps={ALL} still />)
     expect(animated()).toEqual([])
     // Still, the working stage keeps its own state and pattern.
+    expect(segment(container, 'Research')).toHaveAttribute('data-state', 'working')
+  })
+
+  it('animates nothing under reduced motion', () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: query.includes('prefers-reduced-motion: reduce'),
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      })),
+    )
+    const { container } = render(<ProgressSegments steps={ALL} />)
+
+    expect(container.querySelectorAll('[data-animated="true"]')).toHaveLength(0)
     expect(segment(container, 'Research')).toHaveAttribute('data-state', 'working')
   })
 })

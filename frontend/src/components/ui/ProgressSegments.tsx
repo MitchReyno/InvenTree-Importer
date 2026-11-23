@@ -2,6 +2,7 @@ import styled, { css, keyframes } from 'styled-components'
 import { color, duration, easing, opacity, space } from '#/theme/generated/tokens'
 import { media } from './media'
 import { workStateWord, type WorkState } from './StatePill'
+import { useMediaQuery } from './useMediaQuery'
 import { VisuallyHidden } from './VisuallyHidden'
 
 export type SegmentState = WorkState
@@ -30,9 +31,12 @@ function fillWidth(step: ProgressStep) {
 
 /**
  * Bars are decorative; a visually hidden list carries every step and state. Each state has its
- * own colour and pattern, and only a working stage animates.
+ * own colour and pattern, and only a working stage animates, never under reduced motion.
  */
 export function ProgressSegments({ steps, size = 'sm', still = false }: ProgressSegmentsProps) {
+  const reducedMotion = useMediaQuery(media.reducedMotion)
+  const animate = !still && !reducedMotion
+
   return (
     <>
       <Segments aria-hidden="true" $size={size}>
@@ -41,7 +45,7 @@ export function ProgressSegments({ steps, size = 'sm', still = false }: Progress
             key={step.label}
             data-state={step.state}
             data-counted={step.fraction !== undefined}
-            data-animated={step.state === 'working' && !still}
+            data-animated={step.state === 'working' && animate}
             $size={size}
           >
             <i style={{ width: fillWidth(step) }} />
@@ -145,11 +149,5 @@ const Segment = styled.span<{ $size: 'sm' | 'lg' }>`
   }
   &[data-state='not_started'] {
     opacity: ${opacity.muted};
-  }
-  ${media.reducedMotion} {
-    &[data-state='working'],
-    &[data-state='working'] i {
-      animation: none;
-    }
   }
 `
