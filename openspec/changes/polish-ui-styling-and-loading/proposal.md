@@ -54,7 +54,7 @@ The outcome:
   - the existing "Status unavailable" banner only when a read fails;
   - cached reads kept across a page reload, for the browser tab's session.
 - **Times:** every event time says which day, in one format, with the full time on hover.
-- **States:** one set of state words with glyphs (Working, Waiting for you, Queued, Paused, Done, Failed, Not started), used by sessions, steps and the masthead. The masthead names what failed.
+- **States:** one set of state words with glyphs (Working, Waiting for you, Queued, Paused, Done, Failed, Not started), used by sessions, steps and the masthead. The masthead names what failed, and with nothing running says "no agents working" (it can't prove "all done").
 - **Overview:** Needs you lists everything the header counts, tagged with its tab. A per-lot table with state pills replaces Pipeline, and the bar's step counts link to the step pages.
 - **Step pages** count only their own step.
 - **Capture:** several files at once from any source. On a phone, Take photos offers the camera and the library, with multi-select. On desktop, files can be dropped onto the evidence panel or a group, or pasted.
@@ -113,7 +113,7 @@ In scope:
   - a delayed page progress line;
   - command gating with a disabled reason;
   - skeletons per page;
-  - session-storage persistence of allowed queries;
+  - display-only snapshots of allowlisted reads in session storage;
   - migration of Processing, Review, Changes, Records, Agents, Settings, Batches and the other one-off loading lines to it.
 
 Non-goals:
@@ -127,14 +127,14 @@ Non-goals:
 | Option and relevant version | Goal fit and strengths | Limitations, risks and total adoption cost | Primary evidence and date checked | Unknowns / proof of fit |
 | --- | --- | --- | --- | --- |
 | TanStack Query's own state (`isFetchedAfterMount`, `isFetching`, `isPlaceholderData`), already installed at 5.105.1 | Already the source of every read. Its flags give cached, refreshing and failed with no new code | Each screen combines the flags differently today; that drift is the problem | `frontend/package.json`; [TanStack Query docs, useQuery](https://tanstack.com/query/v5/docs/framework/react/reference/useQuery), checked 2026-11-23 | None |
-| `@tanstack/react-query-persist-client` + `@tanstack/query-sync-storage-persister` 5.105.1 (MIT) | Official persistence. Per-query `dehydrateOptions.shouldDehydrateQuery` lets only allowed reads persist, and the `buster` and `maxAge` options expire old caches | Two small packages, which must stay in lockstep with react-query (the peer dependency is exact-minor). Session storage holds about 5 MB | `npm view @tanstack/react-query-persist-client@5.105.1` (MIT, exists), checked 2026-11-23; [persistQueryClient docs](https://tanstack.com/query/v5/docs/framework/react/plugins/persistQueryClient) | Size of the persisted Processing and Review reads; checked in task 4 |
-| A custom `sessionStorage` cache | No dependency | Re-implements hydration, versioning and expiry that TanStack already owns | — | — |
+| `@tanstack/react-query-persist-client` with `createSyncStoragePersister` or `createAsyncStoragePersister` 5.105.1 (MIT) | Official persistence | Dehydrates whole queries (keys, hashes, metadata, payloads), so a query filter can't strip fields; restore holds queries until it finishes, while bootstrap itself is a query; the synchronous persister is deprecated upstream in favour of the async one | [persistQueryClient](https://tanstack.com/query/latest/docs/framework/react/plugins/persistQueryClient), [createSyncStoragePersister deprecation](https://tanstack.com/query/latest/docs/framework/react/plugins/createSyncStoragePersister), `@tanstack/query-core` `hydration.ts`, checked 2026-11-23 | — |
+| A small snapshot module over `sessionStorage` (recommended) | Stores only validated display projections under the app's own keys; restores as display-only content, never into the query cache; no dependency | Its own expiry, scope and quota handling (about 150 lines), and a projection per allowlisted read | `queries/` and the contracts' validators | Snapshot sizes, measured in task 4 |
 | A loading-bar library (such as nprogress) | A ready bar | The bar is a few lines with the existing motion tokens; one more dependency and its CSS | — | — |
 | A page stack primitive in `components/ui` (custom) | Matches the design system's page gap, and is one place to fix rhythm | Must be adopted by every page | `components/ui/primitives.tsx`; the canvas pages (`gap: 14px`) | None |
 
 **Recommendation:**
 
-- Build the freshness layer on TanStack Query's own state, and add the two official persist packages pinned to the installed 5.105.1.
+- Build the freshness layer on TanStack Query's own state, with verification bound to the adopted result, and keep reload snapshots in a small module of the app's own. No new dependency.
 - Use the existing `Skeleton` and `Spinner`, and add a `PageStack` primitive.
 - Use no loading-bar or layout library.
 
@@ -159,7 +159,7 @@ None.
 
 - **Frontend only.** It touches:
   - `components/ui` (`PageStack`, `ReadState`, the progress line);
-  - `queries/` (`useFreshRead`, the persister);
+  - `queries/` (`useFreshRead`, the snapshot module);
   - every page's top-level layout and loading states;
   - `review/ReviewWorkspace.tsx` and `review/records/RecordsStage.tsx`;
   - `processing/ProcessingWorkspace.tsx` and `ProcessingJobCard.tsx`;
@@ -170,7 +170,7 @@ None.
   - `media/MediaUpload.tsx`, `media/MediaWorkspace.tsx` and `media/EvidenceGroupPanel.tsx` (drop and paste targets);
   - `settings/MastheadChoice.tsx`, a new device preference beside `theme/masthead-style.ts`, and `masthead/ElectronicsCurrent.tsx`;
   - `settings/agents/` (`SaveBar`, `useSubsectionForm`, `useSettingsSave`, `useDirtyForms` and each subsection form).
-- **Dependencies:** two new frontend packages, so a lockfile change; worktrees for this change install rather than symlink `node_modules`.
+- **Dependencies:** none new.
 - **Server and VM:** only the provider status (task 12) needs them. It adds a guest status question on the paired channel, an intake read API and a contract, plus a token check before saving where the VM can make one. Everything else is frontend only, with no data change.
 - **Coordination:**
   - `improve-agent-interaction` also edits `ProcessingWorkspace.tsx`, `ActivityPopover` and the session drawer. The first to merge rebases the other.
@@ -195,5 +195,5 @@ Decided by Mitch on 2026-11-23:
 Assumptions:
 
 - The progress line appears after 400 ms of refreshing, and the slow status after 3 s. Both are constants, tuned during the visual pass.
-- Persisted reads expire after 12 hours or when the app build changes, using a build identifier injected at build time as the persist `buster`.
+- Snapshots expire after 12 hours or when the app build changes, using a build identifier injected at build time.
 - "Closing this browser does not cancel saved work" moves into the Processing page's help button rather than being dropped.

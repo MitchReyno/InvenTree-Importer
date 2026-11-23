@@ -209,7 +209,7 @@ Each provider card SHALL show its sign-in status as a state pill read from the a
 
 ### Requirement: Sign-in failures shown apart from the status
 
-When the latest session using a provider's subscription failed to sign in, its card SHALL say so on a separate line, "Last session couldn't sign in" with its time, without changing the status pill.
+When the latest session that used a provider's subscription failed because the provider refused sign-in, its card SHALL say so on a separate line, "Last session couldn't sign in" with its time, without changing the status pill. A newer successful or API-key session hides it, and unavailable credentials don't count.
 
 #### Scenario: A session that couldn't sign in
 
@@ -229,7 +229,7 @@ On Settings › Agents, every on/off setting SHALL be a switch, and the default 
 
 ### Requirement: Subscription sign-in in a dialog
 
-Each provider card SHALL open its subscription sign-in in a dialog that asks for the management key and holds it only while open. Claude's dialog SHALL take the token, and Save SHALL close it only after a shape check passes and the agent VM confirms the token is stored; otherwise it stays open with the reason. Codex's dialog SHALL run the ChatGPT device sign-in and close once the VM confirms the account.
+Each provider card SHALL open its subscription sign-in in a dialog that asks for the management key, holds it only while open, and enables Save and Remove only after a fresh key-protected status read. Claude's dialog SHALL take the token, and Save SHALL close it only after a shape check passes and the agent VM confirms the token is stored; otherwise it stays open with the reason. Codex's dialog SHALL run the ChatGPT device sign-in and close once the VM confirms the account.
 
 #### Scenario: An API key pasted as a token
 
@@ -242,6 +242,12 @@ Each provider card SHALL open its subscription sign-in in a dialog that asks for
 - **GIVEN** a well-formed token and a wrong management key
 - **WHEN** the operator chooses Save
 - **THEN** the dialog stays open with the VM's refusal, and the previously saved token is kept.
+
+#### Scenario: Token replaced elsewhere
+
+- **GIVEN** the Claude dialog open, and the token replaced from another tab since its status read
+- **WHEN** the operator chooses Save
+- **THEN** the VM refuses the stale revision, the dialog stays open saying the token changed, and reads the status again.
 
 #### Scenario: Codex sign-in
 

@@ -2,28 +2,28 @@
 
 ### Requirement: The summary names what needs attention
 
-The masthead's workflow summary SHALL name the step and how many lots or sessions need attention when something failed or waits for the operator, such as "Research failed · 1 lot". It SHALL say "All done" with the batch name only from a fresh, complete read showing every applicable step of that batch done. It SHALL NOT use internal terms such as "Retained work".
+The masthead's workflow summary SHALL name the step that failed or waits for the operator, with a count, such as "Research failed · 1" or "Examine waiting for you · 2", failures first. With nothing working, waiting or failed, it SHALL say the batch name with "no agents working". It SHALL NOT claim that all work is done, and SHALL NOT use internal terms such as "Retained work".
 
 #### Scenario: A failed step
 
-- **GIVEN** Research failed on one lot and nothing else is running
+- **GIVEN** Research failed on one job and nothing else is running
 - **WHEN** the masthead summary renders
-- **THEN** it reads "Research failed · 1 lot", using the Failed glyph.
+- **THEN** it reads "Research failed · 1", using the Failed glyph.
 
-#### Scenario: Everything done
+#### Scenario: Nothing running
 
-- **GIVEN** a fresh, complete read in which every applicable step of the batch is done
+- **GIVEN** a batch with no step working, waiting or failed
 - **WHEN** the masthead summary renders
-- **THEN** it reads the batch name with "all done", not "Retained work · ready".
+- **THEN** it reads the batch name with "no agents working", not "Retained work · ready" or "all done".
 
-#### Scenario: Not enough evidence for "All done"
+#### Scenario: An incomplete read
 
-- **GIVEN** a batch that hasn't started processing, a truncated or stale work read, or an unavailable read
+- **GIVEN** a truncated, stale or unavailable work read
 - **WHEN** the masthead summary renders
-- **THEN** it says what is known ("Not started", "Updating…" or "Status unavailable") and never "All done".
+- **THEN** it says "Updating…" or "Status unavailable" rather than "no agents working".
 
 #### Scenario: Waiting and failed at once
 
 - **GIVEN** Examine waiting for the operator and Research failed
 - **WHEN** the masthead summary renders
-- **THEN** it names the failure first ("Research failed · 1 lot") and still shows the waiting count.
+- **THEN** it names the failure first ("Research failed · 1") and still shows the waiting count.

@@ -2,7 +2,7 @@
 
 ### Requirement: Several photos from a phone in one go
 
-On a phone, Take photos SHALL offer both the camera and the photo library, and the library SHALL allow picking several photos at once. The picker SHALL NOT be limited to taking one photo with the camera.
+On iOS Safari and Android Chrome, Take photos SHALL offer both the camera and the photo library, and the library SHALL allow picking several JPEG or PNG photos at once. The picker SHALL NOT be limited to taking one photo with the camera.
 
 #### Scenario: Pick five photos from the library
 
@@ -18,7 +18,7 @@ On a phone, Take photos SHALL offer both the camera and the photo library, and t
 
 ### Requirement: Drop or paste files to add evidence
 
-Files dropped onto the evidence panel or onto one of its groups, or pasted while Capture has focus, SHALL upload exactly as if picked: as one operation for all the files, photos and documents together, into the group they were dropped on (or the batch's ungrouped evidence), under the same limits, states and refusal conditions as the picker. While files are dragged over it, the target SHALL show where they will go. Unsupported files SHALL show "Not added" with the reason, as for picked files.
+Files dropped onto the evidence panel or onto one of its groups, or pasted while Capture has focus, SHALL upload exactly as if picked: as one operation for all the files, photos and documents together, into the group they were dropped on (or the batch's ungrouped evidence), under the same limits, states and refusal conditions as the picker. While files are dragged over it, the target SHALL show where they will go.
 
 #### Scenario: Drop three photos and a PDF on a group
 
@@ -43,3 +43,13 @@ Files dropped onto the evidence panel or onto one of its groups, or pasted while
 - **GIVEN** a group inside the evidence panel
 - **WHEN** files are dropped on the group
 - **THEN** they upload once, into that group, and the panel does not also take them.
+
+### Requirement: Dropped and pasted files use the picker's formats
+
+Dropped and pasted files SHALL be typed by the existing upload validator: JPEG and PNG as photos, PDF as documents. Anything else SHALL show "Not added" with the reason, as for a picked file.
+
+#### Scenario: An unsupported file in a drop
+
+- **GIVEN** a drop of two JPEGs and a ZIP file
+- **WHEN** it reaches the panel
+- **THEN** the JPEGs upload, and the ZIP shows "Not added" with the reason.

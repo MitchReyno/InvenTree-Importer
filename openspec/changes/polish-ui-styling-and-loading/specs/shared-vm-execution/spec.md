@@ -18,7 +18,7 @@ The intake server SHALL be able to read each VM provider's sign-in status withou
 
 ### Requirement: Status reads never change the guest
 
-The status read SHALL reach the guest through a bounded, read-only capability, never through the management actions. A guest without the capability, a busy guest or a timeout SHALL read as unknown, not signed out.
+The status read SHALL reach the guest's credential process through a status-only endpoint that is reachable only through the paired relay, needs no management key and offers no mutating action, never through the management actions. A guest without the endpoint, a busy guest or a timeout SHALL read as unknown, not signed out.
 
 #### Scenario: Older guest
 
@@ -31,3 +31,15 @@ The status read SHALL reach the guest through a bounded, read-only capability, n
 - **GIVEN** a Codex device sign-in that has expired but not been cancelled
 - **WHEN** the server reads provider status
 - **THEN** it reports the sign-in state without cancelling, completing or otherwise changing the login.
+
+#### Scenario: Before any turn
+
+- **GIVEN** a paired VM that has run no turns, with a Codex sign-in pending
+- **WHEN** the server reads provider status
+- **THEN** it reports Codex as signing in, and Claude's token as stored or not.
+
+#### Scenario: Older image after an upgrade
+
+- **GIVEN** a guest store that recorded a save time, rolled back to an older guest image
+- **WHEN** the older image opens the credential store
+- **THEN** it opens, the stored token works as before, and the save time is simply unread.

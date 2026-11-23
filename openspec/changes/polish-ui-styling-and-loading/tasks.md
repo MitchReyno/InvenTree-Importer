@@ -3,7 +3,7 @@
 ## Plan context
 
 - **Plan:** the [proposal](proposal.md) and [design](design.md), with deltas in `specs/` for `ui-design-system` and `live-updates`.
-- **Reuse:** TanStack Query's own state for freshness; the official persist packages pinned to the installed 5.105.1; the existing `Skeleton` and `Spinner`; a new `PageStack` primitive. No other dependency.
+- **Reuse:** TanStack Query's own state for freshness; a small snapshot module for reloads; the existing `Skeleton` and `Spinner`; a new `PageStack` primitive. No other dependency.
 - **Change name:** `polish-ui-styling-and-loading`. Branches are `fix/…` or `feat/polish-ui-styling-and-loading-<suffix>`, and subjects `type(polish-ui-styling-and-loading): …`.
 - **Items:** BI-020. The follow-up `trust-live-confirmed-reads` is BI-021.
 
@@ -111,15 +111,14 @@
   - `ReadState` with page skeletons;
   - `RefreshSignal` with the 400 ms progress line and the 3 s "Updating…" status;
   - `Button`'s quiet disabled reason;
-  - session-storage persistence of `meta.persist` reads, with the build buster, 12-hour expiry, scope clearing, the 1 MB cap and quota handling;
+  - display-only snapshots of allowlisted reads in session storage, restored only after a matching bootstrap and never into the query cache, with build and 12-hour expiry, scope clearing, the 1 MB cap and quota handling;
   - Processing and Review moved onto these, with their "Verifying…" banners removed.
 - **Scope and approach:**
-  - `frontend/src/queries/` (the hook, the persister in `client.ts`);
+  - `frontend/src/queries/` (the hook, the verified-reads registry, the snapshot module);
   - `components/ui/` (`ReadState`, `RefreshLine`, the `Button` option);
   - `App.tsx` (`RefreshSignal`, the restore wait);
   - `vite.config.ts` (the build constant);
   - `processing/ProcessingWorkspace.tsx`, `review/ManualWorkspace.tsx`, `review/ReviewWorkspace.tsx`.
-  - Add `@tanstack/react-query-persist-client` and `@tanstack/query-sync-storage-persister` at 5.105.1.
 - **Prerequisites:** none.
 - **Acceptance:** "Reads load without shifting the page" (all scenarios), "Refresh progress takes no space", "Commands wait quietly for a verified read", "Background refreshes keep commands available", "Cached reads survive a reload in the same session", "Only allowlisted reads are stored"; "Live unverifiable workspace state" still passes.
 - **TDD approach:** hook, signal, button and persistence tests fail first. The existing Processing and Review gate tests are rewritten against the hook and must keep their guarantees.
@@ -130,20 +129,21 @@
 - **Risks and decisions:** keep the gate's guarantees exactly; review each replaced condition against the old one.
 
 - [ ] 4.1 Read the guidelines and the frontend architecture's query and live-update sections. Write down the exact current gate conditions in Processing and Review.
-- [ ] 4.2 Install the two persist packages at 5.105.1, and record the lockfile change.
+- [ ] 4.2 Define the first snapshot allowlist and its display projections (Processing, the Review workspace, the batch header, Records), with the contracts' validators.
 - [ ] 4.3 RED: hook and component tests:
   - [ ] 4.3.1 `useFreshRead` phases and `commandsReady`, including the scope change and the `current` predicate.
   - [ ] 4.3.2 `RefreshSignal` at 400 ms and 3 s, reduced motion, and the announced status.
   - [ ] 4.3.3 `Button`'s quiet disabled reason, which adds no layout.
-  - [ ] 4.3.4 Persistence: `meta.persist`, the buster, `maxAge`, scope clearing, the size cap, quota failure, and a restore as `cached`.
-- [ ] 4.4 GREEN: implement the hook with its successful-read latch, `ReadState`, `RefreshSignal`, the button option, the build constant, and the persister: allowlist projections, no mutation dehydration, restore only after a matching bootstrap.
+  - [ ] 4.3.4 Snapshots: sentinel values in excluded fields, keys and nested DTOs never stored; validation on read; restore only after a matching bootstrap and never into the query cache; expiry by age and build; scope change dropping pending writes; the size cap and quota failure.
+  - [ ] 4.3.5 Verification: a `setQueryData` write before and after verification, a cancelled fetch's late response, a shared in-flight fetch, failed and paused reads; separate refresh cases for Processing commands, Pause and Resume, Review's manual workflow and acceptance.
+- [ ] 4.4 GREEN: implement the hook with the verified-reads registry, `ReadState`, `RefreshSignal`, the focusable quiet button option, the build constant, and the snapshot module.
 - [ ] 4.5 Move Processing and Review onto them. Remove the two "Verifying…" banners and "Reading retained processing state…", and add their skeletons. Rerun their gate and draft tests.
 - [ ] 4.6 Measure the persisted sizes, update `frontend/ARCHITECTURE.md` (reads, freshness, persistence), and run the frontend checks.
 
 ## 5. Every screen on the freshness layer
 
 - **PR delivery:** PR-C.
-- **Outcome:** every remaining screen loads through `ReadState`, with a skeleton, cached-first rendering and quiet refresh, and opts its reads into persistence where allowed. The 22 one-off loading lines are gone.
+- **Outcome:** every remaining screen loads through `ReadState`, with a skeleton, cached-first rendering and quiet refresh, and adds snapshot projections where the allowlist allows. The 22 one-off loading lines are gone.
 - **Scope and approach:** Batches, Capture, the Processing step pages (Images, Inventory, the session panel), Review Map, Records and record detail, Changes (including "Reading every record…"), Agents, the Settings sections, Local setup and the masthead activity's "Reading…". Debug reads and dialogs reading on demand (`RemovalDialog`) keep a local spinner instead of a skeleton.
 - **Prerequisites:** tasks 2 and 4 merged.
 - **Acceptance:** the task 4 requirements on every screen.
@@ -153,7 +153,7 @@
 
 - [ ] 5.1 List each of the 22 loading lines and classify it: a read (migrate) or an operator action (keep).
 - [ ] 5.2 RED: update each migrated screen's loading test.
-- [ ] 5.3 GREEN: migrate the screens, add their skeletons, and opt their reads into persistence.
+- [ ] 5.3 GREEN: migrate the screens, add their skeletons, and add snapshot projections for any newly allowlisted reads.
 - [ ] 5.4 Capture the first load and the return for each screen. Run the frontend checks, and record the demo video.
 
 ## 6. One state vocabulary and one time format
@@ -161,7 +161,7 @@
 - **PR delivery:** PR-D.
 - **Outcome:**
   - `WorkState` and `StatePill` with seven states and glyphs, mapped in one function from retained states, and used by the session lists, step tabs, the Overview, the step pages and the masthead;
-  - the masthead summary names what failed or waits, or says the batch is all done;
+  - the masthead summary names what failed or waits, or says "no agents working" (never "all done");
   - `EventTime` used for every event time.
 - **Scope and approach:**
   - `components/ui` (`StatePill`, `EventTime`);
@@ -175,7 +175,7 @@
 - **Risks and decisions:** agree the shared types with `improve-agent-interaction` (see design).
 
 - [ ] 6.1 Read the guidelines and the frontend architecture. List every place a work state or event time renders, and every word it uses today.
-- [ ] 6.2 RED: tests for the state mapping, `StatePill` glyphs, `EventTime` formats and hover text, and the masthead summary: a failure first, then waiting; "All done" only from a fresh complete read; an unstarted, truncated, stale or unavailable read never saying "All done".
+- [ ] 6.2 RED: tests for the state mapping, `StatePill` glyphs, `EventTime` formats and hover text, and the masthead summary: a failure first, then waiting; "no agents working" only from a fresh, complete read; a truncated, stale or unavailable read saying "Updating…" or "Status unavailable"; "all done" never shown.
 - [ ] 6.3 GREEN: implement them, and replace the per-screen words and time formats.
 - [ ] 6.4 Update affected tests and `frontend/ARCHITECTURE.md`. Run the frontend checks.
 
@@ -240,9 +240,9 @@
 - **Risks and decisions:** phones without the system sheet fall back to their file picker, which still allows several files.
 
 - [ ] 9.1 Read the guidelines, the media upload code and the capture-grouped-evidence spec.
-- [ ] 9.2 RED: tests for the photos input attributes; a mixed drop as one operation with one count; a nested group drop handled once; paste outside and inside a note; and every picker refusal (disabled, archived, stale, pending command, conflicting draft) refusing drop and paste.
-- [ ] 9.3 GREEN: remove `capture`, add `addMixed` to the upload queue, and add the drop targets with their highlight and the paste listener behind the picker's gate.
-- [ ] 9.4 Check on real phones and desktop browsers. Run the frontend checks, and record the demo video.
+- [ ] 9.2 RED: tests for the photos input attributes (`multiple`, JPEG and PNG, no `capture`); validator typing of dropped and pasted files, including an unsupported one; a mixed drop as one operation with one count; a nested group drop handled once; paste outside and inside a note; and every picker refusal (disabled, archived, stale, pending command, conflicting draft) refusing drop and paste.
+- [ ] 9.3 GREEN: remove `capture`, add `addMixed` to the upload queue, extract the shared start gate (returning its reason, and keeping the picker-return behaviour), and add the drop targets with their highlight and the paste listener behind it.
+- [ ] 9.4 Check on iOS Safari and Android Chrome (library multi-select and the camera option) and desktop Chrome and Safari (drop and paste). If a phone loses its camera option, add the separate "Take a photo" control. Run the frontend checks, and record the demo video.
 
 ## 10. Electronics animation switch
 
@@ -256,8 +256,8 @@
 - **Risks and decisions:** none.
 
 - [ ] 10.1 Read the guidelines, `theme/masthead-style.ts`, `device-preference.ts` and how `ElectronicsCurrent` starts the scene.
-- [ ] 10.2 RED: tests for the preference (default, bad storage, unknown value), the switch, and the scene started still when off.
-- [ ] 10.3 GREEN: implement the preference, the switch, the still start, and the controller's `pause()`/`resume()` used on change.
+- [ ] 10.2 RED: tests for the preference (default, bad storage, unknown value), the switch, the scene paused when off, turning it on after an off-state reload, a theme change while paused, and OS reduced motion still winning.
+- [ ] 10.3 GREEN: implement the preference, the switch, and the controller's `pause()` and `resume()`, keeping the OS reduced-motion flag separate.
 - [ ] 10.4 Check the three styles with the switch off in the running app (the fixture runner freezes the scene). Update `frontend/ARCHITECTURE.md`, and run the frontend checks.
 
 ## 11. Agent settings autosave
@@ -279,7 +279,8 @@
 - [ ] 11.2 RED: fake-timer tests:
   - [ ] 11.2.1 Debounce coalescing, and the payload built at dispatch from the newest confirmed settings with only owned fields.
   - [ ] 11.2.2 Same-page saves overlapping through the serial queue, and edits during a save saving again after it.
-  - [ ] 11.2.3 An external conflict with Reload, a failure with Try again, and a lost acknowledgement left unconfirmed.
+  - [ ] 11.2.3 An external conflict and a lost acknowledgement (with and without a committed save) pausing the queue, reading again, and resolving through Reload or Try again.
+  - [ ] 11.2.7 Validation at dispatch: a provider-off save superseding a queued step choice for that provider.
   - [ ] 11.2.4 Flush before in-app navigation (success continues, failure stays), and the leave prompt on reload.
   - [ ] 11.2.5 The last-provider refusal, and the provider-off reset.
   - [ ] 11.2.6 Text fields, including the interim model fields, keeping Save, shown only while edited.
@@ -309,16 +310,17 @@
   - A guest image change means `pnpm dev` rebuilds the runner image.
 
 - [ ] 12.1 Investigate and decide, recording each decision and its reason in `notes.md`:
-  - [ ] 12.1.1 The transport for the API-to-worker status request.
+  - [ ] 12.1.1 The transport for the API-to-worker status request, and the relay route to the credential process's status-only endpoint.
   - [ ] 12.1.2 That Codex `account/read` without refresh has no side effects.
   - [ ] 12.1.3 Whether the Claude CLI in the guest can confirm a setup token cheaply without starting a session. If it can, propose it as a follow-up requirement; it is not part of this task.
 - [ ] 12.2 RED: tests for:
-  - [ ] 12.2.1 The guest capability: Claude saved with and without `saved_at`; Codex signed in, signing in, and an expired login left untouched; no secrets.
+  - [ ] 12.2.1 The status-only endpoint: Claude saved with and without `credential_meta`; Codex signed in, signing in (before any turn), and an expired login left untouched; a read overlapping an active turn; no secrets.
+  - [ ] 12.2.6 The credential store opening on an older image after `credential_meta` exists, and on the new image with an existing token.
   - [ ] 12.2.2 Older, busy and timed-out guests reading as unknown.
   - [ ] 12.2.3 The API-to-worker request and its timeout.
-  - [ ] 12.2.4 The route, with the last-session sign-in failure alongside, and an unreachable VM.
+  - [ ] 12.2.4 The route, with the last-session line (shown only when the latest subscription session was refused sign-in; hidden after a newer success or API-key session; not for unavailable credentials), and an unreachable VM.
   - [ ] 12.2.5 The contract.
-- [ ] 12.3 GREEN: implement the capability, the `saved_at` column (nullable for existing tokens), the worker request, the route and the contract.
+- [ ] 12.3 GREEN: implement the status-only endpoint, the `credential_meta` side table, the worker request, the route and the contract.
 - [ ] 12.4 Update the deployment README and `intake-server/src/agents/ARCHITECTURE.md`. Run the tiers, and ask Mitch before the live VM check.
 
 ## 13. Provider cards, switches, model picker and sign-in dialogs
@@ -337,7 +339,7 @@
 - **Risks and decisions:** the management key must never be kept after a dialog closes. A test checks this.
 
 - [ ] 13.1 Read the guidelines, `frontend/ARCHITECTURE.md`'s Settings › Agents section and the credential hooks.
-- [ ] 13.2 RED: tests for the model picker (search, groups, a provider that's off, exact IDs, both fields set by one pick), the pill states and Check again, the switches, the segmented default provider, the dialogs' shape checks, Save disabled while checking, failures keeping the dialog open, the Codex dialog closing on confirmation, and dialog generations (closing with a queued call, then reopening with a different key: the old call is not sent, polling stops, late answers are ignored).
+- [ ] 13.2 RED: tests for the model picker (search, groups, a provider that's off, exact IDs, both fields set by one pick), the pill states and Check again, the switches, the segmented default provider, the dialogs' shape checks, Save disabled while checking, failures keeping the dialog open, the fresh key-protected status read enabling Save and Remove, a stale revision after a replacement elsewhere, the Codex dialog closing on confirmation, and dialog generations (closing with a queued call, then reopening with a different key: the old call is not sent, polling stops, late answers are ignored).
 - [ ] 13.3 GREEN: extract `SearchablePicker` from `SearchableReferencePicker` (its tests must pass unchanged), add `ModelPicker`, and implement the cards, the controls and the dialogs.
 - [ ] 13.4 Update `frontend/ARCHITECTURE.md`. Run the frontend checks, and record the demo video.
 
@@ -366,16 +368,17 @@
 
 ## Delivery evidence and lifecycle follow-up
 
-- [ ] PR-0: review both plans read-only (`codex exec -m gpt-6.2-sol -s read-only`; Mitch's standing rule allows at most three rounds, with the last round's fixes noted on the PR), fix, publish, CI green, merge.
+- [ ] PR-0: review both plans read-only (`codex exec -m gpt-6.2-sol -s read-only`; Mitch's standing rule: at most three rounds, with the last round's fixes noted on the PR; material issues left after round three are fixed and listed on the PR for Mitch), fix, publish, CI green, merge.
 - [ ] PR-A: implement tasks 1–3, 8 and 10, review the exact head, publish with captures and the demo, CI green, merge.
 - [ ] PR-B: implement task 4, review the exact head, publish with the demo, CI green, merge.
 - [ ] PR-C: implement task 5, review the exact head, publish with captures and the demo, CI green, merge.
+- [ ] PR-D: implement tasks 6 and 7, review the exact head, publish with captures and the demo, CI green, merge.
 - [ ] PR-E: implement task 9, review the exact head, publish with the phone and desktop checks and the demo, CI green, merge.
 - [ ] PR-F: implement task 11, review the exact head, publish with the demo, CI green, merge.
 - [ ] PR-G: implement task 12, review the exact head, publish, CI green, run the live VM check with Mitch's go-ahead, merge.
 - [ ] PR-H: implement task 13, review the exact head, publish with the demo, CI green, merge.
 - [ ] PR-I: implement task 14, review the exact head, publish with the audit, captures and the demo, CI green, merge.
-- [ ] PR-D: implement tasks 6 and 7, review the exact head, publish with captures and the demo, CI green, merge.
 - [ ] Update BI-020 as PRs merge. It is Done only after every implementation PR (PR-A to PR-I) merges and its acceptance is evidenced.
 - [ ] Mark this change's "Fixes: before and after" entries (S5, S7, O1–O5, O7–O11) in the design log as Built, with their PRs.
+- [ ] Before syncing: sync `settings-debug-mode`, then `simplify-vm-agent-web-and-setup`. Rebase this change's MODIFIED "Agent settings section" onto the synced requirement, in full, and re-run strict validation. After `masthead-appearance-options` syncs, update its masthead requirement in full for the animation switch.
 - [ ] Before archiving, run `pnpm openspec:overlap --change polish-ui-styling-and-loading`, sync the specs and record open items in `notes.md`.

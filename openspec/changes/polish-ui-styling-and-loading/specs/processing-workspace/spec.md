@@ -41,7 +41,7 @@ It SHALL NOT list lots as an editing surface, and it SHALL NOT repeat the Review
 
 - **GIVEN** more items need the operator than the attention read lists
 - **WHEN** Overview's Needs you renders
-- **THEN** it says how many more there are, as the header popover does, rather than implying the list is complete.
+- **THEN** it says "Showing the first N", as the header popover does, rather than implying the list is complete.
 
 ## ADDED Requirements
 
@@ -64,3 +64,9 @@ A step page SHALL accept a lot to focus in its address, so the Overview's lot ta
 - **GIVEN** the Overview lot table
 - **WHEN** the operator opens GE S2CN1 diodes' Research pill, or loads that address directly
 - **THEN** the Research page opens with that lot's output in view and highlighted.
+
+#### Scenario: A lot with no output yet
+
+- **GIVEN** a lot whose Images job hasn't run
+- **WHEN** the operator opens its Images pill, or loads that address directly
+- **THEN** the Images page opens with "No Images output for this lot yet" and the lot's state at the top.

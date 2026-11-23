@@ -10,7 +10,7 @@ The change is mostly frontend, and large: visual fixes, one shared loading and f
 | Page spacing | Top-level blocks are fragment siblings with their own `margin-bottom`; some have none | `components/review/ReviewWorkspace.tsx` (`ScopeBar`, `ContextFold`, `Toolbar`; `Banner` and `ReviewFilters` without margins) |
 | Profile notice | An info banner keyed on `snapshot.runner_status`, plus a job card tag | `ProcessingWorkspace.tsx`, `ProcessingJobCard.tsx` |
 | Reads | TanStack Query 5.105.1, memory cache, `staleTime: Infinity` | `queries/client.ts`, `App.tsx` |
-| Command gating | Processing `waitingForRead`, from a successful-read latch set only inside its own `queryFn`, so cache writes don't count (`successfulRead`); Review `waitingForFirstRead` (`isFetchedAfterMount`) and, for acceptance, `processingCurrent` (fetched this mount, success, not fetching, revision matches) | `ProcessingWorkspace.tsx:173–188`, `review/ManualWorkspace.tsx:102`, `review/ReviewWorkspace.tsx` |
+| Command gating | Processing commands use `waitingForRead`, from a successful-read latch set inside its own `queryFn` (`successfulRead`), but Pause and Resume are built from `liveRead(snapshotQuery)` without it and send no revision (`AgentPauseUpdate`); Review's manual workflow uses `waitingForFirstRead` (`isFetchedAfterMount`); acceptance, computed in `ManualWorkspace`, uses `processingCurrent` (fetched this mount, success, no refetch error, not fetching, capture revision matches). Processing, Manual Review and Records share the Processing query key | `ProcessingWorkspace.tsx:169–243`, `review/ManualWorkspace.tsx:89–102,325–337`, `review/records/RecordsStage.tsx:127–132`, `contracts/src/agents.ts:120–122` |
 | Loading lines | 22 bespoke "Reading…/Loading…" lines; `Skeleton` and `Spinner` exist and are used by a few components (`ProposedLotsGlance`, `StepPage`, `Tabs`, upload tiles) but by no page-level loading state | `components/**`, `components/ui/Loading.tsx` |
 
 ## Goals and constraints
@@ -50,53 +50,59 @@ The change is mostly frontend, and large: visual fixes, one shared loading and f
 ### One freshness hook over TanStack Query
 
 ```text
-useFreshRead(query, { current?: (data) => boolean }) →
+useFreshRead(query, { current?: (data) => boolean, restored?: Snapshot }) →
   { data, phase: 'empty' | 'cached' | 'refreshing' | 'current' | 'failed',
     verified: boolean, reason?: 'Updating…' | 'Status unavailable' }
 ```
 
-- **Verified read:** the hook owns a successful-read latch, as Processing has today. It wraps the query function and sets `verified` only when its own HTTP request succeeds for the mounted resource and scope identity. A `setQueryData` write, a restored or hydrated entry, a scope change, a failed read or a paused fetch never sets it, and a failure clears it.
+- **Verification bound to the adopted result:**
+  - A shared `verifiedReads` registry (a `WeakMap` from result object to `{ requestStartedAt, scope }`) is filled only by the resource's own query function when its HTTP request succeeds. Every observer of a shared key uses the same query function, so a joined in-flight fetch registers once.
+  - `verified` is true only while the query's current `data` is that same registered object, its request started after this mount, and its scope equals the mount's scope.
+  - A `setQueryData` write replaces the object, so it unverifies, and so does a restored or placeholder snapshot. A cancelled fetch's late response is never adopted, so it never verifies. A failure, a paused fetch or a scope change unverifies too.
 - **Phases:**
-  - `empty`: no data;
-  - `cached`: data, not yet verified;
+  - `empty`: no data and no restored snapshot;
+  - `cached`: data or a restored snapshot, not verified;
   - `refreshing`: a fetch in flight (before or after verification);
-  - `current`: verified, scope unchanged, and `current(data)` holds;
+  - `current`: verified, and `current(data)` holds;
   - `failed`: `isError`, or a paused fetch.
-- **Gating:** each screen keeps its own command conditions and builds them on `verified`, never on `isFetchedAfterMount`.
-  - Processing's commands and Review's manual workflow need `verified` once, and stay available through later background refreshes, as today.
-  - Review's acceptance keeps its stricter check (not fetching, capture revision matches) through the `current` predicate.
-  - Every command keeps sending its own expected revision and keeps its draft checks.
+- **Gating:** each screen keeps its own command conditions, built on `verified` rather than `isFetchedAfterMount`:
+  - **Processing:** queue, cancel and answer need `verified` once, and stay available through later background refreshes, as today. Pause and Resume send no revision, so they also need `verified` (today they don't), and stay available through later refreshes.
+  - **Review's manual workflow:** needs `verified` once, then stays available through refreshes.
+  - **Review acceptance:** computed in `ManualWorkspace`, it keeps its stricter check (not fetching, no refetch error, capture revision matches) through the `current` predicate, so it waits during a refresh.
+  - Commands that carry an expected revision keep sending it, and draft checks are unchanged.
 - **`ReadState`:** renders the page's skeleton in `empty`, the children otherwise, and the existing failure banner in `failed`. It reports unverified and refreshing reads to a page-level `RefreshSignal` context.
 - **`RefreshSignal`:** mounted by `App`, it starts a 400 ms timer when any registered read begins refreshing. When the timer fires it shows `RefreshLine`: a 2 px fixed bar under the masthead using the motion tokens, still under reduced motion, with a visually hidden "Updating" status. At 3 s it shows "Updating…" in the page header's status slot, which is absolutely positioned so nothing moves. Both clear when no registered read is refreshing.
-- **Disabled reasons:** `Button` already takes a `disabledReason`, which it shows beside the disabled button; that would itself shift the layout during a refresh. A `reasonDisplay: 'quiet'` option keeps the reason as the button's description and tooltip only (`aria-describedby` to a visually hidden element, plus `title`). Screens pass the hook's `reason` quietly; persistent reasons keep the visible form.
+- **Disabled reasons:** `Button` already takes a `disabledReason`, which it shows beside the disabled button; that would itself shift the layout during a refresh.
+  - A `reasonDisplay: 'quiet'` option renders the command with `aria-disabled="true"` rather than `disabled`, so it stays focusable, and links its reason through `aria-describedby` to a visually hidden element. The same reason shows as a tooltip on hover and on keyboard focus. Clicks and Enter do nothing while it is `aria-disabled`, as `DisabledFeature` already does.
+  - Persistent reasons keep the visible form.
 - **Skeletons:** each page gets one, built from `Skeleton` blocks in its grid. They live next to the page component.
 - **Rejected:**
   - React Suspense with `useSuspenseQuery`. It would restructure every screen's error and draft handling, and doesn't solve the command gate.
   - A whole-page overlay spinner. It hides cached data that is useful to read while refreshing.
 
-### Persist allowlisted reads to session storage
+### Display snapshots in session storage
 
-- **Mounting:** `queries/client.ts` wraps the client with `PersistQueryClientProvider` and `createSyncStoragePersister({ storage: sessionStorage })` from `@tanstack/react-query-persist-client` and `@tanstack/query-sync-storage-persister` 5.105.1, pinned to the installed `@tanstack/react-query`.
-- **What persists:** an explicit endpoint-and-field allowlist of display reads. Each allowlisted query declares a `persist` projection in `meta` that keeps only display fields. `shouldDehydrateQuery` persists only successful allowlisted queries, through their projection. `shouldDehydrateMutation` returns `false`, because TanStack dehydrates paused mutations by default.
-- **Never persisted:**
-  - bootstrap and its CSRF token (it already sits outside the private cache);
-  - credentials and sign-in payloads;
-  - session identifiers (for example the Agents list's `native_session_id`);
-  - media bytes and previews;
-  - drafts and command intent;
-  - debug reads.
-  
-  A test reads `sessionStorage` directly after a representative session to prove this.
-- **Restore:** restoring waits for a fresh bootstrap. Persisted entries are restored only when the stored actor, target and target context match it; otherwise they are dropped unread. Restored data is never `verified` (see the hook), so restore can't enable a command. While restoring (`useIsRestoring`), pages show their skeleton.
-- **Scope change:** a scope change clears the persisted cache after cancelling in-flight reads for the old scope. Commands for the old scope are already refused by their own scope checks.
-- **Expiry:**
-  - `maxAge` is 12 hours;
-  - `buster` is a build identifier injected at build time (a Vite `define` of the commit and build time), so a new build discards the cache.
-- **Size:** projections over 1 MB serialised are not persisted. A `QuotaExceededError` empties the persisted cache and is logged in debug info, never shown as an error.
+- **No persister:** TanStack's persister dehydrates whole queries (keys, hashes, metadata and payloads), and its synchronous storage persister is deprecated upstream. A filter can't strip fields, and its restore would hold queries until bootstrap, which `App` itself reads. The app writes its own small snapshots instead, with no new dependency.
+- **What is stored:** a `snapshots` module keeps one entry per allowlisted read, keyed by its own stable name, resource ID and a scope hash (`processing:<batchId>`, `review-workspace:<batchId>`, `batch:<batchId>`, `records:<batchId>`). It never stores TanStack keys or metadata. Each entry holds:
+  - a display projection, a typed `…Snapshot` DTO validated with the contracts on write and on read;
+  - the app build, the actor, target and target context, and the time it was written.
+- **The first allowlist:** Processing, the Review workspace, the batch header and Records, each with an explicit projection that keeps only what its page renders. Never stored:
+  - bootstrap and its CSRF token, credentials and sign-in payloads;
+  - the Agents list and session identifiers;
+  - media bytes, previews, and URLs or keys that carry credentials;
+  - drafts, command intent, mutations and debug reads.
+
+  A test writes sentinel values into every excluded field, key and nested DTO and asserts that none reach `sessionStorage`.
+- **Writing:** a snapshot is written after each verified read of an allowlisted resource, so query `gcTime` doesn't matter. Writes are throttled to one per resource per second.
+- **Restoring:** `useFreshRead` takes a `restored` snapshot and shows it, while the query has no data, as display-only content. It is never put into the query cache, so it can't verify. A page renders a snapshot only after the app's fresh bootstrap confirms the same actor, target and target context, and only for its own resource. Otherwise the snapshot is deleted unread.
+- **Lifetime:**
+  - entries expire after 12 hours, or when the build identifier (a Vite `define` of the commit and build time) differs;
+  - a scope change deletes every snapshot of the old scope before the new scope's pages render;
+  - pending throttled writes for the old scope are dropped.
+- **Size:** a projection over 1 MB serialised isn't stored. A `QuotaExceededError` deletes all snapshots and is logged in debug info, never shown as an error.
 - **Rejected:**
-  - Persisting whole screen reads with an exclusion list. It's too easy to leak a new field.
+  - `@tanstack/react-query-persist-client` with `createSyncStoragePersister` or `createAsyncStoragePersister`: whole-query dehydration and restore ordering, above.
   - `localStorage`. It outlives the tab, so stale inventory data could linger across days.
-  - IndexedDB. Async restore adds complexity for no benefit at these sizes.
 
 ### One state vocabulary and one time format
 
@@ -105,7 +111,11 @@ useFreshRead(query, { current?: (data) => boolean }) →
   - `header/workSegments.ts` maps retained job, step and session states onto it in one function, replacing `stateWords` and the local maps in Processing, the step pages, the session list and the masthead.
   - Lot review states ("Ready for review") keep their own `RecordStatePill`.
   - `improve-agent-interaction`'s activity popover bar uses the same type.
-- **Masthead summary:** it reads failed and waiting steps from the header work read (already loaded). Failures lead: "‹Step› failed · N lots", then "‹Step› waiting for you · N". "‹Batch› · all done" needs a fresh, untruncated work read with step counts showing every applicable step done; an unstarted batch says "Not started", and a stale, truncated or unavailable read says "Updating…" or "Status unavailable". It never says "Retained work".
+- **Masthead summary:** it reads failed and waiting steps from the header work read (already loaded).
+  - Failures lead: "‹Step› failed" with a count of failed jobs, not lots, because work items don't carry their subject. Then "‹Step› waiting for you · N".
+  - With nothing working, waiting or failed, it says "‹Batch› · no agents working". The header's counts describe jobs that exist, not which steps or lots still need work, so the app can't prove "all done" and never says it.
+  - A stale, truncated or unavailable read says "Updating…" or "Status unavailable". It never says "Retained work".
+  - S7's "all done" canvas example is replaced by "no agents working" for this reason.
 - **Times:**
   - A new `EventTime` component formats with `Intl.DateTimeFormat`: "Today HH:MM", "Yesterday HH:MM", "Fri 20 Nov · HH:MM", and the year outside the current one.
   - It respects the locale's hour cycle, and gives the full date and seconds in `title` and in the `<time dateTime>`.
@@ -115,10 +125,10 @@ useFreshRead(query, { current?: (data) => boolean }) →
 
 ### Overview and step page counts
 
-- **Needs you:** the Overview's card renders the batch attention read (`BatchAttentionDto`, already read for the header), using `NeedsYouPanel`'s list (shared, not copied), including its truncation disclosure (`NeedsYouPanel.tsx:135–137`). Agent questions come first and oldest first, then the other tabs' items tagged with their tab.
+- **Needs you:** the Overview's card renders the batch attention read (`BatchAttentionDto`, already read for the header), using `NeedsYouPanel`'s list (shared, not copied), including its existing "Showing the first N" disclosure (`NeedsYouPanel.tsx:135–137`). The read has `items_truncated` but no total. Agent questions come first and oldest first, then the other tabs' items tagged with their tab.
 - **Lot table:** Pipeline becomes a table with one row per live lot, and Research, Images and Inventory columns of `StatePill`s from that lot's jobs.
   - **Rows:** jobs whose subject is a Part rather than a lot appear under their Part's lots. Batch-level Examine lives only in the bar.
-  - **Links:** each pill links to its step page with that lot in focus. That needs a new `lot` query parameter on Processing step routes (`navigation/batch-route.ts`, whose trailing segment is a question ID today), which the step page reads on a direct load to scroll to and highlight the lot.
+  - **Links:** each pill links to its step page with that lot in focus. That needs a new `lot` query parameter on Processing step routes (`navigation/batch-route.ts`, whose trailing segment is a question ID today), which the step page reads on a direct load to scroll to and highlight the lot. A lot with no output for that step gets a short "No ‹step› output for this lot yet" entry at the top, with its state. Output shared through a Part is shown under the Part with the lot highlighted.
   - **Bar labels:** they show counts ("Research · 1 of 1") and link to the step pages.
 - **Step counts:** the summary uses the same filtering as the step's own section (`StepPage.tsx:22–47`). It counts distinct lots covered by that step's jobs, and its sessions, not the attention read's job counts. Examine counts lots formed. The duplicate outer summary in `ProcessingWorkspace.tsx` is removed.
 - **No server change:** every count and list comes from reads the page already makes.
@@ -131,23 +141,31 @@ useFreshRead(query, { current?: (data) => boolean }) →
 ### Several files from any source
 
 - **Phone picker:**
-  - The photos input drops `capture="environment"`. Without it, iOS and Android show their own sheet (take a photo, the photo library, files), and the library allows multi-select. The input keeps `multiple`.
-  - **Rejected:** a separate "Use camera" control beside it. It adds a button for what the system sheet already offers; it can be added later if the camera shortcut is missed.
+  - The photos input drops `capture="environment"`. Without it, iOS Safari and Android Chrome show their own sheet (take a photo, the photo library, files), and the library allows multi-select. The input keeps `multiple` and its `accept` of JPEG and PNG.
+  - The promise is bounded to the combinations checked in task 9.4, iOS Safari and Android Chrome. If removing `capture` loses the camera option on either, a separate "Take a photo" control with `capture` is added beside "Choose photos" in the same task.
 - **Drop and paste:**
   - The evidence panel and each group become drop targets: `dragover`/`drop` with `dataTransfer.files`, highlighting the target while files hover. A drop on a group is handled there once and doesn't also reach the panel.
   - Paste is a `paste` listener on Capture that ignores events from text fields and note editors, and takes `clipboardData.files`.
+- **Formats:** files are typed by the upload queue's existing validator (`useUploadQueue.ts:68–69`). JPEG and PNG become photos and PDF becomes a document; anything else becomes a "Not added" tile with the reason, as a picked file does.
 - **One operation:**
-  - `useUploadQueue` gains a mixed-kind `addMixed(files, groupId)`. It types each file (image to photos, PDF to document, anything else to a "Not added" tile) under one shared pick identity and count, so a mixed drop shows "Uploading 2 of 4" as one operation.
+  - `useUploadQueue` gains a mixed-kind `addMixed(files, groupId)` that types each file under one shared pick identity and count, so a mixed drop shows "Uploading 2 of 4" as one operation.
   - Today `add` creates one pick per call (`useUploadQueue.ts:74–85,286–306`), so calling it per kind would split the progress.
-- **Refusals:** drop and paste use the picker's full gate (`MediaWorkspace.tsx:189–194,445–449`): media disabled, the batch archived, media state not current, a command pending, or a conflicting draft open. Each refuses with the same reason as the disabled actions.
+- **Refusals:**
+  - Starting a pick, a drop or a paste shares one gate, extracted from `MediaWorkspace` (`:189–194,442–449`). It returns the refusal reason, not just a boolean: media disabled, the batch archived, media state not current, a command pending, or a conflicting draft open.
+  - The existing behaviour on returning from the native picker, which deliberately doesn't re-check that transient gate, is kept unchanged.
 - **Rejected:** a drag-and-drop library (react-dropzone). Native events cover the need in about 50 lines, with no extra dependency.
 
 ### The electronics animation switch
 
 - **The preference:** a new device preference, `bench-intake.masthead-motion` (`on` or `off`, default `on`), with a controller like `masthead-style.ts`. It reads and writes through `theme/device-preference.ts`, and sets `data-masthead-motion` on the root before first paint from the same inline script.
-- **The scene:** the scene controller gains `pause()` and `resume()`. Turning the switch off pauses the existing controller, which stops the loop and keeps the parts where they are; turning it on resumes from there. Restarting would reset time and re-randomise the parts (`electronics-current/scene.ts`), so the scene is not recreated. When the page loads with the switch off, the scene starts in its existing still mode (`reducedMotion: prefersReducedMotion() || motion === 'off'`).
-- **Pointer:** pointer reactions are skipped when still.
+- **Two separate inputs:** the OS reduced-motion setting and the motion preference stay separate. The scene is still constructed with `reducedMotion` from the OS only. Today `startLoop()` refuses to run on a scene built with `reducedMotion: true` (`electronics-current/scene.ts`), so folding the preference into that flag would stop a later "on" from working.
+- **Pause and resume:** the scene controller gains `pause()` and `resume()`.
+  - Turning the switch off pauses: the loop stops and the parts stay where they are, with pointer stir, pulses and display cycling stopped.
+  - Turning it on resumes from there, unless the OS asks for reduced motion.
+  - A page loaded with the switch off builds the scene normally, renders one frame, then pauses, so turning it on later works without recreating the scene. Recreating it would reset time and re-randomise the parts.
+  - A theme change while paused redraws the still frame in the new palette.
 - **What stays the same:** the masthead style, its ground and masks are untouched.
+- **Spec follow-up:** once `masthead-appearance-options` syncs, its masthead requirement (`ui-design-system`, "Masthead and electronics current in both themes") is updated in full so pointer stir, pulses and display cycling are qualified by the switch.
 - **Rejected:** hiding the parts when off. Mitch asked to keep the chosen appearance and only stop the movement.
 
 ### Agent settings autosave
@@ -165,6 +183,12 @@ useFreshRead(query, { current?: (data) => boolean }) →
   - Only the draft that was actually sent is acknowledged when its save confirms.
   - A lost acknowledgement leaves the field unconfirmed, with Try again, until a read shows what is saved.
 - **Debounce:** a change starts a 600 ms debounce; further changes restart it, so stepper clicks coalesce.
+- **Validating at dispatch:** a save is validated when it is sent, against the newest confirmed settings. A queued step choice for a provider that is now off is dropped. Turning a provider off supersedes queued choices for it: its save carries the reset of its steps to Default, and any queued step save naming that provider is discarded with the existing reset note.
+- **After an unconfirmed result:** a conflict, failure or lost acknowledgement pauses the queue.
+  - The page reads the settings again to learn what was saved. If the read shows the save landed, it is confirmed. Otherwise:
+    - **Reload** adopts the saved settings and discards the unconfirmed non-text values (they were already sent once). Text drafts are kept.
+    - **Try again** re-sends the unconfirmed values over the newly read revision, validated again.
+  - The queue resumes after either.
 - **Status:** each subsection heading shows `AutosaveStatus` (Saving…, Saved, a failure with Try again, a conflict with Reload). A failure keeps the control's value.
 - **Leaving:**
   - **In-app navigation:** `useNavigationGuard` (`navigation/useNavigationGuard.ts`) gains a pre-navigation hook. A link or Back first flushes pending debounces, waits for their saves, then continues; on a failure it stays and shows Try again.
@@ -178,27 +202,31 @@ useFreshRead(query, { current?: (data) => boolean }) →
 ### Read-only provider status and sign-in dialogs
 
 - **Why the status needs new plumbing:** today the browser calls the guest's management server (`agents/shared-vm/credential-http.ts`), and every action, even `status`, requires the management key. That key authorises credential changes and stays browser-held, so it can't back an automatic check.
-- **Path to the guest:** the paired bridge and its pairing material belong to the session worker (`agents/session/session-worker-main.ts:81–97`, `tooling/deployment/host-runner.compose.yaml`). They don't move.
-  - The intake API asks the worker through a new bounded, read-only local request with a 2 s timeout. Task 12.1 chooses the transport from what the API and worker processes already share (they share the database today; a direct local socket is the alternative).
-  - The worker asks the guest through a new negotiated `provider_status` capability frame on the coordinator (`agents/shared-vm/coordinator.ts`, `frames.ts`, `guest-main.ts`). It is answered between turns without disturbing them, and reports busy if the guest can't answer now.
-  - An older guest without the capability, a busy guest, a stopped or unpaired VM and a timeout all read as unknown, with the reason. None of them reads as signed out.
+- **Who knows the answer:**
+  - The guest's credential-management process (`credential-main.ts`) is the only one holding both observations: the Claude token store, and the `CodexAccount` instance with any pending login.
+  - The turn entry point (`guest-main.ts`) exists only during a turn, and the relay mounts credentials for one provider at a time (`tooling/deployment/bridge/relay.mjs`), so neither can answer between turns.
+- **Status-only path:** the credential-management process gains a status-only endpoint, separate from the management routes.
+  - It is reachable only through the paired relay, from the session worker, never through the browser-facing management path. It needs no management key and offers no mutating action.
+  - The session worker owns the pairing and keeps it. The intake API asks the worker through a bounded local request with a 2 s timeout; task 12.1 chooses the transport from what the two processes already share.
+  - An older guest without the endpoint, a busy guest, a stopped or unpaired VM, or a timeout reads as unknown, with the reason, and never as signed out.
 - **Guest answer, read only:**
-  - **Claude:** `configured` and `revision`, read directly from `claude-credential.ts`'s store. Its save time comes from a new nullable `saved_at` column, written on future saves and unknown for existing tokens.
-  - **Codex:** `signed_in` and `signing_in`. The guest calls only the app server's `account/read` (without refreshing a token) and reports its in-memory sign-in state. It never runs `CodexAccount`'s `status` action, which can cancel an expired login or complete one (`codex-login.ts:145–187`). Task 12.1 confirms `account/read` has no side effects.
-  - The answer carries no token, account email, key or pairing material. No management endpoint changes.
+  - **Claude:** `configured` and `revision` from the token store. Its save time comes from a new `credential_meta` side table, written on future saves and unknown for existing tokens. A side table, not a new column, because the current initializer uses a positional `INSERT … VALUES`, which an older image could no longer run against a changed table. Rolling back to an older image leaves the side table unread.
+  - **Codex:** `signed_in` from the app server's `account/read` (without refreshing), and `signing_in` from the `CodexAccount` instance's pending login. It never runs the `status` action, which can cancel an expired login or complete one (`codex-login.ts:145–187`). Task 12.1 confirms `account/read` has no side effects.
+  - The answer carries no token, account email, key or pairing material.
 - **Intake server:**
-  - `GET /api/v1/agents/provider-status` (read authority, short cache) returns that answer.
-  - Separately, it returns each provider's latest subscription-session sign-in failure (`agent_login_required` or an authentication-category failure) with its time. The card shows this as "Last session couldn't sign in". It makes no claim that the current token is the one that failed, because sessions don't yet record which credential revision they used.
+  - `GET /api/v1/agents/provider-status` (read authority, short cache) returns that answer. It is display-only: it never carries a credential revision for the browser to save with.
+  - **The last-session line:** for each provider, the server selects the latest session that used its subscription, ordered by start time. Only if that session failed with `agent_login_required`, an actual sign-in refusal, does it return a "last session couldn't sign in" indicator with the time. A newer successful session or a newer API-key session hides it, and `agent_credentials_unavailable` doesn't count.
   - A contract `ProviderStatus` sits in `contracts/src/agents.ts`.
 - **Token save:**
   - The dialog first checks the token's shape in the browser: Claude setup tokens start `sk-ant-oat01-`, and API keys (`sk-ant-api…`) are named as such.
-  - Save then sends the existing `save` action with the management key and the last acknowledged revision, unchanged. The dialog closes when storage is confirmed; a refusal keeps it open with the reason, and the stored token is unchanged.
-  - Whether the guest can also confirm with Claude that a token works, before storing it, is investigated in task 12.1. If it can, that becomes its own follow-up requirement and isn't promised here.
+  - When the key is entered, the dialog makes a fresh protected `status` read through the existing management action, which returns the current revision. Save and Remove stay disabled until it succeeds. Editing the key clears it and reads again.
+  - Save sends the existing `save` action with that revision, unchanged. The dialog closes when storage is confirmed; a refusal, including a stale revision, keeps it open with the reason, and the stored token is unchanged.
+  - Provider verification (checking with Claude that a token works) isn't part of this change; task 12.1.3 only investigates it.
 - **Cards and dialogs:**
   - `ProviderCard` shows `StatePill` with the status, a "Check again" action, and the last-session line when there is one.
   - `PersonalClaudeCredential` and `ChatGPTSignIn` move into `Dialog`s opened from "Subscription token…" and "Sign in to ChatGPT…". The management key is a field in each dialog, held only while it's open.
   - **Dialog generations:** each opening is a generation. Closing the dialog or editing its key ends the generation:
-    - it clears the key, and cancels queued but unsent requests, including those `useChatGPTSignIn`'s serial queue holds (`useChatGPTSignIn.ts:145–166`);
+    - it clears the key and the protected revision, and cancels queued but unsent requests, including those `useChatGPTSignIn`'s serial queue holds (`useChatGPTSignIn.ts:145–166`);
     - it stops polling;
     - late responses from an ended generation are ignored.
   - The Claude dialog's Save stays disabled while its request runs, and closes only on confirmed storage. The Codex dialog closes itself once the account is confirmed.
@@ -241,11 +269,18 @@ Authority is unchanged: no command is enabled by cached, restored or cache-writt
 
 ## Verification strategy
 
-- **Provider status (intake PG and process tiers):** the guest capability with a fake guest (Claude saved with and without `saved_at`, Codex signed in, signing in and expired-but-uncancelled left untouched); an older guest, a busy guest and a timeout reading as unknown; the API-to-worker request and its timeout; the last-session sign-in failure alongside; no secret in any response; the management endpoints unchanged.
+- **Provider status (intake PG and process tiers):**
+  - the status endpoint with a fake guest: Claude saved with and without `credential_meta`; Codex signed in, signing in, and expired-but-uncancelled left untouched;
+  - a paired VM with zero turns and a pending Codex login, and a status read overlapping an active turn;
+  - an older guest, a busy guest and a timeout reading as unknown;
+  - the API-to-worker request and its timeout;
+  - the last-session line: hidden after a newer success or API-key session, not shown for unavailable credentials;
+  - the credential store opening on an older image after `credential_meta` exists, and on the new image with an existing token;
+  - no secret in any response; the management endpoints unchanged.
 - **Dropdowns:** each converted field keeps its value, validation and form wiring (its existing tests, updated for the control); a picker per kind is tested for search and keyboard; captures at 1440 and 390 px for every changed field.
 - **Unit (frontend), provider cards and dialogs:** the model picker (search by name and ID, grouping, a provider that's off disabled with its reason, exact IDs per provider and their validation, a pick setting both provider and model and autosaving, the record picker unchanged on the shared base); the pill states, Check again, the switches, the segmented default provider, the dialog shape checks, Save staying disabled while checking, failures keeping the dialog open, and the Codex dialog closing on confirmation.
 - **Manual (provider status):** on the real VM, Settings shows the status with no key typed, and a failed sign-in shows as the last-session line.
-- **Unit (frontend), agent settings autosave:** under fake timers:
+- **Unit (frontend), agent settings autosave:** under fake timers (also: a provider-off save superseding a queued step choice; a conflict and a lost acknowledgement, with and without a committed save, pausing the queue and resolving through Reload or Try again):
   - debounce coalescing;
   - the payload built at dispatch from the newest confirmed settings with only owned fields;
   - same-page saves overlapping through the queue, and edits during a save saving again after it;
@@ -253,7 +288,7 @@ Authority is unchanged: no command is enabled by cached, restored or cache-writt
   - flush before in-app navigation, success and failure, and the leave prompt on reload;
   - the last-provider refusal and the provider-off reset;
   - text fields keeping Save, including the interim model fields in PR-F.
-- **Unit (frontend), animation switch:** the default, storage failure and an unknown stored value; the scene started still when off or under reduced motion; pause and resume on change without recreating the scene; each masthead style kept. The motion itself is checked in the running app, because the fixture runner freezes animation and hides the masthead scene (`frontend/README.md`).
+- **Unit (frontend), animation switch:** the default, storage failure and an unknown stored value; the scene paused when off, and still under OS reduced motion; turning it on after an off-state reload resuming without recreating the scene; a theme change while paused; each masthead style kept. The motion itself is checked in the running app, because the fixture runner freezes animation and hides the masthead scene (`frontend/README.md`).
 - **Unit (frontend), capture:** the photos input has `multiple` and no `capture`; a mixed drop on a group is one operation with the right kinds and count; a drop on a nested group is handled once; a paste outside text fields queues images, and inside a note it doesn't; every picker refusal (disabled, archived, stale, pending command, conflicting draft) refuses drop and paste too.
 - **Manual (capture):** picking several photos from the library on an iPhone and an Android phone, and dropping files on desktop Chrome and Safari, recorded in the PR.
 - **Unit (frontend), the review fixes:**
@@ -264,10 +299,14 @@ Authority is unchanged: no command is enabled by cached, restored or cache-writt
   - the lot table's pills and links, and the step page's own counts;
   - popover placement near the window's edges.
 - **Unit (frontend):**
-  - `useFreshRead` phases and `verified` under fake timers and a fake query client: hydration, a `setQueryData` write, a restored entry, a scope change, and failed or paused reads never verifying; background refreshes after verification keeping commands; the `current` predicate;
+  - `useFreshRead` phases and `verified` under fake timers and a fake query client:
+    - never verifying: a `setQueryData` write before or after verification, a restored snapshot, a cancelled fetch's late response, a scope change, and failed or paused reads;
+    - a shared in-flight fetch verifying its observers once;
+    - separate refresh tests for Processing commands, Pause and Resume, Review's manual workflow and Review acceptance;
+    - the quiet reason reachable by keyboard focus;
   - `RefreshSignal` delays (400 ms, 3 s), reduced motion and the announced status;
   - `Button`'s `disabledReason`;
-  - persistence round-trip with jsdom `sessionStorage`: the allowlist projections, the serialised contents holding no CSRF token, credential, session identifier, draft or mutation, restore only after a matching bootstrap, the buster, `maxAge`, the size cap and quota failure;
+  - snapshots with jsdom `sessionStorage`: the projections; sentinel values in excluded fields, keys and nested DTOs never reaching storage; validation on read; restore only after a matching bootstrap and never into the query cache; expiry by age and build; scope change dropping pending writes; the size cap and quota failure;
   - `RecordsStage`'s first-row border, by reading the generated rule for a selected first row from the injected style sheet (there is no `jest-styled-components`), with the visual capture as the main check;
   - Processing and Review gate tests carried over to the hook.
 - **Visual:** Playwright captures of the fixture pages (`tests/fixtures/*.html`) for layout comparisons, and of the running dev app for anything involving motion, live data or the masthead scene, at 1440 px and 390 px, before and after each PR, attached to the PR. There is no committed screenshot baseline, because evidence goes on the PR.
@@ -275,15 +314,15 @@ Authority is unchanged: no command is enabled by cached, restored or cache-writt
 
 ## Migration, rollout and recovery
 
-- **Rollout:** no data migration. A new build busts any persisted cache. Rollback removes the persister, and sessions restart with a memory cache.
-- **Lockfile:** the two packages change the lockfile, so worktrees install rather than symlink `node_modules`.
+- **Rollout:** a new build invalidates stored snapshots. The only stored-data change is the guest's `credential_meta` side table (task 12), which older images ignore.
+- **Rollback:** removing the snapshot module leaves nothing to migrate; sessions start without snapshots.
 - **Build identifier:** the Vite `define` adds one build constant; the Dev mode popover's build summary can show it too.
 
 ## Risks and open decisions
 
 - **Skeletons can drift from the page layout.** Mitigation: each skeleton sits beside its page and is part of the visual pass.
-- **Persisted cache size.** Mitigation: the 1 MB cap per projection and quota handling; actual sizes are measured in task 4 and reported in the PR description.
+- **Snapshot size.** Mitigation: the 1 MB cap per projection and quota handling; actual sizes are measured in task 4 and reported in the PR description.
 - **Conflicts with `improve-agent-interaction`'s Processing and drawer edits.** Mitigation: whichever merges second rebases. Its activity popover and session rows take `WorkState` and `EventTime` from here, so whichever lands first defines them and the other adopts them.
 - **Renaming states touches many tests.** Mitigation: one mapping function, with the old words removed in one PR.
-- **Open: provider token verification.** Whether the guest can confirm a Claude token works before storing it (task 12.1). Until decided, Save promises shape and storage only.
+- **Provider token verification** is out of scope; task 12.1.3 only investigates it.
 - **Open: credential attribution.** Sessions don't record which credential revision they used, so failures are shown as "last session" diagnostics, not as the token's status. Recording it is a possible follow-up.

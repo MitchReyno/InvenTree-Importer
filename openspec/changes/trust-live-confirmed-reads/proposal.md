@@ -12,7 +12,7 @@ The browser already keeps a live-update stream that refetches reads after change
 - a hint can arrive while an earlier read is still in flight;
 - some commands, such as batch Pause and Resume, send no expected revision. A stale cache could therefore cause a wrong write there, not just a refused one.
 
-**The outcome sought:** on a return visit, an audited set of commands becomes available at once when the cached read has its own proof of currency. That proof is a successful HTTP read completed after the newest relevant hint, within the same unbroken subscription and the same resource scope. In every other case, the page waits for a read as it does today.
+**The outcome sought:** on a return visit, an audited set of commands becomes available at once when the cached read has its own proof of currency. That proof is a successful HTTP read whose request started after the newest relevant hint, for a resource the subscription covers, within the same unbroken subscription and the same resource scope. In every other case, the page waits for a read as it does today.
 
 This is option 3 from the 2026-11-23 discussion. Mitch asked for it as its own change, after option 2.
 
@@ -32,8 +32,8 @@ This is option 3 from the 2026-11-23 discussion. Mitch asked for it as its own c
 
 In scope:
 
-- A per-query currency proof: a successful HTTP read whose request started after the newest hint relevant to that query, within the current, complete subscription and resource scope.
-- The proof is cleared on any new relevant hint, a gap, reset or truncation, a reconnect, the fall-back to polling, a scope change, or a failed read.
+- A per-query currency proof: a successful HTTP read whose request started after the newest hint relevant to that query, for a resource the subscription covers, within the current, complete subscription and resource scope.
+- The proof is cleared synchronously when a relevant hint is received, before the debounced reconciliation runs, and on a gap, reset or truncation, a reconnect, the fall-back to polling, a scope change, or a failed read.
 - An audited allowlist of commands that may use the proof. Each has a server-checked expected revision. Commands without one, such as Pause and Resume, keep waiting for a read made since the page opened.
 - Tests for each way the proof can be cleared, and for a hint arriving during an in-flight read.
 
