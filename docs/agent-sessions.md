@@ -429,7 +429,7 @@ flowchart TD
    | Already imported | skipped; lot left out | skipped |
 
 5. **Late matches.** If Research in full mode finds an alias or cross-reference that makes the lot searchable in a new way, it publishes it as a match note. Match searches again. A new candidate pauses Research for that lot and asks the question, as in pass 2; the session's other lots continue.
-6. **Pass 3, before approval.** Before Changes › Ready, Match searches again, as preparation target reads, with each selected `/7` lot's final identifiers and import references. It looks for a Part created in InvenTree since the decision, an approval of the lot's original contribution in this app's retained history, stock that now exists on the target Part with its batch code, and a final identity that no longer matches its decision. Each finding is a blocking item in Review. Approval's own idempotency covers only the preparation command and its retained plan and review bindings (`intake-server/src/review/approve-preparation.ts:64-75`); it doesn't make the barcode or import reference unique in InvenTree. So a preparation records each lot's pass-3 search generation, and approval refuses it when a newer search has been requested, settled or not, or the validation read failed.
+6. **Pass 3, before approval.** Before Changes › Ready, Match searches again, as preparation target reads, with each selected `/7` lot's final identifiers and import references. It looks for a Part created in InvenTree since the decision, an approval of the lot's original contribution in this app's retained history, stock on the target Part with its batch code that the decision didn't already cover, and a final identity that no longer matches its decision. Each finding is a blocking item in Review. Approval's own idempotency covers only the preparation command and its retained plan and review bindings (`intake-server/src/review/approve-preparation.ts:64-75`); it doesn't make the barcode or import reference unique in InvenTree. So a preparation records each lot's pass-3 search generation, and approval refuses it when a newer search has been requested, settled or not, or the validation read failed.
 
 ### One identity, refined by more than one stage
 
@@ -496,12 +496,12 @@ Every change is delivered as a `revision/2` item carrying `changes`: `{field, fr
 | Event | Examine | Match (app) | Research | Images |
 | --- | --- | --- | --- | --- |
 | New evidence | `evidence` + resume | — | after Examine assigns it: `evidence` | after Examine assigns it: `evidence` |
-| Observation corrected by the operator | `revision/2` + resume | Re-search if a key changed | `revision/2`; relying proposals stale | `revision/2` |
-| Identity revised by Examine | — | Re-search; a changed verdict reopens the question | `revision/2` with the change | `revision/2` |
+| Observation corrected by the operator | `revision/2` + resume | Re-search if a key changed | `revision/2`; relying proposals stale. If the identity changes, a claimed lot is released and requeued through Match, and its group gets a release `revision/2` | same as Research |
+| Identity revised by Examine | — | Re-search; a changed verdict reopens the question | A claimed lot is released and requeued through Match; its group gets a release `revision/2` | same as Research |
 | Research publishes an identity amendment | `revision/2` naming the added and refined fields | Merges the identity; searches (pass 2, or a late match) | The amending session keeps the lot; pauses if a question is asked | An unclaimed lot pins the merged identity; a lot in a claimed Images group is released and requeued, and that session gets `revision/2` |
 | Research adds an alias as a match note, identity unchanged | — | Searches (a late match) | Keeps the lot; that lot pauses if a candidate opens a question | A claimed Images lot keeps its membership; a candidate holds only that lot until the decision |
 | Match decision | — | Records the decision | Mode delivered to the lot, or the lot's membership closed if skipped; the session closes only when none of its lots needs it | Queued in its mode, or skipped |
-| Answer to an agent's question | asker: `answer`; relying sessions: `revision/2` | Re-search if keys changed | same | same |
+| Answer to an agent's question | asker: `answer`; relying sessions: `revision/2` | Re-search if keys changed | `revision/2`; if the answer changes the identity, a claimed lot is released and requeued through Match, with a release `revision/2` to its group | same as Research |
 | InvenTree changes before approval | — | Pass 3 finding, blocks approval | — | — |
 | Duplicate ask | `ask` returns the existing question | — | same | same |
 
@@ -568,14 +568,14 @@ The skills' deterministic scripts become intake MCP tools, run by the app on the
 - they work for both providers and both `/7` profiles;
 - they operate on full-resolution originals without spending the image budget on transfers;
 - their results are reproducible and recorded;
-- they need no VM runner-image changes (the coordinator's deployment gains the decoder dispatcher socket in task 11);
+- the decoder owns the image code and the logo set, so the VM runner image gains no scripts or assets; it is still rebuilt in task 11 for the extended relay, and the coordinator's deployment gains the decoder dispatcher socket;
 - recipes stay the only route to a retained crop.
 
-**Where they run.** In the media decoder, which already owns orientation, crops and renditions. The decoder is TypeScript on `sharp` and `@napi-rs/canvas`, so the Python scripts are reimplemented there rather than called, and tested for parity with the scripts' outputs. The logo set is bundled read-only with the decoder image.
+**Where they run.** In the media decoder, which already owns orientation, crops and renditions. The decoder is TypeScript on `sharp` and `@napi-rs/canvas`, so the Python scripts are reimplemented there rather than called, and the geometric operations are tested for parity with the scripts' outputs. The logo set is bundled read-only with the decoder image.
 
 **Delivery.** Tool replies with images use the same size limits as `fetch_evidence`. On the VM relay only `fetch_evidence` gets the larger image envelope today (`intake-server/src/agents/shared-vm/evidence-request.ts`), and only its replies are staged into the guest, so the relay is extended to `inspect_region`, `preview_images` and `match_logo` with one aggregate per-run image budget. Montages and logo sheets are tested over the real relay.
 
-**Parity.** Parity with the scripts is checked on the rendered crop pixels, before labels, downscaling or delivery encoding.
+**Parity.** Parity with the scripts is checked on the rendered crop pixels, before labels, downscaling or delivery encoding, for crop, quarter turns and straightening. The light adjustments are hue-preserving versions of their own, tested for hue retention on coloured-pixel and colour-cast fixtures rather than for parity.
 
 **Not in the VM.** The runner image doesn't carry the scripts today (`tooling/deployment/guest/Dockerfile`), and they aren't added.
 

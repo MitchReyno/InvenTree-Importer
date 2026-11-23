@@ -32,7 +32,7 @@ For `/7` work, a lot with a strong search key SHALL also start them only when Ma
 
 #### Scenario: Lot regrouped before successors start
 
-- **GIVEN** a lot whose identity was published and whose Research is queued but not yet started
+- **GIVEN** a lot on an input earlier than `/7` whose identity was published and whose Research is queued but not yet started
 - **WHEN** the lead session moves one of its observations to another lot
 - **THEN** the identity is no longer stable, Research does not start from it, and it starts once Examine republishes an identity for the regrouped lot.
 

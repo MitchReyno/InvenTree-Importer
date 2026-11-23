@@ -170,7 +170,13 @@ When lots share a draft Part and one is decided as add stock to an existing Part
 
 ### Requirement: Validation before approval
 
-Preparation SHALL run Match's search again for each selected lot of a batch whose lead input is `/7`, with the lot's final identifiers and import references. A Part created since the decision, an approval of the lot's original contribution in this app's retained history, stock that now exists on the target Part with its batch code, or a final identity that no longer fits the decision SHALL be a blocking item until the operator decides again.
+Preparation SHALL run Match's search again for each selected lot of a batch whose lead input is `/7`, with the lot's final identifiers and import references. A Part created since the decision, an approval of the lot's original contribution in this app's retained history, stock on the target Part with its batch code that the decision didn't already cover, or a final identity that no longer fits the decision SHALL be a blocking item until the operator decides again.
+
+#### Scenario: Stock the decision already covered
+
+- **GIVEN** a lot decided as add stock to RES-0144 after the question showed stock with its batch code
+- **WHEN** pass 3 finds that same stock unchanged
+- **THEN** it is not a finding, while stock with the batch code that appeared after the decision blocks the lot.
 
 #### Scenario: Part created meanwhile
 
