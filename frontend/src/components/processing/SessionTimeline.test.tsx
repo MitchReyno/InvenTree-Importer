@@ -66,6 +66,32 @@ test('status lines form an ordered timeline and the latest is the current activi
   expect(screen.getByRole('status')).not.toHaveTextContent('Reading the label')
 })
 
+test('a photo view reads as a plain step, not its raw kind', () => {
+  const viewed: SessionTimelineDto = {
+    ...timeline,
+    outbox: [
+      ...timeline.outbox,
+      {
+        session_id: 'attempt',
+        seq: '5',
+        kind: 'photo_view',
+        payload: {
+          evidence_id: 'evidence',
+          version_id: 'version',
+          page: 1,
+          region: { x: 10, y: 20, width: 300, height: 400 },
+          delivered: { width: 300, height: 400, media_type: 'image/png', sha256: 'f'.repeat(64) },
+        },
+        created_at: at(6),
+      },
+    ],
+  }
+  render(<SessionTimeline timeline={viewed} />)
+  const steps = within(screen.getByRole('list', { name: 'Session steps' })).getAllByRole('listitem')
+  expect(steps.at(-1)).toHaveTextContent('Prepared a photo for the agent')
+  expect(screen.queryByText('photo_view')).toBeNull()
+})
+
 test('chat shows the operator message and the agent reply in order', () => {
   render(
     <SessionChat

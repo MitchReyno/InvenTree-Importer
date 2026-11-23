@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg'
 import { and, eq, inArray } from 'drizzle-orm'
-import type { CaptureSnapshotDto, ProcessingProposalV5Dto } from '@invimport/contracts'
+import type { CaptureSnapshotDto, SessionProposalDto } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { captureLots } from '#/capture/schema.ts'
 import { agentSessions } from '#/agents/schema.ts'
@@ -25,7 +25,7 @@ export { SUCCESSOR_STAGES } from './supersede.ts'
 const ENDED_STATES = ['superseded', 'cancelled', 'failed'] as const
 
 /** The observation set version an identity proposal relies on for its own lot, if any. */
-export function reliedObservationSet(proposal: ProcessingProposalV5Dto): string | null {
+export function reliedObservationSet(proposal: SessionProposalDto): string | null {
   if (!proposal.relies_on.fields.includes('identity')) {
     return null
   }
@@ -66,7 +66,7 @@ export async function onLeadIdentity(
   client: PoolClient,
   config: ProcessingConfig,
   snapshot: CaptureSnapshotDto,
-  proposal: ProcessingProposalV5Dto,
+  proposal: SessionProposalDto,
   proposalId: string,
 ): Promise<'queued' | 'revised' | 'waiting' | 'not_stable' | null> {
   const version = reliedObservationSet(proposal)

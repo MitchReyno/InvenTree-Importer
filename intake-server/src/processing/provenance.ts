@@ -1,7 +1,7 @@
 import type {
   ProcessingInputDto,
-  ProcessingProposalV5Dto,
   ProcessingProposalDto,
+  SessionProposalDto,
   ProcessingSourceDto,
   ProcessingSourceV3Dto,
 } from '@invimport/contracts'
@@ -95,8 +95,8 @@ export function validateProposalSources(
   }
 }
 
-/** Every source a `/5` catalogue value cites, including choices, companies and alternatives. */
-export function catalogueSources(proposal: ProcessingProposalV5Dto) {
+/** Every source a session catalogue value cites, including choices, companies and alternatives. */
+export function catalogueSources(proposal: Pick<SessionProposalDto, 'catalogue'>) {
   const catalogue = proposal.catalogue
   if (!catalogue) {
     return []

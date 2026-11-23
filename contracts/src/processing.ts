@@ -532,12 +532,71 @@ export const ProcessingProposalV5 = object({
   relies_on: ProcessingReliance,
   catalogue: Type.Optional(CatalogueProposal),
 })
+
+/** Agent-reported web pages hold no saved copy, so a URL longer than this is refused. */
+export const WEB_PAGE_URL_MAX_CHARACTERS = 2048
+/**
+ * An absolute http(s) URL without whitespace, control characters or credentials: the authority
+ * may not contain `@`. `webPageUrlAccepted` adds the parser's checks the pattern can't express.
+ */
+const WEB_PAGE_URL_PATTERN =
+  '^[Hh][Tt][Tt][Pp][Ss]?://[^\\s\\u0000-\\u001f\\u007f/?#@\\\\]+([/?#][^\\s\\u0000-\\u001f\\u007f]*)?(?![\\s\\S])'
+const webPageUrlPattern = new RegExp(WEB_PAGE_URL_PATTERN, 'u')
+
+/** A page the agent says it read, such as a datasheet fetched with WebFetch. Never verified. */
+export const WebPageSource = object({
+  kind: Type.Literal('web_page'),
+  url: Type.String({
+    minLength: 1,
+    maxLength: WEB_PAGE_URL_MAX_CHARACTERS,
+    pattern: WEB_PAGE_URL_PATTERN,
+  }),
+  title: Type.Optional(Type.String({ minLength: 1, maxLength: 256 })),
+  /** When the agent says it read the page. */
+  read_at: Type.Optional(IsoTime),
+})
+export type WebPageSourceDto = Static<typeof WebPageSource>
+
+/** True when the URL also parses as an absolute http(s) URL with a host and no credentials. */
+export function webPageUrlAccepted(value: string): boolean {
+  // JSON Schema's maxLength counts code points, not UTF-16 code units.
+  const characters = [...value].length
+  if (characters > WEB_PAGE_URL_MAX_CHARACTERS || !webPageUrlPattern.test(value)) {
+    return false
+  }
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    return false
+  }
+  const webScheme = url.protocol === 'https:' || url.protocol === 'http:'
+  const noCredentials = url.username === '' && url.password === ''
+  return webScheme && noCredentials && url.hostname !== ''
+}
+
+/**
+ * `/5` plus agent-reported web pages in its top-level sources only; `relies_on` and catalogue
+ * sources still cite delivered evidence.
+ */
+export const ProcessingProposalV6 = object({
+  ...ProcessingProposalV5.properties,
+  schema_version: Type.Literal('bench-intake-proposal/6'),
+  sources: Type.Array(Type.Union([...ProcessingSource.anyOf, WebPageSource]), {
+    minItems: 1,
+    maxItems: 100,
+    uniqueItems: true,
+  }),
+})
+/** The proposal versions a session may publish. */
+export const SessionProposal = Type.Union([ProcessingProposalV5, ProcessingProposalV6])
 export const ProcessingProposal = Type.Union([
   ProcessingProposalV1,
   ProcessingProposalV2,
   ProcessingProposalV3,
   ProcessingProposalV4,
   ProcessingProposalV5,
+  ProcessingProposalV6,
 ])
 
 const runnerBinding = {
@@ -783,6 +842,9 @@ export const processingSchemas = {
   ProcessingReliance,
   CatalogueProposal,
   ProcessingProposalV5,
+  ProcessingProposalV6,
+  SessionProposal,
+  WebPageSource,
   ProcessingInputV4,
   ProcessingCommandV4,
   ProcessingEnvelopeV4,
@@ -886,3 +948,5 @@ export type ProcessingFieldDto = Static<typeof ProcessingField>
 export type ProcessingRelianceDto = Static<typeof ProcessingReliance>
 export type CatalogueProposalDto = Static<typeof CatalogueProposal>
 export type ProcessingProposalV5Dto = Static<typeof ProcessingProposalV5>
+export type ProcessingProposalV6Dto = Static<typeof ProcessingProposalV6>
+export type SessionProposalDto = Static<typeof SessionProposal>
