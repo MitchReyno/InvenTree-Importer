@@ -28,7 +28,11 @@ type SteppedQuestion = Pick<SessionAskArgsV2Dto, 'title' | 'reason' | 'steps'>
 function steppedView(question: SteppedQuestion): QuestionView {
   return {
     version: 2,
-    title: question.title ?? question.steps[0].prompt,
+    // A one-step question is labelled by its prompt; a title labels a stepped question.
+    title:
+      question.steps.length === 1
+        ? question.steps[0].prompt
+        : (question.title ?? question.steps[0].prompt),
     reason: question.reason,
     steps: question.steps.map((step) => ({
       id: step.id,

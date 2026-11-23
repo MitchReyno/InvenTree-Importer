@@ -391,8 +391,8 @@ export const ProcessingAnswerV2 = object({
   expected_capture_revision: Revision,
   attempt_id: Id,
   input_sha256: Digest,
+  // An empty list still reaches the stored question, which names the missing step.
   steps: Type.Array(object({ step_id: QuestionStepId, value: QuestionStepValue }), {
-    minItems: 1,
     maxItems: QUESTION_MAX_STEPS,
   }),
 })

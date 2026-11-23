@@ -6,6 +6,7 @@ import {
   type SessionAnswerStepValueDto,
   type SessionAskArgsV2Dto,
 } from '@invimport/contracts'
+import { storableText } from '#/db/storable-text.ts'
 import { fail, failStep } from './model.ts'
 
 /** What a `/2` answer changes: at most a lot quantity and one note, and what the session is told. */
@@ -102,6 +103,10 @@ export function steppedAnswerEffects(
       quantity = { value: outcome.delivered.value, basis: outcome.delivered.basis }
     }
     if (outcome.noteText !== undefined) {
+      // The note and the delivered payload are stored as text, which refuses these characters.
+      if (!storableText(outcome.noteText)) {
+        failStep(step.id)
+      }
       lines.push(`${step.prompt} — ${outcome.noteText}`)
       if (noteCharacters(lines.join('\n')) > CAPTURE_NOTE_MAX_CHARACTERS) {
         failStep(step.id)

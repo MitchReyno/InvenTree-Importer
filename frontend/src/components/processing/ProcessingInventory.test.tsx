@@ -347,7 +347,8 @@ describe('ProcessingInventory', () => {
     const card = screen.getByRole('region', {
       name: 'Compare before answering: LM358 op-amps (tube)',
     })
-    expect(card).toHaveTextContent('The LM358 tube and stock #1712')
+    // A one-step question is labelled by its prompt.
+    expect(card).toHaveTextContent('Is it the tube in stock?')
     expect(card).toHaveTextContent('Stock #1712 has the same Part, date code and bin.')
     expect(
       screen.queryByRole('region', { name: 'Compare before answering: 10 kΩ resistors' }),

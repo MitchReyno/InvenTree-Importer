@@ -49,7 +49,7 @@ import { appendSessionOutbox, lastStatusAt } from './outbox.ts'
 import sharp from 'sharp'
 import { regionCropCache } from '#/media/region-crops.ts'
 import { pendingSessionInbox, readSessionInbox, sessionInboxItem } from './inbox.ts'
-import { stepRefusal } from './question-checks.ts'
+import { stepRefusal, subjectRefusal } from './question-checks.ts'
 import { removedVersionIds, versionRemovedSql } from '#/media/removal.ts'
 
 export const SESSION_IMAGE_BUDGET_BYTES = 8 * 1024 * 1024
@@ -1079,7 +1079,8 @@ export function sessionTools(context: SessionToolContext) {
             ? ask.subject_id !== null && !subjects.includes(ask.subject_id)
             : ask.subject_id !== principal.subjectId
         ) {
-          refuse('validation_failed', 'A question must be about this session’s lot.')
+          const wrongSubject = subjectRefusal(ask)
+          throw new ToolRefusal('validation_failed', wrongSubject.message, [wrongSubject.issue])
         }
         const stepProblem = stepRefusal(ask, new Set(liveLots))
         if (stepProblem) {

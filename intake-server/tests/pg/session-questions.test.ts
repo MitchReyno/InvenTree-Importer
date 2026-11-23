@@ -786,3 +786,47 @@ test('the ask schema has steps, and the tool and opening carry the one-question 
     assert.ok(opening.instructions.includes(ASK_GUIDANCE))
   })
 })
+
+test('ask refuses unstorable text and a subject outside the session, naming the field', async () => {
+  await withSessions(async ({ fixture, capture, url, a }) => {
+    const nul = await call(
+      url,
+      a.token,
+      'ask',
+      stepped(capture.packetA.id, [choiceStep, { ...numberStep, assumption: 'About\u0000380' }]),
+    )
+    assert.equal(nul.error, 'validation_failed')
+    assert.ok(nul.issues?.some((issue) => issue.path === '/steps/1/assumption'))
+    const surrogate = await call(url, a.token, 'ask', {
+      ...stepped(capture.packetA.id, [choiceStep]),
+      reason: 'Half a pair \ud800 here.',
+    })
+    assert.ok(surrogate.issues?.some((issue) => issue.path === '/reason'))
+    // A number about another lot: refused at the subject, naming the number step.
+    const elsewhere = await call(url, a.token, 'ask', stepped(randomUUID(), [numberStep]))
+    assert.equal(elsewhere.error, 'validation_failed')
+    assert.match(elsewhere.message ?? '', /Step 1 \(left\) asks for a number/)
+    assert.ok(elsewhere.issues?.some((issue) => issue.path === '/subject_id'))
+    assert.deepEqual(await questionCount(fixture, a.job), { questions: '0', messages: '0' })
+  })
+})
+
+test('an empty answer or unstorable text is refused naming the step, with nothing recorded', async () => {
+  await withSessions(async ({ fixture, capture, url, a }) => {
+    const one = await askedQuestion({ fixture, capture, url, a }, [placeStep])
+    const empty = await fixture.http(one.path, { ...one.base, steps: [] })
+    assert.equal(empty.status, 422, JSON.stringify(empty.value))
+    assert.equal((empty.value as { step_id?: string }).step_id, 'place')
+    const nul = await fixture.http(one.path, {
+      ...one.base,
+      steps: [{ step_id: 'place', value: { kind: 'choice', other: 'Bin\u000012' } }],
+    })
+    assert.equal(nul.status, 422, JSON.stringify(nul.value))
+    assert.equal((nul.value as { step_id?: string }).step_id, 'place')
+    assert.equal(
+      await captureRevision(fixture, capture.batch.id),
+      one.base.expected_capture_revision,
+    )
+    assert.deepEqual(await answerRows(fixture, a.job), { answers: '0', inbox: '0' })
+  })
+})

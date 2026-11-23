@@ -18,6 +18,7 @@ import {
   steppedAnswerInput,
   stepValue,
   type StepDraft,
+  type SteppedFields,
 } from '#/processing/stepped-answer'
 import { StepInput } from './StepInput'
 
@@ -35,8 +36,6 @@ export type SteppedAnswerFormProps = {
   onDirtyChange: (dirty: boolean) => void
   answer: (questionId: string, input: ProcessingAnswerDto, key: string) => Promise<void>
 }
-
-type Fields = { steps: StepDraft[] }
 
 interface Submission {
   readonly questionId: string
@@ -76,9 +75,10 @@ export function SteppedAnswerForm({
 
   const empty = () => ({ steps: steps.map(emptyDraft) })
 
-  const { handleSubmit, getValues, reset, setValue, watch, formState } = useForm<Fields>({
-    defaultValues: empty(),
-  })
+  const { handleSubmit, getValues, reset, register, control, watch, formState } =
+    useForm<SteppedFields>({
+      defaultValues: empty(),
+    })
   const drafts = watch('steps')
   const [position, setPosition] = useState<Position>(0)
   const [refusal, setRefusal] = useState<Refusal | null>(null)
@@ -103,12 +103,10 @@ export function SteppedAnswerForm({
   const sendDisabled =
     disabled || readOnly || formState.isSubmitting || (!retrying && (stale || !complete))
 
-  function updateStep(index: number, draft: StepDraft) {
-    setValue(`steps.${index}`, draft, { shouldDirty: true })
+  function stepEdited() {
     setRefusal(null)
     // Report from the edit itself, so navigation sees it before the next render.
-    const next = getValues('steps').map((current, at) => (at === index ? draft : current))
-    onDirtyChange(next.some(draftStarted))
+    onDirtyChange(getValues('steps').some(draftStarted))
   }
 
   function moveTo(next: Position) {
@@ -220,16 +218,24 @@ export function SteppedAnswerForm({
                   <StepInput
                     key={current.id}
                     step={current}
+                    index={position}
                     draft={drafts[position]}
+                    register={register}
+                    control={control}
                     idPrefix={`answer-${question.id}-${current.id}`}
-                    onChange={(draft) => updateStep(position, draft)}
+                    onEdited={stepEdited}
                     refusal={refusal?.stepId === current.id ? refusal.message : undefined}
                   />
                 ) : (
                   <Summary aria-label="Your answers">
                     {steps.map((step, index) => (
                       <SummaryRow key={step.id}>
-                        <dt>{step.prompt}</dt>
+                        <dt>
+                          {step.prompt}
+                          {step.assumption && (
+                            <Assuming>Assuming until sent: {step.assumption}</Assuming>
+                          )}
+                        </dt>
                         <dd>
                           <b>{summaryText(step, drafts[index])}</b>
                           <Button
@@ -362,6 +368,10 @@ const SummaryRow = styled.div`
     gap: ${space[4]};
     margin: 0;
   }
+`
+
+const Assuming = styled.span`
+  display: block;
 `
 
 const Actions = styled.div`

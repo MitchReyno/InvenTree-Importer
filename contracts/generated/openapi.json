@@ -62204,7 +62204,6 @@
                 "type": "string"
               },
               "steps": {
-                "minItems": 1,
                 "maxItems": 4,
                 "type": "array",
                 "items": {
@@ -62442,7 +62441,6 @@
             "type": "string"
           },
           "steps": {
-            "minItems": 1,
             "maxItems": 4,
             "type": "array",
             "items": {

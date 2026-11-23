@@ -330,9 +330,16 @@ export function ProcessingWorkspace({
     try {
       await refresh()
     } catch {
-      const message = commandFailed
-        ? 'Command not confirmed and current status is unavailable. Your input and original delivery identity are kept.'
-        : 'The command was saved, but current status is unavailable. Refresh retained status before further commands.'
+      let message =
+        'The command was saved, but current status is unavailable. Refresh retained status before further commands.'
+      if (refusedAnswer) {
+        // A refusal is confirmed: nothing was saved, and the form already keeps the draft.
+        message =
+          'The answer wasn\u2019t accepted, and current status is unavailable. Refresh before sending it again.'
+      } else if (commandFailed) {
+        message =
+          'Command not confirmed and current status is unavailable. Your input and original delivery identity are kept.'
+      }
       setError(message)
     } finally {
       setBusy(false)

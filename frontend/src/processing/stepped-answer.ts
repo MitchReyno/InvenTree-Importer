@@ -24,6 +24,9 @@ export type NumberDraft = {
 export type TextDraft = { kind: 'text'; text: string }
 export type StepDraft = ChoiceDraft | NumberDraft | TextDraft
 
+/** The stepped answer form's fields: one draft per step, in the question's order. */
+export type SteppedFields = { steps: StepDraft[] }
+
 export function emptyDraft(step: QuestionViewStep): StepDraft {
   switch (step.answer.kind) {
     case 'choice':
@@ -47,8 +50,13 @@ export function draftStarted(draft: StepDraft) {
   }
 }
 
+/** Over the contract's limit, which counts code points, not UTF-16 units. */
+export function textTooLong(text: string) {
+  return [...text].length > STEP_TEXT_MAX_CHARACTERS
+}
+
 function wordsGiven(text: string) {
-  return text.trim() !== '' && [...text].length <= STEP_TEXT_MAX_CHARACTERS
+  return text.trim() !== '' && !textTooLong(text)
 }
 
 /** A quantity as the answer contract takes it: exact, positive, at most six decimal places. */

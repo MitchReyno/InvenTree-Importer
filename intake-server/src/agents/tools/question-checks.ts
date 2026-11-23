@@ -1,4 +1,5 @@
 import type { SessionAskArgsV2Dto, ValidationIssue } from '@invimport/contracts'
+import { storableText } from '#/db/storable-text.ts'
 
 /** Why an ask can't be stored, naming the step; the agent corrects it and asks again. */
 export interface StepRefusal {
@@ -86,10 +87,68 @@ function numberStepProblem(ask: SessionAskArgsV2Dto, liveLots: ReadonlySet<strin
   return null
 }
 
-/** The checks a schema can't make: unique IDs and the number step's subject and field. */
+/** Every free-text field of an ask with its path, in the order an agent wrote them. */
+function askTexts(ask: SessionAskArgsV2Dto): [string, string][] {
+  const texts: [string, string][] = [['/reason', ask.reason]]
+  if (ask.title !== undefined) {
+    texts.push(['/title', ask.title])
+  }
+  for (const [index, step] of ask.steps.entries()) {
+    texts.push(
+      [`/steps/${index}/prompt`, step.prompt],
+      [`/steps/${index}/assumption`, step.assumption],
+    )
+    if (step.answer.kind !== 'choice') {
+      continue
+    }
+    for (const [optionIndex, option] of step.answer.options.entries()) {
+      const at = `/steps/${index}/answer/options/${optionIndex}`
+      texts.push([`${at}/label`, option.label])
+      if (option.detail !== undefined) {
+        texts.push([`${at}/detail`, option.detail])
+      }
+    }
+  }
+  return texts
+}
+
+/** PostgreSQL reads the stored question as jsonb, which refuses NUL and unpaired surrogates. */
+function unstorableText(ask: SessionAskArgsV2Dto): StepRefusal | null {
+  const found = askTexts(ask).find(([, text]) => !storableText(text))
+  if (!found) {
+    return null
+  }
+  return {
+    message: `The text at ${found[0]} holds a character that can't be stored. Remove it and retry.`,
+    issue: {
+      path: found[0],
+      rule: 'schema',
+      reason: 'Text must not hold NUL or unpaired surrogates.',
+    },
+  }
+}
+
+/** The question's subject must be this session's lot, or for the lead session one of its batch. */
+export function subjectRefusal(ask: SessionAskArgsV2Dto): StepRefusal {
+  const numberStep = ask.steps.findIndex((step) => step.answer.kind === 'number')
+  const numberNote =
+    numberStep >= 0
+      ? ` ${stepName(numberStep, ask.steps[numberStep].id)} asks for a number, so name one live lot.`
+      : ''
+  return {
+    message: `A question must be about this session’s lot.${numberNote}`,
+    issue: {
+      path: '/subject_id',
+      rule: 'schema',
+      reason: 'Name this session’s lot, or for the lead session a subject of its batch.',
+    },
+  }
+}
+
+/** The checks a schema can't make: storable text, unique IDs and the number step's subject. */
 export function stepRefusal(
   ask: SessionAskArgsV2Dto,
   liveLots: ReadonlySet<string>,
 ): StepRefusal | null {
-  return duplicateIds(ask) ?? numberStepProblem(ask, liveLots)
+  return unstorableText(ask) ?? duplicateIds(ask) ?? numberStepProblem(ask, liveLots)
 }

@@ -19,7 +19,8 @@ PR-B delivers tasks 2–4 (stepped `/2` questions and answers). The other PR bun
 - **2026-11-23T17:55+11:00, task 3 (PR-B):** No new profile or instruction digest is needed for the changed guidance. The `ask` schema is published only by `agents/tools/server.ts`, and the one-question sentence goes into `openingText`'s `instructions`, which are the opening user message, not the digest-checked profile instructions. Resumed sessions keep their earlier opening.
 - **2026-11-23T17:55+11:00, task 3 (PR-B):** The note line separator is " — " (prompt — answer), one line per choice or text step and per number step answered in words, as planned. A note over the limit is refused naming the step whose line crosses it; an inbox payload over 32,768 bytes is refused without a step.
 - **2026-11-23T18:24+11:00, task 4 (PR-B):** Picking an option only chooses it; Send (or "Send N answers" after the summary) sends. `OptionRow`'s escape option and option detail became optional so agent options without a detail, and choices without "Something else", use the same cards. The step progress is the "Step N of M" text without the canvas's progress segments, which PR-F reworks.
+- **2026-11-23T19:10+11:00, tasks 2–4 (PR-B), after review round 1:** A one-step question is labelled by its prompt even when the agent gave a title, as the design's "a one-step question uses its prompt" says; the title labels only a question with several steps. A `/2` answer with no steps passes the contract so the stored question names the missing step as `invalid_answer`, matching a partial answer. Ask and answer text that PostgreSQL can't store (NUL or an unpaired surrogate) is refused before any write, naming its path or step. Text limits in the form count code points, as the contract does, rather than using a native `maxLength`.
 
 ## Open items
 
-None.
+- PR-B's verification and demo (tasks 3.7 and 4.5) are recorded on the PR; their checkboxes are checked once they pass.

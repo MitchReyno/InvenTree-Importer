@@ -1733,7 +1733,18 @@ test('a stepped drawer question is answered with live option cards, and a refuse
   await user.click(within(form).getByRole('button', { name: 'Send 2 answers' }))
 
   // An uncertain failure keeps the exact payload and key for the retry.
-  await user.click(await within(form).findByRole('button', { name: 'Retry exact answer' }))
+  const retry = await within(form).findByRole('button', { name: 'Retry exact answer' })
+  const answered = steppedInventorySnapshot()
+  answered.jobs[0].questions[0].state = 'answered'
+  client.read.mockResolvedValue(answered)
+  await user.click(retry)
+  // Once saved, the question leaves the drawer and focus goes to its heading.
+  await waitFor(() => expect(screen.queryByRole('form', { name: /^Session question/ })).toBeNull())
+  await waitFor(() =>
+    expect(
+      within(screen.getByRole('dialog')).getByRole('heading', { name: 'Inventory · Packet A' }),
+    ).toHaveFocus(),
+  )
   const calls = client.answer.mock.calls
   expect(calls).toHaveLength(3)
   expect(calls[1][2]).toEqual(
@@ -1747,4 +1758,25 @@ test('a stepped drawer question is answered with live option cards, and a refuse
   )
   expect(calls[2]).toEqual(calls[1])
   expect(calls[1][3]).not.toBe(calls[0][3])
+})
+
+test('a refused stepped answer whose refresh then fails says it wasn’t accepted, not unconfirmed', async () => {
+  const user = userEvent.setup()
+  const { client } = mountInventoryDrawer(steppedInventorySnapshot())
+  const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+  const form = await within(drawer).findByRole('form', {
+    name: 'Session question: Packet A and stock #1712',
+  })
+  await user.click(within(form).getByRole('radio', { name: /Same tube as stock #1712/ }))
+  await user.click(within(form).getByRole('button', { name: 'Next' }))
+  await user.type(within(form).getByLabelText('Your answer'), 'Bent leads')
+  await user.click(within(form).getByRole('button', { name: 'Next' }))
+  client.answer.mockRejectedValueOnce(new IntakeRequestError(422, 'invalid_answer', 'note'))
+  client.read.mockRejectedValue(new Error('read failed'))
+  await user.click(within(form).getByRole('button', { name: 'Send 2 answers' }))
+  expect(
+    await screen.findByText(/The answer wasn’t accepted, and current status is unavailable/),
+  ).toBeInTheDocument()
+  expect(screen.queryByText(/original delivery identity are kept/)).toBeNull()
+  expect(within(form).getByLabelText('Your answer')).toHaveValue('Bent leads')
 })

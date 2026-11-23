@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react'
+import { fireEvent, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import { IntakeRequestError } from '@invimport/contracts/client'
@@ -162,6 +162,8 @@ test('a question with steps goes Back and Next, then a summary with Change, then
   expect(rows.getByText('Yes, same Part')).toBeVisible()
   expect(rows.getByText('380 · estimated')).toBeVisible()
   expect(rows.getByText('Drawer R3')).toBeVisible()
+  // Each assumption stays in view until the answer is sent.
+  expect(rows.getByText('Assuming until sent: An estimated 380.')).toBeVisible()
   await user.click(rows.getByRole('button', { name: 'Change: Where should packet B go?' }))
   expect(screen.getByText('Step 3 of 3')).toBeVisible()
   await user.click(screen.getByRole('radio', { name: /Drawer R4/ }))
@@ -294,4 +296,22 @@ test('an uncertain failure retries only the original answer and key', async () =
   await user.click(screen.getByRole('button', { name: 'Retry exact answer' }))
   const [first, second] = answer.mock.calls
   expect(second).toEqual(first)
+})
+
+test('text limits count characters as the contract does, so 2048 emoji fit and one more doesn\u2019t', () => {
+  mount({
+    ...base,
+    steps: [
+      { id: 'note', prompt: 'Anything else?', assumption: 'Nothing.', answer: { kind: 'text' } },
+    ],
+  })
+  const box = screen.getByLabelText('Your answer')
+  const send = screen.getByRole('button', { name: 'Send answer' })
+  fireEvent.change(box, { target: { value: '\u{1F600}'.repeat(2048) } })
+  expect(box).toHaveValue('\u{1F600}'.repeat(2048))
+  expect(send).toBeEnabled()
+  expect(screen.queryByRole('alert')).toBeNull()
+  fireEvent.change(box, { target: { value: '\u{1F600}'.repeat(2049) } })
+  expect(screen.getByRole('alert')).toHaveTextContent('Keep it to 2048 characters.')
+  expect(send).toBeDisabled()
 })

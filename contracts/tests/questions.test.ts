@@ -168,7 +168,6 @@ test('a /2 answer gives one value per step, and a /1 answer still validates', ()
     value: { kind: 'quantity', value: '10', basis: 'counted' },
   })
   const refused = [
-    { ...answerBase, steps: [] },
     { ...answerBase, steps: Array(5).fill({ step_id: 'a', value: { kind: 'text', text: 'x' } }) },
     {
       ...answerBase,
@@ -295,6 +294,13 @@ test('the read model sends each question once, in its version, and questionView 
   )
   const { title: _title, ...untitled } = stepped
   assert.equal(questionView(untitled as ProcessingQuestionDto).title, 'Which part is it?')
+  // A one-step question is labelled by its prompt, even with a title.
+  assert.equal(
+    questionView({ ...stepped, steps: [textStep] } as ProcessingQuestionDto).title,
+    'Where does it go?',
+  )
+  // An empty answer still validates, so the stored question can name the missing step.
+  validate('ProcessingAnswer', { ...answerBase, steps: [] })
 
   assert.deepEqual(questionView(sessionV1 as ProcessingQuestionDto), {
     version: 1,
