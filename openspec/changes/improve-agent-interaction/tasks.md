@@ -115,7 +115,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 - [ ] 3.3 RED: write the answer PG tests.
   - [ ] 3.3.1 A quantity plus a note, applied in one transaction.
   - [ ] 3.3.2 Rollback when the note edit is refused after the quantity edit, with the refusal injected.
-  - [ ] 3.3.3 Refusal of a combined note over the 8192-character limit, before any edit, with the response naming the step.
+  - [ ] 3.3.3 Refusal of a combined note over the 8192-character limit, before any edit, with the response naming the step, and of an answer whose note fits but whose encoded inbox payload exceeds 32,768 bytes.
   - [ ] 3.3.4 Refusal of a wrong kind, an unknown option or a missing step.
   - [ ] 3.3.5 A number step answered in words is accepted: the text reaches the inbox, the note is written and the lot quantity is unchanged.
   - [ ] 3.3.6 Same-key replay returns the first receipt; a different payload under that key is refused; a new key with the same payload adopts the answer; a new key with a different payload gets `payload_conflict`.
@@ -162,7 +162,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - [ ] 4.2.3 A number step: the inline error for prose, blocked Next, and "Answer in words".
   - [ ] 4.2.4 The `/1` question fallback, and draft pinning across a supersede with every step kept.
   - [ ] 4.2.5 Needs you rows with kind, step count and assumptions, from the attention read.
-  - [ ] 4.2.6 A `/2` question on the Inventory step, on a job card and in Review shows its title and steps from the shared fields, and a `/1` question shows as before.
+  - [ ] 4.2.6 A `/2` question on the Inventory step, on a job card and in Review shows its title, steps and `reason` from the shared fields, the Inventory comparison included, and a `/1` question shows as before.
   - [ ] 4.2.7 The drawer's chat renders after a `/2` answer is saved, with `/1` and `/2` answers both in its timeline.
   - [ ] 4.2.8 A confirmed 422 naming a step, submitted from the drawer through `perform()`, keeps the draft editable and marks that step; an uncertain failure retries only the original payload and key.
 - [ ] 4.3 GREEN: implement the form, the option cards and the rows. Remove `OPTIONS_NOT_CARRIED` and its placeholders.
@@ -189,7 +189,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 - [ ] 5.1 Read the shared and intake-server code guidelines. List every reader of the outbox union and of proposal sources.
 - [ ] 5.2 RED: contract tests for `photo_view` and `web_page`. PG tests:
   - [ ] 5.2.1 A delivered fetch appends one `photo_view` with the delivered size and digest, and publishes `session_changed` in the same transaction.
-  - [ ] 5.2.2 A refused or over-budget fetch appends nothing, and a refused final transaction releases the budget and returns no image, including when a removal or a capability revocation races the final transaction; a commit with an unknown outcome keeps the reservation and returns no image.
+  - [ ] 5.2.2 A refused or over-budget fetch appends nothing, and a refused final transaction releases the budget and returns no image, including when a removal, a capability revocation, or a cancellation or supersession committed after encoding but before the capability is revoked races the final transaction; a commit with an unknown outcome keeps the reservation and returns no image.
   - [ ] 5.2.3 A `web_page` source is accepted for `https` without a delivery check, refused for `file:`, credentials or a URL over 2048 characters, and refused in `relies_on` or catalogue sources.
   - [ ] 5.2.4 A `/6` proposal with a `web_page` source goes through the advertised `propose` tool, is stored, and reads through the retained decoder and the ordinary Processing snapshot read, beside a retained `/5` proposal.
   - [ ] 5.2.5 Frontend: the existing source list shows a stored `/6` proposal's `web_page` source as a "Web page" chip marked agent-reported, and the old timeline labels a `photo_view`.
@@ -270,15 +270,15 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - [ ] 7.4.3 Sending a message once.
   - [ ] 7.4.4 Answering a question in place, with the drawer's draft shown as superseded, and commands disabled while the page's Processing read is loading, failed or paused, including a warm cache whose mounted read is still pending.
   - [ ] 7.4.5 Not found, and the debug block only in debug mode.
-  - [ ] 7.4.6 A correction sent before a Start fresh sits at its send time; observations from different photos stay ungrouped; a mixed photo and web run is one drawer line.
+  - [ ] 7.4.6 A correction sent before a Start fresh sits at its send time, shown as the app's notice of the operator's correction; observations from different photos stay ungrouped; a mixed photo and web run is one drawer line.
 - [ ] 7.5 GREEN: implement the renderer, the drawer change, the page and the entry points (Agents rows, session lists, failure details). Remove the old timeline response.
 - [ ] 7.6 Update the fixtures and the frontend architecture. Run the frontend checks, and the intake unit and PG tiers for the removed timeline response and its consumers. Record the demo video for the PR description.
 
 ## 8. Stage counts and the paused flag
 
 - **PR delivery:** PR-F.
-- **Outcome:** the header and attention reads count each step's `waiting`, `queued`, `questions` and `ready_lots`, the header read also each step's `failed`, the batch's live `lots`, and the batch's `paused` flag.
-- **Scope and approach:** `contracts/src/header.ts` (`stepJobs`, batch step entries), `contracts/src/attention.ts` (`stepWork`), `intake-server/src/header/processing.ts`, `work.ts` and the attention read, using `agents/pause.ts` for paused.
+- **Outcome:** the header and attention reads count each step's `waiting`, `queued`, `questions` and `ready_lots`, the header read also each step's `failed`, the batch's live `lots`, and the batch's `paused` flag; the header read also lists the scoped paused batches in `paused_batches`, up to 20 with a `truncated` flag.
+- **Scope and approach:** `contracts/src/header.ts` (`stepJobs`, batch step entries, `paused_batches`), `contracts/src/attention.ts` (`stepWork`), `intake-server/src/header/processing.ts`, `work.ts` and the attention read, using `agents/pause.ts` for paused.
 - **Prerequisites:** none.
 - **Acceptance:** the counts in "Stage rows for a working batch", "No count for a stage" and "Paused batch".
 - **TDD approach:** PG tests asserting the new counts for a batch with waiting, queued, running and paused work fail first.
@@ -286,7 +286,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 - **Risks and decisions:** keep the counts in the existing queries; no extra per-step query.
 
 - [ ] 8.1 Read the shared and intake-server code guidelines. Map how `stepJobs` and `stepWork` are counted today.
-- [ ] 8.2 RED: contract tests for the new fields. PG tests for a batch with one waiting-for-you, one queued, one running and one ready job, with open questions, retired lots, a stage with live lots but no jobs yet, a ready Part job beside a live lot with no job at that step, a paused batch, a batch paused with no jobs, and a failed Research job beside running Images in a batch other than the open one.
+- [ ] 8.2 RED: contract tests for the new fields. PG tests for a batch with one waiting-for-you, one queued, one running and one ready job, with open questions, retired lots, a stage with live lots but no jobs yet, a ready Part job beside a live lot with no job at that step, a paused batch, a batch paused with no jobs, more than five paused batches with one that has no work (in `paused_batches`, not cut by the `batch_steps` cap), more than 20 (truncated), and a failed Research job beside running Images in a batch other than the open one.
 - [ ] 8.3 GREEN: implement the counts and the paused flag in both reads.
 - [ ] 8.4 Run the contracts tests and the intake unit and PG tiers.
 

@@ -19,7 +19,7 @@ A question SHALL name the field or fields it affects and, for each of its steps,
 
 - **GIVEN** the lead session is unsure whether two packets are one Part, how many are left in one, and where it goes
 - **WHEN** it asks one question with three steps: a choice, a number and a choice, each with its assumption
-- **THEN** Needs you shows one row, "3 steps", with the three assumptions, and no step's prompt holds another step's question.
+- **THEN** one question is stored with the three steps and their assumptions, and Needs you shows one row, "3 steps", with the three assumptions.
 
 #### Scenario: Agent asks without an assumption
 

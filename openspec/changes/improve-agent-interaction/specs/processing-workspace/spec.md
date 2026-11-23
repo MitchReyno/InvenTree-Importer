@@ -129,7 +129,7 @@ Each agent session SHALL have a page inside its batch's Processing that shows th
 
 - **GIVEN** a Research session that read pages, asked a question, received a chat message and a correction, and was then started fresh
 - **WHEN** its page opens
-- **THEN** the actions, the question card, the message, the agent's reply and the correction (as the operator's input) appear in time order within the first attempt, and a divider marks where attempt 2 started, with its reason only where the retained data records one; inputs are placed by when they were sent.
+- **THEN** the actions, the question card, the message, the agent's reply and the app's notice of the correction appear in time order within the first attempt, and a divider marks where attempt 2 started, with its reason only where the retained data records one; inputs are placed by when they were sent.
 
 ### Requirement: Session page header and panels
 
@@ -143,7 +143,7 @@ The session page SHALL show a header with the step and subject, provider and mod
 
 ### Requirement: Reaching and reading the session page
 
-The session page SHALL be reached from the drawer's "Open full session", the Agents page, the Processing session lists and the failure details. It SHALL update live by re-reading its newest entries on each change, keeping the older entries it has loaded without duplicates, SHALL load older entries on request and SHALL filter to messages, the operator's inputs, photos or web. A message box SHALL send to the session's inbox, as the drawer's chat does.
+The session page SHALL be reached from the drawer's "Open full session", the Agents page, the Processing session lists and the failure details. It SHALL update live by re-reading its newest entries on each change, keeping the older entries it has loaded without duplicates unless the new entries don't reach them, SHALL load older entries on request and SHALL filter to messages, the operator's inputs, photos or web. A message box SHALL send to the session's inbox, as the drawer's chat does.
 
 #### Scenario: Message from the page
 
@@ -161,7 +161,7 @@ The session page SHALL be reached from the drawer's "Open full session", the Age
 
 - **GIVEN** a session with more entries than one read returns
 - **WHEN** the operator reaches the oldest shown entry and chooses Load older
-- **THEN** the next older entries appear above in order without duplicates, and new entries appear at the bottom when the newest entries are next re-read.
+- **THEN** the next older entries appear above in order without duplicates, and new entries appear in time order when the newest entries are next re-read.
 
 #### Scenario: Many entries between refreshes
 
