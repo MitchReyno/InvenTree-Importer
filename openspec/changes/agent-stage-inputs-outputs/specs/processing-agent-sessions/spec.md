@@ -126,7 +126,7 @@ Cancelling a session SHALL abort its active turn and reap its process group befo
 
 - **GIVEN** a `/7` session that acknowledged a lot's `match` item through `read_inbox`, committing its mode and continuation
 - **WHEN** the worker crashes before the turn settles, or after it settles and before the continuation dispatches
-- **THEN** the session resumes from the committed continuation under the new mode once the worker restarts, without another message.
+- **THEN** the supervisor first requires any occupied slot's reap to be confirmed, as today; once it is, the session resumes from the committed continuation under the new mode without another message, and while it isn't, the continuation waits with the slot shown occupied.
 
 ## ADDED Requirements
 
@@ -213,6 +213,16 @@ A lot whose identity is changed after the claim by anyone but the group's own se
 - **GIVEN** an Images session that finished one of its three lots
 - **WHEN** it fails
 - **THEN** the two unfinished lots are requeued individually, and the finished lot keeps its proposal.
+
+### Requirement: Skipped lots leave their group
+
+When a decision skips a stage for a lot held in that stage's group, such as already imported for a held Images lot, its membership SHALL end as finished. Its peers SHALL continue, and the session SHALL settle when no active member remains.
+
+#### Scenario: Held Images lot decided as already imported
+
+- **GIVEN** an Images session whose lot A is held on a late candidate while lot B runs
+- **WHEN** lot A is decided as already imported
+- **THEN** A's membership ends as finished and B continues; had A been the last active member, the session would settle.
 
 ### Requirement: Typed stage outputs
 

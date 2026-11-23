@@ -515,10 +515,11 @@ Every change is delivered as a `revision/2` item carrying `changes`: `{field, fr
 | --- | --- |
 | `awaiting_identity` | No stable identity yet |
 | `identifying` | No strong key; Research is in identify mode |
-| `searching` | A search is running (passes 1–3) |
+| `searching` | An interactive search is running (passes 1 and 2, late matches and Check again) |
 | `needs_decision` | A match question is open; Research and Images wait |
 | `decided` | With the decision and modes; or `clear` after a no-match verdict. Both are a persisted Match outcome with its generation and modes, which `research/1` and `images/1` pin |
-| `revalidate_blocked` | Pass 3 found a problem |
+
+Pass 3 isn't a Match state: its progress and findings live on the preparation result, and the lot's interactive verdict, decision and modes stay as they were, so a blocked preparation changes neither stage eligibility nor proposal currentness.
 
 **Queueing:**
 
