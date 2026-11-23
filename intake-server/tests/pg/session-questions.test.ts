@@ -305,6 +305,10 @@ test('ask refuses duplicate IDs, misplaced number steps and oversized questions,
     )
     assert.equal(oneOption.error, 'validation_failed')
     assert.ok(oneOption.issues?.some((issue) => issue.path === '/steps/0/answer/options'))
+    // A blank assumption is no assumption.
+    const blank = await call(url, a.token, 'ask', stepped(lot, [{ ...placeStep, assumption: ' ' }]))
+    assert.equal(blank.error, 'validation_failed')
+    assert.ok(blank.issues?.some((issue) => issue.path === '/steps/0/assumption'))
     // Within every field limit, but escaped control characters outgrow the stored envelope.
     const escaped = '\u0001'.repeat(2048)
     const oversized = await call(
@@ -634,19 +638,20 @@ test('a wrong kind, an unknown option or a missing step is refused with nothing 
   })
 })
 
-test('a number step answered in words writes the note and leaves the quantity alone', async () => {
+test('a number step answered in words writes a one-line note and leaves the quantity alone', async () => {
   await withSessions(async ({ fixture, capture, url, a }) => {
     const { path, base, questionId } = await askedQuestion({ fixture, capture, url, a }, [
       numberStep,
     ])
     const answered = await fixture.http(path, {
       ...base,
-      steps: [{ step_id: 'left', value: { kind: 'text', text: 'Still sealed in the reel' } }],
+      steps: [{ step_id: 'left', value: { kind: 'text', text: 'Still sealed\r\n  in the reel' } }],
     })
     assert.equal(answered.status, 200, JSON.stringify(answered.value))
     assert.deepEqual(await lotQuantity(fixture, capture.batch.id, capture.packetA.id), {
       mode: 'inherit',
     })
+    // The note keeps one line per step; the session gets the words as written.
     assert.ok(
       (await notes(fixture, capture.batch.id, capture.packetA.id)).includes(
         'How many are left? — Still sealed in the reel',
@@ -655,7 +660,7 @@ test('a number step answered in words writes the note and leaves the quantity al
     const read = await call(url, a.token, 'read_inbox', { after_seq: '0' })
     const answer = read.items!.find((item) => item.kind === 'answer')!
     assert.deepEqual(answer.payload.steps, [
-      { step_id: 'left', value: { kind: 'text', text: 'Still sealed in the reel' } },
+      { step_id: 'left', value: { kind: 'text', text: 'Still sealed\r\n  in the reel' } },
     ])
     assert.equal(answer.payload.question_id, questionId)
   })

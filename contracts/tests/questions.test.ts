@@ -70,6 +70,15 @@ test('a /2 ask holds 1 to 4 steps, each with a prompt, an assumption and an answ
       '/steps/0/assumption',
     ),
   )
+  // Blank text shows the operator nothing, so it is refused like missing text.
+  assert.ok(issuePaths('SessionAskArgsV2', { ...ask, title: '\t' }).includes('/title'))
+  for (const field of ['prompt', 'assumption']) {
+    const blank = { ...textStep, [field]: ' \n ' }
+    assert.ok(
+      issuePaths('SessionAskArgsV2', { ...ask, steps: [blank] }).includes(`/steps/0/${field}`),
+      field,
+    )
+  }
   assert.throws(() => validate('SessionAskArgsV2', { ...ask, fields: [] }))
   const { fields: _fields, ...noFields } = ask
   assert.throws(() => validate('SessionAskArgsV2', noFields))
@@ -107,6 +116,11 @@ test('a /2 ask bounds options, labels, details, prompts and the title', () => {
       'SessionAskArgsV2',
       withOptions([option(1), { id: 'x', label: 'x'.repeat(81) }]),
     ).includes('/steps/0/answer/options/1/label'),
+  )
+  assert.ok(
+    issuePaths('SessionAskArgsV2', withOptions([option(1), { id: 'x', label: '  ' }])).includes(
+      '/steps/0/answer/options/1/label',
+    ),
   )
   validate(
     'SessionAskArgsV2',

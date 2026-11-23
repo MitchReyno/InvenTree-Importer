@@ -1780,3 +1780,47 @@ test('a refused stepped answer whose refresh then fails says it wasn’t accepte
   expect(screen.queryByText(/original delivery identity are kept/)).toBeNull()
   expect(within(form).getByLabelText('Your answer')).toHaveValue('Bent leads')
 })
+
+test('a stepped answer sent from the drawer takes the question out of Needs you', async () => {
+  const user = userEvent.setup()
+  const answered = steppedInventorySnapshot()
+  answered.jobs[0].questions[0].state = 'answered'
+  const client = {
+    ...clientFixture(),
+    read: vi.fn().mockResolvedValue(steppedInventorySnapshot()),
+    session: vi.fn().mockResolvedValue({
+      job_id: jobId,
+      attempt_id: attemptId,
+      session_state: 'waiting_input',
+      outbox: [],
+      inbox: [],
+    }),
+    chat: vi.fn(),
+    answer: vi.fn().mockImplementation(() => {
+      client.read.mockResolvedValue(answered)
+      return Promise.resolve({ schema_version: 'bench-intake-answer-receipt/1' })
+    }),
+  } satisfies ProcessingClient
+  mountView(client, 'overview', jobId)
+  const needsYou = await screen.findByRole('region', { name: 'Needs you' })
+  expect(
+    within(needsYou).getByRole('link', { name: 'Answer: Packet A and stock #1712' }),
+  ).toBeInTheDocument()
+  const drawer = await screen.findByRole('dialog')
+  const form = await within(drawer).findByRole('form', {
+    name: 'Session question: Packet A and stock #1712',
+  })
+  await user.click(within(form).getByRole('radio', { name: /Same tube as stock #1712/ }))
+  await user.click(within(form).getByRole('button', { name: 'Next' }))
+  await user.type(within(form).getByLabelText('Your answer'), 'Bent leads')
+  await user.click(within(form).getByRole('button', { name: 'Next' }))
+  await user.click(within(form).getByRole('button', { name: 'Send 2 answers' }))
+  await waitFor(() =>
+    expect(
+      within(screen.getByRole('region', { name: 'Needs you' })).queryByRole('link', {
+        name: 'Answer: Packet A and stock #1712',
+      }),
+    ).toBeNull(),
+  )
+  expect(client.answer).toHaveBeenCalledTimes(1)
+})

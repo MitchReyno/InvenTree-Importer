@@ -343,9 +343,15 @@ export const QUESTION_TITLE_MAX_CHARACTERS = 120
 export const QUESTION_STEP_PROMPT_MAX_CHARACTERS = 500
 export const QUESTION_OPTION_LABEL_MAX_CHARACTERS = 80
 export const QUESTION_OPTION_DETAIL_MAX_CHARACTERS = 160
+
+/** Text the operator reads, so it must show something: blank text is refused. */
+function shownText(maxLength: number) {
+  return Type.String({ minLength: 1, maxLength, pattern: '\\S' })
+}
+
 export const QuestionOption = object({
   id: QuestionStepId,
-  label: Type.String({ minLength: 1, maxLength: QUESTION_OPTION_LABEL_MAX_CHARACTERS }),
+  label: shownText(QUESTION_OPTION_LABEL_MAX_CHARACTERS),
   detail: Type.Optional(
     Type.String({ minLength: 1, maxLength: QUESTION_OPTION_DETAIL_MAX_CHARACTERS }),
   ),
@@ -363,13 +369,13 @@ export const QuestionStepAnswer = Type.Union([
 ])
 export const QuestionStep = object({
   id: QuestionStepId,
-  prompt: Type.String({ minLength: 1, maxLength: QUESTION_STEP_PROMPT_MAX_CHARACTERS }),
+  prompt: shownText(QUESTION_STEP_PROMPT_MAX_CHARACTERS),
   /** What the agent keeps working on until this step is answered. */
-  assumption: Type.String({ minLength: 1, maxLength: 2048 }),
+  assumption: shownText(2048),
   answer: QuestionStepAnswer,
 })
 export const QuestionSteps = Type.Array(QuestionStep, { minItems: 1, maxItems: QUESTION_MAX_STEPS })
-export const QuestionTitle = Type.String({ minLength: 1, maxLength: QUESTION_TITLE_MAX_CHARACTERS })
+export const QuestionTitle = shownText(QUESTION_TITLE_MAX_CHARACTERS)
 /**
  * One step's answer. A number step takes a quantity or, answered in words, text; every other step
  * takes the value of its own kind.

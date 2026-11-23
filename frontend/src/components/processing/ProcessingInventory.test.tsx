@@ -338,18 +338,31 @@ describe('ProcessingInventory', () => {
         { id: 'left', prompt: 'How many?', assumption: 'About 12.', answer: { kind: 'number' } },
       ],
     }
+    const twoSteps = {
+      ...stepped,
+      id: id(405),
+      title: 'Where the LM358 tube goes',
+      steps: [
+        stepped.steps[0],
+        { id: 'why', prompt: 'Why?', assumption: 'No reason given.', answer: { kind: 'text' } },
+      ],
+    }
     const shown = [
-      { ...jobs[0], questions: [stepped] },
+      { ...jobs[0], questions: [stepped, twoSteps] },
       { ...jobs[1], questions: [countOnly] },
     ] as unknown as ProcessingJobDto[]
     mount(undefined, shown)
     await screen.findByRole('region', { name: 'Parts' })
-    const card = screen.getByRole('region', {
+    const [card, stepsCard] = screen.getAllByRole('region', {
       name: 'Compare before answering: LM358 op-amps (tube)',
     })
-    // A one-step question is labelled by its prompt.
-    expect(card).toHaveTextContent('Is it the tube in stock?')
+    // A one-step question is labelled by its prompt, with its kind and assumption.
+    expect(card).toHaveTextContent('Is it the tube in stock? · choose one of 2')
     expect(card).toHaveTextContent('Stock #1712 has the same Part, date code and bin.')
+    expect(card).toHaveTextContent('Continuing on: Treating it as new.')
+    // A question with steps is labelled by its title, with its step count and every assumption.
+    expect(stepsCard).toHaveTextContent('Where the LM358 tube goes · 2 steps')
+    expect(stepsCard).toHaveTextContent('Continuing on: Treating it as new. · No reason given.')
     expect(
       screen.queryByRole('region', { name: 'Compare before answering: 10 kΩ resistors' }),
     ).toBeNull()

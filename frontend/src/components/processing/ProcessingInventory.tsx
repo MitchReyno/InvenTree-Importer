@@ -11,6 +11,7 @@ import { batchHref } from '#/navigation/batch-route'
 import { STATE_LABELS } from '#/records/model'
 import { locationUse, locationUseText, stockQuantityText } from '#/records/locations'
 import { useBatchRecords } from '#/records/useBatchRecords'
+import { assumptionLine, questionKindLabel, stepKinds } from '#/processing/question-summary'
 import { color, space, typeVar } from '#/theme/generated/tokens'
 import { Button, CompareTable, Link, RecordStatePill, linkTouchArea } from '#/components/ui'
 import { Card, CardTitle, Muted } from './ProcessingParts'
@@ -26,7 +27,16 @@ type Props = {
 
 type Lot = CaptureSnapshotDto['lots'][number]
 
-type OpenQuestion = { id: string; jobId: string; lot: Lot; prompt: string; reason: string }
+type OpenQuestion = {
+  id: string
+  jobId: string
+  lot: Lot
+  prompt: string
+  reason: string
+  /** "3 steps", "choose one of 2", "a number" or "in words". */
+  kind: string
+  assumptions: string | null
+}
 
 /**
  * Open Inventory clarifications about one of the batch's lots, with the job whose session asked.
@@ -44,7 +54,17 @@ function lotQuestions(batch: CaptureSnapshotDto, jobs: ProcessingJobDto[]): Open
           return []
         }
 
-        return [{ id: question.id, jobId: job.id, lot, prompt: view.title, reason: view.reason }]
+        return [
+          {
+            id: question.id,
+            jobId: job.id,
+            lot,
+            prompt: view.title,
+            reason: view.reason,
+            kind: questionKindLabel(stepKinds(view.steps)),
+            assumptions: assumptionLine(view.steps.map((step) => step.assumption)),
+          },
+        ]
       }),
   )
 }
@@ -130,8 +150,11 @@ export function ProcessingInventory({ batch, jobs, onOpenSession }: Props) {
         return (
           <Card key={question.id} aria-label={`Compare before answering: ${lot.label}`}>
             <CardTitle>Compare before answering</CardTitle>
-            <b>{question.prompt}</b>
+            <b>
+              {question.prompt} · {question.kind}
+            </b>
             <Muted>{question.reason}</Muted>
+            {question.assumptions && <Muted>Continuing on: {question.assumptions}</Muted>}
             <CompareTable
               caption={`${lot.label} beside the InvenTree record the question asks about`}
               records={[`This batch: ${lot.label}`, 'In InvenTree']}

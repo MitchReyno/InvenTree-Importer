@@ -62,6 +62,11 @@ function stepOutcome(step: QuestionStepDto, value: QuestionStepValueDto): StepOu
   }
 }
 
+/** A note line per step: line breaks inside a prompt or answer become spaces. */
+function oneLine(text: string) {
+  return text.replace(/\s*[\r\n\u2028\u2029]+\s*/g, ' ')
+}
+
 /** Code points, as JSON Schema's `maxLength` counts the capture note. */
 function noteCharacters(text: string) {
   return [...text].length
@@ -107,7 +112,8 @@ export function steppedAnswerEffects(
       if (!storableText(outcome.noteText)) {
         failStep(step.id)
       }
-      lines.push(`${step.prompt} — ${outcome.noteText}`)
+      // The session still receives the text as written.
+      lines.push(`${oneLine(step.prompt)} — ${oneLine(outcome.noteText)}`)
       if (noteCharacters(lines.join('\n')) > CAPTURE_NOTE_MAX_CHARACTERS) {
         failStep(step.id)
       }

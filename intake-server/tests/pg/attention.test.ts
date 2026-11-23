@@ -106,6 +106,28 @@ test('question items carry their title, kind or step count and assumptions, for 
       }),
     )
     try {
+      const lotAsked = await client.callTool({
+        name: 'ask',
+        arguments: {
+          schema_version: 'bench-intake-question/2',
+          subject_id: seeded.a.id,
+          reason: 'The slip is folded over.',
+          fields: ['markings'],
+          steps: [
+            {
+              id: 'slip',
+              prompt: 'What does the slip under packet A say?',
+              assumption: 'No slip text.',
+              answer: { kind: 'text' },
+            },
+          ],
+        },
+      })
+      assert.equal((lotAsked.structuredContent as { ok: boolean }).ok, true)
+      // A stepped question about one lot counts against that lot alone.
+      const lotOnly = await read<BatchAttentionDto>(fixture, `/batches/${batchId}/attention`)
+      assert.equal(lotOnly.review.needs_answer, 1)
+
       const asked = await client.callTool({
         name: 'ask',
         arguments: {
@@ -207,6 +229,9 @@ test('question items carry their title, kind or step count and assumptions, for 
         { kind: 'text', assumption: 'The plain variant.' },
       ],
     })
+    assert.deepEqual(byTitle['What does the slip under packet A say?'], {
+      steps: [{ kind: 'text', assumption: 'No slip text.' }],
+    })
     assert.deepEqual(byTitle['Is the label torn?'], {
       steps: [{ kind: 'text', assumption: 'Reading the visible part only.' }],
     })
@@ -214,7 +239,7 @@ test('question items carry their title, kind or step count and assumptions, for 
     assert.deepEqual(byTitle['How many are in packet B?'], {
       steps: [{ kind: 'number', assumption: null }],
     })
-    assert.equal(attention.processing.questions, 3)
+    assert.equal(attention.processing.questions, 4)
     assert.equal(attention.review.needs_answer, 2)
   } finally {
     await server.close()

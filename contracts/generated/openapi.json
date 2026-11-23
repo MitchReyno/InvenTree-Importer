@@ -62659,11 +62659,13 @@
           "prompt": {
             "minLength": 1,
             "maxLength": 500,
+            "pattern": "\\S",
             "type": "string"
           },
           "assumption": {
             "minLength": 1,
             "maxLength": 2048,
+            "pattern": "\\S",
             "type": "string"
           },
           "answer": {
@@ -62700,6 +62702,7 @@
                         "label": {
                           "minLength": 1,
                           "maxLength": 80,
+                          "pattern": "\\S",
                           "type": "string"
                         },
                         "detail": {
@@ -66954,6 +66957,7 @@
               "title": {
                 "minLength": 1,
                 "maxLength": 120,
+                "pattern": "\\S",
                 "type": "string"
               },
               "reason": {
@@ -66982,11 +66986,13 @@
                     "prompt": {
                       "minLength": 1,
                       "maxLength": 500,
+                      "pattern": "\\S",
                       "type": "string"
                     },
                     "assumption": {
                       "minLength": 1,
                       "maxLength": 2048,
+                      "pattern": "\\S",
                       "type": "string"
                     },
                     "answer": {
@@ -67023,6 +67029,7 @@
                                   "label": {
                                     "minLength": 1,
                                     "maxLength": 80,
+                                    "pattern": "\\S",
                                     "type": "string"
                                   },
                                   "detail": {
@@ -67317,6 +67324,7 @@
           "title": {
             "minLength": 1,
             "maxLength": 120,
+            "pattern": "\\S",
             "type": "string"
           },
           "reason": {
@@ -67345,11 +67353,13 @@
                 "prompt": {
                   "minLength": 1,
                   "maxLength": 500,
+                  "pattern": "\\S",
                   "type": "string"
                 },
                 "assumption": {
                   "minLength": 1,
                   "maxLength": 2048,
+                  "pattern": "\\S",
                   "type": "string"
                 },
                 "answer": {
@@ -67386,6 +67396,7 @@
                               "label": {
                                 "minLength": 1,
                                 "maxLength": 80,
+                                "pattern": "\\S",
                                 "type": "string"
                               },
                               "detail": {
@@ -70410,6 +70421,7 @@
                     "title": {
                       "minLength": 1,
                       "maxLength": 120,
+                      "pattern": "\\S",
                       "type": "string"
                     },
                     "reason": {
@@ -70438,11 +70450,13 @@
                           "prompt": {
                             "minLength": 1,
                             "maxLength": 500,
+                            "pattern": "\\S",
                             "type": "string"
                           },
                           "assumption": {
                             "minLength": 1,
                             "maxLength": 2048,
+                            "pattern": "\\S",
                             "type": "string"
                           },
                           "answer": {
@@ -70479,6 +70493,7 @@
                                         "label": {
                                           "minLength": 1,
                                           "maxLength": 80,
+                                          "pattern": "\\S",
                                           "type": "string"
                                         },
                                         "detail": {
@@ -73547,6 +73562,7 @@
                           "title": {
                             "minLength": 1,
                             "maxLength": 120,
+                            "pattern": "\\S",
                             "type": "string"
                           },
                           "reason": {
@@ -73575,11 +73591,13 @@
                                 "prompt": {
                                   "minLength": 1,
                                   "maxLength": 500,
+                                  "pattern": "\\S",
                                   "type": "string"
                                 },
                                 "assumption": {
                                   "minLength": 1,
                                   "maxLength": 2048,
+                                  "pattern": "\\S",
                                   "type": "string"
                                 },
                                 "answer": {
@@ -73616,6 +73634,7 @@
                                               "label": {
                                                 "minLength": 1,
                                                 "maxLength": 80,
+                                                "pattern": "\\S",
                                                 "type": "string"
                                               },
                                               "detail": {
@@ -80917,6 +80936,7 @@
                                           "label": {
                                             "minLength": 1,
                                             "maxLength": 80,
+                                            "pattern": "\\S",
                                             "type": "string"
                                           }
                                         }
@@ -83580,6 +83600,7 @@
                   "title": {
                     "minLength": 1,
                     "maxLength": 120,
+                    "pattern": "\\S",
                     "type": "string"
                   },
                   "steps": {
@@ -83603,11 +83624,13 @@
                         "prompt": {
                           "minLength": 1,
                           "maxLength": 500,
+                          "pattern": "\\S",
                           "type": "string"
                         },
                         "assumption": {
                           "minLength": 1,
                           "maxLength": 2048,
+                          "pattern": "\\S",
                           "type": "string"
                         },
                         "answer": {
@@ -83644,6 +83667,7 @@
                                       "label": {
                                         "minLength": 1,
                                         "maxLength": 80,
+                                        "pattern": "\\S",
                                         "type": "string"
                                       },
                                       "detail": {
@@ -83905,6 +83929,7 @@
           "title": {
             "minLength": 1,
             "maxLength": 120,
+            "pattern": "\\S",
             "type": "string"
           },
           "steps": {
@@ -83928,11 +83953,13 @@
                 "prompt": {
                   "minLength": 1,
                   "maxLength": 500,
+                  "pattern": "\\S",
                   "type": "string"
                 },
                 "assumption": {
                   "minLength": 1,
                   "maxLength": 2048,
+                  "pattern": "\\S",
                   "type": "string"
                 },
                 "answer": {
@@ -83969,6 +83996,7 @@
                               "label": {
                                 "minLength": 1,
                                 "maxLength": 80,
+                                "pattern": "\\S",
                                 "type": "string"
                               },
                               "detail": {
@@ -84039,6 +84067,7 @@
               "label": {
                 "minLength": 1,
                 "maxLength": 80,
+                "pattern": "\\S",
                 "type": "string"
               }
             }
@@ -84244,6 +84273,7 @@
                             "label": {
                               "minLength": 1,
                               "maxLength": 80,
+                              "pattern": "\\S",
                               "type": "string"
                             }
                           }
@@ -86763,6 +86793,7 @@
                                               "label": {
                                                 "minLength": 1,
                                                 "maxLength": 80,
+                                                "pattern": "\\S",
                                                 "type": "string"
                                               }
                                             }
@@ -88177,6 +88208,7 @@
                                     "label": {
                                       "minLength": 1,
                                       "maxLength": 80,
+                                      "pattern": "\\S",
                                       "type": "string"
                                     }
                                   }

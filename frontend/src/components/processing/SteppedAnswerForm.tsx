@@ -353,6 +353,8 @@ const Summary = styled.dl`
 
 const SummaryRow = styled.div`
   display: grid;
+  /* A long unbroken answer, such as a pasted URL, wraps instead of widening the drawer. */
+  grid-template-columns: minmax(0, 1fr);
   gap: ${space[1]};
   padding: ${space[4]} 0;
   border-top: 1px solid ${color.line};
@@ -367,6 +369,11 @@ const SummaryRow = styled.div`
     justify-content: space-between;
     gap: ${space[4]};
     margin: 0;
+  }
+  dt,
+  dd b {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 `
 
