@@ -12,9 +12,9 @@ A `native-agent/2` session SHALL reach the application only through an app-owned
 - fetch_evidence
 - read_inbox
 
-A session whose input is `bench-intake-input/7` (`shared-vm-agent/4` or `synthetic-session/1`) SHALL additionally offer its stage's tools from "Stage tool sets", and no others.
-
 The session SHALL have no shell, filesystem, web, arbitrary code execution, collaboration, image generation, arbitrary MCP, inventory-write or approval tools. Codex MAY expose only the previously accepted inert exceptions list_mcp_resources, list_mcp_resource_templates, read_mcp_resource and request_user_input: the intake server SHALL expose no resources and server-initiated requests SHALL be refused. User skill catalogues and deferred callable tools outside this boundary MUST NOT be available.
+
+A session whose input is `bench-intake-input/7` (`shared-vm-agent/4` or `synthetic-session/1`) SHALL be offered, on its intake tool server, the tools listed above, with the Examine lead keeping read_batch, record_observation, propose_lot and regroup, plus its stage's tools from "Stage tool sets", and no other intake tools. The prohibition above governs `native-agent/2`; a `/7` session's built-in and web tools are those of its profile, as "Stage tool sets" states.
 
 #### Scenario: Session starts with only app tools
 
@@ -32,7 +32,7 @@ The session SHALL have no shell, filesystem, web, arbitrary code execution, coll
 
 ### Requirement: Stage tool sets
 
-For sessions whose input is `/7`, the intake tool server SHALL add these tools to the common set:
+For sessions whose input is `/7`, the intake tool server SHALL add these tools to the common set, which is the list in "Session tool boundary":
 
 - Examine: read_batch with full readings, inspect_region, match_logo and read_guide.
 - Research: read_lot, read_vocabulary, match_logo and read_guide.
@@ -108,7 +108,7 @@ For `/7` sessions, each agent stage SHALL publish only its own output kind: `exa
 
 ### Requirement: Proposals name their lot
 
-An Examine proposal SHALL name any live lot of its batch. A Research or Images proposal SHALL name an active member of its session's group, and the server SHALL refuse one naming another lot.
+For `/7` work, an Examine proposal SHALL name any live lot of its batch, and a Research or Images proposal SHALL name an active member of its session's group, and the server SHALL refuse one naming another lot.
 
 #### Scenario: A lot outside the group
 

@@ -94,7 +94,7 @@ The operator's decision SHALL set the lot's target and its stages' modes: new Pa
 
 ### Requirement: Validation before approval
 
-Before approval preparation, Match SHALL search again with each lot's final identifiers and import references. A Part created since the decision, stock that now exists with the same barcode and batch, or a final identity that no longer fits the decision SHALL be a blocking item until the operator decides again.
+Preparation SHALL run Match's search again for each selected lot of a batch whose lead input is `/7`, with the lot's final identifiers and import references. A Part created since the decision, stock that now exists with the same barcode and batch, or a final identity that no longer fits the decision SHALL be a blocking item until the operator decides again.
 
 #### Scenario: Part created meanwhile
 
@@ -102,9 +102,19 @@ Before approval preparation, Match SHALL search again with each lot's final iden
 - **WHEN** a Part with that MPN is added to InvenTree before approval
 - **THEN** the Ready view shows a blocking item for the lot, and approval waits until the operator decides again.
 
+### Requirement: Validation searches are preparation reads
+
+Match's validation searches SHALL be preparation target reads, each with its committed intent and retained result, and an unavailable read SHALL block. Unselected lots and lots of earlier-profile batches SHALL be neither searched nor blocked by this gate.
+
+#### Scenario: Partial selection with retained work
+
+- **GIVEN** a `/7` batch with lots A and B, where only A is selected, and a retained earlier-profile batch selected in another preparation
+- **WHEN** both preparations run
+- **THEN** only lot A is searched, lot B's open match question doesn't block A's preparation, and the earlier-profile preparation runs without Match's gate.
+
 ### Requirement: Approval checks the latest search
 
-A preparation SHALL record each lot's validation search generation. Approval SHALL refuse it when a newer search for a lot has been requested, settled or not, or when the validation read failed.
+A preparation SHALL record each selected `/7` lot's validation search generation. Approval SHALL refuse it when a newer search for a lot has been requested, settled or not, or when the validation read failed.
 
 #### Scenario: Check again before approval
 

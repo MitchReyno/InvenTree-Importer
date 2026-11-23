@@ -38,7 +38,9 @@ For `/7` work, they SHALL also start only when Match allows them: Match has eith
 
 ### Requirement: Evidence-based currentness
 
-Each proposal SHALL record the observations, evidence versions, notes and answers it relies on, including the lot's observation set, and, for `/7` work, the pinned identity revision and the Match decision and stage mode it was produced under. It SHALL become stale only when one of those changes or is removed.
+Each proposal SHALL record the observations, evidence versions, notes and answers it relies on, including the lot's observation set. It SHALL become stale only when one of those changes or is removed.
+
+For `/7` work, outputs that establish the identity and outputs that depend on it SHALL record different pins. Examine's `examine-identity/1` proposals record only the inputs above. A `research-identity/1` amendment SHALL also record the identity revision its session started from, and no Match decision, because it is published before Match decides. A `research/1` or `images/1` proposal SHALL also record the pinned identity revision and the Match decision and stage mode it was produced under.
 
 #### Scenario: Evidence removed
 
@@ -57,6 +59,24 @@ Each proposal SHALL record the observations, evidence versions, notes and answer
 - **GIVEN** a Research proposal produced in full mode
 - **WHEN** a late match is decided as add stock
 - **THEN** the proposal is shown as stale.
+
+### Requirement: Selective rework from answers and edits
+
+An answer, or an operator correction of a proposal, SHALL be delivered to the session that asked and to every session that relies on the changed field. That includes sessions which started from it but have published nothing yet. When an answer changes the identity, Research and Images SHALL receive it through their inbox rather than being cancelled.
+
+For `/7` Research and Images sessions, which serve lot groups, an identity change that the group's own session did not make SHALL instead release that lot from the group and requeue it as its own job through Match, and the session SHALL receive a revision naming the release; its other lots continue. The session's own amendment, and the merge and search it triggers, SHALL keep the lot in the group.
+
+#### Scenario: Corrected part number
+
+- **GIVEN** Research running on candidate 74HC00, and Images finished
+- **WHEN** the operator answers the identity question with 74HCT00
+- **THEN** both sessions receive the answer, their old proposals are stale at once and replaced when revised, and the quantity proposal stays current.
+
+#### Scenario: Correction and own amendment in one group
+
+- **GIVEN** a `/7` Research session serving lots A and B
+- **WHEN** the operator corrects lot A's identity, and the session's own amendment refines lot B's identity
+- **THEN** lot A is released and requeued through Match with the session told, and lot B stays in the group.
 
 ## ADDED Requirements
 

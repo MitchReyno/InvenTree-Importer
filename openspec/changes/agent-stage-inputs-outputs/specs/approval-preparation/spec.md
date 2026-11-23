@@ -2,7 +2,7 @@
 
 ### Requirement: Match findings block approval
 
-Preparation SHALL be blocked for a lot with an open match question or an unresolved finding from Match's validation before approval.
+Preparation SHALL be blocked for a selected `/7` lot with an open match question or an unresolved finding from Match's validation before approval.
 
 #### Scenario: Unresolved finding
 
