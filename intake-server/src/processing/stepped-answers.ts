@@ -62,9 +62,12 @@ function stepOutcome(step: QuestionStepDto, value: QuestionStepValueDto): StepOu
   }
 }
 
+/** Every Unicode hard line break: LF, VT, FF, CR, NEL, LS and PS. */
+const LINE_BREAKS = /\s*[\n\v\f\r\u0085\u2028\u2029]+\s*/g
+
 /** A note line per step: line breaks inside a prompt or answer become spaces. */
 function oneLine(text: string) {
-  return text.replace(/\s*[\r\n\u2028\u2029]+\s*/g, ' ')
+  return text.replace(LINE_BREAKS, ' ')
 }
 
 /** Code points, as JSON Schema's `maxLength` counts the capture note. */

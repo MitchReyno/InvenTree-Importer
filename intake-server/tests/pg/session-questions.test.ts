@@ -649,7 +649,9 @@ test('a number step answered in words writes a one-line note and leaves the quan
     ])
     const answered = await fixture.http(path, {
       ...base,
-      steps: [{ step_id: 'left', value: { kind: 'text', text: 'Still sealed\r\n  in the reel' } }],
+      steps: [
+        { step_id: 'left', value: { kind: 'text', text: 'Still sealed\r\n  in\u0085the\vreel' } },
+      ],
     })
     assert.equal(answered.status, 200, JSON.stringify(answered.value))
     assert.deepEqual(await lotQuantity(fixture, capture.batch.id, capture.packetA.id), {
@@ -664,7 +666,7 @@ test('a number step answered in words writes a one-line note and leaves the quan
     const read = await call(url, a.token, 'read_inbox', { after_seq: '0' })
     const answer = read.items!.find((item) => item.kind === 'answer')!
     assert.deepEqual(answer.payload.steps, [
-      { step_id: 'left', value: { kind: 'text', text: 'Still sealed\r\n  in the reel' } },
+      { step_id: 'left', value: { kind: 'text', text: 'Still sealed\r\n  in\u0085the\vreel' } },
     ])
     assert.equal(answer.payload.question_id, questionId)
   })
@@ -837,5 +839,68 @@ test('an empty answer or unstorable text is refused naming the step, with nothin
       one.base.expected_capture_revision,
     )
     assert.deepEqual(await answerRows(fixture, a.job), { answers: '0', inbox: '0' })
+  })
+})
+
+test('Unclear quantity: the lead asks one number step, its estimate is provisional and Research goes on', async () => {
+  await withSessions(async ({ fixture, capture, url, a, issue }) => {
+    const lead = await leadSession(fixture, capture)
+    const leadToken = await issue(lead.attempt)
+    const note = a.manifest.notes.find((item) => item.subject_id === capture.packetA.id)!
+    const noteSource = {
+      kind: 'note',
+      note_id: note.id,
+      text_sha256: createHash('sha256').update(note.text, 'utf8').digest('hex'),
+    }
+    const propose = (token: string, summary: string, extra: Record<string, unknown>) =>
+      call(url, token, 'propose', {
+        proposal: {
+          schema_version: 'bench-intake-proposal/5',
+          subject_id: capture.packetA.id,
+          summary,
+          sources: [noteSource],
+          ...extra,
+        },
+      })
+    const estimate = await propose(leadToken, 'Estimated 10 parts.', {
+      quantity: { value: '10', status: 'estimated' },
+      relies_on: { fields: ['quantity'], sources: [noteSource] },
+    })
+    assert.equal(estimate.ok, true, JSON.stringify(estimate))
+    const identity = await propose(leadToken, 'Identity from the label.', {
+      relies_on: { fields: ['identity'], sources: [noteSource] },
+    })
+    assert.equal(identity.ok, true, JSON.stringify(identity))
+
+    const asked = await call(url, leadToken, 'ask', {
+      schema_version: 'bench-intake-question/2',
+      subject_id: capture.packetA.id,
+      reason: 'The reel label is torn across the count.',
+      fields: ['quantity'],
+      steps: [
+        {
+          id: 'count',
+          prompt: 'Does the reel hold 10 or 12 parts?',
+          assumption: 'An estimated 10.',
+          answer: { kind: 'number' },
+        },
+      ],
+    })
+    assert.equal(asked.ok, true, JSON.stringify(asked))
+
+    // The estimate is provisional on the open question; the identity stays current.
+    const leadJob = (await snapshot(fixture, capture.batch.id)).jobs.find(
+      (job) => job.id === lead.job,
+    )!
+    const currentness = (summary: string) =>
+      leadJob.proposals.find((proposal) => proposal.value.summary === summary)?.currentness?.state
+    assert.equal(currentness('Estimated 10 parts.'), 'provisional')
+    assert.equal(currentness('Identity from the label.'), 'current')
+    // Research is not held by the lead's question.
+    const research = await propose(a.token, 'Research goes on.', {
+      relies_on: { fields: ['identity'], sources: [noteSource] },
+    })
+    assert.equal(research.ok, true, JSON.stringify(research))
+    // The attention read's number row for this question is checked in attention.test.ts.
   })
 })

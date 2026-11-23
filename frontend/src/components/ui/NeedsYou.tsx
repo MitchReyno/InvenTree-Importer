@@ -79,6 +79,8 @@ const List = styled.ul`
     gap: ${space[5]};
     padding: ${space[5]} ${space[6]};
     border-top: 1px solid ${color.line};
+    /* An agent's title or assumption can hold a long unbroken word; it wraps in its column. */
+    overflow-wrap: anywhere;
   }
   li:has(> [data-thumb]) {
     grid-template-columns: 44px minmax(0, 1fr) auto;

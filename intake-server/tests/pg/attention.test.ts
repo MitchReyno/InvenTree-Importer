@@ -111,14 +111,14 @@ test('question items carry their title, kind or step count and assumptions, for 
         arguments: {
           schema_version: 'bench-intake-question/2',
           subject_id: seeded.a.id,
-          reason: 'The slip is folded over.',
-          fields: ['markings'],
+          reason: 'The reel label is torn across the count.',
+          fields: ['quantity'],
           steps: [
             {
-              id: 'slip',
-              prompt: 'What does the slip under packet A say?',
-              assumption: 'No slip text.',
-              answer: { kind: 'text' },
+              id: 'count',
+              prompt: 'Does the reel hold 10 or 12 parts?',
+              assumption: 'An estimated 10.',
+              answer: { kind: 'number' },
             },
           ],
         },
@@ -229,8 +229,9 @@ test('question items carry their title, kind or step count and assumptions, for 
         { kind: 'text', assumption: 'The plain variant.' },
       ],
     })
-    assert.deepEqual(byTitle['What does the slip under packet A say?'], {
-      steps: [{ kind: 'text', assumption: 'No slip text.' }],
+    // The lead's one-step number question (Unclear quantity) reads as a number with its assumption.
+    assert.deepEqual(byTitle['Does the reel hold 10 or 12 parts?'], {
+      steps: [{ kind: 'number', assumption: 'An estimated 10.' }],
     })
     assert.deepEqual(byTitle['Is the label torn?'], {
       steps: [{ kind: 'text', assumption: 'Reading the visible part only.' }],
