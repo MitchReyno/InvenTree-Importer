@@ -28,9 +28,9 @@ Each stage's bar SHALL show one of: done, working, waiting for you, paused, queu
 
 #### Scenario: Paused batch
 
-- **GIVEN** a batch paused while Research and Images were part-way
+- **GIVEN** a batch paused while Research and Images were part-way, with Research's turn still running and no Images turn running
 - **WHEN** the workflow details render
-- **THEN** those bars show the paused hatching filled to their ready share without animation, their rows say Paused, and Resume is offered.
+- **THEN** Images shows the paused hatching filled to its ready share without animation and its row says Paused, Research stays working until its turn finishes, and the batch offers Resume.
 
 ### Requirement: Only working stages animate
 

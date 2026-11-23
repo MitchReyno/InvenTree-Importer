@@ -28,7 +28,7 @@
 | 8. Stage counts and the paused flag | Contracts and intake server | None | header-workflow-status "Stage rows in workflow details" (counts), "Stage bar states" (paused) |
 | 9. Activity popover stage rows and bar states | Frontend behavior | 8 | header-workflow-status "Stage rows in workflow details", "Stage bar states", "Only working stages animate" |
 | 10. Session rows, failures in plain words and Agents filters | Contracts, intake server and frontend | 7 | agents-overview "Agents page", "Session rows", "Failed rows offer recovery"; processing-workspace "Failures in plain words" |
-| 11. Drawer header, activity feed and message box | Frontend behavior, plus one instruction sentence | 6, 7, 10 | processing-workspace "Session drawer header", "Activity in the app's words", "Labelled message box"; processing-agent-sessions "Status lines stay readable" |
+| 11. Drawer header, activity feed and message box | Contracts, intake server and frontend, plus one instruction sentence | 6, 7, 10 | processing-workspace "Session drawer header", "Activity in the app's words", "Labelled message box"; processing-agent-sessions "Status lines stay readable" |
 
 ## PR delivery map
 
@@ -39,10 +39,10 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 | PR-0 | This plan, BI-019 and the BI-015 hand-over | Planning only | Review the plan before code | None; first | `interactive-app` ← `docs/improve-agent-interaction`; `docs(improve-agent-interaction): plan agent interaction improvements` | `openspec validate --strict`, `pnpm workflow-sync` unaffected; read-only review; CI green |
 | PR-A | Backdrop click closes every dialog | 1 | Small, independent and immediately useful | PR-0 | `feat/improve-agent-interaction-dialog-backdrop`; `fix(improve-agent-interaction): close dialogs from their backdrop` | Frontend typecheck, lint, tests and build; demo video; review; CI |
 | PR-B | `/2` questions and answers end to end: contracts, the server path, agent guidance, and the drawer's stepped form, live option cards and Needs you rows | 2, 3, 4 | Today's form can't answer a `/2` question, so the ask and the form that answers it ship together; no build asks questions its UI can't answer | PR-0 | `feat/improve-agent-interaction-question-steps`; `feat(improve-agent-interaction): ask and answer stepped questions with options` | Contracts tests, intake unit, PG and process tiers with the decoder and probe images; frontend checks; demo video; rollback note in the PR body; review; CI |
-| PR-D | Recorded photo views, web page sources, the paged history read with session metadata and the photo-view crop route | 5, 6 | The server side of the history; the old timeline view keeps working until PR-E switches to it | PR-B merged (the history resolves `/2` questions) | `feat/improve-agent-interaction-session-history`; `feat(improve-agent-interaction): record and read a session's full history` | Contracts tests, intake unit, PG and process tiers; rollback note in the PR body; review; CI |
+| PR-D | Recorded photo views, web page sources, the paged history read with session metadata and the photo-view crop route | 5, 6 | The server side of the history; the old timeline view keeps working until PR-E switches to it | PR-B merged (the history resolves `/2` questions) | `feat/improve-agent-interaction-session-history`; `feat(improve-agent-interaction): record and read a session's full history` | Contracts tests, intake unit, PG and process tiers; frontend checks, since the existing source list and timeline must read `/6` proposals and photo views; rollback note in the PR body; review; CI |
 | PR-E | Expandable, grouped, linked entries in the drawer and the session page as a conversation | 7 | The UI over PR-D; one entry renderer for both places | PR-B and PR-D merged | `feat/improve-agent-interaction-session-page`; `feat(improve-agent-interaction): expandable agent history and session page` | Frontend checks; intake unit and PG tiers for the timeline route removal and its consumers; demo video; review; CI |
 | PR-G | A session-level Agents read, one row per session, failures in plain words, recovery actions and the Agents page filters | 10 | One read and its rows; its links and failure display reach the session page | PR-E merged | `feat/improve-agent-interaction-session-rows`; `feat(improve-agent-interaction): one row per session with its real failure` | Contracts tests, intake unit and PG tiers, frontend checks; demo video; review; CI |
-| PR-H | Drawer header, recent activity in the app's words, the labelled message box and readable status lines | 11 | Builds on the history read, the session page and the session-level read | PR-D, PR-E and PR-G merged | `feat/improve-agent-interaction-session-details`; `feat(improve-agent-interaction): clearer session header, activity and message box` | Frontend checks, intake unit tier for the instruction text; demo video; review; CI |
+| PR-H | Drawer header, recent activity in the app's words, the labelled message box and readable status lines | 11 | Builds on the history read, the session page and the session-level read | PR-D, PR-E and PR-G merged | `feat/improve-agent-interaction-session-details`; `feat(improve-agent-interaction): clearer session header, activity and message box` | Contracts tests, intake unit and PG tiers for the batch activity read and the instruction text, frontend checks; demo video; review; CI |
 | PR-F | Per-stage counts and the paused flag, stage rows in the activity popover and the new bar states | 8, 9 | Independent of questions and history, small enough to review end to end | PR-0 | `feat/improve-agent-interaction-activity-stages`; `feat(improve-agent-interaction): show each stage's state and counts in the activity popover` | Contracts tests, intake PG tier, frontend checks; demo video; review; CI |
 
 ## 1. Dialogs close from their backdrop
@@ -74,7 +74,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 
 - **PR delivery:** PR-B.
 - **Outcome:** `/2` question and answer shapes, the envelope and inbox unions reading both versions, and the normalised question view for the read model.
-- **Scope and approach:** `contracts/src/sessions.ts` and `processing.ts` (the read-model question DTO), plus tests in `contracts/tests/`. The shapes are in the design.
+- **Scope and approach:** `contracts/src/sessions.ts` and `processing.ts` (the read-model question DTO), and `attention.ts` (the attention item gains the question's title, kind or step count and per-step assumptions), plus tests in `contracts/tests/`. The shapes are in the design.
 - **Prerequisites:** none.
 - **Acceptance:** "Structured session questions", scenario "Invalid structure" (contract limits); pipeline "Malformed steps" (contract limits).
 - **TDD approach:** contract tests for the valid and invalid shapes fail before the schemas exist.
@@ -98,6 +98,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 - **Scope and approach:**
   - `intake-server/src/agents/tools/handlers.ts` and `server.ts`;
   - `processing/session-answers.ts` and the question read in `processing/`;
+  - `attention/projection.ts`, whose question items today carry only `spec.prompt` and one assumption, so the masthead's Needs you rows get the normalised view;
   - `capture/repository.ts`: an ordered form of the locked edit handle that applies several edits under one lock and publishes once;
   - `agents/session/session-runner.ts` (coordinate with `simplify-vm-agent-web-and-setup`);
   - `tests/fixtures/session-agent.cjs`; `agents/session/synthetic-turn.ts`.
@@ -119,9 +120,10 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - [ ] 3.3.5 Same-key replay returns the first receipt; a different payload under that key is refused; a new key with the same payload adopts the answer; a new key with a different payload gets `payload_conflict`.
   - [ ] 3.3.6 An inbox payload carrying the option ID and the number step's basis.
   - [ ] 3.3.7 A `/1` answer still accepted.
-- [ ] 3.4 GREEN: implement the `ask` and answer branches and the normalised read model.
-- [ ] 3.5 Update the `ask` description and the runner's opening instructions. Teach the fake CLI and the synthetic session a stepped ask, and add a process test that answers it and reads the inbox.
-- [ ] 3.6 Update `intake-server/src/agents/ARCHITECTURE.md` (the question shape and answer effects). Run the intake unit, PG and process tiers, including a read of a database already holding `/2` questions and answers.
+- [ ] 3.4 RED: an attention read PG test with an open `/2` stepped question and a `/1` question, each carrying its title, kind or step count and assumptions.
+- [ ] 3.5 GREEN: implement the `ask` and answer branches and the normalised read model.
+- [ ] 3.6 Update the `ask` description and the runner's opening instructions. Teach the fake CLI and the synthetic session a stepped ask, and add a process test that answers it and reads the inbox.
+- [ ] 3.7 Update `intake-server/src/agents/ARCHITECTURE.md` (the question shape and answer effects). Run the intake unit, PG and process tiers, including a read of a database already holding `/2` questions and answers.
 
 ## 4. Stepped answer form, option cards and Needs you rows
 
@@ -138,6 +140,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - `frontend/src/components/processing/QuestionAnswer.tsx`, `DrawerAnswers.tsx`;
   - `components/ui/QuestionCard.tsx`;
   - the Needs you and Overview rows (`components/batches/NeedsYouPanel.tsx`, `processing/ProcessingOverview.tsx`);
+  - the other readers of `question.spec.kind`, `prompt` or `reason`, which move to the normalised view: `ProcessingInventory.tsx` (open questions beside the comparison), `ProcessingJobCard.tsx`, `ProcessingWorkspace.tsx` and `processing/source.ts`;
   - the processing fixtures.
 - **Prerequisites:** tasks 2 and 3, in the same PR.
 - **Acceptance:** "Answer a question step by step" and "Answer kinds in the drawer", all scenarios; "Inventory session drawer"; pipeline "Unclear quantity" and "Related steps in one question" (Needs you rows).
@@ -153,7 +156,8 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - [ ] 4.2.2 Steps: Back and Next, the summary with Change, and "Send N answers".
   - [ ] 4.2.3 A number step: the inline error for prose, blocked Next, and "Answer in words".
   - [ ] 4.2.4 The `/1` question fallback, and draft pinning across a supersede with every step kept.
-  - [ ] 4.2.5 Needs you rows with kind, step count and assumptions.
+  - [ ] 4.2.5 Needs you rows with kind, step count and assumptions, from the attention read.
+  - [ ] 4.2.6 A `/2` question on the Inventory step and on a job card shows its title and steps, and a `/1` question shows as before.
 - [ ] 4.3 GREEN: implement the form, the option cards and the rows. Remove `OPTIONS_NOT_CARRIED` and its placeholders.
 - [ ] 4.4 Update the fixtures (`ProcessingProof`) with a stepped and a choice question for the demo. Update the frontend architecture if component ownership changes.
 - [ ] 4.5 Run the frontend checks. Record the demo video for the PR description.
@@ -167,19 +171,21 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - a migration extending the outbox `kind` check (0018) to allow `photo_view`;
   - `intake-server/src/agents/tools/handlers.ts`: `fetchEvidenceImage` reserves the image budget before its final transaction, appends the view in it, and releases the reservation if it refuses or fails; the delivered-citation check skips `web_page`;
   - the `propose` tool description;
-  - where Review and Inventory read sources, so `web_page` is treated as unverified.
+  - where Review and Inventory read sources, so `web_page` is treated as unverified;
+  - the existing frontend readers, so they keep working before PR-E: `ProcessingSources.tsx` names a `web_page` source instead of assuming a `receipt_id`, and the old `SessionTimeline.tsx` gives `photo_view` a plain label rather than its raw kind.
 - **Prerequisites:** none.
 - **Acceptance:** "Photo views are recorded", all scenarios; "Agent-reported web page sources", scenario "Invalid URL" and the proposal's acceptance in "Cited datasheet"; "Bounded status lines and delivered citations". Task 7 owns the chip and the session page listing.
 - **TDD approach:** PG tests fail first for a delivered versus refused fetch, and for the `web_page` scheme, length and credential checks.
-- **Verification:** contracts tests; `pnpm db:intake test` on the handler and evidence tests.
+- **Verification:** contracts tests; `pnpm db:intake test` on the handler and evidence tests; the frontend typecheck, lint and tests.
 - **Risks and decisions:** every consumer of proposal sources must accept `/6`; list them in 5.1.
 
 - [ ] 5.1 Read the shared and intake-server code guidelines. List every reader of the outbox union and of proposal sources.
 - [ ] 5.2 RED: contract tests for `photo_view` and `web_page`. PG tests:
   - [ ] 5.2.1 A delivered fetch appends one `photo_view` with the delivered size and digest, and publishes `session_changed` in the same transaction.
-  - [ ] 5.2.2 A refused or over-budget fetch appends nothing, and a refused final transaction releases the budget and returns no image.
+  - [ ] 5.2.2 A refused or over-budget fetch appends nothing, and a refused final transaction releases the budget and returns no image, including when a removal or a capability revocation races the final transaction.
   - [ ] 5.2.3 A `web_page` source is accepted for `https` without a delivery check, refused for `file:`, credentials or a URL over 2048 characters, and refused in `relies_on` or catalogue sources.
   - [ ] 5.2.4 A `/6` proposal with a `web_page` source reads through the retained decoder and the ordinary Processing snapshot read.
+  - [ ] 5.2.5 Frontend: the existing source list shows a stored `/6` proposal's `web_page` source, and the old timeline labels a `photo_view`.
 - [ ] 5.3 GREEN: implement both. Make the source readers treat `web_page` as unverified.
 - [ ] 5.4 Update the `propose` description to say how to cite a page read with WebFetch. Run the intake unit and PG tiers.
 
@@ -209,11 +215,12 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - [ ] 6.2.1 Each entry kind resolves its summary, details and links.
   - [ ] 6.2.2 A retired lot or a removed version gives a "gone" link.
   - [ ] 6.2.3 Answers, instructions, evidence and revise items appear as the operator's.
-  - [ ] 6.2.4 Attempt headers say how an attempt ended, and why it started where the retained input shows it; turns within an attempt are not attempts.
+  - [ ] 6.2.4 Attempt headers say how an attempt ended, and why it started where the retained input shows it; turns within an attempt are not attempts; a failure or resume with no new inbox or outbox item still updates its header on the next read; the span runs from the queue time, not a turn's `started_at`.
   - [ ] 6.2.5 A regroup with recorded moves shows them; an older regroup lists only its lots; earlier attempts' failures resolve; a lot edited after formation shows its values labelled current.
-  - [ ] 6.2.6 The `before` and `after` cursors page without gaps or duplicates across retries with repeated sequences and equal timestamps, and the `after` watermark misses nothing when an inbox and an outbox write commit out of timestamp order.
-  - [ ] 6.2.7 The session metadata for a retried session, including the web setting from each attempt's manifest.
-  - [ ] 6.2.8 Another batch or account gets `session_not_found`.
+  - [ ] 6.2.6 The `before` and `after` cursors page without gaps or duplicates across retries with repeated sequences and equal timestamps, and the `after` watermark misses nothing when an inbox and an outbox write commit out of timestamp order, or when a later sequence in one stream has an earlier timestamp across a page boundary.
+  - [ ] 6.2.7 A proposal links every open question that makes it provisional, with two matching questions.
+  - [ ] 6.2.8 The session metadata for a retried session, including the web setting from each attempt's manifest.
+  - [ ] 6.2.9 Another batch or account gets `session_not_found`.
 - [ ] 6.3 RED: route tests for the photo-view crop: the recorded region bounded as delivered, a full-page view, two attempts with the same sequence, 404 for a removed version, and scope.
 - [ ] 6.4 GREEN: implement the read, the contract and the crop route.
 - [ ] 6.5 Check the queries batch per kind, and update `intake-server/src/agents/ARCHITECTURE.md`. Run the intake unit, PG and process tiers, including a read of a database already holding `/6` proposals and photo views.
@@ -253,7 +260,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - [ ] 7.4.1 One conversation in time order, with attempt dividers.
   - [ ] 7.4.2 Filter chips, Load older, and the live merge without duplicates or gaps, including more than one page of new entries between refreshes.
   - [ ] 7.4.3 Sending a message once.
-  - [ ] 7.4.4 Answering a question in place, with the drawer's draft shown as superseded, and commands disabled while the page's Processing read is loading, failed or paused.
+  - [ ] 7.4.4 Answering a question in place, with the drawer's draft shown as superseded, and commands disabled while the page's Processing read is loading, failed or paused, including a warm cache whose mounted read is still pending.
   - [ ] 7.4.5 Not found, and the debug block only in debug mode.
   - [ ] 7.4.6 A correction sent before a Start fresh sits at its send time; observations from different photos stay ungrouped; a mixed photo and web run is one drawer line.
 - [ ] 7.5 GREEN: implement the renderer, the drawer change, the page and the entry points (Agents rows, session lists, failure details). Remove the old timeline response.
@@ -336,21 +343,21 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
   - recent activity in the app's words, linked to the lot, with the agent's note muted;
   - the labelled message box;
   - one instruction sentence asking for plain status lines without internal IDs.
-- **Scope and approach:** the drawer in `ProcessingWorkspace.tsx` (it rebases on polish's edits), `ProcessingOverview.tsx` recent activity from the history entries, the shared message box component, and `openingText` in `agents/session/session-runner.ts`.
+- **Scope and approach:** the drawer in `ProcessingWorkspace.tsx` (it rebases on polish's edits); a bounded batch activity read (`readBatchActivity` in `agents/tools/`, its contract and route) reusing task 6's resolver; `ProcessingOverview.tsx` recent activity from that read; the shared message box component; and `openingText` in `agents/session/session-runner.ts`.
 - **Prerequisites:** tasks 6, 7 and 10.
 - **Acceptance:** "Retried session in the drawer", "Proposal in recent activity", "Sending a message", "Status after proposing".
 - **TDD approach:** component tests, and a session-runner test for the instruction sentence, fail first.
-- **Verification:** frontend checks, the intake unit tier, and a demo video.
+- **Verification:** contracts tests, the intake unit and PG tiers, frontend checks, and a demo video.
 - **Risks and decisions:** the boards FixDrawerHeader, FixActivityFeed and FixMessageBox are the reference.
 
 - [ ] 11.1 Read the code guidelines and the Fixes page boards.
-- [ ] 11.2 RED: header, activity entry and message box tests, plus the opening-instructions test.
+- [ ] 11.2 RED: header, activity entry and message box tests, the opening-instructions test, and a PG test that the batch activity read returns the newest entries across several jobs, including jobs outside the first Agents page.
 - [ ] 11.3 GREEN: implement them.
 - [ ] 11.4 Run the checks, and record the demo video.
 
 ## Delivery evidence and lifecycle follow-up
 
-- [ ] PR-0: review the plan read-only (`codex exec -m gpt-6.2-sol -s read-only`, at most three rounds), fix findings, publish, CI green, merge.
+- [ ] PR-0: review the plan read-only (`codex exec -m gpt-6.2-sol -s read-only`, round by round), fix findings, publish, CI green, merge.
 - [ ] PR-A: implement task 1, review the exact head, publish with the demo, CI green, merge.
 - [ ] PR-B: implement tasks 2, 3 and 4, review the exact head, publish with the demo, CI green, merge.
 - [ ] PR-D: implement tasks 5 and 6, review the exact head, publish, CI green, merge.

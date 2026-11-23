@@ -82,13 +82,13 @@ When expanded, an observation SHALL show its crop, its reading with the source c
 
 ### Requirement: Proposal, question and failure entries expand with links
 
-When expanded, a proposal SHALL show its proposed fields with source chips, what it relies on and whether it is current, linking to the lot in Review, the Part in Records and each source. A question SHALL show its steps and assumptions, linking to Answer and the lot. A failure or stop SHALL show its summary, linking to the failure details and, where allowed, Start fresh.
+When expanded, a proposal SHALL show its proposed fields with source chips, what it relies on and whether it is current, linking to the lot in Review, the Part in Records, each source and every open question that makes it provisional (an open question on the same subject sharing one of its fields). A question SHALL show its steps and assumptions, linking to Answer and the lot. A failure or stop SHALL show its summary, linking to the failure details and, where allowed, Start fresh.
 
 #### Scenario: Expand a proposal
 
 - **GIVEN** a Research session's history holding "Proposed ATmega328P-AU · provisional"
 - **WHEN** the operator expands it
-- **THEN** it shows the MPN, manufacturer and package with their source chips and the open question it relies on, with links to the lot in Review, the Part in Records and that question.
+- **THEN** it shows the MPN, manufacturer and package with their source chips and the open questions that make it provisional, with links to the lot in Review, the Part in Records and each of those questions.
 
 #### Scenario: Linked record no longer exists
 

@@ -54,7 +54,7 @@ Mitch will add more agent-interaction items to this change. This proposal covers
   - `SessionAskArgs` in `contracts/src/sessions.ts` takes `{kind: quantity|clarification, subject_id, prompt, reason, fields, assumption}`; `prompt` is free text of up to 2048 characters.
   - The tool description in `intake-server/src/agents/tools/server.ts` doesn't tell the agent to ask one thing at a time.
 - **The answer form:**
-  - `QuestionAnswer.tsx` builds `bench-intake-answer/1` with `{kind: quantity, value, basis}` or `{kind: clarification, text}`. It validates against the contract only on submit and reports a generic message.
+  - `QuestionAnswer.tsx` builds `bench-intake-answer/1` with `{kind: quantity, value, basis}` or `{kind: clarification, text}`. It validates against the contract only on submit, with one fixed message per kind ("Enter a positive exact quantity with at most six decimal places." or "Enter a clarification of up to 2048 characters.").
   - `DrawerAnswers.tsx` draws two hard-coded disabled option cards (`OPTIONS_NOT_CARRIED`).
 - **Server effects** (`intake-server/src/processing/session-answers.ts`):
   - A quantity answer sets the lot quantity through one capture edit, and a clarification becomes one note.
@@ -69,7 +69,7 @@ Mitch will add more agent-interaction items to this change. This proposal covers
   - Routes exist for a lot, the map, a record, a step with a question and Capture (`navigation/batch-route.ts`); there is no session page.
 - **Activity popover:**
   - `components/masthead/ActivityPopover.tsx` renders one `ProgressSegments` bar per batch, the newest status line and "Open processing".
-  - `frontend/src/header/workSegments.ts` maps every non-running state to `waiting`, and `ProgressSegments.tsx` fills a running step without a count to an invented 50% (`RUNNING_WITHOUT_FRACTION`).
+  - `frontend/src/header/workSegments.ts` keeps `done` and `failed` but maps every other non-running state to `waiting`, so a stage waiting for the operator and one not started look the same; a step with no counted jobs falls back to its retained jobs' state, without a fraction. `ProgressSegments.tsx` fills a running step without a count to an invented 50% (`RUNNING_WITHOUT_FRACTION`).
   - The header read's step counts (`contracts/src/header.ts`, `stepJobs`) carry `jobs`, `ready` and `running`, and the attention read adds `questions` and `failed`. They count jobs of active subjects (`processing/steps.ts`), not lots, so a step with no jobs yet reads `0 of 0`. Neither has waiting-for-you or queued counts, or the batch's paused flag, which lives in `intake-server/src/agents/pause.ts`.
 - **Specs:** current requirements are in `processing-workspace` (the session drawer and the Inventory session drawer's disabled option cards), `processing-stage-pipeline` ("Non-blocking questions with assumptions") and `processing-agent-sessions`.
 - **Agents and failures:**
