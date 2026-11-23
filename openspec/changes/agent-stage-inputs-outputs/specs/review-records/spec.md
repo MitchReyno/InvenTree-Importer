@@ -22,7 +22,7 @@ Values from `/7` typed outputs, Examine's identity and Research's output, SHALL 
 
 Records SHALL include Locations, listing the stock locations the batch's stock goes into, with each location's path, why it is used (batch default or lot override) and its stock count. Selecting one SHALL show its name, path, description, location type and the stock going there, plus an ask box for the Inventory step. Changing the mapping SHALL follow the existing unsupported-change rule where the app can't yet store it.
 
-For a batch whose Examine lead input is `bench-intake-input/7`, which has no Inventory step, the ask box SHALL NOT be shown. Its locations SHALL instead be proposed by the app from the batch defaults and the matched Part's existing stock locations, each shown as proposed with its reason until the operator confirms it in Review. Batches with no lead or an earlier-version lead SHALL keep the ask box for the Inventory step.
+For a batch whose Examine lead input is `bench-intake-input/7`, which has no Inventory step, the ask box SHALL NOT be shown. Its locations SHALL instead be proposed by the app from the batch defaults and the matched Part's existing stock locations, each shown as proposed with its reason until the operator confirms it in Review; confirming one not yet in Capture first retains its location observation through a scoped read in the current target context. Batches with no lead or an earlier-version lead SHALL keep the ask box for the Inventory step.
 
 #### Scenario: Override location
 

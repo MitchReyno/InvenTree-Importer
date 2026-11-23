@@ -84,6 +84,16 @@ Preparation SHALL plan at most one gaps fill per target Part and field. Identica
 - **WHEN** preparation runs
 - **THEN** it is blocked asking which datasheet MCU-0012 gets, and when both confirmed the same one, the plan fills it once.
 
+### Requirement: Datasheet fills are attachments
+
+A datasheet fill SHALL add a Part attachment commented "Datasheet", as the importer does, and SHALL leave the Part's `link` unchanged. A datasheet counts as present when the Part has an attachment commented "Datasheet"; the executor SHALL re-read the Part's attachments just before the send.
+
+#### Scenario: Product page in the link
+
+- **GIVEN** MCU-0012 with a product page in its `link` and no "Datasheet" attachment
+- **WHEN** a confirmed datasheet fill runs
+- **THEN** it adds the datasheet attachment and leaves the link unchanged.
+
 ### Requirement: Parameter fills create or update
 
 A gaps fill for a key parameter SHALL create the value when the Part has no row for its template, expecting no row, and SHALL update the row when one exists with an empty value, expecting it empty. Both SHALL be `owned-fake-effects/3` effects, and each SHALL re-read its precondition just before the send.
@@ -112,7 +122,7 @@ Each gaps fill SHALL carry the value it expects to be missing, and an existing P
 
 - **GIVEN** a prepared plan that fills MCU-0012's missing datasheet
 - **WHEN** someone adds a datasheet to MCU-0012 before the effect runs
-- **THEN** the executor re-reads the field just before the update, refuses the effect as a conflict and records it, and doesn't replace the datasheet.
+- **THEN** the executor re-reads the Part's attachments just before the send, finds the "Datasheet" attachment, refuses the effect as a conflict and records it, and adds nothing.
 
 #### Scenario: Image added after preparation
 

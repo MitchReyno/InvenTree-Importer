@@ -28,6 +28,12 @@ The executor SHALL apply only plans whose version, build and capability match a 
 - **WHEN** the operator activates the `/3` deployment
 - **THEN** activation waits until the earlier writer's child exit is confirmed, whatever the run's projected state.
 
+#### Scenario: Irrecoverably uncertain run at the switch
+
+- **GIVEN** a `bench-effects-plan/2` run left recovery-required with no attributable remote record, whose child exit is confirmed
+- **WHEN** the operator activates the `/3` deployment
+- **THEN** the run is retired with its journal and contribution-history block kept and its write authority revoked, and activation proceeds.
+
 #### Scenario: Verification alone doesn't block the switch
 
 - **GIVEN** a settled `bench-effects-plan/2` run that offers only `verify_effect`

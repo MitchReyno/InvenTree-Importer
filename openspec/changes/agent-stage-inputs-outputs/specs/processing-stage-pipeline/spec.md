@@ -132,6 +132,16 @@ When identify mode cannot establish a strong key, Research SHALL publish its `re
 - **WHEN** identify-mode Research finds no MPN or other strong key
 - **THEN** it publishes an unresolved amendment, Match asks the operator, and Images starts only after the answer.
 
+### Requirement: Amendments don't change a shared draft Part
+
+While a lot's draft Part is shared with other lots, an amendment's Part values SHALL stay proposals for that lot. On confirmation the operator SHALL either apply them to the shared Part, which advances every sharing lot's identity revision, or relink the lot to its own draft.
+
+#### Scenario: Amendment to one of two lots
+
+- **GIVEN** lots A and B sharing a draft Part
+- **WHEN** Research's amendment for A adds a more specific MPN
+- **THEN** B's executable Part and Match outcome are unchanged until the operator confirms the value for the shared Part or gives A its own draft.
+
 ### Requirement: Identity amendments update the lot
 
 For `/7` work, a lot SHALL have one current identity: Examine's base merged with Research's amendments, each field recording its stage, proposal and source. An amendment MAY add identifiers and aliases and refine fields, which update an agent-made, unedited lot's proposed label and draft Part. It SHALL NOT silently replace Examine's identity with a different part, and SHALL NOT change an operator's value. Successors SHALL pin the merged identity's revision.
