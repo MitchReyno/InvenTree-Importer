@@ -50,8 +50,11 @@ function acceptedProducer(seal: MessageSeal): ProcessingEnvelopeDto {
   return envelope
 }
 
+/** A retained question's sealed message, with the stored spec bytes and their digest. */
+export type RetainedQuestionSeal = MessageSeal & { specBytes: Buffer; specDigest: Buffer }
+
 export function retainedQuestionSpec(
-  seal: MessageSeal & { specBytes: Buffer; specDigest: Buffer },
+  seal: RetainedQuestionSeal,
   subjectId: string,
 ): ProcessingQuestionSpecDto {
   const envelope = acceptedProducer(seal)
@@ -164,7 +167,7 @@ export function retainedSessionProposal(
 }
 
 export function retainedSessionQuestion(
-  seal: MessageSeal & { specBytes: Buffer; specDigest: Buffer },
+  seal: RetainedQuestionSeal,
   subjectId: string | null,
   /** For the lead job: the batch's subjects a question may be about, besides the whole batch. */
   batchSubjects: ReadonlySet<string> = new Set(),

@@ -37,6 +37,7 @@ import {
   retainedProposalValue,
   retainedSessionProposal,
   retainedSessionQuestion,
+  type RetainedQuestionSeal,
 } from './retained.ts'
 import { decodeJobInput } from './session-input.ts'
 import { agentSessions } from '#/agents/schema.ts'
@@ -554,7 +555,7 @@ type QuestionContent =
  * they affect and their assumptions; an earlier runner question has neither.
  */
 function questionContent(
-  question: Parameters<typeof retainedQuestionSpec>[0],
+  question: RetainedQuestionSeal,
   subjectId: string | null,
   batchSubjects: ReadonlySet<string>,
 ): QuestionContent {

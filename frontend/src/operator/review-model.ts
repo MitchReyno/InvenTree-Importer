@@ -106,7 +106,7 @@ export type OpenQuestion = {
  */
 export function openQuestionsByLot(
   processing: ProcessingSnapshotDto | undefined,
-  batch: Pick<CaptureSnapshotDto, 'lots'>,
+  batch: { lots: readonly Pick<CaptureSnapshotDto['lots'][number], 'id' | 'part_subject_id'>[] },
 ): ReadonlyMap<string, OpenQuestion> {
   const bySubject = new Map<string, OpenQuestion>()
   const asked = (processing?.jobs ?? [])

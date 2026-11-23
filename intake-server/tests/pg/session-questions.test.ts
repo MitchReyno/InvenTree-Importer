@@ -169,6 +169,18 @@ async function notes(fixture: Fixture, batchId: string, subjectId: string) {
   return batch.notes.filter((note) => note.subject_id === subjectId).map((note) => note.text)
 }
 
+/** The batch's published `capture_changed` events, oldest first, with the revision each carries. */
+async function captureChanges(fixture: Fixture, batchId: string) {
+  const rows = await fixture.db.pool.query<{ payload: string }>(
+    `SELECT convert_from(e.public_bytes, 'UTF8') AS payload
+       FROM ui_event e JOIN ui_stream s ON s.id = e.stream_id
+      WHERE s.stream_key = $1 AND e.kind = 'capture_changed'
+      ORDER BY e.sequence`,
+    [`capture:${batchId}`],
+  )
+  return rows.rows.map((row) => (JSON.parse(row.payload) as { revision: string }).revision)
+}
+
 async function answerRows(fixture: Fixture, jobId: string) {
   const rows = await fixture.db.pool.query<{ answers: string; inbox: string }>(
     `SELECT (SELECT count(*) FROM processing_answer WHERE job_id=$1) AS answers,
@@ -444,11 +456,17 @@ test('a stepped answer sets the quantity and one note in one transaction and rea
     })
     assert.equal(proposed.ok, true)
     const { path, base, questionId } = await askedQuestion({ fixture, capture, url, a })
+    const publishedBefore = await captureChanges(fixture, capture.batch.id)
     const answered = await fixture.http(path, { ...base, steps: fullAnswer })
     assert.equal(answered.status, 200, JSON.stringify(answered.value))
     const receipt = answered.value as { capture_revision: string; answer_id: string }
     // A quantity edit and a note edit: two capture revisions.
     assert.equal(BigInt(receipt.capture_revision), BigInt(base.expected_capture_revision) + 2n)
+    // Published once, at the final revision, never at the one between the two edits.
+    assert.deepEqual(
+      (await captureChanges(fixture, capture.batch.id)).slice(publishedBefore.length),
+      [receipt.capture_revision],
+    )
     assert.deepEqual(await lotQuantity(fixture, capture.batch.id, capture.packetA.id), {
       mode: 'set',
       value: '380',
@@ -986,5 +1004,34 @@ test('several capture edits under one lock may only set a quantity or add a note
       (error: { code?: string }) => error.code === 'capture_edit_sequence_unsupported',
     )
     assert.equal(await captureRevision(fixture, capture.batch.id), revision)
+  })
+})
+
+test('"Something else" on a step that allows it is noted and reaches the session in the operator\u2019s words', async () => {
+  await withSessions(async ({ fixture, capture, url, a }) => {
+    const { path, base, questionId } = await askedQuestion({ fixture, capture, url, a }, [
+      placeStep,
+    ])
+    const words = 'Bin 12, behind the reel rack'
+    const answered = await fixture.http(path, {
+      ...base,
+      steps: [{ step_id: 'place', value: { kind: 'choice', other: words } }],
+    })
+    assert.equal(answered.status, 200, JSON.stringify(answered.value))
+    assert.ok(
+      (await notes(fixture, capture.batch.id, capture.packetA.id)).includes(
+        `Where does it go? — ${words}`,
+      ),
+    )
+    const question = (await snapshot(fixture, capture.batch.id)).jobs
+      .find((job) => job.id === a.job)!
+      .questions.find((item) => item.id === questionId)!
+    assert.equal(question.state, 'answered')
+    const read = await call(url, a.token, 'read_inbox', { after_seq: '0' })
+    const answers = read.items!.filter((item) => item.kind === 'answer')
+    assert.equal(answers.length, 1)
+    assert.deepEqual(answers[0].payload.steps, [
+      { step_id: 'place', value: { kind: 'choice', other: words } },
+    ])
   })
 })

@@ -13,6 +13,8 @@ import {
   type OperatorImpactDto,
   type MediaSnapshotDto,
   type OperatorReviewDto,
+  type ProcessingAnswerReceiptDto,
+  type ProcessingQuestionV2Dto,
   type ProcessingSnapshotDto,
 } from '@invimport/contracts'
 import type { ProcessingClient } from './processing/types'
@@ -1863,24 +1865,41 @@ test.each([
         },
         { id: 'why', prompt: 'Why?', assumption: 'Same MPN.', answer: { kind: 'text' } },
       ],
-    }
+    } satisfies ProcessingQuestionV2Dto
     const snapshot = {
+      runner_status: 'native_unverified',
       batch_id: batchId,
       capture_revision: batch.revision,
       jobs: [
         {
           id: question.job_id,
-          stage: 'research',
           subject_id: subjectId,
+          stage: 'research',
+          revision: '1',
+          state: 'waiting_for_user',
+          attempt_id: question.attempt_id,
+          input_sha256: question.input_sha256,
+          attempt_number: '1',
+          qualification: 'native_unverified',
           proposals: [],
           questions: [question],
         },
       ],
-    } as unknown as ProcessingSnapshotDto
+      cursor: { stream_id: stream, sequence: '1' },
+    } satisfies ProcessingSnapshotDto
+    const receipt = {
+      answer_id: 'c0000000-0000-4000-8000-0000000000d4',
+      question_id: question.id,
+      attempt_id: question.attempt_id,
+      capture_revision: batch.revision,
+      command_id: 'c0000000-0000-4000-8000-0000000000d5',
+    } satisfies ProcessingAnswerReceiptDto
     const processing = {
       read: vi.fn(async () => snapshot),
-      answer: vi.fn(async () => ({ status: 'accepted' })),
-    } as unknown as ProcessingClient
+      start: vi.fn(),
+      cancel: vi.fn(),
+      answer: vi.fn(async () => receipt),
+    } satisfies ProcessingClient
     renderReview({ processing })
     await user.click(await screen.findByRole('button', { name: 'Show Packet B' }))
     const details = screen.getByRole('region', { name: 'Decision' })

@@ -3,6 +3,8 @@ import type {
   CaptureSnapshotDto,
   OperatorLotDto,
   OperatorReviewDto,
+  ProcessingJobDto,
+  ProcessingQuestionV2Dto,
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
 import {
@@ -134,24 +136,51 @@ describe('excluded lots', () => {
 
 describe('stepped questions in Review', () => {
   it('reach the affected lot, or every lot of a Part, through the shared subject', () => {
-    const stepped = (id: string, subject: string) => ({
-      id,
-      state: 'open',
-      subject_id: subject,
-      schema_version: 'bench-intake-question/2',
-      steps: [],
-    })
+    const jobId = '00000000-0000-4000-8000-000000000001'
+    const attemptId = '00000000-0000-4000-8000-000000000002'
 
+    const stepped = (id: string, subject: string) =>
+      ({
+        id,
+        job_id: jobId,
+        attempt_id: attemptId,
+        input_sha256: 'a'.repeat(64),
+        revision: '1',
+        state: 'open',
+        subject_id: subject,
+        schema_version: 'bench-intake-question/2',
+        fields: ['identity'],
+        reason: 'The date codes differ.',
+        steps: [{ id: 'why', prompt: 'Why?', assumption: 'Same MPN.', answer: { kind: 'text' } }],
+      }) satisfies ProcessingQuestionV2Dto
+
+    const job = {
+      id: jobId,
+      subject_id: null,
+      stage: 'research',
+      revision: '1',
+      state: 'waiting_for_user',
+      attempt_id: attemptId,
+      input_sha256: 'a'.repeat(64),
+      attempt_number: '1',
+      qualification: 'native_unverified',
+      proposals: [],
+      questions: [stepped('q-lot', 'a'), stepped('q-part', 'p')],
+    } satisfies ProcessingJobDto
     const processing = {
-      jobs: [{ stage: 'research', questions: [stepped('q-lot', 'a'), stepped('q-part', 'p')] }],
-    } as unknown as ProcessingSnapshotDto
+      runner_status: 'native_unverified',
+      batch_id: '00000000-0000-4000-8000-000000000003',
+      capture_revision: '4',
+      jobs: [job],
+      cursor: { stream_id: '00000000-0000-4000-8000-000000000004', sequence: '1' },
+    } satisfies ProcessingSnapshotDto
     const batch = {
       lots: [
         { id: 'a', part_subject_id: null },
         { id: 'b', part_subject_id: 'p' },
         { id: 'c', part_subject_id: null },
       ],
-    } as unknown as CaptureSnapshotDto
+    }
     const questions = openQuestionsByLot(processing, batch)
     expect(questions.get('a')?.id).toBe('q-lot')
     expect(questions.get('b')?.id).toBe('q-part')

@@ -1,6 +1,11 @@
 import { render, screen } from '@testing-library/react'
 import { expect, it, vi } from 'vitest'
-import type { CaptureSnapshotDto, ProcessingJobDto } from '@invimport/contracts'
+import type {
+  CaptureSnapshotDto,
+  ProcessingJobDto,
+  ProcessingQuestionV1Dto,
+  ProcessingQuestionV2Dto,
+} from '@invimport/contracts'
 import { ProcessingJobCard } from './ProcessingJobCard'
 
 const batch = { lots: [{ id: 'l1', label: 'Reels' }], parts: [] } as unknown as CaptureSnapshotDto
@@ -58,56 +63,45 @@ it('labels stale and provisional candidates', () => {
 
 it('shows a stepped question by its title, step count, reason and assumptions, and a /1 one as before', () => {
   const props = { batch, disabled: false, cancel: vi.fn(), chooseQuestion: vi.fn() }
-  const open = { job_id: 'j', attempt_id: 'a', input_sha256: 'x', revision: '1', state: 'open' }
-  render(
-    <ProcessingJobCard
-      job={
-        {
-          ...job('l1'),
-          questions: [
-            {
-              ...open,
-              id: 'q2',
-              subject_id: 'l1',
-              schema_version: 'bench-intake-question/2',
-              fields: ['identity'],
-              title: 'Same Part, and where it goes',
-              reason: 'The date codes differ.',
-              steps: [
-                {
-                  id: 'same',
-                  prompt: 'Same Part?',
-                  assumption: 'Same Part',
-                  answer: {
-                    kind: 'choice',
-                    other: false,
-                    options: [
-                      { id: 'y', label: 'Yes' },
-                      { id: 'n', label: 'No' },
-                    ],
-                  },
-                },
-                {
-                  id: 'where',
-                  prompt: 'Where?',
-                  assumption: 'Drawer R3',
-                  answer: { kind: 'text' },
-                },
-              ],
-            },
-            {
-              ...open,
-              id: 'q1',
-              subject_id: 'l1',
-              spec: { kind: 'quantity', prompt: 'How many reels?', reason: 'Folded label.' },
-              assumption: 'One reel',
-            },
+  const open = {
+    job_id: '00000000-0000-4000-8000-000000000001',
+    attempt_id: '00000000-0000-4000-8000-000000000002',
+    input_sha256: 'a'.repeat(64),
+    revision: '1',
+    state: 'open',
+    subject_id: 'l1',
+  } as const
+  const stepped = {
+    ...open,
+    id: 'q2',
+    schema_version: 'bench-intake-question/2',
+    fields: ['identity'],
+    title: 'Same Part, and where it goes',
+    reason: 'The date codes differ.',
+    steps: [
+      {
+        id: 'same',
+        prompt: 'Same Part?',
+        assumption: 'Same Part',
+        answer: {
+          kind: 'choice',
+          other: false,
+          options: [
+            { id: 'y', label: 'Yes' },
+            { id: 'n', label: 'No' },
           ],
-        } as unknown as ProcessingJobDto
-      }
-      {...props}
-    />,
-  )
+        },
+      },
+      { id: 'where', prompt: 'Where?', assumption: 'Drawer R3', answer: { kind: 'text' } },
+    ],
+  } satisfies ProcessingQuestionV2Dto
+  const earlier = {
+    ...open,
+    id: 'q1',
+    spec: { kind: 'quantity', prompt: 'How many reels?', reason: 'Folded label.' },
+    assumption: 'One reel',
+  } satisfies ProcessingQuestionV1Dto
+  render(<ProcessingJobCard job={{ ...job('l1'), questions: [stepped, earlier] }} {...props} />)
   expect(screen.getByText('Same Part, and where it goes')).toBeVisible()
   expect(screen.getByText('2 steps · The date codes differ.')).toBeVisible()
   expect(screen.getByText('Continuing on: Same Part · Drawer R3')).toBeVisible()
