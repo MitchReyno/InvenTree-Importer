@@ -72,7 +72,7 @@ Each entry in a session's history that has more to show SHALL expand in place to
 
 ### Requirement: Lot-forming entries expand with links
 
-When expanded, an observation SHALL show its crop, its reading with the source chip and its visible count, linking to the photo in Capture and the map. A lot formed or extended SHALL show the observations used, its quantity and basis and why it is separate, linking to the lot in Review and the map. A regroup SHALL show before and after with its reason, linking to each affected lot.
+When expanded, an observation SHALL show its crop, its reading with the source chip and its visible count, linking to the photo in Capture and the map. A lot formed or extended SHALL show the observations used, its quantity and basis and why it is separate, linking to the lot in Review and the map. A regroup SHALL show which observations moved from which lot to which, linking to each affected lot; a regroup recorded before moves were kept SHALL list the affected lots.
 
 #### Scenario: Expand a formed lot
 
@@ -139,7 +139,7 @@ The session page SHALL show a header with the step and subject, provider and mod
 
 - **GIVEN** a session fetched a region of a 6144 × 8160 photo
 - **WHEN** the operator expands that view on the session page
-- **THEN** it shows the crop the agent was sent with its delivered size and region, and links to the photo in Capture.
+- **THEN** it shows the region recut from the page as the agent was sent it, with the delivered size, digest and region, and links to the photo in Capture.
 
 ### Requirement: Reaching and reading the session page
 
@@ -161,7 +161,7 @@ The session page SHALL be reached from the drawer's "Open full session", the Age
 
 - **GIVEN** a session with more entries than one read returns
 - **WHEN** the operator reaches the oldest shown entry and chooses Load older
-- **THEN** the next older entries appear in order without duplicates, and live entries keep arriving at the top.
+- **THEN** the next older entries appear above in order without duplicates, and live entries keep arriving at the bottom.
 
 #### Scenario: Session from another batch or account
 
@@ -171,7 +171,7 @@ The session page SHALL be reached from the drawer's "Open full session", the Age
 
 ### Requirement: Failures in plain words
 
-A failed or stopped session SHALL lead with its recorded cause in plain words, built from its recorded provider error and cause code, such as "Couldn't reach Claude: the API was overloaded (HTTP 529)", with what it was doing and when. The failure category's general advice SHALL be offered once behind a help button, and codes SHALL show only in debug mode. A failure recorded before causes were kept SHALL say the cause wasn't recorded.
+A failed or stopped session SHALL lead with its recorded cause in plain words, built on the server from its recorded provider error and cause code and shown without debug mode, such as "Couldn't reach Claude: the API was overloaded (HTTP 529)", with what it was doing and when. The failure category's general advice SHALL be offered once behind a help button, and codes SHALL show only in debug mode. A failure recorded before causes were kept SHALL say the cause wasn't recorded.
 
 #### Scenario: Provider overloaded
 

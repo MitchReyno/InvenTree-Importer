@@ -2,23 +2,22 @@
 
 ## Problem and intended outcome
 
-Mitch found two problems while working with agents in a live batch on 2026-11-23:
+Mitch reported these problems while working with agents in a live batch on 2026-11-23, and from the canvas review that followed:
 
 1. **The session drawer ignores clicks outside it.** It is dimmed like a modal, but clicking the dimmed page does nothing; only Esc and Close close it.
-2. **Answering an agent's question is clunky and often fails.** An agent asks one free-form prompt that may hold several questions. It sets the question to `quantity` or `clarification`, and the operator gets one field. A prose reply to a `quantity` question fails with "Enter a positive exact quantity with at most six decimal places." That happened in the session Mitch reported. There is no way to offer answer choices: the drawer shows two disabled option cards saying "Questions don't carry the session's answer options yet".
-
+2. **Answering an agent's question is clunky and can fail.** An agent asks one free-form prompt that may hold several questions. It sets the question to `quantity` or `clarification`, and the operator gets one field. A prose reply to a `quantity` question fails with "Enter a positive exact quantity with at most six decimal places." Mitch reported that error in a live session. There is no way to offer answer choices: the drawer shows two disabled option cards saying "Questions don't carry the session's answer options yet".
 3. **A session's history says little.** The drawer's timeline shows status lines and generic entries ("Published a proposal", "Proposed a lot") with no details and no links. The operator's own answers and instructions don't appear in it.
 4. **There is nowhere to see everything a session did**: which photos it looked at, which pages it read, and how each attempt started and ended.
 5. **The activity bar misreports waiting work.** In the masthead activity popover, a stage that has made progress but waits on questions is drawn like a stage that hasn't started: `ProgressSegments` has one `waiting` state, drawn empty at 45% opacity, for both. A working stage only pulses its fill, and a paused batch looks the same as a running one.
+6. **The popover says too little per stage.** It shows one bar, the newest status line and one link, with no per-stage counts, status or navigation.
 7. **Sessions are hard to read and act on.** Found on the canvas "Fixes: before and after" page (v77–v78) and approved by Mitch:
-   - The Agents page and Processing's session list show one row per attempt, so retries flood them (Heyyy shows 8 rows for 3 sessions).
+   - The Agents page and Processing's session list show one row per attempt, so retries flood them (Mitch's Heyyy batch showed 8 rows for 3 sessions).
    - Failures show generic category advice instead of the recorded cause.
-   - Rows don't open the session.
+   - Only a row's step name links, to the drawer; the row's title and the failure details don't open the session.
    - The drawer header says little.
    - The Agents page opens on everything.
    - Recent activity shows the agent's raw status lines with internal IDs.
    - The message box has no label or hint.
-6. **The popover says too little per stage.** It shows one bar, the newest status line and one link, with no per-stage counts, status or navigation.
 
 The outcome sought:
 
@@ -64,15 +63,19 @@ Mitch will add more agent-interaction items to this change. This proposal covers
 - **Older questions:** runner questions of earlier profiles use `ProcessingQuestionSpec` and `processing/answers.ts`, with a continuation attempt. They stay as they are.
 - **History:**
   - `SessionTimeline.tsx` maps outbox kinds to fixed strings (`stepText`) and drops replies. Entries carry only IDs (`lot_id`, `proposal_id`, …) and have no links.
-  - `agents/tools/timeline.ts` reads one job's outbox and inbox, newest 500 (`TIMELINE_LIMIT`), with `truncated`; it does not page.
+  - `agents/tools/timeline.ts` reads one job's outbox and inbox, up to the newest 500 of each stream (`TIMELINE_LIMIT`), with `truncated`; it does not page. Outbox sequences restart with each attempt, and inbox sequences run per job.
   - `fetch_evidence` deliveries are charged to an in-memory image budget (`handlers.ts`), and nothing is recorded in the history.
-  - Proposal sources are notes, media versions or host research receipts (`ProcessingSourceV3`). A VM agent that read a page with WebFetch has no way to cite it, and web reads inside the provider are seen only by the egress proxy, as hosts.
+  - Session proposals (`bench-intake-proposal/5`) cite notes and media versions (`ProcessingSource`, shared with `/4`), and the handler refuses any source not delivered to the session; host research receipts exist only in the older `/3` union (`ProcessingSourceV3`). A VM agent that read a page with WebFetch has no way to cite it, and web reads inside the provider are seen only by the egress proxy, as hosts.
   - Routes exist for a lot, the map, a record, a step with a question and Capture (`navigation/batch-route.ts`); there is no session page.
 - **Activity popover:**
   - `components/masthead/ActivityPopover.tsx` renders one `ProgressSegments` bar per batch, the newest status line and "Open processing".
-  - `header/workSegments.ts` maps every non-running state to `waiting`. A running step without a count fills an invented 50% (`RUNNING_WITHOUT_FRACTION`).
-  - The header read's step counts (`contracts/src/header.ts`, `stepJobs`) carry `jobs`, `ready` and `running`, and the attention read adds `questions` and `failed`. Neither has waiting-for-you or queued counts, or the batch's paused flag, which lives in `intake-server/src/agents/pause.ts`.
+  - `frontend/src/header/workSegments.ts` maps every non-running state to `waiting`, and `ProgressSegments.tsx` fills a running step without a count to an invented 50% (`RUNNING_WITHOUT_FRACTION`).
+  - The header read's step counts (`contracts/src/header.ts`, `stepJobs`) carry `jobs`, `ready` and `running`, and the attention read adds `questions` and `failed`. They count jobs of active subjects (`processing/steps.ts`), not lots, so a step with no jobs yet reads `0 of 0`. Neither has waiting-for-you or queued counts, or the batch's paused flag, which lives in `intake-server/src/agents/pause.ts`.
 - **Specs:** current requirements are in `processing-workspace` (the session drawer and the Inventory session drawer's disabled option cards), `processing-stage-pipeline` ("Non-blocking questions with assumptions") and `processing-agent-sessions`.
+- **Agents and failures:**
+  - The Agents read (`agents/session/sessions.ts`) pages by attempt, 50 at a time, with `job_id` and `latest_on_job`; it carries no batch archive flag or web setting.
+  - Its failure summary (`agents/failures.ts`) holds the category, summary and recovery. The provider error and cause are loaded only when the details are opened in debug mode (`SessionFailureDetails.tsx`).
+  - The regroup outbox item keeps only the affected lot IDs, and an attempt records no reason for starting.
 - **Unverified:** the exact prompt of the failed question in Mitch's screenshot. That its answer was prose to a `quantity` question is inferred from the only client-side message of that shape.
 
 ## Scope and non-goals
@@ -93,11 +96,11 @@ In scope:
 - A recorded photo view for each delivered `fetch_evidence` image.
 - A proposal source kind for an agent-reported web page URL, shown as unverified.
 - The batch-scoped session page as a conversation, with a message box and questions answered in place, linked from the drawer, the Agents page, the session lists and the failure details.
-- Per-step `waiting` and `queued` counts, `questions`, the Examine step's `lots` formed, and the batch's `paused` flag in the header and attention reads.
+- Per-step `waiting` and `queued` counts, `questions`, the batch's live `lots`, and the batch's `paused` flag in the header and attention reads.
 - Stage rows in the activity popover, and the new bar states and animation rules in `ProgressSegments` (also used on the Processing overview).
 - From the Fixes page:
-  - one row per session, with earlier attempts folded (S1);
-  - failures in plain words from the recorded provider error and cause, with advice behind help (S2);
+  - one row per session, with earlier attempts folded, from an Agents read that pages by session (S1);
+  - failures in plain words from the recorded provider error and cause, carried in the failure summary so they show without debug mode, with advice behind help (S2);
   - row titles that open the session, and recovery actions on failed rows (S3);
   - the drawer header (S4);
   - Agents page filter chips opening on Needs attention, with batches that need nothing collapsed and archived batches only under All (S6);
@@ -151,7 +154,7 @@ None.
 - `header-workflow-status`: stage rows in the workflow details, the stage bar states, and only working stages animating.
 - `agents-overview` also gains session rows, recovery actions and the Needs attention filter. `processing-workspace` gains failures in plain words, the drawer header, activity in the app's words and the labelled message box. `processing-agent-sessions` gains readable status lines.
 - `processing-stage-pipeline`: non-blocking questions are one question with 1–4 steps, each with an answer kind and an assumption.
-- `processing-agent-sessions`: the `ask` tool's structured question, the delivery of stepped answers to the session, recorded photo views and agent-reported web page sources.
+- `processing-agent-sessions`: the `ask` tool's structured question, the delivery of stepped answers to the session, recorded photo views and agent-reported web page sources, which "Bounded status lines and delivered citations" now allows as the one undelivered source kind.
 - `ui-design-system`: dialogs close from their backdrop.
 
 ## Impact and dependencies
@@ -163,10 +166,10 @@ None.
   - the session envelope union.
 - **Intake server:**
   - `agents/tools/handlers.ts` (`ask`) and the `server.ts` description;
-  - `processing/session-answers.ts`, which applies up to two capture edits in one transaction;
+  - `processing/session-answers.ts`, which applies up to two capture edits in one transaction, and `capture/repository.ts`, whose locked edit handle applies only one edit today;
   - the read model that returns questions to the frontend;
   - the session runner prompt.
-- **History and page:** `agents/tools/timeline.ts` and its route in `processing/routes.ts`; a new outbox kind for photo views; the proposal source union; `SessionTimeline.tsx`; a new session page and route in `navigation/batch-route.ts`; the Agents page rows (`agents/AgentSessions.tsx`).
+- **History and page:** `agents/tools/timeline.ts` and its route in `processing/routes.ts`; a migration allowing a new `photo_view` outbox kind; the proposal source union; `SessionTimeline.tsx`; a new session page and route in `navigation/batch-route.ts`; the Agents page rows (`agents/AgentSessions.tsx`) and the Agents read (`agents/session/sessions.ts`).
 - **Frontend:** `Dialog.tsx`, `QuestionAnswer.tsx`, `DrawerAnswers.tsx`, `ui/QuestionCard.tsx`, and the Needs you and Overview rows.
 - **Fixtures:** the fake CLI and synthetic session gain stepped questions for tests and the demo.
 - **Prerequisites:** none.

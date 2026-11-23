@@ -182,7 +182,7 @@ Make working with agents smoother. Clicking the dimmed page beside the session d
 
 - Change: `improve-agent-interaction`
 - Status: Proposed — plan awaiting Mitch's review.
-- Size: XL — a versioned question and answer contract and answer path, a resolved and paged session history, recorded photo views and web sources, a reworked answer form, a new session page and per-stage activity counts and bar states, in six PRs after the plan.
+- Size: XL — a versioned question and answer contract and answer path, a resolved and paged session history, recorded photo views and web sources, a reworked answer form, a new session page and per-stage activity counts and bar states, in seven PRs after the plan.
 - Prerequisites: None. Takes over BI-015's answer options; coordinate session-runner prompt edits with BI-017.
 - OpenSpec: [improve-agent-interaction](../openspec/changes/improve-agent-interaction/)
 

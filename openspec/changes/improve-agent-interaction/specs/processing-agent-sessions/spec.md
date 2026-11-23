@@ -1,3 +1,15 @@
+## MODIFIED Requirements
+
+### Requirement: Bounded status lines and delivered citations
+
+A status line SHALL be one line of at most 120 characters, and the server SHALL rate-limit status lines. Proposals and questions SHALL cite only evidence and notes delivered to that session, except that a proposal MAY cite an agent-reported web page, which is not delivered evidence.
+
+#### Scenario: Invalid outbox item
+
+- **GIVEN** a proposal citing an evidence version not delivered to the session, or a status line over 120 characters
+- **WHEN** the session submits it
+- **THEN** the tool call returns a validation error the agent can correct, and nothing is published.
+
 ## ADDED Requirements
 
 ### Requirement: Structured session questions
@@ -28,13 +40,19 @@ The `ask` tool description and the session instructions SHALL tell the agent to 
 
 ### Requirement: Stepped answer effects
 
-An answer to a session question SHALL give exactly one value per step, matching that step's kind; a number step MAY carry text instead. One transaction SHALL record the answer and apply its capture effects: a number step sets the lot's quantity with its basis, and choice and text steps are saved together as one note on the question's subject, each line pairing the step's prompt with the chosen label or text.
+An answer to a session question SHALL give exactly one value per step, matching that step's kind; a number step MAY carry text instead. One transaction SHALL record the answer and apply its capture effects: a number step sets the lot's quantity, keeping its basis in the answer, and the other steps are saved as one note on the question's subject, each line pairing a step's prompt with its label or text.
 
 #### Scenario: Effects fail together
 
-- **GIVEN** a stepped answer whose quantity edit succeeds but whose note edit is refused because the capture changed
+- **GIVEN** a stepped answer whose quantity edit succeeds but whose note edit is then refused
 - **WHEN** the transaction runs
-- **THEN** it rolls back as a whole, the question stays open, and the form reports the stale question.
+- **THEN** it rolls back as a whole, the lot's quantity is unchanged, the question stays open, and the refusal is reported.
+
+#### Scenario: Note over the limit
+
+- **GIVEN** a stepped answer whose combined note, including a number step answered in words, would exceed the capture note limit
+- **WHEN** the server validates it
+- **THEN** it is refused as an invalid answer naming the step, before any capture edit.
 
 ### Requirement: Stepped answers reach the session
 
@@ -54,7 +72,7 @@ The asking session SHALL receive one `answer` inbox item carrying each step's va
 
 ### Requirement: Photo views are recorded
 
-Each image delivered by `fetch_evidence` SHALL be recorded in the session's history with the evidence, version, page, region, and the delivered size and digest, in the same transaction that charges the image budget. A refused fetch SHALL NOT be recorded as a view.
+Each image delivered by `fetch_evidence` SHALL be recorded in the session's history with the evidence, version, page, region, and the delivered size and digest, in the final transaction before the image is returned. A refused or over-budget fetch SHALL NOT be recorded as a view, and an image whose view can't be recorded SHALL NOT be returned.
 
 #### Scenario: Delivered and refused fetches
 
@@ -64,13 +82,13 @@ Each image delivered by `fetch_evidence` SHALL be recorded in the session's hist
 
 ### Requirement: Agent-reported web page sources
 
-A proposal MAY cite a web page by URL, with an optional title and the time the agent says it read it. The app SHALL show such a source as reported by the agent, with no saved copy, and SHALL NOT treat it as verified evidence. A cited URL SHALL be an absolute `https` or `http` URL of at most 2048 characters.
+A proposal MAY cite a web page by URL in its top-level sources, with an optional title and the time the agent says it read it. The app SHALL show such a source as reported by the agent, with no saved copy, and SHALL NOT treat it as verified evidence. A cited URL SHALL be an absolute `https` or `http` URL of at most 2048 characters.
 
 #### Scenario: Cited datasheet
 
 - **GIVEN** a VM Research session that read a datasheet with WebFetch
 - **WHEN** it proposes an identity citing that URL
-- **THEN** the proposal is accepted, its source chip reads "Web page" marked agent-reported, and the session page lists the URL as a web read linked to that proposal.
+- **THEN** the proposal is accepted without the URL counting as delivered evidence, its source chip reads "Web page" marked agent-reported, and the session page lists the URL as a web read linked to that proposal.
 
 #### Scenario: Invalid URL
 
