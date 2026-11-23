@@ -60,7 +60,7 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: 'running', label: 'Working' },
   { id: 'waiting', label: 'Waiting for you' },
   { id: 'queued', label: 'Queued' },
-  { id: 'finished', label: 'Done today' },
+  { id: 'finished', label: 'Ended today' },
 ]
 
 const FINISHED = new Set(['ready', 'failed', 'cancelled', 'superseded', 'interrupted'])

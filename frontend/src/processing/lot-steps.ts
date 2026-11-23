@@ -96,9 +96,13 @@ export function stepSummary(
   step: WorkStep,
   rows: readonly LotSteps[],
   examineJobs: readonly Job[],
+  { paused = false }: { paused?: boolean } = {},
 ): StepSummary {
   if (step === 'examine') {
-    const state = mostPressing(examineJobs.map((job) => workState(job.state))) ?? 'not_started'
+    // The lead session's state when there is one; older Reading and Identifying jobs otherwise.
+    const lead = examineJobs.find((job) => job.subject_id === null && job.session_state)
+    const states = (lead ? [lead] : examineJobs).map((job) => workState(job.state, { paused }))
+    const state = mostPressing(states) ?? 'not_started'
     const text = rows.length ? `${plural(rows.length, 'lot')} formed` : 'No lots formed yet'
     return { text, state }
   }

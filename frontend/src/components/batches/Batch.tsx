@@ -415,6 +415,9 @@ export function Batch({
   // A refresh that failed keeps the old data; it is withheld, so nothing old reads as current.
   const attentionUnavailable = attentionQuery.isError || attentionQuery.fetchStatus === 'paused'
   const attentionCurrent = attentionUnavailable ? undefined : attentionQuery.data
+  // The Overview lists items as current, so it takes only this revision's own read (its key holds
+  // the batch revision), never the previous revision's carried over while the new one lands.
+  const attentionForRevision = attentionQuery.isPlaceholderData ? undefined : attentionCurrent
   // Capture, the Map, Lots and Images own the media read and its polling. This disabled observer
   // only keeps their snapshot while other tabs show, with the same fetch function so their refreshes
   // still work; the counts come from `useCachedData`, which drops it once invalidated and unrefreshed.
@@ -467,7 +470,7 @@ export function Batch({
         questionId={batchRoute.questionId}
         sessionId={parsed.kind === 'route' ? sessionFromQuery(parsed.query) : null}
         focusLotId={parsed.kind === 'route' ? lotFromQuery(parsed.query) : null}
-        attention={attentionCurrent}
+        attention={attentionForRevision}
         attentionUnavailable={attentionUnavailable}
         sharperRequests={sharperRequests}
         drawerRestore={drawerRestore}

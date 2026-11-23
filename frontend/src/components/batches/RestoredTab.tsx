@@ -43,6 +43,8 @@ export function RestoredTab({
         step={route.step}
         questionId={route.questionId}
         focusLotId={focusLotId}
+        // The restored snapshot carries each lot's own retirement until the live reads land.
+        retiredLotIds={new Set(batch.lots.filter((lot) => lot.retired).map((lot) => lot.id))}
         onDirtyChange={onDirtyChange}
         displayOnly
       />

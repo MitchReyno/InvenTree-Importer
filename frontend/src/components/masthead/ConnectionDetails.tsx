@@ -31,14 +31,22 @@ function refusedToken(source: string | undefined) {
   return 'InvenTree refused the read token.'
 }
 
+/** A check's instant as an ISO string, or null when it is unreadable. */
+function checkInstant(at: string | number) {
+  const time = typeof at === 'number' ? at : Date.parse(at)
+  return Number.isFinite(time) ? new Date(time).toISOString() : null
+}
+
 /** A check's time in the one event-time format, which says which day it was. */
 function checkTime(at: string | number, now: number) {
-  const time = typeof at === 'number' ? at : Date.parse(at)
-  if (!Number.isFinite(time)) {
-    return 'Unknown time'
-  }
+  const instant = checkInstant(at)
+  return (instant && eventTimeText(instant, now)) ?? 'Unknown time'
+}
 
-  return eventTimeText(new Date(time).toISOString(), now) ?? 'Unknown time'
+/** A check's time as an event time, with the full instant on hover and to assistive technology. */
+function CheckTime({ at, now }: { at: string | number; now: number }) {
+  const instant = checkInstant(at)
+  return instant ? <EventTime at={instant} now={now} /> : <>Unknown time</>
 }
 
 /** The server menu: host, last check and the Dev badge, then its actions; diagnostics show in debug mode. */
@@ -129,13 +137,17 @@ export function ConnectionDetails({
       </Actions>
       <DebugDetails label="Connection details">
         <p>{apiStatus}</p>
-        <p>Last API read: {apiChecked ? checkTime(apiChecked, now) : 'Not yet checked'}</p>
+        <p>
+          Last API read: {apiChecked ? <CheckTime at={apiChecked} now={now} /> : 'Not yet checked'}
+        </p>
         <p>{transport}</p>
         <p>
           Transport observation: {transportFreshness} ·{' '}
-          {transportObserved && health.observedAt !== null
-            ? checkTime(health.observedAt, now)
-            : 'Not yet observed'}
+          {transportObserved && health.observedAt !== null ? (
+            <CheckTime at={health.observedAt} now={now} />
+          ) : (
+            'Not yet observed'
+          )}
           {health.truncated ? ' · update coverage partial; polling remains enabled' : ''}
         </p>
         <p>{target?.label ?? 'No configured target label'}</p>

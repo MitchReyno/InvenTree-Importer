@@ -14,13 +14,12 @@ import {
   type ProgressStep,
   StatusTimeline,
   type TimelineEntry,
-  NeedsYou,
   HelpButton,
 } from '#/components/ui'
 import { PauseButton } from '#/components/agents/PauseButton'
-import { NeedsYouList } from '#/components/batches/NeedsYouList'
-import { Card, CardTitle, Muted, STEP_LABEL, SessionRows, plural } from './ProcessingParts'
+import { Card, CardTitle, Muted, SessionRows, plural } from './ProcessingParts'
 import { LotTable } from './LotTable'
+import { NeedsYouCard } from './NeedsYouCard'
 
 type Props = {
   batchId: string
@@ -201,73 +200,6 @@ export function ProcessingOverview({
     </Columns>
   )
 }
-
-/**
- * Everything the batch header counts, from the same attention read and list. Without that read,
- * only the agent questions this read holds show, and nothing claims the list is empty; a failed
- * read says the list is partial.
- */
-function NeedsYouCard({
-  batchId,
-  attention,
-  unavailable,
-  source,
-}: {
-  batchId: string
-  attention?: BatchAttentionDto
-  unavailable: boolean
-  source: ProcessingSource
-}) {
-  if (attention) {
-    return (
-      <Inset>
-        <NeedsYouList attention={attention} />
-      </Inset>
-    )
-  }
-  const partial = unavailable && (
-    <Muted role="status">
-      Needs you is unavailable, so Review and Changes items are not listed.
-      {source.questions.length > 0 && ' Agent questions are shown.'}
-    </Muted>
-  )
-  if (source.questions.length === 0) {
-    return partial || <Muted>Updating…</Muted>
-  }
-
-  return (
-    <>
-      {partial}
-      <AgentQuestions batchId={batchId} source={source} />
-    </>
-  )
-}
-
-/** The Processing read's own agent questions, oldest first. */
-function AgentQuestions({ batchId, source }: { batchId: string; source: ProcessingSource }) {
-  return (
-    <NeedsYou
-      items={source.questions.map((question) => ({
-        id: question.id,
-        step: STEP_LABEL[question.step],
-        title: question.title,
-        kind: question.kind,
-        assumption: [question.subject, question.assumption].filter(Boolean).join(' · '),
-        href: batchHref(batchId, {
-          tab: 'processing',
-          step: question.step,
-          questionId: question.id,
-        }),
-      }))}
-    />
-  )
-}
-
-/** The shared list's sections carry the popover's inset; in a card they sit on its padding. */
-const Inset = styled.div`
-  display: grid;
-  margin: 0 calc(-1 * ${space[6]});
-`
 
 // The canvas's flex bases, as on Capture: the main column takes the room until both no longer fit.
 const Columns = styled.div`

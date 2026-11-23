@@ -58,8 +58,7 @@ export function ActivityIndicator({
   const cached = useCachedBatchReads(batchId)
   const fresh = !unavailable && !!data && observationFresh(data.observed_at, now)
   const summary = workSummary({ data, batchId, batchTitle: cached.title, unavailable, fresh })
-  // Outside a batch the segments and name show the batch the headline is about.
-  const preferred = preferredWork(data, batchId ?? summary.batchId)
+  const preferred = shownWork(data, batchId, summary)
   const ownBatch = !!batchId && preferred?.batch_id === batchId
   // Outside its batch the pill names the batch it shows, from that batch's cached read.
   const shown = useCachedBatchReads(ownBatch ? undefined : preferred?.batch_id)
@@ -175,6 +174,26 @@ export function ActivityIndicator({
       />
     </HeaderDisclosure>
   )
+}
+
+/**
+ * The work the pill's segments show. Outside a batch it is only the headline's batch's work, so a
+ * name, spinner and segments never come from another batch; a batch with only sessions shows none.
+ */
+function shownWork(
+  data: HeaderWorkDto | undefined,
+  batchId: string | undefined,
+  summary: WorkSummary,
+) {
+  if (batchId || !data) {
+    return preferredWork(data, batchId)
+  }
+  if (!summary.batchId) {
+    return undefined
+  }
+  const own = data.work.filter((item) => item.batch_id === summary.batchId)
+
+  return own.length ? preferredWork({ ...data, work: own }, summary.batchId) : undefined
 }
 
 /**

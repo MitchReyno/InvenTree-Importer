@@ -837,6 +837,7 @@ export function ProcessingWorkspace({
                   view,
                   lotRows,
                   snapshot.jobs.filter((job) => onStep(job.stage, 'examine')),
+                  { paused: snapshot.paused === true },
                 )}
                 focus={
                   focusRow && focusStep

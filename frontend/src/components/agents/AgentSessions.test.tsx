@@ -191,7 +191,7 @@ test('filters show running, waiting, queued and finished-today sessions', async 
   fireEvent.click(screen.getByRole('button', { name: /^Queued/ }))
   expect(sessionRows()).toHaveLength(1)
 
-  fireEvent.click(screen.getByRole('button', { name: /^Done today/ }))
+  fireEvent.click(screen.getByRole('button', { name: /^Ended today/ }))
   expect(sessionRows()).toHaveLength(1)
   expect(screen.queryByText('Old work')).not.toBeInTheDocument()
 })

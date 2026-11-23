@@ -15,7 +15,7 @@ export function LotTable({ batchId, lots }: { batchId: string; lots: LotSteps[] 
     id: lot.lotId,
     label: lot.label,
     cells: {
-      lot: { value: lot.label },
+      lot: { value: lot.label, content: <LotName>{lot.label}</LotName> },
       ...Object.fromEntries(
         LOT_STAGES.map(({ step, label }) => {
           const { state } = lot.steps[step]
@@ -40,6 +40,12 @@ export function LotTable({ batchId, lots }: { batchId: string; lots: LotSteps[] 
 
   return <DataTable caption="Lots" columns={COLUMNS} rows={rows} />
 }
+
+/** At phone width the table scrolls sideways rather than squeezing the name a letter per line. */
+const LotName = styled.span`
+  display: block;
+  min-width: 14ch;
+`
 
 const PillLink = styled.a`
   display: inline-flex;

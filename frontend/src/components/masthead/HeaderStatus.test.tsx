@@ -1049,6 +1049,38 @@ test('outside a batch the activity label names the batch it shows, from that bat
   )
 })
 
+test('outside a batch the pill shows only the work of the batch its headline names', async () => {
+  const api = client()
+  const other = 'c0000000-0000-4000-8000-00000000000c'
+  vi.mocked(api.work).mockResolvedValue({
+    ...work(),
+    // The waiting batch's own work rows are cut from the list; only its session remains.
+    work: [{ ...job('images', 'running', 9), batch_id: other } as HeaderWorkDto['work'][number]],
+    active_sessions: [
+      {
+        attempt_id: id,
+        batch_id: batchId,
+        job_id: id,
+        stage: 'research',
+        state: 'waiting_for_user',
+        selection: null,
+        actual_model: null,
+        progress: 'settled',
+        occupies_lane: false,
+        session_state: 'waiting_input',
+        latest_status: null,
+      },
+    ],
+    work_truncated: true,
+    lane_occupied: true,
+  })
+  render(<HeaderStatus client={api} />)
+  const trigger = await screen.findByRole('button', { name: 'Workflow activity' })
+
+  await screen.findByText('Research waiting for you')
+  expect(within(trigger).queryAllByRole('listitem', { hidden: true })).toHaveLength(0)
+})
+
 describe('at phone width', () => {
   let restore = () => undefined as void
 

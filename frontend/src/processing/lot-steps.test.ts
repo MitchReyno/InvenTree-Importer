@@ -124,6 +124,16 @@ describe('stepSummary', () => {
     })
   })
 
+  it('gives Examine its lead’s state, paused with the batch, over older Reading jobs', () => {
+    const lead = { ...job(1, null, 'examine', 'queued'), session_state: 'queued' } as Job
+    const reading = job(2, resistors, 'reading', 'failed')
+
+    expect(stepSummary('examine', lotSteps([], lots), [lead, reading], { paused: true })).toEqual({
+      text: '2 lots formed',
+      state: 'paused',
+    })
+  })
+
   it('says when a step has no work yet', () => {
     expect(stepSummary('inventory', lotSteps([], lots), [])).toEqual({
       text: 'No work yet',
