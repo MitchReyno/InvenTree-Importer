@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey } from '#/queries/scope'
 import { useCachedData } from '#/queries/useCachedData'
 import { freshReads } from '#/queries/fresh-reads'
+import { useFreshRead } from '#/queries/useFreshRead'
 import { useRestoredSnapshot, useSnapshotWriter } from '#/queries/useSnapshot'
 import { approvedLotIds, predecessorLotIds, retiredLotIds } from '#/operator/review-model'
 import { unusedEvidenceCount } from '#/operator/review-map'
@@ -427,7 +428,7 @@ export function Batch({
   // only keeps their snapshot while other tabs show, with the same fetch function so their refreshes
   // still work; the counts come from `useCachedData`, which drops it once invalidated and unrefreshed.
   const mediaKey = serverQueryKey(scope, 'media', id)
-  useQuery({ queryKey: mediaKey, queryFn: () => media!.snapshot(id), enabled: false })
+  useFreshRead({ queryKey: mediaKey, queryFn: () => media!.snapshot(id), enabled: false })
   const mediaCurrent = useCachedData<MediaSnapshotDto>(mediaKey)
   const lineageReview = currentOperatorReview ?? acceptedOperatorReview
   const predecessors = useMemo(() => predecessorLotIds(lineageReview), [lineageReview])

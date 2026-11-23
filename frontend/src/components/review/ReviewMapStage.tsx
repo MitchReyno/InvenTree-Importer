@@ -1,14 +1,15 @@
 import { useState } from 'react'
 import { Banner, Button } from '#/components/ui'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { serverQueryKey } from '#/queries/scope'
+import { useFreshRead } from '#/queries/useFreshRead'
 import { RestructureDialog } from '#/components/operator/RestructureDialog'
 
 import { ReviewMap } from './ReviewMap'
 import { TellExamine } from './TellExamine'
 import { useDirtySources } from '#/operator/useDirtySources'
-import { useApiClients, useServerScope, useBatchCommands } from '#/context'
+import { useApiClients, useServerScope, useBatchCommands, useReportRefreshing } from '#/context'
 
 type Props = {
   batch: CaptureSnapshotDto
@@ -42,11 +43,14 @@ export function ReviewMapStage({
   const scope = useServerScope()
   const queryClient = useQueryClient()
   const key = serverQueryKey(scope, 'media', batch.id)
-  const query = useQuery({
+  // The Map's edits need a read of its own: cached data, and the receipt an edit writes, never do.
+  const fresh = useFreshRead({
     queryKey: key,
     queryFn: () => media!.snapshot(batch.id),
     enabled: Boolean(media),
   })
+  const query = fresh.query
+  useReportRefreshing(fresh.phase === 'refreshing')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [unfinished, setUnfinished] = useState<Unfinished | null>(null)
@@ -58,7 +62,7 @@ export function ReviewMapStage({
   async function link(evidenceId: string, lotId: string, linked: boolean) {
     // Read at send time: a handler may run after its closure's media read was replaced.
     const snapshot = queryClient.getQueryData<MediaSnapshotDto>(key) ?? query.data
-    if (!media || !snapshot) {
+    if (!media || !snapshot || !fresh.commandsReadyNow()) {
       return false
     }
     setBusy(true)
@@ -73,6 +77,8 @@ export function ReviewMapStage({
         crypto.randomUUID(),
       )
       queryClient.setQueryData(key, next)
+      // The receipt is shown at once; reading it again verifies the Map's next edit.
+      void queryClient.invalidateQueries({ queryKey: key })
       return true
     } catch {
       setError('The link could not be saved. Refresh and try again.')
@@ -178,7 +184,7 @@ export function ReviewMapStage({
     }
   }
 
-  const disabled = busy || batch.archived || !media || !query.data
+  const disabled = busy || batch.archived || !media || !query.data || !fresh.commandsReady
 
   const tellExamine = !batch.archived && (
     <TellExamine batchId={batch.id} onDirtyChange={drafts.forSource('tell-examine')} />

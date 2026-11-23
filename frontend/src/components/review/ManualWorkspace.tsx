@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Banner, Paragraph, Heading, VisuallyHidden, Button, ReadState } from '#/components/ui'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey } from '#/queries/scope'
 import { useFreshRead } from '#/queries/useFreshRead'
 import { useRestoredSnapshot, useSnapshotWriter } from '#/queries/useSnapshot'
@@ -87,12 +87,12 @@ export function ManualWorkspace({
   const pollInterval = useRetainedPollInterval()
   const scope = useServerScope()
   const queryClient = useQueryClient()
-  const mediaQuery = useQuery({
+  const mediaQuery = useFreshRead({
     queryKey: serverQueryKey(scope, 'media', batch.id),
     queryFn: () => media!.snapshot(batch.id),
     enabled: stage === 'review' && media !== undefined,
     refetchInterval: pollInterval,
-  })
+  }).query
   const restoredProcessing = useRestoredSnapshot('processing', batch.id)
   // Cached data is history: acceptance needs this mount's own read, settled at this revision.
   const processingFresh = useFreshRead({

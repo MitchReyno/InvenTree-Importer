@@ -1,12 +1,15 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { describe, expect, it, vi } from 'vitest'
-import { render } from '#/test/render'
+import { fixtureScope, render } from '#/test/render'
+import { deferred } from '#/test/deferred'
+import { createServerQueryClient } from '#/queries/client'
+import { serverQueryKey } from '#/queries/scope'
 import type { MediaClient } from '#/media/types'
 import type { ProcessingClient } from '#/processing/types'
 import { ReviewMapStage } from './ReviewMapStage'
-import { ApiClientsProvider, BatchCommandsProvider } from '#/context'
+import { ApiClientsProvider, BatchCommandsProvider, RetainedPollIntervalContext } from '#/context'
 import { batchCommands } from '#/test/batch-commands'
 
 const lot = (id: string, label: string) => ({ id, label, part_subject_id: null })
@@ -616,5 +619,78 @@ describe('ReviewMapStage', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(client.edit).not.toHaveBeenCalled()
+  })
+
+  it('makes two edits in a row with live hints on and polling off, the second once the first is read again', async () => {
+    const client = media()
+    const linked = {
+      ...snapshot,
+      revision: '10',
+      evidence: [snapshot.evidence[0], { ...snapshot.evidence[1], linked_subject_ids: ['a'] }],
+    } as MediaSnapshotDto
+    const reread = deferred<MediaSnapshotDto>()
+    vi.mocked(client.edit).mockResolvedValueOnce(linked)
+    render(
+      <RetainedPollIntervalContext.Provider value={false}>
+        <ReviewMapStage batch={batch} retiredLotIds={new Set()} onDirtyChange={vi.fn()} />
+      </RetainedPollIntervalContext.Provider>,
+      {
+        clients: { media: client },
+        commands: { edit: vi.fn(async () => true), reload: vi.fn(async () => undefined) },
+      },
+    )
+    const stray = await screen.findByRole('listitem', { name: /Stray photo/ })
+    fireEvent.change(within(stray).getByLabelText('Link Stray photo to a lot'), {
+      target: { value: 'a' },
+    })
+    vi.mocked(client.snapshot).mockReturnValueOnce(reread.promise)
+    fireEvent.click(within(stray).getByRole('button', { name: 'Link' }))
+    await waitFor(() => expect(client.edit).toHaveBeenCalledTimes(1))
+
+    // The receipt is shown, but only a read of the map's own verifies the next edit.
+    const unlink = await screen.findByRole('button', { name: 'Unlink Packet A from Stray photo' })
+    expect(unlink).toBeDisabled()
+    expect(client.snapshot).toHaveBeenCalledTimes(2)
+
+    await act(async () => {
+      reread.resolve(linked)
+      await reread.promise
+    })
+    await waitFor(() => expect(unlink).toBeEnabled())
+    fireEvent.click(unlink)
+    await waitFor(() =>
+      expect(client.edit).toHaveBeenLastCalledWith(
+        batch.id,
+        {
+          expected_revision: '10',
+          change: { kind: 'link', evidence_id: 'f2', subject_id: 'a', linked: false },
+        },
+        expect.any(String),
+      ),
+    )
+  })
+
+  it('a return visit shows the cached map at once, with its edits waiting for the read', async () => {
+    const client = media()
+    const read = deferred<MediaSnapshotDto>()
+    vi.mocked(client.snapshot).mockReturnValueOnce(read.promise)
+    const cache = createServerQueryClient()
+    cache.setQueryData(serverQueryKey(fixtureScope, 'media', batch.id), snapshot)
+    render(<ReviewMapStage batch={batch} retiredLotIds={new Set()} onDirtyChange={vi.fn()} />, {
+      cache,
+      clients: { media: client },
+      commands: { edit: vi.fn(async () => true), reload: vi.fn(async () => undefined) },
+    })
+
+    const stray = screen.getByRole('listitem', { name: /Stray photo/ })
+    fireEvent.change(within(stray).getByLabelText('Link Stray photo to a lot'), {
+      target: { value: 'a' },
+    })
+    expect(within(stray).getByRole('button', { name: 'Link' })).toBeDisabled()
+    await act(async () => {
+      read.resolve(snapshot)
+      await read.promise
+    })
+    await waitFor(() => expect(within(stray).getByRole('button', { name: 'Link' })).toBeEnabled())
   })
 })

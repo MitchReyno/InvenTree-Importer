@@ -15,6 +15,7 @@ import { useEvidenceWorkspace } from '#/media/useEvidenceWorkspace'
 import { uploadProgress, useUploadQueue, type UploadItem } from '#/media/useUploadQueue'
 import { uploadRefusal } from '#/media/upload-gate'
 import { usePastedFiles } from '#/browser/usePastedFiles'
+import { useMountedRef } from '#/lifecycle/useMountedRef'
 import { RefusedFilesNotice } from './RefusedFilesNotice'
 import { MediaUpload, type EvidenceUploadHandle } from './MediaUpload'
 import { MediaCropDialog } from './MediaCropDialog'
@@ -125,6 +126,7 @@ export function MediaWorkspace({
 }: Props) {
   const state = useEvidenceWorkspace(batch.id, client, disabled, onDirtyChange)
   const { snapshot, drafts, command, edit } = state
+  const mounted = useMountedRef()
   const upload = useRef<EvidenceUploadHandle>(null)
   const uploads = useUploadQueue({
     currentRevision: async () => (await state.refresh()).revision,
@@ -341,6 +343,10 @@ export function MediaWorkspace({
   }
 
   function focusAfterRemoval(pending: PendingRemoval) {
+    // A dialog that closes because the workspace left moves no focus into the next page.
+    if (!mounted.current) {
+      return null
+    }
     const opener = removalOpener.current
     if (!removalConfirmed.current && opener?.isConnected) {
       return opener

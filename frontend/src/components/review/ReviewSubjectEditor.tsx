@@ -13,6 +13,8 @@ import {
   HeadingRow,
   HelpButton,
   Panel,
+  ReadState,
+  Skeleton,
   Small,
   Button,
 } from '#/components/ui'
@@ -178,7 +180,11 @@ function ReviewAttachment({
     })
 
   if (!state.snapshot) {
-    return <Small role="status">Reading retained attachments…</Small>
+    return (
+      <ReadState phase="empty" skeleton={<Skeleton width="100%" height={space[12]} />}>
+        {null}
+      </ReadState>
+    )
   }
   return (
     <>
