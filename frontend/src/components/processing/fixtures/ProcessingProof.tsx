@@ -14,6 +14,7 @@ import { Main, PageContent } from '#/components/AppLayout'
 import { useInstructionDelivery } from '#/processing/instruction-delivery'
 import { useHashRoute } from '#/navigation/useHashRoute'
 import { ApiClientsProvider } from '#/context'
+import { RefreshSignal } from '#/components/operations/RefreshSignal'
 
 /** Owned browser fixture: synthetic clients only, no API, provider or InvenTree traffic. */
 const scope = {
@@ -23,6 +24,8 @@ const scope = {
   targetContextId: '40000000-0000-4000-8000-000000000004',
 }
 const batchId = '10000000-0000-4000-8000-000000000001'
+/** `?read-delay-ms=5000` holds each Processing read, to show a slow refresh. */
+const READ_DELAY_MS = Number(new URLSearchParams(location.search).get('read-delay-ms') ?? '0')
 
 const lot = (n: number) => `50000000-0000-4000-8000-00000000000${n}`
 
@@ -358,10 +361,13 @@ export function ProcessingProof() {
   const page = view.replace('-fixture', '')
   const delivery = useInstructionDelivery(batch.id, async () => ({ sessions: 2, woken: 1 }))
   const client = {
-    read: async () => ({
-      ...snapshot(sessions),
-      ...(paused.has(batch.id) ? { paused: true } : {}),
-    }),
+    read: async () => {
+      await new Promise((settle) => setTimeout(settle, READ_DELAY_MS))
+      return {
+        ...snapshot(sessions),
+        ...(paused.has(batch.id) ? { paused: true } : {}),
+      }
+    },
     failure: async () => failure,
     start: async () => {
       throw new Error('fixture commands are disabled')
@@ -398,51 +404,53 @@ export function ProcessingProof() {
     <ServerStateProvider scope={scope}>
       <GlobalStyle />
       <Masthead breadcrumb={[{ label: 'Batches', href: '#' }]} />
-      <PageContent $width="content">
-        <Main>
-          {page.startsWith('agents') ? (
-            <AgentSessions
-              key={view}
-              client={{
-                sessions: async () => sessionList(sessions),
-                failure: async () => failure,
-                settings: async () => savedSettings,
-                ...pauseClient,
-              }}
-              batches={async () => ({
-                title: batch.title,
-                subjects: new Map(batch.lots.map((item) => [item.id, item.label])),
-              })}
-            />
-          ) : (
-            <ApiClientsProvider
-              value={{
-                agents: {
-                  sessions: async () => sessionList(sessions),
-                  settings: async () => savedSettings,
-                  pause: pauseClient.pause,
-                },
-              }}
-            >
-              <ProcessingWorkspace
+      <RefreshSignal>
+        <PageContent $width="content">
+          <Main>
+            {page.startsWith('agents') ? (
+              <AgentSessions
                 key={view}
-                batch={batch}
-                client={client as never}
-                view={page as never}
-                navigate={() => {}}
-                onDirtyChange={() => {}}
-                onSaved={async () => {}}
-                instructions={{
-                  text: 'Keep the two resistor packets apart.',
-                  instruct: async () => void delivery.deliver?.(),
-                  delivery: delivery.delivery,
-                  deliver: delivery.deliver,
+                client={{
+                  sessions: async () => sessionList(sessions),
+                  failure: async () => failure,
+                  settings: async () => savedSettings,
+                  ...pauseClient,
                 }}
+                batches={async () => ({
+                  title: batch.title,
+                  subjects: new Map(batch.lots.map((item) => [item.id, item.label])),
+                })}
               />
-            </ApiClientsProvider>
-          )}
-        </Main>
-      </PageContent>
+            ) : (
+              <ApiClientsProvider
+                value={{
+                  agents: {
+                    sessions: async () => sessionList(sessions),
+                    settings: async () => savedSettings,
+                    pause: pauseClient.pause,
+                  },
+                }}
+              >
+                <ProcessingWorkspace
+                  key={view}
+                  batch={batch}
+                  client={client as never}
+                  view={page as never}
+                  navigate={() => {}}
+                  onDirtyChange={() => {}}
+                  onSaved={async () => {}}
+                  instructions={{
+                    text: 'Keep the two resistor packets apart.',
+                    instruct: async () => void delivery.deliver?.(),
+                    delivery: delivery.delivery,
+                    deliver: delivery.deliver,
+                  }}
+                />
+              </ApiClientsProvider>
+            )}
+          </Main>
+        </PageContent>
+      </RefreshSignal>
     </ServerStateProvider>
   )
 }

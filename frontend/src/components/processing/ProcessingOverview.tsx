@@ -42,7 +42,12 @@ type Props = {
   /** How many sessions may run at once, from the agent settings. */
   sessionLimit?: number
   /** Whether the batch's sessions are paused, and how to pause or resume them. */
-  pause?: { paused: boolean; change: (paused: boolean) => Promise<unknown> }
+  pause?: {
+    paused: boolean
+    /** Why Pause or Resume waits, such as a read still landing; absent when it is available. */
+    unavailableReason?: string
+    change: (paused: boolean) => Promise<unknown>
+  }
   onOpenSession: (jobId: string) => void
 }
 
@@ -180,7 +185,13 @@ export function ProcessingOverview({
                 {runningSessions} running
                 {sessionLimit !== undefined && ` · limit ${sessionLimit}`}
               </Muted>
-              {pause && <PauseButton paused={pause.paused} change={pause.change} />}
+              {pause && (
+                <PauseButton
+                  paused={pause.paused}
+                  change={pause.change}
+                  unavailableReason={pause.unavailableReason}
+                />
+              )}
             </TitleRow>
             {pause?.paused && <Muted>Paused: no session starts new work until you resume.</Muted>}
             <SessionRows sessions={source.sessions} onOpen={onOpenSession} />

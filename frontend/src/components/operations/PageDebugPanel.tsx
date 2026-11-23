@@ -4,6 +4,7 @@ import { useDebugReads, type DebugRead } from '#/debug/useDebugReads'
 import { useCachedBatchReads } from '#/header/useCachedBatchReads'
 import { serverQueryKey } from '#/queries/scope'
 import { useCachedData } from '#/queries/useCachedData'
+import { snapshots } from '#/queries/snapshots'
 
 type PageDebugPanelProps = {
   /** The hash route without `#`; empty for Batches. */
@@ -67,6 +68,7 @@ export function PageDebugPanel({ route, batchId }: PageDebugPanelProps) {
     batchId ? serverQueryKey(scope, 'processing', batchId) : undefined,
   )
   const now = Date.now()
+  const snapshotFailure = snapshots.lastFailure()
   const rows: DebugRow[] = [
     { label: 'Route', value: `#${route}` },
     ...(batchId ? [{ label: 'Batch', value: batchId }] : []),
@@ -74,6 +76,7 @@ export function PageDebugPanel({ route, batchId }: PageDebugPanelProps) {
     ...(agentSettings ? [{ label: 'Agent settings revision', value: agentSettings.revision }] : []),
     ...(processing ? [{ label: 'Processing profile', value: processing.runner_status }] : []),
     { label: 'Live updates', value: liveUpdates(health, now) },
+    ...(snapshotFailure ? [{ label: 'Session snapshots', value: snapshotFailure }] : []),
     ...reads.map((read) => ({ label: read.name, value: readState(read, now) })),
   ]
 

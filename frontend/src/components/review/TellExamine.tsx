@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import styled from 'styled-components'
 import { examineLead } from '#/processing/source'
 import { confirmPending, editPending, pendingMessage, sendKey } from '#/processing/pending-messages'
 import { serverQueryKey } from '#/queries/scope'
+import { useFreshRead } from '#/queries/useFreshRead'
 import { color, radius, space } from '#/theme/generated/tokens'
 import { chatConfirmation } from '#/components/processing/SessionChatPanel'
 import { AiMark, Button, Small } from '#/components/ui'
@@ -35,12 +35,15 @@ export function TellExamine({
   const [text, setText] = useState(() => pendingMessage(storeKey).text)
   const [outcome, setOutcome] = useState<string | null>(null)
   const { busy, error, run, clearError } = useAsyncAction()
-  const snapshot = useQuery({
+  // Shares Processing's read. The send names the lead session from it and carries no revision, so
+  // it waits for a read started after the last live hint.
+  const snapshot = useFreshRead({
     queryKey: serverQueryKey(scope, 'processing', batchId),
     queryFn: () => processing!.read(batchId),
     enabled: Boolean(processing?.chat),
     refetchInterval: pollInterval,
   })
+  const sendReason = snapshot.settledAfterHint ? undefined : (snapshot.reason ?? 'Updating…')
   const lead = snapshot.data ? examineLead(snapshot.data) : null
   const chat = processing?.chat
   const visible = Boolean(chat && lead?.session_state && lead.session_state !== 'cancelled')
@@ -57,6 +60,9 @@ export function TellExamine({
   const state = lead.session_state
 
   async function send(key: string) {
+    if (!snapshot.settledAfterHintNow()) {
+      throw new Error('processing_fresh_read_required')
+    }
     setOutcome(null)
     await chat!.call(
       processing,
@@ -75,6 +81,9 @@ export function TellExamine({
     <Form
       onSubmit={(event) => {
         event.preventDefault()
+        if (sendReason) {
+          return
+        }
         // Made before the run, so a failure to make a key is not reported as a possibly queued send.
         const key = sendKey(storeKey, text)
         void run(() => send(key), NOT_CONFIRMED)
@@ -98,7 +107,13 @@ export function TellExamine({
         />
       </Label>
       <Row>
-        <Button type="submit" size="sm" disabled={busy || !text.trim()}>
+        <Button
+          type="submit"
+          size="sm"
+          disabled={busy || !text.trim()}
+          reasonDisplay="quiet"
+          disabledReason={sendReason}
+        >
           Tell Examine
         </Button>
         {outcome && <Small role="status">{outcome}</Small>}

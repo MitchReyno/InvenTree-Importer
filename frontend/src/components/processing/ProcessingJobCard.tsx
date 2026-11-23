@@ -47,6 +47,7 @@ export function ProcessingJobCard({
   job,
   batch,
   disabled,
+  waitReason,
   cancel,
   chooseQuestion,
   session,
@@ -54,6 +55,8 @@ export function ProcessingJobCard({
   job: Job
   batch: CaptureSnapshotDto
   disabled: boolean
+  /** Why commands wait for a read still landing, given quietly instead of disabling. */
+  waitReason?: string
   cancel: () => void
   chooseQuestion: (questionId: string) => void
   /** The session's steps and chat, for session profiles. */
@@ -129,7 +132,12 @@ export function ProcessingJobCard({
       {session}
       <Actions>
         {cancellable && (
-          <Button disabled={disabled} onClick={cancel}>
+          <Button
+            disabled={disabled && !waitReason}
+            reasonDisplay="quiet"
+            disabledReason={waitReason}
+            onClick={cancel}
+          >
             Cancel this attempt
           </Button>
         )}

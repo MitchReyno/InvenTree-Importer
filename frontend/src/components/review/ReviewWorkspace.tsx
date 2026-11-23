@@ -59,6 +59,12 @@ interface Props {
   processing?: ProcessingSnapshotDto
   /** True only after a successful mounted Processing read at the displayed capture revision. */
   processingCurrent?: boolean
+  /** `processingCurrent` checked again on the cache when a candidate is accepted. */
+  processingCurrentNow?: () => boolean
+  /** Drawn from restored snapshots before Capture's read lands; commands are already disabled. */
+  displayOnly?: boolean
+  /** Why commands wait for a read still landing; they then stay focusable and say so quietly. */
+  waitReason?: string
   selected: string[]
   maxSelected: number
   busy: boolean
@@ -68,6 +74,8 @@ interface Props {
   reviewLots: (ids: string[]) => void
   /** Answers a lot's open question in place; absent without a Processing client. */
   answerQuestion?: (questionId: string, input: ProcessingAnswerDto, key: string) => Promise<void>
+  /** Why answering a Processing question waits for this visit's own Processing read. */
+  answerWaitReason?: string
   /** Replaces the shared selection; the Table may select more than the Workspace cap. */
   setSelection: (ids: string[]) => void
   prepare: () => void
@@ -174,6 +182,9 @@ export function ReviewWorkspace({
   mediaLoading,
   processing,
   processingCurrent = false,
+  processingCurrentNow,
+  displayOnly = false,
+  waitReason,
   selected,
   maxSelected,
   busy,
@@ -182,6 +193,7 @@ export function ReviewWorkspace({
   review,
   reviewLots,
   answerQuestion,
+  answerWaitReason,
   setSelection,
   prepare,
   onDirtyChange,
@@ -191,7 +203,9 @@ export function ReviewWorkspace({
   const currentOperatorReview =
     observedOperatorReview?.revision === batch.revision ? observedOperatorReview : undefined
   const operatorReview = useAcceptedOperatorReview(currentOperatorReview)
-  const reviewUnavailable = operator !== undefined && currentOperatorReview === undefined
+  // Restored data has no operator review read yet; that is a wait, not an unavailable review.
+  const reviewUnavailable =
+    !displayOnly && operator !== undefined && currentOperatorReview === undefined
   const drafts = useDirtySources(onDirtyChange)
   const [navigationBlocked, setNavigationBlocked] = useState(false)
   const [route, setRoute] = useState(() => initialLocation(batch))
@@ -212,7 +226,9 @@ export function ReviewWorkspace({
   const autoShown = useRef(false)
   const skipEvidenceFocus = useRef(false)
   useEffect(() => {
+    // Restored data shown before Capture lands never changes the URL; the live workspace does.
     if (
+      displayOnly ||
       autoShown.current ||
       listChosen() ||
       route.view !== 'evidence' ||
@@ -315,7 +331,7 @@ export function ReviewWorkspace({
       },
       viewEvidence: () => evidenceRef.current?.focus(),
     },
-    route.view === 'evidence',
+    route.view === 'evidence' && !displayOnly,
   )
 
   const lot = batch.lots.find((value) => value.id === focused)
@@ -349,13 +365,16 @@ export function ReviewWorkspace({
         <Button
           size="sm"
           disabled={
-            drafts.dirty ||
-            reviewUnavailable ||
-            busy ||
-            stale ||
-            Boolean(problem) ||
-            !selected.length
+            !waitReason &&
+            (drafts.dirty ||
+              reviewUnavailable ||
+              busy ||
+              stale ||
+              Boolean(problem) ||
+              !selected.length)
           }
+          reasonDisplay="quiet"
+          disabledReason={waitReason}
           onClick={review}
         >
           Mark selected reviewed
@@ -363,8 +382,11 @@ export function ReviewWorkspace({
         <Button
           size="sm"
           disabled={
-            drafts.dirty || reviewUnavailable || busy || stale || Boolean(problem) || !reviewed
+            !waitReason &&
+            (drafts.dirty || reviewUnavailable || busy || stale || Boolean(problem) || !reviewed)
           }
+          reasonDisplay="quiet"
+          disabledReason={waitReason}
           onClick={prepare}
         >
           Prepare exact selected effects
@@ -518,6 +540,7 @@ export function ReviewWorkspace({
                 mediaLoading={mediaLoading}
                 processing={processing}
                 processingCurrent={processingCurrent}
+                processingCurrentNow={processingCurrentNow}
                 // Accepting remounts Review at the new revision, so any open draft fences it.
                 editDisabled={busy || stale || batch.archived || drafts.dirty}
               />
@@ -553,6 +576,7 @@ export function ReviewWorkspace({
                 markReviewed={() => reviewLots([lot.id])}
                 openQuestion={openQuestions.get(lot.id) ?? null}
                 answerQuestion={answerQuestion}
+                answerWaitReason={answerWaitReason}
                 agent={agentLines.get(lot.id) ?? null}
                 editPart={openEditor}
                 subjectsDisabled={busy || batch.archived || drafts.dirty}

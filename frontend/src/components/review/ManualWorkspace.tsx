@@ -1,7 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Banner, Paragraph, Heading, VisuallyHidden, Button } from '#/components/ui'
+import { Banner, Paragraph, Heading, VisuallyHidden, Button, ReadState } from '#/components/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey } from '#/queries/scope'
+import { useFreshRead } from '#/queries/useFreshRead'
+import { useRestoredSnapshot, useSnapshotWriter } from '#/queries/useSnapshot'
 import type {
   CaptureSnapshotDto,
   ManualPreviewDto,
@@ -18,12 +20,14 @@ import {
 } from '#/manual/types'
 import { useDirtySources } from '#/operator/useDirtySources'
 import { ReviewWorkspace } from './ReviewWorkspace'
+import { ReviewSkeleton } from './ReviewSkeleton'
 import { ReadyToAdd } from '#/components/changes/ReadyToAdd'
 import { Added } from '#/components/changes/Added'
 import { useTargetNavigation } from '#/header/useTargetNavigation'
 import {
   useApiClients,
   useConfirmation,
+  useReportRefreshing,
   useServerScope,
   useRetainedPollInterval,
   useBatchCommands,
@@ -41,6 +45,8 @@ interface Props {
   /** Present only when its revision matches `batch`; stale projections are not shown. */
   operatorReview?: OperatorReviewDto
   onDirtyChange?: (dirty: boolean) => void
+  /** Drawn from restored snapshots before Capture's read lands; nothing can be changed. */
+  displayOnly?: boolean
 }
 
 function commandMessage(error: unknown) {
@@ -74,6 +80,7 @@ export function ManualWorkspace({
   navigate,
   operatorReview,
   onDirtyChange,
+  displayOnly = false,
 }: Props) {
   const { reload } = useBatchCommands()
   const { media, processing } = useApiClients()
@@ -86,20 +93,37 @@ export function ManualWorkspace({
     enabled: stage === 'review' && media !== undefined,
     refetchInterval: pollInterval,
   })
-  const processingQuery = useQuery({
+  const restoredProcessing = useRestoredSnapshot('processing', batch.id)
+  // Cached data is history: acceptance needs this mount's own read, settled at this revision.
+  const processingFresh = useFreshRead({
     queryKey: serverQueryKey(scope, 'processing', batch.id),
     queryFn: () => processing!.read(batch.id),
     enabled: stage === 'review' && processing !== undefined,
     refetchInterval: pollInterval,
+    restored: restoredProcessing,
+    current: (read) => read.capture_revision === batch.revision,
   })
-  const workspaceQuery = useQuery({
+  const restoredWorkspace = useRestoredSnapshot('review-workspace', batch.id)
+  const workspaceFresh = useFreshRead({
     queryKey: serverQueryKey(scope, 'manual', batch.id),
     queryFn: () => client.workspace(batch.id),
     refetchInterval: pollInterval,
+    // The stored projection keeps Review's lots only; Changes waits for its own read.
+    restored: stage === 'review' ? restoredWorkspace : undefined,
   })
-  const workspace = workspaceQuery.data
-  const connectionLost = workspaceQuery.isError || workspaceQuery.fetchStatus === 'paused'
-  const waitingForFirstRead = !workspaceQuery.isFetchedAfterMount
+  // Acceptance waits on Processing's read too, so its refresh shows progress like the page's own.
+  useReportRefreshing(processingFresh.phase === 'refreshing')
+  const workspaceQuery = workspaceFresh.query
+  useSnapshotWriter(
+    'review-workspace',
+    batch.id,
+    workspaceFresh.verified ? workspaceQuery.data : undefined,
+    workspaceFresh.verifiedRead,
+  )
+  const workspace = workspaceFresh.data
+  const connectionLost = workspaceFresh.phase === 'failed'
+  // Only a read this mount saw start can enable commands; cached and restored data never do.
+  const waitingForFirstRead = displayOnly || !workspaceFresh.verified
   const drafts = useDirtySources(onDirtyChange)
   const targetUrl = useTargetNavigation()
   const [selected, setSelected] = useState<string[]>([])
@@ -210,7 +234,15 @@ export function ManualWorkspace({
     })
   }
 
+  /** The gate checked again when a command is sent, so a render made before a newer read can't send. */
+  function commandsReadyNow() {
+    return !displayOnly && workspaceFresh.commandsReadyNow()
+  }
+
   function reviewLots(ids: string[]) {
+    if (!commandsReadyNow()) {
+      return
+    }
     void perform('Retaining exact review…', async () => {
       await client.review(
         batch.id,
@@ -224,6 +256,10 @@ export function ManualWorkspace({
 
   /** Answers a lot's open question; Processing and the review are read again once accepted. */
   async function answerQuestion(questionId: string, input: ProcessingAnswerDto, key: string) {
+    // The question may come from a cached or restored read; answering needs this visit's own.
+    if (!processingFresh.commandsReadyNow()) {
+      throw new Error('processing_fresh_read_required')
+    }
     await processing!.answer(batch.id, questionId, input, key)
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: serverQueryKey(scope, 'processing', batch.id) }),
@@ -244,6 +280,9 @@ export function ManualWorkspace({
   }
 
   function prepareLots(lotIds: string[]) {
+    if (!commandsReadyNow()) {
+      return
+    }
     void perform('Reading the fixed target and preparing selected effects…', async () => {
       const result = await client.prepare(
         batch.id,
@@ -260,6 +299,9 @@ export function ManualWorkspace({
   }
 
   function approve() {
+    if (!commandsReadyNow()) {
+      return
+    }
     if (!displayedPreview) {
       return
     }
@@ -285,6 +327,9 @@ export function ManualWorkspace({
     action: 'start' | 'cancel' | 'recover',
     selection?: RunRecoverySelection,
   ) {
+    if (!commandsReadyNow()) {
+      return
+    }
     void perform('Retaining original-run command…', async () => {
       const input = { expected_run_revision: run.revision }
       if (action === 'recover') {
@@ -308,11 +353,7 @@ export function ManualWorkspace({
   const disabled = Boolean(busy) || connectionLost || waitingForFirstRead
   let content: ReactNode
   if (!workspace) {
-    content = (
-      <Paragraph $onField role="status">
-        Reading retained manual workflow…
-      </Paragraph>
-    )
+    content = null
   } else if (stage === 'review') {
     content = (
       <ReviewWorkspace
@@ -322,14 +363,12 @@ export function ManualWorkspace({
         media={mediaQuery.data}
         mediaUnavailable={mediaQuery.isError || mediaQuery.fetchStatus === 'paused'}
         mediaLoading={media !== undefined && mediaQuery.isPending}
-        processing={processingQuery.data}
-        // Cached data is history: acceptance needs this mount's successful read at this revision.
-        processingCurrent={
-          processingQuery.isFetchedAfterMount &&
-          processingQuery.status === 'success' &&
-          !processingQuery.isRefetchError &&
-          !processingQuery.isFetching &&
-          processingQuery.data?.capture_revision === batch.revision
+        processing={processingFresh.data}
+        processingCurrent={processingFresh.phase === 'current'}
+        processingCurrentNow={processingFresh.currentNow}
+        displayOnly={displayOnly}
+        waitReason={
+          waitingForFirstRead && !displayOnly && !busy && !connectionLost ? 'Updating…' : undefined
         }
         selected={validSelected}
         setSelection={setSelected}
@@ -340,6 +379,9 @@ export function ManualWorkspace({
         review={review}
         reviewLots={reviewLots}
         answerQuestion={processing ? answerQuestion : undefined}
+        answerWaitReason={
+          processingFresh.commandsReady ? undefined : (processingFresh.reason ?? 'Updating…')
+        }
         prepare={prepare}
         onDirtyChange={drafts.forSource('review')}
       />
@@ -391,11 +433,6 @@ export function ManualWorkspace({
           <Banner tone="warn">{busy}</Banner>
         </div>
       )}
-      {workspace && waitingForFirstRead && !connectionLost && (
-        <div role="status">
-          <Banner tone="warn">Verifying current retained state; commands are disabled.</Banner>
-        </div>
-      )}
       {(connectionLost || error) && (
         <div role="alert">
           <Banner tone="bad">
@@ -431,7 +468,13 @@ export function ManualWorkspace({
           </Button>
         </Banner>
       )}
-      {content}
+      <ReadState
+        phase={workspaceFresh.phase}
+        hasData={workspace !== undefined}
+        skeleton={<ReviewSkeleton />}
+      >
+        {content}
+      </ReadState>
     </>
   )
 }

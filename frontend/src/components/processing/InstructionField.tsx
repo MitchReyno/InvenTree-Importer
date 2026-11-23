@@ -115,6 +115,16 @@ export function InstructionField({
         }}
       />
       {error && <Problem role="alert">{error}</Problem>}
+      {delivery.status === 'pending' && (
+        <Small role="status">
+          Delivery pending: it is sent once the current state has been read.{' '}
+          {deliver && (
+            <Button size="sm" variant="link" onClick={deliver}>
+              Retry
+            </Button>
+          )}
+        </Small>
+      )}
       {delivery.status === 'failed' && (
         <Problem role="alert">
           Saved, but the agents could not be told yet.{' '}

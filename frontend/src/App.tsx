@@ -23,6 +23,7 @@ import {
 import { ServerStateProvider } from './components/query/ServerStateProvider'
 import { LiveUpdates } from './components/operations/LiveUpdates'
 import { PageDebugPanel } from './components/operations/PageDebugPanel'
+import { RefreshSignal } from './components/operations/RefreshSignal'
 import { useDebugMode } from './debug/debug-mode'
 import { serverScopeIdentity } from './queries/scope'
 import { Batches } from './components/batches/Batches'
@@ -267,33 +268,35 @@ export default function App() {
                   }
                 >
                   <Main>
-                    {((bootstrapUnavailable && bootstrap) || navigationBlocked) && (
-                      <PageContent $width={width}>
-                        {bootstrapUnavailable && bootstrap && (
-                          <div role="alert">
-                            <Banner tone="warn">
-                              Application connection unavailable. Showing the last development
-                              context; retained views report their own freshness. Unsaved input is
-                              preserved.
-                            </Banner>
-                          </div>
-                        )}
-                        {navigationBlocked && (
-                          <div role="alert">
-                            <Banner tone="warn">
-                              Your unsaved input is preserved. Save this form or discard its unsaved
-                              input before navigating, then choose the destination again.
-                            </Banner>
-                          </div>
-                        )}
-                      </PageContent>
-                    )}
-                    {batchPage ? content : <PageContent $width={width}>{content}</PageContent>}
-                    {manual && debug && (
-                      <PageContent $width={width}>
-                        <PageDebugPanel route={route ?? ''} batchId={currentBatch} />
-                      </PageContent>
-                    )}
+                    <RefreshSignal>
+                      {((bootstrapUnavailable && bootstrap) || navigationBlocked) && (
+                        <PageContent $width={width}>
+                          {bootstrapUnavailable && bootstrap && (
+                            <div role="alert">
+                              <Banner tone="warn">
+                                Application connection unavailable. Showing the last development
+                                context; retained views report their own freshness. Unsaved input is
+                                preserved.
+                              </Banner>
+                            </div>
+                          )}
+                          {navigationBlocked && (
+                            <div role="alert">
+                              <Banner tone="warn">
+                                Your unsaved input is preserved. Save this form or discard its
+                                unsaved input before navigating, then choose the destination again.
+                              </Banner>
+                            </div>
+                          )}
+                        </PageContent>
+                      )}
+                      {batchPage ? content : <PageContent $width={width}>{content}</PageContent>}
+                      {manual && debug && (
+                        <PageContent $width={width}>
+                          <PageDebugPanel route={route ?? ''} batchId={currentBatch} />
+                        </PageContent>
+                      )}
+                    </RefreshSignal>
                   </Main>
                 </CompactStatusContext.Provider>
               </HeaderObservationsProvider>

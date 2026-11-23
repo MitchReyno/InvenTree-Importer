@@ -9,6 +9,7 @@ import { serverQueryKey } from './queries/scope'
 import { fixtureScope } from './test/render'
 import { LiveUpdates } from './components/operations/LiveUpdates'
 import { useRetainedPollInterval } from './context'
+import { useFreshRead } from './queries/useFreshRead'
 
 class Socket {
   static instances: Socket[] = []
@@ -249,4 +250,103 @@ test('returning to the page reconciles retained reads, but a hidden page does no
   })
   expect(read).toHaveBeenCalledTimes(3)
   visibility.mockRestore()
+})
+
+test('reconciliation keeps a settled read verified, never adopts the cancelled refresh, and holds revisionless commands until its own read', async () => {
+  vi.useFakeTimers()
+  vi.stubGlobal('WebSocket', Socket)
+  const client = createServerQueryClient()
+  const settled = vi.fn(async () => 'settled')
+  const resolvers: ((value: string) => void)[] = []
+  const refreshing = vi.fn(
+    () =>
+      new Promise<string>((resolve) => {
+        resolvers.push(resolve)
+      }),
+  )
+
+  function Reads() {
+    const one = useFreshRead({
+      queryKey: serverQueryKey(fixtureScope, 'processing', batch),
+      queryFn: settled,
+    })
+    const two = useFreshRead({
+      queryKey: serverQueryKey(fixtureScope, 'manual', batch),
+      queryFn: refreshing,
+    })
+    return (
+      <>
+        <output aria-label="Settled">
+          {`${one.verified} ${one.settledAfterHint} ${String(one.data)}`}
+        </output>
+        <output aria-label="Refreshing">{`${two.verified} ${String(two.data)}`}</output>
+      </>
+    )
+  }
+
+  render(
+    <ServerStateProvider scope={fixtureScope} client={client}>
+      <LiveUpdates csrfToken={'a'.repeat(64)} batchId={batch} refreshBootstrap={refreshBootstrap}>
+        <Reads />
+      </LiveUpdates>
+    </ServerStateProvider>,
+  )
+  const socket = Socket.instances[0]
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1)
+    resolvers[0]('first')
+    await vi.advanceTimersByTimeAsync(1)
+  })
+  expect(screen.getByLabelText('Settled')).toHaveTextContent('true true settled')
+  expect(screen.getByLabelText('Refreshing')).toHaveTextContent('true first')
+
+  // A background refresh of the second read is running when the first hint arrives.
+  act(() => {
+    void client.refetchQueries({ queryKey: serverQueryKey(fixtureScope, 'manual', batch) })
+  })
+  act(() => {
+    socket.onopen?.()
+    socket.frame({
+      type: 'ready',
+      protocol: LIVE_PROTOCOL,
+      cursors: [{ stream_id: stream, sequence: '1' }],
+      truncated: false,
+    })
+  })
+  // During the reconciliation delay the settled read keeps its proof, but predates the hint.
+  expect(screen.getByLabelText('Settled')).toHaveTextContent('true false settled')
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(110)
+  })
+  // A second hint while reconciliation runs is queued behind it.
+  act(() =>
+    socket.frame({
+      type: 'changed',
+      protocol: LIVE_PROTOCOL,
+      batch_id: batch,
+      stream_id: stream,
+      sequence: '2',
+      reset: false,
+    }),
+  )
+  expect(screen.getByLabelText('Settled')).toHaveTextContent('true false settled')
+
+  // The cancelled refresh lands late and is never adopted; the replacement reads verify.
+  await act(async () => {
+    resolvers[1]('cancelled refresh')
+    await vi.advanceTimersByTimeAsync(1)
+  })
+  expect(screen.getByLabelText('Refreshing')).not.toHaveTextContent('cancelled refresh')
+  await act(async () => {
+    for (const resolve of resolvers.slice(2)) {
+      resolve('reconciled')
+    }
+    await vi.advanceTimersByTimeAsync(200)
+    for (const resolve of resolvers.slice(2)) {
+      resolve('reconciled')
+    }
+    await vi.advanceTimersByTimeAsync(200)
+  })
+  expect(screen.getByLabelText('Settled')).toHaveTextContent('true true settled')
+  expect(screen.getByLabelText('Refreshing')).toHaveTextContent('true reconciled')
 })
