@@ -232,7 +232,7 @@ Rejected: changing `CaptureEdit` to carry several changes. That is a wider contr
 | A row committed after a page that should hold it by time was read | `created_at` is the transaction's start time, so a slow write can sort behind rows already shown. It appears when the newest page is next re-read if it falls within it, and otherwise when the page is next opened |
 | A cited URL that no longer resolves | The link opens it anyway; the app makes no claim about it |
 
-Authority is unchanged. Only the operator's answer route writes capture edits. Agents only create questions.
+Authority is unchanged. Only the operator's answer route applies capture edits from a question's answer; agents create the questions.
 
 ## Verification strategy
 
