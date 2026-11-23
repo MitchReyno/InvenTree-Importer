@@ -470,7 +470,6 @@ const Header = styled.div`
   justify-content: space-between;
   align-items: center;
   gap: ${space[4]} ${space[8]};
-  margin-bottom: ${space[6]};
 `
 const RecordNav = styled.nav`
   display: flex;
@@ -567,7 +566,8 @@ const RecordButton = styled.button`
   ${type.body}
   border-top-color: ${color.line};
   border-radius: 0;
-  &:first-of-type {
+  /* The selected rule ties on specificity and comes first, so the divider rule must skip it. */
+  &:first-of-type:not([aria-current='true']) {
     border-top-color: transparent;
   }
   &[aria-current='true'] {

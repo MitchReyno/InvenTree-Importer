@@ -1,7 +1,16 @@
 import { randomUUID } from 'node:crypto'
 import { and, eq, getTableColumns, sql } from 'drizzle-orm'
 import type { PoolClient } from 'pg'
-import type { CaptureEditDto, ProcessingAnswerDto } from '@invimport/contracts'
+import {
+  questionView,
+  type CaptureEditDto,
+  type ProcessingAnswerDto,
+  type ProcessingAnswerV1Dto,
+  type ProcessingAnswerV2Dto,
+  type SessionAskArgsDto,
+  type SessionAskArgsV2Dto,
+  type SessionAnswerPayloadDto,
+} from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { appendEvent } from '#/db/authority.ts'
 import { appendSessionInbox } from '#/agents/tools/inbox.ts'
@@ -9,6 +18,7 @@ import { fieldsSuperseded } from './currentness.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { fail, sealed } from './model.ts'
 import { retainedSessionQuestion } from './retained.ts'
+import { steppedAnswerEffects } from './stepped-answers.ts'
 import {
   processingAnswers,
   processingAttempts,
@@ -21,8 +31,128 @@ import { lockProcessingAttempt } from './state.ts'
 
 interface LockedCapture {
   streamId: string
-  apply: (edit: CaptureEditDto) => Promise<{ revision: string }>
+  applyInOrder: (edits: readonly CaptureEditDto[]) => Promise<{ revision: string }>
   publish: () => Promise<unknown>
+}
+
+/** The inbox payload limit for every kind but instructions (migration 0030). */
+const MAX_SESSION_INBOX_PAYLOAD_BYTES = 32768
+
+type AnswerIdentity = { question_id: string; answer_id: string }
+
+interface AnswerPlan {
+  /** The capture edits, in order, each against the revision the one before produced. */
+  edits: (expectedRevision: string) => CaptureEditDto[]
+  inboxPayload: SessionAnswerPayloadDto
+  /** Stepped payloads hold free text in several steps, so only they can outgrow the limit. */
+  checkPayload: boolean
+  title: string
+}
+
+function nextRevision(revision: string) {
+  return (BigInt(revision) + 1n).toString()
+}
+
+function quantityEdit(expectedRevision: string, lotId: string, value: string): CaptureEditDto {
+  return {
+    expected_revision: expectedRevision,
+    change: { kind: 'lot', id: lotId, quantity: { mode: 'set', value } },
+  }
+}
+
+function noteEdit(
+  expectedRevision: string,
+  subjectId: string | null,
+  text: string,
+): CaptureEditDto {
+  return {
+    expected_revision: expectedRevision,
+    change: { kind: 'note', subject_id: subjectId, text },
+  }
+}
+
+/** A `/1` question takes a `/1` answer of its own kind: one quantity or one note. */
+function singleAnswerPlan(
+  ask: SessionAskArgsDto,
+  input: ProcessingAnswerV1Dto,
+  subjectId: string | null,
+  identity: AnswerIdentity,
+): AnswerPlan {
+  const { value } = input
+  if (ask.kind !== value.kind || (value.kind === 'quantity' && subjectId === null)) {
+    fail('invalid_answer', 422)
+  }
+  return {
+    edits: (expectedRevision) => [
+      value.kind === 'quantity'
+        ? quantityEdit(expectedRevision, subjectId!, value.value)
+        : noteEdit(expectedRevision, subjectId, value.text),
+    ],
+    inboxPayload: { ...identity, value },
+    checkPayload: false,
+    title: ask.prompt,
+  }
+}
+
+/** A `/2` question takes one value per step: at most a quantity edit, then one note edit. */
+function steppedAnswerPlan(
+  ask: SessionAskArgsV2Dto,
+  input: ProcessingAnswerV2Dto,
+  subjectId: string | null,
+  identity: AnswerIdentity,
+): AnswerPlan {
+  const effects = steppedAnswerEffects(ask, input)
+  const quantity = effects.quantity
+  if (quantity && subjectId === null) {
+    fail('invalid_answer', 422)
+  }
+  return {
+    edits: (expectedRevision) => {
+      const edits: CaptureEditDto[] = []
+      let revision = expectedRevision
+      if (quantity) {
+        edits.push(quantityEdit(revision, subjectId!, quantity.value))
+        revision = nextRevision(revision)
+      }
+      if (effects.note !== undefined) {
+        edits.push(noteEdit(revision, subjectId, effects.note))
+      }
+      return edits
+    },
+    inboxPayload: { ...identity, steps: effects.delivered },
+    checkPayload: true,
+    title: questionView(ask).title,
+  }
+}
+
+function answerPlan(
+  ask: SessionAskArgsDto | SessionAskArgsV2Dto,
+  input: ProcessingAnswerDto,
+  subjectId: string | null,
+  identity: AnswerIdentity,
+): AnswerPlan {
+  const stepped = 'steps' in ask
+  if (stepped && input.schema_version === 'bench-intake-answer/2') {
+    return steppedAnswerPlan(ask, input, subjectId, identity)
+  }
+  if (!stepped && input.schema_version === 'bench-intake-answer/1') {
+    return singleAnswerPlan(ask, input, subjectId, identity)
+  }
+  return fail('invalid_answer', 422)
+}
+
+/**
+ * Escaped text can outgrow the inbox payload limit while the note fits, so measure it as the
+ * constraint does, as PostgreSQL's jsonb text, before any edit.
+ */
+async function requireInboxPayloadFits(client: PoolClient, payload: SessionAnswerPayloadDto) {
+  const measured = await client.query<{ bytes: number }>(
+    'SELECT octet_length($1::jsonb::text)::int AS bytes',
+    [JSON.stringify(payload)],
+  )
+  if (measured.rows[0].bytes > MAX_SESSION_INBOX_PAYLOAD_BYTES) {
+    fail('invalid_answer', 422)
+  }
 }
 
 /**
@@ -90,25 +220,12 @@ export async function answerSessionQuestion(
       : undefined
   const ask = retainedSessionQuestion(question, job.subject_id, batchSubjects)
   const subjectId = job.subject_id ?? ask.subject_id
-  if (ask.kind !== input.value.kind || (input.value.kind === 'quantity' && subjectId === null)) {
-    fail('invalid_answer', 422)
-  }
-  const snapshot = await capture.apply(
-    input.value.kind === 'quantity'
-      ? {
-          expected_revision: input.expected_capture_revision,
-          change: {
-            kind: 'lot',
-            id: subjectId!,
-            quantity: { mode: 'set', value: input.value.value },
-          },
-        }
-      : {
-          expected_revision: input.expected_capture_revision,
-          change: { kind: 'note', subject_id: subjectId, text: input.value.text },
-        },
-  )
   const answerId = randomUUID()
+  const plan = answerPlan(ask, input, subjectId, { question_id: questionId, answer_id: answerId })
+  if (plan.checkPayload) {
+    await requireInboxPayloadFits(client, plan.inboxPayload)
+  }
+  const snapshot = await capture.applyInOrder(plan.edits(input.expected_capture_revision))
   const value = sealed({ ...input, question_id: questionId })
   await executeDatabaseQuery(
     queryDatabase(client)
@@ -139,7 +256,7 @@ export async function answerSessionQuestion(
       actorId: config.actorId,
       idempotencyKey: `answer:${questionId}`,
       kind: 'answer',
-      payload: { question_id: questionId, answer_id: answerId, value: input.value },
+      payload: plan.inboxPayload,
     },
     { publish: false },
   )
@@ -149,7 +266,7 @@ export async function answerSessionQuestion(
     subjectId,
     fields: ask.fields,
     reason: 'answer_received',
-    message: `A question was answered: ${ask.prompt}`,
+    message: `A question was answered: ${plan.title}`,
     key: `answer:${questionId}`,
     except: job.id,
   })

@@ -124,3 +124,32 @@ it('a refused apply of an unedited move leaves the guard released', async () => 
   await waitFor(() => expect(restructure).toHaveBeenCalledTimes(2))
   await waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(false))
 })
+
+it('states what splitting and merging keep in the dialog itself, with no help popover', () => {
+  const twoLots = {
+    ...batch,
+    lots: [
+      ...batch.lots,
+      { id: 'l2', label: 'Tubes', evidence_observation_ids: [], retired: false },
+    ],
+  } as unknown as CaptureSnapshotDto
+  const props = {
+    excludedLotIds: [],
+    client: { restructure: vi.fn() } as unknown as OperatorReviewClient,
+    disabled: false,
+    reload: vi.fn(),
+    onClose: vi.fn(),
+  }
+  const { unmount } = render(
+    <RestructureDialog kind="split" batch={twoLots} lotIds={['l1']} {...props} />,
+  )
+
+  expect(screen.getByText(/Each new lot keeps the Part proposal and location choice/)).toBeVisible()
+  expect(screen.queryByRole('button', { name: /^About/ })).not.toBeInTheDocument()
+  unmount()
+  render(<RestructureDialog kind="merge" batch={twoLots} lotIds={['l1', 'l2']} {...props} />)
+  expect(
+    screen.getByText(/the merged lot uses the batch default until you choose one/),
+  ).toBeVisible()
+  expect(screen.queryByRole('button', { name: /^About/ })).not.toBeInTheDocument()
+})

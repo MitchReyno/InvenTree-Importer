@@ -43,7 +43,8 @@ describe('the inline answer', () => {
     input_sha256: 'b'.repeat(64),
     revision: '1',
     state: 'open',
-    spec: { kind: 'quantity', subject_id: 'l', prompt: 'How many?', reason: 'Torn label.' },
+    subject_id: 'l',
+    spec: { kind: 'quantity', prompt: 'How many?', reason: 'Torn label.' },
   }
   const open = { id: question.id, step: 'examine', question, captureRevision: '4' } as never
   const panelBatch = {

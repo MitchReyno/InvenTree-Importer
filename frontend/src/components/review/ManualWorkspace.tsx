@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Banner, Paragraph, Heading, HeadingRow, VisuallyHidden, Button } from '#/components/ui'
+import { Banner, Paragraph, Heading, VisuallyHidden, Button } from '#/components/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey } from '#/queries/scope'
 import type {
@@ -378,9 +378,7 @@ export function ManualWorkspace({
           <Heading>Review selected lots</Heading>
         </VisuallyHidden>
       ) : (
-        <HeadingRow>
-          <Heading $onField>{stage === 'approve' ? 'Ready to add' : 'Added'}</Heading>
-        </HeadingRow>
+        <Heading $onField>{stage === 'approve' ? 'Ready to add' : 'Added'}</Heading>
       )}
       {workspace?.preparations_truncated && (
         <Banner tone="warn">

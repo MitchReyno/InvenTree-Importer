@@ -27,6 +27,9 @@ beforeEach(() => {
       setPointer: vi.fn(),
       clearPointer: vi.fn(),
       setTheme: vi.fn(),
+      pause: vi.fn(),
+      resume: vi.fn(),
+      setReducedMotion: vi.fn(),
       dispose: vi.fn(),
     }
     scenes.push(scene)

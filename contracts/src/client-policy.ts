@@ -16,6 +16,8 @@ export class IntakeRequestError extends Error {
   constructor(
     public readonly status: number,
     public readonly code: string,
+    /** The question step an `invalid_answer` refusal names, when it names one. */
+    public readonly stepId?: string,
   ) {
     super(code)
   }
@@ -97,7 +99,9 @@ export function contractMiddleware(csrfToken?: string): Middleware {
           throw new Error('invalid_contract')
         }
 
-        throw new IntakeRequestError(response.status, value.code)
+        const stepId =
+          'step_id' in value && typeof value.step_id === 'string' ? value.step_id : undefined
+        throw new IntakeRequestError(response.status, value.code, stepId)
       }
 
       validate(operation.responseSchema, value)

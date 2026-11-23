@@ -16,10 +16,12 @@ import {
   mediaClient,
   processingClient,
 } from '@invimport/contracts/client'
-import type {
-  ProcessingJobDto,
-  ProcessingSnapshotDto,
-  SessionTimelineDto,
+import {
+  questionView,
+  type ProcessingJobDto,
+  type ProcessingQuestionDto,
+  type ProcessingSnapshotDto,
+  type SessionTimelineDto,
 } from '@invimport/contracts'
 import { chatHandled } from './chat.ts'
 
@@ -279,15 +281,21 @@ for (const job of final.jobs) {
   }
 }
 const allQuestions = final.jobs.flatMap((job) => job.questions)
+
+/** A question of either version as the chat evidence reads it: every step's prompt and assumption. */
+function questionEvidence(question: ProcessingQuestionDto) {
+  const view = questionView(question)
+  const assumptions = view.steps.flatMap((step) => (step.assumption ? [step.assumption] : []))
+
+  return {
+    prompt: view.steps.map((step) => step.prompt).join(' '),
+    reason: view.reason,
+    assumption: assumptions.join(' '),
+  }
+}
+
 const questions = Object.fromEntries(
-  allQuestions.map((question) => [
-    question.id,
-    {
-      prompt: question.spec.prompt,
-      reason: question.spec.reason,
-      assumption: question.assumption ?? '',
-    },
-  ]),
+  allQuestions.map((question) => [question.id, questionEvidence(question)]),
 )
 // Provider transcripts for this batch only: Claude by session directory, Codex by conversation.
 const conversations = new Map<string, string>()
@@ -476,8 +484,7 @@ const results = {
   })),
   questions: allQuestions.map((question) => ({
     state: question.state,
-    prompt: question.spec.prompt,
-    assumption: question.assumption,
+    ...questionEvidence(question),
   })),
   chats: chatResults,
   cadence,

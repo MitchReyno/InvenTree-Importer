@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
 import { processingFixture } from '../support/processing.ts'
-import { lotSession } from '../support/sessions.ts'
+import { legacySessionQuestion, lotSession, oneStepAsk } from '../support/sessions.ts'
 import { sealed } from '#/processing/model.ts'
 import { transaction } from '#/db/database.ts'
 import { issueSessionCapability, revokeSessionCapability } from '#/agents/tools/capability.ts'
@@ -186,21 +186,7 @@ test('invalid outbox items return typed errors and publish nothing', async () =>
       assert.equal((await counts(fixture, a.attempt, a.job)).proposals, '0')
       assert.equal((await call(session, 'propose', proposal([noteSource]))).ok, true)
       // Agent asks without an assumption: refused, so it cannot block silently.
-      const question = {
-        kind: 'quantity',
-        subject_id: capture.packetA.id,
-        prompt: 'How many are in the packet?',
-        reason: 'The label only says approximately 20.',
-      }
-      assert.equal(
-        (await call(session, 'ask', { ...question, fields: ['quantity'] })).error,
-        'validation_failed',
-      )
-      assert.equal(
-        (await call(session, 'ask', { ...question, assumption: 'Using 20 until counted.' })).error,
-        'validation_failed',
-      )
-      const asked = await call(session, 'ask', {
+      const question = oneStepAsk({
         kind: 'quantity',
         subject_id: capture.packetA.id,
         prompt: 'How many are in the packet?',
@@ -208,6 +194,27 @@ test('invalid outbox items return typed errors and publish nothing', async () =>
         fields: ['quantity'],
         assumption: 'Using 20 until counted.',
       })
+      const { assumption: _assumption, ...stepWithoutAssumption } = question.steps[0]
+      const withoutAssumption = await call(session, 'ask', {
+        ...question,
+        steps: [stepWithoutAssumption],
+      })
+      assert.equal(withoutAssumption.error, 'validation_failed')
+      assert.ok(withoutAssumption.issues?.some((issue) => issue.path === '/steps/0/assumption'))
+      const { fields: _fields, ...withoutFields } = question
+      assert.equal((await call(session, 'ask', withoutFields)).error, 'validation_failed')
+      const asked = await call(
+        session,
+        'ask',
+        oneStepAsk({
+          kind: 'quantity',
+          subject_id: capture.packetA.id,
+          prompt: 'How many are in the packet?',
+          reason: 'The label only says approximately 20.',
+          fields: ['quantity'],
+          assumption: 'Using 20 until counted.',
+        }),
+      )
       assert.equal(asked.ok, true)
       const outbox = await fixture.db.pool.query<{ seq: string; kind: string }>(
         'SELECT seq,kind FROM agent_session_outbox WHERE session_id=$1 ORDER BY seq',
@@ -320,14 +327,18 @@ test('session proposals and questions stay readable in Processing and the sessio
       )
       assert.equal(
         (
-          await call(session, 'ask', {
-            kind: 'quantity',
-            subject_id: capture.packetA.id,
-            prompt: 'How many are in the packet?',
-            reason: 'The label only says approximately 20.',
-            fields: ['quantity'],
-            assumption: 'Using 20 until counted.',
-          })
+          await call(
+            session,
+            'ask',
+            oneStepAsk({
+              kind: 'quantity',
+              subject_id: capture.packetA.id,
+              prompt: 'How many are in the packet?',
+              reason: 'The label only says approximately 20.',
+              fields: ['quantity'],
+              assumption: 'Using 20 until counted.',
+            }),
+          )
         ).ok,
         true,
       )
@@ -342,8 +353,8 @@ test('session proposals and questions stay readable in Processing and the sessio
           id: string
           proposals: { value: { schema_version: string } }[]
           questions: {
-            spec: { prompt: string }
-            assumption?: string
+            schema_version: string
+            steps: { prompt: string; assumption: string }[]
             fields?: string[]
             state: string
           }[]
@@ -358,8 +369,9 @@ test('session proposals and questions stay readable in Processing and the sessio
       job.proposals.map((item) => item.value.schema_version),
       ['bench-intake-proposal/5'],
     )
-    assert.equal(job.questions[0].spec.prompt, 'How many are in the packet?')
-    assert.equal(job.questions[0].assumption, 'Using 20 until counted.')
+    assert.equal(job.questions[0].schema_version, 'bench-intake-question/2')
+    assert.equal(job.questions[0].steps[0].prompt, 'How many are in the packet?')
+    assert.equal(job.questions[0].steps[0].assumption, 'Using 20 until counted.')
     assert.deepEqual(job.questions[0].fields, ['quantity'])
     assert.equal(job.questions[0].state, 'open')
 
@@ -379,14 +391,18 @@ test('questions keep when they were asked, and are read oldest first', async () 
     const session = await connect(url, a.token)
     try {
       for (const prompt of ['First: how many are in the packet?', 'Second: which reel is it?']) {
-        const asked = await call(session, 'ask', {
-          kind: 'quantity',
-          subject_id: capture.packetA.id,
-          prompt,
-          reason: 'The label is torn.',
-          fields: ['quantity'],
-          assumption: 'Using 20 until counted.',
-        })
+        const asked = await call(
+          session,
+          'ask',
+          oneStepAsk({
+            kind: 'quantity',
+            subject_id: capture.packetA.id,
+            prompt,
+            reason: 'The label is torn.',
+            fields: ['quantity'],
+            assumption: 'Using 20 until counted.',
+          }),
+        )
         assert.equal(asked.ok, true)
       }
     } finally {
@@ -396,11 +412,11 @@ test('questions keep when they were asked, and are read oldest first', async () 
     assert.equal(snapshot.status, 200)
     const job = (
       snapshot.value as {
-        jobs: { id: string; questions: { spec: { prompt: string }; asked_at?: string }[] }[]
+        jobs: { id: string; questions: { steps: { prompt: string }[]; asked_at?: string }[] }[]
       }
     ).jobs.find((item) => item.id === a.job)!
     assert.deepEqual(
-      job.questions.map((item) => item.spec.prompt),
+      job.questions.map((item) => item.steps[0].prompt),
       ['First: how many are in the packet?', 'Second: which reel is it?'],
     )
     const times = job.questions.map((item) => Date.parse(item.asked_at ?? ''))
@@ -410,22 +426,16 @@ test('questions keep when they were asked, and are read oldest first', async () 
 })
 
 test('answers and chat reach the running session once, through the inbox', async () => {
-  await withSessions(async ({ fixture, url, a, capture }) => {
-    const session = await connect(url, a.token)
-    let questionId: string
-    try {
-      const asked = (await call(session, 'ask', {
-        kind: 'quantity',
-        subject_id: capture.packetA.id,
-        prompt: 'How many are in the packet?',
-        reason: 'The label only says approximately 20.',
-        fields: ['quantity'],
-        assumption: 'Using 20 until counted.',
-      })) as { ok: boolean; id?: string }
-      questionId = asked.id!
-    } finally {
-      await session.close()
-    }
+  await withSessions(async ({ fixture, a, capture }) => {
+    // A /1 question retained from before stepped questions still takes its /1 answer.
+    const questionId = await legacySessionQuestion(fixture, a, {
+      kind: 'quantity',
+      subject_id: capture.packetA.id,
+      prompt: 'How many are in the packet?',
+      reason: 'The label only says approximately 20.',
+      fields: ['quantity'],
+      assumption: 'Using 20 until counted.',
+    })
     const batch = await fixture.http(`/batches/${capture.batch.id}`)
     const answer = {
       schema_version: 'bench-intake-answer/1',
@@ -508,14 +518,18 @@ test('the timeline, session list and header show the latest status line and the 
       assert.equal((await call(session, 'status', { text: 'Reading the label' })).ok, true)
       assert.equal(
         (
-          await call(session, 'ask', {
-            kind: 'quantity',
-            subject_id: capture.packetA.id,
-            prompt: 'How many are in the packet?',
-            reason: 'The label only says approximately 20.',
-            fields: ['quantity'],
-            assumption: 'Using 20 until counted.',
-          })
+          await call(
+            session,
+            'ask',
+            oneStepAsk({
+              kind: 'quantity',
+              subject_id: capture.packetA.id,
+              prompt: 'How many are in the packet?',
+              reason: 'The label only says approximately 20.',
+              fields: ['quantity'],
+              assumption: 'Using 20 until counted.',
+            }),
+          )
         ).ok,
         true,
       )
@@ -801,14 +815,18 @@ test('questions stop at the snapshot limit with a typed refusal', async () => {
     const session = await connect(url, a.token)
     try {
       const ask = (n: number) =>
-        call(session, 'ask', {
-          kind: 'clarification',
-          subject_id: capture.packetA.id,
-          prompt: `Question ${n}?`,
-          reason: 'Testing the limit.',
-          fields: ['identity'],
-          assumption: 'Continuing as before.',
-        })
+        call(
+          session,
+          'ask',
+          oneStepAsk({
+            kind: 'clarification',
+            subject_id: capture.packetA.id,
+            prompt: `Question ${n}?`,
+            reason: 'Testing the limit.',
+            fields: ['identity'],
+            assumption: 'Continuing as before.',
+          }),
+        )
       for (let n = 0; n < 100; n += 1) {
         assert.equal((await ask(n)).ok, true)
       }
@@ -863,14 +881,18 @@ test('many small questions across jobs stop before the snapshot overflows', asyn
       const session = await connect(url, principal.token)
       try {
         for (let n = 0; n < 100 && !refused; n += 1) {
-          const result = await call(session, 'ask', {
-            kind: 'clarification',
-            subject_id: principal === a ? capture.packetA.id : capture.packetB.id,
-            prompt: `Q${n}?`,
-            reason: 'r',
-            fields: ['identity'],
-            assumption: 'a',
-          })
+          const result = await call(
+            session,
+            'ask',
+            oneStepAsk({
+              kind: 'clarification',
+              subject_id: principal === a ? capture.packetA.id : capture.packetB.id,
+              prompt: `Q${n}?`,
+              reason: 'r',
+              fields: ['identity'],
+              assumption: 'a',
+            }),
+          )
           if (result.ok) {
             accepted += 1
           } else {

@@ -4,7 +4,7 @@ import styled from 'styled-components'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { previewImage } from '#/media/images'
 import { color, radius, space, type, typeVar } from '#/theme/generated/tokens'
-import { Button, Small } from '#/components/ui'
+import { Button, HelpButton, Small } from '#/components/ui'
 import { Input, Label, Select } from '#/forms'
 import { useReportDirty } from '#/navigation/useReportDirty'
 import type { CaptureEdit } from '#/capture/types'
@@ -323,7 +323,10 @@ export function RegionStage({
               />
             </Label>
           ))}
-          <Small>Pixels of the original photo. Drag the box or its corners to adjust it.</Small>
+          <HelpButton
+            label="About region size"
+            explanation="Sizes are in pixels of the original photo. Drag the box or its corners to adjust it."
+          />
           {outside && (
             <Small role="alert">
               The region must fit inside the photo ({draft.sourceWidth} × {draft.sourceHeight}).

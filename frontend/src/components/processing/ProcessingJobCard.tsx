@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
 import { color, space, typeVar } from '#/theme/generated/tokens'
-import type { CaptureSnapshotDto, ProcessingJobDto } from '@invimport/contracts'
-import { Heading, Paragraph, Panel, Small, Button, Pill } from '#/components/ui'
+import { questionView, type CaptureSnapshotDto, type ProcessingJobDto } from '@invimport/contracts'
+import { assumptionLine, questionKindLabel, stepKinds } from '#/processing/question-summary'
+import { Heading, HelpButton, Paragraph, Panel, Small, Button, Pill } from '#/components/ui'
 import { ProcessingSources } from './ProcessingSources'
 
 type Job = ProcessingJobDto
@@ -72,18 +73,21 @@ export function ProcessingJobCard({
   return (
     <Panel>
       <Row>
-        <Heading>
-          {job.subject_id === null ? 'Whole batch' : (subject?.label ?? 'Retained subject')} ·{' '}
-          {job.stage}
-        </Heading>
+        <Title>
+          <Heading>
+            {job.subject_id === null ? 'Whole batch' : (subject?.label ?? 'Retained subject')} ·{' '}
+            {job.stage}
+          </Heading>
+          {job.proposals.length > 0 && (
+            <HelpButton
+              label="About candidates"
+              explanation="Candidates are what the agent found. They never replace the values you chose."
+            />
+          )}
+        </Title>
         <Status>{labels[job.state]}</Status>
       </Row>
-      <Small>
-        Attempt {job.attempt_number} ·{' '}
-        {job.qualification === 'fixture_only'
-          ? 'synthetic fixture only'
-          : 'native agent · live provider not qualified'}
-      </Small>
+      <Small>Attempt {job.attempt_number}</Small>
       {job.blocked_code && <Paragraph role="status">{blockerLabels[job.blocked_code]}</Paragraph>}
       {job.proposals.map((proposal) => (
         <div key={proposal.id}>
@@ -95,25 +99,33 @@ export function ProcessingJobCard({
             {proposal.currentness?.state === 'provisional' && (
               <Pill tone="neutral">Provisional · a question is open</Pill>
             )}
-            <Small>Candidate assertions do not replace your selections.</Small>
           </Paragraph>
           <ProcessingSources proposal={proposal.value} />
         </div>
       ))}
       {job.questions
         .filter((question) => question.state === 'open')
-        .map((question) => (
-          // Each question keeps its own button beside it, so several stay distinguishable.
-          <Question key={question.id}>
-            <Paragraph>
-              {question.spec.prompt}
-              {question.assumption && <Small>Continuing on: {question.assumption}</Small>}
-            </Paragraph>
-            <Button disabled={disabled} onClick={() => chooseQuestion(question.id)}>
-              Open this question
-            </Button>
-          </Question>
-        ))}
+        .map((question) => {
+          const view = questionView(question)
+          const assumptions = assumptionLine(view.steps.map((step) => step.assumption))
+
+          return (
+            // Each question keeps its own button beside it, so several stay distinguishable.
+            <Question key={question.id}>
+              <Paragraph>
+                {view.title}
+                <Small>
+                  {questionKindLabel(stepKinds(view.steps))}
+                  {view.version === 2 && ` · ${view.reason}`}
+                </Small>
+                {assumptions && <Small>Continuing on: {assumptions}</Small>}
+              </Paragraph>
+              <Button disabled={disabled} onClick={() => chooseQuestion(question.id)}>
+                Open this question
+              </Button>
+            </Question>
+          )
+        })}
       {session}
       <Actions>
         {cancellable && (
@@ -132,6 +144,16 @@ const Row = styled.div`
   align-items: baseline;
   gap: ${space[8]};
   flex-wrap: wrap;
+`
+
+const Title = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${space[3]};
+  margin-bottom: ${space[6]};
+  ${Heading} {
+    margin: 0;
+  }
 `
 
 const Status = styled.span`
@@ -156,6 +178,9 @@ const Question = styled.div`
   gap: ${space[4]};
   > p {
     flex: 1 1 240px;
+    min-width: 0;
     margin: 0;
+    /* A question's title or assumption can hold a long unbroken word. */
+    overflow-wrap: anywhere;
   }
 `

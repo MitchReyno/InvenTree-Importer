@@ -249,11 +249,13 @@ export function EvidenceViewer({
               </Button>
             </div>
           )}
-          <Small>
-            {page.width} × {page.height} source pixels ·{' '}
-            {version.kind === 'original' ? 'Retained original' : 'Prepared documentary crop'}. Zoom
-            enlarges the retained preview; it does not change the source.
-          </Small>
+          <DebugDetails label="Preview source">
+            <p>
+              {page.width} × {page.height} source pixels ·{' '}
+              {version.kind === 'original' ? 'Retained original' : 'Prepared documentary crop'}.
+              Zoom enlarges the retained preview; it does not change the source.
+            </p>
+          </DebugDetails>
         </>
       ) : (
         <Empty role="status">

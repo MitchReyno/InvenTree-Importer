@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { lotItemCount, type CaptureSnapshotDto } from '@invimport/contracts'
 import { processingFixture } from '../support/processing.ts'
-import { leadSession, seedPhoto } from '../support/sessions.ts'
+import { leadSession, oneStepAsk, seedPhoto } from '../support/sessions.ts'
 import { transaction } from '#/db/database.ts'
 import { devConfig } from '#/config.ts'
 import { inboxProjection } from '#/inbox/projection.ts'
@@ -1015,33 +1015,38 @@ test('a lead session asks about the whole batch, and the clarification answer be
         client
           .callTool({ name: 'ask', arguments: args })
           .then((r) => r.structuredContent as { ok: boolean; id?: string; error?: string })
-      const quantity = await ask({
-        kind: 'quantity',
-        subject_id: null,
-        prompt: 'How many in total?',
-        reason: 'Testing.',
-        fields: ['quantity'],
-        assumption: 'None.',
-      })
+      // A number is a lot's quantity, so a whole-batch question can't ask for one.
+      const quantity = await ask(
+        oneStepAsk({
+          kind: 'quantity',
+          subject_id: null,
+          prompt: 'How many in total?',
+          reason: 'Testing.',
+          fields: ['quantity'],
+          assumption: 'None.',
+        }),
+      )
       assert.deepEqual([quantity.ok, quantity.error], [false, 'validation_failed'])
-      const asked = await ask({
-        kind: 'clarification',
-        subject_id: null,
-        prompt: 'Are these all from one order?',
-        reason: 'Two invoices are in the photos.',
-        fields: ['identity'],
-        assumption: 'Treating them as one order.',
-      })
+      const asked = await ask(
+        oneStepAsk({
+          kind: 'clarification',
+          subject_id: null,
+          prompt: 'Are these all from one order?',
+          reason: 'Two invoices are in the photos.',
+          fields: ['identity'],
+          assumption: 'Treating them as one order.',
+        }),
+      )
       assert.equal(asked.ok, true)
       questionId = asked.id!
     } finally {
       await client.close()
     }
     const processing = (await fixture.http(`/batches/${capture.batch.id}/processing`)).value as {
-      jobs: { stage: string; questions: { id: string; spec: { subject_id: string | null } }[] }[]
+      jobs: { stage: string; questions: { id: string; subject_id: string | null }[] }[]
     }
     const question = processing.jobs.find((job) => job.stage === 'examine')!.questions[0]
-    assert.deepEqual([question.id, question.spec.subject_id], [questionId, null])
+    assert.deepEqual([question.id, question.subject_id], [questionId, null])
     const batch = (await fixture.http(`/batches/${capture.batch.id}`)).value as { revision: string }
     const manifest = (
       await fixture.db.pool.query<{ manifest_bytes: Buffer }>(
@@ -1052,12 +1057,12 @@ test('a lead session asks about the whole batch, and the clarification answer be
     const answered = await fixture.http(
       `/batches/${capture.batch.id}/questions/${questionId}/answers`,
       {
-        schema_version: 'bench-intake-answer/1',
+        schema_version: 'bench-intake-answer/2',
         expected_question_revision: '1',
         expected_capture_revision: batch.revision,
         attempt_id: lead.attempt,
         input_sha256: sealed(JSON.parse(manifest.toString('utf8'))).digest.toString('hex'),
-        value: { kind: 'clarification', text: 'Yes, one order.' },
+        steps: [{ step_id: 'answer', value: { kind: 'text', text: 'Yes, one order.' } }],
       },
     )
     assert.equal(answered.status, 200, JSON.stringify(answered.value))
@@ -1066,7 +1071,13 @@ test('a lead session asks about the whole batch, and the clarification answer be
         notes: { subject_id: string | null; text: string }[]
       }
     ).notes
-    assert.ok(notes.some((note) => note.subject_id === null && note.text === 'Yes, one order.'))
+    assert.ok(
+      notes.some(
+        (note) =>
+          note.subject_id === null &&
+          note.text === 'Are these all from one order? — Yes, one order.',
+      ),
+    )
   } finally {
     await server.close()
     await fixture.dispose()

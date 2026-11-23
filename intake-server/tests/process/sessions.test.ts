@@ -8,8 +8,10 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { processingFixture } from '../support/processing.ts'
 import { lotSession } from '../support/sessions.ts'
 import { transaction } from '#/db/database.ts'
+import { sealed } from '#/processing/model.ts'
 import { startSessionToolServer } from '#/agents/tools/server.ts'
 import { submitSessionInbox } from '#/agents/tools/inbox.ts'
+import { ASK_GUIDANCE } from '#/agents/tools/ask-guidance.ts'
 import {
   interruptRunningSessions,
   queueSessionResume,
@@ -288,6 +290,65 @@ for (const provider of ['claude', 'codex'] as const) {
         )
         assert.equal(replies.rowCount, 1)
         assert.equal(await h.toolStatus(first), 401)
+      } finally {
+        await h.dispose()
+      }
+    },
+  )
+
+  test(
+    `${provider}: a stepped question asked by the CLI is answered through the API and read from the inbox`,
+    { timeout: 90000 },
+    async () => {
+      const h = await sessionHarness(provider)
+      try {
+        await runSessionTurn(h.deps('ask-steps'), h.session.attempt, new AbortController().signal)
+        const asked = (await h.events()).find((event) => event.event === 'asked')
+        assert.equal(asked?.ok, true, JSON.stringify(await h.events()))
+        // The opening this provider's CLI received carries the one-question guidance.
+        const opening = (await h.events()).find((event) => event.event === 'opening')
+        const instructions = (JSON.parse(String(opening?.text)) as { instructions: string })
+          .instructions
+        assert.ok(instructions.includes(ASK_GUIDANCE), instructions)
+        const batch = (await h.fixture.http(`/batches/${h.session.manifest.batch_id}`)).value as {
+          revision: string
+        }
+        const answered = await h.fixture.http(
+          `/batches/${h.session.manifest.batch_id}/questions/${String(asked?.id)}/answers`,
+          {
+            schema_version: 'bench-intake-answer/2',
+            expected_question_revision: '1',
+            expected_capture_revision: batch.revision,
+            attempt_id: h.session.attempt,
+            input_sha256: sealed(h.session.manifest).digest.toString('hex'),
+            steps: [
+              { step_id: 'same_part', value: { kind: 'choice', option_id: 'same' } },
+              { step_id: 'left', value: { kind: 'number', value: '380', basis: 'estimated' } },
+              { step_id: 'place', value: { kind: 'choice', option_id: 'drawer_r4' } },
+            ],
+          },
+        )
+        assert.equal(answered.status, 200, JSON.stringify(answered.value))
+        await transaction(h.fixture.runner.pool, (client) =>
+          queueSessionResume(client, h.session.job),
+        )
+        await runSessionTurn(h.deps('ask-steps'), h.session.attempt, new AbortController().signal)
+        const delivered = (await h.events()).find((event) => event.event === 'answer')
+        assert.deepEqual(delivered?.payload, {
+          question_id: asked?.id,
+          answer_id: (answered.value as { answer_id: string }).answer_id,
+          steps: [
+            {
+              step_id: 'same_part',
+              value: { kind: 'choice', option_id: 'same', label: 'Yes, same Part' },
+            },
+            { step_id: 'left', value: { kind: 'number', value: '380', basis: 'estimated' } },
+            {
+              step_id: 'place',
+              value: { kind: 'choice', option_id: 'drawer_r4', label: 'Drawer R4' },
+            },
+          ],
+        })
       } finally {
         await h.dispose()
       }
