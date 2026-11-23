@@ -6,6 +6,7 @@ import { serverQueryKey } from '#/queries/scope'
 import { useFreshRead } from '#/queries/useFreshRead'
 import { freshReads } from '#/queries/fresh-reads'
 import { RestructureDialog } from '#/components/operator/RestructureDialog'
+import type { CaptureEdit } from '#/capture/types'
 
 import { ReviewMap } from './ReviewMap'
 import { TellExamine } from './TellExamine'
@@ -155,6 +156,9 @@ export function ReviewMapStage({
   }
 
   async function markSameItem(observationId: string, sameAs: string | null) {
+    if (!mediaReadCurrent()) {
+      return
+    }
     setBusy(true)
     setError('')
     try {
@@ -173,7 +177,16 @@ export function ReviewMapStage({
     }
   }
 
-  async function moveRegion(observationId: string, lotId: string | null, revision?: string) {
+  async function moveRegion(
+    observationId: string,
+    lotId: string | null,
+    revision?: string,
+    continuation = false,
+  ) {
+    // The move that finishes a new lot was checked when the lot was started.
+    if (!continuation && !mediaReadCurrent()) {
+      return false
+    }
     setBusy(true)
     setError('')
     try {
@@ -196,13 +209,25 @@ export function ReviewMapStage({
     }
   }
 
+  /**
+   * Region edits are capture edits with the batch's revision; they name the media read's regions,
+   * so they need an HTTP read of the media in the cache, not a receipt or a failed read. The editor
+   * keeps its draft when refused.
+   */
+  const editRegion: CaptureEdit = async (...args) => {
+    if (!mediaReadCurrent()) {
+      return false
+    }
+    return edit(...args)
+  }
+
   // The new lot exists; its file link or region move is kept until confirmed so it can be finished.
   async function finish(step: Unfinished, revision?: string, continuation = false) {
     setUnfinished(step)
     const done =
       step.from.kind === 'file'
         ? await link(step.from.evidenceId, step.lotId, true, continuation)
-        : await moveRegion(step.from.observationId, step.lotId, revision)
+        : await moveRegion(step.from.observationId, step.lotId, revision, continuation)
     if (done) {
       setUnfinished(null)
     }
@@ -262,10 +287,10 @@ export function ReviewMapStage({
           disabled={disabled}
           link={link}
           newLotFrom={newLotFrom}
-          moveRegion={moveRegion}
+          moveRegion={(observationId, lotId) => moveRegion(observationId, lotId)}
           newLotFromRegion={newLotFromRegion}
           markSameItem={markSameItem}
-          editRegion={edit}
+          editRegion={editRegion}
           onRegionDirtyChange={drafts.forSource('region')}
           selectionLocked={drafts.isDirty('region')}
           discarded={discarded}

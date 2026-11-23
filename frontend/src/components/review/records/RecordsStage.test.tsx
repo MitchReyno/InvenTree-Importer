@@ -2444,4 +2444,39 @@ describe('CompanyDecision', () => {
     await user.click(send)
     await waitFor(() => expect(chat).toHaveBeenCalledOnce())
   })
+
+  it('sends no Ask from records read at another revision', async () => {
+    const user = userEvent.setup()
+    const chat = vi.fn(async () => ({ id: 'inbox' }))
+    const processing = {
+      read: vi.fn(async () => ({
+        jobs: [
+          { id: 'research-job', stage: 'research', subject_id: partA, session_state: 'running' },
+        ],
+      })),
+      session: vi.fn(),
+      chat,
+    } as unknown as ProcessingClient
+    const newer = { ...records, revision: String(Number(batch.revision) + 1) }
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(async () => newer) }}
+        onDirtyChange={vi.fn()}
+      />,
+      {
+        clients: { processing },
+        commands: { edit: vi.fn(async () => true), observe: vi.fn(async () => null) },
+      },
+    )
+    await open(user, /^Parts/, 'Carbon film resistor')
+    const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
+    const category = within(detail).getByRole('row', { name: 'Category as saved' })
+    await user.click(await within(category).findByRole('button', { name: 'Ask Research' }))
+    const send = within(detail).getByRole('button', { name: 'Send to Research' })
+    await waitFor(() => expect(processing.read).toHaveBeenCalled())
+    await user.click(send)
+    expect(send).toHaveAttribute('aria-disabled', 'true')
+    expect(chat).not.toHaveBeenCalled()
+  })
 })

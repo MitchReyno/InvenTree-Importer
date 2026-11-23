@@ -162,6 +162,7 @@ export function RecordsStage({
     fromSnapshot ||
     !recordsFresh.commandsReady ||
     query.isPlaceholderData ||
+    query.data?.revision !== batch.revision ||
     !sessions.settledAfterHint
   const askReason = askWaits ? (sessions.reason ?? 'Updating…') : undefined
 
@@ -186,7 +187,10 @@ export function RecordsStage({
       return undefined
     }
     return async (text: string, key: string) => {
-      const recordsShown = recordsFresh.commandsReadyNow() && !query.isPlaceholderData
+      const recordsShown =
+        recordsFresh.commandsReadyNow() &&
+        !query.isPlaceholderData &&
+        query.data?.revision === batch.revision
       if (displayOnly || fromSnapshot || !recordsShown || !sessions.settledAfterHintNow()) {
         throw new Error('processing_fresh_read_required')
       }
@@ -216,7 +220,7 @@ export function RecordsStage({
   if (!client) {
     return <Banner tone="plain">Records are not available in this setup.</Banner>
   }
-  if (!records && query.isPending) {
+  if (!records && query.isPending && query.fetchStatus !== 'paused') {
     return (
       <ReadState phase="empty" skeleton={<RecordsSkeleton />}>
         {null}

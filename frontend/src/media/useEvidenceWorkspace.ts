@@ -32,11 +32,18 @@ export function useEvidenceWorkspace(
   const key = serverQueryKey(scope, 'media', batchId)
   const pollInterval = useRetainedPollInterval()
   // Shares the media key with the Map and Images, so its requests are tracked like theirs.
-  const query = useFreshRead({
+  const mediaRead = useFreshRead({
     queryKey: key,
     queryFn: () => client.snapshot(batchId),
     refetchInterval: pollInterval,
-  }).query
+  })
+  const query = mediaRead.query
+  // The first accepted snapshot needs a read this workspace saw start, not one it joined (such as
+  // the cached Capture view's); after that, receipts and their rereads keep it current.
+  const [verifiedOnce, setVerifiedOnce] = useState(false)
+  if (!verifiedOnce && mediaRead.verified) {
+    setVerifiedOnce(true)
+  }
   const drafts = useDirtySources(onDirtyChange)
   const accepted = useRef<MediaSnapshotDto | undefined>(undefined)
   const [snapshot, setSnapshot] = useState<MediaSnapshotDto>()
@@ -52,7 +59,7 @@ export function useEvidenceWorkspace(
     client.edit(batchId, input, requestKey),
   )
   const readFailed = query.isError || query.fetchStatus === 'paused'
-  const unavailable = readFailed || !query.isFetchedAfterMount
+  const unavailable = readFailed || !query.isFetchedAfterMount || !verifiedOnce
   // The sources live in a ref, so whether any draft is dirty is what reruns the adoption below.
   const { dirty: anyDraft, hasOtherSources } = drafts
 

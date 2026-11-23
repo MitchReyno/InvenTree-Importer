@@ -154,7 +154,7 @@
 - [x] 5.1 List each of the 22 loading lines and classify it: a read (migrate) or an operator action (keep).
 - [x] 5.2 RED: update each migrated screen's loading test. Add Pause and Resume cases on the Agents page and Settings › Agents for a dispatch during the hint debounce and while reconciliation is queued; and two consecutive Review Map edits with live hints on and polling off, the second available after the first's reread.
 - [x] 5.3 GREEN: gate the Agents page's batch and global Pause/Resume and Settings › Agents' Pause all on a settled verified read started after the last hint; add the reread after each remaining receipt write, including Review Map's; migrate the screens, add their skeletons, and add snapshot projections for any newly allowlisted reads.
-- [ ] 5.4 Capture the first load and the return for each screen. Run the frontend checks, and record the demo video.
+- [x] 5.4 Capture the first load and the return for each screen. Run the frontend checks, and record the demo video.
 
 ## 6. One state vocabulary and one time format
 

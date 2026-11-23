@@ -32,7 +32,7 @@ export function SessionPanel({ batchId, job, client, startFresh, freshDisabled }
   })
   useReportRefreshing(timeline.data !== undefined && timeline.isFetching)
   if (!timeline.data) {
-    return timeline.isError ? (
+    return timeline.isError || timeline.fetchStatus === 'paused' ? (
       <Small>Session history is unavailable.</Small>
     ) : (
       <ReadState phase="empty" skeleton={<SessionSkeleton />}>

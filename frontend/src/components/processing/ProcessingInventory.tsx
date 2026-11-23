@@ -113,12 +113,12 @@ export function ProcessingInventory({ batch, jobs, onOpenSession }: Props) {
   return (
     <>
       {!client && <Muted>Records are not available in this setup.</Muted>}
-      {client && query.isError && !records && (
+      {client && recordsFresh.phase === 'failed' && !records && (
         <Muted role="alert">
           Records are unavailable, so Part, location and company matches aren’t shown.
         </Muted>
       )}
-      {client && !records && !query.isError && (
+      {client && !records && recordsFresh.phase !== 'failed' && (
         <ReadState phase="empty" skeleton={<Skeleton width="100%" height={space[20]} />}>
           {null}
         </ReadState>
