@@ -56,7 +56,7 @@ An answer to a session question SHALL give exactly one value per step, matching 
 
 ### Requirement: Stepped answers reach the session
 
-The asking session SHALL receive one `answer` inbox item carrying each step's value, with the option ID for a picked choice, and sessions relying on the affected fields SHALL be told as for any answer. An answer SHALL name the question's current revision, attempt, input digest and expected capture revision, and a repeated submission with the same idempotency key SHALL return the first answer.
+The asking session SHALL receive one `answer` inbox item carrying each step's value, with the option ID for a picked choice, and sessions relying on the affected fields SHALL be told as for any answer. An answer SHALL name the question's current revision, attempt, input digest and expected capture revision, and a repeated submission with the same idempotency key and payload SHALL return the first answer, while a different payload under that key SHALL be refused.
 
 #### Scenario: Choice answer delivered with its option
 

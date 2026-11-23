@@ -36,10 +36,10 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | PR-0 | This plan, BI-019 and the BI-015 hand-over | Planning only | Review the plan before code | None; first | `interactive-app` ← `docs/improve-agent-interaction`; `docs(improve-agent-interaction): plan agent interaction improvements` | `openspec validate --strict`, `pnpm workflow-sync` unaffected; read-only review; CI green |
 | PR-A | Backdrop click closes every dialog | 1 | Small, independent and immediately useful | PR-0 | `feat/improve-agent-interaction-dialog-backdrop`; `fix(improve-agent-interaction): close dialogs from their backdrop` | Frontend typecheck, lint, tests and build; demo video; review; CI |
-| PR-B | `/2` questions and answers end to end: contracts, the server path, agent guidance, and the drawer's stepped form, live option cards and Needs you rows | 2, 3, 4 | Today's form can't answer a `/2` question, so the ask and the form that answers it ship together; no build asks questions its UI can't answer | PR-0 | `feat/improve-agent-interaction-question-steps`; `feat(improve-agent-interaction): ask and answer stepped questions with options` | Contracts tests, intake unit, PG and process tiers with the decoder and probe images; frontend checks; demo video; review; CI |
-| PR-D | Recorded photo views, web page sources, the paged history read and the photo-view crop route | 5, 6 | The server side of the history; the old timeline view keeps working until PR-E switches to it | PR-B merged (the history resolves `/2` questions) | `feat/improve-agent-interaction-session-history`; `feat(improve-agent-interaction): record and read a session's full history` | Contracts tests, intake unit, PG and process tiers; review; CI |
-| PR-E | Expandable, grouped, linked entries in the drawer and the session page as a conversation | 7 | The UI over PR-D; one entry renderer for both places | PR-B and PR-D merged | `feat/improve-agent-interaction-session-page`; `feat(improve-agent-interaction): expandable agent history and session page` | Frontend checks; demo video; review; CI |
-| PR-G | A session-level Agents read, one row per session, failures in plain words, recovery actions and the Agents page filters | 10 | One read and its rows; its links and failure display reach the session page | PR-E merged | `feat/improve-agent-interaction-session-rows`; `feat(improve-agent-interaction): one row per session with its real failure` | Frontend checks; demo video; review; CI |
+| PR-B | `/2` questions and answers end to end: contracts, the server path, agent guidance, and the drawer's stepped form, live option cards and Needs you rows | 2, 3, 4 | Today's form can't answer a `/2` question, so the ask and the form that answers it ship together; no build asks questions its UI can't answer | PR-0 | `feat/improve-agent-interaction-question-steps`; `feat(improve-agent-interaction): ask and answer stepped questions with options` | Contracts tests, intake unit, PG and process tiers with the decoder and probe images; frontend checks; demo video; rollback note in the PR body; review; CI |
+| PR-D | Recorded photo views, web page sources, the paged history read with session metadata and the photo-view crop route | 5, 6 | The server side of the history; the old timeline view keeps working until PR-E switches to it | PR-B merged (the history resolves `/2` questions) | `feat/improve-agent-interaction-session-history`; `feat(improve-agent-interaction): record and read a session's full history` | Contracts tests, intake unit, PG and process tiers; rollback note in the PR body; review; CI |
+| PR-E | Expandable, grouped, linked entries in the drawer and the session page as a conversation | 7 | The UI over PR-D; one entry renderer for both places | PR-B and PR-D merged | `feat/improve-agent-interaction-session-page`; `feat(improve-agent-interaction): expandable agent history and session page` | Frontend checks; intake unit and PG tiers for the timeline route removal and its consumers; demo video; review; CI |
+| PR-G | A session-level Agents read, one row per session, failures in plain words, recovery actions and the Agents page filters | 10 | One read and its rows; its links and failure display reach the session page | PR-E merged | `feat/improve-agent-interaction-session-rows`; `feat(improve-agent-interaction): one row per session with its real failure` | Contracts tests, intake unit and PG tiers, frontend checks; demo video; review; CI |
 | PR-H | Drawer header, recent activity in the app's words, the labelled message box and readable status lines | 11 | Builds on the history read, the session page and the session-level read | PR-D, PR-E and PR-G merged | `feat/improve-agent-interaction-session-details`; `feat(improve-agent-interaction): clearer session header, activity and message box` | Frontend checks, intake unit tier for the instruction text; demo video; review; CI |
 | PR-F | Per-stage counts and the paused flag, stage rows in the activity popover and the new bar states | 8, 9 | Independent of questions and history, small enough to review end to end | PR-0 | `feat/improve-agent-interaction-activity-stages`; `feat(improve-agent-interaction): show each stage's state and counts in the activity popover` | Contracts tests, intake PG tier, frontend checks; demo video; review; CI |
 
@@ -114,12 +114,12 @@
   - [ ] 3.3.2 Rollback when the note edit is refused after the quantity edit, with the refusal injected.
   - [ ] 3.3.3 Refusal of a combined note over the 8192-character limit, before any edit.
   - [ ] 3.3.4 Refusal of a wrong kind, an unknown option or a missing step.
-  - [ ] 3.3.5 Idempotent retry.
+  - [ ] 3.3.5 A replay with the same key and payload returns the first answer; a different payload under that key is refused; a second key after the answer gets `stale_question`.
   - [ ] 3.3.6 An inbox payload carrying the option ID and the number step's basis.
   - [ ] 3.3.7 A `/1` answer still accepted.
 - [ ] 3.4 GREEN: implement the `ask` and answer branches and the normalised read model.
 - [ ] 3.5 Update the `ask` description and the runner's opening instructions. Teach the fake CLI and the synthetic session a stepped ask, and add a process test that answers it and reads the inbox.
-- [ ] 3.6 Update `intake-server/src/agents/ARCHITECTURE.md` (the question shape and answer effects). Run the intake unit, PG and process tiers.
+- [ ] 3.6 Update `intake-server/src/agents/ARCHITECTURE.md` (the question shape and answer effects). Run the intake unit, PG and process tiers, including a read of a database already holding `/2` questions and answers.
 
 ## 4. Stepped answer form, option cards and Needs you rows
 
@@ -174,7 +174,7 @@
 
 - [ ] 5.1 Read the shared and intake-server code guidelines. List every reader of the outbox union and of proposal sources.
 - [ ] 5.2 RED: contract tests for `photo_view` and `web_page`. PG tests:
-  - [ ] 5.2.1 A delivered fetch appends one `photo_view` with the delivered size and digest.
+  - [ ] 5.2.1 A delivered fetch appends one `photo_view` with the delivered size and digest, and publishes `session_changed` in the same transaction.
   - [ ] 5.2.2 A refused or over-budget fetch appends nothing, and a refused final transaction releases the budget and returns no image.
   - [ ] 5.2.3 A `web_page` source is accepted for `https` without a delivery check, refused for `file:`, credentials or a URL over 2048 characters, and refused in `relies_on` or catalogue sources.
 - [ ] 5.3 GREEN: implement both. Make the source readers treat `web_page` as unverified.
@@ -186,6 +186,7 @@
 - **Outcome:**
   - `readSessionHistory` returns resolved entries (summary, details, typed links, `who`, attempt headers) in pages of 200 with a `before` cursor;
   - the operator's inputs are included;
+  - the same scoped read returns the session's metadata: each attempt's number, state and times, the agent selection and model, where it ran and its sealed web setting;
   - retired targets become "gone" links;
   - a session-scoped route recuts a photo view's crop.
 - **Scope and approach:**
@@ -207,11 +208,12 @@
   - [ ] 6.2.3 Answers, instructions, evidence and revise items appear as the operator's.
   - [ ] 6.2.4 Attempt headers say how an attempt ended, and why it started where the retained input shows it; turns within an attempt are not attempts.
   - [ ] 6.2.5 A regroup with recorded moves shows them; an older regroup lists only its lots; earlier attempts' failures resolve.
-  - [ ] 6.2.6 The `before` cursor pages without gaps or duplicates across retries with repeated sequences and equal timestamps.
-  - [ ] 6.2.7 Another batch or account gets `session_not_found`.
+  - [ ] 6.2.6 The `before` and `after` cursors page without gaps or duplicates across retries with repeated sequences and equal timestamps.
+  - [ ] 6.2.7 The session metadata for a retried session, including the web setting from each attempt's manifest.
+  - [ ] 6.2.8 Another batch or account gets `session_not_found`.
 - [ ] 6.3 RED: route tests for the photo-view crop: the recorded region bounded as delivered, a full-page view, two attempts with the same sequence, 404 for a removed version, and scope.
 - [ ] 6.4 GREEN: implement the read, the contract and the crop route.
-- [ ] 6.5 Check the queries batch per kind, and update `intake-server/src/agents/ARCHITECTURE.md`. Run the intake unit, PG and process tiers.
+- [ ] 6.5 Check the queries batch per kind, and update `intake-server/src/agents/ARCHITECTURE.md`. Run the intake unit, PG and process tiers, including a read of a database already holding `/6` proposals and photo views.
 
 ## 7. Expandable timeline and the session page
 
@@ -246,17 +248,17 @@
   - [ ] 7.3.4 The drawer's summary lines and "Open full session".
 - [ ] 7.4 RED: page tests:
   - [ ] 7.4.1 One conversation in time order, with attempt dividers.
-  - [ ] 7.4.2 Filter chips, Load older, and the live merge without duplicates.
+  - [ ] 7.4.2 Filter chips, Load older, and the live merge without duplicates or gaps, including more than one page of new entries between refreshes.
   - [ ] 7.4.3 Sending a message once.
   - [ ] 7.4.4 Answering a question in place, with the drawer's draft shown as superseded.
   - [ ] 7.4.5 Not found, and the debug block only in debug mode.
 - [ ] 7.5 GREEN: implement the renderer, the drawer change, the page and the entry points (Agents rows, session lists, failure details). Remove the old timeline response.
-- [ ] 7.6 Update the fixtures and the frontend architecture. Run the frontend checks, and record the demo video for the PR description.
+- [ ] 7.6 Update the fixtures and the frontend architecture. Run the frontend checks, and the intake unit and PG tiers for the removed timeline response and its consumers. Record the demo video for the PR description.
 
 ## 8. Stage counts and the paused flag
 
 - **PR delivery:** PR-F.
-- **Outcome:** the header and attention reads count each step's `waiting`, `queued` and `questions`, the batch's live `lots`, and the batch's `paused` flag.
+- **Outcome:** the header and attention reads count each step's `waiting`, `queued`, `questions` and `ready_lots`, the batch's live `lots`, and the batch's `paused` flag.
 - **Scope and approach:** `contracts/src/header.ts` (`stepJobs`, batch step entries), `contracts/src/attention.ts` (`stepWork`), `intake-server/src/header/processing.ts`, `work.ts` and the attention read, using `agents/pause.ts` for paused.
 - **Prerequisites:** none.
 - **Acceptance:** the counts in "Stage rows for a working batch", "No count for a stage" and "Paused batch".
@@ -265,7 +267,7 @@
 - **Risks and decisions:** keep the counts in the existing queries; no extra per-step query.
 
 - [ ] 8.1 Read the shared and intake-server code guidelines. Map how `stepJobs` and `stepWork` are counted today.
-- [ ] 8.2 RED: contract tests for the new fields. PG tests for a batch with one waiting-for-you, one queued, one running and one ready job, with open questions, retired lots, a stage with live lots but no jobs yet, and a paused batch.
+- [ ] 8.2 RED: contract tests for the new fields. PG tests for a batch with one waiting-for-you, one queued, one running and one ready job, with open questions, retired lots, a stage with live lots but no jobs yet, a ready Part job beside a live lot with no job at that step, and a paused batch.
 - [ ] 8.3 GREEN: implement the counts and the paused flag in both reads.
 - [ ] 8.4 Run the contracts tests and the intake unit and PG tiers.
 
@@ -320,7 +322,7 @@
 - [ ] 10.1 Read the code guidelines and the Fixes page boards.
 - [ ] 10.2 RED: PG tests for the session-level read (a retry chain that would have spanned two attempt pages, the archived flag) and the failure summary's `cause` with debug mode off; frontend tests for folded attempts, Needs attention (including a failure followed by success), collapsed and archived batches, failure sentences for each recorded kind and the "not recorded" case, and row links and actions.
 - [ ] 10.3 GREEN: implement the read, the failure cause and the rows.
-- [ ] 10.4 Run the frontend checks, and record the demo video.
+- [ ] 10.4 Run the contracts tests, the intake unit and PG tiers and the frontend checks, and record the demo video.
 
 ## 11. Drawer header, activity feed and message box
 

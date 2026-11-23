@@ -127,9 +127,9 @@ Each agent session SHALL have a page inside its batch's Processing that shows th
 
 #### Scenario: One conversation
 
-- **GIVEN** a Research session that read pages, asked a question, received a chat message and resumed after a correction
+- **GIVEN** a Research session that read pages, asked a question, received a chat message and a correction, and was then started fresh
 - **WHEN** its page opens
-- **THEN** the actions, the question card, the message and the agent's reply appear in time order, with "Attempt 2 · resumed because you corrected the top marking" between the attempts.
+- **THEN** the actions, the question card, the message, the agent's reply and the correction (as the operator's input) appear in time order within the first attempt, and a divider marks attempt 2, with its reason only where the retained data records one.
 
 ### Requirement: Session page header and panels
 
@@ -161,7 +161,7 @@ The session page SHALL be reached from the drawer's "Open full session", the Age
 
 - **GIVEN** a session with more entries than one read returns
 - **WHEN** the operator reaches the oldest shown entry and chooses Load older
-- **THEN** the next older entries appear above in order without duplicates, and live entries keep arriving at the bottom.
+- **THEN** the next older entries appear above in order without duplicates, and live entries keep arriving at the bottom with none skipped, even when more than one page arrives between reads.
 
 #### Scenario: Session from another batch or account
 

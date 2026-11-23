@@ -11,7 +11,7 @@ The change touches three layers that already exist. No new service, table or dep
 | Answer | `bench-intake-answer/1` holds one value. A session answer becomes one capture edit (a lot quantity or a note), plus an `answer` inbox item and relying-session notices, in one transaction | `intake-server/src/processing/session-answers.ts`, `contracts/src/sessions.ts` (`SessionInboxItem`) |
 | UI | `QuestionAnswer` is a single field, validated on submit with a generic message. `DrawerAnswers` pins drafts per question and shows disabled option placeholders | `frontend/src/components/processing/QuestionAnswer.tsx`, `DrawerAnswers.tsx` |
 
-Admission does not pin tool input schemas. Only `agents/tools/server.ts` publishes `inputSchema` from the contract. So the `ask` schema can change for `native-agent/2`, `shared-vm-agent/2` and `shared-vm-agent/3` sessions without a profile bump.
+Admission does not pin tool input schemas. Only `agents/tools/server.ts` publishes `inputSchema` from the contract. So the `ask` schema can change for `native-agent/2` and `shared-vm-agent/3` sessions without a profile bump. `shared-vm-agent/2` is retired: the runner settles its attempts as failed before any worker starts, so only its retained history needs to stay readable.
 
 The complexity is moderate. It is a versioned contract with backward-compatible reads, one transactional server path, and a reworked form.
 
@@ -70,12 +70,14 @@ StepValue         = { kind: 'choice', option_id } | { kind: 'choice', other: tex
 1. Validates the answer against the stored `/2` spec: one value per step, kinds matching, option IDs known, and "other" only where allowed.
 2. Applies a quantity edit for the number step if there is one. At most one number step is allowed per question, because a question has one subject, and the handler enforces it. As in `/1`, the edit sets the lot's quantity value; the counted or estimated basis is kept in the stored answer and the inbox item.
 3. Applies one note edit, chained on the revision from step 2, joining `prompt — answer` lines for the choice and text steps, and for a number step answered in words.
-
-The locked capture edit handle (`lockCaptureForEdit` in `capture/repository.ts`) allows one `apply` today and checks it against the revision it locked. It gains an ordered form that applies each edit under the same lock, checks each against the revision the previous one produced, and publishes once. The note must fit the 8192-character capture note limit; a combined note over it is refused as `invalid_answer` naming the step, before any edit.
 4. Records the answer, marks the question answered, and appends one `answer` inbox item. Its payload is `{question_id, answer_id, steps: [{step_id, value}]}`, a new variant of the inbox payload union, and it carries the option ID and label.
 5. Tells relying sessions, as today.
 
-Any refusal rolls back everything. Because the capture lock is held throughout, the capture can't change between the two edits; the rollback test injects a refusal of the second edit. Answers stay idempotent through the existing `answer:<question_id>` key.
+The locked capture edit handle (`lockCaptureForEdit` in `capture/repository.ts`) allows one `apply` today and checks it against the revision it locked. It gains an ordered form that applies each edit under the same lock, checks each against the revision the previous one produced, and publishes once. The note must fit the 8192-character capture note limit; a combined note over it is refused as `invalid_answer` naming the step, before any edit.
+
+Any refusal rolls back everything. Because the capture lock is held throughout, the capture can't change between the two edits; the rollback test injects a refusal of the second edit.
+
+Replay keeps today's two mechanisms. The answer command binds the caller's idempotency key to the exact request payload: a replay with the same bytes returns the first answer, and a different payload under the same key is refused as `payload_conflict`. Separately, `answer:<question_id>` deduplicates the inbox item. A second submission from the other surface with a new key finds the question answered and gets `stale_question`.
 
 Rejected: changing `CaptureEdit` to carry several changes. That is a wider contract change for no gain, since sequential edits in one transaction are already atomic.
 
@@ -97,7 +99,8 @@ Rejected: changing `CaptureEdit` to carry several changes. That is a wider contr
 
 ### A server-built history view, shared by the drawer and the page
 
-- **Read:** `readSessionTimeline` becomes `readSessionHistory(batchId, jobId, {before?, limit})`. It returns `SessionHistoryEntry[]` newest first, with a `before` cursor and `truncated`. The per-stream 500-entry read is replaced by merged pages of 200.
+- **Read:** `readSessionTimeline` becomes `readSessionHistory(batchId, jobId, {before?, after?, limit})`. It returns `SessionHistoryEntry[]` newest first, with `before` and `after` cursors and `truncated`.
+- **Session metadata:** the same scoped read returns the session's header data: each attempt's number, state and start and end times, the agent selection and model, where it ran and its sealed web setting from the attempt's input manifest. The page header doesn't wait for the Agents read. The per-stream 500-entry read is replaced by merged pages of 200.
 - **Identity and order:** outbox sequences restart with each attempt and inbox sequences run per job, so a sequence alone is ambiguous. Each entry's ID is its stream, owning attempt (outbox only) and sequence. The cursor orders by `created_at`, then stream, attempt and sequence, so equal timestamps and repeated sequences across retries page without gaps or duplicates.
 - **Entry:** each `SessionHistoryEntry` holds:
   - `kind` (status, observation, lot, regroup, proposal, question, answer, instruction, evidence, revision, photo_view, web_read, failure);
@@ -122,7 +125,7 @@ Rejected: changing `CaptureEdit` to carry several changes. That is a wider contr
 
 ### Photo views are outbox items
 
-- **Recording:** `fetchEvidenceImage` ends with a final transaction that checks removal and the capability, then charges the in-memory image budget after it. The budget check and reservation move before that transaction, and the transaction appends an outbox item `photo_view` holding `{evidence_id, version_id, page, region?, delivered: {width, height, media_type, sha256}}`: metadata only, never image bytes. If the transaction refuses or fails, the reservation is released and no image is returned. A view therefore attests that the image was handed to the tool response, not that the provider read it.
+- **Recording:** `fetchEvidenceImage` ends with a final transaction that checks removal and the capability, then charges the in-memory image budget after it. The budget check and reservation move before that transaction, and the transaction appends an outbox item `photo_view` holding `{evidence_id, version_id, page, region?, delivered: {width, height, media_type, sha256}}`: metadata only, never image bytes. The same transaction publishes `session_changed`, as status and reply items do, so a photo-only fetch reaches open drawers and pages. If the transaction refuses or fails, the reservation is released and no image is returned. A view therefore attests that the image was handed to the tool response, not that the provider read it.
 - **Migration:** the outbox `kind` check (migration 0018) doesn't allow `photo_view`, so a migration extends it.
 - **Showing the crop:** the only crop route today serves observations (`/api/v1/batches/:batchId/media/observations/:resourceId/crop`). A new route, `GET /api/v1/batches/:batchId/processing/sessions/:jobId/photo-views/:attemptId/:seq/crop`, recuts the recorded region from the same page preview with `media/region-crops.ts` and bounds it as the handler did. The delivered image was re-encoded once more, so the result is a reconstruction: the page shows the recorded delivered size and digest beside it and doesn't claim the bytes match. It returns 404 when the version was removed, and its scope is the same as the history read.
 - A refused or budget-exceeded fetch appends nothing.
@@ -151,7 +154,7 @@ Rejected: changing `CaptureEdit` to carry several changes. That is a wider contr
 - **Message box:** at the bottom; it posts to the existing inbox submission route with an idempotency key. The drawer and the page share the draft-pinning rules, so an answer saved in one shows the other's draft as superseded.
 - **Rejected:** option A, a timeline by attempt with chat and answering only in the drawer. These agents mostly act, but Mitch preferred one story in one place; A's filters and attempt dividers are kept.
 - The route is `/batches/:id/processing/:step/sessions/:jobId`: a new `{tab: 'processing', step, sessionJobId}` route variant, parsed and built by `batch-route.ts`. The drawer's `?session=` query stays for the drawer.
-- **Reuse:** the page uses the batch header, the history renderer, `QuestionAnswer`, `SessionFailureDetails` and the debug panel. It updates live on the same `processing_changed` events as the drawer, re-reading the newest page and keeping older pages already loaded.
+- **Reuse:** the page uses the batch header, the history renderer, `QuestionAnswer`, `SessionFailureDetails` and the debug panel. It updates through the same scoped live invalidation as the drawer, which reacts to `session_changed` and `processing_changed`, with polling as the fallback. A refresh reads forward from the newest loaded entry with an `after` cursor, page by page until it catches up, so no entries are skipped when more than one page arrives between reads; older pages already loaded are kept.
 - **Scope:** a job outside the batch or the caller's account gets the existing `session_not_found`.
 
 ### Stage counts and bar states
@@ -159,7 +162,7 @@ Rejected: changing `CaptureEdit` to carry several changes. That is a wider contr
 - **Counts:**
   - The header read's `stepJobs` gains `waiting` (jobs waiting for the operator), `queued` and `questions`.
   - The attention read's `stepWork` gains `waiting` and `queued`.
-  - Both gain the batch's live `lots`. It is Examine's "lots formed" and the denominator of the other stages' "N of M lots"; the numerator is the stage's ready jobs.
+  - Both gain the batch's live `lots` and, per step, `ready_lots`: distinct live lots with a ready job at that step. Part jobs, which `countSteps` also counts, don't add to `ready_lots`. `lots` is Examine's "lots formed"; Research, Images and Inventory read "`ready_lots` of `lots` lots".
   - Each batch step entry gains `paused`, from `agents/pause.ts`.
   - All are counted in the same queries as the existing counts, in `header/processing.ts` and the attention read.
 - **States:** `SegmentState` becomes `done | working | waiting_for_you | paused | queued | not_started | failed`. `processingSegments` derives it in this order:
@@ -168,10 +171,10 @@ Rejected: changing `CaptureEdit` to carry several changes. That is a wider contr
   3. working, when `running > 0`;
   4. waiting for you;
   5. queued;
-  6. done, when the stage has counted work and all of it is ready: `ready >= lots` with `lots > 0` for Research, Images and Inventory, or the lead job ready for Examine. A stage with no jobs yet is never done;
+  6. done, when `ready_lots >= lots` with `lots > 0` for Research, Images and Inventory, or the lead job ready for Examine. A stage with no jobs yet is never done;
   7. otherwise not started.
 - **Fill:**
-  - The fill is `ready / jobs` when counted. A step in progress without counts tints the whole segment.
+  - The fill is `ready_lots / lots` for Research, Images and Inventory, and Examine's lead job's state for Examine. A step in progress without counts tints the whole segment.
   - `RUNNING_WITHOUT_FRACTION` is removed, so no share is invented (the "Expand work steps" requirement).
   - Each state also has a glyph or pattern, so colour isn't the only cue.
 - **Motion:** only `working` animates, with a moving sheen built from the motion tokens. It is still under `media.reducedMotion`.
@@ -210,7 +213,7 @@ Rejected: changing `CaptureEdit` to carry several changes. That is a wider contr
 | An agent sends the `/1` shape after deploy | Refused as `validation_failed`, with issues showing the `/2` shape, which the agent can correct (correctable validation already exists) |
 | Backdrop click while saving (`closeDisabled`) | Ignored |
 | History entry about a retired lot or removed evidence | Details kept from the retained output; the link becomes "Lot retired" / "Photo removed" |
-| Live update while older pages are loaded | The newest page is re-read and merged by entry ID; older entries prepend at the top and new ones append at the bottom, with no duplicates |
+| Live update while older pages are loaded | The page reads forward from its newest entry until caught up and merges by entry ID; older entries prepend at the top and new ones append at the bottom, with no gaps or duplicates |
 | A cited URL that no longer resolves | The link opens it anyway; the app makes no claim about it |
 
 Authority is unchanged. Only the operator's answer route writes capture edits. Agents only create questions.
@@ -238,7 +241,9 @@ Authority is unchanged. Only the operator's answer route writes capture edits. A
 
 ## Migration, rollout and recovery
 
-There is no data migration. `/1` rows stay readable and `/2` rows are new. Deploying the server and the frontend together is enough. A rollback to the earlier build would leave open `/2` questions that the old frontend can't render. Before rolling back, answer or close them; this is recorded in the PR body.
+The only migration is PR-D's, which lets the outbox accept `photo_view`. `/1` rows stay readable and `/2` rows are new. Deploying the server and the frontend together is enough.
+
+Rollback is forward-only once new formats are written. A build before PR-B can't decode retained `/2` question and answer items, and a build before PR-D can't decode `/6` proposals or `photo_view` items, even after every question is closed. Recovery is a fix forward, not a rollback; each PR body says so. PR-B's and PR-D's tests read a database that already holds the new formats with the new build.
 
 ## Risks and open decisions
 

@@ -121,7 +121,7 @@ Compatibility:
 
 - Retained session envelopes with the `/1` ask payload must still decode and stay answerable.
 - Tools and contracts stay app-owned; there is no provider or VM surface change.
-- `shared-vm-agent/3` sessions get the new `ask` schema through the same tool server, so no profile bump is needed. The admission checks compare tool names, not schemas; design confirms this.
+- `native-agent/2` and `shared-vm-agent/3` sessions get the new `ask` schema through the same tool server, so no profile bump is needed. The admission checks compare tool names, not schemas; design confirms this. `shared-vm-agent/2` is retired and keeps only its readable history.
 
 ## Reuse and dependency assessment
 
