@@ -24,7 +24,7 @@ export type SaveState =
 /** What one send of a save established. */
 export type SaveOutcome =
   | { kind: 'confirmed'; settings: AgentSettingsDto }
-  /** Confirmed by its receipt, but the settings it left couldn't be read yet. */
+  /** Confirmed by its receipt; the settings it left are still to be read. */
   | { kind: 'confirmedUnread' }
   | { kind: 'conflict' }
   | { kind: 'unknown' }
@@ -82,7 +82,7 @@ function refusal(caught: unknown): SaveOutcome {
 
 /**
  * Sends one save. A resend of a save that already applied answers with its receipt, not the
- * settings, which later saves may have changed, so the settings are read after it.
+ * settings, which later saves may have changed; its owner reads the settings after it.
  */
 export async function sendSave(
   page: SettingsPage,
@@ -98,13 +98,7 @@ export async function sendSave(
     return { kind: 'confirmed', settings: page.adopt(answer, 'save') }
   }
   page.ownSave(answer.revision)
-  try {
-    const current = await page.client.settings()
-    return { kind: 'confirmed', settings: page.adopt(current, 'reload') }
-  } catch {
-    // Confirmed; only the read is retried, never the save.
-    return { kind: 'confirmedUnread' }
-  }
+  return { kind: 'confirmedUnread' }
 }
 
 /**

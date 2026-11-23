@@ -46,7 +46,11 @@ type SentSave = { request: AgentSettingsUpdateDto; keys: FieldKey[] }
  * confirmed save whose settings are still unread; or a save that failed before it was sent.
  */
 type Unresolved =
-  { kind: 'send'; save: SentSave } | { kind: 'read' } | { kind: 'rebuild'; scope: KeyScope }
+  | { kind: 'send'; save: SentSave }
+  /** Refused before sending, because these fields changed elsewhere. */
+  | { kind: 'refused'; keys: FieldKey[] }
+  | { kind: 'read' }
+  | { kind: 'rebuild'; scope: KeyScope }
 
 /**
  * Why a provider switch was refused: it was the last provider on, or its saved default model is
@@ -133,6 +137,11 @@ export function useSubsectionForm<V extends FieldValues>({
   const providerEdits = useRef(new Set<FieldKey>())
   /** The fields the last text Save covered, kept for its Try again. */
   const textScope = useRef<KeyScope>(EVERY_KEY)
+  /**
+   * The value each text draft was typed over, kept through a retry that moves the form onto a
+   * newer read, so a model changed elsewhere since is still a conflict for its Save.
+   */
+  const draftBase = useRef(new Map<FieldKey, string>())
   /** Counts Reloads, so a recovery that a Reload superseded settles nothing. */
   const recovery = useRef(0)
   // Held from a press of Save until it settles, so validation can't let a second press through.
@@ -187,6 +196,7 @@ export function useSubsectionForm<V extends FieldValues>({
     showValues(read(settings))
     touched.current.clear()
     providerEdits.current.clear()
+    draftBase.current.clear()
     shown.current = undefined
     setBase(undefined)
     page.reportDirty(id, false)
@@ -200,6 +210,7 @@ export function useSubsectionForm<V extends FieldValues>({
     for (const key of touchedIn('text')) {
       if (!providerEdits.current.has(key) && providerChanged(draft, fieldsOf(settings), key)) {
         touched.current.delete(key)
+        draftBase.current.delete(key)
       }
     }
     const next = withFields(fieldsOf(settings), draft, touched.current.keys())
@@ -231,6 +242,11 @@ export function useSubsectionForm<V extends FieldValues>({
     const previous = shown.current ?? fieldsOf(start)
     for (const key of keys) {
       if (!sameField(draft, previous, key)) {
+        if (mode === 'auto') {
+          draftBase.current.delete(key)
+        } else if (!draftBase.current.has(key)) {
+          draftBase.current.set(key, JSON.stringify(fieldValue(previous, key)))
+        }
         touched.current.set(key, mode)
         if (mode === 'auto' && providerChanged(draft, previous, key)) {
           providerEdits.current.add(key)
@@ -315,9 +331,15 @@ export function useSubsectionForm<V extends FieldValues>({
       return 'done'
     }
     const expected = expectedRevision(start, newest, page.localSaves)
-    const changedElsewhere = changed.some((key) => !sameField(fieldsOf(start), confirmed, key))
-    if (expected !== newest.revision && changedElsewhere) {
+    const changedElsewhere = changed.some((key) => {
+      const seen = draftBase.current.get(key) ?? JSON.stringify(fieldValue(fieldsOf(start), key))
+      return seen !== JSON.stringify(fieldValue(confirmed, key))
+    })
+    // A text draft keeps the value it was typed over, even after a retry moved the form on.
+    const unseen = mode === 'text' || expected !== newest.revision
+    if (unseen && changedElsewhere) {
       // A change to these fields from elsewhere is a conflict this edit hasn't seen.
+      unresolved.current[mode] = { kind: 'refused', keys: changed }
       channel.setState('conflict')
       report()
       return 'hold'
@@ -461,12 +483,11 @@ export function useSubsectionForm<V extends FieldValues>({
         return 'done'
       }
       case 'confirmedUnread':
-        // Confirmed by its receipt; only the settings it left are still to be read.
+        // Confirmed by its receipt; only the settings it left are still to be read, and a failed
+        // read retries only the read.
         acknowledge(mode, save, baseRef.current ?? loaded)
         unresolved.current[mode] = { kind: 'read' }
-        scheduleResend(mode, attempt)
-        report()
-        return 'hold'
+        return readAfterConfirmed(mode, attempt)
       case 'invalid':
         unresolved.current[mode] = undefined
         report()
@@ -484,12 +505,24 @@ export function useSubsectionForm<V extends FieldValues>({
     }
   }
 
+  /** The fields an unresolved save covered, when it covered particular ones. */
+  function attemptedKeys(pending: Unresolved | undefined) {
+    if (pending?.kind === 'send') {
+      return pending.save.keys
+    }
+    if (pending?.kind === 'refused') {
+      return pending.keys
+    }
+    return undefined
+  }
+
   /** Only the draft actually sent is acknowledged; a later edit saves again. */
   function acknowledge(mode: SaveMode, save: SentSave, settings: AgentSettingsDto) {
     const draft = draftOver(baseRef.current ?? settings)
     for (const key of save.keys) {
       if (sameField(draft, save.request, key)) {
         touched.current.delete(key)
+        draftBase.current.delete(key)
       }
       if (!providerChanged(draft, save.request, key)) {
         providerEdits.current.delete(key)
@@ -561,6 +594,9 @@ export function useSubsectionForm<V extends FieldValues>({
       case 'rebuild':
         unresolved.current[mode] = undefined
         return guarded(mode, pending.scope)
+      case 'refused':
+        unresolved.current[mode] = undefined
+        return guarded(mode, (key) => pending.keys.includes(key))
     }
   }
 
@@ -615,10 +651,11 @@ export function useSubsectionForm<V extends FieldValues>({
     }
     // A text Save's Reload drops only the fields that save sent.
     const pending = unresolved.current[mode]
-    const sent = pending?.kind === 'send' ? pending.save.keys : touchedIn(mode)
+    const sent = attemptedKeys(pending) ?? touchedIn(mode)
     for (const key of mode === 'auto' ? touchedIn('auto') : sent) {
       touched.current.delete(key)
       providerEdits.current.delete(key)
+      draftBase.current.delete(key)
     }
     unresolved.current[mode] = undefined
     if (mode === 'auto') {
@@ -652,6 +689,8 @@ export function useSubsectionForm<V extends FieldValues>({
         return
       }
       textScope.current = scope
+      // A provider change still in its pause goes first, so the model saves over it.
+      page.queue.sendNow(owners.auto)
       await page.queue.run(owners.text, () => guarded('text', scope))
     })().finally(() => {
       pendingText.current = false
@@ -666,8 +705,21 @@ export function useSubsectionForm<V extends FieldValues>({
     if (text.busy) {
       return
     }
-    for (const key of touchedIn('text').filter(scope)) {
+    const draft = draftOver(baseRef.current ?? loaded)
+    const discarded = touchedIn('text').filter(scope)
+    // A step's provider chosen here stays chosen, on its saved default model, for its autosave.
+    const keptProviders = discarded.filter((key) => providerEdits.current.has(key))
+    for (const key of discarded) {
       touched.current.delete(key)
+      draftBase.current.delete(key)
+    }
+    for (const key of keptProviders) {
+      touched.current.set(key, 'auto')
+    }
+    if (keptProviders.length > 0) {
+      const next = withStepProviderDefaults(draft, keptProviders)
+      showValues(read({ ...next, revision: (baseRef.current ?? loaded).revision }))
+      shown.current = next
     }
     unresolved.current.text = undefined
     text.setState('idle')

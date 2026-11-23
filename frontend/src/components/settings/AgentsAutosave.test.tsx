@@ -591,12 +591,11 @@ describe('round 2 regressions', () => {
 
     let answer: (settings: AgentSettingsDto) => void = () => {}
 
-    server.client.settings
-      .mockRejectedValueOnce(new TypeError('network_failed'))
-      .mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)))
-    // The resend's receipt confirms it; its read fails, and the read alone is tried again.
+    server.client.settings.mockImplementationOnce(
+      () => new Promise((resolve) => (answer = resolve)),
+    )
+    // The resend's receipt confirms it; its first read is still out when the page is left.
     await wait(1000)
-    await wait(2000)
     expect(within(heading('Tag suggestions')).getByRole('status')).toHaveTextContent('Reloading…')
     unmount()
     const before = reports.length
@@ -638,6 +637,109 @@ describe('round 2 regressions', () => {
     expect(within(heading('Tag suggestions')).getByRole('alert')).toHaveTextContent(
       'Couldn’t confirm this change',
     )
+  })
+})
+
+describe('round 3 fixes', () => {
+  function chooseResearch(provider: string) {
+    fireEvent.change(
+      within(screen.getByRole('group', { name: 'Research' })).getByRole('combobox', {
+        name: 'Research provider',
+      }),
+      { target: { value: provider } },
+    )
+  }
+
+  function researchModel() {
+    return within(screen.getByRole('group', { name: 'Research' })).getByRole('combobox', {
+      name: 'Research model',
+    })
+  }
+
+  test('discarding a typed step model keeps the provider chosen in the same pause', async () => {
+    const { server } = await renderAgents(bothOn)
+    chooseResearch('codex')
+    fireEvent.change(researchModel(), { target: { value: 'gpt-6-luna' } })
+    fireEvent.click(
+      within(heading('Provider and model per step')).getByRole('button', {
+        name: 'Discard my edit',
+      }),
+    )
+    await wait(600)
+    expect(server.saved.stage_selections).toEqual({
+      research: { provider: 'codex', model: 'gpt-6.1-sol' },
+    })
+  })
+
+  test('saving a typed step model sends the provider chosen in the same pause first', async () => {
+    const { server } = await renderAgents(bothOn)
+    chooseResearch('codex')
+    fireEvent.change(researchModel(), { target: { value: 'gpt-6-luna' } })
+    fireEvent.click(
+      within(heading('Provider and model per step')).getByRole('button', { name: 'Save' }),
+    )
+    await wait()
+    expect(server.sent().map((request) => request.stage_selections.research)).toEqual([
+      { provider: 'codex', model: 'gpt-6.1-sol' },
+      { provider: 'codex', model: 'gpt-6-luna' },
+    ])
+  })
+
+  test('a sign-in retry leaves a model draft typed over a value changed elsewhere in conflict', async () => {
+    const { server } = await renderAgents(bothOn)
+    const claude = within(screen.getByRole('group', { name: 'Claude' }))
+    fireEvent.change(claude.getByRole('combobox', { name: 'Default model' }), {
+      target: { value: 'sonnet' },
+    })
+    server.otherTab({
+      providers: {
+        ...bothOn.providers,
+        claude: { ...bothOn.providers.claude, default_model: 'haiku' },
+      },
+    })
+    fireEvent.click(claude.getByRole('button', { name: 'API key' }))
+    await wait(600)
+    fireEvent.click(
+      within(heading('Providers')).getByRole('button', { name: 'Try the same save again' }),
+    )
+    await wait()
+    expect(server.saved.providers.claude).toEqual({
+      enabled: true,
+      authentication: 'api_key',
+      default_model: 'haiku',
+    })
+    const sent = server.sent().length
+    fireEvent.click(within(heading('Providers')).getByRole('button', { name: 'Save' }))
+    await wait()
+    expect(server.sent()).toHaveLength(sent)
+    expect(within(heading('Providers')).getByRole('alert')).toHaveTextContent(
+      /changed in another tab/,
+    )
+  })
+
+  test("Reload after a refused model Save keeps the other subsection's draft", async () => {
+    const { server } = await renderAgents({
+      ...bothOn,
+      stage_selections: { research: { provider: 'codex', model: 'gpt-6.1-sol' } },
+    })
+    fireEvent.change(researchModel(), { target: { value: 'gpt-6-luna' } })
+    fireEvent.change(
+      within(screen.getByRole('group', { name: 'Claude' })).getByRole('combobox', {
+        name: 'Default model',
+      }),
+      { target: { value: 'sonnet' } },
+    )
+    server.otherTab({
+      providers: {
+        ...bothOn.providers,
+        claude: { ...bothOn.providers.claude, default_model: 'haiku' },
+      },
+    })
+    fireEvent.click(within(heading('Providers')).getByRole('button', { name: 'Save' }))
+    await wait()
+    fireEvent.click(within(heading('Providers')).getByRole('button', { name: 'Reload' }))
+    await wait()
+    expect(researchModel()).toHaveValue('gpt-6-luna')
   })
 })
 

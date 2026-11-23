@@ -126,6 +126,15 @@ export function createSaveQueue() {
       timers.set(owner, { timer, job })
     },
 
+    /** Queues `owner`'s scheduled save now, ahead of anything queued after this call. */
+    sendNow(owner: string) {
+      const scheduled = timers.get(owner)
+      if (scheduled) {
+        cancelTimer(owner)
+        void run(owner, scheduled.job)
+      }
+    },
+
     /** Forgets a scheduled save that hasn't been queued yet. */
     cancel: cancelTimer,
 

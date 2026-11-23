@@ -69,8 +69,12 @@ export function useNavigationGuard() {
       void save().then((saved) => {
         const destination = leaving.current
         leaving.current = undefined
+        if (!destination) {
+          // The departure was dropped while its save ran; its outcome shows on the page.
+          return
+        }
         if (saved && !dirty.current) {
-          destination?.()
+          destination()
         } else {
           setNavigationBlocked(true)
         }
@@ -80,8 +84,11 @@ export function useNavigationGuard() {
     function acceptRoute() {
       const next = location.hash.slice(1)
       if (dirty.current && withinAgentsPage(accepted.current.route, next)) {
-        // Staying on the page drops a departure still waiting for its save.
-        leaving.current = undefined
+        // Moving to another subsection drops a departure still waiting for its save; the
+        // restored entry of that departure itself is not a move.
+        if (next !== accepted.current.route) {
+          leaving.current = undefined
+        }
         // The drafts stay mounted; the guard now protects this subsection's URL.
         protectedUrl.current = location.href
       } else if (dirty.current) {

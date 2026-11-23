@@ -152,3 +152,23 @@ test('moving to another Agents subsection drops a departure waiting for the save
   await settle()
   expect(location.hash).toBe('#settings/agents/tags')
 })
+
+test('a departure dropped for a subsection link shows no banner when its save fails', async () => {
+  render(<Page />)
+
+  let finish: () => void = () => {}
+
+  const beforeLeave = vi.fn(
+    () =>
+      new Promise<boolean>((resolve) => {
+        finish = () => resolve(false)
+      }),
+  )
+  act(() => guard.onDirtyChange(true, beforeLeave))
+  fireEvent.click(screen.getByRole('link', { name: 'Batches' }))
+  fireEvent.click(screen.getByRole('link', { name: 'Tag suggestions' }))
+  await settle()
+  finish()
+  await settle()
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+})
