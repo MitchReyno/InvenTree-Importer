@@ -116,7 +116,7 @@ Give each processing agent its own job, the context earlier stages found, and an
 - Change: `agent-stage-inputs-outputs`
 - Status: Proposed — plan in review.
 - Size: XL — a new input version and typed outputs, an app Match step with its own questions, identity amendments, media decoder ports, records and approval effects, and multi-lot sessions with their caps, and a new profile with a live requalification, in eleven PRs after the plan.
-- Prerequisites: BI-019 (`improve-agent-interaction`) PR-B, PR-D1, PR-E and PR-G (for multi-lot session rows); coordinate session instruction edits with BI-017. The live requalification needs Mitch's go-ahead.
+- Prerequisites: BI-019 (`improve-agent-interaction`) PR-B, PR-D1, PR-E, PR-F (the popover's Match row, before activation) and PR-G (for multi-lot session rows); coordinate session instruction edits with BI-017. The live requalification needs Mitch's go-ahead.
 - OpenSpec: [agent-stage-inputs-outputs](../openspec/changes/agent-stage-inputs-outputs/)
 
 #### BI-017 — Simple web access and setup for VM agents
