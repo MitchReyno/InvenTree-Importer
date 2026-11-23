@@ -38,13 +38,19 @@ The Agents page SHALL list every agent session in authorised scope, grouped by b
 
 ### Requirement: Agents filter rules
 
-Needs attention SHALL list the sessions whose current attempt failed, was interrupted, can't resume, waits for sign-in or waits for an answer. Done today SHALL list the sessions whose current attempt ended, by when it ended rather than when it last ran, within the operator's local day. The server SHALL apply both to the rows and to the chip counts.
+Needs attention SHALL list the sessions whose current attempt failed, was interrupted, can't resume, waits for sign-in or waits for an answer. Working SHALL list the sessions whose current attempt is running; a stopped attempt still holding a slot counts only in the slot total. Done today SHALL list the sessions whose current attempt ended within the operator's local day, by its recorded end rather than when it last ran. The server SHALL apply both to the rows and to the chip counts.
 
 #### Scenario: Waiting for sign-in needs attention
 
 - **GIVEN** a Research session whose current attempt waits for the provider's sign-in
 - **WHEN** the Agents page opens
 - **THEN** it is listed and counted under Needs attention.
+
+#### Scenario: Stopped attempt still holding a slot
+
+- **GIVEN** a session whose current attempt was cancelled and still holds its slot until its worker is reaped
+- **WHEN** the operator views the chips
+- **THEN** Working neither lists nor counts it, and the slot total still counts the slot.
 
 #### Scenario: Cancelled today after settling yesterday
 
