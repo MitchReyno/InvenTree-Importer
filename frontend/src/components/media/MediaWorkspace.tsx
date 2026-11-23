@@ -8,7 +8,8 @@ import type {
   MediaVersionDto,
   OperatorReviewDto,
 } from '@invimport/contracts'
-import { Paragraph, Small, Banner, Toast, Button, HelpButton } from '#/components/ui'
+import { Paragraph, Small, Banner, Toast, Button, HelpButton, ReadState } from '#/components/ui'
+import { EvidenceSkeleton } from './EvidenceSkeleton'
 import { Label, Select } from '#/forms'
 import type { MediaClient } from '#/media/types'
 import { useEvidenceWorkspace } from '#/media/useEvidenceWorkspace'
@@ -532,7 +533,12 @@ export function MediaWorkspace({
           Refresh
         </Button>
       </LabelRow>
-      {state.unavailable && (
+      {!snapshot && !state.readFailed && (
+        <ReadState phase="empty" skeleton={<EvidenceSkeleton />}>
+          {null}
+        </ReadState>
+      )}
+      {state.readFailed && (
         <div role="alert">
           <Banner tone="warn">
             Current saved media could not be confirmed. Local file, selection and crop inputs are

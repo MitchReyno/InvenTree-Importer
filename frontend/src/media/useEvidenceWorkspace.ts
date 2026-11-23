@@ -51,7 +51,8 @@ export function useEvidenceWorkspace(
   const command = useRetainedCommand((input: MediaEditDto, requestKey: string) =>
     client.edit(batchId, input, requestKey),
   )
-  const unavailable = query.isError || query.fetchStatus === 'paused' || !query.isFetchedAfterMount
+  const readFailed = query.isError || query.fetchStatus === 'paused'
+  const unavailable = readFailed || !query.isFetchedAfterMount
   // The sources live in a ref, so whether any draft is dirty is what reruns the adoption below.
   const { dirty: anyDraft, hasOtherSources } = drafts
 
@@ -252,6 +253,8 @@ export function useEvidenceWorkspace(
     snapshot,
     query,
     unavailable,
+    /** The read failed or paused; until the first read lands commands wait without saying so. */
+    readFailed,
     drafts,
     error,
     setError,
