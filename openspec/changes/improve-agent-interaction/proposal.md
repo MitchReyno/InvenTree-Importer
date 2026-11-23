@@ -175,6 +175,10 @@ None.
 - **Prerequisites:** none.
 - **Coordination with `polish-ui-styling-and-loading`:** that change owns the shared state words (S7: Working, Waiting for you, Queued, Paused, Done, Failed, Not started) and the time format (S5: "Today 13:35"). This change uses both, through the shared `WorkState`, `StatePill` and `EventTime` components in `frontend/src/components/ui`; whichever change lands first defines them. If polish hasn't merged when PR-F starts, PR-F adds them with polish's words and format, and PR-G and PR-H wait for PR-F or polish. Polish also modifies processing-workspace's "Processing overview" requirement and adds "Step pages count their own step" and header-workflow-status's "The summary names what needs attention"; this change leaves those alone. Both changes edit `ProcessingWorkspace.tsx`, so whichever merges second rebases. Coordinate any `session-runner.ts` prompt edit with `simplify-vm-agent-web-and-setup`, which is still open.
 
+## Delivery and parallel work
+
+The work is seven PRs after the plan. Tasks › "Parallel work" sets out exactly which can be built at the same time: PR-A, PR-B and PR-F together first, then PR-D, PR-E, PR-G and PR-H one after another, a critical path of five. It also proposes four re-carvings (photo views split out of PR-D; the session-level Agents read split from its session-page links; the message box split out of PR-H; PR-E stacked on PR-D) that would shorten the critical path to four and allow up to five PRs at once. The first of them also lets BI-022 start sooner. They are flagged for Mitch's decision and not yet applied.
+
 ## Open decisions and assumptions
 
 Decided by Mitch on 2026-11-23:

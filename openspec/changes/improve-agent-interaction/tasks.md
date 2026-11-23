@@ -45,6 +45,34 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 | PR-H | Drawer header, recent activity in the app's words, the labelled message box and readable status lines | 11 | Builds on the history read, the session page and the session-level read | PR-D, PR-E and PR-G merged, and PR-F or polish merged for the shared components | `feat/improve-agent-interaction-session-details`; `feat(improve-agent-interaction): clearer session header, activity and message box` | Contracts tests, intake unit and PG tiers for the batch activity read and the instruction text, frontend checks; demo video; review; CI |
 | PR-F | Per-stage counts and the paused flag, stage rows in the activity popover and the new bar states; the shared `WorkState`, `StatePill` and `EventTime` components if `polish-ui-styling-and-loading` hasn't merged first | 8, 9 | Independent of questions and history, small enough to review end to end | PR-0; whichever of PR-F and polish merges second reuses the other's shared components | `feat/improve-agent-interaction-activity-stages`; `feat(improve-agent-interaction): show each stage's state and counts in the activity popover` | Contracts tests, intake PG tier, frontend checks; demo video; review; CI |
 
+## Parallel work
+
+How the PR map above lets work run at the same time. A PR can start once every PR it depends on has merged; PRs in the same wave share no dependency on each other and can be built by separate people or agents at once.
+
+| Wave | Can run in parallel | Waits for |
+| --- | --- | --- |
+| 1 | PR-A · PR-B · PR-F | PR-0 (all three); PR-F coordinates its shared components with `polish-ui-styling-and-loading` |
+| 2 | PR-D | PR-B |
+| 3 | PR-E | PR-B and PR-D |
+| 4 | PR-G | PR-E; PR-F or polish for the shared components |
+| 5 | PR-H | PR-D, PR-E and PR-G; PR-F or polish |
+
+- **Critical path:** PR-B → PR-D → PR-E → PR-G → PR-H, five PRs in sequence. PR-A and PR-F have slack and can be done any time after PR-0.
+- **Most parallel moment:** wave 1, three PRs. After it, only one PR is ready at a time.
+- **Conflicts to expect between parallel PRs:** PR-B and PR-F both change the Processing read the frontend uses (questions and step counts), and both touch `ProcessingWorkspace.tsx`, which `polish-ui-styling-and-loading` also edits; whichever merges later rebases.
+- **Effect on BI-022:** `agent-stage-inputs-outputs` waits for this change's PR-B (stepped questions), PR-D (`photo_view`), PR-E (session page) and PR-G (session rows). PR-D is therefore on BI-022's critical path too.
+
+### Re-carving that would allow more parallel work (proposed, not applied)
+
+These are suggestions for Mitch; the map above is unchanged until one is agreed.
+
+1. **Split PR-D into photo views and the history read.** Task 5 (recorded photo views and agent-reported web sources) has no prerequisites, but rides in PR-D, which waits for PR-B. As **PR-D1** it can run in wave 1. **PR-D2** keeps task 6 (the history read and crop route) after PR-B. This also unblocks BI-022 sooner: BI-022's PR-A and PR-B need only the `photo_view` record, so they could wait for PR-D1 instead of the whole history read. Cost: one more PR and a migration landing before its main reader.
+2. **Split PR-G into the session-level read and the session-page links.** Task 10's server read, failures in plain words, recovery actions, row grouping and Agents filters don't need the session page; only the row title opening the session page does. **PR-G1** could run in wave 2, once PR-F or polish provides the shared state words; the link (**PR-G2**) folds into PR-E or follows it. That takes PR-G off the critical path. Cost: the Agents rows link to the drawer until PR-E lands.
+3. **Split PR-H into the message box and the rest.** The labelled message box and the status-line instruction sentence (O6 and part of task 11) depend on nothing else in this change. **PR-H1** could run in wave 1; the drawer header and recent activity (**PR-H2**) still need the history read, the session page and the session-level read. Cost: one more small PR.
+4. **Stack PR-E on PR-D.** PR-E's renderer and page can be built against PR-D's contract as soon as that contract is settled, on a branch stacked on PR-D, and merged straight after it. This shortens wall-clock time without changing the merge order. Cost: rebasing PR-E if PR-D's contract changes in review.
+
+With all four applied, the waves would be: 1 — PR-A, PR-B, PR-D1, PR-F, PR-H1; 2 — PR-D2, PR-G1; 3 — PR-E (built on a stack during wave 2, with PR-G2's link); 4 — PR-H2. The critical path drops from five PRs to four (PR-B → PR-D2 → PR-E → PR-H2), and up to five PRs can be in progress at once instead of three.
+
 ## 1. Dialogs close from their backdrop
 
 - **PR delivery:** PR-A.
