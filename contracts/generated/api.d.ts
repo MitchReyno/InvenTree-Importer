@@ -1261,13 +1261,13 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description AgentSettings */
+                /** @description AgentSettingsSaveResult */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["AgentSettings"];
+                        "application/json": components["schemas"]["AgentSettingsSaveResult"];
                     };
                 };
                 /** @description ErrorDto */
@@ -18476,6 +18476,7 @@ export interface components {
         AgentSettingsUpdate: {
             /** Format: int64 */
             expected_revision: string;
+            save_id: string;
             providers: {
                 claude: {
                     enabled: boolean;
@@ -18515,6 +18516,62 @@ export interface components {
                 public_pages: boolean;
                 prefer_datasheets: boolean;
             };
+        };
+        AgentSettingsSaveReplay: {
+            save_id: string;
+            /** Format: int64 */
+            revision: string;
+            /** @constant */
+            replayed: true;
+        };
+        AgentSettingsSaveResult: {
+            /** Format: int64 */
+            revision: string;
+            providers: {
+                claude: {
+                    enabled: boolean;
+                    authentication: "api_key" | "subscription";
+                    default_model: string;
+                };
+                codex: {
+                    enabled: boolean;
+                    authentication: "api_key" | "subscription";
+                    default_model: string;
+                };
+            };
+            default_provider: ("codex" | "claude") | null;
+            stage_selections: {
+                examine?: {
+                    provider: "codex" | "claude";
+                    model: string;
+                };
+                research?: {
+                    provider: "codex" | "claude";
+                    model: string;
+                };
+                images?: {
+                    provider: "codex" | "claude";
+                    model: string;
+                };
+                inventory?: {
+                    provider: "codex" | "claude";
+                    model: string;
+                };
+            };
+            session_concurrency: number;
+            new_batch_instructions: string;
+            part_description_style: string;
+            auto_tags_default: boolean;
+            web: {
+                public_pages: boolean;
+                prefer_datasheets: boolean;
+            };
+        } | {
+            save_id: string;
+            /** Format: int64 */
+            revision: string;
+            /** @constant */
+            replayed: true;
         };
         AgentProviderSettings: {
             enabled: boolean;
@@ -20507,6 +20564,8 @@ export type NativeAgentResult = components['schemas']['NativeAgentResult']
 export type AgentSelection = components['schemas']['AgentSelection']
 export type AgentSettings = components['schemas']['AgentSettings']
 export type AgentSettingsUpdate = components['schemas']['AgentSettingsUpdate']
+export type AgentSettingsSaveReplay = components['schemas']['AgentSettingsSaveReplay']
+export type AgentSettingsSaveResult = components['schemas']['AgentSettingsSaveResult']
 export type AgentProviderSettings = components['schemas']['AgentProviderSettings']
 export type AgentStageSelection = components['schemas']['AgentStageSelection']
 export type AgentSessionList = components['schemas']['AgentSessionList']

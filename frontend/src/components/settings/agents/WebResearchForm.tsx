@@ -1,18 +1,24 @@
-import styled from 'styled-components'
 import type { AgentSettingsDto } from '@invimport/contracts'
-import { Button, SettingRow, type DisabledControlProps } from '#/components/ui'
+import { SettingRow, type DisabledControlProps } from '#/components/ui'
 import { CheckboxLabel } from '#/forms'
-import { space } from '#/theme/generated/tokens'
 import { SettingsCard } from '#/components/settings/SettingsCard'
-import { SaveBar } from './SaveBar'
+import { AgentAutosaveStatus } from './AgentAutosaveStatus'
+import { AgentSubsection } from './AgentSubsection'
+import type { FieldKey } from './settings-fields'
 import { Stack } from './Stack'
 import { useSubsectionForm, type SubsectionFormProps } from './useSubsectionForm'
 
 type Values = { publicPages: boolean; datasheets: boolean }
 
+const KEYS: readonly FieldKey[] = ['web.public_pages', 'web.prefer_datasheets']
+
 const read = (settings: AgentSettingsDto): Values => ({
   publicPages: settings.web.public_pages,
   datasheets: settings.web.prefer_datasheets,
+})
+
+const write = ({ publicPages, datasheets }: Values) => ({
+  web: { public_pages: publicPages, prefer_datasheets: datasheets },
 })
 
 const HELP =
@@ -29,22 +35,27 @@ type Props = SubsectionFormProps & {
   web: 'available' | 'unavailable' | undefined
 }
 
-/** Settings › Agents › Web research: public pages and the datasheet preference, saved together. */
+/** Settings › Agents › Web research: public pages and the datasheet preference, each saving as it changes. */
 export function WebResearchForm({ web, ...props }: Props) {
-  const { form, state, busy, waiting, dirty, markDirty, save, reload, discard } = useSubsectionForm(
-    {
-      ...props,
-      id: 'research',
-      read,
-      write: ({ publicPages, datasheets }) => ({
-        web: { public_pages: publicPages, prefer_datasheets: datasheets },
-      }),
-    },
+  const { form, markEdited, autosave } = useSubsectionForm({
+    ...props,
+    id: 'research',
+    read,
+    write,
+    keys: KEYS,
+  })
+  const status = (
+    <AgentAutosaveStatus
+      label="Web research"
+      state={autosave.state}
+      revision={autosave.revision}
+      onRetry={autosave.retry}
+      onReload={autosave.reload}
+    />
   )
 
   if (web === 'unavailable') {
-    // Disabled, they show what is saved, never a draft; a draft made before readiness answered
-    // can still be dropped.
+    // Disabled, they show what is saved; a change made before readiness answered saves as usual.
     const saved = props.loaded.web
 
     const box = (label: string, checked: boolean, control: DisabledControlProps) => (
@@ -55,68 +66,48 @@ export function WebResearchForm({ web, ...props }: Props) {
     )
 
     return (
-      <SettingsCard aria-label="Web research">
-        <SettingRow
-          label="Web research"
-          help={HELP}
-          disabledReason={NO_WEB}
-          disabledBadge="Not for this profile"
-        >
-          {({ disabled }) => (
-            <Stack>
-              {box(PUBLIC_PAGES, saved.public_pages, disabled)}
-              {box(DATASHEETS, saved.prefer_datasheets, disabled)}
-            </Stack>
-          )}
-        </SettingRow>
-        {/* Outside the disabled row, which refuses every press within it. */}
-        {dirty && (
-          <Discard>
-            <Button type="button" variant="ghost" onClick={() => discard()}>
-              Discard my edit
-            </Button>
-          </Discard>
-        )}
-      </SettingsCard>
+      <AgentSubsection id="research" status={status}>
+        <SettingsCard aria-label="Web research">
+          <SettingRow
+            label="Web research"
+            help={HELP}
+            disabledReason={NO_WEB}
+            disabledBadge="Not for this profile"
+          >
+            {({ disabled }) => (
+              <Stack>
+                {box(PUBLIC_PAGES, saved.public_pages, disabled)}
+                {box(DATASHEETS, saved.prefer_datasheets, disabled)}
+              </Stack>
+            )}
+          </SettingRow>
+        </SettingsCard>
+      </AgentSubsection>
     )
   }
 
   return (
-    <SettingsCard aria-label="Web research">
-      <SettingRow label="Web research" help={HELP}>
-        <Stack>
-          <CheckboxLabel>
-            <input
-              type="checkbox"
-              disabled={busy}
-              {...form.register('publicPages', { onChange: markDirty })}
-            />
-            {PUBLIC_PAGES}
-          </CheckboxLabel>
-          <CheckboxLabel>
-            <input
-              type="checkbox"
-              disabled={busy}
-              {...form.register('datasheets', { onChange: markDirty })}
-            />
-            {DATASHEETS}
-          </CheckboxLabel>
-          <SaveBar
-            state={state}
-            busy={busy}
-            waiting={waiting}
-            savedMessage="Saved. Sessions queued from now on use this; queued and running sessions keep theirs."
-            onSave={save}
-            onReload={reload}
-            onDiscard={discard}
-            dirty={dirty}
-          />
-        </Stack>
-      </SettingRow>
-    </SettingsCard>
+    <AgentSubsection id="research" status={status}>
+      <SettingsCard aria-label="Web research">
+        <SettingRow label="Web research" help={HELP}>
+          <Stack>
+            <CheckboxLabel>
+              <input
+                type="checkbox"
+                {...form.register('publicPages', { onChange: () => markEdited('auto') })}
+              />
+              {PUBLIC_PAGES}
+            </CheckboxLabel>
+            <CheckboxLabel>
+              <input
+                type="checkbox"
+                {...form.register('datasheets', { onChange: () => markEdited('auto') })}
+              />
+              {DATASHEETS}
+            </CheckboxLabel>
+          </Stack>
+        </SettingRow>
+      </SettingsCard>
+    </AgentSubsection>
   )
 }
-
-const Discard = styled.div`
-  padding: 0 ${space[8]} ${space[8]};
-`

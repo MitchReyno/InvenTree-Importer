@@ -5,6 +5,7 @@ import { mkdtemp, readFile, writeFile, mkdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
+import { randomUUID } from 'node:crypto'
 import type { AgentSelectionDto } from '@invimport/contracts'
 import { validate } from '@invimport/contracts'
 import { agentEnvironment, nativeAgentHost } from '#/agents/environment.ts'
@@ -155,7 +156,7 @@ test('authentication environment never inherits an application key, provider tok
 test('settings contracts and structured outcomes refuse credentials, missing models and ambiguous results', () => {
   validate('AgentSettings', unsavedAgentSettings())
   const { revision, ...fields } = unsavedAgentSettings()
-  const update = { ...fields, expected_revision: revision }
+  const update = { ...fields, expected_revision: revision, save_id: randomUUID() }
   validate('AgentSettingsUpdate', update)
   assert.throws(() =>
     validate('AgentSettingsUpdate', {
