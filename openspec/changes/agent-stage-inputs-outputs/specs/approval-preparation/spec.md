@@ -52,6 +52,16 @@ Preparation SHALL plan at most one Part image effect per target Part. When selec
 - **WHEN** preparation runs
 - **THEN** it is blocked asking which image RES-0144 gets, and after the choice the plan sets that image once and attaches each lot's stock images to its own stock.
 
+### Requirement: One fill per Part field
+
+Preparation SHALL plan at most one gaps fill per target Part and field. Identical confirmed values from several lots SHALL be coalesced into one fill; different values SHALL block preparation until the operator chooses one.
+
+#### Scenario: Two lots fill one datasheet
+
+- **GIVEN** lots A and B decided as fill what's missing for MCU-0012, each with a different confirmed datasheet
+- **WHEN** preparation runs
+- **THEN** it is blocked asking which datasheet MCU-0012 gets, and when both confirmed the same one, the plan fills it once.
+
 ### Requirement: Existing-Part writes expect an empty field
 
 Each gaps fill SHALL carry the value it expects to be missing, and an existing Part's image effect SHALL expect the Part to have no image. The executor SHALL re-read the field or image just before the write and refuse the effect as a conflict when it is no longer empty. InvenTree has no conditional update, so a competing write between that re-read and the write MAY still be overwritten; the effect SHALL state this window.

@@ -22,7 +22,7 @@ Match SHALL search InvenTree (Parts, manufacturer Parts, supplier Parts and stoc
 
 ### Requirement: Import reference lookup
 
-When a lot's identity becomes stable, before any identify-mode Research, Match SHALL look up its generated import reference (`bi1:<source>:<contribution>`) in this app's execution records, which hold the stock each approval created, and confirm each hit with a stock read by PK. The import reference SHALL detect duplicates only, and SHALL NOT count as a strong identity key. A hit SHALL open the match question and hold Research and Images.
+When a lot's identity becomes stable, before any identify-mode Research, Match SHALL look up its generated import reference (`bi1:<source>:<contribution>`) in this app's retained approvals of that original contribution, which decide the hit whatever became of its stock. A stock read by PK SHALL report the status of any known output. The import reference SHALL detect duplicates only, and SHALL NOT count as a strong identity key. A hit SHALL open the match question and hold Research and Images.
 
 #### Scenario: Stock this app created
 
@@ -30,11 +30,11 @@ When a lot's identity becomes stable, before any identify-mode Research, Match S
 - **WHEN** its identity becomes stable
 - **THEN** Match records an original-contribution hit and opens its question, and identify-mode Research doesn't start.
 
-#### Scenario: Uncertain earlier create
+#### Scenario: Approved but no stock now
 
-- **GIVEN** a lot whose import reference has a stock create with an uncertain outcome
-- **WHEN** Match or pass 3 looks it up
-- **THEN** the lookup is reported as unavailable, and pass 3 blocks the lot.
+- **GIVEN** a lot whose original contribution was approved, and whose stock was never created, is uncertain, or was later deleted
+- **WHEN** Match looks it up
+- **THEN** it is still an original-contribution hit that links the earlier run and reports its stock status, and no stage runs for the lot.
 
 ### Requirement: Original-contribution hits
 
