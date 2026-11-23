@@ -128,7 +128,7 @@ export function ActivityPopover({
             batch={batch}
             title={title(batch)}
             jobs={processing.filter((item) => item.batch_id === batch)}
-            attention={batch === batchId ? attention : undefined}
+            attention={ownCounts}
             counts={counts}
             paused={batchPaused(data, batch, counts)}
             sessions={sessionsOf(batch)}
@@ -202,7 +202,11 @@ function ProcessingJob({
   resumeUnavailable?: string
 }) {
   const steps = processingSegments(jobs, counts, paused, sessions)
-  const questions = attention?.processing.questions ?? 0
+  // From the same read as the rows' counts, so the heading never disagrees with them.
+  let questions = attention?.processing.questions ?? 0
+  if (!attention && counts) {
+    questions = PLANNED.reduce((total, stage) => total + counts.steps[stage].questions, 0)
+  }
   let state: WorkState = questions > 0 ? 'waiting_for_you' : batchState(jobs)
   if (questions === 0 && jobs.length === 0) {
     state = sessionsState(sessions)

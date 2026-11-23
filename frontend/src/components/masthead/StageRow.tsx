@@ -32,7 +32,8 @@ export function StageRow({
   sessions: Session[]
 }) {
   const count = stageCountText(stage, counts)
-  const status = stageStatus(stage, sessions)
+  // A finished stage gives its reason: a listed session's line may predate the counts.
+  const status = step.state === 'done' ? undefined : stageStatus(stage, sessions)
 
   return (
     <li>

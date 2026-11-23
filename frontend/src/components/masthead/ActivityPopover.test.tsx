@@ -111,6 +111,8 @@ function workingBatch(overrides: Partial<HeaderWorkDto> = {}): HeaderWorkDto {
 }
 
 type PopoverOptions = {
+  /** Whether the attention read is the newer source of counts; follows `attention` if unset. */
+  countsFromAttention?: boolean
   /** The open batch's capture read hasn't given its title. */
   untitled?: boolean
   fresh?: boolean
@@ -160,7 +162,7 @@ function WithWorkRead({ data, options }: { data: HeaderWorkDto; options: Popover
       unavailable={false}
       fresh={options.fresh ?? !read.isError}
       moving={options.moving ?? options.fresh ?? true}
-      countsFromAttention={options.attention !== undefined}
+      countsFromAttention={options.countsFromAttention ?? options.attention !== undefined}
     />
   )
 }
@@ -299,6 +301,38 @@ describe('ActivityPopover stage rows', () => {
 
     expect(container.querySelector('[data-state="waiting_for_you"]')).not.toBeNull()
     expect(container.querySelectorAll('[data-animated="true"]')).toHaveLength(0)
+  })
+})
+
+describe('ActivityPopover with counts newer than the session list', () => {
+  it('gives a stage the counts call done its reason, not an older session line', async () => {
+    const data = workingBatch()
+    data.batch_steps![0].steps.research = { ...none, jobs: 12, ready: 12, ready_lots: 12 }
+    await popover(data)
+    const research = rows(screen.getByRole('region', { name: 'Heyyy · Processing' }))[1]
+
+    expect(research).toHaveTextContent('Every lot is done')
+    expect(research).not.toHaveTextContent('Checking the reel label')
+  })
+
+  it('counts the heading questions from the same read as the rows', async () => {
+    const data = workingBatch()
+    const steps = data.batch_steps![0].steps
+    // An older attention read still has two open questions; the newer header read has none.
+    const older: BatchAttentionDto = {
+      batch_id: batch,
+      revision: '3',
+      processing: { questions: 2, failed: 0, running: 3, lots: 12, paused: false, steps },
+      review: { to_check: 0, changed_after_review: 0, needs_answer: 0, to_decide: 0, records: 0 },
+      changes: { ready: 0, failed: 0, uncertain: 0, runs: 0 },
+      items: [],
+      items_truncated: false,
+    }
+    data.batch_steps![0].steps = { ...steps, examine: { ...none, jobs: 1, ready: 1 } }
+    await popover(data, { attention: older, countsFromAttention: false })
+    const group = screen.getByRole('region', { name: 'Heyyy · Processing' })
+
+    expect(group).not.toHaveTextContent('Waiting for you · 2')
   })
 })
 
