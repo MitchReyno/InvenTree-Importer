@@ -46,6 +46,7 @@ PR-B delivers tasks 2–4 (stepped `/2` questions and answers). The other PR bun
 
 ## Open items
 
+- PR-A follow-up from the merge review: check a popover opened inside a modal near the viewport's edges in a real browser. Its placement and its use inside a modal are tested in jsdom only.
 - Follow-ups from PR-B's review, outside its blocking bar:
   - Long unbroken words in chat bubbles and the Inventory comparison card wrap by CSS but were not checked in a browser, because the fixture has no chat message or open Inventory question.
   - The native-session qualification script has type errors against the current agent settings contract (`selection`) that predate PR-B, and its folder is outside every tsconfig.
