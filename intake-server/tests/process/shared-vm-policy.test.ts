@@ -1,9 +1,11 @@
+import { createServer as httpServer } from 'node:http'
+import { evidenceFormatHeader } from '#/agents/shared-vm/evidence-release.ts'
 import { test, type TestContext } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn, type ChildProcess } from 'node:child_process'
-import { randomUUID } from 'node:crypto'
-import { once } from 'node:events'
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { createHash, randomUUID } from 'node:crypto'
+import { EventEmitter, once } from 'node:events'
+import { mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { connect as netConnect, createServer, type AddressInfo, type Socket } from 'node:net'
@@ -13,7 +15,13 @@ import { fileURLToPath } from 'node:url'
 import { processingFixture } from '../support/processing.ts'
 import { freePort } from '../support/manual-process.ts'
 import { pairedCertificates } from '../support/vm-pairing.ts'
-import { lotSession } from '../support/sessions.ts'
+import sharp from 'sharp'
+import { BlobStore } from '#/media/blob-store.ts'
+import { readMediaStoreIdentity } from '#/media/store-identity.ts'
+import { transaction } from '#/db/database.ts'
+import { startSessionToolServer } from '#/agents/tools/server.ts'
+import { startMcpProxy } from '#/agents/shared-vm/mcp-proxy.ts'
+import { lotSession, seedPhoto } from '../support/sessions.ts'
 import { runSessionTurn } from '#/agents/session/session-runner.ts'
 import { sealed } from '#/processing/model.ts'
 import { decodeSessionInput } from '#/processing/session-input.ts'
@@ -30,6 +38,12 @@ const protectedHosts = ['127.0.0.1', 'inventory.example.com']
 async function pairedToolTurn(
   t: TestContext,
   guest: (root: string) => { policyPath: string; runNative: typeof nativeTurn },
+  setup?: (
+    fixture: Awaited<ReturnType<typeof processingFixture>>,
+    capture: Awaited<ReturnType<Awaited<ReturnType<typeof processingFixture>>['seedCapture']>>,
+    job: string,
+    root: string,
+  ) => Promise<Awaited<ReturnType<typeof startSessionToolServer>>>,
 ) {
   const root = await mkdtemp(join(tmpdir(), 'bench-policy-'))
   t.after(() => rm(root, { recursive: true, force: true }))
@@ -40,13 +54,8 @@ async function pairedToolTurn(
   await mkdir(join(root, 'policy'))
   const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
   t.after(() => fixture.dispose())
-  const port = await freePort()
-  const bridge = await startSessionBridge(join(root, 'bench-coordinator'), port, {
-    protectedHosts,
-  })
-  t.after(() => bridge.close())
   const capture = await fixture.seedCapture()
-  const { attempt } = await lotSession(fixture, capture, capture.packetA, {
+  const { job, attempt } = await lotSession(fixture, capture, capture.packetA, {
     state: 'queued',
     profile: {
       id: 'shared-vm-agent/3',
@@ -54,12 +63,20 @@ async function pairedToolTurn(
       settingsRevision: '1',
     },
   })
+  const toolServer = await setup?.(fixture, capture, job, root)
+  if (toolServer) t.after(() => toolServer.close())
+  const port = await freePort()
+  const bridge = await startSessionBridge(join(root, 'bench-coordinator'), port, {
+    protectedHosts,
+    confirmEvidence: toolServer?.confirmEvidence,
+  })
+  t.after(() => bridge.close())
   const session = runSessionTurn(
     {
       pool: fixture.runner.pool,
       config: fixture.config,
       host: { stateRoot: root, env: {}, claudeExecutable: '/unused', codexExecutable: '/unused' },
-      toolUrl: 'http://127.0.0.1:1',
+      toolUrl: toolServer?.url ?? 'http://127.0.0.1:1',
       drivers: { 'shared-vm-agent/3': bridge.driver },
     },
     attempt,
@@ -106,6 +123,205 @@ async function pairedToolTurn(
     failureCodes: failures.rows.map((row) => row.code),
   }
 }
+
+test(
+  'only a released VM fetch permits a subsequent proposal through the coordinator',
+  { timeout: 60000 },
+  async (t) => {
+    let evidence: { evidence_id: string; version_id: string }
+    let subject: string
+    const original = await sharp({
+      create: { width: 24, height: 12, channels: 3, background: 'blue' },
+    })
+      .png()
+      .toBuffer()
+    const preview = await sharp(original).png({ compressionLevel: 9 }).toBuffer()
+    const { outcome } = await pairedToolTurn(
+      t,
+      (root) => ({
+        policyPath: join(root, 'policy', 'policy.json'),
+        runNative: async (_context, _opening, request) => {
+          await request({ provider: { providerSessionId: randomUUID(), actualModel: 'haiku' } })
+          let id = 0
+          const provider = new EventEmitter()
+          const prepared = once(provider, 'prepared')
+          const disconnected = once(provider, 'disconnected')
+          let loseResponse = true
+          let proxy = await startMcpProxy(
+            async (operation) => {
+              const reply = await request(operation)
+              if (loseResponse && operation.mcp) {
+                loseResponse = false
+                provider.emit('prepared')
+                await disconnected
+              }
+              return reply
+            },
+            true,
+            'file',
+          )
+          const call = async (name: string, args: unknown) => {
+            const response = await fetch(proxy.toolUrl, {
+              method: 'POST',
+              headers: { authorization: 'Bearer ' + proxy.capability },
+              body: JSON.stringify({
+                jsonrpc: '2.0',
+                id: ++id,
+                method: 'tools/call',
+                params: { name, arguments: args },
+              }),
+            })
+            assert.equal(response.status, 200)
+            return (await response.json()).result
+          }
+          const source = {
+            kind: 'media_version',
+            ...evidence,
+            sha256: createHash('sha256').update(original).digest('hex'),
+          }
+          const propose = async () =>
+            (
+              await call('propose', {
+                proposal: {
+                  schema_version: 'bench-intake-proposal/5',
+                  subject_id: subject,
+                  summary: 'Observed quantity',
+                  sources: [source],
+                  quantity: { value: '20', status: 'estimated' },
+                  relies_on: { fields: ['quantity'], sources: [source] },
+                },
+              })
+            ).structuredContent
+          try {
+            const failed = assert.rejects(call('fetch_evidence', evidence))
+            await prepared
+            await proxy.close()
+            await failed
+            proxy = await startMcpProxy(request, true, 'file')
+            provider.emit('disconnected')
+            assert.equal((await propose()).error, 'source_not_delivered')
+            const result = await call('fetch_evidence', evidence)
+            assert.deepEqual(await readFile(result.structuredContent.local_file.path), original)
+            assert.equal((await propose()).ok, true)
+          } finally {
+            provider.emit('disconnected')
+            await proxy.close()
+          }
+        },
+      }),
+      async (fixture, capture, job, root) => {
+        const store = await BlobStore.initialize(
+          join(await realpath(root), 'blobs'),
+          await readMediaStoreIdentity(fixture.db.pool),
+        )
+        await transaction(fixture.db.pool, async (client) => {
+          await store.publish(client, original)
+          await store.publish(client, preview)
+        })
+        const photo = await seedPhoto(
+          fixture,
+          capture.batch.id,
+          { width: 24, height: 12 },
+          'Test photo',
+          0,
+          { original, preview },
+        )
+        subject = capture.packetA.id
+        evidence = { evidence_id: photo.evidence, version_id: photo.version }
+        await fixture.db.pool.query(
+          "INSERT INTO agent_session_inbox(id,session_lineage_id,seq,kind,payload,idempotency_key) VALUES($1,$2,1,'evidence',$3,$4)",
+          [randomUUID(), job, evidence, photo.version],
+        )
+        return startSessionToolServer({
+          pool: fixture.runner.pool,
+          config: fixture.config,
+          store,
+          evidenceImage: 'original',
+        })
+      },
+    )
+    assert.equal(outcome, 'done')
+  },
+)
+
+test(
+  'only explicitly legacy preview bytes can omit a rendition digest across a paired bridge',
+  { timeout: 60000 },
+  async (t) => {
+    let format = 'current'
+    let grants = 0
+    const bytes = Buffer.from('preview')
+    const version = randomUUID()
+    const { outcome } = await pairedToolTurn(
+      t,
+      (root) => ({
+        policyPath: join(root, 'policy', 'policy.json'),
+        runNative: async (_context, _opening, request) => {
+          const proxy = await startMcpProxy(request, true, 'file')
+          try {
+            const fetchPhoto = () =>
+              fetch(proxy.toolUrl, {
+                method: 'POST',
+                headers: { authorization: 'Bearer ' + proxy.capability },
+                body: JSON.stringify({
+                  jsonrpc: '2.0',
+                  id: 1,
+                  method: 'tools/call',
+                  params: { name: 'fetch_evidence', arguments: {} },
+                }),
+              })
+            assert.equal((await fetchPhoto()).status, 502)
+            assert.equal(grants, 0)
+            format = 'legacy'
+            const response = await fetchPhoto()
+            assert.equal(response.status, 200)
+            const result = (await response.json()).result
+            assert.deepEqual(await readFile(result.structuredContent.local_file.path), bytes)
+            await proxy.flush()
+          } finally {
+            await proxy.close()
+          }
+        },
+      }),
+      async () => {
+        const encoder = httpServer((req, res) => {
+          req.resume()
+          res
+            .writeHead(200, { 'content-type': 'application/json', [evidenceFormatHeader]: format })
+            .end(
+              JSON.stringify({
+                id: 1,
+                result: {
+                  structuredContent: {
+                    ok: true,
+                    source: { kind: 'media_version', version_id: version, sha256: '0'.repeat(64) },
+                    pages: [{ page: 1, width: 1, height: 1 }],
+                  },
+                  content: [
+                    { type: 'image', mimeType: 'image/png', data: bytes.toString('base64') },
+                  ],
+                },
+              }),
+            )
+        })
+        encoder.listen(0, '127.0.0.1')
+        await once(encoder, 'listening')
+        return {
+          url: 'http://127.0.0.1:' + (encoder.address() as AddressInfo).port + '/mcp',
+          confirmEvidence: (_job, v) => {
+            assert.equal(v, version)
+            grants++
+          },
+          close: async () => {
+            encoder.close()
+          },
+        }
+      },
+    )
+    assert.equal(outcome, 'done')
+    assert.equal(grants, 1)
+  },
+)
 
 test(
   'the supervisor publishes the coordinator’s protected hosts before the provider starts',
@@ -314,6 +530,7 @@ test(
       ['text that is not a string', { ...valid, text: 42 }],
       ['a resume that is not a string', { ...valid, resume: 42 }],
       ['an empty resume', { ...valid, resume: '' }],
+      ['missing evidence confirmation', { ...valid, evidenceRelease: undefined }],
     ] as const) {
       await t.test(label, async (t) => {
         const turnRoot = join(root, label.replaceAll(' ', '-'))
@@ -340,6 +557,7 @@ test(
             turn: '1',
             manifest,
             protected_hosts: [],
+            evidenceRelease: 1,
             ...opening,
           })
         })()
@@ -356,7 +574,9 @@ test(
               starts++
             },
           }),
-          /invalid_opening/,
+          label === 'missing evidence confirmation'
+            ? /runner_evidence_release_unsupported/
+            : /invalid_opening/,
         )
         await coordinatorSide
         assert.equal(starts, 0)
@@ -380,28 +600,31 @@ test(
       protectedHosts,
     })
     t.after(() => bridge.close())
-    const socket = connect({
-      ...(await pairing(join(root, 'bench-guest'))),
-      port,
-      host: '127.0.0.1',
-      servername: 'bench-coordinator',
-    })
-    t.after(() => socket.destroy())
-    await once(socket, 'secureConnect')
-    const received: Buffer[] = []
-    socket.on('data', (bytes: Buffer) => received.push(bytes))
-    const frames = new Frames(socket)
-    // The greeting of a supervisor from before turn policies existed.
-    await frames.send({
-      ready: protocol,
-      reapProof: true,
-      terminalProbe: true,
-      builtinTools: true,
-      evidenceFiles: true,
-      claudeSubscription: true,
-    })
-    await once(socket, 'close')
-    assert.deepEqual(received, [])
+    for (const turnPolicy of [undefined, true]) {
+      const socket = connect({
+        ...(await pairing(join(root, 'bench-guest'))),
+        port,
+        host: '127.0.0.1',
+        servername: 'bench-coordinator',
+      })
+      t.after(() => socket.destroy())
+      await once(socket, 'secureConnect')
+      const received: Buffer[] = []
+      socket.on('data', (bytes: Buffer) => received.push(bytes))
+      const frames = new Frames(socket)
+      // The greeting of a supervisor from before turn policies existed.
+      await frames.send({
+        ready: protocol,
+        reapProof: true,
+        terminalProbe: true,
+        builtinTools: true,
+        turnPolicy,
+        evidenceFiles: true,
+        claudeSubscription: true,
+      })
+      await once(socket, 'close')
+      assert.deepEqual(received, [])
+    }
   },
 )
 

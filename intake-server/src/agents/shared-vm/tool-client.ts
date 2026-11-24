@@ -31,7 +31,15 @@ export const isolatedToolTurn: typeof nativeTurn = async (context, opening, requ
         typeof body !== 'object' ||
         Array.isArray(body) ||
         !Object.keys(body).every((key) =>
-          ['mcp', 'nextDelivery', 'provider', 'progress', 'version', 'delivered'].includes(key),
+          [
+            'releaseId',
+            'mcp',
+            'nextDelivery',
+            'provider',
+            'progress',
+            'version',
+            'delivered',
+          ].includes(key),
         )
       ) {
         throw new Error('tool_worker_refused')

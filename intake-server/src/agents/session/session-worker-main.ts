@@ -19,6 +19,7 @@ import {
 import { nativeAgentHost, privateDirectory } from '#/agents/environment.ts'
 import { triggerExamine } from '#/processing/examine-trigger.ts'
 import { acquireAgentSupervisor } from '#/agents/worker.ts'
+import { evidenceImageMode } from '#/agents/tools/handlers.ts'
 import { startSessionToolServer } from '#/agents/tools/server.ts'
 import {
   interruptRunningSessions,
@@ -77,6 +78,7 @@ async function main() {
     : undefined
   let owner: Awaited<ReturnType<typeof acquireAgentSupervisor>> | undefined
   let scheduler: DBOSClient | undefined
+  const evidenceImage = evidenceImageMode(process.env.INTAKE_VM_EVIDENCE_IMAGE)
   let tools: Awaited<ReturnType<typeof startSessionToolServer>> | undefined
   let bridge: Awaited<ReturnType<typeof startSessionBridge>> | undefined
   let launched = false
@@ -96,6 +98,12 @@ async function main() {
     if (vmBridge) {
       bridge = await startSessionBridge(vmBridge.pair, vmBridge.port, {
         protectedHosts: vmBridge.protectedHosts,
+        confirmEvidence: (job, version) => {
+          if (!tools) {
+            throw new Error('session_tools_unavailable')
+          }
+          tools.confirmEvidence(job, version)
+        },
       })
     }
     // The scheduler takes over recovered work, so it must accept a connection first.
@@ -109,6 +117,7 @@ async function main() {
         )
       : undefined
     tools = await startSessionToolServer({
+      evidenceImage,
       pool: db.pool,
       writerPool: writer?.pool,
       cropCacheDir: join(host.stateRoot, 'region-crops'),

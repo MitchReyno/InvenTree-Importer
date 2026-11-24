@@ -1,3 +1,4 @@
+import { evidenceDelivery } from './stage-evidence.ts'
 import { evidenceRequest } from './evidence-request.ts'
 // Only the guest tool container runs this entrypoint. It has no pairing or journal mount.
 import { createServer } from 'node:net'
@@ -15,6 +16,7 @@ import type { SessionTurn } from '#/agents/session/session-adapters.ts'
 import { workerFailure } from './worker-outcome.ts'
 
 const provider = process.env.INTAKE_VM_CODEX_SUBSCRIPTION === '1' ? 'codex' : 'claude'
+const delivery = evidenceDelivery(process.env.INTAKE_VM_EVIDENCE_DELIVERY)
 const proxy = await providerProxy(provider)
 const server = createServer()
 server.listen('/run/turn/worker.sock')
@@ -57,6 +59,7 @@ try {
     message.opening as SessionTurn,
     request,
     true,
+    delivery,
   )
   await frames.send({ outcome: 'done' })
 } catch (error) {

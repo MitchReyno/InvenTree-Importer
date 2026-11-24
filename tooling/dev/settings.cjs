@@ -250,6 +250,16 @@ function resolveManaged(settings, { mockAgents, agentsInVm }) {
   return requested ?? realVmAgents
 }
 
+function resolveEvidenceDelivery(settings) {
+  const value = settings.INTAKE_VM_EVIDENCE_DELIVERY || 'file'
+  if (value !== 'inline' && value !== 'file') {
+    throw new DevelopmentSettingsError('invalid_development_setting', [
+      { name: 'INTAKE_VM_EVIDENCE_DELIVERY', hint: 'use inline or file' },
+    ])
+  }
+  return value
+}
+
 /** The VM `pnpm dev` boots and relays into; a null guest directory is looked up after boot. */
 function resolveVmLaunch(settings, pairing, { vmTools, keepRunning }, defaulted) {
   const value = (name) => {
@@ -279,6 +289,7 @@ function resolveVmLaunch(settings, pairing, { vmTools, keepRunning }, defaulted)
     pair: pairing.pair,
     port: pairing.port,
     tools: vmTools,
+    evidenceDelivery: resolveEvidenceDelivery(settings),
     keepRunning,
   }
 }
@@ -305,6 +316,13 @@ function resolveSecretsDir(settings) {
 
 function resolveDevelopmentSettings(settings, { stateDirectory } = {}) {
   refuseRetiredSettings(settings)
+  resolveEvidenceDelivery(settings)
+  const evidenceImage = settings.INTAKE_VM_EVIDENCE_IMAGE || 'preview'
+  if (!['preview', 'original'].includes(evidenceImage)) {
+    throw new DevelopmentSettingsError('invalid_development_setting', [
+      { name: 'INTAKE_VM_EVIDENCE_IMAGE', hint: 'use preview or original' },
+    ])
+  }
   const { targetSettings, ignored } = resolveInventory(settings)
   const readOnly = resolveReadOnly(settings, targetSettings.INTAKE_TARGET_PROFILE)
   const { profile, mockAgents, agentsInVm, vmTools } = resolveProcessing(settings)
@@ -318,6 +336,7 @@ function resolveDevelopmentSettings(settings, { stateDirectory } = {}) {
     ? resolveVmLaunch(settings, vmPairing, { vmTools, keepRunning }, defaulted)
     : null
   return {
+    evidenceImage,
     targetSettings,
     readOnly,
     profile,
@@ -385,6 +404,7 @@ function agentProtectedOrigins({ appOrigin, tailnetOrigin, inventoryOrigin }) {
 function agentWorkerSettings(resolved, settings, origins) {
   if (resolved.vmPairing) {
     return {
+      ...(resolved.evidenceImage === 'original' ? { INTAKE_VM_EVIDENCE_IMAGE: 'original' } : {}),
       INTAKE_VM_PAIR: resolved.vmPairing.pair,
       INTAKE_VM_PORT: resolved.vmPairing.port,
       INTAKE_AGENT_PROTECTED_ORIGINS: agentProtectedOrigins(origins ?? {}),

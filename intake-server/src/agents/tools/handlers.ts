@@ -58,7 +58,18 @@ import { removedVersionIds, versionRemovedSql } from '#/media/removal.ts'
 
 export const SESSION_IMAGE_BUDGET_BYTES = 8 * 1024 * 1024
 
+export function evidenceImageMode(value: string | undefined) {
+  if (value === undefined || value === '' || value === 'preview') {
+    return 'preview'
+  }
+  if (value === 'original') {
+    return 'original'
+  }
+  throw new Error('invalid_vm_evidence_image')
+}
+
 export interface SessionToolContext {
+  evidenceImage?: ReturnType<typeof evidenceImageMode>
   pool: Pool
   /** The `agent_writer` pool for the Examine lead session's capture writes. */
   writerPool?: Pool
@@ -175,7 +186,7 @@ async function boundedImage(
 }
 
 /**
- * A session's evidence, always cut from the decoded page preview and never the original upload.
+ * A session's evidence, using its configured whole-photo rendition or a decoded page preview.
  * A whole page comes back bounded (the lead session's overview smaller still); a region is cut
  * from the full preview, then bounded. Every answer lists each page's full preview size, which
  * regions are measured against, and describes the image actually delivered.
@@ -193,6 +204,8 @@ async function fetchEvidenceImage(
         versionId: string
         source: ProcessingMediaSourceDto
         preview: { id: string; page: number; width: number; height: number; digest: string }
+        originalType?: DeliveredImage['mediaType']
+        deferCitation: boolean
         examine: boolean
         region?: {
           x: number
@@ -257,8 +270,8 @@ async function fetchEvidenceImage(
       ) {
         refuse('validation_failed', 'The region must lie within the page preview it names.')
       }
-      const sources = await client.query<{ sha256: string }>(
-        "SELECT encode(blob_digest,'hex') AS sha256 FROM media_version WHERE batch_id=$1 AND id=$2 AND evidence_id=$3",
+      const sources = await client.query<{ sha256: string; media_type: string }>(
+        "SELECT encode(blob_digest,'hex') AS sha256, media_type FROM media_version WHERE batch_id=$1 AND id=$2 AND evidence_id=$3",
         [principal.batchId, version!.version_id, request.evidence_id],
       )
       const original = sources.rows[0]
@@ -276,7 +289,15 @@ async function fetchEvidenceImage(
         jobId: principal.jobId,
         versionId: version!.version_id,
         preview: preview!,
+        originalType:
+          context.evidenceImage === 'original' &&
+          principal.manifest.profile_id === 'shared-vm-agent/3' &&
+          !request.region &&
+          (original!.media_type === 'image/jpeg' || original!.media_type === 'image/png')
+            ? original!.media_type
+            : undefined,
         region: request.region,
+        deferCitation: principal.manifest.profile_id === 'shared-vm-agent/3',
         examine: (principal.manifest.stage as string) === 'examine',
       }
       const described = await client.query<{ label: string; note: string | null }>(
@@ -307,27 +328,35 @@ async function fetchEvidenceImage(
 
   const source = () => context.store!.read(preview.digest)
 
-  const delivered = region
-    ? await boundedImage(
-        (
-          await regionCropCache(context.cropCacheDir!).crop(
-            { versionId: plan.versionId, page: preview.page },
-            { kind: 'pixels', ...region },
-            source,
-          )
-        ).bytes,
-        region,
-        AGENT_IMAGE_LONG_EDGE,
-        region.width <= AGENT_IMAGE_LONG_EDGE && region.height <= AGENT_IMAGE_LONG_EDGE,
-      )
-    : plan.examine
-      ? await boundedImage(await source(), preview, LEAD_PREVIEW_LONG_EDGE, true)
-      : await boundedImage(
-          await source(),
-          preview,
+  const delivered = plan.originalType
+    ? {
+        bytes: await context.store.read(plan.source.sha256),
+        mediaType: plan.originalType,
+        width: preview.width,
+        height: preview.height,
+        scale: 1,
+      }
+    : region
+      ? await boundedImage(
+          (
+            await regionCropCache(context.cropCacheDir!).crop(
+              { versionId: plan.versionId, page: preview.page },
+              { kind: 'pixels', ...region },
+              source,
+            )
+          ).bytes,
+          region,
           AGENT_IMAGE_LONG_EDGE,
-          preview.width <= AGENT_IMAGE_LONG_EDGE && preview.height <= AGENT_IMAGE_LONG_EDGE,
+          region.width <= AGENT_IMAGE_LONG_EDGE && region.height <= AGENT_IMAGE_LONG_EDGE,
         )
+      : plan.examine
+        ? await boundedImage(await source(), preview, LEAD_PREVIEW_LONG_EDGE, true)
+        : await boundedImage(
+            await source(),
+            preview,
+            AGENT_IMAGE_LONG_EDGE,
+            preview.width <= AGENT_IMAGE_LONG_EDGE && preview.height <= AGENT_IMAGE_LONG_EDGE,
+          )
   // An image too large to send at any quality comes back as metadata, like an exhausted budget.
   // The budget is reserved before the final transaction, so concurrent fetches can't overspend.
   const image =
@@ -379,9 +408,9 @@ async function fetchEvidenceImage(
   if (!image || !view) {
     return { result: { ...authorized.result, pending_inbox: finished.pending } }
   }
-  const fetched = context.deliveredMedia.get(plan.jobId) ?? new Set<string>()
-  fetched.add(plan.versionId)
-  context.deliveredMedia.set(plan.jobId, fetched)
+  if (!plan.deferCitation) {
+    recordMediaDelivery(context.deliveredMedia, plan.jobId, plan.versionId)
+  }
   return {
     result: {
       ...authorized.result,
@@ -399,6 +428,12 @@ async function fetchEvidenceImage(
     },
     images: [{ mediaType: image.mediaType, base64: image.bytes.toString('base64') }],
   }
+}
+
+export function recordMediaDelivery(media: Map<string, Set<string>>, job: string, version: string) {
+  const versions = media.get(job) ?? new Set<string>()
+  versions.add(version)
+  media.set(job, versions)
 }
 
 /** Reserves image bytes for a provider run; false when they would exceed its budget. */
