@@ -48,6 +48,7 @@ import { ADD_LOT, ADD_PART, ReviewSubjectEditor } from './ReviewSubjectEditor'
 import { useApiClients, useBatchCommands } from '#/context'
 import { QUICK_QUANTITY_INPUT_ID } from '#/components/operator/QuickLotEdit'
 import { useAcceptedOperatorReview } from '#/operator/useAcceptedOperatorReview'
+import type { DirtyReport } from '#/navigation/unsaved-changes'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -81,7 +82,7 @@ interface Props {
   /** Replaces the shared selection; the Table may select more than the Workspace cap. */
   setSelection: (ids: string[]) => void
   prepare: () => void
-  onDirtyChange?: (dirty: boolean) => void
+  onDirtyChange?: DirtyReport
 }
 
 const EDIT_PARAM = 'edit'

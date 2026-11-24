@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, expect, onTestFinished, test, vi } from 'vitest'
 import { setDebugMode } from '#/test/debug-mode'
 import { onlineManager, type QueryClient } from '@tanstack/react-query'
-import { freshReads } from './queries/fresh-reads'
+import { cancelVerified, freshReads } from './queries/fresh-reads'
 import { validate, type CaptureSnapshotDto, type ProcessingSnapshotDto } from '@invimport/contracts'
 import { ProcessingWorkspace } from './components/processing/ProcessingWorkspace'
 import { ServerStateProvider } from './components/query/ServerStateProvider'
@@ -2200,4 +2200,84 @@ test('the Research page counts its own step, not every step in the batch', async
 
   expect(heading.parentElement).toHaveTextContent('1 lot · 1 done')
   expect(screen.queryByText(/need answers|\d ready/)).toBeNull()
+})
+
+/** What `LiveUpdates` does for a hint: cancel through the registry, then invalidate the scope. */
+async function reconcileScope(cache: QueryClient) {
+  await act(async () => {
+    await cancelVerified(cache, { queryKey: serverQueryKey(scope) }, { silent: true })
+    void cache.invalidateQueries({ queryKey: serverQueryKey(scope) })
+  })
+}
+
+test('a live update that cancels the read after an answer shows nothing once its replacement lands', async () => {
+  const user = userEvent.setup()
+  const client = clientFixture()
+  const { cache } = mount(client)
+  const field = await screen.findByLabelText('Quantity')
+  const answered = structuredClone(snapshot)
+  answered.capture_revision = '9'
+  answered.jobs[0].questions[0].state = 'answered'
+  const afterAnswer = deferredRead()
+  const replacement = deferredRead()
+  client.read.mockReturnValueOnce(afterAnswer.promise).mockReturnValueOnce(replacement.promise)
+  await user.type(field, '37')
+  await user.click(screen.getByRole('button', { name: 'Save answer and queue continuation' }))
+  await waitFor(() => expect(client.answer).toHaveBeenCalled())
+  await waitFor(() => expect(client.read).toHaveBeenCalledTimes(2))
+
+  await reconcileScope(cache)
+  await waitFor(() => expect(client.read).toHaveBeenCalledTimes(3))
+  await act(async () => {
+    afterAnswer.resolve(snapshot)
+    replacement.resolve(answered)
+  })
+  await waitFor(() =>
+    expect(cache.getQueryData(serverQueryKey(scope, 'processing', batchId))).toEqual(answered),
+  )
+  expect(screen.queryByText(/current status is unavailable/)).not.toBeInTheDocument()
+  expect(screen.queryByText(/Saved\. Showing the last status/)).not.toBeInTheDocument()
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+})
+
+test('a confirmed answer whose read fails says it was saved, as the only banner, until a read lands', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  onTestFinished(() => {
+    vi.useRealTimers()
+  })
+  vi.setSystemTime(new Date(2026, 10, 25, 13, 12))
+  const user = userEvent.setup()
+  const client = clientFixture()
+  const { cache } = mount(client)
+  const field = await screen.findByLabelText('Quantity')
+  const queue = screen.getByRole('button', { name: 'Queue new processing attempts' })
+  vi.setSystemTime(new Date(2026, 10, 25, 13, 20))
+  client.read.mockRejectedValueOnce(new Error('read_unavailable'))
+  await user.type(field, '37')
+  await user.click(screen.getByRole('button', { name: 'Save answer and queue continuation' }))
+
+  const clock = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' })
+  const saved = await screen.findByText(/Saved\. Showing the last status from/)
+  expect(saved.closest('[role="status"]')).toHaveTextContent(
+    `Saved. Showing the last status from ${clock.format(
+      new Date(2026, 10, 25, 13, 12),
+    )} until it can be read again.`,
+  )
+  expect(screen.queryByText(/Processing status unavailable/)).not.toBeInTheDocument()
+  expect(screen.queryByText(/current status is unavailable/)).not.toBeInTheDocument()
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  expectUnavailable(queue)
+
+  // A cache write is not a read; a read that lands clears it.
+  act(() => {
+    cache.setQueryData(serverQueryKey(scope, 'processing', batchId), snapshot)
+  })
+  expect(screen.getByText(/Saved\. Showing the last status from/)).toBeInTheDocument()
+  await act(async () => {
+    await cache.invalidateQueries({ queryKey: serverQueryKey(scope, 'processing', batchId) })
+  })
+  await waitFor(() =>
+    expect(screen.queryByText(/Saved\. Showing the last status/)).not.toBeInTheDocument(),
+  )
+  expect(screen.queryByText(/Processing status unavailable/)).not.toBeInTheDocument()
 })

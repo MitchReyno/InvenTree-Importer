@@ -16,6 +16,9 @@ import { CaptureWorkspace } from './CaptureWorkspace'
 import { ApiClientsProvider, UpdateHealthContext, BatchCommandsProvider } from '#/context'
 import { batchCommands } from '#/test/batch-commands'
 
+/** Capture names its unsaved settings for the batch's notice. */
+const settingsChange = { label: 'the batch settings', discard: expect.any(Function) }
+
 /** The revision behind a "<label>: Saved" status; the number is kept off the visible text. */
 function savedRevision(label: string) {
   return screen
@@ -161,11 +164,13 @@ test('typing waits for the idle debounce, then sends one complete batch_settings
   const dirty = vi.fn()
   const { user, title } = setup({ onDirtyChange: dirty })
   await user.type(title, ' draft')
-  expect(dirty).toHaveBeenLastCalledWith(true)
+  expect(dirty).toHaveBeenLastCalledWith(true, [settingsChange])
   await act(() => vi.advanceTimersByTimeAsync(400))
   expect(saves).toHaveLength(0)
   await idle()
   expect(saves).toHaveLength(1)
+  // A sent save keeps its own recovery: still unsaved, but not offered to the notice's Discard.
+  expect(dirty).toHaveBeenLastCalledWith(true)
   expect(saves[0]).toMatchObject({
     revision: '1',
     change: {
@@ -523,6 +528,7 @@ test('composed instructions are saved and stay dirty while composing', async () 
   fireEvent.change(text, { target: { value: '電子' } })
   await act(async () => saves[0].resolve(nextSnapshot(batch, saves[0])))
   await settle()
+  // Text still being composed is unsaved, but nothing the notice can drop.
   expect(dirty).toHaveBeenLastCalledWith(true)
   await act(() => vi.advanceTimersByTimeAsync(2000))
   expect(instructs).toHaveLength(0)
@@ -593,6 +599,7 @@ test('an unconfirmed logo upload says so until the same upload is retried', asyn
   await settle()
   const unconfirmed = 'Logo upload not confirmed. Retry the same upload or reload saved values.'
   expect(await within(panel).findByText(unconfirmed)).toBeVisible()
+  // An unconfirmed upload keeps its own recovery, so the notice offers no Discard for it.
   expect(dirty).toHaveBeenLastCalledWith(true)
   await user.click(screen.getByRole('button', { name: 'Retry the same save' }))
   await settle()
@@ -760,7 +767,7 @@ test('typed tag text protects navigation before it is added', async () => {
   const { user, panel } = setup({ onDirtyChange: dirty })
   const tag = within(panel).getByRole('textbox', { name: 'Add a tag to every Part' })
   await user.type(tag, 'bench')
-  expect(dirty).toHaveBeenLastCalledWith(true)
+  expect(dirty).toHaveBeenLastCalledWith(true, [settingsChange])
   expect(saves).toHaveLength(0)
   await user.clear(tag)
   expect(dirty).toHaveBeenLastCalledWith(false)

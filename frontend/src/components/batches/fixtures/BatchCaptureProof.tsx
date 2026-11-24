@@ -14,6 +14,79 @@ import { Batches } from '#/components/batches/Batches'
 import { Main, PageContent } from '#/components/AppLayout'
 import { useHashRoute } from '#/navigation/useHashRoute'
 import { ApiClientsProvider } from '#/context'
+import { useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { cancelVerified } from '#/queries/fresh-reads'
+import { serverQueryKey } from '#/queries/scope'
+
+/**
+ * `?reads=live-race` slows each Capture and Processing read to 600 ms and, 150 ms into the first
+ * Capture read after an answer (the batch's reload), sends what a live update does: cancel every
+ * read, then invalidate.
+ *
+ * `?reads=offline` makes those reads fail for `offline-ms` (12 s) after an answer, then work again;
+ * with `offline-at` they fail from that many ms after the page loads instead, and a stand-in live
+ * update reads them then.
+ */
+const params = new URLSearchParams(location.search)
+const readMode = params.get('reads')
+const OFFLINE_MS = Number(params.get('offline-ms') ?? '12000')
+const RACE_READ_MS = 600
+const RACE_HINT_MS = 150
+let offlineUntil = 0
+let raceNextCaptureRead = false
+let sendLiveUpdate: (() => void) | null = null
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/** The fixture's network: slow or offline, as `?reads` asks. */
+async function fixtureNetwork() {
+  if (readMode === 'live-race') {
+    await wait(RACE_READ_MS)
+  }
+  if (Date.now() < offlineUntil) {
+    await wait(300)
+    throw new Error('fixture_offline')
+  }
+}
+
+const OFFLINE_AT_MS = params.get('offline-at')
+
+/** What happens to reads once an answer is accepted. */
+function afterAnswer() {
+  if (readMode === 'offline') {
+    offlineUntil = Date.now() + OFFLINE_MS
+  }
+  if (readMode === 'live-race') {
+    raceNextCaptureRead = true
+  }
+}
+
+/** Holds the query client, so a simulated live update reconciles as `LiveUpdates` does. */
+function LiveUpdateStandIn() {
+  const queryClient = useQueryClient()
+  useEffect(() => {
+    sendLiveUpdate = () => {
+      void cancelVerified(queryClient, { queryKey: serverQueryKey(scope) }, { silent: true }).then(
+        () => queryClient.invalidateQueries({ queryKey: serverQueryKey(scope) }),
+      )
+    }
+    const goOffline =
+      readMode === 'offline' && OFFLINE_AT_MS !== null
+        ? setTimeout(() => {
+            offlineUntil = Date.now() + OFFLINE_MS
+            sendLiveUpdate?.()
+          }, Number(OFFLINE_AT_MS))
+        : undefined
+    return () => {
+      clearTimeout(goOffline)
+      sendLiveUpdate = null
+    }
+  }, [queryClient])
+  return null
+}
 
 const noSteps = {
   examine: {
@@ -418,7 +491,14 @@ function applyEdit(change: Change) {
 }
 
 const captureClient = {
-  read: async () => ({ ...batch }),
+  read: async () => {
+    if (raceNextCaptureRead) {
+      raceNextCaptureRead = false
+      setTimeout(() => sendLiveUpdate?.(), RACE_HINT_MS)
+    }
+    await fixtureNetwork()
+    return { ...batch }
+  },
   edit: async (_id: string, request: { change: Change }) => applyEdit(request.change),
   list: async () => ({
     batches: [
@@ -649,7 +729,10 @@ const processingSnapshot = {
   ],
 }
 const processingClient = {
-  read: async () => ({ ...processingSnapshot, capture_revision: batch.revision }),
+  read: async () => {
+    await fixtureNetwork()
+    return { ...processingSnapshot, capture_revision: batch.revision }
+  },
   session: async (_batch: string, jobId: string) => ({
     job_id: jobId,
     attempt_id: jobId.replace(/^9/, '8'),
@@ -685,6 +768,7 @@ const processingClient = {
       )
     }
     batch.revision = String(Number(batch.revision) + 1)
+    afterAnswer()
     return { status: 'accepted' }
   },
 }
@@ -699,6 +783,7 @@ export function BatchCaptureProof() {
 
   return (
     <ServerStateProvider scope={scope}>
+      <LiveUpdateStandIn />
       <GlobalStyle />
       <Masthead breadcrumb={route ? [{ label: 'Batches', href: '#' }] : [{ label: 'Batches' }]} />
       <Main>

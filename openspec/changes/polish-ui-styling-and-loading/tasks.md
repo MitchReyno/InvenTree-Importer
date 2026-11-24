@@ -390,14 +390,14 @@
   - a demo video: answering a question while an agent works, with no banner; a throttled offline read showing the amber notice and clearing itself; the notice naming an unsaved quantity.
 - **Risks and decisions:** the canvas board FixReloadBanner is the reference. `improve-agent-interaction` task 13 fixes the answered question's card separately; each is correct without the other.
 
-- [ ] 15.1 Read the shared and frontend code guidelines, the frontend architecture's query and live-update sections and the board. List every awaited `refetch({ throwOnError: true })` and `fetchQuery` caller and what each shows on failure.
-- [ ] 15.2 RED: tests with the real `QueryClient`:
-  - [ ] 15.2.1 A capture reload in flight while `refreshRetainedReads` cancels the scope resolves with the replacing read's data and sets no notice, on every tab.
-  - [ ] 15.2.2 The same race after a Processing answer: no "current status is unavailable" message.
-  - [ ] 15.2.3 A replacing read that fails, and one that doesn't settle within 10 s, report unavailable; a second cancel inside the window keeps the first deadline; a cancel from removal or a scope change, and a caller unmounting while another observer keeps the query cached, reject as abandoned and start no fallback read; the cancelled generation never verifies a command; Manual Review's awaited refetch under the same race shows nothing.
-  - [ ] 15.2.4 The notice with nothing edited (the displayed snapshot's time, Try now, the retry, clearing on an adopted network read and not on a `setQueryData` write); a successful automatic retry with a dirty editor clearing the notice while the draft and its revision stay; named unsaved changes, with Discard dropping only those while an unlisted mounted draft stays and no newer snapshot is adopted under it; Capture's read adopted through the registry (a background network read clears the notice, a `setQueryData` acknowledgement doesn't); and Processing's "Saved. Showing the last status from…" as the only banner after a confirmed command, clearing on a fresh read.
-- [ ] 15.3 GREEN: implement the helper, the reload state and notice, the labels and Processing's messages.
-- [ ] 15.4 Update `frontend/ARCHITECTURE.md` (awaited reads and cancellation). Run the frontend checks, and record the demo video for the PR description.
+- [x] 15.1 Read the shared and frontend code guidelines, the frontend architecture's query and live-update sections and the board. List every awaited `refetch({ throwOnError: true })` and `fetchQuery` caller and what each shows on failure.
+- [x] 15.2 RED: tests with the real `QueryClient`:
+  - [x] 15.2.1 A capture reload in flight while `refreshRetainedReads` cancels the scope resolves with the replacing read's data and sets no notice, on every tab.
+  - [x] 15.2.2 The same race after a Processing answer: no "current status is unavailable" message.
+  - [x] 15.2.3 A replacing read that fails, and one that doesn't settle within 10 s, report unavailable; a second cancel inside the window keeps the first deadline; a cancel from removal or a scope change, and a caller unmounting while another observer keeps the query cached, reject as abandoned and start no fallback read; the cancelled generation never verifies a command; Manual Review's awaited refetch under the same race shows nothing.
+  - [x] 15.2.4 The notice with nothing edited (the displayed snapshot's time, Try now, the retry, clearing on an adopted network read and not on a `setQueryData` write); a successful automatic retry with a dirty editor clearing the notice while the draft and its revision stay; named unsaved changes, with Discard dropping only those while an unlisted mounted draft stays and no newer snapshot is adopted under it; Capture's read adopted through the registry (a background network read clears the notice, a `setQueryData` acknowledgement doesn't); and Processing's "Saved. Showing the last status from…" as the only banner after a confirmed command, clearing on a fresh read. (Not tested: a named and an unnamed draft mounted at once, which no screen shows today; see `notes.md`.)
+- [x] 15.3 GREEN: implement the helper, the reload state and notice, the labels and Processing's messages.
+- [x] 15.4 Update `frontend/ARCHITECTURE.md` (awaited reads and cancellation). Run the frontend checks, and record the demo video for the PR description.
 
 ## Delivery evidence and lifecycle follow-up
 
@@ -411,7 +411,7 @@
 - [x] PR-F: implement task 11, review the exact head, publish with the demo, CI green, merge. Merged as #256 at `ec974af1`.
 - [ ] PR-G: implement task 12, review the exact head, publish, CI green, run the live VM check with Mitch's go-ahead, merge. Merged as #264 at `dcc10495`; the live VM check stays open.
 - [x] PR-H: implement task 13, review the exact head, publish with the demo, CI green, merge. Merged as #267 at `3000b14d`; its real-VM Settings check stays open (see `notes.md`).
-- [ ] PR-I: implement task 14, review the exact head, publish with the audit, captures and the demo, CI green, merge.
+- [x] PR-I: implement task 14, review the exact head, publish with the audit, captures and the demo, CI green, merge. Merged as #270 at `2636a105`.
 - [ ] PR-J: implement task 15, review the exact head, publish with the demo, CI green, merge.
 - [ ] Update BI-020 as PRs merge. It is Done only after every implementation PR (PR-A to PR-J) merges and its acceptance is evidenced.
 - [ ] Mark this change's "Fixes: before and after" entries (S5, S7, O1–O5, O7–O11) in the design log as Built, with their PRs.

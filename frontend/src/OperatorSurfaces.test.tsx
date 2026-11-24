@@ -20,6 +20,9 @@ import type { ProcessingClient } from './processing/types'
 import { ApiClientsProvider, BatchCommandsProvider } from './context'
 import { batchCommands } from './test/batch-commands'
 
+/** Capture names its unsaved settings for the batch's notice. */
+const settingsChange = { label: 'the batch settings', discard: expect.any(Function) }
+
 const batchId = '10000000-0000-4000-8000-000000000001'
 const active = '30000000-0000-4000-8000-000000000003'
 const retired = '30000000-0000-4000-8000-000000000004'
@@ -148,7 +151,7 @@ test('Custom instructions keep their version and autosave with the loaded revisi
   // The loaded version stays checkable without being shown inline.
   expect(screen.getByText(/^Saved .*Versioned human context/)).toHaveAttribute('data-version', '6')
   await user.type(text, ' Keep date codes apart.')
-  expect(dirty).toHaveBeenLastCalledWith(true)
+  expect(dirty).toHaveBeenLastCalledWith(true, [settingsChange])
   await waitFor(() => expect(settings.instruct).toHaveBeenCalledTimes(1))
   expect(settings.instruct).toHaveBeenCalledWith(
     'Same order, separate packets. Keep date codes apart.',

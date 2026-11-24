@@ -8,6 +8,7 @@ import type {
 
 import type { CaptureBatchSettingsChangeDto, MediaReceiptDto } from '@invimport/contracts'
 import type { CatalogueClient } from '#/catalogue/types'
+import type { DirtyReport } from '#/navigation/unsaved-changes'
 
 export type Snapshot = CaptureSnapshotDto
 export type Quantity = Snapshot['lots'][number]['quantity']
@@ -28,7 +29,7 @@ export type CaptureObserve = (
 export type CaptureWorkspaceProps = {
   batch: Snapshot
   busy: boolean
-  onDirtyChange?: (dirty: boolean) => void
+  onDirtyChange?: DirtyReport
   operatorReview?: OperatorReviewDto
   settings?: SettingsPorts
   /** A photo the address names, whose viewer opens on arrival. */
