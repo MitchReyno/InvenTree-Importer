@@ -239,17 +239,17 @@ Within the budget of "Answer summaries fit the snapshot", the Processing read SH
 
 - **GIVEN** an answered question of an earlier runner profile, in a snapshot whose answers all fit in full
 - **WHEN** Processing is read
-- **THEN** it carries the answer's time and summary with no inbox delivery, and says the job has no session history.
+- **THEN** it carries the answer's time and summary with no inbox delivery, and says whether the history route would serve its job now: no for a job with only runner attempts, yes for a job a later session attempt ran.
 
 ### Requirement: Answer summaries fit the snapshot
 
-When the answers would pass the Processing snapshot's size limit, the read SHALL budget them newest first: the full answer while it fits, then its time and delivery with the values marked omitted, then only the question's answered state. The read SHALL NOT fail because of answers.
+When the answers would pass the Processing snapshot's size limit, the read SHALL budget them newest first: the full answer while it fits, then its time and delivery with the values marked omitted, then no `answer` member. Every answered question SHALL keep its session-history flag in every tier. A snapshot that is too large even without answer members SHALL fail as an oversized snapshot does today.
 
 #### Scenario: Many answers near the size limit
 
 - **GIVEN** a retained batch near the snapshot's size limit with many answered questions
 - **WHEN** Processing is read
-- **THEN** the read succeeds, the newest answers carry their summaries, older ones carry only their time and delivery with values omitted, and any that still don't fit carry only the answered state.
+- **THEN** the read succeeds, the newest answers carry their summaries, older ones carry only their time and delivery with values omitted, any that still don't fit carry no answer member, and every answered question keeps its session-history flag.
 
 ### Requirement: A question can name the one it replaces
 
