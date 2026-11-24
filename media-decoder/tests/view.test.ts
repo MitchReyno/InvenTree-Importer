@@ -426,14 +426,30 @@ test('a label in a wide, short view fits its height, and a hairline view still r
     }
   }
 
+  // The label is drawn: its dark text shows inside the short view.
+  let text = 0
+  for (let y = 0; y < preview.height; y++) {
+    for (let x = 0; x < preview.width; x++) {
+      if (distance(pixel(preview, x, y), LABEL_TEXT) <= 60) {
+        text++
+      }
+    }
+  }
+  assert.ok(text > 20, `label text pixels: ${text}`)
+
+  // A view a few pixels wide still draws its label, however small, rather than nothing: its
+  // preview differs from the same view's preview without marks.
   const hairline = recipe(
     { width: PAGE_WIDTH, height: PAGE_HEIGHT },
-    { region: { x: 600, y: 0, width: 1, height: 800 } },
+    { region: { x: 600, y: 0, width: 4, height: 800 } },
   )
   const thin = await ready(
     viewInput(page, hairline, [{ kind: 'label', at: { x: 5000, y: 5000 }, label }]),
   )
-  assert.ok(thin.preview)
+  const bare = await ready(viewInput(page, hairline, []))
+  const marked = await rgb(thin.preview!.bytes, 'png')
+  const plain = await rgb(bare.preview!.bytes, 'png')
+  assert.notDeepEqual(marked.data, plain.data, 'the label is drawn')
 })
 
 test('empty marks still give a preview; null marks give none', async () => {

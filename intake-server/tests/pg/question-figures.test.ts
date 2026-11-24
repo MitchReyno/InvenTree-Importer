@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { createHash, randomUUID } from 'node:crypto'
 import { mkdtemp, readFile, realpath, rm, stat, utimes } from 'node:fs/promises'
 import { PassThrough } from 'node:stream'
+import { createServer } from 'node:http'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import sharp from 'sharp'
@@ -24,7 +25,7 @@ import {
 } from '../support/question-figures.ts'
 import { seedAuthority } from '../support/database.ts'
 import { BlobStore, lockBlob } from '#/media/blob-store.ts'
-import { DecoderDispatcherBusyError } from '#/media/dispatcher-client.ts'
+import { DecoderDispatcherBusyError, requestDecode } from '#/media/dispatcher-client.ts'
 import { readMediaStoreIdentity } from '#/media/store-identity.ts'
 import { mediaContent } from '#/media/content.ts'
 import { transaction } from '#/db/database.ts'
@@ -47,7 +48,7 @@ import {
   collectReleasedBlob,
   type RenderView,
 } from '#/media/figure-renders.ts'
-import { RENDER_YIELD_MS, runFigureRenderConsumer } from '#/media/figure-render-consumer.ts'
+import { runFigureRenderConsumer } from '#/media/figure-render-consumer.ts'
 import { TurnEvidenceReleases } from '#/agents/shared-vm/evidence-release.ts'
 import { evidenceRequest } from '#/agents/shared-vm/evidence-request.ts'
 import { stageEvidence } from '#/agents/shared-vm/stage-evidence.ts'
@@ -855,6 +856,44 @@ test('a preview whose checkout or state read is slower than its wait answers in 
   })
 })
 
+test('a connection lost during a preview poll fails the call, not the process', async () => {
+  await withFigureSession(async (setup) => {
+    const { fixture, token, lot, photoFigure, context } = setup
+    await fetched(setup, setup.photo)
+    let checkedOut = 0
+    const losing = new Proxy(context.pool, {
+      get(target, property) {
+        if (property === 'connect') {
+          return async () => {
+            const client = await target.connect()
+            checkedOut += 1
+            if (checkedOut > 1) {
+              const query = client.query.bind(client) as (...args: unknown[]) => unknown
+              ;(client as { query: unknown }).query = async (...args: unknown[]) => {
+                if (String(args[0]).includes('processing_figure_render WHERE id = ANY')) {
+                  const pid = (client as unknown as { processID: number }).processID
+                  await fixture.db.pool.query('SELECT pg_terminate_backend($1)', [pid])
+                }
+                return query(...args)
+              }
+            }
+            return client
+          }
+        }
+        const value: unknown = Reflect.get(target, property, target)
+        return typeof value === 'function' ? value.bind(target) : value
+      },
+    })
+    const tools = sessionTools({ ...context, pool: losing, figurePreviewWaitMs: 5_000 })
+    await assert.rejects(tools.ask(token, figureQuestion(lot, [photoFigure()], true)))
+    // Still running: the next call is answered.
+    assert.equal(
+      refusal(await sessionTools(context).ask(token, figureQuestion(lot, [], true))).error,
+      'validation_failed',
+    )
+  })
+})
+
 test('a preview asked again after a day is kept and answered, not swept from under the ask', async () => {
   await withFigureSession(async (setup) => {
     const { fixture, tools, token, lot, photoFigure, media, store, binding } = setup
@@ -868,13 +907,74 @@ test('a preview asked again after a day is kept and answered, not swept from und
          WHERE purpose='preview'`,
       )
       const again = await tools.ask(token, figureQuestion(lot, [photoFigure()], true))
-      assert.equal(accepted(again).preview?.length, 1)
       assert.equal(again.images?.length, 1)
     } finally {
       await stop()
     }
     assert.equal((await sweepFigureRenders(media.pool, store, binding)).deleted, 0)
     assert.equal((await renderRows(setup, 'preview')).length, 1)
+  })
+})
+
+test('an identical ask racing the sweep of its expired preview gets a fresh render', async () => {
+  await withFigureSession(async (setup) => {
+    const { fixture, tools, token, lot, photoFigure, media, store, binding } = setup
+    await fetched(setup, setup.photo)
+    const renderer = fakeRenderer()
+    const first = consumer(setup, renderer)
+    try {
+      accepted(await tools.ask(token, figureQuestion(lot, [photoFigure()], true)))
+    } finally {
+      await first()
+    }
+    const [expired] = await fixture.db.pool
+      .query<{ id: string; digest: string }>(
+        `UPDATE processing_figure_render SET requested_at=now() - interval '2 days'
+       WHERE purpose='preview' RETURNING id, encode(preview_digest,'hex') AS digest`,
+      )
+      .then((result) => result.rows)
+
+    // The sweep deletes the expired preview and stops at its blob lock, holding the row.
+    const holder = await fixture.db.pool.connect()
+    let asking: ReturnType<typeof tools.ask> | undefined
+    let sweeping: ReturnType<typeof sweepFigureRenders> | undefined
+    const waitingOn = async (pattern: string) => {
+      for (let tries = 0; tries < 200; tries += 1) {
+        const rows = await fixture.db.pool.query(
+          `SELECT 1 FROM pg_stat_activity WHERE wait_event_type IN ('Lock','advisory')
+             AND query LIKE $1`,
+          [pattern],
+        )
+        if (rows.rowCount) {
+          return true
+        }
+        await new Promise((resolve) => setTimeout(resolve, 20))
+      }
+      return false
+    }
+    try {
+      await holder.query('BEGIN')
+      await lockBlob(holder, expired!.digest)
+      sweeping = sweepFigureRenders(media.pool, store, binding)
+      assert.ok(await waitingOn('%pg_advisory_xact_lock%'), 'the sweep waits at the blob lock')
+      // The identical ask meets the row the sweep is deleting and waits for its outcome.
+      asking = tools.ask(token, figureQuestion(lot, [photoFigure()], true))
+      assert.ok(await waitingOn('INSERT INTO public.processing_figure_render%'), 'the ask waits')
+    } finally {
+      await holder.query('COMMIT').catch(() => undefined)
+      holder.release()
+    }
+    const second = consumer(setup, renderer)
+    try {
+      assert.equal((await sweeping!).deleted, 1)
+      const answered = await asking!
+      assert.equal(answered.images?.length, 1)
+    } finally {
+      await second()
+    }
+    const rows = await renderRows(setup, 'preview')
+    assert.equal(rows.length, 1)
+    assert.notEqual(rows[0]!.id, expired!.id)
   })
 })
 
@@ -1075,7 +1175,7 @@ test('five near-limit preview pictures cross the VM relay in file and inline del
   })
 })
 
-test('the render consumer pauses after each render, so a decode waiting for the dispatcher gets a turn', async () => {
+test('an upload decode waiting on the dispatcher runs right after the render holding it', async () => {
   await withFigureSession(async (setup) => {
     const { tools, token, lot, photoFigure } = setup
     await fetched(setup, setup.photo)
@@ -1085,34 +1185,74 @@ test('the render consumer pauses after each render, so a decode waiting for the 
         figureQuestion(lot, [
           photoFigure(),
           photoFigure({ region: { x: 0, y: 0, width: 100, height: 80 } }),
+          photoFigure({ region: { x: 2, y: 2, width: 100, height: 80 } }),
         ]),
       ),
     )
-    const rendered: number[] = []
+    // A dispatcher with one slot, as `dispatcher-main.ts` has, holding each decode 300 ms.
+    const socketRoot = await mkdtemp(join(tmpdir(), 'dispatch-'))
+    const socket = join(socketRoot, 'worker.sock')
+    let busy = false
+    const ran: string[] = []
+    const dispatcher = createServer((req, res) => {
+      if (busy) {
+        req.resume()
+        res.writeHead(503, { connection: 'close' }).end()
+        return
+      }
+      busy = true
+      const chunks: Buffer[] = []
+      req.on('data', (chunk: Buffer) => chunks.push(chunk))
+      req.on('end', () => {
+        setTimeout(() => {
+          ran.push(Buffer.concat(chunks).toString())
+          busy = false
+          res.writeHead(200).end('decoded')
+        }, 300)
+      })
+    })
+    await new Promise<void>((resolve) => dispatcher.listen(socket, resolve))
+    // The consumer's renders go through the dispatcher without waiting, as the deployed one does.
+    const fake = fakeRenderer()
+    const throughDispatcher: RenderView = async (input) => {
+      await requestDecode(socket, 'decoder', Buffer.from('render'), 0)
+      return fake(input)
+    }
+    let first!: () => void
+    const firstStarted = new Promise<void>((resolve) => {
+      first = resolve
+    })
+    const watching = setInterval(() => {
+      if (busy) {
+        first()
+      }
+    }, 5)
     const stop = new AbortController()
     const running = runFigureRenderConsumer({
       pool: setup.media.pool,
       store: setup.store,
       binding: setup.binding,
-      render: fakeRenderer(),
+      render: throughDispatcher,
       signal: stop.signal,
       pollMs: 50,
-      onOutcome: (outcome) => {
-        if (outcome === 'rendered') {
-          rendered.push(Date.now())
-        }
-      },
     })
     try {
-      for (let tries = 0; rendered.length < 2 && tries < 100; tries += 1) {
+      await firstStarted
+      // An upload's decode arrives while the first render holds the slot.
+      const upload = await requestDecode(socket, 'decoder', Buffer.from('upload'))
+      assert.equal(upload.toString(), 'decoded')
+      for (let tries = 0; ran.length < 4 && tries < 200; tries += 1) {
         await new Promise((resolve) => setTimeout(resolve, 50))
       }
     } finally {
+      clearInterval(watching)
       stop.abort()
       await running
+      await new Promise((resolve) => dispatcher.close(resolve))
+      await rm(socketRoot, { recursive: true, force: true })
     }
-    assert.equal(rendered.length, 2)
-    assert.ok(rendered[1]! - rendered[0]! >= RENDER_YIELD_MS - 50, 'paused between renders')
+    // The consumer pauses after each render, so the waiting upload takes the next turn.
+    assert.deepEqual(ran, ['render', 'upload', 'render', 'render'])
   })
 })
 
@@ -1480,27 +1620,37 @@ test('a render settling while the sweep deletes it and a ready render of the sam
       return store.publish(client, bytes)
     }
     const settling = renderFigureStep(media.pool, gated, binding, same)
-    await atPublish
-    await mediaEditor(fixture.api.pool, fixture.config, setup.batchId).applied({
-      kind: 'remove',
-      evidence_ids: [setup.photo.evidence],
-    })
-    const sweeping = sweepFigureRenders(media.pool, store, binding)
+    let sweeping: ReturnType<typeof sweepFigureRenders> | undefined
     let waiting = false
-    for (let tries = 0; !waiting && tries < 200; tries += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 20))
-      const blocked = await fixture.db.pool.query(
-        `SELECT 1 FROM pg_stat_activity
-         WHERE wait_event_type='Lock' AND query LIKE 'DELETE FROM public.processing_figure_render%'`,
-      )
-      waiting = (blocked.rowCount ?? 0) > 0
+    try {
+      await Promise.race([
+        atPublish,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('no_publish')), 10_000)),
+      ])
+      await mediaEditor(fixture.api.pool, fixture.config, setup.batchId).applied({
+        kind: 'remove',
+        evidence_ids: [setup.photo.evidence],
+      })
+      sweeping = sweepFigureRenders(media.pool, store, binding)
+      for (let tries = 0; !waiting && tries < 200; tries += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 20))
+        const blocked = await fixture.db.pool.query(
+          `SELECT 1 FROM pg_stat_activity
+           WHERE wait_event_type='Lock' AND query LIKE 'DELETE FROM public.processing_figure_render%'`,
+        )
+        waiting = (blocked.rowCount ?? 0) > 0
+      }
+    } finally {
+      // Released whatever happened, so neither operation is left holding a connection.
+      open()
     }
-    assert.ok(waiting, 'the sweep waits on the settling render')
-    open()
-    const [settled, swept] = await Promise.all([settling, sweeping])
+    const [settled, swept] = await Promise.allSettled([settling, sweeping!])
+    assert.ok(waiting, 'the sweep waited on the settling render')
+    assert.equal(settled.status, 'fulfilled', String((settled as PromiseRejectedResult).reason))
+    assert.equal(swept.status, 'fulfilled', String((swept as PromiseRejectedResult).reason))
 
-    assert.equal(settled, 'rendered')
-    assert.equal(swept.deleted, 2)
+    assert.equal((settled as PromiseFulfilledResult<string>).value, 'rendered')
+    assert.equal((swept as PromiseFulfilledResult<{ deleted: number }>).value.deleted, 2)
     const left = await fixture.db.pool.query('SELECT 1 FROM processing_figure_render')
     assert.equal(left.rowCount, 0)
     assert.equal(outputs.size, 2, 'one view and one thumbnail, shared by both renders')

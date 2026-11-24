@@ -1328,29 +1328,57 @@ const QUERY_CANCELED = '57014'
  * stops the reads at the deadline; a read that outlives the wait still returns its connection.
  */
 async function previewState(context: SessionToolContext, preview: QueuedPreview, deadline: number) {
+  if (Date.now() >= deadline) {
+    return LATE
+  }
   const client = await context.pool.connect()
   let broken = false
+  let timed = false
+
+  const onError = () => {
+    broken = true
+  }
+
+  // A connection lost while checked out is reported here, not to the process.
+  client.on('error', onError)
   try {
-    const remaining = Math.ceil(deadline - Date.now())
-    if (remaining <= 0) {
+    // Each statement gets only the time left; none starts once the wait is over.
+    const withinWait = async () => {
+      const remaining = Math.ceil(deadline - Date.now())
+      if (remaining <= 0) {
+        return false
+      }
+      timed = true
+      await client.query(`SET statement_timeout = ${remaining}`)
+      return true
+    }
+
+    if (!(await withinWait())) {
       return LATE
     }
-    await client.query(`SET statement_timeout = ${remaining}`)
     const renders = await previewRenders(client, preview.ids)
-    const removed = renders.some((render) => render.state === 'gone')
-      ? (await removedVersionIds(client, preview.batchId, preview.versions)).size > 0
-      : false
-    return { renders, removed }
+    if (!renders.some((render) => render.state === 'gone')) {
+      return { renders, removed: false }
+    }
+    if (!(await withinWait())) {
+      return LATE
+    }
+    const removed = await removedVersionIds(client, preview.batchId, preview.versions)
+    return { renders, removed: removed.size > 0 }
   } catch (error) {
     if ((error as { code?: string }).code === QUERY_CANCELED) {
       return LATE
     }
+    broken = true
     throw error
   } finally {
-    await client.query('RESET statement_timeout').catch(() => {
-      broken = true
-    })
+    if (timed && !broken) {
+      await client.query('RESET statement_timeout').catch(() => {
+        broken = true
+      })
+    }
     client.release(broken)
+    client.removeListener('error', onError)
   }
 }
 
