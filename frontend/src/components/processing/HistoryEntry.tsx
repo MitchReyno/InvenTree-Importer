@@ -3,7 +3,8 @@ import type { SessionHistoryEntryDto } from '@invimport/contracts'
 import { EventTime } from '#/components/ui'
 import { color, space, typeVar } from '#/theme/generated/tokens'
 import { HistoryEntryDetails, hasDetails } from './HistoryEntryDetails'
-import { HistoryLinks, type HistoryContext } from './HistoryLinks'
+import type { HistoryContext } from './HistoryLink'
+import { HistoryLinks } from './HistoryLinks'
 import { HistoryDetails, HistoryLine, HistoryText, HistoryTime } from './history-row-styles'
 
 /**

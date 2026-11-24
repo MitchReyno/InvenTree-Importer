@@ -29,6 +29,13 @@ Implementation of BI-019's agent interaction work, delivered PR by PR as the tas
 
 ## Decisions made during implementation
 
+- **2026-11-24T15:20+11:00, task 7 (PR-E), after review round 2:**
+  - The read lists attempts newest first, so dividers and the header's first queue time sort a copy by queue time; the test fixtures now list them as the server does.
+  - A question this page has shown keeps its card, and so its unsaved answer, after a refresh drops it with older entries; it sits at its own time among the newest entries (`useQuestionsWithDrafts`).
+  - The page's message box waits for a Processing read started after the last live hint, as other revisionless commands do, and says why while it waits; the history stays shown. A definite "not found" replaces history read earlier.
+  - A proposal names an existing InvenTree company or category by its record number, since the proposal keeps only that, and a new one by name.
+  - Each attempt divider says how that attempt stands or ended ("Cancelled · ended …", "Replaced by a later attempt"), and an end with no retained transition reads as last activity, there and in the header.
+  - The native-session qualification driver reads every page of the history read (`trace.ts`) instead of the removed timeline response, and matches each chat to its entry by inbox sequence.
 - **2026-11-24T14:40+11:00, task 7 (PR-E), after review round 1:**
   - The page's history no longer waits for the Processing read: it is mounted from the route, and only answering waits for that read, so a failed Processing read still shows the history or "not found".
   - A newest-page re-read keeps held rows below the deepest stored row it shares with them, not only when its own oldest row was held, so a late commit at the page boundary no longer drops loaded older pages.

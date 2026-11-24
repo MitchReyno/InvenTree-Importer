@@ -6,7 +6,7 @@ import { color, radius, space } from '#/theme/generated/tokens'
 import { AttemptDivider } from './AttemptDivider'
 import { ChatBubble } from './ChatBubble'
 import { HistoryEntry } from './HistoryEntry'
-import type { HistoryContext } from './HistoryLinks'
+import type { HistoryContext } from './HistoryLink'
 import { HistoryRow } from './HistoryRow'
 
 export type ConversationRowProps = {

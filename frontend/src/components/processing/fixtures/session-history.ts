@@ -200,13 +200,14 @@ function researchPages(ids: Ids) {
     stage: 'research' as const,
     subject_id: ids.lot(3),
     current_attempt_id: second,
+    // Newest first, as the read lists them.
     attempts: [
+      attempt(ids, 33, 2, {}),
       attempt(ids, 23, 1, {
         state: 'failed',
         session_state: 'failed',
         ended: { at: at(8), source: 'transition' },
       }),
-      attempt(ids, 33, 2, {}),
     ],
     inbox_acked_seq: '3',
   }

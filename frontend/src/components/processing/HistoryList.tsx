@@ -1,5 +1,5 @@
 import type { HistoryItem } from '#/processing/session-history'
-import type { HistoryContext } from './HistoryLinks'
+import type { HistoryContext } from './HistoryLink'
 import { HistoryRow } from './HistoryRow'
 import { HistoryRows } from './history-row-styles'
 

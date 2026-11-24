@@ -2,7 +2,7 @@ import type { SessionHistoryDetailsDto } from '@invimport/contracts'
 import { DebugDetails } from '#/components/ui'
 import { photoViewCrop } from '#/media/types'
 import { EntryCrop, Muted } from './history-styles'
-import type { HistoryContext } from './HistoryLinks'
+import type { HistoryContext } from './HistoryLink'
 
 type Details = Extract<SessionHistoryDetailsDto, { kind: 'photo_view' }>
 

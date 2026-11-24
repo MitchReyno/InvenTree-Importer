@@ -4,7 +4,7 @@ import { sessionPageHref } from '#/navigation/batch-route'
 import type { HistoryItem } from '#/processing/session-history'
 import { space } from '#/theme/generated/tokens'
 import { HistoryEntry } from './HistoryEntry'
-import type { HistoryContext } from './HistoryLinks'
+import type { HistoryContext } from './HistoryLink'
 import {
   HistoryDetails,
   HistoryLine,

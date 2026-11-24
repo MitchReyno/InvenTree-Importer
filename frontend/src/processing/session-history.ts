@@ -266,7 +266,7 @@ export function conversation(held: HeldHistory): ConversationItem[] {
   const owning = new Set(
     held.entries.flatMap((entry) => (entry.who === 'agent' ? [entry.attempt] : [])),
   )
-  const dividers = held.session.attempts.filter((attempt) => {
+  const dividers = attemptsOldestFirst(held.session.attempts).filter((attempt) => {
     const queuedWithin = oldestLoaded !== undefined && attempt.queued_at >= oldestLoaded
     return held.before === undefined || queuedWithin || owning.has(attempt.number)
   })
@@ -289,6 +289,11 @@ export function conversation(held: HeldHistory): ConversationItem[] {
     items.push(dividerItem(dividers[next]))
   }
   return items
+}
+
+/** The read lists attempts newest first; the conversation needs them by queue time. */
+export function attemptsOldestFirst(attempts: readonly SessionHistoryAttemptDto[]) {
+  return [...attempts].sort((a, b) => a.queued_at.localeCompare(b.queued_at) || a.number - b.number)
 }
 
 function dividerItem(attempt: SessionHistoryAttemptDto): ConversationItem {

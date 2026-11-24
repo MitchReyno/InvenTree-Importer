@@ -3,7 +3,7 @@ import type { SessionHistoryEntryDto } from '@invimport/contracts'
 import { Small } from '#/components/ui'
 import { citedSources, viewedPhotos } from '#/processing/session-history'
 import { color, radius, space, type } from '#/theme/generated/tokens'
-import { HistoryLink, type HistoryContext } from './HistoryLinks'
+import { HistoryLink, type HistoryContext } from './HistoryLink'
 
 const NOT_LOADED = 'Older entries are not loaded yet, so earlier ones may be missing.'
 

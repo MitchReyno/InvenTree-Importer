@@ -1,7 +1,7 @@
 import type { SessionHistoryDetailsDto, SessionHistoryEntryDto } from '@invimport/contracts'
 import { Button, EventTime } from '#/components/ui'
 import { DetailLabel, Muted } from './history-styles'
-import type { HistoryContext } from './HistoryLinks'
+import type { HistoryContext } from './HistoryLink'
 import { LotDetails } from './LotDetails'
 import { ObservationReading } from './ObservationReading'
 import { PhotoViewDetails } from './PhotoViewDetails'

@@ -3,6 +3,7 @@ import styled from 'styled-components'
 import type { SessionHistoryDto } from '@invimport/contracts'
 import { DebugDetails, EventTime, Link, StatePill } from '#/components/ui'
 import { workState } from '#/header/workSegments'
+import { attemptsOldestFirst } from '#/processing/session-history'
 import { color, space, type, typeVar } from '#/theme/generated/tokens'
 
 type Metadata = SessionHistoryDto['session']
@@ -39,10 +40,11 @@ export function SessionPageHeader({
   lotHref?: string
 }) {
   const headingId = useId()
-  const first = session.attempts[0]
+  const ordered = attemptsOldestFirst(session.attempts)
+  const first = ordered[0]
   const current =
     session.attempts.find((attempt) => attempt.id === session.current_attempt_id) ??
-    session.attempts[session.attempts.length - 1]
+    ordered[ordered.length - 1]
   const count = session.attempts.length
   return (
     <Header aria-labelledby={headingId}>
@@ -55,8 +57,8 @@ export function SessionPageHeader({
         <EventTime at={first.queued_at} />
         {current.ended && (
           <>
-            {' '}
-            to <EventTime at={current.ended.at} />
+            {current.ended.source === 'transition' ? ' to ' : ' · last activity '}
+            <EventTime at={current.ended.at} />
           </>
         )}{' '}
         · {count} {count === 1 ? 'attempt' : 'attempts'}

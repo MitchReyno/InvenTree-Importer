@@ -1,8 +1,7 @@
 import type { SessionHistoryDetailsDto, SessionHistoryEntryDto } from '@invimport/contracts'
 import { DebugDetails } from '#/components/ui'
 import { DetailList } from './history-styles'
-import { HistoryLink } from './HistoryLinks'
-import type { HistoryContext } from './HistoryLinks'
+import { HistoryLink, type HistoryContext } from './HistoryLink'
 
 type Details = Extract<SessionHistoryDetailsDto, { kind: 'regroup' }>
 

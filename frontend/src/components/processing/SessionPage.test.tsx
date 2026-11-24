@@ -507,3 +507,87 @@ test('a missing session says so even when the Processing read fails', async () =
   mount(missing)
   expect(await screen.findByText('This session was not found.')).toBeInTheDocument()
 })
+
+test('each attempt divider says how that attempt ended', async () => {
+  const first = attemptHeader({
+    state: 'cancelled',
+    session_state: 'cancelled',
+    ended: { at: at(9), source: 'transition' },
+  })
+  const second = attemptHeader({
+    id: H.attempt2,
+    number: 2,
+    queued_at: at(10),
+    started_because: null,
+  })
+  mount(
+    client(
+      history([status(1, 11, 'Again', { attempt: 2, id: `outbox:${H.attempt2}:1` })], {
+        attempts: [first, second],
+      }),
+    ),
+  )
+  const list = await screen.findByRole('list', { name: 'Session conversation' })
+
+  expect(list).toHaveTextContent(/Cancelled · ended/)
+  expect(list).toHaveTextContent(/Running/)
+})
+
+test('a refresh that drops a question keeps its unsaved answer on the page', async () => {
+  const user = userEvent.setup()
+  let page = history([asked])
+  const processing = client(() => Promise.resolve(page))
+  const { invalidate } = mount(processing)
+  const card = await screen.findByRole('form', {
+    name: 'Session question: Which ATmega328P variant is this?',
+  })
+  await user.click(within(card).getByRole('radio', { name: /ATmega328PB-AU/ }))
+
+  // More than a page arrived and the question was answered elsewhere.
+  const answered = structuredClone(snapshot)
+  answered.jobs[0].questions[0].state = 'answered'
+  processing.read.mockResolvedValue(answered)
+  page = history([status(9, 30, 'Much later')], { before: 'older-9' })
+  await invalidate()
+  await screen.findByText('Much later')
+
+  const kept = screen.getByRole('form', {
+    name: 'Session question: Which ATmega328P variant is this?',
+  })
+  expect(within(kept).getByRole('radio', { name: /ATmega328PB-AU/ })).toBeChecked()
+})
+
+test('messages wait for the page’s own Processing read, while the history stays shown', async () => {
+  const user = userEvent.setup()
+  const processing = client(history([status(1, 1, 'Reading the slip')]))
+  const pending = deferred<ProcessingSnapshotDto>()
+  processing.read.mockReturnValueOnce(pending.promise)
+  mount(processing)
+  expect(await screen.findByText('Reading the slip')).toBeInTheDocument()
+  const box = screen.getByRole('textbox', { name: 'Message Research' })
+  await user.type(box, 'Check the datasheet')
+  expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled()
+
+  await act(async () => {
+    pending.resolve(snapshot)
+    await pending.promise
+  })
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Send' })).toBeEnabled())
+  expect(box).toHaveValue('Check the datasheet')
+})
+
+test('a not-found read replaces history read earlier', async () => {
+  let fail = false
+  const processing = client(() =>
+    fail
+      ? Promise.reject(new IntakeRequestError(404, 'session_not_found', 'Session not found'))
+      : Promise.resolve(history([status(1, 1, 'Reading the slip')])),
+  )
+  const { invalidate } = mount(processing)
+  await screen.findByText('Reading the slip')
+  fail = true
+  await invalidate()
+
+  expect(await screen.findByText('This session was not found.')).toBeInTheDocument()
+  expect(screen.queryByText('Reading the slip')).toBeNull()
+})

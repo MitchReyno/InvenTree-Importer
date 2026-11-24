@@ -7,6 +7,7 @@ import { Banner, Button, FilterChips, Link, Small, media } from '#/components/ui
 import { batchHref, type ProcessingStep } from '#/navigation/batch-route'
 import { conversation, filterCount, type ConversationFilter } from '#/processing/session-history'
 import { useSessionPageHistory } from '#/processing/useSessionHistory'
+import { useQuestionsWithDrafts } from '#/processing/useQuestionsWithDrafts'
 import type { ProcessingClient } from '#/processing/types'
 import { space } from '#/theme/generated/tokens'
 import { SessionChatPanel } from './SessionChatPanel'
@@ -36,6 +37,10 @@ type Props = {
   /** Whether the subject is a live lot, so the header can link it in Review. */
   isLot: (id: string | null) => boolean
   answerForm: (questionId: string) => ReactNode
+  /** A question's answer form on this page holds an unsaved draft. */
+  isAnswerDirty: (questionId: string) => boolean
+  /** Why a message can't be sent now; absent when it can. */
+  sendUnavailable?: string
   startFresh: () => void
   freshDisabled: boolean
 }
@@ -66,14 +71,16 @@ export function SessionPage(props: Props) {
     setReveal(null)
   }, [reveal])
   const held = query.data
+  const questions = useQuestionsWithDrafts(held, props.isAnswerDirty)
+  // A definite "not found" wins over history read earlier, which may belong to another scope.
+  if (isNotFound(query.error)) {
+    return (
+      <div role="status">
+        <Banner tone="warn">This session was not found.</Banner>
+      </div>
+    )
+  }
   if (!held) {
-    if (isNotFound(query.error)) {
-      return (
-        <div role="status">
-          <Banner tone="warn">This session was not found.</Banner>
-        </div>
-      )
-    }
     if (query.isError || query.fetchStatus === 'paused') {
       return (
         <div role="alert">
@@ -130,7 +137,7 @@ export function SessionPage(props: Props) {
             {older === 'failed' && <Small role="alert">Older entries couldn’t be loaded.</Small>}
           </Controls>
           <SessionConversation
-            items={conversation(held)}
+            items={conversation({ ...held, entries: questions.entries })}
             filter={filter}
             context={context}
             answerForm={props.answerForm}
@@ -146,6 +153,7 @@ export function SessionPage(props: Props) {
               await query.refetch()
             }}
             startFresh={props.startFresh}
+            sendUnavailable={props.sendUnavailable}
             freshDisabled={
               props.freshDisabled || session.current_attempt_id !== props.job?.attempt_id
             }

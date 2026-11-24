@@ -8,6 +8,20 @@ import {
 import { EventTime } from '#/components/ui'
 import { color, space, typeVar } from '#/theme/generated/tokens'
 
+/** How an attempt stands or ended, in words that say what happened to that attempt. */
+const OUTCOME: Record<SessionHistoryAttemptDto['state'], string> = {
+  queued: 'Queued',
+  running: 'Running',
+  waiting_for_user: 'Waiting for you',
+  waiting_for_login: 'Waiting for sign-in',
+  waiting_for_capacity: 'Waiting for a slot',
+  ready: 'Finished',
+  failed: 'Failed',
+  cancelled: 'Cancelled',
+  superseded: 'Replaced by a later attempt',
+  interrupted: 'Interrupted',
+}
+
 const STARTED_BECAUSE = {
   first: 'first attempt',
   after_failure: 'after the previous attempt failed',
@@ -19,7 +33,7 @@ function attemptTitle(attempt: SessionHistoryAttemptDto) {
   return reason ? `Attempt ${attempt.number} · ${reason}` : `Attempt ${attempt.number}`
 }
 
-/** Where an attempt was queued in the conversation, with its failure when it failed. */
+/** Where an attempt was queued in the conversation: how it ended, and its failure when it failed. */
 export function AttemptDivider({
   attempt,
   loadFailure,
@@ -35,6 +49,15 @@ export function AttemptDivider({
       <span>
         {title} · queued <EventTime at={attempt.queued_at} />
       </span>
+      <Outcome>
+        {OUTCOME[attempt.state]}
+        {attempt.ended && (
+          <>
+            {attempt.ended.source === 'transition' ? ' · ended ' : ' · last activity '}
+            <EventTime at={attempt.ended.at} />
+          </>
+        )}
+      </Outcome>
       {failed && (
         <SessionFailureDetails
           attemptId={attempt.id}
@@ -45,6 +68,12 @@ export function AttemptDivider({
     </Divider>
   )
 }
+
+const Outcome = styled.p`
+  margin: 0;
+  font-size: ${typeVar.small.size};
+  color: ${color.muted};
+`
 
 const Divider = styled.div`
   display: grid;

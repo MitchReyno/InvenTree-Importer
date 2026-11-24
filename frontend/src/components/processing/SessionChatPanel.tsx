@@ -17,6 +17,8 @@ interface Props {
   label?: string
   /** False on the session page, whose conversation shows the messages. */
   showLog?: boolean
+  /** Why a message can't be sent now, such as while the page's Processing read is pending. */
+  sendUnavailable?: string
 }
 
 interface Pending {
@@ -89,6 +91,7 @@ export function SessionChatPanel({
   freshDisabled,
   label = 'Message this session',
   showLog = true,
+  sendUnavailable,
 }: Props) {
   const [message, setMessage] = useState('')
   const pending = useSyncExternalStore(subscribe, () => pendingSends.get(storeKey))
@@ -115,7 +118,7 @@ export function SessionChatPanel({
   const confirmed = () => setMessage(chatConfirmation(state))
 
   const submit = (text: string) => {
-    if (pendingSends.has(storeKey)) {
+    if (pendingSends.has(storeKey) || sendUnavailable) {
       return
     }
     setMessage('')
@@ -157,7 +160,7 @@ export function SessionChatPanel({
       <SessionChat
         messages={messages}
         onSend={submit}
-        sendDisabled={pending !== undefined}
+        sendDisabled={pending !== undefined || sendUnavailable !== undefined}
         label={label}
         showLog={showLog}
         maxLength={4096}
@@ -165,6 +168,7 @@ export function SessionChatPanel({
       {pending?.status === 'unconfirmed' && (
         <Small>Retry or discard the unconfirmed message before sending another.</Small>
       )}
+      {sendUnavailable && <Small>{sendUnavailable}</Small>}
       {message && <Small role="status">{message}</Small>}
     </Panel>
   )

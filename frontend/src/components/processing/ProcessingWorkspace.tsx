@@ -647,6 +647,9 @@ export function ProcessingWorkspace({
       subjectLabel={subjectLabel}
       isLot={(id) => id !== null && activeLotIds.has(id)}
       answerForm={pageAnswerForm}
+      isAnswerDirty={(questionId) => drafts.isDirty(`answer:${questionId}`)}
+      // A message carries no revision, so it waits for a read started after the last live hint.
+      sendUnavailable={batch.archived ? 'Resume the batch to send messages.' : revisionlessReason}
       startFresh={() => {
         if (pageJob) {
           restart(pageJob)

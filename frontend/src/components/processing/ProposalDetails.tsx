@@ -9,7 +9,7 @@ import type {
 import { KeyValue, SourceChip, type KeyValueRow } from '#/components/ui'
 import { evidenceWords } from '#/operator/value-evidence'
 import { DetailLabel, DetailList } from './history-styles'
-import { HistoryLink, type HistoryContext } from './HistoryLinks'
+import { HistoryLink, type HistoryContext } from './HistoryLink'
 import { ProcessingSources } from './ProcessingSources'
 
 type Details = Extract<SessionHistoryDetailsDto, { kind: 'proposal' }>
@@ -34,6 +34,18 @@ const RELIANCE_WORDS: Record<Reliance['kind'], string> = {
   observation_set: 'the lot’s observations',
   inbox_item: 'one of your inputs',
   proposal: 'another proposal',
+}
+
+/** A catalogue choice of a company or category: a new one by name, or an existing record. */
+type Choice =
+  { choice: 'proposed_new'; name: string } | { choice: 'existing'; reference: { pk: string } }
+
+/** A new choice by its name; an existing one by its InvenTree record, since only its pk is kept. */
+function choiceName(choice: Choice, model: 'company' | 'category') {
+  if (choice.choice === 'proposed_new') {
+    return `${choice.name} (new)`
+  }
+  return `Existing InvenTree ${model} #${choice.reference.pk}`
 }
 
 /** The entry's own link to a cited photo or note, or the source in words where it has none. */
@@ -106,12 +118,13 @@ export function ProposalDetails({
   const rows: KeyValueRow[] = []
   if (catalogue?.manufacturer) {
     const { company, mpn } = catalogue.manufacturer
-    const name =
-      company.choice === 'proposed_new' ? `${company.name} (new)` : 'An existing InvenTree company'
-    rows.push(row('Manufacturer', name, company), row('MPN', mpn, catalogue.manufacturer))
+    rows.push(
+      row('Manufacturer', choiceName(company, 'company'), company),
+      row('MPN', mpn, catalogue.manufacturer),
+    )
   }
-  if (catalogue?.category?.choice === 'proposed_new') {
-    rows.push(row('Category', `${catalogue.category.name} (new)`, catalogue.category))
+  if (catalogue?.category) {
+    rows.push(row('Category', choiceName(catalogue.category, 'category'), catalogue.category))
   }
   if (catalogue?.description) {
     rows.push(row('Description', catalogue.description.text, catalogue.description))

@@ -333,14 +333,16 @@ export function history(
     acked = '100',
   }: { before?: string; attempts?: SessionHistoryAttemptDto[]; acked?: string } = {},
 ): SessionHistoryDto {
+  // The read lists attempts newest first, as the server does.
+  const newestFirst = [...attempts].sort((a, b) => b.number - a.number)
   const page: SessionHistoryDto = {
     session: {
       job_id: H.job,
       batch_id: H.batch,
       stage: 'research',
       subject_id: H.lot,
-      current_attempt_id: attempts[attempts.length - 1].id,
-      attempts,
+      current_attempt_id: newestFirst[0].id,
+      attempts: newestFirst,
       inbox_acked_seq: acked,
     },
     entries,
