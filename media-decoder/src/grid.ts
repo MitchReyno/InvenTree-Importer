@@ -22,6 +22,13 @@ const OVERVIEW_SPAN_FACTOR = 1.6
 /** Every fifth line is major. Labels go on every line when lines are this far apart, in preview pixels. */
 const MAJOR_EVERY = 5
 const LABEL_EVERY_LINE_MIN_PX = 45
+/** Labels go on every line, every 2nd, 5th, 10th … line, whichever first leaves room between them. */
+const LABEL_LINE_MULTIPLES = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000]
+const LABEL_GAP_PX = 4
+/** A label sits this far from its line, on a chip reaching 2 px beyond its text and 1 px above and below. */
+const LABEL_OFFSET_PX = 3
+const CHIP_PAD_X = 2
+const CHIP_PAD_Y = 1
 /** A box is off-centre when opposite margins differ by over 15% of the larger, and 10 px. */
 const OFF_CENTRE_SHARE = 0.15
 const OFF_CENTRE_MIN_PX = 10
@@ -92,7 +99,6 @@ interface GridPlan {
   previewWidth: number
   previewHeight: number
   step: number
-  labelStep: number
 }
 
 function gridPlan(input: GridInput): GridPlan {
@@ -109,17 +115,61 @@ function gridPlan(input: GridInput): GridPlan {
   if (width / step > GRID_MAX_LINES || height / step > GRID_MAX_LINES) {
     throw new GridLimitError('grid_line_limit')
   }
-  const labelStep = step * scale >= LABEL_EVERY_LINE_MIN_PX ? step : step * 2
-  return { region, scale, previewWidth: input.preview_width, previewHeight, step, labelStep }
+  return { region, scale, previewWidth: input.preview_width, previewHeight, step }
+}
+
+/**
+ * A page coordinate's preview pixel, kept inside the preview, so a line at the region's edge is
+ * drawn and its label sits on it.
+ */
+function previewPixel(value: number, origin: number, scale: number, size: number) {
+  return Math.min(size - 1, Math.max(0, Math.floor((value - origin) * scale)))
+}
+
+interface Chip {
+  left: number
+  top: number
+  right: number
+  bottom: number
+}
+
+/** The chip behind a label whose text starts at (x, y). */
+function chipAround(x: number, y: number, textWidth: number): Chip {
+  return {
+    left: x - CHIP_PAD_X,
+    top: y - CHIP_PAD_Y,
+    right: x + textWidth + CHIP_PAD_X,
+    bottom: y + LABEL_FONT_PX + CHIP_PAD_Y,
+  }
+}
+
+function fitsPreview(chipBounds: Chip, plan: GridPlan) {
+  return (
+    chipBounds.left >= 0 &&
+    chipBounds.top >= 0 &&
+    chipBounds.right <= plan.previewWidth &&
+    chipBounds.bottom <= plan.previewHeight
+  )
 }
 
 /** A label on a white chip, so it stays legible on foil, glare and busy backgrounds. */
 function chip(context: SKRSContext2D, x: number, y: number, text: string, colour: string) {
-  const width = context.measureText(text).width
+  const bounds = chipAround(x, y, context.measureText(text).width)
   context.fillStyle = '#ffffff'
-  context.fillRect(x - 2, y - 1, width + 4, LABEL_FONT_PX + 2)
+  context.fillRect(bounds.left, bounds.top, bounds.right - bounds.left, bounds.bottom - bounds.top)
   context.fillStyle = colour
   context.fillText(text, x, y)
+}
+
+/**
+ * The label interval: grid.py's (every line when lines are 45 px apart, else every other), widened
+ * to a further multiple of the step until labels `room` px across are at least that far apart.
+ */
+function labelStep(plan: GridPlan, room: number) {
+  const scriptMultiple = plan.step * plan.scale >= LABEL_EVERY_LINE_MIN_PX ? 1 : 2
+  const candidates = LABEL_LINE_MULTIPLES.filter((multiple) => multiple >= scriptMultiple)
+  const fitting = candidates.find((multiple) => plan.step * multiple * plan.scale >= room)
+  return plan.step * (fitting ?? candidates.at(-1)!)
 }
 
 function drawLines(context: SKRSContext2D, plan: GridPlan) {
@@ -130,7 +180,7 @@ function drawLines(context: SKRSContext2D, plan: GridPlan) {
     const thickness = isMajor ? 2 : 1
     context.fillStyle = isMajor ? COLOURS.majorX : COLOURS.minorX
     context.fillRect(
-      Math.round((x - region.x0) * scale) - thickness + 1,
+      Math.max(0, previewPixel(x, region.x0, scale, previewWidth) - thickness + 1),
       0,
       thickness,
       previewHeight,
@@ -142,30 +192,54 @@ function drawLines(context: SKRSContext2D, plan: GridPlan) {
     context.fillStyle = isMajor ? COLOURS.majorY : COLOURS.minorY
     context.fillRect(
       0,
-      Math.round((y - region.y0) * scale) - thickness + 1,
+      Math.max(0, previewPixel(y, region.y0, scale, previewHeight) - thickness + 1),
       previewWidth,
       thickness,
     )
   }
 }
 
-/** Labels go on last, so no line crosses them. */
+/**
+ * Labels go on last, so no line crosses them. A label that would run off the right or bottom edge
+ * goes on its line's other side; one that still doesn't fit, or would cover the previous label, is
+ * left out. Only the labels drawn are returned.
+ */
 function drawLabels(context: SKRSContext2D, plan: GridPlan) {
-  const { region, scale, labelStep } = plan
-  const xLabels = multiples(region.x0, region.x1, labelStep)
-  const yLabels = multiples(region.y0, region.y1, labelStep)
-  const { previewWidth, previewHeight } = plan
-  for (const x of xLabels) {
-    const line = (x - region.x0) * scale
+  const { region, scale, previewWidth, previewHeight } = plan
+  const widest = context.measureText(String(region.x1)).width
+  const xStep = labelStep(plan, widest + 2 * CHIP_PAD_X + LABEL_GAP_PX)
+  const yStep = labelStep(plan, LABEL_FONT_PX + 2 * CHIP_PAD_Y + LABEL_GAP_PX)
+  const xLabels: number[] = []
+  let previousRight = -Infinity
+  for (const x of multiples(region.x0, region.x1, xStep)) {
+    const line = previewPixel(x, region.x0, scale, previewWidth)
     const width = context.measureText(String(x)).width
-    // A label that would run off the right edge goes on the line's other side.
-    const left = line + 3 + width + 2 > previewWidth ? line - 3 - width : line + 3
-    chip(context, left, 3, String(x), COLOURS.labelX)
+    let left = line + LABEL_OFFSET_PX
+    if (left + width + CHIP_PAD_X > previewWidth) {
+      left = line - LABEL_OFFSET_PX - width
+    }
+    const bounds = chipAround(left, LABEL_OFFSET_PX, width)
+    if (fitsPreview(bounds, plan) && bounds.left >= previousRight) {
+      chip(context, left, LABEL_OFFSET_PX, String(x), COLOURS.labelX)
+      xLabels.push(x)
+      previousRight = bounds.right
+    }
   }
-  for (const y of yLabels) {
-    const line = (y - region.y0) * scale
-    const top = line + 3 + LABEL_FONT_PX + 1 > previewHeight ? line - 3 - LABEL_FONT_PX : line + 3
-    chip(context, 3, top, String(y), COLOURS.labelY)
+  // y labels start below the row of x labels, so the two never overlap in the corner.
+  let previousBottom = xLabels.length > 0 ? chipAround(0, LABEL_OFFSET_PX, 0).bottom : -Infinity
+  const yLabels: number[] = []
+  for (const y of multiples(region.y0, region.y1, yStep)) {
+    const line = previewPixel(y, region.y0, scale, previewHeight)
+    let top = line + LABEL_OFFSET_PX
+    if (top + LABEL_FONT_PX + CHIP_PAD_Y > previewHeight) {
+      top = line - LABEL_OFFSET_PX - LABEL_FONT_PX
+    }
+    const bounds = chipAround(LABEL_OFFSET_PX, top, context.measureText(String(y)).width)
+    if (fitsPreview(bounds, plan) && bounds.top >= previousBottom) {
+      chip(context, LABEL_OFFSET_PX, top, String(y), COLOURS.labelY)
+      yLabels.push(y)
+      previousBottom = bounds.bottom
+    }
   }
   return { xLabels, yLabels }
 }

@@ -242,3 +242,91 @@ test('a label at the preview edge is drawn inside it, on the line’s other side
   assert.ok(xInk > 10, 'the x label is drawn left of its line')
   assert.ok(yInk > 10, 'the y label is drawn above its line')
 })
+
+async function greyPage(width: number, height: number) {
+  const bytes = await sharp({ create: { width, height, channels: 3, background: '#808080' } })
+    .png()
+    .toBuffer()
+  return { bytes, width, height, digest: sha(bytes) }
+}
+
+async function gridOf(
+  page: Awaited<ReturnType<typeof greyPage>>,
+  region: { x: number; y: number; width: number; height: number },
+  previewWidth: number,
+  step: number,
+) {
+  const result = await renderGrid({
+    version: 'media-grid/1',
+    digest: page.digest,
+    width: page.width,
+    height: page.height,
+    bytes: page.bytes,
+    region,
+    preview_width: previewWidth,
+    step,
+    object: null,
+    boxes: [],
+  })
+  assert.ok(result.state === 'ready')
+  return { result, image: await rgbRaster(result.image.bytes) }
+}
+
+/** The x position of every column holding a white label chip in rows `top` to `bottom`. */
+function chipColumns(image: Awaited<ReturnType<typeof rgbRaster>>, top: number, bottom: number) {
+  const columns: number[] = []
+  for (let x = 0; x < image.width; x++) {
+    for (let y = top; y < bottom; y++) {
+      const offset = (y * image.width + x) * 3
+      if (
+        image.data[offset] === 255 &&
+        image.data[offset + 1] === 255 &&
+        image.data[offset + 2] === 255
+      ) {
+        columns.push(x)
+        break
+      }
+    }
+  }
+  return columns
+}
+
+test('a preview too short for x labels reports none, rather than labels it clipped', async () => {
+  const page = await greyPage(2000, 50)
+  const { result, image } = await gridOf(page, { x: 0, y: 0, width: 2000, height: 50 }, 200, 100)
+  assert.deepEqual([image.width, image.height], [200, 5])
+  assert.deepEqual(result.x_labels, [])
+  assert.deepEqual(chipColumns(image, 0, image.height), [])
+})
+
+test('dense lines are labelled only as often as their labels fit apart', async () => {
+  const page = await greyPage(400, 400)
+  const { result, image } = await gridOf(page, { x: 0, y: 0, width: 200, height: 200 }, 200, 1)
+  assert.ok(result.x_labels.length > 0, 'some x labels are drawn')
+  assert.ok(result.x_labels.length < 20, `x labels thinned: ${result.x_labels.length}`)
+  // Each drawn x label is its own run of chip columns, separated by grey.
+  const columns = chipColumns(image, 0, 18)
+  let runs = 0
+  for (const [index, column] of columns.entries()) {
+    if (index === 0 || column !== columns[index - 1] + 1) {
+      runs++
+    }
+  }
+  assert.equal(runs, result.x_labels.length, 'one separate chip per reported label')
+  const gaps = result.y_labels.slice(1).map((label, index) => label - result.y_labels[index])
+  assert.ok(
+    gaps.every((gap) => gap >= 18),
+    `y labels at least a label's height apart: ${gaps}`,
+  )
+})
+
+test('a line at the region edge is drawn inside the preview, with its label', async () => {
+  const page = await greyPage(2000, 2000)
+  const { result, image } = await gridOf(page, { x: 0, y: 0, width: 2000, height: 2000 }, 200, 1999)
+  assert.deepEqual(result.x_labels, [1999])
+  // Page x 1999 falls in the preview's last column, which holds the line.
+  const lineColumn = 199
+  const offset = (100 * image.width + lineColumn) * 3
+  const [red, green, blue] = image.data.subarray(offset, offset + 3)
+  assert.ok(red > 200 && green < 160 && blue < 160, `line pixel ${red},${green},${blue}`)
+})
