@@ -397,7 +397,7 @@
   - [x] 15.2.3 A replacing read that fails, and one that doesn't settle within 10 s, report unavailable; a second cancel inside the window keeps the first deadline; a cancel from removal or a scope change, and a caller unmounting while another observer keeps the query cached, reject as abandoned and start no fallback read; the cancelled generation never verifies a command; Manual Review's awaited refetch under the same race shows nothing.
   - [x] 15.2.4 The notice with nothing edited (the displayed snapshot's time, Try now, the retry, clearing on an adopted network read and not on a `setQueryData` write); a successful automatic retry with a dirty editor clearing the notice while the draft and its revision stay; named unsaved changes, with Discard dropping only those while an unlisted mounted draft stays and no newer snapshot is adopted under it; Capture's read adopted through the registry (a background network read clears the notice, a `setQueryData` acknowledgement doesn't); and Processing's "Saved. Showing the last status from…" as the only banner after a confirmed command, clearing on a fresh read. (Not tested: a named and an unnamed draft mounted at once, which no screen shows today; see `notes.md`.)
 - [x] 15.3 GREEN: implement the helper, the reload state and notice, the labels and Processing's messages.
-- [ ] 15.4 Update `frontend/ARCHITECTURE.md` (awaited reads and cancellation). Run the frontend checks, and record the demo video for the PR description.
+- [x] 15.4 Update `frontend/ARCHITECTURE.md` (awaited reads and cancellation). Run the frontend checks, and record the demo video for the PR description.
 
 ## Delivery evidence and lifecycle follow-up
 
