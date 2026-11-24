@@ -1075,7 +1075,7 @@ export function sessionTools(context: SessionToolContext) {
     sessionId: principal.attemptId,
   })
 
-  /** Each lot-forming write also lands in the session's outbox, so the timeline shows it. */
+  /** Each lot-forming write also lands in the session's outbox, so the history shows it. */
   const outboxed = async (
     client: PoolClient,
     principal: SessionPrincipal,

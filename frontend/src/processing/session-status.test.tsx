@@ -30,7 +30,7 @@ it('reads the lead session’s line and each lot’s newest line, re-reading whe
         job('i1', 'images', 'l1', 'Choosing a photo', '2026-11-06T10:01:00.000Z'),
       ],
     })
-  const client = { read, session: vi.fn() } as unknown as ProcessingClient
+  const client = { read, history: vi.fn() } as unknown as ProcessingClient
   const { result, rerender } = renderHook(
     ({ revision }) => useSessionStatuses(client, 'b', revision),
     { initialProps: { revision: '4' }, wrapper },
@@ -41,7 +41,7 @@ it('reads the lead session’s line and each lot’s newest line, re-reading whe
   rerender({ revision: '5' })
   await waitFor(() => expect(result.current.lead).toBe('Grouping the reel photos'))
   expect(result.current.lots.get('l1')).toBe('Research · Checking the datasheet')
-  expect(client.session).not.toHaveBeenCalled()
+  expect(client.history).not.toHaveBeenCalled()
 })
 
 it('reads nothing where sessions are not supported', () => {
@@ -67,7 +67,7 @@ it('leaves out the last line of a session that has finished or ended', async () 
       job('l3', 'images', 'l3', 'Now', 'x'),
     ],
   })
-  const client = { read, session: vi.fn() } as unknown as ProcessingClient
+  const client = { read, history: vi.fn() } as unknown as ProcessingClient
   const { result } = renderHook(() => useSessionStatuses(client, 'b', '1'), { wrapper })
   await waitFor(() => expect(result.current.lots.size).toBe(1))
   expect(result.current.lots.get('l3')).toBe('Images · Now')
@@ -78,7 +78,7 @@ it('drops its statuses when a later read fails, so Capture stops claiming sortin
     .fn()
     .mockResolvedValueOnce({ jobs: [job('lead', 'examine', null, 'Sorting reels')] })
     .mockRejectedValueOnce(new Error('offline'))
-  const client = { read, session: vi.fn() } as unknown as ProcessingClient
+  const client = { read, history: vi.fn() } as unknown as ProcessingClient
   const { result, rerender } = renderHook(
     ({ revision }) => useSessionStatuses(client, 'b', revision),
     { initialProps: { revision: '1' }, wrapper },
@@ -96,7 +96,7 @@ it('re-reads on its interval, since status lines move without a capture change',
       .fn()
       .mockResolvedValueOnce({ jobs: [job('lead', 'examine', null, 'Finding items')] })
       .mockResolvedValue({ jobs: [job('lead', 'examine', null, 'Grouping reels')] })
-    const client = { read, session: vi.fn() } as unknown as ProcessingClient
+    const client = { read, history: vi.fn() } as unknown as ProcessingClient
     const { result } = renderHook(() => useSessionStatuses(client, 'b', '1'), { wrapper })
     await waitFor(() => expect(result.current.lead).toBe('Finding items'))
     await vi.advanceTimersByTimeAsync(SESSION_STATUS_REFRESH_MS)
@@ -116,7 +116,7 @@ it('after a failed read, a new revision does not bring back the old lines while 
       .mockResolvedValueOnce({ jobs: [job('lead', 'examine', null, 'Sorting reels')] })
       .mockRejectedValueOnce(new Error('offline'))
       .mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)))
-    const client = { read, session: vi.fn() } as unknown as ProcessingClient
+    const client = { read, history: vi.fn() } as unknown as ProcessingClient
     const { result, rerender } = renderHook(
       ({ revision }) => useSessionStatuses(client, 'b', revision),
       { initialProps: { revision: '1' }, wrapper },
@@ -143,7 +143,7 @@ it('keeps re-reading while the tab is hidden, as its timer always did', async ()
       .fn()
       .mockResolvedValueOnce({ jobs: [job('lead', 'examine', null, 'Finding items')] })
       .mockResolvedValue({ jobs: [job('lead', 'examine', null, 'Grouping reels')] })
-    const client = { read, session: vi.fn() } as unknown as ProcessingClient
+    const client = { read, history: vi.fn() } as unknown as ProcessingClient
     const { result } = renderHook(() => useSessionStatuses(client, 'b', '1'), { wrapper })
     await waitFor(() => expect(result.current.lead).toBe('Finding items'))
     await vi.advanceTimersByTimeAsync(SESSION_STATUS_REFRESH_MS)

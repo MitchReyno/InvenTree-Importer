@@ -38,7 +38,7 @@ export function useSessionStatuses(
       return processing.read(batchId)
     },
     // Only a setup with sessions has status lines.
-    enabled: Boolean(processing?.session),
+    enabled: Boolean(processing?.history),
     refetchInterval: SESSION_STATUS_REFRESH_MS,
     // The old timer kept running in a hidden tab; this keeps that cadence.
     refetchIntervalInBackground: true,
@@ -48,7 +48,7 @@ export function useSessionStatuses(
     select: statusesOf,
   })
   // Old lines would read as current, so a failed or paused read drops them.
-  if (!processing?.session || query.isError || query.fetchStatus === 'paused') {
+  if (!processing?.history || query.isError || query.fetchStatus === 'paused') {
     return NONE
   }
 

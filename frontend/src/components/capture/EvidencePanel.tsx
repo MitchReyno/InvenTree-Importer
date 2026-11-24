@@ -25,6 +25,8 @@ type Props = {
   notesSlot?: (element: HTMLElement | null) => void
   /** Shown right after the capture actions, such as the phone's lots glance. */
   afterActions?: ReactNode
+  /** A photo the address names, whose viewer opens on arrival. */
+  photoId?: string
 }
 
 /** Evidence actions, groups and batch notes; it no longer depends on a selected subject. */
@@ -36,6 +38,7 @@ export function EvidencePanel({
   onNoteDirtyChange,
   notesSlot,
   afterActions,
+  photoId,
 }: Props) {
   const { edit, reload } = useBatchCommands()
   const { media } = useApiClients()
@@ -111,6 +114,7 @@ export function EvidencePanel({
           captureEdit={edit}
           headingId="evidence"
           afterActions={afterActions}
+          photoId={photoId}
         />
       )}
       {!media && (

@@ -8,6 +8,7 @@ import {
   parseBatchRoute,
   sessionFromQuery,
   sessionHref,
+  sessionPageHref,
 } from './batch-route'
 
 const b = 'b0000000-0000-4000-8000-000000000001'
@@ -148,5 +149,47 @@ describe('lot focus links', () => {
     expect(parsed.kind === 'route' && lotFromQuery(parsed.query)).toBe(lot)
     expect(lotFromQuery('')).toBeNull()
     expect(lotFromQuery('?session=job')).toBeNull()
+  })
+})
+
+describe('session pages', () => {
+  const job = 'j0000000-0000-4000-8000-00000000000j'
+
+  it('parses and builds a session page inside its step', () => {
+    const route = { tab: 'processing', step: 'research', sessionJobId: job } as const
+    expect(batchRouteHash(b, route)).toBe(`${b}/processing/research/sessions/${job}`)
+    expect(sessionPageHref(b, 'research', job)).toBe(`#${b}/processing/research/sessions/${job}`)
+    expect(parseBatchRoute(`${b}/processing/research/sessions/${job}`)).toMatchObject({
+      kind: 'route',
+      batchId: b,
+      route,
+    })
+  })
+
+  it('keeps a session page on the Examine step after the legacy redirect', () => {
+    expect(redirect(`${b}/processing/reading/sessions/${job}`)).toBe(
+      `${b}/processing/examine/sessions/${job}`,
+    )
+  })
+
+  it('reads a question route as before, and a bare sessions segment as the step', () => {
+    expect(parseBatchRoute(`${b}/processing/research/${q}`)).toMatchObject({
+      route: { tab: 'processing', step: 'research', questionId: q },
+    })
+    const bare = parseBatchRoute(`${b}/processing/research/sessions`)
+    expect(bare).toMatchObject({ route: { tab: 'processing', step: 'research' } })
+    expect(bare.kind === 'route' && 'questionId' in bare.route).toBe(false)
+  })
+})
+
+describe('photo links', () => {
+  const photo = 'e0000000-0000-4000-8000-00000000000e'
+
+  it('opens one photo in Capture', () => {
+    expect(batchRouteHash(b, { tab: 'capture', photoId: photo })).toBe(`${b}/capture/${photo}`)
+    expect(parseBatchRoute(`${b}/capture/${photo}`)).toMatchObject({
+      route: { tab: 'capture', photoId: photo },
+    })
+    expect(parseBatchRoute(`${b}/capture`)).toMatchObject({ route: { tab: 'capture' } })
   })
 })

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
-import { batchHref } from '#/navigation/batch-route'
+import { sessionPageHref, batchHref } from '#/navigation/batch-route'
 import type { ProcessingSource, WorkStep } from '#/processing/source'
 import type { StepSummary } from '#/processing/lot-steps'
 import { color, space, type } from '#/theme/generated/tokens'
@@ -76,7 +76,12 @@ export function StepPage({
       {sessions.length > 0 && (
         <Card aria-label="Sessions">
           <CardTitle>Sessions</CardTitle>
-          <SessionRows sessions={sessions} paused={source.paused} onOpen={onOpenSession} />
+          <SessionRows
+            sessions={sessions}
+            paused={source.paused}
+            onOpen={onOpenSession}
+            pageHref={(session) => sessionPageHref(batchId, session.step, session.jobId)}
+          />
         </Card>
       )}
       {children && <Outputs aria-label="Outputs">{children}</Outputs>}

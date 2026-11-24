@@ -13,6 +13,8 @@ interface Props {
   step: ProcessingStep
   questionId?: string
   sessionId?: string | null
+  /** The job whose session page the route names. */
+  sessionPageJobId?: string
   /** A lot whose output the step opens in view, from the address. */
   focusLotId?: string | null
   /** The batch attention read the header counts from. */
@@ -43,6 +45,7 @@ export function ProcessingStage({
   step,
   questionId,
   sessionId,
+  sessionPageJobId,
   focusLotId,
   attention,
   attentionUnavailable,
@@ -66,6 +69,7 @@ export function ProcessingStage({
       view={step}
       questionId={questionId}
       sessionId={sessionId}
+      sessionPageJobId={sessionPageJobId}
       focusLotId={focusLotId}
       attention={attention}
       attentionUnavailable={attentionUnavailable}

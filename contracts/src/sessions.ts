@@ -331,17 +331,6 @@ export const SessionLatestStatus = object({
   text: SessionStatusArgs.properties.text,
   at: timestamp,
 })
-/** One Processing job's session history: every outbox item across its attempts, and its inbox. */
-export const SessionTimeline = object({
-  failure: Type.Optional(SessionFailureSummary),
-  job_id: Id,
-  attempt_id: Id,
-  session_state: SessionState,
-  outbox: Type.Array(SessionOutboxItem, { maxItems: 500 }),
-  inbox: Type.Array(SessionInboxItem, { maxItems: 500 }),
-  /** True when older items exist beyond the newest 500 returned. */
-  truncated: Type.Boolean(),
-})
 /** The most stored inbox and outbox rows one history page holds. */
 export const SESSION_HISTORY_PAGE_SIZE = 200
 /** Every source of a proposal and every question making it provisional can be linked. */
@@ -623,7 +612,6 @@ export type SessionReplacementDto = Static<typeof SessionReplacement>
 export const sessionSchemas = {
   SessionReplacement,
   SessionLatestStatus,
-  SessionTimeline,
   SessionHistory,
   SessionHistoryCursor,
   SessionHistoryQuery,
@@ -649,7 +637,6 @@ export const sessionSchemas = {
   SessionInboxReceipt,
 }
 export type SessionLatestStatusDto = Static<typeof SessionLatestStatus>
-export type SessionTimelineDto = Static<typeof SessionTimeline>
 export type SessionHistoryDto = Static<typeof SessionHistory>
 export type SessionHistoryEntryDto = Static<typeof SessionHistoryEntry>
 export type SessionHistoryDetailsDto = Static<typeof SessionHistoryDetails>

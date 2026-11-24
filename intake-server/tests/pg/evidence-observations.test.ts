@@ -490,7 +490,7 @@ test('the agent writer cannot set human-only values or touch edited rows, and th
   })
 })
 
-test('lot-forming tools are for the lead session only, and their writes reach its timeline', async () => {
+test('lot-forming tools are for the lead session only, and their writes reach its history', async () => {
   const { Client, StreamableHTTPClientTransport } = await import('@modelcontextprotocol/client')
   const { startSessionToolServer } = await import('#/agents/tools/server.ts')
   const { issueSessionCapability } = await import('#/agents/tools/capability.ts')

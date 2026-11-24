@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import type { BatchAttentionDto } from '@invimport/contracts'
 import styled from 'styled-components'
-import { batchHref } from '#/navigation/batch-route'
+import { sessionPageHref, batchHref } from '#/navigation/batch-route'
 import type { ProcessingSource, StepProgress } from '#/processing/source'
 import type { LotSteps } from '#/processing/lot-steps'
 import { color, space, type, typeVar } from '#/theme/generated/tokens'
@@ -195,7 +195,12 @@ export function ProcessingOverview({
               )}
             </TitleRow>
             {pause?.paused && <Muted>Paused: no session starts new work until you resume.</Muted>}
-            <SessionRows sessions={source.sessions} paused={source.paused} onOpen={onOpenSession} />
+            <SessionRows
+              sessions={source.sessions}
+              paused={source.paused}
+              onOpen={onOpenSession}
+              pageHref={(session) => sessionPageHref(batchId, session.step, session.jobId)}
+            />
             <SmallLink href="#agents">All sessions, every batch</SmallLink>
           </Card>
         </Aside>

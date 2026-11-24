@@ -10,6 +10,7 @@ import { GlobalStyle } from '#/components/GlobalStyle'
 import { Masthead } from '#/components/masthead/Masthead'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { AgentSessions } from '#/components/agents/AgentSessions'
+import { fixtureHistory } from './session-history'
 import { ProcessingWorkspace } from '#/components/processing/ProcessingWorkspace'
 import { Main, PageContent } from '#/components/AppLayout'
 import { useInstructionDelivery } from '#/processing/instruction-delivery'
@@ -430,7 +431,11 @@ export function ProcessingProof() {
   const linked = parseBatchRoute(view)
   const processingLink =
     linked.kind === 'route' && linked.batchId === batchId && linked.route.tab === 'processing'
-      ? { step: linked.route.step, lot: lotFromQuery(linked.query) }
+      ? {
+          step: linked.route.step,
+          lot: lotFromQuery(linked.query),
+          sessionPage: 'sessionJobId' in linked.route ? linked.route.sessionJobId : undefined,
+        }
       : null
   const page = processingLink?.step ?? view.replace('-fixture', '')
   const delivery = useInstructionDelivery(batch.id, async () => ({ sessions: 2, woken: 1 }))
@@ -460,15 +465,7 @@ export function ProcessingProof() {
         command_id: id(96),
       }
     },
-    session: async (_batch: string, jobId: string) => ({
-      job_id: jobId,
-      attempt_id: jobId === id(4) ? id(24) : id(42),
-      session_state: jobId === id(4) ? 'failed' : 'waiting_input',
-      ...(jobId === id(4) ? { failure } : {}),
-      truncated: false,
-      outbox: [],
-      inbox: [],
-    }),
+    history: fixtureHistory({ batchId, id, lot }),
     chat: async () => {
       throw new Error('fixture commands are disabled')
     },
@@ -511,6 +508,7 @@ export function ProcessingProof() {
                   client={client as never}
                   view={page as never}
                   focusLotId={processingLink?.lot}
+                  sessionPageJobId={processingLink?.sessionPage}
                   attention={sessions ? attention : undefined}
                   navigate={() => {}}
                   onDirtyChange={() => {}}

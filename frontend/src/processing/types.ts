@@ -9,7 +9,7 @@ import type {
   ProcessingStartDto,
   SessionInboxReceiptDto,
   SessionInboxSubmissionDto,
-  SessionTimelineDto,
+  SessionHistoryDto,
   SessionReplacementDto,
 } from '@invimport/contracts'
 
@@ -35,8 +35,8 @@ export interface ProcessingClient {
     input: SessionReplacementDto,
     key: string,
   ): Promise<ProcessingReceiptDto>
-  /** Session profiles only. */
-  session?(batchId: string, jobId: string): Promise<SessionTimelineDto>
+  /** Session profiles only: the newest page of a session's history, or the page before `before`. */
+  history?(batchId: string, jobId: string, before?: string): Promise<SessionHistoryDto>
   chat?(
     batchId: string,
     jobId: string,

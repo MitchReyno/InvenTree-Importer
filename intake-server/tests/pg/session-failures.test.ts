@@ -12,7 +12,7 @@ import { readSessionFailure } from '#/agents/failures.ts'
 import { ResearchReapPendingError } from '#/research/errors.ts'
 import type {
   SessionFailureDto,
-  SessionTimelineDto,
+  SessionHistoryDto,
   AgentSessionListDto,
 } from '@invimport/contracts'
 
@@ -114,10 +114,11 @@ for (const mode of ['retained', 'storage_failure', 'reap_pending'] as const) {
       // Recovery shows with the summary, without the details read.
       assert.equal(history.sessions[0].failure?.recovery, failure.recovery)
       assert.ok(failure.recovery.length > 0)
-      const timeline = (
-        await fixture.http(`/batches/${capture.batch.id}/processing/${session.job}/session`)
-      ).value as SessionTimelineDto
-      assert.equal(timeline.failure?.id, failure.id)
+      const read = (
+        await fixture.http(`/batches/${capture.batch.id}/processing/${session.job}/history`)
+      ).value as SessionHistoryDto
+      const attempt = read.session.attempts.find((item) => item.id === session.attempt)
+      assert.equal(attempt?.failure?.id, failure.id)
       await fixture.db.pool.query(
         'UPDATE agent_session SET turn_count=turn_count+1 WHERE attempt_id=$1',
         [session.attempt],
