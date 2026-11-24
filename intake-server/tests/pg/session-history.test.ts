@@ -194,6 +194,12 @@ test('each agent entry resolves its summary, details and links; retired lots and
     await proposeLot({ lot_id: packetB, observation_ids: [extra] })
     // Repeating that suggestion writes nothing new.
     await proposeLot({ lot_id: packetB, observation_ids: [extra] })
+    const extraSuggestions = await fixture.db.pool.query(
+      `SELECT 1 FROM capture_lot_evidence_observation
+        WHERE lot_id=$1 AND evidence_observation_id=$2 AND status='suggested'`,
+      [packetB, extra],
+    )
+    assert.equal(extraSuggestions.rowCount, 1)
     await proposeLot({ lot_id: packetB, observation_ids: [front] })
     // A reason PostgreSQL can't store, with a NUL or an unpaired surrogate, is refused before
     // anything is written.

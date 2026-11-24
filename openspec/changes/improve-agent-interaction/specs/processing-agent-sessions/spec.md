@@ -104,7 +104,7 @@ A proposal MAY cite a web page by URL in its top-level sources, with an optional
 
 ### Requirement: Lot-forming calls record what they did
 
-The outbox item for a `propose_lot` call SHALL record whether it formed the lot, extended it, only suggested membership or changed nothing, judged from what it applied and the suggestions it wrote. It SHALL record the reason for keeping the lot separate when the session gives one in the optional `separation_reason`; a reason PostgreSQL cannot store SHALL be refused as a correctable validation result before anything is written. A `regroup` item SHALL record each move with its source lot and whether it was applied, only suggested or unchanged.
+The outbox item for a `propose_lot` call SHALL record whether it formed the lot, extended it, only suggested membership or changed nothing, judged from the label, Part, estimate and memberships it applied and the suggestions it wrote; clearing the lot's Re-examine flag, which any call on the lot does, does not count. It SHALL record the reason for keeping the lot separate when the session gives one in the optional `separation_reason`; a reason PostgreSQL cannot store SHALL be refused as a correctable validation result before anything is written. A `regroup` item SHALL record each move with its source lot and whether it was applied, only suggested or unchanged.
 
 #### Scenario: Lot kept apart
 
