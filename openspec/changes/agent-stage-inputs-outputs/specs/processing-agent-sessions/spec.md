@@ -262,7 +262,7 @@ For `/7` work, an Examine proposal SHALL name any live lot of its batch, and a R
 
 ### Requirement: Questions are not asked twice
 
-In a session whose input is `bench-intake-input/7`, a publishing `ask` SHALL return the existing question, storing nothing, when an open or answered question already covers the same subject and overlapping fields, unless the new question names evidence or a conflict the earlier one did not, or names the open question it replaces. An `ask` with `preview: true` SHALL always render its figures.
+In a session whose input is `bench-intake-input/7`, a publishing `ask` SHALL return the existing question, storing nothing, when an open or answered question already covers the same subject and overlapping fields, unless the new question names evidence or a conflict the earlier one did not, or names the open question it replaces. An `ask` with `preview: true` SHALL bypass this check, store nothing and follow BI-019's preview rules for validation, the image budget and the bounded wait.
 
 #### Scenario: Examine already asked
 
@@ -274,7 +274,13 @@ In a session whose input is `bench-intake-input/7`, a publishing `ask` SHALL ret
 
 - **GIVEN** an open question on the lot's quantity in a `/7` session
 - **WHEN** the session previews a new quantity question with figures, then publishes it with no new evidence
-- **THEN** the preview returns its rendered figures, and the publishing call returns the existing question.
+- **THEN** the preview is answered under BI-019's preview rules rather than with the existing question, and the publishing call returns the existing question.
+
+#### Scenario: Replacing an open question
+
+- **GIVEN** an open question on the lot's quantity in a `/7` session
+- **WHEN** the session publishes a quantity question with no new evidence that names the open question as the one it replaces
+- **THEN** the new question is stored and the earlier one closes as replaced.
 
 ### Requirement: Image and logo tools run in the app
 

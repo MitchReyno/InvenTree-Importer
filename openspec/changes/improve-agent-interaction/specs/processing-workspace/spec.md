@@ -255,6 +255,16 @@ Once an answer is saved, the question SHALL fold to one line in an "Answered" gr
 - **WHEN** the operator expands its line
 - **THEN** it shows the question, "It assumed 200 (estimate)" struck through, "186 · counted", "Lot 4's quantity is now 186 (counted)", when it was sent and read, and links to the session and Lot 4.
 
+### Requirement: An answered line without its summary
+
+An answered question that the read returns without its values SHALL show "Answered · see the session" with a link to the session, and its delivery when the read has it. Lines with no answer time SHALL follow the timed ones, in the order they were asked. A saved answer SHALL keep its line until a fresh read shows the question answered.
+
+#### Scenario: A retained batch near the size limit
+
+- **GIVEN** a batch whose oldest answers the read returns without values, the very oldest with only their answered state
+- **WHEN** the step page lists its answered questions
+- **THEN** the newest show their answers, the older read "Answered · see the session" with their delivery, and those with no time come last in the order they were asked.
+
 ### Requirement: An answer form says why it can't send
 
 An answer form SHALL lock while sending and fold only once the answer is confirmed. An unknown outcome SHALL keep the form open with the choice kept, say why, and offer Try again. The superseded warning SHALL show only over an unsaved draft or an unconfirmed retry. A question answered elsewhere SHALL show its Answered line; one replaced by a later question SHALL say "Replaced by a newer question" with a link, and one closed otherwise "No longer asked".

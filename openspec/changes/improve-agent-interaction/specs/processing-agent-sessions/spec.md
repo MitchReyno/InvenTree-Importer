@@ -241,6 +241,16 @@ The Processing read SHALL return, with each answered question, when it was answe
 - **WHEN** Processing is read
 - **THEN** it carries the answer's time and summary with no inbox delivery.
 
+### Requirement: Answer summaries fit the snapshot
+
+When the answers would pass the Processing snapshot's size limit, the read SHALL budget them newest first: the full answer while it fits, then its time and delivery with the values marked omitted, then only the question's answered state. The read SHALL NOT fail because of answers.
+
+#### Scenario: Many answers near the size limit
+
+- **GIVEN** a retained batch near the snapshot's size limit with many answered questions
+- **WHEN** Processing is read
+- **THEN** the read succeeds, the newest answers carry their summaries, older ones carry only their time and delivery with values omitted, and any that still don't fit carry only the answered state.
+
 ### Requirement: A question can name the one it replaces
 
 An `ask` MAY name an earlier question of the same session that it replaces, while that question is unanswered. The earlier question SHALL close and the Processing read SHALL return which question replaced it.
@@ -263,7 +273,7 @@ An `ask` MAY carry up to 5 figures in the agent's order. Each SHALL name an evid
 
 #### Scenario: Invalid figure
 
-- **GIVEN** an ask whose figure names evidence never delivered to the session, a region outside the page, six figures or nine marks
+- **GIVEN** an ask whose figure names evidence never delivered to the session, a page of a delivered PDF that the session was never given, a region outside the page, six figures or nine marks
 - **WHEN** the tool server validates it
 - **THEN** it returns a correctable result naming the figure and field, and nothing is stored.
 
