@@ -136,7 +136,7 @@ Tool-capable VM sessions SHALL support `INTAKE_VM_EVIDENCE_DELIVERY` with values
 
 - **GIVEN** a tool-capable Claude or Codex VM session configured for file delivery
 - **WHEN** an authorized image fetch succeeds
-- **THEN** the guest verifies and saves the delivered bytes in an owner-only temporary file and returns its path, source and rendition metadata, and instructions to open it with the provider's image/file tool, with no inline image bytes.
+- **THEN** the guest applies the digest rules in [Guest-staged evidence matches the delivered image](../../../../specs/shared-vm-execution/spec.md#requirement-guest-staged-evidence-matches-the-delivered-image) and saves the delivered bytes in an owner-only temporary file and returns its path, source and rendition metadata, and instructions to open it with the provider's image/file tool, with no inline image bytes.
 - **AND** the file is removed when the turn ends, and the response instructs the agent to fetch again on later turns and cite source metadata rather than the temporary path.
 
 #### Scenario: Inline compatibility
@@ -157,3 +157,16 @@ Tool-capable VM sessions SHALL support `INTAKE_VM_EVIDENCE_DELIVERY` with values
 - **GIVEN** a delivered image whose base64 representation exceeds the Codex frame limit
 - **WHEN** file mode stages it
 - **THEN** the returned metadata and path fit the existing transport limit without losing the delivered bytes or citation metadata, including across repeated fetches.
+
+
+#### Scenario: Staging cannot establish a new citation after a failed delivery
+
+- **GIVEN** a tool-capable VM worker fetching a version outside the manifest for the first time, in either delivery mode
+- **WHEN** the file write, digest check, provider-facing response write or confirmation of that write fails
+- **THEN** a subsequent proposal citing that version is refused even if the prepared photo appears in history.
+- **AND** a later confirmed delivery can authorize that version under the existing citation rules; a failed repeat fetch does not revoke an earlier valid delivery.
+
+#### Scenario: Staging a preview from an older host
+
+- **WHEN** the guest stages a legacy preview with page metadata and no delivered digest
+- **THEN** it computes the digest of the staged preview and retains the original source citation. For a legacy original it verifies the source digest. A modern rendition with missing or malformed required digest metadata is refused.

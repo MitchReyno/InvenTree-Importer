@@ -422,7 +422,7 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - **PR delivery:** PR-I.
 - **Outcome:** an operator can select file-only evidence delivery for tool-capable VM sessions while preserving inline compatibility.
 - **Scope:** development environment/settings and VM relay launch, relay and guest launcher, guest evidence staging, tests, example environment and operator/architecture docs.
-- **Non-goals:** UI controls, transport ceiling changes, new provider tools, database/citation changes, automatic retries or live inventory actions.
+- **Non-goals:** UI controls, transport ceiling changes, new provider tools, database schema changes, automatic retries or live inventory actions.
 - **Prerequisite:** task 5 merged.
 - **Acceptance:** all scenarios of "Configurable VM evidence delivery".
 - **Approach:** pass a validated enum explicitly through existing launch boundaries; preserve verification, temporary-file ownership, cleanup and upstream authority.
@@ -431,4 +431,5 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - [ ] 12.1 Add regressions for both modes, large/repeated results, refusals, integrity/write failures, validation and launch propagation; observe the new behavior fail.
 - [ ] 12.2 Implement the enum from development settings and standalone relay to the VM tool worker and evidence projection, preserving inline defaults and cleanup.
 - [ ] 12.3 Document configuration, provider file-opening guidance, lifetime and rollout; run the applicable checks and record limitations.
+- [ ] 12.5 Implement and test coordinator/guest release confirmation before new citation grants. Cover first and repeated fetches outside the manifest, staging and response failures, duplicate or stale confirmations, worker restart, incompatible peers, and legacy preview/original digest handling in both modes. Verify the subsequent proposal decision through the coordinator.
 - [ ] 12.4 Independently review the exact implementation before publication; publish and verify selected CI only when requested.
