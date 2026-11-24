@@ -404,6 +404,9 @@ describe('provider cards read their sign-in status from the agent VM', () => {
     await waitFor(() => expectCard('Codex', 'Checking…'))
     await act(() => vi.advanceTimersByTimeAsync(POLL_LIMIT_MS + POLL_MS * 2))
     await waitFor(() => expectCard('Codex', 'Status timed out'))
+    expect(
+      within(screen.getByRole('group', { name: 'Codex' })).getByRole('status'),
+    ).toHaveTextContent('Codex check didn’t finish in time')
     const asked = api.providerStatus.mock.calls.length
     await act(() => vi.advanceTimersByTimeAsync(POLL_MS * 10))
     expect(api.providerStatus.mock.calls.length).toBe(asked)

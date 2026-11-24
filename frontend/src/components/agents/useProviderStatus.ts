@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery, useQueryClient, type Query } from '@tanstack/react-query'
+import { isCancelledError, useQuery, useQueryClient, type Query } from '@tanstack/react-query'
 import type { AgentProviderId, ProviderStatusDto } from '@invimport/contracts'
 import { useServerScope } from '#/context'
 import { serverQueryKey } from '#/queries/scope'
@@ -43,13 +43,21 @@ type KnownState = Exclude<ProviderState, 'unknown'>
 
 /**
  * A sign-in change the card shows until the run of reads its own fresh read starts has an
- * answer. `freshAt` identifies that run; the entry stays as history for late dialog answers.
+ * answer, or a read fails. `freshAt` identifies that run; once `settled`, the entry stays only as
+ * history for late dialog answers.
  */
-type Settling = { at: number; state?: KnownState; freshAt: number }
+type Settling = { at: number; state?: KnownState; freshAt: number; settled: boolean }
 
-type SettlingByProvider = Partial<Record<AgentProviderId, Settling>>
+type SettlingState = {
+  changes: Partial<Record<AgentProviderId, Settling>>
+  /** The newest fresh read asked for; each one gets a larger number, even within a millisecond. */
+  latestFresh: number
+}
 
-const NONE_SETTLING: SettlingByProvider = {}
+const NONE_SETTLING: SettlingState = { changes: {}, latestFresh: 0 }
+
+/** Fresh reads a cancellation or a joined older read cost before they give up. */
+const FRESH_ATTEMPTS = 3
 
 type StatusSource = {
   providerStatus: (options?: { refresh?: boolean }) => Promise<ProviderStatusDto>
@@ -59,7 +67,7 @@ type StatusSource = {
  * The reads waiting for one Codex check: started by a fresh read, or by a first read that found
  * a check running. `from` identifies it; `until` is its monotonic deadline.
  */
-type Run = { from: number; until: number; ended: boolean; expired: boolean }
+type Run = { from: number; until: number; ended: boolean; expired: boolean; failed?: boolean }
 
 /** A status read, with when it was asked for, since an answer can't be newer than its request. */
 type StatusRead = { status: ProviderStatusDto; requestedAt: number; run?: Run }
@@ -124,15 +132,15 @@ export function useProviderStatus(client: StatusSource) {
   const scope = useServerScope()
   const queryClient = useQueryClient()
   const queryKey = serverQueryKey(scope, 'provider-status')
+  const settleKey = serverQueryKey(scope, 'provider-status', 'settling')
   const query = useQuery({
     queryKey,
-    queryFn: () => readStatus(client, queryClient.getQueryData<StatusRead>(queryKey)),
+    queryFn: () => readAndRecord(),
     retry: false,
     refetchInterval: pollInterval,
   })
   // Sign-in changes are kept with the status read, not this section, so a change made just
   // before leaving still holds when Settings › Agents opens again.
-  const settleKey = serverQueryKey(scope, 'provider-status', 'settling')
   const settlingQuery = useQuery({
     queryKey: settleKey,
     queryFn: () => NONE_SETTLING,
@@ -144,29 +152,110 @@ export function useProviderStatus(client: StatusSource) {
   const settling = settlingQuery.data
   const [checking, setChecking] = useState(false)
 
+  function updateSettling(update: (current: SettlingState) => SettlingState) {
+    queryClient.setQueryData<SettlingState>(settleKey, (current = NONE_SETTLING) => update(current))
+  }
+
+  /** Settles each change this read answers: its own run's read, ended for Codex. */
+  function settleBy(read: StatusRead) {
+    const run = read.run
+    if (!run) {
+      return
+    }
+    updateSettling((current) => {
+      const changes = { ...current.changes }
+      for (const provider of ['claude', 'codex'] as const) {
+        const change = changes[provider]
+        const answered = change && !change.settled && run.from >= change.freshAt
+        if (answered && (provider === 'claude' || run.ended)) {
+          changes[provider] = { ...change, settled: true }
+        }
+      }
+      return { ...current, changes }
+    })
+  }
+
+  /** A failed read ends the wait for every change asked for before it, and the run it was in. */
+  function settleByFailure(requestedAt: number) {
+    updateSettling((current) => {
+      const changes = { ...current.changes }
+      for (const provider of ['claude', 'codex'] as const) {
+        const change = changes[provider]
+        if (change && !change.settled && change.freshAt <= requestedAt) {
+          changes[provider] = { ...change, settled: true }
+        }
+      }
+      return { ...current, changes }
+    })
+    queryClient.setQueryData<StatusRead>(queryKey, (current) => {
+      if (!current?.run) {
+        return current
+      }
+      return { ...current, run: { ...current.run, ended: true, failed: true } }
+    })
+  }
+
+  /** A status read that records what it settles, or that it failed. */
+  async function readAndRecord(freshAt?: number) {
+    const requestedAt = Date.now()
+    try {
+      const read = await readStatus(client, queryClient.getQueryData<StatusRead>(queryKey), freshAt)
+      settleBy(read)
+      return read
+    } catch (error) {
+      if (!isCancelledError(error)) {
+        settleByFailure(requestedAt)
+      }
+      throw error
+    }
+  }
+
+  /** The next fresh read's number: now, or one more than the newest when that is later. */
+  function nextFresh() {
+    const latest = queryClient.getQueryData<SettlingState>(settleKey)?.latestFresh ?? 0
+    const freshAt = Math.max(Date.now(), latest + 1)
+    updateSettling((current) => ({ ...current, latestFresh: freshAt }))
+    return freshAt
+  }
+
   /**
    * A fresh read, identified by `freshAt`: the server skips its reused read and asks Codex for a
-   * new check. A read still running may have been asked for before a change, so it is cancelled
-   * rather than joined. It runs through the query client, so it completes after leaving too.
+   * new check. A read still running may have been asked for before it, so it is cancelled rather
+   * than joined; when this read is cancelled itself (a live hint refreshing every read) or joins
+   * an older one, it asks again, unless a newer fresh read has taken over. It runs through the
+   * query client, so it completes after leaving too.
    */
   async function readAfresh(freshAt: number) {
-    await queryClient.cancelQueries({ queryKey, exact: true })
-    await queryClient
-      .fetchQuery({
-        queryKey,
-        queryFn: () => readStatus(client, queryClient.getQueryData<StatusRead>(queryKey), freshAt),
-        retry: false,
-      })
-      .catch(() => {
-        // The query keeps the failure, which the cards show.
-      })
+    for (let attempt = 0; attempt < FRESH_ATTEMPTS; attempt++) {
+      await queryClient.cancelQueries({ queryKey, exact: true })
+      try {
+        const read = await queryClient.fetchQuery({
+          queryKey,
+          queryFn: () => readAndRecord(freshAt),
+          retry: false,
+        })
+        // A read of this fresh read's run, or a newer one's, answers it; a joined older one doesn't.
+        if ((read.run?.from ?? 0) >= freshAt) {
+          return
+        }
+      } catch (error) {
+        if (!isCancelledError(error)) {
+          // The query keeps the failure, which the cards show.
+          return
+        }
+      }
+      const latest = queryClient.getQueryData<SettlingState>(settleKey)?.latestFresh ?? 0
+      if (latest > freshAt) {
+        return
+      }
+    }
   }
 
   /** Check again: a fresh read, then the reads until the VM's check lands. */
   async function checkAgain() {
     setChecking(true)
     try {
-      await readAfresh(Date.now())
+      await readAfresh(nextFresh())
     } finally {
       setChecking(false)
     }
@@ -181,36 +270,26 @@ export function useProviderStatus(client: StatusSource) {
     state?: KnownState,
     { late = false }: { late?: boolean } = {},
   ) {
-    const at = Date.now()
-    queryClient.setQueryData<SettlingByProvider>(settleKey, (current = NONE_SETTLING) => {
+    const freshAt = nextFresh()
+    updateSettling((current) => {
       // A late answer to an older change restarts the wait but keeps a newer confirmation.
-      const kept = late ? current[provider]?.state : state
-      return { ...current, [provider]: { at, state: kept, freshAt: at } }
+      const kept = late ? current.changes[provider]?.state : state
+      const change = { at: Date.now(), state: kept, freshAt, settled: false }
+      return { ...current, changes: { ...current.changes, [provider]: change } }
     })
-    void readAfresh(at)
+    void readAfresh(freshAt)
   }
 
   const read = query.data
   const waiting = read?.run !== undefined && !read.run.ended && !query.isError
 
   /**
-   * A change is shown until a read asked for at or after its fresh read answers and, for Codex,
-   * the run that fresh read started ends. A later Check again starts another run, which never
-   * brings the change back; a failed read ends the wait.
+   * A change is shown until the run its own fresh read starts answers (ended, for Codex), or a
+   * read fails. A later Check again starts another run, which never brings it back.
    */
   function changeShown(provider: AgentProviderId) {
-    const change = settling[provider]
-    if (!change) {
-      return undefined
-    }
-    if (query.isError && query.errorUpdatedAt >= change.freshAt) {
-      return undefined
-    }
-    if (!read || read.requestedAt < change.freshAt) {
-      return change
-    }
-    const ownRunWaiting = provider === 'codex' && waiting && read.run?.from === change.freshAt
-    return ownRunWaiting ? change : undefined
+    const change = settling.changes[provider]
+    return change && !change.settled ? change : undefined
   }
 
   /** Codex's outcome once a run of reads ends: what the VM said, or that the check timed out. */
@@ -234,7 +313,14 @@ export function useProviderStatus(client: StatusSource) {
     }
     if (query.isError || !answer) {
       const pill = query.isError && !query.isFetching ? READ_FAILED : checkingPill()
-      return { ...quiet, pill, refreshing: false, failedAt: query.isError ? null : failedAt }
+      const announcement = announce(checks, false, pill)
+      return {
+        ...quiet,
+        pill,
+        refreshing: false,
+        announcement,
+        failedAt: query.isError ? null : failedAt,
+      }
     }
     const pill = checks ? codexPill(answer as ProviderStatusDto['codex']) : providerPill(answer)
     const known = answer.state !== 'unknown'
@@ -251,13 +337,22 @@ export function useProviderStatus(client: StatusSource) {
     }
   }
 
-  /** Codex's check, as a screen reader hears it: that it runs, then the outcome of the run. */
+  /**
+   * Codex's check, as a screen reader hears it: that it runs, then the outcome its card shows,
+   * including a failed read or a run that stopped waiting.
+   */
   function announce(checks: boolean, refreshing: boolean, pill: ProviderPill) {
     if (!checks) {
       return ''
     }
+    if (query.isError) {
+      return `Codex: ${READ_FAILED.word}`
+    }
     if (refreshing || waiting) {
       return CHECKING_CODEX
+    }
+    if (read?.run?.expired) {
+      return 'Codex check didn’t finish in time'
     }
     return read?.run?.ended ? `Codex checked: ${pill.word}` : ''
   }
