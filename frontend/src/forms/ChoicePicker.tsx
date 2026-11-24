@@ -29,6 +29,7 @@ type Props = {
   status?: string
   labelHidden?: boolean
   compact?: boolean
+  menuInLayer?: boolean
   inputRef?: Ref<HTMLInputElement>
   className?: string
 }
@@ -59,6 +60,7 @@ export function ChoicePicker({
   status,
   labelHidden,
   compact,
+  menuInLayer,
   inputRef,
   className,
 }: Props) {
@@ -102,6 +104,7 @@ export function ChoicePicker({
       invalid={invalid}
       labelHidden={labelHidden}
       compact={compact}
+      menuInLayer={menuInLayer}
       inputRef={inputRef}
       className={className}
     />

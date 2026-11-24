@@ -177,3 +177,37 @@ test('Tab leaves the picker without picking the highlighted option', async () =>
   expect(onChange).not.toHaveBeenCalled()
   expect(input).not.toHaveFocus()
 })
+
+test('Enter in an open picker never submits the form, even with no match', async () => {
+  const user = userEvent.setup()
+  const submit = vi.fn((event: { preventDefault: () => void }) => event.preventDefault())
+  const onChange = vi.fn()
+  render(
+    <form onSubmit={submit}>
+      <ChoicePicker
+        label="Move to"
+        noun="lots"
+        placeholder="Choose a lot…"
+        choices={lots}
+        value=""
+        onChange={onChange}
+      />
+      <button type="submit">Save</button>
+    </form>,
+  )
+  const input = screen.getByRole('combobox', { name: 'Move to' })
+  await user.type(input, 'zzz{Enter}')
+  expect(submit).not.toHaveBeenCalled()
+  await user.clear(input)
+  await user.type(input, 'LM{Enter}')
+  expect(onChange).toHaveBeenCalledExactlyOnceWith('lot-1')
+  expect(submit).not.toHaveBeenCalled()
+})
+
+test('a menu in a layer renders outside the picker, so a scroller cannot clip it', async () => {
+  const user = userEvent.setup()
+  const { input } = picker({ menuInLayer: true })
+  await user.click(input)
+  const menu = screen.getByRole('listbox')
+  expect(input.closest('[class*="-container"]')).not.toContainElement(menu)
+})

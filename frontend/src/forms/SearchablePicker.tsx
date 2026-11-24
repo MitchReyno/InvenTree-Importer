@@ -1,9 +1,7 @@
-import { useId, useMemo, type ReactNode, type Ref } from 'react'
+import { useId, useMemo, type KeyboardEvent, type ReactNode, type Ref } from 'react'
 import Select, {
-  components,
   type GroupBase,
   type InputActionMeta,
-  type InputProps,
   type OptionsOrGroups,
   type StylesConfig,
 } from 'react-select'
@@ -17,10 +15,12 @@ import {
   size,
   space,
   typeVar,
+  zIndex,
 } from '#/theme/generated/tokens'
 import { Small } from '#/components/ui/primitives'
 import { visuallyHidden } from '#/components/ui/VisuallyHidden'
 import { media } from '#/components/ui/media'
+import { DescribedInput } from './DescribedInput'
 import { Label } from './inputs'
 
 export type SearchablePickerProps<O> = {
@@ -52,6 +52,8 @@ export type SearchablePickerProps<O> = {
   /** Announced on the search field; a form's own rules enforce it. */
   required?: boolean
   invalid?: boolean
+  /** The menu opens in a layer over the page, so a scrolling container can't clip it. */
+  menuInLayer?: boolean
   /** The search field, for a caller that moves focus to the picker. */
   inputRef?: Ref<HTMLInputElement>
   className?: string
@@ -82,6 +84,7 @@ export function SearchablePicker<O>({
   compact = false,
   required = false,
   invalid = false,
+  menuInLayer = false,
   inputRef,
   className,
 }: SearchablePickerProps<O>) {
@@ -103,10 +106,24 @@ export function SearchablePicker<O>({
     }
   }
 
+  // react-select leaves Enter alone when the open menu has nothing to pick, and a form would
+  // take it as a submit; an open menu keeps every Enter.
+  function keepEnterInMenu(event: KeyboardEvent<HTMLDivElement>) {
+    const target = event.target as HTMLElement
+    if (event.key === 'Enter' && target.getAttribute('aria-expanded') === 'true') {
+      event.preventDefault()
+    }
+  }
+
   return (
     // The search text isn't a form value, so its typing stops here rather than reaching a form's
     // change handler; a pick reaches the caller through `onChange`.
-    <Label as="div" className={className} onChange={(event) => event.stopPropagation()}>
+    <Label
+      as="div"
+      className={className}
+      onChange={(event) => event.stopPropagation()}
+      onKeyDown={keepEnterInMenu}
+    >
       <PickerLabel id={`${id}-label`} htmlFor={id} $hidden={labelHidden}>
         {label}
       </PickerLabel>
@@ -141,45 +158,13 @@ export function SearchablePicker<O>({
         noOptionsMessage={noOptionsMessage}
         placeholder={placeholder}
         styles={styles}
+        menuPortalTarget={menuInLayer ? document.body : undefined}
+        menuPosition={menuInLayer ? 'fixed' : 'absolute'}
+        // A layered menu doesn't follow the page, so scrolling the page closes it.
+        closeMenuOnScroll={menuInLayer}
       />
       {status && <Status id={describedBy}>{status}</Status>}
     </Label>
-  )
-}
-
-type PickerSelectProps = {
-  statusId?: string
-  searchRef?: Ref<HTMLInputElement>
-  /** Not react-select's own `required`, whose hidden input would block a form's submit. */
-  announceRequired?: boolean
-}
-
-/**
- * react-select drops `aria-describedby`; append the picker status to its own description. It also
- * owns the input's ref, so the caller's ref is set alongside it.
- */
-function DescribedInput<O>(props: InputProps<O, false, GroupBase<O>>) {
-  const { statusId, searchRef, announceRequired } = props.selectProps as PickerSelectProps
-  const own = props['aria-describedby']
-  const { innerRef } = props
-
-  function setRefs(element: HTMLInputElement | null) {
-    for (const ref of [innerRef, searchRef]) {
-      if (typeof ref === 'function') {
-        ref(element)
-      } else if (ref) {
-        ref.current = element
-      }
-    }
-  }
-
-  return (
-    <components.Input
-      {...props}
-      innerRef={setRefs}
-      aria-required={announceRequired || undefined}
-      aria-describedby={[own, statusId].filter(Boolean).join(' ') || undefined}
-    />
   )
 }
 
@@ -240,6 +225,7 @@ function pickerStyles<O>(compact: boolean): StylesConfig<O, false, GroupBase<O>>
       [media.reducedMotion]: { transition: 'none' },
     }),
     noOptionsMessage: (base) => ({ ...base, color: color.muted }),
+    menuPortal: (base) => ({ ...base, zIndex: zIndex.popover }),
   }
 }
 

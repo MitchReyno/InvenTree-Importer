@@ -163,6 +163,7 @@ export function CaptureEditor({ batch, selected, frozen, dirty, onDirty, edit }:
                   label="Part action"
                   options={PART_ACTIONS}
                   value={field.value}
+                  disabled={locked}
                   onChange={(id) => {
                     const next = id === 'create' ? 'create' : 'reuse'
                     if (next !== field.value) {

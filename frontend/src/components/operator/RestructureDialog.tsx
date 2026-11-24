@@ -393,6 +393,7 @@ export function RestructureDialog({
                       label="Destination"
                       options={DESTINATIONS}
                       value={field.value}
+                      disabled={fieldsDisabled}
                       onChange={(id) => {
                         if (id !== field.value) {
                           field.onChange(id)

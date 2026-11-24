@@ -304,6 +304,7 @@ export function ReviewMap({
                     label={`Link ${file.label} to a lot`}
                     clearable
                     labelHidden
+                    menuInLayer
                     compact
                     noun="lots"
                     placeholder="Link to a lot…"
@@ -475,6 +476,7 @@ function RegionMove({
         label={`Move ${region.label} to`}
         clearable
         labelHidden
+        menuInLayer
         compact
         noun="lots"
         placeholder="Move to a lot…"
@@ -547,6 +549,7 @@ function SameItem({
         label={`${region.label} is the same item as`}
         clearable
         labelHidden
+        menuInLayer
         compact
         noun="regions"
         placeholder="Same item as…"
