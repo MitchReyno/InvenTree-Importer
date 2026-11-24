@@ -1,11 +1,14 @@
 import { randomUUID } from 'node:crypto'
 
+// Set by the trusted tool-server encoder. Never derive format from result metadata.
+export const evidenceFormatHeader = 'x-intake-evidence-format'
+
 /** Receipts belong to one authenticated bridge turn and never enter the MCP response. */
 export class TurnEvidenceReleases {
   private readonly versions = new Map<string, string>()
   private readonly confirmed = new Set<string>()
 
-  prepare(id: number | string, body: string) {
+  prepare(id: number | string, body: string, evidenceFormat: string | null) {
     const reply = JSON.parse(body)
     const result = reply.result
     if (!result?.content?.some((item: { type: string }) => item.type === 'image')) {
@@ -21,9 +24,12 @@ export class TurnEvidenceReleases {
     ) {
       throw new Error('invalid_evidence_file')
     }
+    if (evidenceFormat !== 'legacy' && evidenceFormat !== 'current') {
+      throw new Error('invalid_evidence_format')
+    }
     const releaseId = randomUUID()
     this.versions.set(releaseId, source.version_id)
-    return { releaseId, evidenceFormat: 'current' }
+    return { releaseId, evidenceFormat }
   }
 
   confirm(id: unknown, grant: (version: string) => void) {

@@ -1,3 +1,5 @@
+import { createServer as httpServer } from 'node:http'
+import { evidenceFormatHeader } from '#/agents/shared-vm/evidence-release.ts'
 import { test, type TestContext } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn, type ChildProcess } from 'node:child_process'
@@ -239,6 +241,87 @@ test(
       },
     )
     assert.equal(outcome, 'done')
+  },
+)
+
+test(
+  'only explicitly legacy preview bytes can omit a rendition digest across a paired bridge',
+  { timeout: 60000 },
+  async (t) => {
+    let format = 'current'
+    let grants = 0
+    const bytes = Buffer.from('preview')
+    const version = randomUUID()
+    const { outcome } = await pairedToolTurn(
+      t,
+      (root) => ({
+        policyPath: join(root, 'policy', 'policy.json'),
+        runNative: async (_context, _opening, request) => {
+          const proxy = await startMcpProxy(request, true, 'file')
+          try {
+            const fetchPhoto = () =>
+              fetch(proxy.toolUrl, {
+                method: 'POST',
+                headers: { authorization: 'Bearer ' + proxy.capability },
+                body: JSON.stringify({
+                  jsonrpc: '2.0',
+                  id: 1,
+                  method: 'tools/call',
+                  params: { name: 'fetch_evidence', arguments: {} },
+                }),
+              })
+            assert.equal((await fetchPhoto()).status, 502)
+            assert.equal(grants, 0)
+            format = 'legacy'
+            const response = await fetchPhoto()
+            assert.equal(response.status, 200)
+            const result = (await response.json()).result
+            assert.deepEqual(await readFile(result.structuredContent.local_file.path), bytes)
+            await proxy.flush()
+          } finally {
+            await proxy.close()
+          }
+        },
+      }),
+      async () => {
+        const encoder = httpServer(async (req, res) => {
+          for await (const _chunk of req) {
+            /* Consume the bounded synthetic request. */
+          }
+          res
+            .writeHead(200, { 'content-type': 'application/json', [evidenceFormatHeader]: format })
+            .end(
+              JSON.stringify({
+                id: 1,
+                result: {
+                  structuredContent: {
+                    ok: true,
+                    source: { kind: 'media_version', version_id: version, sha256: '0'.repeat(64) },
+                    pages: [{ page: 1, width: 1, height: 1 }],
+                  },
+                  content: [
+                    { type: 'image', mimeType: 'image/png', data: bytes.toString('base64') },
+                  ],
+                },
+              }),
+            )
+        })
+        encoder.listen(0, '127.0.0.1')
+        await once(encoder, 'listening')
+        return {
+          url: 'http://127.0.0.1:' + (encoder.address() as AddressInfo).port + '/mcp',
+          confirmEvidence: (_job, v) => {
+            assert.equal(v, version)
+            grants++
+          },
+          close: async () => {
+            encoder.close()
+          },
+        }
+      },
+    )
+    assert.equal(outcome, 'done')
+    assert.equal(grants, 1)
   },
 )
 

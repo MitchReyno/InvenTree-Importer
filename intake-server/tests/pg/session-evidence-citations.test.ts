@@ -151,6 +151,7 @@ for (const mode of ['manifest', 'notice', 'lead', 'original'] as const) {
               structuredContent: fetched.result,
             },
           }),
+          'current',
         )
         const confirm = () =>
           releases.confirm(releaseId, (v) =>

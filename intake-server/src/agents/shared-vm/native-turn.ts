@@ -75,6 +75,7 @@ export async function nativeTurn(
       },
       context,
     )
+    await proxy.flush()
     await request({ progress: true, version, delivered: delivered?.toString() })
   } finally {
     await proxy.close()

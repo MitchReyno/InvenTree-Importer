@@ -1,3 +1,4 @@
+import { evidenceFormatHeader } from '#/agents/shared-vm/evidence-release.ts'
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify'
 import type { Pool } from 'pg'
 import { recordMediaDelivery } from './handlers.ts'
@@ -141,6 +142,7 @@ export async function startSessionToolServer(options: SessionToolServerOptions) 
         .end('{"error":"capability_refused"}')
       return
     }
+    res.setHeader(evidenceFormatHeader, 'current')
     const server = new McpServer({ name: 'intake', version: '1' })
     // Lot-forming tools exist only for the batch's Examine lead session; handlers check again.
     const lead = (principal.stage as string) === 'examine'

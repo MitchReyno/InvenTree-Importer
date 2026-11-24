@@ -101,6 +101,8 @@ export async function startMcpProxy(
   return {
     capability,
     toolUrl: 'http://127.0.0.1:' + address.port + '/mcp',
+    // A completed provider may return while its final HTTP response is being confirmed.
+    flush: () => pendingMcp,
     async close() {
       closing = true
       proxy.close()

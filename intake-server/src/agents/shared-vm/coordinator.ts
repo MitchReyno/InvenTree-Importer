@@ -1,4 +1,4 @@
-import { TurnEvidenceReleases } from './evidence-release.ts'
+import { evidenceFormatHeader, TurnEvidenceReleases } from './evidence-release.ts'
 import { evidenceRequest } from './evidence-request.ts'
 import { checkServerIdentity, createServer, type TLSSocket } from 'node:tls'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -274,7 +274,7 @@ export async function startSessionBridge(
           const fetchRequest = evidenceRequest(msg.mcp)
           const envelope =
             toolWorker && response.status === 200 && fetchRequest
-              ? releases.prepare(fetchRequest.id, body)
+              ? releases.prepare(fetchRequest.id, body, response.headers.get(evidenceFormatHeader))
               : {}
           await frames.send({ status: response.status, body, ...envelope }, maxBytes)
           continue
