@@ -1,0 +1,204 @@
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import sharp from 'sharp'
+import { MEDIA_TOOLCHAIN } from '@invimport/contracts/media'
+import { decode } from '../src/decode.ts'
+import { renderGrid } from '../src/grid.ts'
+import type { GridInput, GridResult } from '../src/decoder-protocol.ts'
+import { fixtureBytes, parityFixtures, rgbRaster, sha, type GridFixture } from './support/parity.ts'
+
+/** grid.py's default preview width. */
+const SCRIPT_DEFAULT_WIDTH = 1000
+
+async function benchPage() {
+  const fixtures = await parityFixtures()
+  const original = await fixtureBytes(fixtures.photo)
+  const decoded = await decode({
+    version: 'media-decode/1',
+    digest: sha(original),
+    bytes: original,
+  })
+  assert.equal(decoded.state, 'ready')
+  return decoded.pages[0]
+}
+
+type Corners = [number, number, number, number]
+
+function region([x0, y0, x1, y1]: Corners) {
+  return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 }
+}
+
+/** The request grid.py's command line describes. */
+function gridInput(
+  page: { bytes: Buffer; width: number; height: number },
+  fixture: GridFixture,
+): GridInput {
+  const input: GridInput = {
+    version: 'media-grid/1',
+    digest: sha(page.bytes),
+    width: page.width,
+    height: page.height,
+    bytes: page.bytes,
+    region: null,
+    preview_width: SCRIPT_DEFAULT_WIDTH,
+    step: null,
+    object: null,
+    boxes: [],
+  }
+  const args = [...fixture.arguments]
+  while (args.length > 0) {
+    const option = args.shift()
+    const numbers = () => args.splice(0, 4).map(Number) as Corners
+    if (option === '--region') {
+      input.region = region(numbers())
+    } else if (option === '--width') {
+      input.preview_width = Number(args.shift())
+    } else if (option === '--step') {
+      input.step = Number(args.shift())
+    } else if (option === '--object') {
+      input.object = region(numbers())
+    } else if (option === '--box') {
+      const box = region(numbers())
+      const named = args.length > 0 && !args[0].startsWith('--')
+      const name = named ? args.shift()! : `box${input.boxes.length + 1}`
+      input.boxes.push({ name, box })
+    } else {
+      throw new Error(`unexpected grid.py option ${option}`)
+    }
+  }
+  return input
+}
+
+/** The result in grid.py's printed format, so the two can be compared line by line. */
+function printed(
+  result: Extract<GridResult, { state: 'ready' }>,
+  page: { width: number; height: number },
+) {
+  const { x, y, width, height } = result.region
+  const lines = [
+    `source ${page.width}x${page.height}, region ${x},${y}-${x + width},${y + height}, ` +
+      `preview scale ${result.scale.toFixed(3)}, grid every ${result.step}px`,
+  ]
+  for (const item of result.boxes) {
+    const { box } = item
+    let line =
+      `${item.name}: ${box.x},${box.y}-${box.x + box.width},${box.y + box.height}  ` +
+      `${box.width}x${box.height}  aspect ${item.aspect.toFixed(2)}`
+    if (item.margins) {
+      const { left, right, top, bottom } = item.margins
+      line += `  margins L${left} R${right} T${top} B${bottom}`
+    }
+    if (item.clips) {
+      line += '  CLIPS THE OBJECT'
+    } else if (item.off_centre.length > 0) {
+      line += `  OFF-CENTRE in ${item.off_centre.join('/')}`
+    }
+    lines.push(line)
+  }
+  return lines
+}
+
+test('grid scale, step and box measurements match the script', async () => {
+  const page = await benchPage()
+  const fixtures = await parityFixtures()
+  for (const fixture of fixtures.grids) {
+    const result = await renderGrid(gridInput(page, fixture))
+    assert.equal(result.state, 'ready', fixture.name)
+    assert.equal(result.toolchain, MEDIA_TOOLCHAIN)
+    assert.deepEqual(printed(result, page), fixture.printed, fixture.name)
+  }
+})
+
+test('grid labels are in page pixels, whatever the preview scale', async () => {
+  const page = await benchPage()
+  const fixtures = await parityFixtures()
+  const zoom = fixtures.grids.find((item) => item.name === 'zoom')!
+  const result = await renderGrid(gridInput(page, zoom))
+  assert.equal(result.state, 'ready')
+  // Region 150,160-330,240 at scale 5 and step 10 labels every 10 page pixels.
+  assert.deepEqual(
+    result.x_labels,
+    [160, 170, 180, 190, 200, 210, 220, 230, 240, 250, 260, 270, 280, 290, 300, 310, 320],
+  )
+  assert.deepEqual(result.y_labels, [170, 180, 190, 200, 210, 220, 230])
+
+  const image = await rgbRaster(result.image.bytes)
+  assert.deepEqual([image.width, image.height], [900, 400])
+  assert.deepEqual([result.image.width, result.image.height], [900, 400])
+  // Page x 250 is a major line, drawn in strong red at preview x (250 - 150) * 5; row 270 is
+  // clear of the horizontal lines, the object's outline and the boxes.
+  const column = (250 - 150) * 5
+  const offset = (270 * image.width + column) * 3
+  assert.deepEqual([...image.data.subarray(offset, offset + 3)], [230, 0, 0])
+})
+
+test('a dense grid labels every other line', async () => {
+  const page = await benchPage()
+  const result = await renderGrid({
+    version: 'media-grid/1',
+    digest: sha(page.bytes),
+    width: page.width,
+    height: page.height,
+    bytes: page.bytes,
+    region: null,
+    preview_width: 400,
+    step: 20,
+    object: null,
+    boxes: [],
+  })
+  assert.equal(result.state, 'ready')
+  // 20 page pixels is under 45 preview pixels at this scale, so labels fall every 40.
+  assert.deepEqual(result.x_labels, [40, 80, 120, 160, 200, 240, 280, 320, 360, 400, 440])
+})
+
+test('a preview too tall for its width is over the limit', async () => {
+  const bytes = await sharp({
+    create: { width: 10, height: 5000, channels: 3, background: '#808080' },
+  })
+    .png()
+    .toBuffer()
+  const result = await renderGrid({
+    version: 'media-grid/1',
+    digest: sha(bytes),
+    width: 10,
+    height: 5000,
+    bytes,
+    region: null,
+    preview_width: 2000,
+    step: null,
+    object: null,
+    boxes: [],
+  })
+  assert.deepEqual(result, { state: 'limit_exceeded', toolchain: MEDIA_TOOLCHAIN })
+})
+
+test('a region is clipped to the page, as the script does, and one wholly outside is malformed', async () => {
+  const page = await benchPage()
+  const result = await renderGrid({
+    version: 'media-grid/1',
+    digest: sha(page.bytes),
+    width: page.width,
+    height: page.height,
+    bytes: page.bytes,
+    region: { x: 400, y: 0, width: 200, height: 100 },
+    preview_width: 500,
+    step: null,
+    object: null,
+    boxes: [],
+  })
+  assert.equal(result.state, 'ready')
+  assert.deepEqual(result.region, { x: 400, y: 0, width: 80, height: 100 })
+  const outside = await renderGrid({
+    version: 'media-grid/1',
+    digest: sha(page.bytes),
+    width: page.width,
+    height: page.height,
+    bytes: page.bytes,
+    region: { x: 500, y: 0, width: 20, height: 100 },
+    preview_width: 500,
+    step: null,
+    object: null,
+    boxes: [],
+  })
+  assert.deepEqual(outside, { state: 'malformed', toolchain: MEDIA_TOOLCHAIN })
+})

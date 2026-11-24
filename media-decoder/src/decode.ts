@@ -3,7 +3,9 @@ import {
   expectedRenditionSizes,
   renditionDimensions,
   requireMediaRecipeBounds,
+  type MediaLitViewRecipeDto,
 } from '@invimport/contracts/media'
+import { renderLitCrop } from './lit-crop.ts'
 import sharp from 'sharp'
 import { createCanvas } from '@napi-rs/canvas'
 import { createRequire } from 'node:module'
@@ -210,6 +212,28 @@ export async function renderRetained(
   return { state: 'ready', toolchain: MEDIA_TOOLCHAIN, renditions: await renditions(page) }
 }
 
+/**
+ * A recipe `/2` crop of a decoded page as a lossless PNG at full resolution. A white balance the
+ * hue guard refuses can't be derived, so the recipe doesn't fit the page: `malformed`.
+ */
+async function deriveLitCrop(
+  source: DecodedPage,
+  recipe: MediaLitViewRecipeDto,
+): Promise<DecodedPage> {
+  const crop = await renderLitCrop(source, recipe)
+  if (crop.state === 'refused') {
+    throw new MalformedMediaError(crop.reason)
+  }
+  const { width, height } = crop.image.info
+  const bytes = await sharp(crop.image.data, { raw: crop.image.info })
+    .png({ compressionLevel: 9, adaptiveFiltering: false, palette: false })
+    .toBuffer()
+  if (bytes.length > MEDIA_LIMITS.outputBytes) {
+    throw new LimitError('output_limit')
+  }
+  return { page: 1, width, height, bytes }
+}
+
 /** Called only inside the bounded decoder image; never from an HTTP route. */
 export async function decode(input: DecodeInput): Promise<DecodedMedia> {
   checkedInput(input)
@@ -224,6 +248,18 @@ export async function decode(input: DecodeInput): Promise<DecodedMedia> {
       throw new MalformedMediaError('truncated_jpeg')
     }
     let pages = isPdf ? await pdfPages(input.bytes) : [await raster(input.bytes)]
+    if (input.recipe?.version === 'bench-intake-view/2') {
+      const recipe = input.recipe
+      const source = pages.find((page) => page.page === recipe.page)
+      if (!source || source.width !== recipe.page_width || source.height !== recipe.page_height) {
+        throw new Error('invalid_recipe_coordinates')
+      }
+      return {
+        state: 'ready',
+        toolchain: MEDIA_TOOLCHAIN,
+        pages: await rendered([await deriveLitCrop(source, recipe)]),
+      }
+    }
     if (input.recipe) {
       const recipe = input.recipe
       const source = pages.find((page) => page.page === recipe.page)
