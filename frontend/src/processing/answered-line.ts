@@ -41,7 +41,8 @@ type LineInput = {
 }
 
 function answerWords(question: ProcessingQuestionDto, values: AnswerValueLine[]) {
-  const text = values.map((value) => (value.truncated ? `${value.text}…` : value.text)).join(' · ')
+  // A value can hold " · " itself ("380 · counted"), so several are set apart more plainly.
+  const text = values.map((value) => (value.truncated ? `${value.text}…` : value.text)).join('; ')
   const steps = 'steps' in question ? question.steps : []
   const choice = steps.length === 1 && steps[0].answer.kind === 'choice'
 
