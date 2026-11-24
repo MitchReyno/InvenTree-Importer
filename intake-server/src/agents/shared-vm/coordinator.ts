@@ -281,11 +281,15 @@ export async function startSessionBridge(
   const reads = new Map<string, Promise<ClaudeBridgeStatus | CodexBridgeStatus>>()
 
   /**
-   * Concurrent callers share one read per provider and kind, so a plain read in flight never
-   * swallows a Check again; the second waits for the status connection the first returns.
+   * Concurrent plain callers share one read per provider. A Check again reads anew, waiting for
+   * the status connection a read in flight returns.
    */
   function sharedRead(provider: StatusProvider, deadlineMs: number, refresh: boolean) {
-    const key = provider + (refresh ? ':refresh' : '')
+    // Check again never joins a read in flight, which may predate a sign-in change.
+    if (refresh) {
+      return readProvider(provider, deadlineMs, true)
+    }
+    const key = provider
     let read = reads.get(key)
     if (!read) {
       read = readProvider(provider, deadlineMs, refresh).finally(() => reads.delete(key))

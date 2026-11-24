@@ -161,7 +161,7 @@ test('a worker reply that stalls is dropped at the request expiry, and close wai
   assert.deepEqual(released, [true])
 })
 
-test('Check again reaches the worker as its own read, never folded into a plain one in flight', async () => {
+test('Check again reaches the worker as its own read, never folded into another read in flight', async () => {
   const listener = Object.assign(new EventEmitter(), {
     query: () => Promise.resolve({ rows: [] }),
     release: () => {},
@@ -205,8 +205,10 @@ test('Check again reaches the worker as its own read, never folded into a plain 
   request('plain', undefined)
   request('plain-2', false)
   request('forced', true)
+  // A second Check again reads anew too: the first may predate a sign-in change.
+  request('forced-2', true)
   await new Promise((resolve) => setTimeout(resolve, 20))
-  assert.deepEqual(reads, [false, true])
+  assert.deepEqual(reads, [false, true, true])
   // A flag of the wrong type is refused unread.
   listener.emit('notification', {
     channel: STATUS_REQUEST_CHANNEL,
@@ -220,7 +222,7 @@ test('Check again reaches the worker as its own read, never folded into a plain 
     }),
   })
   await new Promise((resolve) => setTimeout(resolve, 20))
-  assert.deepEqual(reads, [false, true])
+  assert.deepEqual(reads, [false, true, true])
   finish()
   await worker.close()
 })

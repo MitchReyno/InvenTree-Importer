@@ -49,8 +49,7 @@ function codexSettled(statuses: DisplayProviderStatuses | undefined) {
 
 /**
  * Asks the session worker, at most once per cache window, with concurrent callers sharing a read.
- * Check again asks at once, sharing only another Check again in flight, and its answer is reused
- * like any other. An answer whose Codex check hasn't finished is never reused, so a client
+ * Check again asks at once, sharing no read in flight, and its answer is reused like any other. An answer whose Codex check hasn't finished is never reused, so a client
  * waiting for that check reads the worker each time. A profile that runs no agent sessions has no
  * worker to ask.
  */
@@ -63,7 +62,6 @@ export function workerStatusSource(
   monotonicNow = () => performance.now(),
 ): GuestStatusSource {
   let cached: { read: Promise<GuestStatusRead>; until: number } | undefined
-  let forced: Promise<GuestStatusRead> | undefined
 
   const read = async (refresh: boolean): Promise<GuestStatusRead> => {
     if (!config.profileId || !isSessionProfile(config.profileId)) {
@@ -96,19 +94,12 @@ export function workerStatusSource(
   }
 
   return (refresh) => {
+    // Check again never joins a read in flight, which may have been asked for before a sign-in
+    // change; its answer is reused like any other.
     if (refresh) {
-      if (!forced) {
-        const pending = read(true)
-
-        const settle = () => {
-          forced = undefined
-        }
-
-        forced = pending
-        void pending.then(settle, settle)
-        remember(pending)
-      }
-      return forced
+      const pending = read(true)
+      remember(pending)
+      return pending
     }
     const time = monotonicNow()
     if (!cached || time >= cached.until) {

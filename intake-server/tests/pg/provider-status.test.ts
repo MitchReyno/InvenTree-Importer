@@ -182,13 +182,17 @@ test(
     const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
     t.after(() => fixture.dispose())
     const refreshes: boolean[] = []
+    // Holds the worker's answers when a test step needs a read to stay in flight.
+    let held: Promise<void> = Promise.resolve()
     let codex: BridgeProviderStatuses['codex'] = { state: 'unknown', reason: 'checking' }
     const worker = serveProviderStatusRequests(
       fixture.runner.pool,
       fixture.config,
       async (_budgetMs, refresh) => {
         refreshes.push(refresh)
-        return { ...statuses, codex }
+        const answer = { ...statuses, codex }
+        await held
+        return answer
       },
     )
     // Before the fixture's own cleanup, which waits for the worker's connection.
@@ -247,6 +251,20 @@ test(
       last_sign_in_failure: null,
     })
     assert.deepEqual(refreshes.slice(asked), [false, false, true])
+
+    // A Check again in flight, read before a sign-in change, is never joined by the one after it.
+    let release!: () => void
+    held = new Promise<void>((resolve) => (release = resolve))
+    codex = { state: 'signed_in', checked_at: checkedAt, refreshing: false }
+    const before = fixture.http('/agents/provider-status?refresh=true')
+    await waitUntil(() => refreshes.length === asked + 4, 'the first Check again')
+    codex = { state: 'signed_out', checked_at: checkedAt, refreshing: false }
+    const after = fixture.http('/agents/provider-status?refresh=true')
+    await waitUntil(() => refreshes.length === asked + 5, 'the second Check again')
+    release()
+    held = Promise.resolve()
+    assert.equal(((await after).value as ProviderStatusDto).codex.state, 'signed_out')
+    assert.equal(((await before).value as ProviderStatusDto).codex.state, 'signed_in')
 
     // Anything else in the query is refused.
     assert.equal((await fixture.http('/agents/provider-status?refresh=1')).status, 400)

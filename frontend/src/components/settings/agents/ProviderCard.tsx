@@ -10,6 +10,8 @@ import {
   SegmentedControl,
   Small,
   Switch,
+  useMinute,
+  VisuallyHidden,
 } from '#/components/ui'
 import { color, radius, space, typeVar } from '#/theme/generated/tokens'
 import type { ProviderCardStatus } from '#/components/agents/useProviderStatus'
@@ -74,6 +76,8 @@ export function ProviderCard({
         </Small>
       )}
       <CheckLine status={status} />
+      {/* Always present, so the check's progress and outcome are announced as they change. */}
+      <VisuallyHidden role="status">{status.announcement}</VisuallyHidden>
       {status.failedAt && (
         <Failure>
           Last session couldn’t sign in · <EventTime at={status.failedAt} />
@@ -134,15 +138,21 @@ export function ProviderCard({
 
 /** When the VM last checked, and quietly whether a newer check runs, beside the pill. */
 function CheckLine({ status }: { status: ProviderCardStatus }) {
+  const clock = useMinute()
   if (!status.checkedAt && !status.refreshing) {
     return null
   }
+
+  // The VM's clock, or a minute tick still due, can put a check after the page's clock; it
+  // reads as just now rather than in the future.
+  const checked = status.checkedAt ? Date.parse(status.checkedAt) : Number.NaN
+  const now = Number.isNaN(checked) ? clock : Math.max(clock, checked)
 
   return (
     <Small>
       {status.checkedAt && (
         <span>
-          Checked <RelativeTime at={status.checkedAt} />
+          Checked <RelativeTime at={status.checkedAt} now={now} />
         </span>
       )}
       {status.checkedAt && status.refreshing && ' · '}

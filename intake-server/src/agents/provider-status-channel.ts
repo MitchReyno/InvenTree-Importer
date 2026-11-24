@@ -345,8 +345,8 @@ async function exchange(
 
 /**
  * Answers this scope's signed requests with `read`, given what is left of the request's budget and
- * whether it is Check again, on one held connection that is opened again if it fails. Requests of
- * the same kind arriving while a read runs share its answer; each request ID is answered at most
+ * whether it is Check again, on one held connection that is opened again if it fails. Plain
+ * requests arriving while a plain read runs share its answer; a Check again always reads anew; each request ID is answered at most
  * once, and its reply isn't sent after its expiry.
  */
 export function serveProviderStatusRequests(
@@ -357,14 +357,18 @@ export function serveProviderStatusRequests(
   const stopping = new AbortController()
   // Each accepted request ID until it expires, so a replay within its life is refused.
   const live = new Map<string, number>()
-  // Kept apart, so a plain read in flight never swallows a Check again.
-  const current = new Map<boolean, Promise<BridgeProviderStatuses>>()
+  // Plain reads in flight, shared; a Check again is never shared.
+  const current = new Map<false, Promise<BridgeProviderStatuses>>()
 
   const shared = (budgetMs: number, refresh: boolean) => {
-    let reading = current.get(refresh)
+    // Check again never joins a read in flight, which may predate a sign-in change.
+    if (refresh) {
+      return read(budgetMs, true)
+    }
+    let reading = current.get(false)
     if (!reading) {
-      reading = read(budgetMs, refresh).finally(() => current.delete(refresh))
-      current.set(refresh, reading)
+      reading = read(budgetMs, false).finally(() => current.delete(false))
+      current.set(false, reading)
     }
     return reading
   }

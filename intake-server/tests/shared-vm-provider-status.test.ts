@@ -1132,6 +1132,17 @@ test('Check again waits for the status connection a plain read has borrowed', as
     requests.map((request) => request.refresh === true),
     [false, true],
   )
+
+  // Two Check agains at once each reach the guest: the first may predate a sign-in change.
+  requests.length = 0
+  await Promise.all([
+    bridge.providerStatus(undefined, true),
+    bridge.providerStatus(undefined, true),
+  ])
+  assert.deepEqual(
+    requests.map((request) => request.refresh === true),
+    [true, true],
+  )
 })
 
 test('older, missing, busy and unreachable guests read as unknown, never signed out', async (t) => {
