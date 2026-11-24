@@ -354,3 +354,27 @@ it('the challenge leaves the query cache once the dialog closes', async () => {
     ),
   ).not.toContain('TEST-CODE')
 })
+
+it('closing after a start the runner refused leaves other logins alone', async () => {
+  send.mockResolvedValueOnce(signedOut())
+  openDialog()
+  await enterKey()
+  send.mockResolvedValueOnce(new Response('{}', { status: 409 }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Sign in with ChatGPT' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Could not confirm sign-in status')
+  close()
+  await wait()
+  expect(sent()).toEqual([{ action: 'status' }, { action: 'start' }])
+})
+
+it('a disconnect whose answer was lost has the card read the VM again', async () => {
+  send.mockResolvedValueOnce(Response.json({ state: 'connected' }))
+  openDialog()
+  await enterKey()
+  onChanged.mockClear()
+  send.mockRejectedValueOnce(new TypeError('network_failed'))
+  fireEvent.click(await screen.findByRole('button', { name: 'Disconnect ChatGPT' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Could not confirm sign-in status')
+  expect(onChanged).toHaveBeenCalledTimes(1)
+  expect(sent()).toEqual([{ action: 'status' }, { action: 'disconnect' }])
+})

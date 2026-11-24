@@ -28,6 +28,14 @@ import { useDirtyForms } from './agents/useDirtyForms'
 import { createSaveQueue } from './agents/save-queue'
 import type { SettingsPage } from './agents/useSettingsSave'
 
+/** What a confirmed Claude change leaves stored, or undefined when only the VM can say. */
+function claudeState(configured: boolean | undefined) {
+  if (configured === undefined) {
+    return undefined
+  }
+  return configured ? 'saved' : 'not_saved'
+}
+
 type Props = {
   client: ReturnType<typeof agentsClient>
   /** Reports unsaved input, with how to save what can be saved before leaving. */
@@ -198,11 +206,8 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
           credentials={{
             claude: (
               <PersonalClaudeCredential
-                onChanged={(configured) =>
-                  providerStatus.signInChanged(
-                    'claude',
-                    configured === undefined ? undefined : configured ? 'saved' : 'not_saved',
-                  )
+                onChanged={(configured, late) =>
+                  providerStatus.signInChanged('claude', claudeState(configured), { late })
                 }
               />
             ),

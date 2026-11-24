@@ -334,8 +334,14 @@ export function useChatGPTSignIn({ onConfirmed, onChanged }: Options) {
       }
     } catch (error) {
       if (!mine.ended) {
-        if (action === 'start' && !(error instanceof DroppedCall)) {
+        const answered = error instanceof Error && error.message === 'runner_refused'
+        const sent = !(error instanceof DroppedCall)
+        if (action === 'start' && sent && !answered) {
           startUnconfirmed.current = true
+        }
+        if (action !== 'status' && sent && !answered) {
+          // It may have applied before its answer was lost, so the card reads the VM again.
+          callbacks.current.onChanged()
         }
         setAccount(undefined)
         setMessage(FAILED)

@@ -75,11 +75,20 @@ export function useProviderStatus(client: StatusSource) {
   // Syncs a timer per settling change: once its window has passed, the status is read again.
   // Leaving drops the timers; opening the section again schedules what is still due.
   useEffect(() => {
-    // A window that passed while the section was closed needs nothing: opening it reads afresh.
     const due = Object.values(settling)
       .map((change) => change.at + SETTLE_MS - Date.now())
       .filter((wait) => wait > 0)
     const timers = due.map((wait) => setTimeout(() => void readAfresh(), wait))
+    // A window that passed with no read asked for after it (a read from before it may still be
+    // running, which opening the section would join) is read afresh at once.
+    const asked = queryClient.getQueryData<StatusRead>(queryKey)?.requestedAt ?? 0
+    const overdue = Object.values(settling).some((change) => {
+      const deadline = change.at + SETTLE_MS
+      return deadline <= Date.now() && asked < deadline
+    })
+    if (overdue) {
+      void readAfresh()
+    }
     return () => timers.forEach(clearTimeout)
     // readAfresh reads through the query client; only the settling changes start timers.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -108,12 +117,17 @@ export function useProviderStatus(client: StatusSource) {
    * A sign-in change: the card shows `state`, what the VM just confirmed, or "Checking…" when
    * the outcome is the VM's to report, until a read made after the change lands.
    */
-  function signInChanged(provider: AgentProviderId, state?: Exclude<ProviderState, 'unknown'>) {
+  function signInChanged(
+    provider: AgentProviderId,
+    state?: Exclude<ProviderState, 'unknown'>,
+    { late = false }: { late?: boolean } = {},
+  ) {
     const at = Date.now()
-    queryClient.setQueryData<SettlingByProvider>(settleKey, (current = NONE_SETTLING) => ({
-      ...current,
-      [provider]: { at, state },
-    }))
+    queryClient.setQueryData<SettlingByProvider>(settleKey, (current = NONE_SETTLING) => {
+      // A late answer to an older change restarts the window but keeps a newer confirmation.
+      const kept = late ? current[provider]?.state : state
+      return { ...current, [provider]: { at, state: kept } }
+    })
   }
 
   // A read asked for before a change settled may report the VM before it; a failed read reports

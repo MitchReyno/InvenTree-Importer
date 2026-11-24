@@ -69,8 +69,11 @@ const TOKEN_CHANGED =
   'The token changed since this dialog read it, so nothing was saved. Its status was read again.'
 
 type Options = {
-  /** The VM confirmed a change: true when a token is now saved; undefined when it may have. */
-  onChanged: (configured: boolean | undefined) => void
+  /**
+   * The VM confirmed a change: true when a token is now saved; undefined when it may have. `late`
+   * marks an answer to a dialog already closed or rekeyed, which a newer confirmation outranks.
+   */
+  onChanged: (configured: boolean | undefined, late?: boolean) => void
   /** Closes the dialog, which drops the key. */
   onClose: () => void
 }
@@ -212,7 +215,7 @@ export function usePersonalClaudeCredential({ onChanged, onClose }: Options) {
       const next = await request(action, status.revision, value)
       if (mine !== generation.current) {
         // Closed or rekeyed meanwhile: the change is done now, so the card reads the VM again.
-        notify.current(undefined)
+        notify.current(undefined, true)
         return
       }
       changing.current = false
@@ -220,7 +223,7 @@ export function usePersonalClaudeCredential({ onChanged, onClose }: Options) {
       onClose()
     } catch (error) {
       if (mine !== generation.current) {
-        notify.current(undefined)
+        notify.current(undefined, true)
         return
       }
       changing.current = false

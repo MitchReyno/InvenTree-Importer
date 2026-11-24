@@ -434,6 +434,70 @@ describe('sign-in dialogs update the card', () => {
     await waitFor(() => expectCard('Codex', 'Signing in'))
   })
 
+  test('returning after the window while an older read still runs reads afresh at once', async () => {
+    const api = client()
+    await renderAgents(api)
+    await waitFor(() => expectCard('Claude', 'Token saved'))
+    send
+      .mockResolvedValueOnce(Response.json({ configured: false, revision: 'one' }))
+      .mockImplementationOnce(() => new Promise<Response>(() => {}))
+    fireEvent.click(screen.getByRole('button', { name: 'Subscription token…' }))
+    await enterKey('Personal runner management key')
+    await screen.findByText('No token is saved.')
+    fireEvent.change(screen.getByLabelText('Subscription token'), {
+      target: { value: 'sk-ant-oat01-abcdefghijklmnop' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save token' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    await act(() => vi.advanceTimersByTimeAsync(10))
+    expectCard('Claude', 'Checking…')
+    // A read asked for inside the window, still running when the section is left.
+    api.providerStatus.mockImplementationOnce(() => new Promise<ProviderStatusDto>(() => {}))
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Claude' })).getByRole('button', {
+        name: 'Check again',
+      }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Leave Agents' }))
+    await act(() => vi.advanceTimersByTimeAsync(SETTLE_MS + 1000))
+    const before = api.providerStatus.mock.calls.length
+    fireEvent.click(screen.getByRole('button', { name: 'Return to Agents' }))
+    await screen.findByRole('group', { name: 'Claude' })
+    await waitFor(() => expect(api.providerStatus.mock.calls.length).toBeGreaterThan(before))
+    await waitFor(() => expectCard('Claude', 'Token saved'))
+  })
+
+  test('a late answer to an older dialog keeps a newer confirmed change', async () => {
+    const api = client()
+    await renderAgents(api)
+    await waitFor(() => expectCard('Claude', 'Token saved'))
+
+    let late: (value: Response) => void = () => undefined
+
+    send
+      .mockResolvedValueOnce(Response.json({ configured: true, revision: 'one' }))
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => (late = resolve)))
+    fireEvent.click(screen.getByRole('button', { name: 'Subscription token…' }))
+    await enterKey('Personal runner management key')
+    await screen.findByText('A token is saved.')
+    fireEvent.change(screen.getByLabelText('Subscription token'), {
+      target: { value: 'sk-ant-oat01-abcdefghijklmnop' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Replace token' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    send
+      .mockResolvedValueOnce(Response.json({ configured: true, revision: 'two' }))
+      .mockResolvedValueOnce(Response.json({ configured: false, revision: 'three' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Subscription token…' }))
+    await enterKey('Personal runner management key')
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove token' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expectCard('Claude', 'No token')
+    await act(async () => late(Response.json({ configured: true, revision: 'two' })))
+    await act(() => vi.advanceTimersByTimeAsync(10))
+    expectCard('Claude', 'No token')
+  })
+
   test('the Codex dialog closes once the VM confirms the account, and the card says Signed in', async () => {
     await renderAgents()
     await waitFor(() => expectCard('Codex', 'Not signed in'))

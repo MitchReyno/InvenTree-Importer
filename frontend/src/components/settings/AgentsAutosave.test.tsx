@@ -418,6 +418,37 @@ describe('providers', () => {
 })
 
 describe('round 1 regressions', () => {
+  test('a refused switch on Try again keeps a model pick for another provider made in the same pause', async () => {
+    const codexOff = agentSettings('7', claude, {
+      providers: {
+        claude: { enabled: true, authentication: 'subscription', default_model: 'opus' },
+        codex: { enabled: false, authentication: 'subscription', default_model: 'gpt-6.1-sol' },
+      },
+    })
+    const { server } = await renderAgents(codexOff)
+    fireEvent.click(providerSwitch('Codex'))
+    pick(stepPicker('Research'), 'Claude · sonnet', 'son')
+    server.otherTab({
+      providers: {
+        ...codexOff.providers,
+        codex: { ...codexOff.providers.codex, default_model: '' },
+      },
+    })
+    await wait(600)
+    fireEvent.click(
+      within(heading('Providers')).getByRole('button', { name: 'Try the same save again' }),
+    )
+    await wait()
+    expect(server.saved.providers.codex.enabled).toBe(false)
+    expect(server.saved.stage_selections).toEqual({
+      research: { provider: 'claude', model: 'sonnet' },
+    })
+    expect(providerSwitch('Codex')).not.toBeChecked()
+    expect(
+      within(screen.getByRole('group', { name: 'Codex' })).getByRole('alert'),
+    ).toHaveTextContent('Choose a default model before turning Codex on')
+  })
+
   test('Try again after another tab turned the other provider off keeps this one on', async () => {
     const { server } = await renderAgents(bothOn)
     server.otherTab({

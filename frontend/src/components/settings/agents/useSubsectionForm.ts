@@ -85,6 +85,15 @@ function expectedRevision(
   return newest.revision
 }
 
+/** The provider a provider choice names: the default provider's, or a step's when not Default. */
+function namedProvider(fields: SettingsFields, key: FieldKey): AgentProviderId | undefined {
+  if (key === 'default_provider') {
+    return fields.default_provider ?? undefined
+  }
+  const stage = key.slice('stage_selections.'.length) as AgentSettingsStage
+  return fields.stage_selections[stage]?.provider
+}
+
 /**
  * One subsection's form over the shared settings. Non-text edits save on their own after a
  * pause; text edits wait for Save. Each save is built when it is sent, from the newest settings
@@ -395,12 +404,26 @@ export function useSubsectionForm<V extends FieldValues>({
     if (kept.every(([refused]) => refused.length === 0)) {
       return settings
     }
-    const providerChoices = changed.filter(
-      (key) =>
-        key.endsWith('.enabled') ||
-        key === 'default_provider' ||
-        key.startsWith('stage_selections.'),
+    // Only the refused switches go back, with the choices that name their providers either way;
+    // other picks in the same save are kept and sent.
+    const refusedProviders = new Set(
+      kept.flatMap(([refused]) => refused.map((key) => key.split('.')[1] as AgentProviderId)),
     )
+
+    const names = (fields: SettingsFields, key: FieldKey) => {
+      const provider = namedProvider(fields, key)
+      return provider !== undefined && refusedProviders.has(provider)
+    }
+
+    const providerChoices = changed.filter((key) => {
+      if (key.endsWith('.enabled')) {
+        return refusedProviders.has(key.split('.')[1] as AgentProviderId)
+      }
+      if (key === 'default_provider' || key.startsWith('stage_selections.')) {
+        return names(settings, key) || names(confirmed, key)
+      }
+      return false
+    })
     for (const key of providerChoices) {
       touched.current.delete(key)
       changed.splice(changed.indexOf(key), 1)

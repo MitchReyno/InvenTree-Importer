@@ -182,7 +182,7 @@ it('closing during a save ignores its late answer, and the card reads the status
   expect(onChanged).toHaveBeenCalledExactlyOnceWith(undefined)
   await act(async () => answer(Response.json({ configured: true, revision: 'two' })))
   // The late answer isn't shown, but the change it reports restarts the card's own read.
-  expect(onChanged.mock.calls).toEqual([[undefined], [undefined]])
+  expect(onChanged.mock.calls).toEqual([[undefined], [undefined, true]])
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })
 
