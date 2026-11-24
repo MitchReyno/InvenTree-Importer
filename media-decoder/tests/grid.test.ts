@@ -202,3 +202,43 @@ test('a region is clipped to the page, as the script does, and one wholly outsid
   })
   assert.deepEqual(outside, { state: 'malformed', toolchain: MEDIA_TOOLCHAIN })
 })
+
+test('a label at the preview edge is drawn inside it, on the line’s other side', async () => {
+  const page = await benchPage()
+  const result = await renderGrid({
+    version: 'media-grid/1',
+    digest: sha(page.bytes),
+    width: page.width,
+    height: page.height,
+    bytes: page.bytes,
+    region: { x: 0, y: 0, width: 200, height: 200 },
+    preview_width: 200,
+    step: 199,
+    object: null,
+    boxes: [],
+  })
+  assert.ok(result.state === 'ready')
+  assert.deepEqual([result.x_labels, result.y_labels], [[199], [199]])
+  const image = await rgbRaster(result.image.bytes)
+  const isLabelInk = (x: number, y: number, channel: 0 | 2) => {
+    const offset = (y * image.width + x) * 3
+    const [red, green, blue] = image.data.subarray(offset, offset + 3)
+    return channel === 0
+      ? red > 150 && green < 60 && blue < 60
+      : blue > 150 && red < 60 && green < 60
+  }
+  let xInk = 0
+  let yInk = 0
+  for (let y = 0; y < 20; y++) {
+    for (let x = 150; x < 197; x++) {
+      xInk += isLabelInk(x, y, 0) ? 1 : 0
+    }
+  }
+  for (let y = 175; y < 197; y++) {
+    for (let x = 0; x < 40; x++) {
+      yInk += isLabelInk(x, y, 2) ? 1 : 0
+    }
+  }
+  assert.ok(xInk > 10, 'the x label is drawn left of its line')
+  assert.ok(yInk > 10, 'the y label is drawn above its line')
+})

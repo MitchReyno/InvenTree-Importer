@@ -369,8 +369,9 @@ function scaleKeepingHue(
 export async function applyLight(image: RawRgb, light: MediaViewLightDto): Promise<LightResult> {
   let current = image
   let whiteBalance: WhiteBalanceOutcome | null = null
-  const adjustsLuminance =
-    light.contrast_clip_permille !== null || light.gamma_thousandths !== null || light.sharpen
+  // Gamma 1000 is the identity curve, so it adjusts nothing and takes none of the hue budget.
+  const adjustsGamma = light.gamma_thousandths !== null && light.gamma_thousandths !== 1000
+  const adjustsLuminance = light.contrast_clip_permille !== null || adjustsGamma || light.sharpen
   // Saturation is judged on the source, so white balance can't take a pixel out of protection.
   const protectedPixels = adjustsLuminance ? saturatedPixels(image) : null
   if (light.white_balance) {

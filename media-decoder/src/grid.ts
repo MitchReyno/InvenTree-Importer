@@ -154,11 +154,18 @@ function drawLabels(context: SKRSContext2D, plan: GridPlan) {
   const { region, scale, labelStep } = plan
   const xLabels = multiples(region.x0, region.x1, labelStep)
   const yLabels = multiples(region.y0, region.y1, labelStep)
+  const { previewWidth, previewHeight } = plan
   for (const x of xLabels) {
-    chip(context, (x - region.x0) * scale + 3, 3, String(x), COLOURS.labelX)
+    const line = (x - region.x0) * scale
+    const width = context.measureText(String(x)).width
+    // A label that would run off the right edge goes on the line's other side.
+    const left = line + 3 + width + 2 > previewWidth ? line - 3 - width : line + 3
+    chip(context, left, 3, String(x), COLOURS.labelX)
   }
   for (const y of yLabels) {
-    chip(context, 3, (y - region.y0) * scale + 3, String(y), COLOURS.labelY)
+    const line = (y - region.y0) * scale
+    const top = line + 3 + LABEL_FONT_PX + 1 > previewHeight ? line - 3 - LABEL_FONT_PX : line + 3
+    chip(context, 3, top, String(y), COLOURS.labelY)
   }
   return { xLabels, yLabels }
 }

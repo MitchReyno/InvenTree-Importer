@@ -570,3 +570,13 @@ test('a recipe /2 on an EXIF-oriented photo crops the upright source, then turns
   assert.ok(red[0] > 150 && red[2] < 90, `red block at its turned place: ${red.join(',')}`)
   assert.equal((await rgbRaster(original.bytes)).width, 200, 'the stored original is unchanged')
 })
+
+test('gamma 1000 is the identity: it changes no pixel and takes none of the hue budget', async () => {
+  const original = await benchPhoto()
+  const [fixture] = await cropFixtures((item) => item.guard_holds_back)
+  const plain = recipeForCrop(fixture, original)
+  const neutral = { ...plain, light: { ...plain.light, gamma_thousandths: 1000 } }
+  const plainPage = await derived(original, plain)
+  const neutralPage = await derived(original, neutral)
+  assert.ok(plainPage.bytes.equals(neutralPage.bytes))
+})
