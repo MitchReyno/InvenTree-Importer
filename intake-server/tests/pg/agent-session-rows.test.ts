@@ -147,6 +147,15 @@ async function enteredAt(f: Fixture, attemptId: string, state: ProcessingStateDt
   })
 }
 
+/** Dates when an attempt was queued, which orders the list. */
+async function queuedAt(f: Fixture, attemptId: string, at: string) {
+  await transaction(f.db.pool, async (client) => {
+    await client.query('ALTER TABLE agent_session DISABLE TRIGGER agent_session_identity')
+    await client.query('UPDATE agent_session SET queued_at=$2 WHERE attempt_id=$1', [attemptId, at])
+    await client.query('ALTER TABLE agent_session ENABLE TRIGGER agent_session_identity')
+  })
+}
+
 async function holdSlot(f: Fixture, attemptId: string, index = 0) {
   await f.db.pool.query(
     `INSERT INTO agent_slot(actor_id,slot_index,attempt_id,claimed_at) VALUES($1,$2,$3,now())
@@ -237,10 +246,30 @@ test('one row per session, filtered before paging, with scoped counts and filter
     const signIn = await sessionChain(f, spill, spill.packetB, [
       { path: ['running', 'waiting_for_login'], session: 'waiting_for_login' },
     ])
+    // A live failure and a queued session, both beyond the first page of All.
+    const failed = await sessionChain(f, spill, spill.packetA, [failedStep], 'images')
+    const queued = await sessionChain(
+      f,
+      heyyy,
+      heyyy.packetB,
+      [{ path: [], session: 'queued' }],
+      'images',
+    )
     const old = await sessionChain(f, archived, archived.packetA, [failedStep])
     await f.db.pool.query('UPDATE capture_batch SET archived=true WHERE id=$1', [archived.batch.id])
     // Newer finished sessions push the ones needing attention beyond the first page of All.
     const fillers = await finishedSessions(f, filler, 52)
+    // The retry chain straddles the old attempt page: its current attempt is the newest of all,
+    // its first older than every filler.
+    await queuedAt(f, research.current, '2030-01-01T00:00:00.000Z')
+    await queuedAt(f, research.attempts[0], '2020-01-01T00:00:00.000Z')
+    const byQueueTime = await f.db.pool.query<{ attempt_id: string }>(
+      'SELECT attempt_id FROM agent_session ORDER BY queued_at DESC, attempt_id DESC',
+    )
+    const rank = (attemptId: string) =>
+      byQueueTime.rows.findIndex((attempt) => attempt.attempt_id === attemptId)
+    assert.ok(rank(research.current) < 50)
+    assert.ok(rank(research.attempts[0]) >= 50)
     const firstStart = '2026-11-20T01:02:03.000Z'
     await enteredAt(f, research.attempts[0], 'running', firstStart)
     const fillerStart = '2026-11-21T04:05:06.000Z'
@@ -250,35 +279,38 @@ test('one row per session, filtered before paging, with scoped counts and filter
     assert.equal(everything.filter, 'all')
     assert.equal(everything.sessions.length, 50)
     assert.ok(everything.next_before)
-    assert.ok(!everything.sessions.some((row) => row.job_id === stuck.job))
+    assert.equal(everything.sessions[0].job_id, research.job)
+    for (const hidden of [stuck, failed, queued]) {
+      assert.ok(!everything.sessions.some((row) => row.job_id === hidden.job))
+    }
     const all = await allPages(f, {})
-    assert.equal(all.length, 58)
-    assert.equal(new Set(all.map((row) => row.job_id)).size, 58)
+    assert.equal(all.length, 60)
+    assert.equal(new Set(all.map((row) => row.job_id)).size, 60)
 
     const attention = await list(f, { filter: 'needs_attention' })
     assert.deepEqual(
       new Set(attention.sessions.map((row) => row.job_id)),
-      new Set([waiting.job, stuck.job, signIn.job]),
+      new Set([waiting.job, stuck.job, signIn.job, failed.job]),
     )
     assert.equal(attention.next_before, null)
     assert.deepEqual(attention.counts, {
-      needs_attention: 3,
+      needs_attention: 4,
       working: 1,
       waiting: 1,
-      queued: 0,
-      all: 58,
+      queued: 1,
+      all: 60,
     })
     // Slots, waiting and queued ignore the filter and the page; the batch summary lists every
     // live batch, with Heyyy's earliest start from its first attempt's run.
     await holdSlot(f, research.current)
     const held = await list(f, { filter: 'needs_attention' })
-    assert.deepEqual(held.totals, { slots_in_use: 1, queued: 0, waiting: 1 })
+    assert.deepEqual(held.totals, { slots_in_use: 1, queued: 1, waiting: 1 })
     const summary = new Map(held.batches.map((batch) => [batch.batch_id, batch]))
     assert.equal(summary.has(archived.batch.id), false)
     assert.equal(summary.get(heyyy.batch.id)!.matching, 1)
-    assert.equal(summary.get(heyyy.batch.id)!.sessions, 3)
+    assert.equal(summary.get(heyyy.batch.id)!.sessions, 4)
     assert.equal(summary.get(heyyy.batch.id)!.first_started_at, firstStart)
-    assert.equal(summary.get(spill.batch.id)!.matching, 2)
+    assert.equal(summary.get(spill.batch.id)!.matching, 3)
     assert.equal(summary.get(filler.batch.id)!.matching, 0)
     assert.equal(summary.get(filler.batch.id)!.first_started_at, fillerStart)
 
@@ -351,6 +383,10 @@ test('the batch-scoped read under All folds a job outside the first Agents page'
     await assert.rejects(list(f, { before: 'bm90LWEtY3Vyc29y' }), {
       message: 'invalid_session_cursor',
     })
+    const yearZero = Buffer.from(
+      JSON.stringify(['0000-01-01T00:00:00.000Z', heyyy.batch.id]),
+    ).toString('base64url')
+    await assert.rejects(list(f, { before: yearZero }), { message: 'invalid_session_cursor' })
   } finally {
     await f.dispose()
   }
@@ -507,10 +543,15 @@ test('failure summaries carry the sanitized cause and the last status line witho
       provider: 'claude',
       provider_error: { kind: 'overloaded', result: null, http_status: 529 },
     })
-    assert.equal(
-      rows.get(overloaded.job)!.failure!.last_status!.text,
-      'Reading the batch and fetching photos',
+    const posted = await f.db.pool.query<{ created_at: Date }>(
+      'SELECT created_at FROM agent_session_outbox WHERE session_id=$1 AND seq=1',
+      [overloaded.current],
     )
+    const statusAt = posted.rows[0].created_at.toISOString()
+    assert.deepEqual(rows.get(overloaded.job)!.failure!.last_status, {
+      text: 'Reading the batch and fetching photos',
+      at: statusAt,
+    })
     assert.deepEqual(rows.get(vm.job)!.failure!.cause, {
       code: 'agent_protocol_invalid',
       provider: 'claude',
@@ -522,7 +563,10 @@ test('failure summaries carry the sanitized cause and the last status line witho
     assert.ok(history.before, 'the newest page leaves older entries')
     assert.ok(!history.entries.some((entry) => entry.details.kind === 'status'))
     const attempt = history.session.attempts[0]
-    assert.equal(attempt.failure!.last_status!.text, 'Reading the batch and fetching photos')
+    assert.deepEqual(attempt.failure!.last_status, {
+      text: 'Reading the batch and fetching photos',
+      at: statusAt,
+    })
     assert.equal(attempt.failure!.cause!.provider_error!.http_status, 529)
   } finally {
     await f.dispose()
@@ -646,7 +690,10 @@ test('a step whose provider was disabled after the attempt is refused, and the c
   const f = await processingFixture({ profileId: 'synthetic-session/1' })
   try {
     const capture = await f.seedCapture()
-    const session = await sessionChain(f, capture, capture.packetA, [failedStep])
+    // Interrupted, so an accepted replacement supersedes it.
+    const session = await sessionChain(f, capture, capture.packetA, [
+      { path: ['running', 'interrupted'], session: 'resume_unavailable' },
+    ])
     const native = { ...f.config, profileId: 'native-agent/2' as const }
     const selection = {
       provider: 'claude' as const,
@@ -674,15 +721,55 @@ test('a step whose provider was disabled after the attempt is refused, and the c
       allowed: false,
       reason: 'agent_settings_required',
     })
-    // A tab that still shows Start fresh as allowed is refused by the command with the same code.
-    await assert.rejects(
-      replaceSession(f.api.pool, native, capture.batch.id, session.job, randomUUID(), {
-        expected_capture_revision: capture.batch.revision,
-        expected_revision: '1',
-        attempt_id: session.current,
-      }),
-      { code: 'agent_settings_required' },
-    )
+    // Superseding is the command's first write; this trigger makes any supersession fail loudly.
+    await f.db.pool.query(`
+      CREATE FUNCTION pg_temp_refuse_supersede() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN
+        IF NEW.state='superseded' THEN RAISE EXCEPTION 'superseded_before_refusal'; END IF;
+        RETURN NEW;
+      END $$;
+      CREATE TRIGGER refuse_supersede BEFORE UPDATE OF state ON processing_attempt
+        FOR EACH ROW EXECUTE FUNCTION pg_temp_refuse_supersede();`)
+    const replacement = {
+      expected_capture_revision: capture.batch.revision,
+      expected_revision: '1',
+      attempt_id: session.current,
+    }
+    try {
+      // A tab that still shows Start fresh as allowed is refused with the same code, before the
+      // command supersedes anything.
+      await assert.rejects(
+        replaceSession(
+          f.api.pool,
+          native,
+          capture.batch.id,
+          session.job,
+          randomUUID(),
+          replacement,
+        ),
+        { code: 'agent_settings_required' },
+      )
+      // Control: an accepted replacement does reach the supersession.
+      await assert.rejects(
+        replaceSession(
+          f.api.pool,
+          f.config,
+          capture.batch.id,
+          session.job,
+          randomUUID(),
+          replacement,
+        ),
+        /superseded_before_refusal/,
+      )
+    } finally {
+      await f.db.pool.query(
+        'DROP TRIGGER refuse_supersede ON processing_attempt; DROP FUNCTION pg_temp_refuse_supersede()',
+      )
+    }
+    const prior = await f.db.pool.query('SELECT state FROM processing_attempt WHERE id=$1', [
+      session.current,
+    ])
+    assert.equal(prior.rows[0].state, 'interrupted')
   } finally {
     await f.dispose()
   }

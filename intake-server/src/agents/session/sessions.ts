@@ -28,7 +28,7 @@ import { isSessionProfile } from '#/processing/session-policy.ts'
 import { pausedAmong, pausedBatchIds } from '#/agents/pause.ts'
 
 const SESSION_PAGE_SIZE = 50
-const BATCH_SUMMARY_LIMIT = 200
+const BATCH_SUMMARY_LIMIT = 1000
 const ENDED_STATES: readonly ProcessingStateDto[] = [
   'ready',
   'failed',
@@ -69,6 +69,8 @@ export function decodeSessionCursor(value: string): SessionCursor {
   const validTime =
     typeof queuedAt === 'string' &&
     ISO_MILLISECONDS.test(queuedAt) &&
+    // PostgreSQL has no year 0.
+    !queuedAt.startsWith('0000-') &&
     !Number.isNaN(Date.parse(queuedAt)) &&
     new Date(queuedAt).toISOString() === queuedAt
   const validJob = typeof jobId === 'string' && UUID.test(jobId)

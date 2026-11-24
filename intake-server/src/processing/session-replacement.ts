@@ -10,7 +10,7 @@ import { reserveProcessingMedia, reservedMediaFor } from './media.ts'
 import { commandScope, lockLane } from './scope.ts'
 import { fail } from './model.ts'
 import { isSessionProfile } from './session-policy.ts'
-import { createSessionAttempt } from './session-attempts.ts'
+import { createSessionAttempt, prepareSessionAttempt } from './session-attempts.ts'
 import { pinnedIdentityCurrent, successorsCurrent } from './stable-identity.ts'
 import { supersedeJobAttempts } from './supersede.ts'
 import {
@@ -108,6 +108,16 @@ export async function replaceSession(
         if (!(await pinnedIdentityCurrent(client, pinned))) {
           fail('identity_waiting', 409)
         }
+        // Every refusal comes before the first write, so a refused replacement supersedes nothing.
+        const prepared = await prepareSessionAttempt(
+          client,
+          config,
+          profileId,
+          capture.snapshot,
+          { id: jobId, ...job },
+          media,
+          { pinnedProposalIds: pinned },
+        )
         await supersedeJobAttempts(client, jobId)
         const attempt = await createSessionAttempt(
           client,
@@ -118,7 +128,7 @@ export async function replaceSession(
           (BigInt(prior.number) + 1n).toString(),
           media,
           prior.input_id,
-          { pinnedProposalIds: pinned },
+          { pinnedProposalIds: pinned, prepared },
         )
         await client.query(
           "UPDATE processing_job SET current_attempt_id=$2,state='queued',revision=revision+1 WHERE id=$1",

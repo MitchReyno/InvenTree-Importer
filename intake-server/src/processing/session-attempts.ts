@@ -14,6 +14,7 @@ import { processingAttempts, processingInputs } from './schema.ts'
 import {
   sessionLeadInputManifest,
   sessionLotInputManifest,
+  type SessionInputProfile,
   type SessionLotStage,
 } from './session-input.ts'
 import {
@@ -33,6 +34,14 @@ interface SessionAttemptOptions {
   settings?: AgentSettingsDto
   /** The identity proposals a per-lot successor starts from; revisions arrive as inbox items. */
   pinnedProposalIds?: readonly string[]
+  /** The input `prepareSessionAttempt` already sealed, so a caller can check before writing. */
+  prepared?: SealedSessionInput
+}
+
+/** A sealed `/6` input: its canonical bytes and their digest. */
+export interface SealedSessionInput {
+  bytes: Buffer
+  digest: Buffer
 }
 
 type SessionJob = { id: string; subject_id: string | null; stage: Stage | 'examine' }
@@ -61,7 +70,7 @@ export async function prepareSessionAttempt(
     fail('unsupported_processing_stage', 422)
   }
   const descriptor = { manifest: media.manifest, sha256: media.manifestDigest }
-  let profile: Parameters<typeof sessionLotInputManifest>[4] = { id: 'synthetic-session/1' }
+  let profile: SessionInputProfile = { id: 'synthetic-session/1' }
   if (profileId !== 'synthetic-session/1') {
     const settings = given ?? (await readAgentSettings(client, config, lockSettings))
     const agent = resolveSelection(settings, job.stage)
@@ -114,15 +123,9 @@ export async function createSessionAttempt(
   parentId: string | null,
   options: SessionAttemptOptions = {},
 ) {
-  const manifest = await prepareSessionAttempt(
-    client,
-    config,
-    profileId,
-    snapshot,
-    job,
-    media,
-    options,
-  )
+  const manifest =
+    options.prepared ??
+    (await prepareSessionAttempt(client, config, profileId, snapshot, job, media, options))
   const attemptId = randomUUID()
   const inputId = randomUUID()
   const commandId = randomUUID()

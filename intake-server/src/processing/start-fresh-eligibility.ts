@@ -13,7 +13,7 @@ import { readAgentSettings } from '#/agents/settings.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { readProcessingMediaScopes, type ProcessingMediaAvailability } from './media.ts'
 import { ProcessingError, type Stage } from './model.ts'
-import { isSessionProfile } from './session-policy.ts'
+import { isSessionProfile, type SessionProfileId } from './session-policy.ts'
 import { prepareSessionAttempt } from './session-attempts.ts'
 import { decodeSessionInput } from './session-input.ts'
 import { pinnedIdentityCurrent, successorsCurrent } from './stable-identity.ts'
@@ -87,13 +87,19 @@ export interface EligibilityContext {
 }
 
 /** One batch's capture and the media each of its replaceable jobs would be sealed with. */
+interface BatchInputs {
+  snapshot: CaptureSnapshotDto
+  lotMedia: (subjectId: string) => ProcessingMediaAvailability | undefined
+  batchMedia: MediaInputScopeResult | undefined
+}
+
 async function batchInputs(
   client: PoolClient,
   config: ProcessingConfig,
   batchId: string,
   jobs: readonly CurrentJob[],
   context: EligibilityContext,
-) {
+): Promise<BatchInputs> {
   const snapshot =
     context.captures?.get(batchId) ?? (await captureInTransaction(client, config, batchId)).snapshot
   const liveLotJobs = jobs.filter(
@@ -113,10 +119,7 @@ async function batchInputs(
   return { snapshot, lotMedia, batchMedia }
 }
 
-function mediaOf(
-  job: CurrentJob,
-  inputs: Awaited<ReturnType<typeof batchInputs>>,
-): MediaInputScopeResult | undefined {
+function mediaOf(job: CurrentJob, inputs: BatchInputs): MediaInputScopeResult | undefined {
   if (job.subject_id === null) {
     return inputs.batchMedia
   }
@@ -186,9 +189,9 @@ export async function startFreshEligibility(
 async function jobEligibility(
   client: PoolClient,
   config: ProcessingConfig,
-  profileId: Parameters<typeof prepareSessionAttempt>[2],
+  profileId: SessionProfileId,
   job: CurrentJob,
-  inputs: Awaited<ReturnType<typeof batchInputs>>,
+  inputs: BatchInputs,
   held: ReadonlySet<string>,
   settings: AgentSettingsDto | undefined,
 ): Promise<StartFreshEligibilityDto> {
