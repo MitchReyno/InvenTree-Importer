@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import type { Pool, PoolClient } from 'pg'
 import sharp from 'sharp'
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
-import { validate } from '@invimport/contracts'
+import { validate, type SessionHistoryDto } from '@invimport/contracts'
 import { processingFixture } from '../support/processing.ts'
 import { lotSession, seedPhoto } from '../support/sessions.ts'
 import { mediaEditor } from '../support/media-removal.ts'
@@ -201,17 +201,18 @@ test('a delivered fetch records one photo view, with session_changed in the same
     assert.equal(events.at(-1)!.xmin, views[0]!.xmin, 'one transaction wrote both')
 
     // The history read decodes it.
-    const timeline = await fixture.http(
-      `/batches/${capture.batch.id}/processing/${session.job}/session`,
+    const read = await fixture.http(
+      `/batches/${capture.batch.id}/processing/${session.job}/history`,
     )
-    assert.equal(timeline.status, 200)
-    validate('SessionTimeline', timeline.value)
-    const outbox = (timeline.value as { outbox: { kind: string; payload: unknown }[] }).outbox
+    assert.equal(read.status, 200)
+    validate('SessionHistory', read.value)
+    const entries = (read.value as SessionHistoryDto).entries
     assert.deepEqual(
-      outbox.map((item) => item.kind),
+      entries.map((entry) => entry.details.kind),
       ['photo_view'],
     )
-    assert.deepEqual(outbox[0]!.payload, views[0]!.payload)
+    const shown = entries[0]!.details
+    assert.deepEqual(shown.kind === 'photo_view' && shown.view, views[0]!.payload)
   })
 })
 

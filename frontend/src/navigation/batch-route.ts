@@ -3,8 +3,9 @@ export type BatchTab = 'capture' | 'processing' | 'review' | 'changes'
 export type ProcessingStep = 'overview' | 'examine' | 'research' | 'images' | 'inventory'
 
 export type BatchRoute =
-  | { tab: 'capture' }
+  | { tab: 'capture'; photoId?: string }
   | { tab: 'processing'; step: ProcessingStep; questionId?: string }
+  | { tab: 'processing'; step: ProcessingStep; sessionJobId: string }
   | { tab: 'review'; view: 'lots'; lotId?: string }
   | { tab: 'review'; view: 'map' }
   | { tab: 'review'; view: 'records'; recordType?: string; recordId?: string }
@@ -77,10 +78,16 @@ function legacyRedirect(segments: string[], query: string): string | null {
   return null
 }
 
-function processingRoute(first?: string, second?: string): BatchRoute {
+/** The path segment before a job id that names the session page rather than a question. */
+const SESSIONS_SEGMENT = 'sessions'
+
+function processingRoute(first?: string, second?: string, third?: string): BatchRoute {
   const step = PROCESSING_STEPS.includes(first as ProcessingStep)
     ? (first as ProcessingStep)
     : 'overview'
+  if (second === SESSIONS_SEGMENT) {
+    return third ? { tab: 'processing', step, sessionJobId: third } : { tab: 'processing', step }
+  }
 
   return second ? { tab: 'processing', step, questionId: second } : { tab: 'processing', step }
 }
@@ -133,14 +140,19 @@ export function parseBatchRoute(hash: string): ParsedBatchRoute {
 
   switch (tab) {
     case 'processing':
-      return { kind: 'route', batchId, route: processingRoute(first, second), query }
+      return { kind: 'route', batchId, route: processingRoute(first, second, third), query }
     case 'review':
       return { kind: 'route', batchId, route: reviewRoute(first, second, third), query }
     case 'changes':
       return { kind: 'route', batchId, route: changesRoute(first, second), query }
     case undefined:
     case 'capture':
-      return { kind: 'route', batchId, route: { tab: 'capture' }, query }
+      return {
+        kind: 'route',
+        batchId,
+        route: first ? { tab: 'capture', photoId: first } : { tab: 'capture' },
+        query,
+      }
     default:
       return { kind: 'route', batchId, route: { tab: 'capture' }, query, legacySubject: tab }
   }
@@ -149,8 +161,11 @@ export function parseBatchRoute(hash: string): ParsedBatchRoute {
 function routeSegments(route: BatchRoute): (string | undefined)[] {
   switch (route.tab) {
     case 'capture':
-      return ['capture']
+      return ['capture', route.photoId]
     case 'processing':
+      if ('sessionJobId' in route) {
+        return ['processing', route.step, SESSIONS_SEGMENT, route.sessionJobId]
+      }
       return ['processing', route.step, route.questionId]
     case 'review':
       if (route.view === 'lots') {
@@ -185,6 +200,11 @@ export function batchHref(batchId: string, route: BatchRoute, query = '') {
 /** A link that opens a job's session drawer on its Processing step. */
 export function sessionHref(batchId: string, step: ProcessingStep, jobId: string) {
   return batchHref(batchId, { tab: 'processing', step }, `?session=${encodeURIComponent(jobId)}`)
+}
+
+/** A link to a job's session page, inside its Processing step. */
+export function sessionPageHref(batchId: string, step: ProcessingStep, jobId: string) {
+  return batchHref(batchId, { tab: 'processing', step, sessionJobId: jobId })
 }
 
 /** The session a Processing link asks to open, from the route's query. */

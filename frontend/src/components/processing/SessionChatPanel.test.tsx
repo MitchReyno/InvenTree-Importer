@@ -1,103 +1,25 @@
-import { screen, within, fireEvent, waitFor } from '@testing-library/react'
+import { screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
-import type { SessionTimelineDto } from '@invimport/contracts'
 import { render } from '#/test/render'
-import { SessionTimeline } from './SessionTimeline'
-import { chatMessages, SessionChatPanel as SessionChat } from './SessionChatPanel'
+import { chatMessages } from '#/processing/session-history'
+import { H, chat, input, reply, status } from '#/test/session-history'
+import { SessionChatPanel as SessionChat } from './SessionChatPanel'
 
-const at = (second: number) => `2026-11-06T01:00:${String(second).padStart(2, '0')}.000Z`
-
-const timeline: SessionTimelineDto = {
-  job_id: 'job',
-  attempt_id: 'attempt',
-  session_state: 'running',
-  outbox: [
-    {
-      session_id: 'attempt',
-      seq: '1',
-      kind: 'status',
-      payload: { text: 'Reading the label' },
-      created_at: at(1),
-    },
-    {
-      session_id: 'attempt',
-      seq: '2',
-      kind: 'proposal',
-      payload: { proposal_id: 'p1' },
-      created_at: at(2),
-    },
-    {
-      session_id: 'attempt',
-      seq: '3',
-      kind: 'status',
-      payload: { text: 'Comparing markings' },
-      created_at: at(3),
-    },
-    {
-      session_id: 'attempt',
-      seq: '4',
-      kind: 'reply',
-      payload: { inbox_item_id: 'chat-1', text: 'Thanks, checking the back label.' },
-      created_at: at(5),
-    },
-  ],
-  inbox: [
-    {
-      id: 'chat-1',
-      seq: '1',
-      kind: 'chat',
-      payload: { text: 'Check the back label.' },
-      created_at: at(4),
-    },
-  ],
-  truncated: false,
-}
-
-test('status lines form an ordered timeline and the latest is the current activity', () => {
-  render(<SessionTimeline timeline={timeline} />)
-  const steps = within(screen.getByRole('list', { name: 'Session steps' })).getAllByRole('listitem')
-  expect(steps.map((step) => step.textContent)).toEqual([
-    expect.stringContaining('Reading the label'),
-    expect.stringContaining('Published a proposal'),
-    expect.stringContaining('Comparing markings'),
-  ])
-  expect(screen.getByRole('status')).toHaveTextContent('Current activity: Comparing markings')
-  expect(screen.getByRole('status')).not.toHaveTextContent('Reading the label')
-})
-
-test('a photo view reads as a plain step, not its raw kind', () => {
-  const viewed: SessionTimelineDto = {
-    ...timeline,
-    outbox: [
-      ...timeline.outbox,
-      {
-        session_id: 'attempt',
-        seq: '5',
-        kind: 'photo_view',
-        payload: {
-          evidence_id: 'evidence',
-          version_id: 'version',
-          page: 1,
-          region: { x: 10, y: 20, width: 300, height: 400 },
-          delivered: { width: 300, height: 400, media_type: 'image/png', sha256: 'f'.repeat(64) },
-        },
-        created_at: at(6),
-      },
-    ],
-  }
-  render(<SessionTimeline timeline={viewed} />)
-  const steps = within(screen.getByRole('list', { name: 'Session steps' })).getAllByRole('listitem')
-  expect(steps.at(-1)).toHaveTextContent('Prepared a photo for the agent')
-  expect(screen.queryByText('photo_view')).toBeNull()
-})
+// Newest first, as the history read returns them.
+const entries = [
+  reply(4, 5, 'Thanks, checking the back label.'),
+  chat(1, 4, 'Check the back label.'),
+  status(3, 3, 'Comparing markings'),
+  status(1, 1, 'Reading the label'),
+]
 
 test('chat shows the operator message and the agent reply in order', () => {
   render(
     <SessionChat
       storeKey="batch:chat"
       state="running"
-      messages={chatMessages(timeline)}
+      messages={chatMessages(entries)}
       send={vi.fn()}
       startFresh={vi.fn()}
     />,
@@ -252,15 +174,6 @@ test('offers explicit replacement for an incompatible conversation without losin
   expect(screen.getByRole('textbox', { name: 'Message this session' })).toHaveValue('Keep my draft')
 })
 
-test('says plainly when a session has posted nothing yet, without an empty Steps heading', () => {
-  render(<SessionTimeline timeline={{ ...timeline, outbox: [], inbox: [] }} />)
-  expect(screen.getByRole('status')).toHaveTextContent(
-    'No status yet. The agent’s steps appear here as it works.',
-  )
-  expect(screen.queryByRole('heading', { name: 'Steps' })).not.toBeInTheDocument()
-  expect(screen.queryByRole('list', { name: 'Session steps' })).not.toBeInTheDocument()
-})
-
 test('a cancelled session keeps its conversation visible', () => {
   render(
     <SessionChat
@@ -276,60 +189,43 @@ test('a cancelled session keeps its conversation visible', () => {
 })
 
 test('replies from a replacement session keep their own identity', () => {
-  const reply = (session: string, text: string, second: number) => ({
-    session_id: session,
-    seq: '1',
-    kind: 'reply' as const,
-    payload: { text },
-    created_at: at(second),
-  })
-
-  const ids = chatMessages({
-    ...timeline,
-    inbox: [],
-    outbox: [reply('first', 'One', 1), reply('second', 'Two', 2)],
-  } as unknown as SessionTimelineDto).map((message) => message.id)
+  const ids = chatMessages([
+    { ...reply(1, 2, 'Two'), attempt: 2, id: `outbox:${H.attempt2}:1` },
+    reply(1, 1, 'One'),
+  ]).map((message) => message.id)
   expect(new Set(ids).size).toBe(2)
 })
 
-test('the chat shows /1 and /2 answers beside the messages', () => {
-  const answered: SessionTimelineDto = {
-    ...timeline,
-    outbox: [],
-    inbox: [
-      {
-        id: 'a1',
-        seq: '1',
-        kind: 'answer',
-        created_at: at(4),
-        payload: {
-          question_id: 'q1',
-          answer_id: 'x1',
-          value: { kind: 'quantity', value: '12', basis: 'counted' },
-        },
+test('the drawer chat shows /1 and /2 answers beside the messages', () => {
+  const answered = [
+    input(2, 5, {
+      kind: 'answer',
+      answer: {
+        question_id: H.question,
+        answer_id: H.inboxItem,
+        steps: [
+          { step_id: 'same', value: { kind: 'choice', option_id: 'yes', label: 'same Part' } },
+          { step_id: 'left', value: { kind: 'number', value: '380', basis: 'estimated' } },
+          { step_id: 'place', value: { kind: 'choice', other: 'Drawer R4' } },
+        ],
       },
-      {
-        id: 'a2',
-        seq: '2',
-        kind: 'answer',
-        created_at: at(5),
-        payload: {
-          question_id: 'q2',
-          answer_id: 'x2',
-          steps: [
-            { step_id: 'same', value: { kind: 'choice', option_id: 'yes', label: 'same Part' } },
-            { step_id: 'left', value: { kind: 'number', value: '380', basis: 'estimated' } },
-            { step_id: 'place', value: { kind: 'choice', other: 'Drawer R4' } },
-          ],
-        },
+      effects: [],
+    }),
+    input(1, 4, {
+      kind: 'answer',
+      answer: {
+        question_id: H.question,
+        answer_id: H.proposal,
+        value: { kind: 'quantity', value: '12', basis: 'counted' },
       },
-    ],
-  }
+      effects: [],
+    }),
+  ]
   render(
     <SessionChat
       storeKey="batch:answers"
       state="running"
-      messages={chatMessages(answered)}
+      messages={chatMessages(answered, { answers: true })}
       send={vi.fn()}
       startFresh={vi.fn()}
     />,

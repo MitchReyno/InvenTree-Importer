@@ -301,9 +301,6 @@ async function main() {
       '/api/v1/batches/{id}/processing/{jobId}/cancellation': {
         post: post('ProcessingCancellation', 'ProcessingReceipt', '200', CAPTURE_TIMEOUT_MS),
       },
-      '/api/v1/batches/{id}/processing/{jobId}/session': {
-        get: get('SessionTimeline', CAPTURE_TIMEOUT_MS),
-      },
       '/api/v1/batches/{id}/processing/{jobId}/history': {
         get: {
           ...get('SessionHistory', CAPTURE_TIMEOUT_MS),

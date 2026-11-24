@@ -1,9 +1,8 @@
 import { useState, useSyncExternalStore } from 'react'
 import styled from 'styled-components'
 import { space } from '#/theme/generated/tokens'
-import type { SessionStateDto, SessionTimelineDto } from '@invimport/contracts'
+import type { SessionStateDto } from '@invimport/contracts'
 import { SessionChat, type ChatMessage, Paragraph, Small, Button } from '#/components/ui'
-import { answerPayloadText } from '#/processing/question-summary'
 
 interface Props {
   /** Identifies the session, so a send in flight or unconfirmed survives leaving and returning. */
@@ -14,6 +13,10 @@ interface Props {
   send: (text: string, key: string) => Promise<unknown>
   freshDisabled?: boolean
   startFresh: () => void
+  /** The message box's label; the session page names its step. */
+  label?: string
+  /** False on the session page, whose conversation shows the messages. */
+  showLog?: boolean
 }
 
 interface Pending {
@@ -72,38 +75,6 @@ export function chatConfirmation(state: SessionStateDto) {
   return confirmation[state] ?? 'Queued. The session resumes to answer.'
 }
 
-type Timeline = SessionTimelineDto
-
-/** The session's conversation, oldest first: the operator's messages and answers, the replies. */
-export function chatMessages(timeline: Timeline): ChatMessage[] {
-  return [
-    ...timeline.inbox.flatMap((item) => {
-      let text: string
-      if (item.kind === 'chat') {
-        text = item.payload.text
-      } else if (item.kind === 'answer') {
-        text = `Answered: ${answerPayloadText(item.payload)}`
-      } else {
-        return []
-      }
-
-      return [{ id: `in:${item.id}`, at: item.created_at, who: 'You', mine: true, text }]
-    }),
-    ...timeline.outbox
-      .filter((item) => item.kind === 'reply')
-      .map((item) => ({
-        // Sequences restart in each replacement session of the lineage.
-        id: `out:${item.session_id}:${item.seq}`,
-        at: item.created_at,
-        who: 'Agent',
-        mine: false,
-        text: (item.payload as { text: string }).text,
-      })),
-  ]
-    .sort((a, b) => a.at.localeCompare(b.at))
-    .map(({ id, who, mine, text }) => ({ id, who, mine, text }))
-}
-
 /**
  * The drawer's chat: `ui/SessionChat` for the conversation and composer, with the send kept
  * until it is confirmed. Chat queues in every session state; a cancelled session offers a
@@ -116,6 +87,8 @@ export function SessionChatPanel({
   send,
   startFresh,
   freshDisabled,
+  label = 'Message this session',
+  showLog = true,
 }: Props) {
   const [message, setMessage] = useState('')
   const pending = useSyncExternalStore(subscribe, () => pendingSends.get(storeKey))
@@ -128,7 +101,13 @@ export function SessionChatPanel({
             Start a fresh session
           </Button>
         </Paragraph>
-        <SessionChat messages={messages} onSend={() => {}} label="Message this session" disabled />
+        <SessionChat
+          messages={messages}
+          onSend={() => {}}
+          label={label}
+          showLog={showLog}
+          disabled
+        />
       </Panel>
     )
   }
@@ -179,7 +158,8 @@ export function SessionChatPanel({
         messages={messages}
         onSend={submit}
         sendDisabled={pending !== undefined}
-        label="Message this session"
+        label={label}
+        showLog={showLog}
         maxLength={4096}
       />
       {pending?.status === 'unconfirmed' && (

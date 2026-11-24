@@ -291,22 +291,22 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
   - a phone-width check of the page.
 - **Risks and decisions:** keep the drawer light; it reads only the newest page.
 
-- [ ] 7.1 Read the shared and frontend code guidelines, the frontend architecture and the canvas boards (option B is the page layout).
-- [ ] 7.2 RED: route tests for parsing and building the session page route.
-- [ ] 7.3 RED: renderer tests:
-  - [ ] 7.3.1 Each kind's details and links.
-  - [ ] 7.3.2 "gone" links.
-  - [ ] 7.3.3 Grouping of consecutive entries.
-  - [ ] 7.3.4 The drawer's summary lines and "Open full session".
-- [ ] 7.4 RED: page tests:
-  - [ ] 7.4.1 One conversation in time order, with attempt dividers, including one whose reason isn't retained and reads only "Attempt N".
-  - [ ] 7.4.2 Filter chips and Load older; an invalidation re-reads the newest page and replaces it, keeping loaded older pages without duplicates; one new entry keeps the entry it pushed off the newest page; more than one page of new entries between refreshes drops the older pages and Load older continues from the new page; answering a matching question in another job refreshes a proposal's provisional links on the newest page; a chat sent from another tab shows after the next invalidation, and an acknowledgement with no new entry shows through the `session_changed` that `read_inbox` publishes.
-  - [ ] 7.4.3 Sending a message once.
-  - [ ] 7.4.4 Answering a question in place, with the drawer's draft shown as superseded, and commands disabled while the page's Processing read is loading, failed or paused, including a warm cache whose mounted read is still pending.
-  - [ ] 7.4.5 Not found, and the debug block only in debug mode.
-  - [ ] 7.4.6 A correction sent before a Start fresh sits at its send time, shown as the app's notice of the operator's correction; observations from different photos stay ungrouped; a mixed photo and web run is one drawer line.
-  - [ ] 7.4.7 The photos and sources panels on a long session say older entries are not loaded, and list an older photo view and source once Load older loads them.
-- [ ] 7.5 GREEN: implement the renderer, the drawer change, the page and the entry points (Agents rows, session lists, failure details). Remove the old timeline response.
+- [x] 7.1 Read the shared and frontend code guidelines, the frontend architecture and the canvas boards (option B is the page layout).
+- [x] 7.2 RED: route tests for parsing and building the session page route.
+- [x] 7.3 RED: renderer tests:
+  - [x] 7.3.1 Each kind's details and links.
+  - [x] 7.3.2 "gone" links.
+  - [x] 7.3.3 Grouping of consecutive entries.
+  - [x] 7.3.4 The drawer's summary lines and "Open full session".
+- [x] 7.4 RED: page tests:
+  - [x] 7.4.1 One conversation in time order, with attempt dividers, including one whose reason isn't retained and reads only "Attempt N".
+  - [x] 7.4.2 Filter chips and Load older; an invalidation re-reads the newest page and replaces it, keeping loaded older pages without duplicates; one new entry keeps the entry it pushed off the newest page; more than one page of new entries between refreshes drops the older pages and Load older continues from the new page; answering a matching question in another job refreshes a proposal's provisional links on the newest page; a chat sent from another tab shows after the next invalidation, and an acknowledgement with no new entry shows through the `session_changed` that `read_inbox` publishes.
+  - [x] 7.4.3 Sending a message once.
+  - [x] 7.4.4 Answering a question in place, with the drawer's draft shown as superseded, and commands disabled while the page's Processing read is loading, failed or paused, including a warm cache whose mounted read is still pending.
+  - [x] 7.4.5 Not found, and the debug block only in debug mode.
+  - [x] 7.4.6 A correction sent before a Start fresh sits at its send time, shown as the app's notice of the operator's correction; observations from different photos stay ungrouped; a mixed photo and web run is one drawer line.
+  - [x] 7.4.7 The photos and sources panels on a long session say older entries are not loaded, and list an older photo view and source once Load older loads them.
+- [x] 7.5 GREEN: implement the renderer, the drawer change, the page and the entry points (Agents rows, session lists, failure details). Remove the old timeline response.
 - [ ] 7.6 Update the fixtures and the frontend architecture. Run the frontend checks, and the intake unit and PG tiers for the removed timeline response and its consumers. Record the demo video for the PR description.
 
 ## 8. Stage counts and the paused flag
@@ -405,7 +405,7 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - [x] PR-A: implement task 1, review the exact head, publish with the demo, CI green, merge. Merged as #252 at `17c3d509`.
 - [x] PR-B: implement tasks 2, 3 and 4, review the exact head, publish with the demo, CI green, merge. Merged as #251 at `54477ac3`.
 - [x] PR-D1: implement task 5, review the exact head, publish, CI green, merge. Merged as #257 at `4fcdbd54`.
-- [ ] PR-D2: implement task 6, review the exact head, publish, CI green, merge.
+- [x] PR-D2: implement task 6, review the exact head, publish, CI green, merge. Merged as #260 at `14a5c632`.
 - [ ] PR-E: implement task 7, review the exact head, publish with the demo, CI green, merge.
 - [x] PR-F: implement tasks 8 and 9, review the exact head, publish with the demo, CI green, merge. Merged as #258 at `d09984bc`.
 - [ ] PR-G: implement task 10, review the exact head, publish with the demo, CI green, merge.

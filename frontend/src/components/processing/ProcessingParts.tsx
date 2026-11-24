@@ -27,11 +27,14 @@ export function SessionRows({
   sessions,
   paused = false,
   onOpen,
+  pageHref,
 }: {
   sessions: SourceSession[]
   /** The batch's agents are paused, so queued sessions read Paused. */
   paused?: boolean
   onOpen: (jobId: string) => void
+  /** The session's full page; the row itself opens the drawer. */
+  pageHref?: (session: SourceSession) => string
 }) {
   return (
     <SessionList>
@@ -59,11 +62,27 @@ export function SessionRows({
               <SessionStatus id={`session-${session.jobId}-status`}>{session.status}</SessionStatus>
             )}
           </SessionRow>
+          {pageHref && (
+            <PageLink
+              href={pageHref(session)}
+              aria-label={`Open full session: ${STEP_LABEL[session.step]} · ${session.subject}`}
+            >
+              Full session
+            </PageLink>
+          )}
         </li>
       ))}
     </SessionList>
   )
 }
+
+const PageLink = styled.a`
+  display: inline-block;
+  margin: ${space[1]} 0 0 ${space[3]};
+  font-size: ${typeVar.small.size};
+  color: ${color.accent};
+  ${linkTouchArea}
+`
 
 export function QuestionRows({
   batchId,

@@ -15,6 +15,14 @@ import { ApiClientsProvider } from './context'
 import { useState, useSyncExternalStore } from 'react'
 import { createDrawerRestore, type DrawerRestoreStore } from './processing/drawer-restore'
 import { agentSettings } from '#/test/agent-settings'
+import { attemptHeader, history as sessionHistory, input } from '#/test/session-history'
+
+/** A session waiting on the operator, with nothing in its history yet. */
+function waitingHistory() {
+  return sessionHistory([], {
+    attempts: [attemptHeader({ state: 'waiting_for_user', session_state: 'waiting_input' })],
+  })
+}
 
 const batchId = '10000000-0000-4000-8000-000000000001'
 const subjectId = '20000000-0000-4000-8000-000000000002'
@@ -528,17 +536,11 @@ test('a job with a session opens its timeline and chat in a drawer', async () =>
     ...snapshot,
     jobs: [{ ...snapshot.jobs[0], session_state: 'waiting_input' }],
   }
-  const session = vi.fn().mockResolvedValue({
-    job_id: jobId,
-    attempt_id: attemptId,
-    session_state: 'waiting_input',
-    outbox: [],
-    inbox: [],
-  })
+  const history = vi.fn().mockResolvedValue(waitingHistory())
   const client = {
     ...clientFixture(),
     read: vi.fn().mockResolvedValue(withSession),
-    session,
+    history,
     chat: vi.fn(),
   } as ProcessingClient
   mountView(client, 'examine')
@@ -554,7 +556,7 @@ test('a job with a session opens its timeline and chat in a drawer', async () =>
   // Docked on the right, as on the canvas, rather than centred.
   expect(drawer).toHaveAttribute('data-placement', 'side')
 
-  await waitFor(() => expect(session).toHaveBeenCalledWith(batchId, jobId))
+  await waitFor(() => expect(history).toHaveBeenCalledWith(batchId, jobId))
   // Every session drawer answers its questions in place, not only Inventory's.
   expect(
     await within(drawer).findByRole('form', {
@@ -600,13 +602,7 @@ test('the Inventory drawer answers its open question through the question path',
   const client = {
     ...clientFixture(),
     read,
-    session: vi.fn().mockResolvedValue({
-      job_id: jobId,
-      attempt_id: attemptId,
-      session_state: 'waiting_input',
-      outbox: [],
-      inbox: [],
-    }),
+    history: vi.fn().mockResolvedValue(waitingHistory()),
     chat: vi.fn(),
   } as ProcessingClient
   mountView(client, 'inventory', jobId)
@@ -753,13 +749,7 @@ function mountInventoryDrawer(
   const client = {
     ...clientFixture(),
     read: vi.fn().mockResolvedValue(read),
-    session: vi.fn().mockResolvedValue({
-      job_id: jobId,
-      attempt_id: attemptId,
-      session_state: 'waiting_input',
-      outbox: [],
-      inbox: [],
-    }),
+    history: vi.fn().mockResolvedValue(waitingHistory()),
     chat: vi.fn(),
   } satisfies ProcessingClient
   const cache = createServerQueryClient()
@@ -1397,13 +1387,7 @@ test('a session link opens its drawer on arrival', async () => {
       ...snapshot,
       jobs: [{ ...snapshot.jobs[0], session_state: 'waiting_input' }],
     }),
-    session: vi.fn().mockResolvedValue({
-      job_id: jobId,
-      attempt_id: attemptId,
-      session_state: 'waiting_input',
-      outbox: [],
-      inbox: [],
-    }),
+    history: vi.fn().mockResolvedValue(waitingHistory()),
     chat: vi.fn(),
   } as ProcessingClient
   history.replaceState(null, '', `#${batchId}/processing/examine?session=${jobId}`)
@@ -1422,13 +1406,7 @@ test('a session link followed while Processing is open opens that drawer', async
       ...snapshot,
       jobs: [{ ...snapshot.jobs[0], session_state: 'waiting_input' }],
     }),
-    session: vi.fn().mockResolvedValue({
-      job_id: jobId,
-      attempt_id: attemptId,
-      session_state: 'waiting_input',
-      outbox: [],
-      inbox: [],
-    }),
+    history: vi.fn().mockResolvedValue(waitingHistory()),
     chat: vi.fn(),
   } as ProcessingClient
   const view = mountView(client, 'examine')
@@ -1502,13 +1480,7 @@ test('the drawer closes when its link points at the question already open', asyn
   const client = {
     ...clientFixture(),
     read: vi.fn().mockResolvedValue(withSession),
-    session: vi.fn().mockResolvedValue({
-      job_id: jobId,
-      attempt_id: attemptId,
-      session_state: 'waiting_input',
-      outbox: [],
-      inbox: [],
-    }),
+    history: vi.fn().mockResolvedValue(waitingHistory()),
     chat: vi.fn(),
   } as ProcessingClient
   render(
@@ -1582,13 +1554,7 @@ test('the drawer closes when its link moves from Overview to the step page', asy
   const client = {
     ...clientFixture(),
     read: vi.fn().mockResolvedValue(withSession),
-    session: vi.fn().mockResolvedValue({
-      job_id: jobId,
-      attempt_id: attemptId,
-      session_state: 'waiting_input',
-      outbox: [],
-      inbox: [],
-    }),
+    history: vi.fn().mockResolvedValue(waitingHistory()),
     chat: vi.fn(),
   } as ProcessingClient
   const cache = createServerQueryClient()
@@ -1695,13 +1661,7 @@ test('returning to a route reopens only the session its link names, not an earli
   const client = {
     ...clientFixture(),
     read: vi.fn().mockResolvedValue(withSession),
-    session: vi.fn().mockResolvedValue({
-      job_id: jobId,
-      attempt_id: attemptId,
-      session_state: 'waiting_input',
-      outbox: [],
-      inbox: [],
-    }),
+    history: vi.fn().mockResolvedValue(waitingHistory()),
     chat: vi.fn(),
   } as ProcessingClient
   const cache = createServerQueryClient()
@@ -1876,53 +1836,42 @@ test('a stepped answer sent from the drawer leaves Needs you and shows in the ch
   const client = {
     ...clientFixture(),
     read: vi.fn().mockResolvedValue(steppedInventorySnapshot()),
-    session: vi.fn().mockResolvedValue({
-      job_id: jobId,
-      attempt_id: attemptId,
-      session_state: 'waiting_input',
-      outbox: [],
-      inbox: [],
-    }),
+    history: vi.fn().mockResolvedValue(waitingHistory()),
     chat: vi.fn(),
     answer: vi.fn().mockImplementation(() => {
       client.read.mockResolvedValue(answered)
       // The next session read holds an earlier /1 answer and this /2 one.
-      client.session.mockResolvedValue({
-        job_id: jobId,
-        attempt_id: attemptId,
-        session_state: 'queued',
-        outbox: [],
-        inbox: [
-          {
-            id: 'a1',
-            seq: '1',
-            kind: 'answer',
-            created_at: '2026-11-23T09:00:00.000Z',
-            payload: {
-              question_id: 'c0000000-0000-4000-8000-0000000000e1',
-              answer_id: 'c0000000-0000-4000-8000-0000000000e2',
-              value: { kind: 'quantity', value: '12', basis: 'counted' },
-            },
-          },
-          {
-            id: 'a2',
-            seq: '2',
-            kind: 'answer',
-            created_at: '2026-11-23T09:05:00.000Z',
-            payload: {
-              question_id: questionId,
-              answer_id: 'c0000000-0000-4000-8000-0000000000e3',
-              steps: [
-                {
-                  step_id: 'same_tube',
-                  value: { kind: 'choice', option_id: 'same', label: 'Same tube as stock #1712' },
-                },
-                { step_id: 'note', value: { kind: 'text', text: 'Bent leads' } },
-              ],
-            },
-          },
-        ],
-      })
+      client.history.mockResolvedValue(
+        sessionHistory(
+          [
+            input(2, 5, {
+              kind: 'answer',
+              answer: {
+                question_id: questionId,
+                answer_id: 'c0000000-0000-4000-8000-0000000000e3',
+                steps: [
+                  {
+                    step_id: 'same_tube',
+                    value: { kind: 'choice', option_id: 'same', label: 'Same tube as stock #1712' },
+                  },
+                  { step_id: 'note', value: { kind: 'text', text: 'Bent leads' } },
+                ],
+              },
+              effects: [],
+            }),
+            input(1, 4, {
+              kind: 'answer',
+              answer: {
+                question_id: 'c0000000-0000-4000-8000-0000000000e1',
+                answer_id: 'c0000000-0000-4000-8000-0000000000e2',
+                value: { kind: 'quantity', value: '12', basis: 'counted' },
+              },
+              effects: [],
+            }),
+          ],
+          { attempts: [attemptHeader({ state: 'queued', session_state: 'queued' })] },
+        ),
+      )
       return Promise.resolve()
     }),
   } satisfies ProcessingClient

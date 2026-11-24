@@ -4,7 +4,7 @@ import { useId, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { SessionFailureDto, SessionFailureSummaryDto } from '@invimport/contracts'
 import { serverQueryKey } from '#/queries/scope'
-import { Button, DebugDetails, Spinner } from '#/components/ui'
+import { Button, DebugDetails, Link, Spinner } from '#/components/ui'
 import { useServerScope } from '#/context'
 import { useDebugMode } from '#/debug/debug-mode'
 
@@ -51,10 +51,13 @@ export function SessionFailureDetails({
   attemptId,
   failure,
   load,
+  sessionHref,
 }: {
   attemptId: string
   failure?: SessionFailureSummaryDto
   load?: FailureLoader
+  /** The session page, where the failure sits in its history; absent on that page itself. */
+  sessionHref?: string
 }) {
   const [expanded, setExpanded] = useState(false)
   const { enabled: debug } = useDebugMode()
@@ -81,6 +84,7 @@ export function SessionFailureDetails({
         {failure && `: ${failure.summary}`}
       </p>
       {failure && <p>{failure.recovery}</p>}
+      {sessionHref && <Link href={sessionHref}>Open session</Link>}
       {debug && (
         <Button
           variant="ghost"

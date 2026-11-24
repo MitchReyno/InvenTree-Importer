@@ -219,7 +219,7 @@ test('sessions are grouped by batch, each group linking to its Processing', asyn
     .find((r) => r.textContent?.includes('Checking the supplier page'))!
   expect(
     within(row).getByRole('link', { name: 'Open session: Research · Packet A' }),
-  ).toHaveAttribute('href', '#batch-a/processing/research?session=job')
+  ).toHaveAttribute('href', '#batch-a/processing/research/sessions/job')
   expect(within(row).getByText('Packet A')).toBeInTheDocument()
   // Times say which day, with the full instant on hover.
   expect(within(row).getByText(/^(Today|Yesterday) |·/).tagName).toBe('TIME')
@@ -278,6 +278,12 @@ test('a failed session opens its retained diagnostics from its row without sendi
     .find((r) => r.textContent?.includes('Stopped on a refused tool'))!
 
   expect(within(row).getByText('Tool policy')).toBeInTheDocument()
+  // The failure details link to the session's page, where the failure sits in its history.
+  const failure = within(row).getByRole('region', { name: 'Session failure' })
+  expect(within(failure).getByRole('link', { name: 'Open session' })).toHaveAttribute(
+    'href',
+    '#batch-a/processing/research/sessions/job',
+  )
   fireEvent.click(within(row).getByRole('button', { name: 'Show details' }))
   await waitFor(() => expect(api.failure).toHaveBeenCalledWith('failed-one', 'failure'))
   expect(api.sessions).toHaveBeenCalledOnce()
@@ -320,8 +326,8 @@ test('an earlier attempt’s link says it opens the latest session on its job', 
     r.textContent?.includes('Gave up on the datasheet'),
   )!
   expect(
-    within(row).getByRole('link', { name: 'Open latest session: Research · Packet A' }),
-  ).toHaveAttribute('href', '#batch-a/processing/research?session=job')
+    within(row).getByRole('link', { name: 'Open session: Research · Packet A' }),
+  ).toHaveAttribute('href', '#batch-a/processing/research/sessions/job')
 })
 
 test('Pause all agents pauses every batch, each batch pauses on its own, and paused sessions say so', async () => {

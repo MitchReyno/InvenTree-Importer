@@ -36,6 +36,7 @@ import { DrawerAnswers } from './DrawerAnswers'
 import type { DrawerRestoreStore } from '#/processing/drawer-restore'
 import { ProcessingJobCard } from './ProcessingJobCard'
 import { SessionPanel } from './SessionPanel'
+import { SessionPage } from './SessionPage'
 import { QuestionAnswer } from './QuestionAnswer'
 import { ProcessingOverview } from './ProcessingOverview'
 import { ProcessingSkeleton } from './ProcessingSkeleton'
@@ -104,6 +105,8 @@ interface Props {
   edit?: CaptureEdit
   /** A job whose session drawer opens on arrival, from a session link. */
   sessionId?: string | null
+  /** A job whose session page this step shows instead of its usual content. */
+  sessionPageJobId?: string
   sharperRequests?: SharperRequestStore
   /** Brings an open session drawer back after an answer's reload remounts Processing. */
   drawerRestore?: DrawerRestoreStore
@@ -157,6 +160,7 @@ export function ProcessingWorkspace({
   retiredLotIds = NO_RETIRED_LOTS,
   instructions,
   sessionId = null,
+  sessionPageJobId,
   sharperRequests,
   drawerRestore,
   edit,
@@ -603,6 +607,52 @@ export function ProcessingWorkspace({
     }
   }, [leave])
 
+  /** A session page's question card answered in place, with the drawer's form and guards. */
+  function pageAnswerForm(id: string) {
+    const question = allQuestions.find((candidate) => candidate.id === id)
+    if (!snapshot || !question || question.state !== 'open') {
+      return null
+    }
+    return (
+      <DrawerAnswers
+        questions={[question]}
+        lookup={(questionId) => allQuestions.find((candidate) => candidate.id === questionId)}
+        captureRevision={snapshot.capture_revision}
+        fresh={!waitingForRead}
+        disabled={runnerDisabled || drafts.isDirty('instructions') || drafts.isDirty('correction')}
+        readOnly={batch.archived || saving === 'instructions'}
+        saving={saving === 'answer'}
+        isDirty={(questionId) => drafts.isDirty(`answer:${questionId}`)}
+        otherAnswerDirty={(questionId) => otherAnswerDirty(`answer:${questionId}`)}
+        answer={(questionId, input, key) => answer(questionId, input, key)}
+        readFailed={offline}
+        reportFor={(questionId) => drafts.forSource(`answer:${questionId}`)}
+        fallback={questionLink}
+      />
+    )
+  }
+
+  const pageJob = snapshot?.jobs.find((job) => job.id === sessionPageJobId)
+  const sessionPage = sessionPageJobId !== undefined && client.history && client.chat && (
+    <SessionPage
+      batchId={batch.id}
+      jobId={sessionPageJobId}
+      step={view}
+      client={{ history: client.history, chat: client.chat }}
+      loadFailure={client.failure}
+      job={pageJob}
+      subjectLabel={subjectLabel}
+      isLot={(id) => id !== null && activeLotIds.has(id)}
+      answerForm={pageAnswerForm}
+      startFresh={() => {
+        if (pageJob) {
+          restart(pageJob)
+        }
+      }}
+      freshDisabled={runnerDisabled || !client.replaceSession || pageJob === undefined}
+    />
+  )
+
   const activity = recentActivity(snapshot, subjectLabel)
   const queue = snapshot && (
     <details>
@@ -737,7 +787,8 @@ export function ProcessingWorkspace({
         hasData={snapshot !== undefined}
         skeleton={<ProcessingSkeleton view={view} />}
       >
-        {snapshot && source && (
+        {snapshot && source && sessionPage}
+        {snapshot && source && !sessionPage && (
           <>
             {view !== 'overview' && <Panel>{queue}</Panel>}
             {questionId && pinned?.question.id === questionId ? (
@@ -886,7 +937,7 @@ export function ProcessingWorkspace({
                 ) : undefined}
               </StepPage>
             )}
-            {sessionJob && client.session && client.chat && (
+            {sessionJob && client.history && client.chat && (
               <Dialog
                 placement="side"
                 // A drawer restored after a remount had no opener; its session row takes focus back.
@@ -949,7 +1000,7 @@ export function ProcessingWorkspace({
                 <SessionPanel
                   batchId={batch.id}
                   job={sessionJob}
-                  client={{ session: client.session, chat: client.chat, failure: client.failure }}
+                  client={{ history: client.history, chat: client.chat, failure: client.failure }}
                   startFresh={() => restart(sessionJob)}
                   freshDisabled={runnerDisabled || !client.replaceSession}
                 />

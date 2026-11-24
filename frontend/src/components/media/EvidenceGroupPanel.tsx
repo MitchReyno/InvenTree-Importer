@@ -33,6 +33,8 @@ import { useApiClients } from '#/context'
 import type { CaptureEdit } from '#/capture/types'
 
 type Props = {
+  /** A file the address names; its viewer opens on arrival when it is in this group. */
+  initialOpenId?: string
   batch: CaptureSnapshotDto
   snapshot: MediaSnapshotDto
   groupId: string | null
@@ -81,6 +83,7 @@ type Props = {
 }
 
 export function EvidenceGroupPanel({
+  initialOpenId,
   batch,
   snapshot,
   groupId,
@@ -115,7 +118,10 @@ export function EvidenceGroupPanel({
 }: Props) {
   const { operator } = useApiClients()
   const [noteId, setNoteId] = useState<string | null>(null)
-  const [openId, setOpenId] = useState<string | null>(null)
+  const [openId, setOpenId] = useState<string | null>(() => {
+    const named = snapshot.evidence.find((item) => item.id === initialOpenId)
+    return named && named.group_id === groupId ? named.id : null
+  })
   // Closing the viewer would unmount the note editor and lose its draft.
   const [noteDirty, setNoteDirty] = useState(false)
   const [instructions, setInstructions] = useState(false)

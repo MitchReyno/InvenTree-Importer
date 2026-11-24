@@ -59,7 +59,8 @@ export function RestoredTab({
         batch={batch}
         client={processing}
         step={route.step}
-        questionId={route.questionId}
+        questionId={'questionId' in route ? route.questionId : undefined}
+        sessionPageJobId={'sessionJobId' in route ? route.sessionJobId : undefined}
         focusLotId={focusLotId}
         // The restored snapshot carries each lot's own retirement until the live reads land.
         retiredLotIds={retiredLots(batch)}
