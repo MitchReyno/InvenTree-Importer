@@ -505,7 +505,16 @@ const header = {
   }),
 }
 
-const noSteps = { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0, waiting: 0, queued: 0, ready_lots: 0 }
+const noSteps = {
+  questions: 0,
+  failed: 0,
+  jobs: 0,
+  ready: 0,
+  running: 0,
+  waiting: 0,
+  queued: 0,
+  ready_lots: 0,
+}
 
 const attention = async (): Promise<BatchAttentionDto> => ({
   batch_id: batchId,

@@ -1,49 +1,29 @@
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi, type Mock } from 'vitest'
 import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import { focusManager } from '@tanstack/react-query'
 import { createServerQueryClient } from '#/queries/client'
 import { render } from '#/test/render'
-import { ServerStateProvider } from '#/components/query/ServerStateProvider'
-import { fixtureScope } from '#/test/render'
 import { ChatGPTSignIn } from './ChatGPTSignIn'
-import { resetRunnerQueue, useChatGPTSignIn } from './useChatGPTSignIn'
+import { KEY_PAUSE_MS } from './usePersonalClaudeCredential'
+import { resetRunnerQueue } from './useChatGPTSignIn'
+
+let send: Mock<typeof fetch>
+let onConfirmed: Mock<() => void>
+let onChanged: Mock<() => void>
+
+beforeEach(() => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  send = vi.fn<typeof fetch>()
+  onConfirmed = vi.fn()
+  onChanged = vi.fn()
+  vi.stubGlobal('isSecureContext', true)
+  vi.stubGlobal('fetch', send)
+})
+
 afterEach(() => {
   resetRunnerQueue()
   vi.unstubAllGlobals()
-})
-
-/** The panel with its state, as the Agents settings section holds it. */
-function SignIn() {
-  return <ChatGPTSignIn signIn={useChatGPTSignIn()} />
-}
-
-it('displays the guest device challenge and cancels only its login', async () => {
-  const send = vi
-    .fn()
-    .mockResolvedValueOnce(
-      Response.json({
-        state: 'pending',
-        loginId: 'device-1',
-        userCode: 'TEST-CODE',
-        verificationUrl: 'https://auth.openai.com/codex/device',
-      }),
-    )
-    .mockResolvedValueOnce(Response.json({ state: 'disconnected' }))
-  vi.stubGlobal('isSecureContext', true)
-  vi.stubGlobal('fetch', send)
-  render(<SignIn />)
-  fireEvent.click(screen.getByText('ChatGPT subscription'))
-  fireEvent.change(screen.getByLabelText('Codex runner management key'), {
-    target: { value: 'key' },
-  })
-  fireEvent.click(screen.getByText('Sign in with ChatGPT'))
-  expect(await screen.findByText('TEST-CODE')).toBeTruthy()
-  expect(
-    screen.getByRole('link', { name: 'OpenAI device verification' }).getAttribute('href'),
-  ).toBe('https://auth.openai.com/codex/device')
-  fireEvent.click(screen.getByText('Cancel sign-in'))
-  await screen.findByText('Sign in with ChatGPT')
-  expect(JSON.parse(send.mock.calls[1][1].body)).toEqual({ action: 'cancel', loginId: 'device-1' })
+  vi.useRealTimers()
 })
 
 function challenge(loginId = 'device-1') {
@@ -55,289 +35,346 @@ function challenge(loginId = 'device-1') {
   })
 }
 
-async function startSignIn() {
-  fireEvent.click(screen.getByText('ChatGPT subscription'))
-  fireEvent.change(screen.getByLabelText('Codex runner management key'), {
-    target: { value: 'key' },
-  })
-  fireEvent.click(screen.getByText('Sign in with ChatGPT'))
-  expect(await screen.findByText('TEST-CODE')).toBeTruthy()
+const signedOut = () => Response.json({ state: 'disconnected' })
+
+const sent = () => send.mock.calls.map(([, request]) => JSON.parse(String(request?.body)))
+
+const authorizations = () =>
+  send.mock.calls.map(([, request]) => new Headers(request?.headers).get('authorization'))
+
+async function wait(ms = 0) {
+  await act(() => vi.advanceTimersByTimeAsync(ms))
 }
 
-it('polls the pending sign-in until it connects, and only while the panel is open', async () => {
-  vi.useFakeTimers({ shouldAdvanceTime: true })
-  try {
-    const send = vi
-      .fn()
-      .mockResolvedValueOnce(challenge())
-      .mockResolvedValueOnce(challenge())
-      .mockResolvedValueOnce(Response.json({ state: 'connected' }))
-    vi.stubGlobal('isSecureContext', true)
-    vi.stubGlobal('fetch', send)
-    render(<SignIn />)
-    await startSignIn()
-    expect(send).toHaveBeenCalledTimes(1)
-    await act(() => vi.advanceTimersByTimeAsync(3000))
-    expect(JSON.parse(send.mock.calls[1][1].body)).toEqual({
-      action: 'status',
-      loginId: 'device-1',
-    })
-    await act(() => vi.advanceTimersByTimeAsync(3000))
-    expect(await screen.findByText('Connected to ChatGPT')).toBeTruthy()
-    await act(() => vi.advanceTimersByTimeAsync(9000))
-    expect(send).toHaveBeenCalledTimes(3)
-  } finally {
-    vi.useRealTimers()
-  }
+function openDialog(cache = createServerQueryClient()) {
+  render(<ChatGPTSignIn onConfirmed={onConfirmed} onChanged={onChanged} />, { cache })
+  fireEvent.click(screen.getByRole('button', { name: 'Sign in to ChatGPT…' }))
+  return cache
+}
+
+const close = () => fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+
+async function enterKey(value = 'key') {
+  fireEvent.change(screen.getByLabelText('Codex runner management key'), { target: { value } })
+  await wait(KEY_PAUSE_MS)
+}
+
+/** Opens the dialog, reads the status with the key, and starts a sign-in. */
+async function startSignIn(cache?: ReturnType<typeof createServerQueryClient>) {
+  send.mockResolvedValueOnce(signedOut()).mockResolvedValueOnce(challenge())
+  openDialog(cache)
+  await enterKey()
+  fireEvent.click(await screen.findByRole('button', { name: 'Sign in with ChatGPT' }))
+  expect(await screen.findByText('TEST-CODE')).toBeVisible()
+}
+
+it('commands wait for the protected status read with the key', async () => {
+  send.mockResolvedValueOnce(signedOut())
+  openDialog()
+  expect(screen.queryByRole('button', { name: 'Sign in with ChatGPT' })).not.toBeInTheDocument()
+  await enterKey()
+  expect(await screen.findByRole('button', { name: 'Sign in with ChatGPT' })).toBeEnabled()
+  expect(sent()).toEqual([{ action: 'status' }])
 })
 
-it('stops polling when the panel closes, and a key edit drops an in-flight poll', async () => {
-  vi.useFakeTimers({ shouldAdvanceTime: true })
-  try {
-    let answer: (value: Response) => void = () => undefined
+it('shows the device challenge and cancels only its login', async () => {
+  await startSignIn()
+  expect(
+    screen.getByRole('link', { name: 'OpenAI device verification' }).getAttribute('href'),
+  ).toBe('https://auth.openai.com/codex/device')
+  send.mockResolvedValueOnce(signedOut())
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel sign-in' }))
+  await screen.findByRole('button', { name: 'Sign in with ChatGPT' })
+  expect(sent().at(-1)).toEqual({ action: 'cancel', loginId: 'device-1' })
+})
 
-    const send = vi
-      .fn()
-      .mockResolvedValueOnce(challenge())
-      .mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
-    vi.stubGlobal('isSecureContext', true)
-    vi.stubGlobal('fetch', send)
-    render(<SignIn />)
-    await startSignIn()
-    await act(() => vi.advanceTimersByTimeAsync(3000))
-    expect(send).toHaveBeenCalledTimes(2)
-    fireEvent.change(screen.getByLabelText('Codex runner management key'), {
-      target: { value: 'other key' },
-    })
-    await act(async () => answer(Response.json({ state: 'connected' })))
-    expect(screen.queryByText('Connected to ChatGPT')).toBeNull()
-    fireEvent.click(screen.getByText('ChatGPT subscription'))
-    await act(() => vi.advanceTimersByTimeAsync(9000))
-    expect(send).toHaveBeenCalledTimes(2)
-  } finally {
-    vi.useRealTimers()
-  }
+it('closes by itself once a poll confirms the account', async () => {
+  await startSignIn()
+  send
+    .mockResolvedValueOnce(challenge())
+    .mockResolvedValueOnce(Response.json({ state: 'connected' }))
+  await wait(3000)
+  expect(sent().at(-1)).toEqual({ action: 'status', loginId: 'device-1' })
+  expect(screen.getByRole('dialog')).toBeVisible()
+  await wait(3000)
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(onConfirmed).toHaveBeenCalledTimes(1)
+  await wait(9000)
+  expect(send).toHaveBeenCalledTimes(4)
+})
+
+it('an account already signed in is shown, not closed', async () => {
+  send.mockResolvedValueOnce(Response.json({ state: 'connected' }))
+  openDialog()
+  await enterKey()
+  expect(await screen.findByText('Signed in to ChatGPT')).toBeVisible()
+  expect(onConfirmed).not.toHaveBeenCalled()
+})
+
+it('closing mid-sign-in makes one final poll, cancels the pending login and has the card read again', async () => {
+  await startSignIn()
+  send.mockResolvedValueOnce(challenge()).mockResolvedValueOnce(signedOut())
+  onChanged.mockClear()
+  close()
+  expect(onChanged).toHaveBeenCalledTimes(1)
+  await wait()
+  expect(sent().slice(2)).toEqual([
+    { action: 'status', loginId: 'device-1' },
+    { action: 'cancel', loginId: 'device-1' },
+  ])
+  expect(onChanged).toHaveBeenCalledTimes(2)
+  await wait(9000)
+  expect(send).toHaveBeenCalledTimes(4)
+})
+
+it('the final poll completes a login already approved, with nothing to cancel', async () => {
+  await startSignIn()
+  send.mockResolvedValueOnce(Response.json({ state: 'connected' }))
+  close()
+  await wait()
+  expect(sent().slice(2)).toEqual([{ action: 'status', loginId: 'device-1' }])
+})
+
+it('closing with a call queued drops it unsent; reopening with a new key holds only that key', async () => {
+  let answer: (value: Response) => void = () => undefined
+
+  await startSignIn()
+  // A poll is running, so every later call waits behind it in the queue.
+  send.mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
+  await wait(3000)
+  expect(send).toHaveBeenCalledTimes(3)
+  close()
+  send
+    .mockResolvedValueOnce(challenge())
+    .mockResolvedValueOnce(signedOut())
+    .mockResolvedValueOnce(signedOut())
+  fireEvent.click(screen.getByRole('button', { name: 'Sign in to ChatGPT…' }))
+  expect(screen.getByLabelText('Codex runner management key')).toHaveValue('')
+  // Its status read queues behind the old poll; a second key ends it before it is sent.
+  await enterKey('first try')
+  await enterKey('new key')
+  // The old poll answers late; it changes nothing in the new dialog.
+  await act(async () => answer(Response.json({ state: 'connected' })))
+  await wait()
+  expect(onConfirmed).not.toHaveBeenCalled()
+  expect(sent().slice(3)).toEqual([
+    { action: 'status', loginId: 'device-1' },
+    { action: 'cancel', loginId: 'device-1' },
+    { action: 'status' },
+  ])
+  expect(authorizations()).toEqual([...Array(5).fill('Bearer key'), 'Bearer new key'])
+  expect(await screen.findByRole('button', { name: 'Sign in with ChatGPT' })).toBeVisible()
+})
+
+it('editing the key while signing in stops the poll, ignores its late answer and finishes the old login', async () => {
+  let answer: (value: Response) => void = () => undefined
+
+  await startSignIn()
+  send.mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
+  await wait(3000)
+  expect(send).toHaveBeenCalledTimes(3)
+  send
+    .mockResolvedValueOnce(challenge())
+    .mockResolvedValueOnce(signedOut())
+    .mockResolvedValueOnce(signedOut())
+  await enterKey('other key')
+  await act(async () => answer(Response.json({ state: 'connected' })))
+  await wait(9000)
+  expect(onConfirmed).not.toHaveBeenCalled()
+  expect(screen.queryByText('Signed in to ChatGPT')).not.toBeInTheDocument()
+  expect(sent().slice(3)).toEqual([
+    { action: 'status', loginId: 'device-1' },
+    { action: 'cancel', loginId: 'device-1' },
+    { action: 'status' },
+  ])
+  expect(authorizations().slice(3)).toEqual(['Bearer key', 'Bearer key', 'Bearer other key'])
+  expect(send).toHaveBeenCalledTimes(6)
+})
+
+it('closing after a start whose answer was lost finds the pending login and cancels it', async () => {
+  send.mockResolvedValueOnce(signedOut())
+  openDialog()
+  await enterKey()
+  send.mockRejectedValueOnce(new TypeError('network_failed'))
+  fireEvent.click(await screen.findByRole('button', { name: 'Sign in with ChatGPT' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Could not confirm sign-in status')
+  send
+    .mockResolvedValueOnce(challenge())
+    .mockResolvedValueOnce(challenge())
+    .mockResolvedValueOnce(signedOut())
+  close()
+  await wait()
+  expect(sent()).toEqual([
+    { action: 'status' },
+    { action: 'start' },
+    { action: 'status' },
+    { action: 'status', loginId: 'device-1' },
+    { action: 'cancel', loginId: 'device-1' },
+  ])
 })
 
 it('a failed poll stops polling and says the status is unconfirmed', async () => {
-  vi.useFakeTimers({ shouldAdvanceTime: true })
-  try {
-    const send = vi
-      .fn()
-      .mockResolvedValueOnce(challenge())
-      .mockResolvedValueOnce(new Response('nope', { status: 500 }))
-    vi.stubGlobal('isSecureContext', true)
-    vi.stubGlobal('fetch', send)
-    render(<SignIn />)
-    await startSignIn()
-    await act(() => vi.advanceTimersByTimeAsync(3000))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Could not confirm sign-in status')
-    await act(() => vi.advanceTimersByTimeAsync(9000))
-    expect(send).toHaveBeenCalledTimes(2)
-    send.mockResolvedValueOnce(challenge('device-2'))
-    fireEvent.click(screen.getByText('Sign in with ChatGPT'))
-    expect(await screen.findByText('TEST-CODE')).toBeTruthy()
-    expect(send).toHaveBeenCalledTimes(3)
-  } finally {
-    vi.useRealTimers()
-  }
-})
-
-it('app-wide reconciliation does not re-poll a finished sign-in', async () => {
-  vi.useFakeTimers({ shouldAdvanceTime: true })
-  try {
-    const cache = createServerQueryClient()
-    const send = vi
-      .fn()
-      .mockResolvedValueOnce(challenge())
-      .mockResolvedValueOnce(Response.json({ state: 'connected' }))
-      .mockResolvedValue(new Response('gone', { status: 404 }))
-    vi.stubGlobal('isSecureContext', true)
-    vi.stubGlobal('fetch', send)
-    render(
-      <ServerStateProvider scope={fixtureScope} client={cache}>
-        <SignIn />
-      </ServerStateProvider>,
-    )
-    await startSignIn()
-    await act(() => vi.advanceTimersByTimeAsync(3000))
-    expect(await screen.findByText('Connected to ChatGPT')).toBeTruthy()
-    await act(async () => {
-      await cache.invalidateQueries()
-      await vi.advanceTimersByTimeAsync(10)
-    })
-    expect(send).toHaveBeenCalledTimes(2)
-    expect(screen.getByText('Connected to ChatGPT')).toBeTruthy()
-  } finally {
-    vi.useRealTimers()
-  }
+  await startSignIn()
+  send.mockResolvedValueOnce(new Response('nope', { status: 500 }))
+  await wait(3000)
+  expect(await screen.findByRole('alert')).toHaveTextContent('Could not confirm sign-in status')
+  await wait(9000)
+  expect(send).toHaveBeenCalledTimes(3)
 })
 
 it('app-wide reconciliation does not re-poll a failed sign-in', async () => {
-  vi.useFakeTimers({ shouldAdvanceTime: true })
-  try {
-    const cache = createServerQueryClient()
-    const send = vi
-      .fn()
-      .mockResolvedValueOnce(challenge())
-      .mockResolvedValueOnce(new Response('nope', { status: 500 }))
-      .mockResolvedValue(Response.json({ state: 'connected' }))
-    vi.stubGlobal('isSecureContext', true)
-    vi.stubGlobal('fetch', send)
-    render(
-      <ServerStateProvider scope={fixtureScope} client={cache}>
-        <SignIn />
-      </ServerStateProvider>,
-    )
-    await startSignIn()
-    await act(() => vi.advanceTimersByTimeAsync(3000))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Could not confirm sign-in status')
-    await act(async () => {
-      await cache.invalidateQueries()
-      await vi.advanceTimersByTimeAsync(10)
-    })
-    expect(send).toHaveBeenCalledTimes(2)
-    expect(screen.getByRole('alert')).toHaveTextContent('Could not confirm sign-in status')
-  } finally {
-    vi.useRealTimers()
-  }
+  const cache = createServerQueryClient()
+  await startSignIn(cache)
+  send
+    .mockResolvedValueOnce(new Response('nope', { status: 500 }))
+    .mockResolvedValue(Response.json({ state: 'connected' }))
+  await wait(3000)
+  expect(await screen.findByRole('alert')).toHaveTextContent('Could not confirm sign-in status')
+  await act(async () => {
+    await cache.invalidateQueries()
+    await vi.advanceTimersByTimeAsync(10)
+  })
+  expect(send).toHaveBeenCalledTimes(3)
 })
 
 it('a poll that reconciliation cancels and replays adopts the call still running', async () => {
-  vi.useFakeTimers({ shouldAdvanceTime: true })
-  try {
-    const cache = createServerQueryClient()
+  let answer: (value: Response) => void = () => undefined
 
-    let answer: (value: Response) => void = () => undefined
-
-    const send = vi
-      .fn()
-      .mockResolvedValueOnce(challenge())
-      .mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
-      .mockImplementation(async () => new Response('busy', { status: 409 }))
-    vi.stubGlobal('isSecureContext', true)
-    vi.stubGlobal('fetch', send)
-    render(
-      <ServerStateProvider scope={fixtureScope} client={cache}>
-        <SignIn />
-      </ServerStateProvider>,
-    )
-    await startSignIn()
-    await act(() => vi.advanceTimersByTimeAsync(3000))
-    expect(send).toHaveBeenCalledTimes(2)
-    await act(async () => {
-      await cache.cancelQueries()
-      void cache.invalidateQueries()
-      await vi.advanceTimersByTimeAsync(10)
-    })
-    await act(async () => answer(Response.json({ state: 'denied' })))
-    expect(await screen.findByText('Sign-in was declined or expired.')).toBeTruthy()
-    expect(screen.queryByRole('alert')).toBeNull()
-    expect(send).toHaveBeenCalledTimes(2)
-  } finally {
-    vi.useRealTimers()
-  }
+  const cache = createServerQueryClient()
+  await startSignIn(cache)
+  send
+    .mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
+    .mockImplementation(async () => new Response('busy', { status: 409 }))
+  await wait(3000)
+  expect(send).toHaveBeenCalledTimes(3)
+  await act(async () => {
+    await cache.cancelQueries()
+    void cache.invalidateQueries()
+    await vi.advanceTimersByTimeAsync(10)
+  })
+  await act(async () => answer(Response.json({ state: 'denied' })))
+  expect(await screen.findByText('Sign-in was declined or expired.')).toBeVisible()
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(send).toHaveBeenCalledTimes(3)
 })
 
 it('keeps polling while the tab is hidden, since sign-in completes on the OpenAI tab', async () => {
-  vi.useFakeTimers({ shouldAdvanceTime: true })
   focusManager.setFocused(false)
   try {
-    const send = vi.fn().mockImplementation(async () => challenge())
-    vi.stubGlobal('isSecureContext', true)
-    vi.stubGlobal('fetch', send)
-    render(<SignIn />)
     await startSignIn()
-    await act(() => vi.advanceTimersByTimeAsync(6000))
-    expect(send.mock.calls.length).toBeGreaterThanOrEqual(3)
+    send.mockImplementation(async () => challenge())
+    await wait(6000)
+    expect(send.mock.calls.length).toBeGreaterThanOrEqual(4)
   } finally {
     focusManager.setFocused(undefined)
-    vi.useRealTimers()
-  }
-})
-
-it('no status poll starts while a command is in flight', async () => {
-  vi.useFakeTimers({ shouldAdvanceTime: true })
-  try {
-    let answer: (value: Response) => void = () => undefined
-
-    const send = vi
-      .fn()
-      .mockResolvedValueOnce(challenge())
-      .mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
-    vi.stubGlobal('isSecureContext', true)
-    vi.stubGlobal('fetch', send)
-    render(<SignIn />)
-    await startSignIn()
-    fireEvent.click(screen.getByText('Cancel sign-in'))
-    await waitFor(() => expect(send).toHaveBeenCalledTimes(2))
-    await act(() => vi.advanceTimersByTimeAsync(9000))
-    expect(send).toHaveBeenCalledTimes(2)
-    await act(async () => answer(Response.json({ state: 'disconnected' })))
-    expect(await screen.findByText('Sign in with ChatGPT')).toBeTruthy()
-  } finally {
-    vi.useRealTimers()
   }
 })
 
 it('commands wait for this login’s poll, which can end the login', async () => {
-  vi.useFakeTimers({ shouldAdvanceTime: true })
-  try {
-    let answer: (value: Response) => void = () => undefined
+  let answer: (value: Response) => void = () => undefined
 
-    const send = vi
-      .fn()
-      .mockResolvedValueOnce(challenge())
-      .mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
-    vi.stubGlobal('isSecureContext', true)
-    vi.stubGlobal('fetch', send)
-    render(<SignIn />)
-    await startSignIn()
-    await act(() => vi.advanceTimersByTimeAsync(3000))
-    expect(send).toHaveBeenCalledTimes(2)
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Cancel sign-in' })).toBeDisabled(),
-    )
-    expect(screen.getByRole('button', { name: 'Check ChatGPT connection' })).toBeDisabled()
-    await act(async () => answer(Response.json({ state: 'connected' })))
-    expect(await screen.findByText('Connected to ChatGPT')).toBeTruthy()
-    expect(screen.queryByRole('alert')).toBeNull()
-    expect(screen.getByRole('button', { name: 'Disconnect ChatGPT' })).toBeEnabled()
-    expect(send).toHaveBeenCalledTimes(2)
-  } finally {
-    vi.useRealTimers()
-  }
+  await startSignIn()
+  send.mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
+  await wait(3000)
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Cancel sign-in' })).toBeDisabled())
+  await act(async () => answer(Response.json({ state: 'denied' })))
+  expect(await screen.findByText('Sign-in was declined or expired.')).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Sign in with ChatGPT' })).toBeEnabled()
+  expect(send).toHaveBeenCalledTimes(3)
 })
 
-it('a check after a key edit waits for the dropped poll, with its key locked and explained', async () => {
-  vi.useFakeTimers({ shouldAdvanceTime: true })
-  try {
-    let answer: (value: Response) => void = () => undefined
+it('closing a reopened dialog while its first read waits in the queue never sends that read', async () => {
+  let answer: (value: Response) => void = () => undefined
 
-    const send = vi
-      .fn()
-      .mockResolvedValueOnce(challenge())
-      .mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
-      .mockResolvedValueOnce(Response.json({ state: 'connected' }))
-    vi.stubGlobal('isSecureContext', true)
-    vi.stubGlobal('fetch', send)
-    render(<SignIn />)
-    await startSignIn()
-    await act(() => vi.advanceTimersByTimeAsync(3000))
-    const field = screen.getByLabelText('Codex runner management key')
-    fireEvent.change(field, { target: { value: 'other key' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Check ChatGPT connection' }))
-    await act(() => vi.advanceTimersByTimeAsync(10))
-    expect(send).toHaveBeenCalledTimes(2)
-    expect(field).toHaveAttribute('readonly')
-    expect(field).toHaveAccessibleDescription(
-      'Waiting for the runner. The key can be changed once it answers.',
-    )
-    await act(async () => answer(challenge()))
-    expect(await screen.findByText('Connected to ChatGPT')).toBeTruthy()
-    expect(send.mock.calls[2][1].headers.authorization).toBe('Bearer other key')
-    expect(field).not.toHaveAttribute('readonly')
-  } finally {
-    vi.useRealTimers()
-  }
+  await startSignIn()
+  send.mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
+  await wait(3000)
+  close()
+  send.mockResolvedValueOnce(challenge()).mockResolvedValueOnce(signedOut())
+  fireEvent.click(screen.getByRole('button', { name: 'Sign in to ChatGPT…' }))
+  await enterKey('second key')
+  close()
+  await act(async () => answer(challenge()))
+  await wait()
+  expect(sent().slice(3)).toEqual([
+    { action: 'status', loginId: 'device-1' },
+    { action: 'cancel', loginId: 'device-1' },
+  ])
+  expect(authorizations()).not.toContain('Bearer second key')
+})
+
+it('closing while a start is still unanswered finishes the login it creates', async () => {
+  let answer: (value: Response) => void = () => undefined
+
+  send.mockResolvedValueOnce(signedOut())
+  openDialog()
+  await enterKey()
+  send.mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
+  fireEvent.click(await screen.findByRole('button', { name: 'Sign in with ChatGPT' }))
+  await wait()
+  close()
+  send.mockResolvedValueOnce(challenge()).mockResolvedValueOnce(signedOut())
+  await act(async () => answer(challenge()))
+  await wait()
+  expect(sent()).toEqual([
+    { action: 'status' },
+    { action: 'start' },
+    { action: 'status', loginId: 'device-1' },
+    { action: 'cancel', loginId: 'device-1' },
+  ])
+})
+
+it('a sign-in that is declined or expires has the card read the VM again', async () => {
+  await startSignIn()
+  onChanged.mockClear()
+  send.mockResolvedValueOnce(Response.json({ state: 'denied' }))
+  await wait(3000)
+  expect(await screen.findByText('Sign-in was declined or expired.')).toBeVisible()
+  expect(onChanged).toHaveBeenCalledTimes(1)
+  expect(onConfirmed).not.toHaveBeenCalled()
+})
+
+it('the challenge leaves the query cache once the dialog closes', async () => {
+  const cache = createServerQueryClient()
+  await startSignIn(cache)
+  send.mockResolvedValueOnce(challenge()).mockResolvedValueOnce(signedOut())
+  close()
+  await wait()
+  const held = cache
+    .getQueryCache()
+    .getAll()
+    .filter((query) => JSON.stringify(query.queryKey).includes('codex-login'))
+  expect(held).toEqual([])
+  expect(
+    JSON.stringify(
+      cache
+        .getQueryCache()
+        .getAll()
+        .map((query) => query.state.data),
+    ),
+  ).not.toContain('TEST-CODE')
+})
+
+it('closing after a start the runner refused leaves other logins alone', async () => {
+  send.mockResolvedValueOnce(signedOut())
+  openDialog()
+  await enterKey()
+  send.mockResolvedValueOnce(new Response('{}', { status: 409 }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Sign in with ChatGPT' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Could not confirm sign-in status')
+  close()
+  await wait()
+  expect(sent()).toEqual([{ action: 'status' }, { action: 'start' }])
+})
+
+it('a disconnect whose answer was lost has the card read the VM again', async () => {
+  send.mockResolvedValueOnce(Response.json({ state: 'connected' }))
+  openDialog()
+  await enterKey()
+  onChanged.mockClear()
+  send.mockRejectedValueOnce(new TypeError('network_failed'))
+  fireEvent.click(await screen.findByRole('button', { name: 'Disconnect ChatGPT' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Could not confirm sign-in status')
+  expect(onChanged).toHaveBeenCalledTimes(1)
+  expect(sent()).toEqual([{ action: 'status' }, { action: 'disconnect' }])
 })

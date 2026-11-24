@@ -6,9 +6,9 @@ import {
   type AgentProviderId,
   type AgentSettingsStage,
 } from '@invimport/contracts'
-import { SettingRow } from '#/components/ui'
+import { SegmentedControl, SettingRow } from '#/components/ui'
 import { space } from '#/theme/generated/tokens'
-import type { ProviderStatus } from '#/components/agents/provider-status'
+import type { ProviderStatusState } from '#/components/agents/useProviderStatus'
 import { SettingsCard } from '#/components/settings/SettingsCard'
 import { AgentAutosaveStatus } from './AgentAutosaveStatus'
 import { AgentSubsection } from './AgentSubsection'
@@ -22,19 +22,9 @@ import {
   validModel,
 } from './provider-form'
 import { ProviderCard } from './ProviderCard'
-import { SaveBar } from './SaveBar'
 import type { FieldKey } from './settings-fields'
-import { Stack } from './Stack'
-import { StepChoices } from './StepChoices'
+import { StepModels } from './StepModels'
 import { useSubsectionForm, type ProviderKept, type SubsectionFormProps } from './useSubsectionForm'
-
-/** The model fields a subsection's Save validates. */
-function fieldsOf(place: 'providers' | 'models') {
-  if (place === 'providers') {
-    return PROVIDERS.map((provider) => `providers.${provider}.default_model` as const)
-  }
-  return AGENT_SETTINGS_STAGES.map((stage) => `stages.${stage}.model` as const)
-}
 
 const KEYS: readonly FieldKey[] = [
   ...PROVIDERS.flatMap((provider) => [
@@ -48,8 +38,8 @@ const KEYS: readonly FieldKey[] = [
 
 /**
  * Providers and "Provider and model per step": one form, because turning a provider off resets
- * its steps and both save together. Switches, choices and selects save as they change; the model
- * fields keep a Save until the model picker replaces them. Sessions sits between the two.
+ * its steps and both save together. Every control saves as it changes. Sessions sits between the
+ * two.
  */
 export function ProvidersAndSteps({
   status,
@@ -57,8 +47,9 @@ export function ProvidersAndSteps({
   sessions,
   ...props
 }: SubsectionFormProps & {
-  /** Each provider card's status, as its credential panel shows it. */
-  status: Record<AgentProviderId, ProviderStatus>
+  /** Each provider's sign-in status from the agent VM, with Check again. */
+  status: ProviderStatusState
+  /** Each provider card's sign-in dialog button. */
   credentials: Record<AgentProviderId, ReactNode>
   /** The Sessions subsection, placed between Providers and the steps. */
   sessions: ReactNode
@@ -68,9 +59,7 @@ export function ProvidersAndSteps({
     provider: AgentProviderId
     reason: ProviderKept
   } | null>(null)
-  // Where the model fields' last Save was pressed, so its outcome shows beside those fields.
-  const [savedFrom, setSavedFrom] = useState<'providers' | 'models'>('providers')
-  const { form, markEdited, autosave, text, textKeys } = useSubsectionForm({
+  const { form, markEdited, autosave } = useSubsectionForm({
     ...props,
     id: 'providers',
     read: providerFormValues,
@@ -84,8 +73,8 @@ export function ProvidersAndSteps({
   function setEnabled(provider: AgentProviderId, enabled: boolean) {
     const current = form.getValues()
     if (enabled) {
-      // A provider that is on needs a model ID; a draft of one isn't saved yet.
-      if (!validModel(props.loaded.providers[provider].default_model, true)) {
+      // A provider that is on needs a model ID; one picked in the same pause saves with it.
+      if (!validModel(current.providers[provider].default_model, true)) {
         setRefused({ provider, reason: 'model' })
         return
       }
@@ -120,35 +109,6 @@ export function ProvidersAndSteps({
     />
   )
 
-  /** The model fields' Save beside the fields it sends, shown while they hold an edit. */
-  function modelBar(place: 'providers' | 'models') {
-    const prefix = place === 'providers' ? 'providers.' : 'stage_selections.'
-
-    const scope = (key: FieldKey) => key.startsWith(prefix)
-
-    const edited = textKeys.some(scope)
-    const outcome = !text.dirty && text.state !== 'idle' && savedFrom === place
-    if (!edited && !outcome) {
-      return null
-    }
-    return (
-      <SaveBar
-        state={text.state}
-        busy={text.busy}
-        waiting={text.waiting}
-        dirty={edited}
-        savedMessage="Saved. Sessions queued from now on use it; queued and running ones keep theirs."
-        onSave={() => {
-          setSavedFrom(place)
-          text.save({ scope, fields: fieldsOf(place) })
-        }}
-        onRetry={text.retry}
-        onReload={text.reload}
-        onDiscard={() => text.discard(scope)}
-      />
-    )
-  }
-
   return (
     <FormProvider {...form}>
       <AgentSubsection
@@ -162,36 +122,33 @@ export function ProvidersAndSteps({
               key={provider}
               provider={provider}
               status={status[provider]}
-              textBusy={text.busy}
+              checking={status.checking}
+              onCheckAgain={() => void status.checkAgain()}
               refused={refused?.provider === provider ? refused.reason : undefined}
               onEnabledChange={(enabled) => setEnabled(provider, enabled)}
               onAutoEdit={() => markEdited('auto')}
-              onTextEdit={() => markEdited('text')}
               credential={credentials[provider]}
             />
           ))}
         </Cards>
-        {modelBar('providers')}
         <SettingsCard aria-label="Default provider">
           <SettingRow
             label="Default provider"
             help="Steps set to Default use this provider's default model."
           >
-            {({ named }) => (
-              <Choices role="radiogroup" {...named}>
-                {PROVIDERS.map((provider) => (
-                  <label key={provider}>
-                    <input
-                      type="radio"
-                      value={provider}
-                      disabled={!values.providers[provider].enabled}
-                      {...form.register('default_provider', { onChange: () => markEdited('auto') })}
-                    />
-                    {PROVIDER_LABEL[provider]}
-                  </label>
-                ))}
-              </Choices>
-            )}
+            <SegmentedControl
+              label="Default provider"
+              options={PROVIDERS.map((provider) => ({
+                id: provider,
+                label: PROVIDER_LABEL[provider],
+                disabled: !values.providers[provider].enabled,
+              }))}
+              value={values.default_provider}
+              onChange={(id) => {
+                form.setValue('default_provider', id as AgentProviderId, { shouldDirty: true })
+                markEdited('auto')
+              }}
+            />
           </SettingRow>
         </SettingsCard>
       </AgentSubsection>
@@ -206,16 +163,7 @@ export function ProvidersAndSteps({
             label="Each step"
             help="Default follows the default provider. A step can use any provider that is on."
           >
-            <Stack>
-              <StepChoices
-                textBusy={text.busy}
-                reset={reset}
-                savedModel={(provider) => props.loaded.providers[provider].default_model}
-                onAutoEdit={() => markEdited('auto')}
-                onTextEdit={() => markEdited('text')}
-              />
-              {modelBar('models')}
-            </Stack>
+            <StepModels reset={reset} onAutoEdit={() => markEdited('auto')} />
           </SettingRow>
         </SettingsCard>
       </AgentSubsection>
@@ -227,15 +175,4 @@ const Cards = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: ${space[5]};
-`
-
-const Choices = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: ${space[5]};
-  label {
-    display: inline-flex;
-    align-items: center;
-    gap: ${space[2]};
-  }
 `

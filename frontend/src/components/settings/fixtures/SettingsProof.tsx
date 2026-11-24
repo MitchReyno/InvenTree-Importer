@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { S, sessionList, sessionRow } from '#/test/agent-sessions'
 import styled from 'styled-components'
 import type {
@@ -22,6 +22,7 @@ import { useHashRoute } from '#/navigation/useHashRoute'
 import { space } from '#/theme/generated/tokens'
 import type { HeaderClient } from '#/header/types'
 import { Settings } from '../Settings'
+import { fakeProviderStatus, installFakeRunner } from './fake-runner'
 
 const scope = {
   origin: 'http://localhost:3000',
@@ -52,8 +53,8 @@ let saved: AgentSettingsDto = {
 }
 
 /**
- * An in-memory agents client. The credential panels still POST to `/personal-runner/*`, which this
- * fixture's server doesn't answer, so their checks fail.
+ * An in-memory agents client. The sign-in dialogs POST to `/personal-runner/*`, which the
+ * fixture page's fake runner answers (`fake-runner.ts`).
  */
 const agents = {
   settings: async () => saved,
@@ -85,6 +86,10 @@ const agents = {
   pause: async () => ({}),
   pauseAll: async (paused: boolean) => ({ paused, batch_ids: [] }),
   deliverInstructions: async () => ({ sessions: 0 }),
+  providerStatus: async () => {
+    await new Promise((resolve) => setTimeout(resolve, 150))
+    return fakeProviderStatus()
+  },
 } as unknown as ReturnType<typeof agentsClient>
 
 // Staged for the demo: once checked, InvenTree has refused the token, and later reads say so,
@@ -230,6 +235,8 @@ const batchDefaults = {
 
 export function SettingsProof() {
   const [cache] = useState(batchReads)
+  // Syncs the page's fetch with the fake VM while the fixture is shown.
+  useEffect(() => installFakeRunner(), [])
   const route = useHashRoute('settings')
 
   return (

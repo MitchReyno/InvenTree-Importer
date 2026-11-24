@@ -1,6 +1,5 @@
 import type { AgentSettingsDto } from '@invimport/contracts'
-import { SettingRow } from '#/components/ui'
-import { CheckboxLabel } from '#/forms'
+import { SettingRow, Switch } from '#/components/ui'
 import { SettingsCard } from '#/components/settings/SettingsCard'
 import { AgentAutosaveStatus } from './AgentAutosaveStatus'
 import { AgentSubsection } from './AgentSubsection'
@@ -43,13 +42,14 @@ export function TagSuggestionsForm(props: SubsectionFormProps) {
           label="Suggest tags automatically"
           help="New batches start with Auto tags on. Each batch can turn it off in Capture › Batch settings."
         >
-          <CheckboxLabel>
-            <input
-              type="checkbox"
-              {...form.register('auto', { onChange: () => markEdited('auto') })}
-            />
-            Suggest tags for new batches
-          </CheckboxLabel>
+          <Switch
+            label="Suggest tags for new batches"
+            checked={form.watch('auto')}
+            onChange={(checked) => {
+              form.setValue('auto', checked, { shouldDirty: true })
+              markEdited('auto')
+            }}
+          />
         </SettingRow>
       </SettingsCard>
     </AgentSubsection>

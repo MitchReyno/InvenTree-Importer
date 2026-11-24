@@ -10,8 +10,7 @@ import { Banner, Button, DisplayOnly, ReadState, SettingRow } from '#/components
 import { ChatGPTSignIn } from '#/components/agents/ChatGPTSignIn'
 import { PauseAllAgents } from '#/components/agents/PauseAllAgents'
 import { PersonalClaudeCredential } from '#/components/agents/PersonalClaudeCredential'
-import { useChatGPTSignIn } from '#/components/agents/useChatGPTSignIn'
-import { usePersonalClaudeCredential } from '#/components/agents/usePersonalClaudeCredential'
+import { useProviderStatus } from '#/components/agents/useProviderStatus'
 import { newestRevision } from './newest-revision'
 import { SettingsSection } from './SettingsSection'
 import { SettingsSkeleton } from './SettingsSkeleton'
@@ -34,6 +33,14 @@ import { invalidateStartFreshReads } from '#/processing/start-fresh'
 /** Every session, for the list's totals; no page or filter narrows them. */
 const ALL_SESSIONS = { filter: 'all' } as const
 
+/** What a confirmed Claude change leaves stored, or undefined when only the VM can say. */
+function claudeState(configured: boolean | undefined) {
+  if (configured === undefined) {
+    return undefined
+  }
+  return configured ? 'saved' : 'not_saved'
+}
+
 type Props = {
   client: ReturnType<typeof agentsClient>
   /** Reports unsaved input, with how to save what can be saved before leaving. */
@@ -43,15 +50,13 @@ type Props = {
 }
 
 /**
- * Settings › Agents: every setting that shapes agent behaviour, in subsections. The credential
- * panels' state lives here, so it mounts and unmounts with the section and the provider cards
- * mirror the panels.
+ * Settings › Agents: every setting that shapes agent behaviour, in subsections. The providers'
+ * sign-in status is read here, so it is read each time the section opens.
  */
 export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
   const scope = useServerScope()
   const poll = useRetainedPollInterval()
-  const credential = usePersonalClaudeCredential()
-  const signIn = useChatGPTSignIn()
+  const providerStatus = useProviderStatus(client)
   const queryClient = useQueryClient()
   // Says whether this profile's sessions have web access; until it answers, the form stays usable.
   const readiness = useReadiness(true)
@@ -206,10 +211,21 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
       {form ? (
         <ProvidersAndSteps
           {...form}
-          status={{ claude: credential.card, codex: signIn.card }}
+          status={providerStatus}
           credentials={{
-            claude: <PersonalClaudeCredential credential={credential} />,
-            codex: <ChatGPTSignIn signIn={signIn} />,
+            claude: (
+              <PersonalClaudeCredential
+                onChanged={(configured, late) =>
+                  providerStatus.signInChanged('claude', claudeState(configured), { late })
+                }
+              />
+            ),
+            codex: (
+              <ChatGPTSignIn
+                onConfirmed={() => providerStatus.signInChanged('codex', 'signed_in')}
+                onChanged={() => providerStatus.signInChanged('codex')}
+              />
+            ),
           }}
           sessions={sessionsSubsection}
         />
