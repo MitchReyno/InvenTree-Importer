@@ -2,7 +2,7 @@ import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { batchHref } from '#/navigation/batch-route'
 import { observed, referenceTo } from '#/records/model'
 import { Link, Small } from '#/components/ui'
-import { Input, Label, Select } from '#/forms'
+import { ChoicePicker, Input, Label } from '#/forms'
 import { SaveRow, useDraft, useRecordSave, type Save } from './draft'
 
 type Props = {
@@ -37,21 +37,15 @@ export function PartDecision({ batch, partId, save, disabled, report }: Props) {
           onChange={(event) => setDraft({ ...draft, name: event.target.value })}
         />
       </Label>
-      <Label>
-        Existing category
-        <Select
-          value={draft.category}
-          disabled={disabled || busy}
-          onChange={(event) => setDraft({ ...draft, category: event.target.value })}
-        >
-          <option value="">Choose an observed category…</option>
-          {categories.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.label}
-            </option>
-          ))}
-        </Select>
-      </Label>
+      <ChoicePicker
+        label="Existing category"
+        noun="categories"
+        placeholder="Choose an observed category…"
+        choices={categories.map((item) => ({ value: item.id, label: item.label }))}
+        value={draft.category}
+        disabled={disabled || busy}
+        onChange={(value) => setDraft({ ...draft, category: value })}
+      />
       <SaveRow
         label="Start a new Part"
         disabled={disabled || !category || !draft.name.trim()}

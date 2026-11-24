@@ -1,6 +1,6 @@
 import type { BatchRecordDto, CaptureSnapshotDto, InventoryPartSpecDto } from '@invimport/contracts'
 import { Banner, Button, Link, Small } from '#/components/ui'
-import { CheckboxLabel, Fieldset, Input, Label, Select } from '#/forms'
+import { CheckboxLabel, ChoicePicker, Fieldset, Input, Label } from '#/forms'
 import { batchHref } from '#/navigation/batch-route'
 import { mappingsFor, observed, referenceTo } from '#/records/model'
 import { SaveRow, useDraft, useRecordSave, type Save } from './draft'
@@ -301,49 +301,44 @@ function CategoryField({
   return (
     <Fieldset>
       <legend>Category</legend>
-      <Label>
-        Move to category
-        <Select
-          value={draft.category}
-          disabled={disabled || busy}
-          onChange={(event) => setDraft({ category: event.target.value, mappings: {}, drop: [] })}
-        >
-          <option value="">
-            Keep {templateLabel(spec.category.observation_id, spec.category.pk)}
-          </option>
-          {categories.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.label}
-            </option>
-          ))}
-        </Select>
-      </Label>
+      <ChoicePicker
+        label="Move to category"
+        noun="categories"
+        placeholder="Choose a category…"
+        choices={[
+          {
+            value: '',
+            label: `Keep ${templateLabel(spec.category.observation_id, spec.category.pk)}`,
+          },
+          ...categories.map((item) => ({ value: item.id, label: item.label })),
+        ]}
+        value={draft.category}
+        disabled={disabled || busy}
+        onChange={(value) => setDraft({ category: value, mappings: {}, drop: [] })}
+      />
       {category &&
         spec.parameters.map((parameter) => {
           const name = templateLabel(parameter.template.observation_id, parameter.template.pk)
           const dropped = draft.drop.includes(parameter.template.pk)
           return (
             <div key={parameter.template.pk}>
-              <Label>
-                {name} in {category.label}
-                <Select
-                  value={draft.mappings[parameter.template.pk] ?? ''}
-                  disabled={disabled || busy || dropped}
-                  onChange={(event) =>
-                    setDraft({
-                      ...draft,
-                      mappings: { ...draft.mappings, [parameter.template.pk]: event.target.value },
-                    })
-                  }
-                >
-                  <option value="">Choose a mapping…</option>
-                  {mappingsFor(batch, category.pk, parameter.template.pk).map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.label}
-                    </option>
-                  ))}
-                </Select>
-              </Label>
+              <ChoicePicker
+                label={`${name} in ${category.label}`}
+                noun="mappings"
+                placeholder="Choose a mapping…"
+                choices={mappingsFor(batch, category.pk, parameter.template.pk).map((item) => ({
+                  value: item.id,
+                  label: item.label,
+                }))}
+                value={draft.mappings[parameter.template.pk] ?? ''}
+                disabled={disabled || busy || dropped}
+                onChange={(value) =>
+                  setDraft({
+                    ...draft,
+                    mappings: { ...draft.mappings, [parameter.template.pk]: value },
+                  })
+                }
+              />
               <CheckboxLabel>
                 <input
                   type="checkbox"

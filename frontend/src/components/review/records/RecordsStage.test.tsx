@@ -1,6 +1,7 @@
 import { act, screen, waitFor, within } from '@testing-library/react'
 import { useState } from 'react'
 import userEvent from '@testing-library/user-event'
+import { listedOptions, pickOption, picker, pickerText, searchAndPick } from '#/test/picker'
 import type {
   BatchRecordDto,
   BatchRecordsDto,
@@ -451,9 +452,10 @@ describe('RecordsStage', () => {
       'Applies to 2 Parts (Carbon film resistor, Ceramic capacitor), used by 3 lots.',
     )
     expect(detail).toHaveTextContent('Creating a company is not supported yet.')
-    const select = within(detail).getByLabelText('Use another supplier')
-    expect(within(select).queryByRole('option', { name: 'Vishay' })).not.toBeInTheDocument()
-    await user.selectOptions(select, 'DigiKey')
+    await user.click(picker('Use another supplier', detail))
+    expect(listedOptions()).not.toContain('Vishay')
+    await user.keyboard('{Escape}')
+    await searchAndPick(user, 'Use another supplier', 'digi', 'DigiKey', detail)
     await user.click(within(detail).getByRole('button', { name: 'Save' }))
 
     expect(edit).toHaveBeenCalledWith({
@@ -468,12 +470,11 @@ describe('RecordsStage', () => {
     const { onDirtyChange } = stage(vi.fn(async () => false))
     await open(user, /^Companies/, 'Yageo')
     const detail = screen.getByRole('region', { name: 'Yageo' })
-    const select = within(detail).getByLabelText('Use another supplier')
-    await user.selectOptions(select, 'DigiKey')
+    await pickOption(user, 'Use another supplier', 'DigiKey', detail)
     expect(onDirtyChange).toHaveBeenLastCalledWith(true)
     await user.click(within(detail).getByRole('button', { name: 'Save' }))
 
-    expect(select).toHaveValue(id(911))
+    expect(pickerText('Use another supplier', detail)).toBe('DigiKey')
     expect(within(detail).getByRole('button', { name: 'Save' })).toBeEnabled()
     expect(onDirtyChange).toHaveBeenLastCalledWith(true)
   })
@@ -483,11 +484,8 @@ describe('RecordsStage', () => {
     const { edit } = stage()
     await open(user, /^Parameter templates/, 'Composition')
     const detail = screen.getByRole('region', { name: 'Composition' })
-    await user.selectOptions(within(detail).getByLabelText('Use another template'), 'Resistor type')
-    await user.selectOptions(
-      within(detail).getByLabelText('Mapping in Resistors'),
-      'Resistors · Resistor type',
-    )
+    await pickOption(user, 'Use another template', 'Resistor type', detail)
+    await pickOption(user, 'Mapping in Resistors', 'Resistors · Resistor type', detail)
     await user.click(within(detail).getByRole('button', { name: 'Save' }))
 
     expect(detail).toHaveTextContent('No category mapping fits “Ceramic capacitor”.')
@@ -653,7 +651,7 @@ describe('RecordsStage', () => {
 
     expect(detail).toHaveTextContent('Needs a decision')
     await user.type(within(detail).getByLabelText('New Part name'), 'Wirewound resistor')
-    await user.selectOptions(within(detail).getByLabelText('Existing category'), 'Resistors')
+    await pickOption(user, 'Existing category', 'Resistors', detail)
     await user.click(within(detail).getByRole('button', { name: 'Start a new Part' }))
 
     await waitFor(() =>
@@ -698,15 +696,12 @@ describe('RecordsStage', () => {
     const { edit } = stage()
     await open(user, /^Parts/, 'Carbon film resistor')
     const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
-    await user.selectOptions(within(detail).getByLabelText('Move to category'), 'Capacitors')
+    await pickOption(user, 'Move to category', 'Capacitors', detail)
     await user.click(within(detail).getByRole('button', { name: 'Save category' }))
     expect(detail).toHaveTextContent('Map or drop every parameter of “Carbon film resistor”')
     expect(edit).not.toHaveBeenCalled()
 
-    await user.selectOptions(
-      within(detail).getByLabelText('Composition in Capacitors'),
-      'Capacitors · Composition',
-    )
+    await pickOption(user, 'Composition in Capacitors', 'Capacitors · Composition', detail)
     await user.click(within(detail).getByRole('button', { name: 'Save category' }))
     expect(edit).toHaveBeenCalledWith({
       kind: 'record',
@@ -722,7 +717,7 @@ describe('RecordsStage', () => {
     })
 
     // An accepted save clears the choice; choose the category again to drop instead.
-    await user.selectOptions(within(detail).getByLabelText('Move to category'), 'Capacitors')
+    await pickOption(user, 'Move to category', 'Capacitors', detail)
     await user.click(within(detail).getByRole('checkbox', { name: 'Drop Composition' }))
     await user.click(within(detail).getByRole('button', { name: 'Save category' }))
     expect(edit).toHaveBeenLastCalledWith({
@@ -765,11 +760,8 @@ describe('RecordsStage', () => {
       operation: { op: 'remove_parameter' },
     })
 
-    await user.selectOptions(within(detail).getByLabelText('Add a parameter'), 'Resistor type')
-    await user.selectOptions(
-      within(detail).getByLabelText('Mapping in this category'),
-      'Resistors · Resistor type',
-    )
+    await pickOption(user, 'Add a parameter', 'Resistor type', detail)
+    await pickOption(user, 'Mapping in this category', 'Resistors · Resistor type', detail)
     await user.type(within(detail).getByLabelText('Value'), 'Axial')
     await user.click(within(detail).getByRole('button', { name: 'Add parameter' }))
     expect(edit).toHaveBeenLastCalledWith({
@@ -798,13 +790,13 @@ describe('RecordsStage', () => {
     const user = userEvent.setup()
     const { onDirtyChange } = stage()
     await open(user, /^Companies/, 'Yageo')
-    await user.selectOptions(screen.getByLabelText('Use another supplier'), 'DigiKey')
+    await pickOption(user, 'Use another supplier', 'DigiKey')
     await user.click(screen.getByRole('button', { name: /^Parts/ }))
 
     expect(screen.getByRole('alert')).toHaveTextContent('Save or discard this record’s changes')
     expect(screen.getByRole('region', { name: 'Yageo' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Discard changes' }))
-    expect(screen.getByLabelText('Use another supplier')).toHaveValue('')
+    expect(pickerText('Use another supplier')).toBe('Choose an observed supplier…')
     expect(onDirtyChange).toHaveBeenLastCalledWith(false)
     await user.click(screen.getByRole('button', { name: /^Parts/ }))
     expect(screen.queryByRole('region', { name: 'Yageo' })).not.toBeInTheDocument()
@@ -826,7 +818,7 @@ describe('RecordsStage', () => {
       </BatchCommandsProvider>,
     )
     await open(user, /^Companies/, 'Yageo')
-    await user.selectOptions(screen.getByLabelText('Use another supplier'), 'DigiKey')
+    await pickOption(user, 'Use another supplier', 'DigiKey')
     await user.click(screen.getByRole('button', { name: 'Save' }))
     const retry = await screen.findByRole('button', {
       name: 'Load current values, keep this draft',
@@ -837,7 +829,7 @@ describe('RecordsStage', () => {
     expect(
       screen.getByRole('button', { name: 'Load current values, keep this draft' }),
     ).toBeInTheDocument()
-    expect(screen.getByLabelText('Use another supplier')).toHaveValue(id(911))
+    expect(pickerText('Use another supplier')).toBe('DigiKey')
   })
 
   it('opens a record a link points to, including the one it first opened', async () => {
@@ -1045,7 +1037,7 @@ describe('RecordsStage', () => {
       operation: { op: 'set_mpn', company: ref(910, 'company'), mpn: 'R-10' },
     })
 
-    await user.selectOptions(within(detail).getByLabelText('Use another manufacturer'), 'Yageo')
+    await pickOption(user, 'Use another manufacturer', 'Yageo', detail)
     await user.click(within(detail).getByRole('button', { name: 'Use this manufacturer' }))
     expect(edit).toHaveBeenLastCalledWith({
       kind: 'record',
@@ -1334,12 +1326,12 @@ describe('RecordsStage', () => {
       commands: { edit: vi.fn(async () => true), observe: vi.fn(async () => null) },
     })
     await open(user, /^Companies/, 'Yageo')
-    await user.selectOptions(screen.getByLabelText('Use another supplier'), 'DigiKey')
+    await pickOption(user, 'Use another supplier', 'DigiKey')
     await user.click(screen.getByRole('button', { name: /^Parts/ }))
     expect(screen.getByRole('alert')).toHaveTextContent('Save or discard this record’s changes')
 
     rerender(<RecordsStage {...props} discarded={1} />)
-    expect(screen.getByLabelText('Use another supplier')).toHaveValue('')
+    expect(pickerText('Use another supplier')).toBe('Choose an observed supplier…')
     expect(onDirtyChange).toHaveBeenLastCalledWith(false)
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })

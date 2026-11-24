@@ -8,7 +8,7 @@ import {
   specOf,
 } from '#/records/model'
 import { Small } from '#/components/ui'
-import { CheckboxLabel, Fieldset, Label, Select } from '#/forms'
+import { CheckboxLabel, ChoicePicker, Fieldset } from '#/forms'
 import { SaveRow, useDraft, useRecordSave, type Save } from './draft'
 
 type Props = {
@@ -69,43 +69,35 @@ export function TemplateEditor({ batch, pk, save, disabled, report }: Props) {
 
   return (
     <>
-      <Label>
-        Use another template
-        <Select
-          value={draft.template}
-          disabled={disabled || busy}
-          onChange={(event) => setDraft({ ...draft, template: event.target.value, mappings: {} })}
-        >
-          <option value="">Choose an observed template…</option>
-          {templates.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.label}
-            </option>
-          ))}
-        </Select>
-      </Label>
+      <ChoicePicker
+        label="Use another template"
+        noun="templates"
+        placeholder="Choose an observed template…"
+        choices={templates.map((item) => ({ value: item.id, label: item.label }))}
+        value={draft.template}
+        disabled={disabled || busy}
+        onChange={(value) => setDraft({ ...draft, template: value, mappings: {} })}
+      />
       {template &&
         categories.map(([category, label]) => (
-          <Label key={category}>
-            Mapping in {label}
-            <Select
-              value={draft.mappings[category] ?? ''}
-              disabled={disabled || busy}
-              onChange={(event) =>
-                setDraft({
-                  ...draft,
-                  mappings: { ...draft.mappings, [category]: event.target.value },
-                })
-              }
-            >
-              <option value="">No mapping in {label}</option>
-              {mappingsFor(batch, category, template.pk).map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.label}
-                </option>
-              ))}
-            </Select>
-          </Label>
+          <ChoicePicker
+            key={category}
+            label={`Mapping in ${label}`}
+            noun="mappings"
+            placeholder="Choose a mapping…"
+            choices={[
+              { value: '', label: `No mapping in ${label}` },
+              ...mappingsFor(batch, category, template.pk).map((item) => ({
+                value: item.id,
+                label: item.label,
+              })),
+            ]}
+            value={draft.mappings[category] ?? ''}
+            disabled={disabled || busy}
+            onChange={(value) =>
+              setDraft({ ...draft, mappings: { ...draft.mappings, [category]: value } })
+            }
+          />
         ))}
       <Fieldset>
         <legend>Leave out</legend>

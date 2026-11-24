@@ -1,7 +1,7 @@
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { companiesFor, referenceTo } from '#/records/model'
 import { Small } from '#/components/ui'
-import { Label, Select } from '#/forms'
+import { ChoicePicker } from '#/forms'
 import { SaveRow, useDraft, useRecordSave, type Save } from './draft'
 
 type Props = {
@@ -22,21 +22,15 @@ export function CompanyEditor({ batch, role, pk, save, disabled, report }: Props
 
   return (
     <>
-      <Label>
-        Use another {role}
-        <Select
-          value={choice}
-          disabled={disabled || busy}
-          onChange={(event) => setChoice(event.target.value)}
-        >
-          <option value="">Choose an observed {role}…</option>
-          {options.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.label}
-            </option>
-          ))}
-        </Select>
-      </Label>
+      <ChoicePicker
+        label={`Use another ${role}`}
+        noun={`${role}s`}
+        placeholder={`Choose an observed ${role}…`}
+        choices={options.map((item) => ({ value: item.id, label: item.label }))}
+        value={choice}
+        disabled={disabled || busy}
+        onChange={setChoice}
+      />
       <SaveRow
         disabled={disabled || !chosen}
         busy={busy}
