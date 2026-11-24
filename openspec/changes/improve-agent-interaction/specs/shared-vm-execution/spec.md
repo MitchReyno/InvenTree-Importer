@@ -31,5 +31,13 @@ Before dispatching a tool-capable VM turn, the coordinator and guest SHALL negot
 #### Scenario: A compatible bridge carries legacy-format evidence
 
 - **GIVEN** both peers negotiated release confirmation
-- **WHEN** the guest receives a legacy preview without a rendition digest
+- **WHEN** the producing coordinator explicitly identifies its response format as legacy and the guest receives a legacy preview without a rendition digest
 - **THEN** it stages the preview under the earlier digest rules and confirms only after writing the provider-facing response.
+
+
+#### Scenario: Missing rendition metadata cannot downgrade a current image
+
+- **GIVEN** the coordinator producing a current-format image labels the private delivery envelope as current using its producer version
+- **WHEN** the rendition metadata is missing or malformed, even if page metadata is present
+- **THEN** the guest refuses the delivery before exposing the image or confirming release.
+- **AND** an image envelope with a missing or unknown format label is refused.

@@ -174,6 +174,6 @@ Tool-capable VM sessions SHALL support `INTAKE_VM_EVIDENCE_DELIVERY` with values
 
 #### Scenario: Staging a legacy-format preview
 
-- **GIVEN** a pairing that negotiated evidence release confirmation
+- **GIVEN** a pairing that negotiated evidence release confirmation and explicitly identifies the image format as legacy
 - **WHEN** the guest stages a legacy preview with page metadata and no delivered digest
 - **THEN** it computes the digest of the staged preview and retains the original source citation. For a legacy original it verifies the source digest. A modern rendition with missing or malformed required digest metadata is refused.
