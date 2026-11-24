@@ -142,6 +142,7 @@ export const LeadBatchView = object({
     { maxItems: 1000 },
   ),
 })
+export const SessionReadBatchArgs = object({})
 
 /** The current state of a row that made a lot-forming call stale or turned it into a suggestion. */
 export const LotFormingConflict = object({
@@ -168,6 +169,7 @@ export const evidenceObservationSchemas = {
   RegroupArgs,
   LotFormingConflict,
   LeadBatchView,
+  SessionReadBatchArgs,
 }
 
 export type EvidenceRegionDto = Static<typeof EvidenceRegion>

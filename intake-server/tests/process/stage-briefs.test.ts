@@ -11,8 +11,122 @@ import { processingFixture } from '../support/processing.ts'
 import { seedPhoto } from '../support/sessions.ts'
 import { decodeSessionInput } from '#/processing/session-input.ts'
 
+type Fixture = Awaited<ReturnType<typeof processingFixture>>
+
 /** Ready long enough ago that the worker's Examine sweep doesn't wait out its quiet period. */
 const READY_SECONDS_AGO = 60
+/** How long a worker may take to reach a state the test waits for. */
+const WAIT_MS = 90_000
+
+/** A photo whose note scripts what the synthetic lead sees in it. */
+async function notedPhoto(fixture: Fixture, batchId: string, label: string, note: string) {
+  const photo = await seedPhoto(
+    fixture,
+    batchId,
+    { width: 768, height: 512 },
+    label,
+    READY_SECONDS_AGO,
+  )
+  await fixture.db.pool.query(
+    'INSERT INTO media_evidence_note(id,batch_id,evidence_id,revision,text,actor_id) VALUES($1,$2,$3,1,$4,$5)',
+    [randomUUID(), batchId, photo.evidence, note, fixture.identity.actor],
+  )
+}
+
+/** A session worker child for the fixture's actor; `stop` sends SIGTERM and waits for its exit. */
+async function startWorker(fixture: Fixture, stageInputs: boolean) {
+  const root = await mkdtemp(join(tmpdir(), 'stage-briefs-process-'))
+  const stateRoot = join(root, 'state')
+  await mkdir(stateRoot, { mode: 0o700 })
+  const worker = spawn(
+    process.execPath,
+    [
+      '--import',
+      'tsx',
+      fileURLToPath(new URL('../../src/agents/session/session-worker-main.ts', import.meta.url)),
+    ],
+    {
+      cwd: fileURLToPath(new URL('../../', import.meta.url)),
+      env: {
+        PATH: process.env.PATH,
+        HOME: root,
+        USER: process.env.USER,
+        INTAKE_AGENT_DATABASE_URL: fixture.runner.url,
+        INTAKE_AGENT_WRITER_DATABASE_URL: fixture.writer.url,
+        INTAKE_AGENT_SCHEDULER_DATABASE_URL: fixture.scheduler.url,
+        INTAKE_AGENT_STATE_ROOT: stateRoot,
+        INTAKE_ACTOR_ID: fixture.config.actorId,
+        INTAKE_TARGET_ID: fixture.config.targetId,
+        INTAKE_TARGET_CONTEXT_ID: fixture.config.targetContextId,
+        INTAKE_PROCESSING_CHANNEL_SECRET: fixture.config.channelSecret,
+        INTAKE_PROCESSING_PROFILE: 'synthetic-session/1',
+        ...(stageInputs ? { INTAKE_TEST_STAGE_INPUTS: 'local' } : {}),
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  )
+  let output = ''
+  worker.stdout.on('data', (bytes: Buffer) => (output += bytes.toString()))
+  worker.stderr.on('data', (bytes: Buffer) => (output += bytes.toString()))
+  const exited = new Promise<number | null>((resolve) => worker.once('exit', resolve))
+
+  const until = async <T>(read: () => Promise<T>, done: (value: T) => boolean, label: string) => {
+    const deadline = Date.now() + WAIT_MS
+    let value = await read()
+    while (!done(value) && Date.now() < deadline && worker.exitCode === null) {
+      await delay(250)
+      value = await read()
+    }
+    assert.ok(done(value), `${label}: ${JSON.stringify(value)}\n${output}`)
+    return value
+  }
+
+  const stop = async () => {
+    if (worker.exitCode === null) {
+      worker.kill('SIGTERM')
+      await exited
+    }
+  }
+
+  return { until, stop }
+}
+
+/** Each Research and Images job of a lot, by its label, with its sealed input version. */
+async function successors(fixture: Fixture, batchId: string, label: string) {
+  const rows = await fixture.db.pool.query<{
+    stage: string
+    session_state: string
+    attempt_id: string
+    input_bytes: Buffer
+    input_digest: Buffer
+  }>(
+    `SELECT j.stage,s.session_state,a.id AS attempt_id,i.manifest_bytes AS input_bytes,
+       i.manifest_digest AS input_digest
+     FROM processing_job j JOIN capture_subject c ON c.id=j.subject_id
+     JOIN processing_attempt a ON a.id=j.current_attempt_id
+     JOIN processing_input i ON i.id=a.input_id
+     JOIN agent_session s ON s.attempt_id=a.id
+     WHERE j.batch_id=$1 AND c.label=$2 AND j.stage IN ('research','images') ORDER BY j.stage`,
+    [batchId, label],
+  )
+  return rows.rows.map((row) => ({
+    stage: row.stage,
+    sessionState: row.session_state,
+    attemptId: row.attempt_id,
+    version: decodeSessionInput(row.input_bytes, row.input_digest).schema_version,
+  }))
+}
+
+async function leadVersion(fixture: Fixture, batchId: string) {
+  const lead = await fixture.db.pool.query<{ manifest_bytes: Buffer; manifest_digest: Buffer }>(
+    `SELECT i.manifest_bytes,i.manifest_digest FROM processing_job j
+     JOIN processing_attempt a ON a.id=j.current_attempt_id
+     JOIN processing_input i ON i.id=a.input_id WHERE j.batch_id=$1 AND j.stage='examine'`,
+    [batchId],
+  )
+  const row = lead.rows[0]
+  return row ? decodeSessionInput(row.manifest_bytes, row.manifest_digest).schema_version : null
+}
 
 test(
   'under the switch a worker’s fake sessions start from sealed briefs and read them',
@@ -24,120 +138,76 @@ test(
     fixture.config.stageInputs = 'local'
     const capture = await fixture.seedCapture()
     const batchId = capture.batch.id
-    const photo = await seedPhoto(
-      fixture,
-      batchId,
-      { width: 768, height: 512 },
-      'Tray',
-      READY_SECONDS_AGO,
-    )
-    await fixture.db.pool.query(
-      'INSERT INTO media_evidence_note(id,batch_id,evidence_id,revision,text,actor_id) VALUES($1,$2,$3,1,$4,$5)',
-      [randomUUID(), batchId, photo.evidence, '16 MHz crystal', fixture.identity.actor],
-    )
-    const root = await mkdtemp(join(tmpdir(), 'stage-briefs-process-'))
-    const stateRoot = join(root, 'state')
-    await mkdir(stateRoot, { mode: 0o700 })
-    const worker = spawn(
-      process.execPath,
-      [
-        '--import',
-        'tsx',
-        fileURLToPath(new URL('../../src/agents/session/session-worker-main.ts', import.meta.url)),
-      ],
-      {
-        cwd: fileURLToPath(new URL('../../', import.meta.url)),
-        env: {
-          PATH: process.env.PATH,
-          HOME: root,
-          USER: process.env.USER,
-          INTAKE_AGENT_DATABASE_URL: fixture.runner.url,
-          INTAKE_AGENT_WRITER_DATABASE_URL: fixture.writer.url,
-          INTAKE_AGENT_SCHEDULER_DATABASE_URL: fixture.scheduler.url,
-          INTAKE_AGENT_STATE_ROOT: stateRoot,
-          INTAKE_ACTOR_ID: fixture.config.actorId,
-          INTAKE_TARGET_ID: fixture.config.targetId,
-          INTAKE_TARGET_CONTEXT_ID: fixture.config.targetContextId,
-          INTAKE_PROCESSING_CHANNEL_SECRET: fixture.config.channelSecret,
-          INTAKE_PROCESSING_PROFILE: 'synthetic-session/1',
-          INTAKE_TEST_STAGE_INPUTS: 'local',
-        },
-        stdio: ['ignore', 'pipe', 'pipe'],
-      },
-    )
-    let output = ''
-    worker.stdout.on('data', (bytes: Buffer) => (output += bytes.toString()))
-    worker.stderr.on('data', (bytes: Buffer) => (output += bytes.toString()))
-    const exited = new Promise<number | null>((resolve) => worker.once('exit', resolve))
-    t.after(async () => {
-      if (worker.exitCode === null) {
-        worker.kill('SIGTERM')
-        await exited
-      }
-    })
-    const until = async <T>(read: () => Promise<T>, done: (value: T) => boolean, label: string) => {
-      const deadline = Date.now() + 90000
-      let value = await read()
-      while (!done(value) && Date.now() < deadline && worker.exitCode === null) {
-        await delay(250)
-        value = await read()
-      }
-      assert.ok(done(value), `${label}: ${JSON.stringify(value)}\n${output}`)
-      return value
-    }
+    await notedPhoto(fixture, batchId, 'Tray', '16 MHz crystal')
+    const worker = await startWorker(fixture, true)
+    t.after(() => worker.stop())
 
-    const research = async () =>
-      (
-        await fixture.db.pool.query<{
-          attempt_id: string
-          session_state: string
-          input_bytes: Buffer
-          input_digest: Buffer
-        }>(
-          `SELECT a.id AS attempt_id,s.session_state,i.manifest_bytes AS input_bytes,
-             i.manifest_digest AS input_digest
-           FROM processing_job j JOIN processing_attempt a ON a.id=j.current_attempt_id
-           JOIN processing_input i ON i.id=a.input_id
-           JOIN agent_session s ON s.attempt_id=a.id
-           WHERE j.batch_id=$1 AND j.stage='research' AND j.subject_id IS NOT NULL
-             AND j.subject_id NOT IN ($2,$3)`,
-          [batchId, capture.packetA.id, capture.packetB.id],
-        )
-      ).rows[0]
     // The worker's sweep starts a `/7` lead, which forms the lot and queues its successors.
-    const waiting = await until(
-      research,
-      (row) => row?.session_state === 'waiting_input',
+    const rows = await worker.until(
+      () => successors(fixture, batchId, '16 mhz crystal'),
+      (found) => found[1]?.sessionState === 'waiting_input',
       'the lot’s Research session reads its brief and asks',
     )
-    const lead = await fixture.db.pool.query<{ manifest_bytes: Buffer; manifest_digest: Buffer }>(
-      `SELECT i.manifest_bytes,i.manifest_digest FROM processing_job j
-       JOIN processing_attempt a ON a.id=j.current_attempt_id
-       JOIN processing_input i ON i.id=a.input_id WHERE j.batch_id=$1 AND j.stage='examine'`,
-      [batchId],
-    )
-    assert.equal(
-      decodeSessionInput(lead.rows[0].manifest_bytes, lead.rows[0].manifest_digest).schema_version,
-      'bench-intake-input/7',
-    )
-    const sealed = decodeSessionInput(waiting.input_bytes, waiting.input_digest)
-    assert.equal(sealed.schema_version, 'bench-intake-input/7')
+    const research = rows[1]
+    assert.equal(research.stage, 'research')
+    assert.equal(await leadVersion(fixture, batchId), 'bench-intake-input/7')
+    assert.equal(research.version, 'bench-intake-input/7')
 
     const status = await fixture.db.pool.query<{ text: string }>(
       `SELECT payload->>'text' AS text FROM agent_session_outbox
        WHERE session_id=$1 AND kind='status' ORDER BY seq LIMIT 1`,
-      [waiting.attempt_id],
+      [research.attemptId],
     )
     assert.match(status.rows[0].text, /^Read the brief at revision \d+: \d+ entries$/)
     const kept = await fixture.db.pool.query(
       'SELECT 1 FROM processing_brief_view WHERE attempt_id=$1',
-      [waiting.attempt_id],
+      [research.attemptId],
     )
     assert.equal(kept.rowCount, 1)
-    const asked = await fixture.db.pool.query<{ kind: string }>(
-      "SELECT kind FROM agent_session_outbox WHERE session_id=$1 AND kind='question'",
-      [waiting.attempt_id],
+    const asked = await fixture.db.pool.query(
+      "SELECT 1 FROM agent_session_outbox WHERE session_id=$1 AND kind='question'",
+      [research.attemptId],
     )
     assert.equal(asked.rowCount, 1)
+  },
+)
+
+test(
+  'a retained /6 lead keeps queueing /6 successors after its worker restarts with the switch on',
+  { timeout: 240000 },
+  async (t) => {
+    const fixture = await processingFixture({ profileId: 'synthetic-session/1' })
+    t.after(() => fixture.dispose())
+    const capture = await fixture.seedCapture()
+    const batchId = capture.batch.id
+    await notedPhoto(fixture, batchId, 'Tray', '16 MHz crystal')
+    const before = await startWorker(fixture, false)
+    t.after(() => before.stop())
+    await before.until(
+      () => successors(fixture, batchId, '16 mhz crystal'),
+      (found) => found.length === 2 && found.every((row) => row.sessionState === 'waiting_input'),
+      'the `/6` lead’s successors run and wait for their answers',
+    )
+    assert.equal(await leadVersion(fixture, batchId), 'bench-intake-input/6')
+    await before.stop()
+
+    // The worker comes back with the switch on, and new evidence reaches the retained lead.
+    fixture.config.stageInputs = 'local'
+    await notedPhoto(fixture, batchId, 'Bag', '10k resistor')
+    const after = await startWorker(fixture, true)
+    t.after(() => after.stop())
+    const queued = await after.until(
+      () => successors(fixture, batchId, '10k resistor'),
+      (found) => found.length === 2,
+      'the retained lead queues the new lot’s successors',
+    )
+    assert.equal(await leadVersion(fixture, batchId), 'bench-intake-input/6')
+    assert.deepEqual(
+      queued.map((row) => [row.stage, row.version]),
+      [
+        ['images', 'bench-intake-input/6'],
+        ['research', 'bench-intake-input/6'],
+      ],
+    )
   },
 )

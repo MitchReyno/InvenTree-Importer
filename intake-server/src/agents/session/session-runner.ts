@@ -375,41 +375,25 @@ const INBOX_GUIDANCE =
 const CATALOGUE_GUIDANCE =
   'Put catalogue values in the proposal’s catalogue block, each with its sources, and with source_kind and agreement when you know them: an existing category, parameter, manufacturer or supplier as the observed reference, or a proposed_new name with a reason when none exists. Only existing references can enter a Part spec; the rest are kept for the operator. When sources disagree on a parameter, give the value you used, the others as alternatives with their sources, and chosen_because. List the category’s mapped templates you found no value for in required_missing, each with why. For an existing category, give the reason you chose it and any alternative you considered; name the nearest existing Part you chose not to reuse in not_reused, with why.'
 const BRIEF_GUIDANCE =
-  'Your brief is in brief: the batch, the human-provided facts (source "human"; weigh them first), the questions already asked, the evidence you may fetch with the regions earlier stages read, and your stage’s sections. When brief.rest is set, read the rest with the tool and page_token it names; pass each page’s next_page_token for the next. Without arguments the tool returns the current brief and its revision; a page whose newer is set comes from an older brief.'
+  'Your brief is in brief: the batch, the human-provided facts (source "human"; weigh them first), the questions already asked, the evidence you may fetch with the regions earlier stages read, and your stage’s sections. When brief.rest is set, call the tool it names with its arguments, then pass each page’s next_page_token the same way for the next page; read_lot always takes your lot_id. Without page_token or revision the tool returns the current brief and its revision. A page whose newer is set comes from an older brief.'
 
 /** The opening of a `/7` session: its sealed brief within its budget, and where the rest is. */
 function stageOpeningText(manifest: ProcessingInputV7Dto, pending: number, attemptId: string) {
-  const brief = manifest.brief
-  const { shown, total, restPage } = openingBrief(brief)
   const tool = manifest.stage === 'examine' ? 'read_batch' : 'read_lot'
-  const rest =
-    restPage === null
-      ? null
-      : {
-          shown: shown.length,
-          total,
-          tool,
-          arguments: {
-            ...(manifest.subject_id ? { lot_id: manifest.subject_id } : {}),
-            page_token: pageToken({
-              attemptId,
-              view: 'sealed',
-              digest: brief.sha256,
-              page: restPage,
-            }),
-          },
-        }
+  const brief = openingBrief(manifest.brief, (page, shown, total) => ({
+    shown,
+    total,
+    tool,
+    arguments: {
+      ...(manifest.subject_id ? { lot_id: manifest.subject_id } : {}),
+      page_token: pageToken({ attemptId, view: 'sealed', digest: manifest.brief.sha256, page }),
+    },
+  }))
   return JSON.stringify({
     stage: manifest.stage,
     capture_revision: manifest.capture_revision,
     subject_id: manifest.subject_id,
-    brief: {
-      revision: brief.revision,
-      sha256: brief.sha256,
-      sections: brief.sections,
-      entries: shown,
-      rest,
-    },
+    brief,
     pending_inbox: pending,
     ...(manifest.part_description_style
       ? { part_description_style: manifest.part_description_style }

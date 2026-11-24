@@ -8,7 +8,6 @@ import {
   type SessionBriefDto,
 } from '@invimport/contracts'
 import { canonicalRecord, strictJson } from '@invimport/contracts/json'
-import { verifyBytes } from '#/db/authority.ts'
 import { fail, sealed, unseal } from './model.ts'
 
 /** Each page's entries stay within this, so a page fits any tool reply with room to spare. */
@@ -184,8 +183,7 @@ export async function keptCurrentView(
   if (!row) {
     return null
   }
-  verifyBytes(row.brief_bytes, row.brief_digest)
-  const value = unseal(row.brief_bytes, row.brief_digest)
+  const value = unseal(row.brief_bytes, row.brief_digest, BRIEF_VIEW_MAX_BYTES)
   validate('SessionBrief', value)
   return value as SessionBriefDto
 }
@@ -228,31 +226,50 @@ export function readPageToken(token: string): BriefPageCursor | null {
 }
 
 /**
- * The opening's part of a sealed brief: entries from its manifest pages, in order, while they fit
- * `BRIEF_OPENING_MAX_BYTES`, and the page holding the first entry left out, if any.
+ * The opening's part of a sealed brief: the most leading entries from its manifest pages whose
+ * rendered brief, with `rest` naming where the remainder is, fits `BRIEF_OPENING_MAX_BYTES`.
  */
-export function openingBrief(brief: SealedBriefDto) {
-  const shown: BriefEntryDto[] = []
-  let used = 0
-  let restPage: number | null = null
+export function openingBrief(
+  brief: SealedBriefDto,
+  rest: (page: number, shown: number, total: number) => unknown,
+) {
+  const inline: { entry: BriefEntryDto; page: number }[] = []
+  let firstStoredPage: number | null = null
   for (const page of brief.pages) {
-    if (restPage !== null) {
-      break
-    }
     if (!page.entries) {
-      restPage = page.index
+      firstStoredPage = page.index
       break
     }
     for (const entry of page.entries) {
-      const size = entryBytes(entry)
-      if (used + size > BRIEF_OPENING_MAX_BYTES) {
-        restPage = page.index
-        break
-      }
-      used += size
-      shown.push(entry)
+      inline.push({ entry, page: page.index })
     }
   }
   const total = brief.pages.reduce((sum, page) => sum + page.entry_count, 0)
-  return { shown, total, restPage }
+
+  const render = (count: number) => {
+    const restPage = count < inline.length ? inline[count].page : firstStoredPage
+    return {
+      revision: brief.revision,
+      sha256: brief.sha256,
+      sections: brief.sections,
+      entries: inline.slice(0, count).map((item) => item.entry),
+      rest: restPage === null ? null : rest(restPage, count, total),
+    }
+  }
+
+  const fits = (count: number) =>
+    Buffer.byteLength(JSON.stringify(render(count)), 'utf8') <= BRIEF_OPENING_MAX_BYTES
+
+  // The rendered size grows with the count, so the largest count that fits is found by halving.
+  let low = 0
+  let high = inline.length
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2)
+    if (fits(middle)) {
+      low = middle
+    } else {
+      high = middle - 1
+    }
+  }
+  return render(low)
 }

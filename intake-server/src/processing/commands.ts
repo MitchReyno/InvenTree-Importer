@@ -80,8 +80,12 @@ export async function startProcessing(
         // Session profiles queue Research and Images as independent per-lot sessions. Reading and
         // identifying become the Examine lead session, and Inventory waits for a stable identity.
         const sessions = config.profileId !== undefined && isSessionProfile(config.profileId)
-        // The batch follows its lead's sealed version, or the configuration's without a lead.
-        const inputVersion = sessions ? await batchInputVersion(client, config, batchId) : undefined
+        // The batch follows its lead's sealed version, or the configuration's without a lead. A
+        // profile without sessions can't run a `/7` lead's pipeline.
+        const inputVersion = await batchInputVersion(client, config, batchId)
+        if (!sessions && inputVersion === 'bench-intake-input/7') {
+          fail('unsupported_processing_profile', 422)
+        }
         const startStages =
           inputVersion === 'bench-intake-input/7' ? STAGE_INPUT_START_STAGES : SESSION_START_STAGES
         const stages = stageOrder.filter(
@@ -111,7 +115,7 @@ export async function startProcessing(
               dependencies,
               reservedMediaFor(media, subjectId),
               [],
-              { inputVersion },
+              { inputVersion: sessions ? inputVersion : undefined },
             )
             jobIds.push(attempt.jobId)
             attemptIds.push(attempt.attemptId)

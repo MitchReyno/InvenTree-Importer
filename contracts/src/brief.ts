@@ -7,6 +7,7 @@ import {
   EvidenceReadings,
   EvidenceRegion,
 } from './evidence-observations.ts'
+import { SessionProposal } from './processing.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
@@ -192,13 +193,12 @@ export const BriefLotEntry = object({
   suggested_observation_ids: Type.Array(Id, { maxItems: 1000 }),
 })
 
-/** Research: an identity the session was pinned to, by its proposal id. */
+/** Research: an identity the session was pinned to, by its id, with the proposal as published. */
 export const BriefIdentityEntry = object({
   kind: Type.Literal('identity'),
   proposal_id: Id,
-  summary: shortText,
-  fields: Type.Array(briefField, { maxItems: 5 }),
   stale: Type.Boolean(),
+  proposal: SessionProposal,
 })
 
 /** Images: another lot's item seen on the same evidence, to keep out of frame. */
@@ -306,8 +306,8 @@ const briefRead = {
 /** Research and Images under `/7`: read a lot of the session's brief. */
 export const SessionReadLotArgs = object({ lot_id: Id, ...briefRead })
 
-/** `read_batch`: `/7` Examine sessions may page their brief; earlier sessions take no arguments. */
-export const SessionReadBatchArgs = object({ ...briefRead })
+/** `read_batch` for a `/7` Examine lead, which pages its brief; earlier leads take no arguments. */
+export const SessionReadBriefBatchArgs = object({ ...briefRead })
 
 export const briefSchemas = {
   SessionBrief,
@@ -315,7 +315,7 @@ export const briefSchemas = {
   BriefPage,
   SessionBriefPage,
   SessionReadLotArgs,
-  SessionReadBatchArgs,
+  SessionReadBriefBatchArgs,
 }
 
 export type BriefStageDto = Static<typeof BriefStage>
@@ -326,4 +326,4 @@ export type SealedBriefDto = Static<typeof SealedBrief>
 export type BriefPageDto = Static<typeof BriefPage>
 export type SessionBriefPageDto = Static<typeof SessionBriefPage>
 export type SessionReadLotArgsDto = Static<typeof SessionReadLotArgs>
-export type SessionReadBatchArgsDto = Static<typeof SessionReadBatchArgs>
+export type SessionReadBriefBatchArgsDto = Static<typeof SessionReadBriefBatchArgs>

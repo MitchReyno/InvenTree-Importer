@@ -20,7 +20,7 @@ const TOOLS = {
   read_batch: {
     schema: 'SessionReadBatchArgs',
     description:
-      'Examine lead session only. Read the batch revision to pass as base_revision, with its lots, Parts and observations, including operator edits and suggestions. A session with a brief gets it in pages with full readings: pass a page_token to continue, or no arguments for the current brief.',
+      'Examine lead session only. Read the batch revision to pass as base_revision, with its lots, Parts and observations, including operator edits and suggestions.',
   },
   read_lot: {
     schema: 'SessionReadLotArgs',
@@ -70,6 +70,13 @@ const TOOLS = {
       'Read pending inbox items after a sequence. Passing a sequence acknowledges every item up to it.',
   },
 } as const satisfies Record<string, { schema: keyof typeof schemas; description: string }>
+
+/** A `/7` lead's read_batch pages its brief, so it has its own arguments. */
+const STAGE_READ_BATCH = {
+  schema: 'SessionReadBriefBatchArgs',
+  description:
+    'Examine lead session only. Read your brief one page at a time: the batch with its lots, Parts and observations with full readings, including operator edits and suggestions. Pass page_token to continue a sequence, revision for the brief you started from, or neither for the current brief. The returned revision is the brief’s; pass it as base_revision, and read the current brief again before writing when a page’s newer is set.',
+} as const satisfies { schema: keyof typeof schemas; description: string }
 
 const LEAD_ONLY = new Set(['read_batch', 'record_observation', 'propose_lot', 'regroup'])
 /** Tools only a `/7` Research or Images session has. */
@@ -169,9 +176,13 @@ export async function startSessionToolServer(options: SessionToolServerOptions) 
       if (!offered(name, principal)) {
         continue
       }
+      const definition =
+        name === 'read_batch' && principal.manifest.schema_version === 'bench-intake-input/7'
+          ? STAGE_READ_BATCH
+          : tool
       server.registerTool(
         name,
-        { description: tool.description, inputSchema: contractSchema(tool.schema) },
+        { description: definition.description, inputSchema: contractSchema(definition.schema) },
         async (args: unknown) => {
           try {
             return toolResult(await tools[name as keyof typeof TOOLS](token, args))

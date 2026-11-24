@@ -152,9 +152,12 @@ test('a brief read names a lot, and pages by a token or the sealed revision', ()
   validate('SessionReadLotArgs', { lot_id: id(4), revision: '12' })
   validate('SessionReadLotArgs', { lot_id: id(4), page_token: 'eyJhIjoxfQ' })
   validate('SessionReadBatchArgs', {})
+  validate('SessionReadBriefBatchArgs', { page_token: 'eyJhIjoxfQ' })
+  // An earlier lead's read_batch keeps taking no arguments.
+  assert.throws(() => validate('SessionReadBatchArgs', { page_token: 'eyJhIjoxfQ' }))
   assert.throws(() => validate('SessionReadLotArgs', {}))
   assert.throws(() => validate('SessionReadLotArgs', { lot_id: id(4), page_token: 'a b' }))
-  assert.throws(() => validate('SessionReadBatchArgs', { lot_id: id(4) }))
+  assert.throws(() => validate('SessionReadBriefBatchArgs', { lot_id: id(4) }))
   validate('SessionBriefPage', {
     view: 'current',
     stage: 'research',

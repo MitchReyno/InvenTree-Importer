@@ -16,7 +16,7 @@ import {
   type WebPageSourceDto,
   type ProcessingRelianceDto,
   type SessionAskArgsV2Dto,
-  type SessionReadBatchArgsDto,
+  type SessionReadBriefBatchArgsDto,
   type SessionReadLotArgsDto,
   type SessionToolErrorDto,
   type SessionToolResultDto,
@@ -705,6 +705,48 @@ async function refusalOutput(
       pending_inbox: pending,
       ...(error.issues ? { issues: error.issues } : {}),
     },
+  }
+}
+
+/** Whether a capability names a running `/7` session, which reads a brief. */
+async function hasBrief(context: SessionToolContext, token: string) {
+  const found = await resolveSessionCapability(context.pool, token)
+  return found?.manifest.schema_version === 'bench-intake-input/7'
+}
+
+/**
+ * A brief read in one repeatable-read snapshot, so a current view never mixes two revisions. It
+ * takes no row locks, which a repeatable-read transaction could fail on; it checks that the
+ * capability names a running session whose attempt is running and current, and changes nothing
+ * but the attempt's kept views.
+ */
+async function withBriefRead(
+  context: SessionToolContext,
+  token: string,
+  work: (client: PoolClient, principal: SessionPrincipal) => Promise<SessionToolOutput['result']>,
+): Promise<SessionToolOutput> {
+  try {
+    return await transaction(context.pool, async (client) => {
+      await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ')
+      const found =
+        (await resolveSessionCapability(client, token)) ??
+        refuse('capability_refused', 'This session capability is not valid.')
+      const current = await client.query(
+        `SELECT 1 FROM public.processing_job j
+         JOIN public.processing_attempt a ON a.id=j.current_attempt_id
+         WHERE a.id=$1 AND a.state='running'`,
+        [found.attemptId],
+      )
+      if (!current.rowCount) {
+        refuse('capability_refused', 'This session capability is not valid.')
+      }
+      return { result: await work(client, found) }
+    })
+  } catch (error) {
+    if (!(error instanceof ToolRefusal)) {
+      throw error
+    }
+    return refusalOutput(context, token, error)
   }
 }
 
@@ -1535,31 +1577,30 @@ export function sessionTools(context: SessionToolContext) {
   }
 
   return {
-    read_batch: (token: string, args: unknown) =>
-      withSession(context, token, { capture: false }, async (client, principal) => {
-        const input = validated<SessionReadBatchArgsDto>('SessionReadBatchArgs', args)
+    read_batch: async (token: string, args: unknown) => {
+      // A `/7` lead reads its brief, which carries the batch with full readings.
+      if (await hasBrief(context, token)) {
+        return withBriefRead(context, token, async (client, principal) => {
+          const input = validated<SessionReadBriefBatchArgsDto>('SessionReadBriefBatchArgs', args)
+          const stage = stagePrincipal(principal)
+          if (stage.manifest.stage !== 'examine') {
+            refuse('tool_not_allowed', 'Only the batch Examine lead session reads the whole batch.')
+          }
+          const brief = await readBriefPage(client, context.config, stage, input)
+          return ok(client, principal, { revision: brief.revision, brief })
+        })
+      }
+      return withSession(context, token, { capture: false }, async (client, principal) => {
+        validated('SessionReadBatchArgs', args)
         if ((principal.stage as string) !== 'examine') {
           refuse('tool_not_allowed', 'Only the batch Examine lead session reads the whole batch.')
         }
-        // A `/7` lead reads its brief, which carries the batch with full readings.
-        if (principal.manifest.schema_version === 'bench-intake-input/7') {
-          const brief = await readBriefPage(
-            client,
-            context.config,
-            stagePrincipal(principal),
-            input,
-          )
-          // The batch's current revision, which the lead passes as base_revision.
-          return ok(client, principal, { revision: brief.newer?.revision ?? brief.revision, brief })
-        }
-        if (input.revision !== undefined || input.page_token !== undefined) {
-          refuse('tool_not_allowed', 'Only stage sessions page a brief; call read_batch with {}.')
-        }
         return ok(client, principal, { batch: await leadBatchView(client, principal.batchId) })
-      }),
+      })
+    },
 
     read_lot: (token: string, args: unknown) =>
-      withSession(context, token, { capture: false }, async (client, principal) => {
+      withBriefRead(context, token, async (client, principal) => {
         const input = validated<SessionReadLotArgsDto>('SessionReadLotArgs', args)
         const stage = stagePrincipal(principal)
         if (stage.manifest.stage === 'examine') {
@@ -1571,7 +1612,7 @@ export function sessionTools(context: SessionToolContext) {
         }
         const { lot_id: _lotId, ...request } = input
         const brief = await readBriefPage(client, context.config, stage, request)
-        return ok(client, principal, { revision: brief.newer?.revision ?? brief.revision, brief })
+        return ok(client, principal, { revision: brief.revision, brief })
       }),
 
     record_observation: (token: string, args: unknown) =>

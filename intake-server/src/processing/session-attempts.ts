@@ -142,8 +142,9 @@ async function sealStageInput(
   profileId: SessionProfileId,
 ): Promise<SealedSessionInput> {
   const packs = stagePacks[profileId]
+  // The configured profile has no stage packs, so it can't run this batch's `/7` pipeline.
   if (!packs) {
-    fail('pipeline_version_unsupported', 409)
+    fail('unsupported_processing_profile', 422)
   }
   const scope = briefScope(base)
   const brief = await assembleBrief(client, snapshot, scope)

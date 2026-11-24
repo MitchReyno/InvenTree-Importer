@@ -16,7 +16,13 @@ import { issueSessionCapability } from '#/agents/tools/capability.ts'
 import { triggerExamine } from '#/processing/examine-trigger.ts'
 import { decodeSessionInput, briefScope } from '#/processing/session-input.ts'
 import { assembleBrief } from '#/processing/brief.ts'
-import { BRIEF_OPENING_MAX_BYTES, BRIEF_VIEWS_PER_ATTEMPT } from '#/processing/brief-pages.ts'
+import {
+  BRIEF_OPENING_MAX_BYTES,
+  BRIEF_VIEWS_PER_ATTEMPT,
+  briefDigest,
+  keepCurrentView,
+  keptCurrentView,
+} from '#/processing/brief-pages.ts'
 import { MAX_PROCESSING_SNAPSHOT_BYTES } from '#/processing/limits.ts'
 import { replaceSession } from '#/processing/session-replacement.ts'
 import {
@@ -156,6 +162,13 @@ async function withClients(
   }
 }
 
+/** Whether the session's read_batch accepts an argument, from the schema it is offered. */
+async function readBatchTakes(client: Client, argument: string) {
+  const tool = (await client.listTools()).tools.find((item) => item.name === 'read_batch')!
+  const properties = (tool.inputSchema as { properties?: Record<string, unknown> }).properties
+  return Object.hasOwn(properties ?? {}, argument)
+}
+
 async function successorOf(batch: Batch, label: string, stage: 'research' | 'images') {
   const lot = await batch.lot(label)
   const row = (await batch.successors(lot.id)).find((item) => item.stage === stage)!
@@ -199,10 +212,14 @@ test('under the switch the lead and its successors seal briefs with their stages
   const entries = inlineEntries(research)
   const [batchEntry] = ofKind(entries, 'batch')
   assert.equal(batchEntry.title, 'Synthetic manual processing')
+  const identities = ofKind(entries, 'identity')
   assert.deepEqual(
-    ofKind(entries, 'identity').map((entry) => entry.proposal_id),
+    identities.map((entry) => entry.proposal_id),
     research.pinned_proposal_ids,
   )
+  // Each identity carries the proposal as Examine published it, not only its id.
+  assert.equal(identities[0].proposal.summary, 'Identity from the label: led 0603 red.')
+  assert.deepEqual(identities[0].proposal.relies_on.fields, ['identity'])
   const [note] = ofKind(entries, 'note').filter((entry) => entry.text.includes('16 MHz'))
   assert.equal(note.source, 'human')
   const own = ofKind(entries, 'observation').map((entry) => entry.observation.id)
@@ -397,6 +414,7 @@ test('read_batch gives a /7 lead its brief with full readings; earlier leads kee
   await withClients(async (open) => {
     const lead = await open(stage.deps.toolUrl, await running(stage.fixture, stage.leadAttempt))
     assert.equal((await toolNames(lead)).includes('read_lot'), false)
+    assert.ok(await readBatchTakes(lead, 'page_token'))
     const read = await call(lead, 'read_batch', {})
     assert.equal(read.ok, true, JSON.stringify(read))
     assert.equal(read.brief!.view, 'current')
@@ -406,6 +424,12 @@ test('read_batch gives a /7 lead its brief with full readings; earlier leads kee
       ['16 MHz crystal'],
       ['LED 0603 red'],
     ])
+    // A page of an older brief gives its own revision as the base for writes, and says a newer
+    // one exists.
+    const sealed = stageInput((await sealedInput(stage.fixture, stage.leadAttempt)).manifest)
+    const old = await call(lead, 'read_batch', { revision: sealed.brief.revision })
+    assert.equal(old.revision, sealed.brief.revision)
+    assert.deepEqual(old.brief!.newer, { revision: read.revision })
 
     const legacyLead = await open(
       legacy.deps.toolUrl,
@@ -415,9 +439,11 @@ test('read_batch gives a /7 lead its brief with full readings; earlier leads kee
     assert.equal(view.ok, true)
     assert.equal(view.brief, undefined)
     assert.equal(view.batch!.revision, (await snapshotOf(legacy.fixture, legacy.batchId)).revision)
+    // An earlier lead keeps its read_batch as it was: no arguments.
+    assert.equal(await readBatchTakes(legacyLead, 'page_token'), false)
     assert.equal(
       (await call(legacyLead, 'read_batch', { page_token: 'abc' })).error,
-      'tool_not_allowed',
+      'validation_failed',
     )
     const { row } = await successorOf(legacy, 'led 0603 red', 'research')
     const legacyResearch = await open(
@@ -537,7 +563,9 @@ test('a large brief keeps the manifest under its cap, its opening within budget 
       rest: { tool: string; arguments: { lot_id: string; page_token: string } } | null
     }
   }
-  assert.ok(Buffer.byteLength(canonicalRecord(opening.brief.entries)) <= BRIEF_OPENING_MAX_BYTES)
+  // The rendered brief, with where the rest is, fits the budget, and holds as much as fits.
+  assert.ok(Buffer.byteLength(JSON.stringify(opening.brief)) <= BRIEF_OPENING_MAX_BYTES)
+  assert.ok(Buffer.byteLength(JSON.stringify(opening.brief)) > BRIEF_OPENING_MAX_BYTES - 20000)
   assert.equal(opening.brief.rest!.tool, 'read_lot')
   await withClients(async (open) => {
     const session = await open(batch.deps.toolUrl, await running(fixture, attemptId))
@@ -843,4 +871,36 @@ test('the brief is the same for an unchanged batch, and its entries stay within 
     offset += section.count
   }
   assert.equal(offset, first.entries.length)
+})
+
+test('a kept current view larger than the default JSON bound reads back', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture } = batch
+  const { row } = await successorOf(batch, 'led 0603 red', 'research')
+  const manifest = stageInput((await sealedInput(fixture, row.attempt_id)).manifest)
+  const base = await currentBrief(fixture, batch.batchId, manifest)
+  // About 400 KiB of notes: past the 256 KiB a retained document parses to by default.
+  const notes: BriefEntryDto[] = Array.from({ length: 50 }, (_, index) => ({
+    kind: 'note',
+    source: 'human',
+    note_id: `7c3e1d04-92ab-4f6e-b81d-${index.toString(16).padStart(12, '0')}`,
+    subject_id: null,
+    text: 'n'.repeat(8000),
+    text_sha256: 'a'.repeat(64),
+    actor_id: fixture.identity.actor,
+    created_at: '2026-11-25T00:00:00.000Z',
+  }))
+  const large = {
+    ...base,
+    sections: base.sections.map((section) =>
+      section.name === 'human' ? { ...section, count: section.count + notes.length } : section,
+    ),
+    entries: [...base.entries.slice(0, 1), ...notes, ...base.entries.slice(1)],
+  }
+  assert.ok(Buffer.byteLength(canonicalRecord(large)) > 256 * 1024)
+  const read = await transaction(fixture.runner.pool, async (client) => {
+    assert.equal(await keepCurrentView(client, row.attempt_id, large), true)
+    return keptCurrentView(client, row.attempt_id, briefDigest(large))
+  })
+  assert.equal(canonicalRecord(read), canonicalRecord(large))
 })

@@ -82,8 +82,7 @@ interface StoredCorrection {
 
 interface StoredIdentity {
   proposalId: string
-  summary: string
-  fields: ProcessingFieldDto[]
+  proposal: SessionProposalDto
   stale: boolean
 }
 
@@ -269,7 +268,7 @@ async function readLabels(client: PoolClient, batchId: string, evidenceIds: read
   return new Map(rows.rows.map((row) => [row.id, row.label]))
 }
 
-/** The identity proposals a session was pinned to, with whether each has gone stale. */
+/** The identity proposals a session was pinned to, as published, with whether each went stale. */
 async function readIdentities(client: PoolClient, proposalIds: readonly string[]) {
   if (!proposalIds.length) {
     return []
@@ -288,13 +287,7 @@ async function readIdentities(client: PoolClient, proposalIds: readonly string[]
   return rows.rows.map((row): StoredIdentity => {
     const value = unseal(row.value_bytes, row.value_digest)
     validate('SessionProposal', value)
-    const proposal = value as SessionProposalDto
-    return {
-      proposalId: row.id,
-      summary: proposal.summary,
-      fields: [...proposal.relies_on.fields],
-      stale: row.stale,
-    }
+    return { proposalId: row.id, proposal: value as SessionProposalDto, stale: row.stale }
   })
 }
 
@@ -613,9 +606,8 @@ export function projectBrief(
     identity: facts.identities.map((identity) => ({
       kind: 'identity',
       proposal_id: identity.proposalId,
-      summary: identity.summary,
-      fields: identity.fields,
       stale: identity.stale,
+      proposal: identity.proposal,
     })),
     // The catalogue vocabulary arrives with the stage packs; empty until then.
     vocabulary: [],

@@ -39,6 +39,8 @@ import { sessionSchemas } from './sessions.ts'
 import { evidenceObservationSchemas } from './evidence-observations.ts'
 import { briefSchemas } from './brief.ts'
 export * from './brief.ts'
+import { stageInputSchemas } from './stage-input.ts'
+export * from './stage-input.ts'
 export * from './evidence-observations.ts'
 export * from './sessions.ts'
 export * from './live.ts'
@@ -203,6 +205,7 @@ export const schemas = {
   ...sessionFailureSchemas,
   ...evidenceObservationSchemas,
   ...briefSchemas,
+  ...stageInputSchemas,
 }
 export type BootstrapDto = Static<typeof Bootstrap>
 export type ApprovalDto = Static<typeof Approval>
