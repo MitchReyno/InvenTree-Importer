@@ -95,7 +95,7 @@ const agents = {
   pauseAll: async (paused: boolean) => ({ paused, batch_ids: [] }),
   deliverInstructions: async () => ({ sessions: 0 }),
   providerStatus: async () => {
-    await new Promise((resolve) => setTimeout(resolve, 400))
+    await new Promise((resolve) => setTimeout(resolve, 150))
     return fakeProviderStatus()
   },
 } as unknown as ReturnType<typeof agentsClient>

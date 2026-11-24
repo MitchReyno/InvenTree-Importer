@@ -11,7 +11,7 @@ export type ProviderState = ClaudeProviderStatusDto['state'] | CodexProviderStat
 /** What a provider card's pill says: only what the agent VM can report. */
 export type ProviderPill = { word: string; tone: PillTone; glyph: string }
 
-const CHECKING: ProviderPill = { word: 'Checking…', tone: 'outline', glyph: '…' }
+const CHECKING: ProviderPill = { word: 'Checking…', tone: 'outline', glyph: '⟳' }
 
 const STATE_PILL: Record<Exclude<ProviderState, 'unknown'>, ProviderPill> = {
   saved: { word: 'Token saved', tone: 'ok', glyph: '✓' },
