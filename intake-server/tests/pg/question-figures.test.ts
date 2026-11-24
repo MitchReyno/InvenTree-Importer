@@ -1327,7 +1327,6 @@ test('an upload decode waiting on the dispatcher runs right after the render hol
 test('a render consumer whose subscription is refused or loses its connection fails and discards it', async () => {
   for (const failure of ['refused', 'lost'] as const) {
     await withFigureSession(async (setup) => {
-      const { fixture } = setup
       const releases: (Error | boolean | undefined)[] = []
       let releaseReal: ((error?: Error | boolean) => void) | undefined
       const failing = new Proxy(setup.media.pool, {
@@ -1341,15 +1340,14 @@ test('a render consumer whose subscription is refused or loses its connection fa
                 releases.push(error)
                 release(error)
               }
-              const query = client.query.bind(client) as (...args: unknown[]) => Promise<unknown>
-              ;(client as { query: unknown }).query = async (...args: unknown[]) => {
+              ;(client as { query: unknown }).query = async () => {
                 if (failure === 'refused') {
                   throw new Error('listen_refused')
                 }
-                // The listening connection's backend goes away while it subscribes.
-                const pid = (client as unknown as { processID: number }).processID
-                await fixture.db.pool.query('SELECT pg_terminate_backend($1)', [pid])
-                return query(...args)
+                // As pg reports a lost socket: an `error` event on the client, then the query fails.
+                setImmediate(() => client.emit('error', new Error('connection_lost')))
+                await new Promise((resolve) => setTimeout(resolve, 20))
+                throw new Error('Connection terminated unexpectedly')
               }
               return client
             }
@@ -1367,7 +1365,7 @@ test('a render consumer whose subscription is refused or loses its connection fa
             render: fakeRenderer(),
             signal: new AbortController().signal,
           }),
-          failure === 'refused' ? /listen_refused/ : Error,
+          failure === 'refused' ? /listen_refused/ : /connection_lost/,
         )
         // Still running here: a lost connection reached the consumer, not the process.
         assert.deepEqual(releases, [true], failure)
