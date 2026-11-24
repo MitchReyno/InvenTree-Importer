@@ -32,7 +32,9 @@ export async function stageEvidence(
   const result = reply?.result
   const metadata = result?.structuredContent
   const images = result?.content?.filter((item: { type: string }) => item.type === 'image')
-  if (!images?.length) return body
+  if (!images?.length) {
+    return body
+  }
   if (images.length !== 1 || reply?.id !== id || result?.isError || metadata?.ok !== true) {
     throw new Error('invalid_evidence_file')
   }

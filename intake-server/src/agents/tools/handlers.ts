@@ -59,8 +59,12 @@ import { removedVersionIds, versionRemovedSql } from '#/media/removal.ts'
 export const SESSION_IMAGE_BUDGET_BYTES = 8 * 1024 * 1024
 
 export function evidenceImageMode(value: string | undefined) {
-  if (value === undefined || value === '' || value === 'preview') return 'preview'
-  if (value === 'original') return 'original'
+  if (value === undefined || value === '' || value === 'preview') {
+    return 'preview'
+  }
+  if (value === 'original') {
+    return 'original'
+  }
   throw new Error('invalid_vm_evidence_image')
 }
 

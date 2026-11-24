@@ -1,17 +1,11 @@
-import { evidenceRequest } from './evidence-request.ts'
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
-import { finished } from 'node:stream/promises'
-import { once } from 'node:events'
-import { mkdtemp, rm, stat } from 'node:fs/promises'
-import { randomBytes } from 'node:crypto'
+import { stat } from 'node:fs/promises'
 import { NativeSessionError } from '#/agents/failure-model.ts'
 import { nativeAgentHost } from '#/agents/environment.ts'
 import { nativeDriver, type SessionDriverContext } from '#/agents/session/session-runner.ts'
 import type { SessionTurn } from '#/agents/session/session-adapters.ts'
 import { readClaudeToken } from './claude-credential.ts'
-import { stageEvidence, type EvidenceDelivery } from './stage-evidence.ts'
-import { readBounded } from './frames.ts'
-import { settled } from '#/events/settled.ts'
+import { startMcpProxy } from './mcp-proxy.ts'
+import type { EvidenceDelivery } from './stage-evidence.ts'
 
 /** Only the current provider's loopback MCP endpoint is exposed inside the guest. */
 export async function nativeTurn(
@@ -49,73 +43,8 @@ export async function nativeTurn(
       throw new NativeSessionError('agent_login_required')
     }
   }
-  const capability = randomBytes(32).toString('hex')
-  let evidenceDir: Promise<string> | undefined
-  let pendingMcp = Promise.resolve()
-  const proxy = createServer(
-    settled(
-      async (req: IncomingMessage, res: ServerResponse) => {
-        try {
-          if (
-            req.url !== '/mcp' ||
-            req.method !== 'POST' ||
-            req.headers.authorization !== 'Bearer ' + capability
-          ) {
-            res.writeHead(403).end()
-            return
-          }
-          const body = await readBounded(req)
-          const deliver = async () => {
-            const reply = await request({ mcp: body })
-            if (typeof reply.body !== 'string' || typeof reply.status !== 'number') {
-              throw new Error('invalid_reply')
-            }
-            const evidence = guestTools && reply.status === 200 && evidenceRequest(body)
-            let responseBody = reply.body
-            if (evidence) {
-              responseBody = await stageEvidence(
-                evidence.id,
-                reply.body,
-                () => (evidenceDir ??= mkdtemp('/tmp/bench-evidence-')),
-                delivery,
-                reply.evidenceFormat ?? null,
-              )
-              if (responseBody !== reply.body && typeof reply.releaseId !== 'string') {
-                throw new Error('invalid_evidence_release')
-              }
-            }
-            const written = finished(res, { readable: false, cleanup: true })
-            res.writeHead(reply.status, { 'content-type': 'application/json' }).end(responseBody)
-            await written
-            if (evidence && responseBody !== reply.body) {
-              const ack = await request({ releaseId: reply.releaseId })
-              if (ack.ok !== true) {
-                throw new Error('evidence_release_unconfirmed')
-              }
-            }
-          }
-          const operation = pendingMcp.then(deliver)
-          pendingMcp = operation.catch(() => {})
-          await operation
-        } catch {
-          if (!res.headersSent && !res.destroyed) {
-            res.writeHead(502).end()
-          } else {
-            res.destroy()
-          }
-        }
-      },
-      // A failure the handler did not catch ends this request, not the proxy.
-      (_error, _req, res) => res.destroy(),
-    ),
-  )
-  proxy.listen(0, '127.0.0.1')
-  await once(proxy, 'listening')
+  const proxy = await startMcpProxy(request, guestTools, delivery)
   try {
-    const address = proxy.address()
-    if (!address || typeof address === 'string') {
-      throw new Error('missing_address')
-    }
     const host = nativeAgentHost({
       ...process.env,
       INTAKE_AGENT_STATE_ROOT: '/home/node/sessions/provider',
@@ -126,8 +55,8 @@ export async function nativeTurn(
     await nativeDriver(host, selection)(
       {
         ...opening,
-        capability,
-        toolUrl: 'http://127.0.0.1:' + address.port + '/mcp',
+        capability: proxy.capability,
+        toolUrl: proxy.toolUrl,
         nextDelivery: async () => {
           const reply = await request({ nextDelivery: true })
           return typeof reply.text === 'string' && typeof reply.seq === 'string'
@@ -148,10 +77,6 @@ export async function nativeTurn(
     )
     await request({ progress: true, version, delivered: delivered?.toString() })
   } finally {
-    proxy.closeAllConnections()
-    proxy.close()
-    if (evidenceDir) {
-      await rm(await evidenceDir, { recursive: true, force: true })
-    }
+    await proxy.close()
   }
 }
