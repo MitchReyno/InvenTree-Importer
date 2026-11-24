@@ -129,7 +129,9 @@ export function DrawerAnswers(props: Props) {
       next.focus()
       return
     }
-    heading?.focus()
+    // With no open question left, the drawer's Answered group, else its title.
+    const answeredHeading = dialog?.querySelector<HTMLElement>('[data-answered-heading]')
+    ;(answeredHeading ?? heading)?.focus()
   })
 
   async function answerAndMoveOn(questionId: string, input: ProcessingAnswerDto, key: string) {
@@ -143,7 +145,7 @@ export function DrawerAnswers(props: Props) {
     const blocked = otherAnswerDirty(id)
 
     return (
-      <div key={`${id}:${pin.revision}`}>
+      <div key={`${id}:${pin.revision}`} data-question-form={id}>
         <QuestionAnswer
           label={`Session question: ${questionView(question).title}`}
           question={question}

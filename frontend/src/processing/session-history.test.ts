@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   appendOlderPage,
-  chatMessages,
+  railMarks,
   citedSources,
   conversation,
   drawerItems,
@@ -133,7 +133,7 @@ describe('the drawer', () => {
     expect(items[0].kind === 'group' && items[0].entries).toHaveLength(3)
   })
 
-  it('folds a run of photo views and web reads into one line, and leaves chat to the chat', () => {
+  it('folds a run of photo views and web reads into one line, and keeps chat in its place', () => {
     const entries = [
       ...proposal(6, 6, {
         pages: ['https://a.example/1', 'https://b.example/2', 'https://c.example/3'],
@@ -147,10 +147,11 @@ describe('the drawer', () => {
 
     expect(items.map((item) => item.summary)).toEqual([
       'Proposed ATmega328P-AU',
+      'Check the PB datasheet',
       'Read 3 web pages · viewed 2 photos',
       'Proposed ATmega328P-AU',
     ])
-    expect(items[1].kind).toBe('elided')
+    expect(items[2].kind).toBe('elided')
   })
 
   it('says one photo or one page in the singular', () => {
@@ -271,12 +272,19 @@ describe('the session page', () => {
     ])
   })
 
-  it('takes chat bubbles from the operator’s messages and the agent’s replies', () => {
-    const messages = chatMessages([reply(2, 3, 'Yes'), chat(1, 2, 'Hello')])
-
-    expect(messages).toEqual([
-      { id: 'inbox:1', who: 'You', mine: true, text: 'Hello' },
-      { id: `outbox:${H.attempt}:2`, who: 'Agent', mine: false, text: 'Yes' },
+  it('marks the rail: dots on actions, solid between them, dashed across bubbles, now last', () => {
+    const items = drawerItems([
+      status(3, 4, 'Later'),
+      chat(1, 3, 'Hello'),
+      status(2, 2, 'B'),
+      status(1, 1, 'A'),
     ])
+    expect(railMarks(items, true)).toEqual([
+      { action: true, line: 'solid', now: false },
+      { action: true, line: 'dashed', now: false },
+      { action: false, line: 'dashed', now: false },
+      { action: true, line: null, now: true },
+    ])
+    expect(railMarks(items, false).some((mark) => mark.now)).toBe(false)
   })
 })

@@ -69,3 +69,22 @@ export function BackIcon(props: IconProps) {
     </svg>
   )
 }
+
+/** A clock face: something waits, such as an answer the agent hasn't read yet. */
+export function ClockIcon(props: IconProps) {
+  return (
+    <svg {...outline} strokeWidth={2.4} {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  )
+}
+
+/** A tick: something done, such as an answer the agent has read. */
+export function CheckIcon(props: IconProps) {
+  return (
+    <svg {...outline} strokeWidth={3} {...props}>
+      <path d="M5 12l5 5 9-10" />
+    </svg>
+  )
+}

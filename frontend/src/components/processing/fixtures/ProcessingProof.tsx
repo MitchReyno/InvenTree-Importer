@@ -4,8 +4,13 @@ import type {
   SessionFailureDto,
   AgentSessionDto,
   CaptureSnapshotDto,
+  ProcessingAnswerDto,
+  ProcessingQuestionDto,
   ProcessingSnapshotDto,
+  SessionHistoryEntryDto,
 } from '@invimport/contracts'
+import { useState } from 'react'
+import { createAnswerOutcomes, sentAnswerValues } from '#/processing/answer-outcomes'
 import { GlobalStyle } from '#/components/GlobalStyle'
 import { Masthead } from '#/components/masthead/Masthead'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
@@ -95,7 +100,68 @@ const question = (n: number, subject: string, prompt: string, assumption?: strin
 /** Questions answered in this fixture; an answer is accepted and the next read shows it. */
 const answered = new Set<string>()
 
+/** How long the fixture's lead session takes to read an answer from its inbox. */
+const READ_AFTER_MS = 8000
+
+/** Each answer given here, with when the lead session read it. */
+const given = new Map<string, { input: ProcessingAnswerDto; at: string; readAt?: string }>()
+
 const askedState = (questionId: string) => (answered.has(questionId) ? 'answered' : 'open')
+
+/** The read's answer summary for a question answered in this fixture. */
+function answerSummary(question: ProcessingQuestionDto) {
+  const answer = given.get(question.id)
+  if (!answer) {
+    return {}
+  }
+  return {
+    revision: '2',
+    answer: {
+      answer_id: id(95),
+      answered_at: answer.at,
+      values: sentAnswerValues(question, answer.input),
+      effects: [{ kind: 'note', subject_id: question.subject_id }],
+      delivery: answer.readAt
+        ? { state: 'read', read_at: answer.readAt }
+        : { state: 'waiting', read_at: null },
+    },
+    session_history: true,
+  }
+}
+
+/** The answer as the lead session's history lists it, once given. */
+function examineAnswerEntry(): SessionHistoryEntryDto | undefined {
+  const question = steppedQuestion() as unknown as ProcessingQuestionDto
+  const answer = given.get(question.id)
+  if (!answer || answer.input.schema_version !== 'bench-intake-answer/2') {
+    return undefined
+  }
+  const steps = answer.input.steps
+  const summary = sentAnswerValues(question, answer.input)
+  return {
+    id: 'inbox:2',
+    at: answer.at,
+    who: 'operator',
+    read: answer.readAt !== undefined,
+    summary: `You answered: ${summary.map((value) => value.text).join(' · ')}`,
+    links: [{ kind: 'question', question_id: question.id, label: 'About the 10 kΩ packets' }],
+    details: {
+      kind: 'answer',
+      answer: {
+        question_id: question.id,
+        answer_id: id(95),
+        steps: steps.map((step, index) => ({
+          step_id: step.step_id,
+          value:
+            step.value.kind === 'choice' && 'option_id' in step.value
+              ? { ...step.value, label: summary[index]?.text ?? step.value.option_id }
+              : step.value,
+        })),
+      },
+      effects: [{ kind: 'note', subject_id: lot(1) }],
+    },
+  } as SessionHistoryEntryDto
+}
 
 /** The lead session's three related steps about two resistor packets. */
 const steppedQuestion = () => ({
@@ -106,6 +172,7 @@ const steppedQuestion = () => ({
   revision: '1',
   state: askedState(id(45)),
   subject_id: lot(1),
+  session_history: true,
   schema_version: 'bench-intake-question/2',
   fields: ['identity', 'quantity'],
   title: 'About the 10 kΩ packets',
@@ -231,7 +298,10 @@ const snapshot = (withSessions: boolean) =>
                 text: 'Checking whether packet A’s two photos show one bag',
                 at: '2026-11-06T09:05:00.000Z',
               },
-              questions: [steppedQuestion()],
+              questions: [steppedQuestion()].map((question) => ({
+                ...question,
+                ...answerSummary(question as unknown as ProcessingQuestionDto),
+              })),
             }),
             job(6, 'research', 'running', lot(2), {
               session_state: 'running',
@@ -481,10 +551,13 @@ export function ProcessingProof() {
       ? {
           step: linked.route.step,
           lot: lotFromQuery(linked.query),
+          session: new URLSearchParams(linked.query).get('session'),
           sessionPage: 'sessionJobId' in linked.route ? linked.route.sessionJobId : undefined,
+          questionId: 'questionId' in linked.route ? linked.route.questionId : undefined,
         }
       : null
   const page = processingLink?.step ?? view.replace('-fixture', '')
+  const [answerOutcomes] = useState(createAnswerOutcomes)
   const delivery = useInstructionDelivery(batch.id, async () => ({ sessions: 2, woken: 1 }))
   const client = {
     read: async () => {
@@ -502,8 +575,14 @@ export function ProcessingProof() {
       throw new Error('fixture commands are disabled')
     },
     // Answers are accepted in memory, so the stepped form can be shown end to end.
-    answer: async (_batch: string, questionId: string) => {
+    answer: async (_batch: string, questionId: string, input: ProcessingAnswerDto) => {
       answered.add(questionId)
+      const answer = { input, at: new Date().toISOString() }
+      given.set(questionId, answer)
+      // The lead reads its inbox a little later; the next poll shows the tick.
+      setTimeout(() => {
+        given.set(questionId, { ...answer, readAt: new Date().toISOString() })
+      }, READ_AFTER_MS)
       return {
         answer_id: id(95),
         question_id: questionId,
@@ -512,7 +591,7 @@ export function ProcessingProof() {
         command_id: id(96),
       }
     },
-    history: fixtureHistory({ batchId, id, lot }),
+    history: fixtureHistory({ batchId, id, lot }, examineAnswerEntry),
     chat: async () => {
       throw new Error('fixture commands are disabled')
     },
@@ -566,6 +645,9 @@ export function ProcessingProof() {
                   view={page as never}
                   focusLotId={processingLink?.lot}
                   sessionPageJobId={processingLink?.sessionPage}
+                  questionId={processingLink?.questionId}
+                  sessionId={processingLink?.session ?? null}
+                  answerOutcomes={answerOutcomes}
                   attention={sessions ? attention : undefined}
                   navigate={() => {}}
                   onDirtyChange={() => {}}

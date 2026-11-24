@@ -6,6 +6,7 @@ import { useServerScope } from '#/context'
 import type { EarlierAttempt } from '#/agents/session-list'
 import { EarlierAttempts } from '#/components/agents/EarlierAttempts'
 import type { ProcessingClient } from '#/processing/types'
+import { readNewestHistory } from '#/processing/useSessionHistory'
 
 type Props = {
   batchId: string
@@ -39,7 +40,7 @@ export function JobEarlierAttempts({ batchId, jobId, count, history }: Props) {
   // The drawer's newest page, so opening either reads the history once.
   const query = useQuery({
     queryKey: serverQueryKey(scope, 'processing', batchId, 'history', jobId, 'newest'),
-    queryFn: () => history(batchId, jobId),
+    queryFn: () => readNewestHistory(history, batchId, jobId),
     enabled: opened,
   })
   const attempts = query.data ? earlierFromHistory(query.data) : undefined

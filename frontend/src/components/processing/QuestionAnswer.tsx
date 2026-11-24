@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { ProcessingAnswerDto, ProcessingQuestionDto } from '@invimport/contracts'
+import { questionStanding } from '#/processing/question-standing'
 import { SingleAnswerForm } from './SingleAnswerForm'
 import { SteppedAnswerForm } from './SteppedAnswerForm'
 
@@ -16,6 +17,8 @@ interface Props {
   label?: string
   /** Why the answer can't be sent now, while another draft must be saved or discarded first. */
   blockedReason?: string
+  /** This form's own answer was confirmed, though no read may show it answered yet. */
+  answeredHere?: boolean
   onDirtyChange: (dirty: boolean) => void
   answer: (questionId: string, input: ProcessingAnswerDto, key: string) => Promise<void>
 }
@@ -34,6 +37,7 @@ export function QuestionAnswer({
   captureHref,
   label = 'Pinned application question',
   blockedReason,
+  answeredHere = false,
   onDirtyChange,
   answer,
 }: Props) {
@@ -45,17 +49,16 @@ export function QuestionAnswer({
   dirtyObserver.current = onDirtyChange
   useEffect(() => () => dirtyObserver.current(false), [])
 
-  const stale =
-    !currentQuestion ||
-    currentQuestion.id !== question.id ||
-    currentQuestion.state !== 'open' ||
-    currentQuestion.revision !== question.revision ||
-    currentQuestion.attempt_id !== question.attempt_id ||
-    currentQuestion.input_sha256 !== question.input_sha256 ||
-    currentCaptureRevision !== captureRevision
+  const standing = questionStanding({
+    pinned: question,
+    pinnedCaptureRevision: captureRevision,
+    current: currentQuestion,
+    currentCaptureRevision,
+    answeredHere,
+  })
   const shared = {
     captureRevision,
-    stale,
+    standing,
     disabled,
     readOnly,
     captureHref,

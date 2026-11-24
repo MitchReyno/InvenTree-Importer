@@ -209,6 +209,14 @@ test('one conversation in time order, with a divider for each attempt', async ()
     'data-mine',
     'false',
   )
+  // The same rail as the drawer: dots on the agent's actions, none on the bubbles.
+  const items = [...list.children] as HTMLElement[]
+  const bubble = within(list).getByText('Will do.').closest('li')!
+  expect(bubble.dataset.rail).toBeUndefined()
+  expect(items.find((row) => row.textContent?.includes('Comparing pin-outs'))?.dataset.rail).toBe(
+    'action',
+  )
+  expect(items.filter((row) => row.dataset.now)).toHaveLength(1)
 })
 
 test('filter chips narrow the conversation, and Load older adds the older page above', async () => {
@@ -232,6 +240,10 @@ test('filter chips narrow the conversation, and Load older adds the older page a
   await user.click(screen.getByRole('button', { name: /^Photos,/ }))
   expect(shown('Hello')).not.toBeVisible()
   expect(shown(/Prepared part of MCU close-up/)).toBeVisible()
+  // The rail follows the rows a filter shows: the visible photo view keeps its dot.
+  expect(shown(/Prepared part of MCU close-up/).closest('li')?.dataset.rail).toBe('action')
+  // A hidden row is not drawn, whatever display its row style sets.
+  expect(getComputedStyle(shown('Hello').closest('li')!).display).toBe('none')
   await user.click(screen.getByRole('button', { name: /^Web,/ }))
   expect(shown('Read ww1.microchip.com')).toBeVisible()
   expect(shown('Proposed ATmega328P-AU')).not.toBeVisible()
@@ -355,6 +367,93 @@ test('an open question is answered in place through the session question path', 
   await waitFor(() => expect(onSaved).toHaveBeenCalled())
 })
 
+test('the page folds answered questions into one Answered group, newest first, below the conversation', async () => {
+  const user = userEvent.setup()
+  const open = snapshot.jobs[0].questions[0]
+  if (!('steps' in open)) {
+    throw new Error('expected a /2 question')
+  }
+
+  const answeredAt = (minute: number) => `2026-11-24T02:${String(minute).padStart(2, '0')}:00.000Z`
+
+  const folded = (id: string, prompt: string, asked: string, at: string) => ({
+    ...open,
+    id,
+    state: 'answered' as const,
+    revision: '2',
+    asked_at: asked,
+    session_history: true,
+    steps: [{ ...open.steps[0], prompt }],
+    answer: {
+      answer_id: H.inboxItem,
+      answered_at: at,
+      values: [{ step_id: 'variant', prompt, text: 'ATmega328P-AU', truncated: false }],
+      effects: [],
+      delivery: { state: 'waiting' as const, read_at: null },
+    },
+  })
+
+  const read = structuredClone(snapshot)
+  // Asked first but answered last, so it leads the group.
+  read.jobs[0].questions.push(
+    folded('c1000000-0000-4000-8000-00000000000c', 'Older question', answeredAt(1), answeredAt(30)),
+    folded('c2000000-0000-4000-8000-00000000000c', 'Newer question', answeredAt(2), answeredAt(20)),
+  )
+  validate('ProcessingSnapshot', read)
+  const processing = client(history([asked]))
+  processing.read.mockResolvedValue(read)
+  mount(processing)
+  const group = await screen.findByRole('region', { name: 'Answered' })
+  const lines = [...group.querySelectorAll('summary')].map((line) => line.textContent)
+  expect(lines[0]).toContain('Older question')
+  expect(lines[1]).toContain('Newer question')
+  expect(
+    conversationOf().compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy()
+
+  // Answering the open one folds it too, and focus goes to the Answered heading.
+  const answeredNow = structuredClone(read)
+  answeredNow.jobs[0].questions[0] = folded(
+    H.question,
+    'Which ATmega328P variant is this?',
+    answeredAt(4),
+    answeredAt(40),
+  )
+  processing.read.mockResolvedValue(answeredNow)
+  const card = screen.getByRole('form', {
+    name: 'Session question: Which ATmega328P variant is this?',
+  })
+  await user.click(await within(card).findByRole('radio', { name: /ATmega328PB-AU/ }))
+  await user.click(within(card).getByRole('button', { name: /Send/ }))
+  await waitFor(() => expect(screen.getByRole('heading', { name: /^Answered/ })).toHaveFocus())
+  expect(screen.getByRole('region', { name: 'Answered' })).toHaveTextContent(
+    'Which ATmega328P variant is this?',
+  )
+})
+
+test('after answering on the page, a next question outside the loaded history gives way to the Answered heading', async () => {
+  const user = userEvent.setup()
+  const open = snapshot.jobs[0].questions[0]
+  const read = structuredClone(snapshot)
+  // An older open question the newest history page doesn't hold.
+  read.jobs[0].questions.push({ ...open, id: 'c3000000-0000-4000-8000-00000000000c' })
+  validate('ProcessingSnapshot', read)
+  const processing = client(history([asked]))
+  processing.read.mockResolvedValue(read)
+  mount(processing)
+  const card = await screen.findByRole('form', {
+    name: 'Session question: Which ATmega328P variant is this?',
+  })
+  const answered = structuredClone(read)
+  answered.jobs[0].questions[0] = { ...open, state: 'answered', revision: '2' }
+  processing.read.mockResolvedValue(answered)
+  await user.click(await within(card).findByRole('radio', { name: /ATmega328PB-AU/ }))
+  await user.click(within(card).getByRole('button', { name: /Send/ }))
+  await waitFor(() => expect(screen.getByRole('heading', { name: /^Answered/ })).toHaveFocus(), {
+    timeout: 5000,
+  })
+})
+
 test('answering waits for the page’s own Processing read, and stops while it fails or pauses', async () => {
   const user = userEvent.setup()
   const cache = createServerQueryClient()
@@ -468,7 +567,7 @@ test('observations from different photos stay apart on the page', async () => {
   expect(screen.getByText('Recorded an observation in Bench bag spill')).toBeInTheDocument()
 })
 
-test('an unsaved answer on the page stays, marked superseded, when the question is answered elsewhere', async () => {
+test('an unsaved answer on the page stays, marked answered elsewhere, when another place answers it', async () => {
   const user = userEvent.setup()
   let page = history([asked])
   const processing = client(() => Promise.resolve(page))
@@ -485,7 +584,9 @@ test('an unsaved answer on the page stays, marked superseded, when the question 
   page = history([question(4, 4, { state: 'answered' })])
   await invalidate()
 
-  await waitFor(() => expect(card).toHaveTextContent(/superseded/))
+  await waitFor(() =>
+    expect(card).toHaveTextContent('Answered elsewhere; your unsaved answer can’t be sent.'),
+  )
   expect(within(card).getByRole('radio', { name: /ATmega328PB-AU/ })).toBeChecked()
   expect(processing.answer).not.toHaveBeenCalled()
 })

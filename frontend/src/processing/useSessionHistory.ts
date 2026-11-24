@@ -3,9 +3,18 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey } from '#/queries/scope'
 import { useReportRefreshing, useRetainedPollInterval, useServerScope } from '#/context'
 import { appendOlderPage, mergeNewestPage, type HeldHistory } from './session-history'
+import { nextHistoryOrder } from './pending-sends'
 import type { ProcessingClient } from './types'
 
 type HistoryRead = NonNullable<ProcessingClient['history']>
+
+/** Reads the newest page, placed in the order send receipts share, so a send can tell it's covered. */
+export async function readNewestHistory(read: HistoryRead, batchId: string, jobId: string) {
+  const readOrder = nextHistoryOrder()
+  const page = await read(batchId, jobId)
+
+  return { ...page, readOrder }
+}
 
 /**
  * The drawer's history: only the newest page, re-read on every live hint or poll. Under the
@@ -16,7 +25,7 @@ export function useNewestHistory(read: HistoryRead, batchId: string, jobId: stri
   const pollInterval = useRetainedPollInterval()
   const query = useQuery({
     queryKey: serverQueryKey(scope, 'processing', batchId, 'history', jobId, 'newest'),
-    queryFn: () => read(batchId, jobId),
+    queryFn: () => readNewestHistory(read, batchId, jobId),
     refetchInterval: pollInterval,
   })
   useReportRefreshing(query.data !== undefined && query.isFetching)
@@ -36,9 +45,10 @@ export function useSessionPageHistory(read: HistoryRead, batchId: string, jobId:
   const query = useQuery({
     queryKey,
     queryFn: async () => {
-      const page = await read(batchId, jobId)
+      const page = await readNewestHistory(read, batchId, jobId)
       // Merged with what is held when the page lands, so an older page loaded meanwhile stays.
-      return mergeNewestPage(queryClient.getQueryData<HeldHistory>(queryKey), page)
+      const merged = mergeNewestPage(queryClient.getQueryData<HeldHistory>(queryKey), page)
+      return { ...merged, readOrder: page.readOrder }
     },
     refetchInterval: pollInterval,
   })

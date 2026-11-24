@@ -8,6 +8,7 @@ import {
   ProcessingStageV2,
   ProcessingState,
   ProcessingMediaSource,
+  AnswerEffect,
   SessionState,
   ProcessingQuestionSpec,
   ProcessingQuestionValue,
@@ -65,6 +66,8 @@ export const SessionAskArgsV2 = object({
   /** Labels a stepped question in Needs you; a one-step question uses its prompt. */
   title: Type.Optional(QuestionTitle),
   steps: QuestionSteps,
+  /** An earlier, unanswered question of this session that this one replaces; it closes. */
+  replaces: Type.Optional(Id),
 })
 export const SessionReplyArgs = object({ inbox_item_id: Id, text: message })
 /** Passing a cursor acknowledges every inbox item up to it. */
@@ -413,15 +416,6 @@ const CurrentObservation = object({
   status: Type.Union([Type.Literal('active'), Type.Literal('suggested')]),
   lot_id: Type.Union([Id, Type.Null()]),
 })
-const AnswerEffect = Type.Union([
-  object({
-    kind: Type.Literal('quantity'),
-    lot_id: Id,
-    value: Quantity,
-    basis: Type.Union([Type.Literal('counted'), Type.Literal('estimated')]),
-  }),
-  object({ kind: Type.Literal('note'), subject_id: Type.Union([Id, Type.Null()]) }),
-])
 
 /**
  * What an entry expands to. Values a record holds now, rather than as the agent left them, are

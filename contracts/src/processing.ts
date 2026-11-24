@@ -684,6 +684,57 @@ export const ProcessingBlocker = Type.Union([
   Type.Literal('worker_version_conflict'),
 ])
 
+/** What an answer changed in capture: a lot's quantity, a note, or both. */
+export const AnswerEffect = Type.Union([
+  object({
+    kind: Type.Literal('quantity'),
+    lot_id: Id,
+    value: Quantity,
+    basis: Type.Union([Type.Literal('counted'), Type.Literal('estimated')]),
+  }),
+  object({ kind: Type.Literal('note'), subject_id: Type.Union([Id, Type.Null()]) }),
+])
+/** An answer summary's prompt and value text keep at most this many code points each. */
+export const ANSWER_SUMMARY_TEXT_MAX_CHARACTERS = 200
+/** One question's full answer summary, as canonical UTF-8 JSON, escapes included. */
+export const MAX_ANSWER_SUMMARY_BYTES = 1024
+/**
+ * Whether the asking session has acknowledged the answer's inbox item. `read_at` is null while it
+ * waits, and for an answer acknowledged before read times were kept.
+ */
+export const AnswerDelivery = object({
+  state: Type.Union([Type.Literal('waiting'), Type.Literal('read')]),
+  read_at: Type.Union([IsoTime, Type.Null()]),
+})
+const summaryText = Type.String({ maxLength: ANSWER_SUMMARY_TEXT_MAX_CHARACTERS })
+/**
+ * An answered question's answer: in full, or, when the snapshot has no room for its values, only
+ * its time and delivery. `delivery` is absent for an earlier runner question, which has no inbox.
+ */
+export const ProcessingAnswerSummary = Type.Union([
+  object({
+    answer_id: Id,
+    answered_at: IsoTime,
+    values: Type.Array(
+      object({
+        step_id: Type.Union([QuestionStepId, Type.Null()]),
+        prompt: summaryText,
+        text: summaryText,
+        /** The value's text was cut; the full answer stays in the session history. */
+        truncated: Type.Boolean(),
+      }),
+      { minItems: 1, maxItems: QUESTION_MAX_STEPS },
+    ),
+    effects: Type.Array(AnswerEffect, { maxItems: 2 }),
+    delivery: Type.Optional(AnswerDelivery),
+  }),
+  object({
+    answered_at: IsoTime,
+    values_omitted: Type.Literal(true),
+    delivery: Type.Optional(AnswerDelivery),
+  }),
+])
+
 const questionBase = {
   id: Id,
   job_id: Id,
@@ -695,6 +746,12 @@ const questionBase = {
   subject_id: Type.Union([Id, Type.Null()]),
   /** When the question was asked; absent for questions retained before the time was kept. */
   asked_at: Type.Optional(IsoTime),
+  /** An answered question's answer, while the snapshot has room for it. */
+  answer: Type.Optional(ProcessingAnswerSummary),
+  /** Whether the job's session history read would serve it now, whatever profile asked this. */
+  session_history: Type.Optional(Type.Boolean()),
+  /** The later question of the same job that named this one as the question it replaces. */
+  replaced_by: Type.Optional(Id),
 }
 /** An earlier runner question or a `/1` session question: one quantity or clarification prompt. */
 export const ProcessingQuestionV1 = object({
@@ -919,6 +976,8 @@ export const processingSchemas = {
   ProcessingQuestion,
   ProcessingQuestionV1,
   ProcessingQuestionV2,
+  ProcessingAnswerSummary,
+  AnswerDelivery,
   ProcessingJob,
   ProcessingSnapshot,
   ProcessingReceipt,
@@ -929,6 +988,7 @@ export type ProcessingCancellationDto = Static<typeof ProcessingCancellation>
 export type ProcessingAnswerDto = Static<typeof ProcessingAnswer>
 export type ProcessingAnswerV1Dto = Static<typeof ProcessingAnswerV1>
 export type ProcessingAnswerV2Dto = Static<typeof ProcessingAnswerV2>
+export type ProcessingQuestionValueDto = Static<typeof ProcessingQuestionValue>
 export type QuestionStepDto = Static<typeof QuestionStep>
 export type QuestionStepAnswerDto = Static<typeof QuestionStepAnswer>
 export type QuestionStepValueDto = Static<typeof QuestionStepValue>
@@ -950,6 +1010,9 @@ export type ProcessingJobDto = Static<typeof ProcessingJob>
 export type ProcessingQuestionDto = Static<typeof ProcessingQuestion>
 export type ProcessingQuestionV1Dto = Static<typeof ProcessingQuestionV1>
 export type ProcessingQuestionV2Dto = Static<typeof ProcessingQuestionV2>
+export type ProcessingAnswerSummaryDto = Static<typeof ProcessingAnswerSummary>
+export type AnswerDeliveryDto = Static<typeof AnswerDelivery>
+export type AnswerEffectDto = Static<typeof AnswerEffect>
 
 export type ProcessingInputV1Dto = Static<typeof ProcessingInputV1>
 export type ProcessingInputV2Dto = Static<typeof ProcessingInputV2>
