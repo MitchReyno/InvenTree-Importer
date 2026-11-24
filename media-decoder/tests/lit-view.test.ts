@@ -477,3 +477,96 @@ test('a recipe /2 that does not fit its page derives as malformed', async () => 
     assert.equal(result.state, 'malformed', JSON.stringify(recipe.view.region))
   }
 })
+
+/** The largest hue turn, from source to output, over pixels saturated in the source. */
+function largestSaturatedShift(before: Raster, after: Raster) {
+  let largest = 0
+  for (let offset = 0; offset < before.data.length; offset += 3) {
+    const source = [before.data[offset], before.data[offset + 1], before.data[offset + 2]] as const
+    const brightest = Math.max(...source)
+    if (spread([...source]) < 48 || spread([...source]) < brightest / 2) {
+      continue
+    }
+    const output = [after.data[offset], after.data[offset + 1], after.data[offset + 2]] as const
+    const turned = hue(...output)
+    largest = Math.max(largest, turned === null ? 180 : hueShift(hue(...source)!, turned))
+  }
+  return largest
+}
+
+for (const [name, paint, light] of [
+  [
+    'white balance then deep gamma',
+    (x: number) => (x < 4 ? [48, 7, 0] : [120, 130, 170]),
+    { white_balance: true, gamma_thousandths: 500 },
+  ],
+  [
+    'autocontrast beside white',
+    (x: number) => (x < 4 ? [110, 30, 22] : [255, 255, 255]),
+    { contrast_clip_permille: 0 },
+  ],
+  [
+    'every adjustment on dark bands',
+    (x: number) =>
+      [
+        [48, 7, 0],
+        [7, 48, 0],
+        [0, 7, 48],
+        [110, 30, 22],
+        [90, 140, 200],
+      ][x % 5],
+    { white_balance: true, contrast_clip_permille: 50, gamma_thousandths: 500, sharpen: true },
+  ],
+] as const) {
+  test(`the light step keeps saturated hues within 5° of the source: ${name}`, async () => {
+    const page = await solidPage(40, 8, (x) => paint(x))
+    const rendered = await renderLitCrop(page, wholePage(page, light))
+    assert.ok(rendered.state === 'rendered')
+    const after: Raster = {
+      width: rendered.image.info.width,
+      height: rendered.image.info.height,
+      data: rendered.image.data,
+    }
+    const shift = largestSaturatedShift(await rgbRaster(page.bytes), after)
+    assert.ok(shift <= MAX_BAND_HUE_SHIFT_DEGREES, `turned ${shift.toFixed(2)}°`)
+  })
+}
+
+test('a recipe /2 on an EXIF-oriented photo crops the upright source, then turns', async () => {
+  // Upright, the photo is 300 × 200 with a red block top right and a blue block bottom left.
+  const upright = await solidPage(300, 200, (x, y) => {
+    if (x >= 200 && x < 240 && y >= 40 && y < 70) {
+      return [210, 30, 30]
+    }
+    if (x >= 20 && x < 60 && y >= 140 && y < 180) {
+      return [30, 50, 210]
+    }
+    return [128, 128, 128]
+  })
+  // Stored turned a quarter anticlockwise, with EXIF orientation 6 saying to turn it back.
+  const stored = await sharp(upright.bytes)
+    .rotate(270)
+    .jpeg({ quality: 95 })
+    .withMetadata({ orientation: 6 })
+    .toBuffer()
+  assert.equal((await sharp(stored).metadata()).orientation, 6)
+  const original = { bytes: stored, digest: sha(stored), width: 300, height: 200 }
+  const region: [number, number, number, number] = [180, 20, 280, 90]
+  const recipe = recipeForCrop({ region, quarter_turns: 1, straighten: 0, wb: false }, original)
+  const page = await derived(original, recipe)
+  assert.deepEqual([page.width, page.height], [70, 100])
+
+  const expected = await rgbRaster(
+    await sharp(upright.bytes)
+      .extract({ left: 180, top: 20, width: 100, height: 70 })
+      .rotate(90)
+      .png()
+      .toBuffer(),
+  )
+  const actual = await rgbRaster(page.bytes)
+  assert.ok(difference(actual, expected, 24).farShare < 0.02, 'the turned crop shows the red block')
+  // The red block, at region x 20-60 and y 20-50, lands at x 20-50 and y 20-60 after the turn.
+  const red = pixelAt(actual, 35, 40)
+  assert.ok(red[0] > 150 && red[2] < 90, `red block at its turned place: ${red.join(',')}`)
+  assert.equal((await rgbRaster(original.bytes)).width, 200, 'the stored original is unchanged')
+})

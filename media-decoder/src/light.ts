@@ -5,8 +5,15 @@ import type { RawRgb } from './view-pixels.ts'
 
 /** Each white-balance gain stays within 15% of 1. */
 const WHITE_BALANCE_MAX_GAIN_CHANGE = 0.15
-/** White balance may turn no saturated colour's hue further than this, in degrees. */
-const HUE_GUARD_MAX_SHIFT_DEGREES = 5
+/** The light step may turn no saturated pixel's hue further than this from its source, in degrees. */
+const HUE_BUDGET_DEGREES = 5
+/**
+ * Luminance adjustments scale a pixel's channels together, so only rounding turns its hue: at most
+ * 30° divided by the output's channel spread. A saturated pixel keeps a spread of at least 12
+ * levels, so 2.5°, and white balance followed by them gets the rest of the budget.
+ */
+const LUMINANCE_ROUNDING_DEGREES = 2.5
+const SATURATED_MIN_OUTPUT_CHROMA = 12
 /**
  * The guard watches saturated pixels only: HSV saturation of at least one half, and channels at
  * least 48 levels apart. Near-neutral pixels are what white balance is meant to turn, and below
@@ -14,11 +21,6 @@ const HUE_GUARD_MAX_SHIFT_DEGREES = 5
  */
 const SATURATED_MIN_SATURATION = 0.5
 const SATURATED_MIN_CHROMA = 48
-/**
- * A luminance adjustment darkens a saturated pixel no further than this channel spread. Rebuilding
- * the middle channel from the rounded ends keeps hue within 30° / spread, so 5° at 6 levels.
- */
-const SATURATED_MIN_OUTPUT_CHROMA = 6
 /** The guard tries the gains, then 7/8, 6/8 … 1/8 of the way from 1 to them, then refuses. */
 const HOLD_BACK_STEPS = 8
 /** The script's unsharp mask (radius 2, 80%, threshold 3), applied to luminance. */
@@ -164,10 +166,12 @@ function applyLuts(image: RawRgb, luts: [Lut, Lut, Lut]): RawRgb {
 
 /**
  * Grey-world white balance with the hue guard: the bounded gains, or the first step back towards
- * 1 that turns no saturated colour more than 5°; refused when even the smallest step would.
+ * 1 that turns no saturated colour more than `maxShift` degrees; refused when even the smallest
+ * step would.
  */
 function balanceWhite(
   image: RawRgb,
+  maxShift: number,
 ): { state: 'balanced'; image: RawRgb; outcome: WhiteBalanceOutcome } | { state: 'refused' } {
   const bounded = greyWorldGains(image)
   const colours = saturatedColours(image)
@@ -177,7 +181,7 @@ function balanceWhite(
     // crop.py's gains alone, its pixels match the script's.
     const gains = bounded.map((gain) => (step === HOLD_BACK_STEPS ? gain : 1 + share * (gain - 1)))
     const luts: [Lut, Lut, Lut] = [gainLut(gains[0]), gainLut(gains[1]), gainLut(gains[2])]
-    if (largestHueShift(colours, luts) <= HUE_GUARD_MAX_SHIFT_DEGREES) {
+    if (largestHueShift(colours, luts) <= maxShift) {
       return {
         state: 'balanced',
         image: applyLuts(image, luts),
@@ -265,11 +269,30 @@ async function sharpenPlanes(image: RawRgb, tone: (level: number) => number) {
   return { toned, blurred }
 }
 
+/** Which pixels were saturated before any light adjustment, one byte per pixel. */
+function saturatedPixels(image: RawRgb): Uint8Array {
+  const marks = new Uint8Array(image.data.length / 3)
+  for (let index = 0; index < marks.length; index++) {
+    const offset = index * 3
+    const red = image.data[offset]
+    const green = image.data[offset + 1]
+    const blue = image.data[offset + 2]
+    const brightest = Math.max(red, green, blue)
+    marks[index] = isSaturated(brightest, brightest - Math.min(red, green, blue)) ? 1 : 0
+  }
+  return marks
+}
+
 /**
  * Contrast, gamma and sharpening on luminance only: each pixel's channels are scaled together to
- * its new luminance, held back where a channel would clip, so every pixel keeps its hue.
+ * its new luminance, held back where a channel would clip. A pixel that was saturated before the
+ * light step keeps an output spread of 12 levels, so rounding turns its hue at most 2.5°.
  */
-async function adjustLuminance(image: RawRgb, light: MediaViewLightDto): Promise<RawRgb> {
+async function adjustLuminance(
+  image: RawRgb,
+  light: MediaViewLightDto,
+  protectedPixels: Uint8Array,
+): Promise<RawRgb> {
   const tone = toneCurve(image, light)
   const planes = light.sharpen ? await sharpenPlanes(image, tone) : null
   const data = Buffer.alloc(image.data.length)
@@ -291,23 +314,25 @@ async function adjustLuminance(image: RawRgb, light: MediaViewLightDto): Promise
       data.fill(Math.round(after), offset, offset + 3)
       continue
     }
-    const chroma = brightest - Math.min(red, green, blue)
-    let factor = after / before
-    if (isSaturated(brightest, chroma)) {
-      factor = Math.max(factor, SATURATED_MIN_OUTPUT_CHROMA / chroma)
-    }
-    factor = Math.min(factor, 255 / brightest)
-    scaleKeepingHue(image.data, data, offset, factor)
+    const minimumSpread = protectedPixels[index] === 1 ? SATURATED_MIN_OUTPUT_CHROMA : 0
+    scaleKeepingHue(image.data, data, offset, after / before, minimumSpread)
   }
   return { data, info: image.info }
 }
 
 /**
- * Scales one pixel's channels by `factor`. The brightest and dimmest channels are rounded, and the
- * middle one is placed between them in its original proportion, so rounding moves hue as little
- * as the output's channel spread allows.
+ * Scales one pixel's channels by `factor`, held back where a channel would clip and raised so the
+ * rounded output spans at least `minimumSpread` levels. The brightest and dimmest channels are
+ * rounded, and the middle one is placed between them in its original proportion, so rounding
+ * moves hue at most 30° divided by the output's spread.
  */
-function scaleKeepingHue(source: Buffer, target: Buffer, offset: number, factor: number) {
+function scaleKeepingHue(
+  source: Buffer,
+  target: Buffer,
+  offset: number,
+  requested: number,
+  minimumSpread: number,
+) {
   // Channel offsets ordered dimmest to brightest, without allocating per pixel.
   let low = offset
   let middle = offset + 1
@@ -321,10 +346,16 @@ function scaleKeepingHue(source: Buffer, target: Buffer, offset: number, factor:
   if (source[low] > source[middle]) {
     ;[low, middle] = [middle, low]
   }
+  const spread = source[high] - source[low]
+  let factor = requested
+  if (minimumSpread > 0 && spread > 0) {
+    // One level more than the minimum, so independent rounding of the ends can't fall below it.
+    factor = Math.max(factor, (minimumSpread + 1) / spread)
+  }
+  factor = Math.min(factor, 255 / source[high])
   const scaledLow = Math.round(source[low] * factor)
   const scaledHigh = Math.round(source[high] * factor)
   let scaledMiddle = Math.round(source[middle] * factor)
-  const spread = source[high] - source[low]
   if (spread > 0) {
     const share = (source[middle] - source[low]) / spread
     scaledMiddle = scaledLow + Math.round(share * (scaledHigh - scaledLow))
@@ -338,18 +369,23 @@ function scaleKeepingHue(source: Buffer, target: Buffer, offset: number, factor:
 export async function applyLight(image: RawRgb, light: MediaViewLightDto): Promise<LightResult> {
   let current = image
   let whiteBalance: WhiteBalanceOutcome | null = null
+  const adjustsLuminance =
+    light.contrast_clip_permille !== null || light.gamma_thousandths !== null || light.sharpen
+  // Saturation is judged on the source, so white balance can't take a pixel out of protection.
+  const protectedPixels = adjustsLuminance ? saturatedPixels(image) : null
   if (light.white_balance) {
-    const balanced = balanceWhite(current)
+    const budget = adjustsLuminance
+      ? HUE_BUDGET_DEGREES - LUMINANCE_ROUNDING_DEGREES
+      : HUE_BUDGET_DEGREES
+    const balanced = balanceWhite(current, budget)
     if (balanced.state === 'refused') {
       return { state: 'refused', reason: 'white_balance_hue_guard' }
     }
     current = balanced.image
     whiteBalance = balanced.outcome
   }
-  const adjustsLuminance =
-    light.contrast_clip_permille !== null || light.gamma_thousandths !== null || light.sharpen
-  if (adjustsLuminance) {
-    current = await adjustLuminance(current, light)
+  if (protectedPixels) {
+    current = await adjustLuminance(current, light, protectedPixels)
   }
   return { state: 'lit', image: current, whiteBalance }
 }

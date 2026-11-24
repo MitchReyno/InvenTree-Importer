@@ -386,10 +386,12 @@ async function drawTile(
     x + Math.floor((cellWidth - width) / 2),
     y + 5 + Math.floor((SHEET_IMAGE_HEIGHT - height) / 2),
   )
+  // Text is squeezed to the tile's inner width, so a long maker name never runs into the next tile.
+  const textWidth = cellWidth - 12
   context.fillStyle = '#ffd200'
-  context.fillText(lines.title, x + 6, y + 102)
+  context.fillText(lines.title, x + 6, y + 102, textWidth)
   context.fillStyle = '#ebebeb'
-  context.fillText(lines.subtitle, x + 6, y + 119)
+  context.fillText(lines.subtitle, x + 6, y + 119, textWidth)
 }
 
 /** The query, then each candidate with its rank, id, score and maker. */

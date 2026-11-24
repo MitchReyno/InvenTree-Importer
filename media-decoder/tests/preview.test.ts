@@ -217,10 +217,13 @@ test('crops on two pages render from their own page', async () => {
   })
     .png()
     .toBuffer()
-  const secondRecipe = recipeForCrop(
-    { region: [0, 0, 50, 40], quarter_turns: 0, straighten: 0, wb: false },
-    { width: 50, height: 40, digest: 'b'.repeat(64) },
-  )
+  const secondRecipe = {
+    ...recipeForCrop(
+      { region: [0, 0, 50, 40], quarter_turns: 0, straighten: 0, wb: false },
+      { width: 50, height: 40, digest: 'b'.repeat(64) },
+    ),
+    source_version_id: '00000000-0000-4000-8000-000000000004',
+  }
   const input = previewInput(bench, [
     { label: 'photo', page: 0, recipe: recipe(bench, [0, 0, 100, 100]) },
     { label: 'card', page: 1, recipe: secondRecipe },
@@ -274,6 +277,33 @@ test('a recipe naming another page of the same size is malformed, not rendered f
     })
     assert.deepEqual(other, { state: 'malformed', toolchain: MEDIA_TOOLCHAIN })
   }
+})
+
+test('two slots claiming the same evidence page with different pixels are malformed', async () => {
+  const red = await sharp({ create: { width: 40, height: 30, channels: 3, background: '#c02020' } })
+    .png()
+    .toBuffer()
+  const blue = await sharp({
+    create: { width: 40, height: 30, channels: 3, background: '#2020c0' },
+  })
+    .png()
+    .toBuffer()
+  const redRecipe = recipeForCrop(
+    { region: [0, 0, 40, 30], quarter_turns: 0, straighten: 0, wb: false },
+    { width: 40, height: 30, digest: 'd'.repeat(64) },
+  )
+  const result = await renderPreview({
+    version: 'media-preview/1',
+    pages: [
+      { ...sourceOf(redRecipe), digest: sha(red), width: 40, height: 30, bytes: red },
+      { ...sourceOf(redRecipe), digest: sha(blue), width: 40, height: 30, bytes: blue },
+    ],
+    crops: [
+      { label: 'first', page: 0, recipe: redRecipe },
+      { label: 'second', page: 1, recipe: redRecipe },
+    ],
+  })
+  assert.deepEqual(result, { state: 'malformed', toolchain: MEDIA_TOOLCHAIN })
 })
 
 test('a recipe that does not fit its page is malformed', async () => {

@@ -28,8 +28,31 @@ class PreviewMismatchError extends Error {}
 
 class PreviewLimitError extends Error {}
 
+/**
+ * Two slots naming the same evidence page must hold the same page, so one recipe can't preview as
+ * two different images.
+ */
+function checkConsistentPages(pages: PreviewPage[]) {
+  const byPage = new Map<string, PreviewPage>()
+  for (const page of pages) {
+    const key = `${page.source_version_id}/${page.page}`
+    const seen = byPage.get(key)
+    const conflicts =
+      seen !== undefined &&
+      (seen.digest !== page.digest ||
+        seen.source_digest !== page.source_digest ||
+        seen.width !== page.width ||
+        seen.height !== page.height)
+    if (conflicts) {
+      throw new PreviewMismatchError('preview_page_conflict')
+    }
+    byPage.set(key, page)
+  }
+}
+
 /** Each crop's page and full-resolution layout, or a mismatch when a recipe doesn't fit its page. */
 async function checkedLayouts(input: PreviewInput): Promise<ViewLayout[]> {
+  checkConsistentPages(input.pages)
   const checkedPages = new Set<number>()
   const layouts: ViewLayout[] = []
   let totalPixels = 0
