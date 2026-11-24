@@ -100,3 +100,11 @@ Implementation of BI-019's agent interaction work, delivered PR by PR as the tas
 - Follow-ups from PR-D2:
   - A page with one proposal decodes every proposal of its attempt to find each web page's first citation, and resolves notes and currentness for all of them. Fine for today's sessions; a long single attempt would want the first citations found in SQL and details resolved for the page's proposals only.
   - The history's page query sorts all of a lineage's rows on each read, and attempt ends scan `processing_transition`, which has no `attempt_id` index. Both are small for today's sessions; an index on `processing_transition(attempt_id)` and on `agent_session(session_lineage_id)` would bound them if histories grow.
+
+## Configurable evidence delivery follow-up
+
+2026-11-24T13:15+11:00: Mitch requested a configurable file-only alternative on a new worktree from `interactive-app`. Task 12 belongs here because this change owns fetched-photo history and permits further agent-interaction items. The existing stage redesign can inherit this VM transport option without waiting for its new profile. Default inline preserves existing deployments; file mode is opt-in. The motivating failure was a large inline image response meeting Codex's small per-frame ceiling. This task changes delivery representation, not that ceiling or the meaning of a recorded photo view.
+
+2026-11-24T13:15+11:00: The installed pnpm refuses task execution when the worktree root node_modules is the symlink required by the worktree rules (ERR_PNPM_UNSAFE_TASK_RUN_STATE_PATH). Use the pinned Node and installed owning test/check executables directly for this worktree; do not replace shared dependencies or change the running development server.
+
+2026-11-24T13:30+11:00: Review identified an existing gap between photo preparation and citation eligibility after a failed guest write. Task 12 now includes a scoped release confirmation and coordinator-level proposal tests. Legacy digest handling follows shared-vm-execution.

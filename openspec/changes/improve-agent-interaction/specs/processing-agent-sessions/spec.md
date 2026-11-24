@@ -104,7 +104,13 @@ A proposal MAY cite a web page by URL in its top-level sources, with an optional
 
 ### Requirement: Lot-forming calls record what they did
 
-The outbox item for a `propose_lot` call SHALL record whether it formed the lot, extended it, only suggested membership or changed nothing, judged from the label, Part, estimate and memberships it applied and the suggestions it wrote; clearing the lot's Re-examine flag, which a successful call on an existing lot does, does not count. It SHALL record the reason for keeping the lot separate when the session gives one in the optional `separation_reason`; a reason PostgreSQL cannot store SHALL be refused as a correctable validation result before anything is written. A `regroup` item SHALL record each move with its source lot and whether it was applied, only suggested or unchanged.
+Each `propose_lot` outbox item SHALL record its outcome (formed, extended, suggested or unchanged) and any supplied `separation_reason`. Each `regroup` item SHALL record each move's source lot, destination lot and outcome (applied, suggested or unchanged).
+
+#### Scenario: Determining a proposal's outcome
+
+- **WHEN** the server classifies a lot proposal
+- **THEN** it considers the label, Part, estimate and memberships applied and suggestions written. Clearing the Re-examine flag alone counts as unchanged.
+- **AND** if PostgreSQL cannot store the supplied reason, the call returns a correctable validation result before writing anything.
 
 #### Scenario: Lot kept apart
 
@@ -127,3 +133,47 @@ The session instructions SHALL tell the agent to write status lines in plain wor
 - **GIVEN** a Research session that has just published a proposal
 - **WHEN** it reports status
 - **THEN** the instructions it received ask for a line such as "Proposed GE S2CN1 diodes as a 1N4148-class switching diode", not "Proposal f067afc5 published".
+
+### Requirement: Configurable VM evidence delivery
+
+Tool-capable VM sessions SHALL support `INTAKE_VM_EVIDENCE_DELIVERY` with values `inline` and `file`. Unset or empty SHALL select `inline`; any other value SHALL be refused before launching a turn. The development launcher and standalone relay SHALL forward the selected mode to the tool worker. Routes without VM file tools SHALL retain their existing delivery.
+
+#### Scenario: File delivery
+
+- **GIVEN** a tool-capable Claude or Codex VM session configured for file delivery
+- **WHEN** an authorized image fetch succeeds
+- **THEN** the guest applies the digest rules in [Guest-staged evidence matches the delivered image](../../../../specs/shared-vm-execution/spec.md#requirement-guest-staged-evidence-matches-the-delivered-image) and saves the delivered bytes in an owner-only temporary file and returns its path, source and rendition metadata, and instructions to open it with the provider's image/file tool, with no inline image bytes.
+- **AND** the file is removed when the turn ends, and the response instructs the agent to fetch again on later turns and cite source metadata rather than the temporary path.
+
+#### Scenario: Inline compatibility
+
+- **GIVEN** a tool-capable VM session with the setting omitted, empty or set to inline
+- **WHEN** an image fetch succeeds
+- **THEN** its existing inline image and staged-file metadata are returned.
+
+#### Scenario: Refused or unavailable image
+
+- **GIVEN** either delivery mode
+- **WHEN** the fetch is refused or returns metadata only
+- **THEN** no file is created and the result is unchanged.
+- **AND** a digest mismatch or failed file write returns no successful file result.
+
+#### Scenario: Oversized inline image becomes a bounded file result
+
+- **GIVEN** a delivered image whose base64 representation exceeds the Codex frame limit
+- **WHEN** file mode stages it
+- **THEN** the returned metadata and path fit the existing transport limit without losing the delivered bytes or citation metadata, including across repeated fetches.
+
+
+#### Scenario: Staging cannot establish a new citation after a failed delivery
+
+- **GIVEN** a tool-capable VM worker fetching a version outside the manifest for the first time, in either delivery mode
+- **WHEN** the file write, digest check, provider-facing response write or confirmation of that write fails
+- **THEN** a subsequent proposal citing that version is refused even if the prepared photo appears in history.
+- **AND** a later confirmed delivery can authorize that version under the existing citation rules; a failed repeat fetch does not revoke an earlier valid delivery.
+
+#### Scenario: Staging a legacy-format preview
+
+- **GIVEN** a pairing that negotiated evidence release confirmation and explicitly identifies the image format as legacy
+- **WHEN** the guest stages a legacy preview with page metadata and no delivered digest
+- **THEN** it computes the digest of the staged preview and retains the original source citation. For a legacy original it verifies the source digest. A modern rendition with missing or malformed required digest metadata is refused.
