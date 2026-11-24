@@ -52,32 +52,25 @@ export function FigurePicture({ figure, src, showMarks, compact = false, statusI
     }
   }
 
-  const image = (
-    <img
-      src={imageSrc}
-      alt=""
-      draggable={false}
-      hidden={attempt.failed}
-      onError={handleError}
-      onLoad={handleLoad}
-    />
-  )
-
   return (
     <Frame $ratio={`${width} / ${height}`} data-figure-state={figure.state}>
+      {/* One image throughout: after its retries it stays asked for, hidden, until it loads. */}
+      {figure.state === 'ready' && (
+        <img
+          src={imageSrc}
+          alt=""
+          draggable={false}
+          hidden={attempt.failed}
+          onError={handleError}
+          onLoad={handleLoad}
+        />
+      )}
       {unavailable ? (
-        <>
-          <Placeholder id={statusId} $compact={compact}>
-            {unavailable}
-          </Placeholder>
-          {/* Still asked for, hidden, after the retries, so a picture served later shows. */}
-          {attempt.failed && figure.state === 'ready' && image}
-        </>
+        <Placeholder id={statusId} $compact={compact}>
+          {unavailable}
+        </Placeholder>
       ) : (
-        <>
-          {image}
-          {showMarks && <FigureMarks marks={figure.marks ?? []} width={width} height={height} />}
-        </>
+        showMarks && <FigureMarks marks={figure.marks ?? []} width={width} height={height} />
       )}
     </Frame>
   )
@@ -102,6 +95,9 @@ const Frame = styled.span<{ $ratio: string }>`
     display: block;
     width: 100%;
     height: 100%;
+  }
+  img[hidden] {
+    display: none;
   }
 `
 

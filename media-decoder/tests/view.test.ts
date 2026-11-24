@@ -403,6 +403,39 @@ test('a label wider than a narrow view is drawn smaller so none of it is cut off
   assert.ok(text > 40, `label text pixels: ${text}`)
 })
 
+test('a label in a wide, short view fits its height, and a hairline view still renders', async () => {
+  const page = await quadrantPage()
+  const label = 'W'.repeat(40)
+  const wide = recipe(
+    { width: PAGE_WIDTH, height: PAGE_HEIGHT },
+    { region: { x: 0, y: 380, width: 1200, height: 24 } },
+  )
+  const result = await ready(
+    viewInput(page, wide, [{ kind: 'label', at: { x: 5000, y: 5000 }, label }]),
+  )
+  const preview = await rgb(result.preview!.bytes, 'png')
+  // The pill and its text sit inside the view: nothing of the label is cut at the edges.
+  for (const y of [0, preview.height - 1]) {
+    for (let x = 0; x < preview.width; x++) {
+      assert.ok(distance(pixel(preview, x, y), LABEL_TEXT) > 40, `text at row ${y}, column ${x}`)
+    }
+  }
+  for (const x of [0, preview.width - 1]) {
+    for (let y = 0; y < preview.height; y++) {
+      assert.ok(distance(pixel(preview, x, y), LABEL_TEXT) > 40, `text at column ${x}, row ${y}`)
+    }
+  }
+
+  const hairline = recipe(
+    { width: PAGE_WIDTH, height: PAGE_HEIGHT },
+    { region: { x: 600, y: 0, width: 1, height: 800 } },
+  )
+  const thin = await ready(
+    viewInput(page, hairline, [{ kind: 'label', at: { x: 5000, y: 5000 }, label }]),
+  )
+  assert.ok(thin.preview)
+})
+
 test('empty marks still give a preview; null marks give none', async () => {
   const page = await quadrantPage()
   const viewRecipe = recipe(

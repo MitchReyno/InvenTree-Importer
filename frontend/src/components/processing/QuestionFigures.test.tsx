@@ -116,6 +116,27 @@ test('a label wider than a narrow picture takes a smaller size so all of it show
   }
 })
 
+test('a label in a wide, short picture fits its height', () => {
+  show([
+    figure(1, {
+      view: {
+        region: { x: 0, y: 1000, width: 3000, height: 40 },
+        quarter_turns: 0,
+        straighten_millidegrees: 0,
+      },
+      marks: [{ kind: 'label', at: { x: 5000, y: 5000 }, label: 'Date code' }],
+    }),
+  ])
+
+  const marks = marksIn(screen.getByRole('button', { name: /^Open picture 1 of 1/ }))!
+  const viewHeight = Number(marks.getAttribute('viewBox')!.split(' ')[3])
+  const pill = marks.querySelector('rect.pill')!
+  const y = Number(pill.getAttribute('y'))
+  expect(y).toBeGreaterThanOrEqual(0)
+  expect(y + Number(pill.getAttribute('height'))).toBeLessThanOrEqual(viewHeight)
+  expect(Number(marks.querySelector('text')!.getAttribute('textLength'))).toBeGreaterThan(0)
+})
+
 test('two pictures sit side by side, badged A and B', () => {
   show([
     figure(2, { caption: 'Packet A: date code 2341' }),
@@ -206,6 +227,8 @@ test('a picture that fails to load is tried again, and says so only after its re
 
     const picture = () => open.querySelector('img')
 
+    const element = picture()
+
     fireEvent.error(picture()!)
     act(() => {
       vi.advanceTimersByTime(2_000)
@@ -232,6 +255,8 @@ test('a picture that fails to load is tried again, and says so only after its re
     })
     expect(picture()).toHaveAttribute('src', `${image(1)}?retry=4`)
     fireEvent.load(picture()!)
+    // The image that loaded is the one shown, never replaced by another that loads again.
+    expect(picture()).toBe(element)
     expect(picture()).toBeVisible()
     expect(open).not.toHaveAccessibleDescription('Picture couldn’t be loaded')
   } finally {

@@ -56,6 +56,10 @@ const LABEL_SIZE_SHARE = 0.028
 const LABEL_CHARACTER_EMS = 0.58
 /** A pill's padding either side of its text, in ems, as the agent's preview pads it. */
 const PILL_PADDING_EMS = 0.6
+/** A pill's height, in ems. */
+const PILL_HEIGHT_EMS = 1.6
+/** The shortest text length drawn, so a hairline view's label still has a positive one. */
+const MIN_TEXT_LENGTH = 0.5
 /** The space between a shape and its label, in label heights. */
 const LABEL_GAP_SIZES = 0.3
 
@@ -65,15 +69,17 @@ type PillSize = { width: number; height: number; size: number }
  * A label pill's size, so it can be placed before it is drawn. A pill wider than the view takes
  * a smaller text size so the whole label shows, as the agent's preview fits it.
  */
-function pillSize(text: string, viewWidth: number, size: number): PillSize {
+function pillSize(text: string, view: { width: number; height: number }, size: number): PillSize {
   const natural = text.length * size * LABEL_CHARACTER_EMS + size * PILL_PADDING_EMS * 2
-  const fitted = natural > viewWidth ? (size * viewWidth) / natural : size
+  // Fitted to the view's width and its height, as the agent's preview fits it.
+  const fitted = size * Math.min(1, view.width / natural, view.height / (size * PILL_HEIGHT_EMS))
+  const viewWidth = view.width
   return {
     width: Math.min(
       viewWidth,
       text.length * fitted * LABEL_CHARACTER_EMS + fitted * PILL_PADDING_EMS * 2,
     ),
-    height: fitted * 1.6,
+    height: fitted * PILL_HEIGHT_EMS,
     size: fitted,
   }
 }
@@ -90,7 +96,7 @@ type Pill = {
 
 /** An amber pill with its text, as the agent's preview draws it. */
 function labelPill({ text, left, top, width, height, size }: Pill) {
-  const pill = pillSize(text, width, size)
+  const pill = pillSize(text, { width, height }, size)
   const x = clamp(left, 0, width - pill.width)
   const y = clamp(top, 0, height - pill.height)
   return (
@@ -111,7 +117,7 @@ function labelPill({ text, left, top, width, height, size }: Pill) {
         textAnchor="middle"
         dominantBaseline="central"
         // Glyph widths are estimated, so the text is held to the pill's inside as the preview's is.
-        textLength={pill.width - pill.size * PILL_PADDING_EMS * 2}
+        textLength={Math.max(MIN_TEXT_LENGTH, pill.width - pill.size * PILL_PADDING_EMS * 2)}
         lengthAdjust="spacingAndGlyphs"
       >
         {text}
@@ -122,7 +128,7 @@ function labelPill({ text, left, top, width, height, size }: Pill) {
 
 /** A label centred on a point. */
 function centredPill(text: string, point: { x: number; y: number }, shape: MarkShape) {
-  const pill = pillSize(text, shape.width, shape.labelSize)
+  const pill = pillSize(text, shape, shape.labelSize)
   return labelPill({
     text,
     left: point.x - pill.width / 2,
@@ -135,7 +141,7 @@ function centredPill(text: string, point: { x: number; y: number }, shape: MarkS
 
 /** A box-like mark's label sits below it, or above it when there is no room below. */
 function boxPill(text: string, box: { x: number; y: number; h: number }, shape: MarkShape) {
-  const pill = pillSize(text, shape.width, shape.labelSize)
+  const pill = pillSize(text, shape, shape.labelSize)
   const gap = shape.labelSize * LABEL_GAP_SIZES
   const below = box.y + box.h + gap
   const top = below + pill.height <= shape.height ? below : box.y - gap - pill.height

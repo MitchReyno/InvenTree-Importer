@@ -12,13 +12,23 @@ import {
 
 /** The consumer polls this often when no notification arrives. */
 export const RENDER_POLL_MS = 1_000
+/**
+ * Longer than the dispatcher client's interval between asks, so a decode waiting for the slot
+ * asks while it is free.
+ */
+export const RENDER_YIELD_MS = 1_000
 /** How often the consumer runs its retention sweep. */
 export const RENDER_SWEEP_INTERVAL_MS = 10 * 60 * 1000
 
 /** Renders views in the pinned decoder image, through the dispatcher when one is configured. */
 export function isolatedViewRenderer(image: string): RenderView {
   return async (input) => {
-    const result = await renderViewIsolated(image, { version: 'media-view/1', ...input })
+    // A busy dispatcher is not waited for: the render is deferred and an upload's decode goes first.
+    const result = await renderViewIsolated(
+      image,
+      { version: 'media-view/1', ...input },
+      { busyWaitMs: 0 },
+    )
     if (result.state !== 'ready') {
       return { state: 'malformed' }
     }
@@ -33,6 +43,8 @@ export interface RenderConsumerOptions {
   render: RenderView
   signal: AbortSignal
   pollMs?: number
+  /** The pause after each render, so a decode waiting for the dispatcher gets its turn. */
+  yieldMs?: number
   sweepIntervalMs?: number
   onOutcome?: (outcome: string) => void
 }
@@ -62,6 +74,9 @@ export async function runFigureRenderConsumer(options: RenderConsumerOptions) {
       )
       options.onOutcome?.(outcome)
       if (outcome !== 'idle') {
+        await delay(options.yieldMs ?? RENDER_YIELD_MS, undefined, {
+          signal: options.signal,
+        }).catch(() => undefined)
         continue
       }
       const woken = new Promise<void>((resolve) => {

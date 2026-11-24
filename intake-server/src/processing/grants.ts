@@ -37,6 +37,8 @@ export async function grantProcessing(pool: Pool, role: string, purpose: 'api' |
       GRANT INSERT ON agent_session_ack,processing_question_replacement TO ${role};
       -- An ask stores its figures and their render requests; the media consumer renders them.
       GRANT INSERT ON processing_question_figure,processing_figure_render TO ${role};
+      -- A preview asked again is kept a day from then.
+      GRANT UPDATE(requested_at) ON processing_figure_render TO ${role};
       GRANT INSERT, UPDATE, DELETE ON agent_slot TO ${role};`,
     )
   }

@@ -10,6 +10,7 @@ import { ownedPgTools } from '../support/pg-tools.ts'
 import { mediaRepository } from '#/media/repository.ts'
 import { PART_ATTACHMENT_PNG } from '../support/part-attachment.ts'
 import { backupArchive, restoreArchive } from '#/operations/archive.ts'
+import { MAX_ARCHIVE_BLOBS } from '#/operations/archive-model.ts'
 import { BlobStore } from '#/media/blob-store.ts'
 import { compatibleSchema } from '#/operations/compatibility.ts'
 import { requireDisabledGate } from '#/operations/quiescence.ts'
@@ -185,8 +186,8 @@ test(
 )
 
 test(
-  'the archive skips a collected blob nothing references and fails on a referenced one with no file',
-  { timeout: 30000 },
+  'the archive skips collected blobs nothing references and fails on a referenced one with no file',
+  { timeout: 60000 },
   async () => {
     const fixture = await manualFixture({ media: true })
     const root = await realpath(await mkdtemp(join(tmpdir(), 'intake-archive-')))
@@ -201,11 +202,13 @@ test(
         'Retained original',
         PART_ATTACHMENT_PNG,
       )
-      // A swept figure render: its immutable row stays after the sweep collected its file.
-      const collected = createHash('sha256').update('collected render').digest()
-      await fixture.db.pool.query('INSERT INTO media_blob(digest,byte_size) VALUES($1,16)', [
-        collected,
-      ])
+      // Swept figure renders: their immutable rows stay after the sweep collected their files.
+      // More of them than a page of rows, and than the archive's blob limit.
+      await fixture.db.pool.query(
+        `INSERT INTO media_blob(digest,byte_size)
+         SELECT sha256(('collected render ' || n)::bytea), 16 FROM generate_series(1, $1::int) n`,
+        [MAX_ARCHIVE_BLOBS + 1],
+      )
       await disabled(fixture.gateRoot)
       const config = {
         databaseUrl: fixture.db.url,

@@ -86,14 +86,19 @@ function clamp(value: number, minimum: number, maximum: number) {
 function pillSize(context: SKRSContext2D, text: string, style: MarkStyle) {
   context.font = style.font
   const natural = context.measureText(text).width + style.fontSize * PILL_PADDING_EMS * 2
-  const fontSize =
-    natural > style.width ? Math.max(1, (style.fontSize * style.width) / natural) : style.fontSize
+  // Fitted to the view's width and its height, which a pill is 1.6 font sizes tall within.
+  const scale = Math.min(
+    1,
+    style.width / natural,
+    style.height / (style.fontSize * PILL_HEIGHT_EMS),
+  )
+  const fontSize = style.fontSize * scale
   const font = `${fontSize}px "${markFont()}"`
   context.font = font
   const padding = fontSize * PILL_PADDING_EMS
   return {
     width: Math.min(style.width, context.measureText(text).width + padding * 2),
-    height: fontSize * 1.6,
+    height: fontSize * PILL_HEIGHT_EMS,
     padding,
     font,
   }
@@ -101,6 +106,10 @@ function pillSize(context: SKRSContext2D, text: string, style: MarkStyle) {
 
 /** A pill's padding either side of its text, in ems. */
 const PILL_PADDING_EMS = 0.6
+/** `fillText` draws nothing for a width of zero or less; a hairline view gets this much. */
+const MIN_TEXT_WIDTH_PX = 0.5
+/** A pill's height, in ems. */
+const PILL_HEIGHT_EMS = 1.6
 
 /** Draws a filled amber pill with dark text, its top left at (x, y), kept inside the view. */
 function drawPill(context: SKRSContext2D, text: string, x: number, y: number, style: MarkStyle) {
@@ -116,7 +125,12 @@ function drawPill(context: SKRSContext2D, text: string, x: number, y: number, st
   context.textBaseline = 'middle'
   context.textAlign = 'left'
   // At the smallest sizes the measure can still exceed the view; the text is held to the pill.
-  context.fillText(text, left + size.padding, top + size.height / 2, size.width - size.padding * 2)
+  context.fillText(
+    text,
+    left + size.padding,
+    top + size.height / 2,
+    Math.max(MIN_TEXT_WIDTH_PX, size.width - size.padding * 2),
+  )
 }
 
 /** A box-like mark's label sits below it, or above it when there is no room below. */

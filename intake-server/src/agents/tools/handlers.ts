@@ -1306,18 +1306,51 @@ async function storeQuestionFigures(
  * Polls a preview's renders until none is queued, within `FIGURE_PREVIEW_WAIT_MS`. A state read
  * after the deadline doesn't count, so a render settling late is still not ready.
  */
-async function settledPreviews(context: SessionToolContext, ids: string[]) {
+async function settledPreviews(context: SessionToolContext, preview: QueuedPreview) {
   const deadline = Date.now() + (context.figurePreviewWaitMs ?? FIGURE_PREVIEW_WAIT_MS)
   for (;;) {
     // The read, its connection included, gets only the time left; a late answer doesn't count.
-    const renders = await beforeDeadline(previewRenders(context.pool, ids), deadline)
-    if (renders === LATE || Date.now() > deadline) {
+    const state = await beforeDeadline(previewState(context, preview, deadline), deadline)
+    if (state === LATE || Date.now() > deadline) {
       return 'not_ready' as const
     }
-    if (!renders.some((render) => render.state === 'queued')) {
-      return renders
+    if (!state.renders.some((render) => render.state === 'queued')) {
+      return state
     }
     await delay(Math.min(FIGURE_PREVIEW_POLL_MS, deadline - Date.now()))
+  }
+}
+
+const QUERY_CANCELED = '57014'
+
+/**
+ * The preview's renders and, if the sweep took any, whether a photo was removed. The database
+ * stops the reads at the deadline; a read that outlives the wait still returns its connection.
+ */
+async function previewState(context: SessionToolContext, preview: QueuedPreview, deadline: number) {
+  const client = await context.pool.connect()
+  let broken = false
+  try {
+    const remaining = Math.ceil(deadline - Date.now())
+    if (remaining <= 0) {
+      return LATE
+    }
+    await client.query(`SET statement_timeout = ${remaining}`)
+    const renders = await previewRenders(client, preview.ids)
+    const removed = renders.some((render) => render.state === 'gone')
+      ? (await removedVersionIds(client, preview.batchId, preview.versions)).size > 0
+      : false
+    return { renders, removed }
+  } catch (error) {
+    if ((error as { code?: string }).code === QUERY_CANCELED) {
+      return LATE
+    }
+    throw error
+  } finally {
+    await client.query('RESET statement_timeout').catch(() => {
+      broken = true
+    })
+    client.release(broken)
   }
 }
 
@@ -1351,14 +1384,6 @@ interface QueuedPreview {
   versions: string[]
 }
 
-/** Whether any of the preview's photos has been removed since it was asked. */
-async function previewSourceRemoved(context: SessionToolContext, preview: QueuedPreview) {
-  return transaction(context.pool, async (client) => {
-    const removed = await removedVersionIds(client, preview.batchId, preview.versions)
-    return removed.size > 0
-  })
-}
-
 /**
  * Waits for a committed preview's renders and returns them as images within the run's image
  * budget. A preview not rendered in time returns no images and may be called again.
@@ -1379,16 +1404,17 @@ async function previewOutput(
     result: { ok: false, error, message, pending_inbox: pending },
   })
 
-  const settled = await settledPreviews(context, preview.ids)
-  if (settled === 'not_ready') {
+  const state = await settledPreviews(context, preview)
+  if (state === 'not_ready') {
     return notOk(
       'preview_not_ready',
       'The preview is still being prepared. Call ask with preview: true again to see it.',
     )
   }
+  const settled = state.renders
   const gone = settled.findIndex((render) => render.state === 'gone')
   // An expired preview the sweep took meanwhile is asked again; a removed photo is not.
-  if (gone >= 0 && !(await previewSourceRemoved(context, preview))) {
+  if (gone >= 0 && !state.removed) {
     return notOk(
       'preview_not_ready',
       'The preview expired before it could be sent. Call ask with preview: true again to see it.',

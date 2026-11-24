@@ -42,7 +42,11 @@ export async function renderIsolated(
  * One view of a retained page PNG: the operator's view and thumbnail, plus the marked preview
  * when marks are given. Runs in the same bounded container, through the dispatcher when set.
  */
-export async function renderViewIsolated(image: string, input: ViewInput): Promise<ViewResult> {
+export async function renderViewIsolated(
+  image: string,
+  input: ViewInput,
+  dispatch: DispatchOptions = {},
+): Promise<ViewResult> {
   checkedViewInput(input)
   const header = {
     version: input.version,
@@ -52,16 +56,28 @@ export async function renderViewIsolated(image: string, input: ViewInput): Promi
     recipe: input.recipe,
     marks: input.marks,
   }
-  return parseViewOutput(await runIsolated(image, header, input.bytes), input)
+  return parseViewOutput(await runIsolated(image, header, input.bytes, dispatch), input)
 }
 
-async function runIsolated(image: string, header: object, bytes: Buffer): Promise<Buffer> {
+/** How long a request waits for the dispatcher's slot; see `requestDecode`. */
+export interface DispatchOptions {
+  busyWaitMs?: number
+}
+
+async function runIsolated(
+  image: string,
+  header: object,
+  bytes: Buffer,
+  dispatch: DispatchOptions = {},
+): Promise<Buffer> {
   if (image.length !== 71 || !/^sha256:[a-f0-9]{64}$/.test(image)) {
     throw new Error('immutable_decoder_image_required')
   }
   const packet = Buffer.concat([Buffer.from(JSON.stringify(header) + '\n'), bytes])
   const socket = process.env.INTAKE_MEDIA_DISPATCH_SOCKET
-  return socket ? requestDecode(socket, image, packet) : launchDecoder(image, packet)
+  return socket
+    ? requestDecode(socket, image, packet, dispatch.busyWaitMs)
+    : launchDecoder(image, packet)
 }
 
 // Called only by the trusted dispatcher or the existing local worker.

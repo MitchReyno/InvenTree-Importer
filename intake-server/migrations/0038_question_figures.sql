@@ -25,6 +25,8 @@ CREATE TABLE processing_figure_render (
   preview_width integer CHECK(preview_width>0),
   preview_height integer CHECK(preview_height>0),
   created_at timestamptz NOT NULL DEFAULT now(),
+  -- When a preview was last asked for; it is kept a day from then.
+  requested_at timestamptz NOT NULL DEFAULT now(),
   settled_at timestamptz,
   FOREIGN KEY(batch_id,version_id) REFERENCES media_version(batch_id,id) ON DELETE RESTRICT,
   CHECK((purpose='view')=(marks_digest IS NULL AND session_lineage_id IS NULL)),

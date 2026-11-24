@@ -10,21 +10,24 @@ export class DecoderDispatcherBusyError extends Error {
   }
 }
 
-/** How long a request waits for a busy dispatcher: one decode's longest run, and a margin. */
-export const DISPATCH_BUSY_WAIT_MS = MEDIA_LIMITS.wallMilliseconds + 10_000
+/**
+ * How long a decode waits for a busy dispatcher. The figure render consumer pauses between renders
+ * and doesn't wait itself, so this covers several renders back to back, each within the wall time.
+ */
+export const DISPATCH_BUSY_WAIT_MS = 20 * MEDIA_LIMITS.wallMilliseconds
 /** How often a request asks a busy dispatcher again. */
 const DISPATCH_BUSY_RETRY_MS = 500
 
 /**
  * Sends one decode to the dispatcher. Its one slot may be taken by another decode, which it
  * answers with 503 before running anything, so the request is sent again until `busyWaitMs`
- * passes and then fails as busy.
+ * passes and then fails as busy. Undefined waits the default; zero asks once.
  */
 export async function requestDecode(
   socketPath: string,
   image: string,
   packet: Buffer,
-  busyWaitMs = DISPATCH_BUSY_WAIT_MS,
+  busyWaitMs: number = DISPATCH_BUSY_WAIT_MS,
 ): Promise<Buffer> {
   const deadline = Date.now() + busyWaitMs
   for (;;) {

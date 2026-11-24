@@ -61,7 +61,15 @@ export async function enqueueFigureRenders(
   return ids
 }
 
-/** How many times an enqueue retries when the request it conflicted with is swept meanwhile. */
+/**
+ * A preview asked again is kept a day from now. The row lock this takes orders the ask against
+ * the sweep: the sweep either deleted the old request first, so a new one is inserted, or sees
+ * the new time and keeps it.
+ */
+const PREVIEW_ASKED_AGAIN = `ON CONFLICT (recipe_digest, marks_digest) WHERE purpose='preview'
+       DO UPDATE SET requested_at=now()`
+
+/** How many times a view's enqueue retries when the request it conflicted with is swept meanwhile. */
 const ENQUEUE_ATTEMPTS = 3
 
 /** Stores one render request, or returns the existing request for the same output. */
@@ -80,7 +88,7 @@ async function enqueueFigureRender(
          id, batch_id, version_id, page, purpose, recipe_bytes, recipe_digest,
          marks_bytes, marks_digest, session_lineage_id)
        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-       ON CONFLICT DO NOTHING
+       ${purpose === 'preview' ? PREVIEW_ASKED_AGAIN : 'ON CONFLICT DO NOTHING'}
        RETURNING id`,
       [
         randomUUID(),
@@ -136,8 +144,8 @@ export interface PreviewRow {
 export type SettledPreview = PreviewRow | { id: string; state: 'gone' }
 
 /** The current state of preview renders, in the order asked. */
-export async function previewRenders(pool: Pool, ids: string[]): Promise<SettledPreview[]> {
-  const rows = await pool.query<PreviewRow>(
+export async function previewRenders(client: PoolClient, ids: string[]): Promise<SettledPreview[]> {
+  const rows = await client.query<PreviewRow>(
     `SELECT id, state, encode(preview_digest,'hex') AS digest,
        preview_width AS width, preview_height AS height
      FROM public.processing_figure_render WHERE id = ANY($1::uuid[])`,
@@ -498,7 +506,7 @@ export async function sweepFigureRenders(
        USING public.capture_batch b
        WHERE b.id=r.batch_id AND b.actor_id=$1 AND b.target_id=$2 AND b.target_context_id=$3
          AND (
-           (r.purpose='preview' AND r.created_at < $4)
+           (r.purpose='preview' AND r.requested_at < $4)
            OR (r.purpose='view' AND r.created_at < $4 AND NOT EXISTS (
              SELECT 1 FROM public.processing_question_figure f WHERE f.recipe_digest=r.recipe_digest))
            OR EXISTS (
