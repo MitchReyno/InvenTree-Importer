@@ -571,3 +571,43 @@ test('a retired lot’s failed row gives the retirement as the reason while the 
     'This lot was retired, so its session can’t start again.',
   )
 })
+
+test('a retired lot’s reason holds while the Processing read shows a running attempt or is still landing', async () => {
+  const row = sessionRow({
+    attempt_id: H.attempt2,
+    batch_id: H.batch,
+    job_id: H.job,
+    subject_id: H.lot,
+    state: 'failed',
+    session_state: 'failed',
+    failure: refused,
+  })
+  // A running attempt's eligibility names only that it isn't replaceable.
+  const running: ProcessingJobDto = {
+    ...failedJob({ allowed: false, reason: 'session_not_replaceable' }),
+    state: 'running',
+    session_state: 'running',
+  }
+  const api = clients(running, sessionList({ sessions: [row] }))
+  render(
+    <ServerStateProvider scope={scope} client={createServerQueryClient()}>
+      <ApiClientsProvider value={{ agents: api.agents }}>
+        <ProcessingWorkspace
+          batch={batch}
+          client={api.processing}
+          view="overview"
+          retiredLotIds={new Set([H.lot])}
+          navigate={vi.fn()}
+          onDirtyChange={vi.fn()}
+          onSaved={vi.fn().mockResolvedValue(undefined)}
+        />
+      </ApiClientsProvider>
+    </ServerStateProvider>,
+  )
+
+  const card = await screen.findByRole('region', { name: 'Agent sessions' })
+  const recovery = await within(card).findByRole('group', { name: /^Recover/ })
+  expect(within(recovery).getByRole('button', { name: 'Start fresh' })).toHaveAccessibleDescription(
+    'This lot was retired, so its session can’t start again.',
+  )
+})

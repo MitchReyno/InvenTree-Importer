@@ -530,12 +530,20 @@ export function ProcessingWorkspace({
    * lot; only the attempt's own state waits for the reads to agree.
    */
   function lastingRefusal(job: ProcessingSnapshotDto['jobs'][number] | undefined) {
+    // The setup and the archive come first, as the command checks them first.
+    if (!client.replaceSession || batch.archived) {
+      return freshUnavailable(undefined)
+    }
+    // The batch read knows a retired lot whatever the job's eligibility says.
+    if (job?.subject_id && retiredLotIds.has(job.subject_id)) {
+      return startFreshReason({ allowed: false, reason: 'subject_retired' })
+    }
     const eligibility = job?.start_fresh
     const ofJob =
       eligibility && !eligibility.allowed && eligibility.reason !== 'session_not_replaceable'
         ? startFreshReason(eligibility)
         : undefined
-    return freshUnavailable(undefined) ?? ofJob
+    return ofJob ?? freshUnavailable(undefined)
   }
 
   /** A failed session row's recovery, from this mount's read of its job. */

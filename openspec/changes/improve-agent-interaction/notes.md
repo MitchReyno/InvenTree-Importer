@@ -29,6 +29,7 @@ Implementation of BI-019's agent interaction work, delivered PR by PR as the tas
 
 ## Decisions made during implementation
 
+- **2026-11-24T23:30+11:00, task 10 (PR-G), after review round 7:** While a failed row and the Processing read disagree, Start fresh names the setup or the archive first, then a lot the batch read knows is retired, then the job's own lasting refusal, and only then a read still landing.
 - **2026-11-24T22:40+11:00, task 10 (PR-G), after review round 6:** While a failed row and the Processing read disagree, Start fresh also gives a refusal of the job that holds whatever its attempt, such as a retired lot, before "Updating…".
 - **2026-11-24T21:50+11:00, task 10 (PR-G), after review round 5:** While a failed row and the Processing read disagree, Start fresh still gives any reason that holds whatever the job, such as an archived batch, before "Updating…".
 - **2026-11-24T21:20+11:00, task 10 (PR-G), after review round 4:** A failed Processing row keeps Start fresh, unavailable ("Updating…"), whenever the Processing read doesn't show that same attempt as recoverable, rather than dropping the action. Open failure details fall back to where the cause is when the session list stops reading. Any added page whose re-read fails is reported and read again, not only the last.
