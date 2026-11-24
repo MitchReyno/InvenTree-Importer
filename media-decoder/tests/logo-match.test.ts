@@ -2,7 +2,11 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdir, readFile } from 'node:fs/promises'
 import sharp from 'sharp'
-import { MEDIA_TOOLCHAIN, type MediaViewGeometryDto } from '@invimport/contracts/media'
+import {
+  assertMediaLogoMatchOutputHeader,
+  MEDIA_TOOLCHAIN,
+  type MediaViewGeometryDto,
+} from '@invimport/contracts/media'
 import { LOGO_SET_DIRECTORY, matchLogo, SHEET_GEOMETRY } from '../src/logo-match.ts'
 import type { LogoMatchInput } from '../src/decoder-protocol.ts'
 import { fixtureBytes, parityFixtures, sha } from './support/parity.ts'
@@ -122,4 +126,44 @@ test('a view outside its page is malformed', async () => {
   const input = await logoInput(bytes)
   input.view.region.width += 1
   assert.deepEqual(await matchLogo(input), { state: 'malformed', toolchain: MEDIA_TOOLCHAIN })
+})
+
+test('a reference matched against itself scores at most 1, within the output contract', async () => {
+  const bytes = await sharp(await readFile(new URL('logos/motorola1.gif', LOGO_SET_DIRECTORY)))
+    .removeAlpha()
+    .png()
+    .toBuffer()
+  const result = await matchLogo(await logoInput(bytes, {}, 3))
+  assert.ok(result.state === 'ready')
+  assert.equal(result.candidates[0].id, 'motorola1')
+  const { sheet, ...header } = result
+  assertMediaLogoMatchOutputHeader({
+    ...header,
+    sheet: {
+      width: sheet.width,
+      height: sheet.height,
+      byte_size: sheet.bytes.length,
+      digest: sha(sheet.bytes),
+    },
+  })
+})
+
+test('an elongated crop is matched within a bounded working size', async () => {
+  const bytes = await sharp({
+    create: { width: 35_000, height: 2, channels: 3, background: '#202020' },
+  })
+    .composite([
+      {
+        input: Buffer.from([230, 230, 230]),
+        raw: { width: 1, height: 1, channels: 3 },
+        tile: true,
+        left: 0,
+        top: 0,
+        gravity: 'northwest',
+      },
+    ])
+    .png()
+    .toBuffer()
+  const result = await matchLogo(await logoInput(bytes))
+  assert.equal(result.state, 'ready')
 })

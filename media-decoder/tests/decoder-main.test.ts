@@ -58,6 +58,9 @@ test('the entry point frames a preview of crops on two pages', async () => {
     light: { ...NO_LIGHT, white_balance: true },
   }
   const pageEntry = {
+    source_version_id: recipe.source_version_id,
+    source_digest: recipe.source_digest,
+    page: recipe.page,
     digest: sha(page.bytes),
     width: page.width,
     height: page.height,

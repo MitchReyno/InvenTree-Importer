@@ -9,8 +9,9 @@ import {
   type ViewInput,
   type ViewResult,
 } from './decoder-protocol.ts'
+import { renderLitCrop } from './lit-crop.ts'
 import { drawMarks } from './view-marks.ts'
-import { viewPixels } from './view-pixels.ts'
+import { viewPixels, type RawRgb } from './view-pixels.ts'
 
 export { MARK_FONT_FAMILY, markFont } from './view-marks.ts'
 
@@ -23,6 +24,26 @@ function sized(bytes: Buffer, width: number, height: number): ViewImage {
     throw new Error('view_output_limit')
   }
   return { width, height, bytes }
+}
+
+/**
+ * The view's pixels. A lit recipe `/2` is lit at full resolution, exactly as its derived crop is,
+ * and then sized to the view; null when its white balance is refused.
+ */
+async function recipePixels(input: ViewInput, layout: ViewLayout): Promise<RawRgb | null> {
+  const { recipe } = input
+  if (recipe.version === 'bench-intake-view/1') {
+    return viewPixels(input, recipe.view.quarter_turns, layout)
+  }
+  const lit = await renderLitCrop(input, recipe)
+  if (lit.state === 'refused') {
+    return null
+  }
+  const { data, info } = await sharp(lit.image.data, { raw: lit.image.info })
+    .resize({ width: layout.width, height: layout.height, fit: 'fill' })
+    .raw()
+    .toBuffer({ resolveWithObject: true })
+  return { data, info: { width: info.width, height: info.height, channels: 3 } }
 }
 
 /** The layout, or a mismatch when the page bytes, their size and the recipe disagree. */
@@ -65,7 +86,10 @@ export async function renderView(input: ViewInput): Promise<ViewResult> {
     throw error
   }
 
-  const pixels = await viewPixels(input, input.recipe.view.quarter_turns, layout)
+  const pixels = await recipePixels(input, layout)
+  if (!pixels) {
+    return { state: 'malformed', toolchain: MEDIA_TOOLCHAIN }
+  }
   const view = await sharp(pixels.data, { raw: pixels.info }).webp(VIEW_WEBP).toBuffer()
   const thumb = await sharp(pixels.data, { raw: pixels.info })
     .resize({ width: layout.thumbWidth, height: layout.thumbHeight, fit: 'fill' })

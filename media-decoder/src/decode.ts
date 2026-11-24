@@ -3,6 +3,7 @@ import {
   expectedRenditionSizes,
   renditionDimensions,
   requireMediaRecipeBounds,
+  viewLayout,
   type MediaLitViewRecipeDto,
 } from '@invimport/contracts/media'
 import { renderLitCrop } from './lit-crop.ts'
@@ -213,13 +214,18 @@ export async function renderRetained(
 }
 
 /**
- * A recipe `/2` crop of a decoded page as a lossless PNG at full resolution. A white balance the
- * hue guard refuses can't be derived, so the recipe doesn't fit the page: `malformed`.
+ * A recipe `/2` crop of a decoded page as a lossless PNG at full resolution. A recipe that doesn't
+ * fit the page, or whose white balance the hue guard refuses, is `malformed`.
  */
 async function deriveLitCrop(
   source: DecodedPage,
   recipe: MediaLitViewRecipeDto,
 ): Promise<DecodedPage> {
+  try {
+    viewLayout(recipe, 'full')
+  } catch {
+    throw new MalformedMediaError('view_region_outside_page')
+  }
   const crop = await renderLitCrop(source, recipe)
   if (crop.state === 'refused') {
     throw new MalformedMediaError(crop.reason)
@@ -252,7 +258,7 @@ export async function decode(input: DecodeInput): Promise<DecodedMedia> {
       const recipe = input.recipe
       const source = pages.find((page) => page.page === recipe.page)
       if (!source || source.width !== recipe.page_width || source.height !== recipe.page_height) {
-        throw new Error('invalid_recipe_coordinates')
+        throw new MalformedMediaError('lit_recipe_page_mismatch')
       }
       return {
         state: 'ready',

@@ -38,7 +38,14 @@ async function checkedLayouts(input: PreviewInput): Promise<ViewLayout[]> {
     if (!page) {
       throw new PreviewMismatchError('preview_page_missing')
     }
-    if (crop.recipe.page_width !== page.width || crop.recipe.page_height !== page.height) {
+    const { recipe } = crop
+    const samePage =
+      recipe.source_version_id === page.source_version_id &&
+      recipe.source_digest === page.source_digest &&
+      recipe.page === page.page &&
+      recipe.page_width === page.width &&
+      recipe.page_height === page.height
+    if (!samePage) {
       throw new PreviewMismatchError('preview_page_mismatch')
     }
     if (!checkedPages.has(crop.page)) {

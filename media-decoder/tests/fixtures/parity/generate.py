@@ -27,6 +27,7 @@ SKILLS = REPOSITORY / ".claude" / "skills"
 CROP = SKILLS / "component-photo-crops" / "scripts" / "crop.py"
 GRID = SKILLS / "image-grid-overlay" / "scripts" / "grid.py"
 MATCH = SKILLS / "chip-logo-identification" / "scripts" / "match.py"
+MONTAGE = SKILLS / "component-photo-crops" / "scripts" / "montage.py"
 LOGOS = SKILLS / "chip-logo-identification" / "data" / "logos"
 
 PHOTO_SIZE = (480, 360)
@@ -103,6 +104,13 @@ CROPS = [
         "name": "turned-270",
         "region": [20, 30, 160, 340],
         "quarter_turns": 3,
+        "straighten": 0,
+        "wb": False,
+    },
+    {
+        "name": "tall",
+        "region": [0, 0, 300, 360],
+        "quarter_turns": 0,
         "straighten": 0,
         "wb": False,
     },
@@ -320,6 +328,17 @@ def logo_fixtures() -> list[dict]:
     return out
 
 
+# Oversized and non-square crops, so cell placement, downscaling and aspect all show.
+MONTAGE_CROPS = ["plain", "tall", "turned-270"]
+
+
+def montage_fixture(photo: Path) -> dict:
+    target = HERE / "montage-script.png"
+    inputs = [photo, *(HERE / f"crop-{name}.png" for name in MONTAGE_CROPS)]
+    run([str(MONTAGE), str(target), *map(str, inputs), "--cell", "360", "--cols", "4"])
+    return {"output": target.name, "whole_photo_first": True, "crops": MONTAGE_CROPS}
+
+
 def main() -> None:
     photo = HERE / "bench-photo.png"
     bench_photo().save(photo)
@@ -328,6 +347,7 @@ def main() -> None:
         "crops": crop_fixtures(photo),
         "grids": grid_fixtures(photo),
         "logos": logo_fixtures(),
+        "montage": montage_fixture(photo),
     }
     (HERE / "expected.json").write_text(json.dumps(expected, indent=2) + "\n")
 

@@ -109,7 +109,8 @@ export interface ViewInput {
   bytes: Buffer
   width: number
   height: number
-  recipe: MediaViewRecipeDto
+  recipe: MediaViewRecipeDto | MediaLitViewRecipeDto
+  /** Always null for a lit recipe `/2`. */
   marks: MediaViewMarkDto[] | null
 }
 
@@ -169,7 +170,12 @@ export function checkedInput(input: DecodeInput) {
 }
 
 /** A page a preview renders from, with the bytes the header's `byte_size` describes. */
-export type PreviewPage = RetainedPageBytes
+/** A page preview PNG and the evidence page it was decoded from. */
+export interface PreviewPage extends RetainedPageBytes {
+  source_version_id: string
+  source_digest: string
+  page: number
+}
 
 export interface PreviewCrop {
   label: string
@@ -208,6 +214,9 @@ export function checkedPreviewInput(input: PreviewInput) {
   assertMediaDecoderInputHeader({
     version: input.version,
     pages: input.pages.map((page) => ({
+      source_version_id: page.source_version_id,
+      source_digest: page.source_digest,
+      page: page.page,
       digest: page.digest,
       width: page.width,
       height: page.height,

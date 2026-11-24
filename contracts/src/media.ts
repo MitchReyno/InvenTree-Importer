@@ -804,7 +804,11 @@ export {
 
 const decoderLabel = Type.String({ minLength: 1, maxLength: DECODER_LABEL_MAX_CHARACTERS })
 const pageRegion = object({ x: pixel, y: pixel, width: dimension, height: dimension })
+/** A page preview PNG and the evidence page it was decoded from, which each recipe must name. */
 const PreviewPage = object({
+  source_version_id: Id,
+  source_digest: Digest,
+  page: Type.Integer({ minimum: 1, maximum: 30 }),
   digest: Digest,
   width: dimension,
   height: dimension,
@@ -839,6 +843,15 @@ const MediaDecoderInputHeader = Type.Union([
     height: dimension,
     recipe: MediaViewRecipe,
     marks: Type.Union([MediaViewMarks, Type.Null()]),
+  }),
+  /** A view of a lit recipe `/2`, lit at full resolution and then sized; it never has marks. */
+  object({
+    version: Type.Literal('media-view/1'),
+    digest: Digest,
+    width: dimension,
+    height: dimension,
+    recipe: MediaLitViewRecipe,
+    marks: Type.Null(),
   }),
   /**
    * `preview_images`: retained page PNGs, sent one after another in this order, and lit recipes on

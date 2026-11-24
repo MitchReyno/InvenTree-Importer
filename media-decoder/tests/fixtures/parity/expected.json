@@ -63,6 +63,21 @@
     },
     {
       "guard_holds_back": false,
+      "name": "tall",
+      "region": [
+        0,
+        0,
+        300,
+        360
+      ],
+      "quarter_turns": 0,
+      "straighten": 0,
+      "wb": false,
+      "output": "crop-tall.png",
+      "gains": null
+    },
+    {
+      "guard_holds_back": false,
       "name": "straight-7",
       "region": [
         140,
@@ -343,5 +358,14 @@
         "diamondtech"
       ]
     }
-  ]
+  ],
+  "montage": {
+    "output": "montage-script.png",
+    "whole_photo_first": true,
+    "crops": [
+      "plain",
+      "tall",
+      "turned-270"
+    ]
+  }
 }

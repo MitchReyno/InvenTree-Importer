@@ -70,7 +70,25 @@ test('a derived crop lays out at full resolution, a question view at most 2048 p
 
 test('decoder input headers accept the lit recipe and the image tool operations', () => {
   assertMediaDecoderInputHeader({ version: 'media-decode/1', digest, recipe })
-  const pages = [{ digest, width: 4000, height: 3000, byte_size: 1000 }]
+  assertMediaDecoderInputHeader({
+    version: 'media-view/1',
+    digest,
+    width: 4000,
+    height: 3000,
+    recipe,
+    marks: null,
+  })
+  const pages = [
+    {
+      source_version_id: recipe.source_version_id,
+      source_digest: digest,
+      page: 1,
+      digest,
+      width: 4000,
+      height: 3000,
+      byte_size: 1000,
+    },
+  ]
   assertMediaDecoderInputHeader({
     version: 'media-preview/1',
     pages,
@@ -98,9 +116,20 @@ test('decoder input headers accept the lit recipe and the image tool operations'
 })
 
 test('decoder input headers refuse marks, too many crops and out-of-range requests', () => {
-  const pages = [{ digest, width: 4000, height: 3000, byte_size: 1000 }]
+  const pages = [
+    {
+      source_version_id: recipe.source_version_id,
+      source_digest: digest,
+      page: 1,
+      digest,
+      width: 4000,
+      height: 3000,
+      byte_size: 1000,
+    },
+  ]
   const crop = { label: 'part', page: 0, recipe }
   const refused = [
+    { version: 'media-view/1', digest, width: 4000, height: 3000, recipe, marks: [] },
     { version: 'media-preview/1', pages, crops: [{ ...crop, recipe: { ...recipe, marks: [] } }] },
     { version: 'media-preview/1', pages, crops: Array.from({ length: 9 }, () => crop) },
     { version: 'media-preview/1', pages, crops: [{ ...crop, page: 4 }] },

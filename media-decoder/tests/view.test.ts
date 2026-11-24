@@ -6,10 +6,12 @@ import { createCanvas } from '@napi-rs/canvas'
 import {
   MEDIA_TOOLCHAIN,
   viewLayout,
+  type MediaLitViewRecipeDto,
   type MediaViewMarkDto,
   type MediaViewRecipeDto,
 } from '@invimport/contracts/media'
 import { decode } from '../src/decode.ts'
+import { renderLitCrop } from '../src/lit-crop.ts'
 import { MARK_FONT_FAMILY, renderView, markFont } from '../src/view.ts'
 import type { ViewInput } from '../src/decoder-protocol.ts'
 
@@ -528,4 +530,73 @@ test('a whole-page view of a page at the page pixel limit renders, its margin in
   const view = await rgb(result.view.bytes, 'webp')
   assert.deepEqual([view.width, view.height], [layout.width, layout.height])
   assertColour(at(view, 0.5, 0.5), BLUE, 'the middle')
+})
+
+function litRecipe(
+  page: { width: number; height: number },
+  view: Partial<MediaViewRecipeDto['view']>,
+  light: Partial<MediaLitViewRecipeDto['light']>,
+): MediaLitViewRecipeDto {
+  return {
+    ...recipe(page, view),
+    version: 'bench-intake-view/2',
+    light: {
+      white_balance: false,
+      contrast_clip_permille: null,
+      gamma_thousandths: null,
+      sharpen: false,
+      ...light,
+    },
+  }
+}
+
+test('a lit recipe /2 view is its full-resolution lit crop, sized like the shared layout', async () => {
+  const page = await quadrantPage()
+  const size = { width: PAGE_WIDTH, height: PAGE_HEIGHT }
+  const geometry = { region: { x: 300, y: 200, width: 600, height: 400 }, quarter_turns: 1 }
+  const lit = litRecipe(size, geometry, { gamma_thousandths: 1600 })
+  const result = await ready({ ...viewInput(page, recipe(size, geometry)), recipe: lit })
+  const layout = viewLayout(lit)
+  const view = await rgb(result.view.bytes, 'webp')
+  assert.deepEqual([view.width, view.height], [layout.width, layout.height])
+  assert.equal(result.preview, null)
+
+  const crop = await renderLitCrop({ bytes: page, width: PAGE_WIDTH, height: PAGE_HEIGHT }, lit)
+  assert.ok(crop.state === 'rendered')
+  const expected = await sharp(crop.image.data, { raw: crop.image.info })
+    .resize({ width: layout.width, height: layout.height, fit: 'fill' })
+    .raw()
+    .toBuffer()
+  const expectedRaster = { width: layout.width, height: layout.height, data: expected }
+  for (const [x, y] of [
+    [0.25, 0.25],
+    [0.75, 0.25],
+    [0.25, 0.75],
+    [0.75, 0.75],
+  ]) {
+    assertColour(at(view, x, y), at(expectedRaster, x, y), `lit view at ${x},${y}`)
+  }
+  // Gamma lifts the blue quadrant, now at the top left, above the unlit view's.
+  const unlit = await rgb((await ready(viewInput(page, recipe(size, geometry)))).view.bytes, 'webp')
+  const brightness = (colour: Colour) => colour[0] + colour[1] + colour[2]
+  assert.ok(brightness(at(view, 0.25, 0.25)) > brightness(at(unlit, 0.25, 0.25)) + 20)
+})
+
+test('a lit recipe /2 view whose white balance is refused is malformed', async () => {
+  const width = 64
+  const height = 64
+  const pixels = Buffer.alloc(width * height * 3)
+  for (let index = 0; index < width * height; index++) {
+    const patch = index % width < 8 && index < width * 8
+    pixels.set(patch ? [138, 134, 69] : [200, 120, 160], index * 3)
+  }
+  const page = await sharp(pixels, { raw: { width, height, channels: 3 } })
+    .png()
+    .toBuffer()
+  const lit = litRecipe({ width, height }, {}, { white_balance: true })
+  const result = await renderView({
+    ...viewInput(page, recipe({ width, height }, {})),
+    recipe: lit,
+  })
+  assert.deepEqual(result, { state: 'malformed', toolchain: MEDIA_TOOLCHAIN })
 })

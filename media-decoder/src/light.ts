@@ -14,6 +14,11 @@ const HUE_GUARD_MAX_SHIFT_DEGREES = 5
  */
 const SATURATED_MIN_SATURATION = 0.5
 const SATURATED_MIN_CHROMA = 48
+/**
+ * A luminance adjustment darkens a saturated pixel no further than this channel spread. Rebuilding
+ * the middle channel from the rounded ends keeps hue within 30° / spread, so 5° at 6 levels.
+ */
+const SATURATED_MIN_OUTPUT_CHROMA = 6
 /** The guard tries the gains, then 7/8, 6/8 … 1/8 of the way from 1 to them, then refuses. */
 const HOLD_BACK_STEPS = 8
 /** The script's unsharp mask (radius 2, 80%, threshold 3), applied to luminance. */
@@ -95,6 +100,10 @@ function gainLut(gain: number): Lut {
   return lut
 }
 
+function isSaturated(brightest: number, chroma: number) {
+  return chroma >= SATURATED_MIN_CHROMA && chroma >= SATURATED_MIN_SATURATION * brightest
+}
+
 /** Every distinct saturated colour in the image, packed 0xRRGGBB. */
 function saturatedColours(image: RawRgb): Int32Array {
   // Marked in a bitmap of every colour, then listed, so a busy photo stays off the V8 heap.
@@ -106,8 +115,7 @@ function saturatedColours(image: RawRgb): Int32Array {
     const green = data[offset + 1]
     const blue = data[offset + 2]
     const brightest = Math.max(red, green, blue)
-    const chroma = brightest - Math.min(red, green, blue)
-    if (chroma < SATURATED_MIN_CHROMA || chroma < SATURATED_MIN_SATURATION * brightest) {
+    if (!isSaturated(brightest, brightest - Math.min(red, green, blue))) {
       continue
     }
     const packed = (red << 16) | (green << 8) | blue
@@ -165,7 +173,8 @@ function balanceWhite(
   const colours = saturatedColours(image)
   for (let step = HOLD_BACK_STEPS; step >= 1; step--) {
     const share = step / HOLD_BACK_STEPS
-    // The full step keeps the bounded gains exactly, so they match the script's.
+    // The full step keeps the bounded gains exactly, so where the ±15% bound and the guard leave
+    // crop.py's gains alone, its pixels match the script's.
     const gains = bounded.map((gain) => (step === HOLD_BACK_STEPS ? gain : 1 + share * (gain - 1)))
     const luts: [Lut, Lut, Lut] = [gainLut(gains[0]), gainLut(gains[1]), gainLut(gains[2])]
     if (largestHueShift(colours, luts) <= HUE_GUARD_MAX_SHIFT_DEGREES) {
@@ -282,12 +291,47 @@ async function adjustLuminance(image: RawRgb, light: MediaViewLightDto): Promise
       data.fill(Math.round(after), offset, offset + 3)
       continue
     }
-    const factor = Math.min(after / before, 255 / brightest)
-    data[offset] = Math.round(red * factor)
-    data[offset + 1] = Math.round(green * factor)
-    data[offset + 2] = Math.round(blue * factor)
+    const chroma = brightest - Math.min(red, green, blue)
+    let factor = after / before
+    if (isSaturated(brightest, chroma)) {
+      factor = Math.max(factor, SATURATED_MIN_OUTPUT_CHROMA / chroma)
+    }
+    factor = Math.min(factor, 255 / brightest)
+    scaleKeepingHue(image.data, data, offset, factor)
   }
   return { data, info: image.info }
+}
+
+/**
+ * Scales one pixel's channels by `factor`. The brightest and dimmest channels are rounded, and the
+ * middle one is placed between them in its original proportion, so rounding moves hue as little
+ * as the output's channel spread allows.
+ */
+function scaleKeepingHue(source: Buffer, target: Buffer, offset: number, factor: number) {
+  // Channel offsets ordered dimmest to brightest, without allocating per pixel.
+  let low = offset
+  let middle = offset + 1
+  let high = offset + 2
+  if (source[low] > source[middle]) {
+    ;[low, middle] = [middle, low]
+  }
+  if (source[middle] > source[high]) {
+    ;[middle, high] = [high, middle]
+  }
+  if (source[low] > source[middle]) {
+    ;[low, middle] = [middle, low]
+  }
+  const scaledLow = Math.round(source[low] * factor)
+  const scaledHigh = Math.round(source[high] * factor)
+  let scaledMiddle = Math.round(source[middle] * factor)
+  const spread = source[high] - source[low]
+  if (spread > 0) {
+    const share = (source[middle] - source[low]) / spread
+    scaledMiddle = scaledLow + Math.round(share * (scaledHigh - scaledLow))
+  }
+  target[low] = scaledLow
+  target[middle] = scaledMiddle
+  target[high] = scaledHigh
 }
 
 /** Recipe `/2`'s light step, in the contract's order: white balance, contrast, gamma, sharpening. */

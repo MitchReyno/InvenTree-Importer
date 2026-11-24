@@ -63,7 +63,7 @@ function writeImageResult(
 
 /** The page bytes after the header, split in order by each page's declared size. */
 function previewPages(
-  pages: { digest: string; width: number; height: number; byte_size: number }[],
+  pages: (Omit<PreviewPage, 'bytes'> & { byte_size: number })[],
   bytes: Buffer,
 ): PreviewPage[] {
   const declared = pages.reduce((sum, page) => sum + page.byte_size, 0)
@@ -74,7 +74,8 @@ function previewPages(
   return pages.map((page) => {
     const pageBytes = bytes.subarray(offset, offset + page.byte_size)
     offset += page.byte_size
-    return { digest: page.digest, width: page.width, height: page.height, bytes: pageBytes }
+    const { byte_size: _size, ...identity } = page
+    return { ...identity, bytes: pageBytes }
   })
 }
 

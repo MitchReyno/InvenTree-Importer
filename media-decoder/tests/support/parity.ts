@@ -32,11 +32,19 @@ export interface LogoFixture {
   top: string[]
 }
 
+/** montage.py's sheet of the whole photo, then these crops, in 360 px cells four across. */
+export interface MontageFixture {
+  output: string
+  whole_photo_first: true
+  crops: string[]
+}
+
 export interface ParityFixtures {
   photo: string
   crops: CropFixture[]
   grids: GridFixture[]
   logos: LogoFixture[]
+  montage: MontageFixture
 }
 
 export async function parityFixtures(): Promise<ParityFixtures> {
@@ -92,6 +100,15 @@ export function recipeForCrop(
       straighten_millidegrees: Math.round(fixture.straighten * 1000),
     },
     light: { ...NO_LIGHT, white_balance: fixture.wb },
+  }
+}
+
+/** The evidence page a recipe names, which a preview page must carry. */
+export function sourceOf(recipe: MediaLitViewRecipeDto) {
+  return {
+    source_version_id: recipe.source_version_id,
+    source_digest: recipe.source_digest,
+    page: recipe.page,
   }
 }
 

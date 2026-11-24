@@ -36,6 +36,11 @@ const FEATURE_MIN_PIXELS = 4
 const AUTOCONTRAST_CUTOFF_PERCENT = 1
 /** A mark smaller than this is enlarged twice before thresholding. */
 const SMALL_MARK_PX = 60
+/**
+ * A query is matched at most this large on its long edge, aspect kept, so an elongated crop can't
+ * square up into a buffer beyond the decoder's memory. Shapes are compared at 48 px anyway.
+ */
+const QUERY_MAX_LONG_EDGE_PX = 1024
 /** A score is the shape correlation weighted by how well the aspect ratios agree. */
 const SHAPE_WEIGHT = 0.6
 const ASPECT_WEIGHT = 0.4
@@ -301,7 +306,8 @@ function score(query: Shape[], reference: Shape) {
       Math.min(shape.aspect, reference.aspect) / Math.max(shape.aspect, reference.aspect)
     best = Math.max(best, correlation * (SHAPE_WEIGHT + ASPECT_WEIGHT * agreement))
   }
-  return best
+  // Rounding can carry a perfect correlation just past 1.
+  return Math.min(1, Math.max(-1, best))
 }
 
 interface Ranked {
@@ -310,8 +316,27 @@ interface Ranked {
 }
 
 /** The reference set ranked against the query's shapes in both polarities, best first. */
+/** The query, shrunk to `QUERY_MAX_LONG_EDGE_PX` on its long edge when larger. */
+async function boundedQuery(query: RawRgb): Promise<RawRgb> {
+  const { width, height } = query.info
+  const longEdge = Math.max(width, height)
+  if (longEdge <= QUERY_MAX_LONG_EDGE_PX) {
+    return query
+  }
+  const scale = QUERY_MAX_LONG_EDGE_PX / longEdge
+  const { data, info } = await sharp(query.data, { raw: query.info })
+    .resize({
+      width: Math.max(1, Math.round(width * scale)),
+      height: Math.max(1, Math.round(height * scale)),
+      fit: 'fill',
+    })
+    .raw()
+    .toBuffer({ resolveWithObject: true })
+  return { data, info: { width: info.width, height: info.height, channels: 3 } }
+}
+
 async function rank(query: RawRgb, top: number): Promise<Ranked[]> {
-  const { masks, width, height } = await polarityMasks(query)
+  const { masks, width, height } = await polarityMasks(await boundedQuery(query))
   const shapes: Shape[] = []
   for (const mask of masks) {
     const shape = await shapeOf(mask, width, height)

@@ -14,6 +14,7 @@ import {
   recipeForCrop,
   rgbRaster,
   sha,
+  sourceOf,
   type Raster,
 } from './support/parity.ts'
 
@@ -59,6 +60,7 @@ function previewInput(
     version: 'media-preview/1',
     pages: [
       {
+        ...sourceOf(recipe(bench, [0, 0, 1, 1])),
         digest: bench.digest,
         width: bench.page.width,
         height: bench.page.height,
@@ -182,11 +184,11 @@ test('a refused crop is reported and the others still render', async () => {
   const bytes = await sharp(pixels, { raw: { width: 64, height: 64, channels: 3 } })
     .png()
     .toBuffer()
-  const page = { digest: sha(bytes), width: 64, height: 64, bytes }
   const base = recipeForCrop(
     { region: [0, 0, 64, 64], quarter_turns: 0, straighten: 0, wb: false },
     { width: 64, height: 64, digest: sha(bytes) },
   )
+  const page = { ...sourceOf(base), digest: sha(bytes), width: 64, height: 64, bytes }
   const result = await renderPreview({
     version: 'media-preview/1',
     pages: [page],
@@ -223,11 +225,55 @@ test('crops on two pages render from their own page', async () => {
     { label: 'photo', page: 0, recipe: recipe(bench, [0, 0, 100, 100]) },
     { label: 'card', page: 1, recipe: secondRecipe },
   ])
-  input.pages.push({ digest: sha(second), width: 50, height: 40, bytes: second })
+  input.pages.push({
+    ...sourceOf(secondRecipe),
+    digest: sha(second),
+    width: 50,
+    height: 40,
+    bytes: second,
+  })
   const result = await renderPreview(input)
   assert.equal(result.state, 'ready')
   const shown = await cell(result.montage.bytes, 1, 50, 40)
   assert.deepEqual([...shown.data.subarray(0, 3)], [0x20, 0x50, 0xc0])
+})
+
+test('a recipe naming another page of the same size is malformed, not rendered from this one', async () => {
+  const red = await sharp({ create: { width: 40, height: 30, channels: 3, background: '#c02020' } })
+    .png()
+    .toBuffer()
+  const blue = await sharp({
+    create: { width: 40, height: 30, channels: 3, background: '#2020c0' },
+  })
+    .png()
+    .toBuffer()
+  const redRecipe = recipeForCrop(
+    { region: [0, 0, 40, 30], quarter_turns: 0, straighten: 0, wb: false },
+    { width: 40, height: 30, digest: 'd'.repeat(64) },
+  )
+  const blueSource = { ...sourceOf(redRecipe), source_digest: 'e'.repeat(64) }
+  const result = await renderPreview({
+    version: 'media-preview/1',
+    pages: [
+      { ...sourceOf(redRecipe), digest: sha(red), width: 40, height: 30, bytes: red },
+      { ...blueSource, digest: sha(blue), width: 40, height: 30, bytes: blue },
+    ],
+    crops: [{ label: 'swapped', page: 1, recipe: redRecipe }],
+  })
+  assert.deepEqual(result, { state: 'malformed', toolchain: MEDIA_TOOLCHAIN })
+  for (const changed of [
+    { page: 2 },
+    { source_version_id: '00000000-0000-4000-8000-000000000003' },
+  ]) {
+    const other = await renderPreview({
+      version: 'media-preview/1',
+      pages: [
+        { ...sourceOf(redRecipe), ...changed, digest: sha(red), width: 40, height: 30, bytes: red },
+      ],
+      crops: [{ label: 'other', page: 0, recipe: redRecipe }],
+    })
+    assert.deepEqual(other, { state: 'malformed', toolchain: MEDIA_TOOLCHAIN })
+  }
 })
 
 test('a recipe that does not fit its page is malformed', async () => {
@@ -251,4 +297,69 @@ test('page bytes that do not match their digest are refused before rendering', a
   ])
   input.pages[0].digest = 'c'.repeat(64)
   await assert.rejects(renderPreview(input), /invalid_decode_input/)
+})
+
+/** The bounds of the non-white pixels in one montage cell, above its label strip. */
+function shownBounds(sheet: Raster, index: number) {
+  const { cell, columns, labelHeight } = MONTAGE_GEOMETRY
+  const left = (index % columns) * cell
+  const top = Math.floor(index / columns) * (cell + labelHeight)
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -1
+  let maxY = -1
+  for (let y = top; y < top + cell; y++) {
+    for (let x = left; x < left + cell; x++) {
+      const offset = (y * sheet.width + x) * 3
+      const white =
+        sheet.data[offset] === 255 &&
+        sheet.data[offset + 1] === 255 &&
+        sheet.data[offset + 2] === 255
+      if (!white) {
+        minX = Math.min(minX, x)
+        minY = Math.min(minY, y)
+        maxX = Math.max(maxX, x)
+        maxY = Math.max(maxY, y)
+      }
+    }
+  }
+  return { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 }
+}
+
+function cutRaster(sheet: Raster, bounds: ReturnType<typeof shownBounds>): Raster {
+  const data = Buffer.alloc(bounds.width * bounds.height * 3)
+  for (let row = 0; row < bounds.height; row++) {
+    const start = ((bounds.y + row) * sheet.width + bounds.x) * 3
+    sheet.data.copy(data, row * bounds.width * 3, start, start + bounds.width * 3)
+  }
+  return { width: bounds.width, height: bounds.height, data }
+}
+
+test('the montage lays crops out as montage.py does', async () => {
+  const bench = await benchPage()
+  const fixtures = await parityFixtures()
+  const named = fixtures.montage.crops.map((name) =>
+    fixtures.crops.find((item) => item.name === name)!,
+  )
+  const crops = [
+    { label: 'photo', page: 0, recipe: recipe(bench, [0, 0, bench.page.width, bench.page.height]) },
+    ...named.map((fixture) => ({
+      label: fixture.name,
+      page: 0,
+      recipe: recipe(bench, fixture.region, { quarterTurns: fixture.quarter_turns }),
+    })),
+  ]
+  const result = await renderPreview(previewInput(bench, crops))
+  assert.ok(result.state === 'ready')
+  const ours = await rgbRaster(result.montage.bytes)
+  const script = await rgbRaster(await fixtureBytes(fixtures.montage.output))
+  assert.deepEqual([ours.width, ours.height], [script.width, script.height])
+  for (const index of crops.keys()) {
+    const expected = shownBounds(script, index)
+    const shown = shownBounds(ours, index)
+    assert.deepEqual(shown, expected, `cell ${index} placement and size`)
+    // Pillow and libvips downscale with different filters, so the pixels agree only closely.
+    const measured = difference(cutRaster(ours, shown), cutRaster(script, expected), 8)
+    assert.ok(measured.mean <= 3, `cell ${index} mean ${measured.mean}`)
+  }
 })

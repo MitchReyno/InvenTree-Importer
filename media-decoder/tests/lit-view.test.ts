@@ -28,8 +28,8 @@ const STRAIGHTENED_MEAN_LEVELS = 1.5
 const STRAIGHTENED_FAR_SHARE = 0.08
 /** The renderer's hue guard holds white balance to this; resistor bands must stay within it. */
 const MAX_BAND_HUE_SHIFT_DEGREES = 5
-/** Luminance adjustments scale all three channels together; rounding alone moves hue this little. */
-const LUMINANCE_HUE_TOLERANCE_DEGREES = 2
+/** Luminance adjustments keep every saturated pixel's hue within the same 5° the guard allows. */
+const LUMINANCE_HUE_TOLERANCE_DEGREES = 5
 
 const BANDS = {
   brown: [120, 60, 30],
@@ -291,14 +291,28 @@ for (const light of [
   { contrast_clip_permille: 20 },
   { gamma_thousandths: 1400 },
   { gamma_thousandths: 700 },
+  { gamma_thousandths: 500 },
+  { contrast_clip_permille: 50, gamma_thousandths: 500, sharpen: true },
   { sharpen: true },
   { contrast_clip_permille: 50, gamma_thousandths: 1500, sharpen: true },
 ]) {
   test(`luminance adjustment ${JSON.stringify(light)} keeps each colour's hue`, async () => {
     const colours = Object.values(BANDS)
-    // Soft-edged band patches on a dim grey ramp, so contrast and gamma have range to work on.
+    // Soft-edged band patches on a dim grey ramp, so contrast and gamma have range to work on, and a
+    // row of dark saturated pixels that darkening could round to another hue or to grey.
     const page = await solidPage(280, 120, (x, y) => {
       const band = Math.floor(x / 40)
+      if (y >= 100 && y < 110) {
+        return [
+          [48, 5, 0],
+          [5, 48, 0],
+          [0, 5, 48],
+          [48, 0, 30],
+          [60, 25, 0],
+          [0, 50, 40],
+          [50, 50, 0],
+        ][band]
+      }
       const inside = y >= 30 && y < 90 && x % 40 >= 6 && x % 40 < 34
       if (inside) {
         const shade = 0.7 + (0.3 * (y - 30)) / 60
@@ -322,7 +336,8 @@ for (const light of [
       for (let x = 0; x < page.width; x++) {
         const original = pixelAt(before, x, y)
         const adjusted = pixelAt(after, x, y)
-        if (spread(original) < 48 || spread(adjusted) < 48) {
+        const saturated = spread(original) >= 48 && spread(original) >= Math.max(...original) / 2
+        if (!saturated) {
           continue
         }
         if (adjusted.some((value, channel) => value !== original[channel])) {
@@ -439,4 +454,26 @@ test('the preview render and the derived crop are the same pixels', async () => 
     [derivedPage.width, derivedPage.height],
   )
   assert.ok(previewed.image.data.equals(derivedPage.data))
+})
+
+test('a recipe /2 that does not fit its page derives as malformed', async () => {
+  const original = await benchPhoto()
+  const fitting = recipeForCrop(
+    { region: [0, 0, 100, 100], quarter_turns: 0, straighten: 0, wb: false },
+    original,
+  )
+  const misfits: MediaLitViewRecipeDto[] = [
+    { ...fitting, page_width: original.width + 1 },
+    { ...fitting, page: 2 },
+    { ...fitting, view: { ...fitting.view, region: { x: 400, y: 0, width: 100, height: 100 } } },
+  ]
+  for (const recipe of misfits) {
+    const result = await decode({
+      version: 'media-decode/1',
+      digest: original.digest,
+      bytes: original.bytes,
+      recipe,
+    })
+    assert.equal(result.state, 'malformed', JSON.stringify(recipe.view.region))
+  }
 })
