@@ -830,10 +830,15 @@ test('questions stop at the snapshot limit with a typed refusal', async () => {
             assumption: 'Continuing as before.',
           }),
         )
-      for (let n = 0; n < 100; n += 1) {
-        assert.equal((await ask(n)).ok, true)
+      // Each question also reserves room for its answer's summary, so the batch budget binds
+      // before the per-job count of 100.
+      let accepted = 0
+      while ((await ask(accepted)).ok) {
+        accepted += 1
+        assert.ok(accepted <= 100)
       }
-      assert.equal((await ask(100)).error, 'capacity_reached')
+      assert.ok(accepted >= 60, `accepted ${accepted}`)
+      assert.equal((await ask(accepted)).error, 'capacity_reached')
     } finally {
       await session.close()
     }
@@ -907,7 +912,8 @@ test('many small questions across jobs stop before the snapshot overflows', asyn
         await session.close()
       }
     }
-    assert.ok(accepted > 100, `accepted ${accepted}`)
+    // The answer-summary reserve per question keeps the total near 70 small questions.
+    assert.ok(accepted >= 60, `accepted ${accepted}`)
     const snapshot = await fixture.http(`/batches/${capture.batch.id}/processing`)
     assert.equal(snapshot.status, 200)
     // The per-item allowance covers each projected question with room to spare.

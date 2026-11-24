@@ -13,6 +13,7 @@ import { transaction } from '#/db/database.ts'
 import { captureInTransaction } from '#/capture/repository.ts'
 import type { ProcessingConfig } from '#/processing/attempts.ts'
 import { fail } from '#/processing/model.ts'
+import { HAS_SESSION_HISTORY } from '#/processing/session-history-job.ts'
 import { decodeJobInput } from '#/processing/session-input.ts'
 import { webAccess } from '#/processing/session-policy.ts'
 import { latestSessionFailures } from '#/agents/failures.ts'
@@ -100,12 +101,7 @@ async function scopedSessionJob(
        JOIN public.capture_batch b ON b.id=j.batch_id
       WHERE j.id=$1 AND j.batch_id=$2
         AND b.actor_id=$3 AND b.target_id=$4 AND b.target_context_id=$5
-        AND EXISTS (
-          SELECT 1 FROM public.processing_attempt a
-            JOIN public.command c ON c.id=a.command_id
-            JOIN public.agent_session s ON s.attempt_id=a.id
-           WHERE a.job_id=j.id AND s.session_lineage_id=j.id AND s.session_state IS NOT NULL
-             AND c.actor_id=$3 AND c.target_id=$4 AND c.target_context_id=$5)`,
+        AND ${HAS_SESSION_HISTORY}`,
     [jobId, batchId, config.actorId, config.targetId, config.targetContextId],
   )
   const job = rows.rows[0] ?? fail('session_not_found', 404)
