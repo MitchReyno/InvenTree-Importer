@@ -40,7 +40,7 @@ export function database(connectionString: string) {
 interface CancellingClient {
   connection: {
     on(event: 'error' | 'end', listener: () => void): void
-    stream: { destroy(): void }
+    stream: { destroy(): void; unref(): void }
   }
   cancel(target: PoolClient, query: unknown): void
 }
@@ -64,9 +64,11 @@ export function cancelRunningStatement(
     return
   }
   const canceller = new Client(pool.options) as unknown as CancellingClient
-  // The socket is opened outside the pool, so it gets its own bound and never keeps the process up.
+  // The socket is opened outside the pool, so it gets its own bound, and neither it nor its
+  // timer keeps the process up.
   const lifetime = setTimeout(() => canceller.connection.stream.destroy(), lifetimeMs)
   lifetime.unref()
+  canceller.connection.stream.unref()
   canceller.connection.on('end', () => clearTimeout(lifetime))
   canceller.connection.on('error', () => undefined)
   canceller.cancel(target, running)

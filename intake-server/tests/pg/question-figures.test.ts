@@ -811,6 +811,20 @@ test('a preview whose checkout or state read is slower than its wait answers in 
     // Every other connection the role may open, held while the read blocks, so cancelling it
     // can't rely on a new session.
     const held: PoolClient[] = []
+    // Every checkout is kept, settled or not, so one still pending when an assertion fails is
+    // released too rather than holding the fixture's teardown.
+    const holding: Promise<PoolClient>[] = []
+
+    const releaseHeld = async () => {
+      held.length = 0
+      const outcomes = await Promise.allSettled(holding.splice(0))
+      for (const outcome of outcomes) {
+        if (outcome.status === 'fulfilled') {
+          outcome.value.release()
+        }
+      }
+    }
+
     try {
       // `blocked`: part of the wait goes before the read, then the read blocks in the database
       // with the role at its connection limit.
@@ -869,7 +883,9 @@ test('a preview whose checkout or state read is slower than its wait answers in 
                       if (slow === 'blocked') {
                         await new Promise((resolve) => setTimeout(resolve, waitMs * 0.3))
                         while (held.length < (target.options.max ?? 10) - 1) {
-                          held.push(await target.connect())
+                          const checkout = target.connect()
+                          holding.push(checkout)
+                          held.push(await checkout)
                         }
                         const budget = await held[0].query<{ limit: number; open: number }>(
                           `SELECT r.rolconnlimit AS limit,
@@ -942,9 +958,7 @@ test('a preview whose checkout or state read is slower than its wait answers in 
             [sleepingBackend],
           )
           assert.equal(sleeping.rowCount, 0, 'the blocked read is cancelled on the server')
-          for (const connection of held.splice(0)) {
-            connection.release()
-          }
+          await releaseHeld()
         }
         // The slow step ends on its own; nothing more is sent and every connection is returned.
         await new Promise((resolve) => setTimeout(resolve, 2_500))
@@ -959,9 +973,7 @@ test('a preview whose checkout or state read is slower than its wait answers in 
         }
       }
     } finally {
-      for (const connection of held) {
-        connection.release()
-      }
+      await releaseHeld()
       await stop()
     }
   })
