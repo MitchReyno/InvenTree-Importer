@@ -29,6 +29,7 @@
 | 9. Activity popover stage rows and bar states | Frontend behavior | 8 | header-workflow-status "Stage rows in workflow details", "Stage bar states", "Only working stages animate", "Expand work steps and existing actions" (Resume) |
 | 10. Session rows, failures in plain words and Agents filters | Contracts, intake server and frontend | 7; 9 or polish for the shared components | agents-overview "Agents page", "Agents filter rules", "Session rows", "Failed rows offer recovery"; processing-workspace "Failures in plain words" |
 | 11. Drawer header, activity feed and message box | Contracts, intake server and frontend, plus one instruction sentence | 6, 7, 10; 9 or polish for the shared components | processing-workspace "Session drawer header", "Activity in the app's words", "Labelled message box"; processing-agent-sessions "Status lines stay readable" |
+| 12. Configurable VM evidence delivery | Intake server and deployment tooling | 5 (merged) | processing-agent-sessions "Configurable VM evidence delivery" |
 
 ## PR delivery map
 
@@ -45,6 +46,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 | PR-G | A session-level Agents read, one row per session, failures in plain words, recovery actions and the Agents page filters | 10 | One read and its rows; its links and failure display reach the session page | PR-E merged, and PR-F or polish merged for the shared components | `feat/improve-agent-interaction-session-rows`; `feat(improve-agent-interaction): one row per session with its real failure` | Contracts tests, intake unit and PG tiers, frontend checks; demo video; review; CI |
 | PR-H | Drawer header, recent activity in the app's words, the labelled message box and readable status lines | 11 | Builds on the history read, the session page and the session-level read | PR-D2, PR-E and PR-G merged, and PR-F or polish merged for the shared components | `feat/improve-agent-interaction-session-details`; `feat(improve-agent-interaction): clearer session header, activity and message box` | Contracts tests, intake unit and PG tiers for the batch activity read and the instruction text, frontend checks; demo video; review; CI |
 | PR-F | Per-stage counts and the paused flag, stage rows in the activity popover and the new bar states; the shared `WorkState`, `StatePill` and `EventTime` components if `polish-ui-styling-and-loading` hasn't merged first | 8, 9 | Independent of questions and history, small enough to review end to end | PR-0; whichever of PR-F and polish merges second reuses the other's shared components | `feat/improve-agent-interaction-activity-stages`; `feat(improve-agent-interaction): show each stage's state and counts in the activity popover` | Contracts tests, intake PG tier, frontend checks; demo video; review; CI |
+| PR-I | Configurable inline or file evidence delivery, launch wiring and regressions | 12 | One transport behavior across its configuration and guest boundaries | PR-D1 merged; independent of the remaining UI work | `interactive-app` ← `feat/improve-agent-interaction-evidence-delivery`; `feat(improve-agent-interaction): configure VM evidence delivery` | Development, deployment and intake checks; independent review before publication; CI |
 
 ## Parallel work
 
@@ -53,13 +55,13 @@ How the PR map above lets work run at the same time. A PR can start once every P
 | Wave | Can run in parallel | Waits for |
 | --- | --- | --- |
 | 1 | PR-A · PR-B · PR-D1 · PR-F | PR-0 (all four); PR-F coordinates its shared components with `polish-ui-styling-and-loading` |
-| 2 | PR-D2 | PR-B and PR-D1 |
+| 2 | PR-D2 · PR-I | PR-D2 waits for PR-B and PR-D1; PR-I waits only for PR-D1 |
 | 3 | PR-E | PR-B and PR-D2 |
 | 4 | PR-G | PR-E; PR-F or polish for the shared components |
 | 5 | PR-H | PR-D2, PR-E and PR-G; PR-F or polish |
 
 - **Critical path:** PR-B → PR-D2 → PR-E → PR-G → PR-H, five PRs in sequence. PR-A has slack; PR-F can start after PR-0 but holds PR-G unless polish lands first. PR-D1 runs beside PR-B; PR-D2 starts once the later of the two merges.
-- **Most parallel moment:** wave 1, four PRs. After it, only one PR is ready at a time.
+- **Most parallel moment:** wave 1, four PRs. PR-I can also proceed independently after PR-D1; the remaining UI bundles follow their dependency chain.
 - **Conflicts to expect between parallel PRs:** PR-B and PR-F both change the Processing read the frontend uses (questions and step counts), and both touch `ProcessingWorkspace.tsx`, which `polish-ui-styling-and-loading` also edits. PR-B and PR-D1 both change `contracts/src/sessions.ts`, `processing.ts` and `agents/tools/handlers.ts`, and whichever lands first adds the shared envelope writer's size check. Whichever merges later rebases.
 - **Effect on BI-022:** `agent-stage-inputs-outputs` waits for this change's PR-B (stepped questions), PR-D1 (`photo_view`), PR-E (session page) and PR-G (session rows). PR-D1 is in wave 1, so it doesn't hold BI-022 back.
 
@@ -410,6 +412,23 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - [x] PR-F: implement tasks 8 and 9, review the exact head, publish with the demo, CI green, merge. Merged as #258 at `d09984bc`.
 - [ ] PR-G: implement task 10, review the exact head, publish with the demo, CI green, merge.
 - [ ] PR-H: implement task 11, review the exact head, publish with the demo, CI green, merge.
-- [ ] Update BI-019's status as PRs merge. It is Done only after PR-A, PR-B, PR-D1, PR-D2, PR-E, PR-F, PR-G and PR-H merge and its acceptance is evidenced.
+- [ ] Update BI-019's status as PRs merge. It is Done only after PR-A, PR-B, PR-D1, PR-D2, PR-E, PR-F, PR-G, PR-H and PR-I merge and its acceptance is evidenced.
 - [ ] Mark the design log entries D37 (PR-A), D38 (PR-B), D39 and D41 (PR-E) and D42 (PR-F) Built, with their PRs (D40's page layout was replaced by D41).
 - [ ] Before archiving, run `pnpm openspec:overlap --change improve-agent-interaction`, sync the specs, and record final open items in `notes.md`.
+
+
+## 12. Configurable VM evidence delivery
+
+- **PR delivery:** PR-I.
+- **Outcome:** an operator can select file-only evidence delivery for tool-capable VM sessions while preserving inline compatibility.
+- **Scope:** development environment/settings and VM relay launch, relay and guest launcher, guest evidence staging, tests, example environment and operator/architecture docs.
+- **Non-goals:** UI controls, transport ceiling changes, new provider tools, database/citation changes, automatic retries or live inventory actions.
+- **Prerequisite:** task 5 merged.
+- **Acceptance:** all scenarios of "Configurable VM evidence delivery".
+- **Approach:** pass a validated enum explicitly through existing launch boundaries; preserve verification, temporary-file ownership, cleanup and upstream authority.
+- **Verification:** focused RED/GREEN tests and applicable intake, tooling, types and formatting checks; native visual inspection is separately qualified.
+
+- [ ] 12.1 Add regressions for both modes, large/repeated results, refusals, integrity/write failures, validation and launch propagation; observe the new behavior fail.
+- [ ] 12.2 Implement the enum from development settings and standalone relay to the VM tool worker and evidence projection, preserving inline defaults and cleanup.
+- [ ] 12.3 Document configuration, provider file-opening guidance, lifetime and rollout; run the applicable checks and record limitations.
+- [ ] 12.4 Independently review the exact implementation before publication; publish and verify selected CI only when requested.

@@ -127,3 +127,33 @@ The session instructions SHALL tell the agent to write status lines in plain wor
 - **GIVEN** a Research session that has just published a proposal
 - **WHEN** it reports status
 - **THEN** the instructions it received ask for a line such as "Proposed GE S2CN1 diodes as a 1N4148-class switching diode", not "Proposal f067afc5 published".
+
+### Requirement: Configurable VM evidence delivery
+
+Tool-capable VM sessions SHALL support `INTAKE_VM_EVIDENCE_DELIVERY` with values `inline` and `file`. Unset or empty SHALL select `inline`; any other value SHALL be refused before launching a turn. The development launcher and standalone relay SHALL forward the selected mode to the tool worker. Routes without VM file tools SHALL retain their existing delivery.
+
+#### Scenario: File delivery
+
+- **GIVEN** a tool-capable Claude or Codex VM session configured for file delivery
+- **WHEN** an authorized image fetch succeeds
+- **THEN** the guest verifies and saves the delivered bytes in an owner-only temporary file and returns its path, source and rendition metadata, and instructions to open it with the provider's image/file tool, with no inline image bytes.
+- **AND** the file is removed when the turn ends, and the response instructs the agent to fetch again on later turns and cite source metadata rather than the temporary path.
+
+#### Scenario: Inline compatibility
+
+- **GIVEN** a tool-capable VM session with the setting omitted, empty or set to inline
+- **WHEN** an image fetch succeeds
+- **THEN** its existing inline image and staged-file metadata are returned.
+
+#### Scenario: Refused or unavailable image
+
+- **GIVEN** either delivery mode
+- **WHEN** the fetch is refused or returns metadata only
+- **THEN** no file is created and the result is unchanged.
+- **AND** a digest mismatch or failed file write returns no successful file result.
+
+#### Scenario: Oversized inline image becomes a bounded file result
+
+- **GIVEN** a delivered image whose base64 representation exceeds the Codex frame limit
+- **WHEN** file mode stages it
+- **THEN** the returned metadata and path fit the existing transport limit without losing the delivered bytes or citation metadata, including across repeated fetches.
