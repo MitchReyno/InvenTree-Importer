@@ -168,3 +168,12 @@ test('a required picker says so, and an invalid one is marked', () => {
   expect(input).toHaveAttribute('aria-required', 'true')
   expect(input).toHaveAttribute('aria-invalid', 'true')
 })
+
+test('Tab leaves the picker without picking the highlighted option', async () => {
+  const user = userEvent.setup()
+  const { input, onChange } = picker()
+  await user.type(input, '10k')
+  await user.tab()
+  expect(onChange).not.toHaveBeenCalled()
+  expect(input).not.toHaveFocus()
+})

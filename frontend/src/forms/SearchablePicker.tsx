@@ -129,6 +129,8 @@ export function SearchablePicker<O>({
           }
         }}
         filterOption={null}
+        // Tab leaves the field, as it does a native select; only Enter or a click picks.
+        tabSelectsValue={false}
         getOptionLabel={getOptionLabel}
         getOptionValue={getOptionValue}
         isOptionDisabled={isOptionDisabled}

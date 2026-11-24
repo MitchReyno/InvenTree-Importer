@@ -163,6 +163,7 @@ Implementation of the UI polish and calm loading plan, delivered as PR-A to PR-J
 Totals: 31 searchable pickers, 2 segmented controls and 12 native selects kept.
 
 - **2026-11-25T03:04+11:00, task 14 (PR-I), review round 1:** a picker whose empty value only prompted ("Choose an observed …") offers "Not chosen" first (`clearable`), so a choice can be undone and its editor return to clean, as the native empty option allowed. Picking the option already chosen changes nothing, since react-select reports it as a change. Escape with a picker's menu open closes the menu, not the dialog around it (`ModalFrame` leaves an expanded combobox's Escape alone). Required pickers announce it and their error, and take focus on a refused submit; react-select's own `required` isn't used, because its hidden input would block the form's submit before React Hook Form shows the error.
+- **2026-11-25T03:18+11:00, task 14 (PR-I), review round 2:** Tab leaves every searchable picker without picking the highlighted option (`tabSelectsValue` off), as it leaves a native select, so typing a search and tabbing away can't send an edit. Choosing the segment already pressed (Part action, a move's destination) reports nothing. Restructure's required Part proposal carries its error as its description. Not done here: the design system artifact's guide and board O11 (finding 4), which stay an open item because they are published outside the repository and need Mitch's go-ahead.
 
 ## Open items
 

@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { pickOption, searchAndPick } from '#/test/picker'
+import { pickOption, picker, searchAndPick } from '#/test/picker'
 import { expect, it, vi } from 'vitest'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { IntakeRequestError } from '@invimport/contracts/client'
@@ -248,4 +248,27 @@ it('a merge can leave out the Part proposal', async () => {
     kind: 'merge_lots',
     part_subject_id: null,
   })
+})
+
+it('a move with no Part proposal chosen names the error on the picker', async () => {
+  const user = userEvent.setup()
+  const restructure = previewOnly()
+  render(
+    <RestructureDialog
+      kind="move"
+      batch={batch}
+      lotIds={['l1']}
+      excludedLotIds={[]}
+      client={{ restructure } as unknown as OperatorReviewClient}
+      disabled={false}
+      reload={vi.fn()}
+      onClose={vi.fn()}
+    />,
+  )
+  await user.click(screen.getByRole('button', { name: 'Preview impact' }))
+  const part = picker('Part proposal')
+  await waitFor(() => expect(part).toHaveFocus())
+  expect(part).toHaveAttribute('aria-invalid', 'true')
+  expect(part).toHaveAccessibleDescription(/Choose a Part proposal\./)
+  expect(restructure).not.toHaveBeenCalled()
 })

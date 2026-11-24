@@ -57,6 +57,9 @@ test('human explicitly chooses one shared new Part with an observed category and
       />
     </BatchCommandsProvider>,
   )
+  onDirty.mockClear()
+  await user.click(screen.getByRole('button', { name: 'Reuse a Part' }))
+  expect(onDirty).not.toHaveBeenCalled()
   await user.click(screen.getByRole('button', { name: 'Create a Part' }))
   await user.type(screen.getByLabelText('New Part name'), 'Resistor Ω')
   await user.click(screen.getByRole('button', { name: 'Save human changes' }))

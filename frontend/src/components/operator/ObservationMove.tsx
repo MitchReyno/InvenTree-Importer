@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import styled from 'styled-components'
+import { space } from '#/theme/generated/tokens'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { Button } from '#/components/ui'
 import { ChoicePicker } from '#/forms'
@@ -22,7 +24,7 @@ export function ObservationMove({ batch, observationId, lotId, name, edit, disab
     return null
   }
   return (
-    <span>
+    <Move>
       <ChoicePicker
         label={`Move ${name} to`}
         clearable
@@ -35,7 +37,7 @@ export function ObservationMove({ batch, observationId, lotId, name, edit, disab
         value={target}
         disabled={disabled || !edit}
         onChange={setTarget}
-      />{' '}
+      />
       <Button
         type="button"
         disabled={disabled || !edit || !target}
@@ -49,6 +51,17 @@ export function ObservationMove({ batch, observationId, lotId, name, edit, disab
       >
         Move
       </Button>
-    </span>
+    </Move>
   )
 }
+
+const Move = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: ${space[3]};
+  > :first-child {
+    flex: 1 1 200px;
+    min-width: 0;
+  }
+`

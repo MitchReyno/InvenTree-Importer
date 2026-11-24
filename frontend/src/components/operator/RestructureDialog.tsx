@@ -394,8 +394,10 @@ export function RestructureDialog({
                       options={DESTINATIONS}
                       value={field.value}
                       onChange={(id) => {
-                        field.onChange(id)
-                        reportDraft()
+                        if (id !== field.value) {
+                          field.onChange(id)
+                          reportDraft()
+                        }
                       }}
                     />
                   </Label>
@@ -414,6 +416,7 @@ export function RestructureDialog({
                       choices={partChoices}
                       required
                       invalid={Boolean(fieldState.error)}
+                      status={fieldState.error?.message}
                       inputRef={field.ref}
                       value={field.value}
                       disabled={fieldsDisabled}

@@ -164,8 +164,11 @@ export function CaptureEditor({ batch, selected, frozen, dirty, onDirty, edit }:
                   options={PART_ACTIONS}
                   value={field.value}
                   onChange={(id) => {
-                    field.onChange(id === 'create' ? 'create' : 'reuse')
-                    onDirty(true)
+                    const next = id === 'create' ? 'create' : 'reuse'
+                    if (next !== field.value) {
+                      field.onChange(next)
+                      onDirty(true)
+                    }
                   }}
                 />
               </Label>
