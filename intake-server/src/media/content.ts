@@ -191,7 +191,8 @@ export function mediaContent(pool: Pool, binding: CaptureBinding, store: BlobSto
     /**
      * A question figure's rendered view or thumbnail, under the session history's scope: the
      * question must belong to this batch's job and actor. A removed photo or an unknown figure is
-     * not found; a render still queued or one that failed is a conflict naming which.
+     * not found; a render still queued, one that failed or one no longer kept is a conflict
+     * naming which.
      */
     async questionFigure(
       batchId: string,
@@ -230,13 +231,14 @@ export function mediaContent(pool: Pool, binding: CaptureBinding, store: BlobSto
           ],
         )
         const found = rows.rows[0]
-        if (!found || found.removed || found.state === null) {
+        if (!found || found.removed) {
           fail('not_found', 404)
         }
         if (found!.state === 'queued') {
           fail('figure_preparing', 409)
         }
-        if (found!.state === 'failed') {
+        // A view the sweep deleted, as for a photo removed and later restored, isn't made again.
+        if (found!.state === 'failed' || found!.state === null) {
           fail('figure_render_failed', 409)
         }
         return found!.digest!

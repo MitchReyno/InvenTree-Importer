@@ -23,7 +23,7 @@ import {
   type FigureSpec,
 } from '../support/question-figures.ts'
 import { seedAuthority } from '../support/database.ts'
-import { BlobStore } from '#/media/blob-store.ts'
+import { BlobStore, lockBlob } from '#/media/blob-store.ts'
 import { readMediaStoreIdentity } from '#/media/store-identity.ts'
 import { mediaContent } from '#/media/content.ts'
 import { transaction } from '#/db/database.ts'
@@ -404,6 +404,25 @@ test('direct delivery: only the fetched page of a document is figured, and a pro
   })
 })
 
+test('a page an earlier attempt of the job was given is not this conversation’s to show', async () => {
+  await withFigureSession(async (setup) => {
+    const { tools, token, lot, pageTwoFigure, context } = setup
+    // Start fresh keeps the job and starts a new attempt; the old conversation saw page 2.
+    recordMediaDelivery(context.deliveredMedia, setup.session.job, setup.document.version, {
+      attemptId: randomUUID(),
+      page: 2,
+    })
+
+    const unseen = refusal(await tools.ask(token, figureQuestion(lot, [pageTwoFigure()])))
+    assert.equal(unseen.error, 'source_not_delivered')
+    assert.equal(unseen.issues?.[0]?.path, '/figures/0/source/page')
+
+    // This attempt fetching the page itself, in this turn or a resumed one, lets it show it.
+    await fetched(setup, setup.document, 2)
+    accepted(await tools.ask(token, figureQuestion(lot, [pageTwoFigure()])))
+  })
+})
+
 for (const delivery of ['file', 'inline'] as const) {
   test(`VM ${delivery} delivery: the release receipt binds the fetched page, and figures wait for its confirmation`, async () => {
     await withFigureSession(
@@ -463,7 +482,9 @@ for (const delivery of ['file', 'inline'] as const) {
             context.deliveredMedia,
             setup.session.job,
             release.version,
-            release.page,
+            release.page === undefined
+              ? undefined
+              : { attemptId: setup.session.attempt, page: release.page },
           )
         })
         assert.deepEqual(granted, [{ version: setup.document.version, page: 2 }])
@@ -697,6 +718,48 @@ test('a preview not rendered in time is retryable with no images, and too many w
       previews: MAX_PENDING_PREVIEWS,
       outbox: 0,
     })
+  })
+})
+
+test('a preview that settles after its wait is still not ready, and one swept while waiting says its photo went', async () => {
+  await withFigureSession(async (setup) => {
+    const { fixture, token, lot, photoFigure, context } = setup
+    await fetched(setup, setup.photo)
+
+    // Settles about 60 ms after the 60 ms wait, before the next 200 ms poll would have read it.
+    const renderer = fakeRenderer()
+    const slow: typeof renderer = Object.assign(
+      async (input: Parameters<typeof renderer>[0]) => {
+        await new Promise((resolve) => setTimeout(resolve, 120))
+        return renderer(input)
+      },
+      { calls: renderer.calls },
+    )
+    const stop = consumer(setup, slow)
+    try {
+      const waiting = sessionTools({ ...context, figurePreviewWaitMs: 60 })
+      const late = await waiting.ask(token, figureQuestion(lot, [photoFigure()], true))
+      assert.equal(refusal(late).error, 'preview_not_ready')
+      assert.equal(late.images, undefined)
+    } finally {
+      await stop()
+    }
+
+    // No consumer: the preview stays queued until the sweep deletes it mid-wait.
+    const patient = sessionTools({ ...context, figurePreviewWaitMs: 10_000 })
+    const asking = patient.ask(token, figureQuestion(lot, [photoFigure({ label: 'Swept' })], true))
+    let swept = 0
+    for (let tries = 0; swept === 0 && tries < 200; tries += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      const deleted = await fixture.db.pool.query(
+        `DELETE FROM processing_figure_render WHERE purpose='preview' AND state='queued'`,
+      )
+      swept = deleted.rowCount ?? 0
+    }
+    assert.ok(swept > 0)
+    const gone = await asking
+    assert.equal(refusal(gone).error, 'media_evidence_removed')
+    assert.equal(gone.images, undefined)
   })
 })
 
@@ -1068,6 +1131,57 @@ function findById(value: unknown, id: string): Record<string, unknown> | undefin
   return undefined
 }
 
+test('a blob released while a collection holds its lock stays recorded for the next collection', async () => {
+  await withFigureSession(async (setup) => {
+    const { fixture, tools, token, lot, pageTwoFigure, media, store, binding } = setup
+    await fetched(setup, setup.document, 2)
+    const asked = accepted(await tools.ask(token, figureQuestion(lot, [pageTwoFigure()])))
+    const stop = consumer(setup, fakeRenderer())
+    try {
+      for (let tries = 0; tries < 100; tries += 1) {
+        if ((await figureRender(setup, asked.id!, 1))?.view) {
+          break
+        }
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
+    } finally {
+      await stop()
+    }
+    const view = (await figureRender(setup, asked.id!, 1))!.view!
+    await mediaEditor(fixture.api.pool, fixture.config, setup.batchId).applied({
+      kind: 'remove',
+      evidence_ids: [setup.document.evidence],
+    })
+
+    // A collection has locked the blob and seen the render still referencing it.
+    const collector = await media.pool.connect()
+    let sweeping: Promise<unknown> | undefined
+    try {
+      await collector.query('BEGIN')
+      await lockBlob(collector, view)
+      let settled = false
+      sweeping = sweepFigureRenders(media.pool, store, binding).finally(() => {
+        settled = true
+      })
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      assert.equal(settled, false, 'the release waits for the collection’s lock')
+      await collector.query('DELETE FROM public.processing_figure_blob_release WHERE digest=$1', [
+        Buffer.from(view, 'hex'),
+      ])
+      await collector.query('COMMIT')
+    } finally {
+      collector.release()
+    }
+    await sweeping
+
+    const recorded = await fixture.db.pool.query(
+      'SELECT 1 FROM processing_figure_blob_release WHERE digest=$1',
+      [Buffer.from(view, 'hex')],
+    )
+    assert.equal(recorded.rowCount, 1)
+  })
+})
+
 test('the read shows each figure’s state, and the figure route serves it within the session’s scope', async () => {
   await withFigureSession(async (setup) => {
     const { fixture, tools, token, lot, photoFigure, pageTwoFigure, media, store, binding } = setup
@@ -1179,5 +1293,15 @@ test('the read shows each figure’s state, and the figure route serves it withi
       ),
       { statusCode: 404 },
     )
+
+    // A view the sweep deleted, as for a photo removed and then restored, isn't made again: the
+    // read and the route both say it couldn't be made.
+    await fixture.db.pool.query('DELETE FROM processing_figure_render WHERE id=$1', [ready.id])
+    const reread = await fixture.http(`/batches/${setup.batchId}/processing`)
+    const after = findById(reread.value, questionId)?.figures as ProcessingQuestionFigureDto[]
+    assert.equal(after[0]!.state, 'failed')
+    const unkept = await get(path(1, 'view'))
+    assert.equal(unkept.status, 409)
+    assert.match(JSON.stringify(errorCode(unkept)), /figure_render_failed/)
   })
 })

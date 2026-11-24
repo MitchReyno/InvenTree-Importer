@@ -140,7 +140,7 @@ Migration `0038` adds `processing_figure_render`, one durable request per operat
 
 The supervised consumer `media/render-worker-main.ts` (`figure-render` in `tooling/deployment/host-media.compose.yaml`) runs under the media role with the dispatcher socket, woken by the notification and polling every second. Managed `pnpm dev` runs the same step in its existing media child through the local launcher. Its sweep deletes preview renders after a day, view renders no question references and every render of a removed version, records their blobs in `processing_figure_blob_release`, and collects each released blob once it is a day old. A view deleted because its photo was removed isn't queued again if the photo is restored; that figure reads as failed.
 
-The Processing read gives each `/2` question's figures a state (`processing/question-figures.ts`): `removed` for a removed photo, otherwise `preparing`, `ready` or `failed` from its view render. `GET /api/v1/batches/:batchId/processing/sessions/:jobId/questions/:questionId/figures/:index/:size` serves the `view` or `thumb` WebP under the session history's scope, 404 for an unknown figure or a removed photo and 409 while it is preparing or after it failed.
+The Processing read gives each `/2` question's figures a state (`processing/question-figures.ts`): `removed` for a removed photo, otherwise `preparing`, `ready` or `failed` from its view render. `GET /api/v1/batches/:batchId/processing/sessions/:jobId/questions/:questionId/figures/:index/:size` serves the `view` or `thumb` WebP under the session history's scope, 404 for an unknown figure or a removed photo and 409 while it is preparing, after it failed, or once its view is no longer kept.
 
 ### Removed evidence
 

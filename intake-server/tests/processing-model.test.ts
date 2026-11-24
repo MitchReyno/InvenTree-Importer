@@ -617,3 +617,50 @@ test('a new-Part create choice is admitted only through media input /5, never ol
   })
   assert.equal(withoutCreate.schema_version, 'bench-intake-input/2')
 })
+
+test('documents sealed before integers were allowed still seal to and verify as the same bytes', () => {
+  // Bytes and digest written by the string-only sealer, kept fixed so a serializer change shows.
+  const legacy = Buffer.from(
+    '{"alpha":null,"flags":[true,false],"nested":{"y":{"x":[]}},"zeta":[{"a":"one","b":"two"},[],{}],' +
+      '"é key":"quote \\" backslash \\\\ newline \\n tab \\t","Ω":"snowman ☃ emoji 😀 nul \\u0000"}',
+    'utf8',
+  )
+  const digest = Buffer.from(
+    '126250dc8ce6864548ff447179c0a85204336211067bc5826209a4bdc1129d25',
+    'hex',
+  )
+  const document = {
+    zeta: [{ b: 'two', a: 'one' }, [], {}],
+    alpha: null,
+    'é key': 'quote " backslash \\ newline \n tab \t',
+    flags: [true, false],
+    Ω: 'snowman ☃ emoji 😀 nul \u0000',
+    nested: { y: { x: [] } },
+  }
+
+  const resealed = sealed(document)
+  assert.deepEqual(resealed.bytes, legacy)
+  assert.deepEqual(resealed.digest, digest)
+  assert.deepEqual(unseal(legacy, digest), document)
+})
+
+test('a sealed document keeps safe integers and refuses fractions and unsafe integers', () => {
+  const figure = { region: { x: 1840, y: 0, width: 300, height: 160 }, at: [10000, -5] }
+  const retained = sealed(figure)
+  assert.equal(
+    retained.bytes.toString('utf8'),
+    '{"at":[10000,-5],"region":{"height":160,"width":300,"x":1840,"y":0}}',
+  )
+  assert.deepEqual(unseal(retained.bytes, retained.digest), figure)
+
+  assert.throws(() => sealed({ x: 0.5 }))
+  assert.throws(() => sealed({ x: Number.MAX_SAFE_INTEGER + 1 }))
+  for (const text of ['{"x":0.5}', '{"x":9007199254740993}', '{"x":1e3}', '{"x":-0}']) {
+    const bytes = Buffer.from(text, 'utf8')
+    assert.throws(
+      () => unseal(bytes, sha256(bytes)),
+      /noncanonical_retained_input|unsafe_json_number/,
+      text,
+    )
+  }
+})

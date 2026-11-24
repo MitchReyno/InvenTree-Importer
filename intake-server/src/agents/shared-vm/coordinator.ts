@@ -24,7 +24,12 @@ import {
 
 export interface SessionBridgeOptions {
   /** Hosts each tool turn's egress proxy refuses; see `bridgeProtectedHosts`. */
-  confirmEvidence?: (job: string, version: string, page?: number) => void
+  /** Grants a confirmed release: the version to the job, and its page to the attempt that saw it. */
+  confirmEvidence?: (
+    job: string,
+    version: string,
+    delivered?: { attemptId: string; page: number },
+  ) => void
   protectedHosts: readonly string[]
 }
 
@@ -435,7 +440,13 @@ export async function startSessionBridge(
             throw new Error('unexpected_evidence_release')
           }
           releases.confirm(msg.releaseId, (release) =>
-            options.confirmEvidence!(context.identity.lineage, release.version, release.page),
+            options.confirmEvidence!(
+              context.identity.lineage,
+              release.version,
+              release.page === undefined
+                ? undefined
+                : { attemptId: context.identity.attemptId, page: release.page },
+            ),
           )
           await frames.send({ ok: true })
           continue

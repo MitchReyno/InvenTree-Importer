@@ -105,7 +105,7 @@ export async function pendingPreviewCount(client: PoolClient, lineageId: string)
   return rows.rows[0].count
 }
 
-export interface SettledPreview {
+export interface PreviewRow {
   id: string
   state: 'queued' | 'ready' | 'failed'
   digest: string | null
@@ -113,16 +113,19 @@ export interface SettledPreview {
   height: number | null
 }
 
+/** A preview render's state; `gone` once the sweep deleted it, as for a removed photo. */
+export type SettledPreview = PreviewRow | { id: string; state: 'gone' }
+
 /** The current state of preview renders, in the order asked. */
 export async function previewRenders(pool: Pool, ids: string[]): Promise<SettledPreview[]> {
-  const rows = await pool.query<SettledPreview>(
+  const rows = await pool.query<PreviewRow>(
     `SELECT id, state, encode(preview_digest,'hex') AS digest,
        preview_width AS width, preview_height AS height
      FROM public.processing_figure_render WHERE id = ANY($1::uuid[])`,
     [ids],
   )
   const byId = new Map(rows.rows.map((row) => [row.id, row]))
-  return ids.map((id) => byId.get(id)!)
+  return ids.map((id): SettledPreview => byId.get(id) ?? { id, state: 'gone' })
 }
 
 interface ClaimedRender {
@@ -402,15 +405,24 @@ export async function renderFigureStep(
   return 'rendered'
 }
 
+/**
+ * Records blobs whose last render reference may be gone. Each is recorded under its blob lock,
+ * which collection holds while it checks references and clears the record, so a release can't
+ * land between that check and the clearing and be lost. Locks are taken in digest order.
+ */
 async function releaseBlobs(client: PoolClient, digests: (Buffer | string | null)[]) {
+  const released = new Set<string>()
   for (const digest of digests) {
-    if (digest === null) {
-      continue
+    if (digest !== null) {
+      released.add(typeof digest === 'string' ? digest : digest.toString('hex'))
     }
+  }
+  for (const digest of [...released].sort()) {
+    await lockBlob(client, digest)
     await client.query(
       `INSERT INTO public.processing_figure_blob_release(digest) VALUES($1)
        ON CONFLICT DO NOTHING`,
-      [typeof digest === 'string' ? Buffer.from(digest, 'hex') : digest],
+      [Buffer.from(digest, 'hex')],
     )
   }
 }

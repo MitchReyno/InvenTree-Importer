@@ -45,10 +45,41 @@ test('one picture fills the card with its caption, source line and marks over it
   const marks = marksIn(open)
   expect(marks).not.toBeNull()
   expect(marks!.querySelector('rect')).not.toBeNull()
-  expect(marks!.querySelector('text')).toHaveTextContent('Worn: B or nothing?')
+  const labels = Array.from(marks!.querySelectorAll('text'), (text) => text.textContent)
+  expect(labels).toEqual(['the suffix in doubt', 'Worn: B or nothing?'])
   const caption = screen.getByText('The worn suffix, boxed').closest('figcaption')
   expect(caption).toHaveTextContent('IMG_3020 · cropped, turned upright, ×3.4')
   expect(screen.queryByRole('group', { name: 'Pictures' })).not.toBeInTheDocument()
+})
+
+test('every labelled mark shows its label, as the agent’s preview draws it', () => {
+  show([
+    figure(1, {
+      marks: [
+        {
+          kind: 'arrow',
+          geometry: { from: { x: 1000, y: 1000 }, to: { x: 5000, y: 5000 } },
+          label: 'pin 1',
+        },
+        { kind: 'circle', geometry: { x: 2000, y: 2000, width: 1000, height: 1000 }, label: 'dot' },
+        {
+          kind: 'ellipse',
+          geometry: { x: 6000, y: 2000, width: 2000, height: 1000 },
+          label: 'logo',
+        },
+        {
+          kind: 'highlight',
+          geometry: { x: 500, y: 7000, width: 9000, height: 1000 },
+          label: 'code',
+        },
+        { kind: 'box', geometry: { x: 7000, y: 8000, width: 2000, height: 2000 } },
+      ],
+    }),
+  ])
+
+  const marks = marksIn(screen.getByRole('button', { name: /^Open picture 1 of 1/ }))
+  const labels = Array.from(marks!.querySelectorAll('text'), (text) => text.textContent)
+  expect(labels).toEqual(['pin 1', 'dot', 'logo', 'code'])
 })
 
 test('two pictures sit side by side, badged A and B', () => {
@@ -113,6 +144,7 @@ test('a removed, preparing or failed picture says so while the others show', () 
 
   const removed = screen.getByRole('button', { name: 'Open picture 2 of 2: Removed' })
   expect(removed).toHaveTextContent('Photo removed')
+  expect(removed).toHaveAccessibleDescription('Photo removed')
   expect(removed.querySelector('img')).toBeNull()
   expect(
     screen.getByRole('button', { name: 'Open picture 1 of 2: Ready' }).querySelector('img'),
@@ -256,6 +288,35 @@ test('Whole photo outlines the region on a page-shaped box when the page preview
   expect(dialog).toHaveTextContent('The page preview isn’t available here')
 })
 
+test('Whole photo outlines the window the picture samples, shrunk near the page edge', async () => {
+  // 12° of straightening at the page's right edge: the corner guard shrinks the window.
+  show([
+    figure(1, {
+      caption: 'At the edge',
+      view: {
+        region: { x: 3500, y: 1000, width: 500, height: 400 },
+        quarter_turns: 0,
+        straighten_millidegrees: 12000,
+      },
+    }),
+  ])
+  await userEvent.click(screen.getByRole('button', { name: /^Open picture 1 of 1/ }))
+  const dialog = screen.getByRole('dialog', { name: 'At the edge' })
+  await userEvent.click(
+    within(dialog).getByRole('button', { name: 'Show the whole original photo' }),
+  )
+
+  const outline = dialog.querySelector('[data-region-outline]')!
+  const width = Number(outline.getAttribute('width'))
+  const height = Number(outline.getAttribute('height'))
+  const x = Number(outline.getAttribute('x'))
+  expect(width).toBeLessThan(500)
+  expect(height / width).toBeCloseTo(400 / 500)
+  // Centred on the region's centre, so the outline's right side stays on the page.
+  expect(x + width / 2).toBeCloseTo(3750)
+  expect(x + width).toBeLessThan(4000)
+})
+
 test('previous and next buttons, thumbnails and arrow keys move between pictures', async () => {
   const dialog = await openDialog()
 
@@ -292,8 +353,11 @@ test('hiding the marks keeps them listed, and the next picture shows without its
   expect(toggle).toBeChecked()
   expect(marksIn(stage())).not.toBeNull()
 
+  const strip = within(dialog).getByRole('group', { name: 'Pictures for this question' })
+  expect(marksIn(strip)).not.toBeNull()
   await userEvent.click(toggle)
   expect(marksIn(stage())).toBeNull()
+  expect(marksIn(strip)).toBeNull()
   const marks = within(dialog).getByRole('list', { name: 'Marks' })
   expect(marks).toHaveTextContent('Box: the suffix in doubt')
 

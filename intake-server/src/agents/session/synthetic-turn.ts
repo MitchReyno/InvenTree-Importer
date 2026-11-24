@@ -8,6 +8,8 @@ import type { SessionTurn } from './session-adapters.ts'
 export interface SyntheticResult {
   ok: boolean
   pages?: { page: number; width: number; height: number }[]
+  /** Present only when the fetch gave the session an image of that page. */
+  delivered?: { page: number }
   items?: { id: string; seq: string; kind: string; payload?: Record<string, unknown> }[]
 }
 
@@ -49,7 +51,7 @@ export function syntheticQuestion(subjectId: string) {
 /**
  * A picture of the lot's first photo for the synthetic question: the session fetches the photo,
  * so its first page is delivered, and shows the middle half of it with one box. None when the
- * session has no photo or the fetch is refused.
+ * session has no photo, the fetch is refused, or the host gives page sizes without an image.
  */
 async function syntheticFigures(
   manifest: SessionDriverContext['manifest'],
@@ -66,7 +68,7 @@ async function syntheticFigures(
     evidence_id: photo.evidenceId,
     version_id: photo.versionId,
   })
-  const page = fetched.pages?.[0]
+  const page = fetched.pages?.find((item) => item.page === fetched.delivered?.page)
   if (!fetched.ok || !page) {
     return undefined
   }

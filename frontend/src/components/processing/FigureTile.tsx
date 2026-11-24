@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import styled from 'styled-components'
 import type { ProcessingQuestionFigureDto } from '@invimport/contracts'
 import { ExpandIcon } from '#/components/ui'
@@ -19,15 +20,17 @@ type Props = {
 /** One question picture with its caption and source; the picture opens the larger view. */
 export function FigureTile({ figure, index, count, src, badge, onOpen }: Props) {
   const page = pageBadge(figure)
+  const statusId = useId()
 
   return (
     <Figure>
       <Open
         type="button"
         aria-label={`Open picture ${index + 1} of ${count}: ${figure.caption}`}
+        aria-describedby={statusId}
         onClick={onOpen}
       >
-        <FigurePicture figure={figure} src={src} showMarks />
+        <FigurePicture figure={figure} src={src} showMarks statusId={statusId} />
         {badge && <Corner aria-hidden="true">{badge}</Corner>}
         {page && <Page aria-hidden="true">{page}</Page>}
         <Larger aria-hidden="true">

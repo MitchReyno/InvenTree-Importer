@@ -109,11 +109,11 @@ async function main() {
     if (vmBridge) {
       bridge = await startSessionBridge(vmBridge.pair, vmBridge.port, {
         protectedHosts: vmBridge.protectedHosts,
-        confirmEvidence: (job, version, page) => {
+        confirmEvidence: (job, version, delivered) => {
           if (!tools) {
             throw new Error('session_tools_unavailable')
           }
-          tools.confirmEvidence(job, version, page)
+          tools.confirmEvidence(job, version, delivered)
         },
       })
     }

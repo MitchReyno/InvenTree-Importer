@@ -411,3 +411,20 @@ test('bytes that do not match their digest are refused before rendering', async 
   const input = { ...viewInput(page, viewRecipe), digest: 'b'.repeat(64) }
   await assert.rejects(renderView(input), /invalid_decode_input/)
 })
+
+test('a whole-page view of a page at the page pixel limit renders, its margin included', async () => {
+  // 8000 × 6500 is the 52 MP page limit; the sampling margin takes the raw window past it.
+  const page = { width: 8000, height: 6500 }
+  const bytes = await sharp({
+    create: { ...page, channels: 3, background: { r: 30, g: 60, b: 220 } },
+  })
+    .png({ compressionLevel: 1 })
+    .toBuffer()
+
+  const result = await ready(viewInput(bytes, recipe(page, {})))
+
+  const layout = viewLayout(recipe(page, {}))
+  const view = await rgb(result.view.bytes, 'webp')
+  assert.deepEqual([view.width, view.height], [layout.width, layout.height])
+  assertColour(at(view, 0.5, 0.5), BLUE, 'the middle')
+})

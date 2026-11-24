@@ -67,8 +67,11 @@ export async function sampleRotatedWindow(
   ) {
     throw new RotatedRegionLimitError('rotated_region_pixel_limit')
   }
+  // Raw pixels are already decoded within the page limit; a view's neighbourhood adds a margin
+  // of repeated edge pixels, so only encoded input is held to the page limit here.
+  const inputPixelLimit = source.raw ? source.raw.width * source.raw.height : MEDIA_LIMITS.pixels
   const intermediate = await sharp(source.input, {
-    limitInputPixels: MEDIA_LIMITS.pixels,
+    limitInputPixels: inputPixelLimit,
     raw: source.raw,
   })
     .affine(matrix, {

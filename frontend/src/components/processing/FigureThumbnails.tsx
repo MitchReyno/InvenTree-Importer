@@ -1,4 +1,4 @@
-import { useRef, type KeyboardEvent } from 'react'
+import { useId, useRef, type KeyboardEvent } from 'react'
 import styled from 'styled-components'
 import type { ProcessingQuestionFigureDto } from '@invimport/contracts'
 import { color, radius, ring, space } from '#/theme/generated/tokens'
@@ -14,6 +14,8 @@ type Props = {
   label: string
   thumbSrc: (index: number) => string
   large?: boolean
+  /** Whether the agent's marks are drawn, so the dialog's switch covers its strip too. */
+  showMarks?: boolean
 }
 
 /**
@@ -27,7 +29,9 @@ export function FigureThumbnails({
   label,
   thumbSrc,
   large = false,
+  showMarks = true,
 }: Props) {
+  const statusId = useId()
   const buttons = useRef<(HTMLButtonElement | null)[]>([])
 
   function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
@@ -59,9 +63,16 @@ export function FigureThumbnails({
           aria-current={index === current ? 'true' : undefined}
           tabIndex={index === current ? 0 : -1}
           onClick={() => onSelect(index)}
+          aria-describedby={`${statusId}-${index}`}
           onKeyDown={(event) => handleKeyDown(event, index)}
         >
-          <FigurePicture figure={figure} src={thumbSrc(index)} showMarks compact />
+          <FigurePicture
+            figure={figure}
+            src={thumbSrc(index)}
+            showMarks={showMarks}
+            statusId={`${statusId}-${index}`}
+            compact
+          />
         </Thumb>
       ))}
     </Strip>

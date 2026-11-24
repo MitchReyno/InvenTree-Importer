@@ -1,6 +1,7 @@
 import styled from 'styled-components'
 import type { ProcessingQuestionFigureDto } from '@invimport/contracts'
 import { useFigurePagePreview } from '#/media/useFigurePagePreview'
+import { figureLayout } from '#/processing/question-figures'
 import { color, space, typeVar } from '#/theme/generated/tokens'
 
 type Props = {
@@ -15,9 +16,7 @@ type Props = {
 export function FigureWholePage({ figure, batchId }: Props) {
   const preview = useFigurePagePreview(batchId, figure.source)
   const { page_width: width, page_height: height } = figure
-  const { region, straighten_millidegrees: angle } = figure.view
-  const centerX = region.x + region.width / 2
-  const centerY = region.y + region.height / 2
+  const outline = sampledWindow(figure)
   const label = figure.evidence_label ?? 'The page'
 
   return (
@@ -44,18 +43,43 @@ export function FigureWholePage({ figure, batchId }: Props) {
         role="img"
         aria-label={`${label} with the picture’s region outlined`}
       >
-        {/* The view samples the region turned against its straightening angle. */}
+        {/* The view samples this window, turned against its straightening angle. */}
         <rect
           data-region-outline=""
-          x={region.x}
-          y={region.y}
-          width={region.width}
-          height={region.height}
-          transform={`rotate(${-angle / 1000} ${centerX} ${centerY})`}
+          x={outline.centerX - outline.width / 2}
+          y={outline.centerY - outline.height / 2}
+          width={outline.width}
+          height={outline.height}
+          transform={`rotate(${-outline.angle / 1000} ${outline.centerX} ${outline.centerY})`}
         />
       </svg>
     </Frame>
   )
+}
+
+/**
+ * The window the view samples: the region, shrunk about its centre by the corner guard near a page
+ * edge. The region itself when the read's geometry is malformed.
+ */
+function sampledWindow(figure: ProcessingQuestionFigureDto) {
+  const { region, straighten_millidegrees: angle } = figure.view
+  const layout = figureLayout(figure)
+  if (!layout) {
+    return {
+      centerX: region.x + region.width / 2,
+      centerY: region.y + region.height / 2,
+      width: region.width,
+      height: region.height,
+      angle,
+    }
+  }
+  return {
+    centerX: layout.centerX,
+    centerY: layout.centerY,
+    width: layout.windowWidth,
+    height: layout.windowHeight,
+    angle,
+  }
 }
 
 const Frame = styled.div<{ $ratio: string }>`

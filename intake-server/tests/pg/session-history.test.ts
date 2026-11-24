@@ -68,7 +68,7 @@ function entriesOf(history: SessionHistoryDto, kind: Entry['details']['kind']) {
 }
 
 /** The session tools for runner and lead writes, called directly with a session's token. */
-function tools(fixture: Fixture, deliveredMedia = new Map<string, Map<string, Set<number>>>()) {
+function tools(fixture: Fixture, deliveredMedia = new Map()) {
   const handlers = sessionHandlers(fixture, deliveredMedia)
   return async (name: keyof typeof handlers, token: string, args: unknown) => {
     const output = await handlers[name](token, args)
@@ -79,7 +79,7 @@ function tools(fixture: Fixture, deliveredMedia = new Map<string, Map<string, Se
 
 function sessionHandlers(
   fixture: Fixture,
-  deliveredMedia = new Map<string, Map<string, Set<number>>>(),
+  deliveredMedia = new Map(),
 ) {
   return sessionTools({
     pool: fixture.runner.pool,

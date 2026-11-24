@@ -1,7 +1,7 @@
 import { evidenceFormatHeader } from '#/agents/shared-vm/evidence-release.ts'
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify'
 import type { Pool } from 'pg'
-import { recordMediaDelivery, type DeliveredMedia } from './handlers.ts'
+import { recordMediaDelivery, type DeliveredMedia, type DeliveredPage } from './handlers.ts'
 import { McpServer, type StandardSchemaWithJSON } from '@modelcontextprotocol/server'
 import {
   NodeStreamableHTTPServerTransport,
@@ -203,8 +203,8 @@ export async function startSessionToolServer(options: SessionToolServerOptions) 
   }
   return {
     url: `http://127.0.0.1:${address.port}/mcp`,
-    confirmEvidence: (job: string, version: string, page?: number) =>
-      recordMediaDelivery(deliveredMedia, job, version, page),
+    confirmEvidence: (job: string, version: string, delivered?: DeliveredPage) =>
+      recordMediaDelivery(deliveredMedia, job, version, delivered),
     close: () => app.close(),
   }
 }

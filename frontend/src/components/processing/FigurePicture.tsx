@@ -12,13 +12,15 @@ type Props = {
   showMarks: boolean
   /** A thumbnail's smaller placeholder text. */
   compact?: boolean
+  /** An id for the text shown in place of the picture, so its button can be described by it. */
+  statusId?: string
 }
 
 /**
  * A question picture at the view's shape, filling its container's width, with the agent's marks
  * over it. A picture that can't be shown says why in its place.
  */
-export function FigurePicture({ figure, src, showMarks, compact = false }: Props) {
+export function FigurePicture({ figure, src, showMarks, compact = false, statusId }: Props) {
   // The read can say ready a moment before the route serves it, or after the photo went.
   const [failedSrc, setFailedSrc] = useState<string | null>(null)
   const { width, height } = figureAspect(figure)
@@ -28,7 +30,9 @@ export function FigurePicture({ figure, src, showMarks, compact = false }: Props
   return (
     <Frame $ratio={`${width} / ${height}`} data-figure-state={figure.state}>
       {unavailable ? (
-        <Placeholder $compact={compact}>{unavailable}</Placeholder>
+        <Placeholder id={statusId} $compact={compact}>
+          {unavailable}
+        </Placeholder>
       ) : (
         <>
           <img src={src} alt="" draggable={false} onError={() => setFailedSrc(src)} />

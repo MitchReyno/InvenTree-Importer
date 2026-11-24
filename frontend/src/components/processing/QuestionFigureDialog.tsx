@@ -205,6 +205,7 @@ export function QuestionFigureDialog({
                 onSelect={show}
                 label="Pictures for this question"
                 thumbSrc={(thumb) => src(thumb, 'thumb')}
+                showMarks={showMarks}
                 large
               />
             )}

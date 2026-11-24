@@ -63,6 +63,7 @@ import {
   MAX_PENDING_PREVIEWS,
   pendingPreviewCount,
   previewRenders,
+  type PreviewRow,
 } from '#/media/figure-renders.ts'
 import { removedVersionIds, versionRemovedSql } from '#/media/removal.ts'
 
@@ -223,6 +224,7 @@ async function fetchEvidenceImage(
     | {
         batchId: string
         jobId: string
+        attemptId: string
         versionId: string
         source: ProcessingMediaSourceDto
         preview: { id: string; page: number; width: number; height: number; digest: string }
@@ -309,6 +311,7 @@ async function fetchEvidenceImage(
         },
         batchId: principal.batchId,
         jobId: principal.jobId,
+        attemptId: principal.attemptId,
         versionId: version!.version_id,
         preview: preview!,
         originalType:
@@ -431,7 +434,10 @@ async function fetchEvidenceImage(
     return { result: { ...authorized.result, pending_inbox: finished.pending } }
   }
   if (!plan.deferCitation) {
-    recordMediaDelivery(context.deliveredMedia, plan.jobId, plan.versionId, preview.page)
+    recordMediaDelivery(context.deliveredMedia, plan.jobId, plan.versionId, {
+      attemptId: plan.attemptId,
+      page: preview.page,
+    })
   }
   return {
     result: {
@@ -452,8 +458,21 @@ async function fetchEvidenceImage(
   }
 }
 
-/** Media actually given to each job's session: version, then the pages it was given. */
-export type DeliveredMedia = Map<string, Map<string, Set<number>>>
+/** The pages of one version each attempt's conversation was given, by attempt ID. */
+export type DeliveredPages = Map<string, Set<number>>
+
+/**
+ * Media actually given to each job's session: version, then the pages each attempt was given.
+ * Versions prove citations for the job; pages belong to the attempt that saw them, so a Start
+ * fresh conversation, a new attempt of the same job, must fetch a page again to show it.
+ */
+export type DeliveredMedia = Map<string, Map<string, DeliveredPages>>
+
+/** A delivered page and the attempt whose conversation was given it. */
+export interface DeliveredPage {
+  attemptId: string
+  page: number
+}
 
 /**
  * Records a delivered version and page. A delivery from a host that didn't report its page
@@ -463,14 +482,16 @@ export function recordMediaDelivery(
   media: DeliveredMedia,
   job: string,
   version: string,
-  page?: number,
+  delivered?: DeliveredPage,
 ) {
-  const versions = media.get(job) ?? new Map<string, Set<number>>()
-  const pages = versions.get(version) ?? new Set<number>()
-  if (page !== undefined) {
-    pages.add(page)
+  const versions = media.get(job) ?? new Map<string, DeliveredPages>()
+  const attempts = versions.get(version) ?? new Map<string, Set<number>>()
+  if (delivered) {
+    const pages = attempts.get(delivered.attemptId) ?? new Set<number>()
+    pages.add(delivered.page)
+    attempts.set(delivered.attemptId, pages)
   }
-  versions.set(version, pages)
+  versions.set(version, attempts)
   media.set(job, versions)
 }
 
@@ -1192,10 +1213,10 @@ async function requireFigures(
   context: SessionToolContext,
 ): Promise<ResolvedFigure[]> {
   const delivered = await deliveredSourcePredicate(client, context, principal)
-  const pages = context.deliveredMedia.get(principal.jobId)
+  const versions = context.deliveredMedia.get(principal.jobId)
   const resolved = await resolveFigures(client, principal.batchId, figures, {
     delivered,
-    pages: (versionId) => pages?.get(versionId) ?? new Set(),
+    pages: (versionId) => versions?.get(versionId)?.get(principal.attemptId) ?? new Set(),
   })
   if ('refusal' in resolved) {
     throw new ToolRefusal(resolved.refusal.code, resolved.refusal.message, [resolved.refusal.issue])
@@ -1262,6 +1283,27 @@ async function storeQuestionFigures(
 }
 
 /**
+ * Polls a preview's renders until none is queued, within `FIGURE_PREVIEW_WAIT_MS`. A state read
+ * after the deadline doesn't count, so a render settling late is still not ready.
+ */
+async function settledPreviews(context: SessionToolContext, ids: string[]) {
+  const deadline = Date.now() + (context.figurePreviewWaitMs ?? FIGURE_PREVIEW_WAIT_MS)
+  let renders = await previewRenders(context.pool, ids)
+  while (renders.some((render) => render.state === 'queued')) {
+    const remaining = deadline - Date.now()
+    if (remaining <= 0) {
+      return 'not_ready' as const
+    }
+    await delay(Math.min(FIGURE_PREVIEW_POLL_MS, remaining))
+    renders = await previewRenders(context.pool, ids)
+    if (Date.now() > deadline) {
+      return 'not_ready' as const
+    }
+  }
+  return renders
+}
+
+/**
  * Waits for a committed preview's renders and returns them as images within the run's image
  * budget. A preview not rendered in time returns no images and may be called again.
  */
@@ -1281,19 +1323,21 @@ async function previewOutput(
     result: { ok: false, error, message, pending_inbox: pending },
   })
 
-  const deadline = Date.now() + (context.figurePreviewWaitMs ?? FIGURE_PREVIEW_WAIT_MS)
-  let renders = await previewRenders(context.pool, ids)
-  while (renders.some((render) => render.state === 'queued') && Date.now() < deadline) {
-    await delay(FIGURE_PREVIEW_POLL_MS)
-    renders = await previewRenders(context.pool, ids)
-  }
-  if (renders.some((render) => render.state === 'queued')) {
+  const settled = await settledPreviews(context, ids)
+  if (settled === 'not_ready') {
     return notOk(
       'preview_not_ready',
       'The preview is still being prepared. Call ask with preview: true again to see it.',
     )
   }
-  const failed = renders.findIndex((render) => render.state === 'failed')
+  const gone = settled.findIndex((render) => render.state === 'gone')
+  if (gone >= 0) {
+    return notOk(
+      'media_evidence_removed',
+      `Figure ${gone + 1}'s preview is gone, as when its photo is removed. Choose another source.`,
+    )
+  }
+  const failed = settled.findIndex((render) => render.state === 'failed')
   if (failed >= 0) {
     return notOk(
       'tool_failed',
@@ -1303,6 +1347,7 @@ async function previewOutput(
   if (!context.store) {
     return notOk('tool_failed', 'Previews are unavailable here. Ask without preview.')
   }
+  const renders = settled.filter((render): render is PreviewRow => render.state === 'ready')
   const images: DeliveredImage[] = []
   for (const render of renders) {
     const bytes = await context.store.read(render.digest!)

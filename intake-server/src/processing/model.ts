@@ -104,10 +104,19 @@ export function sealed(value: unknown) {
   return { bytes, digest: sha256(bytes) }
 }
 
+/** The canonical text of a parsed document, or null when it holds a fraction or unsafe number. */
+function resealedText(value: unknown) {
+  try {
+    return canonicalRecord(value)
+  } catch {
+    return null
+  }
+}
+
 export function unseal(bytes: Buffer, digest: Buffer): unknown {
   verifyBytes(bytes, digest)
   const value: unknown = strictJson(bytes.toString('utf8'))
-  if (canonicalRecord(value) !== bytes.toString('utf8')) {
+  if (resealedText(value) !== bytes.toString('utf8')) {
     fail('noncanonical_retained_input')
   }
   return value

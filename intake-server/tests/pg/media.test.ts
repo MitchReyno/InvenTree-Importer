@@ -781,6 +781,8 @@ test('SELECT-only GC CLI collects one aged orphan and preserves retained bytes a
         'media_preview_rendition',
         'media_store_identity',
         'media_version',
+        // A figure render references its blobs, so collection must see it.
+        'processing_figure_render',
       ].map((table_name) => ({ table_name, privilege_type: 'SELECT' })),
     )
     await assert.rejects(

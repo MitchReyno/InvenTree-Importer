@@ -106,7 +106,7 @@ for (const mode of ['manifest', 'notice', 'lead', 'original'] as const) {
         evidenceImage: 'original' as const,
         statusIntervalMs: 0,
         imageBudget: new Map<string, number>(),
-        deliveredMedia: new Map<string, Map<string, Set<number>>>(),
+        deliveredMedia: new Map(),
         cropCacheDir: join(root, 'crops'),
       }
       const tools = sessionTools(context)
@@ -155,7 +155,14 @@ for (const mode of ['manifest', 'notice', 'lead', 'original'] as const) {
         )
         const confirm = () =>
           releases.confirm(releaseId, (release) =>
-            recordMediaDelivery(context.deliveredMedia, session.job, release.version, release.page),
+            recordMediaDelivery(
+              context.deliveredMedia,
+              session.job,
+              release.version,
+              release.page === undefined
+                ? undefined
+                : { attemptId: session.attempt, page: release.page },
+            ),
           )
         assert.equal((await tools.propose(token, proposal())).result.ok, false)
         confirm()
