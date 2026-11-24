@@ -241,9 +241,19 @@ The Processing read SHALL return, with each answered question, when it was answe
 - **WHEN** Processing is read
 - **THEN** it carries the answer's time and summary with no inbox delivery.
 
+### Requirement: A question can name the one it replaces
+
+An `ask` MAY name an earlier question of the same session that it replaces, while that question is unanswered. The earlier question SHALL close and the Processing read SHALL return which question replaced it.
+
+#### Scenario: Replacing a question
+
+- **GIVEN** an open question asking for a lot's count, which new evidence makes wrong
+- **WHEN** the session asks again naming the open question as replaced
+- **THEN** the earlier question closes, the read gives the new question as its replacement, and an ask naming an answered question or another session's question is refused as correctable.
+
 ### Requirement: Questions carry pictures
 
-An `ask` MAY carry up to 5 figures in the agent's order. Each SHALL name an evidence page delivered to the session, a view (a region of the page, quarter turns and straightening of at most 15°), up to 8 marks (circle, ellipse, box, arrow, highlight or a short label), a caption of at most 80 characters and why it is shown in at most 200. The app SHALL render each view from the original without changing it, and SHALL NOT burn marks into it.
+An `ask` MAY carry up to 5 figures in the agent's order. Each SHALL name an evidence page delivered to the session, a view (a region of the page, quarter turns and straightening of at most 15°), up to 8 marks (circle, ellipse, box, arrow, highlight or a label of at most 40 characters), a caption of at most 80 characters and why it is shown in at most 200. The app SHALL render each view from the original without changing it, and SHALL NOT burn marks into it.
 
 #### Scenario: Valid figure
 
@@ -259,10 +269,10 @@ An `ask` MAY carry up to 5 figures in the agent's order. Each SHALL name an evid
 
 ### Requirement: Agents preview their pictures
 
-An `ask` with `preview: true` SHALL validate and render its figures with their marks drawn in, return them to the agent within its image budget, and post no question. A preview not rendered within its bounded wait SHALL return no images and a result the agent can retry.
+An `ask` with `preview: true` SHALL validate and render its figures with their marks drawn in, return them to the agent within its image budget, and SHALL NOT store or show a question; its renders are temporary. A preview not rendered within its bounded wait SHALL return no images and a result the agent can retry.
 
 #### Scenario: Preview then ask
 
 - **GIVEN** an Examine session preparing a question with two figures
 - **WHEN** it calls ask with `preview: true` and then without it
-- **THEN** the first call returns both rendered figures with marks and stores nothing, and the second stores one question whose pictures match the preview apart from the marks being an overlay.
+- **THEN** the first call returns both rendered figures with marks, stores no question and tells the operator nothing, and the second stores one question whose pictures match the preview apart from the marks being an overlay.

@@ -57,19 +57,19 @@
 
 How the PR map above lets work run at the same time. A PR can start once every PR it depends on has merged; PRs in the same wave share no dependency on each other and can be built by separate people or agents at once.
 
-**External gates** (BI-019, PR #243): BI-019 PR-B has merged (#251), so it no longer holds anything back. BI-022 PR-A waits for BI-019 PR-D1; PR-B waits for BI-019 PR-D1; PR-H waits for BI-019 PR-E; PR-I waits for BI-019 PR-E and PR-G; PR-G2 waits for BI-019 PR-F. Since 2026-11-24, PR-E1 waits for BI-019 PR-K (question pictures), which introduces the view recipe and decoder operation that recipe `/2` extends; PR-K itself follows BI-019 PR-J.
+**External gates** (BI-019): BI-019 PR-B (#251), PR-D1 (#257), PR-E (#263) and PR-F (#258) have merged, so they no longer hold anything back. Still open: PR-I waits for BI-019 PR-G, and since 2026-11-24 PR-E1 waits for BI-019 PR-K (question pictures), which introduces the view recipe and decoder operation that recipe `/2` extends; PR-K itself follows BI-019 PR-J, a chain BI-019 PR-J → PR-K → this change's PR-E1.
 
 | Wave | Can run in parallel | Waits for |
 | --- | --- | --- |
-| 1 | PR-A · PR-E1 (and drafting the pack wording for PR-G1) | PR-0; BI-019 PR-D1 (PR-A, merged); BI-019 PR-K (PR-E1) |
-| 2 | PR-B · PR-G1 · PR-H | PR-A (all three); BI-019 PR-D1 (PR-B; BI-019 PR-B has merged); BI-019 PR-E (PR-H) |
+| 1 | PR-A (and drafting the pack wording for PR-G1) | PR-0 (merged); can start now |
+| 2 | PR-B · PR-G1 · PR-H · PR-E1 | PR-A (PR-B, PR-G1 and PR-H); BI-019 PR-K (PR-E1, which needs nothing of this change's) |
 | 3 | PR-C · PR-E2 | PR-B (both); PR-E1 (PR-E2) |
 | 4 | PR-D | PR-C (PR-E2 may still be in progress) |
 | 5 | PR-F · PR-I | PR-C, PR-D and PR-E2 (PR-F); PR-D, PR-E2, BI-019 PR-E and PR-G (PR-I) |
 | 6 | PR-G2 | everything else; BI-019 PR-F; Mitch's go-ahead for the live run |
 
 - **Critical path:** PR-A → PR-B → PR-C → PR-D → PR-F → PR-G2 and PR-A → PR-B → PR-C → PR-D → PR-I → PR-G2, six PRs in sequence each; the BI-019 gates and actual PR durations decide which is longer. PR-E1, PR-E2, PR-G1 and PR-H have slack, though PR-E1 now waits for BI-019 PR-J and PR-K: if they land late, BI-019 PR-K → PR-E1 → PR-E2 → PR-F → PR-G2 can become the longer path.
-- **Most parallel moment:** wave 2 lists three PRs; waves 1, 3 and 5 list two each. Waves are a guide, not a limit: PR-B, PR-G1 and PR-H can start after PR-A while PR-E1 is still running, so four PRs can be in progress at once. PR-H can run alongside anything from wave 2 on.
+- **Most parallel moment:** wave 2 lists four PRs; waves 3 and 5 list two each. Waves are a guide, not a limit: PR-E1 starts whenever BI-019 PR-K merges, independently of PR-A, so four PRs can be in progress at once. PR-H can run alongside anything from wave 2 on.
 - **Conflicts to expect between parallel PRs:** PR-C and PR-E2 both add session tools to `agents/tools/server.ts` and `handlers.ts` and both add migrations, so whichever merges second rebases and renumbers its migration. PR-F and PR-I both touch the Processing read and session rows.
 
 ### Re-carving that would allow more parallel work
@@ -348,7 +348,8 @@ With suggestions 3 and 4 also applied, Match's search core (PR-C1) would start i
   - Frontend tests cover the settings fields and the session rows.
 - **Verification:** contracts tests, intake tiers, frontend checks, and a demo video.
 
-- [ ] 9.1 Read the guidelines and the `settings-debug-mode` settings pattern. Map every reader of a job's current attempt and of a lineage's single subject.
+- [ ] 9.1 Read the guidelines and the `settings-debug-mode` settings pattern. Map every reader of a job's current attempt and of a lineage's single subject, including BI-019 task 13's answer delivery (the answer's inbox item, the acknowledgement log and its read time) and task 14's figure scope check.
+- [ ] 9.1.1 Keep BI-019's answered-question delivery truthful for groups: a lot's answer item that moves with a released lot keeps its answer identity and its first read time, and per-lot cursor advances are logged in the same interval log; an `ask` figure must cite evidence in the named lot's scope, as proposals must. Extend the moved-lot answer and cross-lot citation tests to the Answered card's delivery and to figures.
 - [ ] 9.2 RED: write the tests listed above.
 - [ ] 9.3 GREEN: implement the group model, claim, settings, brief sections, routing, release, retry and UI.
 - [ ] 9.4 Run the checks, and record the demo video.
@@ -359,4 +360,5 @@ With suggestions 3 and 4 also applied, Match's search core (PR-C1) would start i
 - [ ] PR-A to PR-I: each implemented, reviewed at its exact head, published (with a demo where the UI changes), CI green and merged, in the order the PR delivery map's prerequisites allow, with PR-G2 last. PR-H needs only PR-A and BI-019 PR-E and can merge at any point after them.
 - [ ] Update BI-022 as PRs merge. It is Done only after every PR has merged and the live evidence is accepted.
 - [ ] Mark design log D43–D46 Built.
+- [ ] Before syncing: both this change and `improve-agent-interaction` modify processing-workspace "Step page pattern" (the overlap check reports it). `improve-agent-interaction` syncs first; then rebase this change's MODIFIED block onto the synced text in full, keeping its plural questions and backdrop dismissal, and re-run `pnpm openspec:overlap --change agent-stage-inputs-outputs`.
 - [ ] Before archiving, after `polish-ui-styling-and-loading` syncs, add a modified app-settings "Agent settings section" on its synced text that enables the Web research switches for `shared-vm-agent/4` as for `/3`. Before archiving, and after BI-019 syncs, reconcile the deltas with the specs in one pass: rebase the `Step page pattern` delta on BI-019's version, keeping its full text and scenarios plus the Match exception; add a modified `Non-blocking questions with assumptions` on BI-019's text that tells agent questions from Match questions; and carry BI-019's change to the pipeline's quantity-question scenario, keeping Examine working on its assumption while Research for a `/7` lot still waits for Match. Then run `pnpm openspec:overlap --change agent-stage-inputs-outputs`, sync after BI-019 (both edit `processing-workspace`, `processing-agent-sessions` and `processing-stage-pipeline`), and record open items in `notes.md`.

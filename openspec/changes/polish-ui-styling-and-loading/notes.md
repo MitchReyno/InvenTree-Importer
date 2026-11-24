@@ -1,6 +1,6 @@
 # Implementation notes
 
-Implementation of the UI polish and calm loading plan, delivered as PR-A to PR-I after the plan PRs (#247, #248). PR-A merged in #250, PR-B in #254, PR-D in #255, PR-E in #253 and PR-F in #256; PR-C is underway; PR-G to PR-I remain.
+Implementation of the UI polish and calm loading plan, delivered as PR-A to PR-J after the plan PRs (#247, #248). PR-A merged in #250, PR-B in #254, PR-C in #259, PR-D in #255, PR-E in #253 and PR-F in #256; PR-G to PR-J remain.
 
 ## Changes to the plan
 

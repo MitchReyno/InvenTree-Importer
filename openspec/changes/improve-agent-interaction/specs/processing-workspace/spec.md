@@ -257,7 +257,7 @@ Once an answer is saved, the question SHALL fold to one line in an "Answered" gr
 
 ### Requirement: An answer form says why it can't send
 
-An answer form SHALL lock while its answer is sending and fold only once the answer is confirmed. A failure whose outcome is unknown SHALL keep the form open with the choice kept, say why, and offer Try again. A form SHALL show the superseded warning only while it holds an unsaved draft or an unconfirmed retry; a question answered elsewhere SHALL show its Answered line, and one really replaced SHALL say "Replaced by a newer question" with a link.
+An answer form SHALL lock while sending and fold only once the answer is confirmed. An unknown outcome SHALL keep the form open with the choice kept, say why, and offer Try again. The superseded warning SHALL show only over an unsaved draft or an unconfirmed retry. A question answered elsewhere SHALL show its Answered line; one replaced by a later question SHALL say "Replaced by a newer question" with a link, and one closed otherwise "No longer asked".
 
 #### Scenario: Couldn't send
 
@@ -273,9 +273,15 @@ An answer form SHALL lock while its answer is sending and fold only once the ans
 
 #### Scenario: Replaced question without a draft
 
-- **GIVEN** a step page pinned to a question that a Start fresh superseded, with no draft
+- **GIVEN** a step page pinned to a question that a later question of the same session replaced, with no draft
 - **WHEN** it renders
-- **THEN** it reads "Replaced by a newer question" linking the session's newest open question, and no form shows.
+- **THEN** it reads "Replaced by a newer question" linking the later question, and no form shows.
+
+#### Scenario: Closed by Start fresh
+
+- **GIVEN** a question superseded by a Start fresh, while the session has an unrelated open question
+- **WHEN** it renders without a draft
+- **THEN** it reads "No longer asked" linking the session, and doesn't link the unrelated question.
 
 ### Requirement: Questions show the agent's pictures
 

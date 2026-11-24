@@ -193,7 +193,7 @@ None.
 
 ## Delivery and parallel work
 
-The work is eleven PRs after the plan: the original eight, PR-I (configurable evidence delivery), and PR-J and PR-K for items 8 and 9. Tasks › "Parallel work" sets out exactly which can be built at the same time: PR-A, PR-B, PR-D1 and PR-F together first, then PR-D2, PR-E, PR-G and PR-H one after another, a critical path of five. Mitch applied one re-carving on 2026-11-23: recorded photo views and web sources (PR-D1) are split from the history read (PR-D2), so they start in wave 1 and BI-022 can start without the history read. Three further re-carvings stay proposals.
+The work is eleven PRs after the plan: the original eight, PR-I (configurable evidence delivery), and PR-J and PR-K for items 8 and 9. Tasks › "Parallel work" sets out exactly which can be built at the same time: PR-A, PR-B, PR-D1 and PR-F together first, then PR-D2 with PR-I, then PR-E, then PR-G with PR-J, then PR-H with PR-K, a critical path of five either way. PR-A, PR-B, PR-D1, PR-D2, PR-E, PR-F and PR-I have merged, so PR-G and PR-J can start now; BI-022's PR-E1 waits for PR-K. Mitch applied one re-carving on 2026-11-23: recorded photo views and web sources (PR-D1) are split from the history read (PR-D2), so they start in wave 1 and BI-022 can start without the history read. Three further re-carvings stay proposals.
 
 ## Open decisions and assumptions
 
