@@ -102,7 +102,10 @@ test('a listed model typed exactly is not offered again as an exact ID', async (
   const user = userEvent.setup()
   const { input } = picker()
   await user.type(input, 'opus')
-  expect(optionNames()).toEqual(['Claude · opus', 'Use “opus” with Codex'])
+  expect(optionNames()).toEqual(['Claude · opus'])
+  await user.clear(input)
+  await user.type(input, 'opus-5')
+  expect(optionNames()).toEqual(['Use “opus-5” with Claude', 'Use “opus-5” with Codex'])
 })
 
 test('a provider’s own default model lists only its models, with no Default, and keeps a saved ID that isn’t listed', async () => {

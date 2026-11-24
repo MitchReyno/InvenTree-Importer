@@ -351,6 +351,35 @@ describe('sign-in dialogs update the card', () => {
     expectCard('Claude', 'No token')
   })
 
+  test('a read asked for before the change settled never replaces what the VM confirmed', async () => {
+    const api = client()
+    const cache = createServerQueryClient()
+    render(<Harness api={api} />, { cache })
+    await waitFor(() => expectCard('Claude', 'Token saved'))
+    send
+      .mockResolvedValueOnce(Response.json({ configured: true, revision: 'one' }))
+      .mockResolvedValueOnce(Response.json({ configured: false, revision: 'two' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Subscription token…' }))
+    await enterKey('Personal runner management key')
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove token' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    const removedAt = Date.now()
+    api.providerStatus.mockResolvedValue(
+      providerStatus({ claude: { state: 'not_saved', last_sign_in_failure: null } }),
+    )
+    await act(() => vi.advanceTimersByTimeAsync(SETTLE_MS + 1000))
+    expectCard('Claude', 'No token')
+    // A slow read asked for just after the change answers last, with the VM as it was before.
+    act(() => {
+      cache.setQueryData(serverQueryKey(fixtureScope, 'provider-status'), {
+        status: providerStatus(),
+        requestedAt: removedAt + 1000,
+      })
+    })
+    await act(() => vi.advanceTimersByTimeAsync(10))
+    expectCard('Claude', 'No token')
+  })
+
   test('the Codex dialog closes once the VM confirms the account, and the card says Signed in', async () => {
     await renderAgents()
     await waitFor(() => expectCard('Codex', 'Not signed in'))

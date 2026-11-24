@@ -253,3 +253,75 @@ it('commands wait for this login’s poll, which can end the login', async () =>
   expect(screen.getByRole('button', { name: 'Sign in with ChatGPT' })).toBeEnabled()
   expect(send).toHaveBeenCalledTimes(3)
 })
+
+it('closing a reopened dialog while its first read waits in the queue never sends that read', async () => {
+  let answer: (value: Response) => void = () => undefined
+
+  await startSignIn()
+  send.mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
+  await wait(3000)
+  close()
+  send.mockResolvedValueOnce(challenge()).mockResolvedValueOnce(signedOut())
+  fireEvent.click(screen.getByRole('button', { name: 'Sign in to ChatGPT…' }))
+  await enterKey('second key')
+  close()
+  await act(async () => answer(challenge()))
+  await wait()
+  expect(sent().slice(3)).toEqual([
+    { action: 'status', loginId: 'device-1' },
+    { action: 'cancel', loginId: 'device-1' },
+  ])
+  expect(authorizations()).not.toContain('Bearer second key')
+})
+
+it('closing while a start is still unanswered finishes the login it creates', async () => {
+  let answer: (value: Response) => void = () => undefined
+
+  send.mockResolvedValueOnce(signedOut())
+  openDialog()
+  await enterKey()
+  send.mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
+  fireEvent.click(await screen.findByRole('button', { name: 'Sign in with ChatGPT' }))
+  await wait()
+  close()
+  send.mockResolvedValueOnce(challenge()).mockResolvedValueOnce(signedOut())
+  await act(async () => answer(challenge()))
+  await wait()
+  expect(sent()).toEqual([
+    { action: 'status' },
+    { action: 'start' },
+    { action: 'status', loginId: 'device-1' },
+    { action: 'cancel', loginId: 'device-1' },
+  ])
+})
+
+it('a sign-in that is declined or expires has the card read the VM again', async () => {
+  await startSignIn()
+  onChanged.mockClear()
+  send.mockResolvedValueOnce(Response.json({ state: 'denied' }))
+  await wait(3000)
+  expect(await screen.findByText('Sign-in was declined or expired.')).toBeVisible()
+  expect(onChanged).toHaveBeenCalledTimes(1)
+  expect(onConfirmed).not.toHaveBeenCalled()
+})
+
+it('the challenge leaves the query cache once the dialog closes', async () => {
+  const cache = createServerQueryClient()
+  await startSignIn(cache)
+  send.mockResolvedValueOnce(challenge()).mockResolvedValueOnce(signedOut())
+  close()
+  await wait()
+  const held = cache
+    .getQueryCache()
+    .getAll()
+    .filter((query) => JSON.stringify(query.queryKey).includes('codex-login'))
+  expect(held).toEqual([])
+  expect(
+    JSON.stringify(
+      cache
+        .getQueryCache()
+        .getAll()
+        .map((query) => query.state.data),
+    ),
+  ).not.toContain('TEST-CODE')
+})

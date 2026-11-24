@@ -32,6 +32,15 @@ type Settling = { at: number; state?: Exclude<ProviderState, 'unknown'> }
 
 type StatusSource = { providerStatus: () => Promise<ProviderStatusDto> }
 
+/** A status read, with when it was asked for: an answer can't be newer than its request. */
+type StatusRead = { status: ProviderStatusDto; requestedAt: number }
+
+async function readStatus(client: StatusSource): Promise<StatusRead> {
+  const requestedAt = Date.now()
+  const status = await client.providerStatus()
+  return { status, requestedAt }
+}
+
 /**
  * The read-only sign-in status of both providers: read when Settings › Agents opens, on Check
  * again, and after a sign-in change, never with the management key.
@@ -42,7 +51,7 @@ export function useProviderStatus(client: StatusSource) {
   const queryKey = serverQueryKey(scope, 'provider-status')
   const query = useQuery({
     queryKey,
-    queryFn: () => client.providerStatus(),
+    queryFn: () => readStatus(client),
     retry: false,
   })
   const [checking, setChecking] = useState(false)
@@ -86,10 +95,12 @@ export function useProviderStatus(client: StatusSource) {
     timers.current.add(timer)
   }
 
-  const answeredAt = Math.max(query.dataUpdatedAt, query.errorUpdatedAt)
+  // A read asked for before a change settled may report the VM before it; a failed read reports
+  // nothing about it either way.
+  const answeredAt = Math.max(query.data?.requestedAt ?? 0, query.errorUpdatedAt)
 
   function cardStatus(provider: AgentProviderId): ProviderCardStatus {
-    const answer = query.data?.[provider]
+    const answer = query.data?.status[provider]
     const failedAt = answer?.last_sign_in_failure?.failed_at ?? null
     const savedAt = answer?.state === 'saved' ? answer.saved_at : null
     const change = settling[provider]

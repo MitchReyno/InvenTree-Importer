@@ -120,10 +120,15 @@ function queueCall(
 /**
  * Closing mid-sign-in: one final protected poll completes a login already approved, and a login
  * still pending is cancelled, so the read-only status never reports it as signing in for good.
- * Both take one turn of the queue, so a reopened dialog's first read sees the outcome.
+ * The login may still be on its way from a start already sent, which is ahead in the queue. Both
+ * calls take one turn of the queue, so a reopened dialog's first read sees the outcome.
  */
-function finishLogin(managementKey: string, loginId: string) {
+function finishLogin(managementKey: string, login: Promise<string | undefined>) {
   const call = runnerQueue.then(async () => {
+    const loginId = await login.catch(() => undefined)
+    if (!loginId) {
+      return
+    }
     const final = await callRunner(managementKey, 'status', loginId)
     if (final.state === 'pending') {
       await callRunner(managementKey, 'cancel', loginId)
@@ -150,8 +155,9 @@ export function useChatGPTSignIn({ onConfirmed, onChanged }: Options) {
   const key = useRef('')
   const generation = useRef<Generation>({ ended: false })
   const pause = useRef<ReturnType<typeof setTimeout>>(undefined)
-  // The login a closing dialog must finish or cancel.
+  // The login a closing dialog must finish or cancel, or a start whose answer will name it.
   const pendingLogin = useRef<string | undefined>(undefined)
+  const startCall = useRef<Promise<Account> | undefined>(undefined)
   const callbacks = useRef({ onConfirmed, onChanged })
   useLayoutEffect(() => {
     callbacks.current = { onConfirmed, onChanged }
@@ -167,7 +173,9 @@ export function useChatGPTSignIn({ onConfirmed, onChanged }: Options) {
   const statusCall = useRef<{ id: string; call: Promise<Account> } | null>(null)
   const polling = account?.state === 'pending'
   const status = useQuery({
-    // The management key is read from the hook and never enters the cache key.
+    // The management key is read from the hook and never enters the cache key; the challenge
+    // leaves the cache as soon as its generation's poll is no longer observed.
+    gcTime: 0,
     queryKey: serverQueryKey(scope, 'codex-login', mount, String(epoch), account?.loginId ?? ''),
     queryFn: () => pollStatus(`${epoch}:${account?.loginId ?? ''}`, account?.loginId),
     // App-wide reconciliation refetches enabled queries, so a failed or finished poll disables
@@ -187,22 +195,32 @@ export function useChatGPTSignIn({ onConfirmed, onChanged }: Options) {
   // The dialog is open while mounted. Closing ends its generation, drops the key, and finishes
   // or cancels a login still pending with one final poll.
   useEffect(() => {
-    const current: Generation = { ended: false }
-    generation.current = current
+    const generations = generation
+    generations.current = { ended: false }
     const held = key
     const waiting = pause
     const login = pendingLogin
+    const starting = startCall
     const notify = callbacks
     return () => {
-      current.ended = true
+      // The generation now current, which a key typed since the dialog opened replaced.
+      generations.current.ended = true
       clearTimeout(waiting.current)
       const finalKey = held.current
       held.current = ''
       const loginId = login.current
+      const started = starting.current
       login.current = undefined
+      starting.current = undefined
+      let outstanding: Promise<string | undefined> | undefined
       if (loginId) {
+        outstanding = Promise.resolve(loginId)
+      } else if (started) {
+        outstanding = started.then((next) => (next.state === 'pending' ? next.loginId : undefined))
+      }
+      if (outstanding) {
         notify.current.onChanged()
-        void finishLogin(finalKey, loginId)
+        void finishLogin(finalKey, outstanding)
           .catch(() => undefined)
           .finally(() => notify.current.onChanged())
       }
@@ -238,12 +256,20 @@ export function useChatGPTSignIn({ onConfirmed, onChanged }: Options) {
     return call
   }
 
-  /** Records what the runner reported; a login confirmed after signing in closes the dialog. */
+  /**
+   * Records what the runner reported. A sign-in that ends changes the card: confirmed, it closes
+   * the dialog; denied or expired, the card reads the VM again.
+   */
   function adopt(next: Account) {
     const wasSigningIn = pendingLogin.current !== undefined
     pendingLogin.current = next.state === 'pending' ? next.loginId : undefined
-    if (wasSigningIn && next.state === 'connected') {
+    if (!wasSigningIn || next.state === 'pending') {
+      return
+    }
+    if (next.state === 'connected') {
       callbacks.current.onConfirmed()
+    } else {
+      callbacks.current.onChanged()
     }
   }
 
@@ -254,7 +280,15 @@ export function useChatGPTSignIn({ onConfirmed, onChanged }: Options) {
     const mine = generation.current
     setBusy(true)
     try {
-      const next = await queueCall(mine, key.current, action, loginId)
+      const call = queueCall(mine, key.current, action, loginId)
+      if (action === 'start') {
+        startCall.current = call
+      }
+      const next = await call.finally(() => {
+        if (startCall.current === call) {
+          startCall.current = undefined
+        }
+      })
       if (mine.ended) {
         return
       }
@@ -285,6 +319,7 @@ export function useChatGPTSignIn({ onConfirmed, onChanged }: Options) {
     generation.current = next
     key.current = value
     pendingLogin.current = undefined
+    startCall.current = undefined
     clearTimeout(pause.current)
     setEpoch((current) => current + 1)
     setAccount(undefined)

@@ -45,16 +45,18 @@ function modelsOf(provider: AgentProviderId, value: ModelChoice | null) {
   return listed
 }
 
-/** The options for a typed query that names no listed model exactly. */
+/** The exact-ID options for a typed query, when it names no model this picker lists. */
 function exactOptions(
   query: string,
   providers: readonly AgentProviderId[],
   selectable: Record<AgentProviderId, boolean>,
   listed: (provider: AgentProviderId) => readonly string[],
 ): Option[] {
-  const offered = providers.filter(
-    (provider) => selectable[provider] && !listed(provider).includes(query),
-  )
+  // A listed model is picked from its own group, never offered again as a typed ID.
+  if (providers.some((provider) => listed(provider).includes(query))) {
+    return []
+  }
+  const offered = providers.filter((provider) => selectable[provider])
   if (offered.length === 0) {
     return []
   }

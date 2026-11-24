@@ -16,10 +16,46 @@ import { useHashRoute } from '#/navigation/useHashRoute'
 import { ApiClientsProvider } from '#/context'
 
 const noSteps = {
-  examine: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0, waiting: 0, queued: 0, ready_lots: 0 },
-  research: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0, waiting: 0, queued: 0, ready_lots: 0 },
-  images: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0, waiting: 0, queued: 0, ready_lots: 0 },
-  inventory: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0, waiting: 0, queued: 0, ready_lots: 0 },
+  examine: {
+    questions: 0,
+    failed: 0,
+    jobs: 0,
+    ready: 0,
+    running: 0,
+    waiting: 0,
+    queued: 0,
+    ready_lots: 0,
+  },
+  research: {
+    questions: 0,
+    failed: 0,
+    jobs: 0,
+    ready: 0,
+    running: 0,
+    waiting: 0,
+    queued: 0,
+    ready_lots: 0,
+  },
+  images: {
+    questions: 0,
+    failed: 0,
+    jobs: 0,
+    ready: 0,
+    running: 0,
+    waiting: 0,
+    queued: 0,
+    ready_lots: 0,
+  },
+  inventory: {
+    questions: 0,
+    failed: 0,
+    jobs: 0,
+    ready: 0,
+    running: 0,
+    waiting: 0,
+    queued: 0,
+    ready_lots: 0,
+  },
 }
 
 /** Owned browser fixture: synthetic clients only, no API, provider or InvenTree traffic. */

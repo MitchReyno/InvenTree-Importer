@@ -131,8 +131,9 @@ it('an unanswered save keeps the dialog open, never replays the token, and reads
   typeToken(TOKEN)
   fireEvent.click(save())
   await act(() => vi.advanceTimersByTimeAsync(0))
-  expect(screen.getByRole('alert')).toHaveTextContent('Couldn’t reach the Claude token service')
+  expect(screen.getByRole('alert')).toHaveTextContent('didn’t confirm the change')
   expect(screen.getByRole('alert').textContent).not.toContain(TOKEN)
+  expect(onChanged).toHaveBeenCalledExactlyOnceWith(undefined)
   expect(sent().map((body) => body.action)).toEqual(['status', 'save', 'status'])
   expect(send.mock.calls[2][1]?.body).not.toContain(TOKEN)
 })
@@ -182,4 +183,39 @@ it('closing during a save ignores its late answer and has the card read the stat
   await act(async () => answer(Response.json({ configured: true, revision: 'two' })))
   expect(onChanged).toHaveBeenCalledTimes(1)
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+it('a request the VM never answers stops waiting and says so', async () => {
+  send.mockImplementationOnce(
+    (_url, init) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () =>
+          reject(new DOMException('aborted', 'AbortError')),
+        )
+      }),
+  )
+  openDialog()
+  await enterKey()
+  expect(screen.getByText('Checking…')).toBeVisible()
+  await act(() => vi.advanceTimersByTimeAsync(15_000))
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Couldn’t reach the Claude token service',
+  )
+})
+
+it('a save whose answer is lost is unconfirmed: the card reads the VM again, and the token is not resent', async () => {
+  send
+    .mockResolvedValueOnce(Response.json({ configured: false, revision: 'one' }))
+    .mockResolvedValueOnce(new Response('{}', { status: 502 }))
+    .mockResolvedValueOnce(Response.json({ configured: true, revision: 'two' }))
+  openDialog()
+  await enterKey()
+  await screen.findByText('No token is saved.')
+  typeToken(TOKEN)
+  fireEvent.click(save())
+  await act(() => vi.advanceTimersByTimeAsync(0))
+  expect(screen.getByRole('alert')).toHaveTextContent('didn’t confirm the change')
+  expect(onChanged).toHaveBeenCalledExactlyOnceWith(undefined)
+  expect(await screen.findByText('A token is saved.')).toBeVisible()
+  expect(sent().map((body) => body.action)).toEqual(['status', 'save', 'status'])
 })

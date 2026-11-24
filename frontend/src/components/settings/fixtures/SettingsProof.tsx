@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import type {
   AgentSettingsDto,
@@ -243,8 +243,8 @@ const batchDefaults = {
 
 export function SettingsProof() {
   const [cache] = useState(batchReads)
-  // Fixture setup before the first render's dialogs can call the runner; it installs once.
-  useState(installFakeRunner)
+  // Syncs the page's fetch with the fake VM while the fixture is shown.
+  useEffect(() => installFakeRunner(), [])
   const route = useHashRoute('settings')
 
   return (

@@ -7,6 +7,12 @@ type CredentialAction = 'status' | 'save' | 'remove'
 /** The pause after the last key edit before the dialog reads the protected status with it. */
 export const KEY_PAUSE_MS = 600
 
+/**
+ * How long a management request may take: the guest's management server gives a request 10 s,
+ * so an answer later than this won't come.
+ */
+const MANAGEMENT_TIMEOUT_MS = 15_000
+
 /** The token shape the VM accepts, checked here first so nothing malformed is sent. */
 const SETUP_TOKEN = /^sk-ant-oat01-[A-Za-z0-9_-]{10,2048}$/
 
@@ -44,6 +50,20 @@ function reasonFor(error: unknown) {
   }
   return 'Couldn’t reach the Claude token service in the agent VM. Check that it is running, then try again.'
 }
+
+/** A refusal the VM answered with, which changed nothing; anything else may have applied. */
+function refused(error: unknown) {
+  return (
+    error instanceof CredentialRequestError &&
+    (error.status === 400 ||
+      error.status === 403 ||
+      error.status === 409 ||
+      error.status === 'insecure')
+  )
+}
+
+const UNCONFIRMED =
+  'The agent VM didn’t confirm the change, so it may or may not have applied. Its status was read again.'
 
 const TOKEN_CHANGED =
   'The token changed since this dialog read it, so nothing was saved. Its status was read again.'
@@ -99,6 +119,9 @@ export function usePersonalClaudeCredential({ onChanged, onClose }: Options) {
       throw new CredentialRequestError('insecure')
     }
     let response: Response
+    // A timer rather than `AbortSignal.timeout`, so the bound follows the page's clock in tests too.
+    const deadline = new AbortController()
+    const timer = setTimeout(() => deadline.abort(), MANAGEMENT_TIMEOUT_MS)
     try {
       response = await fetch('/personal-runner/claude', {
         method: 'POST',
@@ -110,14 +133,20 @@ export function usePersonalClaudeCredential({ onChanged, onClose }: Options) {
           authorization: 'Bearer ' + key.current,
         },
         body: JSON.stringify({ action, revision, token: value }),
+        signal: deadline.signal,
       })
     } catch {
+      clearTimeout(timer)
       throw new CredentialRequestError('unreachable')
     }
     if (!response.ok) {
+      clearTimeout(timer)
       throw new CredentialRequestError(response.status)
     }
-    const next = await response.json().catch(() => undefined)
+    const next = await response
+      .json()
+      .catch(() => undefined)
+      .finally(() => clearTimeout(timer))
     if (typeof next?.configured !== 'boolean' || typeof next.revision !== 'string') {
       throw new CredentialRequestError('invalid')
     }
@@ -190,11 +219,15 @@ export function usePersonalClaudeCredential({ onChanged, onClose }: Options) {
       changing.current = false
       // Whatever happened, the stored token is read again before another change can be sent.
       setStatus(undefined)
-      setMessage(
-        error instanceof CredentialRequestError && error.status === 409
-          ? TOKEN_CHANGED
-          : reasonFor(error),
-      )
+      if (!refused(error)) {
+        // It may have applied, so the card reads the VM again too.
+        onChanged(undefined)
+        setMessage(UNCONFIRMED)
+      } else if (error instanceof CredentialRequestError && error.status === 409) {
+        setMessage(TOKEN_CHANGED)
+      } else {
+        setMessage(reasonFor(error))
+      }
       await readStatus(mine)
     }
   }

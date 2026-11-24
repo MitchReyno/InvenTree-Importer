@@ -72,18 +72,22 @@ function codex(body: { action: string }) {
   return { state: fakeVm.codex }
 }
 
-let installed = false
-
-/** Answers the dialogs' `/personal-runner/*` calls in the fixture page; others pass through. */
-export function installFakeRunner() {
-  if (installed) {
-    return
+function requestUrl(input: RequestInfo | URL) {
+  if (typeof input === 'string') {
+    return input
   }
-  installed = true
-  const real = window.fetch.bind(window)
+  return input instanceof URL ? input.href : input.url
+}
+
+/**
+ * Answers the dialogs' `/personal-runner/*` calls in the fixture page; others pass through.
+ * Returns the uninstall.
+ */
+export function installFakeRunner() {
+  const original = window.fetch
+  const real = original.bind(window)
   window.fetch = async (input, init) => {
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-    const path = new URL(url, window.location.href).pathname
+    const path = new URL(requestUrl(input), window.location.href).pathname
     if (path !== '/personal-runner/claude' && path !== '/personal-runner/codex') {
       return real(input, init)
     }
@@ -91,5 +95,8 @@ export function installFakeRunner() {
     const body = JSON.parse(String(init?.body ?? '{}'))
     const answer = path.endsWith('claude') ? claude(body) : codex(body)
     return Response.json(answer)
+  }
+  return () => {
+    window.fetch = original
   }
 }
