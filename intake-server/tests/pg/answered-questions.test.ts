@@ -3,7 +3,11 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
-import type { ProcessingAnswerDto, ProcessingSnapshotDto } from '@invimport/contracts'
+import {
+  MAX_ANSWER_SUMMARY_BYTES,
+  type ProcessingAnswerDto,
+  type ProcessingSnapshotDto,
+} from '@invimport/contracts'
 import { strictJson } from '@invimport/contracts/json'
 import { processingFixture } from '../support/processing.ts'
 import { legacySessionQuestion, lotSession, nextSessionAttempt } from '../support/sessions.ts'
@@ -501,6 +505,12 @@ test('a retained batch near the size limit reads its answers in full, compact an
       })
       answered.push(id)
     }
+    // The session reads every answer, so a compact member carries a recorded read time.
+    await transaction(fixture.runner.pool, (client) =>
+      acknowledgeSessionInbox(client, a.job, 1_000_000n),
+    )
+    const [acknowledged] = await ackLog(fixture, a.job)
+    const readAt = acknowledged.acked_at.toISOString()
     // Open questions retained before the per-question allowance fill the rest of the budget.
     const filler = (length: number) =>
       legacySessionQuestion(fixture, b, {
@@ -567,9 +577,21 @@ test('a retained batch near the size limit reads its answers in full, compact an
       tiers,
     )
     assert.ok(tiers.includes('full') && tiers.includes('compact') && tiers.includes('state'))
+    const compactMembers = answered
+      .map((id) => byId.get(id)!.answer)
+      .filter((member) => member !== undefined && !('values' in member))
+    assert.ok(compactMembers.length > 0)
+    for (const member of compactMembers) {
+      assert.ok(member && 'values_omitted' in member)
+      assert.equal(member.values_omitted, true)
+      assert.deepEqual(member.delivery, { state: 'read', read_at: readAt })
+      // About 140 bytes with its read time, well within the per-question reserve.
+      assert.ok(answerMemberBytes(member) <= 160, `${answerMemberBytes(member)} bytes`)
+      assert.ok(answerMemberBytes(member) <= MAX_ANSWER_SUMMARY_BYTES)
+    }
     for (const item of answered.map((id) => byId.get(id)!)) {
-      if (item.answer && !('values' in item.answer)) {
-        assert.deepEqual(item.answer.delivery, { state: 'waiting', read_at: null })
+      if (item.answer && 'values' in item.answer) {
+        assert.deepEqual(item.answer.delivery, { state: 'read', read_at: readAt })
       }
     }
   })

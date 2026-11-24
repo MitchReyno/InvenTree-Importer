@@ -149,23 +149,27 @@ export interface BudgetedAnswer {
 
 /**
  * Adds answer members newest first within `room` bytes: the full member while it fits, then the
- * compact one, then none, so an older batch's read degrades rather than failing.
+ * compact one, then none, so an older batch's read degrades rather than failing. The tiers only
+ * step down: once an answer drops to compact, every older one gets at most compact, and once one
+ * gets none, every older one gets none, so a newer answer never shows less than an older one.
  */
 export function budgetAnswers(answers: readonly BudgetedAnswer[], room: number) {
   let left = room
+  let tier: 'full' | 'compact' | 'none' = 'full'
   const newestFirst = [...answers].sort((a, b) => b.answeredAt.localeCompare(a.answeredAt))
   for (const answer of newestFirst) {
-    for (const member of [answer.full, answer.compact]) {
-      if (!member) {
-        continue
-      }
-      const bytes = answerMemberBytes(member)
-      if (bytes <= left) {
-        answer.question.answer = member
-        left -= bytes
-        break
-      }
+    if (tier === 'full' && answer.full && answerMemberBytes(answer.full) <= left) {
+      answer.question.answer = answer.full
+      left -= answerMemberBytes(answer.full)
+      continue
     }
+    if (tier !== 'none' && answerMemberBytes(answer.compact) <= left) {
+      tier = 'compact'
+      answer.question.answer = answer.compact
+      left -= answerMemberBytes(answer.compact)
+      continue
+    }
+    tier = 'none'
   }
   return left
 }
