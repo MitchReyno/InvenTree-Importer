@@ -1,8 +1,8 @@
-import { useId, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { serverQueryKey } from '#/queries/scope'
 import { useServerScope } from '#/context'
-import type { ProviderStatus } from './provider-status'
+import { KEY_PAUSE_MS } from './usePersonalClaudeCredential'
 
 type Account = {
   state: 'pending' | 'connected' | 'disconnected' | 'denied'
@@ -13,17 +13,10 @@ type Account = {
 
 const POLL_MS = 3000
 
-const CARD_STATUS: Record<Account['state'], ProviderStatus> = {
-  connected: 'Connected',
-  pending: 'Signing in',
-  disconnected: 'Not connected',
-  denied: 'Declined',
-}
-
 /**
  * The runner takes one action at a time, and `/personal-runner/codex` is one same-origin endpoint,
- * so every panel shares one queue. It outlives the panel, because leaving the Settings section
- * unmounts the panel while a call can still be running; a remounted panel's command waits for it.
+ * so every dialog shares one queue. It outlives the dialog, because a closing dialog's final poll
+ * and cancel run after it has gone; a reopened dialog's command waits for them.
  */
 let runnerQueue: Promise<unknown> = Promise.resolve()
 
@@ -40,6 +33,28 @@ const RUNNER_TIMEOUT_MS = GUEST_RPC_LIMIT_MS * MOST_GUEST_RPCS + 10_000
 
 const FAILED =
   'Could not confirm sign-in status. Check the management key and reconnect to the runner.'
+
+/**
+ * One opening of the dialog, or one key typed in it, holding that key. A queued call reads the
+ * key when it is sent; once the generation ends the key is gone, the call is never sent and its
+ * answer is ignored.
+ */
+type Generation = { ended: boolean; key: string }
+
+function endGeneration(generation: Generation) {
+  generation.ended = true
+  generation.key = ''
+}
+
+/** What a closing dialog knows of the login to finish: its ID, none, or a start with no answer. */
+type LoginToFinish = string | undefined | 'unknown'
+
+/** A call dropped before sending because its generation ended. */
+class DroppedCall extends Error {
+  constructor() {
+    super('runner_call_dropped')
+  }
+}
 
 /** One call to the shared VM's Codex runner, outside the validated client facades. */
 async function callRunner(managementKey: string, action: string, loginId?: string) {
@@ -94,35 +109,99 @@ async function sendRunnerCall(
   return next as Account
 }
 
+/** Queues a runner call; it is sent only if `generation` is still current when its turn comes. */
+function queueCall(generation: Generation, action: string, loginId?: string) {
+  const call = runnerQueue.then(() => {
+    if (generation.ended) {
+      throw new DroppedCall()
+    }
+    return callRunner(generation.key, action, loginId)
+  })
+  runnerQueue = call.catch(() => undefined)
+  return call
+}
+
 /**
- * The ChatGPT sign-in panel's state, runner queue and sign-in poll. The Agents settings section
- * holds it, so the provider card shows the same status as the panel without an Effect, and the
- * poll stops when the section unmounts.
+ * Ending a generation mid-sign-in: one final protected poll completes a login already approved,
+ * and a login still pending is cancelled, so the read-only status never reports it as signing in
+ * for good. The login may still be on its way from a start already sent, which is ahead in the
+ * queue; a start whose answer was lost is found by a status read, which names a pending login.
+ * The calls take one turn of the queue, so the next generation's first read sees the outcome, and
+ * the key is dropped once they are done.
  */
-export function useChatGPTSignIn() {
-  const key = useRef<HTMLInputElement>(null)
+function finishLogin(managementKey: string, login: Promise<LoginToFinish>) {
+  const holder = { key: managementKey }
+  const call = runnerQueue
+    .then(async () => {
+      let loginId = await login
+      if (loginId === 'unknown') {
+        const found = await callRunner(holder.key, 'status')
+        loginId = found.state === 'pending' ? found.loginId : undefined
+      }
+      if (!loginId) {
+        return
+      }
+      const final = await callRunner(holder.key, 'status', loginId)
+      if (final.state === 'pending') {
+        await callRunner(holder.key, 'cancel', loginId)
+      }
+    })
+    .finally(() => {
+      holder.key = ''
+    })
+  runnerQueue = call.catch(() => undefined)
+  return call
+}
+
+/** The login a start will name: none if the start was never sent, unknown if it got no answer. */
+function startedLogin(start: Promise<Account>): Promise<LoginToFinish> {
+  return start.then(
+    (next) => (next.state === 'pending' ? next.loginId : undefined),
+    (error: unknown) => (error instanceof DroppedCall ? undefined : 'unknown'),
+  )
+}
+
+type Options = {
+  /** The VM confirmed the ChatGPT account after a sign-in: the dialog closes by itself. */
+  onConfirmed: () => void
+  /** The sign-in may have changed, for the VM's status to report. */
+  onChanged: () => void
+}
+
+/**
+ * The ChatGPT sign-in dialog's state, runner queue and sign-in poll. Each key typed starts a
+ * generation, read with the protected status after a pause. Editing the key or closing the dialog
+ * ends it: queued calls aren't sent, the poll stops and late answers are ignored.
+ */
+export function useChatGPTSignIn({ onConfirmed, onChanged }: Options) {
+  // The current generation, holding the key only while the dialog is open.
+  const generation = useRef<Generation>({ ended: false, key: '' })
+  const pause = useRef<ReturnType<typeof setTimeout>>(undefined)
+  // The login a closing dialog must finish or cancel, or a start whose answer will name it.
+  const pendingLogin = useRef<string | undefined>(undefined)
+  const startCall = useRef<Promise<Account> | undefined>(undefined)
+  // A start that got no answer may have made a login only a status read can name.
+  const startUnconfirmed = useRef(false)
+  const callbacks = useRef({ onConfirmed, onChanged })
+  useLayoutEffect(() => {
+    callbacks.current = { onConfirmed, onChanged }
+  })
   const scope = useServerScope()
   // Generations restart with each mount; this keeps an earlier mount's entry out of the key.
   const mount = useId()
-  const [open, setOpen] = useState(false)
+  const [epoch, setEpoch] = useState(0)
   const [account, setAccount] = useState<Account>()
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
-  // Each new key or sign-in step starts a generation; results of an older one are dropped.
-  const [generation, setGeneration] = useState(0)
   // A status call can end the login, so a replayed poll adopts the call still running for it.
   const statusCall = useRef<{ id: string; call: Promise<Account> } | null>(null)
-  const polling = open && account?.state === 'pending'
+  const polling = account?.state === 'pending'
   const status = useQuery({
-    // The management key is read from its field and never enters the cache key.
-    queryKey: serverQueryKey(
-      scope,
-      'codex-login',
-      mount,
-      String(generation),
-      account?.loginId ?? '',
-    ),
-    queryFn: () => pollStatus(`${generation}:${account?.loginId ?? ''}`, account?.loginId),
+    // The management key is read from the hook and never enters the cache key; the challenge
+    // leaves the cache as soon as its generation's poll is no longer observed.
+    gcTime: 0,
+    queryKey: serverQueryKey(scope, 'codex-login', mount, String(epoch), account?.loginId ?? ''),
+    queryFn: () => pollStatus(`${epoch}:${account?.loginId ?? ''}`, account?.loginId),
     // App-wide reconciliation refetches enabled queries, so a failed or finished poll disables
     // itself rather than relying on the interval alone. No poll is queued behind a command.
     enabled: (query) =>
@@ -136,25 +215,65 @@ export function useChatGPTSignIn() {
     // The login completes on the OpenAI tab, so polling continues while this one is hidden.
     refetchIntervalInBackground: true,
   })
-  // As when every poll was a request, commands wait for this login's poll: it can end the login.
+
+  // The dialog is open while mounted. Closing ends its generation, drops the key, and finishes
+  // or cancels a login still pending with one final poll.
+  useEffect(() => {
+    const generations = generation
+    generations.current = { ended: false, key: '' }
+    const waiting = pause
+    return () => {
+      clearTimeout(waiting.current)
+      retire()
+    }
+  }, [])
+
+  /**
+   * Ends the current generation. A login it started is finished or cancelled with its key, ahead
+   * of anything the next generation sends; then the key is gone.
+   */
+  function retire() {
+    const ending = generation.current
+    const loginId = pendingLogin.current
+    const started = startCall.current
+    const unconfirmed = startUnconfirmed.current
+    pendingLogin.current = undefined
+    startCall.current = undefined
+    startUnconfirmed.current = false
+    let outstanding: Promise<LoginToFinish> | undefined
+    if (loginId) {
+      outstanding = Promise.resolve(loginId)
+    } else if (started) {
+      outstanding = startedLogin(started)
+    } else if (unconfirmed) {
+      outstanding = Promise.resolve('unknown')
+    }
+    if (outstanding) {
+      callbacks.current.onChanged()
+      void finishLogin(ending.key, outstanding)
+        .catch(() => undefined)
+        .finally(() => callbacks.current.onChanged())
+    }
+    endGeneration(ending)
+  }
+
+  // Commands wait for this login's poll, which can end the login.
   const blocked = busy || status.isFetching
   const pollFailed = polling && status.isError
   const shown = pollFailed ? undefined : polling ? status.data : account
   const shownMessage = pollFailed ? FAILED : message
 
-  /** Queues a runner call with the key typed now. */
-  function run(action: string, loginId?: string) {
-    const managementKey = key.current?.value ?? ''
-    const call = runnerQueue.then(() => callRunner(managementKey, action, loginId))
-    runnerQueue = call.catch(() => undefined)
-    return call
-  }
-
   function pollStatus(id: string, loginId?: string) {
     if (statusCall.current?.id === id) {
       return statusCall.current.call
     }
-    const call = run('status', loginId)
+    const mine = generation.current
+    const call = queueCall(mine, 'status', loginId).then((next) => {
+      if (!mine.ended) {
+        adopt(next)
+      }
+      return next
+    })
     const entry = { id, call }
     statusCall.current = entry
     void call
@@ -167,56 +286,107 @@ export function useChatGPTSignIn() {
     return call
   }
 
-  function startGeneration() {
-    setGeneration((value) => value + 1)
-    setAccount(undefined)
-    setMessage('')
+  /**
+   * Records what the runner reported. A sign-in that ends changes the card: confirmed, it closes
+   * the dialog; denied or expired, the card reads the VM again.
+   */
+  function adopt(next: Account) {
+    // Any answer says what the guest holds now, settling a start that got none.
+    startUnconfirmed.current = false
+    const wasSigningIn = pendingLogin.current !== undefined
+    pendingLogin.current = next.state === 'pending' ? next.loginId : undefined
+    if (!wasSigningIn || next.state === 'pending') {
+      return
+    }
+    if (next.state === 'connected') {
+      callbacks.current.onConfirmed()
+    } else {
+      callbacks.current.onChanged()
+    }
   }
 
   async function request(action: string, loginId?: string) {
     if (blocked) {
       return
     }
+    const mine = generation.current
     setBusy(true)
     try {
-      const next = await run(action, loginId)
+      const call = queueCall(mine, action, loginId)
+      if (action === 'start') {
+        startCall.current = call
+      }
+      const next = await call.finally(() => {
+        if (startCall.current === call) {
+          startCall.current = undefined
+        }
+      })
+      if (mine.ended) {
+        return
+      }
+      adopt(next)
       // The new account starts its own polling generation, so no older poll can replace it.
-      setGeneration((value) => value + 1)
+      setEpoch((value) => value + 1)
       setAccount(next)
       setMessage('')
-    } catch {
-      setAccount(undefined)
-      setMessage(FAILED)
+      if (action !== 'status') {
+        callbacks.current.onChanged()
+      }
+    } catch (error) {
+      if (!mine.ended) {
+        const answered = error instanceof Error && error.message === 'runner_refused'
+        const sent = !(error instanceof DroppedCall)
+        if (action === 'start' && sent && !answered) {
+          startUnconfirmed.current = true
+        }
+        if (action !== 'status' && sent && !answered) {
+          // It may have applied before its answer was lost, so the card reads the VM again.
+          callbacks.current.onChanged()
+        }
+        setAccount(undefined)
+        setMessage(FAILED)
+      }
     } finally {
-      setBusy(false)
+      if (!mine.ended) {
+        setBusy(false)
+      }
     }
   }
 
-  function toggle() {
-    startGeneration()
-    setOpen(!open)
+  /**
+   * A new key ends the generation: its queued calls aren't sent, its poll stops, and a login it
+   * started is finished or cancelled with the key that started it.
+   */
+  function editKey(value: string) {
+    retire()
+    const next: Generation = { ended: false, key: value }
+    generation.current = next
+    clearTimeout(pause.current)
+    setEpoch((current) => current + 1)
+    setAccount(undefined)
+    setMessage('')
+    setBusy(false)
+    if (value) {
+      pause.current = setTimeout(() => {
+        if (generation.current === next) {
+          void latestRequest.current('status')
+        }
+      }, KEY_PAUSE_MS)
+    }
   }
 
-  let card: ProviderStatus = 'Not checked'
-  if (shownMessage) {
-    card = 'Check failed'
-  } else if (shown) {
-    card = CARD_STATUS[shown.state]
-  }
+  // The key's pause ends after later renders; it reads the protected status through the newest one.
+  const latestRequest = useRef(request)
+  useLayoutEffect(() => {
+    latestRequest.current = request
+  })
 
-  // A new key starts a generation, so a poll for the old one can't change what shows.
   return {
-    key,
-    open,
     busy,
     blocked,
     shown,
     shownMessage,
     request,
-    toggle,
-    editKey: startGeneration,
-    card,
+    editKey,
   }
 }
-
-export type ChatGPTSignInState = ReturnType<typeof useChatGPTSignIn>
