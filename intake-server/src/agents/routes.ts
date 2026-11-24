@@ -15,11 +15,21 @@ import { readAgentSettings, saveAgentSettings } from './settings.ts'
 import { listAgentSessions } from './session/sessions.ts'
 import { setAllPause, setBatchPause } from './pause.ts'
 import { deliverInstructions } from './instructions.ts'
+import {
+  readProviderStatus,
+  workerStatusSource,
+  type GuestStatusSource,
+} from './provider-status.ts'
 
 /** Refusals a reload of what is saved resolves: a conflict, or a save whose outcome is unknown. */
 const RELOAD_RECOVERY = new Set(['revision_conflict', 'save_outcome_unknown'])
 
-export function registerAgents(app: FastifyInstance, pool: Pool, config: ProcessingConfig) {
+export function registerAgents(
+  app: FastifyInstance,
+  pool: Pool,
+  config: ProcessingConfig,
+  guestStatus: GuestStatusSource = workerStatusSource(pool, config),
+) {
   app.register(async (scope) => {
     scope.setErrorHandler((error, request, reply) => {
       if (!(error instanceof ProcessingError)) {
@@ -46,6 +56,11 @@ export function registerAgents(app: FastifyInstance, pool: Pool, config: Process
         },
       },
       (request) => saveAgentSettings(pool, config, request.body),
+    )
+    scope.get(
+      '/api/v1/agents/provider-status',
+      { schema: { response: { 200: schemas.ProviderStatus } } },
+      () => readProviderStatus(pool, config, guestStatus),
     )
     scope.put<{ Body: AgentPauseUpdateDto }>(
       '/api/v1/agents/pause',

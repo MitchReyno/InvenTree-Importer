@@ -13,11 +13,58 @@ import { NativeSessionError, retainedCause, retainedProviderError } from '#/agen
 import { refusalOutcome } from './journal.ts'
 import { pairing } from './pair.ts'
 import { settled } from '#/events/settled.ts'
+import {
+  guestProviderStatus,
+  STATUS_FRAME_LIMIT,
+  STATUS_PROTOCOL,
+  type GuestProviderStatus,
+  type StatusProvider,
+} from './provider-status.ts'
 
 export interface SessionBridgeOptions {
   /** Hosts each tool turn's egress proxy refuses; see `bridgeProtectedHosts`. */
   confirmEvidence?: (job: string, version: string) => void
   protectedHosts: readonly string[]
+}
+
+/** How long a provider status read may take, and how much of that may go to finding its peer. */
+export interface StatusTiming {
+  deadlineMs: number
+  peerWaitMs: number
+}
+
+/** Turn connections the bridge holds, as many as the most sessions that can run at once. */
+const MAX_TURN_PEERS = 8
+/** Status connections per provider, apart from turns: its relay's, with room for a reconnect. */
+const MAX_STATUS_PEERS_PER_PROVIDER = 2
+const MAX_STATUS_PEERS = 2 * MAX_STATUS_PEERS_PER_PROVIDER
+
+/** Time a guest's answer needs to arrive once its read has ended. */
+const GUEST_ANSWER_MARGIN_MS = 100
+
+/** Under the API's 2 s request, leaving it time to answer. */
+const STATUS_TIMING: StatusTiming = { deadlineMs: 1800, peerWaitMs: 500 }
+
+export type BridgeStatusUnknownReason =
+  | 'not_configured'
+  | 'vm_unreachable'
+  | 'service_unavailable'
+  | 'guest_outdated'
+  | 'busy'
+  | 'timeout'
+
+type UnknownStatus = { state: 'unknown'; reason: BridgeStatusUnknownReason }
+
+/** Each provider's status as the coordinator read it; unknown is never signed out. */
+export type ClaudeBridgeStatus =
+  | { state: 'saved'; revision: string; saved_at: string | null }
+  | { state: 'not_saved'; revision: string }
+  | UnknownStatus
+export type CodexBridgeStatus = { state: 'signed_in' | 'signed_out' | 'signing_in' } | UnknownStatus
+
+export interface BridgeProviderStatuses {
+  claude: ClaudeBridgeStatus
+  codex: CodexBridgeStatus
 }
 
 /** The failure code a settled guest turn reports, or undefined for anything else. */
@@ -36,6 +83,7 @@ export async function startSessionBridge(
   directory: string,
   port: number,
   options?: SessionBridgeOptions,
+  statusTiming: StatusTiming = STATUS_TIMING,
 ) {
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new Error('invalid_bridge_port')
@@ -46,6 +94,12 @@ export async function startSessionBridge(
   const probePeers = new WeakSet<TLSSocket>()
   const subscriptions = new WeakMap<TLSSocket, string>()
   const connected = new Set<TLSSocket>()
+  const turnSockets = new Set<TLSSocket>()
+  const statusSockets = new Set<TLSSocket>()
+  const statusProvider = new WeakMap<TLSSocket, StatusProvider>()
+  const statusPeers = { claude: new Map<TLSSocket, Frames>(), codex: new Map<TLSSocket, Frames>() }
+  // Whether each provider's latest turn guest greeted with the status capability.
+  const statusCapable = new Map<StatusProvider, boolean>()
   const server = createServer(
     { ...(await pairing(directory)), requestCert: true },
     settled(
@@ -53,7 +107,7 @@ export async function startSessionBridge(
         if (
           !socket.authorized ||
           checkServerIdentity('bench-guest', socket.getPeerCertificate()) ||
-          connected.size >= 8
+          connected.size >= MAX_TURN_PEERS + MAX_STATUS_PEERS
         ) {
           socket.destroy()
           return
@@ -61,13 +115,26 @@ export async function startSessionBridge(
         connected.add(socket)
         socket.once('close', () => {
           connected.delete(socket)
+          turnSockets.delete(socket)
+          statusSockets.delete(socket)
           idle.delete(socket)
+          statusPeers.claude.delete(socket)
+          statusPeers.codex.delete(socket)
         })
         socket.on('error', () => socket.destroy())
         socket.setTimeout(60_000, () => socket.destroy())
         try {
           const frames = new Frames(socket)
           const greeting = await frames.read()
+          if (greeting.ready === STATUS_PROTOCOL) {
+            admitStatusPeer(socket, frames, greeting)
+            return
+          }
+          // Status connections have their own allowance, so they never take a turn's place.
+          if (turnSockets.size >= MAX_TURN_PEERS) {
+            throw new Error('runner_capacity')
+          }
+          turnSockets.add(socket)
           if (
             greeting.reapProof === true &&
             greeting.builtinTools === true &&
@@ -80,9 +147,11 @@ export async function startSessionBridge(
           }
           if (greeting.claudeSubscription === true) {
             subscriptions.set(socket, 'claude')
+            statusCapable.set('claude', greeting.providerStatus === true)
           }
           if (greeting.codexSubscription === true) {
             subscriptions.set(socket, 'codex')
+            statusCapable.set('codex', greeting.providerStatus === true)
           }
           if (greeting.builtinTools === true) {
             // An older tool-worker supervisor would ignore protected_hosts and the sealed web
@@ -108,6 +177,108 @@ export async function startSessionBridge(
       (_error, socket) => socket.destroy(),
     ),
   )
+
+  /** A status connection carries reads only; it never enters the turn pool. */
+  function admitStatusPeer(socket: TLSSocket, frames: Frames, greeting: Record<string, unknown>) {
+    const provider = greeting.provider
+    if ((provider !== 'claude' && provider !== 'codex') || Object.keys(greeting).length !== 2) {
+      throw new Error('runner_protocol_mismatch')
+    }
+    // Per provider, so one provider's relays never crowd out the other's status.
+    const admitted = [...statusSockets].filter((other) => statusProvider.get(other) === provider)
+    if (admitted.length >= MAX_STATUS_PEERS_PER_PROVIDER) {
+      throw new Error('runner_capacity')
+    }
+    statusSockets.add(socket)
+    statusProvider.set(socket, provider)
+    socket.setTimeout(0)
+    statusPeers[provider].set(socket, frames)
+  }
+
+  function absentReason(provider: StatusProvider): BridgeStatusUnknownReason {
+    if (connected.size === 0) {
+      return 'vm_unreachable'
+    }
+    if (statusCapable.get(provider) === false) {
+      return 'guest_outdated'
+    }
+    return 'service_unavailable'
+  }
+
+  async function statusPeer(provider: StatusProvider, signal: AbortSignal) {
+    const until = Date.now() + statusTiming.peerWaitMs
+    for (;;) {
+      const peer = statusPeers[provider].entries().next()
+      if (!peer.done) {
+        statusPeers[provider].delete(peer.value[0])
+        return peer.value
+      }
+      if (Date.now() >= until || signal.aborted) {
+        return undefined
+      }
+      await delay(25, undefined, { signal }).catch(() => {})
+    }
+  }
+
+  async function readProvider(
+    provider: StatusProvider,
+    deadlineMs: number,
+  ): Promise<ClaudeBridgeStatus | CodexBridgeStatus> {
+    const deadline = AbortSignal.timeout(deadlineMs)
+    const endsAt = Date.now() + deadlineMs
+    const peer = await statusPeer(provider, deadline)
+    if (!peer) {
+      return { state: 'unknown', reason: absentReason(provider) }
+    }
+    const [socket, frames] = peer
+
+    // Abandoning the read closes its connection, which stops the guest's work on it.
+    const abandon = () => socket.destroy()
+
+    deadline.addEventListener('abort', abandon, { once: true })
+    try {
+      // The guest finishes, its cleanup included, before this read gives up on it.
+      const withinMs = Math.max(0, endsAt - Date.now() - GUEST_ANSWER_MARGIN_MS)
+      await frames.send({ status: true, within_ms: withinMs }, STATUS_FRAME_LIMIT)
+      const answer = await frames.read(STATUS_FRAME_LIMIT)
+      if (!('provider_status' in answer) || Object.keys(answer).length !== 1) {
+        throw new Error('invalid_provider_status')
+      }
+      const status = guestProviderStatus(provider, answer.provider_status)
+      deadline.throwIfAborted()
+      statusPeers[provider].set(socket, frames)
+      return bridgeStatus(status)
+    } catch {
+      socket.destroy()
+      return { state: 'unknown', reason: deadline.aborted ? 'timeout' : 'service_unavailable' }
+    } finally {
+      deadline.removeEventListener('abort', abandon)
+    }
+  }
+
+  const reads = new Map<StatusProvider, Promise<ClaudeBridgeStatus | CodexBridgeStatus>>()
+
+  /** Concurrent callers share one read per provider. */
+  function sharedRead(provider: StatusProvider, deadlineMs: number) {
+    let read = reads.get(provider)
+    if (!read) {
+      read = readProvider(provider, deadlineMs).finally(() => reads.delete(provider))
+      reads.set(provider, read)
+    }
+    return read
+  }
+
+  /** Reads both providers at once, each within its own deadline, shortened to `budgetMs`. */
+  async function providerStatus(budgetMs?: number): Promise<BridgeProviderStatuses> {
+    const deadlineMs = Math.max(0, Math.min(statusTiming.deadlineMs, budgetMs ?? Infinity))
+    const [claude, codex] = await Promise.all([
+      sharedRead('claude', deadlineMs),
+      sharedRead('codex', deadlineMs),
+    ])
+    // Each guest answer was checked against its own provider's shapes.
+    return { claude: claude as ClaudeBridgeStatus, codex: codex as CodexBridgeStatus }
+  }
+
   const transports = new Set<Socket>()
   server.maxConnections = 16
   server.on('connection', (socket) => {
@@ -350,12 +521,31 @@ export async function startSessionBridge(
 
   return {
     driver,
+    providerStatus,
     close() {
       for (const socket of transports) {
         socket.destroy()
       }
       server.close()
     },
+  }
+}
+
+function bridgeStatus(status: GuestProviderStatus): ClaudeBridgeStatus | CodexBridgeStatus {
+  switch (status.state) {
+    case 'busy':
+    case 'timeout':
+      return { state: 'unknown', reason: status.state }
+    case 'unavailable':
+      return { state: 'unknown', reason: 'service_unavailable' }
+    case 'saved':
+      return { state: status.state, revision: status.revision, saved_at: status.saved_at }
+    case 'not_saved':
+      return { state: status.state, revision: status.revision }
+    case 'signed_in':
+    case 'signed_out':
+    case 'signing_in':
+      return { state: status.state }
   }
 }
 

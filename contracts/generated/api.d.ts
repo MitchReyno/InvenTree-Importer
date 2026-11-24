@@ -1436,6 +1436,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/agents/provider-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description ProviderStatus */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProviderStatus"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/agents/pause": {
         parameters: {
             query?: never;
@@ -21127,6 +21171,53 @@ export interface components {
             sessions: number;
             woken: number;
         };
+        ProviderStatus: {
+            claude: {
+                /** @constant */
+                state: "saved";
+                saved_at: string | null;
+                last_sign_in_failure: {
+                    attempt_id: string;
+                    failure_id: string;
+                    failed_at: string;
+                } | null;
+            } | {
+                /** @constant */
+                state: "not_saved";
+                last_sign_in_failure: {
+                    attempt_id: string;
+                    failure_id: string;
+                    failed_at: string;
+                } | null;
+            } | {
+                /** @constant */
+                state: "unknown";
+                reason: "not_configured" | "worker_unavailable" | "vm_unreachable" | "service_unavailable" | "guest_outdated" | "busy" | "timeout";
+                last_sign_in_failure: {
+                    attempt_id: string;
+                    failure_id: string;
+                    failed_at: string;
+                } | null;
+            };
+            codex: {
+                state: "signed_in" | "signing_in" | "signed_out";
+                last_sign_in_failure: {
+                    attempt_id: string;
+                    failure_id: string;
+                    failed_at: string;
+                } | null;
+            } | {
+                /** @constant */
+                state: "unknown";
+                reason: "not_configured" | "worker_unavailable" | "vm_unreachable" | "service_unavailable" | "guest_outdated" | "busy" | "timeout";
+                last_sign_in_failure: {
+                    attempt_id: string;
+                    failure_id: string;
+                    failed_at: string;
+                } | null;
+            };
+            read_at: string;
+        };
         BatchDefaultRecord: {
             /** Format: int64 */
             pk: string;
@@ -25980,6 +26071,7 @@ export type AgentPauseUpdate = components['schemas']['AgentPauseUpdate']
 export type AgentPause = components['schemas']['AgentPause']
 export type AgentPauseAll = components['schemas']['AgentPauseAll']
 export type InstructionDelivery = components['schemas']['InstructionDelivery']
+export type ProviderStatus = components['schemas']['ProviderStatus']
 export type BatchDefaultRecord = components['schemas']['BatchDefaultRecord']
 export type BatchDefaults = components['schemas']['BatchDefaults']
 export type BatchDefaultsUpdate = components['schemas']['BatchDefaultsUpdate']

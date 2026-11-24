@@ -31,6 +31,7 @@
 | 12. Read-only provider status | Intake server, VM guest and contracts | None | shared-vm-execution "Read-only provider sign-in status", "Status reads never change the guest" |
 | 13. Provider cards, switches, model picker and sign-in dialogs | Frontend behavior | 6, 11, 12 | app-settings "Agent settings section" (modified) scenarios Removing the credential updates the card, Sign-in status before a check, Collapsing clears the card, Editing the key while signing in, Sign-in completes and Check fails; shared-vm-execution "Personal Claude subscription token" and "ChatGPT sign-in for the runner" (modified); "Provider sign-in status is read automatically", "Each provider's status stands alone", "Sign-in failures shown apart from the status", "Agent settings controls match the design", "Subscription sign-in in a dialog", "Closing a sign-in dialog drops its work", "One searchable model picker", "Model picker limits and exact IDs" |
 | 14. Dropdowns follow the guideline | Frontend sweep | 13 | ui-design-system "Searchable picker for records and growing lists", "Short fixed choices follow a guideline" |
+| 15. A replaced read is not a failure | Frontend behavior | 4 and 5 (merged) | live-updates "A replaced read is not a failure", "Unavailable saved values are reported calmly"; "Live unverifiable workspace state" still passes |
 
 ## PR delivery map
 
@@ -46,6 +47,7 @@
 | PR-H | Provider cards with status pills, switches, the segmented default provider and the sign-in dialogs | 13 | The UI over PR-G, after PR-F's autosave changes to the same forms | PR-D, PR-F and PR-G merged | `feat/polish-ui-styling-and-loading-provider-cards`; `feat(polish-ui-styling-and-loading): provider cards and sign-in dialogs like the design` | Frontend checks; Settings on the real VM showing the statuses with no key; demo video; review; CI |
 | PR-I | Every dropdown on the guideline: searchable pickers for records and growing lists, segmented or native for short fixed lists | 14 | A broad but mechanical sweep, reviewed with captures | PR-H merged (the `SearchablePicker` base) | `feat/polish-ui-styling-and-loading-dropdowns`; `feat(polish-ui-styling-and-loading): one dropdown guideline across the app` | Frontend checks; captures of each changed field; demo video; review; CI |
 | PR-D | One state vocabulary and time format, the masthead summary, the Overview's Needs you and lot table, and step page counts | 6, 7 | One coherent "status reads the same everywhere" change; independent of the loading work | PR-0; rebase on PR-A if it merged first | `feat/polish-ui-styling-and-loading-status`; `feat(polish-ui-styling-and-loading): one way to show status and time` | Frontend checks; captures of Overview, step pages, Agents and the masthead; demo video; review; CI |
+| PR-J | Awaited reads wait for the read that replaced a cancelled one, and the batch and Processing report real failures calmly, naming unsaved changes only when there are some | 15 | One small fix to the freshness layer and its two messages, reviewed with the cancel race reproduced | PR-B and PR-C merged (both are); independent of `improve-agent-interaction` PR-J, which fixes the answered question's card | `interactive-app` ← `fix/polish-ui-styling-and-loading-replaced-reads`; `fix(polish-ui-styling-and-loading): a replaced read is not a failure` | Frontend checks with the real `QueryClient` race tests; demo video; review; CI |
 
 ## 1. Selected rows keep their whole border
 
@@ -312,19 +314,19 @@
   - Provider token verification is out of scope here (12.1.3 only investigates it). Save confirms shape and storage, and failures show as the last-session line.
   - A guest image change needs the runner image refreshed: managed `pnpm dev` rebuilds it, and unmanaged mode only warns that it's stale and points to `pnpm vm:setup` (`tooling/dev.cjs:190–195,633–646`). The provider management containers run the credential entry point from that image (`personal-claude.sh:22–25`, `personal-codex.sh:20–24`), so they restart on it too. The deployment README covers both modes.
 
-- [ ] 12.1 Investigate and decide, recording each decision and its reason in `notes.md`:
-  - [ ] 12.1.1 The transport for the API-to-worker status request, and a new worker-to-guest path to each credential process's status-only endpoint (the relay has none today): how the endpoint authenticates the paired worker, how both providers are reached in one deployment, and how a timed-out call is abandoned and its guest work released.
-  - [ ] 12.1.2 That Codex `account/read` without refresh has no side effects.
-  - [ ] 12.1.3 Whether the Claude CLI in the guest can confirm a setup token cheaply without starting a session. If it can, propose it as a follow-up requirement; it is not part of this task.
-- [ ] 12.2 RED: tests for:
-  - [ ] 12.2.1 The status-only endpoint: Claude saved with and without `credential_meta`; Codex signed in, signing in (before any turn), and an expired login left untouched; a read overlapping an active turn; no secrets.
-  - [ ] 12.2.6 `credential_meta` through upgrade, rollback, a replace or remove on the older image, and re-upgrade, showing no stale save time.
-  - [ ] 12.2.2 Older, busy and timed-out guests reading as unknown.
-  - [ ] 12.2.3 The API-to-worker request and its timeout.
-  - [ ] 12.2.7 Each provider answering independently, one timing out while the other answers; direct requests from the browser-facing management listener and from other namespaces refused; the deployed two-provider topology read before any turn.
-  - [ ] 12.2.4 The route, with the last-session line (shown only for the provider's latest queued session in either mode, a VM subscription failure produced through the real session runner, when it used the subscription and its provider error is `authentication_failed`, `unauthorized` or HTTP 401, read from the scoped diagnostic projection; a tie with an API-key session hiding it; not for a missing token, an unreachable guest or unavailable credentials; hidden after a newer session that didn't fail sign-in), and an unreachable VM.
-  - [ ] 12.2.5 The contract.
-- [ ] 12.3 GREEN: implement the status-only endpoint, the `credential_meta` side table, the worker request, the route and the contract.
+- [x] 12.1 Investigate and decide, recording each decision and its reason in `notes.md`:
+  - [x] 12.1.1 The transport for the API-to-worker status request, and a new worker-to-guest path to each credential process's status-only endpoint (the relay has none today): how the endpoint authenticates the paired worker, how both providers are reached in one deployment, and how a timed-out call is abandoned and its guest work released.
+  - [x] 12.1.2 That Codex `account/read` without refresh has no side effects.
+  - [x] 12.1.3 Whether the Claude CLI in the guest can confirm a setup token cheaply without starting a session. If it can, propose it as a follow-up requirement; it is not part of this task.
+- [x] 12.2 RED: tests for:
+  - [x] 12.2.1 The status-only endpoint: Claude saved with and without `credential_meta`; Codex signed in, signing in (before any turn), and an expired login left untouched; a read overlapping an active turn; no secrets.
+  - [x] 12.2.6 `credential_meta` through upgrade, rollback, a replace or remove on the older image, and re-upgrade, showing no stale save time.
+  - [x] 12.2.2 Older, busy and timed-out guests reading as unknown.
+  - [x] 12.2.3 The API-to-worker request and its timeout.
+  - [x] 12.2.7 Each provider answering independently, one timing out while the other answers; direct requests from the browser-facing management listener and from other namespaces refused; the deployed two-provider topology read before any turn.
+  - [x] 12.2.4 The route, with the last-session line (shown only for the provider's latest queued session in either mode, a VM subscription failure produced through the real session runner, when it used the subscription and its provider error is `authentication_failed`, `unauthorized` or HTTP 401, read from the scoped diagnostic projection; a tie with an API-key session hiding it; not for a missing token, an unreachable guest or unavailable credentials; hidden after a newer session that didn't fail sign-in), and an unreachable VM.
+  - [x] 12.2.5 The contract.
+- [x] 12.3 GREEN: implement the status-only endpoint, the `credential_meta` side table, the worker request, the route and the contract.
 - [ ] 12.4 Update the deployment README and `intake-server/src/agents/ARCHITECTURE.md`. Run the tiers, and ask Mitch before the live VM check.
 
 ## 13. Provider cards, switches, model picker and sign-in dialogs
@@ -370,20 +372,48 @@
 - [ ] 14.3 GREEN: convert the fields, screen by screen.
 - [ ] 14.4 Capture each changed field. Run the frontend checks, and record the demo video.
 
+## 15. A replaced read is not a failure
+
+- **PR delivery:** PR-J.
+- **Outcome:**
+  - a read cancelled by live reconciliation waits up to 10 s for the read that replaced it and shows nothing meanwhile;
+  - a real failure with nothing edited shows an amber notice with the time of the values shown, Try now and an automatic retry, and clears itself once a read works;
+  - only real unsaved changes are named, kept and offered "Discard my changes";
+  - Processing's saved-but-unreadable case says "Saved. Showing the last status from HH:MM until it can be read again.";
+  - a cancelled read still never verifies a command.
+- **Scope and approach:** `frontend/src/queries/` (`readReplacingCancels`, `ReadUnavailable`, `ReadAbandoned`, and `readAgain` in `fresh-reads.ts`), `components/batches/Batch.tsx` (the reload state and notice replacing the error string and its banner, the displayed snapshot's read time, adoption only when clean, and named discard), `operator/useDirtySources.ts` (labels and discard callbacks on dirty reports) and the editors that report them, `review/ManualWorkspace.tsx`, `processing/ProcessingWorkspace.tsx` (`refresh()` and `perform()`'s messages, and the answer handler's), and `processing/instruction-delivery.ts`. The design is "A replaced read is not a failure".
+- **Prerequisites:** tasks 4 and 5, merged in PR-B (#254) and PR-C (#259).
+- **Acceptance:** live-updates "A replaced read is not a failure" and "Unavailable saved values are reported calmly", all scenarios; "Live unverifiable workspace state" and "Commands wait quietly for a verified read" still pass.
+- **TDD approach:** with the real `QueryClient`, as task 4.3.5 does, a reload in flight while `refreshRetainedReads` runs rejects with `CancelledError` today, so the test fails first with the banner showing.
+- **Verification:**
+  - the frontend typecheck, lint, tests and build;
+  - a demo video: answering a question while an agent works, with no banner; a throttled offline read showing the amber notice and clearing itself; the notice naming an unsaved quantity.
+- **Risks and decisions:** the canvas board FixReloadBanner is the reference. `improve-agent-interaction` task 13 fixes the answered question's card separately; each is correct without the other.
+
+- [ ] 15.1 Read the shared and frontend code guidelines, the frontend architecture's query and live-update sections and the board. List every awaited `refetch({ throwOnError: true })` and `fetchQuery` caller and what each shows on failure.
+- [ ] 15.2 RED: tests with the real `QueryClient`:
+  - [ ] 15.2.1 A capture reload in flight while `refreshRetainedReads` cancels the scope resolves with the replacing read's data and sets no notice, on every tab.
+  - [ ] 15.2.2 The same race after a Processing answer: no "current status is unavailable" message.
+  - [ ] 15.2.3 A replacing read that fails, and one that doesn't settle within 10 s, report unavailable; a second cancel inside the window keeps the first deadline; a cancel from removal or a scope change, and a caller unmounting while another observer keeps the query cached, reject as abandoned and start no fallback read; the cancelled generation never verifies a command; Manual Review's awaited refetch under the same race shows nothing.
+  - [ ] 15.2.4 The notice with nothing edited (the displayed snapshot's time, Try now, the retry, clearing on an adopted network read and not on a `setQueryData` write); a successful automatic retry with a dirty editor clearing the notice while the draft and its revision stay; named unsaved changes, with Discard dropping only those while an unlisted mounted draft stays and no newer snapshot is adopted under it; Capture's read adopted through the registry (a background network read clears the notice, a `setQueryData` acknowledgement doesn't); and Processing's "Saved. Showing the last status from…" as the only banner after a confirmed command, clearing on a fresh read.
+- [ ] 15.3 GREEN: implement the helper, the reload state and notice, the labels and Processing's messages.
+- [ ] 15.4 Update `frontend/ARCHITECTURE.md` (awaited reads and cancellation). Run the frontend checks, and record the demo video for the PR description.
+
 ## Delivery evidence and lifecycle follow-up
 
 - [x] PR-0: review both plans read-only (`codex exec -m gpt-6.2-sol -s read-only`; Mitch's standing rule: at most three rounds, with the last round's fixes noted on the PR; material issues left after round three are fixed and listed on the PR for Mitch), fix, publish, CI green, merge (#247).
 - [x] PR-0 follow-up: review the merged plan again (rounds 4–6, same rule), fix, publish, CI green, merge (#248).
 - [x] PR-A: implement tasks 1–3, 8 and 10, review the exact head, publish with captures and the demo, CI green, merge.
-- [ ] PR-B: implement task 4, review the exact head, publish with the demo, CI green, merge.
-- [ ] PR-C: implement task 5, review the exact head, publish with captures and the demo, CI green, merge.
-- [ ] PR-D: implement tasks 6 and 7, review the exact head, publish with captures and the demo, CI green, merge.
-- [ ] PR-E: implement task 9, review the exact head, publish with the phone and desktop checks and the demo, CI green, merge.
-- [ ] PR-F: implement task 11, review the exact head, publish with the demo, CI green, merge.
-- [ ] PR-G: implement task 12, review the exact head, publish, CI green, run the live VM check with Mitch's go-ahead, merge.
+- [x] PR-B: implement task 4, review the exact head, publish with the demo, CI green, merge. Merged as #254 at `8b0d08a1`.
+- [x] PR-C: implement task 5, review the exact head, publish with captures and the demo, CI green, merge. Merged as #259 at `30f75b9d`.
+- [x] PR-D: implement tasks 6 and 7, review the exact head, publish with captures and the demo, CI green, merge. Merged as #255 at `5adffa9a`.
+- [ ] PR-E: implement task 9, review the exact head, publish with the phone and desktop checks and the demo, CI green, merge. Merged as #253 at `9e0891ed`; task 9.4's real-device checks stay open.
+- [x] PR-F: implement task 11, review the exact head, publish with the demo, CI green, merge. Merged as #256 at `ec974af1`.
+- [ ] PR-G: implement task 12, review the exact head, publish, CI green, run the live VM check with Mitch's go-ahead, merge. Merged as #264 at `dcc10495`; the live VM check stays open.
 - [ ] PR-H: implement task 13, review the exact head, publish with the demo, CI green, merge.
 - [ ] PR-I: implement task 14, review the exact head, publish with the audit, captures and the demo, CI green, merge.
-- [ ] Update BI-020 as PRs merge. It is Done only after every implementation PR (PR-A to PR-I) merges and its acceptance is evidenced.
+- [ ] PR-J: implement task 15, review the exact head, publish with the demo, CI green, merge.
+- [ ] Update BI-020 as PRs merge. It is Done only after every implementation PR (PR-A to PR-J) merges and its acceptance is evidenced.
 - [ ] Mark this change's "Fixes: before and after" entries (S5, S7, O1–O5, O7–O11) in the design log as Built, with their PRs.
 - [ ] Before syncing: re-run strict validation and `pnpm openspec:overlap --change polish-ui-styling-and-loading`. If another change has synced an edit to "Agent settings section" or "Masthead and electronics current in both themes" first, rebase this change's MODIFIED block onto the synced text, in full.
 - [ ] Before archiving, run `pnpm openspec:overlap --change polish-ui-styling-and-loading`, sync the specs and record open items in `notes.md`.

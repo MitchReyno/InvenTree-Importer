@@ -30,6 +30,8 @@
 | 10. Session rows, failures in plain words and Agents filters | Contracts, intake server and frontend | 7; 9 or polish for the shared components | agents-overview "Agents page", "Agents filter rules", "Session rows", "Failed rows offer recovery"; processing-workspace "Failures in plain words" |
 | 11. Drawer header, activity feed and message box | Contracts, intake server and frontend, plus one instruction sentence | 6, 7, 10; 9 or polish for the shared components | processing-workspace "Session drawer header", "Activity in the app's words", "Labelled message box"; processing-agent-sessions "Status lines stay readable" |
 | 12. Configurable VM evidence delivery | Intake server and deployment tooling | 5 (merged) | processing-agent-sessions "Configurable VM evidence delivery" |
+| 13. Answered questions fold away | Contracts, migration, intake server and frontend | 4 and 7 (merged) | processing-workspace "Answered questions fold away", "An answer form says why it can't send", "Answer a question step by step" (focus); processing-agent-sessions "Answered questions report their answer and delivery" |
+| 14. Question pictures | Contracts, media decoder, migration, intake server and frontend | 13 | processing-agent-sessions "Questions carry pictures", "Agents preview their pictures"; processing-workspace "Questions show the agent's pictures", "A larger view of a question picture" |
 
 ## PR delivery map
 
@@ -47,6 +49,8 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 | PR-H | Drawer header, recent activity in the app's words, the labelled message box and readable status lines | 11 | Builds on the history read, the session page and the session-level read | PR-D2, PR-E and PR-G merged, and PR-F or polish merged for the shared components | `feat/improve-agent-interaction-session-details`; `feat(improve-agent-interaction): clearer session header, activity and message box` | Contracts tests, intake unit and PG tiers for the batch activity read and the instruction text, frontend checks; demo video; review; CI |
 | PR-F | Per-stage counts and the paused flag, stage rows in the activity popover and the new bar states; the shared `WorkState`, `StatePill` and `EventTime` components if `polish-ui-styling-and-loading` hasn't merged first | 8, 9 | Independent of questions and history, small enough to review end to end | PR-0; whichever of PR-F and polish merges second reuses the other's shared components | `feat/improve-agent-interaction-activity-stages`; `feat(improve-agent-interaction): show each stage's state and counts in the activity popover` | Contracts tests, intake PG tier, frontend checks; demo video; review; CI |
 | PR-I | Configurable inline or file evidence delivery, launch wiring and regressions | 12 | One transport behavior across its configuration and guest boundaries | PR-D1 merged; independent of the remaining UI work | `interactive-app` ← `feat/improve-agent-interaction-evidence-delivery`; `feat(improve-agent-interaction): configure VM evidence delivery` | Development, deployment and intake checks; independent review before publication; CI |
+| PR-J | An answered question folds to its Answered line with its delivery state, in the drawer, the step page and the session page; named reasons replace `stale`; the answer summary and acknowledgement log in the Processing read; the drawer's messages and answers in time order | 13 | The bug fix and the card it needs, with the read that feeds it; one review of the answer surfaces | PR-B and PR-E merged (both are); independent of `polish-ui-styling-and-loading` task 15, which fixes the cancelled reload | `interactive-app` ← `feat/improve-agent-interaction-answered-questions`; `fix(improve-agent-interaction): show an answered question as answered` | Contracts tests, intake unit and PG tiers, frontend checks; demo video; rollout steps in the PR body; review; CI |
+| PR-K | Pictures on agent questions: the shared view recipe and decoder operation, figure validation, render requests and the figure route, `ask` previews, the card layouts and the larger view | 14 | One feature end to end; the shared renderer lands with its first consumer | PR-J merged (the same card); BI-022's PR-E1 waits for this PR | `interactive-app` ← `feat/improve-agent-interaction-question-pictures`; `feat(improve-agent-interaction): agent questions carry pictures` | Contracts and decoder tests, intake unit, PG and process tiers with the decoder and probe images, frontend checks; demo video; rollout steps and forward-only note in the PR body; review; CI |
 
 ## Parallel work
 
@@ -57,13 +61,13 @@ How the PR map above lets work run at the same time. A PR can start once every P
 | 1 | PR-A · PR-B · PR-D1 · PR-F | PR-0 (all four); PR-F coordinates its shared components with `polish-ui-styling-and-loading` |
 | 2 | PR-D2 · PR-I | PR-D2 waits for PR-B and PR-D1; PR-I waits only for PR-D1 |
 | 3 | PR-E | PR-B and PR-D2 |
-| 4 | PR-G | PR-E; PR-F or polish for the shared components |
-| 5 | PR-H | PR-D2, PR-E and PR-G; PR-F or polish |
+| 4 | PR-G · PR-J | PR-E (both); PR-F or polish for the shared components (PR-G) |
+| 5 | PR-H · PR-K | PR-D2, PR-E and PR-G, with PR-F or polish (PR-H); PR-J (PR-K) |
 
-- **Critical path:** PR-B → PR-D2 → PR-E → PR-G → PR-H, five PRs in sequence. PR-A has slack; PR-F can start after PR-0 but holds PR-G unless polish lands first. PR-D1 runs beside PR-B; PR-D2 starts once the later of the two merges.
+- **Critical path:** PR-B → PR-D2 → PR-E → PR-G → PR-H, five PRs in sequence; PR-B → PR-D2 → PR-E → PR-J → PR-K is the same length. PR-A, PR-B, PR-D1, PR-D2, PR-E, PR-F and PR-I have merged, so PR-G and PR-J can run now. PR-A has slack; PR-F can start after PR-0 but holds PR-G unless polish lands first. PR-D1 runs beside PR-B; PR-D2 starts once the later of the two merges.
 - **Most parallel moment:** wave 1, four PRs. PR-I can also proceed independently after PR-D1; the remaining UI bundles follow their dependency chain.
-- **Conflicts to expect between parallel PRs:** PR-B and PR-F both change the Processing read the frontend uses (questions and step counts), and both touch `ProcessingWorkspace.tsx`, which `polish-ui-styling-and-loading` also edits. PR-B and PR-D1 both change `contracts/src/sessions.ts`, `processing.ts` and `agents/tools/handlers.ts`, and whichever lands first adds the shared envelope writer's size check. Whichever merges later rebases.
-- **Effect on BI-022:** `agent-stage-inputs-outputs` waits for this change's PR-B (stepped questions), PR-D1 (`photo_view`), PR-E (session page) and PR-G (session rows). PR-D1 is in wave 1, so it doesn't hold BI-022 back.
+- **Conflicts to expect between parallel PRs:** PR-B and PR-F both change the Processing read the frontend uses (questions and step counts), and both touch `ProcessingWorkspace.tsx`, which `polish-ui-styling-and-loading` also edits. PR-B and PR-D1 both change `contracts/src/sessions.ts`, `processing.ts` and `agents/tools/handlers.ts`, and whichever lands first adds the shared envelope writer's size check. PR-G, PR-H, PR-J and PR-K all touch the drawer and `ProcessingWorkspace.tsx`, and PR-J and PR-K both change `DrawerAnswers.tsx` and the question DTO; `polish-ui-styling-and-loading` PR-J changes the same answer handler's reload. Whichever merges later rebases, and PR-J and PR-K each renumber their migration if another lands first.
+- **Effect on BI-022:** `agent-stage-inputs-outputs` waits for this change's PR-B (stepped questions), PR-D1 (`photo_view`), PR-E (session page) and PR-G (session rows). PR-D1 is in wave 1, so it doesn't hold BI-022 back. BI-022's PR-E1 now also waits for PR-K, whose shared view recipe and decoder operation its recipe `/2` extends.
 
 ### Re-carving that would allow more parallel work
 
@@ -412,7 +416,10 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - [x] PR-F: implement tasks 8 and 9, review the exact head, publish with the demo, CI green, merge. Merged as #258 at `d09984bc`.
 - [ ] PR-G: implement task 10, review the exact head, publish with the demo, CI green, merge.
 - [ ] PR-H: implement task 11, review the exact head, publish with the demo, CI green, merge.
-- [ ] Update BI-019's status as PRs merge. It is Done only after PR-A, PR-B, PR-D1, PR-D2, PR-E, PR-F, PR-G, PR-H and PR-I merge and its acceptance is evidenced.
+- [x] PR-I: implement task 12, review the exact head, publish, CI green, merge. Merged as #262 at `b383ca91`.
+- [ ] PR-J: implement task 13, review the exact head, publish with the demo, CI green, merge.
+- [ ] PR-K: implement task 14, review the exact head, publish with the demo, CI green, merge.
+- [ ] Update BI-019's status as PRs merge. It is Done only after PR-A, PR-B, PR-D1, PR-D2, PR-E, PR-F, PR-G, PR-H, PR-I, PR-J and PR-K merge and its acceptance is evidenced.
 - [ ] Mark the design log entries D37 (PR-A), D38 (PR-B), D39 and D41 (PR-E) and D42 (PR-F) Built, with their PRs (D40's page layout was replaced by D41).
 - [ ] Before archiving, run `pnpm openspec:overlap --change improve-agent-interaction`, sync the specs, and record final open items in `notes.md`.
 
@@ -432,6 +439,93 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - [x] 12.2 Implement the enum from development settings and standalone relay to the VM tool worker and evidence projection, preserving explicit inline delivery and cleanup.
 - [x] 12.3 Document configuration, provider file-opening guidance, lifetime and rollout; run the applicable checks and record limitations.
 - [x] 12.5 Implement and test coordinator/guest release confirmation before new citation grants. Cover first and repeated fetches outside the manifest, staging and response failures, duplicate or stale confirmations, worker restart, incompatible peers, and legacy preview/original digest handling over compatible peers in both modes. Bind the image format to the producing encoder contract. Test a stripped current rendition with pages and missing/unknown tags against an explicitly legacy preview. Verify the subsequent proposal decision through the coordinator.
-- [ ] 12.4 Independently review the exact implementation before publication; publish and verify selected CI only when requested.
+- [x] 12.4 Independently review the exact implementation before publication; publish and verify selected CI only when requested. Merged as #262.
 
 - [x] 12.6 Configure whole-photo preview or original independently of delivery mode, and verify exact bytes, budgets, crop semantics and launch configuration.
+
+## 13. Answered questions fold away
+
+- **PR delivery:** PR-J.
+- **Outcome:**
+  - an answered question folds to one line under "Answered", below the open questions, with what was answered and a clock (waiting in the inbox) or a tick (read, with its time), and expands to the question, the assumption, the answer, its effects, the delivery trail and links;
+  - the same card in the drawer, the step page and the session page;
+  - the step page never pins a non-open question into a form, and its own confirmed answer never shows the superseded warning;
+  - named standings replace `stale`; the superseded warning shows only with a draft or an unconfirmed retry;
+  - the Processing read carries each answered question's summary, effects and delivery, with read times from a new acknowledgement log;
+  - the drawer shows messages, replies and answers in one time-ordered list, as the session page does: author-labelled bubbles, each answer once with its question quoted and linked, and "Sending…" on a message until it is saved, with a rail of dots on agent actions and a now dot while the session works (boards FixDrawerChat and FixDrawerChatRail).
+- **Scope and approach:**
+  - `contracts/src/processing.ts`: the `answer` member (with `values_omitted`), `session_history` and `replaced_by` on both question variants, and `contracts/src/sessions.ts`: the optional `replaces` on `SessionAskArgsV2` (design "Answered questions fold away");
+  - a migration adding the append-only `agent_session_ack` interval log with a baseline row per existing cursor, the runner role's `INSERT` and the API role's `SELECT` on it (`processing/grants.ts`), and the stored replacement;
+  - `agents/tools/handlers.ts`: `ask`'s `replaces` check (same job, earlier, unanswered), closing the replaced question;
+  - `agents/tools/inbox.ts` (`acknowledgeSessionInbox` logs each advance) and the steered-turn settlement in `agents/session/session-runner.ts`, which must publish `session_changed` when it moves the cursor;
+  - `processing/read.ts`: the answer summary from `processing_answer` and the question, the inbox item by `answer:<question_id>`, and the cursor and log; `requireRoom`'s per-question allowance in `agents/tools/handlers.ts`;
+  - `components/batches/Batch.tsx`: the per-batch confirmed-outcome store and focus target, carried across a rekey beside `drawerRestore`;
+  - `frontend/src/components/processing/SessionPanel.tsx` (one list through `ConversationRow`, no separate message list), `ChatBubble.tsx` (author labels and the quoted question on an answer), `SessionChatPanel.tsx` (the composer and the pending "Sending…" bubble) and `processing/session-history.ts` (drawer rows that keep chat, replies and answers; `chatMessages` removed);
+  - `frontend/src/components/processing/QuestionAnswer.tsx` (`questionStanding` replacing `stale`), `SteppedAnswerForm.tsx`, `SingleAnswerForm.tsx`, a new `AnsweredQuestion.tsx` and its group, `DrawerAnswers.tsx` (answered questions keep a line instead of disappearing), and `ProcessingWorkspace.tsx` (the first-pin branch takes only an open question; the answer handler records its confirmed receipt and moves focus).
+- **Prerequisites:** tasks 4 and 7, merged in PR-B (#251) and PR-E (#263). Independent of `polish-ui-styling-and-loading` task 15; with only this task, a cancelled reload still shows polish's old banner, but the card is right.
+- **Acceptance:** processing-workspace "Answered questions fold away" and "An answer form says why it can't send", all scenarios, and the focus clause of "Answer a question step by step"; processing-workspace "An answered line without its summary", "Messages and answers in time order", "An action rail beside the history" and the revised "Your inputs in the session history"; processing-agent-sessions "Answered questions report their answer and delivery", "Answer summaries fit the snapshot" and "A question can name the one it replaces", all scenarios.
+- **TDD approach:** the step-page regression fails first on today's code with the superseded warning; `questionStanding` cases and the PG read tests fail before the fields exist.
+- **Verification:**
+  - contracts tests; `pnpm db:intake test` on the read, inbox and runner tests (with `INTAKE_MEDIA_DECODER_IMAGE` and `INTAKE_MEDIA_PROBE_IMAGE`);
+  - the frontend typecheck, lint, tests and build;
+  - a demo video: answering on the step page, the line folding, the clock turning to a tick as the agent reads it, and expanding it.
+- **Risks and decisions:** the canvas boards FixAnsweredQuestion, FixDrawerChat and FixDrawerChatRail (variant B, chosen) are the reference. "Read" is the session's acknowledgement, never a claim that it acted. If BI-022's PR-B (the `/7` duplicate check) has merged first, this PR exempts an ask that names the open question it `replaces` from that check, with its test.
+
+- [ ] 13.1 Read the shared, frontend and intake-server code guidelines, the frontend and intake-server architecture and the board. List every reader of `stale` and every surface that mounts `QuestionAnswer`.
+- [ ] 13.2 RED: frontend tests:
+  - [ ] 13.2.1 The step-page regression: render `ProcessingWorkspace` with `?question=`, answer it, return it answered from `client.read`, and again after a remount; it shows the Answered line, never a form or the superseded warning, and focus moves to the next open question or the "Answered" heading.
+  - [ ] 13.2.2 `questionStanding` for each standing, with and without a draft or an unconfirmed retry.
+  - [ ] 13.2.3 The line's states: sending (locked, no fold), saved from the confirmed outcome before the read lands, waiting, "will read it when it resumes", read with its time, read with no time, values omitted, couldn't send with Try again resending the same key, replaced with its link, and "No longer asked" after a Start fresh beside an unrelated open question.
+  - [ ] 13.2.6 A confirmed answer followed by a failed Processing read, and one followed by a reload that remounts Processing: both show the folded line and move focus to the chosen target; the confirmed outcome is dropped when a fresh read returns the question answered in the full, compact or state-only tier, and the group orders state-only lines after timed ones; for a runner question with `session_history` false, the full tier shows the answer summary with no read state and only the lot link, and the compact and state-only tiers show "Answered · details not shown" with only the lot link; with `session_history` true (a reused job a later session ran), the line links to the session with no read state.
+  - [ ] 13.2.4 Answered on the session page while the drawer holds a draft: the draft is kept with "Answered elsewhere" and Send unavailable; without a draft the drawer shows the line.
+  - [ ] 13.2.7 The drawer's one list (board FixDrawerChat): messages, replies and answers in the history read's order, including entries with equal times; an answer shown once, as the operator's bubble quoting "Examine asked" and the question with a link to it, and its effect note beside the time; a just-sent message showing "Sending…" in place of its time until a read returns it; "You" on the operator's bubbles and the stage name on the agent's, in the drawer and on the session page; photo views and web reads still folded in the drawer; no separate message list. The rail (board FixDrawerChatRail): a dot on every action row and none on bubbles; a solid segment between adjacent actions and a dashed one across bubbles; the filled now dot on the latest action only while the session is working, a plain dot when paused, waiting or done; no animation under reduced motion; the hidden live region still announcing the current activity; the same dots on the session page.
+  - [ ] 13.2.5 The expanded line's question, struck-through assumption, answer, effects, trail and links, for a `/2` and a `/1` question.
+- [ ] 13.3 RED: PG tests for the answer summary (a truncated text step, a choice with "Something else", a number with its basis, multibyte and escaped text within the byte bound), effects, delivery before and after `read_inbox` and after a steered turn commits its items, a `session_changed` from each cursor move, an answer acknowledged before the migration still read with no time after a later advance, an earlier runner question with no delivery, a retained batch near the serialized snapshot cap with many answered rows read across the upgrade in the full, compact and state-only tiers rather than the read failing, a compact answer with a recorded read time fitting its reserved size, `session_history` computed with the history route's job check, false for a job with only runner attempts (one with an `agent_session` row whose history read returns 404) and true for a reused job a later session attempt ran, and kept in every tier, `replaces` accepted and refused, and the API reading the log under its deployed role.
+- [ ] 13.4 GREEN: implement the contract, the migration, the log, the read, the standings, the card and the pin rule.
+- [ ] 13.5 Update `frontend/ARCHITECTURE.md` and `intake-server/src/agents/ARCHITECTURE.md`. Run the checks, and record the demo video for the PR description.
+
+## 14. Question pictures
+
+- **PR delivery:** PR-K.
+- **Outcome:**
+  - `ask` takes up to 5 figures and a `preview: true` dry run, with no new tool name;
+  - the shared view recipe `bench-intake-view/1` and the decoder's `render_view`, run by the media worker from durable render requests;
+  - a session-scoped figure route serving each view and thumbnail;
+  - the card layouts for 1, 2 and 3–5 figures with marks as an overlay, and the larger view in a dialog, in the drawer, the step page, the session page and the expanded Answered line;
+  - the agent guidance on when and how to attach pictures.
+- **Scope and approach:**
+  - `contracts/src/sessions.ts` (`SessionAskArgsV2` figures and preview), `processing.ts` (figures on the `/2` question DTO) and `media.ts` (the view recipe);
+  - `media-decoder/src/` (`render_view`, reusing `rotated-region.ts`, and the marked preview) and its protocol;
+  - a migration for `processing_figure_render`; the media worker's claim and the media GC (`media/worker.ts`, `media/gc-main.ts`);
+  - `agents/tools/handlers.ts` (`ask` validation through `requireDeliveredSources` plus the delivered page, `recordMediaDelivery` and `confirmEvidence` recording pages, render requests, the preview wait and its bounded image reply) and `ask-guidance.ts`;
+  - the VM relay and guest (`agents/shared-vm/evidence-request.ts`, `stage-evidence.ts`, `native-turn.ts`): an aggregate frame limit for preview replies, staging several images in the configured delivery mode, and a preview-only result that grants no citation;
+  - a supervised render consumer (`media/render-worker-main.ts`) with its retention sweep and lease recovery, added to `tooling/deployment/host-media.compose.yaml` with the dispatcher socket, and run in `pnpm dev` by the existing media child (`intake-server/src/dev/media-main.ts`) through the local decoder launcher;
+  - `media/routes.ts` for the figure route, beside the photo-view crop route;
+  - `frontend/src/components/processing/` (a figures component and its dialog on `ui/ModalFrame`), the answer forms and `AnsweredQuestion.tsx`;
+  - the fake CLI and synthetic session ask with a figure, for tests and the demo.
+- **Prerequisites:** task 13 (the same card).
+- **Acceptance:** processing-agent-sessions "Questions carry pictures" and "Agents preview their pictures"; processing-workspace "Questions show the agent's pictures" and "A larger view of a question picture", all scenarios.
+- **TDD approach:** decoder, contract, PG and component tests fail first, before the recipe, the operation and the card exist.
+- **Verification:**
+  - decoder and contracts tests; `pnpm db:intake test` and `test:process` with the decoder and probe images, including the media worker rendering a photo region and a PDF page;
+  - the frontend typecheck, lint, tests and build;
+  - a demo video of a question with one, two and four pictures, the larger view, hiding the marks and opening the photo in Capture.
+- **Risks and decisions:**
+  - The canvas boards QuestionFigures and QuestionFigureDialog are the reference.
+  - Light adjustment is not in this task; BI-022's recipe `/2` adds it on top of this view recipe.
+  - Document pages ship with photos: PDF evidence pages are already decoded and served as page previews.
+  - A preview waits on the media worker; `FIGURE_PREVIEW_WAIT_MS` bounds it, and the agent can call again.
+  - If BI-022's PR-B (the `/7` duplicate check) has merged first, this PR makes a `preview: true` ask skip that check, with its test.
+
+- [ ] 14.1 Read the shared, frontend and intake-server code guidelines, the decoder README, the intake-server and media architecture and the boards. Confirm that admission still compares only tool names, and record where.
+- [ ] 14.2 RED: contracts and decoder tests:
+  - [ ] 14.2.1 The ask's figure limits (5 figures, 8 marks, caption 80, why 200, label 40) and the view recipe's bounds (quarter turns, ±15° straightening).
+  - [ ] 14.2.2 `render_view` on a photo and a PDF page: the cut region, quarter turns, straightening with the corner guard, the view and thumbnail sizes, and the marked preview differing from the view only by its marks.
+- [ ] 14.3 RED: PG and process tests:
+  - [ ] 14.3.1 `ask` refusals naming the figure: a version never delivered, a removed version, a missing page, a region outside the page, too many figures or marks; a manifest version the session never fetched refused; an unfetched page of a fetched PDF version refused, under direct delivery and under VM file and inline delivery with the page bound to the release receipt (in each VM mode the fetched page is refused before the acknowledgement and accepted after it, while another page of the same version stays refused), while a proposal citing that version is still admitted; a valid ask, including one citing a version announced and fetched after the manifest was sealed, storing its figures and render requests in one transaction.
+  - [ ] 14.3.2 A preview returning the marked renders within the image budget, storing no question; a preview retried with edited marks rendering again; a preview that times out returning a retryable result with no images; too many pending previews refused as busy; file and inline delivery of a five-image preview through the paired VM path within the aggregate frame limit, and a correctable refusal above it, with no citation granted.
+  - [ ] 14.3.3 The supervised render consumer, started with the dispatcher socket as the deployment starts it, rendering a five-figure preview and recovering an expired lease without a manual worker run, and the dev media child rendering a preview through the local launcher; claiming and rendering requests, an expired lease reclaimed, a request failing three times settling as failed, `processing_changed` on settlement; the sweep removing unreferenced and expired preview renders and a removed version's renders and releasing their pins, under the deployed roles.
+  - [ ] 14.3.4 The figure route: a ready view, still preparing, a removed version, another batch's or account's session, and a figure index out of range.
+- [ ] 14.4 RED: frontend tests for each layout, the thumbnail strip's arrow keys, marks as an overlay, "Photo removed" and "Preparing picture…", the dialog (zoom, Fit, Whole photo, previous and next, the marks switch, the listed marks, Open in Capture and Add a photo), and pictures in the expanded Answered line.
+- [ ] 14.5 GREEN: implement the contract, the operation, the render queue, the route, the handler, the guidance and the UI. Teach the fake CLI and the synthetic session an ask with a figure.
+- [ ] 14.6 Update `media-decoder/README.md`, `intake-server/ARCHITECTURE.md`'s retained media section, `intake-server/src/agents/ARCHITECTURE.md` and `frontend/ARCHITECTURE.md`. Run the checks, and record the demo video for the PR description.

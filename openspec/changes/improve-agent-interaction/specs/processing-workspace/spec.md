@@ -36,7 +36,7 @@ A session drawer SHALL answer a session question in place, one step at a time. A
 
 - **GIVEN** an open three-step question: same Part (choice), how many left (number), where it goes (choice)
 - **WHEN** the operator picks "Yes, same Part", enters 380 estimated, picks "Drawer R4", checks the summary and presses "Send 3 answers"
-- **THEN** one answer is sent with all three step values, the question leaves Needs you, and focus moves to the next open question or the drawer heading.
+- **THEN** one answer is sent with all three step values, the question leaves Needs you and folds to its Answered line, and focus moves to the next open question or the "Answered" heading.
 
 ### Requirement: Answer kinds in the drawer
 
@@ -98,13 +98,13 @@ When expanded, a proposal SHALL show its summary, its sources, what it relies on
 
 ### Requirement: Your inputs in the session history
 
-A session's history SHALL include the operator's answers, with what they changed, and instructions, marked as theirs and placed at the time they were sent, and the app's notices of new evidence and revisions, marked as the app's. An input the session has not read yet SHALL say so. Chat messages SHALL stay in the chat.
+A session's history SHALL include the operator's answers, with what they changed, and instructions, marked as theirs and placed at the time they were sent, and the app's notices of new evidence and revisions, marked as the app's. An input the session has not read yet SHALL say so. Answers, chat messages and the agent's replies SHALL show as chat bubbles at their time.
 
 #### Scenario: Answer in the history
 
 - **GIVEN** the operator answered a three-step question
 - **WHEN** the session's history shows it
-- **THEN** an entry "You answered: same Part · 380 estimated · Drawer R4" expands to "Lot quantity set to 380 (estimated) · note added", with a link to the lot.
+- **THEN** the operator's bubble quotes the question, reads "same Part · 380 estimated · Drawer R4", and shows "Lot quantity set to 380 (estimated) · note added" beside its time, with a link to the lot.
 
 ### Requirement: Drawer and session page split
 
@@ -226,3 +226,133 @@ The message box in the session drawer and on the session page SHALL be labelled 
 - **GIVEN** an empty message box for a Research session
 - **WHEN** the operator types a message and presses Enter
 - **THEN** it is sent once, Shift+Enter inserts a new line instead, and Send was unavailable while the box was empty.
+
+### Requirement: Answered questions fold away
+
+Once an answer is saved, the question SHALL fold to one line in an "Answered" group below the open questions, newest first, in the drawer, the step page and the session page alike. With the answer's summary, the line SHALL say what was answered and, given its delivery, whether the session read it. Expanded, it SHALL show the question, the assumption it replaced, the answer, what it changed, the sent and read times known, and links to the lot and, when one exists, the session.
+
+#### Scenario: Answering on the step page shows it answered, never superseded
+
+- **GIVEN** the Examine step page pinned to an open choice question through its question link
+- **WHEN** the operator picks "Contents verified" and sends it, and Processing then re-reads and remounts
+- **THEN** the question shows as one line "You chose Contents verified · waiting for Examine to read it" under "Answered", no form or "superseded" warning shows, and focus moves to the next open question or the "Answered" heading.
+
+#### Scenario: Read by the session
+
+- **GIVEN** an answered question whose answer waits in a running session's inbox
+- **WHEN** the session reads its inbox past the answer at 13:14
+- **THEN** the line's clock becomes a tick reading "Examine read it 13:14".
+
+#### Scenario: Session not running
+
+- **GIVEN** an answer saved while its session waits for capacity
+- **WHEN** the Answered line shows
+- **THEN** it reads "Examine will read it when it resumes".
+
+#### Scenario: Expanded answer
+
+- **GIVEN** an answered number question "How many 1N4148 diodes are in the loose bag?", answered 186 counted
+- **WHEN** the operator expands its line
+- **THEN** it shows the question, "It assumed 200 (estimate)" struck through, "186 · counted", "Lot 4's quantity is now 186 (counted)", when it was sent and read, and links to the session and Lot 4.
+
+### Requirement: An answered line without its summary
+
+An answered question that the read returns without its values SHALL show "Answered · see the session" with a link to the session, and its delivery when the read has it; a question the read marks as having no session history, such as an earlier runner's, SHALL show "Answered · details not shown" with no session link. Lines with no answer time SHALL follow the timed ones, in the order they were asked. A saved answer SHALL keep its line until a fresh read shows the question answered.
+
+#### Scenario: A retained batch near the size limit
+
+- **GIVEN** a batch whose oldest answers the read returns without values, the very oldest with only their answered state
+- **WHEN** the step page lists its answered questions
+- **THEN** the newest show their answers, the older read "Answered · see the session" with their delivery, those with no time come last in the order they were asked, and an earlier runner's answer reads "Answered · details not shown" with no session link.
+
+### Requirement: Messages and answers in time order
+
+The session drawer and the session page SHALL show the operator's messages, the agent's replies and answers in one list in history order, as bubbles with their time and their author ("You" or the stage name). An answer SHALL appear once, quoting the question it answers with a link to it. A message being sent SHALL show "Sending…" in place of its time until it is saved. The drawer SHALL NOT keep a separate message list.
+
+#### Scenario: A message between agent actions
+
+- **GIVEN** an Examine session that formed a lot at 15:53, then got the operator's message and replied at 15:54, then formed another lot
+- **WHEN** the drawer shows its history
+- **THEN** the "You" bubble and the "Examine" reply sit between the two lots with their times, and nothing repeats below the history.
+
+#### Scenario: An answer quotes its question
+
+- **GIVEN** the operator answered "Are package labels reliable descriptions of their contents?"
+- **WHEN** the drawer shows the answer
+- **THEN** it appears once, as a "You" bubble under "Examine asked" and the question, which links to the question.
+
+#### Scenario: Sending
+
+- **GIVEN** the operator sends a message from the drawer
+- **WHEN** the send hasn't been saved yet
+- **THEN** the message shows at the end with "Sending…" in place of its time, and takes its place in order once saved.
+
+### Requirement: An action rail beside the history
+
+In the session drawer and on the session page, each agent action row SHALL carry a hollow dot on a line, and chat bubbles SHALL carry none. The line SHALL be solid between adjacent actions and dashed across bubbles. While the session is working, its latest action SHALL show a filled "now" dot that pulses, without motion under reduced motion; otherwise that dot SHALL be plain.
+
+#### Scenario: Working, then waiting
+
+- **GIVEN** an Examine session working, whose latest action follows the operator's message
+- **WHEN** the drawer shows its history
+- **THEN** the dashed line crosses the message to the latest action's pulsing now dot, and once the session waits for the operator that dot is plain.
+
+#### Scenario: Reduced motion
+
+- **GIVEN** a working session and a browser that prefers reduced motion
+- **WHEN** the drawer shows its history
+- **THEN** the now dot shows a static ring and nothing animates.
+
+### Requirement: An answer form says why it can't send
+
+An answer form SHALL lock while sending and fold only once the answer is confirmed. An unknown outcome SHALL keep the form open with the choice kept, say why, and offer Try again. The superseded warning SHALL show only over an unsaved draft or an unconfirmed retry. A question answered elsewhere SHALL show its Answered line; one replaced by a later question SHALL say "Replaced by a newer question" with a link, and one closed otherwise "No longer asked".
+
+#### Scenario: Couldn't send
+
+- **GIVEN** an answer whose request got no response
+- **WHEN** the form shows the failure
+- **THEN** it stays open with "Contents verified" kept, says the server didn't answer, and Try again resends the same answer.
+
+#### Scenario: Answered in another place while drafting
+
+- **GIVEN** an unsaved draft in the drawer for a question that the session page then answers
+- **WHEN** the drawer re-reads
+- **THEN** the draft is kept with "Answered elsewhere; your unsaved answer can't be sent" above the Answered line, and Send is unavailable.
+
+#### Scenario: Replaced question without a draft
+
+- **GIVEN** a step page pinned to a question that a later question of the same session replaced, with no draft
+- **WHEN** it renders
+- **THEN** it reads "Replaced by a newer question" linking the later question, and no form shows.
+
+#### Scenario: Closed by Start fresh
+
+- **GIVEN** a question superseded by a Start fresh, while the session has an unrelated open question
+- **WHEN** it renders without a draft
+- **THEN** it reads "No longer asked" linking the session, and doesn't link the unrelated question.
+
+### Requirement: Questions show the agent's pictures
+
+A question with pictures SHALL show them in the agent's order with each caption and its source: one at full width, two side by side, or three to five as one large picture with a thumbnail strip the arrow keys move along. The agent's marks SHALL be drawn over each picture, never into it. Pictures SHALL show in the drawer, on the step page, on the session page and in an expanded Answered line.
+
+#### Scenario: Two pictures to compare
+
+- **GIVEN** an open question "Are packets A and B the same Part?" with two label pictures
+- **WHEN** the drawer shows it
+- **THEN** both labels show side by side with "Packet A: date code 2341" and "Packet B: date code 2407" and their highlights, above the options.
+
+#### Scenario: Picture source removed
+
+- **GIVEN** a question whose second picture's photo was removed from Capture
+- **WHEN** it is shown
+- **THEN** that picture reads "Photo removed", the others show, and the question can still be answered.
+
+### Requirement: A larger view of a question picture
+
+Clicking a question picture SHALL open a dialog with a large view, zoom, Fit and Whole photo, previous and next with the thumbnails, a "Show the agent's marks" switch, why the agent shows it, its marks listed in words, the source photo with its region and lot, Open in Capture and Add a photo.
+
+#### Scenario: Hide the marks
+
+- **GIVEN** the dialog open on "The worn suffix, boxed", picture 1 of 4
+- **WHEN** the operator turns off "Show the agent's marks" and presses the right arrow key
+- **THEN** the box disappears from the picture while its description stays listed, and picture 2 of 4 shows without marks.

@@ -234,6 +234,64 @@ export const AgentPauseAll = object({
   /** The batches the change reached. */
   batch_ids: Type.Array(Id, { maxItems: 1000 }),
 })
+/**
+ * Why a provider's sign-in status could not be read. None of them means signed out: the session
+ * worker didn't answer, the agent VM isn't connected, the provider's credential service is missing
+ * or older than the status read, it is busy with a sign-in change, or it didn't answer in time.
+ */
+export const PROVIDER_STATUS_UNKNOWN_REASONS = [
+  'not_configured',
+  'worker_unavailable',
+  'vm_unreachable',
+  'service_unavailable',
+  'guest_outdated',
+  'busy',
+  'timeout',
+] as const
+const providerStatusUnknown = {
+  state: Type.Literal('unknown'),
+  reason: Type.Union(PROVIDER_STATUS_UNKNOWN_REASONS.map((reason) => Type.Literal(reason))),
+}
+/** The provider's latest session, when it used the subscription and the provider refused sign-in. */
+export const ProviderSignInFailure = object({
+  attempt_id: Id,
+  failure_id: Id,
+  failed_at: Type.String({ maxLength: 40 }),
+})
+const lastSignInFailure = {
+  last_sign_in_failure: Type.Union([ProviderSignInFailure, Type.Null()]),
+}
+export const ClaudeProviderStatus = Type.Union([
+  object({
+    state: Type.Literal('saved'),
+    /** Null when the token was saved by a guest image that doesn't record the time. */
+    saved_at: Type.Union([Type.String({ maxLength: 40 }), Type.Null()]),
+    ...lastSignInFailure,
+  }),
+  object({ state: Type.Literal('not_saved'), ...lastSignInFailure }),
+  object({ ...providerStatusUnknown, ...lastSignInFailure }),
+])
+export const CodexProviderStatus = Type.Union([
+  object({
+    state: Type.Union([
+      Type.Literal('signed_in'),
+      Type.Literal('signing_in'),
+      Type.Literal('signed_out'),
+    ]),
+    ...lastSignInFailure,
+  }),
+  object({ ...providerStatusUnknown, ...lastSignInFailure }),
+])
+/**
+ * Each VM provider's sign-in status, read without the management key. Display only: it carries no
+ * token, account, key or credential revision, so nothing can be saved with it.
+ */
+export const ProviderStatus = object({
+  claude: ClaudeProviderStatus,
+  codex: CodexProviderStatus,
+  /** When the guest was read; the server reuses a read for a few seconds. */
+  read_at: Type.String({ maxLength: 40 }),
+})
 export const NativeAgentResult = object({
   proposal: Type.Union([ProcessingProposalV2, Type.Null()]),
   question: Type.Union([ProcessingQuestionSpec, Type.Null()]),
@@ -255,6 +313,7 @@ export const agentSchemas = {
   AgentPause,
   AgentPauseAll,
   InstructionDelivery,
+  ProviderStatus,
 }
 export type InstructionDeliveryDto = Static<typeof InstructionDelivery>
 export type AgentPauseUpdateDto = Static<typeof AgentPauseUpdate>
@@ -270,3 +329,8 @@ export type AgentSessionListDto = Static<typeof AgentSessionList>
 export type AgentSessionQueryDto = Static<typeof AgentSessionQuery>
 export type AgentSessionDto = AgentSessionListDto['sessions'][number]
 export type AgentSessionEarlierAttemptDto = Static<typeof AgentSessionEarlierAttempt>
+export type ProviderStatusUnknownReason = (typeof PROVIDER_STATUS_UNKNOWN_REASONS)[number]
+export type ProviderSignInFailureDto = Static<typeof ProviderSignInFailure>
+export type ClaudeProviderStatusDto = Static<typeof ClaudeProviderStatus>
+export type CodexProviderStatusDto = Static<typeof CodexProviderStatus>
+export type ProviderStatusDto = Static<typeof ProviderStatus>

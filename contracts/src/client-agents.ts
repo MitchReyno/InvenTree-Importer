@@ -32,6 +32,8 @@ export function agentsClient(baseUrl: string, csrfToken: string, transport: type
           params: { path: { id: batchId } },
         }),
       ),
+    /** Each VM provider's sign-in status, read without the management key. */
+    providerStatus: () => successfulData(client.GET('/api/v1/agents/provider-status')),
     /** Pauses or resumes every batch's agent sessions at once. */
     pauseAll: (paused: boolean) =>
       successfulData(client.PUT('/api/v1/agents/pause', { body: { paused } })),

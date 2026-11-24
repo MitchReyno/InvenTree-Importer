@@ -24,9 +24,9 @@ const SERVICES = {
 const MANAGEMENT = new Set(['bench-claude-management', 'bench-codex-management'])
 const MOUNTS = {
   'bench-claude-egress': ['egress'],
-  'bench-claude-management': ['claude-store', 'operator'],
+  'bench-claude-management': ['claude-store', 'guest', 'operator'],
   'bench-codex-egress': ['codex-egress'],
-  'bench-codex-management': ['codex-egress', 'codex-state', 'operator'],
+  'bench-codex-management': ['codex-egress', 'codex-state', 'guest', 'operator'],
 }
 
 const sha256 = (content) => createHash('sha256').update(content).digest('hex')
@@ -910,6 +910,18 @@ test('a service whose mounts differ from what its script makes is reprovisioned'
   fake.actions.length = 0
   await fake.setup({ plan: { keepRunning: true } })
   assert.deepEqual(fake.actions, ['personal-claude.sh'])
+})
+
+test('management containers from before the status endpoint are reprovisioned', async (t) => {
+  const fake = await world(t)
+  await fake.setup({ plan: { keepRunning: true } })
+  for (const name of MANAGEMENT) {
+    const container = fake.state.containers[name]
+    container.mounts = container.mounts.filter((mount) => mount !== `${GUEST_DIR}/guest`)
+  }
+  fake.actions.length = 0
+  await fake.setup({ plan: { keepRunning: true } })
+  assert.deepEqual(fake.actions, ['personal-claude.sh', 'personal-codex.sh'])
 })
 
 test("a service container with no mounts is not taken as this installation's", async (t) => {

@@ -35,21 +35,65 @@ const pump = `
   socket.on('error', () => process.exit(1))
   socket.on('close', () => process.exit())
 `
-async function connectCoordinator() {
+/** How long a stopped pump gets to exit before it is killed. */
+const STOP_GRACE_MS = 2000
+
+/** Closes a child's input and signals it, then kills it if it hasn't exited in time. */
+async function stopChild(child, exited) {
+  child.stdin?.end()
+  child.kill()
+  const settled = new AbortController()
+  const stopped = await Promise.race([
+    exited.then(() => true),
+    delay(STOP_GRACE_MS, false, { signal: settled.signal }).catch(() => false),
+  ])
+  settled.abort()
+  if (!stopped) {
+    child.kill('SIGKILL')
+    await exited
+  }
+}
+
+// `signal` abandons the attempt and stops its pump; without one the attempt waits as long as it takes.
+async function connectCoordinator(signal) {
   if (!coordinator) {
     const socket = connect(Number(port), '127.0.0.1')
-    await once(socket, 'connect')
+    const abandon = () => socket.destroy()
+    signal?.addEventListener('abort', abandon, { once: true })
+    try {
+      await once(socket, 'connect', { signal })
+    } catch (error) {
+      socket.destroy()
+      throw error
+    } finally {
+      signal?.removeEventListener('abort', abandon)
+    }
     return socket
   }
   const peer = spawn('docker', ['exec', '-i', coordinator, 'node', '-e', pump, port], {
     stdio: ['pipe', 'pipe', 'pipe'],
   })
+  const closed = once(peer, 'close').then(
+    () => false,
+    () => false,
+  )
+  peer.on('error', () => {})
+  const abandoned = new Promise((resolve) => {
+    if (signal?.aborted) {
+      resolve(false)
+    }
+    signal?.addEventListener('abort', () => resolve(false), { once: true })
+  })
   const ready = await Promise.race([
-    once(peer.stderr, 'data').then(([data]) => data.toString().trim() === 'ready'),
-    once(peer, 'close').then(() => false),
+    once(peer.stderr, 'data').then(
+      ([data]) => data.toString().trim() === 'ready',
+      () => false,
+    ),
+    closed,
+    abandoned,
   ])
   if (!ready) {
-    peer.kill()
+    await stopChild(peer, closed)
     throw new Error('coordinator_unavailable')
   }
   const socket = Duplex.from({ readable: peer.stdout, writable: peer.stdin })
@@ -62,6 +106,138 @@ if (delivery !== 'inline' && delivery !== 'file') throw new Error('invalid_evide
 const tools = process.env.INTAKE_VM_BUILTIN_TOOLS === '1'
 if (tools && !(codex || subscription)) throw new Error('tool_worker_requires_selected_provider')
 const toolScript = tools ? readFileSync(new URL('./tool-turn.sh', import.meta.url), 'utf8') : ''
+
+// A subscription relay also carries its provider's status connection. The credential service is
+// the TLS client on it (see intake-server/src/agents/shared-vm/provider-status.ts, which also
+// names the socket); this end only moves bytes.
+const statusContainer = codex
+  ? 'bench-codex-management'
+  : subscription
+    ? 'bench-claude-management'
+    : undefined
+const statusSocket = '/tmp/bench-status/status.sock'
+const statusPump = `
+  // Before the socket opens, it ends by itself when the relay closes its input or in 10 s.
+  const starting = setTimeout(() => process.exit(1), 10000)
+  const abandoned = () => process.exit()
+  process.stdin.once('end', abandoned)
+  const socket = require('node:net').connect(process.argv[1])
+  socket.once('connect', () => {
+    clearTimeout(starting)
+    process.stdin.off('end', abandoned)
+    process.stderr.write('ready\\n')
+    process.stdin.pipe(socket)
+    socket.pipe(process.stdout)
+  })
+  socket.on('error', () => process.exit(1))
+  socket.on('close', () => process.exit())
+`
+/** A missing or older credential service is retried less and less often, up to this. */
+const STATUS_RETRY_MAX_MS = 30000
+/** How long the pump and the coordinator connection may take to come up. */
+const STATUS_START_MS = 15000
+const stopping = new AbortController()
+
+/** Resolves `value` after `ms`, or as soon as `signal` aborts, leaving no timer behind. */
+function waitFor(ms, value, signal) {
+  return delay(ms, value, { signal }).catch(() => value)
+}
+
+/** Starts the pump in the management container; resolves once it reports its socket open. */
+async function openStatusPeer() {
+  const peer = spawn(
+    'limactl',
+    [
+      'shell',
+      '--workdir=/',
+      vm,
+      'sudo',
+      'docker',
+      'exec',
+      '-i',
+      statusContainer,
+      'node',
+      '-e',
+      statusPump,
+      statusSocket,
+    ],
+    { stdio: ['pipe', 'pipe', 'pipe'] },
+  )
+  // Registered at spawn, so an exit at any point is seen.
+  const exited = once(peer, 'close').then(
+    () => undefined,
+    () => undefined,
+  )
+  peer.on('error', () => {})
+  peer.stdin.on('error', () => {})
+  const settled = new AbortController()
+  const ready = await Promise.race([
+    once(peer.stderr, 'data').then(
+      ([data]) => data.toString().trim() === 'ready',
+      () => false,
+    ),
+    exited.then(() => false),
+    waitFor(STATUS_START_MS, false, AbortSignal.any([settled.signal, stopping.signal])),
+  ])
+  settled.abort()
+  if (!ready) {
+    await stopChild(peer, exited)
+    return undefined
+  }
+  return { peer, exited }
+}
+
+/** Carries one status connection until either end closes; false when it couldn't be opened. */
+async function carryStatusOnce() {
+  const opened = await openStatusPeer()
+  if (!opened) {
+    return false
+  }
+  const { peer, exited } = opened
+  // Giving up on the coordinator stops its pump too, so no attempt is left behind.
+  const giveUp = new AbortController()
+  const timer = setTimeout(() => giveUp.abort(), STATUS_START_MS)
+  const abandon = () => giveUp.abort()
+  stopping.signal.addEventListener('abort', abandon, { once: true })
+  void exited.then(abandon)
+  const socket = await connectCoordinator(giveUp.signal).catch(() => undefined)
+  clearTimeout(timer)
+  stopping.signal.removeEventListener('abort', abandon)
+  if (!socket) {
+    await stopChild(peer, exited)
+    return false
+  }
+  try {
+    socket.on('error', () => socket.destroy())
+    socket.once('close', () => peer.kill())
+    socket.pipe(peer.stdin)
+    peer.stdout.pipe(socket)
+    const stop = () => socket.destroy()
+    stopping.signal.addEventListener('abort', stop, { once: true })
+    await exited
+    stopping.signal.removeEventListener('abort', stop)
+  } finally {
+    socket.destroy()
+    await stopChild(peer, exited)
+  }
+  return true
+}
+
+/** Keeps one status connection from the credential service to the coordinator. */
+async function carryStatus() {
+  let retryMs = 500
+  while (!stopping.signal.aborted) {
+    // A status failure never ends the relay: turns keep running while it retries.
+    const carried = await carryStatusOnce().catch(() => false)
+    if (carried) {
+      retryMs = 500
+    } else {
+      retryMs = Math.min(retryMs * 2, STATUS_RETRY_MAX_MS)
+    }
+    await waitFor(retryMs, undefined, stopping.signal)
+  }
+}
+const status = statusContainer ? carryStatus().catch(() => {}) : undefined
 for (;;) {
   let socket
   try {
@@ -169,3 +345,5 @@ for (;;) {
   socket.destroy()
   if (terminating) break
 }
+stopping.abort()
+await status

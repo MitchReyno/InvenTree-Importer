@@ -91,6 +91,18 @@ class LoginRpc {
   }
 }
 
+async function exists(path: string) {
+  return stat(path).then(
+    () => true,
+    (e) => {
+      if (e.code === 'ENOENT') {
+        return false
+      }
+      throw e
+    },
+  )
+}
+
 export function parseDevice(v: Record<string, unknown>): Device {
   if (
     v.type !== 'chatgptDeviceCode' ||
@@ -105,11 +117,15 @@ export function parseDevice(v: Record<string, unknown>): Device {
   return { loginId: v.loginId, verificationUrl: v.verificationUrl, userCode: v.userCode }
 }
 
+/** What the read-only status sees; `busy` while a sign-in change or another read runs. */
+export type CodexStatusRead = 'signed_in' | 'signed_out' | 'signing_in' | 'busy'
+
 export class CodexAccount {
   private lastStatusLogin?: string
   private pending?: Login
   private timer?: ReturnType<typeof setTimeout>
   private busy = false
+  private reading?: Promise<unknown>
 
   constructor(
     private readonly root: string,
@@ -131,6 +147,8 @@ export class CodexAccount {
   }
 
   async action(action: unknown, loginId?: unknown) {
+    // A status read is bounded by its deadline, so an operator action waits for it, never fails.
+    await this.reading?.catch(() => {})
     if (this.busy) {
       throw unavailable()
     }
@@ -139,6 +157,52 @@ export class CodexAccount {
       return await this.perform(action, loginId)
     } finally {
       this.busy = false
+    }
+  }
+
+  /**
+   * Reads the sign-in state without changing it: a pending login is reported from memory, even
+   * once expired, and an account is read without a refresh under the shared lock turns take.
+   */
+  async readStatus(signal: AbortSignal): Promise<CodexStatusRead> {
+    if (this.busy || this.reading) {
+      return 'busy'
+    }
+    if (this.pending) {
+      return 'signing_in'
+    }
+    const read = this.readAccount(signal)
+    this.reading = read
+    try {
+      return await read
+    } finally {
+      this.reading = undefined
+    }
+  }
+
+  private async readAccount(signal: AbortSignal): Promise<CodexStatusRead> {
+    // Settles as soon as the read is abandoned, including before the account process starts.
+    const abandoned = new Promise<never>((_resolve, reject) => {
+      if (signal.aborted) {
+        reject(signal.reason)
+      }
+      signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+    })
+    abandoned.catch(() => {})
+    const active = join(this.root, 'account')
+    const present = await Promise.race([exists(active), abandoned])
+    if (!present) {
+      return 'signed_out'
+    }
+    signal.throwIfAborted()
+    const rpc = this.rpc(this.root, active, false)
+    try {
+      await Promise.race([rpc.initialize(), abandoned])
+      const connected = await Promise.race([rpc.connected(), abandoned])
+      return connected ? 'signed_in' : 'signed_out'
+    } finally {
+      // Returns only once the account process is reaped.
+      await rpc.close()
     }
   }
 
@@ -196,16 +260,7 @@ export class CodexAccount {
     ) {
       throw unavailable()
     }
-    const exists = await stat(active).then(
-      () => true,
-      (e) => {
-        if (e.code === 'ENOENT') {
-          return false
-        }
-        throw e
-      },
-    )
-    if (exists) {
+    if (await exists(active)) {
       const rpc = this.rpc(this.root, active, action !== 'status')
       try {
         await rpc.initialize()
