@@ -380,6 +380,60 @@ describe('sign-in dialogs update the card', () => {
     expectCard('Claude', 'No token')
   })
 
+  test('leaving and returning within the window keeps the confirmed change and reads again after it', async () => {
+    const api = client()
+    await renderAgents(api)
+    await waitFor(() => expectCard('Claude', 'Token saved'))
+    send
+      .mockResolvedValueOnce(Response.json({ configured: true, revision: 'one' }))
+      .mockResolvedValueOnce(Response.json({ configured: false, revision: 'two' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Subscription token…' }))
+    await enterKey('Personal runner management key')
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove token' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'Leave Agents' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Return to Agents' }))
+    await screen.findByRole('group', { name: 'Claude' })
+    // The VM's reused read still says a token is saved; the card keeps what it confirmed.
+    await act(() => vi.advanceTimersByTimeAsync(10))
+    expectCard('Claude', 'No token')
+    api.providerStatus.mockResolvedValue(
+      providerStatus({ claude: { state: 'not_saved', last_sign_in_failure: null } }),
+    )
+    const before = api.providerStatus.mock.calls.length
+    await act(() => vi.advanceTimersByTimeAsync(SETTLE_MS))
+    await waitFor(() => expect(api.providerStatus.mock.calls.length).toBeGreaterThan(before))
+    expectCard('Claude', 'No token')
+  })
+
+  test('a first read still running when the window ends is replaced by a new read', async () => {
+    const api = client()
+
+    let answer: (value: ProviderStatusDto) => void = () => undefined
+
+    api.providerStatus.mockImplementationOnce(
+      () => new Promise<ProviderStatusDto>((resolve) => (answer = resolve)),
+    )
+    await renderAgents(api)
+    expectCard('Codex', 'Checking…')
+    send
+      .mockResolvedValueOnce(Response.json({ state: 'disconnected' }))
+      .mockResolvedValueOnce(Response.json({ state: 'disconnected' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in to ChatGPT…' }))
+    await enterKey('Codex runner management key', 'key')
+    // A start is a sign-in change, so the card waits for a read asked for after it.
+    fireEvent.click(await screen.findByRole('button', { name: 'Sign in with ChatGPT' }))
+    await act(() => vi.advanceTimersByTimeAsync(10))
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    api.providerStatus.mockResolvedValue(
+      providerStatus({ codex: { state: 'signing_in', last_sign_in_failure: null } }),
+    )
+    await act(() => vi.advanceTimersByTimeAsync(SETTLE_MS))
+    await waitFor(() => expect(api.providerStatus).toHaveBeenCalledTimes(2))
+    await act(async () => answer(providerStatus()))
+    await waitFor(() => expectCard('Codex', 'Signing in'))
+  })
+
   test('the Codex dialog closes once the VM confirms the account, and the card says Signed in', async () => {
     await renderAgents()
     await waitFor(() => expectCard('Codex', 'Not signed in'))

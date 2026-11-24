@@ -23,10 +23,11 @@ export function PersonalClaudeCredential({ onChanged }: Props) {
 }
 
 function TokenDialog({ onChanged, onClose }: Props & { onClose: () => void }) {
-  const { token, status, phase, message, editKey, save, remove } = usePersonalClaudeCredential({
-    onChanged,
-    onClose,
-  })
+  const { token, status, phase, message, readError, editKey, save, remove } =
+    usePersonalClaudeCredential({
+      onChanged,
+      onClose,
+    })
   const ready = status !== undefined && phase === 'idle'
 
   let state = 'Enter the management key to read the token’s status.'
@@ -60,6 +61,7 @@ function TokenDialog({ onChanged, onClose }: Props & { onClose: () => void }) {
           help="From claude setup-token; it starts sk-ant-oat01-."
         />
         {message && <Alert role="alert">{message}</Alert>}
+        {readError && <Alert role="alert">{readError}</Alert>}
         <Actions>
           <Button type="submit" variant="primary" disabled={!ready}>
             {phase === 'saving' ? 'Saving…' : status?.configured ? 'Replace token' : 'Save token'}

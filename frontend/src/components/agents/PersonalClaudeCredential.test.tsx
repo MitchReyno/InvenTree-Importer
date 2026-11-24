@@ -167,7 +167,7 @@ it('closing drops the key: a reopened dialog starts empty and never sends the ol
   expect(authorizations()).toEqual(['Bearer old key', 'Bearer new key'])
 })
 
-it('closing during a save ignores its late answer and has the card read the status again', async () => {
+it('closing during a save ignores its late answer, and the card reads the status again when it lands', async () => {
   let answer: (value: Response) => void = () => undefined
 
   send
@@ -181,7 +181,8 @@ it('closing during a save ignores its late answer and has the card read the stat
   fireEvent.click(screen.getByRole('button', { name: 'Close' }))
   expect(onChanged).toHaveBeenCalledExactlyOnceWith(undefined)
   await act(async () => answer(Response.json({ configured: true, revision: 'two' })))
-  expect(onChanged).toHaveBeenCalledTimes(1)
+  // The late answer isn't shown, but the change it reports restarts the card's own read.
+  expect(onChanged.mock.calls).toEqual([[undefined], [undefined]])
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })
 
@@ -218,4 +219,23 @@ it('a save whose answer is lost is unconfirmed: the card reads the VM again, and
   expect(onChanged).toHaveBeenCalledExactlyOnceWith(undefined)
   expect(await screen.findByText('A token is saved.')).toBeVisible()
   expect(sent().map((body) => body.action)).toEqual(['status', 'save', 'status'])
+})
+
+it('a stale save stays reported when the reread fails, with Save still disabled', async () => {
+  send
+    .mockResolvedValueOnce(Response.json({ configured: true, revision: 'one' }))
+    .mockResolvedValueOnce(new Response('{}', { status: 409 }))
+    .mockResolvedValueOnce(new Response('{}', { status: 503 }))
+  openDialog()
+  await enterKey()
+  await screen.findByText('A token is saved.')
+  typeToken(TOKEN)
+  fireEvent.click(save())
+  await act(() => vi.advanceTimersByTimeAsync(0))
+  const alerts = screen.getAllByRole('alert').map((alert) => alert.textContent)
+  expect(alerts).toEqual([
+    expect.stringContaining('The token changed since this dialog read it'),
+    expect.stringContaining('Couldn’t reach the Claude token service'),
+  ])
+  expect(save()).toBeDisabled()
 })

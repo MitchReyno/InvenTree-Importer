@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { AgentProviderId, ProviderStatusDto } from '@invimport/contracts'
 import { useServerScope } from '#/context'
@@ -27,8 +27,12 @@ export type ProviderCardStatus = {
   failedAt: string | null
 }
 
-/** A sign-in change the card shows until a read made after it lands. */
+/** A sign-in change the card shows until a read asked for after it lands. */
 type Settling = { at: number; state?: Exclude<ProviderState, 'unknown'> }
+
+type SettlingByProvider = Partial<Record<AgentProviderId, Settling>>
+
+const NONE_SETTLING: SettlingByProvider = {}
 
 type StatusSource = { providerStatus: () => Promise<ProviderStatusDto> }
 
@@ -54,28 +58,47 @@ export function useProviderStatus(client: StatusSource) {
     queryFn: () => readStatus(client),
     retry: false,
   })
+  // Sign-in changes still settling are kept with the status read, not this section, so a change
+  // made just before leaving still holds when Settings › Agents opens again.
+  const settleKey = serverQueryKey(scope, 'provider-status', 'settling')
+  const settlingQuery = useQuery({
+    queryKey: settleKey,
+    queryFn: () => NONE_SETTLING,
+    enabled: false,
+    initialData: NONE_SETTLING,
+    staleTime: Infinity,
+    gcTime: Infinity,
+  })
+  const settling = settlingQuery.data
   const [checking, setChecking] = useState(false)
-  const [settling, setSettling] = useState<Partial<Record<AgentProviderId, Settling>>>({})
-  const timers = useRef(new Set<ReturnType<typeof setTimeout>>())
 
-  // The reads scheduled after a sign-in change are this section's own; leaving drops them.
+  // Syncs a timer per settling change: once its window has passed, the status is read again.
+  // Leaving drops the timers; opening the section again schedules what is still due.
   useEffect(() => {
-    const pending = timers.current
-    return () => {
-      pending.forEach(clearTimeout)
-      pending.clear()
-    }
-  }, [])
+    // A window that passed while the section was closed needs nothing: opening it reads afresh.
+    const due = Object.values(settling)
+      .map((change) => change.at + SETTLE_MS - Date.now())
+      .filter((wait) => wait > 0)
+    const timers = due.map((wait) => setTimeout(() => void readAfresh(), wait))
+    return () => timers.forEach(clearTimeout)
+    // readAfresh reads through the query client; only the settling changes start timers.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settling])
 
-  function read() {
-    return queryClient.refetchQueries({ queryKey, exact: true })
+  /**
+   * A new read. A read still running may have been asked for before a change settled, so it is
+   * cancelled rather than joined.
+   */
+  async function readAfresh() {
+    await queryClient.cancelQueries({ queryKey, exact: true })
+    await queryClient.refetchQueries({ queryKey, exact: true })
   }
 
   /** Check again: one place to ask, so a forced refresh can be added to the read. */
   async function checkAgain() {
     setChecking(true)
     try {
-      await read()
+      await readAfresh()
     } finally {
       setChecking(false)
     }
@@ -87,12 +110,10 @@ export function useProviderStatus(client: StatusSource) {
    */
   function signInChanged(provider: AgentProviderId, state?: Exclude<ProviderState, 'unknown'>) {
     const at = Date.now()
-    setSettling((current) => ({ ...current, [provider]: { at, state } }))
-    const timer = setTimeout(() => {
-      timers.current.delete(timer)
-      void read()
-    }, SETTLE_MS)
-    timers.current.add(timer)
+    queryClient.setQueryData<SettlingByProvider>(settleKey, (current = NONE_SETTLING) => ({
+      ...current,
+      [provider]: { at, state },
+    }))
   }
 
   // A read asked for before a change settled may report the VM before it; a failed read reports

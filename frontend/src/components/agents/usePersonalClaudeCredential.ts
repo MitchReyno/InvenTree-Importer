@@ -94,7 +94,9 @@ export function usePersonalClaudeCredential({ onChanged, onClose }: Options) {
   })
   const [status, setStatus] = useState<CredentialStatus>()
   const [phase, setPhase] = useState<'idle' | 'checking' | 'saving' | 'removing'>('idle')
+  // A command's outcome, and apart from it why the status couldn't be read after it.
   const [message, setMessage] = useState('')
+  const [readError, setReadError] = useState('')
 
   // Closing unmounts the dialog: its generation ends and the key goes. A change still unanswered
   // is the VM's to report, so the card reads it again.
@@ -160,10 +162,11 @@ export function usePersonalClaudeCredential({ onChanged, onClose }: Options) {
       const next = await request('status')
       if (mine === generation.current) {
         setStatus(next)
+        setReadError('')
       }
     } catch (error) {
       if (mine === generation.current) {
-        setMessage(reasonFor(error))
+        setReadError(reasonFor(error))
       }
     } finally {
       if (mine === generation.current) {
@@ -180,6 +183,7 @@ export function usePersonalClaudeCredential({ onChanged, onClose }: Options) {
     clearTimeout(pause.current)
     setStatus(undefined)
     setMessage('')
+    setReadError('')
     setPhase('idle')
     if (changing.current) {
       changing.current = false
@@ -207,6 +211,8 @@ export function usePersonalClaudeCredential({ onChanged, onClose }: Options) {
     try {
       const next = await request(action, status.revision, value)
       if (mine !== generation.current) {
+        // Closed or rekeyed meanwhile: the change is done now, so the card reads the VM again.
+        notify.current(undefined)
         return
       }
       changing.current = false
@@ -214,6 +220,7 @@ export function usePersonalClaudeCredential({ onChanged, onClose }: Options) {
       onClose()
     } catch (error) {
       if (mine !== generation.current) {
+        notify.current(undefined)
         return
       }
       changing.current = false
@@ -237,6 +244,7 @@ export function usePersonalClaudeCredential({ onChanged, onClose }: Options) {
     status,
     phase,
     message,
+    readError,
     editKey,
     save: () => void change('save'),
     remove: () => void change('remove'),

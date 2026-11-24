@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi, type Mock } from 'vitest'
-import { act, fireEvent, screen } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import { focusManager } from '@tanstack/react-query'
 import { createServerQueryClient } from '#/queries/client'
 import { render } from '#/test/render'
@@ -166,22 +166,51 @@ it('closing with a call queued drops it unsent; reopening with a new key holds o
   expect(await screen.findByRole('button', { name: 'Sign in with ChatGPT' })).toBeVisible()
 })
 
-it('editing the key while signing in stops the poll and ignores its late answer', async () => {
+it('editing the key while signing in stops the poll, ignores its late answer and finishes the old login', async () => {
   let answer: (value: Response) => void = () => undefined
 
   await startSignIn()
   send.mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
   await wait(3000)
   expect(send).toHaveBeenCalledTimes(3)
-  send.mockResolvedValueOnce(signedOut())
+  send
+    .mockResolvedValueOnce(challenge())
+    .mockResolvedValueOnce(signedOut())
+    .mockResolvedValueOnce(signedOut())
   await enterKey('other key')
   await act(async () => answer(Response.json({ state: 'connected' })))
   await wait(9000)
   expect(onConfirmed).not.toHaveBeenCalled()
   expect(screen.queryByText('Signed in to ChatGPT')).not.toBeInTheDocument()
-  expect(sent().at(-1)).toEqual({ action: 'status' })
-  expect(authorizations().at(-1)).toBe('Bearer other key')
-  expect(send).toHaveBeenCalledTimes(4)
+  expect(sent().slice(3)).toEqual([
+    { action: 'status', loginId: 'device-1' },
+    { action: 'cancel', loginId: 'device-1' },
+    { action: 'status' },
+  ])
+  expect(authorizations().slice(3)).toEqual(['Bearer key', 'Bearer key', 'Bearer other key'])
+  expect(send).toHaveBeenCalledTimes(6)
+})
+
+it('closing after a start whose answer was lost finds the pending login and cancels it', async () => {
+  send.mockResolvedValueOnce(signedOut())
+  openDialog()
+  await enterKey()
+  send.mockRejectedValueOnce(new TypeError('network_failed'))
+  fireEvent.click(await screen.findByRole('button', { name: 'Sign in with ChatGPT' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Could not confirm sign-in status')
+  send
+    .mockResolvedValueOnce(challenge())
+    .mockResolvedValueOnce(challenge())
+    .mockResolvedValueOnce(signedOut())
+  close()
+  await wait()
+  expect(sent()).toEqual([
+    { action: 'status' },
+    { action: 'start' },
+    { action: 'status' },
+    { action: 'status', loginId: 'device-1' },
+    { action: 'cancel', loginId: 'device-1' },
+  ])
 })
 
 it('a failed poll stops polling and says the status is unconfirmed', async () => {
@@ -247,7 +276,7 @@ it('commands wait for this login’s poll, which can end the login', async () =>
   await startSignIn()
   send.mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
   await wait(3000)
-  expect(screen.getByRole('button', { name: 'Cancel sign-in' })).toBeDisabled()
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Cancel sign-in' })).toBeDisabled())
   await act(async () => answer(Response.json({ state: 'denied' })))
   expect(await screen.findByText('Sign-in was declined or expired.')).toBeVisible()
   expect(screen.getByRole('button', { name: 'Sign in with ChatGPT' })).toBeEnabled()

@@ -35,10 +35,19 @@ const FAILED =
   'Could not confirm sign-in status. Check the management key and reconnect to the runner.'
 
 /**
- * One opening of the dialog, or one key typed in it. A queued call of a generation that has
- * ended is never sent, and its answer is ignored.
+ * One opening of the dialog, or one key typed in it, holding that key. A queued call reads the
+ * key when it is sent; once the generation ends the key is gone, the call is never sent and its
+ * answer is ignored.
  */
-type Generation = { ended: boolean }
+type Generation = { ended: boolean; key: string }
+
+function endGeneration(generation: Generation) {
+  generation.ended = true
+  generation.key = ''
+}
+
+/** What a closing dialog knows of the login to finish: its ID, none, or a start with no answer. */
+type LoginToFinish = string | undefined | 'unknown'
 
 /** A call dropped before sending because its generation ended. */
 class DroppedCall extends Error {
@@ -101,41 +110,55 @@ async function sendRunnerCall(
 }
 
 /** Queues a runner call; it is sent only if `generation` is still current when its turn comes. */
-function queueCall(
-  generation: Generation,
-  managementKey: string,
-  action: string,
-  loginId?: string,
-) {
+function queueCall(generation: Generation, action: string, loginId?: string) {
   const call = runnerQueue.then(() => {
     if (generation.ended) {
       throw new DroppedCall()
     }
-    return callRunner(managementKey, action, loginId)
+    return callRunner(generation.key, action, loginId)
   })
   runnerQueue = call.catch(() => undefined)
   return call
 }
 
 /**
- * Closing mid-sign-in: one final protected poll completes a login already approved, and a login
- * still pending is cancelled, so the read-only status never reports it as signing in for good.
- * The login may still be on its way from a start already sent, which is ahead in the queue. Both
- * calls take one turn of the queue, so a reopened dialog's first read sees the outcome.
+ * Ending a generation mid-sign-in: one final protected poll completes a login already approved,
+ * and a login still pending is cancelled, so the read-only status never reports it as signing in
+ * for good. The login may still be on its way from a start already sent, which is ahead in the
+ * queue; a start whose answer was lost is found by a status read, which names a pending login.
+ * The calls take one turn of the queue, so the next generation's first read sees the outcome, and
+ * the key is dropped once they are done.
  */
-function finishLogin(managementKey: string, login: Promise<string | undefined>) {
-  const call = runnerQueue.then(async () => {
-    const loginId = await login.catch(() => undefined)
-    if (!loginId) {
-      return
-    }
-    const final = await callRunner(managementKey, 'status', loginId)
-    if (final.state === 'pending') {
-      await callRunner(managementKey, 'cancel', loginId)
-    }
-  })
+function finishLogin(managementKey: string, login: Promise<LoginToFinish>) {
+  const holder = { key: managementKey }
+  const call = runnerQueue
+    .then(async () => {
+      let loginId = await login
+      if (loginId === 'unknown') {
+        const found = await callRunner(holder.key, 'status')
+        loginId = found.state === 'pending' ? found.loginId : undefined
+      }
+      if (!loginId) {
+        return
+      }
+      const final = await callRunner(holder.key, 'status', loginId)
+      if (final.state === 'pending') {
+        await callRunner(holder.key, 'cancel', loginId)
+      }
+    })
+    .finally(() => {
+      holder.key = ''
+    })
   runnerQueue = call.catch(() => undefined)
   return call
+}
+
+/** The login a start will name: none if the start was never sent, unknown if it got no answer. */
+function startedLogin(start: Promise<Account>): Promise<LoginToFinish> {
+  return start.then(
+    (next) => (next.state === 'pending' ? next.loginId : undefined),
+    (error: unknown) => (error instanceof DroppedCall ? undefined : 'unknown'),
+  )
 }
 
 type Options = {
@@ -151,13 +174,14 @@ type Options = {
  * ends it: queued calls aren't sent, the poll stops and late answers are ignored.
  */
 export function useChatGPTSignIn({ onConfirmed, onChanged }: Options) {
-  // Held only while the dialog is open, for the calls this generation queues.
-  const key = useRef('')
-  const generation = useRef<Generation>({ ended: false })
+  // The current generation, holding the key only while the dialog is open.
+  const generation = useRef<Generation>({ ended: false, key: '' })
   const pause = useRef<ReturnType<typeof setTimeout>>(undefined)
   // The login a closing dialog must finish or cancel, or a start whose answer will name it.
   const pendingLogin = useRef<string | undefined>(undefined)
   const startCall = useRef<Promise<Account> | undefined>(undefined)
+  // A start that got no answer may have made a login only a status read can name.
+  const startUnconfirmed = useRef(false)
   const callbacks = useRef({ onConfirmed, onChanged })
   useLayoutEffect(() => {
     callbacks.current = { onConfirmed, onChanged }
@@ -196,36 +220,42 @@ export function useChatGPTSignIn({ onConfirmed, onChanged }: Options) {
   // or cancels a login still pending with one final poll.
   useEffect(() => {
     const generations = generation
-    generations.current = { ended: false }
-    const held = key
+    generations.current = { ended: false, key: '' }
     const waiting = pause
-    const login = pendingLogin
-    const starting = startCall
-    const notify = callbacks
     return () => {
-      // The generation now current, which a key typed since the dialog opened replaced.
-      generations.current.ended = true
       clearTimeout(waiting.current)
-      const finalKey = held.current
-      held.current = ''
-      const loginId = login.current
-      const started = starting.current
-      login.current = undefined
-      starting.current = undefined
-      let outstanding: Promise<string | undefined> | undefined
-      if (loginId) {
-        outstanding = Promise.resolve(loginId)
-      } else if (started) {
-        outstanding = started.then((next) => (next.state === 'pending' ? next.loginId : undefined))
-      }
-      if (outstanding) {
-        notify.current.onChanged()
-        void finishLogin(finalKey, outstanding)
-          .catch(() => undefined)
-          .finally(() => notify.current.onChanged())
-      }
+      retire()
     }
   }, [])
+
+  /**
+   * Ends the current generation. A login it started is finished or cancelled with its key, ahead
+   * of anything the next generation sends; then the key is gone.
+   */
+  function retire() {
+    const ending = generation.current
+    const loginId = pendingLogin.current
+    const started = startCall.current
+    const unconfirmed = startUnconfirmed.current
+    pendingLogin.current = undefined
+    startCall.current = undefined
+    startUnconfirmed.current = false
+    let outstanding: Promise<LoginToFinish> | undefined
+    if (loginId) {
+      outstanding = Promise.resolve(loginId)
+    } else if (started) {
+      outstanding = startedLogin(started)
+    } else if (unconfirmed) {
+      outstanding = Promise.resolve('unknown')
+    }
+    if (outstanding) {
+      callbacks.current.onChanged()
+      void finishLogin(ending.key, outstanding)
+        .catch(() => undefined)
+        .finally(() => callbacks.current.onChanged())
+    }
+    endGeneration(ending)
+  }
 
   // Commands wait for this login's poll, which can end the login.
   const blocked = busy || status.isFetching
@@ -238,7 +268,7 @@ export function useChatGPTSignIn({ onConfirmed, onChanged }: Options) {
       return statusCall.current.call
     }
     const mine = generation.current
-    const call = queueCall(mine, key.current, 'status', loginId).then((next) => {
+    const call = queueCall(mine, 'status', loginId).then((next) => {
       if (!mine.ended) {
         adopt(next)
       }
@@ -261,6 +291,8 @@ export function useChatGPTSignIn({ onConfirmed, onChanged }: Options) {
    * the dialog; denied or expired, the card reads the VM again.
    */
   function adopt(next: Account) {
+    // Any answer says what the guest holds now, settling a start that got none.
+    startUnconfirmed.current = false
     const wasSigningIn = pendingLogin.current !== undefined
     pendingLogin.current = next.state === 'pending' ? next.loginId : undefined
     if (!wasSigningIn || next.state === 'pending') {
@@ -280,7 +312,7 @@ export function useChatGPTSignIn({ onConfirmed, onChanged }: Options) {
     const mine = generation.current
     setBusy(true)
     try {
-      const call = queueCall(mine, key.current, action, loginId)
+      const call = queueCall(mine, action, loginId)
       if (action === 'start') {
         startCall.current = call
       }
@@ -300,8 +332,11 @@ export function useChatGPTSignIn({ onConfirmed, onChanged }: Options) {
       if (action !== 'status') {
         callbacks.current.onChanged()
       }
-    } catch {
+    } catch (error) {
       if (!mine.ended) {
+        if (action === 'start' && !(error instanceof DroppedCall)) {
+          startUnconfirmed.current = true
+        }
         setAccount(undefined)
         setMessage(FAILED)
       }
@@ -312,14 +347,14 @@ export function useChatGPTSignIn({ onConfirmed, onChanged }: Options) {
     }
   }
 
-  /** A new key ends the generation: its queued calls aren't sent and its poll stops. */
+  /**
+   * A new key ends the generation: its queued calls aren't sent, its poll stops, and a login it
+   * started is finished or cancelled with the key that started it.
+   */
   function editKey(value: string) {
-    generation.current.ended = true
-    const next: Generation = { ended: false }
+    retire()
+    const next: Generation = { ended: false, key: value }
     generation.current = next
-    key.current = value
-    pendingLogin.current = undefined
-    startCall.current = undefined
     clearTimeout(pause.current)
     setEpoch((current) => current + 1)
     setAccount(undefined)
