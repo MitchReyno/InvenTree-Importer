@@ -381,7 +381,7 @@
   - only real unsaved changes are named, kept and offered "Discard my changes";
   - Processing's saved-but-unreadable case says "Saved. Showing the last status from HH:MM until it can be read again.";
   - a cancelled read still never verifies a command.
-- **Scope and approach:** `frontend/src/queries/` (`readReplacingCancels`, `ReadUnavailable`, and `readAgain` in `fresh-reads.ts`), `components/batches/Batch.tsx` (the reload state and notice replacing the error string and its banner), `operator/useDirtySources.ts` (labels on dirty reports) and the editors that report them, `processing/ProcessingWorkspace.tsx` (`refresh()` and `perform()`'s messages, and the answer handler's), and `processing/instruction-delivery.ts`. The design is "A replaced read is not a failure".
+- **Scope and approach:** `frontend/src/queries/` (`readReplacingCancels`, `ReadUnavailable`, `ReadAbandoned`, and `readAgain` in `fresh-reads.ts`), `components/batches/Batch.tsx` (the reload state and notice replacing the error string and its banner, the displayed snapshot's read time, adoption only when clean, and named discard), `operator/useDirtySources.ts` (labels and discard callbacks on dirty reports) and the editors that report them, `review/ManualWorkspace.tsx`, `processing/ProcessingWorkspace.tsx` (`refresh()` and `perform()`'s messages, and the answer handler's), and `processing/instruction-delivery.ts`. The design is "A replaced read is not a failure".
 - **Prerequisites:** tasks 4 and 5, merged in PR-B (#254) and PR-C (#259).
 - **Acceptance:** live-updates "A replaced read is not a failure" and "Unavailable saved values are reported calmly", all scenarios; "Live unverifiable workspace state" and "Commands wait quietly for a verified read" still pass.
 - **TDD approach:** with the real `QueryClient`, as task 4.3.5 does, a reload in flight while `refreshRetainedReads` runs rejects with `CancelledError` today, so the test fails first with the banner showing.
@@ -394,8 +394,8 @@
 - [ ] 15.2 RED: tests with the real `QueryClient`:
   - [ ] 15.2.1 A capture reload in flight while `refreshRetainedReads` cancels the scope resolves with the replacing read's data and sets no notice, on every tab.
   - [ ] 15.2.2 The same race after a Processing answer: no "current status is unavailable" message.
-  - [ ] 15.2.3 A replacing read that fails, and one that doesn't settle within 10 s, report unavailable; the cancelled generation never verifies a command.
-  - [ ] 15.2.4 The notice with nothing edited (time, Try now, the retry, clearing itself), with named unsaved changes (Discard dropping only those), and Processing's "Saved. Showing the last status from…".
+  - [ ] 15.2.3 A replacing read that fails, and one that doesn't settle within 10 s, report unavailable; a second cancel inside the window keeps the first deadline; a cancel from removal or a scope change rejects as abandoned and starts no read for the departed scope; the cancelled generation never verifies a command; Manual Review's awaited refetch under the same race shows nothing.
+  - [ ] 15.2.4 The notice with nothing edited (the displayed snapshot's time, Try now, the retry, clearing on an adopted network read and not on a `setQueryData` write); a successful automatic retry with a dirty editor clearing the notice while the draft and its revision stay; named unsaved changes, with Discard dropping only those while another draft stays; and Processing's "Saved. Showing the last status from…".
 - [ ] 15.3 GREEN: implement the helper, the reload state and notice, the labels and Processing's messages.
 - [ ] 15.4 Update `frontend/ARCHITECTURE.md` (awaited reads and cancellation). Run the frontend checks, and record the demo video for the PR description.
 
