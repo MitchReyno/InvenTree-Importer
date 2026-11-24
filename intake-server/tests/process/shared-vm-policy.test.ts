@@ -284,10 +284,8 @@ test(
         },
       }),
       async () => {
-        const encoder = httpServer(async (req, res) => {
-          for await (const _chunk of req) {
-            /* Consume the bounded synthetic request. */
-          }
+        const encoder = httpServer((req, res) => {
+          req.resume()
           res
             .writeHead(200, { 'content-type': 'application/json', [evidenceFormatHeader]: format })
             .end(
