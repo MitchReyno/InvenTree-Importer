@@ -495,6 +495,37 @@ test('tabbing elsewhere while the next form is awaited keeps focus where the ope
   expect(elsewhere).toHaveFocus()
 })
 
+test('tabbing elsewhere while the answer is being sent keeps focus where the operator put it', async () => {
+  const client = clientFor(examineRead([lead(5)]))
+  const receipt = deferredValue<Awaited<ReturnType<typeof client.answer>>>()
+  const confirmed = await client.answer()
+  client.answer.mockReturnValueOnce(receipt.promise)
+  mount(client, { questionId: Q.question(5), remount: false })
+  client.read.mockResolvedValue(
+    examineRead([answered(lead(5), fullAnswer('Contents verified'))], '9'),
+  )
+  await answerContentsVerified()
+
+  const elsewhere = screen.getByRole('link', { name: 'Evidence in Capture' })
+  elsewhere.focus()
+  await act(async () => {
+    receipt.resolve(confirmed)
+    await receipt.promise
+  })
+  await waitFor(() => expect(answeredGroup()).toHaveTextContent('You chose Contents verified'))
+  expect(screen.getByRole('heading', { name: /^Answered/ })).not.toHaveFocus()
+  expect(elsewhere).toHaveFocus()
+})
+
+function deferredValue<T>() {
+  let resolve: (value: T) => void = () => {}
+
+  const promise = new Promise<T>((settle) => {
+    resolve = settle
+  })
+  return { promise, resolve }
+}
+
 function deferredRead() {
   let resolve: (value: ProcessingSnapshotDto) => void = () => {}
 

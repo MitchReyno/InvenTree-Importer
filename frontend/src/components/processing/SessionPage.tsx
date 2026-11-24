@@ -176,12 +176,8 @@ export function SessionPage(props: Props) {
             state={sessionState}
             label={`Message ${stepLabel}`}
             newestInboxSeq={newestInboxSeq(entries)}
-            send={async (text, key) => {
-              const receipt = await client.chat(batchId, jobId, { idempotency_key: key, text }, key)
-              // The message shows as saved until a read holds it, whether or not this read lands.
-              void query.refetch()
-              return receipt
-            }}
+            send={(text, key) => client.chat(batchId, jobId, { idempotency_key: key, text }, key)}
+            refresh={() => void query.refetch()}
             startFresh={props.startFresh}
             freshReason={freshReason}
             sendUnavailable={props.sendUnavailable}

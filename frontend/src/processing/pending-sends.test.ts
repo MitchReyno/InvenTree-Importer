@@ -108,4 +108,62 @@ describe('the send store', () => {
     settlePendingSend(session.storeKey, { ...item, status: 'saved', seq: 4, savedOrder: 1 })
     expect(heldSends()).toHaveLength(0)
   })
+
+  it('keeps a saved send while a history read is in flight, even one with no data yet', async () => {
+    const client = createServerQueryClient()
+    client.setQueryData(historyKey('newest'), { ...history([]), readOrder: 0 })
+
+    let land: (read: unknown) => void = () => {}
+
+    const pageRead = client.fetchQuery({
+      queryKey: historyKey('page'),
+      queryFn: () =>
+        new Promise((settle) => {
+          land = settle
+        }),
+    })
+    const item = send('k', 'Hello')
+    startPendingSend(session, item)
+    settlePendingSend(session.storeKey, {
+      ...item,
+      status: 'saved',
+      seq: 3,
+      savedOrder: nextHistoryOrder(),
+    })
+    client.setQueryData(historyKey('newest'), {
+      ...history([chat(3, 3, 'Hello')]),
+      readOrder: nextHistoryOrder(),
+    })
+    retireCoveredSends(client, scope)
+    expect(heldSends()).toHaveLength(1)
+
+    // The page's read started before the send and lands without the row: it still shows it.
+    land({ ...history([chat(2, 2, 'Earlier')]), readOrder: 0 })
+    await pageRead
+    retireCoveredSends(client, scope)
+    expect(heldSends()).toHaveLength(1)
+  })
+
+  it('starts a new send above the rows earlier sends were saved as, after they retire', () => {
+    const client = createServerQueryClient()
+    const first = send('first', 'Again?')
+    startPendingSend(session, first)
+    settlePendingSend(session.storeKey, {
+      ...first,
+      status: 'saved',
+      seq: 9,
+      savedOrder: nextHistoryOrder(),
+    })
+    const read = {
+      ...history([chat(9, 9, 'Again?'), chat(2, 2, 'Earlier')]),
+      readOrder: nextHistoryOrder(),
+    }
+    client.setQueryData(historyKey('newest'), read)
+    retireCoveredSends(client, scope)
+    expect(heldSends()).toHaveLength(0)
+
+    // The second identical message is still sending; the first one's row is not its own.
+    startPendingSend(session, send('second', 'Again?'))
+    expect(unreadPendingSends(heldSends(), read).map((item) => item.key)).toEqual(['second'])
+  })
 })

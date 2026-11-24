@@ -84,7 +84,7 @@ export function createAnswerOutcomes() {
   let focus: AnswerFocusTarget | null = null
   // Where a mount put focus; a remount that removed it moves focus again.
   let placed: HTMLElement | null = null
-  // Where focus was when the move was promised; the move is dropped if the operator moves it.
+  // Where focus was when the answer was sent; the move is dropped if the operator moves it.
   let promisedFrom: Element | null = null
   let version = 0
   const listeners = new Set<() => void>()
@@ -103,12 +103,16 @@ export function createAnswerOutcomes() {
     },
     version: () => version,
     get: (questionId: string) => confirmed.get(questionId),
-    /** Records a confirmed answer and the focus target its handler chose, if it chose one. */
-    record(answer: ConfirmedAnswer, next: AnswerFocusTarget | null) {
+    /**
+     * Records a confirmed answer and the focus target its handler chose, if it chose one, with
+     * where focus was when the answer was sent: anywhere else later means the operator moved it.
+     */
+    record(answer: ConfirmedAnswer, next: AnswerFocusTarget | null, sentFrom: Element | null) {
       confirmed.set(answer.questionId, answer)
-      focus = next
+      // Focus the operator moved while the answer was sending stays where they put it.
+      focus = operatorMovedFocus(sentFrom) ? null : next
       placed = null
-      promisedFrom = document.activeElement
+      promisedFrom = sentFrom
       changed()
     },
     /** Drops answers a fresh read now returns answered, in whichever tier carries them. */

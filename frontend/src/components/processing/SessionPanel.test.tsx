@@ -319,6 +319,20 @@ test('a message read before its receipt stays gone once agent actions push it of
   expect(within(list).queryByRole('listitem', { name: /^Your message/ })).toBeNull()
 })
 
+test('a send whose own refresh finds only newer agent actions is not shown again', async () => {
+  let page = conversationPage()
+  const client = mount(() => Promise.resolve(page))
+  const list = await screen.findByRole('list', { name: 'Session history' })
+  // The refresh after the receipt returns a page that newer actions have filled.
+  page = history([status(40, 30, 'Still working'), status(39, 29, 'Checking the label')], {
+    attempts: conversationPage().session.attempts,
+  })
+  send('Is the date code readable?')
+  await within(list).findByText('Still working')
+  expect(client.history).toHaveBeenCalledTimes(2)
+  expect(within(list).queryByText('Is the date code readable?')).toBeNull()
+})
+
 test('a saved message whose refresh fails stays shown as saved until a read holds it', async () => {
   let page: () => Promise<SessionHistoryDto> = () => Promise.resolve(conversationPage())
 

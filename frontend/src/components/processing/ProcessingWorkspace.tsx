@@ -403,6 +403,8 @@ export function ProcessingWorkspace({
     key: string,
     { fromDrawer = false } = {},
   ) {
+    // Where focus was at Send, so a later move of the operator's cancels the move after it.
+    const sentFrom = document.activeElement
     setSaving('answer')
     try {
       const question = allQuestions.find((candidate) => candidate.id === id)
@@ -420,6 +422,7 @@ export function ProcessingWorkspace({
             savedAt: new Date().toISOString(),
           },
           next,
+          sentFrom,
         )
       })
       // The reload remounts Processing; an open drawer comes back, focused as it would have been.

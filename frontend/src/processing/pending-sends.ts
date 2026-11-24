@@ -28,6 +28,8 @@ export type HistoryReadOrder = { readOrder?: number }
 const pendingSends = new Map<string, readonly PendingSend[]>()
 /** Each store key's batch and job, so a held send can find that session's history reads. */
 const sessions = new Map<string, { batchId: string; jobId: string }>()
+/** The newest row each session's sends were saved as, kept after those sends retire. */
+const floors = new Map<string, number>()
 let order = 0
 const listeners = new Set<() => void>()
 const NONE: readonly PendingSend[] = []
@@ -45,6 +47,10 @@ function publish(storeKey: string, sends: readonly PendingSend[]) {
   } else {
     pendingSends.delete(storeKey)
     sessions.delete(storeKey)
+  }
+  const savedSeqs = sends.flatMap((send) => (send.seq === undefined ? [] : [send.seq]))
+  if (savedSeqs.length) {
+    floors.set(storeKey, Math.max(floors.get(storeKey) ?? 0, ...savedSeqs))
   }
   listeners.forEach((listener) => listener())
 }
@@ -72,6 +78,8 @@ export function pendingSendKey(scope: ServerScope, batchId: string, jobId: strin
 export function dropScopeSends(scope: ServerScope) {
   const prefix = `${scopeKey(scope)}|`
   const ended = [...pendingSends.keys()].filter((key) => key.startsWith(prefix))
+  const floorsEnded = [...floors.keys()].filter((key) => key.startsWith(prefix))
+  floorsEnded.forEach((key) => floors.delete(key))
   ended.forEach((key) => {
     pendingSends.delete(key)
     sessions.delete(key)
@@ -89,16 +97,27 @@ export function usePendingSendKey(batchId: string, jobId: string) {
 /** The session a store key names, as `pendingSendKey` built it. */
 export type PendingSendSession = { storeKey: string; batchId: string; jobId: string }
 
-/** Starts a send, or a retry of one, with this delivery key. */
+/**
+ * Starts a send, or a retry of one, with this delivery key. A new send's row is newer than every
+ * row this session's earlier sends were saved as, so its text match starts above them too, even
+ * once those sends have been retired.
+ */
 export function startPendingSend(session: PendingSendSession, send: PendingSend) {
   const sends = pendingSends.get(session.storeKey) ?? NONE
-  const known = sends.some((candidate) => candidate.key === send.key)
+  const known = sends.find((candidate) => candidate.key === send.key)
+  const savedSeqs = sends.flatMap((candidate) =>
+    candidate.seq === undefined ? [] : [candidate.seq],
+  )
+  const after = known
+    ? known.after
+    : Math.max(send.after, floors.get(session.storeKey) ?? 0, ...savedSeqs)
   sessions.set(session.storeKey, { batchId: session.batchId, jobId: session.jobId })
+  const started = { ...send, after }
   publish(
     session.storeKey,
     known
-      ? sends.map((candidate) => (candidate.key === send.key ? send : candidate))
-      : [...sends, send],
+      ? sends.map((candidate) => (candidate.key === send.key ? started : candidate))
+      : [...sends, started],
   )
 }
 
@@ -207,18 +226,31 @@ export function unreadPendingSends(sends: readonly PendingSend[], read: HeldRead
   return shown
 }
 
-/** The session's history reads that a surface can show, the drawer's and the session page's. */
-function heldReads(client: QueryClient, scope: ServerScope, batchId: string, jobId: string) {
-  return (['newest', 'page'] as const).flatMap((which) => {
+/**
+ * The session's history reads that a surface can show, the drawer's and the session page's, or
+ * null while one is being read: a request in flight may have started before a receipt, so its
+ * result is unknown until it lands.
+ */
+function settledReads(client: QueryClient, scope: ServerScope, batchId: string, jobId: string) {
+  const reads: HeldRead[] = []
+  for (const which of ['newest', 'page'] as const) {
     const key = serverQueryKey(scope, 'processing', batchId, 'history', jobId, which)
-    const read = client.getQueryData<HeldRead>(key)
-    return read ? [read] : []
-  })
+    const query = client.getQueryCache().find<HeldRead>({ queryKey: key, exact: true })
+    if (query?.state.fetchStatus === 'fetching') {
+      return null
+    }
+    const read = query?.state.data
+    if (read) {
+      reads.push(read)
+    }
+  }
+
+  return reads
 }
 
 /**
- * Drops this scope's saved sends that every held history read covers. A read not in the cache
- * has no older copy to show: the surface that mounts it reads afresh.
+ * Drops this scope's saved sends that every held history read covers, once none is being read. A
+ * read not in the cache has no older copy to show: the surface that mounts it reads afresh.
  */
 export function retireCoveredSends(client: QueryClient, scope: ServerScope) {
   const prefix = `${scopeKey(scope)}|`
@@ -227,7 +259,10 @@ export function retireCoveredSends(client: QueryClient, scope: ServerScope) {
     if (!storeKey.startsWith(prefix) || !session) {
       continue
     }
-    const reads = heldReads(client, scope, session.batchId, session.jobId)
+    const reads = settledReads(client, scope, session.batchId, session.jobId)
+    if (!reads) {
+      continue
+    }
     const kept = sends.filter(
       (send) => send.status !== 'saved' || !reads.every((read) => readCovers(read, send)),
     )

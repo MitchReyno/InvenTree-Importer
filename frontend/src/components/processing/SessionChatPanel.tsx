@@ -22,6 +22,8 @@ interface Props {
   state: SessionStateDto
   /** Queues one message; the same key is reused only to retry that exact message. */
   send: (text: string, key: string) => Promise<{ seq: string }>
+  /** Reads the history again, once the receipt is recorded, so that read counts as after it. */
+  refresh?: () => void
   /** The newest inbox row the history shows, so the message is recognised once it arrives. */
   newestInboxSeq?: number
   freshDisabled?: boolean
@@ -38,6 +40,7 @@ async function deliver(
   session: PendingSendSession,
   item: Pick<PendingSend, 'text' | 'key' | 'after'>,
   send: Props['send'],
+  refresh: Props['refresh'],
 ): Promise<boolean> {
   const { text, key, after } = item
   startPendingSend(session, { text, key, after, status: 'sending' })
@@ -52,6 +55,7 @@ async function deliver(
       seq: Number(receipt.seq),
       savedOrder: nextHistoryOrder(),
     })
+    refresh?.()
     return true
   } catch {
     settlePendingSend(session.storeKey, { text, key, after, status: 'unconfirmed' })
@@ -83,6 +87,7 @@ export function SessionChatPanel({
   jobId,
   state,
   send,
+  refresh,
   newestInboxSeq = 0,
   startFresh,
   freshDisabled,
@@ -121,9 +126,12 @@ export function SessionChatPanel({
       return
     }
     setMessage('')
-    void deliver(session, { text, key: crypto.randomUUID(), after: newestInboxSeq }, send).then(
-      (ok) => ok && confirmed(),
-    )
+    void deliver(
+      session,
+      { text, key: crypto.randomUUID(), after: newestInboxSeq },
+      send,
+      refresh,
+    ).then((ok) => ok && confirmed())
   }
 
   return (
@@ -148,7 +156,9 @@ export function SessionChatPanel({
             <Button
               type="button"
               disabled={sendUnavailable !== undefined}
-              onClick={() => void deliver(session, pending, send).then((ok) => ok && confirmed())}
+              onClick={() =>
+                void deliver(session, pending, send, refresh).then((ok) => ok && confirmed())
+              }
             >
               Retry this message
             </Button>{' '}

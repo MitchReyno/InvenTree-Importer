@@ -108,12 +108,8 @@ export function SessionPanel({
         jobId={job.id}
         state={sessionState}
         newestInboxSeq={newestInboxSeq(entries)}
-        send={async (text, key) => {
-          const receipt = await client.chat(batchId, job.id, { idempotency_key: key, text }, key)
-          // The message shows as saved until a read holds it, whether or not this read lands.
-          void history.refetch()
-          return receipt
-        }}
+        send={(text, key) => client.chat(batchId, job.id, { idempotency_key: key, text }, key)}
+        refresh={() => void history.refetch()}
         startFresh={startFresh}
         freshReason={freshReason ?? startFreshReason(session.start_fresh)}
         freshDisabled={
