@@ -63,6 +63,14 @@ export function processingClient(
         }),
       ),
 
+    /** The newest page of a session's history, or the page older than `before`. */
+    history: (id: string, jobId: string, before?: string) =>
+      successfulData(
+        client.GET('/api/v1/batches/{id}/processing/{jobId}/history', {
+          params: { path: { id, jobId }, ...(before === undefined ? {} : { query: { before } }) },
+        }),
+      ),
+
     replaceSession: (id: string, jobId: string, input: SessionReplacementDto, key: string) =>
       successfulData(
         client.POST('/api/v1/batches/{id}/processing/{jobId}/replacement', {

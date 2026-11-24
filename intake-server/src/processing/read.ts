@@ -608,36 +608,63 @@ function configuredRunnerStatus(
 
 type Currentness = NonNullable<ProcessingJobDto['proposals'][number]['currentness']>
 
+/** A session proposal's staleness and the open questions that make it provisional. */
+export interface ProposalCurrentnessFacts {
+  stale: Extract<Currentness, { state: 'stale' }>['reason'] | null
+  /** Open questions of current attempts on the same subject sharing one of its fields. */
+  provisionalQuestionIds: string[]
+}
+
 /**
- * Each session proposal's currentness, in one bounded query per batch: stale when a relied-on
- * source changed, provisional while an open question shares one of its fields and subject.
+ * Each session proposal's currentness facts, in one bounded query per batch, for every proposal
+ * or only the named ones: stale when a relied-on source changed, provisional while an open
+ * question of a current attempt shares one of its fields and its subject.
  */
-async function proposalCurrentness(client: PoolClient, batchId: string) {
-  const rows = await client.query<{ id: string; stale: string | null; provisional: boolean }>(
+export async function proposalCurrentnessFacts(
+  client: PoolClient,
+  batchId: string,
+  proposalIds?: readonly string[],
+) {
+  const rows = await client.query<{
+    id: string
+    stale: ProposalCurrentnessFacts['stale']
+    provisional_question_ids: string[]
+  }>(
     `SELECT p.id, s.reason AS stale,
-       EXISTS (
-         SELECT 1 FROM public.processing_question q JOIN public.processing_job qj ON qj.id=q.job_id
+       ARRAY(
+         SELECT q.id FROM public.processing_question q JOIN public.processing_job qj ON qj.id=q.job_id
          WHERE q.batch_id=$1 AND q.state='open' AND q.attempt_id=qj.current_attempt_id
            AND (convert_from(q.spec_bytes,'UTF8')::jsonb->'fields')
                ?| ARRAY(SELECT jsonb_array_elements_text(p.relies_on->'fields'))
            AND COALESCE((convert_from(q.spec_bytes,'UTF8')::jsonb->>'subject_id')::uuid, qj.subject_id)
                = COALESCE(j.subject_id, (convert_from(p.value_bytes,'UTF8')::jsonb->>'subject_id')::uuid)
-       ) AS provisional
+         ORDER BY q.id
+       ) AS provisional_question_ids
      FROM public.processing_proposal p
      JOIN public.processing_attempt a ON a.id=p.attempt_id
      JOIN public.processing_job j ON j.id=a.job_id
      LEFT JOIN public.processing_proposal_stale s ON s.proposal_id=p.id
-     WHERE j.batch_id=$1 AND p.relies_on IS NOT NULL`,
-    [batchId],
+     WHERE j.batch_id=$1 AND p.relies_on IS NOT NULL
+       AND ($2::uuid[] IS NULL OR p.id = ANY($2::uuid[]))`,
+    [batchId, proposalIds ? [...proposalIds] : null],
   )
-  return new Map<string, Currentness>(
+  return new Map<string, ProposalCurrentnessFacts>(
     rows.rows.map((row) => [
       row.id,
-      row.stale
-        ? ({ state: 'stale', reason: row.stale } as Currentness)
-        : row.provisional
-          ? { state: 'provisional' }
-          : { state: 'current' },
+      { stale: row.stale, provisionalQuestionIds: row.provisional_question_ids },
     ]),
   )
+}
+
+/** Each session proposal's currentness as the snapshot shows it; stale takes precedence. */
+async function proposalCurrentness(client: PoolClient, batchId: string) {
+  const facts = await proposalCurrentnessFacts(client, batchId)
+  return new Map<string, Currentness>([...facts].map(([id, fact]) => [id, currentnessOf(fact)]))
+}
+
+function currentnessOf(fact: ProposalCurrentnessFacts): Currentness {
+  if (fact.stale) {
+    return { state: 'stale', reason: fact.stale }
+  }
+  return fact.provisionalQuestionIds.length ? { state: 'provisional' } : { state: 'current' }
 }

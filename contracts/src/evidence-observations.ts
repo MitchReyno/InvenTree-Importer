@@ -78,6 +78,9 @@ export const RecordObservationArgs = object({
 /** A lot shares an existing Part, or names a new draft Part for the lead session to create. */
 export const ProposedLotPart = Type.Union([object({ part_subject_id: Id }), object({ label })])
 
+/** Why a lot is kept apart from lots that look alike, such as a different date code. */
+export const SeparationReason = unicodeText(1, 512)
+
 /** Creates a draft lot, or extends the AI lot named by `lot_id`. Quantities are estimates only. */
 export const ProposeLotArgs = object({
   ...baseRevision,
@@ -87,6 +90,7 @@ export const ProposeLotArgs = object({
   part: Type.Optional(ProposedLotPart),
   estimated_quantity: Type.Optional(Quantity),
   quantity_basis: Type.Optional(unicodeText(1, 512)),
+  separation_reason: Type.Optional(SeparationReason),
 })
 
 /** Moves observations between AI lots. */

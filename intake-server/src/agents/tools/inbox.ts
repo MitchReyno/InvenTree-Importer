@@ -200,10 +200,6 @@ export async function pendingSessionInbox(client: PoolClient, lineageId: string)
   return Number(rows[0]?.pending ?? 0)
 }
 
-/**
- * Acknowledges every item up to `afterSeq` (never past the last item, never backwards) and
- * returns the next unacknowledged items with their stable IDs, so a lost response redelivers.
- */
 /** Moves the cursor forward to `upTo`, never past the newest item and never backwards. */
 export async function acknowledgeSessionInbox(client: PoolClient, lineageId: string, upTo: bigint) {
   const db = queryDatabase(client)
@@ -230,8 +226,13 @@ export async function acknowledgeSessionInbox(client: PoolClient, lineageId: str
   )
 }
 
+/**
+ * Acknowledges up to `afterSeq`, then returns the next unacknowledged items with their stable
+ * IDs, so a lost response redelivers, and whether the cursor moved, so open readers can be told.
+ */
 export async function readSessionInbox(client: PoolClient, lineageId: string, afterSeq: bigint) {
   const db = queryDatabase(client)
+  const previous = await ackedSeq(client, lineageId)
   await acknowledgeSessionInbox(client, lineageId, afterSeq)
   const acked = await ackedSeq(client, lineageId)
   const rows = await executeDatabaseQuery(
@@ -244,7 +245,7 @@ export async function readSessionInbox(client: PoolClient, lineageId: string, af
       .orderBy(asc(agentSessionInbox.seq))
       .limit(INBOX_READ_LIMIT),
   )
-  return rows.map(
+  const items = rows.map(
     (row) =>
       ({
         id: row.id,
@@ -254,6 +255,7 @@ export async function readSessionInbox(client: PoolClient, lineageId: string, af
         created_at: row.createdAt.toISOString(),
       }) as SessionInboxItemDto,
   )
+  return { items, advanced: acked > previous }
 }
 
 export async function sessionInboxItem(client: PoolClient, lineageId: string, itemId: string) {

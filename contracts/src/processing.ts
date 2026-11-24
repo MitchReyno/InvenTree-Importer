@@ -741,6 +741,19 @@ export const statusLine = Type.String({
   maxLength: STATUS_LINE_MAX_CHARACTERS,
   pattern: '^[^\\r\\n\\u2028\\u2029]*$',
 })
+/** Why a session proposal is no longer current. */
+export const ProposalStaleReason = Type.Union(
+  (
+    [
+      'source_superseded',
+      'evidence_removed',
+      'answer_received',
+      'operator_correction',
+      'lot_regrouped',
+      'subject_retired',
+    ] as const
+  ).map((reason) => Type.Literal(reason)),
+)
 export const ProcessingJob = object({
   id: Id,
   /** Null only for the batch-level Examine lead job. */
@@ -773,18 +786,7 @@ export const ProcessingJob = object({
           object({ state: Type.Literal('provisional') }),
           object({
             state: Type.Literal('stale'),
-            reason: Type.Union(
-              (
-                [
-                  'source_superseded',
-                  'evidence_removed',
-                  'answer_received',
-                  'operator_correction',
-                  'lot_regrouped',
-                  'subject_retired',
-                ] as const
-              ).map((reason) => Type.Literal(reason)),
-            ),
+            reason: ProposalStaleReason,
           }),
         ]),
       ),

@@ -1,8 +1,12 @@
 import { SessionFailureSummary } from './session-failures.ts'
 import { Type, type Static, type TProperties } from '@sinclair/typebox'
-import { CursorSequence, Digest, Id, Revision } from './scalars.ts'
+import { CursorSequence, Digest, Id, IsoTime, Quantity, Revision } from './scalars.ts'
+import { AgentSelection } from './agent-selection.ts'
+import { CaptureQuantity } from './capture.ts'
 import {
   ProcessingFields,
+  ProcessingStageV2,
+  ProcessingState,
   ProcessingMediaSource,
   SessionState,
   ProcessingQuestionSpec,
@@ -16,10 +20,18 @@ import {
   QuestionTextValue,
   STATUS_LINE_MAX_CHARACTERS,
   SessionProposal,
+  ProposalStaleReason,
+  WebPageSource,
   statusLine,
 } from './processing.ts'
 import { ContractValidationIssue } from './validation-issues.ts'
-import { LeadBatchView, LotFormingConflict } from './evidence-observations.ts'
+import {
+  EvidenceReadings,
+  EvidenceRegion,
+  LeadBatchView,
+  LotFormingConflict,
+  SeparationReason,
+} from './evidence-observations.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
@@ -119,6 +131,30 @@ export const SessionPhotoView = object({
     sha256: Digest,
   }),
 })
+/**
+ * One regroup move as it was made: applied, only suggested because the operator edited a row, or
+ * unchanged because the observation was already in that lot.
+ */
+export const RegroupMove = object({
+  observation_id: Id,
+  from_lot_id: Type.Union([Id, Type.Null()]),
+  to_lot_id: Id,
+  outcome: Type.Union([
+    Type.Literal('applied'),
+    Type.Literal('suggested'),
+    Type.Literal('unchanged'),
+  ]),
+})
+/**
+ * What `propose_lot` did: formed a new lot, extended an agent lot, only suggested membership
+ * because the operator edited the lot or its observations, or changed nothing.
+ */
+export const LotFormingOutcome = Type.Union([
+  Type.Literal('formed'),
+  Type.Literal('extended'),
+  Type.Literal('suggested'),
+  Type.Literal('unchanged'),
+])
 export const SessionOutboxItem = Type.Union([
   object({ ...outboxBase, kind: Type.Literal('status'), payload: SessionStatusArgs }),
   object({
@@ -126,12 +162,24 @@ export const SessionOutboxItem = Type.Union([
     kind: Type.Literal('observation'),
     payload: object({ evidence_observation_id: Id }),
   }),
-  object({ ...outboxBase, kind: Type.Literal('lot'), payload: object({ lot_id: Id }) }),
+  object({
+    ...outboxBase,
+    kind: Type.Literal('lot'),
+    payload: object({
+      lot_id: Id,
+      /** Absent on items recorded before outcomes were kept. */
+      outcome: Type.Optional(LotFormingOutcome),
+      /** Why the agent kept the lot apart, when it said. */
+      separation_reason: Type.Optional(SeparationReason),
+    }),
+  }),
   object({
     ...outboxBase,
     kind: Type.Literal('regroup'),
     payload: object({
+      /** Each move's destination lot; the only record an older regroup kept. */
       lot_ids: Type.Array(Id, { minItems: 1, maxItems: 100, uniqueItems: true }),
+      moves: Type.Optional(Type.Array(RegroupMove, { minItems: 1, maxItems: 100 })),
     }),
   }),
   object({ ...outboxBase, kind: Type.Literal('proposal'), payload: object({ proposal_id: Id }) }),
@@ -294,6 +342,277 @@ export const SessionTimeline = object({
   /** True when older items exist beyond the newest 500 returned. */
   truncated: Type.Boolean(),
 })
+/** The most stored inbox and outbox rows one history page holds. */
+export const SESSION_HISTORY_PAGE_SIZE = 200
+/** Every source of a proposal and every question making it provisional can be linked. */
+const MAX_ENTRY_LINKS = 1000
+const SUMMARY_MAX_CHARACTERS = 300
+/** Web reads are derived from a page's proposals and don't count towards its 200 rows. */
+const MAX_HISTORY_ENTRIES = SESSION_HISTORY_PAGE_SIZE * 101
+const historyLabel = Type.String({ minLength: 1, maxLength: 256 })
+const ENTRY_SEQ = '[1-9][0-9]{0,18}'
+const ENTRY_UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}'
+
+/** `outbox:<attempt>:<seq>` or `inbox:<seq>`; a web read adds `:web:<source index>`. */
+export const SessionHistoryEntryId = Type.String({
+  maxLength: 80,
+  pattern: `^(inbox:${ENTRY_SEQ}|outbox:${ENTRY_UUID}:${ENTRY_SEQ}(:web:(0|[1-9][0-9]?))?)(?![\\s\\S])`,
+})
+/** The oldest row of a page, opaque to clients; pass it back as `before` for the next older page. */
+export const SessionHistoryCursor = Type.String({
+  minLength: 1,
+  maxLength: 160,
+  pattern: '^[A-Za-z0-9_-]+(?![\\s\\S])',
+})
+
+/** Where an entry points; a retired or removed target becomes `gone` with what happened to it. */
+export const SessionHistoryLink = Type.Union([
+  object({ kind: Type.Literal('lot'), lot_id: Id, label: historyLabel }),
+  object({
+    kind: Type.Literal('map'),
+    lot_id: Type.Optional(Id),
+    observation_id: Type.Optional(Id),
+  }),
+  object({
+    kind: Type.Literal('capture_evidence'),
+    evidence_id: Id,
+    version_id: Id,
+    page: Type.Integer({ minimum: 1, maximum: 10000 }),
+    label: historyLabel,
+  }),
+  object({ kind: Type.Literal('record'), part_subject_id: Id, label: historyLabel }),
+  /** A cited note: a capture note names its subject, an evidence note its evidence. */
+  object({
+    kind: Type.Literal('note'),
+    note_id: Id,
+    subject_id: Type.Union([Id, Type.Null()]),
+    evidence_id: Type.Optional(Id),
+    label: historyLabel,
+  }),
+  object({ kind: Type.Literal('question'), question_id: Id, label: historyLabel }),
+  object({ kind: Type.Literal('failure'), attempt_id: Id, failure_id: Id }),
+  object({
+    kind: Type.Literal('external_url'),
+    url: WebPageSource.properties.url,
+    label: historyLabel,
+  }),
+  object({
+    kind: Type.Literal('gone'),
+    target: Type.Union(
+      (['lot', 'evidence', 'observation', 'question', 'note'] as const).map((target) =>
+        Type.Literal(target),
+      ),
+    ),
+    label: historyLabel,
+  }),
+])
+
+/** A question's state as the history shows it; an open question of an earlier attempt is superseded. */
+const HistoryQuestionState = Type.Union(
+  (['open', 'answered', 'superseded'] as const).map((state) => Type.Literal(state)),
+)
+/** An observation's values now: an agent revision can overwrite them under the same ID. */
+const CurrentObservation = object({
+  id: Id,
+  evidence_id: Id,
+  evidence_version_id: Id,
+  page: Type.Integer({ minimum: 1, maximum: 10000 }),
+  region: EvidenceRegion,
+  readings: EvidenceReadings,
+  visible_count: Type.Union([Type.Integer({ minimum: 0, maximum: 1000000 }), Type.Null()]),
+  status: Type.Union([Type.Literal('active'), Type.Literal('suggested')]),
+  lot_id: Type.Union([Id, Type.Null()]),
+})
+const AnswerEffect = Type.Union([
+  object({
+    kind: Type.Literal('quantity'),
+    lot_id: Id,
+    value: Quantity,
+    basis: Type.Union([Type.Literal('counted'), Type.Literal('estimated')]),
+  }),
+  object({ kind: Type.Literal('note'), subject_id: Type.Union([Id, Type.Null()]) }),
+])
+
+/**
+ * What an entry expands to. Values a record holds now, rather than as the agent left them, are
+ * marked `current`; a detail that wasn't retained is null or listed in `not_retained`.
+ */
+export const SessionHistoryDetails = Type.Union([
+  object({ kind: Type.Literal('status'), text: SessionStatusArgs.properties.text }),
+  object({
+    kind: Type.Literal('observation'),
+    current: Type.Union([CurrentObservation, Type.Null()]),
+  }),
+  object({
+    kind: Type.Literal('lot'),
+    lot: Type.Union([
+      object({
+        id: Id,
+        label: historyLabel,
+        retired: Type.Boolean(),
+        operator_edited: Type.Boolean(),
+        observations: Type.Array(CurrentObservation, { maxItems: 100 }),
+        /** The quantity the operator selected, apart from the agent's estimate. */
+        selected_quantity: CaptureQuantity,
+        estimate: Type.Union([
+          object({ quantity: Quantity, basis: Type.String({ minLength: 1, maxLength: 512 }) }),
+          Type.Null(),
+        ]),
+        part_subject_id: Type.Union([Id, Type.Null()]),
+      }),
+      Type.Null(),
+    ]),
+    /** Lot entries keep no snapshot of the lot as formed, so these are its current values. */
+    current: Type.Literal(true),
+    /** Null for an entry recorded before outcomes were kept. */
+    outcome: Type.Union([LotFormingOutcome, Type.Null()]),
+    /** As the agent gave it with this call; null when it gave none. */
+    separation_reason: Type.Union([SeparationReason, Type.Null()]),
+    not_retained: Type.Array(Type.Literal('separation_reason'), { maxItems: 1 }),
+  }),
+  object({
+    kind: Type.Literal('regroup'),
+    /** Absent for a regroup recorded before moves were kept: only its destinations remain. */
+    moves: Type.Optional(Type.Array(RegroupMove, { minItems: 1, maxItems: 100 })),
+    lot_ids: Type.Array(Id, { minItems: 1, maxItems: 100 }),
+  }),
+  object({
+    kind: Type.Literal('proposal'),
+    proposal_id: Id,
+    proposal: SessionProposal,
+    currentness: Type.Union([
+      object({ state: Type.Literal('current') }),
+      object({ state: Type.Literal('provisional'), question_ids: Type.Array(Id, { minItems: 1 }) }),
+      object({ state: Type.Literal('stale'), reason: ProposalStaleReason }),
+    ]),
+  }),
+  object({
+    kind: Type.Literal('question'),
+    question_id: Id,
+    question: Type.Union([SessionAskArgs, SessionAskArgsV2]),
+    state: HistoryQuestionState,
+  }),
+  object({ kind: Type.Literal('reply'), inbox_item_id: Id, text: message }),
+  object({
+    kind: Type.Literal('photo_view'),
+    view: SessionPhotoView,
+    /** The recut is served by the session's photo-view crop route under this attempt and seq. */
+    crop: Type.Union([object({ attempt_id: Id, seq: Revision }), Type.Null()]),
+  }),
+  object({
+    kind: Type.Literal('web_read'),
+    url: WebPageSource.properties.url,
+    title: Type.Optional(WebPageSource.properties.title),
+    read_at: Type.Optional(IsoTime),
+    /** The first proposal of the attempt that cites the page. */
+    proposal_entry_id: SessionHistoryEntryId,
+  }),
+  object({
+    kind: Type.Literal('answer'),
+    answer: SessionAnswerPayload,
+    effects: Type.Array(AnswerEffect, { maxItems: 2 }),
+  }),
+  object({ kind: Type.Literal('chat'), text: message }),
+  object({
+    kind: Type.Literal('instruction'),
+    instruction_id: Id,
+    text: Type.String({ maxLength: 8192 }),
+    group_id: Type.Union([Id, Type.Null()]),
+    /** When the operator saved it; null if that version is no longer retained. */
+    saved_at: Type.Union([IsoTime, Type.Null()]),
+    /** Sent again to a later attempt after a Start fresh or restart. */
+    relayed: Type.Boolean(),
+  }),
+  object({
+    kind: Type.Literal('evidence'),
+    evidence_id: Id,
+    version_id: Id,
+    restored: Type.Boolean(),
+  }),
+  object({
+    kind: Type.Literal('revision'),
+    fields: ProcessingFields,
+    reason: Type.String({ minLength: 1, maxLength: 2048 }),
+  }),
+])
+
+const historyEntryBase = {
+  id: SessionHistoryEntryId,
+  at: IsoTime,
+  summary: Type.String({ minLength: 1, maxLength: SUMMARY_MAX_CHARACTERS }),
+  links: Type.Array(SessionHistoryLink, { maxItems: MAX_ENTRY_LINKS }),
+}
+/** One history entry: the agent's outbox items carry their attempt; inbox items belong to the job. */
+export const SessionHistoryEntry = Type.Union([
+  object({
+    ...historyEntryBase,
+    who: Type.Literal('agent'),
+    attempt: Type.Integer({ minimum: 1 }),
+    details: SessionHistoryDetails,
+  }),
+  object({
+    ...historyEntryBase,
+    /** Answers and chat are the operator's from their actor; instructions are relayed saves. */
+    who: Type.Union([Type.Literal('operator'), Type.Literal('app')]),
+    /** False while the item is above the session's acknowledgement cursor. */
+    read: Type.Boolean(),
+    details: SessionHistoryDetails,
+  }),
+])
+
+/** Each attempt as its header shows it, read whole on every page so a failure or resume shows. */
+export const SessionHistoryAttempt = object({
+  id: Id,
+  number: Type.Integer({ minimum: 1 }),
+  state: ProcessingState,
+  session_state: Type.Union([SessionState, Type.Null()]),
+  queued_at: IsoTime,
+  /**
+   * When the attempt last ended, from its latest transition into its current terminal state;
+   * absent while it is live. `last_activity` marks an end with no transition retained.
+   */
+  ended: Type.Optional(
+    object({
+      at: IsoTime,
+      source: Type.Union([Type.Literal('transition'), Type.Literal('last_activity')]),
+    }),
+  ),
+  /** Only where the retained data shows it; otherwise the header says just "Attempt N". */
+  started_because: Type.Union([Type.Literal('first'), Type.Literal('after_failure'), Type.Null()]),
+  profile_id: Type.String({ minLength: 1, maxLength: 64 }),
+  runs_on: Type.Union([Type.Literal('agent_vm'), Type.Literal('host'), Type.Literal('fixture')]),
+  /** Null for the deterministic synthetic profile. */
+  selection: Type.Union([AgentSelection, Type.Null()]),
+  actual_model: Type.Union([Type.String({ maxLength: 128 }), Type.Null()]),
+  /** The web setting sealed in the attempt's input; null when its profile has no web access. */
+  web: Type.Union([
+    object({ public_pages: Type.Boolean(), prefer_datasheets: Type.Boolean() }),
+    Type.Null(),
+  ]),
+  failure: Type.Optional(SessionFailureSummary),
+})
+export const SessionHistoryMetadata = object({
+  job_id: Id,
+  batch_id: Id,
+  stage: ProcessingStageV2,
+  /** Null for the batch's Examine lead session. */
+  subject_id: Type.Union([Id, Type.Null()]),
+  /** The job's current attempt, which may have no session after a switch to another profile. */
+  current_attempt_id: Id,
+  /** Every attempt, so a header is never missing from an older page. */
+  attempts: Type.Array(SessionHistoryAttempt, { minItems: 1 }),
+  /** Inbox items at or below this sequence were acknowledged by the session. */
+  inbox_acked_seq: CursorSequence,
+})
+export const SessionHistoryQuery = object({ before: Type.Optional(SessionHistoryCursor) })
+/** One page of a session's history, newest first, with its metadata from the same snapshot. */
+export const SessionHistory = object({
+  session: SessionHistoryMetadata,
+  entries: Type.Array(SessionHistoryEntry, { maxItems: MAX_HISTORY_ENTRIES }),
+  /** Present when older rows exist. */
+  before: Type.Optional(SessionHistoryCursor),
+})
+
 export const SessionReplacement = object({
   expected_capture_revision: Revision,
   expected_revision: Revision,
@@ -305,6 +624,11 @@ export const sessionSchemas = {
   SessionReplacement,
   SessionLatestStatus,
   SessionTimeline,
+  SessionHistory,
+  SessionHistoryCursor,
+  SessionHistoryQuery,
+  RegroupMove,
+  LotFormingOutcome,
   SessionEnvelope,
   SessionState,
   SessionStatusArgs,
@@ -326,6 +650,13 @@ export const sessionSchemas = {
 }
 export type SessionLatestStatusDto = Static<typeof SessionLatestStatus>
 export type SessionTimelineDto = Static<typeof SessionTimeline>
+export type SessionHistoryDto = Static<typeof SessionHistory>
+export type SessionHistoryEntryDto = Static<typeof SessionHistoryEntry>
+export type SessionHistoryDetailsDto = Static<typeof SessionHistoryDetails>
+export type SessionHistoryLinkDto = Static<typeof SessionHistoryLink>
+export type SessionHistoryAttemptDto = Static<typeof SessionHistoryAttempt>
+export type RegroupMoveDto = Static<typeof RegroupMove>
+export type LotFormingOutcomeDto = Static<typeof LotFormingOutcome>
 export type SessionEnvelopeDto = Static<typeof SessionEnvelope>
 export type SessionStateDto = Static<typeof SessionState>
 export type SessionStatusArgsDto = Static<typeof SessionStatusArgs>

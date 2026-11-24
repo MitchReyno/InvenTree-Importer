@@ -241,6 +241,7 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - **Scope and approach:**
   - `contracts/src/sessions.ts` (`SessionHistory`, `SessionHistoryEntry`, and `moves` on new regroup outbox items);
   - `regroup` in `capture/evidence-observations.ts`, which returns each move's outcome, and the regroup handler, which records the moves with their source lots and outcomes;
+  - `propose_lot`, which takes an optional `separation_reason` and records it on its `lot` outbox item with what the call did (formed, extended, suggested or unchanged);
   - `read_inbox` in `agents/tools/handlers.ts`, which publishes `session_changed` when it advances the acknowledgement cursor;
   - `intake-server/src/agents/tools/timeline.ts` and its route in `processing/routes.ts`;
   - `media/region-crops.ts` for the crop route, `GET …/photo-views/:attemptId/:seq/crop`.
@@ -251,20 +252,20 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - **Verification:** `pnpm db:intake test` on the timeline and route tests, and a process test reading a fake session's history.
 - **Risks and decisions:** resolution must stay one query per kind, not one per entry; check the plans in 6.5.
 
-- [ ] 6.1 Read the intake-server architecture. Map how each outbox and inbox kind resolves to labels, state and links.
-- [ ] 6.2 RED: PG tests:
-  - [ ] 6.2.1 Each entry kind resolves its summary, details and links.
-  - [ ] 6.2.2 A retired lot or a removed version gives a "gone" link.
-  - [ ] 6.2.3 With rows written by the existing append paths, answers and chat appear as the operator's from their actor, an instruction saved before a Start fresh and relayed to the new attempt placed at its relay time, with its save time in its details and labelled relayed, and `evidence` and `revision` notices (including an identity revision from another session) as the app's, and one above the acknowledgement cursor reads as not read yet; a `read_inbox` call that advances the cursor publishes `session_changed` in its transaction, and one that doesn't move it publishes nothing.
-  - [ ] 6.2.4 Attempt headers say how an attempt ended, and why it started where the retained input shows it; turns within an attempt are not attempts; a failure or resume with no new inbox or outbox item still updates its header on the next read; the span runs from the queue time, not a turn's `started_at`; an attempt cancelled before its first turn, one cancelled after a settled turn, an idle attempt superseded by Start fresh after a prior turn, and an attempt that finished, was resumed and was then cancelled show the end time of their latest terminal transition, not an earlier turn's.
-  - [ ] 6.2.5 A regroup with recorded moves shows them, and a mixed regroup shows which moves were applied and which only suggested; an older regroup lists its destination lots; an observation revised in place shows its values labelled current in both its entries; earlier attempts' failures resolve; a lot edited after formation shows its values labelled current, and after an operator's quantity change shows the selected quantity apart from the agent's estimate and basis.
-  - [ ] 6.2.6 The `before` cursor pages without gaps or duplicates across retries with repeated sequences and equal timestamps, and across inbox and outbox rows with equal timestamps; the page, its cursor and the metadata come from one snapshot; every read returns the metadata and acknowledgement cursor, including a read of the newest page with no new entries.
-  - [ ] 6.2.7 A proposal links every open question that makes it provisional, with two matching questions.
-  - [ ] 6.2.8 The session metadata for a retried session, including the web setting from each attempt's manifest.
-  - [ ] 6.2.9 Another batch or account gets `session_not_found`.
-- [ ] 6.3 RED: route tests for the photo-view crop: the recorded region bounded as delivered, a full-page view, two attempts with the same sequence, 404 for a removed version, and scope.
-- [ ] 6.4 GREEN: implement the read, the contract and the crop route.
-- [ ] 6.5 Check the queries batch per kind, and update `intake-server/src/agents/ARCHITECTURE.md`. Run the intake unit, PG and process tiers, including a read of a database already holding `/6` proposals and photo views.
+- [x] 6.1 Read the intake-server architecture. Map how each outbox and inbox kind resolves to labels, state and links.
+- [x] 6.2 RED: PG tests:
+  - [x] 6.2.1 Each entry kind resolves its summary, details and links.
+  - [x] 6.2.2 A retired lot or a removed version gives a "gone" link.
+  - [x] 6.2.3 With rows written by the existing append paths, answers and chat appear as the operator's from their actor, an instruction saved before a Start fresh and relayed to the new attempt placed at its relay time, with its save time in its details and labelled relayed, and `evidence` and `revision` notices (including an identity revision from another session) as the app's, and one above the acknowledgement cursor reads as not read yet; a `read_inbox` call that advances the cursor publishes `session_changed` in its transaction, and one that doesn't move it publishes nothing.
+  - [x] 6.2.4 Attempt headers say how an attempt ended, and why it started where the retained input shows it; turns within an attempt are not attempts; a failure or resume with no new inbox or outbox item still updates its header on the next read; the span runs from the queue time, not a turn's `started_at`; an attempt cancelled before its first turn, one cancelled after a settled turn, an idle attempt superseded by Start fresh after a prior turn, and an attempt that finished, was resumed and was then cancelled show the end time of their latest terminal transition, not an earlier turn's.
+  - [x] 6.2.5 A regroup with recorded moves shows them, and a mixed regroup shows which moves were applied and which only suggested; an older regroup lists its destination lots; an observation revised in place shows its values labelled current in both its entries; earlier attempts' failures resolve; a lot edited after formation shows its values labelled current, and after an operator's quantity change shows the selected quantity apart from the agent's estimate and basis.
+  - [x] 6.2.6 The `before` cursor pages without gaps or duplicates across retries with repeated sequences and equal timestamps, and across inbox and outbox rows with equal timestamps; the page, its cursor and the metadata come from one snapshot; every read returns the metadata and acknowledgement cursor, including a read of the newest page with no new entries.
+  - [x] 6.2.7 A proposal links every open question that makes it provisional, with two matching questions.
+  - [x] 6.2.8 The session metadata for a retried session, including the web setting from each attempt's manifest.
+  - [x] 6.2.9 Another batch or account gets `session_not_found`.
+- [x] 6.3 RED: route tests for the photo-view crop: the recorded region bounded as delivered, a full-page view, two attempts with the same sequence, 404 for a removed version, and scope.
+- [x] 6.4 GREEN: implement the read, the contract and the crop route.
+- [x] 6.5 Check the queries batch per kind, and update `intake-server/src/agents/ARCHITECTURE.md`. Run the intake unit, PG and process tiers, including a read of a database already holding `/6` proposals and photo views. A PG test finds a read issues as many statements for a page of many entries as for a few, and the PG history tests read `/6` proposals and photo views written by the existing tools; tier results are on the PR.
 
 ## 7. Expandable timeline and the session page
 
@@ -403,10 +404,10 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - [ ] PR-0: review the plan read-only (`codex exec -m gpt-6.2-sol -s read-only`, round by round), fix findings, publish, CI green, merge.
 - [x] PR-A: implement task 1, review the exact head, publish with the demo, CI green, merge. Merged as #252 at `17c3d509`.
 - [x] PR-B: implement tasks 2, 3 and 4, review the exact head, publish with the demo, CI green, merge. Merged as #251 at `54477ac3`.
-- [ ] PR-D1: implement task 5, review the exact head, publish, CI green, merge.
+- [x] PR-D1: implement task 5, review the exact head, publish, CI green, merge. Merged as #257 at `4fcdbd54`.
 - [ ] PR-D2: implement task 6, review the exact head, publish, CI green, merge.
 - [ ] PR-E: implement task 7, review the exact head, publish with the demo, CI green, merge.
-- [ ] PR-F: implement tasks 8 and 9, review the exact head, publish with the demo, CI green, merge.
+- [x] PR-F: implement tasks 8 and 9, review the exact head, publish with the demo, CI green, merge. Merged as #258 at `d09984bc`.
 - [ ] PR-G: implement task 10, review the exact head, publish with the demo, CI green, merge.
 - [ ] PR-H: implement task 11, review the exact head, publish with the demo, CI green, merge.
 - [ ] Update BI-019's status as PRs merge. It is Done only after PR-A, PR-B, PR-D1, PR-D2, PR-E, PR-F, PR-G and PR-H merge and its acceptance is evidenced.
