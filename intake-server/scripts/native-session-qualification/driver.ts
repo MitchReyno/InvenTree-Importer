@@ -23,7 +23,7 @@ import {
   type ProcessingSnapshotDto,
 } from '@invimport/contracts'
 import { chatHandled } from './chat.ts'
-import { readSessionTrace, type SessionTrace } from './trace.ts'
+import { readSessionTrace, retainedChatTime, type SessionTrace } from './trace.ts'
 
 const { values: args } = parseArgs({
   options: {
@@ -368,8 +368,7 @@ function readAt(sent: (typeof chats)[number]) {
 }
 
 for (const sent of chats) {
-  const retained = timelines[sent.jobId]?.inbox.find((item) => item.seq === sent.seq)
-  sent.sentAt = retained?.created_at ?? sent.sentAt
+  sent.sentAt = retainedChatTime(timelines[sent.jobId], sent.seq) ?? sent.sentAt
 }
 const chatResults = chats.map((sent) => {
   const outbox = timelines[sent.jobId]?.outbox ?? []

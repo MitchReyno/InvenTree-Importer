@@ -558,12 +558,21 @@ test('the header spans from the first attempt’s queue time, and an end with no
   const header = await screen.findByRole('region', { name: 'Research · ATmega328P' })
 
   // The read lists attempt 2 first; the span still starts at attempt 1's queue time.
-  expect(header.querySelector('time')).toHaveAttribute('datetime', at(1))
+  const headerTimes = [...header.querySelectorAll('time')].map((time) => time.dateTime)
+  expect(headerTimes).toEqual([at(1), at(12)])
   expect(header).toHaveTextContent(/last activity/)
   expect(header).not.toHaveTextContent(/ to /)
   const list = screen.getByRole('list', { name: 'Session conversation' })
-  expect(list).toHaveTextContent(/Failed · last activity/)
-  expect(list).toHaveTextContent(/Cancelled · last activity/)
+
+  const divider = (name: string) => within(list).getByRole('separator', { name }).parentElement!
+
+  const dividerTimes = (name: string) =>
+    [...divider(name).querySelectorAll('time')].map((time) => time.dateTime)
+
+  expect(divider('Attempt 1 · first attempt')).toHaveTextContent(/Failed · last activity/)
+  expect(dividerTimes('Attempt 1 · first attempt')).toEqual([at(1), at(9)])
+  expect(divider('Attempt 2')).toHaveTextContent(/Cancelled · last activity/)
+  expect(dividerTimes('Attempt 2')).toEqual([at(10), at(12)])
 })
 
 test('a refresh that drops a question keeps its unsaved answer on the page', async () => {

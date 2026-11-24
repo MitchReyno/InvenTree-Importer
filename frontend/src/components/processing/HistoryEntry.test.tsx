@@ -1,13 +1,16 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test } from 'vitest'
-import type { SessionHistoryEntryDto } from '@invimport/contracts'
+import type { CatalogueProposalDto, SessionHistoryEntryDto } from '@invimport/contracts'
 import { render } from '#/test/render'
 import { setDebugMode } from '#/test/debug-mode'
 import { drawerItems } from '#/processing/session-history'
 import {
   H,
   agent,
+  citedPhoto,
+  history,
+  withCatalogue,
   input,
   observation,
   photoView,
@@ -348,46 +351,25 @@ test('the drawer folds photo views and web reads into a line linking to the full
 
 test('a proposal’s structured values show with chips listing their own sources, and what it relies on', async () => {
   const user = userEvent.setup()
-  const [entry] = proposal(1, 1)
-  const details = entry.details
-  if (details.kind !== 'proposal') {
-    throw new Error('expected a proposal')
-  }
-  const media = details.proposal.relies_on.sources[0] as {
-    kind: 'media_version'
-    evidence_id: string
-    version_id: string
-    sha256: string
-  }
-  show([
-    {
-      ...entry,
-      details: {
-        ...details,
-        proposal: {
-          ...details.proposal,
-          catalogue: {
-            category: null,
-            parameters: [],
-            manufacturer: {
-              company: {
-                choice: 'proposed_new',
-                name: 'Microchip',
-                reason: 'Named on the datasheet.',
-                sources: [media],
-              },
-              mpn: 'ATmega328P-AU',
-              sources: [media],
-              source_kind: 'label',
-              agreement: 'read',
-            },
-            supplier: null,
-            description: null,
-          },
-        },
+  const entry = withCatalogue(proposal(1, 1)[0], {
+    category: null,
+    parameters: [],
+    manufacturer: {
+      company: {
+        choice: 'proposed_new',
+        name: 'Microchip',
+        reason: 'Named on the datasheet.',
+        sources: [citedPhoto],
       },
+      mpn: 'ATmega328P-AU',
+      sources: [citedPhoto],
+      source_kind: 'label',
+      agreement: 'read',
     },
-  ])
+    supplier: null,
+    description: null,
+  })
+  show(history([entry]).entries)
   const expanded = await expand('Proposed ATmega328P-AU')
 
   expect(expanded).toHaveTextContent('Microchip (new)')
@@ -402,93 +384,61 @@ test('a proposal’s structured values show with chips listing their own sources
 })
 
 test('an existing company or category is named by its InvenTree record, a new category by name', async () => {
-  const [entry] = proposal(1, 1)
-  const details = entry.details
-  if (details.kind !== 'proposal') {
-    throw new Error('expected a proposal')
-  }
-  const media = details.proposal.relies_on.sources[0] as {
-    kind: 'media_version'
-    evidence_id: string
-    version_id: string
-    sha256: string
-  }
-
-  const reference = (model: 'company' | 'category', pk: string) => ({
+  const reference = <M extends 'company' | 'category'>(model: M, pk: string) => ({
     observation_id: H.failure,
     target_context_id: H.instruction,
     model,
     pk,
   })
 
-  const withCatalogue = (category: object) => ({
-    ...entry,
-    details: {
-      ...details,
-      proposal: {
-        ...details.proposal,
-        catalogue: {
-          category,
-          parameters: [],
-          manufacturer: {
-            company: {
-              choice: 'existing',
-              reference: reference('company', '42'),
-              sources: [media],
-            },
-            mpn: 'ATmega328P-AU',
-            sources: [media],
-          },
-          supplier: null,
-          description: null,
-        },
-      },
+  const catalogue = (category: CatalogueProposalDto['category']): CatalogueProposalDto => ({
+    category,
+    parameters: [],
+    manufacturer: {
+      company: { choice: 'existing', reference: reference('company', '42'), sources: [citedPhoto] },
+      mpn: 'ATmega328P-AU',
+      sources: [citedPhoto],
     },
+    supplier: null,
+    description: null,
   })
 
+  const [base] = proposal(1, 1)
+  const existing = withCatalogue(
+    base,
+    catalogue({ choice: 'existing', reference: reference('category', '7'), sources: [citedPhoto] }),
+    { summary: 'Proposed with an existing category' },
+  )
+  const created = withCatalogue(
+    base,
+    catalogue({
+      choice: 'proposed_new',
+      name: 'Microcontrollers',
+      reason: 'None fits.',
+      sources: [citedPhoto],
+    }),
+    { id: `outbox:${H.attempt}:2`, summary: 'Proposed with a new category' },
+  )
+  // Validated as the history read would send them.
   render(
     <HistoryList
-      label="Existing"
-      items={[
-        {
-          kind: 'entry',
-          id: 'a',
-          summary: 'Proposed with an existing category',
-          entry: {
-            ...withCatalogue({
-              choice: 'existing',
-              reference: reference('category', '7'),
-              sources: [media],
-            }),
-            summary: 'Proposed with an existing category',
-          } as SessionHistoryEntryDto,
-        },
-        {
-          kind: 'entry',
-          id: 'b',
-          summary: 'Proposed with a new category',
-          entry: {
-            ...withCatalogue({
-              choice: 'proposed_new',
-              name: 'Microcontrollers',
-              reason: 'None fits.',
-              sources: [media],
-            }),
-            id: `outbox:${H.attempt}:2`,
-            summary: 'Proposed with a new category',
-          } as SessionHistoryEntryDto,
-        },
-      ]}
+      label="Catalogue choices"
+      items={history([created, existing]).entries.map((entry) => ({
+        kind: 'entry' as const,
+        id: entry.id,
+        summary: entry.summary,
+        entry,
+      }))}
       context={context}
     />,
   )
-  const existing = await expand('Proposed with an existing category')
-  expect(existing).toHaveTextContent('Existing InvenTree company #42')
-  expect(existing).toHaveTextContent('Existing InvenTree category #7')
+  const shownExisting = await expand('Proposed with an existing category')
+  expect(shownExisting).toHaveTextContent('Existing InvenTree company #42')
+  expect(shownExisting).toHaveTextContent('Existing InvenTree category #7')
   // Manufacturer, MPN and category each carry their own source chip.
   expect(
-    within(existing).getAllByRole('button', { name: /^Source: Agent, Proposed/ }),
+    within(shownExisting).getAllByRole('button', { name: /^Source: Agent, Proposed/ }),
   ).toHaveLength(3)
-  const created = await expand('Proposed with a new category')
-  expect(created).toHaveTextContent('Microcontrollers (new)')
+  const shownCreated = await expand('Proposed with a new category')
+  expect(shownCreated).toHaveTextContent('Microcontrollers (new)')
 })

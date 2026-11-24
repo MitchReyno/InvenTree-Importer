@@ -29,6 +29,7 @@ Implementation of BI-019's agent interaction work, delivered PR by PR as the tas
 
 ## Decisions made during implementation
 
+- **2026-11-24T16:05+11:00, task 7 (PR-E), after review round 4:** The catalogue tests build proposals through a typed `withCatalogue` fixture and validate them as the history read would send them; the attempt test checks the header's span end and each divider's own times; the qualification driver's chat time comes from `retainedChatTime`, which the trace test checks across both pages.
 - **2026-11-24T15:55+11:00, task 7 (PR-E), after review round 3:** Retry of an unconfirmed message waits under the same guard as Send, so it can't be the first write while the page's Processing read is pending. Tests now cover the header's first queue time from a newest-first read, a last-activity end in the header and dividers, existing company and category records, and the qualification trace following the history cursor (`tests/qualification-trace.test.ts`).
 - **2026-11-24T15:20+11:00, task 7 (PR-E), after review round 2:**
   - The read lists attempts newest first, so dividers and the header's first queue time sort a copy by queue time; the test fixtures now list them as the server does.

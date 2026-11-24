@@ -1,5 +1,6 @@
 import {
   validate,
+  type CatalogueProposalDto,
   type SessionHistoryAttemptDto,
   type SessionHistoryDto,
   type SessionHistoryEntryDto,
@@ -186,6 +187,27 @@ export function photoView(
   )
 }
 
+/** The photo every fixture proposal cites. */
+export const citedPhoto = {
+  kind: 'media_version',
+  evidence_id: H.evidence,
+  version_id: H.version,
+  sha256: 'e'.repeat(64),
+} as const
+
+/** A proposal entry carrying a structured catalogue block. */
+export function withCatalogue(
+  entry: AgentEntry,
+  catalogue: CatalogueProposalDto,
+  extra: Partial<AgentEntry> = {},
+): AgentEntry {
+  if (entry.details.kind !== 'proposal') {
+    throw new Error('withCatalogue needs a proposal entry')
+  }
+  const proposal = { ...entry.details.proposal, catalogue }
+  return { ...entry, ...extra, details: { ...entry.details, proposal } }
+}
+
 const DATASHEET = 'https://ww1.microchip.com/downloads/ATmega328P.pdf'
 
 /** A `/6` proposal citing one photo and the given web pages, with its derived web reads. */
@@ -203,12 +225,7 @@ export function proposal(
   } = {},
 ): AgentEntry[] {
   const id = `outbox:${H.attempt}:${seq}`
-  const media = {
-    kind: 'media_version' as const,
-    evidence_id: H.evidence,
-    version_id: H.version,
-    sha256: 'e'.repeat(64),
-  }
+  const media = citedPhoto
   const entry = agent(
     seq,
     minute,

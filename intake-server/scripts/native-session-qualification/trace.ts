@@ -43,6 +43,11 @@ function outboxItem(entry: SessionHistoryEntryDto): SessionTrace['outbox'] {
   return []
 }
 
+/** When the chat with this inbox sequence was retained, or undefined when the trace doesn't hold it. */
+export function retainedChatTime(trace: SessionTrace | undefined, seq: string) {
+  return trace?.inbox.find((item) => item.seq === seq)?.created_at
+}
+
 /** Reads every page of a session's history, newest first from the API, and returns it oldest first. */
 export async function readSessionTrace(
   read: (before?: string) => Promise<SessionHistoryDto>,

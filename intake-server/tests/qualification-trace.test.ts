@@ -1,7 +1,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { validate, type SessionHistoryDto, type SessionHistoryEntryDto } from '@invimport/contracts'
-import { readSessionTrace } from '../scripts/native-session-qualification/trace.ts'
+import {
+  readSessionTrace,
+  retainedChatTime,
+} from '../scripts/native-session-qualification/trace.ts'
 
 const job = '30000000-0000-4000-8000-000000000003'
 const first = '40000000-0000-4000-8000-000000000004'
@@ -60,7 +63,22 @@ function page(entries: SessionHistoryEntryDto[], before?: string): SessionHistor
 }
 
 test('the qualification trace follows the history cursor and keeps each attemptâ€™s items apart', async () => {
-  const newest = page([status(second, 2, 1, 9), status(first, 1, 2, 5)], 'older')
+  const newest = page(
+    [
+      status(second, 2, 1, 9),
+      {
+        id: 'inbox:4',
+        at: at(8),
+        who: 'operator',
+        read: true,
+        summary: 'Now check the count',
+        links: [],
+        details: { kind: 'chat', text: 'Now check the count' },
+      },
+      status(first, 1, 2, 5),
+    ],
+    'older',
+  )
   const older = page([
     {
       id: 'inbox:3',
@@ -89,6 +107,12 @@ test('the qualification trace follows the history cursor and keeps each attemptâ
       [second, at(9)],
     ],
   )
-  // A chat receipt's sequence names its entry on the older page.
-  assert.deepEqual(trace.inbox, [{ seq: '3', created_at: at(4) }])
+  // A chat receipt's sequence names its entry, on whichever page holds it.
+  assert.deepEqual(
+    trace.inbox.map((item) => item.seq),
+    ['3', '4'],
+  )
+  assert.equal(retainedChatTime(trace, '3'), at(4))
+  assert.equal(retainedChatTime(trace, '4'), at(8))
+  assert.equal(retainedChatTime(trace, '9'), undefined)
 })

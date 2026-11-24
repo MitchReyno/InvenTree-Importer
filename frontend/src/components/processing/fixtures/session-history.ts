@@ -207,6 +207,13 @@ function researchPages(ids: Ids) {
         state: 'failed',
         session_state: 'failed',
         ended: { at: at(8), source: 'transition' },
+        failure: {
+          id: ids.id(64),
+          category: 'provider_network',
+          summary: 'The provider connection or protocol failed.',
+          recovery: 'Check provider availability, then start a fresh session.',
+          details_available: false,
+        },
       }),
     ],
     inbox_acked_seq: '3',
