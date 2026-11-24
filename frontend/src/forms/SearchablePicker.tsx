@@ -1,4 +1,4 @@
-import { useId, useMemo, type ReactNode } from 'react'
+import { useId, useMemo, type ReactNode, type Ref } from 'react'
 import Select, {
   components,
   type GroupBase,
@@ -19,6 +19,7 @@ import {
   typeVar,
 } from '#/theme/generated/tokens'
 import { Small } from '#/components/ui/primitives'
+import { visuallyHidden } from '#/components/ui/VisuallyHidden'
 import { media } from '#/components/ui/media'
 import { Label } from './inputs'
 
@@ -44,6 +45,13 @@ export type SearchablePickerProps<O> = {
   placeholder: string
   /** A line below the picker, which also describes it. */
   status?: string
+  /** The label names the picker for assistive technology but isn't drawn, as in a table row. */
+  labelHidden?: boolean
+  /** Control height for a row of small buttons; phones keep the touch height. */
+  compact?: boolean
+  /** The search field, for a caller that moves focus to the picker. */
+  inputRef?: Ref<HTMLInputElement>
+  className?: string
 }
 
 /**
@@ -67,12 +75,16 @@ export function SearchablePicker<O>({
   noOptionsMessage,
   placeholder,
   status,
+  labelHidden = false,
+  compact = false,
+  inputRef,
+  className,
 }: SearchablePickerProps<O>) {
   const id = useId()
   const describedBy = `${id}-status`
   // Stable for the picker's life: a new Input component would remount the field and lose focus.
   const parts = useMemo(() => ({ Input: DescribedInput<O> }), [])
-  const styles = useMemo(() => pickerStyles<O>(), [])
+  const styles = useMemo(() => pickerStyles<O>(compact), [compact])
 
   function changeInput(next: string, meta: InputActionMeta) {
     if (meta.action === 'input-change') {
@@ -87,14 +99,16 @@ export function SearchablePicker<O>({
   }
 
   return (
-    <Label as="div">
-      <label id={`${id}-label`} htmlFor={id}>
+    // The search text isn't a form value, so its typing stops here rather than reaching a form's
+    // change handler; a pick reaches the caller through `onChange`.
+    <Label as="div" className={className} onChange={(event) => event.stopPropagation()}>
+      <PickerLabel id={`${id}-label`} htmlFor={id} $hidden={labelHidden}>
         {label}
-      </label>
+      </PickerLabel>
       <Select<O, false, GroupBase<O>>
         inputId={id}
         components={parts}
-        {...{ statusId: status ? describedBy : undefined }}
+        {...{ statusId: status ? describedBy : undefined, searchRef: inputRef }}
         options={options}
         value={value}
         inputValue={inputValue}
@@ -121,23 +135,43 @@ export function SearchablePicker<O>({
   )
 }
 
-/** react-select drops `aria-describedby`; append the picker status to its own description. */
+type PickerSelectProps = { statusId?: string; searchRef?: Ref<HTMLInputElement> }
+
+/**
+ * react-select drops `aria-describedby`; append the picker status to its own description. It also
+ * owns the input's ref, so the caller's ref is set alongside it.
+ */
 function DescribedInput<O>(props: InputProps<O, false, GroupBase<O>>) {
-  const statusId = (props.selectProps as { statusId?: string }).statusId
+  const { statusId, searchRef } = props.selectProps as PickerSelectProps
   const own = props['aria-describedby']
+  const { innerRef } = props
+
+  function setRefs(element: HTMLInputElement | null) {
+    for (const ref of [innerRef, searchRef]) {
+      if (typeof ref === 'function') {
+        ref(element)
+      } else if (ref) {
+        ref.current = element
+      }
+    }
+  }
+
   return (
     <components.Input
       {...props}
+      innerRef={setRefs}
       aria-describedby={[own, statusId].filter(Boolean).join(' ') || undefined}
     />
   )
 }
 
-function pickerStyles<O>(): StylesConfig<O, false, GroupBase<O>> {
+function pickerStyles<O>(compact: boolean): StylesConfig<O, false, GroupBase<O>> {
   return {
     control: (base, state) => ({
       ...base,
-      minHeight: 44,
+      minHeight: compact ? size.control : size.touch,
+      fontSize: compact ? typeVar.small.size : base.fontSize,
+      [media.compact]: { minHeight: size.touch },
       borderColor: state.isFocused ? color.accent : color.lineStrong,
       borderRadius: radius.input,
       borderStyle: state.isDisabled ? 'dashed' : 'solid',
@@ -190,6 +224,10 @@ function pickerStyles<O>(): StylesConfig<O, false, GroupBase<O>> {
     noOptionsMessage: (base) => ({ ...base, color: color.muted }),
   }
 }
+
+const PickerLabel = styled.label<{ $hidden: boolean }>`
+  ${({ $hidden }) => ($hidden ? visuallyHidden : '')}
+`
 
 const Status = styled(Small)`
   font-weight: ${typeVar.body.weight};

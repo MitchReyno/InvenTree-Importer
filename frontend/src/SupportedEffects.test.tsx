@@ -1,4 +1,5 @@
 import { expect, test, vi } from 'vitest'
+import { searchAndPick } from '#/test/picker'
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { render } from './test/render'
@@ -56,9 +57,10 @@ test('human explicitly chooses one shared new Part with an observed category and
       />
     </BatchCommandsProvider>,
   )
-  await user.selectOptions(screen.getByLabelText('Part action'), 'create')
+  await user.click(screen.getByRole('button', { name: 'Create a Part' }))
   await user.type(screen.getByLabelText('New Part name'), 'Resistor Ω')
-  await user.selectOptions(screen.getByLabelText('Existing category'), categoryId)
+  await searchAndPick(user, 'Existing category', 'resis', 'Resistors (#81)')
+  expect(onDirty).toHaveBeenLastCalledWith(true)
   await user.click(screen.getByRole('button', { name: 'Save human changes' }))
   await waitFor(() => expect(edit).toHaveBeenCalledOnce())
   expect(edit).toHaveBeenCalledWith({

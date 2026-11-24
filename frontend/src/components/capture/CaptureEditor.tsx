@@ -1,5 +1,5 @@
-import { Small, Button } from '#/components/ui'
-import { Fieldset, Form, Input, Label, Select, TextArea } from '#/forms'
+import { Small, Button, SegmentedControl } from '#/components/ui'
+import { ChoicePicker, Fieldset, Form, Input, Label, TextArea } from '#/forms'
 import { Controller, useForm } from 'react-hook-form'
 import type { Snapshot } from '#/capture/types'
 import {
@@ -25,6 +25,11 @@ type EditorProps = {
   edit: CaptureEdit
 }
 
+const PART_ACTIONS = [
+  { id: 'reuse', label: 'Reuse a Part' },
+  { id: 'create', label: 'Create a Part' },
+]
+
 export function CaptureEditor({ batch, selected, frozen, dirty, onDirty, edit }: EditorProps) {
   const { observe } = useBatchCommands()
   const lot = batch.lots.find((l) => l.id === selected)
@@ -39,29 +44,42 @@ export function CaptureEditor({ batch, selected, frozen, dirty, onDirty, edit }:
     defaultValues: captureEditorDefaults(batch, selected),
   })
 
+  // The fieldset disables native inputs; the pickers take it as a prop.
+  const locked = frozen || formState.isSubmitting
+
   function saveChanges(values: CaptureEditorValues) {
     return edit(captureEditorChange(batch, selected, values))
   }
 
   return (
     <Form onChange={() => onDirty(true)} onSubmit={handleSubmit(saveChanges)}>
-      <Fieldset disabled={frozen || formState.isSubmitting}>
+      <Fieldset disabled={locked}>
         <Label>
           {labelCaption}
           <Input required maxLength={256} {...register('label')} />
         </Label>
         {(lot || selected === 'add_lot') && (
-          <Label>
-            Shared Part proposal
-            <Select {...register('partId')}>
-              <option value="">Not linked yet</option>
-              {batch.parts.map((p) => (
-                <option value={p.id} key={p.id}>
-                  {p.label}
-                </option>
-              ))}
-            </Select>
-          </Label>
+          <Controller
+            name="partId"
+            control={control}
+            render={({ field }) => (
+              <ChoicePicker
+                label="Shared Part proposal"
+                noun="Part proposals"
+                placeholder="Choose a Part proposal…"
+                choices={[
+                  { value: '', label: 'Not linked yet' },
+                  ...batch.parts.map((p) => ({ value: p.id, label: p.label })),
+                ]}
+                value={field.value}
+                disabled={locked}
+                onChange={(value) => {
+                  field.onChange(value)
+                  onDirty(true)
+                }}
+              />
+            )}
+          />
         )}
         {lot && (
           <>
@@ -82,6 +100,7 @@ export function CaptureEditor({ batch, selected, frozen, dirty, onDirty, edit }:
                   value={field.value}
                   defaults={false}
                   batch={batch}
+                  disabled={locked}
                   onChange={(value) => {
                     field.onChange(value)
                     onDirty(true)
@@ -103,6 +122,7 @@ export function CaptureEditor({ batch, selected, frozen, dirty, onDirty, edit }:
                   value={field.value}
                   defaults={false}
                   batch={batch}
+                  disabled={locked}
                   observe={observe}
                   onChange={(value) => {
                     field.onChange(value)
@@ -123,6 +143,7 @@ export function CaptureEditor({ batch, selected, frozen, dirty, onDirty, edit }:
                 scope="Applies to linked lots that use the batch default. A lot's own location still wins; this is not an inventory Part field."
                 value={field.value.mode === 'unset' ? undefined : field.value}
                 batch={batch}
+                disabled={locked}
                 onChange={(value) => {
                   field.onChange(value)
                   onDirty(true)
@@ -132,19 +153,31 @@ export function CaptureEditor({ batch, selected, frozen, dirty, onDirty, edit }:
           />
         )}
         {part && (
-          <Label>
-            Part action
-            <Select {...register('partMode')}>
-              <option value="reuse">Reuse an observed existing Part</option>
-              <option value="create">Create one shared Part</option>
-            </Select>
-          </Label>
+          <Controller
+            name="partMode"
+            control={control}
+            render={({ field }) => (
+              <Label as="div">
+                Part action
+                <SegmentedControl
+                  label="Part action"
+                  options={PART_ACTIONS}
+                  value={field.value}
+                  onChange={(id) => {
+                    field.onChange(id === 'create' ? 'create' : 'reuse')
+                    onDirty(true)
+                  }}
+                />
+              </Label>
+            )}
+          />
         )}
         {part && watch('partMode') === 'create' && (
           <PartCreationFields
             batch={batch}
             control={control}
             register={register}
+            disabled={locked}
             observe={observe}
             onDirty={() => onDirty(true)}
           />
@@ -160,6 +193,7 @@ export function CaptureEditor({ batch, selected, frozen, dirty, onDirty, edit }:
                 value={field.value}
                 defaults
                 batch={batch}
+                disabled={locked}
                 onChange={(value) => {
                   field.onChange(value)
                   onDirty(true)
