@@ -1,210 +1,24 @@
-import styled from 'styled-components'
-import type {
-  SessionHistoryDetailsDto,
-  SessionHistoryEntryDto,
-  SessionHistoryLinkDto,
-} from '@invimport/contracts'
-import { DebugDetails, EventTime, SourceChip } from '#/components/ui'
-import { evidenceWords } from '#/operator/value-evidence'
-import { observationCrop } from '#/media/types'
-import { color, radius, space, typeVar } from '#/theme/generated/tokens'
-import { ProcessingSources } from './ProcessingSources'
+import type { SessionHistoryDetailsDto, SessionHistoryEntryDto } from '@invimport/contracts'
+import { Button, EventTime } from '#/components/ui'
+import { DetailLabel, Muted } from './history-styles'
 import type { HistoryContext } from './HistoryLinks'
+import { LotDetails } from './LotDetails'
+import { ObservationReading } from './ObservationReading'
+import { PhotoViewDetails } from './PhotoViewDetails'
+import { ProposalDetails } from './ProposalDetails'
+import { QuestionDetails } from './QuestionDetails'
+import { RegroupDetails } from './RegroupDetails'
 
 type Details<K extends SessionHistoryDetailsDto['kind']> = Extract<
   SessionHistoryDetailsDto,
   { kind: K }
 >
-type CurrentObservation = NonNullable<Details<'observation'>['current']>
 
 /** The kinds whose details add nothing to their one-line summary. */
 const ONE_LINE = new Set<SessionHistoryDetailsDto['kind']>(['status', 'chat', 'reply'])
 
 export function hasDetails(entry: SessionHistoryEntryDto) {
   return !ONE_LINE.has(entry.details.kind)
-}
-
-/** The recut of a photo view, served by the session's photo-view crop route. */
-export function photoViewCrop(
-  context: HistoryContext,
-  crop: NonNullable<Details<'photo_view'>['crop']>,
-) {
-  const path = [
-    'api/v1/batches',
-    context.batchId,
-    'processing/sessions',
-    context.jobId,
-    'photo-views',
-    crop.attempt_id,
-    crop.seq,
-    'crop',
-  ]
-  return `/${path.map((part, index) => (index % 2 ? encodeURIComponent(part) : part)).join('/')}`
-}
-
-function ObservationReading({
-  observation,
-  context,
-}: {
-  observation: CurrentObservation
-  context: HistoryContext
-}) {
-  const said = evidenceWords(observation.readings)
-  const reading = observation.readings.text ?? observation.readings.markings.join(' · ')
-  return (
-    <Observation>
-      <Crop
-        src={observationCrop(context.batchId, observation.id)}
-        alt={`Crop of the observation: ${reading}`}
-        loading="lazy"
-      />
-      <span>
-        {reading}{' '}
-        <SourceChip
-          source={said.kind ? `Examine · ${said.kind}` : 'Examine'}
-          certainty={said.certainty ?? 'Read from the photo'}
-          tone={said.tone}
-          value={reading}
-          why="What the agent read in this region."
-        />
-        {observation.visible_count !== null && ` · ${observation.visible_count} visible`}
-      </span>
-    </Observation>
-  )
-}
-
-function lotLabels(links: readonly SessionHistoryLinkDto[]) {
-  return new Map(
-    links.flatMap((link) => (link.kind === 'lot' ? [[link.lot_id, link.label] as const] : [])),
-  )
-}
-
-const MOVE_WORDS = { applied: 'Moved', suggested: 'Suggested moving', unchanged: 'Already in' }
-
-function RegroupDetails({
-  entry,
-  details,
-}: {
-  entry: SessionHistoryEntryDto
-  details: Details<'regroup'>
-}) {
-  const labels = lotLabels(entry.links)
-
-  const name = (id: string | null) => (id ? (labels.get(id) ?? 'a lot') : 'no lot')
-
-  if (!details.moves) {
-    return <p>Moved into {details.lot_ids.map(name).join(', ')}</p>
-  }
-  return (
-    <ul>
-      {details.moves.map((move) => (
-        <li key={`${move.observation_id}:${move.to_lot_id}`}>
-          {move.outcome === 'applied' && move.from_lot_id
-            ? `Moved from ${name(move.from_lot_id)} to ${name(move.to_lot_id)}`
-            : `${MOVE_WORDS[move.outcome]} into ${name(move.to_lot_id)}`}
-        </li>
-      ))}
-    </ul>
-  )
-}
-
-function LotDetails({ details, context }: { details: Details<'lot'>; context: HistoryContext }) {
-  const { lot } = details
-  return (
-    <>
-      <Current>Current values</Current>
-      {lot?.estimate && (
-        <p>
-          Agent’s estimate: {lot.estimate.quantity} · estimated — {lot.estimate.basis}
-        </p>
-      )}
-      {lot?.selected_quantity.mode === 'set' && (
-        <p>Selected quantity: {lot.selected_quantity.value}</p>
-      )}
-      {lot && lot.observations.length > 0 && (
-        <ul>
-          {lot.observations.map((observation) => (
-            <li key={observation.id}>
-              <ObservationReading observation={observation} context={context} />
-            </li>
-          ))}
-        </ul>
-      )}
-      <p>
-        {details.separation_reason
-          ? `Kept apart: ${details.separation_reason}`
-          : 'Why it is kept apart was not recorded.'}
-      </p>
-    </>
-  )
-}
-
-const CURRENTNESS = {
-  current: 'Current',
-  provisional: 'Provisional until you answer the questions below',
-  stale: 'Stale',
-}
-
-function ProposalDetails({ details }: { details: Details<'proposal'> }) {
-  const { proposal, currentness } = details
-  const manufacturer = proposal.catalogue?.manufacturer
-  return (
-    <>
-      <p>{proposal.summary}</p>
-      <Current>{CURRENTNESS[currentness.state]}</Current>
-      {manufacturer && (
-        <p>
-          MPN {manufacturer.mpn}{' '}
-          <SourceChip
-            source="Proposal"
-            {...catalogueSaid(manufacturer)}
-            field="MPN"
-            value={manufacturer.mpn}
-            why="The agent’s retained proposal."
-          />
-        </p>
-      )}
-      {proposal.catalogue?.parameters.map((parameter) => (
-        <p key={parameter.name}>
-          {parameter.name}: {parameter.value}{' '}
-          <SourceChip
-            source="Proposal"
-            {...catalogueSaid(parameter)}
-            field={parameter.name}
-            value={parameter.value}
-            why="The agent’s retained proposal."
-          />
-        </p>
-      ))}
-      <ProcessingSources proposal={proposal} />
-    </>
-  )
-}
-
-function catalogueSaid(value: Parameters<typeof evidenceWords>[0]) {
-  const said = evidenceWords(value)
-  return { certainty: said.certainty ?? 'Proposed', tone: said.tone }
-}
-
-const QUESTION_STATE = { open: 'Open', answered: 'Answered', superseded: 'Superseded' }
-
-function QuestionDetails({ details }: { details: Details<'question'> }) {
-  const steps =
-    'steps' in details.question
-      ? details.question.steps
-      : [{ id: 'only', prompt: details.question.prompt, assumption: details.question.assumption }]
-  return (
-    <>
-      <Current>{QUESTION_STATE[details.state]}</Current>
-      <ol>
-        {steps.map((step) => (
-          <li key={step.id}>
-            {step.prompt} <Muted>Assuming {step.assumption} until you answer.</Muted>
-          </li>
-        ))}
-      </ol>
-    </>
-  )
 }
 
 function answerEffectsText(details: Details<'answer'>) {
@@ -215,41 +29,6 @@ function answerEffectsText(details: Details<'answer'>) {
   )
   const text = parts.join(' · ')
   return text ? text.charAt(0).toUpperCase() + text.slice(1) : 'Nothing changed in Capture.'
-}
-
-function PhotoViewDetails({
-  details,
-  context,
-}: {
-  details: Details<'photo_view'>
-  context: HistoryContext
-}) {
-  const { view, crop } = details
-  return (
-    <>
-      {crop ? (
-        <Crop
-          src={photoViewCrop(context, crop)}
-          alt="Region sent to the agent, recut from the page"
-          loading="lazy"
-        />
-      ) : (
-        <Muted>The photo was removed, so the region can’t be recut.</Muted>
-      )}
-      <p>
-        Sent {view.delivered.width} × {view.delivered.height}
-        {view.region
-          ? `, region ${view.region.width} × ${view.region.height} at ${view.region.x}, ${view.region.y}`
-          : ', the whole page'}
-        {view.page > 1 && ` of page ${view.page}`}. Recut from the page, so not the exact bytes
-        sent.
-      </p>
-      <DebugDetails
-        label="Photo view"
-        rows={[{ label: 'Sent SHA-256', value: view.delivered.sha256 }]}
-      />
-    </>
-  )
 }
 
 /** What an entry expands to, by kind; values a record holds now are labelled current. */
@@ -269,18 +48,18 @@ export function HistoryEntryDetails({
     case 'observation':
       return details.current ? (
         <>
-          <Current>Current values</Current>
-          <ObservationReading observation={details.current} context={context} />
+          <DetailLabel>Current values</DetailLabel>
+          <ObservationReading observation={details.current} batchId={context.batchId} />
         </>
       ) : (
         <Muted>The observation no longer exists.</Muted>
       )
     case 'lot':
-      return <LotDetails details={details} context={context} />
+      return <LotDetails details={details} batchId={context.batchId} />
     case 'regroup':
-      return <RegroupDetails entry={entry} details={details} />
+      return <RegroupDetails entry={entry} details={details} context={context} />
     case 'proposal':
-      return <ProposalDetails details={details} />
+      return <ProposalDetails entry={entry} details={details} context={context} />
     case 'question':
       return <QuestionDetails details={details} />
     case 'answer':
@@ -331,36 +110,16 @@ export function HistoryEntryDetails({
             )}
           </p>
           <Muted>Reported by the agent; no copy is saved, so it is not verified.</Muted>
+          {context.showEntry && (
+            <Button
+              size="sm"
+              variant="link"
+              onClick={() => context.showEntry?.(details.proposal_entry_id)}
+            >
+              Show the proposal that cites it
+            </Button>
+          )}
         </>
       )
   }
 }
-
-const Current = styled.span`
-  font-size: ${typeVar.label.size};
-  font-weight: ${typeVar.label.weight};
-  letter-spacing: ${typeVar.label.letterSpacing};
-  text-transform: uppercase;
-  color: ${color.muted};
-`
-
-const Muted = styled.span`
-  color: ${color.muted};
-`
-
-const Observation = styled.span`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: ${space[3]};
-  overflow-wrap: anywhere;
-`
-
-const Crop = styled.img`
-  display: block;
-  max-width: min(100%, 240px);
-  max-height: 160px;
-  object-fit: contain;
-  border-radius: ${radius.thumb};
-  background: ${color.surface2};
-`

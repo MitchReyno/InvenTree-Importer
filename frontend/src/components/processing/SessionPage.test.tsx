@@ -223,14 +223,25 @@ test('filter chips narrow the conversation, and Load older adds the older page a
   mount(processing)
   await screen.findByRole('list', { name: 'Session conversation' })
 
+  // A filter hides rows rather than removing them, so drafts in hidden cards survive.
+  const shown = (text: string | RegExp) => within(conversationOf()).getByText(text)
+
   await user.click(screen.getByRole('button', { name: /^Messages,/ }))
-  expect(within(conversationOf()).getByText('Hello')).toBeInTheDocument()
-  expect(within(conversationOf()).queryByText(/Prepared/)).toBeNull()
+  expect(shown('Hello')).toBeVisible()
+  expect(shown(/Prepared/)).not.toBeVisible()
   await user.click(screen.getByRole('button', { name: /^Photos,/ }))
-  expect(within(conversationOf()).queryByText('Hello')).toBeNull()
-  expect(within(conversationOf()).getAllByText(/Prepared part of MCU close-up/)).toHaveLength(1)
+  expect(shown('Hello')).not.toBeVisible()
+  expect(shown(/Prepared part of MCU close-up/)).toBeVisible()
   await user.click(screen.getByRole('button', { name: /^Web,/ }))
-  expect(within(conversationOf()).getByText('Read ww1.microchip.com')).toBeInTheDocument()
+  expect(shown('Read ww1.microchip.com')).toBeVisible()
+  expect(shown('Proposed ATmega328P-AU')).not.toBeVisible()
+  // A web read leads back to the proposal that cites it, clearing the filter.
+  await user.click(shown('Read ww1.microchip.com'))
+  await user.click(screen.getByRole('button', { name: 'Show the proposal that cites it' }))
+  expect(shown('Proposed ATmega328P-AU')).toBeVisible()
+  await waitFor(() =>
+    expect(document.activeElement?.textContent).toContain('Proposed ATmega328P-AU'),
+  )
   await user.click(screen.getByRole('button', { name: /^All,/ }))
 
   await user.click(screen.getByRole('button', { name: 'Load older' }))
@@ -455,4 +466,44 @@ test('observations from different photos stay apart on the page', async () => {
 
   expect(await screen.findByText('Recorded an observation in Packet back')).toBeInTheDocument()
   expect(screen.getByText('Recorded an observation in Bench bag spill')).toBeInTheDocument()
+})
+
+test('an unsaved answer on the page stays, marked superseded, when the question is answered elsewhere', async () => {
+  const user = userEvent.setup()
+  let page = history([asked])
+  const processing = client(() => Promise.resolve(page))
+  const { invalidate } = mount(processing)
+  const card = await screen.findByRole('form', {
+    name: 'Session question: Which ATmega328P variant is this?',
+  })
+  await user.click(within(card).getByRole('radio', { name: /ATmega328PB-AU/ }))
+
+  // The drawer in another tab answered it: both reads now say so.
+  const answered = structuredClone(snapshot)
+  answered.jobs[0].questions[0].state = 'answered'
+  processing.read.mockResolvedValue(answered)
+  page = history([question(4, 4, { state: 'answered' })])
+  await invalidate()
+
+  await waitFor(() => expect(card).toHaveTextContent(/superseded/))
+  expect(within(card).getByRole('radio', { name: /ATmega328PB-AU/ })).toBeChecked()
+  expect(processing.answer).not.toHaveBeenCalled()
+})
+
+test('the history shows while the Processing read fails', async () => {
+  const failing = client(history([status(1, 1, 'Reading the slip')]))
+  failing.read.mockRejectedValue(new Error('offline'))
+  mount(failing)
+  expect(await screen.findByText('Reading the slip')).toBeInTheDocument()
+  // Nothing can be answered without this mount's own Processing read.
+  expect(screen.queryByRole('form', { name: /Session question/ })).toBeNull()
+})
+
+test('a missing session says so even when the Processing read fails', async () => {
+  const missing = client(() =>
+    Promise.reject(new IntakeRequestError(404, 'session_not_found', 'Session not found')),
+  )
+  missing.read.mockRejectedValue(new Error('offline'))
+  mount(missing)
+  expect(await screen.findByText('This session was not found.')).toBeInTheDocument()
 })

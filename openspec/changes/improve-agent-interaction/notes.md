@@ -29,6 +29,13 @@ Implementation of BI-019's agent interaction work, delivered PR by PR as the tas
 
 ## Decisions made during implementation
 
+- **2026-11-24T14:40+11:00, task 7 (PR-E), after review round 1:**
+  - The page's history no longer waits for the Processing read: it is mounted from the route, and only answering waits for that read, so a failed Processing read still shows the history or "not found".
+  - A newest-page re-read keeps held rows below the deepest stored row it shares with them, not only when its own oldest row was held, so a late commit at the page boundary no longer drops loaded older pages.
+  - Dividers are placed before grouping, so a group never spans a retry.
+  - Filters hide rows instead of removing them, and a question card's form stays mounted when its question closes, so an unsaved answer survives both and reads as superseded.
+  - A proposal shows its manufacturer, MPN, category, description and parameters with chips whose details list each value's own sources, and what it relies on. A regroup numbers each moved observation with its origin, destination, outcome and a map link; observation identities stay in debug mode, since the history read carries no label for them. A web read on the page leads back to the proposal citing it, clearing the filter.
+  - A Capture photo link followed while Capture is mounted opens that photo, unless a note draft is open in the viewer.
 - **2026-11-24T13:40+11:00, task 7 (PR-E):**
   - The drawer keeps its own query of the newest page only; the session page's query merges each newest-page read into the entries it holds, in the query cache, so an answer's remount of Processing keeps its loaded older pages. Both keys sit under the batch's Processing key, so the same invalidations re-read them. Merging finds the new page's oldest stored row among the held entries (derived web reads don't count); when it isn't there, more than a page arrived and the held entries are dropped.
   - Both places list entries oldest first, ending with the newest. Grouping covers consecutive observations in one photo version, photo views of one version, web reads of one proposal and lot entries about one lot. Questions are never grouped, since each is a card answered in place on the page, and other kinds stay one entry each.

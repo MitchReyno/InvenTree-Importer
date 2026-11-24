@@ -167,8 +167,12 @@ test('a regroup lists each move between lots, and an older one its destinations'
     ),
   ])
   const moves = await expand('Moved 1 observation, suggested moving 1 observation')
-  expect(moves).toHaveTextContent('Moved from Packet A to Green LED')
-  expect(moves).toHaveTextContent('Suggested moving into Green LED')
+  // Each observation is told apart, with where it came from, where it went and the outcome.
+  expect(moves).toHaveTextContent('Observation 1: from Packet A to Green LED, moved')
+  expect(moves).toHaveTextContent(
+    'Observation 2: from no lot to Green LED, only suggested, since you edited it',
+  )
+  expect(within(moves).getAllByRole('link', { name: 'Show on the map' })).toHaveLength(2)
   expect(within(moves).getByRole('link', { name: 'Open Packet A in Review' })).toBeInTheDocument()
 
   const older = await expand('Regrouped observations into Green LED')
@@ -340,4 +344,59 @@ test('the drawer folds photo views and web reads into a line linking to the full
     'href',
     `#${H.batch}/processing/research/sessions/${H.job}`,
   )
+})
+
+test('a proposal’s structured values show with chips listing their own sources, and what it relies on', async () => {
+  const user = userEvent.setup()
+  const [entry] = proposal(1, 1)
+  const details = entry.details
+  if (details.kind !== 'proposal') {
+    throw new Error('expected a proposal')
+  }
+  const media = details.proposal.relies_on.sources[0] as {
+    kind: 'media_version'
+    evidence_id: string
+    version_id: string
+    sha256: string
+  }
+  show([
+    {
+      ...entry,
+      details: {
+        ...details,
+        proposal: {
+          ...details.proposal,
+          catalogue: {
+            category: null,
+            parameters: [],
+            manufacturer: {
+              company: {
+                choice: 'proposed_new',
+                name: 'Microchip',
+                reason: 'Named on the datasheet.',
+                sources: [media],
+              },
+              mpn: 'ATmega328P-AU',
+              sources: [media],
+              source_kind: 'label',
+              agreement: 'read',
+            },
+            supplier: null,
+            description: null,
+          },
+        },
+      },
+    },
+  ])
+  const expanded = await expand('Proposed ATmega328P-AU')
+
+  expect(expanded).toHaveTextContent('Microchip (new)')
+  expect(expanded).toHaveTextContent('ATmega328P-AU')
+  expect(expanded).toHaveTextContent('Relies on identity, from:')
+  await user.click(
+    within(expanded).getByRole('button', { name: 'Source: Agent · Label, Read. Show details.' }),
+  )
+  expect(
+    screen.getAllByRole('link', { name: 'Open MCU close-up in Capture' }).length,
+  ).toBeGreaterThan(1)
 })

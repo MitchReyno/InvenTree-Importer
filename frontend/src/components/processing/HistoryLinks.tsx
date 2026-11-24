@@ -5,7 +5,13 @@ import { batchHref, sessionPageHref, type ProcessingStep } from '#/navigation/ba
 import { color, space, typeVar } from '#/theme/generated/tokens'
 
 /** Where a history list sits: its batch, the session's job and the step that shows it. */
-export type HistoryContext = { batchId: string; jobId: string; step: ProcessingStep }
+export type HistoryContext = {
+  batchId: string
+  jobId: string
+  step: ProcessingStep
+  /** Shows and focuses another loaded entry, such as the proposal citing a web read. */
+  showEntry?: (entryId: string) => void
+}
 
 /** A link's text and address in this app, or plain text where it no longer leads anywhere. */
 function linkTarget(link: SessionHistoryLinkDto, context: HistoryContext) {

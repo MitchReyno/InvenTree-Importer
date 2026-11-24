@@ -607,15 +607,18 @@ export function ProcessingWorkspace({
     }
   }, [leave])
 
-  /** A session page's question card answered in place, with the drawer's form and guards. */
+  /**
+   * A session page's question card answered in place, with the drawer's form and guards. It stays
+   * mounted when the question closes, so an unsaved draft is kept and shown as superseded.
+   */
   function pageAnswerForm(id: string) {
-    const question = allQuestions.find((candidate) => candidate.id === id)
-    if (!snapshot || !question || question.state !== 'open') {
+    if (!snapshot) {
       return null
     }
+    const open = allQuestions.filter((question) => question.id === id && question.state === 'open')
     return (
       <DrawerAnswers
-        questions={[question]}
+        questions={open}
         lookup={(questionId) => allQuestions.find((candidate) => candidate.id === questionId)}
         captureRevision={snapshot.capture_revision}
         fresh={!waitingForRead}
@@ -782,233 +785,236 @@ export function ProcessingWorkspace({
           <Banner tone="bad">{error}</Banner>
         </div>
       )}
-      <ReadState
-        phase={fresh.phase}
-        hasData={snapshot !== undefined}
-        skeleton={<ProcessingSkeleton view={view} />}
-      >
-        {snapshot && source && sessionPage}
-        {snapshot && source && !sessionPage && (
-          <>
-            {view !== 'overview' && <Panel>{queue}</Panel>}
-            {questionId && pinned?.question.id === questionId ? (
-              <>
-                <QuestionAnswer
-                  key={`${pinned.question.id}:${pinned.captureRevision}`}
-                  question={pinned.question}
-                  captureRevision={pinned.captureRevision}
-                  currentQuestion={currentQuestion}
-                  currentCaptureRevision={snapshot.capture_revision}
-                  disabled={
-                    runnerDisabled ||
-                    drafts.isDirty('instructions') ||
-                    drafts.isDirty('correction') ||
-                    otherAnswerDirty('answer')
-                  }
-                  blockedReason={
-                    otherAnswerDirty('answer')
-                      ? 'Save or discard the other answer first; saving it reloads Processing.'
-                      : undefined
-                  }
-                  readOnly={batch.archived || saving === 'instructions'}
-                  captureHref={batchHref(batch.id, { tab: 'capture' })}
-                  answer={answer}
-                  onDirtyChange={drafts.forSource('answer')}
-                />
-                {drafts.isDirty('instructions') && (
-                  <Small>
-                    Save or discard the batch instructions first; saving the answer reloads
-                    Processing.
-                  </Small>
-                )}
-                {drafts.isDirty('correction') && (
-                  <Small>
-                    Save or discard the correction first; saving the answer reloads Processing.
-                  </Small>
-                )}
-              </>
-            ) : (
-              // While this visit's read lands the question waits quietly; it pins once verified.
-              questionId &&
-              (offline || !waitingForRead) && (
-                <Banner tone="warn">
-                  {offline
-                    ? 'The selected question cannot be opened until current state is available.'
-                    : 'The pinned question is unavailable. Choose a current question explicitly.'}
-                </Banner>
-              )
-            )}
-            {view === 'overview' ? (
-              <ProcessingOverview
-                batchId={batch.id}
-                source={source}
-                onOpenSession={setSessionJobId}
-                instructions={
-                  <InstructionField
-                    text={instructions ? instructions.text : ''}
-                    revision={batch.revision}
-                    instruct={fenced || !instructions?.instruct ? undefined : saveInstructions}
-                    delivery={instructions?.delivery}
-                    deliver={
-                      fenced || !instructions?.deliver
-                        ? undefined
-                        : () => void instructions.deliver!()
-                    }
-                    locked={saving === 'answer'}
-                    unavailable={instructions?.unavailable}
-                    readOnlyReason={
-                      batch.archived ? 'Resume the batch to change its instructions.' : undefined
-                    }
-                    saveBlockedReason={
-                      answerDirty
-                        ? 'Save or discard the answer first; saving reloads Processing.'
-                        : drafts.isDirty('correction')
-                          ? 'Save or discard the correction first; saving reloads Processing.'
-                          : undefined
-                    }
-                    onDirtyChange={drafts.forSource('instructions')}
-                  />
-                }
-                activity={activity}
-                queue={queue}
-                attention={attention}
-                attentionUnavailable={attentionUnavailable}
-                lots={lotRows}
-                startedAt={started}
-                lotsFormed={lotsFormed(batch.lots)}
-                sessionLimit={sessionLimit}
-                pause={pause}
-                paused={snapshot.paused === true}
-                // A restored or failed read, or one from before the last live hint, draws still bars.
-                still={displayOnly || !fresh.settledAfterHint}
-              />
-            ) : (
-              <StepPage
-                batchId={batch.id}
-                step={view}
-                source={source}
-                summary={stepSummary(
-                  view,
-                  lotRows,
-                  snapshot.jobs.filter((job) => onStep(job.stage, 'examine')),
-                  { paused: snapshot.paused === true },
-                )}
-                focus={
-                  focusRow && focusStep
-                    ? {
-                        label: focusRow.label,
-                        state: focusStep.state,
-                        hasOutput: focusStep.hasOutput,
-                      }
-                    : undefined
-                }
-                onOpenSession={setSessionJobId}
-                help={STEP_HELP[view]}
-              >
-                {view === 'images' || jobs.length > 0 ? (
-                  <>
-                    {view === 'images' && <ProcessingImages batchId={batch.id} client={media} />}
-                    {view === 'inventory' && (
-                      <ProcessingInventory
-                        batch={batch}
-                        jobs={jobs}
-                        onOpenSession={setSessionJobId}
-                      />
-                    )}
-                    {view === 'examine' && (
-                      <ExamineView
-                        batch={batch}
-                        lead={jobs.find(
-                          (job) => job.stage === 'examine' && job.subject_id === null,
-                        )}
-                        media={liveRead(mediaSnapshot) ? mediaSnapshot.data : undefined}
-                        // A question on a shared Part questions every lot that uses it, as in Review.
-                        questionedLots={new Set(openQuestionsByLot(snapshot, batch).keys())}
-                        edit={fenced ? undefined : edit}
-                        locked={answerDirty || drafts.isDirty('instructions')}
-                        askSharper={askSharper}
-                        askSharperReason={revisionlessReason}
-                        requestStore={sharperRequests}
-                        onDirtyChange={drafts.forSource('correction')}
-                      />
-                    )}
-                    {jobCards}
-                  </>
-                ) : undefined}
-              </StepPage>
-            )}
-            {sessionJob && client.history && client.chat && (
-              <Dialog
-                placement="side"
-                // A drawer restored after a remount had no opener; its session row takes focus back.
-                returnFocus={() =>
-                  document.querySelector<HTMLElement>(`[data-session-job="${sessionJob.id}"]`)
-                }
-                title={
-                  <AiMark>
-                    {STEP_LABEL[processingStepFor(sessionJob.stage)] ?? 'Processing'} ·{' '}
-                    {subjectLabel(sessionJob.subject_id)}
-                  </AiMark>
-                }
-                onClose={() => {
-                  if (unsavedInDrawer) {
-                    setCloseBlocked(true)
-                  } else {
-                    closeDrawer()
-                  }
-                }}
-              >
-                {closeBlocked && (
-                  <div role="alert">
-                    <Banner
-                      tone="warn"
-                      action={
-                        <Button size="sm" variant="ghost" onClick={closeDrawer}>
-                          Discard answer and close
-                        </Button>
-                      }
-                    >
-                      Save or discard your answer before closing this session.
-                    </Banner>
-                  </div>
-                )}
-                {openInDrawer
-                  .filter((question) => !answersInDrawer || question.id === questionId)
-                  .map(questionLink)}
-                {answersInDrawer && (
-                  <DrawerAnswers
-                    questions={openInDrawer.filter((question) => question.id !== questionId)}
-                    lookup={(id) => allQuestions.find((question) => question.id === id)}
-                    captureRevision={snapshot.capture_revision}
-                    fresh={!waitingForRead}
+      {/* The session page reads its own history, so it shows even before Processing is read. */}
+      {sessionPage}
+      {!sessionPage && (
+        <ReadState
+          phase={fresh.phase}
+          hasData={snapshot !== undefined}
+          skeleton={<ProcessingSkeleton view={view} />}
+        >
+          {snapshot && source && (
+            <>
+              {view !== 'overview' && <Panel>{queue}</Panel>}
+              {questionId && pinned?.question.id === questionId ? (
+                <>
+                  <QuestionAnswer
+                    key={`${pinned.question.id}:${pinned.captureRevision}`}
+                    question={pinned.question}
+                    captureRevision={pinned.captureRevision}
+                    currentQuestion={currentQuestion}
+                    currentCaptureRevision={snapshot.capture_revision}
                     disabled={
                       runnerDisabled ||
                       drafts.isDirty('instructions') ||
-                      drafts.isDirty('correction')
+                      drafts.isDirty('correction') ||
+                      otherAnswerDirty('answer')
+                    }
+                    blockedReason={
+                      otherAnswerDirty('answer')
+                        ? 'Save or discard the other answer first; saving it reloads Processing.'
+                        : undefined
                     }
                     readOnly={batch.archived || saving === 'instructions'}
-                    saving={saving === 'answer'}
-                    isDirty={(id) => drafts.isDirty(`answer:${id}`)}
-                    otherAnswerDirty={(id) => otherAnswerDirty(`answer:${id}`)}
-                    answer={(id, input, key) => answer(id, input, key, { fromDrawer: true })}
-                    focusNext={restored?.focusNext ?? false}
-                    readFailed={offline}
-                    reportFor={(id) => drafts.forSource(`answer:${id}`)}
-                    fallback={questionLink}
+                    captureHref={batchHref(batch.id, { tab: 'capture' })}
+                    answer={answer}
+                    onDirtyChange={drafts.forSource('answer')}
                   />
-                )}
-                <SessionPanel
+                  {drafts.isDirty('instructions') && (
+                    <Small>
+                      Save or discard the batch instructions first; saving the answer reloads
+                      Processing.
+                    </Small>
+                  )}
+                  {drafts.isDirty('correction') && (
+                    <Small>
+                      Save or discard the correction first; saving the answer reloads Processing.
+                    </Small>
+                  )}
+                </>
+              ) : (
+                // While this visit's read lands the question waits quietly; it pins once verified.
+                questionId &&
+                (offline || !waitingForRead) && (
+                  <Banner tone="warn">
+                    {offline
+                      ? 'The selected question cannot be opened until current state is available.'
+                      : 'The pinned question is unavailable. Choose a current question explicitly.'}
+                  </Banner>
+                )
+              )}
+              {view === 'overview' ? (
+                <ProcessingOverview
                   batchId={batch.id}
-                  job={sessionJob}
-                  client={{ history: client.history, chat: client.chat, failure: client.failure }}
-                  startFresh={() => restart(sessionJob)}
-                  freshDisabled={runnerDisabled || !client.replaceSession}
+                  source={source}
+                  onOpenSession={setSessionJobId}
+                  instructions={
+                    <InstructionField
+                      text={instructions ? instructions.text : ''}
+                      revision={batch.revision}
+                      instruct={fenced || !instructions?.instruct ? undefined : saveInstructions}
+                      delivery={instructions?.delivery}
+                      deliver={
+                        fenced || !instructions?.deliver
+                          ? undefined
+                          : () => void instructions.deliver!()
+                      }
+                      locked={saving === 'answer'}
+                      unavailable={instructions?.unavailable}
+                      readOnlyReason={
+                        batch.archived ? 'Resume the batch to change its instructions.' : undefined
+                      }
+                      saveBlockedReason={
+                        answerDirty
+                          ? 'Save or discard the answer first; saving reloads Processing.'
+                          : drafts.isDirty('correction')
+                            ? 'Save or discard the correction first; saving reloads Processing.'
+                            : undefined
+                      }
+                      onDirtyChange={drafts.forSource('instructions')}
+                    />
+                  }
+                  activity={activity}
+                  queue={queue}
+                  attention={attention}
+                  attentionUnavailable={attentionUnavailable}
+                  lots={lotRows}
+                  startedAt={started}
+                  lotsFormed={lotsFormed(batch.lots)}
+                  sessionLimit={sessionLimit}
+                  pause={pause}
+                  paused={snapshot.paused === true}
+                  // A restored or failed read, or one from before the last live hint, draws still bars.
+                  still={displayOnly || !fresh.settledAfterHint}
                 />
-              </Dialog>
-            )}
-          </>
-        )}
-      </ReadState>
+              ) : (
+                <StepPage
+                  batchId={batch.id}
+                  step={view}
+                  source={source}
+                  summary={stepSummary(
+                    view,
+                    lotRows,
+                    snapshot.jobs.filter((job) => onStep(job.stage, 'examine')),
+                    { paused: snapshot.paused === true },
+                  )}
+                  focus={
+                    focusRow && focusStep
+                      ? {
+                          label: focusRow.label,
+                          state: focusStep.state,
+                          hasOutput: focusStep.hasOutput,
+                        }
+                      : undefined
+                  }
+                  onOpenSession={setSessionJobId}
+                  help={STEP_HELP[view]}
+                >
+                  {view === 'images' || jobs.length > 0 ? (
+                    <>
+                      {view === 'images' && <ProcessingImages batchId={batch.id} client={media} />}
+                      {view === 'inventory' && (
+                        <ProcessingInventory
+                          batch={batch}
+                          jobs={jobs}
+                          onOpenSession={setSessionJobId}
+                        />
+                      )}
+                      {view === 'examine' && (
+                        <ExamineView
+                          batch={batch}
+                          lead={jobs.find(
+                            (job) => job.stage === 'examine' && job.subject_id === null,
+                          )}
+                          media={liveRead(mediaSnapshot) ? mediaSnapshot.data : undefined}
+                          // A question on a shared Part questions every lot that uses it, as in Review.
+                          questionedLots={new Set(openQuestionsByLot(snapshot, batch).keys())}
+                          edit={fenced ? undefined : edit}
+                          locked={answerDirty || drafts.isDirty('instructions')}
+                          askSharper={askSharper}
+                          askSharperReason={revisionlessReason}
+                          requestStore={sharperRequests}
+                          onDirtyChange={drafts.forSource('correction')}
+                        />
+                      )}
+                      {jobCards}
+                    </>
+                  ) : undefined}
+                </StepPage>
+              )}
+              {sessionJob && client.history && client.chat && (
+                <Dialog
+                  placement="side"
+                  // A drawer restored after a remount had no opener; its session row takes focus back.
+                  returnFocus={() =>
+                    document.querySelector<HTMLElement>(`[data-session-job="${sessionJob.id}"]`)
+                  }
+                  title={
+                    <AiMark>
+                      {STEP_LABEL[processingStepFor(sessionJob.stage)] ?? 'Processing'} ·{' '}
+                      {subjectLabel(sessionJob.subject_id)}
+                    </AiMark>
+                  }
+                  onClose={() => {
+                    if (unsavedInDrawer) {
+                      setCloseBlocked(true)
+                    } else {
+                      closeDrawer()
+                    }
+                  }}
+                >
+                  {closeBlocked && (
+                    <div role="alert">
+                      <Banner
+                        tone="warn"
+                        action={
+                          <Button size="sm" variant="ghost" onClick={closeDrawer}>
+                            Discard answer and close
+                          </Button>
+                        }
+                      >
+                        Save or discard your answer before closing this session.
+                      </Banner>
+                    </div>
+                  )}
+                  {openInDrawer
+                    .filter((question) => !answersInDrawer || question.id === questionId)
+                    .map(questionLink)}
+                  {answersInDrawer && (
+                    <DrawerAnswers
+                      questions={openInDrawer.filter((question) => question.id !== questionId)}
+                      lookup={(id) => allQuestions.find((question) => question.id === id)}
+                      captureRevision={snapshot.capture_revision}
+                      fresh={!waitingForRead}
+                      disabled={
+                        runnerDisabled ||
+                        drafts.isDirty('instructions') ||
+                        drafts.isDirty('correction')
+                      }
+                      readOnly={batch.archived || saving === 'instructions'}
+                      saving={saving === 'answer'}
+                      isDirty={(id) => drafts.isDirty(`answer:${id}`)}
+                      otherAnswerDirty={(id) => otherAnswerDirty(`answer:${id}`)}
+                      answer={(id, input, key) => answer(id, input, key, { fromDrawer: true })}
+                      focusNext={restored?.focusNext ?? false}
+                      readFailed={offline}
+                      reportFor={(id) => drafts.forSource(`answer:${id}`)}
+                      fallback={questionLink}
+                    />
+                  )}
+                  <SessionPanel
+                    batchId={batch.id}
+                    job={sessionJob}
+                    client={{ history: client.history, chat: client.chat, failure: client.failure }}
+                    startFresh={() => restart(sessionJob)}
+                    freshDisabled={runnerDisabled || !client.replaceSession}
+                  />
+                </Dialog>
+              )}
+            </>
+          )}
+        </ReadState>
+      )}
     </Workspace>
   )
 }

@@ -124,6 +124,7 @@ function researchPages(ids: Ids) {
       { kind: 'question', question_id: ids.id(61), label: 'How many are in the tube?' },
     ],
   )
+
   const webRead = (index: number, url: string, label: string): Entry => ({
     ...proposal,
     id: `${proposalId}:web:${index}`,
@@ -131,6 +132,7 @@ function researchPages(ids: Ids) {
     links: [{ kind: 'external_url', url, label }],
     details: { kind: 'web_read', url, proposal_entry_id: proposalId },
   })
+
   const newest: Entry[] = [
     agentEntry(second, 2, 5, 17, 'Checking whether the tube holds 50 or 40', {
       kind: 'status',
@@ -217,6 +219,7 @@ function researchPages(ids: Ids) {
 /** Any other session: the lead's three observations in one photo, grouped in the drawer. */
 function otherHistory(ids: Ids, jobId: string): SessionHistoryDto {
   const attemptId = ids.id(20 + Number(jobId.slice(-2)))
+
   const observation = (seq: number, reading: string): Entry =>
     agentEntry(
       attemptId,
@@ -248,6 +251,7 @@ function otherHistory(ids: Ids, jobId: string): SessionHistoryDto {
       },
       [photoLink(ids), { kind: 'map', observation_id: ids.id(40 + seq) }],
     )
+
   return {
     session: {
       job_id: jobId,

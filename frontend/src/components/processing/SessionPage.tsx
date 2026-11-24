@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import styled from 'styled-components'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import type { ProcessingJobDto } from '@invimport/contracts'
@@ -52,6 +52,19 @@ export function SessionPage(props: Props) {
   const { batchId, jobId, step, client } = props
   const { query, loadOlder, older } = useSessionPageHistory(client.history, batchId, jobId)
   const [filter, setFilter] = useState<ConversationFilter>('all')
+  // An entry to bring into view once the filter that showed it has been cleared.
+  const [reveal, setReveal] = useState<string | null>(null)
+  // Moves focus in the DOM to the revealed entry after it renders.
+  useEffect(() => {
+    if (reveal === null) {
+      return
+    }
+    const target = document.getElementById(reveal)
+    const focusable = target?.querySelector<HTMLElement>(':scope > summary') ?? target
+    focusable?.scrollIntoView?.({ block: 'center' })
+    focusable?.focus()
+    setReveal(null)
+  }, [reveal])
   const held = query.data
   if (!held) {
     if (isNotFound(query.error)) {
@@ -71,7 +84,15 @@ export function SessionPage(props: Props) {
     return <SessionSkeleton />
   }
   const { session, entries } = held
-  const context = { batchId, jobId, step }
+  const context = {
+    batchId,
+    jobId,
+    step,
+    showEntry: (entryId: string) => {
+      setFilter('all')
+      setReveal(entryId)
+    },
+  }
   const stepLabel = STEP_LABEL[step] ?? 'Processing'
   const title = `${stepLabel} · ${props.subjectLabel(session.subject_id)}`
   const current = session.attempts.find((attempt) => attempt.id === session.current_attempt_id)
@@ -109,7 +130,8 @@ export function SessionPage(props: Props) {
             {older === 'failed' && <Small role="alert">Older entries couldn’t be loaded.</Small>}
           </Controls>
           <SessionConversation
-            items={conversation(held, filter)}
+            items={conversation(held)}
+            filter={filter}
             context={context}
             answerForm={props.answerForm}
             loadFailure={props.loadFailure}

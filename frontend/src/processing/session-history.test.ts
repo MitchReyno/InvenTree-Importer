@@ -6,6 +6,7 @@ import {
   conversation,
   drawerItems,
   mergeNewestPage,
+  shownUnder,
   viewedPhotos,
 } from './session-history'
 import {
@@ -68,6 +69,31 @@ describe('refreshing the newest page', () => {
     const burst = mergeNewestPage(first, history([status(9, 9, 'nine')], { before: 'c9' }))
 
     expect(appendOlderPage(burst, history(older.slice(2)), 'c2')).toBe(burst)
+  })
+
+  it('keeps older entries when a late commit lands at the page boundary', () => {
+    const held = mergeNewestPage(
+      undefined,
+      history([status(10, 10, 'ten'), status(6, 6, 'six')], { before: 'c6' }),
+    )
+    const loaded = appendOlderPage(
+      held,
+      history([status(4, 4, 'four'), status(3, 3, 'three')]),
+      'c6',
+    )
+    const refreshed = mergeNewestPage(
+      loaded,
+      history([status(10, 10, 'ten'), status(6, 6, 'six'), status(5, 5, 'five')], { before: 'c5' }),
+    )
+
+    expect(refreshed.entries.map((entry) => entry.summary)).toEqual([
+      'ten',
+      'six',
+      'five',
+      'four',
+      'three',
+    ])
+    expect(refreshed.before).toBeUndefined()
   })
 
   it('takes the newest metadata on every read', () => {
@@ -162,7 +188,7 @@ describe('the session page', () => {
       ...proposal(1, 3).slice(1),
     ]
     const held = mergeNewestPage(undefined, history(entries, { attempts: [first, second] }))
-    const items = conversation(held, 'all')
+    const items = conversation(held)
 
     expect(
       items.map((item) =>
@@ -197,8 +223,10 @@ describe('the session page', () => {
     ]
     const held = mergeNewestPage(undefined, history(entries))
 
-    const summaries = (filter: Parameters<typeof conversation>[1]) =>
-      conversation(held, filter).flatMap((item) => (item.kind === 'attempt' ? [] : [item.summary]))
+    const summaries = (filter: Parameters<typeof shownUnder>[1]) =>
+      conversation(held)
+        .filter((item) => shownUnder(item, filter))
+        .flatMap((item) => (item.kind === 'attempt' ? [] : [item.summary]))
 
     expect(summaries('messages')).toEqual(['Hi', 'Replied: Sure.'])
     expect(summaries('inputs')).toEqual(['Input instruction 1', 'Hi'])
@@ -215,7 +243,20 @@ describe('the session page', () => {
       }),
     )
 
-    expect(conversation(held, 'all').map((item) => item.kind)).toEqual(['attempt', 'entry'])
+    expect(conversation(held).map((item) => item.kind)).toEqual(['attempt', 'entry'])
+  })
+
+  it('never groups an attempt’s actions above its own divider', () => {
+    const before = photoView(1, 9)
+    const after = photoView(1, 11, {}, { attempt: 2, id: `outbox:${H.attempt2}:1` })
+    const held = mergeNewestPage(undefined, history([after, before], { attempts: [first, second] }))
+
+    expect(conversation(held).map((item) => item.kind)).toEqual([
+      'attempt',
+      'entry',
+      'attempt',
+      'entry',
+    ])
   })
 
   it('lists the photos it viewed and the sources it cited, once each', () => {

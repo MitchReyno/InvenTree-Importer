@@ -38,8 +38,8 @@ function isStoredRow(entry: Entry) {
 
 /**
  * Replaces the held newest page with a fresh read of it. Held entries older than the new page
- * stay, so one new entry never pushes another out of view; when the new page doesn't reach the
- * held entries at all, they are dropped so no gap is left, and Load older continues from it.
+ * stay, so one new entry never pushes another out of view; when the new page shares no stored
+ * row with the held entries, they are dropped so no gap is left, and Load older continues from it.
  */
 export function mergeNewestPage(
   held: HeldHistory | undefined,
@@ -53,13 +53,15 @@ export function mergeNewestPage(
   if (!held || !page.before) {
     return fresh
   }
-  const oldestRow = page.entries.findLast(isStoredRow)
-  const reachedAt = oldestRow ? held.entries.findIndex((entry) => entry.id === oldestRow.id) : -1
-  if (reachedAt === -1) {
+  // The deepest held row the new page also holds: held rows below it are older than the page,
+  // since the page holds every row from its own oldest up, a late commit included.
+  const storedOnPage = new Set(page.entries.filter(isStoredRow).map((entry) => entry.id))
+  const overlapAt = held.entries.findLastIndex((entry) => storedOnPage.has(entry.id))
+  if (overlapAt === -1) {
     return fresh
   }
   const onPage = new Set(page.entries.map((entry) => entry.id))
-  const olderHeld = held.entries.slice(reachedAt + 1).filter((entry) => !onPage.has(entry.id))
+  const olderHeld = held.entries.slice(overlapAt + 1).filter((entry) => !onPage.has(entry.id))
 
   return {
     session: page.session,
@@ -243,14 +245,23 @@ export function filterCount(entries: readonly Entry[], filter: ConversationFilte
   return filter === 'all' ? entries.length : entries.filter(FILTERS[filter]).length
 }
 
+/** Whether a conversation row shows under a filter; attempt dividers always show. */
+export function shownUnder(item: ConversationItem, filter: ConversationFilter) {
+  if (filter === 'all' || item.kind === 'attempt' || item.kind === 'elided') {
+    return true
+  }
+  const entries = item.kind === 'group' ? item.entries : [item.entry]
+  return entries.some(FILTERS[filter])
+}
+
 /**
  * The session page's conversation, oldest first: grouped actions, chat, questions and inputs,
- * with a divider where each attempt was queued. While older entries remain to load, an attempt
- * gets its divider only when it was queued within the loaded entries or owns one of them.
+ * with a divider where each attempt was queued. Entries are grouped only between dividers, so an
+ * attempt's actions never sit above its own divider. While older entries remain to load, an
+ * attempt gets its divider only when it was queued within the loaded entries or owns one of them.
  */
-export function conversation(held: HeldHistory, filter: ConversationFilter): ConversationItem[] {
+export function conversation(held: HeldHistory): ConversationItem[] {
   const oldestFirst = [...held.entries].reverse()
-  const shown = filter === 'all' ? oldestFirst : oldestFirst.filter(FILTERS[filter])
   const oldestLoaded = oldestFirst[0]?.at
   const owning = new Set(
     held.entries.flatMap((entry) => (entry.who === 'agent' ? [entry.attempt] : [])),
@@ -260,23 +271,24 @@ export function conversation(held: HeldHistory, filter: ConversationFilter): Con
     return held.before === undefined || queuedWithin || owning.has(attempt.number)
   })
   const items: ConversationItem[] = []
+  let segment: Entry[] = []
   let next = 0
-  for (const item of groupEntries(shown)) {
-    const at = firstEntry(item).at
-    while (next < dividers.length && dividers[next].queued_at <= at) {
+  for (const entry of oldestFirst) {
+    if (next < dividers.length && dividers[next].queued_at <= entry.at) {
+      items.push(...groupEntries(segment))
+      segment = []
+    }
+    while (next < dividers.length && dividers[next].queued_at <= entry.at) {
       items.push(dividerItem(dividers[next]))
       next += 1
     }
-    items.push(item)
+    segment.push(entry)
   }
+  items.push(...groupEntries(segment))
   for (; next < dividers.length; next += 1) {
     items.push(dividerItem(dividers[next]))
   }
   return items
-}
-
-function firstEntry(item: EntryRow) {
-  return item.kind === 'group' ? item.entries[0] : item.entry
 }
 
 function dividerItem(attempt: SessionHistoryAttemptDto): ConversationItem {
