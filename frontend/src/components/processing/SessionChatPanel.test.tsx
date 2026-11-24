@@ -234,3 +234,34 @@ test('the drawer chat shows /1 and /2 answers beside the messages', () => {
   expect(messages[0]).toHaveTextContent('Answered: 12')
   expect(messages[1]).toHaveTextContent('Answered: same Part · 380 estimated · Drawer R4')
 })
+
+test('a retry waits while sending is unavailable, then reuses the original message and key', async () => {
+  const send = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue(undefined)
+
+  const panel = (unavailable?: string) => (
+    <SessionChat
+      storeKey="batch:guarded-retry"
+      state="running"
+      send={send}
+      startFresh={vi.fn()}
+      sendUnavailable={unavailable}
+    />
+  )
+
+  const view = render(panel())
+  fireEvent.change(screen.getByLabelText('Message this session'), {
+    target: { value: 'Check the reel label' },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+  await screen.findByText(/was not confirmed/)
+
+  view.rerender(panel('Updating…'))
+  expect(screen.getByRole('button', { name: 'Retry this message' })).toBeDisabled()
+  fireEvent.click(screen.getByRole('button', { name: 'Retry this message' }))
+  expect(send).toHaveBeenCalledTimes(1)
+
+  view.rerender(panel())
+  fireEvent.click(screen.getByRole('button', { name: 'Retry this message' }))
+  await screen.findByText(/Queued/)
+  expect(send.mock.calls[1]).toEqual(send.mock.calls[0])
+})

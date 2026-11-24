@@ -146,6 +146,7 @@ export function SessionChatPanel({
           <span>
             <Button
               type="button"
+              disabled={sendUnavailable !== undefined}
               onClick={() => void deliver(storeKey, pending, send).then((ok) => ok && confirmed())}
             >
               Retry this message

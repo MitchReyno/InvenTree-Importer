@@ -533,6 +533,39 @@ test('each attempt divider says how that attempt ended', async () => {
   expect(list).toHaveTextContent(/Running/)
 })
 
+test('the header spans from the first attempt’s queue time, and an end with no transition reads as last activity', async () => {
+  const first = attemptHeader({
+    state: 'failed',
+    session_state: 'failed',
+    ended: { at: at(9), source: 'last_activity' },
+  })
+  const second = attemptHeader({
+    id: H.attempt2,
+    number: 2,
+    queued_at: at(10),
+    started_because: null,
+    state: 'cancelled',
+    session_state: 'cancelled',
+    ended: { at: at(12), source: 'last_activity' },
+  })
+  mount(
+    client(
+      history([status(1, 11, 'Again', { attempt: 2, id: `outbox:${H.attempt2}:1` })], {
+        attempts: [first, second],
+      }),
+    ),
+  )
+  const header = await screen.findByRole('region', { name: 'Research · ATmega328P' })
+
+  // The read lists attempt 2 first; the span still starts at attempt 1's queue time.
+  expect(header.querySelector('time')).toHaveAttribute('datetime', at(1))
+  expect(header).toHaveTextContent(/last activity/)
+  expect(header).not.toHaveTextContent(/ to /)
+  const list = screen.getByRole('list', { name: 'Session conversation' })
+  expect(list).toHaveTextContent(/Failed · last activity/)
+  expect(list).toHaveTextContent(/Cancelled · last activity/)
+})
+
 test('a refresh that drops a question keeps its unsaved answer on the page', async () => {
   const user = userEvent.setup()
   let page = history([asked])

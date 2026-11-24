@@ -400,3 +400,95 @@ test('a proposal’s structured values show with chips listing their own sources
     screen.getAllByRole('link', { name: 'Open MCU close-up in Capture' }).length,
   ).toBeGreaterThan(1)
 })
+
+test('an existing company or category is named by its InvenTree record, a new category by name', async () => {
+  const [entry] = proposal(1, 1)
+  const details = entry.details
+  if (details.kind !== 'proposal') {
+    throw new Error('expected a proposal')
+  }
+  const media = details.proposal.relies_on.sources[0] as {
+    kind: 'media_version'
+    evidence_id: string
+    version_id: string
+    sha256: string
+  }
+
+  const reference = (model: 'company' | 'category', pk: string) => ({
+    observation_id: H.failure,
+    target_context_id: H.instruction,
+    model,
+    pk,
+  })
+
+  const withCatalogue = (category: object) => ({
+    ...entry,
+    details: {
+      ...details,
+      proposal: {
+        ...details.proposal,
+        catalogue: {
+          category,
+          parameters: [],
+          manufacturer: {
+            company: {
+              choice: 'existing',
+              reference: reference('company', '42'),
+              sources: [media],
+            },
+            mpn: 'ATmega328P-AU',
+            sources: [media],
+          },
+          supplier: null,
+          description: null,
+        },
+      },
+    },
+  })
+
+  render(
+    <HistoryList
+      label="Existing"
+      items={[
+        {
+          kind: 'entry',
+          id: 'a',
+          summary: 'Proposed with an existing category',
+          entry: {
+            ...withCatalogue({
+              choice: 'existing',
+              reference: reference('category', '7'),
+              sources: [media],
+            }),
+            summary: 'Proposed with an existing category',
+          } as SessionHistoryEntryDto,
+        },
+        {
+          kind: 'entry',
+          id: 'b',
+          summary: 'Proposed with a new category',
+          entry: {
+            ...withCatalogue({
+              choice: 'proposed_new',
+              name: 'Microcontrollers',
+              reason: 'None fits.',
+              sources: [media],
+            }),
+            id: `outbox:${H.attempt}:2`,
+            summary: 'Proposed with a new category',
+          } as SessionHistoryEntryDto,
+        },
+      ]}
+      context={context}
+    />,
+  )
+  const existing = await expand('Proposed with an existing category')
+  expect(existing).toHaveTextContent('Existing InvenTree company #42')
+  expect(existing).toHaveTextContent('Existing InvenTree category #7')
+  // Manufacturer, MPN and category each carry their own source chip.
+  expect(
+    within(existing).getAllByRole('button', { name: /^Source: Agent, Proposed/ }),
+  ).toHaveLength(3)
+  const created = await expand('Proposed with a new category')
+  expect(created).toHaveTextContent('Microcontrollers (new)')
+})
