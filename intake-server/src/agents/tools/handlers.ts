@@ -1351,7 +1351,7 @@ async function previewState(context: SessionToolContext, preview: QueuedPreview,
   const closeAtDeadline = () => {
     released = true
     // Closing the socket frees the pool's slot, but the server keeps running a statement until it
-    // next writes, so the statement is cancelled first.
+    // next writes, so a best-effort cancel request is started before the client is discarded.
     cancelRunningStatement(context.pool, client)
     client.release(true)
   }
