@@ -411,7 +411,7 @@
 - [x] PR-F: implement task 11, review the exact head, publish with the demo, CI green, merge. Merged as #256 at `ec974af1`.
 - [ ] PR-G: implement task 12, review the exact head, publish, CI green, run the live VM check with Mitch's go-ahead, merge. Merged as #264 at `dcc10495`; the live VM check stays open.
 - [x] PR-H: implement task 13, review the exact head, publish with the demo, CI green, merge. Merged as #267 at `3000b14d`; its real-VM Settings check stays open (see `notes.md`).
-- [ ] PR-I: implement task 14, review the exact head, publish with the audit, captures and the demo, CI green, merge.
+- [x] PR-I: implement task 14, review the exact head, publish with the audit, captures and the demo, CI green, merge. Merged as #270 at `2636a105`.
 - [ ] PR-J: implement task 15, review the exact head, publish with the demo, CI green, merge.
 - [ ] Update BI-020 as PRs merge. It is Done only after every implementation PR (PR-A to PR-J) merges and its acceptance is evidenced.
 - [ ] Mark this change's "Fixes: before and after" entries (S5, S7, O1–O5, O7–O11) in the design log as Built, with their PRs.
