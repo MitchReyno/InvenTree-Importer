@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { AgentChild, record } from '#/agents/child.ts'
 import { CODEX_CONFIG } from '#/agents/codex.ts'
 import { requireCodexSessionVersion } from '#/agents/session/session-admission.ts'
+import { ResearchReapPendingError } from '#/research/errors.ts'
 
 type Device = { loginId: string; verificationUrl: string; userCode: string }
 type Login = { rpc: AccountRpc; device: Device; home: string; expires: number }
@@ -117,15 +118,70 @@ export function parseDevice(v: Record<string, unknown>): Device {
   return { loginId: v.loginId, verificationUrl: v.verificationUrl, userCode: v.userCode }
 }
 
-/** What the read-only status sees; `busy` while a sign-in change or another read runs. */
-export type CodexStatusRead = 'signed_in' | 'signed_out' | 'signing_in' | 'busy'
+/**
+ * What the read-only status sees. A known state carries its age in milliseconds and whether a
+ * check is running now. `checking` means no check has finished since this process started or
+ * since the last sign-in change; `timeout` and `unavailable` mean the latest check failed with no
+ * earlier result to report; `busy` means a sign-in change is running.
+ */
+export type CodexStatusRead =
+  | { state: 'signed_in' | 'signed_out' | 'signing_in'; ageMs: number; refreshing: boolean }
+  | { state: 'checking' | 'busy' | 'timeout' | 'unavailable' }
+
+/** When a Codex status check is redone, how long one may run, and the clock that times them. */
+export interface CodexStatusOptions {
+  /** A result younger than this is reported without a new check. */
+  freshMs: number
+  /** A check is stopped, its account process killed and reaped, after this long. */
+  refreshTimeoutMs: number
+  /**
+   * Every check but the first after a sign-in change starts at least this long after the
+   * previous one started, so Check again and a failing check can't run back to back.
+   */
+  minRefreshIntervalMs: number
+  /** Monotonic milliseconds, so a guest clock step never resets freshness or the interval. */
+  now: () => number
+}
+
+/**
+ * `account/read` took 1.5-1.9 s on an idle 2-CPU VM, longer than a status request may wait, so
+ * reads answer from the last check. Sign-in changes made here forget it at once, so the window
+ * only bounds how late a change made elsewhere (such as a revoked token) is seen.
+ */
+const CODEX_STATUS_OPTIONS: CodexStatusOptions = {
+  freshMs: 60_000,
+  refreshTimeoutMs: 10_000,
+  minRefreshIntervalMs: 5_000,
+  now: () => performance.now(),
+}
+
+type CheckedState = { state: 'signed_in' | 'signed_out'; at: number }
+
+class CheckTimedOut extends Error {}
+
+/** One status check in progress; at most one runs at a time. */
+interface StatusCheck {
+  stop: AbortController
+  done: Promise<void>
+}
 
 export class CodexAccount {
   private lastStatusLogin?: string
   private pending?: Login
   private timer?: ReturnType<typeof setTimeout>
   private busy = false
-  private reading?: Promise<unknown>
+  private readonly status: CodexStatusOptions
+  /** The last completed check, and the failure of a later one when there is no result. */
+  private lastCheck?: CheckedState
+  private lastFailure?: 'timeout' | 'unavailable'
+  private lastCheckStartedAt?: number
+  /** When the last check ended, whatever its outcome: freshness counts from here. */
+  private lastCheckEndedAt?: number
+  private check?: StatusCheck
+  /** A check whose process wasn't confirmed gone; no further check starts beside it. */
+  private reapUnconfirmed = false
+  /** Bumped by each sign-in change, so a check that started before it is never reported. */
+  private generation = 0
 
   constructor(
     private readonly root: string,
@@ -134,7 +190,10 @@ export class CodexAccount {
       home,
       exclusive,
     ) => new LoginRpc(root, home, exclusive),
-  ) {}
+    status: Partial<CodexStatusOptions> = {},
+  ) {
+    this.status = { ...CODEX_STATUS_OPTIONS, ...status }
+  }
 
   private async abandon() {
     const login = this.pending
@@ -147,41 +206,168 @@ export class CodexAccount {
   }
 
   async action(action: unknown, loginId?: unknown) {
-    // A status read is bounded by its deadline, so an operator action waits for it, never fails.
-    await this.reading?.catch(() => {})
     if (this.busy) {
       throw unavailable()
     }
     this.busy = true
+    // Only a plain status read without a pending login leaves the sign-in as it was.
+    const changesSignIn = action !== 'status' || this.pending !== undefined
     try {
+      if (changesSignIn) {
+        // A check holds the account lock and may run for seconds, so it is stopped rather than
+        // waited for; only its process's reap is awaited. If that reap isn't confirmed, the
+        // process may still hold the lock, and the exclusive `flock -n` of a sign-in refuses.
+        await this.stopCheck()
+      }
       return await this.perform(action, loginId)
     } finally {
+      if (changesSignIn) {
+        this.forgetChecks()
+      }
       this.busy = false
     }
   }
 
   /**
-   * Reads the sign-in state without changing it: a pending login is reported from memory, even
-   * once expired, and an account is read without a refresh under the shared lock turns take.
+   * Reads the sign-in state at once, without changing it. A pending login is reported from
+   * memory, even once expired, and a missing account directory as signed out. Otherwise the
+   * answer is the last check's, and a check starts in the background when there is none, it is
+   * stale, or `refresh` asks for one, unless the request has already ended (`signal`); it runs
+   * `account/read` without a refresh under the shared lock turns take.
    */
-  async readStatus(signal: AbortSignal): Promise<CodexStatusRead> {
-    if (this.busy || this.reading) {
-      return 'busy'
-    }
-    if (this.pending) {
-      return 'signing_in'
-    }
-    const read = this.readAccount(signal)
-    this.reading = read
-    try {
-      return await read
-    } finally {
-      this.reading = undefined
+  async readStatus(refresh = false, signal?: AbortSignal): Promise<CodexStatusRead> {
+    for (;;) {
+      const fromMemory = this.statusFromMemory()
+      if (fromMemory) {
+        return fromMemory
+      }
+      // Nobody waits for the answer of a request that has ended, so it reads and starts nothing.
+      if (signal?.aborted) {
+        return this.lastResult()
+      }
+      const generation = this.generation
+      const present = await exists(join(this.root, 'account'))
+      // A sign-in change may have started or finished while the directory was read.
+      const changedMeanwhile = generation !== this.generation || this.busy || this.pending
+      if (changedMeanwhile) {
+        continue
+      }
+      if (!present) {
+        return { state: 'signed_out', ageMs: 0, refreshing: false }
+      }
+      if (!signal?.aborted && this.checkDue(refresh)) {
+        this.startCheck()
+      }
+      return this.lastResult()
     }
   }
 
-  private async readAccount(signal: AbortSignal): Promise<CodexStatusRead> {
-    // Settles as soon as the read is abandoned, including before the account process starts.
+  private statusFromMemory(): CodexStatusRead | undefined {
+    if (this.busy) {
+      return { state: 'busy' }
+    }
+    if (this.pending) {
+      return { state: 'signing_in', ageMs: 0, refreshing: false }
+    }
+    return undefined
+  }
+
+  private lastResult(): CodexStatusRead {
+    if (this.lastCheck) {
+      return {
+        state: this.lastCheck.state,
+        ageMs: Math.max(0, this.status.now() - this.lastCheck.at),
+        refreshing: this.check !== undefined,
+      }
+    }
+    // A retry after a failed first check is still checking; its failure shows once it ends.
+    if (this.check) {
+      return { state: 'checking' }
+    }
+    if (this.lastFailure) {
+      return { state: this.lastFailure }
+    }
+    // No check will start beside a process that may still be running.
+    return { state: this.reapUnconfirmed ? 'unavailable' : 'checking' }
+  }
+
+  private checkDue(refresh: boolean) {
+    if (this.check || this.reapUnconfirmed) {
+      return false
+    }
+    const now = this.status.now()
+    const sinceLastStart =
+      this.lastCheckStartedAt === undefined ? Infinity : now - this.lastCheckStartedAt
+    const intervalPassed = sinceLastStart >= this.status.minRefreshIntervalMs
+    if (!this.lastCheck) {
+      // A first check starts at once; after it fails, it is retried at the interval.
+      return this.lastFailure === undefined || intervalPassed
+    }
+    // A failed check counts as recent too, so a failing account is retried at the freshness
+    // window, not on every read, unless Check again asks.
+    const lastEnded = this.lastCheckEndedAt ?? this.lastCheck.at
+    const stale = now - lastEnded >= this.status.freshMs
+    return intervalPassed && (stale || refresh)
+  }
+
+  private startCheck() {
+    const generation = this.generation
+    const stop = new AbortController()
+    const timer = setTimeout(() => stop.abort(new CheckTimedOut()), this.status.refreshTimeoutMs)
+    this.lastCheckStartedAt = this.status.now()
+    const done = this.readAccount(stop.signal).then(
+      (state) => {
+        if (generation === this.generation) {
+          this.lastCheck = { state, at: this.status.now() }
+          this.lastFailure = undefined
+        }
+      },
+      (error: unknown) => {
+        const reapUnconfirmed = error instanceof ResearchReapPendingError
+        if (reapUnconfirmed) {
+          this.reapUnconfirmed = true
+        }
+        // A failed check keeps an earlier result, which still says how old it is. `timeout`
+        // promises the process is gone, so a check whose reap isn't confirmed is unavailable.
+        if (generation === this.generation) {
+          const timedOut = stop.signal.reason instanceof CheckTimedOut && !reapUnconfirmed
+          this.lastFailure = timedOut ? 'timeout' : 'unavailable'
+        }
+      },
+    )
+    const check: StatusCheck = { stop, done }
+    this.check = check
+    void done.finally(() => {
+      clearTimeout(timer)
+      if (generation === this.generation) {
+        this.lastCheckEndedAt = this.status.now()
+      }
+      if (this.check === check) {
+        this.check = undefined
+      }
+    })
+  }
+
+  /** Stops a running check and waits for its account process to be reaped. */
+  private async stopCheck() {
+    const check = this.check
+    if (check) {
+      check.stop.abort()
+      await check.done
+    }
+  }
+
+  /** A sign-in change waives the interval too, so the first read after it checks at once. */
+  private forgetChecks() {
+    this.generation++
+    this.lastCheck = undefined
+    this.lastFailure = undefined
+    this.lastCheckStartedAt = undefined
+    this.lastCheckEndedAt = undefined
+  }
+
+  private async readAccount(signal: AbortSignal): Promise<'signed_in' | 'signed_out'> {
+    // Settles as soon as the check is stopped.
     const abandoned = new Promise<never>((_resolve, reject) => {
       if (signal.aborted) {
         reject(signal.reason)
@@ -189,19 +375,13 @@ export class CodexAccount {
       signal.addEventListener('abort', () => reject(signal.reason), { once: true })
     })
     abandoned.catch(() => {})
-    const active = join(this.root, 'account')
-    const present = await Promise.race([exists(active), abandoned])
-    if (!present) {
-      return 'signed_out'
-    }
-    signal.throwIfAborted()
-    const rpc = this.rpc(this.root, active, false)
+    const rpc = this.rpc(this.root, join(this.root, 'account'), false)
     try {
       await Promise.race([rpc.initialize(), abandoned])
       const connected = await Promise.race([rpc.connected(), abandoned])
       return connected ? 'signed_in' : 'signed_out'
     } finally {
-      // Returns only once the account process is reaped.
+      // Returns only once the account process is reaped; throws when that isn't confirmed.
       await rpc.close()
     }
   }

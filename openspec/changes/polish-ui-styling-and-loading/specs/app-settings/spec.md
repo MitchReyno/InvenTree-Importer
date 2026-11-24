@@ -213,6 +213,12 @@ Each provider card SHALL show its sign-in status as a state pill read from the a
 - **WHEN** the card renders
 - **THEN** the pill says "Can't reach the agent VM", not "No token" or "Not signed in".
 
+#### Scenario: Check again while the VM checks Codex
+
+- **GIVEN** Codex signed in, last checked some minutes ago
+- **WHEN** the operator chooses Check again
+- **THEN** the pill keeps "Signed in" with a quiet "Checking…" beside it, and the card reads the VM again until that check lands, a read fails or about 15 seconds pass; once the check finishes it says "Checked just now".
+
 ### Requirement: Each provider's status stands alone
 
 Each provider card's status SHALL come from that provider's own answer, so one provider can be unknown while the other is known.

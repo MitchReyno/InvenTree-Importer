@@ -302,7 +302,19 @@ async function main() {
           ],
         },
       },
-      '/api/v1/agents/provider-status': { get: get('ProviderStatus', CAPTURE_TIMEOUT_MS) },
+      '/api/v1/agents/provider-status': {
+        get: {
+          ...get('ProviderStatus', CAPTURE_TIMEOUT_MS),
+          parameters: [
+            {
+              name: 'refresh',
+              in: 'query',
+              description: 'Asks for a fresh check; the answer still comes from the last one.',
+              schema: schemas.ProviderStatusQuery.properties.refresh,
+            },
+          ],
+        },
+      },
       '/api/v1/agents/pause': {
         put: post('AgentPauseUpdate', 'AgentPauseAll', '200', CAPTURE_TIMEOUT_MS),
       },

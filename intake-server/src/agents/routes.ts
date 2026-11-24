@@ -8,6 +8,7 @@ import {
   type AgentPauseUpdateDto,
   type AgentSessionQueryDto,
   type AgentSettingsUpdateDto,
+  type ProviderStatusQueryDto,
 } from '@invimport/contracts'
 import type { ProcessingConfig } from '#/processing/attempts.ts'
 import { ProcessingError } from '#/processing/model.ts'
@@ -57,10 +58,15 @@ export function registerAgents(
       },
       (request) => saveAgentSettings(pool, config, request.body),
     )
-    scope.get(
+    scope.get<{ Querystring: ProviderStatusQueryDto }>(
       '/api/v1/agents/provider-status',
-      { schema: { response: { 200: schemas.ProviderStatus } } },
-      () => readProviderStatus(pool, config, guestStatus),
+      {
+        schema: {
+          querystring: schemas.ProviderStatusQuery,
+          response: { 200: schemas.ProviderStatus },
+        },
+      },
+      (request) => readProviderStatus(pool, config, guestStatus, request.query.refresh === 'true'),
     )
     scope.put<{ Body: AgentPauseUpdateDto }>(
       '/api/v1/agents/pause',

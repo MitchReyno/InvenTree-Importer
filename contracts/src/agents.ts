@@ -237,7 +237,8 @@ export const AgentPauseAll = object({
 /**
  * Why a provider's sign-in status could not be read. None of them means signed out: the session
  * worker didn't answer, the agent VM isn't connected, the provider's credential service is missing
- * or older than the status read, it is busy with a sign-in change, or it didn't answer in time.
+ * or older than the status read, it is busy with a sign-in change, it didn't answer in time, or
+ * (Codex) its first check since starting or since a sign-in change hasn't finished yet.
  */
 export const PROVIDER_STATUS_UNKNOWN_REASONS = [
   'not_configured',
@@ -247,6 +248,7 @@ export const PROVIDER_STATUS_UNKNOWN_REASONS = [
   'guest_outdated',
   'busy',
   'timeout',
+  'checking',
 ] as const
 const providerStatusUnknown = {
   state: Type.Literal('unknown'),
@@ -261,14 +263,20 @@ export const ProviderSignInFailure = object({
 const lastSignInFailure = {
   last_sign_in_failure: Type.Union([ProviderSignInFailure, Type.Null()]),
 }
+/**
+ * When the guest established a known state. Claude's is read on every request; Codex answers from
+ * its last completed check, which may be up to a minute old, or older when a newer check failed.
+ */
+const checkedAt = { checked_at: Type.String({ maxLength: 40 }) }
 export const ClaudeProviderStatus = Type.Union([
   object({
     state: Type.Literal('saved'),
     /** Null when the token was saved by a guest image that doesn't record the time. */
     saved_at: Type.Union([Type.String({ maxLength: 40 }), Type.Null()]),
+    ...checkedAt,
     ...lastSignInFailure,
   }),
-  object({ state: Type.Literal('not_saved'), ...lastSignInFailure }),
+  object({ state: Type.Literal('not_saved'), ...checkedAt, ...lastSignInFailure }),
   object({ ...providerStatusUnknown, ...lastSignInFailure }),
 ])
 export const CodexProviderStatus = Type.Union([
@@ -278,6 +286,9 @@ export const CodexProviderStatus = Type.Union([
       Type.Literal('signing_in'),
       Type.Literal('signed_out'),
     ]),
+    ...checkedAt,
+    /** A newer check is running; read again for its result. Never set for Claude. */
+    refreshing: Type.Boolean(),
     ...lastSignInFailure,
   }),
   object({ ...providerStatusUnknown, ...lastSignInFailure }),
@@ -292,6 +303,8 @@ export const ProviderStatus = object({
   /** When the guest was read; the server reuses a read for a few seconds. */
   read_at: Type.String({ maxLength: 40 }),
 })
+/** `refresh=true` asks for a fresh Codex check; the answer still comes from the last one. */
+export const ProviderStatusQuery = object({ refresh: Type.Optional(Type.Literal('true')) })
 export const NativeAgentResult = object({
   proposal: Type.Union([ProcessingProposalV2, Type.Null()]),
   question: Type.Union([ProcessingQuestionSpec, Type.Null()]),
@@ -314,6 +327,7 @@ export const agentSchemas = {
   AgentPauseAll,
   InstructionDelivery,
   ProviderStatus,
+  ProviderStatusQuery,
 }
 export type InstructionDeliveryDto = Static<typeof InstructionDelivery>
 export type AgentPauseUpdateDto = Static<typeof AgentPauseUpdate>
@@ -334,3 +348,4 @@ export type ProviderSignInFailureDto = Static<typeof ProviderSignInFailure>
 export type ClaudeProviderStatusDto = Static<typeof ClaudeProviderStatus>
 export type CodexProviderStatusDto = Static<typeof CodexProviderStatus>
 export type ProviderStatusDto = Static<typeof ProviderStatus>
+export type ProviderStatusQueryDto = Static<typeof ProviderStatusQuery>

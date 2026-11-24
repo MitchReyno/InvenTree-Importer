@@ -30,7 +30,9 @@ type UnknownStatus = { state: 'unknown'; reason: BridgeStatusUnknownReason }
 
 /** What the worker tells the API: Claude's credential revision stays with the worker. */
 export type ClaudeDisplayStatus =
-  { state: 'saved'; saved_at: string | null } | { state: 'not_saved' } | UnknownStatus
+  | { state: 'saved'; saved_at: string | null; checked_at: string }
+  | { state: 'not_saved'; checked_at: string }
+  | UnknownStatus
 export interface DisplayProviderStatuses {
   claude: ClaudeDisplayStatus
   codex: CodexBridgeStatus
@@ -43,6 +45,8 @@ interface StatusRequest {
   target_context_id: string
   /** When the API stops waiting, in epoch milliseconds; the worker doesn't answer after it. */
   expires_at: number
+  /** Check again: Codex starts a fresh check. An API from before it sends none. */
+  refresh?: boolean
 }
 
 interface StatusReply {
@@ -100,7 +104,8 @@ function liveRequest(binding: Binding, value: unknown): StatusRequest | undefine
     request.target_context_id !== binding.targetContextId ||
     typeof request.expires_at !== 'number' ||
     request.expires_at > Date.now() + STATUS_REQUEST_TIMEOUT_MS ||
-    request.expires_at <= Date.now()
+    request.expires_at <= Date.now() ||
+    (request.refresh !== undefined && typeof request.refresh !== 'boolean')
   ) {
     return undefined
   }
@@ -114,6 +119,7 @@ const UNKNOWN_REASONS = new Set<BridgeStatusUnknownReason>([
   'guest_outdated',
   'busy',
   'timeout',
+  'checking',
 ])
 
 function unknownStatus(value: Record<string, unknown>): UnknownStatus | undefined {
@@ -124,15 +130,26 @@ function unknownStatus(value: Record<string, unknown>): UnknownStatus | undefine
   return undefined
 }
 
+const isoTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
+
+/** A known state's check time, which every known state carries. */
+function checkedAt(value: Record<string, unknown>) {
+  const time = value.checked_at
+  return typeof time === 'string' && isoTime.test(time) ? time : undefined
+}
+
 function claudeStatus(value: Record<string, unknown>): ClaudeDisplayStatus | undefined {
+  const checked = checkedAt(value)
   if (value.state === 'saved') {
     const savedAt = value.saved_at === null || typeof value.saved_at === 'string'
-    return savedAt && Object.keys(value).length === 2
-      ? { state: 'saved', saved_at: value.saved_at as string | null }
+    return savedAt && checked && Object.keys(value).length === 3
+      ? { state: 'saved', saved_at: value.saved_at as string | null, checked_at: checked }
       : undefined
   }
   if (value.state === 'not_saved') {
-    return Object.keys(value).length === 1 ? { state: 'not_saved' } : undefined
+    return checked && Object.keys(value).length === 2
+      ? { state: 'not_saved', checked_at: checked }
+      : undefined
   }
   return unknownStatus(value)
 }
@@ -140,7 +157,12 @@ function claudeStatus(value: Record<string, unknown>): ClaudeDisplayStatus | und
 function codexStatus(value: Record<string, unknown>): CodexBridgeStatus | undefined {
   const state = value.state
   if (state === 'signed_in' || state === 'signed_out' || state === 'signing_in') {
-    return Object.keys(value).length === 1 ? { state } : undefined
+    const checked = checkedAt(value)
+    const refreshing = value.refreshing
+    if (!checked || typeof refreshing !== 'boolean' || Object.keys(value).length !== 3) {
+      return undefined
+    }
+    return { state, checked_at: checked, refreshing }
   }
   return unknownStatus(value)
 }
@@ -166,9 +188,15 @@ export function displayStatuses(statuses: BridgeProviderStatuses): DisplayProvid
   const claude = statuses.claude
   switch (claude.state) {
     case 'saved':
-      return { claude: { state: 'saved', saved_at: claude.saved_at }, codex: statuses.codex }
+      return {
+        claude: { state: 'saved', saved_at: claude.saved_at, checked_at: claude.checked_at },
+        codex: statuses.codex,
+      }
     case 'not_saved':
-      return { claude: { state: 'not_saved' }, codex: statuses.codex }
+      return {
+        claude: { state: 'not_saved', checked_at: claude.checked_at },
+        codex: statuses.codex,
+      }
     case 'unknown':
       return { claude, codex: statuses.codex }
   }
@@ -205,19 +233,20 @@ function abortedAt(signal: AbortSignal) {
 
 /**
  * Asks the worker and waits at most `timeoutMs`, from taking a connection to the reply. Undefined
- * means the worker didn't answer in time, or isn't running.
+ * means the worker didn't answer in time, or isn't running. `refresh` is Check again.
  */
 export async function requestProviderStatus(
   pool: Pool,
   binding: Binding,
   timeoutMs = STATUS_REQUEST_TIMEOUT_MS,
+  refresh = false,
 ): Promise<DisplayProviderStatuses | undefined> {
   // A held timer, unlike `AbortSignal.timeout`'s, so a caller with nothing else pending still waits.
   const expiry = new AbortController()
   const expiresAt = Date.now() + timeoutMs
   const timer = setTimeout(() => expiry.abort(), timeoutMs)
   try {
-    return await exchange(pool, binding, expiry.signal, expiresAt)
+    return await exchange(pool, binding, expiry.signal, expiresAt, refresh)
   } finally {
     clearTimeout(timer)
   }
@@ -228,6 +257,7 @@ async function exchange(
   binding: Binding,
   deadline: AbortSignal,
   expiresAt: number,
+  refresh: boolean,
 ): Promise<DisplayProviderStatuses | undefined> {
   const connecting = pool.connect()
   // A refused connection is a worker that can't be asked, never a failed route.
@@ -284,6 +314,7 @@ async function exchange(
       target_id: binding.targetId,
       target_context_id: binding.targetContextId,
       expires_at: expiresAt,
+      refresh,
     }
     const sending = client.query('SELECT pg_notify($1, $2)', [
       STATUS_REQUEST_CHANNEL,
@@ -313,25 +344,33 @@ async function exchange(
 }
 
 /**
- * Answers this scope's signed requests with `read`, given what is left of the request's budget, on
- * one held connection that is opened again if it fails. Requests arriving while a read runs share
- * its answer; each request ID is answered at most once, and its reply isn't sent after its expiry.
+ * Answers this scope's signed requests with `read`, given what is left of the request's budget and
+ * whether it is Check again, on one held connection that is opened again if it fails. Plain
+ * requests arriving while a plain read runs share its answer; a Check again always reads anew; each request ID is answered at most
+ * once, and its reply isn't sent after its expiry.
  */
 export function serveProviderStatusRequests(
   pool: Pool,
   binding: Binding,
-  read: (budgetMs: number) => Promise<BridgeProviderStatuses>,
+  read: (budgetMs: number, refresh: boolean) => Promise<BridgeProviderStatuses>,
 ) {
   const stopping = new AbortController()
   // Each accepted request ID until it expires, so a replay within its life is refused.
   const live = new Map<string, number>()
-  let current: Promise<BridgeProviderStatuses> | undefined
+  // Plain reads in flight, shared; a Check again is never shared.
+  const current = new Map<false, Promise<BridgeProviderStatuses>>()
 
-  const shared = (budgetMs: number) => {
-    current ??= read(budgetMs).finally(() => {
-      current = undefined
-    })
-    return current
+  const shared = (budgetMs: number, refresh: boolean) => {
+    // Check again never joins a read in flight, which may predate a sign-in change.
+    if (refresh) {
+      return read(budgetMs, true)
+    }
+    let reading = current.get(false)
+    if (!reading) {
+      reading = read(budgetMs, false).finally(() => current.delete(false))
+      current.set(false, reading)
+    }
+    return reading
   }
 
   /** Answers in flight, which `close` waits for; each ends by its request's expiry. */
@@ -388,7 +427,7 @@ export function serveProviderStatusRequests(
     if (budgetMs <= 0) {
       return
     }
-    const status = displayStatuses(await shared(budgetMs))
+    const status = displayStatuses(await shared(budgetMs, request.refresh === true))
     await reply(request, status)
   }
 

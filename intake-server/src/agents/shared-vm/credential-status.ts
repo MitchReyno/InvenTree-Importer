@@ -6,6 +6,7 @@ import {
   serveProviderStatus,
   type GuestProviderStatus,
   type StatusProvider,
+  type StatusReader,
 } from './provider-status.ts'
 
 /** Claude's answer from a read-only connection to the token store. */
@@ -24,12 +25,30 @@ export function claudeStatusReader(directory: string) {
   }
 }
 
-/** Codex's answer, read without changing a sign-in. */
-export function codexStatusReader(account: CodexAccount) {
-  return async (signal: AbortSignal): Promise<GuestProviderStatus> => ({
-    provider: 'codex',
-    state: await account.readStatus(signal),
-  })
+/**
+ * Codex's answer, read without changing a sign-in. It comes at once from the last check, which
+ * runs apart from the request: the request's signal only keeps an ended request from starting one.
+ */
+export function codexStatusReader(account: CodexAccount): StatusReader {
+  return async (signal, refresh) => {
+    const status = await account.readStatus(refresh, signal)
+    switch (status.state) {
+      case 'signed_in':
+      case 'signed_out':
+      case 'signing_in':
+        return {
+          provider: 'codex',
+          state: status.state,
+          age_ms: Math.round(status.ageMs),
+          refreshing: status.refreshing,
+        }
+      case 'checking':
+      case 'busy':
+      case 'timeout':
+      case 'unavailable':
+        return { provider: 'codex', state: status.state }
+    }
+  }
 }
 
 /**
@@ -38,7 +57,7 @@ export function codexStatusReader(account: CodexAccount) {
  */
 export async function startStatusService(
   provider: StatusProvider,
-  read: (signal: AbortSignal) => Promise<GuestProviderStatus>,
+  read: StatusReader,
   pairDirectory: string,
   socketPath: string,
 ) {

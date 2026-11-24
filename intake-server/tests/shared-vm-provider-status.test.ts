@@ -13,8 +13,9 @@ import { pairedCertificates } from './support/vm-pairing.ts'
 import { freePort } from './support/manual-process.ts'
 import { pairing } from '#/agents/shared-vm/pair.ts'
 import { Frames, protocol } from '#/agents/shared-vm/frames.ts'
-import { startSessionBridge } from '#/agents/shared-vm/coordinator.ts'
+import { startSessionBridge, type BridgeProviderStatuses } from '#/agents/shared-vm/coordinator.ts'
 import { CodexAccount } from '#/agents/shared-vm/codex-login.ts'
+import { ResearchReapPendingError } from '#/research/errors.ts'
 import { credentialPath, managementServer } from '#/agents/shared-vm/credential-http.ts'
 import {
   credentialStore,
@@ -25,7 +26,7 @@ import { claudeStatusReader, codexStatusReader } from '#/agents/shared-vm/creden
 import {
   STATUS_PROTOCOL,
   serveProviderStatus,
-  type GuestProviderStatus,
+  type StatusReader,
 } from '#/agents/shared-vm/provider-status.ts'
 
 const loginId = 'be8d5568-670e-4618-a98a-557c7c7862d0'
@@ -100,7 +101,7 @@ async function statusService(
   t: TestContext,
   root: string,
   provider: 'claude' | 'codex',
-  read: (signal: AbortSignal) => Promise<GuestProviderStatus>,
+  read: StatusReader,
   deadlineMs?: number,
 ) {
   const socketPath = join(root, provider + '-status', 'status.sock')
@@ -115,8 +116,9 @@ async function statusService(
   return socketPath
 }
 
-async function waitFor(check: () => boolean | Promise<boolean>, what: string) {
-  for (let i = 0; i < 200; i++) {
+async function waitFor(check: () => boolean | Promise<boolean>, what: string, withinMs = 2000) {
+  const until = Date.now() + withinMs
+  while (Date.now() < until) {
     if (await check()) {
       return
     }
@@ -250,6 +252,66 @@ test('a Claude status read is read-only and runs beside a turn reading the token
   assert.ok(!JSON.stringify(status).includes(token))
 })
 
+/**
+ * A fake account RPC whose check (`account/read` under the shared lock) waits until the test
+ * releases it. `events` records when a check's process is closed and an exclusive one opens.
+ */
+function heldAccountRpc() {
+  const held = {
+    starts: 0,
+    checkCloses: 0,
+    events: [] as string[],
+    connected: true,
+    releases: [] as (() => void)[],
+    release() {
+      for (const release of held.releases.splice(0)) {
+        release()
+      }
+    },
+    factory: (_root: string, _home: string, exclusive: boolean) => {
+      if (exclusive) {
+        held.events.push('exclusive-open')
+      } else {
+        held.starts++
+      }
+      return {
+        initialize: async () => {},
+        close: async () => {
+          if (!exclusive) {
+            held.checkCloses++
+            held.events.push('check-closed')
+          }
+        },
+        connected: () => {
+          if (exclusive) {
+            return Promise.resolve(held.connected)
+          }
+          return new Promise<boolean>((resolve) => {
+            held.releases.push(() => resolve(held.connected))
+          })
+        },
+        request: async () => device,
+      }
+    },
+  }
+  return held
+}
+
+/** Reads until no check is running, without asking for another one. */
+async function checked(account: CodexAccount) {
+  let status = await account.readStatus()
+  await waitFor(
+    async () => {
+      status = await account.readStatus()
+      const running = status.state === 'checking' || ('refreshing' in status && status.refreshing)
+      return !running
+    },
+    'the Codex check',
+    10_000,
+  )
+  return status
+}
+
 test('a Codex status read never cancels, completes or changes a sign-in', async (t) => {
   const root = await scratch(t, 'codex-status-read-')
   const when = Date.now()
@@ -274,23 +336,23 @@ test('a Codex status read never cancels, completes or changes a sign-in', async 
     locks.push(exclusive)
     return rpc
   })
-  const signal = new AbortController().signal
+  const now = { state: 'signed_out', ageMs: 0, refreshing: false }
 
-  // Signed out, before any sign-in or turn.
-  assert.equal(await account.readStatus(signal), 'signed_out')
+  // Signed out, before any sign-in or turn: no account to check, so no account process.
+  assert.deepEqual(await account.readStatus(), now)
   assert.equal(methods.length, 0)
 
   // Signing in, before any turn: read from the pending login, with no RPC on it.
   await account.action('start')
   methods.length = 0
-  assert.equal(await account.readStatus(signal), 'signing_in')
+  assert.deepEqual(await account.readStatus(true), { ...now, state: 'signing_in' })
   assert.equal(methods.length, 0)
 
   // Expired but not yet cancelled: still read as signing in, and left as it is.
   t.mock.timers.setTime(when + 16 * 60_000)
   rpc.completion = { loginId, success: true }
   connected = true
-  assert.equal(await account.readStatus(signal), 'signing_in')
+  assert.equal((await account.readStatus()).state, 'signing_in')
   assert.equal(methods.length, 0)
   const staging = (await readdir(root)).filter((name) => name.startsWith('login-'))
   assert.equal(staging.length, 1)
@@ -302,72 +364,263 @@ test('a Codex status read never cancels, completes or changes a sign-in', async 
   await mkdir(join(root, 'account'))
   methods.length = 0
   locks.length = 0
-  assert.equal(await account.readStatus(signal), 'signed_in')
+  const status = await checked(account)
+  assert.ok(status.state === 'signed_in' && !status.refreshing)
   assert.deepEqual(methods, ['account/read'])
   assert.deepEqual(locks, [false])
+})
+
+test('reads arriving together share one Codex check, and a stale result is kept while it is redone', async (t) => {
+  const root = await scratch(t, 'codex-status-shared-')
+  await mkdir(join(root, 'account'))
+  const held = heldAccountRpc()
+  let clock = 0
+  const account = new CodexAccount(root, held.factory, {
+    freshMs: 200,
+    minRefreshIntervalMs: 0,
+    now: () => clock,
+  })
+
+  // The first reads have no result yet: they say so at once, and start one check between them.
+  const first = await Promise.all([1, 2, 3, 4, 5].map(() => account.readStatus()))
+  assert.deepEqual(new Set(first.map((status) => status.state)), new Set(['checking']))
+  await waitFor(() => held.releases.length === 1, 'the first check')
+  assert.equal(held.starts, 1)
+  held.release()
+  assert.deepEqual(await checked(account), { state: 'signed_in', ageMs: 0, refreshing: false })
+
+  // Still fresh: answered from the last check, with no new one.
+  clock = 150
+  assert.deepEqual(await account.readStatus(), {
+    state: 'signed_in',
+    ageMs: 150,
+    refreshing: false,
+  })
+  assert.equal(held.starts, 1)
+
+  // Stale: still answered from the last check, with its age, while one new check runs.
+  clock = 250
+  const stale = await Promise.all([1, 2, 3].map(() => account.readStatus()))
+  const kept = { state: 'signed_in', ageMs: 250, refreshing: true }
+  assert.deepEqual(stale, [kept, kept, kept])
+  await waitFor(() => held.releases.length === 1, 'the second check')
+  assert.equal(held.starts, 2)
+  held.connected = false
+  held.release()
+  assert.deepEqual(await checked(account), { state: 'signed_out', ageMs: 0, refreshing: false })
+  assert.equal(held.starts, 2)
+})
+
+test('a stale Codex result whose check keeps failing is checked again only at the interval', async (t) => {
+  const root = await scratch(t, 'codex-status-failing-')
+  await mkdir(join(root, 'account'))
+  let starts = 0
+  let failing = false
+  let clock = 0
+  const account = new CodexAccount(
+    root,
+    () => {
+      starts++
+      return {
+        initialize: async () => {},
+        close: async () => {},
+        connected: async () => {
+          if (failing) {
+            throw new Error('codex_account_unavailable')
+          }
+          return true
+        },
+        request: async () => device,
+      }
+    },
+    { freshMs: 0, minRefreshIntervalMs: 300, now: () => clock },
+  )
+  assert.equal((await checked(account)).state, 'signed_in')
+  failing = true
+  clock = 300
+  // Always stale: the first read past the interval starts one check, which fails and keeps
+  // the result.
+  await account.readStatus()
+  assert.equal(starts, 2)
+  assert.deepEqual(await checked(account), { state: 'signed_in', ageMs: 300, refreshing: false })
+  clock = 599
+  for (let i = 0; i < 10; i++) {
+    await account.readStatus(true)
+  }
+  assert.equal(starts, 2)
+  clock = 600
+  await account.readStatus()
+  assert.equal(starts, 3)
+})
+
+test('Check again starts a fresh Codex check, at most once per interval, and answers at once', async (t) => {
+  const root = await scratch(t, 'codex-status-forced-')
+  await mkdir(join(root, 'account'))
+  const held = heldAccountRpc()
+  let clock = 0
+  const account = new CodexAccount(root, held.factory, {
+    minRefreshIntervalMs: 300,
+    now: () => clock,
+  })
+  void account.readStatus()
+  await waitFor(() => held.releases.length === 1, 'the first check')
+  held.release()
+  await checked(account)
+
+  // Within the interval of the last check's start, Check again starts nothing.
+  clock = 299
+  assert.deepEqual(await account.readStatus(true), {
+    state: 'signed_in',
+    ageMs: 299,
+    refreshing: false,
+  })
+  assert.equal(held.starts, 1)
+
+  // After it, one forced check starts; the answer is still the last result, marked refreshing.
+  clock = 320
+  const forced = await Promise.all([account.readStatus(true), account.readStatus(true)])
+  const kept = { state: 'signed_in', ageMs: 320, refreshing: true }
+  assert.deepEqual(forced, [kept, kept])
+  await waitFor(() => held.releases.length === 1, 'the forced check')
+  assert.equal(held.starts, 2)
+  held.release()
+  assert.deepEqual(await checked(account), { state: 'signed_in', ageMs: 0, refreshing: false })
+  assert.equal(held.starts, 2)
+})
+
+test('a sign-in change forgets the last Codex check, and stops a check rather than wait for it', async (t) => {
+  const root = await scratch(t, 'codex-status-change-')
+  await mkdir(join(root, 'account'))
+  const held = heldAccountRpc()
+  const account = new CodexAccount(root, held.factory, { refreshTimeoutMs: 60_000 })
+  void account.readStatus()
+  await waitFor(() => held.releases.length === 1, 'the first check')
+  held.release()
+  assert.equal((await checked(account)).state, 'signed_in')
+
+  // An operator status read changes nothing, so the result is kept.
+  const statusAction = account.action('status')
+  await waitFor(() => held.releases.length === 1, 'the operator status read')
+  held.release()
+  assert.deepEqual(await statusAction, { state: 'connected' })
+  assert.equal((await account.readStatus()).state, 'signed_in')
+
+  // Signed out and in again: the next read checks again instead of reusing signed in.
+  held.connected = false
+  assert.deepEqual(await account.action('disconnect'), { state: 'disconnected' })
+  assert.equal((await account.readStatus()).state, 'signed_out')
+  await mkdir(join(root, 'account'))
+  held.connected = true
+  assert.deepEqual(await account.readStatus(), { state: 'checking' })
+  await waitFor(() => held.releases.length === 1, 'the check after the change')
+
+  // A sign-out while that check hangs stops it at once: its process is closed before the
+  // sign-out's own opens, and its result is never reported.
+  const closes = held.checkCloses
+  held.events.length = 0
+  held.connected = false
+  const started = Date.now()
+  assert.deepEqual(await account.action('disconnect'), { state: 'disconnected' })
+  assert.ok(Date.now() - started < 1000)
+  assert.equal(held.checkCloses, closes + 1)
+  assert.deepEqual(held.events.slice(0, 2), ['check-closed', 'exclusive-open'])
+  held.connected = true
+  held.release()
+  assert.equal((await account.readStatus()).state, 'signed_out')
+})
+
+test('a Codex check whose process is not confirmed gone starts no other, and blocks no action', async (t) => {
+  const root = await scratch(t, 'codex-status-reap-')
+  await mkdir(join(root, 'account'))
+  let starts = 0
+  const account = new CodexAccount(
+    root,
+    (_root, _home, exclusive) => {
+      if (!exclusive) {
+        starts++
+      }
+      return {
+        initialize: async () => {},
+        close: async () => {
+          if (!exclusive) {
+            throw new ResearchReapPendingError()
+          }
+        },
+        connected: () => (exclusive ? Promise.resolve(false) : new Promise<boolean>(() => {})),
+        request: async () => device,
+      }
+    },
+    { refreshTimeoutMs: 50, minRefreshIntervalMs: 0, freshMs: 0 },
+  )
+  assert.deepEqual(await account.readStatus(), { state: 'checking' })
+  // Timed out, but `timeout` would say the process is gone.
+  assert.deepEqual(await checked(account), { state: 'unavailable' })
+  assert.deepEqual(await account.readStatus(true), { state: 'unavailable' })
+  assert.equal(starts, 1)
+  // The sign-out still runs; the exclusive lock is what refuses it while the process lives.
+  assert.deepEqual(await account.action('disconnect'), { state: 'disconnected' })
+  await mkdir(join(root, 'account'))
+  assert.deepEqual(await account.readStatus(true), { state: 'unavailable' })
+  assert.equal(starts, 1)
 })
 
 test('a Codex status read is busy during a sign-in change, and never refuses one', async (t) => {
   const root = await scratch(t, 'codex-status-busy-')
   await mkdir(join(root, 'account'))
   let releaseAction!: () => void
-  let releaseRead!: () => void
-  let reads = 0
   const account = new CodexAccount(root, (_root, _home, exclusive) => ({
     initialize: async () => {
       if (exclusive) {
         await new Promise<void>((resolve) => (releaseAction = resolve))
-      } else if (reads++ === 0) {
-        await new Promise<void>((resolve) => (releaseRead = resolve))
       }
     },
     close: async () => {},
     connected: async () => true,
     request: async () => device,
   }))
-  const signal = new AbortController().signal
 
   const disconnecting = account.action('disconnect')
   await waitFor(() => releaseAction !== undefined, 'the disconnect to start')
-  assert.equal(await account.readStatus(signal), 'busy')
+  assert.deepEqual(await account.readStatus(true), { state: 'busy' })
   releaseAction()
   await disconnecting.catch(() => {})
-
-  // An operator action arriving during a read waits for it rather than failing.
-  const reading = account.readStatus(signal)
-  await waitFor(() => reads === 1, 'the read to start')
-  const status = account.action('status')
-  releaseRead()
-  assert.equal(await reading, 'signed_in')
-  assert.deepEqual(await status, { state: 'connected' })
 })
 
-test('an abandoned Codex read stops its account process', async (t) => {
-  const root = await scratch(t, 'codex-status-abort-')
+test('an operator status read runs during a Codex check and leaves it running', async (t) => {
+  const root = await scratch(t, 'codex-status-beside-')
   await mkdir(join(root, 'account'))
-  let closed = 0
-  const account = new CodexAccount(root, () => ({
-    initialize: async () => {},
-    close: async () => {
-      closed++
-    },
-    connected: () => new Promise<boolean>(() => {}),
-    request: async () => device,
-  }))
-  const controller = new AbortController()
-  const reading = account.readStatus(controller.signal)
-  await delay(20)
-  controller.abort()
-  await assert.rejects(reading)
-  assert.ok(closed >= 1)
-})
-
-test('a Codex read abandoned before its account check starts no account process', async (t) => {
-  const root = await scratch(t, 'codex-status-early-')
-  await mkdir(join(root, 'account'))
-  let started = 0
+  let checks = 0
+  let releaseCheck: (() => void) | undefined
   const account = new CodexAccount(root, () => {
-    started++
+    // The first shared-lock process is the background check; the next is the operator's read.
+    const isCheck = ++checks === 1
+    return {
+      initialize: async () => {},
+      close: async () => {},
+      connected: () =>
+        isCheck
+          ? new Promise<boolean>((resolve) => (releaseCheck = () => resolve(true)))
+          : Promise.resolve(true),
+      request: async () => device,
+    }
+  })
+  assert.deepEqual(await account.readStatus(), { state: 'checking' })
+  await waitFor(() => releaseCheck !== undefined, 'the check to hold')
+  assert.deepEqual(await account.action('status'), { state: 'connected' })
+  // Neither stopped nor forgotten: the check is still the one running, and its result counts.
+  assert.deepEqual(await account.readStatus(true), { state: 'checking' })
+  assert.equal(checks, 2)
+  releaseCheck!()
+  assert.equal((await checked(account)).state, 'signed_in')
+  assert.equal(checks, 2)
+})
+
+test('a request that has ended starts no Codex check', async (t) => {
+  const root = await scratch(t, 'codex-status-ended-')
+  await mkdir(join(root, 'account'))
+  let starts = 0
+  const account = new CodexAccount(root, () => {
+    starts++
     return {
       initialize: async () => {},
       close: async () => {},
@@ -375,18 +628,90 @@ test('a Codex read abandoned before its account check starts no account process'
       request: async () => device,
     }
   })
-  const controller = new AbortController()
-  // The account directory check is still pending when the read is abandoned.
-  const reading = account.readStatus(controller.signal)
-  controller.abort()
-  await assert.rejects(reading)
-  assert.equal(started, 0)
-  const aborted = AbortSignal.abort()
-  await assert.rejects(account.readStatus(aborted))
-  assert.equal(started, 0)
-  // Nothing is left holding the account: a management action runs at once.
-  assert.deepEqual(await account.action('status'), { state: 'connected' })
-  assert.equal(started, 1)
+  assert.deepEqual(await account.readStatus(true, AbortSignal.abort()), { state: 'checking' })
+  assert.equal(starts, 0)
+})
+
+test('a stale Codex result whose Check again fails ends its refresh, and is not checked again on every read', async (t) => {
+  const root = await scratch(t, 'codex-status-forced-fails-')
+  await mkdir(join(root, 'account'))
+  let starts = 0
+  let failing = false
+  let failCheck: (() => void) | undefined
+  let clock = 0
+  const account = new CodexAccount(
+    root,
+    () => {
+      starts++
+      return {
+        initialize: async () => {},
+        close: async () => {},
+        connected: () => {
+          if (!failing) {
+            return Promise.resolve(true)
+          }
+          return new Promise<boolean>((_resolve, reject) => {
+            failCheck = () => reject(new Error('codex_account_unavailable'))
+          })
+        },
+        request: async () => device,
+      }
+    },
+    { freshMs: 1000, minRefreshIntervalMs: 300, now: () => clock },
+  )
+  assert.equal((await checked(account)).state, 'signed_in')
+  failing = true
+  clock = 1000
+  const forced = await account.readStatus(true)
+  assert.ok(forced.state === 'signed_in' && forced.refreshing)
+  await waitFor(() => failCheck !== undefined, 'the forced check')
+  // The check started at 1000 and fails at 1500, which ends the refresh; the result stays.
+  clock = 1500
+  failCheck!()
+  assert.deepEqual(await checked(account), { state: 'signed_in', ageMs: 1500, refreshing: false })
+  assert.equal(starts, 2)
+  // Stale by the check's start, fresh by its end: plain reads start none.
+  clock = 2100
+  assert.deepEqual(await account.readStatus(), {
+    state: 'signed_in',
+    ageMs: 2100,
+    refreshing: false,
+  })
+  assert.equal(starts, 2)
+  // Check again still can, past the interval.
+  await account.readStatus(true)
+  assert.equal(starts, 3)
+})
+
+test('a Check again after a failed first Codex check reads checking until its result', async (t) => {
+  const root = await scratch(t, 'codex-status-retry-')
+  await mkdir(join(root, 'account'))
+  let failing = true
+  let finish: (() => void) | undefined
+  let clock = 0
+  const account = new CodexAccount(
+    root,
+    () => ({
+      initialize: async () => {},
+      close: async () => {},
+      connected: () => {
+        if (failing) {
+          return Promise.reject(new Error('codex_account_unavailable'))
+        }
+        return new Promise<boolean>((resolve) => (finish = () => resolve(true)))
+      },
+      request: async () => device,
+    }),
+    { minRefreshIntervalMs: 300, now: () => clock },
+  )
+  assert.deepEqual(await checked(account), { state: 'unavailable' })
+  failing = false
+  clock = 300
+  assert.deepEqual(await account.readStatus(true), { state: 'checking' })
+  await waitFor(() => finish !== undefined, 'the retry')
+  assert.deepEqual(await account.readStatus(), { state: 'checking' })
+  finish!()
+  assert.equal((await checked(account)).state, 'signed_in')
 })
 
 // Stand-ins for `flock` and the Codex app-server, so the real account RPC runs: the lock mode
@@ -424,28 +749,52 @@ process.stdin.on('data', (chunk) => {
 })
 `
 
-test('the real Codex account RPC reads without a refresh, shared, and is reaped when abandoned', async (t) => {
-  const root = await scratch(t, 'codex-status-rpc-')
+/** Puts the fake `flock` and `codex` on PATH for this test; `codexText` may replace the app-server. */
+async function fakeCodexBin(t: TestContext, root: string, codexText = FAKE_CODEX) {
   const bin = join(root, 'bin')
   await mkdir(bin)
-  await mkdir(join(root, 'state', 'account'), { recursive: true })
   for (const [name, text] of [
     ['flock', FAKE_FLOCK],
-    ['codex', FAKE_CODEX],
+    ['codex', codexText],
   ]) {
     await writeFile(join(bin, name), text)
     await chmod(join(bin, name), 0o755)
   }
-  const log = join(root, 'state', 'fake.log')
-  await writeFile(log, '')
   const savedPath = process.env.PATH
   process.env.PATH = bin + ':' + process.env.PATH
   t.after(() => {
     process.env.PATH = savedPath
   })
-  const account = new CodexAccount(join(root, 'state'))
-  const status = await account.readStatus(new AbortController().signal)
-  assert.equal(status, 'signed_in')
+}
+
+async function pidsStarted(log: string) {
+  const text = await readFile(log, 'utf8')
+  return [...text.matchAll(/started (\d+)/g)].map((match) => Number(match[1]))
+}
+
+function gone(pid: number) {
+  try {
+    process.kill(pid, 0)
+    return false
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'ESRCH'
+  }
+}
+
+test('the real Codex account RPC reads without a refresh, shared, and a check past its timeout is reaped', async (t) => {
+  const root = await scratch(t, 'codex-status-rpc-')
+  await fakeCodexBin(t, root)
+  const state = join(root, 'state')
+  await mkdir(join(state, 'account'), { recursive: true })
+  const log = join(state, 'fake.log')
+  await writeFile(log, '')
+  // Long enough for the fake app-server to start under load.
+  const account = new CodexAccount(state, undefined, {
+    refreshTimeoutMs: 3000,
+    minRefreshIntervalMs: 0,
+  })
+  const status = await checked(account)
+  assert.equal(status.state, 'signed_in')
   const lines = (await readFile(log, 'utf8')).trim().split('\n')
   assert.equal(lines[0], '-s')
   assert.ok(lines.includes('account/read {"refreshToken":false}'))
@@ -455,19 +804,47 @@ test('the real Codex account RPC reads without a refresh, shared, and is reaped 
   )
   assert.ok(!JSON.stringify(status).includes('operator@example.com'))
 
-  // A hanging read is abandoned and its process is gone before the read settles.
-  await writeFile(join(root, 'state', 'hang'), '')
+  // A forced check that hangs is stopped at its timeout, and its process is gone; the last
+  // result stays, with the time it was checked.
+  await writeFile(join(state, 'hang'), '')
   await writeFile(log, '')
-  const controller = new AbortController()
-  const reading = account.readStatus(controller.signal)
-  await waitFor(
-    async () => (await readFile(log, 'utf8')).includes('account/read'),
-    'the hanging read',
+  const forced = await account.readStatus(true)
+  assert.ok(forced.state === 'signed_in' && forced.refreshing)
+  await waitFor(async () => (await readFile(log, 'utf8')).includes('account/read'), 'the hang')
+  const [pid] = await pidsStarted(log)
+  await waitFor(() => gone(pid), 'the hanging check to be reaped', 10_000)
+  const kept = await checked(account)
+  assert.ok(kept.state === 'signed_in' && status.state === 'signed_in')
+  assert.ok(kept.ageMs > status.ageMs)
+})
+
+// The account process ignores SIGTERM, so stopping it needs the SIGKILL that follows.
+const STUBBORN_CODEX_LINE = "process.on('SIGTERM', () => {})"
+
+test('a first Codex check that times out reads as unknown, its stubborn process killed', async (t) => {
+  const root = await scratch(t, 'codex-status-kill-')
+  await fakeCodexBin(
+    t,
+    root,
+    FAKE_CODEX.replace("let buffer = ''", STUBBORN_CODEX_LINE + "\nlet buffer = ''"),
   )
-  const pid = Number(/started (\d+)/.exec(await readFile(log, 'utf8'))![1])
-  controller.abort()
-  await assert.rejects(reading)
-  assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' })
+  const state = join(root, 'state')
+  await mkdir(join(state, 'account'), { recursive: true })
+  await writeFile(join(state, 'hang'), '')
+  const log = join(state, 'fake.log')
+  await writeFile(log, '')
+  const account = new CodexAccount(state, undefined, {
+    refreshTimeoutMs: 3000,
+    minRefreshIntervalMs: 60_000,
+  })
+  assert.deepEqual(await account.readStatus(), { state: 'checking' })
+  assert.deepEqual(await checked(account), { state: 'timeout' })
+  const pids = await pidsStarted(log)
+  assert.equal(pids.length, 1)
+  assert.ok(gone(pids[0]))
+  // A failed check is retried only after the interval, so repeated reads start nothing.
+  assert.deepEqual(await account.readStatus(true), { state: 'timeout' })
+  assert.equal((await pidsStarted(log)).length, 1)
 })
 
 test('the status endpoint answers only the paired coordinator, with no secret', async (t) => {
@@ -482,14 +859,16 @@ test('the status endpoint answers only the paired coordinator, with no secret', 
 
   await relayStatus(t, socketPath, port)
   const status = await bridge.providerStatus()
+  assert.ok(status.claude.state === 'saved')
   assert.deepEqual(status.claude, {
     state: 'saved',
     revision: store.status().revision,
     saved_at: '2026-11-23T22:00:00.000Z',
+    checked_at: status.claude.checked_at,
   })
   assert.ok(!JSON.stringify(status).includes(token))
   // The connection is kept for the next read.
-  assert.deepEqual(await bridge.providerStatus(), status)
+  assert.equal((await bridge.providerStatus()).claude.state, 'saved')
 
   // A server that isn't the paired coordinator gets no status, only a refused handshake.
   for (const identity of ['bench-guest', 'other-ca']) {
@@ -615,37 +994,155 @@ test('the guest reports a timeout only once its work is cleaned up', async (t) =
   await relayed.closed
 })
 
-// The account process ignores SIGTERM, so stopping it needs the SIGKILL that follows.
-const STUBBORN_CODEX_LINE = "process.on('SIGTERM', () => {})"
+/** Reads through the coordinator until Codex's check in progress has finished. */
+async function checkedThrough(bridge: { providerStatus: () => Promise<BridgeProviderStatuses> }) {
+  for (let i = 0; i < 40; i++) {
+    const status = await bridge.providerStatus()
+    const codex = status.codex
+    const running =
+      (codex.state === 'unknown' && codex.reason === 'checking') ||
+      ('refreshing' in codex && codex.refreshing)
+    if (!running) {
+      return status
+    }
+    await delay(250)
+  }
+  assert.fail('timed out waiting for the Codex check')
+}
 
-test('a real account process that ignores SIGTERM is gone before the guest reports timeout', async (t) => {
-  const root = await scratch(t, 'status-guest-kill-')
-  const { bridge, port } = await coordinator(t, root, { deadlineMs: 3000, peerWaitMs: 100 })
-  const bin = join(root, 'bin')
-  await mkdir(bin)
-  const state = join(root, 'state')
-  await mkdir(join(state, 'account'), { recursive: true })
-  await writeFile(join(state, 'hang'), '')
-  await writeFile(join(bin, 'flock'), FAKE_FLOCK)
-  await writeFile(
-    join(bin, 'codex'),
-    FAKE_CODEX.replace("let buffer = ''", STUBBORN_CODEX_LINE + "\nlet buffer = ''"),
-  )
-  await chmod(join(bin, 'flock'), 0o755)
-  await chmod(join(bin, 'codex'), 0o755)
-  await writeFile(join(state, 'fake.log'), '')
-  const savedPath = process.env.PATH
-  process.env.PATH = bin + ':' + process.env.PATH
-  t.after(() => {
-    process.env.PATH = savedPath
-  })
-  const account = new CodexAccount(state)
-  const socketPath = await statusService(t, root, 'codex', codexStatusReader(account), 1200)
+test('a Codex check slower than the request answers checking at once, then the result with its time', async (t) => {
+  const root = await scratch(t, 'status-slow-codex-')
+  const { bridge, port } = await coordinator(t, root, { deadlineMs: 1800, peerWaitMs: 100 })
+  const codexRoot = join(root, 'codex-state')
+  await mkdir(join(codexRoot, 'account'), { recursive: true })
+  // `account/read` finishes only when the test says so, after the request budget has passed.
+  let finish!: () => void
+  const finished = new Promise<boolean>((resolve) => (finish = () => resolve(true)))
+  const account = new CodexAccount(codexRoot, () => ({
+    initialize: async () => {},
+    close: async () => {},
+    connected: () => finished,
+    request: async () => device,
+  }))
+  const socketPath = await statusService(t, root, 'codex', codexStatusReader(account))
   await relayStatus(t, socketPath, port)
-  const status = await bridge.providerStatus()
-  assert.deepEqual(status.codex, { state: 'unknown', reason: 'timeout' })
-  const pid = Number(/started (\d+)/.exec(await readFile(join(state, 'fake.log'), 'utf8'))![1])
-  assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' })
+
+  const started = Date.now()
+  const first = await bridge.providerStatus()
+  assert.ok(Date.now() - started < 1000, `took ${Date.now() - started} ms`)
+  assert.deepEqual(first.codex, { state: 'unknown', reason: 'checking' })
+  await delay(2000)
+  assert.deepEqual((await bridge.providerStatus()).codex, { state: 'unknown', reason: 'checking' })
+
+  const finishedAt = Date.now()
+  finish()
+  const later = await checkedThrough(bridge)
+  assert.ok(later.codex.state === 'signed_in' && !later.codex.refreshing)
+  const checkedAt = Date.parse(later.codex.checked_at)
+  assert.ok(checkedAt >= finishedAt - 50 && checkedAt <= Date.now())
+})
+
+test('Check again reaches the Codex guest, and its answer says how old its check is', async (t) => {
+  const root = await scratch(t, 'status-refresh-flag-')
+  const { bridge, port } = await coordinator(t, root, { deadlineMs: 1000, peerWaitMs: 500 })
+  const requests: Record<string, Record<string, unknown>[]> = { claude: [], codex: [] }
+  let codexAnswer: Record<string, unknown> = { provider: 'codex', state: 'signed_in' }
+  const revision = randomUUID()
+  await fakeStatusPeer(t, root, port, 'claude', async (request) => {
+    requests.claude.push(request)
+    return { provider_status: { provider: 'claude', state: 'not_saved', revision } }
+  })
+  const codex = await fakeStatusPeer(t, root, port, 'codex', async (request) => {
+    requests.codex.push(request)
+    return { provider_status: codexAnswer }
+  })
+  await waitFor(async () => {
+    const status = await bridge.providerStatus()
+    return status.claude.state !== 'unknown' && status.codex.state !== 'unknown'
+  }, 'both status connections')
+
+  // An older guest's answer has no age: it was read just now, and nothing is refreshing.
+  // Claude is read on every request.
+  const before = Date.now()
+  const forced = await bridge.providerStatus(undefined, true)
+  const after = Date.now()
+  assert.equal(requests.codex.at(-1)?.refresh, true)
+  assert.equal(requests.claude.at(-1)?.refresh, undefined)
+  for (const status of [forced.claude, forced.codex]) {
+    assert.ok('checked_at' in status)
+    const checkedAt = Date.parse(status.checked_at)
+    assert.ok(checkedAt >= before && checkedAt <= after)
+  }
+  assert.ok(forced.codex.state === 'signed_in' && forced.codex.refreshing === false)
+  assert.equal(forced.claude.state === 'not_saved' && forced.claude.revision, revision)
+
+  // A plain read doesn't ask for a check.
+  await bridge.providerStatus()
+  assert.equal(requests.codex.at(-1)?.refresh, undefined)
+
+  // An answer from a check 90 s ago, with a new one running, is dated then.
+  codexAnswer = { provider: 'codex', state: 'signed_out', age_ms: 90_000, refreshing: true }
+  const aged = (await bridge.providerStatus()).codex
+  assert.ok(aged.state === 'signed_out' && aged.refreshing)
+  assert.ok(Math.abs(Date.parse(aged.checked_at) - (Date.now() - 90_000)) < 1000)
+
+  // No check finished yet.
+  codexAnswer = { provider: 'codex', state: 'checking' }
+  assert.deepEqual((await bridge.providerStatus()).codex, { state: 'unknown', reason: 'checking' })
+
+  // An answer with a bad age, or with part of the new shape missing, is refused.
+  codexAnswer = { provider: 'codex', state: 'signed_in', age_ms: 5 }
+  assert.deepEqual((await bridge.providerStatus()).codex, {
+    state: 'unknown',
+    reason: 'service_unavailable',
+  })
+  await codex.closed
+  const second = await fakeStatusPeer(t, root, port, 'codex', async () => ({
+    provider_status: { provider: 'codex', state: 'signed_in', age_ms: -1, refreshing: false },
+  }))
+  assert.deepEqual((await bridge.providerStatus()).codex, {
+    state: 'unknown',
+    reason: 'service_unavailable',
+  })
+  await second.closed
+})
+
+test('Check again waits for the status connection a plain read has borrowed', async (t) => {
+  const root = await scratch(t, 'status-borrowed-')
+  const { bridge, port } = await coordinator(t, root, { deadlineMs: 1800, peerWaitMs: 100 })
+  const requests: Record<string, unknown>[] = []
+  await fakeStatusPeer(t, root, port, 'codex', async (request) => {
+    requests.push(request)
+    // The plain read's answer takes longer than the short wait for an absent connection.
+    if (request.refresh !== true) {
+      await delay(400)
+    }
+    return {
+      provider_status: { provider: 'codex', state: 'signed_in', age_ms: 0, refreshing: false },
+    }
+  })
+  await waitFor(async () => (await bridge.providerStatus()).codex.state === 'signed_in', 'Codex')
+  requests.length = 0
+  const plain = bridge.providerStatus()
+  await waitFor(() => requests.length === 1, 'the plain read')
+  const forced = await bridge.providerStatus(undefined, true)
+  assert.equal(forced.codex.state, 'signed_in')
+  assert.equal((await plain).codex.state, 'signed_in')
+  assert.deepEqual(
+    requests.map((request) => request.refresh === true),
+    [false, true],
+  )
+
+  // Two Check agains at once each reach the guest: the first may predate a sign-in change.
+  requests.length = 0
+  await Promise.all([
+    bridge.providerStatus(undefined, true),
+    bridge.providerStatus(undefined, true),
+  ])
+  assert.deepEqual(
+    requests.map((request) => request.refresh === true),
+    [true, true],
+  )
 })
 
 test('older, missing, busy and unreachable guests read as unknown, never signed out', async (t) => {
@@ -701,7 +1198,7 @@ test('a status read overlaps an active turn on the same provider', async (t) => 
   const codexRoot = join(root, 'codex-state')
   await mkdir(join(codexRoot, 'account'), { recursive: true })
   const account = new CodexAccount(codexRoot, (_root, _home, exclusive) => {
-    // The turn holds the account lock shared; so does the read.
+    // The turn holds the account lock shared; so does the check.
     assert.equal(exclusive, false)
     return {
       initialize: async () => {},
@@ -713,7 +1210,7 @@ test('a status read overlaps an active turn on the same provider', async (t) => 
   const socketPath = await statusService(t, root, 'codex', codexStatusReader(account))
   await relayStatus(t, socketPath, port)
   // The turn peer stays connected, as during a turn; the status read doesn't wait for it.
-  assert.deepEqual((await bridge.providerStatus()).codex, { state: 'signed_in' })
+  assert.equal((await checkedThrough(bridge)).codex.state, 'signed_in')
   assert.equal(turn.destroyed, false)
 })
 
@@ -736,7 +1233,7 @@ test('status connections leave all eight turn connections free', async (t) => {
     const socketPath = await statusService(t, root, provider, async () =>
       provider === 'claude'
         ? { provider, state: 'not_saved', revision: randomUUID() }
-        : { provider, state: 'signed_out' },
+        : { provider, state: 'signed_out', age_ms: 0, refreshing: false },
     )
     await relayStatus(t, socketPath, port)
   }
@@ -766,9 +1263,11 @@ test("one provider's relays cannot take the other's status connections", async (
   const codexSocket = await statusService(t, root, 'codex', async () => ({
     provider: 'codex',
     state: 'signed_in',
+    age_ms: 0,
+    refreshing: false,
   }))
   await relayStatus(t, codexSocket, port)
   const status = await bridge.providerStatus()
   assert.equal(status.claude.state, 'not_saved')
-  assert.deepEqual(status.codex, { state: 'signed_in' })
+  assert.equal(status.codex.state, 'signed_in')
 })

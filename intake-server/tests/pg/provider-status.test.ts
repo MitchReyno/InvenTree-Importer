@@ -18,9 +18,10 @@ import { readProviderStatus, workerStatusSource } from '#/agents/provider-status
 import type { BridgeProviderStatuses } from '#/agents/shared-vm/coordinator.ts'
 
 const revision = '9f7a2b3c-1d4e-4f5a-8b6c-7d8e9f0a1b2c'
+const checkedAt = '2026-11-24T00:10:58.000Z'
 const statuses: BridgeProviderStatuses = {
-  claude: { state: 'saved', revision, saved_at: '2026-11-23T22:00:00.000Z' },
-  codex: { state: 'signing_in' },
+  claude: { state: 'saved', revision, saved_at: '2026-11-23T22:00:00.000Z', checked_at: checkedAt },
+  codex: { state: 'signing_in', checked_at: checkedAt, refreshing: false },
 }
 
 type Fixture = Awaited<ReturnType<typeof processingFixture>>
@@ -29,8 +30,8 @@ type Selection = { provider: 'claude' | 'codex'; authentication: 'subscription' 
 
 /** What the worker sends the API: the same statuses without Claude's revision. */
 const display = {
-  claude: { state: 'saved', saved_at: '2026-11-23T22:00:00.000Z' },
-  codex: { state: 'signing_in' },
+  claude: { state: 'saved', saved_at: '2026-11-23T22:00:00.000Z', checked_at: checkedAt },
+  codex: { state: 'signing_in', checked_at: checkedAt, refreshing: false },
 }
 
 /** Listens on `channel` as another database role would, keeping every payload seen. */
@@ -175,15 +176,25 @@ test(
 )
 
 test(
-  'the provider status route reads the worker, with no revision, token or account',
+  'the provider status route reads the worker, with no revision, token or account, and Check again asks afresh',
   { timeout: 90000 },
   async (t) => {
     const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
     t.after(() => fixture.dispose())
-    const worker = serveProviderStatusRequests(fixture.runner.pool, fixture.config, async () => ({
-      ...statuses,
-      codex: { state: 'unknown', reason: 'timeout' },
-    }))
+    const refreshes: boolean[] = []
+    // Holds the worker's answers when a test step needs a read to stay in flight.
+    let held: Promise<void> = Promise.resolve()
+    let codex: BridgeProviderStatuses['codex'] = { state: 'unknown', reason: 'checking' }
+    const worker = serveProviderStatusRequests(
+      fixture.runner.pool,
+      fixture.config,
+      async (_budgetMs, refresh) => {
+        refreshes.push(refresh)
+        const answer = { ...statuses, codex }
+        await held
+        return answer
+      },
+    )
     // Before the fixture's own cleanup, which waits for the worker's connection.
     await using _worker = { [Symbol.asyncDispose]: () => worker.close() }
     let body: ProviderStatusDto | undefined
@@ -201,13 +212,67 @@ test(
     assert.deepEqual(body.claude, {
       state: 'saved',
       saved_at: '2026-11-23T22:00:00.000Z',
+      checked_at: checkedAt,
       last_sign_in_failure: null,
     })
+    // No Codex check has finished yet: unknown, never signed out.
     assert.deepEqual(body.codex, {
       state: 'unknown',
-      reason: 'timeout',
+      reason: 'checking',
       last_sign_in_failure: null,
     })
+    assert.ok(!JSON.stringify(body).includes(revision))
+    assert.ok(refreshes.every((refresh) => !refresh))
+
+    // An answer whose Codex check hasn't finished is never reused, so a client waiting for the
+    // check reads the worker each time; a settled one is reused within the window.
+    codex = { state: 'signed_in', checked_at: checkedAt, refreshing: true }
+    const asked = refreshes.length
+    const waiting = (await fixture.http('/agents/provider-status')).value as ProviderStatusDto
+    assert.ok(waiting.codex.state === 'signed_in' && waiting.codex.refreshing)
+    assert.equal(refreshes.length, asked + 1)
+    codex = { state: 'signed_in', checked_at: checkedAt, refreshing: false }
+    const settled = (await fixture.http('/agents/provider-status')).value as ProviderStatusDto
+    assert.ok(settled.codex.state === 'signed_in' && !settled.codex.refreshing)
+    assert.equal(refreshes.length, asked + 2)
+    codex = { state: 'signed_out', checked_at: checkedAt, refreshing: false }
+    const reused = (await fixture.http('/agents/provider-status')).value as ProviderStatusDto
+    assert.equal(reused.codex.state, 'signed_in')
+    assert.equal(refreshes.length, asked + 2)
+
+    // Check again does reach the worker, and its answer is reused by the next plain read.
+    codex = { state: 'signed_in', checked_at: checkedAt, refreshing: true }
+    const forced = await fixture.http('/agents/provider-status?refresh=true')
+    assert.equal(forced.status, 200)
+    assert.deepEqual((forced.value as ProviderStatusDto).codex, {
+      state: 'signed_in',
+      checked_at: checkedAt,
+      refreshing: true,
+      last_sign_in_failure: null,
+    })
+    assert.deepEqual(refreshes.slice(asked), [false, false, true])
+
+    // A Check again in flight, read before a sign-in change, is never joined by the one after it.
+    let release!: () => void
+    held = new Promise<void>((resolve) => (release = resolve))
+    codex = { state: 'signed_in', checked_at: checkedAt, refreshing: false }
+    const before = fixture.http('/agents/provider-status?refresh=true')
+    let after: ReturnType<typeof fixture.http>
+    try {
+      await waitUntil(() => refreshes.length === asked + 4, 'the first Check again')
+      codex = { state: 'signed_out', checked_at: checkedAt, refreshing: false }
+      after = fixture.http('/agents/provider-status?refresh=true')
+      await waitUntil(() => refreshes.length === asked + 5, 'the second Check again')
+    } finally {
+      // Released either way, so a failure here never leaves the worker's read held.
+      release()
+      held = Promise.resolve()
+    }
+    assert.equal(((await after).value as ProviderStatusDto).codex.state, 'signed_out')
+    assert.equal(((await before).value as ProviderStatusDto).codex.state, 'signed_in')
+
+    // Anything else in the query is refused.
+    assert.equal((await fixture.http('/agents/provider-status?refresh=1')).status, 400)
     assert.ok(!JSON.stringify(body).includes(revision))
   },
 )

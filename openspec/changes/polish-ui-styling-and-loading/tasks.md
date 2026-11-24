@@ -28,7 +28,7 @@
 | 9. Several files at once from any source | Frontend behavior | None | capture-grouped-evidence "Several photos from a phone in one go", "Drop or paste files to add evidence" |
 | 10. Electronics animation switch | Frontend behavior | None | app-settings "Electronics animation switch"; ui-design-system "Masthead and electronics current in both themes" (modified) |
 | 11. Agent settings autosave | Frontend behavior, with intake server and contracts (save receipts) | None | app-settings "Agent settings save as they change", "Agent settings text keeps an explicit Save", and these "Agent settings section" (modified) scenarios: Change sessions at once, Stale settings revision, Mixing providers across steps, Turning a provider off, No provider on, Other settings before any provider, Instructions copied once, Description style too long, Turning public web pages off, Profile without web access |
-| 12. Read-only provider status | Intake server, VM guest and contracts | None | shared-vm-execution "Read-only provider sign-in status", "Status reads never change the guest" |
+| 12. Read-only provider status | Intake server, VM guest and contracts | None | shared-vm-execution "Read-only provider sign-in status", "Status reads never change the guest", "Codex status answered from the last check", "Codex checks stop and are forgotten" |
 | 13. Provider cards, switches, model picker and sign-in dialogs | Frontend behavior | 6, 11, 12 | app-settings "Agent settings section" (modified) scenarios Removing the credential updates the card, Sign-in status before a check, Collapsing clears the card, Editing the key while signing in, Sign-in completes and Check fails; shared-vm-execution "Personal Claude subscription token" and "ChatGPT sign-in for the runner" (modified); "Provider sign-in status is read automatically", "Each provider's status stands alone", "Sign-in failures shown apart from the status", "Agent settings controls match the design", "Subscription sign-in in a dialog", "Closing a sign-in dialog drops its work", "One searchable model picker", "Model picker limits and exact IDs" |
 | 14. Dropdowns follow the guideline | Frontend sweep | 13 | ui-design-system "Searchable picker for records and growing lists", "Short fixed choices follow a guideline" |
 | 15. A replaced read is not a failure | Frontend behavior | 4 and 5 (merged) | live-updates "A replaced read is not a failure", "Unavailable saved values are reported calmly"; "Live unverifiable workspace state" still passes |
@@ -305,7 +305,7 @@
   - `contracts/src/agents.ts`;
   - the deployment README's Settings › Agents steps.
 - **Prerequisites:** none.
-- **Acceptance:** "Read-only provider sign-in status" and "Status reads never change the guest", all scenarios.
+- **Acceptance:** "Read-only provider sign-in status", "Status reads never change the guest", "Codex status answered from the last check" and "Codex checks stop and are forgotten", all scenarios. The last two came from the live check and ship in a follow-up PR (PR-G2; see `notes.md`).
 - **TDD approach:** frame, route and contract tests fail first, using a fake guest. A test proves that no response carries a token, account or key.
 - **Verification:**
   - contracts tests; intake unit, PG and process tiers;

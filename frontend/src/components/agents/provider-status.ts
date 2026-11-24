@@ -21,12 +21,15 @@ const STATE_PILL: Record<Exclude<ProviderState, 'unknown'>, ProviderPill> = {
   signed_out: { word: 'Not signed in', tone: 'outline', glyph: '–' },
 }
 
+/** A Codex check the card waited for didn't finish before it stopped waiting. */
+export const TIMED_OUT: ProviderPill = { word: 'Status timed out', tone: 'warn', glyph: '!' }
+
 /** Each reason the status couldn't be read; none of them means signed out. */
-const UNKNOWN_WORD: Record<ProviderStatusUnknownReason, string> = {
+const UNKNOWN_WORD: Record<Exclude<ProviderStatusUnknownReason, 'checking'>, string> = {
   vm_unreachable: 'Can’t reach the agent VM',
   guest_outdated: 'Agent VM needs an update',
   busy: 'Agent VM busy',
-  timeout: 'Status timed out',
+  timeout: TIMED_OUT.word,
   service_unavailable: 'Sign-in service not running',
   worker_unavailable: 'Session worker not answering',
   not_configured: 'No agent VM in this profile',
@@ -48,8 +51,7 @@ export function providerPill(
     return STATE_PILL[status.state]
   }
   // A VM still working on its first answer is checking, not failing.
-  const reason: string = status.reason
-  if (reason === 'checking') {
+  if (status.reason === 'checking') {
     return CHECKING
   }
   const word = UNKNOWN_WORD[status.reason] ?? READ_FAILED.word
