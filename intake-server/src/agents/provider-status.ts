@@ -7,12 +7,12 @@ import type {
 } from '@invimport/contracts'
 import type { ProcessingConfig } from '#/processing/attempts.ts'
 import { isSessionProfile } from '#/processing/session-policy.ts'
-import type {
-  BridgeProviderStatuses,
-  ClaudeBridgeStatus,
-  CodexBridgeStatus,
-} from './shared-vm/coordinator.ts'
-import { requestProviderStatus } from './provider-status-channel.ts'
+import type { CodexBridgeStatus } from './shared-vm/coordinator.ts'
+import {
+  requestProviderStatus,
+  type ClaudeDisplayStatus,
+  type DisplayProviderStatuses,
+} from './provider-status-channel.ts'
 import { lastSignInFailures } from './sign-in-failures.ts'
 
 /** A read of the guest is reused this long, so repeated page loads don't each reach the VM. */
@@ -20,14 +20,14 @@ export const PROVIDER_STATUS_CACHE_MS = 5000
 
 export interface GuestStatusRead {
   /** Undefined when the session worker didn't answer. */
-  statuses: BridgeProviderStatuses | undefined
+  statuses: DisplayProviderStatuses | undefined
   readAt: Date
 }
 
 /** Where the route's guest status comes from; the session worker unless a test supplies one. */
 export type GuestStatusSource = () => Promise<GuestStatusRead>
 
-const NOT_CONFIGURED: BridgeProviderStatuses = {
+const NOT_CONFIGURED: DisplayProviderStatuses = {
   claude: { state: 'unknown', reason: 'not_configured' },
   codex: { state: 'unknown', reason: 'not_configured' },
 }
@@ -71,7 +71,7 @@ export function workerStatusSource(
 }
 
 function claudeView(
-  status: ClaudeBridgeStatus | undefined,
+  status: ClaudeDisplayStatus | undefined,
   failure: ProviderSignInFailureDto | null,
 ): ClaudeProviderStatusDto {
   if (!status) {
@@ -102,7 +102,7 @@ function codexView(
 
 /**
  * Each provider's sign-in status with its last-session line. The credential revision the guest
- * reports stays here: saving needs the protected management read.
+ * reports never reaches the API: saving needs the protected management read.
  */
 export async function readProviderStatus(
   pool: Pool,

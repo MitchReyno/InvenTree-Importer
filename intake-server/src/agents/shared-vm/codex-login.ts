@@ -181,22 +181,27 @@ export class CodexAccount {
   }
 
   private async readAccount(signal: AbortSignal): Promise<CodexStatusRead> {
-    signal.throwIfAborted()
-    const active = join(this.root, 'account')
-    if (!(await exists(active))) {
-      return 'signed_out'
-    }
-    const rpc = this.rpc(this.root, active, false)
-    // Closing the RPC stops its process; the read itself also ends at once.
+    // Settles as soon as the read is abandoned, including before the account process starts.
     const abandoned = new Promise<never>((_resolve, reject) => {
+      if (signal.aborted) {
+        reject(signal.reason)
+      }
       signal.addEventListener('abort', () => reject(signal.reason), { once: true })
     })
     abandoned.catch(() => {})
+    const active = join(this.root, 'account')
+    const present = await Promise.race([exists(active), abandoned])
+    if (!present) {
+      return 'signed_out'
+    }
+    signal.throwIfAborted()
+    const rpc = this.rpc(this.root, active, false)
     try {
       await Promise.race([rpc.initialize(), abandoned])
       const connected = await Promise.race([rpc.connected(), abandoned])
       return connected ? 'signed_in' : 'signed_out'
     } finally {
+      // Returns only once the account process is reaped.
       await rpc.close()
     }
   }

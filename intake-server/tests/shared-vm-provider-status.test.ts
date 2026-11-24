@@ -1,6 +1,6 @@
 import { test, type TestContext } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdir, mkdtemp, readdir, rm } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { once } from 'node:events'
@@ -139,6 +139,7 @@ async function turnPeer(
     servername: 'bench-coordinator',
   })
   t.after(() => socket.destroy())
+  socket.on('error', () => socket.destroy())
   await once(socket, 'secureConnect')
   await new Frames(socket).send({ ready: protocol, ...greeting })
   return socket
@@ -361,6 +362,114 @@ test('an abandoned Codex read stops its account process', async (t) => {
   assert.ok(closed >= 1)
 })
 
+test('a Codex read abandoned before its account check starts no account process', async (t) => {
+  const root = await scratch(t, 'codex-status-early-')
+  await mkdir(join(root, 'account'))
+  let started = 0
+  const account = new CodexAccount(root, () => {
+    started++
+    return {
+      initialize: async () => {},
+      close: async () => {},
+      connected: async () => true,
+      request: async () => device,
+    }
+  })
+  const controller = new AbortController()
+  // The account directory check is still pending when the read is abandoned.
+  const reading = account.readStatus(controller.signal)
+  controller.abort()
+  await assert.rejects(reading)
+  assert.equal(started, 0)
+  const aborted = AbortSignal.abort()
+  await assert.rejects(account.readStatus(aborted))
+  assert.equal(started, 0)
+  // Nothing is left holding the account: a management action runs at once.
+  assert.deepEqual(await account.action('status'), { state: 'connected' })
+  assert.equal(started, 1)
+})
+
+// Stand-ins for `flock` and the Codex app-server, so the real account RPC runs: the lock mode
+// and every request are logged, and `account/read` can be made to hang.
+const FAKE_FLOCK = `#!/bin/sh
+[ "$1" = -n ] && shift
+[ "$1" = -F ] && shift
+printf '%s\\n' "$1" >> "$CODEX_HOME/../fake.log"
+shift 2
+exec "$@"
+`
+const FAKE_CODEX = `#!/usr/bin/env node
+const { appendFileSync, existsSync } = require('node:fs')
+// The account process gets a fixed environment: its log and hang switch sit beside its home.
+const log = (line) => appendFileSync(process.env.CODEX_HOME + '/../fake.log', line + '\\n')
+const hang = existsSync(process.env.CODEX_HOME + '/../hang')
+log('started ' + process.pid)
+let buffer = ''
+process.stdin.on('data', (chunk) => {
+  buffer += chunk
+  let end
+  while ((end = buffer.indexOf('\\n')) >= 0) {
+    const message = JSON.parse(buffer.slice(0, end))
+    buffer = buffer.slice(end + 1)
+    if (message.method) {
+      log(message.method + ' ' + JSON.stringify(message.params ?? null))
+    }
+    if (message.method === 'initialize') {
+      process.stdout.write(JSON.stringify({ id: message.id, result: { userAgent: 'bench_intake/0.166.0' } }) + '\\n')
+    }
+    if (message.method === 'account/read' && !hang) {
+      process.stdout.write(JSON.stringify({ id: message.id, result: { account: { type: 'chatgpt', email: 'operator@example.com', planType: 'plus' } } }) + '\\n')
+    }
+  }
+})
+`
+
+test('the real Codex account RPC reads without a refresh, shared, and is reaped when abandoned', async (t) => {
+  const root = await scratch(t, 'codex-status-rpc-')
+  const bin = join(root, 'bin')
+  await mkdir(bin)
+  await mkdir(join(root, 'state', 'account'), { recursive: true })
+  for (const [name, text] of [
+    ['flock', FAKE_FLOCK],
+    ['codex', FAKE_CODEX],
+  ]) {
+    await writeFile(join(bin, name), text)
+    await chmod(join(bin, name), 0o755)
+  }
+  const log = join(root, 'state', 'fake.log')
+  await writeFile(log, '')
+  const savedPath = process.env.PATH
+  process.env.PATH = bin + ':' + process.env.PATH
+  t.after(() => {
+    process.env.PATH = savedPath
+  })
+  const account = new CodexAccount(join(root, 'state'))
+  const status = await account.readStatus(new AbortController().signal)
+  assert.equal(status, 'signed_in')
+  const lines = (await readFile(log, 'utf8')).trim().split('\n')
+  assert.equal(lines[0], '-s')
+  assert.ok(lines.includes('account/read {"refreshToken":false}'))
+  assert.deepEqual(
+    lines.filter((line) => line.startsWith('account/') && !line.startsWith('account/read')),
+    [],
+  )
+  assert.ok(!JSON.stringify(status).includes('operator@example.com'))
+
+  // A hanging read is abandoned and its process is gone before the read settles.
+  await writeFile(join(root, 'state', 'hang'), '')
+  await writeFile(log, '')
+  const controller = new AbortController()
+  const reading = account.readStatus(controller.signal)
+  await waitFor(
+    async () => (await readFile(log, 'utf8')).includes('account/read'),
+    'the hanging read',
+  )
+  const pid = Number(/started (\d+)/.exec(await readFile(log, 'utf8'))![1])
+  controller.abort()
+  await assert.rejects(reading)
+  assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' })
+})
+
 test('the status endpoint answers only the paired coordinator, with no secret', async (t) => {
   const root = await scratch(t, 'status-endpoint-')
   const { bridge, port } = await coordinator(t, root)
@@ -575,3 +684,27 @@ async function selfSigned(root: string) {
   await pairedCertificates(other)
   return pairing(join(other, 'bench-coordinator'))
 }
+
+test('status connections leave all eight turn connections free', async (t) => {
+  const root = await scratch(t, 'status-capacity-')
+  const { bridge, port } = await coordinator(t, root)
+  const turns: TLSSocket[] = []
+  for (let i = 0; i < 8; i++) {
+    turns.push(await turnPeer(t, root, port, { codexSubscription: true, providerStatus: true }))
+  }
+  for (const provider of ['claude', 'codex'] as const) {
+    const socketPath = await statusService(t, root, provider, async () =>
+      provider === 'claude'
+        ? { provider, state: 'not_saved', revision: randomUUID() }
+        : { provider, state: 'signed_out' },
+    )
+    await relayStatus(t, socketPath, port)
+  }
+  const status = await bridge.providerStatus()
+  assert.equal(status.claude.state, 'not_saved')
+  assert.equal(status.codex.state, 'signed_out')
+  // A ninth turn connection is still refused.
+  const ninth = await turnPeer(t, root, port, { codexSubscription: true, providerStatus: true })
+  await once(ninth, 'close')
+  assert.ok(turns.every((socket) => !socket.destroyed))
+})

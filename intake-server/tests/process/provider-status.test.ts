@@ -204,3 +204,67 @@ test(
     assert.equal(lines.codex, null)
   },
 )
+
+// The first pump exits right after reporting ready, the second never reports it; later ones work.
+const FLAKY_LIMACTL = `#!/bin/sh
+shift 3
+[ "$1" = sudo ] && shift
+[ "$1" = docker ] || exit 2
+if [ "$2" = exec ]; then
+  count=$(cat "$STATUS_SOCKETS/count" 2>/dev/null || echo 0)
+  count=$((count + 1))
+  echo "$count" > "$STATUS_SOCKETS/count"
+  if [ "$count" = 1 ]; then
+    echo ready >&2
+    exit 0
+  fi
+  [ "$count" = 2 ] && exec sleep 600
+  exec node -e "$7" "$STATUS_SOCKETS/$4.sock"
+fi
+exec sleep 600
+`
+
+test(
+  'a status pump that fails after starting, or never starts, is retried while the relay runs',
+  { timeout: 120000 },
+  async (t) => {
+    const root = await mkdtemp('/tmp/status-retry-')
+    t.after(() => rm(root, { recursive: true, force: true }))
+    await pairedCertificates(root)
+    const bin = join(root, 'bin')
+    const sockets = join(root, 'sockets')
+    await mkdir(bin)
+    await mkdir(sockets)
+    await writeFile(join(bin, 'limactl'), FLAKY_LIMACTL)
+    await chmod(join(bin, 'limactl'), 0o755)
+    const store = join(root, 'claude-store')
+    await mkdir(store)
+    const claude = credentialStore(store)
+    t.after(() => claude.close())
+    const server = await startStatusService(
+      'claude',
+      claudeStatusReader(store),
+      join(root, 'bench-guest'),
+      join(sockets, 'bench-claude-management.sock'),
+    )
+    assert.ok(server)
+    t.after(() => server.close())
+    const port = await freePort()
+    const bridge = await startSessionBridge(join(root, 'bench-coordinator'), port)
+    t.after(() => bridge.close())
+    const relayed = startRelay(t, bin, sockets, port, 'INTAKE_VM_CLAUDE_SUBSCRIPTION')
+    let exited = false
+    relayed.once('exit', () => {
+      exited = true
+    })
+    let state = 'unknown'
+    for (let i = 0; i < 90 && state === 'unknown'; i++) {
+      state = (await bridge.providerStatus()).claude.state
+      if (state === 'unknown') {
+        await delay(1000)
+      }
+    }
+    assert.equal(state, 'not_saved')
+    assert.equal(exited, false)
+  },
+)

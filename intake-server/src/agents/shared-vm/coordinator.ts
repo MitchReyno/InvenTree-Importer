@@ -31,6 +31,11 @@ export interface StatusTiming {
   peerWaitMs: number
 }
 
+/** Turn connections the bridge holds, as many as the most sessions that can run at once. */
+const MAX_TURN_PEERS = 8
+/** Status connections, apart from turns: one per provider relay, with room for a reconnect. */
+const MAX_STATUS_PEERS = 4
+
 /** Under the API's 2 s request, leaving it time to answer. */
 const STATUS_TIMING: StatusTiming = { deadlineMs: 1800, peerWaitMs: 500 }
 
@@ -84,6 +89,8 @@ export async function startSessionBridge(
   const evidencePeers = new WeakSet<TLSSocket>()
   const subscriptions = new WeakMap<TLSSocket, string>()
   const connected = new Set<TLSSocket>()
+  const turnSockets = new Set<TLSSocket>()
+  const statusSockets = new Set<TLSSocket>()
   const statusPeers = { claude: new Map<TLSSocket, Frames>(), codex: new Map<TLSSocket, Frames>() }
   // Whether each provider's latest turn guest greeted with the status capability.
   const statusCapable = new Map<StatusProvider, boolean>()
@@ -94,7 +101,7 @@ export async function startSessionBridge(
         if (
           !socket.authorized ||
           checkServerIdentity('bench-guest', socket.getPeerCertificate()) ||
-          connected.size >= 8
+          connected.size >= MAX_TURN_PEERS + MAX_STATUS_PEERS
         ) {
           socket.destroy()
           return
@@ -102,6 +109,8 @@ export async function startSessionBridge(
         connected.add(socket)
         socket.once('close', () => {
           connected.delete(socket)
+          turnSockets.delete(socket)
+          statusSockets.delete(socket)
           idle.delete(socket)
           statusPeers.claude.delete(socket)
           statusPeers.codex.delete(socket)
@@ -115,6 +124,11 @@ export async function startSessionBridge(
             admitStatusPeer(socket, frames, greeting)
             return
           }
+          // Status connections have their own allowance, so they never take a turn's place.
+          if (turnSockets.size >= MAX_TURN_PEERS) {
+            throw new Error('runner_capacity')
+          }
+          turnSockets.add(socket)
           if (
             greeting.reapProof === true &&
             greeting.builtinTools === true &&
@@ -164,6 +178,10 @@ export async function startSessionBridge(
     if ((provider !== 'claude' && provider !== 'codex') || Object.keys(greeting).length !== 2) {
       throw new Error('runner_protocol_mismatch')
     }
+    if (statusSockets.size >= MAX_STATUS_PEERS) {
+      throw new Error('runner_capacity')
+    }
+    statusSockets.add(socket)
     socket.setTimeout(0)
     statusPeers[provider].set(socket, frames)
   }

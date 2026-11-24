@@ -78,8 +78,16 @@ const statusPump = `
 `
 /** A missing or older credential service is retried less and less often, up to this. */
 const STATUS_RETRY_MAX_MS = 30000
+/** How long the pump and the coordinator connection may take to come up. */
+const STATUS_START_MS = 15000
 const stopping = new AbortController()
 
+/** Resolves `value` after `ms`, or as soon as `signal` aborts, leaving no timer behind. */
+function waitFor(ms, value, signal) {
+  return delay(ms, value, { signal }).catch(() => value)
+}
+
+/** Starts the pump in the management container; resolves once it reports its socket open. */
 async function openStatusPeer() {
   const peer = spawn(
     'limactl',
@@ -99,52 +107,85 @@ async function openStatusPeer() {
     ],
     { stdio: ['pipe', 'pipe', 'pipe'] },
   )
+  // Registered at spawn, so an exit at any point is seen.
+  const exited = once(peer, 'close').then(
+    () => undefined,
+    () => undefined,
+  )
   peer.on('error', () => {})
+  peer.stdin.on('error', () => {})
+  const settled = new AbortController()
   const ready = await Promise.race([
-    once(peer.stderr, 'data').then(([data]) => data.toString().trim() === 'ready'),
-    once(peer, 'close').then(() => false),
+    once(peer.stderr, 'data').then(
+      ([data]) => data.toString().trim() === 'ready',
+      () => false,
+    ),
+    exited.then(() => false),
+    waitFor(STATUS_START_MS, false, AbortSignal.any([settled.signal, stopping.signal])),
   ])
+  settled.abort()
   if (!ready) {
     peer.kill()
+    await exited
+    return undefined
   }
-  return ready ? peer : undefined
+  return { peer, exited }
+}
+
+/** Carries one status connection until either end closes; false when it couldn't be opened. */
+async function carryStatusOnce() {
+  const opened = await openStatusPeer()
+  if (!opened) {
+    return false
+  }
+  const { peer, exited } = opened
+  const settled = new AbortController()
+  const connecting = connectCoordinator().catch(() => undefined)
+  const socket = await Promise.race([
+    connecting,
+    exited,
+    waitFor(STATUS_START_MS, undefined, AbortSignal.any([settled.signal, stopping.signal])),
+  ])
+  settled.abort()
+  if (!socket) {
+    // A connection that opens after giving up is closed at once.
+    void connecting.then((late) => late?.destroy())
+    peer.kill()
+    await exited
+    return false
+  }
+  try {
+    socket.on('error', () => socket.destroy())
+    socket.once('close', () => peer.kill())
+    socket.pipe(peer.stdin)
+    peer.stdout.pipe(socket)
+    const stop = () => socket.destroy()
+    stopping.signal.addEventListener('abort', stop, { once: true })
+    await exited
+    stopping.signal.removeEventListener('abort', stop)
+  } finally {
+    socket.destroy()
+    peer.kill()
+    await exited
+  }
+  return true
 }
 
 /** Keeps one status connection from the credential service to the coordinator. */
 async function carryStatus() {
   let retryMs = 500
   while (!stopping.signal.aborted) {
-    const peer = await openStatusPeer()
-    let socket
-    if (peer) {
-      socket = await connectCoordinator().catch(() => undefined)
-    }
-    if (!peer || !socket) {
-      peer?.kill()
-      await delay(retryMs, undefined, { signal: stopping.signal }).catch(() => {})
+    // A status failure never ends the relay: turns keep running while it retries.
+    const carried = await carryStatusOnce().catch(() => false)
+    if (carried) {
+      retryMs = 500
+    } else {
       retryMs = Math.min(retryMs * 2, STATUS_RETRY_MAX_MS)
-      continue
     }
-    retryMs = 500
-    const stop = () => {
-      socket.destroy()
-      peer.kill()
-    }
-    stopping.signal.addEventListener('abort', stop, { once: true })
-    socket.on('error', () => socket.destroy())
-    peer.stdin.on('error', () => socket.destroy())
-    socket.once('close', () => {
-      peer.stdin.end()
-      peer.kill()
-    })
-    peer.once('close', () => socket.destroy())
-    socket.pipe(peer.stdin)
-    peer.stdout.pipe(socket)
-    await once(peer, 'close')
-    stopping.signal.removeEventListener('abort', stop)
+    await waitFor(retryMs, undefined, stopping.signal)
   }
 }
-const status = statusContainer ? carryStatus() : undefined
+const status = statusContainer ? carryStatus().catch(() => {}) : undefined
 
 const tools = process.env.INTAKE_VM_BUILTIN_TOOLS === '1'
 if (tools && !(codex || subscription)) throw new Error('tool_worker_requires_selected_provider')

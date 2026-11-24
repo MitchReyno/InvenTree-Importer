@@ -12,6 +12,7 @@ import {
   requestProviderStatus,
   serveProviderStatusRequests,
   STATUS_REPLY_CHANNEL,
+  STATUS_REQUEST_CHANNEL,
 } from '#/agents/provider-status-channel.ts'
 import { readProviderStatus, workerStatusSource } from '#/agents/provider-status.ts'
 import type { BridgeProviderStatuses } from '#/agents/shared-vm/coordinator.ts'
@@ -26,17 +27,78 @@ type Fixture = Awaited<ReturnType<typeof processingFixture>>
 type Capture = Awaited<ReturnType<Fixture['seedCapture']>>
 type Selection = { provider: 'claude' | 'codex'; authentication: 'subscription' | 'api_key' }
 
+/** What the worker sends the API: the same statuses without Claude's revision. */
+const display = {
+  claude: { state: 'saved', saved_at: '2026-11-23T22:00:00.000Z' },
+  codex: { state: 'signing_in' },
+}
+
+/** Listens on `channel` as another database role would, keeping every payload seen. */
+async function eavesdrop(fixture: Fixture, channel: string) {
+  const client = await fixture.db.pool.connect()
+  const payloads: string[] = []
+  client.on('notification', (message) => payloads.push(message.payload ?? ''))
+  await client.query(`LISTEN ${channel}`)
+  return {
+    payloads,
+    async close() {
+      await client.query(`UNLISTEN ${channel}`).catch(() => {})
+      client.release()
+    },
+  }
+}
+
+const bodyOf = (payload: string) => JSON.parse(payload.slice(65)) as { id: string }
+
+async function waitUntil(check: () => boolean, what: string) {
+  for (let i = 0; i < 200 && !check(); i++) {
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+  assert.ok(check(), 'timed out waiting for ' + what)
+}
+
 test(
   'the API asks the session worker through the database and gives up at its deadline',
   { timeout: 90000 },
   async (t) => {
     const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
     t.after(() => fixture.dispose())
+    const requests = await eavesdrop(fixture, STATUS_REQUEST_CHANNEL)
+    const replies = await eavesdrop(fixture, STATUS_REPLY_CHANNEL)
+    await using _listeners = {
+      [Symbol.asyncDispose]: async () => {
+        await requests.close()
+        await replies.close()
+      },
+    }
 
     // No worker: the request ends at its deadline and returns its connection.
     let started = Date.now()
     assert.equal(await requestProviderStatus(fixture.api.pool, fixture.config, 300), undefined)
     assert.ok(Date.now() - started < 1500)
+
+    // A reply forged for the request in flight, with a wrong MAC, is ignored.
+    requests.payloads.length = 0
+    const forged = requestProviderStatus(fixture.api.pool, fixture.config, 600)
+    await waitUntil(() => requests.payloads.length === 1, 'the request')
+    await fixture.db.pool.query('SELECT pg_notify($1, $2)', [
+      STATUS_REPLY_CHANNEL,
+      'f'.repeat(64) +
+        '.' +
+        JSON.stringify({ id: bodyOf(requests.payloads[0]).id, status: display }),
+    ])
+    assert.equal(await forged, undefined)
+
+    // Taking a connection counts against the deadline too.
+    const held = await Promise.all(
+      Array.from({ length: fixture.api.pool.options.max }, () => fixture.api.pool.connect()),
+    )
+    started = Date.now()
+    assert.equal(await requestProviderStatus(fixture.api.pool, fixture.config, 300), undefined)
+    assert.ok(Date.now() - started < 1000)
+    for (const client of held) {
+      client.release()
+    }
 
     let reads = 0
     let slow = false
@@ -49,11 +111,28 @@ test(
     })
     // Before the fixture's own cleanup, which waits for the worker's connection.
     await using _worker = { [Symbol.asyncDispose]: () => worker.close() }
-    let answer: BridgeProviderStatuses | undefined
+    let answer: unknown
     for (let i = 0; i < 50 && !answer; i++) {
       answer = await requestProviderStatus(fixture.api.pool, fixture.config, 300)
     }
-    assert.deepEqual(answer, statuses)
+    assert.deepEqual(answer, display)
+    // Nothing on the shared channels carries the credential revision.
+    assert.ok(replies.payloads.length > 0)
+    for (const payload of [...requests.payloads, ...replies.payloads]) {
+      assert.ok(!payload.includes(revision))
+    }
+
+    // A replayed request is answered once.
+    requests.payloads.length = 0
+    replies.payloads.length = 0
+    assert.deepEqual(await requestProviderStatus(fixture.api.pool, fixture.config), display)
+    const original = requests.payloads[0]
+    for (let i = 0; i < 3; i++) {
+      await fixture.db.pool.query('SELECT pg_notify($1, $2)', [STATUS_REQUEST_CHANNEL, original])
+    }
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    const replyIds = replies.payloads.map((payload) => bodyOf(payload).id)
+    assert.deepEqual(replyIds, [bodyOf(original).id])
 
     // A request signed for another secret or scope is not answered.
     const before = reads
@@ -65,27 +144,32 @@ test(
     }
     assert.equal(reads, before)
 
-    // A forged reply from another database role is ignored.
-    const forging = setInterval(() => {
-      void fixture.db.pool
-        .query('SELECT pg_notify($1, $2)', [
-          STATUS_REPLY_CHANNEL,
-          '0'.repeat(64) + '.' + JSON.stringify({ id: 'any', status: statuses }),
-        ])
-        .catch(() => {})
-    }, 20)
-    t.after(() => clearInterval(forging))
-    assert.deepEqual(await requestProviderStatus(fixture.api.pool, fixture.config), statuses)
-    clearInterval(forging)
-
-    // A worker that answers after the deadline is not waited for, and its late reply is ignored.
+    // A worker that answers after the deadline is not waited for, and sends nothing late.
     slow = true
+    replies.payloads.length = 0
     started = Date.now()
     assert.equal(await requestProviderStatus(fixture.api.pool, fixture.config, 300), undefined)
     assert.ok(Date.now() - started < 700)
     await new Promise((resolve) => setTimeout(resolve, 900))
+    assert.deepEqual(replies.payloads, [])
     slow = false
-    assert.deepEqual(await requestProviderStatus(fixture.api.pool, fixture.config), statuses)
+    assert.deepEqual(await requestProviderStatus(fixture.api.pool, fixture.config), display)
+
+    // The API's connection lost while it waits ends that read, without failing the process.
+    slow = true
+    const waiting = requestProviderStatus(fixture.api.pool, fixture.config, 1500)
+    await new Promise((resolve) => setTimeout(resolve, 150))
+    const killed = await fixture.db.pool.query(
+      `SELECT pg_terminate_backend(pid) FROM pg_stat_activity
+      WHERE datname = current_database() AND usename = $1 AND query LIKE '%pg_notify%'`,
+      [fixture.api.name],
+    )
+    assert.equal(killed.rowCount, 1)
+    started = Date.now()
+    assert.equal(await waiting, undefined)
+    assert.ok(Date.now() - started < 1400)
+    slow = false
+    assert.deepEqual(await requestProviderStatus(fixture.api.pool, fixture.config), display)
     assert.equal(fixture.api.pool.waitingCount, 0)
   },
 )
@@ -258,7 +342,7 @@ test(
     t.after(() => fixture.dispose())
     const root = await mkdtemp(join(tmpdir(), 'sign-in-line-'))
     t.after(() => rm(root, { recursive: true, force: true }))
-    const slots = await freeSlots(fixture, 2)
+    const slots = await freeSlots(fixture, 3)
     const claudeSubscription = { provider: 'claude', authentication: 'subscription' } as const
     const codexSubscription = { provider: 'codex', authentication: 'subscription' } as const
     assert.deepEqual(await lines(fixture), { claude: null, codex: null })
@@ -301,12 +385,17 @@ test(
     })
 
     // An API-key session queued at the same time hides it, as does a newer one that didn't fail.
+    // The tying API-key session was refused too, with a 401: only a subscription refusal counts.
     const tie = await settledSession(
       fixture,
       slots,
       root,
       { provider: 'claude', authentication: 'api_key' },
-      finishes,
+      refused('agent_login_required', {
+        kind: 'authentication_failed',
+        result: null,
+        http_status: 401,
+      }),
     )
     await queuedAt(fixture, tie, '2026-11-24T00:10:00.000Z')
     assert.equal((await lines(fixture)).claude, null)
@@ -329,6 +418,18 @@ test(
     assert.equal((await lines(fixture)).codex?.attempt_id, codexRefusal)
     // Claude's latest session is unaffected by Codex's.
     assert.equal((await lines(fixture)).claude, null)
+    // Codex's own refusal kind counts without an HTTP status, and shows through the route.
+    const unauthorized = await settledSession(
+      fixture,
+      slots,
+      root,
+      codexSubscription,
+      refused('agent_turn_failed', { kind: 'unauthorized', result: null, http_status: null }),
+    )
+    await queuedAt(fixture, unauthorized, '2026-11-24T00:12:30.000Z')
+    const route = (await fixture.http('/agents/provider-status')).value as ProviderStatusDto
+    assert.equal(route.codex.last_sign_in_failure?.attempt_id, unauthorized)
+    assert.equal(route.claude.last_sign_in_failure, null)
     const rateLimited = await settledSession(
       fixture,
       slots,
