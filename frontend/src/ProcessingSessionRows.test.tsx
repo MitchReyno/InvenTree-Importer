@@ -514,3 +514,37 @@ test('open failure details fall back to where the cause is when the session list
   ).toBeVisible()
   expect(within(card).queryByText('Failed · the cause wasn’t recorded')).not.toBeInTheDocument()
 })
+
+test('an archived batch’s failed row gives the archive as the reason while the reads disagree', async () => {
+  const row = sessionRow({
+    attempt_id: H.attempt2,
+    batch_id: H.batch,
+    job_id: H.job,
+    subject_id: H.lot,
+    state: 'failed',
+    session_state: 'failed',
+    failure: refused,
+  })
+  const api = clients(failedJob(), sessionList({ sessions: [row] }))
+  const cache = createServerQueryClient()
+  render(
+    <ServerStateProvider scope={scope} client={cache}>
+      <ApiClientsProvider value={{ agents: api.agents }}>
+        <ProcessingWorkspace
+          batch={{ ...batch, archived: true }}
+          client={api.processing}
+          view="overview"
+          navigate={vi.fn()}
+          onDirtyChange={vi.fn()}
+          onSaved={vi.fn().mockResolvedValue(undefined)}
+        />
+      </ApiClientsProvider>
+    </ServerStateProvider>,
+  )
+
+  const card = await screen.findByRole('region', { name: 'Agent sessions' })
+  const recovery = await within(card).findByRole('group', { name: /^Recover/ })
+  expect(within(recovery).getByRole('button', { name: 'Start fresh' })).toHaveAccessibleDescription(
+    'The batch is archived. Resume it to start a fresh session.',
+  )
+})

@@ -539,7 +539,8 @@ export function ProcessingWorkspace({
           restart(job)
         }
       },
-      reason: runnable ? freshUnavailable(job) : 'Updating…',
+      // A reason that holds whatever the job, such as an archived batch, still shows.
+      reason: runnable ? freshUnavailable(job) : (freshUnavailable(undefined) ?? 'Updating…'),
     }
     return {
       startFresh: RECOVERABLE.has(session.state) ? startFresh : undefined,
