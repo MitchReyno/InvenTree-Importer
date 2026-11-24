@@ -36,7 +36,7 @@ A session drawer SHALL answer a session question in place, one step at a time. A
 
 - **GIVEN** an open three-step question: same Part (choice), how many left (number), where it goes (choice)
 - **WHEN** the operator picks "Yes, same Part", enters 380 estimated, picks "Drawer R4", checks the summary and presses "Send 3 answers"
-- **THEN** one answer is sent with all three step values, the question leaves Needs you, and focus moves to the next open question or the drawer heading.
+- **THEN** one answer is sent with all three step values, the question leaves Needs you and folds to its Answered line, and focus moves to the next open question or the "Answered" heading.
 
 ### Requirement: Answer kinds in the drawer
 
@@ -226,3 +226,80 @@ The message box in the session drawer and on the session page SHALL be labelled 
 - **GIVEN** an empty message box for a Research session
 - **WHEN** the operator types a message and presses Enter
 - **THEN** it is sent once, Shift+Enter inserts a new line instead, and Send was unavailable while the box was empty.
+
+### Requirement: Answered questions fold away
+
+Once an answer is saved, the question SHALL fold to one line in an "Answered" group below the open questions, newest first, in the session drawer, on the step page and on the session page alike. The line SHALL say what was answered and whether the session has read it yet. Expanding it SHALL show the question, the assumption it replaced, the answer, what it changed, when it was sent and read, and links to the session and the lot.
+
+#### Scenario: Answering on the step page shows it answered, never superseded
+
+- **GIVEN** the Examine step page pinned to an open choice question through its question link
+- **WHEN** the operator picks "Contents verified" and sends it, and Processing then re-reads and remounts
+- **THEN** the question shows as one line "You chose Contents verified · waiting for Examine to read it" under "Answered", no form or "superseded" warning shows, and focus moves to the next open question or the "Answered" heading.
+
+#### Scenario: Read by the session
+
+- **GIVEN** an answered question whose answer waits in a running session's inbox
+- **WHEN** the session reads its inbox past the answer at 13:14
+- **THEN** the line's clock becomes a tick reading "Examine read it 13:14".
+
+#### Scenario: Session not running
+
+- **GIVEN** an answer saved while its session waits for capacity
+- **WHEN** the Answered line shows
+- **THEN** it reads "Examine will read it when it resumes".
+
+#### Scenario: Expanded answer
+
+- **GIVEN** an answered number question "How many 1N4148 diodes are in the loose bag?", answered 186 counted
+- **WHEN** the operator expands its line
+- **THEN** it shows the question, "It assumed 200 (estimate)" struck through, "186 · counted", "Lot 4's quantity is now 186 (counted)", when it was sent and read, and links to the session and Lot 4.
+
+### Requirement: An answer form says why it can't send
+
+An answer form SHALL lock while its answer is sending and fold only once the answer is confirmed. A failure whose outcome is unknown SHALL keep the form open with the choice kept, say why, and offer Try again. A form SHALL show the superseded warning only while it holds an unsaved draft or an unconfirmed retry; a question answered elsewhere SHALL show its Answered line, and one really replaced SHALL say "Replaced by a newer question" with a link.
+
+#### Scenario: Couldn't send
+
+- **GIVEN** an answer whose request got no response
+- **WHEN** the form shows the failure
+- **THEN** it stays open with "Contents verified" kept, says the server didn't answer, and Try again resends the same answer.
+
+#### Scenario: Answered in another place while drafting
+
+- **GIVEN** an unsaved draft in the drawer for a question that the session page then answers
+- **WHEN** the drawer re-reads
+- **THEN** the draft is kept with "Answered elsewhere; your unsaved answer can't be sent" above the Answered line, and Send is unavailable.
+
+#### Scenario: Replaced question without a draft
+
+- **GIVEN** a step page pinned to a question that a Start fresh superseded, with no draft
+- **WHEN** it renders
+- **THEN** it reads "Replaced by a newer question" linking the session's newest open question, and no form shows.
+
+### Requirement: Questions show the agent's pictures
+
+A question with pictures SHALL show them in the agent's order with each caption and its source: one at full width, two side by side, or three to five as one large picture with a thumbnail strip the arrow keys move along. The agent's marks SHALL be drawn over each picture, never into it. Pictures SHALL show in the drawer, on the step page, on the session page and in an expanded Answered line.
+
+#### Scenario: Two pictures to compare
+
+- **GIVEN** an open question "Are packets A and B the same Part?" with two label pictures
+- **WHEN** the drawer shows it
+- **THEN** both labels show side by side with "Packet A: date code 2341" and "Packet B: date code 2407" and their highlights, above the options.
+
+#### Scenario: Picture source removed
+
+- **GIVEN** a question whose second picture's photo was removed from Capture
+- **WHEN** it is shown
+- **THEN** that picture reads "Photo removed", the others show, and the question can still be answered.
+
+### Requirement: A larger view of a question picture
+
+Clicking a question picture SHALL open a dialog with a large view, zoom, Fit and Whole photo, previous and next with the thumbnails, a "Show the agent's marks" switch, why the agent shows it, its marks listed in words, the source photo with its region and lot, Open in Capture and Add a photo.
+
+#### Scenario: Hide the marks
+
+- **GIVEN** the dialog open on "The worn suffix, boxed", picture 1 of 4
+- **WHEN** the operator turns off "Show the agent's marks" and presses the right arrow key
+- **THEN** the box disappears from the picture while its description stays listed, and picture 2 of 4 shows without marks.
+

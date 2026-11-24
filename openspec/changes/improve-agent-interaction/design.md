@@ -222,11 +222,104 @@ Rejected: changing `CaptureEdit` to carry several changes. That is a wider contr
 - **Status lines:** the opening's `instructions` gain one sentence asking for plain status lines without internal IDs. That text isn't digest-bound, so no profile change is needed. Only sessions opened after the change get it: a resumed session continues its earlier conversation, and retained status lines are shown as written. The ID-free promise therefore covers the app's own event text; the muted agent note is the agent's words.
 - **Message box:** labelled "Message <step>", with the placeholder and an Enter / Shift+Enter hint. Send is disabled while the box is empty. It is shared by the drawer and the session page.
 
+### Answered questions fold away (task 13, approved 2026-11-24)
+
+The design is the canvas board FixAnsweredQuestion.
+
+**Cause, checked at `49a87cd0`:**
+
+- `ProcessingWorkspace.tsx` mounts the pinned `QuestionAnswer` whenever `?question=` names the pinned question, whatever its state. Its first-pin branch finds the question by ID with no `state === 'open'` filter, so a remount after an answer pins the answered question into a form. Only the branch that follows a moved capture revision filters for open questions.
+- `QuestionAnswer.tsx` computes one `stale` boolean from seven checks: missing, answered, superseded, another revision, attempt or input digest, or a moved capture revision. `SteppedAnswerForm` and `SingleAnswerForm` then show "This question is superseded or its saved context changed…" and disable Send, over the operator's own confirmed answer.
+- The Processing read's `ProcessingQuestion` (`contracts/src/processing.ts`) has `state` but no answer, answer time or delivery, so the step page has nothing to show once a question is answered.
+- The drawer and the session page drop a clean form once its question isn't open (`nextPins` in `DrawerAnswers.tsx`) and show nothing in its place.
+- The cancelled post-answer reload that `polish-ui-styling-and-loading` task 15 fixes also leaves the pre-answer pin in place. Fixing that alone would remount Processing and re-pin the answered question.
+
+**Behaviour:**
+
+- Once the answer is saved, the question folds to one line in an "Answered" group below the open questions, newest first, for as long as the session's questions are listed. The line says what was answered and its delivery: a clock while the answer waits in the session's inbox ("waiting for Examine to read it", or "Examine will read it when it resumes" when the session isn't running), and a tick once the session has acknowledged its inbox past it ("Examine read it 13:14"). "Read" means the session acknowledged the item, as the history's "Not read yet" does, not that it acted on it.
+- Expanding the line shows the question, the assumption struck through, the answer, what it changed (the answer's effects), the delivery trail (sent, read) and links to the session page and the lot.
+- Sending locks the form and the line reads "sending…". The form folds only once the answer is confirmed. An uncertain failure keeps the form open with the choice, payload and key, says why and offers Try again; a confirmed refusal marks its step, as today.
+- A question that was really replaced reads "Replaced by a newer question", linking the job's newest open question when it has one, and otherwise the session.
+- Focus moves to the next open question, or to the "Answered" heading when none is left, from the answer handler, as the drawer's `focusNext` does today.
+- The drawer, the step page and the session page render the same card through one component.
+
+**Named reasons instead of `stale`.** One pure function, `questionStanding`, returns why a pinned form is or isn't answerable, from the current read and the form's own confirmed result:
+
+| Standing | Without a draft | With a draft or an unconfirmed retry |
+| --- | --- | --- |
+| `open` | The form | The form |
+| `context_moved` (capture revision moved) | The clean form follows the new revision, as today | The draft is kept with "Its saved context changed…" |
+| `answered_here` (this form's confirmed answer) | The folded Answered line | Not possible: confirmation clears the draft |
+| `answered_elsewhere` | The folded Answered line | The draft is kept with "Answered elsewhere; your unsaved answer can't be sent", above the Answered line |
+| `superseded` | "Replaced by a newer question" | The draft is kept with the superseded warning |
+| `gone` | Nothing | The draft is kept with the superseded warning |
+
+The superseded warning shows only with a draft or an unconfirmed retry. The decision is made during render from the read and from the answer handler's confirmed receipt, which the handler stores as the form's outcome; no Effect watches the read. The step page's first pin takes only an open question; a `?question=` that names an answered or replaced question renders its card, never a form.
+
+**Data: answer fields on the Processing question DTO (chosen).** An answered session question in the Processing read carries `answer`:
+
+```text
+answer = { answer_id, answered_at, values: { step_id | null, prompt, text, truncated }[1..4],
+           effects: AnswerEffect[0..2], delivery?: { state: 'waiting' | 'read', read_at: IsoTime | null } }
+```
+
+- `values` summarise the stored answer against its question: a choice's option label or "Something else" text, a number with its basis, or text, each cut at 200 code points with `truncated` set. The full answer stays in the session history.
+- `effects` are the answer's capture effects, the same `AnswerEffect` the history's answer entry carries.
+- `delivery` is absent for earlier runner questions, which continue in a new attempt rather than through the inbox. For a session question it compares the answer's inbox item (idempotency key `answer:<question_id>`) with the job's acknowledgement cursor.
+- **The read time needs a log.** Inbox rows are immutable (the `agent_session_inbox_immutable` trigger, migration 0018), and the cursor's `acked_at` holds only its latest advance. A migration adds an append-only `agent_session_ack(session_lineage_id, acked_seq, acked_at)` row for each advance, written by `acknowledgeSessionInbox` in the transaction that moves the cursor, for both `read_inbox` and the steered-turn commit in `session-runner.ts`. The runner role gains `INSERT` on it. An answer's `read_at` is the first logged advance that reaches its sequence; an answer acknowledged before the migration reads "read" with no time.
+- **Refreshing:** an answer commits `processing_changed`; `read_inbox` publishes `session_changed` when the cursor moves (task 6). Task 13 confirms the steered-turn settlement also publishes when it moves the cursor, and adds the event if it doesn't. `LiveUpdates` turns either into a re-read of the Processing snapshot.
+- **Size:** the summary is bounded (4 values of 200 code points, 2 effects), so `requireRoom`'s per-question projection allowance (`agents/tools/handlers.ts`) grows by that maximum, and a question admitted while the snapshot had room still fits once answered.
+- **Rejected:** reading the session history on the step page. It is a second, per-job read under its own freshness gate, its answer entry can fall beyond the newest 200-entry page, and the step page would need it for every question it lists. Deriving "read" from `inbox_acked_seq` alone was rejected too: it gives no read time.
+
+### Question pictures (task 14, approved 2026-11-24)
+
+The design is the canvas boards QuestionFigures and QuestionFigureDialog.
+
+**The ask contract.** `SessionAskArgsV2` gains two optional members. Neither changes a tool name.
+
+```text
+figures?: Figure[1..5]        // the agent's order, most helpful first
+preview?: true                // a dry run: render and return, post nothing
+Figure  = { source: { kind: 'evidence_page', evidence_id, version_id, page },
+            view: View, marks?: Mark[0..8], caption ≤80, why ≤200 }
+View    = { region: { x, y, width, height }, quarter_turns: 0..3, straighten_millidegrees: −15000..15000 }
+Mark    = { kind: 'circle' | 'ellipse' | 'box' | 'arrow' | 'highlight', geometry, label? ≤40 }
+        | { kind: 'label', at, label ≤40 }
+```
+
+- **Sources:** an evidence page the batch holds, a photo or a page of a PDF version. The media decoder already renders every PDF page to a retained page image (`pdfPages` in `media-decoder/src/decode.ts`), and `fetch_evidence` already serves PDF pages from `media_preview`, so documents ship with photos in this task. A web page the agent reported has no saved copy and can't be a source.
+- **Coordinates:** the region is in the page's full-resolution preview pixels, the space `fetch_evidence` regions use; quarter turns and straightening apply to the cut region. Marks are in the rendered view's coordinates, as fractions of its width and height, so they don't depend on display size.
+- **Validation** in the `ask` handler, as a correctable tool error naming the figure: the source passes the same delivered-citation check proposals use (`deliveredSourceCheck`, `processing/provenance.ts`), so a picture shows only what the session was given; the region lies within the page's preview; the counts and lengths are within the limits above. Figures are stored in the question's spec, so `requireRoom` and the shared envelope writer's 32,768-byte check count them.
+- **Tool names stay the same.** Admission compares exact tool names, not schemas: Claude's init and MCP server checks (`claude-session-admission.ts` and the `system`/`init` check in `session-adapters.ts`) and Codex's MCP status check (`session-adapters.ts`) compare sorted name lists against `SESSION_TOOLS` and `LEAD_SESSION_TOOLS`. Changing `ask`'s arguments therefore needs no new tool profile, as PR-B's `/2` schema didn't.
+
+**Rendering.** The app renders each view; the original is never changed.
+
+- **One shared view recipe:** `bench-intake-view/1` in `contracts/src/media.ts` holds the source version, digest, page and page size with the `View` geometry above. A new decoder operation, `render_view` in `media-decoder/src/`, cuts the region from the orientation-normalised page, turns and straightens it with a corner guard, and encodes one view (a long edge of at most 2048 px) and a 480 px thumbnail. It reuses the affine path of `rotated-region.ts`. For an agent preview it also draws the marks into a separate preview image with `@napi-rs/canvas`; the operator's view never has marks burned in.
+- **Who runs it:** only the media worker holds the decoder dispatcher today (`tooling/deployment/host-media.compose.yaml`). Renders are therefore durable media work: the `ask` transaction stores a render request per figure in a new `processing_figure_render` table, keyed by version, page, recipe digest and purpose (view or marked preview), and the media worker claims requests as it claims decode commands, runs `render_view` through the dispatcher and stores the outputs in the blob store. They are not evidence versions. The media GC removes a render when no retained question references it, removes preview renders after a day, and removes every render of a removed version with it.
+- **Serving:** `GET /api/v1/batches/:batchId/processing/sessions/:jobId/questions/:questionId/figures/:index/:size` (view or thumbnail), beside PR-D2's photo-view crop route in `media/routes.ts` and with its scope. It serves the stored render, answers that it is still being prepared while the request is queued, and 404 when the question, the figure or its version is gone, which the card shows as "Photo removed".
+- **Preview:** `ask` with `preview: true` validates, stores marked preview render requests and commits, then waits at most `FIGURE_PREVIEW_WAIT_MS` (20 s) for them. It returns the rendered figures with their marks drawn in, through the same bounded image path as `fetch_evidence` (the per-run image budget and the configured VM delivery mode, task 12), and posts no question. A preview that isn't ready in time returns a correctable "not ready, call again" result with no images. A preview image grants no citation authority.
+- **Rejected:**
+  - Rendering in the API or tool process with `sharp`, as region crops are. Mitch chose one decoder operation shared with BI-022's recipe `/2`, and the decoder is the boundary for originals.
+  - Mounting the dispatcher socket into the API and the session worker now. It widens which processes can start decoder containers; BI-022's task 11 mounts it into the coordinator for its synchronous image tools, and can reuse this queue or keep that plan.
+  - Burning marks into the operator's picture. The dialog hides them, and they are listed for assistive technology.
+
+**The card and the dialog.**
+
+- One figure is full width; two sit side by side; three to five show one large with a thumbnail strip that the arrow keys move along. Each figure shows its caption and its source ("IMG_3011 · cropped, turned upright, ×4"); a document page carries a page badge. Marks are an SVG overlay drawn by the frontend from the recipe's fractions.
+- Clicking a figure opens a Radix dialog on `ui/ModalFrame`: a large view with zoom, Fit and Whole photo (the page preview with the region outlined), previous and next with the thumbnails, a "Show the agent's marks" switch, why the agent shows it, the marks listed in words, the source photo with its region and lot, Open in Capture (the Capture route naming the photo, task 7) and Add a photo.
+- The drawer, the step page and the session page show figures, and the folded Answered line from task 13 keeps them in its expanded view.
+
+**Agent guidance.** The `ask` description and the opening sentence share `ASK_GUIDANCE` (`agents/tools/ask-guidance.ts`). It gains: attach pictures only when seeing the item helps answer, at most five, most helpful first, each with a caption naming what to look at and why it is shown; preview first to check what the operator will see. Neither text is digest-bound: the tool description is published by `agents/tools/server.ts` on every turn, so resumed sessions get it too, and the opening's `instructions` are the opening user message, not the profile instructions behind `instruction_sha256` (as noted for task 3). Only sessions opened after the change get the opening sentence. BI-022's `shared-vm-agent/4` stage packs are digest-bound, so that change carries the same guidance in its packs.
+
 ## State, authority and failure behavior
 
 | Case | Outcome |
 | --- | --- |
 | Question superseded or capture changed while drafting | The existing stale banner. The draft is kept with every step; it can't be applied to another question |
+| Question answered from this form | It folds to its Answered line; no warning (task 13) |
+| Question answered elsewhere, no draft | It folds to its Answered line; with a draft, the draft is kept with "Answered elsewhere" (task 13) |
+| A figure's source version is removed after the ask | The card shows "Photo removed" for that figure; the question stays answerable (task 14) |
+| A figure render fails or is still queued | The card shows "Picture couldn't be made" or "Preparing picture…" in its place; the question stays answerable (task 14) |
 | Answer validation fails on the server | 422 `invalid_answer`; nothing recorded. The error body gains an optional `step_id`, which the client keeps on `IntakeRequestError`. A confirmed refusal clears the pinned submission, so the draft stays editable, and the form marks the named step, or shows a general message. An uncertain failure keeps the original payload and key, as today |
 | Lost response after commit | Retry with the same key returns the first answer, as today |
 | `/1` question open when the change deploys | It keeps answering through `/1`; no migration |
@@ -262,10 +355,12 @@ Authority is unchanged. Only the operator's answer route applies capture edits f
 - **History and page (frontend unit):** expand and links per kind; grouping; drawer summary lines; the session page's filters, Load older, the newest-page refresh keeping older pages without duplicates, dropping them when the new page doesn't reach them, and the not-found state; route parsing and building.
 - **Frontend unit:** `Dialog` backdrop (closes; ignored while disabled; a drag from inside doesn't close; the guarded `onClose` path) and `QuestionAnswer` steps (Back and Next, the summary, inline number errors, answer in words, one-step choice, the `/1` fallback, draft pinning across a supersede).
 - **Manual:** a demo film of the drawer closing by backdrop and of a stepped question answered with options, one of expanding entries and opening a session page, and one of the activity popover with a working, a waiting and a paused stage. A live agent asking `/2` questions is optional evidence, with Mitch's go-ahead for a live run.
+- **Answered questions (task 13):** a jsdom regression renders `ProcessingWorkspace` with `?question=`, answers it, and returns the question as answered from `client.read`, and then again after a remount: it shows the Answered line, never the superseded warning. `questionStanding` is tested per row of its table. PG tests cover the answer summary, delivery and the acknowledgement log for `read_inbox` and a steered turn.
+- **Question pictures (task 14):** decoder tests for `render_view` geometry and the corner guard; PG tests for figure validation, render requests, the preview wait and its timeout, and the figure route's scope; a media-worker process test rendering a photo and a PDF page; frontend tests for the layouts, the dialog's keyboard use and the marks switch.
 
 ## Migration, rollout and recovery
 
-The only migration is PR-D1's, which lets the outbox accept `photo_view`. `/1` rows stay readable and `/2` rows are new.
+PR-D1's migration lets the outbox accept `photo_view`. `/1` rows stay readable and `/2` rows are new. PR-J adds the `agent_session_ack` log, and PR-K the `processing_figure_render` table; both follow the session worker rollout steps below. A build before PR-K can't decode a `/2` question with figures, so PR-K is forward-only like PR-B.
 
 The session worker is a separately supervised process: it hosts the tool server that publishes the `ask` schema and reads retained inbox and outbox items, and it refuses to start when the applied migrations differ from its build's (`compatibleSchema` in `operations/compatibility.ts`). Deploying PR-B, PR-D1 or PR-D2 therefore stops the session worker first, applies any migration, and then starts the API, the worker and the frontend from the same build, so no old worker serves the old `ask` schema or reads `/2` answers and photo views it can't decode. Each PR body states these steps.
 

@@ -307,6 +307,32 @@ useFreshRead(query, { current?: (data) => boolean, restored?: Snapshot }) →
 - **Design system:** the Bench Intake Design System gains a "Choosing a dropdown" guide with the three controls and examples, plus the `SearchablePicker` component. The canvas board O11 shows it.
 - **Rejected:** converting every select to the searchable picker. It's weaker on phones and slower for two or three options.
 
+### A replaced read is not a failure (task 15, approved 2026-11-24)
+
+The design is the canvas board FixReloadBanner.
+
+**Cause, checked at `49a87cd0`:**
+
+- `reloadSavedValues()` in `batches/Batch.tsx` awaits `captureQuery.refetch({ throwOnError: true })`, and its catch-all sets "Saved values still unavailable. Local inputs remain unchanged." The error banner always offers "Discard local edits and load saved values", whether or not anything is edited. The error lives in `Batch`, which stays mounted across the batch's tabs, and clears only on a later successful reload or the start of an edit, so it follows the operator to every tab.
+- `LiveUpdates`' `refreshRetainedReads` awaits `cancelVerified(…, { silent: true })` for the whole server scope and only then invalidates. In TanStack Query 5.105.1 a silent cancel piggybacks on the cancelled request's promise (`query-core` `query.ts`); no replacement has started when the cancel resolves, so an awaiting `refetch({ throwOnError: true })` rejects with `CancelledError { revert: true, silent: true }`. The invalidation's read then succeeds, but the banner stays.
+- Answering a question, saving anything, or an agent's own activity publishes the frames that start this, so the banner appears often while agents are busy. The same race in `ProcessingWorkspace`'s `perform()` → `refresh()` shows "The command was saved, but current status is unavailable. Refresh retained status before further commands." `instruction-delivery.ts`'s `readThroughCancels` already treats a cancel as replaced rather than failed, but doesn't wait for the replacement.
+
+**Decision:**
+
+- **One helper for awaited reads:** `readReplacingCancels` in `frontend/src/queries/`, beside `cancelVerified`. It awaits the read; when the read rejects with TanStack's `isCancelledError`, it waits for the next settled result of the same query from a request started after the cancel, for at most `REPLACED_READ_WAIT_MS` (10 s). If no replacement has started within the debounce, it starts one itself. It resolves with the replacement's data, or rejects with a typed `ReadUnavailable` naming the cause (a failed read, a paused read or the time limit). Other errors keep their own path, so infrastructure faults aren't reclassified.
+- **#254's rule holds:** the cancelled generation still never verifies. The helper only waits; verification comes from the replacement's own generation through the existing registry.
+- **Callers:** `Batch`'s `reloadSavedValues`, `ProcessingWorkspace.refresh()`, `readAgain` in `fresh-reads.ts` and `instruction-delivery.ts`, which moves from `readThroughCancels` to the helper.
+- **What the batch shows:** the error string becomes a reload state, `{ state: 'current' } | { state: 'unavailable', shownAt, unsaved: UnsavedChange[] }`.
+  - While a replaced read is awaited, nothing shows.
+  - With nothing edited: an amber notice, "Couldn't load the latest values. Showing what was loaded at 13:12. Trying again…", with Try now. A retry timer, owned by an Effect that clears it on success or unmount, re-reads every 5 s through the helper. The notice clears itself once any capture read succeeds after it was shown, derived during render from the query's `dataUpdatedAt`.
+  - With real unsaved changes: "Couldn't load the latest values. Your unsaved changes to Lot 3 · quantity and Lot 5 · location are kept.", with Try now and "Discard my changes", which drops exactly the named drafts and reloads. The names come from the dirty sources: `useDirtySources` reports gain a label from the editor (its lot and field), and a source without one is named by its area, such as "the batch settings".
+  - The red banner and "Discard local edits and load saved values" are removed from this path. The operator-review banner keeps its own text.
+- **What Processing shows:** after a confirmed command whose following read is unavailable, an amber "Saved. Showing the last status from 13:12 until it can be read again." Commands stay disabled until a read succeeds, as "Live unverifiable workspace state" requires. The answer handler no longer adds its own "Current capture is unavailable" message, since the batch's notice covers it. Messages for unconfirmed or refused commands are unchanged.
+- **Rejected:**
+  - Starting the replacement in the same tick as the cancel (`refetchQueries({ cancelRefetch: true })` in `LiveUpdates`). It reorders #254's cancel-through-the-registry-then-invalidate step, and an unmount, a scope change or another cancel would still fail an awaiting caller.
+  - Retrying on any error. It would hide real failures.
+  - Keeping the red banner with new text. Red and Discard suggest lost work when nothing was edited.
+
 ## State, authority and failure behavior
 
 | Case | Outcome |
@@ -318,6 +344,8 @@ useFreshRead(query, { current?: (data) => boolean, restored?: Snapshot }) →
 | Reload | Persisted data as `cached`, refreshed; commands gated |
 | Scope or build change | Persisted cache dropped; skeleton |
 | Typed input during refresh | Kept; the command explains why it is disabled |
+| A live update cancels an awaited read | Nothing shows; the caller waits up to 10 s for the replacing read (task 15) |
+| Saved values can't be read | Amber notice with the time of the values shown and Try now; Discard only with real unsaved changes, naming them (task 15) |
 
 Authority is unchanged: no command is enabled by cached, restored or cache-written data, and every command keeps its own revision checks.
 

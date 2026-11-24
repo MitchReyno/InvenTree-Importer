@@ -153,11 +153,12 @@ No new third-party runtime dependency is needed: the decoder already ships `shar
   - BI-019 PR-B (stepped questions, needed by the match question; merged in #251), PR-D1 (`photo_view`, web sources), PR-E (session page) and PR-G (the session-level read, recovery eligibility and slot totals that multi-lot session rows adapt);
   - BI-017's shipped web policy and instructions (Done, satisfied);
   - BI-019 PR-F's activity popover, whose fourth stage row task 11 adapts to Match before activation;
+  - BI-019 PR-K (question pictures), whose shared view recipe and decoder operation recipe `/2` extends (added 2026-11-24, when Mitch approved question pictures);
   - Mitch's go-ahead for the live requalification.
 
 ## Delivery and parallel work
 
-The work is eleven PRs after the plan. Tasks › "Parallel work" sets out exactly which can be built at the same time: six waves, the largest listing three PRs, though the dependency graph lets more run at once (PR-B, PR-G1 and PR-H can start after PR-A while PR-E1 is still running), and a critical path of six PRs, PR-A → PR-B → PR-C → PR-D, then PR-F or PR-I, then PR-G2. Mitch applied two re-carvings on 2026-11-23: the media decoder ports (PR-E1) start in wave 1, separate from the image tools and review (PR-E2), and the profile scaffold, packs and guides (PR-G1) land early behind the test-only switch, separate from activation and the live run (PR-G2). PR-A now waits for BI-019's early PR-D1 rather than its history read. Two further re-carvings stay proposals: splitting PR-C and PR-F, which would move Match's search core and Part confirmation earlier.
+The work is eleven PRs after the plan. Tasks › "Parallel work" sets out exactly which can be built at the same time: six waves, the largest listing three PRs, though the dependency graph lets more run at once (PR-B, PR-G1 and PR-H can start after PR-A while PR-E1 is still running), and a critical path of six PRs, PR-A → PR-B → PR-C → PR-D, then PR-F or PR-I, then PR-G2. Mitch applied two re-carvings on 2026-11-23: the media decoder ports (PR-E1) start early, separate from the image tools and review (PR-E2); since 2026-11-24 PR-E1 waits for BI-019's PR-K rather than starting in wave 1, and the profile scaffold, packs and guides (PR-G1) land early behind the test-only switch, separate from activation and the live run (PR-G2). PR-A now waits for BI-019's early PR-D1 rather than its history read. Two further re-carvings stay proposals: splitting PR-C and PR-F, which would move Match's search core and Part confirmation earlier.
 
 ## Open decisions and assumptions
 

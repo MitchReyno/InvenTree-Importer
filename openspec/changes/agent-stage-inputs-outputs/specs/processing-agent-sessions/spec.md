@@ -272,13 +272,19 @@ In a session whose input is `bench-intake-input/7`, `ask` SHALL return the exist
 
 ### Requirement: Image and logo tools run in the app
 
-`inspect_region`, `preview_images` and `match_logo` SHALL run in the media decoder on the retained original the session may fetch, and return their images and results to the agent within the frame and image limits. `preview_images` SHALL render a recipe exactly as approval would derive it. `propose_images` SHALL publish only recipes whose source versions are in scope for the lot it names.
+`inspect_region`, `preview_images` and `match_logo` SHALL run in the media decoder on the retained original the session may fetch, and return their images and results to the agent within the frame and image limits. `preview_images` SHALL render a recipe exactly as approval would derive it. `propose_images` SHALL publish only recipes whose source versions are in scope for the lot it names. No Images output SHALL carry marks.
 
 #### Scenario: Preview then propose
 
 - **GIVEN** an Images session with a photo of a single diode
 - **WHEN** it previews a recipe with a quarter turn and a 3.5° straightening and then proposes it
 - **THEN** the recipe render behind the preview and the later derived crop are the same pixels before montage labels, downscaling or encoding, the montage depicts that render, and the proposal names the source version and recipe.
+
+#### Scenario: Marks stay out of Images
+
+- **GIVEN** a lot whose open question shows a picture of its label with the agent's circle
+- **WHEN** an Images session proposes a crop of the same region and the operator confirms it
+- **THEN** the derived crop and its stock attachment have no marks drawn in.
 
 ### Requirement: Stage guides on demand
 
