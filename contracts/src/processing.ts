@@ -988,6 +988,7 @@ export type ProcessingCancellationDto = Static<typeof ProcessingCancellation>
 export type ProcessingAnswerDto = Static<typeof ProcessingAnswer>
 export type ProcessingAnswerV1Dto = Static<typeof ProcessingAnswerV1>
 export type ProcessingAnswerV2Dto = Static<typeof ProcessingAnswerV2>
+export type ProcessingQuestionValueDto = Static<typeof ProcessingQuestionValue>
 export type QuestionStepDto = Static<typeof QuestionStep>
 export type QuestionStepAnswerDto = Static<typeof QuestionStepAnswer>
 export type QuestionStepValueDto = Static<typeof QuestionStepValue>

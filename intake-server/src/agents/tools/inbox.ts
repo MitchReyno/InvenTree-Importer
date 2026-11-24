@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { and, asc, count, desc, eq, gt, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gt } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
 import {
   validate,
@@ -12,7 +12,12 @@ import { appendEvent } from '#/db/authority.ts'
 import { captureBatches } from '#/capture/schema.ts'
 import { processingJobs } from '#/processing/schema.ts'
 import { fail } from '#/processing/model.ts'
-import { agentSessionCursors, agentSessionInbox, agentSessions } from '#/agents/schema.ts'
+import {
+  agentSessionAcks,
+  agentSessionCursors,
+  agentSessionInbox,
+  agentSessions,
+} from '#/agents/schema.ts'
 import type { CaptureBinding } from '#/capture/model.ts'
 
 export const INBOX_READ_LIMIT = 20
@@ -200,7 +205,10 @@ export async function pendingSessionInbox(client: PoolClient, lineageId: string)
   return Number(rows[0]?.pending ?? 0)
 }
 
-/** Moves the cursor forward to `upTo`, never past the newest item and never backwards. */
+/**
+ * Moves the cursor forward to `upTo`, never past the newest item and never backwards, and logs the
+ * interval it acknowledged so each item keeps the time it was read. Returns whether it moved.
+ */
 export async function acknowledgeSessionInbox(client: PoolClient, lineageId: string, upTo: bigint) {
   const db = queryDatabase(client)
   const newest = await executeDatabaseQuery(
@@ -211,19 +219,39 @@ export async function acknowledgeSessionInbox(client: PoolClient, lineageId: str
       .orderBy(desc(agentSessionInbox.seq))
       .limit(1),
   )
-  const acknowledge = upTo < (newest[0]?.seq ?? 0n) ? upTo : (newest[0]?.seq ?? 0n)
+  const newestSeq = newest[0]?.seq ?? 0n
+  const acknowledge = upTo < newestSeq ? upTo : newestSeq
+  // Locked, so two advances cannot log overlapping intervals.
+  const previousRows = await executeDatabaseQuery(
+    db
+      .select({ ackedSeq: agentSessionCursors.ackedSeq })
+      .from(agentSessionCursors)
+      .where(eq(agentSessionCursors.sessionLineageId, lineageId))
+      .for('update'),
+  )
+  const previous = previousRows[0]?.ackedSeq ?? 0n
+  if (acknowledge <= previous) {
+    return false
+  }
+  const ackedAt = new Date()
   await executeDatabaseQuery(
     db
       .insert(agentSessionCursors)
-      .values({ sessionLineageId: lineageId, ackedSeq: acknowledge, ackedAt: new Date() })
+      .values({ sessionLineageId: lineageId, ackedSeq: acknowledge, ackedAt })
       .onConflictDoUpdate({
         target: agentSessionCursors.sessionLineageId,
-        set: {
-          ackedSeq: sql`GREATEST(${agentSessionCursors.ackedSeq}, excluded.acked_seq)`,
-          ackedAt: sql`CASE WHEN excluded.acked_seq > ${agentSessionCursors.ackedSeq} THEN excluded.acked_at ELSE ${agentSessionCursors.ackedAt} END`,
-        },
+        set: { ackedSeq: acknowledge, ackedAt },
       }),
   )
+  await executeDatabaseQuery(
+    db.insert(agentSessionAcks).values({
+      sessionLineageId: lineageId,
+      fromSeq: previous,
+      toSeq: acknowledge,
+      ackedAt,
+    }),
+  )
+  return true
 }
 
 /**
@@ -232,8 +260,7 @@ export async function acknowledgeSessionInbox(client: PoolClient, lineageId: str
  */
 export async function readSessionInbox(client: PoolClient, lineageId: string, afterSeq: bigint) {
   const db = queryDatabase(client)
-  const previous = await ackedSeq(client, lineageId)
-  await acknowledgeSessionInbox(client, lineageId, afterSeq)
+  const advanced = await acknowledgeSessionInbox(client, lineageId, afterSeq)
   const acked = await ackedSeq(client, lineageId)
   const rows = await executeDatabaseQuery(
     db
@@ -255,7 +282,7 @@ export async function readSessionInbox(client: PoolClient, lineageId: string, af
         created_at: row.createdAt.toISOString(),
       }) as SessionInboxItemDto,
   )
-  return { items, advanced: acked > previous }
+  return { items, advanced }
 }
 
 export async function sessionInboxItem(client: PoolClient, lineageId: string, itemId: string) {

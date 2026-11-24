@@ -129,6 +129,19 @@ export const agentSessionCursors = pgTable('agent_session_cursor', {
   ackedAt: timestamp('acked_at', { withTimezone: true }),
 })
 
+/** One cursor advance: the inbox sequences in (from_seq, to_seq] it acknowledged, and when. */
+export const agentSessionAcks = pgTable(
+  'agent_session_ack',
+  {
+    sessionLineageId: uuid('session_lineage_id').notNull(),
+    fromSeq: bigint('from_seq', { mode: 'bigint' }).notNull(),
+    toSeq: bigint('to_seq', { mode: 'bigint' }).notNull(),
+    /** Null for the baseline of a cursor acknowledged before advances were logged. */
+    ackedAt: timestamp('acked_at', { withTimezone: true }),
+  },
+  (table) => [primaryKey({ columns: [table.sessionLineageId, table.toSeq] })],
+)
+
 export const agentSlots = pgTable(
   'agent_slot',
   {
