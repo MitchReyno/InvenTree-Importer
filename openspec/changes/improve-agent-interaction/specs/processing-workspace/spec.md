@@ -287,6 +287,22 @@ The session drawer and the session page SHALL show the operator's messages, the 
 - **WHEN** the send hasn't been saved yet
 - **THEN** the message shows at the end with "Sending…" in place of its time, and takes its place in order once saved.
 
+### Requirement: An action rail beside the history
+
+In the session drawer and on the session page, each agent action row SHALL carry a hollow dot on a line, and chat bubbles SHALL carry none. The line SHALL be solid between adjacent actions and dashed across bubbles. While the session is working, its latest action SHALL show a filled "now" dot that pulses, without motion under reduced motion; otherwise that dot SHALL be plain.
+
+#### Scenario: Working, then waiting
+
+- **GIVEN** an Examine session working, whose latest action follows the operator's message
+- **WHEN** the drawer shows its history
+- **THEN** the dashed line crosses the message to the latest action's pulsing now dot, and once the session waits for the operator that dot is plain.
+
+#### Scenario: Reduced motion
+
+- **GIVEN** a working session and a browser that prefers reduced motion
+- **WHEN** the drawer shows its history
+- **THEN** the now dot shows a static ring and nothing animates.
+
 ### Requirement: An answer form says why it can't send
 
 An answer form SHALL lock while sending and fold only once the answer is confirmed. An unknown outcome SHALL keep the form open with the choice kept, say why, and offer Try again. The superseded warning SHALL show only over an unsaved draft or an unconfirmed retry. A question answered elsewhere SHALL show its Answered line; one replaced by a later question SHALL say "Replaced by a newer question" with a link, and one closed otherwise "No longer asked".

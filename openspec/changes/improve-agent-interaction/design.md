@@ -289,6 +289,14 @@ The design is the canvas board FixDrawerChat.
 - The drawer and the session page render the same rows (`ConversationRow`); the drawer keeps reading only the newest page and keeps folding runs of photo views and web reads. The composer stays at the bottom; its separate message list goes.
 - `chatMessages` and its `answers` path are removed once nothing uses them.
 
+**The action rail (variant B, board FixDrawerChatRail):**
+
+- Each agent action row (formed, recorded, viewed, proposed, status lines) has a small hollow dot at its left, with the surface fill and a muted ring. Chat bubbles have no dot: a message isn't a step the agent took.
+- A line runs through the dots. It is solid between action rows that follow each other directly, and dashed where one or more bubbles sit between two actions.
+- The latest action carries a filled accent "now" dot only while the session is working. It pulses with an expanding ring, and shows a static ring under reduced motion, through `ui/motion.ts`'s reduced-motion handling. When the session is paused, waiting for you or done, it is a plain hollow dot.
+- The now dot is the visible form of today's visually hidden "Current activity" status in `SessionPanel.tsx`; that live region stays for screen readers.
+- The drawer and the session page draw the same rows and dots. The rail takes about 22 px of the 420 px drawer; bubbles already stop at 84% of the width.
+
 ### Question pictures (task 14, approved 2026-11-24)
 
 The design is the canvas boards QuestionFigures and QuestionFigureDialog.

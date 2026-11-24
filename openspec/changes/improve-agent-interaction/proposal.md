@@ -42,7 +42,7 @@ The outcome sought:
 
 The design for items 1 and 2 is on the Bench Intake Redesign canvas, v70. The boards are "Session drawer: click outside to close, one question at a time" and "Agent questions: choices, numbers, words and steps", with the "Proposal: agent questions" sticky. The design log entries are D37 and D38. Items 3 and 4 are in v71–v75: "Session timeline: expandable entries with links", and the session page as "Option B (chosen) · Agent session page as a conversation", beside the unchosen option A (D39–D41). Items 5 and 6 are on the Masthead options page: "Activity popover: stage rows, counts and bar states" (D42).
 
-Items 8 to 10 are on the canvas boards FixAnsweredQuestion, QuestionFigures, QuestionFigureDialog and FixDrawerChat, approved by Mitch on 2026-11-24.
+Items 8 to 10 are on the canvas boards FixAnsweredQuestion, QuestionFigures, QuestionFigureDialog and FixDrawerChat (with variant B, FixDrawerChatRail), approved by Mitch on 2026-11-24.
 
 Mitch will add more agent-interaction items to this change. This proposal covers the ten above and configurable VM evidence delivery; later items are folded in with `openspec-update-change`.
 
