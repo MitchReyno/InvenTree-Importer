@@ -308,4 +308,3 @@ Clicking a question picture SHALL open a dialog with a large view, zoom, Fit and
 - **GIVEN** the dialog open on "The worn suffix, boxed", picture 1 of 4
 - **WHEN** the operator turns off "Show the agent's marks" and presses the right arrow key
 - **THEN** the box disappears from the picture while its description stays listed, and picture 2 of 4 shows without marks.
-
