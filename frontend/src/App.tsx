@@ -3,6 +3,8 @@ import { Banner } from './components/ui/Banner'
 import { AgentSessions } from './components/agents/AgentSessions'
 import { PageTitle, Panel, Paragraph } from './components/ui/primitives'
 import { Button } from './components/ui/Button'
+import { ReadState } from './components/ui/ReadState'
+import { AppSkeleton } from './components/AppSkeleton'
 import { useCallback, useMemo, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -166,7 +168,11 @@ export default function App() {
       </div>
     )
   } else if (!bootstrap) {
-    content = <Paragraph role="status">Loading…</Paragraph>
+    content = (
+      <ReadState phase="empty" skeleton={<AppSkeleton />}>
+        {null}
+      </ReadState>
+    )
   } else if (!client) {
     content = (
       <Panel>

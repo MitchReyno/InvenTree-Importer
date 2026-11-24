@@ -13,7 +13,11 @@ export const WORK_STEPS: { step: WorkStep; label: string }[] = [
   { step: 'inventory', label: 'Inventory' },
 ]
 
-/** Retained step state in counts; Processing never reduces it to one percentage. */
+/**
+ * Retained step state in counts; Processing never reduces it to one percentage. `waiting` jobs
+ * wait for the operator and `queued` ones for a slot, as the header read counts them; `readyLots`
+ * are the live lots with a ready job at the step, of the batch's `lots`.
+ */
 export type StepProgress = {
   step: WorkStep
   label: string
@@ -24,6 +28,8 @@ export type StepProgress = {
   ready: number
   failed: number
   questions: number
+  readyLots: number
+  lots: number
 }
 
 export type SourceQuestion = {
@@ -66,7 +72,8 @@ export type ProcessingSource = {
   paused?: boolean
 }
 
-const WAITING = new Set(['waiting_for_user', 'waiting_for_login', 'waiting_for_capacity'])
+const WAITING = new Set(['waiting_for_user', 'waiting_for_login'])
+const QUEUED = new Set(['queued', 'waiting_for_capacity'])
 const FAILED = new Set(['failed', 'interrupted'])
 
 function workStep(job: Job): WorkStep {
@@ -177,16 +184,25 @@ export function retainedJobsSource(
 
       const count = (match: (job: Job) => boolean) => jobs.filter(match).length
 
+      const readyLots = new Set(
+        jobs
+          .filter((job) => job.state === 'ready')
+          .map((job) => job.subject_id)
+          .filter((subject) => subject !== null && activeLotIds.has(subject)),
+      )
+
       return {
         step,
         label,
         jobs: jobs.length,
-        queued: count((job) => job.state === 'queued'),
+        queued: count((job) => QUEUED.has(job.state)),
         running: count((job) => job.state === 'running'),
         waiting: count((job) => WAITING.has(job.state)),
         ready: count((job) => job.state === 'ready'),
         failed: count((job) => FAILED.has(job.state)),
         questions: questions.filter((question) => question.step === step).length,
+        readyLots: readyLots.size,
+        lots: activeLotIds.size,
       }
     }),
     questions,

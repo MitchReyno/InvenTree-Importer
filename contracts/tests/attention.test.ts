@@ -3,12 +3,17 @@ import assert from 'node:assert/strict'
 import { validate } from '../src/index.ts'
 import { attentionClient } from '../src/client.ts'
 
-const noSteps = {
-  examine: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
-  research: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
-  images: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
-  inventory: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
+const none = {
+  questions: 0,
+  failed: 0,
+  jobs: 0,
+  ready: 0,
+  running: 0,
+  waiting: 0,
+  queued: 0,
+  ready_lots: 0,
 }
+const noSteps = { examine: none, research: none, images: none, inventory: none }
 
 const batch = '00000000-0000-4000-8000-000000000001'
 const question = '00000000-0000-4000-8000-000000000002'
@@ -16,7 +21,7 @@ const question = '00000000-0000-4000-8000-000000000002'
 const attention = {
   batch_id: batch,
   revision: '7',
-  processing: { questions: 1, failed: 0, running: 0, steps: noSteps },
+  processing: { questions: 1, failed: 0, running: 0, lots: 0, paused: false, steps: noSteps },
   review: { to_check: 2, changed_after_review: 1, needs_answer: 1, to_decide: 1, records: 0 },
   changes: { ready: 3, failed: 0, uncertain: 1, runs: 0 },
   items: [
@@ -37,7 +42,7 @@ test('batch attention gives tab counts and routed need-you items', () => {
   validate('BatchAttention', { ...attention, items: [] })
   validate('BatchAttention', {
     ...attention,
-    processing: { questions: 1, failed: 1, running: 0, steps: noSteps },
+    processing: { questions: 1, failed: 1, running: 0, lots: 0, paused: false, steps: noSteps },
     items: [
       ...attention.items,
       {
@@ -88,4 +93,34 @@ test('the attention client reads the batch route', async () => {
 test('batch attention counts the lots needing an answer for Review › Lots', () => {
   const { needs_answer: _omitted, ...withoutNeedsAnswer } = attention.review
   assert.throws(() => validate('BatchAttention', { ...attention, review: withoutNeedsAnswer }))
+})
+
+test('batch attention says whether the batch is paused and counts its live lots and waiting work', () => {
+  validate('BatchAttention', {
+    ...attention,
+    processing: {
+      ...attention.processing,
+      lots: 12,
+      paused: true,
+      steps: {
+        ...noSteps,
+        research: { ...none, jobs: 12, ready: 7, waiting: 1, queued: 2, ready_lots: 7 },
+      },
+    },
+  })
+  for (const field of ['lots', 'paused'] as const) {
+    const { [field]: _omitted, ...without } = attention.processing
+    assert.throws(() => validate('BatchAttention', { ...attention, processing: without }), field)
+  }
+  for (const field of ['waiting', 'queued', 'ready_lots'] as const) {
+    const { [field]: _omitted, ...without } = none
+    assert.throws(
+      () =>
+        validate('BatchAttention', {
+          ...attention,
+          processing: { ...attention.processing, steps: { ...noSteps, images: without } },
+        }),
+      field,
+    )
+  }
 })

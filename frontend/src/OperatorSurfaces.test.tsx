@@ -326,7 +326,8 @@ test('Capture omits subject panes and opens Review for subject editing', () => {
 test('Review distinguishes loading media from a failed first read without claiming no files', () => {
   const props = { batch, lot: batch.lots[0], part: undefined }
   const view = render(<LotEvidence {...props} mediaLoading />)
-  expect(screen.getByRole('status')).toHaveTextContent('Loading retained media')
+  expect(screen.queryByText(/Loading retained media/)).not.toBeInTheDocument()
+  expect(screen.getByRole('status')).toHaveTextContent('Loading')
   view.rerender(<LotEvidence {...props} mediaUnavailable />)
   expect(screen.getByRole('status')).toHaveTextContent(
     'File presence and previews could not be confirmed',

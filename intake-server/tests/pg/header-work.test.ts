@@ -218,25 +218,40 @@ test('the header counts each step of the open batch and of other batches with li
       }),
       ...fixture.config,
     }
-    const none = { jobs: 0, ready: 0, running: 0 }
+    const none = {
+      jobs: 0,
+      ready: 0,
+      running: 0,
+      waiting: 0,
+      queued: 0,
+      questions: 0,
+      failed: 0,
+      ready_lots: 0,
+    }
     const counted = (result: Awaited<ReturnType<typeof headerWork>>, batchId: string) =>
       result.batch_steps?.find((entry) => entry.batch_id === batchId)?.steps
 
     const open = await headerWork(fixture.api.pool, config, second.batch.id)
     assert.deepEqual(counted(open, second.batch.id), {
-      examine: { jobs: 2, ready: 0, running: 0 },
+      examine: { ...none, jobs: 2, queued: 2 },
       research: none,
       images: none,
       inventory: none,
     })
-    assert.deepEqual(counted(open, first.batch.id)?.examine, { jobs: 1, ready: 0, running: 0 })
+    assert.deepEqual(counted(open, first.batch.id)?.examine, { ...none, jobs: 1, queued: 1 })
 
     await fixture.db.pool.query(
       `UPDATE processing_job SET state='ready' WHERE batch_id=$1 AND subject_id=$2`,
       [second.batch.id, second.packetA.id],
     )
     const global = await headerWork(fixture.api.pool, config)
-    assert.deepEqual(counted(global, second.batch.id)?.examine, { jobs: 2, ready: 1, running: 0 })
+    assert.deepEqual(counted(global, second.batch.id)?.examine, {
+      ...none,
+      jobs: 2,
+      ready: 1,
+      queued: 1,
+      ready_lots: 1,
+    })
     validate('HeaderWork', global)
   } finally {
     await fixture.dispose()

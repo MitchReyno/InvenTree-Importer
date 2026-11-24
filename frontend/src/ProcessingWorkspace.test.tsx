@@ -2103,7 +2103,9 @@ test('Pause waits for a read started after the last live hint, and is checked ag
     button.click()
   })
   expect(pause).not.toHaveBeenCalled()
-  expect(await screen.findByRole('alert')).toHaveTextContent('Pausing failed')
+  // Nothing was sent, so nothing failed: the press waits quietly.
+  expect(screen.queryByText(/Pausing failed/)).not.toBeInTheDocument()
+  expect(button).toHaveAccessibleDescription('Updating…')
 })
 
 test('Resume waits for a read started after the last live hint, and is checked again when pressed', async () => {
@@ -2131,6 +2133,28 @@ test('Resume waits for a read started after the last live hint, and is checked a
   await waitFor(() => expect(button).not.toHaveAttribute('aria-disabled'))
   await user.click(button)
   await waitFor(() => expect(pause).toHaveBeenCalledWith(batchId, false))
+})
+
+test('the overview bar stops moving while a read from before the last live hint is shown', async () => {
+  const working = {
+    ...snapshot,
+    jobs: [{ ...snapshot.jobs[0], state: 'running' as const, session_state: 'running' as const }],
+  }
+  const client = { ...clientFixture(), read: vi.fn().mockResolvedValue(working) }
+  const cache = createServerQueryClient()
+  const { container } = mountPause(client, cache, async () => undefined)
+
+  const animated = () => container.querySelectorAll('[data-animated="true"]')
+
+  await waitFor(() => expect(animated()).toHaveLength(1))
+
+  act(() => freshReads(cache).noteHint())
+  expect(animated()).toHaveLength(0)
+
+  await act(async () => {
+    await cache.invalidateQueries({ queryKey: serverQueryKey(scope, 'processing', batchId) })
+  })
+  await waitFor(() => expect(animated()).toHaveLength(1))
 })
 
 /** The fixture batch with a finished Research job for Packet A. */

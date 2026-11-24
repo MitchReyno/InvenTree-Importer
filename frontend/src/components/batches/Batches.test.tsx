@@ -1,7 +1,10 @@
-import { screen, within } from '@testing-library/react'
+import { act, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
-import { render } from '#/test/render'
+import { fixtureScope, render } from '#/test/render'
+import { deferred } from '#/test/deferred'
+import { createServerQueryClient } from '#/queries/client'
+import { serverQueryKey } from '#/queries/scope'
 import type { CaptureListQueryDto, InboxWorkflowDto } from '@invimport/contracts'
 import { Batches } from './Batches'
 
@@ -229,4 +232,39 @@ test('behind the whole window, the page title takes a ground patch and the list 
   } finally {
     document.documentElement.dataset.masthead = 'bar'
   }
+})
+
+test('a first visit shows the list’s skeleton, not a loading line, until the batches land', async () => {
+  const api = client()
+  const list = deferred<{ batches: (typeof saved)[]; truncated: boolean }>()
+  api.list.mockReturnValueOnce(list.promise)
+  render(<Batches client={api} onDirtyChange={vi.fn()} />)
+
+  expect(screen.queryByText(/Loading retained batches/)).not.toBeInTheDocument()
+  expect(screen.getByRole('status')).toHaveTextContent('Loading')
+  await act(async () => {
+    list.resolve({ batches: [saved], truncated: false })
+    await list.promise
+  })
+  expect(await screen.findByText('Bench bag')).toBeVisible()
+})
+
+test('a return visit shows the cached list at once while it refreshes', async () => {
+  const api = client()
+  const list = deferred<{ batches: (typeof saved)[]; truncated: boolean }>()
+  api.list.mockReturnValueOnce(list.promise)
+  const cache = createServerQueryClient()
+  const options = { q: '', archived: 'exclude', offset: '0' }
+  cache.setQueryData(serverQueryKey(fixtureScope, 'batches', JSON.stringify(options)), {
+    batches: [saved],
+    truncated: false,
+  })
+  render(<Batches client={api} onDirtyChange={vi.fn()} />, { cache })
+
+  expect(screen.getByText('Bench bag')).toBeVisible()
+  expect(screen.queryByText('Loading')).not.toBeInTheDocument()
+  await act(async () => {
+    list.resolve({ batches: [saved], truncated: false })
+    await list.promise
+  })
 })

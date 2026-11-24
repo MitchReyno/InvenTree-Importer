@@ -53,6 +53,8 @@ interface Props {
   batch: CaptureSnapshotDto
   workspace: ManualWorkspaceDto
   operatorReview?: OperatorReviewDto
+  /** The operator review for this revision is still being read; commands wait quietly. */
+  operatorReviewPending?: boolean
   media?: MediaSnapshotDto
   mediaUnavailable?: boolean
   mediaLoading?: boolean
@@ -177,6 +179,7 @@ export function ReviewWorkspace({
   batch,
   workspace,
   operatorReview: observedOperatorReview,
+  operatorReviewPending = false,
   media,
   mediaUnavailable,
   mediaLoading,
@@ -206,6 +209,9 @@ export function ReviewWorkspace({
   // Restored data has no operator review read yet; that is a wait, not an unavailable review.
   const reviewUnavailable =
     !displayOnly && operator !== undefined && currentOperatorReview === undefined
+  // While its read is still landing the review is fenced quietly, with no banner.
+  const reviewWaiting = reviewUnavailable && operatorReviewPending
+  const scopeWaitReason = waitReason ?? (reviewWaiting && !busy ? 'Updating…' : undefined)
   const drafts = useDirtySources(onDirtyChange)
   const [navigationBlocked, setNavigationBlocked] = useState(false)
   const [route, setRoute] = useState(() => initialLocation(batch))
@@ -348,7 +354,7 @@ export function ReviewWorkspace({
           </Banner>
         </div>
       )}
-      {reviewUnavailable && (
+      {reviewUnavailable && !reviewWaiting && (
         <div role="status">
           <Banner tone="warn">
             Current operator review is unavailable or changed. Local drafts and exact retry intents
@@ -365,7 +371,7 @@ export function ReviewWorkspace({
         <Button
           size="sm"
           disabled={
-            !waitReason &&
+            !scopeWaitReason &&
             (drafts.dirty ||
               reviewUnavailable ||
               busy ||
@@ -374,7 +380,7 @@ export function ReviewWorkspace({
               !selected.length)
           }
           reasonDisplay="quiet"
-          disabledReason={waitReason}
+          disabledReason={scopeWaitReason}
           onClick={review}
         >
           Mark selected reviewed
@@ -382,11 +388,11 @@ export function ReviewWorkspace({
         <Button
           size="sm"
           disabled={
-            !waitReason &&
+            !scopeWaitReason &&
             (drafts.dirty || reviewUnavailable || busy || stale || Boolean(problem) || !reviewed)
           }
           reasonDisplay="quiet"
-          disabledReason={waitReason}
+          disabledReason={scopeWaitReason}
           onClick={prepare}
         >
           Prepare exact selected effects

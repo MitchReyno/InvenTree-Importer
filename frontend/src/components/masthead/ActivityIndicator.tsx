@@ -4,7 +4,11 @@ import type { HeaderWorkDto } from '@invimport/contracts'
 import { color, radius, space, typeVar } from '#/theme/generated/tokens'
 import { observationFresh, preferredWork } from '#/header/observations'
 import { useCachedBatchReads } from '#/header/useCachedBatchReads'
+import { useServerScope } from '#/context'
+import { useReadAfterHint, useReadNewer } from '#/queries/useReadAfterHint'
+import { serverQueryKey } from '#/queries/scope'
 import {
+  batchPaused,
   batchStepCounts,
   jobGroup,
   otherOpenJobs,
@@ -16,6 +20,7 @@ import {
 import { workSummary, type WorkSummary } from '#/header/workSummary'
 import {
   AiMark,
+  Skeleton,
   Spinner,
   media,
   ProgressSegments,
@@ -57,6 +62,21 @@ export function ActivityIndicator({
   const ids = useId()
   const cached = useCachedBatchReads(batchId)
   const fresh = !unavailable && !!data && observationFresh(data.observed_at, now)
+  const scope = useServerScope()
+  const workKey = serverQueryKey(scope, 'header-work', batchId ?? 'all')
+  const attentionKey =
+    batchId && cached.revision
+      ? serverQueryKey(scope, 'attention', batchId, cached.revision)
+      : undefined
+  const workAfterHint = useReadAfterHint(workKey, 'shown')
+  const attentionAfterHint = useReadAfterHint(attentionKey, 'shown')
+  // The open batch's counts come from whichever read is newer, else from attention when the
+  // header doesn't count the batch.
+  const attentionNewer = useReadNewer(attentionKey, workKey)
+  const headerCounts = !!data?.batch_steps?.some((entry) => entry.batch_id === batchId)
+  const countsFromAttention = !!cached.attention && (attentionNewer || !headerCounts)
+  // Bars move only while the reads that drew them started after the newest change the app heard of.
+  const moving = fresh && workAfterHint && (!countsFromAttention || attentionAfterHint)
   const summary = workSummary({ data, batchId, batchTitle: cached.title, unavailable, fresh })
   const preferred = shownWork(data, batchId, summary)
   const ownBatch = !!batchId && preferred?.batch_id === batchId
@@ -77,10 +97,14 @@ export function ActivityIndicator({
   // Processing work is agent work, so a fresh desktop pill for it leads with the AI mark. The phone
   // button is the agents status button, so it always carries it.
   const showMark = layout !== 'bar' || (fresh && preferred?.kind === 'processing')
-  const counts = batchStepCounts(data, preferred?.batch_id, attention)
+  const counts = batchStepCounts(
+    data,
+    preferred?.batch_id,
+    countsFromAttention ? attention : undefined,
+  )
   const segments =
     preferred?.kind === 'processing'
-      ? processingSegments(jobs, counts)
+      ? processingSegments(jobs, counts, batchPaused(data, preferred.batch_id, counts))
       : preferred
         ? segmentSteps(preferred)
         : []
@@ -92,7 +116,9 @@ export function ActivityIndicator({
   // A held slot outranks the spinner on the phone pill, where its word stands in for the labels.
   const held = fresh && compact === 'Slot held'
   const showSegments = fresh && !!preferred && layout !== 'condensed'
-  const stepWords = segments.map((step) => `${step.label}: ${step.state}`).join(', ')
+  const stepWords = segments
+    .map((step) => `${step.label}: ${WORK_STATE[step.state].word.toLowerCase()}`)
+    .join(', ')
   const describedBy = [
     `${ids}-headline`,
     name ? `${ids}-name` : '',
@@ -138,12 +164,19 @@ export function ActivityIndicator({
           </Labels>
           {/* At phone width a read that is not current says so first, then the spinner or the
               job's word, beside the step segments. */}
-          {(!fresh || !running || held || urgent(summary)) && (
-            <ShortText aria-hidden="true" data-short={compact} />
+          {/* Before the first read, a skeleton holds the word's place. */}
+          {compact === undefined ? (
+            <ShortSkeleton aria-hidden="true" data-reading="">
+              <Skeleton width={space[12]} height={space[4]} />
+            </ShortSkeleton>
+          ) : (
+            (!fresh || !running || held || urgent(summary)) && (
+              <ShortText aria-hidden="true" data-short={compact} />
+            )
           )}
           {showSegments && (
             <Segments data-named={fresh && urgent(summary)}>
-              <ProgressSegments steps={segments} />
+              <ProgressSegments steps={segments} still={!moving} />
             </Segments>
           )}
           {showSegments && layout === 'phone' && (
@@ -172,6 +205,8 @@ export function ActivityIndicator({
         attention={cached.attention}
         unavailable={unavailable}
         fresh={fresh}
+        moving={moving}
+        countsFromAttention={countsFromAttention}
       />
     </HeaderDisclosure>
   )
@@ -237,13 +272,16 @@ function compactSummaryWord(summary: WorkSummary, held: boolean) {
   return summary.headline === 'Status incomplete' ? 'Incomplete' : 'Active'
 }
 
-/** At phone width the labels hide, so a workflow read that is not current names its state. */
+/**
+ * At phone width the labels hide, so a workflow read that is not current names its state; one not
+ * read yet has no word.
+ */
 function compactWord(unavailable: boolean, loaded: boolean) {
   if (unavailable) {
     return 'Unavailable'
   }
 
-  return loaded ? 'Stale' : 'Reading…'
+  return loaded ? 'Stale' : undefined
 }
 
 const GLYPH_COLOR: Partial<Record<WorkState, string>> = {
@@ -297,6 +335,13 @@ const More = styled.span`
   color: ${color.onAccent};
   font-size: ${typeVar.label.size};
   font-weight: ${typeVar.pill.weight};
+`
+
+const ShortSkeleton = styled.span`
+  display: none;
+  ${media.compact} {
+    display: inline-block;
+  }
 `
 
 const ShortText = styled.span`

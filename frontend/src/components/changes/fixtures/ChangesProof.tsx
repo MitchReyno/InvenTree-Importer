@@ -497,13 +497,15 @@ const header = {
     observed_at: new Date().toISOString(),
     work: [],
     active_sessions: [],
+    paused_batches: [],
+    paused_truncated: false,
     work_truncated: false,
     sessions_truncated: false,
     lane_occupied: false,
   }),
 }
 
-const noSteps = { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 }
+const noSteps = { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0, waiting: 0, queued: 0, ready_lots: 0 }
 
 const attention = async (): Promise<BatchAttentionDto> => ({
   batch_id: batchId,
@@ -512,6 +514,8 @@ const attention = async (): Promise<BatchAttentionDto> => ({
     questions: 0,
     failed: 0,
     running: 0,
+    lots: 0,
+    paused: false,
     steps: { examine: noSteps, research: noSteps, images: noSteps, inventory: noSteps },
   },
   review: { to_check: 1, changed_after_review: 0, needs_answer: 0, to_decide: 1, records: 0 },

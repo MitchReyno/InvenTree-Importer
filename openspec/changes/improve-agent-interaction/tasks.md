@@ -320,10 +320,10 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - **Verification:** contracts tests; `pnpm db:intake test` on the header and attention tests.
 - **Risks and decisions:** keep the counts in the existing queries; no extra per-step query.
 
-- [ ] 8.1 Read the shared and intake-server code guidelines. Map how `stepJobs` and `stepWork` are counted today.
-- [ ] 8.2 RED: contract tests for the new fields. PG tests for a batch with one waiting-for-you, one queued, one running and one ready job, with open questions, retired lots, a stage with live lots but no jobs yet, a ready Part job beside a live lot with no job at that step, a paused batch, a batch paused with no jobs, more than five paused batches with one that has no work (in `paused_batches`, not cut by the `batch_steps` cap), more than 20 (truncated), `current` false on an earlier attempt of the job that still holds its slot (set up in the fixture, since Start fresh refuses while any attempt of the job holds one), and a failed Research job beside running Images in a batch other than the open one.
-- [ ] 8.3 GREEN: implement the counts and the paused flag in both reads.
-- [ ] 8.4 Run the contracts tests and the intake unit and PG tiers.
+- [x] 8.1 Read the shared and intake-server code guidelines. Map how `stepJobs` and `stepWork` are counted today.
+- [x] 8.2 RED: contract tests for the new fields. PG tests for a batch with one waiting-for-you, one queued, one running and one ready job, with open questions, retired lots, a stage with live lots but no jobs yet, a ready Part job beside a live lot with no job at that step, a paused batch, a batch paused with no jobs, more than five paused batches with one that has no work (in `paused_batches`, not cut by the `batch_steps` cap), more than 20 (truncated), `current` false on an earlier attempt of the job that still holds its slot (set up in the fixture, since Start fresh refuses while any attempt of the job holds one), and a failed Research job beside running Images in a batch other than the open one.
+- [x] 8.3 GREEN: implement the counts and the paused flag in both reads.
+- [x] 8.4 Run the contracts tests and the intake unit and PG tiers.
 
 ## 9. Activity popover stage rows and bar states
 
@@ -344,15 +344,15 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
   - a reduced-motion check.
 - **Risks and decisions:** the Processing overview uses the same bar, so check it in the demo too.
 
-- [ ] 9.1 Read the shared and frontend code guidelines, the frontend architecture and the D42 board.
-- [ ] 9.2 RED: `workSegments` tests:
-  - [ ] 9.2.1 State precedence, including a stage with both working and failed jobs, and a turn still running after the batch is paused, which reads working while the batch shows Paused and Resume.
-  - [ ] 9.2.2 A stage with no jobs yet is never done.
-  - [ ] 9.2.3 No fill without counts, and an uncounted running stage and an uncounted waiting stage read working and waiting for you from their retained jobs.
-  - [ ] 9.2.4 Examine waiting on questions reads as waiting for you.
-- [ ] 9.3 RED: tests for `ProgressSegments`' states, patterns and animation (only working, none under reduced motion), and for the popover's stage rows, links, counts, status lines (a finished stage with a cancelled attempt still holding a slot shows a reason, not that attempt's line, as in "Cancelled attempt still holding a slot") and Resume (including an open batch paused with no jobs), no animation on rows from a failed or stale read, including a finished stage and a stage whose sessions fall outside `active_sessions`, which show a reason rather than an agent line ("Stage with no listed session").
-- [ ] 9.4 GREEN: implement the states, the popover layout and the rows. Update the component gallery.
-- [ ] 9.5 Run the frontend checks. Record the demo video for the PR description.
+- [x] 9.1 Read the shared and frontend code guidelines, the frontend architecture and the D42 board.
+- [x] 9.2 RED: `workSegments` tests:
+  - [x] 9.2.1 State precedence, including a stage with both working and failed jobs, and a turn still running after the batch is paused, which reads working while the batch shows Paused and Resume.
+  - [x] 9.2.2 A stage with no jobs yet is never done.
+  - [x] 9.2.3 No fill without counts, and an uncounted running stage and an uncounted waiting stage read working and waiting for you from their retained jobs.
+  - [x] 9.2.4 Examine waiting on questions reads as waiting for you.
+- [x] 9.3 RED: tests for `ProgressSegments`' states, patterns and animation (only working, none under reduced motion), and for the popover's stage rows, links, counts, status lines (a finished stage with a cancelled attempt still holding a slot shows a reason, not that attempt's line, as in "Cancelled attempt still holding a slot") and Resume (including an open batch paused with no jobs), no animation on rows from a failed or stale read, including a finished stage and a stage whose sessions fall outside `active_sessions`, which show a reason rather than an agent line ("Stage with no listed session").
+- [x] 9.4 GREEN: implement the states, the popover layout and the rows. Update the component gallery.
+- [x] 9.5 Run the frontend checks. Record the demo video for the PR description.
 
 ## 10. Session rows, failures in plain words and Agents filters
 
@@ -407,7 +407,7 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - [x] PR-D1: implement task 5, review the exact head, publish, CI green, merge. Merged as #257 at `4fcdbd54`.
 - [ ] PR-D2: implement task 6, review the exact head, publish, CI green, merge.
 - [ ] PR-E: implement task 7, review the exact head, publish with the demo, CI green, merge.
-- [ ] PR-F: implement tasks 8 and 9, review the exact head, publish with the demo, CI green, merge.
+- [x] PR-F: implement tasks 8 and 9, review the exact head, publish with the demo, CI green, merge. Merged as #258 at `d09984bc`.
 - [ ] PR-G: implement task 10, review the exact head, publish with the demo, CI green, merge.
 - [ ] PR-H: implement task 11, review the exact head, publish with the demo, CI green, merge.
 - [ ] Update BI-019's status as PRs merge. It is Done only after PR-A, PR-B, PR-D1, PR-D2, PR-E, PR-F, PR-G and PR-H merge and its acceptance is evidenced.

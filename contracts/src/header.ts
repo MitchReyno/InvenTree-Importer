@@ -4,6 +4,7 @@ import { ProcessingStageV2, ProcessingState, ProcessingBlocker } from './process
 import { ManualRun } from './manual.ts'
 import { AgentSelection } from './agent-selection.ts'
 import { SessionLatestStatus, SessionState } from './sessions.ts'
+import { label } from './capture-primitives.ts'
 
 const choice = <const T extends readonly string[]>(values: T) =>
   Type.Union(values.map((value) => Type.Literal(value)))
@@ -93,8 +94,25 @@ export const HeaderWorkQuery = object({ batch_id: Type.Optional(Id) })
 /** Bounds the header's per-batch step counts: the open batch and a few with live work. */
 export const MAX_HEADER_BATCH_STEPS = 5
 
+/** Bounds the header's paused batches, which Resume is offered for; the Agents page lists them all. */
+export const MAX_HEADER_PAUSED_BATCHES = 20
+
 const count = Type.Integer({ minimum: 0, maximum: 100000 })
-const stepJobs = object({ jobs: count, ready: count, running: count })
+/**
+ * One step's current jobs, by state, and its open questions. `waiting` jobs wait for the operator
+ * (an answer or a sign-in); `queued` ones wait for a slot. `ready_lots` counts live lots with a
+ * ready job at the step, so Part jobs never add to it.
+ */
+const stepJobs = object({
+  jobs: count,
+  ready: count,
+  running: count,
+  waiting: count,
+  queued: count,
+  questions: count,
+  failed: count,
+  ready_lots: count,
+})
 export const HeaderWork = object({
   actor_id: Id,
   target_id: Id,
@@ -161,6 +179,8 @@ export const HeaderWork = object({
       /** Session profiles only. */
       session_state: Type.Union([SessionState, Type.Null()]),
       latest_status: Type.Union([SessionLatestStatus, Type.Null()]),
+      /** Whether this attempt is its job's current one; an earlier attempt can still hold a slot. */
+      current: Type.Boolean(),
     }),
     { maxItems: 50 },
   ),
@@ -169,6 +189,10 @@ export const HeaderWork = object({
     Type.Array(
       object({
         batch_id: Id,
+        /** The batch's agents are paused: its sessions start no new turn until resumed. */
+        paused: Type.Boolean(),
+        /** The batch's live lots, which a lot step's `ready_lots` is counted against. */
+        lots: count,
         steps: object({
           examine: stepJobs,
           research: stepJobs,
@@ -179,6 +203,11 @@ export const HeaderWork = object({
       { maxItems: MAX_HEADER_BATCH_STEPS },
     ),
   ),
+  /** The scoped paused live batches, the open one first, whether or not they have work. */
+  paused_batches: Type.Array(object({ batch_id: Id, title: label }), {
+    maxItems: MAX_HEADER_PAUSED_BATCHES,
+  }),
+  paused_truncated: Type.Boolean(),
   work_truncated: Type.Boolean(),
   sessions_truncated: Type.Boolean(),
   lane_occupied: Type.Boolean(),

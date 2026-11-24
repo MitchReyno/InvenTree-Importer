@@ -4,7 +4,7 @@ import { useId, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { SessionFailureDto, SessionFailureSummaryDto } from '@invimport/contracts'
 import { serverQueryKey } from '#/queries/scope'
-import { Button, DebugDetails } from '#/components/ui'
+import { Button, DebugDetails, Spinner } from '#/components/ui'
 import { useServerScope } from '#/context'
 import { useDebugMode } from '#/debug/debug-mode'
 
@@ -99,7 +99,10 @@ export function SessionFailureDetails({
               <p role="status">Failure details are currently unavailable.</p>
             )}
             {available && !query.isError && !details && (
-              <p role="status">Loading failure details…</p>
+              // Read only when the operator opens them, so the wait is a spinner, not a skeleton.
+              <p role="status">
+                <Spinner /> Loading failure details…
+              </p>
             )}
             {available && !query.isError && details && (
               <>

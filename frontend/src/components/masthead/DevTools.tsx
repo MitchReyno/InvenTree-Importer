@@ -10,7 +10,7 @@ import { useReadiness } from '#/debug/useReadiness'
 export function DevTools({ onNavigate }: { onNavigate: () => void }) {
   const { enabled, setEnabled } = useDebugMode()
   const readiness = useReadiness(true)
-  const failed = readiness.isError || readiness.fetchStatus === 'paused'
+  const failed = readiness.phase === 'failed'
 
   return (
     <Panel>
@@ -30,9 +30,9 @@ export function DevTools({ onNavigate }: { onNavigate: () => void }) {
         <Button
           variant="ghost"
           size="sm"
-          disabled={readiness.isFetching}
+          disabled={readiness.query.isFetching}
           onClick={() => {
-            void readiness.refetch()
+            void readiness.query.refetch()
           }}
         >
           Check setup again

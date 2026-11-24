@@ -354,7 +354,7 @@ const manualClient = {
   cancel: unsupported,
   recover: unsupported,
 }
-const noSteps = { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 }
+const noSteps = { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0, waiting: 0, queued: 0, ready_lots: 0 }
 const attention: BatchAttentionDto = {
   batch_id: batchId,
   revision: '7',
@@ -362,6 +362,8 @@ const attention: BatchAttentionDto = {
     questions: 0,
     failed: 0,
     running: 0,
+    lots: 0,
+    paused: false,
     steps: { examine: noSteps, research: noSteps, images: noSteps, inventory: noSteps },
   },
   review: {

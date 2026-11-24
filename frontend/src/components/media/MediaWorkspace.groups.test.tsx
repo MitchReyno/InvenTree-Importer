@@ -7,6 +7,7 @@ import { createServerQueryClient } from '#/queries/client'
 import { serverQueryKey } from '#/queries/scope'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { fixtureScope, render } from '#/test/render'
+import { deferred } from '#/test/deferred'
 import { MediaWorkspace } from './MediaWorkspace'
 import type { MediaClient } from '#/media/types'
 import type { OperatorReviewClient } from '#/operator/types'
@@ -1312,4 +1313,28 @@ test('an unconfirmed move that its retry has refused is never announced', async 
   await user.click(await screen.findByRole('button', { name: 'Retry exact media request' }))
   await waitFor(() => expect(client.edit).toHaveBeenCalledTimes(2))
   expect(screen.queryByText('Moved 1 file to Packet B')).toBeNull()
+})
+
+test('until its first media read lands, Capture shows the groups’ skeleton, not a warning', async () => {
+  const client = mediaClient()
+  const read = deferred<MediaSnapshotDto>()
+  vi.mocked(client.snapshot).mockReturnValueOnce(read.promise)
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={client}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+    />,
+  )
+
+  expect(screen.queryByText(/could not be confirmed/)).not.toBeInTheDocument()
+  expect(screen.getByText('Loading')).toHaveAttribute('role', 'status')
+  await act(async () => {
+    read.resolve(initial)
+    await read.promise
+  })
+  expect(await screen.findByRole('region', { name: /Packet A/ })).toBeVisible()
+  expect(screen.queryByText('Loading')).not.toBeInTheDocument()
 })

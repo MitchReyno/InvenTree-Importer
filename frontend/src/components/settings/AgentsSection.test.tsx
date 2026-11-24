@@ -11,6 +11,9 @@ import { IntakeRequestError, type agentsClient } from '@invimport/contracts/clie
 import { useQueryClient } from '@tanstack/react-query'
 import { fixtureScope, render } from '#/test/render'
 import { serverQueryKey } from '#/queries/scope'
+import { createServerQueryClient } from '#/queries/client'
+import { freshReads } from '#/queries/fresh-reads'
+import { deferred } from '#/test/deferred'
 import type { SettingsSectionId } from '#/navigation/app-route'
 import { Settings } from './Settings'
 import { resetRunnerQueue } from '#/components/agents/useChatGPTSignIn'
@@ -593,11 +596,59 @@ test('after a failed read the forms stay closed over cached settings until a rea
     </Primed>,
   )
   expect(await screen.findByText(/Settings unavailable/)).toBeVisible()
-  expect(screen.queryByRole('textbox', { name: 'Instructions for every new batch' })).toBeNull()
+  // The cached settings show read-only: nothing in them can be focused or edited.
+  expect(
+    screen.getByRole('textbox', { name: 'Instructions for every new batch' }).closest('[inert]'),
+  ).not.toBeNull()
   fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+  await waitFor(() =>
+    expect(
+      screen.getByRole('textbox', { name: 'Instructions for every new batch' }).closest('[inert]'),
+    ).toBeNull(),
+  )
+})
+
+test('a first visit shows each subsection’s skeleton, not a loading line, until the settings land', async () => {
+  const api = client()
+  const read = deferred<AgentSettingsDto>()
+  api.settings.mockReturnValueOnce(read.promise)
+  render(<Harness api={api} />)
+
+  expect(screen.queryByText(/Loading saved settings|Waiting for the saved settings/)).toBeNull()
+  expect(screen.getByRole('status')).toHaveTextContent('Loading')
+  expect(screen.queryByRole('textbox', { name: 'Instructions for every new batch' })).toBeNull()
+
+  await act(async () => {
+    read.resolve(initial)
+    await read.promise
+  })
   expect(
     await screen.findByRole('textbox', { name: 'Instructions for every new batch' }),
   ).toBeVisible()
+})
+
+test('a return visit shows the cached settings read-only at once, and editable once read', async () => {
+  const api = client()
+  const read = deferred<AgentSettingsDto>()
+  api.settings.mockReturnValueOnce(read.promise)
+  render(
+    <Primed>
+      <Harness api={api} />
+    </Primed>,
+  )
+  const cached = screen.getByRole('textbox', { name: 'Instructions for every new batch' })
+  expect(cached.closest('[inert]')).not.toBeNull()
+  expect(screen.getByText('Showing saved data while it updates')).toBeInTheDocument()
+
+  await act(async () => {
+    read.resolve(initial)
+    await read.promise
+  })
+  await waitFor(() =>
+    expect(
+      screen.getByRole('textbox', { name: 'Instructions for every new batch' }).closest('[inert]'),
+    ).toBeNull(),
+  )
 })
 
 test('an edit made before a change from elsewhere is refused, keeping the edit and Reload', async () => {
@@ -812,6 +863,87 @@ test('Pause all agents uses the pause command the Agents page uses', async () =>
 
   await waitFor(() => expect(api.pauseAll).toHaveBeenCalledWith(true))
   await waitFor(() => expect(api.sessions).toHaveBeenCalledTimes(2))
+})
+
+test('Pause all agents waits for a list read started after the last live hint, and is checked again when pressed', async () => {
+  const api = client()
+  const paused = await api.sessions()
+  api.sessions.mockResolvedValue({ ...paused, paused_batch_ids: ['batch-a'] })
+  const cache = createServerQueryClient()
+  render(<Harness api={api} />, { cache })
+  await screen.findByRole('group', { name: 'Claude' })
+  const pause = await screen.findByRole('button', { name: 'Pause all agents' })
+  const resume = screen.getByRole('button', { name: 'Resume all agents' })
+  await waitFor(() => expect(pause).not.toHaveAttribute('aria-disabled'))
+  const registry = freshReads(cache)
+  const key = serverQueryKey(fixtureScope, 'agent-sessions', 'newest')
+
+  // A hint arrives: during the reconciliation delay the settled read predates it.
+  act(() => registry.noteHint())
+  expect(pause).toHaveAttribute('aria-disabled', 'true')
+  expect(pause).toHaveAccessibleDescription('Updating…')
+  fireEvent.click(pause)
+  expect(api.pauseAll).not.toHaveBeenCalled()
+
+  // Reconciliation queued behind a read that started before the hint: that read is not enough.
+  const before = deferred<AgentSessionListDto>()
+  const list = await api.sessions()
+  api.sessions.mockReturnValueOnce(before.promise)
+  act(() => {
+    void cache.refetchQueries({ queryKey: key })
+  })
+  act(() => registry.noteHint())
+  await act(async () => {
+    before.resolve(list)
+    await before.promise
+  })
+  expect(pause).toHaveAttribute('aria-disabled', 'true')
+  expect(resume).toHaveAttribute('aria-disabled', 'true')
+
+  // The reconciliation's own read lands, and Pause all is available again.
+  await act(async () => {
+    await cache.invalidateQueries({ queryKey: key })
+  })
+  await waitFor(() => expect(pause).not.toHaveAttribute('aria-disabled'))
+
+  // A hint between the last render and the press is caught when pressed.
+  await act(async () => {
+    registry.noteHint()
+    pause.click()
+    resume.click()
+  })
+  expect(api.pauseAll).not.toHaveBeenCalled()
+  expect(screen.queryByText(/Pausing failed/)).not.toBeInTheDocument()
+  expect(pause).toHaveAccessibleDescription('Updating…')
+
+  await act(async () => {
+    await cache.invalidateQueries({ queryKey: key })
+  })
+  await waitFor(() => expect(pause).not.toHaveAttribute('aria-disabled'))
+  fireEvent.click(pause)
+  await waitFor(() => expect(api.pauseAll).toHaveBeenCalledWith(true))
+})
+
+test('Resume all agents waits for a list read started after the last live hint', async () => {
+  const api = client()
+  const list = await api.sessions()
+  api.sessions.mockResolvedValue({ ...list, paused_batch_ids: ['batch-a'] })
+  const cache = createServerQueryClient()
+  render(<Harness api={api} />, { cache })
+  const resume = await screen.findByRole('button', { name: 'Resume all agents' })
+  await waitFor(() => expect(resume).not.toHaveAttribute('aria-disabled'))
+
+  act(() => freshReads(cache).noteHint())
+  expect(resume).toHaveAccessibleDescription('Updating…')
+  fireEvent.click(resume)
+  expect(api.pauseAll).not.toHaveBeenCalled()
+
+  await act(async () => {
+    await cache.invalidateQueries({ queryKey: serverQueryKey(fixtureScope, 'agent-sessions') })
+  })
+  await waitFor(() => expect(resume).not.toHaveAttribute('aria-disabled'))
+  fireEvent.click(resume)
+  await waitFor(() => expect(api.pauseAll).toHaveBeenCalledWith(false))
 })
 
 test('a stale revision is refused as a conflict, keeps the edit and offers Reload', async () => {

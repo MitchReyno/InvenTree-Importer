@@ -10,7 +10,10 @@ import type {
 } from '@invimport/contracts'
 import { applyRecordChange, type CaptureEditDto } from '@invimport/contracts'
 import { describe, expect, it, vi } from 'vitest'
-import { render } from '#/test/render'
+import { fixtureScope, render } from '#/test/render'
+import { deferred } from '#/test/deferred'
+import { createServerQueryClient } from '#/queries/client'
+import { serverQueryKey } from '#/queries/scope'
 import { RecordsStage } from './RecordsStage'
 import type { ProcessingClient } from '#/processing/types'
 import { CompanyDecision } from './CompanyDecision'
@@ -2350,5 +2353,130 @@ describe('CompanyDecision', () => {
       within(decision).getByRole('button', { name: 'Use Global Connector Technology' }),
     )
     expect(useExisting).toHaveBeenCalled()
+  })
+
+  it('a first visit shows the records’ skeleton, not a loading line, until the read lands', async () => {
+    const read = deferred<BatchRecordsDto>()
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(() => read.promise) }}
+        onDirtyChange={vi.fn()}
+      />,
+      { commands: { edit: vi.fn(async () => true), observe: vi.fn(async () => null) } },
+    )
+
+    expect(screen.queryByText(/Reading records/)).not.toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Loading')
+    await act(async () => {
+      read.resolve(records)
+      await read.promise
+    })
+    expect(await screen.findByRole('navigation', { name: 'Record types' })).toBeVisible()
+  })
+
+  it('a return visit shows the cached records at once, with edits waiting for the read', async () => {
+    const user = userEvent.setup()
+    const read = deferred<BatchRecordsDto>()
+    const cache = createServerQueryClient()
+    cache.setQueryData(serverQueryKey(fixtureScope, 'records', batch.id, batch.revision), records)
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(() => read.promise) }}
+        onDirtyChange={vi.fn()}
+      />,
+      { cache, commands: { edit: vi.fn(async () => true), observe: vi.fn(async () => null) } },
+    )
+
+    await open(user, /^Parts/, 'Carbon film resistor')
+    const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
+    expect(within(detail).getByLabelText('Name')).toBeDisabled()
+    await act(async () => {
+      read.resolve(records)
+      await read.promise
+    })
+    await waitFor(() => expect(within(detail).getByLabelText('Name')).toBeEnabled())
+  })
+
+  it('Send waits for the records read as well as Processing’s, since it names its session from them', async () => {
+    const user = userEvent.setup()
+    const chat = vi.fn(async () => ({ id: 'inbox' }))
+    const processing = {
+      read: vi.fn(async () => ({
+        jobs: [
+          { id: 'research-job', stage: 'research', subject_id: partA, session_state: 'running' },
+        ],
+      })),
+      session: vi.fn(),
+      chat,
+    } as unknown as ProcessingClient
+    const read = deferred<BatchRecordsDto>()
+    const cache = createServerQueryClient()
+    cache.setQueryData(serverQueryKey(fixtureScope, 'records', batch.id, batch.revision), records)
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(() => read.promise) }}
+        onDirtyChange={vi.fn()}
+      />,
+      {
+        cache,
+        clients: { processing },
+        commands: { edit: vi.fn(async () => true), observe: vi.fn(async () => null) },
+      },
+    )
+    await open(user, /^Parts/, 'Carbon film resistor')
+    const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
+    const category = within(detail).getByRole('row', { name: 'Category as saved' })
+    await user.click(await within(category).findByRole('button', { name: 'Ask Research' }))
+    const send = within(detail).getByRole('button', { name: 'Send to Research' })
+    await waitFor(() => expect(processing.read).toHaveBeenCalled())
+    expect(send).toHaveAttribute('aria-disabled', 'true')
+    await user.click(send)
+    expect(chat).not.toHaveBeenCalled()
+
+    await act(async () => {
+      read.resolve(records)
+      await read.promise
+    })
+    await waitFor(() => expect(send).not.toHaveAttribute('aria-disabled'))
+    await user.click(send)
+    await waitFor(() => expect(chat).toHaveBeenCalledOnce())
+  })
+
+  it('sends no Ask from records read at another revision', async () => {
+    const user = userEvent.setup()
+    const chat = vi.fn(async () => ({ id: 'inbox' }))
+    const processing = {
+      read: vi.fn(async () => ({
+        jobs: [
+          { id: 'research-job', stage: 'research', subject_id: partA, session_state: 'running' },
+        ],
+      })),
+      session: vi.fn(),
+      chat,
+    } as unknown as ProcessingClient
+    const newer = { ...records, revision: String(Number(batch.revision) + 1) }
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(async () => newer) }}
+        onDirtyChange={vi.fn()}
+      />,
+      {
+        clients: { processing },
+        commands: { edit: vi.fn(async () => true), observe: vi.fn(async () => null) },
+      },
+    )
+    await open(user, /^Parts/, 'Carbon film resistor')
+    const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
+    const category = within(detail).getByRole('row', { name: 'Category as saved' })
+    await user.click(await within(category).findByRole('button', { name: 'Ask Research' }))
+    const send = within(detail).getByRole('button', { name: 'Send to Research' })
+    await waitFor(() => expect(processing.read).toHaveBeenCalled())
+    await user.click(send)
+    expect(send).toHaveAttribute('aria-disabled', 'true')
+    expect(chat).not.toHaveBeenCalled()
   })
 })

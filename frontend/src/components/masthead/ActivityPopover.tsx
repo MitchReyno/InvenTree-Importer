@@ -1,23 +1,27 @@
 import type { BatchAttentionDto, HeaderWorkDto } from '@invimport/contracts'
 import styled from 'styled-components'
 import { color, size, space, typeVar } from '#/theme/generated/tokens'
+import type { QueryKey } from '@tanstack/react-query'
 import { batchHref } from '#/navigation/batch-route'
+import { useServerScope } from '#/context'
+import { serverQueryKey } from '#/queries/scope'
 import {
+  PLANNED,
+  batchPaused,
   batchState,
   batchStepCounts,
-  capitalised,
   jobState,
-  PLANNED_STEP,
   processingSegments,
   segmentSteps,
   slotHeld,
   workState,
+  type BatchCounts,
   type RetainedState,
 } from '#/header/workSegments'
 import { workSummary } from '#/header/workSummary'
 import {
-  media,
   EventTime,
+  media,
   Link,
   Small,
   ProgressSegments,
@@ -25,6 +29,8 @@ import {
   WORK_STATE,
   type WorkState,
 } from '#/components/ui'
+import { ResumeBatch } from './ResumeBatch'
+import { StageRow } from './StageRow'
 
 type WorkItem = HeaderWorkDto['work'][number]
 type Session = HeaderWorkDto['active_sessions'][number]
@@ -37,15 +43,16 @@ interface Props {
   attention?: BatchAttentionDto
   unavailable: boolean
   fresh: boolean
+  /** The reads behind the bars started after the last live hint, so working stages may move. */
+  moving: boolean
+  /** The open batch's counts come from its attention read, which is newer than the header's. */
+  countsFromAttention: boolean
 }
 
 /** A retained state in the shared words, for the diagnostics under Details. */
 function stateWord(state: RetainedState) {
   return WORK_STATE[workState(state)].word
 }
-
-/** A job or step still to finish: under way, queued or waiting for the operator. */
-const UNDER_WAY: ReadonlySet<WorkState> = new Set(['working', 'queued', 'waiting_for_you'])
 
 /** Each job leads with what an operator acts on; lanes, coverage and IDs sit in its Details. */
 export function ActivityPopover({
@@ -55,21 +62,38 @@ export function ActivityPopover({
   attention,
   unavailable,
   fresh,
+  moving,
+  countsFromAttention,
 }: Props) {
+  const scope = useServerScope()
   const work = data?.work ?? []
   const sessions = data?.active_sessions ?? []
   const processing = work.filter((item) => item.kind === 'processing')
   const imports = work.filter((item) => item.kind === 'import')
-  // One Processing entry per batch, the open batch first; each import run is its own entry.
-  const batches = [...new Set(processing.map((item) => item.batch_id))].sort(
-    (a, b) => Number(b === batchId) - Number(a === batchId),
-  )
-  const sessionOnly = [...new Set(sessions.map((session) => session.batch_id))].filter(
-    (batch) => !batches.includes(batch),
-  )
+  const paused = data?.paused_batches ?? []
+  // One Processing entry per batch, the open batch first; each import run is its own entry. A
+  // paused batch gets one even with no work listed, so it can be resumed, and so does a batch whose
+  // work was cut from the bounded list while its sessions were not.
+  const batches = [
+    ...new Set([
+      ...processing.map((item) => item.batch_id),
+      ...paused.map((entry) => entry.batch_id),
+      ...sessions.map((session) => session.batch_id),
+    ]),
+  ].sort((a, b) => Number(b === batchId) - Number(a === batchId))
+  const workKey = serverQueryKey(scope, 'header-work', batchId ?? 'all')
 
-  const title = (batch: string) =>
-    batch === batchId ? (batchTitle ?? 'Current batch') : 'Other batch'
+  const title = (batch: string) => {
+    const listed = paused.find((entry) => entry.batch_id === batch)?.title
+    if (batch === batchId) {
+      return batchTitle ?? listed ?? 'Current batch'
+    }
+
+    return listed ?? 'Other batch'
+  }
+
+  // Resume needs a current read: a stale or failed one may show a batch that is no longer paused.
+  const resumeUnavailable = fresh ? undefined : 'Resume waits for a current workflow read.'
 
   const sessionsOf = (batch: string) => sessions.filter((session) => session.batch_id === batch)
 
@@ -95,25 +119,30 @@ export function ActivityPopover({
         </Note>
       )}
       {data && !fresh && <Note role="status">This workflow observation is stale.</Note>}
-      {batches.map((batch) => (
-        <ProcessingJob
-          key={batch}
-          batch={batch}
-          title={title(batch)}
-          jobs={processing.filter((item) => item.batch_id === batch)}
-          attention={batch === batchId ? attention : undefined}
-          counts={batchStepCounts(data, batch, batch === batchId ? attention : undefined)}
-          sessions={sessionsOf(batch)}
-        />
-      ))}
+      {batches.map((batch) => {
+        const ownCounts = batch === batchId && countsFromAttention ? attention : undefined
+        const counts = batchStepCounts(data, batch, ownCounts)
+        return (
+          <ProcessingJob
+            key={batch}
+            batch={batch}
+            title={title(batch)}
+            jobs={processing.filter((item) => item.batch_id === batch)}
+            attention={ownCounts}
+            counts={counts}
+            paused={batchPaused(data, batch, counts)}
+            sessions={sessionsOf(batch)}
+            moving={moving}
+            workKey={workKey}
+            resumeUnavailable={resumeUnavailable}
+          />
+        )
+      })}
       {[...imports]
         .sort((a, b) => Number(b.batch_id === batchId) - Number(a.batch_id === batchId))
         .map((item) => (
           <ImportJob key={item.id} item={item} title={title(item.batch_id)} />
         ))}
-      {sessionOnly.map((batch) => (
-        <SessionJob key={batch} batch={batch} title={title(batch)} sessions={sessionsOf(batch)} />
-      ))}
       {idle && <Note>No agents working</Note>}
       {nothingListed && <Note>No active work listed</Note>}
       {data?.lane_occupied && !sessions.some((session) => session.occupies_lane) && (
@@ -130,6 +159,12 @@ export function ActivityPopover({
             Work coverage is partial. Open the owning views for additional retained work.
           </Small>
         )}
+        {data?.paused_truncated && (
+          <Small>
+            More batches are paused than are listed here. Resume them from{' '}
+            <Link href="#agents">Agents</Link>.
+          </Small>
+        )}
         {data?.sessions_truncated && (
           <Small>
             Active-session coverage is partial. An empty displayed list does not establish no active
@@ -142,45 +177,40 @@ export function ActivityPopover({
   )
 }
 
-function latestStatus(sessions: Session[]) {
-  return sessions
-    .map((session) => session.latest_status)
-    .filter((status) => status !== null)
-    .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0]
-}
-
-function StatusLine({ sessions, fallback }: { sessions: Session[]; fallback: string }) {
-  const latest = latestStatus(sessions)
-  if (!latest) {
-    return <Line>{fallback}</Line>
-  }
-
-  return (
-    <Line>
-      {latest.text} · <EventTime at={latest.at} />
-    </Line>
-  )
-}
-
-/** A batch's Processing: its planned steps, its agents' newest status line and one link. */
+/** A batch's Processing: its stage bar, one row per stage, and Resume while it is paused. */
 function ProcessingJob({
   batch,
   title,
   jobs,
   attention,
   counts,
+  paused,
   sessions,
+  moving,
+  workKey,
+  resumeUnavailable,
 }: {
   batch: string
   title: string
   jobs: WorkItem[]
   attention?: BatchAttentionDto
-  counts: ReturnType<typeof batchStepCounts>
+  counts: BatchCounts | undefined
+  paused: boolean
   sessions: Session[]
+  moving: boolean
+  workKey: QueryKey
+  resumeUnavailable?: string
 }) {
-  const steps = processingSegments(jobs, counts)
-  const questions = attention?.processing.questions ?? 0
-  const state = questions > 0 ? 'waiting_for_you' : batchState(jobs)
+  const steps = processingSegments(jobs, counts, paused, sessions)
+  // From the same read as the rows' counts, so the heading never disagrees with them.
+  let questions = attention?.processing.questions ?? 0
+  if (!attention && counts) {
+    questions = PLANNED.reduce((total, stage) => total + counts.steps[stage].questions, 0)
+  }
+  let state: WorkState = questions > 0 ? 'waiting_for_you' : batchState(jobs)
+  if (questions === 0 && jobs.length === 0) {
+    state = sessionsState(sessions)
+  }
   // A slot held by a job that stopped working says so beside Working.
   const held = !jobs.some((job) => workState(job.state) === 'working') && jobs.some(slotHeld)
   let detail: string | undefined
@@ -189,25 +219,35 @@ function ProcessingJob({
   } else if (state === 'working' && held) {
     detail = 'slot held'
   }
-  const lead =
-    jobs.find((job) => job.steps.some((step) => UNDER_WAY.has(workState(step.state)))) ?? jobs[0]
 
   return (
     <JobBody aria-label={`${title} · Processing`}>
       <Head>
         <b>{title}</b>
-        <StatePill state={state} detail={detail} />
+        {(jobs.length > 0 || questions > 0 || sessions.length > 0) && (
+          <StatePill state={state} detail={detail} />
+        )}
       </Head>
-      <ProgressSegments steps={steps} size="lg" />
-      <StepLabels aria-hidden="true">
-        {steps.map((step) => (
-          <span key={step.label}>{step.label}</span>
+      {paused && (
+        <PausedRow>
+          <StatePill state="paused" />
+          <span>No session starts new work until you resume.</span>
+          <ResumeBatch batchId={batch} readKey={workKey} unavailable={resumeUnavailable} />
+        </PausedRow>
+      )}
+      <ProgressSegments steps={steps} size="lg" still={!moving} />
+      <StageRows aria-label="Stages">
+        {PLANNED.map((stage, index) => (
+          <StageRow
+            key={stage}
+            batch={batch}
+            stage={stage}
+            step={steps[index]}
+            counts={counts}
+            sessions={sessions}
+          />
         ))}
-      </StepLabels>
-      <StatusLine
-        sessions={sessions}
-        fallback={`${capitalised(PLANNED_STEP[lead.stage] ?? lead.stage)} · ${WORK_STATE[jobState(lead)].word}`}
-      />
+      </StageRows>
       <Action href={batchHref(batch, { tab: 'processing', step: 'overview' })}>
         Open processing
       </Action>
@@ -235,6 +275,7 @@ function ProcessingJob({
         {jobs.some((job) => !job.steps_complete) && (
           <p>Fine-grained step coverage is incomplete. No percentage is inferred.</p>
         )}
+        {!counts && <p>This batch&apos;s stages are not counted in this read.</p>}
         {sessions.map((session) => (
           <SessionFacts key={session.attempt_id} session={session} />
         ))}
@@ -279,41 +320,16 @@ function ImportJob({ item, title }: { item: WorkItem; title: string }) {
   )
 }
 
-/** A batch whose agents run with no retained work item of their own. */
-function SessionJob({
-  batch,
-  title,
-  sessions,
-}: {
-  batch: string
-  title: string
-  sessions: Session[]
-}) {
-  let state: WorkState = 'queued'
+/** A batch's state from its listed sessions alone, when its work was cut from the bounded list. */
+function sessionsState(sessions: Session[]): WorkState {
   if (sessions.some((session) => session.session_state === 'waiting_input')) {
-    state = 'waiting_for_you'
-  } else if (sessions.some((session) => session.occupies_lane)) {
-    state = 'working'
+    return 'waiting_for_you'
   }
-  return (
-    <JobBody aria-label={`${title} · Agents`}>
-      <Head>
-        <b>{title}</b>
-        <StatePill state={state} />
-      </Head>
-      <StatusLine sessions={sessions} fallback={`${sessions.length} agent sessions`} />
-      <Action href={batchHref(batch, { tab: 'processing', step: 'overview' })}>
-        Open session work
-      </Action>
-      <Details>
-        <summary>Details</summary>
-        {sessions.map((session) => (
-          <SessionFacts key={session.attempt_id} session={session} />
-        ))}
-        <p>Batch {batch}</p>
-      </Details>
-    </JobBody>
-  )
+  if (sessions.some((session) => session.occupies_lane)) {
+    return 'working'
+  }
+
+  return 'queued'
 }
 
 function SessionFacts({ session }: { session: Session }) {
@@ -420,6 +436,24 @@ const Details = styled.details`
       line-height: ${size.touch};
     }
   }
+`
+
+const PausedRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[3]};
+  font-size: ${typeVar.small.size};
+  color: ${color.muted};
+`
+
+const StageRows = styled.ul`
+  display: flex;
+  flex-direction: column;
+  gap: ${space[1]};
+  margin: 0;
+  padding: 0;
+  list-style: none;
 `
 
 const Footer = styled.div`

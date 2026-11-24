@@ -117,6 +117,8 @@ function headerRead(path: string) {
         },
       ],
       active_sessions: [],
+      paused_batches: [],
+      paused_truncated: false,
       work_truncated: false,
       sessions_truncated: false,
       lane_occupied: false,
@@ -1151,8 +1153,26 @@ test('a failed attention refresh withholds the old running counts and says so', 
   const manual = manualClient(location.origin, 'a'.repeat(64), async () => {
     throw new Error('unexpected_manual_transport')
   })
-  const counts = { questions: 0, failed: 0, jobs: 2, ready: 0, running: 2 }
-  const none = { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 }
+  const counts = {
+    questions: 0,
+    failed: 0,
+    jobs: 2,
+    ready: 0,
+    running: 2,
+    waiting: 0,
+    queued: 0,
+    ready_lots: 0,
+  }
+  const none = {
+    questions: 0,
+    failed: 0,
+    jobs: 0,
+    ready: 0,
+    running: 0,
+    waiting: 0,
+    queued: 0,
+    ready_lots: 0,
+  }
   const read = vi
     .fn()
     .mockResolvedValueOnce({
@@ -1162,6 +1182,8 @@ test('a failed attention refresh withholds the old running counts and says so', 
         questions: 0,
         failed: 0,
         running: 2,
+        lots: 0,
+        paused: false,
         steps: { examine: counts, research: none, images: none, inventory: none },
       },
       review: { to_check: 0, changed_after_review: 0, needs_answer: 0, to_decide: 0, records: 0 },
@@ -1414,3 +1436,11 @@ function navigationFallback(path: string) {
   }
   return response({ code: 'not_found', message: 'Not found', correlation_id: 'test' }, 404)
 }
+
+test('until bootstrap is read the app shows a page skeleton, not a loading line', () => {
+  vi.spyOn(globalThis, 'fetch').mockReturnValue(new Promise(() => undefined))
+  render(<App />)
+
+  expect(screen.queryByText('Loading…')).not.toBeInTheDocument()
+  expect(screen.getByText('Loading')).toHaveAttribute('role', 'status')
+})

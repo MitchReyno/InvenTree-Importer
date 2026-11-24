@@ -1927,3 +1927,34 @@ test.each([
     )
   },
 )
+
+test('Review shows no unavailable banner while the operator review is first read, only once that read fails', async () => {
+  history.replaceState(null, '', `#${batchId}/review/lots`)
+  const client = { read: vi.fn(async () => batch), edit: vi.fn() } as unknown as Client
+  const operator = operatorClient()
+  let failRead: ((reason: unknown) => void) | undefined
+  vi.mocked(operator.read).mockImplementationOnce(
+    () =>
+      new Promise((_, reject) => {
+        failRead = reject
+      }),
+  )
+  render(
+    <ApiClientsProvider value={{ operator }}>
+      <Batch
+        id={batchId}
+        route={`${batchId}/review/lots`}
+        client={client}
+        manual={manualClient()}
+        onDirtyChange={vi.fn()}
+      />
+    </ApiClientsProvider>,
+  )
+  const mark = await screen.findByRole('button', { name: 'Mark selected reviewed' })
+  expect(screen.queryByText(/operator review is unavailable or changed/)).not.toBeInTheDocument()
+  expect(mark).toHaveAttribute('aria-disabled', 'true')
+  expect(mark).toHaveAccessibleDescription('Updating…')
+
+  await act(async () => failRead!(new Error('offline')))
+  expect(await screen.findByText(/operator review is unavailable or changed/)).toBeVisible()
+})
