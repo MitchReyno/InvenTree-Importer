@@ -278,7 +278,28 @@ async function main() {
       '/api/v1/agent-sessions': {
         get: {
           ...get('AgentSessionList', CAPTURE_TIMEOUT_MS),
-          parameters: [{ name: 'before', in: 'query', schema: Id }],
+          parameters: [
+            {
+              name: 'before',
+              in: 'query',
+              description: 'The cursor of the page read last; returns the next page.',
+              schema: schemas.AgentSessionCursor,
+            },
+            { name: 'filter', in: 'query', schema: schemas.AgentSessionQuery.properties.filter },
+            { name: 'batch_id', in: 'query', schema: Id },
+            {
+              name: 'day_start',
+              in: 'query',
+              description: "The start of the browser's local day, for Done today.",
+              schema: schemas.AgentSessionQuery.properties.day_start,
+            },
+            {
+              name: 'day_end',
+              in: 'query',
+              description: "The end of the browser's local day, exclusive.",
+              schema: schemas.AgentSessionQuery.properties.day_end,
+            },
+          ],
         },
       },
       '/api/v1/agents/pause': {
