@@ -141,6 +141,7 @@ test('each agent entry resolves its summary, details and links; retired lots and
     const back = await observe(150, 'RC0603 10k 2407')
     const loose = await observe(300, '1N4148')
     const spare = await observe(450, 'LED 5mm')
+    const extra = await observe(600, '1N4148 spare')
     const proposeLot = async (args: Record<string, unknown>) => {
       const result = await call('propose_lot', token, { base_revision: revision, ...args })
       revision = result.revision!
@@ -151,11 +152,12 @@ test('each agent entry resolves its summary, details and links; retired lots and
       observation_ids: [front],
       estimated_quantity: '380',
       quantity_basis: 'Reel label says 400; some were used',
+      separation_reason: 'Same MPN as packet A, date code 2407 vs 2341',
     })
     await proposeLot({ lot_id: packetB, observation_ids: [back] })
     const diodes = await proposeLot({
       label: 'Diodes',
-      observation_ids: [loose],
+      observation_ids: [loose, extra],
       estimated_quantity: '12',
       quantity_basis: 'Twelve visible',
     })
@@ -177,6 +179,16 @@ test('each agent entry resolves its summary, details and links; retired lots and
       ],
     })
     revision = regrouped.revision!
+    // A move into the edited lot the observation is already in changes nothing.
+    const sameLot = await call('regroup', token, {
+      base_revision: revision,
+      moves: [{ observation_id: loose, to_lot_id: diodes }],
+    })
+    revision = sameLot.revision!
+    // Extending an agent lot with an observation the operator placed only suggests it, and
+    // naming one already there changes nothing.
+    await proposeLot({ lot_id: packetB, observation_ids: [extra] })
+    await proposeLot({ lot_id: packetB, observation_ids: [front] })
     // The first call on the operator-edited diodes lot only suggests.
     await proposeLot({ lot_id: diodes, observation_ids: [back] })
     // The agent revises its first observation in place, under the same ID.
@@ -221,7 +233,7 @@ test('each agent entry resolves its summary, details and links; retired lots and
     assert.ok(agent.every((entry) => entry.who === 'agent' && entry.attempt === 1))
 
     const observations = entriesOf(history, 'observation')
-    assert.equal(observations.length, 5)
+    assert.equal(observations.length, 6)
     // Both entries for the revised observation show its current values, labelled as such.
     const frontEntries = observations.filter(
       (entry) => details(entry, 'observation').current?.id === front,
@@ -248,6 +260,8 @@ test('each agent entry resolves its summary, details and links; retired lots and
     assert.deepEqual(
       packetEntries.map((entry) => [entry.summary, details(entry, 'lot').outcome]),
       [
+        ['Proposed no change to 10 kΩ resistor — packet B', 'unchanged'],
+        ['Suggested changes to 10 kΩ resistor — packet B', 'suggested'],
         ['Extended 10 kΩ resistor — packet B', 'extended'],
         ['Formed 10 kΩ resistor — packet B', 'formed'],
       ],
@@ -261,9 +275,13 @@ test('each agent entry resolves its summary, details and links; retired lots and
         ['Formed Diodes', 'formed'],
       ],
     )
-    const formed = details(packetEntries[1], 'lot')
+    const formed = details(packetEntries[3], 'lot')
     assert.equal(formed.current, true)
-    assert.deepEqual(formed.not_retained, ['separation_reason'])
+    assert.equal(formed.separation_reason, 'Same MPN as packet A, date code 2407 vs 2341')
+    assert.deepEqual(formed.not_retained, [])
+    // A call that gave no reason says so rather than borrowing another call's.
+    assert.equal(details(packetEntries[2], 'lot').separation_reason, null)
+    assert.deepEqual(details(packetEntries[2], 'lot').not_retained, ['separation_reason'])
     assert.deepEqual(formed.lot!.estimate, {
       quantity: '380',
       basis: 'Reel label says 400; some were used',
@@ -272,7 +290,7 @@ test('each agent entry resolves its summary, details and links; retired lots and
       formed.lot!.observations.map((item) => item.id).sort(),
       [front, back, spare].sort(),
     )
-    assert.deepEqual(packetEntries[1].links, [
+    assert.deepEqual(packetEntries[3].links, [
       { kind: 'lot', lot_id: packetB, label: '10 kΩ resistor — packet B' },
       { kind: 'map', lot_id: packetB },
     ])
@@ -285,7 +303,17 @@ test('each agent entry resolves its summary, details and links; retired lots and
     assert.deepEqual(diodeLot.estimate, { quantity: '12', basis: 'Twelve visible' })
     assert.equal(diodeLot.operator_edited, true)
 
-    const [older, mixed] = entriesOf(history, 'regroup')
+    const [older, inPlace, mixed] = entriesOf(history, 'regroup')
+    assert.deepEqual(details(inPlace, 'regroup').moves, [
+      { observation_id: loose, from_lot_id: diodes, to_lot_id: diodes, outcome: 'unchanged' },
+    ])
+    assert.equal(inPlace.summary, '1 already in place')
+    const sameLotSuggestions = await fixture.db.pool.query(
+      `SELECT 1 FROM capture_lot_evidence_observation
+        WHERE lot_id=$1 AND evidence_observation_id=$2 AND status='suggested'`,
+      [diodes, loose],
+    )
+    assert.equal(sameLotSuggestions.rowCount, 0)
     assert.deepEqual(details(mixed, 'regroup').moves, [
       { observation_id: spare, from_lot_id: leds, to_lot_id: packetB, outcome: 'applied' },
       { observation_id: loose, from_lot_id: diodes, to_lot_id: packetB, outcome: 'suggested' },
@@ -317,7 +345,7 @@ test('each agent entry resolves its summary, details and links; retired lots and
       label: 'Is the second date code on the same reel?',
     })
     const view = entriesOf(history, 'photo_view')[0]
-    assert.equal(view.summary, 'Viewed part of Bench bag spill')
+    assert.equal(view.summary, 'Prepared part of Bench bag spill for the agent')
     assert.deepEqual(details(view, 'photo_view').crop, {
       attempt_id: lead.attempt,
       seq: view.id.split(':')[2],
@@ -512,7 +540,7 @@ test('a proposal links its lot, sources, first web reads and every open question
       title: 'ATmega328P datasheet',
     }
     const errata = { kind: 'web_page', url: 'https://example.org/errata' }
-    const propose = (summary: string, sources: unknown[]) =>
+    const propose = (summary: string, sources: unknown[], catalogued?: unknown[]) =>
       call('propose', token, {
         proposal: {
           schema_version: 'bench-intake-proposal/6',
@@ -520,10 +548,24 @@ test('a proposal links its lot, sources, first web reads and every open question
           summary,
           sources,
           relies_on: { fields: ['identity'], sources: [source] },
+          ...(catalogued
+            ? {
+                catalogue: {
+                  category: null,
+                  parameters: [],
+                  manufacturer: null,
+                  supplier: null,
+                  description: { text: 'AVR microcontroller', sources: catalogued },
+                },
+              }
+            : {}),
         },
       })
     const first = await propose('ATmega328P-AU', [source, datasheet])
-    const second = await propose('ATmega328P-AU, rev D', [datasheet, source, errata])
+    // The note is cited at the top and on a field, and linked once.
+    const second = await propose('ATmega328P-AU, rev D', [datasheet, source, errata], [source])
+    // The note is cited on a field only.
+    const fieldOnly = await propose('ATmega328P-AU in TQFP-32', [errata], [source])
     // Two open questions on the lot share the identity field: the session's and the lead's.
     const own = await call(
       'ask',
@@ -552,8 +594,13 @@ test('a proposal links its lot, sources, first web reads and every open question
 
     const history = await readHistory(fixture, batchId, session.job)
     const proposals = entriesOf(history, 'proposal')
-    assert.equal(proposals.length, 2)
-    const [newer, older] = proposals
+    assert.equal(proposals.length, 3)
+    const [catalogued, newer, older] = proposals
+    assert.equal(details(catalogued, 'proposal').proposal_id, fieldOnly.id)
+    const noteLinksOf = (entry: Entry) =>
+      entry.links.filter((link) => link.kind === 'note' && link.note_id === source.note_id)
+    assert.equal(noteLinksOf(catalogued).length, 1, 'a field-only note source is linked')
+    assert.equal(noteLinksOf(newer).length, 1, 'a note cited twice is linked once')
     const facts = details(older, 'proposal')
     assert.equal(facts.proposal_id, first.id)
     assert.deepEqual(facts.currentness, {
@@ -827,6 +874,10 @@ test('the before cursor pages without gaps or duplicates across streams, retries
     const forgeries = [
       'bm90LWpzb24',
       Buffer.from('["x",1,"y","1"]').toString('base64url'),
+      // PostgreSQL has no year 0, though JavaScript round-trips it.
+      Buffer.from(JSON.stringify(['0000-01-01T00:00:00.000Z', 1, session.attempt, '1'])).toString(
+        'base64url',
+      ),
       // A date JavaScript would quietly move to 2 March.
       Buffer.from(JSON.stringify(['2026-02-30T00:00:00.000Z', 1, session.attempt, '1'])).toString(
         'base64url',

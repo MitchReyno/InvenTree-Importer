@@ -21104,7 +21104,8 @@ export interface components {
                 kind: "lot";
                 payload: {
                     lot_id: string;
-                    outcome?: "formed" | "extended" | "suggested";
+                    outcome?: "formed" | "extended" | "suggested" | "unchanged";
+                    separation_reason?: string;
                 };
             } | {
                 session_id: string;
@@ -21473,7 +21474,8 @@ export interface components {
                     } | null;
                     /** @constant */
                     current: true;
-                    outcome: ("formed" | "extended" | "suggested") | null;
+                    outcome: ("formed" | "extended" | "suggested" | "unchanged") | null;
+                    separation_reason: string | null;
                     not_retained: "separation_reason"[];
                 } | {
                     /** @constant */
@@ -22565,7 +22567,8 @@ export interface components {
                     } | null;
                     /** @constant */
                     current: true;
-                    outcome: ("formed" | "extended" | "suggested") | null;
+                    outcome: ("formed" | "extended" | "suggested" | "unchanged") | null;
+                    separation_reason: string | null;
                     not_retained: "separation_reason"[];
                 } | {
                     /** @constant */
@@ -23510,7 +23513,7 @@ export interface components {
             to_lot_id: string;
             outcome: "applied" | "suggested" | "unchanged";
         };
-        LotFormingOutcome: "formed" | "extended" | "suggested";
+        LotFormingOutcome: "formed" | "extended" | "suggested" | "unchanged";
         SessionEnvelope: {
             /** @constant */
             schema_version: "bench-intake-session/1";
@@ -25431,7 +25434,8 @@ export interface components {
             kind: "lot";
             payload: {
                 lot_id: string;
-                outcome?: "formed" | "extended" | "suggested";
+                outcome?: "formed" | "extended" | "suggested" | "unchanged";
+                separation_reason?: string;
             };
         } | {
             session_id: string;
@@ -25764,6 +25768,7 @@ export interface components {
             };
             estimated_quantity?: string;
             quantity_basis?: string;
+            separation_reason?: string;
         };
         RegroupArgs: {
             /** Format: int64 */

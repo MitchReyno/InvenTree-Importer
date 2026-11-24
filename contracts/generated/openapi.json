@@ -93601,8 +93601,17 @@
                             {
                               "const": "suggested",
                               "type": "string"
+                            },
+                            {
+                              "const": "unchanged",
+                              "type": "string"
                             }
                           ]
+                        },
+                        "separation_reason": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 512
                         }
                       }
                     }
@@ -94523,7 +94532,6 @@
               },
               "attempts": {
                 "minItems": 1,
-                "maxItems": 1000,
                 "type": "array",
                 "items": {
                   "additionalProperties": false,
@@ -95446,6 +95454,7 @@
                             "lot",
                             "current",
                             "outcome",
+                            "separation_reason",
                             "not_retained"
                           ],
                           "properties": {
@@ -95833,8 +95842,24 @@
                                     {
                                       "const": "suggested",
                                       "type": "string"
+                                    },
+                                    {
+                                      "const": "unchanged",
+                                      "type": "string"
                                     }
                                   ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "separation_reason": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 512
                                 },
                                 {
                                   "type": "null"
@@ -101699,6 +101724,7 @@
                             "lot",
                             "current",
                             "outcome",
+                            "separation_reason",
                             "not_retained"
                           ],
                           "properties": {
@@ -102086,8 +102112,24 @@
                                     {
                                       "const": "suggested",
                                       "type": "string"
+                                    },
+                                    {
+                                      "const": "unchanged",
+                                      "type": "string"
                                     }
                                   ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "separation_reason": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 512
                                 },
                                 {
                                   "type": "null"
@@ -107469,6 +107511,10 @@
           },
           {
             "const": "suggested",
+            "type": "string"
+          },
+          {
+            "const": "unchanged",
             "type": "string"
           }
         ]
@@ -118290,8 +118336,17 @@
                       {
                         "const": "suggested",
                         "type": "string"
+                      },
+                      {
+                        "const": "unchanged",
+                        "type": "string"
                       }
                     ]
+                  },
+                  "separation_reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512
                   }
                 }
               }
@@ -120352,6 +120407,11 @@
             "type": "string"
           },
           "quantity_basis": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "separation_reason": {
             "type": "string",
             "minLength": 1,
             "maxLength": 512

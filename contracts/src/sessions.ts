@@ -30,6 +30,7 @@ import {
   EvidenceRegion,
   LeadBatchView,
   LotFormingConflict,
+  SeparationReason,
 } from './evidence-observations.ts'
 
 const object = <T extends TProperties>(properties: T) =>
@@ -145,13 +146,14 @@ export const RegroupMove = object({
   ]),
 })
 /**
- * What `propose_lot` did: formed a new lot, extended an agent lot, or only suggested membership
- * because the operator edited the lot.
+ * What `propose_lot` did: formed a new lot, extended an agent lot, only suggested membership
+ * because the operator edited the lot or its observations, or changed nothing.
  */
 export const LotFormingOutcome = Type.Union([
   Type.Literal('formed'),
   Type.Literal('extended'),
   Type.Literal('suggested'),
+  Type.Literal('unchanged'),
 ])
 export const SessionOutboxItem = Type.Union([
   object({ ...outboxBase, kind: Type.Literal('status'), payload: SessionStatusArgs }),
@@ -167,6 +169,8 @@ export const SessionOutboxItem = Type.Union([
       lot_id: Id,
       /** Absent on items recorded before outcomes were kept. */
       outcome: Type.Optional(LotFormingOutcome),
+      /** Why the agent kept the lot apart, when it said. */
+      separation_reason: Type.Optional(SeparationReason),
     }),
   }),
   object({
@@ -340,8 +344,6 @@ export const SessionTimeline = object({
 })
 /** The most stored inbox and outbox rows one history page holds. */
 export const SESSION_HISTORY_PAGE_SIZE = 200
-/** The most attempts one job's history describes; a longer lineage is refused, not cut. */
-export const SESSION_HISTORY_MAX_ATTEMPTS = 1000
 /** Every source of a proposal and every question making it provisional can be linked. */
 const MAX_ENTRY_LINKS = 1000
 const SUMMARY_MAX_CHARACTERS = 300
@@ -464,6 +466,8 @@ export const SessionHistoryDetails = Type.Union([
     current: Type.Literal(true),
     /** Null for an entry recorded before outcomes were kept. */
     outcome: Type.Union([LotFormingOutcome, Type.Null()]),
+    /** As the agent gave it with this call; null when it gave none. */
+    separation_reason: Type.Union([SeparationReason, Type.Null()]),
     not_retained: Type.Array(Type.Literal('separation_reason'), { maxItems: 1 }),
   }),
   object({
@@ -595,10 +599,8 @@ export const SessionHistoryMetadata = object({
   subject_id: Type.Union([Id, Type.Null()]),
   /** The job's current attempt, which may have no session after a switch to another profile. */
   current_attempt_id: Id,
-  attempts: Type.Array(SessionHistoryAttempt, {
-    minItems: 1,
-    maxItems: SESSION_HISTORY_MAX_ATTEMPTS,
-  }),
+  /** Every attempt, so a header is never missing from an older page. */
+  attempts: Type.Array(SessionHistoryAttempt, { minItems: 1 }),
   /** Inbox items at or below this sequence were acknowledged by the session. */
   inbox_acked_seq: CursorSequence,
 })

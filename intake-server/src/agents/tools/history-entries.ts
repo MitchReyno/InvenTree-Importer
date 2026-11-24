@@ -21,6 +21,7 @@ import { decodeSessionInput } from '#/processing/session-input.ts'
 import { retainedSessionProposal, retainedSessionQuestion } from '#/processing/retained.ts'
 import { proposalCurrentnessFacts } from '#/processing/read.ts'
 import { removedEvidenceIds } from '#/media/removal.ts'
+import { catalogueSources } from '#/processing/provenance.ts'
 
 /** The session job a history page belongs to. */
 export interface HistoryJob {
@@ -280,7 +281,7 @@ async function notesById(
 ) {
   const cited = new Set<string>()
   for (const proposal of proposals.values()) {
-    for (const source of proposal.value.sources) {
+    for (const source of citedSources(proposal.value)) {
       if (source.kind === 'note') {
         cited.add(source.note_id)
       }
@@ -497,11 +498,17 @@ function observationEntry(resolved: Resolved, item: OutboxOf<'observation'>): Bu
   }
 }
 
-const LOT_VERBS = { formed: 'Formed', extended: 'Extended', suggested: 'Suggested changes to' }
+const LOT_VERBS = {
+  formed: 'Formed',
+  extended: 'Extended',
+  suggested: 'Suggested changes to',
+  unchanged: 'Proposed no change to',
+}
 
 function lotEntry(resolved: Resolved, item: OutboxOf<'lot'>): Built {
   const lot = resolved.lots.get(item.payload.lot_id)
   const outcome = item.payload.outcome ?? null
+  const separationReason = item.payload.separation_reason ?? null
   const observations = (lot?.evidence_observation_ids ?? []).flatMap((id) => {
     const current = currentObservation(resolved, id)
     return current ? [current] : []
@@ -531,8 +538,9 @@ function lotEntry(resolved: Resolved, item: OutboxOf<'lot'>): Built {
         : null,
       current: true,
       outcome,
-      // propose_lot records no reason for keeping a lot separate.
-      not_retained: ['separation_reason'],
+      separation_reason: separationReason,
+      // Items recorded before propose_lot took a reason, or calls that gave none.
+      not_retained: separationReason ? [] : ['separation_reason'],
     },
   }
 }
@@ -599,8 +607,35 @@ function noteLink(resolved: Resolved, noteId: string): SessionHistoryLinkDto {
   }
 }
 
+/** A source's identity, so one cited in several places is linked once. */
+function sourceKey(source: SessionProposalDto['sources'][number]) {
+  switch (source.kind) {
+    case 'media_version':
+      return `media_version ${source.version_id}`
+    case 'note':
+      return `note ${source.note_id}`
+    case 'web_page':
+      return `web_page ${source.url}`
+    default:
+      return null
+  }
+}
+
+/** The proposal's top-level and catalogue sources that link somewhere, each once. */
+function citedSources(proposal: SessionProposalDto) {
+  const seen = new Set<string>()
+  return [...proposal.sources, ...catalogueSources(proposal)].filter((source) => {
+    const key = sourceKey(source)
+    if (key === null || seen.has(key)) {
+      return false
+    }
+    seen.add(key)
+    return true
+  })
+}
+
 function sourceLinks(resolved: Resolved, proposal: SessionProposalDto): SessionHistoryLinkDto[] {
-  return proposal.sources.flatMap((source): SessionHistoryLinkDto[] => {
+  return citedSources(proposal).flatMap((source): SessionHistoryLinkDto[] => {
     if (source.kind === 'media_version') {
       return [evidenceLink(resolved, source.version_id, 1)]
     }
@@ -721,7 +756,8 @@ function photoViewEntry(resolved: Resolved, item: OutboxOf<'photo_view'>): Built
   const where = evidenceLabel(resolved, view.version_id)
   const page = view.page > 1 ? `, page ${view.page}` : ''
   return {
-    summary: oneLine(`${view.region ? 'Viewed part of' : 'Viewed'} ${where}${page}`),
+    // A view records an image prepared for the agent, not that it was read.
+    summary: oneLine(`Prepared ${view.region ? 'part of ' : ''}${where}${page} for the agent`),
     links: [evidenceLink(resolved, view.version_id, view.page)],
     details: {
       kind: 'photo_view',

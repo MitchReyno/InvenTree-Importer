@@ -552,7 +552,9 @@ export async function proposeLot(
   if (lotId) {
     const target = lots.get(lotId)!
     if (editedLot(target)) {
-      for (const observationId of args.observation_ids) {
+      // An observation already in the lot needs no suggestion.
+      const outside = args.observation_ids.filter((id) => observations.get(id)!.lotId !== lotId)
+      for (const observationId of outside) {
         await suggestMembership(
           client,
           writer.batchId,
@@ -563,7 +565,14 @@ export async function proposeLot(
         )
       }
       const revision = await locked.finish({ tool: 'propose_lot', ...args }, writer.sessionId)
-      return { ok: true, revision, id: lotId, suggested: true, lotOutcome: 'suggested' }
+      // The session is told its changes to the operator's lot were not applied either way.
+      return {
+        ok: true,
+        revision,
+        id: lotId,
+        suggested: true,
+        lotOutcome: outside.length ? 'suggested' : 'unchanged',
+      }
     }
     // A new draft Part counts towards the subject limit here too.
     if (args.part && 'label' in args.part && subjects.length + 1 > MAX_LOTS_AND_PARTS) {
@@ -625,9 +634,15 @@ export async function proposeLot(
       }),
     )
   }
+  // Whether this call changed the lot, apart from suggestions.
+  let changedLot = Boolean(args.label || args.part || args.estimated_quantity)
   for (const observationId of args.observation_ids) {
     const row = observations.get(observationId)!
     const from = row.lotId ? lots.get(row.lotId) : undefined
+    if (row.lotId === lotId) {
+      // Already in the lot: neither a move nor a suggestion changes anything.
+      continue
+    }
     if (editedObservation(row) || (from && editedLot(from))) {
       // An observation the operator placed stays put; the lead session can only suggest.
       suggested = true
@@ -642,6 +657,7 @@ export async function proposeLot(
         next,
         writer.sessionId,
       )
+      changedLot = true
     }
   }
   await requireLotRoom(client, lotId)
@@ -655,8 +671,23 @@ export async function proposeLot(
     id: lotId,
     suggested,
     partSubjectId: createdPartId,
-    lotOutcome: args.lot_id ? 'extended' : 'formed',
+    lotOutcome: proposeLotOutcome(Boolean(args.lot_id), changedLot, suggested),
   }
+}
+
+/** What a `propose_lot` call did, from the changes it applied and the suggestions it recorded. */
+function proposeLotOutcome(
+  extending: boolean,
+  changedLot: boolean,
+  suggested: boolean,
+): LotFormingOutcomeDto {
+  if (!extending) {
+    return 'formed'
+  }
+  if (changedLot) {
+    return 'extended'
+  }
+  return suggested ? 'suggested' : 'unchanged'
 }
 
 /** `regroup`: moves observations between AI lots; edited rows only receive suggestions. */
@@ -685,18 +716,18 @@ export async function regroup(
     const row = observations.get(move.observation_id)!
     const from = row.lotId ? lots.get(row.lotId) : undefined
     const to = lots.get(move.to_lot_id)!
-    const onlySuggested = editedObservation(row) || editedLot(to) || (from && editedLot(from))
-    let outcome: RegroupMoveDto['outcome'] = onlySuggested ? 'suggested' : 'applied'
-    // Already in that lot: setActiveLot changes nothing.
-    if (!onlySuggested && row.lotId === move.to_lot_id) {
-      outcome = 'unchanged'
-    }
-    moves.push({
+    const recorded = {
       observation_id: move.observation_id,
       from_lot_id: row.lotId,
       to_lot_id: move.to_lot_id,
-      outcome,
-    })
+    }
+    // Already in that lot: neither a move nor a suggestion changes anything.
+    if (row.lotId === move.to_lot_id) {
+      moves.push({ ...recorded, outcome: 'unchanged' })
+      continue
+    }
+    const onlySuggested = editedObservation(row) || editedLot(to) || (from && editedLot(from))
+    moves.push({ ...recorded, outcome: onlySuggested ? 'suggested' : 'applied' })
     if (onlySuggested) {
       await suggestMembership(
         client,

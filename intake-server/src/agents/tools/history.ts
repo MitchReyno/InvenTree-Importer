@@ -1,6 +1,5 @@
 import type { Pool, PoolClient } from 'pg'
 import {
-  SESSION_HISTORY_MAX_ATTEMPTS,
   SESSION_HISTORY_PAGE_SIZE,
   validate,
   type ProcessingStateDto,
@@ -61,10 +60,12 @@ export function decodeHistoryCursor(value: string): HistoryPosition {
     return fail('invalid_history_cursor', 400)
   }
   const [at, stream, attemptId, seq] = fields as unknown[]
-  // Round-tripping refuses dates JavaScript would normalise, such as 30 February.
+  // Round-tripping refuses dates JavaScript would normalise, such as 30 February; PostgreSQL
+  // has no year 0.
   const validTime =
     typeof at === 'string' &&
     ISO_MILLISECONDS.test(at) &&
+    !at.startsWith('0000-') &&
     !Number.isNaN(Date.parse(at)) &&
     new Date(at).toISOString() === at
   const validStream = stream === INBOX_STREAM || stream === OUTBOX_STREAM
@@ -128,6 +129,8 @@ function runsOn(profileId: string): SessionHistoryAttemptDto['runs_on'] {
  * Every attempt's header, newest first. An attempt's span runs from its queue time; its end is
  * its latest transition, by retained order, while that is into its current terminal state, since
  * a turn's `finished_at` is not an attempt's end and idle cancellation or supersession writes none.
+ * Every read returns them all, so no older page loses its headers; a lineage grows only by a
+ * restart, retry or Start fresh.
  */
 async function historyAttempts(client: PoolClient, job: HistoryJob) {
   const rows = await client.query<{
@@ -162,14 +165,9 @@ async function historyAttempts(client: PoolClient, job: HistoryJob) {
           WHERE t.attempt_id=a.id ORDER BY t.sequence DESC LIMIT 1
        ) latest ON true
       WHERE a.job_id=$1 AND s.session_lineage_id=$1
-      ORDER BY a.number DESC
-      LIMIT $2`,
-    [job.id, SESSION_HISTORY_MAX_ATTEMPTS + 1],
+      ORDER BY a.number DESC`,
+    [job.id],
   )
-  // Every read returns every header, so a longer lineage is refused rather than cut short.
-  if (rows.rows.length > SESSION_HISTORY_MAX_ATTEMPTS) {
-    fail('session_history_capacity', 503)
-  }
   const failures = await latestSessionFailures(
     client,
     rows.rows.map((row) => row.id),

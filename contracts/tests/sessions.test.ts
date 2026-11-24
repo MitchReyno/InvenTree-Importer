@@ -591,14 +591,40 @@ test('a regroup records its moves with their source lots and outcomes; an older 
     payload: { lot_ids: [id(5)], moves },
   })
   validate('SessionOutboxItem', { ...outboxBase, kind: 'regroup', payload: { lot_ids: [id(5)] } })
-  // A lot item may say what propose_lot did; an older one has only the lot.
-  for (const outcome of ['formed', 'extended', 'suggested']) {
+  // A lot item may say what propose_lot did and why the lot is apart; an older one has only the lot.
+  for (const outcome of ['formed', 'extended', 'suggested', 'unchanged']) {
     validate('SessionOutboxItem', {
       ...outboxBase,
       kind: 'lot',
       payload: { lot_id: id(4), outcome },
     })
   }
+  validate('SessionOutboxItem', {
+    ...outboxBase,
+    kind: 'lot',
+    payload: { lot_id: id(4), outcome: 'formed', separation_reason: 'Date code 2407 vs 2341' },
+  })
+  assert.throws(() =>
+    validate('SessionOutboxItem', {
+      ...outboxBase,
+      kind: 'lot',
+      payload: { lot_id: id(4), separation_reason: '' },
+    }),
+  )
+  validate('ProposeLotArgs', {
+    base_revision: '1',
+    label: 'Packet B',
+    observation_ids: [id(30)],
+    separation_reason: 'Same MPN as packet A, another date code',
+  })
+  assert.throws(() =>
+    validate('ProposeLotArgs', {
+      base_revision: '1',
+      label: 'Packet B',
+      observation_ids: [id(30)],
+      separation_reason: 'x'.repeat(513),
+    }),
+  )
   assert.throws(() =>
     validate('SessionOutboxItem', {
       ...outboxBase,
@@ -684,6 +710,15 @@ test('a history page carries resolved entries, the session metadata and one olde
   }
   validate('SessionHistory', historyPage([chat, webRead, status], { before: 'WyIyMDI2Il0' }))
   validate('SessionHistory', historyPage([]))
+  // Every attempt is listed, however many a lineage has.
+  const many = Array.from({ length: 1001 }, (_, index) => ({
+    ...historyAttempt,
+    number: index + 1,
+  }))
+  validate('SessionHistory', {
+    ...historyPage([]),
+    session: { ...historyPage([]).session, attempts: many },
+  })
   // An inbox entry has no attempt, and an agent entry has no read state.
   assert.throws(() => validate('SessionHistory', historyPage([{ ...chat, attempt: 1 }])))
   assert.throws(() => validate('SessionHistory', historyPage([{ ...status, read: true }])))

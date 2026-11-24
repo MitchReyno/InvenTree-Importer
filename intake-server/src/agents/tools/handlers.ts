@@ -1080,16 +1080,14 @@ export function sessionTools(context: SessionToolContext) {
 
     propose_lot: (token: string, args: unknown) =>
       withLeadSession(context, token, async (client, principal) => {
-        const result = await proposeLot(
-          client,
-          writer(principal),
-          validated<ProposeLotArgsDto>('ProposeLotArgs', args),
-        )
+        const input = validated<ProposeLotArgsDto>('ProposeLotArgs', args)
+        const result = await proposeLot(client, writer(principal), input)
         return outboxed(client, principal, result, (id) => ({
           kind: 'lot',
           payload: {
             lot_id: id,
             ...(result.ok && result.lotOutcome ? { outcome: result.lotOutcome } : {}),
+            ...(input.separation_reason ? { separation_reason: input.separation_reason } : {}),
           },
         }))
       }),
