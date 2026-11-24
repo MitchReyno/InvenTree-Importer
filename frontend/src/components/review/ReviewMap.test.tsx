@@ -1,6 +1,7 @@
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import { Profiler } from 'react'
 import userEvent from '@testing-library/user-event'
+import { listedOptions, pickOption, picker, pickerText, searchAndPick } from '#/test/picker'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { describe, expect, it, vi } from 'vitest'
 import { ReviewMap } from './ReviewMap'
@@ -176,7 +177,7 @@ describe('ReviewMap', () => {
     const props = map()
     const stray = screen.getByRole('listitem', { name: /Stray photo/ })
 
-    await user.selectOptions(within(stray).getByLabelText('Link Stray photo to a lot'), 'c')
+    await searchAndPick(user, 'Link Stray photo to a lot', 'bag', 'Bag', stray)
     await user.click(within(stray).getByRole('button', { name: 'Link' }))
     expect(props.link).toHaveBeenCalledWith('f4', 'c', true)
 
@@ -292,14 +293,12 @@ describe('ReviewMap', () => {
     )
   })
 
-  it('offers a direct link to a lot the file supports only through its Part', () => {
+  it('offers a direct link to a lot the file supports only through its Part', async () => {
     map()
     const slip = screen.getByRole('listitem', { name: /Packing slip/ })
-    const options = within(within(slip).getByLabelText('Link Packing slip to a lot'))
-      .getAllByRole('option')
-      .map((option) => option.textContent)
+    await userEvent.setup().click(picker('Link Packing slip to a lot', slip))
 
-    expect(options).toEqual(['Link to a lot…', 'Packet A', 'Packet B', 'Bag'])
+    expect(listedOptions()).toEqual(['Packet A', 'Packet B', 'Bag'])
   })
 
   it('forgets a chosen lot once the file links to it, so Link cannot resend', async () => {
@@ -318,13 +317,13 @@ describe('ReviewMap', () => {
 
     const stray = () => screen.getByRole('listitem', { name: /Stray photo/ })
 
-    await user.selectOptions(within(stray()).getByLabelText('Link Stray photo to a lot'), 'c')
+    await pickOption(user, 'Link Stray photo to a lot', 'Bag', stray())
     await user.click(within(stray()).getByRole('button', { name: 'Link' }))
 
     const linked = [...evidence.slice(0, 3), file('f4', 'Stray photo', ['c'])]
     view.rerender(<ReviewMap {...props} evidence={linked as never} />)
 
-    expect(within(stray()).getByLabelText('Link Stray photo to a lot')).toHaveValue('')
+    expect(pickerText('Link Stray photo to a lot', stray())).toBe('Link to a lot…')
     expect(within(stray()).getByRole('button', { name: 'Link' })).toBeDisabled()
   })
 })

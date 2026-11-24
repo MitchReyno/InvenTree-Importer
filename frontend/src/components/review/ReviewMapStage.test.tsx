@@ -1,5 +1,6 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { listedOptions, pickOption, picker, pickerText, searchAndPick } from '#/test/picker'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { describe, expect, it, vi } from 'vitest'
 import { fixtureScope, render } from '#/test/render'
@@ -130,7 +131,7 @@ describe('ReviewMapStage', () => {
       </ApiClientsProvider>,
     )
     const stray = await screen.findByRole('listitem', { name: /Stray photo/ })
-    await user.selectOptions(within(stray).getByLabelText('Link Stray photo to a lot'), 'a')
+    await pickOption(user, 'Link Stray photo to a lot', 'Packet A', stray)
     await user.click(within(stray).getByRole('button', { name: 'Link' }))
 
     await waitFor(() =>
@@ -354,7 +355,8 @@ describe('ReviewMapStage', () => {
         </BatchCommandsProvider>
       </ApiClientsProvider>,
     )
-    await user.selectOptions(await screen.findByLabelText('Move 1N4148 to'), 'b')
+    await screen.findByRole('combobox', { name: 'Move 1N4148 to' })
+    await searchAndPick(user, 'Move 1N4148 to', 'packet b', 'Packet B')
     await user.click(screen.getByRole('button', { name: 'Move 1N4148' }))
     expect(edit).toHaveBeenCalledWith(
       {
@@ -381,7 +383,7 @@ describe('ReviewMapStage', () => {
         </BatchCommandsProvider>
       </ApiClientsProvider>,
     )
-    expect(screen.getByLabelText('Move 1N4148 to')).toHaveValue('')
+    expect(pickerText('Move 1N4148 to')).toBe('Move to a lot…')
     expect(screen.getByRole('button', { name: 'Move 1N4148' })).toBeDisabled()
   })
 
@@ -413,10 +415,10 @@ describe('ReviewMapStage', () => {
     const packetA = await screen.findByRole('listitem', { name: 'Packet A' })
     expect(packetA).toHaveTextContent('400 counted')
 
-    const choice = screen.getByLabelText('Bag again is the same item as')
+    await user.click(picker('Bag again is the same item as'))
     // Only regions of the same lot are offered.
-    expect(within(choice).queryByRole('option', { name: /Other/ })).toBeNull()
-    await user.selectOptions(choice, 'o1')
+    expect(listedOptions().some((name) => name?.includes('Other'))).toBe(false)
+    await user.click(within(screen.getByRole('listbox')).getAllByRole('option')[0])
     await user.click(screen.getByRole('button', { name: 'Mark Bag again as the same item' }))
     expect(edit).toHaveBeenCalledWith({
       kind: 'observation_same_item',
@@ -715,9 +717,7 @@ describe('ReviewMapStage', () => {
       },
     )
     const stray = await screen.findByRole('listitem', { name: /Stray photo/ })
-    fireEvent.change(within(stray).getByLabelText('Link Stray photo to a lot'), {
-      target: { value: 'a' },
-    })
+    await pickOption(userEvent.setup(), 'Link Stray photo to a lot', 'Packet A', stray)
     vi.mocked(client.snapshot).mockReturnValueOnce(reread.promise)
     fireEvent.click(within(stray).getByRole('button', { name: 'Link' }))
     await waitFor(() => expect(client.edit).toHaveBeenCalledTimes(1))
@@ -761,14 +761,14 @@ describe('ReviewMapStage', () => {
     })
 
     const stray = screen.getByRole('listitem', { name: /Stray photo/ })
-    fireEvent.change(within(stray).getByLabelText('Link Stray photo to a lot'), {
-      target: { value: 'a' },
-    })
+    expect(picker('Link Stray photo to a lot', stray)).toBeDisabled()
     expect(within(stray).getByRole('button', { name: 'Link' })).toBeDisabled()
     await act(async () => {
       read.resolve(snapshot)
       await read.promise
     })
-    await waitFor(() => expect(within(stray).getByRole('button', { name: 'Link' })).toBeEnabled())
+    await waitFor(() => expect(picker('Link Stray photo to a lot', stray)).toBeEnabled())
+    await pickOption(userEvent.setup(), 'Link Stray photo to a lot', 'Packet A', stray)
+    expect(within(stray).getByRole('button', { name: 'Link' })).toBeEnabled()
   })
 })
