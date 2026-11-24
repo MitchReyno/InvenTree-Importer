@@ -231,8 +231,9 @@ export const LOGO_MATCH_MAX_CANDIDATES = 30
 
 /**
  * Light adjustments on a lit view, applied after the geometry in this order. White balance scales
- * each channel by a bounded grey-world gain, held back so saturated colours keep their hue; the
- * others change only luminance, so every pixel keeps its hue.
+ * each channel by a bounded grey-world gain; the others scale a pixel's channels together to a new
+ * luminance. A saturated pixel (HSV saturation of at least ½, channels at least 48 levels apart)
+ * turns at most 5° in all; rounding can turn or erase the hue of a dimmer or greyer one.
  */
 export const MediaViewLight = object({
   white_balance: Type.Boolean(),

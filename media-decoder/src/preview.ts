@@ -29,12 +29,18 @@ class PreviewMismatchError extends Error {}
 class PreviewLimitError extends Error {}
 
 /**
- * Two slots naming the same evidence page must hold the same page, so one recipe can't preview as
- * two different images.
+ * One evidence version has one original, and two slots naming the same evidence page must hold the
+ * same page, so one recipe can't preview as two different images.
  */
 function checkConsistentPages(pages: PreviewPage[]) {
+  const originals = new Map<string, string>()
   const byPage = new Map<string, PreviewPage>()
   for (const page of pages) {
+    const original = originals.get(page.source_version_id)
+    if (original !== undefined && original !== page.source_digest) {
+      throw new PreviewMismatchError('preview_source_conflict')
+    }
+    originals.set(page.source_version_id, page.source_digest)
     const key = `${page.source_version_id}/${page.page}`
     const seen = byPage.get(key)
     const conflicts =

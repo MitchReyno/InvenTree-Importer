@@ -306,6 +306,29 @@ test('two slots claiming the same evidence page with different pixels are malfor
   assert.deepEqual(result, { state: 'malformed', toolchain: MEDIA_TOOLCHAIN })
 })
 
+test('two slots giving one evidence version different originals are malformed', async () => {
+  const red = await sharp({ create: { width: 40, height: 30, channels: 3, background: '#c02020' } })
+    .png()
+    .toBuffer()
+  const first = recipeForCrop(
+    { region: [0, 0, 40, 30], quarter_turns: 0, straighten: 0, wb: false },
+    { width: 40, height: 30, digest: 'd'.repeat(64) },
+  )
+  const second = { ...first, page: 2, source_digest: 'e'.repeat(64) }
+  const result = await renderPreview({
+    version: 'media-preview/1',
+    pages: [
+      { ...sourceOf(first), digest: sha(red), width: 40, height: 30, bytes: red },
+      { ...sourceOf(second), digest: sha(red), width: 40, height: 30, bytes: red },
+    ],
+    crops: [
+      { label: 'first', page: 0, recipe: first },
+      { label: 'second', page: 1, recipe: second },
+    ],
+  })
+  assert.deepEqual(result, { state: 'malformed', toolchain: MEDIA_TOOLCHAIN })
+})
+
 test('a recipe that does not fit its page is malformed', async () => {
   const bench = await benchPage()
   const wrong = recipe(bench, [0, 0, 100, 100])

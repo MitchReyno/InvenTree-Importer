@@ -7,7 +7,9 @@ import {
   assertMediaLogoMatchOutputHeader,
   assertMediaPreviewOutputHeader,
 } from '@invimport/contracts/media'
+import sharp from 'sharp'
 import { decode } from '../src/decode.ts'
+import { MONTAGE_GEOMETRY } from '../src/preview.ts'
 import { fixtureBytes, NO_LIGHT, parityFixtures, recipeForCrop, sha } from './support/parity.ts'
 
 const DECODER_MAIN = fileURLToPath(new URL('../src/decoder-main.ts', import.meta.url))
@@ -48,39 +50,76 @@ async function benchPage() {
   return { page: decoded.pages[0], originalDigest: sha(original) }
 }
 
-test('the entry point frames a preview of crops on two pages', async () => {
+test('the entry point frames a preview of crops on two distinct pages', async () => {
   const { page, originalDigest } = await benchPage()
-  const recipe = {
+  const photoRecipe = {
     ...recipeForCrop(
       { region: [150, 160, 330, 240], quarter_turns: 1, straighten: -3.5, wb: false },
       { width: page.width, height: page.height, digest: originalDigest },
     ),
     light: { ...NO_LIGHT, white_balance: true },
   }
-  const pageEntry = {
+  // A second page of another evidence version, a different size and colour, so a frame that read
+  // the first page's bytes twice would show.
+  const card = await sharp({
+    create: { width: 50, height: 40, channels: 3, background: '#2050c0' },
+  })
+    .png()
+    .toBuffer()
+  const cardRecipe = {
+    ...recipeForCrop(
+      { region: [0, 0, 50, 40], quarter_turns: 0, straighten: 0, wb: false },
+      { width: 50, height: 40, digest: 'b'.repeat(64) },
+    ),
+    source_version_id: '00000000-0000-4000-8000-000000000005',
+  }
+  const entry = (
+    recipe: typeof cardRecipe,
+    bytes: Buffer,
+    size: { width: number; height: number },
+  ) => ({
     source_version_id: recipe.source_version_id,
     source_digest: recipe.source_digest,
     page: recipe.page,
-    digest: sha(page.bytes),
-    width: page.width,
-    height: page.height,
-    byte_size: page.bytes.length,
-  }
+    digest: sha(bytes),
+    width: size.width,
+    height: size.height,
+    byte_size: bytes.length,
+  })
+  assert.notEqual(card.length, page.bytes.length)
   const { header, body } = await runDecoder(
     {
       version: 'media-preview/1',
-      pages: [pageEntry, pageEntry],
+      pages: [
+        entry(photoRecipe, page.bytes, page),
+        entry(cardRecipe, card, { width: 50, height: 40 }),
+      ],
       crops: [
-        { label: 'first', page: 0, recipe },
-        { label: 'second', page: 1, recipe },
+        { label: 'photo', page: 0, recipe: photoRecipe },
+        { label: 'card', page: 1, recipe: cardRecipe },
       ],
     },
-    Buffer.concat([page.bytes, page.bytes]),
+    Buffer.concat([page.bytes, card]),
   )
   assertMediaPreviewOutputHeader(header)
   assert.ok(header.state === 'ready')
-  assert.equal(header.crops.length, 2)
   assertOneImage(body, header.montage)
+  const [photo, cardCrop] = header.crops
+  assert.ok(photo.state === 'rendered' && cardCrop.state === 'rendered')
+  assert.deepEqual([photo.width, photo.height], [80, 180])
+  assert.deepEqual([cardCrop.width, cardCrop.height], [50, 40])
+
+  const { cell, inset } = MONTAGE_GEOMETRY
+  const { data, info } = await sharp(body).removeAlpha().raw().toBuffer({ resolveWithObject: true })
+  const at = (x: number, y: number) => [
+    ...data.subarray((y * info.width + x) * 3, (y * info.width + x) * 3 + 3),
+  ]
+  assert.deepEqual(
+    at(cell + inset + 10, inset + 10),
+    [0x20, 0x50, 0xc0],
+    'the card tile shows page 2',
+  )
+  assert.notDeepEqual(at(inset + 10, inset + 10), [0x20, 0x50, 0xc0], 'the photo tile shows page 1')
 })
 
 test('the entry point frames a grid and a logo match', async () => {
