@@ -33,8 +33,9 @@ export interface StatusTiming {
 
 /** Turn connections the bridge holds, as many as the most sessions that can run at once. */
 const MAX_TURN_PEERS = 8
-/** Status connections, apart from turns: one per provider relay, with room for a reconnect. */
-const MAX_STATUS_PEERS = 4
+/** Status connections per provider, apart from turns: its relay's, with room for a reconnect. */
+const MAX_STATUS_PEERS_PER_PROVIDER = 2
+const MAX_STATUS_PEERS = 2 * MAX_STATUS_PEERS_PER_PROVIDER
 
 /** Time a guest's answer needs to arrive once its read has ended. */
 const GUEST_ANSWER_MARGIN_MS = 100
@@ -94,6 +95,7 @@ export async function startSessionBridge(
   const connected = new Set<TLSSocket>()
   const turnSockets = new Set<TLSSocket>()
   const statusSockets = new Set<TLSSocket>()
+  const statusProvider = new WeakMap<TLSSocket, StatusProvider>()
   const statusPeers = { claude: new Map<TLSSocket, Frames>(), codex: new Map<TLSSocket, Frames>() }
   // Whether each provider's latest turn guest greeted with the status capability.
   const statusCapable = new Map<StatusProvider, boolean>()
@@ -181,10 +183,13 @@ export async function startSessionBridge(
     if ((provider !== 'claude' && provider !== 'codex') || Object.keys(greeting).length !== 2) {
       throw new Error('runner_protocol_mismatch')
     }
-    if (statusSockets.size >= MAX_STATUS_PEERS) {
+    // Per provider, so one provider's relays never crowd out the other's status.
+    const admitted = [...statusSockets].filter((other) => statusProvider.get(other) === provider)
+    if (admitted.length >= MAX_STATUS_PEERS_PER_PROVIDER) {
       throw new Error('runner_capacity')
     }
     statusSockets.add(socket)
+    statusProvider.set(socket, provider)
     socket.setTimeout(0)
     statusPeers[provider].set(socket, frames)
   }

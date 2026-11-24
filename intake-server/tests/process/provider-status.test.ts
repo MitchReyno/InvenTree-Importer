@@ -221,7 +221,8 @@ test(
   },
 )
 
-// The first pump exits right after reporting ready, the second never reports it; later ones work.
+// The first pump exits right after reporting ready, the second never reports it and ignores
+// SIGTERM; later ones work.
 const FLAKY_LIMACTL = `#!/bin/sh
 shift 3
 [ "$1" = sudo ] && shift
@@ -234,7 +235,8 @@ if [ "$2" = exec ]; then
     echo ready >&2
     exit 0
   fi
-  [ "$count" = 2 ] && exec sleep 600
+  # Never reports ready and ignores SIGTERM, so stopping it takes SIGKILL.
+  [ "$count" = 2 ] && exec node -e "require('node:fs').writeFileSync(process.argv[1], String(process.pid)); process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)" "$STATUS_SOCKETS/stubborn.pid"
   exec node -e "$7" "$STATUS_SOCKETS/$4.sock"
 fi
 exec sleep 600
@@ -282,6 +284,8 @@ test(
     }
     assert.equal(state, 'not_saved')
     assert.equal(exited, false)
+    const stubborn = Number(await readFile(join(sockets, 'stubborn.pid'), 'utf8'))
+    assert.throws(() => process.kill(stubborn, 0), { code: 'ESRCH' })
   },
 )
 

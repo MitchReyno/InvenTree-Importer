@@ -35,6 +35,25 @@ const pump = `
   socket.on('error', () => process.exit(1))
   socket.on('close', () => process.exit())
 `
+/** How long a stopped pump gets to exit before it is killed. */
+const STOP_GRACE_MS = 2000
+
+/** Closes a child's input and signals it, then kills it if it hasn't exited in time. */
+async function stopChild(child, exited) {
+  child.stdin?.end()
+  child.kill()
+  const settled = new AbortController()
+  const stopped = await Promise.race([
+    exited.then(() => true),
+    delay(STOP_GRACE_MS, false, { signal: settled.signal }).catch(() => false),
+  ])
+  settled.abort()
+  if (!stopped) {
+    child.kill('SIGKILL')
+    await exited
+  }
+}
+
 // `signal` abandons the attempt and stops its pump; without one the attempt waits as long as it takes.
 async function connectCoordinator(signal) {
   if (!coordinator) {
@@ -74,8 +93,7 @@ async function connectCoordinator(signal) {
     abandoned,
   ])
   if (!ready) {
-    peer.kill()
-    await closed
+    await stopChild(peer, closed)
     throw new Error('coordinator_unavailable')
   }
   const socket = Duplex.from({ readable: peer.stdout, writable: peer.stdin })
@@ -93,8 +111,12 @@ const statusContainer = codex
     : undefined
 const statusSocket = '/tmp/bench-status/status.sock'
 const statusPump = `
+  // Ends by itself when the relay closes its input or the socket doesn't open in time.
+  const starting = setTimeout(() => process.exit(1), 10000)
+  process.stdin.once('end', () => process.exit())
   const socket = require('node:net').connect(process.argv[1])
   socket.once('connect', () => {
+    clearTimeout(starting)
     process.stderr.write('ready\\n')
     process.stdin.pipe(socket)
     socket.pipe(process.stdout)
@@ -151,8 +173,7 @@ async function openStatusPeer() {
   ])
   settled.abort()
   if (!ready) {
-    peer.kill()
-    await exited
+    await stopChild(peer, exited)
     return undefined
   }
   return { peer, exited }
@@ -175,8 +196,7 @@ async function carryStatusOnce() {
   clearTimeout(timer)
   stopping.signal.removeEventListener('abort', abandon)
   if (!socket) {
-    peer.kill()
-    await exited
+    await stopChild(peer, exited)
     return false
   }
   try {
@@ -190,8 +210,7 @@ async function carryStatusOnce() {
     stopping.signal.removeEventListener('abort', stop)
   } finally {
     socket.destroy()
-    peer.kill()
-    await exited
+    await stopChild(peer, exited)
   }
   return true
 }

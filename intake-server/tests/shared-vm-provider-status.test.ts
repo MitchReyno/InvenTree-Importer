@@ -549,75 +549,103 @@ test('the browser-facing management listener has no status-only path', async (t)
   assert.equal(unkeyed.status, 403)
 })
 
-test('each provider reads independently: one timing out leaves the other answered', async (t) => {
+test('each provider reads independently: one not answering leaves the other answered', async (t) => {
   const root = await scratch(t, 'status-independent-')
-  const { bridge, port } = await coordinator(t, root, { deadlineMs: 600, peerWaitMs: 100 })
+  const { bridge, port } = await coordinator(t, root, { deadlineMs: 1000, peerWaitMs: 100 })
   const claudeSocket = await statusService(t, root, 'claude', async () => ({
     provider: 'claude',
     state: 'not_saved',
     revision: randomUUID(),
   }))
-  let codexAborted = false
-  const codexSocket = await statusService(
-    t,
-    root,
-    'codex',
-    // Its work never finishes, even once abandoned, so its connection is closed.
-    (signal) =>
-      new Promise(() => {
-        signal.addEventListener('abort', () => {
-          codexAborted = true
-        })
-      }),
-    5000,
-  )
   await relayStatus(t, claudeSocket, port)
-  const codexRelay = await relayStatus(t, codexSocket, port)
+  // Codex's credential process takes the request and never answers.
+  const silent = await fakeStatusPeer(t, root, port, 'codex', async () => undefined)
   const started = Date.now()
   const status = await bridge.providerStatus()
   assert.ok(Date.now() - started < 1500)
   assert.equal(status.claude.state, 'not_saved')
   assert.deepEqual(status.codex, { state: 'unknown', reason: 'timeout' })
-  // The read is abandoned, and a connection whose work didn't stop is closed.
-  await codexRelay.closed
-  await waitFor(() => codexAborted, 'the guest to abandon its read')
+  // The coordinator abandons it by closing the connection, which ends the guest's work on it.
+  await silent.closed
 })
 
-test('the guest enforces its own deadline, and reports it once its work is cleaned up', async (t) => {
+test('the guest reports a timeout only once its work is cleaned up', async (t) => {
   const root = await scratch(t, 'status-guest-deadline-')
   const { bridge, port } = await coordinator(t, root, { deadlineMs: 3000, peerWaitMs: 100 })
   let cleanedAt = 0
+  let reads = 0
+  let reap = 80
   const socketPath = await statusService(
     t,
     root,
     'codex',
-    (signal) =>
-      new Promise((_resolve, reject) => {
+    (signal) => {
+      reads++
+      return new Promise((_resolve, reject) => {
         signal.addEventListener('abort', () => {
           // Stopping and reaping the account process takes a moment.
           setTimeout(() => {
             cleanedAt = Date.now()
             reject(signal.reason)
-          }, 80)
+          }, reap)
         })
-      }),
-    400,
+      })
+    },
+    900,
   )
-  await relayStatus(t, socketPath, port)
+  const relayed = await relayStatus(t, socketPath, port)
   const started = Date.now()
   const status = await bridge.providerStatus()
   const answeredAt = Date.now()
   assert.ok(answeredAt - started < 2000)
   assert.deepEqual(status.codex, { state: 'unknown', reason: 'timeout' })
   assert.ok(cleanedAt > 0 && cleanedAt <= answeredAt)
-  // A shorter budget from the caller reaches the guest too.
-  cleanedAt = 0
-  const short = Date.now()
+
+  // A budget too short to leave room for cleanup starts no read at all.
+  const before = reads
   assert.deepEqual((await bridge.providerStatus(250)).codex, {
     state: 'unknown',
     reason: 'timeout',
   })
-  assert.ok(Date.now() - short < 400)
+  assert.equal(reads, before)
+
+  // Cleanup that isn't confirmed in time closes the connection without an answer.
+  reap = 5000
+  assert.equal((await bridge.providerStatus()).codex.state, 'unknown')
+  await relayed.closed
+})
+
+// The account process ignores SIGTERM, so stopping it needs the SIGKILL that follows.
+const STUBBORN_CODEX_LINE = "process.on('SIGTERM', () => {})"
+
+test('a real account process that ignores SIGTERM is gone before the guest reports timeout', async (t) => {
+  const root = await scratch(t, 'status-guest-kill-')
+  const { bridge, port } = await coordinator(t, root, { deadlineMs: 3000, peerWaitMs: 100 })
+  const bin = join(root, 'bin')
+  await mkdir(bin)
+  const state = join(root, 'state')
+  await mkdir(join(state, 'account'), { recursive: true })
+  await writeFile(join(state, 'hang'), '')
+  await writeFile(join(bin, 'flock'), FAKE_FLOCK)
+  await writeFile(
+    join(bin, 'codex'),
+    FAKE_CODEX.replace("let buffer = ''", STUBBORN_CODEX_LINE + "\nlet buffer = ''"),
+  )
+  await chmod(join(bin, 'flock'), 0o755)
+  await chmod(join(bin, 'codex'), 0o755)
+  await writeFile(join(state, 'fake.log'), '')
+  const savedPath = process.env.PATH
+  process.env.PATH = bin + ':' + process.env.PATH
+  t.after(() => {
+    process.env.PATH = savedPath
+  })
+  const account = new CodexAccount(state)
+  const socketPath = await statusService(t, root, 'codex', codexStatusReader(account), 1200)
+  await relayStatus(t, socketPath, port)
+  const status = await bridge.providerStatus()
+  assert.deepEqual(status.codex, { state: 'unknown', reason: 'timeout' })
+  const pid = Number(/started (\d+)/.exec(await readFile(join(state, 'fake.log'), 'utf8'))![1])
+  assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' })
 })
 
 test('older, missing, busy and unreachable guests read as unknown, never signed out', async (t) => {
@@ -719,4 +747,28 @@ test('status connections leave all eight turn connections free', async (t) => {
   const ninth = await turnPeer(t, root, port, { codexSubscription: true, providerStatus: true })
   await once(ninth, 'close')
   assert.ok(turns.every((socket) => !socket.destroyed))
+})
+
+test("one provider's relays cannot take the other's status connections", async (t) => {
+  const root = await scratch(t, 'status-per-provider-')
+  const { bridge, port } = await coordinator(t, root)
+  const claudeSocket = await statusService(t, root, 'claude', async () => ({
+    provider: 'claude',
+    state: 'not_saved',
+    revision: randomUUID(),
+  }))
+  const extra: Promise<unknown>[] = []
+  for (let i = 0; i < 4; i++) {
+    extra.push((await relayStatus(t, claudeSocket, port)).closed)
+  }
+  // Claude keeps two; the others are refused.
+  await Promise.race(extra)
+  const codexSocket = await statusService(t, root, 'codex', async () => ({
+    provider: 'codex',
+    state: 'signed_in',
+  }))
+  await relayStatus(t, codexSocket, port)
+  const status = await bridge.providerStatus()
+  assert.equal(status.claude.state, 'not_saved')
+  assert.deepEqual(status.codex, { state: 'signed_in' })
 })

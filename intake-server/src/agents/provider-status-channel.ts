@@ -334,26 +334,49 @@ export function serveProviderStatusRequests(
     return current
   }
 
-  /** Sends the reply only while its request is live, connection included. */
+  /** Answers in flight, which `close` waits for; each ends by its request's expiry. */
+  const sending = new Set<Promise<void>>()
+
+  /** Sends the reply only while its request is live: connection, query and connection loss. */
   const reply = async (request: StatusRequest, status: DisplayProviderStatuses) => {
-    const connecting = pool.connect()
     const expiry = new AbortController()
     const timer = setTimeout(() => expiry.abort(), Math.max(0, request.expires_at - Date.now()))
+    const expired = abortedAt(expiry.signal)
+    const connecting = pool.connect()
     try {
-      const client = await Promise.race([connecting, abortedAt(expiry.signal)])
+      const client = await Promise.race([connecting, expired]).catch(() => undefined)
       if (!client) {
         void connecting.then((late) => late.release()).catch(() => {})
         return
       }
+      let healthy = true
+
+      const lost = () => {
+        healthy = false
+        expiry.abort()
+      }
+
+      client.on('error', lost)
       try {
         if (Date.now() < request.expires_at) {
-          await client.query('SELECT pg_notify($1, $2)', [
+          const query = client.query('SELECT pg_notify($1, $2)', [
             STATUS_REPLY_CHANNEL,
             sign(binding, 'reply', { id: request.id, status }),
           ])
+          query.catch(() => {})
+          const sent = await Promise.race([
+            query.then(
+              () => true,
+              () => false,
+            ),
+            expired,
+          ])
+          healthy &&= sent === true
         }
       } finally {
-        client.release()
+        client.off('error', lost)
+        // A reply still running at expiry, or a lost connection, is closed rather than reused.
+        client.release(healthy ? undefined : true)
       }
     } finally {
       clearTimeout(timer)
@@ -392,7 +415,9 @@ export function serveProviderStatusRequests(
       return
     }
     // A reply that can't be sent leaves the API to report the worker unavailable.
-    void answer(request).catch(() => {})
+    const work = answer(request).catch(() => {})
+    sending.add(work)
+    void work.finally(() => sending.delete(work))
   }
 
   const listening = (async () => {
@@ -423,6 +448,7 @@ export function serveProviderStatusRequests(
     async close() {
       stopping.abort()
       await listening
+      await Promise.allSettled([...sending])
     },
   }
 }
