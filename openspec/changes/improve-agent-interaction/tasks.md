@@ -429,7 +429,9 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - **Verification:** focused RED/GREEN tests and applicable intake, tooling, types and formatting checks; native visual inspection is separately qualified.
 
 - [ ] 12.1 Add regressions for both modes, large/repeated results, refusals, integrity/write failures, validation and launch propagation; observe the new behavior fail.
-- [ ] 12.2 Implement the enum from development settings and standalone relay to the VM tool worker and evidence projection, preserving inline defaults and cleanup.
+- [ ] 12.2 Implement the enum from development settings and standalone relay to the VM tool worker and evidence projection, preserving explicit inline delivery and cleanup.
 - [ ] 12.3 Document configuration, provider file-opening guidance, lifetime and rollout; run the applicable checks and record limitations.
 - [ ] 12.5 Implement and test coordinator/guest release confirmation before new citation grants. Cover first and repeated fetches outside the manifest, staging and response failures, duplicate or stale confirmations, worker restart, incompatible peers, and legacy preview/original digest handling over compatible peers in both modes. Bind the image format to the producing encoder contract. Test a stripped current rendition with pages and missing/unknown tags against an explicitly legacy preview. Verify the subsequent proposal decision through the coordinator.
 - [ ] 12.4 Independently review the exact implementation before publication; publish and verify selected CI only when requested.
+
+- [ ] 12.6 Configure whole-photo preview or original independently of delivery mode, and verify exact bytes, budgets, crop semantics and launch configuration.

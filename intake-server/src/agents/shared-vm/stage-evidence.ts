@@ -8,21 +8,40 @@ const extensions = new Map([
   ['image/webp', 'webp'],
 ])
 
+export type EvidenceDelivery = 'inline' | 'file'
+
+export function evidenceDelivery(value: string | undefined): EvidenceDelivery {
+  if (value === undefined || value === '' || value === 'file') {
+    return 'file'
+  }
+  if (value === 'inline') {
+    return 'inline'
+  }
+  throw new Error('invalid_evidence_delivery')
+}
+
 /** Expose the delivered image to guest scripts, keeping the original version as its citation. */
 export async function stageEvidence(
   id: string | number,
   body: string,
   directory: () => Promise<string>,
+  delivery: EvidenceDelivery = 'file',
+  format?: unknown,
 ) {
   const reply = JSON.parse(body)
   const result = reply?.result
   const metadata = result?.structuredContent
-  if (reply?.id !== id || result?.isError || metadata?.ok !== true) {
-    return body
+  const images = result?.content?.filter((item: { type: string }) => item.type === 'image')
+  if (!images?.length) return body
+  if (images.length !== 1 || reply?.id !== id || result?.isError || metadata?.ok !== true) {
+    throw new Error('invalid_evidence_file')
   }
-  const image = result.content?.find((item: { type: string }) => item.type === 'image')
-  if (!image) {
-    return body
+  const [image] = images
+  if (format !== 'legacy' && format !== 'current') {
+    throw new Error('invalid_evidence_format')
+  }
+  if (format === 'current' && !metadata.delivered) {
+    throw new Error('invalid_evidence_file')
   }
   const extension = extensions.get(image.mimeType)
   if (!extension || typeof image.data !== 'string' || metadata.source?.kind !== 'media_version') {
@@ -37,7 +56,14 @@ export async function stageEvidence(
   const path = join(await directory(), randomUUID() + '.' + extension)
   await writeFile(path, bytes, { flag: 'wx', mode: 0o600 })
   metadata.local_file = { path, sha256, byte_length: bytes.length, media_type: image.mimeType }
-  result.content = [{ type: 'text', text: JSON.stringify(metadata) }, image]
+  const guidance = {
+    type: 'text',
+    text: 'Open local_file.path with your image/file tool to inspect this image. The file exists only for this turn; fetch evidence again on later turns. Cite the source metadata, not the temporary path.',
+  }
+  result.content = [
+    { type: 'text', text: JSON.stringify(metadata) },
+    delivery === 'file' ? guidance : image,
+  ]
   return JSON.stringify(reply)
 }
 

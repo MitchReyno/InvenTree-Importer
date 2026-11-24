@@ -1,5 +1,6 @@
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify'
 import type { Pool } from 'pg'
+import { recordMediaDelivery } from './handlers.ts'
 import { McpServer, type StandardSchemaWithJSON } from '@modelcontextprotocol/server'
 import {
   NodeStreamableHTTPServerTransport,
@@ -104,20 +105,23 @@ export interface SessionToolServerOptions {
   cropCacheDir?: string
   config: ProcessingConfig
   store?: BlobStore
+  evidenceImage?: 'original' | 'preview'
   statusIntervalMs?: number
 }
 
 /** The worker's loopback MCP endpoint. The web process never hosts it. */
 export async function startSessionToolServer(options: SessionToolServerOptions) {
+  const deliveredMedia = new Map<string, Set<string>>()
   const tools = sessionTools({
     pool: options.pool,
     writerPool: options.writerPool,
     cropCacheDir: options.cropCacheDir,
     config: options.config,
     store: options.store,
+    evidenceImage: options.evidenceImage,
     statusIntervalMs: options.statusIntervalMs ?? DEFAULT_STATUS_INTERVAL_MS,
     imageBudget: new Map(),
-    deliveredMedia: new Map(),
+    deliveredMedia,
   })
   const hostGuard = localhostHostValidation()
   const app = Fastify({ logger: false, bodyLimit: 1024 * 1024 })
@@ -197,6 +201,8 @@ export async function startSessionToolServer(options: SessionToolServerOptions) 
   }
   return {
     url: `http://127.0.0.1:${address.port}/mcp`,
+    confirmEvidence: (job: string, version: string) =>
+      recordMediaDelivery(deliveredMedia, job, version),
     close: () => app.close(),
   }
 }

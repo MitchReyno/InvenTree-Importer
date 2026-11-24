@@ -1,5 +1,6 @@
 import { evidenceRequest } from './evidence-request.ts'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
+import { finished } from 'node:stream/promises'
 import { once } from 'node:events'
 import { mkdtemp, rm, stat } from 'node:fs/promises'
 import { randomBytes } from 'node:crypto'
@@ -8,7 +9,7 @@ import { nativeAgentHost } from '#/agents/environment.ts'
 import { nativeDriver, type SessionDriverContext } from '#/agents/session/session-runner.ts'
 import type { SessionTurn } from '#/agents/session/session-adapters.ts'
 import { readClaudeToken } from './claude-credential.ts'
-import { stageEvidence } from './stage-evidence.ts'
+import { stageEvidence, type EvidenceDelivery } from './stage-evidence.ts'
 import { readBounded } from './frames.ts'
 import { settled } from '#/events/settled.ts'
 
@@ -18,6 +19,7 @@ export async function nativeTurn(
   opening: Pick<SessionTurn, 'resume' | 'text' | 'instructions' | 'tools'>,
   request: (body: Record<string, unknown>) => Promise<Record<string, unknown>>,
   guestTools = false,
+  delivery: EvidenceDelivery = 'file',
 ) {
   let delivered: bigint | undefined
   let version: string | undefined
@@ -49,6 +51,7 @@ export async function nativeTurn(
   }
   const capability = randomBytes(32).toString('hex')
   let evidenceDir: Promise<string> | undefined
+  let pendingMcp = Promise.resolve()
   const proxy = createServer(
     settled(
       async (req: IncomingMessage, res: ServerResponse) => {
@@ -62,21 +65,44 @@ export async function nativeTurn(
             return
           }
           const body = await readBounded(req)
-          const reply = await request({ mcp: body })
-          if (typeof reply.body !== 'string' || typeof reply.status !== 'number') {
-            throw new Error('invalid_reply')
-          }
-          const evidence = guestTools && reply.status === 200 && evidenceRequest(body)
-          const responseBody = evidence
-            ? await stageEvidence(
+          const deliver = async () => {
+            const reply = await request({ mcp: body })
+            if (typeof reply.body !== 'string' || typeof reply.status !== 'number') {
+              throw new Error('invalid_reply')
+            }
+            const evidence = guestTools && reply.status === 200 && evidenceRequest(body)
+            let responseBody = reply.body
+            if (evidence) {
+              responseBody = await stageEvidence(
                 evidence.id,
                 reply.body,
                 () => (evidenceDir ??= mkdtemp('/tmp/bench-evidence-')),
+                delivery,
+                reply.evidenceFormat ?? null,
               )
-            : reply.body
-          res.writeHead(reply.status, { 'content-type': 'application/json' }).end(responseBody)
+              if (responseBody !== reply.body && typeof reply.releaseId !== 'string') {
+                throw new Error('invalid_evidence_release')
+              }
+            }
+            const written = finished(res, { readable: false, cleanup: true })
+            res.writeHead(reply.status, { 'content-type': 'application/json' }).end(responseBody)
+            await written
+            if (evidence && responseBody !== reply.body) {
+              const ack = await request({ releaseId: reply.releaseId })
+              if (ack.ok !== true) {
+                throw new Error('evidence_release_unconfirmed')
+              }
+            }
+          }
+          const operation = pendingMcp.then(deliver)
+          pendingMcp = operation.catch(() => {})
+          await operation
         } catch {
-          res.writeHead(502).end()
+          if (!res.headersSent && !res.destroyed) {
+            res.writeHead(502).end()
+          } else {
+            res.destroy()
+          }
         }
       },
       // A failure the handler did not catch ends this request, not the proxy.

@@ -239,3 +239,13 @@ For concurrent cancellation qualification, build the runner Dockerfile's `contro
 - **Credential management unavailable.** Restore the management tunnel and check configuration status. Explicitly repeat a credential change only after checking its acknowledged revision. For ChatGPT, enable device-code sign-in in the operator's security settings and start a fresh challenge after an expired or denied one.
 
 The qualification exercises two simultaneous controlled turns on each installation. The configured worker ceilings are 640 MiB for the tool worker, 256 MiB for its paired supervisor and 64 MiB for its provider tunnel. Chromium shares the worker's 128-task limit. VM memory and deployment load determine available headroom for real sessions. The physical qualification measurements and tested image identities are recorded on the deployment PR.
+
+### Evidence delivery mode
+
+Set `INTAKE_VM_EVIDENCE_DELIVERY=file` in the development environment to return temporary file paths instead of inline images from `fetch_evidence` inside tool-capable VM sessions. Restart `pnpm dev` to apply it; the managed launcher refreshes an outdated runner image. For manually managed installations, rebuild/load the runner image and set the variable on each tool-capable provider relay before restarting those relays. An existing turn keeps its selected mode.
+
+File delivery is the default, including for an empty value. Explicit `inline` keeps the inline image and local file. Other values are refused. Both Claude and Codex receive the setting. Tool-less and direct native sessions retain their existing delivery. This setting controls representation, not evidence permission or image budgets.
+
+File mode verifies and saves the same image bytes and returns citation metadata and a local path, with instructions to open it through the provider's image/file tool. The path lasts only for that turn; a later turn must fetch again. Photo-view history still means prepared for delivery, not confirmed visual inspection. File mode avoids base64 image data in the fetch response; it does not change transport limits or guarantee every provider image-view notification fits them.
+
+Set `INTAKE_VM_EVIDENCE_IMAGE=original` in the development environment or the deployed coordinator environment to send whole JPEG and PNG photos byte for byte, including embedded metadata. The default is `preview`. Restart the coordinator to apply. Both settings support file and inline delivery. An original exceeding the remaining 8 MiB run budget returns metadata only. Regions and PDF pages use the bounded preview.

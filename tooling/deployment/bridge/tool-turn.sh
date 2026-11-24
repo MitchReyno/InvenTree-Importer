@@ -3,6 +3,8 @@
 set -eu
 directory=$1 image=$2 provider=$3
 case $provider in claude|codex) ;; *) exit 2 ;; esac
+delivery=${5:-file}
+case $delivery in inline|file) ;; *) echo invalid_evidence_delivery >&2; exit 2 ;; esac
 turn=$(mktemp -d)
 run_id=${4:?operator run identity required}
 case "$run_id" in *[!a-f0-9-]*|'') exit 2 ;; esac
@@ -46,7 +48,7 @@ if [ -f "$directory/browser-seccomp.json" ]; then
   set -- --security-opt "seccomp=$directory/browser-seccomp.json" "$@"
 fi
 worker_id=$(isolated -d --name "$name" --memory=640m --tmpfs /tmp:rw,nosuid,nodev,size=64m \
-  --env "$envarg" "$@" --volume "$turn/rpc:/run/turn" \
+  --env "$envarg" --env "INTAKE_VM_EVIDENCE_DELIVERY=$delivery" "$@" --volume "$turn/rpc:/run/turn" \
   --volume "$directory/tool-sessions:/home/node/sessions" "$image" node --import tsx src/agents/shared-vm/tool-worker.ts)
 i=0
 while [ "$i" -lt 150 ]; do

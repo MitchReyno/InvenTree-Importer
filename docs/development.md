@@ -51,6 +51,8 @@ Each setting below is independent, and its name says what it controls. Switches 
 | `INTAKE_USE_MOCK_AI_AGENTS` | `true` | `false` uses real Claude or Codex agents. |
 | `INTAKE_USE_AGENT_SESSIONS` | `true` | `false` produces one result per stage instead of Examine sessions. |
 | `INTAKE_RUN_AGENTS_IN_VM` | `false` | `true` runs agents through the shared VM, with the pairing in `INTAKE_VM_PAIR` (default `vm-pair` in the development state directory) on `INTAKE_VM_PORT` (default 14313), and serves the VM's credential management. |
+| `INTAKE_VM_EVIDENCE_IMAGE` | `preview` | Set `original` to deliver exact stored JPEG or PNG bytes, including embedded metadata, for whole photos. The remaining 8 MiB run budget applies. Crops and PDF pages use previews. Restart the coordinator after changing. |
+| `INTAKE_VM_EVIDENCE_DELIVERY` | `file` | `file` returns a temporary image path and citation metadata without inline image bytes to tool-capable VM agents. They must open the path with their image/file tool. Restart the launcher after changing. Set `inline` to include the image in the tool response. Direct and tool-less sessions are unaffected. |
 | `INTAKE_VM_AGENT_TOOLS` | `true` | With real agents in the VM, `false` selects `shared-vm-agent/1`, which has no tool worker and no web access. It has no effect on scripted agents or agents on the host. |
 
 The processing switches select one of the existing profiles, which the startup output names:

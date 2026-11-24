@@ -94,7 +94,7 @@ In scope:
 - A server-built session history view: each entry has its summary, details and typed link targets, the operator's inputs are included, and older entries page in.
 - Expandable, grouped entries in the drawer, with one summary line for runs of photo views and web reads.
 - A recorded photo view for each delivered `fetch_evidence` image.
-- Configurable VM evidence delivery: `INTAKE_VM_EVIDENCE_DELIVERY=inline|file`, default `inline`; file mode supplies a temporary local image path and citation metadata without inline image bytes.
+- Configurable VM evidence delivery: `INTAKE_VM_EVIDENCE_DELIVERY=inline|file`, default `file`; file mode supplies a temporary local image path and citation metadata without inline image bytes.
 - A proposal source kind for an agent-reported web page URL, shown as unverified.
 - The batch-scoped session page as a conversation, with a message box and questions answered in place, linked from the drawer, the Agents page, the session lists and the failure details.
 - Per-step `waiting` and `queued` counts, `questions`, the batch's live `lots`, and the batch's `paused` flag in the header and attention reads.
@@ -203,3 +203,5 @@ Assumptions:
 - A number step needs a live lot subject. "Answer in words" turns that step's value into text, and the lot quantity is then unchanged.
 - A stepped answer is sent once, after the summary. Partial answers are not sent.
 - The history read returns 200 entries per page, newest first, from one snapshot, with a `before` cursor for older pages. On each change the drawer and the page re-read the newest page; the drawer reads only that page.
+
+Allow operators to select exact stored photo bytes independently of VM file or inline delivery.

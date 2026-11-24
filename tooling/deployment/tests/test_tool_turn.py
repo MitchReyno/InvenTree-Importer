@@ -52,7 +52,7 @@ def exposes(source, policy):
 
 
 class ToolTurnMounts(unittest.TestCase):
-    def run_turn(self, provider="claude"):
+    def run_turn(self, provider="claude", delivery=None):
         # One root per run, so a test can run a turn for each provider.
         root = Path(self.directory.name) / provider
         root.mkdir()
@@ -69,9 +69,26 @@ class ToolTurnMounts(unittest.TestCase):
         self.arguments = root / "docker-args.jsonl"
         env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "DOCKER_LOG": str(log),
                "DOCKER_ARGS": str(self.arguments), "TMPDIR": str(root)}
-        subprocess.run(["sh", str(SCRIPT), str(guest), "runner:test", provider, RUN_ID],
+        args = ["sh", str(SCRIPT), str(guest), "runner:test", provider, RUN_ID]
+        if delivery is not None:
+            args.append(delivery)
+        subprocess.run(args,
                        env=env, check=True, capture_output=True, timeout=60)
         return [line for line in log.read_text().splitlines() if line.startswith("run ")]
+
+    def test_file_delivery_reaches_only_the_tool_worker(self):
+        for provider in ("claude", "codex"):
+            runs = self.run_turn(provider, "file")
+            self.assertIn("INTAKE_VM_EVIDENCE_DELIVERY=file", self.container(runs, ""))
+            self.assertNotIn("INTAKE_VM_EVIDENCE_DELIVERY", self.container(runs, "-peer"))
+            self.assertNotIn("INTAKE_VM_EVIDENCE_DELIVERY", self.container(runs, "-egress"))
+
+    def test_invalid_delivery_is_refused_before_docker(self):
+        with self.assertRaises(subprocess.CalledProcessError) as raised:
+            self.run_turn("codex", "invalid")
+        self.assertEqual(raised.exception.returncode, 2)
+        self.assertIn(b"invalid_evidence_delivery", raised.exception.stderr)
+        self.assertFalse(self.arguments.exists())
 
     def bind_sources(self, name):
         """Every host path the named container binds, read from its exact arguments."""
@@ -114,6 +131,7 @@ class ToolTurnMounts(unittest.TestCase):
         peer = self.container(runs, "-peer")
         egress = self.container(runs, "-egress")
         worker = self.container(runs, "")
+        self.assertIn("INTAKE_VM_EVIDENCE_DELIVERY=file", worker)
         written = re.search(r"--volume (\S+/policy):/run/policy( |$)", peer)
         read = re.search(r"--volume (\S+/policy):/run/policy:ro( |$)", egress)
         self.assertIsNotNone(written, peer)

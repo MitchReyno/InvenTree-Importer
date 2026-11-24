@@ -108,3 +108,7 @@ Implementation of BI-019's agent interaction work, delivered PR by PR as the tas
 2026-11-24T13:15+11:00: The installed pnpm refuses task execution when the worktree root node_modules is the symlink required by the worktree rules (ERR_PNPM_UNSAFE_TASK_RUN_STATE_PATH). Use the pinned Node and installed owning test/check executables directly for this worktree; do not replace shared dependencies or change the running development server.
 
 2026-11-24T13:30+11:00: Review identified an existing gap between photo preparation and citation eligibility after a failed guest write. Task 12 now includes a scoped release confirmation and coordinator-level proposal tests. Legacy digest handling follows shared-vm-execution.
+
+2026-11-24T14:15+11:00: Mitch selected file delivery as the default for unset and empty settings. Inline delivery is an explicit option.
+
+The operator requested a separate preview/original choice. Preserve preview as the default. Original delivery includes embedded photo metadata.

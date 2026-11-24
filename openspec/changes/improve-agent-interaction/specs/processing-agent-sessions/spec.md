@@ -10,6 +10,53 @@ A status line SHALL be one line of at most 120 characters, and the server SHALL 
 - **WHEN** the session submits it
 - **THEN** the tool call returns a validation error the agent can correct, and nothing is published.
 
+### Requirement: Bounded agent evidence images
+
+A tool-capable VM coordinator SHALL accept `INTAKE_VM_EVIDENCE_IMAGE=preview|original`, defaulting to `preview` for an unset or empty value and rejecting unknown values at startup. In original mode a whole-page fetch of a ready JPEG or PNG SHALL deliver the exact bytes of the authorized version, including embedded metadata, up to the remaining 8 MiB run budget. Both file and inline delivery use those same bytes. Crops and PDF pages use the bounded preview in either mode.
+
+Outside the whole-photo original mode, every image fetch_evidence returns to an agent SHALL be cut from the version's decoded page preview, be at most 2,576 px on its long edge and at most 1.25 MiB encoded. The result SHALL state the delivered width, height and scale relative to the page preview, and the per-run image budget SHALL count the delivered bytes.
+
+#### Scenario: Large original in a lot session
+
+- **GIVEN** preview mode and a lot session whose manifest delivers a 6144 × 8160 photo
+- **WHEN** the agent fetches that evidence without a page or region
+- **THEN** it receives a 1940 × 2576 image with its width, height and scale stated. The result's source reference names the original version and its SHA-256, and a proposal citing that reference is accepted.
+
+#### Scenario: Large region of a page
+
+- **GIVEN** an Examine session and a page preview of 6144 × 8160
+- **WHEN** the agent requests a region 5000 px wide and 6000 px tall in page-preview pixels
+- **THEN** it receives that region scaled to fit within 2,576 px, with the scale stated, and the cited source is the version, not the crop.
+
+#### Scenario: Small region or small page
+
+- **GIVEN** a region, or a lot session's page, no larger than 2,576 px on either side
+- **WHEN** the agent fetches it
+- **THEN** it receives it at its own size, never enlarged, with scale 1, and a later region request still uses page-preview pixels.
+
+#### Scenario: Examine overview
+
+- **GIVEN** preview mode, an Examine session and a page of any size
+- **WHEN** the agent fetches it without a region
+- **THEN** it receives an overview at most 768 px on its long edge, lossless where it fits the size cap, with its scale stated.
+
+#### Scenario: Requested page has no preview
+
+- **GIVEN** a version the session may fetch, whose requested page has no decoded preview
+- **WHEN** the agent fetches it
+- **THEN** the result refuses with `validation_failed`, grants no delivery authority, and sends no original bytes. Encrypted and undecoded versions never reach a session: a lot manifest refuses them as `media_not_ready` and Examine leaves them out.
+
+#### Scenario: Too large at any quality, or removed meanwhile
+
+- **GIVEN** a cut that exceeds 1.25 MiB even at the lowest JPEG quality, or evidence the operator removes while its preview is read
+- **WHEN** the agent fetches it
+- **THEN** the result carries metadata only, or refuses with `media_evidence_removed`; no image is sent, the budget is not charged, and no delivery authority is granted.
+
+#### Scenario: Exact photo bytes
+
+- **WHEN** original mode fetches a whole ready photo
+- **THEN** its delivered digest matches the pinned version and its scale is 1. If its bytes exceed the remaining budget, only metadata is returned and no new citation is granted.
+
 ## ADDED Requirements
 
 ### Requirement: Structured session questions
@@ -136,18 +183,18 @@ The session instructions SHALL tell the agent to write status lines in plain wor
 
 ### Requirement: Configurable VM evidence delivery
 
-Tool-capable VM sessions SHALL support `INTAKE_VM_EVIDENCE_DELIVERY` with values `inline` and `file`. Unset or empty SHALL select `inline`; any other value SHALL be refused before launching a turn. The development launcher and standalone relay SHALL forward the selected mode to the tool worker. Routes without VM file tools SHALL retain their existing delivery.
+Tool-capable VM sessions SHALL support `INTAKE_VM_EVIDENCE_DELIVERY` with values `inline` and `file`. Unset or empty SHALL select `file`; any other value SHALL be refused before launching a turn. The development launcher and standalone relay SHALL forward the selected mode to the tool worker. Routes without VM file tools SHALL retain their existing delivery.
 
 #### Scenario: File delivery
 
-- **GIVEN** a tool-capable Claude or Codex VM session configured for file delivery
+- **GIVEN** a tool-capable Claude or Codex VM session configured for file delivery or with an unset or empty setting
 - **WHEN** an authorized image fetch succeeds
 - **THEN** the guest applies the digest rules in [Guest-staged evidence matches the delivered image](../../../../specs/shared-vm-execution/spec.md#requirement-guest-staged-evidence-matches-the-delivered-image) and saves the delivered bytes in an owner-only temporary file and returns its path, source and rendition metadata, and instructions to open it with the provider's image/file tool, with no inline image bytes.
 - **AND** the file is removed when the turn ends, and the response instructs the agent to fetch again on later turns and cite source metadata rather than the temporary path.
 
 #### Scenario: Inline compatibility
 
-- **GIVEN** a tool-capable VM session with the setting omitted, empty or set to inline
+- **GIVEN** a tool-capable VM session with the setting explicitly set to inline
 - **WHEN** an image fetch succeeds
 - **THEN** its existing inline image and staged-file metadata are returned.
 

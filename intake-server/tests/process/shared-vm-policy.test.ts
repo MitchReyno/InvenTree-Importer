@@ -340,6 +340,7 @@ test(
             turn: '1',
             manifest,
             protected_hosts: [],
+            evidenceRelease: 1,
             ...opening,
           })
         })()
