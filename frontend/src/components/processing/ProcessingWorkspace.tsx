@@ -525,6 +525,19 @@ export function ProcessingWorkspace({
       }
     : undefined
 
+  /**
+   * A refusal that holds whatever attempt the job is on, such as an archived batch or a retired
+   * lot; only the attempt's own state waits for the reads to agree.
+   */
+  function lastingRefusal(job: ProcessingSnapshotDto['jobs'][number] | undefined) {
+    const eligibility = job?.start_fresh
+    const ofJob =
+      eligibility && !eligibility.allowed && eligibility.reason !== 'session_not_replaceable'
+        ? startFreshReason(eligibility)
+        : undefined
+    return freshUnavailable(undefined) ?? ofJob
+  }
+
   /** A failed session row's recovery, from this mount's read of its job. */
   function sessionRecovery(session: SourceSession): RowRecovery {
     const job = snapshot?.jobs.find((candidate) => candidate.id === session.jobId)
@@ -540,7 +553,7 @@ export function ProcessingWorkspace({
         }
       },
       // A reason that holds whatever the job, such as an archived batch, still shows.
-      reason: runnable ? freshUnavailable(job) : (freshUnavailable(undefined) ?? 'Updating…'),
+      reason: runnable ? freshUnavailable(job) : (lastingRefusal(job) ?? 'Updating…'),
     }
     return {
       startFresh: RECOVERABLE.has(session.state) ? startFresh : undefined,

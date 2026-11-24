@@ -548,3 +548,26 @@ test('an archived batch’s failed row gives the archive as the reason while the
     'The batch is archived. Resume it to start a fresh session.',
   )
 })
+
+test('a retired lot’s failed row gives the retirement as the reason while the reads disagree', async () => {
+  const row = sessionRow({
+    attempt_id: H.attempt2,
+    batch_id: H.batch,
+    job_id: H.job,
+    subject_id: H.lot,
+    state: 'failed',
+    session_state: 'failed',
+    failure: refused,
+  })
+  const api = clients(
+    failedJob({ allowed: false, reason: 'subject_retired' }),
+    sessionList({ sessions: [row] }),
+  )
+  mount(api, 'overview')
+
+  const card = await screen.findByRole('region', { name: 'Agent sessions' })
+  const recovery = await within(card).findByRole('group', { name: /^Recover/ })
+  expect(within(recovery).getByRole('button', { name: 'Start fresh' })).toHaveAccessibleDescription(
+    'This lot was retired, so its session can’t start again.',
+  )
+})
