@@ -4,9 +4,10 @@ import { space } from '#/theme/generated/tokens'
 import type { SessionStateDto } from '@invimport/contracts'
 import { SessionChat, Paragraph, Small, Button } from '#/components/ui'
 import {
+  dropPendingSend,
   hasPendingSend,
   setPendingSend,
-  usePendingSend,
+  usePendingSends,
   type PendingSend,
 } from '#/processing/pending-sends'
 
@@ -75,7 +76,8 @@ export function SessionChatPanel({
   sendUnavailable,
 }: Props) {
   const [message, setMessage] = useState('')
-  const pending = usePendingSend(storeKey)
+  // Only an unconfirmed send needs the box's attention; the history shows the rest.
+  const pending = usePendingSends(storeKey).find((send) => send.status === 'unconfirmed')
   if (state === 'cancelled') {
     return (
       <Panel>
@@ -133,7 +135,7 @@ export function SessionChatPanel({
             >
               Retry this message
             </Button>{' '}
-            <Button type="button" onClick={() => setPendingSend(storeKey, undefined)}>
+            <Button type="button" onClick={() => dropPendingSend(storeKey, pending.key)}>
               Discard
             </Button>
           </span>

@@ -242,6 +242,8 @@ test('filter chips narrow the conversation, and Load older adds the older page a
   expect(shown(/Prepared part of MCU close-up/)).toBeVisible()
   // The rail follows the rows a filter shows: the visible photo view keeps its dot.
   expect(shown(/Prepared part of MCU close-up/).closest('li')?.dataset.rail).toBe('action')
+  // A hidden row is not drawn, whatever display its row style sets.
+  expect(getComputedStyle(shown('Hello').closest('li')!).display).toBe('none')
   await user.click(screen.getByRole('button', { name: /^Web,/ }))
   expect(shown('Read ww1.microchip.com')).toBeVisible()
   expect(shown('Proposed ATmega328P-AU')).not.toBeVisible()
@@ -427,6 +429,29 @@ test('the page folds answered questions into one Answered group, newest first, b
   expect(screen.getByRole('region', { name: 'Answered' })).toHaveTextContent(
     'Which ATmega328P variant is this?',
   )
+})
+
+test('after answering on the page, a next question outside the loaded history gives way to the Answered heading', async () => {
+  const user = userEvent.setup()
+  const open = snapshot.jobs[0].questions[0]
+  const read = structuredClone(snapshot)
+  // An older open question the newest history page doesn't hold.
+  read.jobs[0].questions.push({ ...open, id: 'c3000000-0000-4000-8000-00000000000c' })
+  validate('ProcessingSnapshot', read)
+  const processing = client(history([asked]))
+  processing.read.mockResolvedValue(read)
+  mount(processing)
+  const card = await screen.findByRole('form', {
+    name: 'Session question: Which ATmega328P variant is this?',
+  })
+  const answered = structuredClone(read)
+  answered.jobs[0].questions[0] = { ...open, state: 'answered', revision: '2' }
+  processing.read.mockResolvedValue(answered)
+  await user.click(await within(card).findByRole('radio', { name: /ATmega328PB-AU/ }))
+  await user.click(within(card).getByRole('button', { name: /Send/ }))
+  await waitFor(() => expect(screen.getByRole('heading', { name: /^Answered/ })).toHaveFocus(), {
+    timeout: 5000,
+  })
 })
 
 test('answering waits for the page’s own Processing read, and stops while it fails or pauses', async () => {

@@ -590,18 +590,18 @@ export function ProcessingWorkspace({
     return <ClosedQuestion question={question} {...closedLinks(jobs, question, batch.id)} />
   }
 
+  /** A closed question's card, for a drawer form that left: replaced, or no longer asked. */
+  function closedQuestionOutcome(questionId: string) {
+    const question = allQuestions.find((candidate) => candidate.id === questionId)
+
+    return question && question.state === 'superseded' ? questionOutcome(question) : null
+  }
+
   /** Where focus goes once a step page's answer folds: the next open question, or "Answered". */
   function nextFocusAfter(answeredId: string): AnswerFocusTarget | null {
+    // The page mounts forms only for questions in its loaded history, so the form is found then.
     if (sessionPageJobId !== undefined) {
-      const open = snapshot?.jobs
-        .find((job) => job.id === sessionPageJobId)
-        ?.questions.find(
-          (question) =>
-            question.state === 'open' &&
-            question.id !== answeredId &&
-            !confirmedAnswer(question.id),
-        )
-      return open ? { kind: 'question', questionId: open.id } : { kind: 'answered' }
+      return { kind: 'page_form', after: answeredId }
     }
     if (view === 'overview') {
       return null
@@ -707,7 +707,7 @@ export function ProcessingWorkspace({
   // failed read or a remount, as the drawer's restore does.
   const workspace = useRef<HTMLElement>(null)
   useEffect(() => {
-    const target = answerOutcomes.peekFocus()
+    const target = answerOutcomes.pendingFocus()
     // While the answer's reload runs, this mount may be about to go; the next one moves focus.
     if (!target || saving === 'answer') {
       return
@@ -715,21 +715,17 @@ export function ProcessingWorkspace({
     const page = workspace.current
     // A next question that closed meanwhile gives way to the Answered heading.
     const stillOpen =
-      target.kind === 'question' &&
+      target.kind !== 'question' ||
       allQuestions.some(
         (question) =>
           question.id === target.questionId &&
           question.state === 'open' &&
           !confirmedAnswer(question.id),
       )
-    const element = stillOpen
-      ? page?.querySelector<HTMLElement>(
-          `[data-question-row="${target.questionId}"], [data-question-form="${target.questionId}"] :is(input, textarea)`,
-        )
-      : page?.querySelector<HTMLElement>('[data-answered-heading]')
+    const element = focusTarget(page, stillOpen ? target : { kind: 'answered' })
     if (element) {
       element.focus()
-      answerOutcomes.clearFocus()
+      answerOutcomes.focusPlaced(element)
     }
   })
   // A fresh read that returns a question answered, in any tier, replaces this tab's outcome.
@@ -1299,6 +1295,7 @@ export function ProcessingWorkspace({
                       readFailed={offline}
                       reportFor={(id) => drafts.forSource(`answer:${id}`)}
                       fallback={questionLink}
+                      closedOutcome={closedQuestionOutcome}
                     />
                   )}
                   {answersInDrawer && answeredGroup([sessionJob])}
@@ -1330,6 +1327,25 @@ function clearSessionLink(jobId?: string) {
 }
 
 const NO_RETIRED_LOTS: ReadonlySet<string> = new Set()
+
+/**
+ * The element an answer's focus target names on the page: the next question's row or form, else
+ * the Answered heading, as when the next question isn't on the page.
+ */
+function focusTarget(page: HTMLElement | null, target: AnswerFocusTarget) {
+  let next: HTMLElement | null | undefined = null
+  if (target.kind === 'question') {
+    next = page?.querySelector<HTMLElement>(
+      `[data-question-row="${target.questionId}"], [data-question-form="${target.questionId}"] :is(input, textarea)`,
+    )
+  } else if (target.kind === 'page_form') {
+    next = page?.querySelector<HTMLElement>(
+      `[data-question-form]:not([data-question-form="${target.after}"]) :is(input, textarea)`,
+    )
+  }
+
+  return next ?? page?.querySelector<HTMLElement>('[data-answered-heading]')
+}
 
 /** Session states whose card offers Start fresh: failed, stopped or unable to resume. */
 const RECOVERABLE: ReadonlySet<string> = new Set([

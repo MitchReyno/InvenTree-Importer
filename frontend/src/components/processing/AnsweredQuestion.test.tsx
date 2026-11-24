@@ -134,3 +134,31 @@ test('a replaced question links its replacement; one otherwise closed links its 
     sessionHref,
   )
 })
+
+test('a titled multi-step answer with its values omitted still shows each step’s prompt', async () => {
+  const stepped = choiceQuestion(5, {
+    title: 'About the 10 kΩ packets',
+    steps: [
+      choiceQuestion().steps[0],
+      {
+        id: 'left',
+        prompt: 'How many are left in packet B?',
+        assumption: 'An estimated 380.',
+        answer: { kind: 'number' },
+      },
+    ],
+  })
+  const group = show([
+    answered(stepped, { answered_at: '2026-11-24T02:12:00.000Z', values_omitted: true }),
+  ])
+  await userEvent.click(group.querySelector('summary')!)
+  expect(group).toHaveTextContent(
+    'Are package labels reliable descriptions of their current contents?',
+  )
+  expect(group).toHaveTextContent('How many are left in packet B?')
+  expect([...group.querySelectorAll('s')].map((struck) => struck.textContent)).toEqual([
+    'Treat labels as provisional identification.',
+    'An estimated 380.',
+  ])
+  expect(group).toHaveTextContent('Shown in the session.')
+})

@@ -333,3 +333,54 @@ test('when the next question closes during the save, focus falls back to the Ans
     timeout: 5000,
   })
 })
+
+async function openLeadDrawer(read: ProcessingSnapshotDto) {
+  const client = clientFor(read)
+  const cache = createServerQueryClient()
+  render(
+    <ServerStateProvider scope={scope} client={cache}>
+      <ProcessingWorkspace
+        batch={batch}
+        client={client}
+        view="examine"
+        sessionId={Q.job}
+        navigate={vi.fn()}
+        onDirtyChange={vi.fn()}
+        onSaved={vi.fn().mockResolvedValue(undefined)}
+      />
+    </ServerStateProvider>,
+  )
+  const drawer = await screen.findByRole('dialog')
+  await within(drawer).findByRole('form', { name: `Session question: ${questionPrompt}` })
+
+  const reread = async (next: ProcessingSnapshotDto) => {
+    client.read.mockResolvedValue(next)
+    await act(async () => {
+      await cache.refetchQueries({ queryKey: serverQueryKey(scope, 'processing', batchId) })
+    })
+  }
+
+  return { drawer, reread }
+}
+
+test('a clean drawer form whose question was replaced says so, linking the newer one', async () => {
+  const { drawer, reread } = await openLeadDrawer(examineRead([lead(5)]))
+  await reread(
+    examineRead([
+      { ...lead(5), state: 'superseded', revision: '2', replaced_by: Q.question(7) },
+      lead(7),
+    ]),
+  )
+  const card = await within(drawer).findByText(/Replaced by a newer question/)
+  expect(within(card.closest('[role="status"]') as HTMLElement).getByRole('link')).toHaveAttribute(
+    'href',
+    `#${batchId}/processing/examine/${Q.question(7)}`,
+  )
+})
+
+test('a clean drawer form closed by Start fresh reads “No longer asked”', async () => {
+  const { drawer, reread } = await openLeadDrawer(examineRead([lead(5)]))
+  await reread(examineRead([{ ...lead(5), state: 'superseded', revision: '2' }]))
+  expect(await within(drawer).findByText(/No longer asked/)).toBeInTheDocument()
+  expect(within(drawer).queryByRole('form', { name: /^Session question/ })).toBeNull()
+})

@@ -1,4 +1,13 @@
-import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render as renderUi,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
+import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { createServerQueryClient } from '#/queries/client'
 import { expect, test, vi } from 'vitest'
 import type { ProcessingJobDto, SessionHistoryDto } from '@invimport/contracts'
@@ -300,4 +309,74 @@ test('a saved message whose refresh fails stays shown as saved until a read hold
     expect(within(list).queryByRole('listitem', { name: /^Your message/ })).toBeNull(),
   )
   expect(within(list).getAllByText('Is the date code readable?')).toHaveLength(1)
+})
+
+test('two sends before a read both stay shown, and a held row never comes back as pending', async () => {
+  const replies = [
+    { seq: '9', item_id: H.inboxItem },
+    { seq: '10', item_id: H.inboxItem },
+  ]
+
+  let page: () => Promise<SessionHistoryDto> = () => Promise.resolve(conversationPage())
+
+  const client = mount(
+    () => page(),
+    () => Promise.resolve(replies.shift()!),
+  )
+  const list = await screen.findByRole('list', { name: 'Session history' })
+  page = () => Promise.reject(new Error('offline'))
+  send('First message')
+  await within(list).findByRole('listitem', { name: 'Your message, saved' })
+  send('Second message')
+  await waitFor(() =>
+    expect(within(list).getAllByRole('listitem', { name: 'Your message, saved' })).toHaveLength(2),
+  )
+
+  const held = history(
+    [chat(10, 8, 'Second message'), chat(9, 7, 'First message'), ...conversationPage().entries],
+    { attempts: conversationPage().session.attempts },
+  )
+  page = () => Promise.resolve(held)
+  await act(async () => {
+    await client.cache.refetchQueries()
+  })
+  await waitFor(() =>
+    expect(within(list).queryByRole('listitem', { name: /^Your message/ })).toBeNull(),
+  )
+  // Once the rows roll off the newest page, they don't reappear as pending.
+  page = () => Promise.resolve(conversationPage())
+  await act(async () => {
+    await client.cache.refetchQueries()
+  })
+  await waitFor(() => expect(within(list).queryByText('First message')).toBeNull())
+  expect(within(list).queryByRole('listitem', { name: /^Your message/ })).toBeNull()
+})
+
+test('a pending message stays with its server scope', async () => {
+  const sent = deferred<{ seq: string; item_id: string }>()
+  mount(
+    () => Promise.resolve(conversationPage()),
+    () => sent.promise,
+  )
+  await screen.findByRole('list', { name: 'Session history' })
+  send('Only in this scope')
+  await screen.findByRole('listitem', { name: 'Your message, sending' })
+  cleanup()
+
+  // Another origin serving the same batch and job IDs shows none of it.
+  const client = { history: vi.fn(() => Promise.resolve(conversationPage())), chat: vi.fn() }
+  renderUi(
+    <ServerStateProvider
+      scope={{
+        origin: 'http://elsewhere.test',
+        actorId: H.part,
+        targetId: H.proposal,
+        targetContextId: H.failure,
+      }}
+    >
+      <SessionPanel batchId={H.batch} job={job} client={client} startFresh={vi.fn()} />
+    </ServerStateProvider>,
+  )
+  await screen.findByRole('list', { name: 'Session history' })
+  expect(screen.queryByText('Only in this scope')).toBeNull()
 })

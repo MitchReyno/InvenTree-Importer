@@ -18,7 +18,11 @@ export type ConfirmedAnswer = {
 }
 
 /** Where focus goes once an answered question has folded away. */
-export type AnswerFocusTarget = { kind: 'question'; questionId: string } | { kind: 'answered' }
+export type AnswerFocusTarget =
+  | { kind: 'question'; questionId: string }
+  /** The session page's next answer form that is on the page, whichever question it is. */
+  | { kind: 'page_form'; after: string }
+  | { kind: 'answered' }
 
 function cut(text: string) {
   const points = [...text]
@@ -78,6 +82,8 @@ export function sentAnswerValues(
 export function createAnswerOutcomes() {
   const confirmed = new Map<string, ConfirmedAnswer>()
   let focus: AnswerFocusTarget | null = null
+  // Where a mount put focus; a remount that removed it moves focus again.
+  let placed: HTMLElement | null = null
   let version = 0
   const listeners = new Set<() => void>()
 
@@ -99,6 +105,7 @@ export function createAnswerOutcomes() {
     record(answer: ConfirmedAnswer, next: AnswerFocusTarget | null) {
       confirmed.set(answer.questionId, answer)
       focus = next
+      placed = null
       changed()
     },
     /** Drops answers a fresh read now returns answered, in whichever tier carries them. */
@@ -110,10 +117,26 @@ export function createAnswerOutcomes() {
       dropped.forEach((id) => confirmed.delete(id))
       changed()
     },
-    peekFocus: () => focus,
-    /** The mounted surface moved focus, or the operator did: nothing is left to move. */
-    clearFocus() {
-      focus = null
+    /**
+     * The focus target still to place: not placed yet, or placed on an element a remount removed
+     * while nothing else took focus. Once a placed element is seen still in the page, it is done.
+     */
+    pendingFocus() {
+      if (!focus || !placed) {
+        return focus
+      }
+      if (placed.isConnected) {
+        focus = null
+        placed = null
+        return null
+      }
+      return document.activeElement === document.body || document.activeElement === null
+        ? focus
+        : null
+    },
+    /** A mounted surface moved focus to the target's element. */
+    focusPlaced(element: HTMLElement) {
+      placed = element
     },
   }
 }

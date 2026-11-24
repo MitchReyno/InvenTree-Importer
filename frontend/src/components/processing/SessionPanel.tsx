@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import styled from 'styled-components'
 import {
   SessionFailureDetails,
@@ -6,7 +7,13 @@ import {
 import type { ProcessingJobDto } from '@invimport/contracts'
 import type { ProcessingClient } from '#/processing/types'
 import { drawerItems } from '#/processing/session-history'
-import { newestInboxSeq, unreadPendingSend, usePendingSend } from '#/processing/pending-sends'
+import {
+  newestInboxSeq,
+  retireArrivedSends,
+  unreadPendingSends,
+  usePendingSendKey,
+  usePendingSends,
+} from '#/processing/pending-sends'
 import { useNewestHistory } from '#/processing/useSessionHistory'
 import { processingStepFor, sessionPageHref } from '#/navigation/batch-route'
 import { Link, ReadState, Small, VisuallyHidden } from '#/components/ui'
@@ -39,8 +46,15 @@ export function SessionPanel({
   freshReason,
 }: Props) {
   const history = useNewestHistory(client.history, batchId, job.id)
-  const storeKey = `${batchId}:${job.id}`
-  const pending = usePendingSend(storeKey)
+  const storeKey = usePendingSendKey(batchId, job.id)
+  const pending = usePendingSends(storeKey)
+  const loaded = history.data?.entries
+  // Syncs the pending sends with the history read: a saved message it now holds is retired.
+  useEffect(() => {
+    if (loaded) {
+      retireArrivedSends(storeKey, loaded)
+    }
+  }, [storeKey, loaded])
   const step = processingStepFor(job.stage)
   const fullSession = sessionPageHref(batchId, step, job.id)
   if (!history.data) {
@@ -55,7 +69,7 @@ export function SessionPanel({
     )
   }
   const { session, entries } = history.data
-  const shownPending = unreadPendingSend(pending, entries)
+  const shownPending = unreadPendingSends(pending, entries)
   const current = session.attempts.find((attempt) => attempt.id === session.current_attempt_id)
   const sessionState = current?.session_state ?? job.session_state ?? 'queued'
   const latest = entries.find((entry) => entry.details.kind === 'status')
@@ -85,15 +99,13 @@ export function SessionPanel({
         )}
         <History>
           {history.data.before && <Small>Older entries are on the full session page.</Small>}
-          {(entries.length > 0 || shownPending) && (
+          {(entries.length > 0 || shownPending.length > 0) && (
             <SessionConversation
               label="Session history"
               items={drawerItems(entries)}
               context={{ batchId, jobId: job.id, step }}
               working={sessionState === 'running'}
-              pending={
-                shownPending && { text: shownPending.text, saved: shownPending.status === 'saved' }
-              }
+              pending={shownPending}
             />
           )}
           <Link href={fullSession}>Open full session</Link>

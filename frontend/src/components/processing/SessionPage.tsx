@@ -12,7 +12,13 @@ import type { ProcessingClient } from '#/processing/types'
 import { space } from '#/theme/generated/tokens'
 import { startFreshReason } from '#/processing/start-fresh'
 import { SessionChatPanel } from './SessionChatPanel'
-import { newestInboxSeq, unreadPendingSend, usePendingSend } from '#/processing/pending-sends'
+import {
+  newestInboxSeq,
+  retireArrivedSends,
+  unreadPendingSends,
+  usePendingSendKey,
+  usePendingSends,
+} from '#/processing/pending-sends'
 import { SessionConversation } from './SessionConversation'
 import { SessionPageHeader } from './SessionPageHeader'
 import { SessionPagePanels } from './SessionPagePanels'
@@ -78,7 +84,15 @@ export function SessionPage(props: Props) {
   }, [reveal])
   const held = query.data
   const questions = useQuestionsWithDrafts(held, props.isAnswerDirty)
-  const pending = usePendingSend(`${batchId}:${jobId}`)
+  const storeKey = usePendingSendKey(batchId, jobId)
+  const pending = usePendingSends(storeKey)
+  const loaded = query.data?.entries
+  // Syncs the pending sends with the history read: a saved message it now holds is retired.
+  useEffect(() => {
+    if (loaded) {
+      retireArrivedSends(storeKey, loaded)
+    }
+  }, [storeKey, loaded])
   // A definite "not found" wins over history read earlier, which may belong to another scope.
   if (isNotFound(query.error)) {
     return (
@@ -111,7 +125,7 @@ export function SessionPage(props: Props) {
   const title = `${stepLabel} · ${props.subjectLabel(session.subject_id)}`
   const current = session.attempts.find((attempt) => attempt.id === session.current_attempt_id)
   const sessionState = current?.session_state ?? props.job?.session_state ?? 'queued'
-  const shownPending = unreadPendingSend(pending, entries)
+  const shownPending = unreadPendingSends(pending, entries)
   const freshReason = props.freshReason ?? startFreshReason(session.start_fresh)
   return (
     <Page>
@@ -150,9 +164,7 @@ export function SessionPage(props: Props) {
             label="Session conversation"
             items={conversation({ ...held, entries: questions.entries })}
             working={sessionState === 'running'}
-            pending={
-              shownPending && { text: shownPending.text, saved: shownPending.status === 'saved' }
-            }
+            pending={shownPending}
             filter={filter}
             context={context}
             answerForm={props.answerForm}
@@ -166,7 +178,7 @@ export function SessionPage(props: Props) {
           />
           {props.answered}
           <SessionChatPanel
-            storeKey={`${batchId}:${jobId}`}
+            storeKey={storeKey}
             state={sessionState}
             label={`Message ${stepLabel}`}
             newestInboxSeq={newestInboxSeq(entries)}

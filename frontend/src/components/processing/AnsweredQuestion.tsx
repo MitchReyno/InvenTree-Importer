@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import styled from 'styled-components'
 import { questionView, type ProcessingQuestionDto } from '@invimport/contracts'
 import { CheckIcon, ClockIcon, EventTime, Link, VisuallyHidden } from '#/components/ui'
@@ -31,7 +32,6 @@ const ICON_NAME: Record<AnsweredIcon, string> = {
  */
 export function AnsweredQuestion({ line, question, stage, sessionHref, lot, lotLabel }: Props) {
   const view = questionView(question)
-  const assumptions = view.steps.flatMap((step) => (step.assumption ? [step.assumption] : []))
   const changed = answerEffectsSentence(line.effects, lotLabel)
 
   return (
@@ -69,33 +69,44 @@ export function AnsweredQuestion({ line, question, stage, sessionHref, lot, lotL
           <dd>
             {view.title} <Muted>{view.reason}</Muted>
           </dd>
-          {assumptions.length > 0 && (
-            <>
-              <dt>It assumed</dt>
-              <dd>
-                <Muted>
-                  <s>{assumptions.join(' · ')}</s>
-                </Muted>
-              </dd>
-            </>
-          )}
-          <dt>Your answer</dt>
-          <dd>
-            {line.values ? (
-              <Values>
-                {line.values.map((value, index) => (
-                  <li key={value.step_id ?? index}>
-                    {line.values!.length > 1 && <Muted>{value.prompt} — </Muted>}
+          {view.steps.map((step, index) => {
+            const value =
+              line.values?.find((candidate) => candidate.step_id === step.id) ??
+              (view.version === 1 ? line.values?.[0] : undefined)
+            const several = view.steps.length > 1
+            return (
+              <Fragment key={step.id}>
+                {several && (
+                  <>
+                    <dt>Step {index + 1}</dt>
+                    <dd>{step.prompt}</dd>
+                  </>
+                )}
+                {step.assumption && (
+                  <>
+                    <dt>It assumed</dt>
+                    <dd>
+                      <Muted>
+                        <s>{step.assumption}</s>
+                      </Muted>
+                    </dd>
+                  </>
+                )}
+                <dt>Your answer</dt>
+                <dd>
+                  {value ? (
                     <b>{value.truncated ? `${value.text}…` : value.text}</b>
-                  </li>
-                ))}
-              </Values>
-            ) : (
-              <Muted>
-                {line.sessionHistory ? 'Shown in the session.' : 'Its details aren’t shown here.'}
-              </Muted>
-            )}
-          </dd>
+                  ) : (
+                    <Muted>
+                      {line.sessionHistory
+                        ? 'Shown in the session.'
+                        : 'Its details aren’t shown here.'}
+                    </Muted>
+                  )}
+                </dd>
+              </Fragment>
+            )
+          })}
           {changed && (
             <>
               <dt>Changed</dt>
@@ -214,14 +225,6 @@ const Facts = styled.dl`
     min-width: 0;
     overflow-wrap: anywhere;
   }
-`
-
-const Values = styled.ul`
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: ${space[2]};
 `
 
 const Trail = styled.ol`

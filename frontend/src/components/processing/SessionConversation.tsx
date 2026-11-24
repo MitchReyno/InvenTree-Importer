@@ -8,6 +8,7 @@ import {
   type ConversationItem,
 } from '#/processing/session-history'
 import { color, radius, space, zIndex } from '#/theme/generated/tokens'
+import type { PendingSend } from '#/processing/pending-sends'
 import { ChatBubble } from './ChatBubble'
 import { ConversationRow, type ConversationRowProps } from './ConversationRow'
 
@@ -17,8 +18,8 @@ type Props = Omit<ConversationRowProps, 'item'> & {
   label: string
   /** The session is working now, so its latest action carries the "now" dot. */
   working: boolean
-  /** A message being sent or just saved, shown last until a read returns it in its place. */
-  pending?: { text: string; saved: boolean }
+  /** Messages being sent or just saved, shown last until a read returns them in their place. */
+  pending?: readonly PendingSend[]
 }
 
 /**
@@ -32,7 +33,7 @@ export function SessionConversation({
   filter = 'all',
   label,
   working,
-  pending,
+  pending = NO_SENDS,
   ...row
 }: Props) {
   // The rail runs through the rows a filter shows; hidden rows stay mounted with no marks.
@@ -61,19 +62,24 @@ export function SessionConversation({
           <ConversationRow item={item} {...row} />
         </Row>
       ))}
-      {pending && (
-        <Row aria-label={pending.saved ? 'Your message, saved' : 'Your message, sending'}>
+      {pending.map((send) => (
+        <Row
+          key={send.key}
+          aria-label={send.status === 'saved' ? 'Your message, saved' : 'Your message, sending'}
+        >
           <ChatBubble
             mine
             author="You"
-            text={pending.text}
-            pendingLabel={pending.saved ? 'Saved' : 'Sending…'}
+            text={send.text}
+            pendingLabel={send.status === 'saved' ? 'Saved' : 'Sending…'}
           />
         </Row>
-      )}
+      ))}
     </List>
   )
 }
+
+const NO_SENDS: readonly PendingSend[] = []
 
 const NO_MARK: RailMark = { action: false, line: null, now: false }
 
@@ -105,6 +111,10 @@ const line = css`
 const Row = styled.li`
   position: relative;
   display: grid;
+  /* A filter hides rows; the grid display above would otherwise override the attribute. */
+  &[hidden] {
+    display: none;
+  }
   min-width: 0;
   padding-left: ${space[12]};
   &[data-line='solid']::after {
