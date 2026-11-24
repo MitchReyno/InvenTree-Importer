@@ -637,6 +637,7 @@ test('a stale Codex result whose Check again fails ends its refresh, and is not 
   await mkdir(join(root, 'account'))
   let starts = 0
   let failing = false
+  let failCheck: (() => void) | undefined
   let clock = 0
   const account = new CodexAccount(
     root,
@@ -645,11 +646,13 @@ test('a stale Codex result whose Check again fails ends its refresh, and is not 
       return {
         initialize: async () => {},
         close: async () => {},
-        connected: async () => {
-          if (failing) {
-            throw new Error('codex_account_unavailable')
+        connected: () => {
+          if (!failing) {
+            return Promise.resolve(true)
           }
-          return true
+          return new Promise<boolean>((_resolve, reject) => {
+            failCheck = () => reject(new Error('codex_account_unavailable'))
+          })
         },
         request: async () => device,
       }
@@ -661,20 +664,54 @@ test('a stale Codex result whose Check again fails ends its refresh, and is not 
   clock = 1000
   const forced = await account.readStatus(true)
   assert.ok(forced.state === 'signed_in' && forced.refreshing)
-  // The failed check ends the refresh; the result stays, with its age.
-  assert.deepEqual(await checked(account), { state: 'signed_in', ageMs: 1000, refreshing: false })
+  await waitFor(() => failCheck !== undefined, 'the forced check')
+  // The check started at 1000 and fails at 1500, which ends the refresh; the result stays.
+  clock = 1500
+  failCheck!()
+  assert.deepEqual(await checked(account), { state: 'signed_in', ageMs: 1500, refreshing: false })
   assert.equal(starts, 2)
-  // Still older than the window, but a check just ended: plain reads start none.
-  clock = 1400
+  // Stale by the check's start, fresh by its end: plain reads start none.
+  clock = 2100
   assert.deepEqual(await account.readStatus(), {
     state: 'signed_in',
-    ageMs: 1400,
+    ageMs: 2100,
     refreshing: false,
   })
   assert.equal(starts, 2)
   // Check again still can, past the interval.
   await account.readStatus(true)
   assert.equal(starts, 3)
+})
+
+test('a Check again after a failed first Codex check reads checking until its result', async (t) => {
+  const root = await scratch(t, 'codex-status-retry-')
+  await mkdir(join(root, 'account'))
+  let failing = true
+  let finish: (() => void) | undefined
+  let clock = 0
+  const account = new CodexAccount(
+    root,
+    () => ({
+      initialize: async () => {},
+      close: async () => {},
+      connected: () => {
+        if (failing) {
+          return Promise.reject(new Error('codex_account_unavailable'))
+        }
+        return new Promise<boolean>((resolve) => (finish = () => resolve(true)))
+      },
+      request: async () => device,
+    }),
+    { minRefreshIntervalMs: 300, now: () => clock },
+  )
+  assert.deepEqual(await checked(account), { state: 'unavailable' })
+  failing = false
+  clock = 300
+  assert.deepEqual(await account.readStatus(true), { state: 'checking' })
+  await waitFor(() => finish !== undefined, 'the retry')
+  assert.deepEqual(await account.readStatus(), { state: 'checking' })
+  finish!()
+  assert.equal((await checked(account)).state, 'signed_in')
 })
 
 // Stand-ins for `flock` and the Codex app-server, so the real account RPC runs: the lock mode

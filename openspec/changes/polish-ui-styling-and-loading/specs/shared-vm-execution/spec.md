@@ -114,7 +114,7 @@ Each provider's status read SHALL reach that provider's credential process throu
 
 ### Requirement: Codex status answered from the last check
 
-A Codex account check takes longer than a status read may wait, so Codex SHALL answer each read at once from its last completed check, with that check's time and whether a newer one is running. A read SHALL start one background check, never more than one at a time, when there is no result, when it is older than the freshness window, or when Check again asks, at most once per interval. With no completed check Codex SHALL read as unknown because it is checking, never as signed out.
+Codex SHALL answer each read at once from its last completed check, with its time and whether a newer one runs. A read SHALL start one background check, never two at once, when there is no result or the last check ended over the freshness window ago; Check again SHALL start one when none runs and the interval since the last start has passed. While a check runs and none has succeeded, Codex SHALL read as unknown because it is checking, never signed out.
 
 #### Scenario: Codex check slower than the read
 
@@ -124,7 +124,7 @@ A Codex account check takes longer than a status read may wait, so Codex SHALL a
 
 #### Scenario: Stale result
 
-- **GIVEN** a Codex result older than the freshness window
+- **GIVEN** a Codex result whose last check ended longer ago than the freshness window
 - **WHEN** several reads arrive together
 - **THEN** each reports that result with its time, and exactly one new check starts.
 

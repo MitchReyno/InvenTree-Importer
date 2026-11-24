@@ -280,6 +280,10 @@ export class CodexAccount {
         refreshing: this.check !== undefined,
       }
     }
+    // A retry after a failed first check is still checking; its failure shows once it ends.
+    if (this.check) {
+      return { state: 'checking' }
+    }
     if (this.lastFailure) {
       return { state: this.lastFailure }
     }

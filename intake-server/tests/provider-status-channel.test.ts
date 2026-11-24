@@ -9,6 +9,8 @@ import {
   STATUS_REPLY_CHANNEL,
   STATUS_REQUEST_CHANNEL,
 } from '#/agents/provider-status-channel.ts'
+import { workerStatusSource } from '#/agents/provider-status.ts'
+import type { ProcessingConfig } from '#/processing/attempts.ts'
 
 const binding = {
   actorId: '10000000-0000-4000-8000-000000000001',
@@ -221,4 +223,27 @@ test('Check again reaches the worker as its own read, never folded into a plain 
   assert.deepEqual(reads, [false, true])
   finish()
   await worker.close()
+})
+
+test('the API reuses a read for its window by the monotonic clock, whatever the wall clock does', async () => {
+  // A profile without agent sessions answers without the worker, dated by the wall clock.
+  const config = { profileId: undefined } as unknown as ProcessingConfig
+  let wall = Date.parse('2026-11-24T06:00:00.000Z')
+  let monotonic = 0
+  const source = workerStatusSource(
+    {} as Pool,
+    config,
+    5000,
+    () => new Date(wall),
+    () => monotonic,
+  )
+  const first = await source(false)
+  // The wall clock steps back an hour; the window still ends 5 s later by the monotonic clock.
+  wall -= 3_600_000
+  monotonic = 4999
+  assert.equal((await source(false)).readAt, first.readAt)
+  monotonic = 5000
+  const next = await source(false)
+  assert.notEqual(next.readAt, first.readAt)
+  assert.equal(next.readAt.getTime(), wall)
 })

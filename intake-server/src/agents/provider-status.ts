@@ -45,6 +45,8 @@ export function workerStatusSource(
   config: ProcessingConfig,
   cacheMs = PROVIDER_STATUS_CACHE_MS,
   now = () => new Date(),
+  // Times the reuse window, so a wall-clock step back never keeps a read past it.
+  monotonicNow = () => performance.now(),
 ): GuestStatusSource {
   let cached: { read: Promise<GuestStatusRead>; until: number } | undefined
   let forced: Promise<GuestStatusRead> | undefined
@@ -63,7 +65,7 @@ export function workerStatusSource(
     void pending.then(
       () => {
         if (cached?.read === pending) {
-          cached = { read: pending, until: now().getTime() + cacheMs }
+          cached = { read: pending, until: monotonicNow() + cacheMs }
         }
       },
       () => {
@@ -89,7 +91,7 @@ export function workerStatusSource(
       }
       return forced
     }
-    const time = now().getTime()
+    const time = monotonicNow()
     if (!cached || time >= cached.until) {
       remember(read(false))
     }
