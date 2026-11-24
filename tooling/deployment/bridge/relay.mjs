@@ -111,12 +111,14 @@ const statusContainer = codex
     : undefined
 const statusSocket = '/tmp/bench-status/status.sock'
 const statusPump = `
-  // Ends by itself when the relay closes its input or the socket doesn't open in time.
+  // Before the socket opens, it ends by itself when the relay closes its input or in 10 s.
   const starting = setTimeout(() => process.exit(1), 10000)
-  process.stdin.once('end', () => process.exit())
+  const abandoned = () => process.exit()
+  process.stdin.once('end', abandoned)
   const socket = require('node:net').connect(process.argv[1])
   socket.once('connect', () => {
     clearTimeout(starting)
+    process.stdin.off('end', abandoned)
     process.stderr.write('ready\\n')
     process.stdin.pipe(socket)
     socket.pipe(process.stdout)
