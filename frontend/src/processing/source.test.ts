@@ -102,6 +102,9 @@ describe('retainedJobsSource', () => {
     expect(source.sessions).toEqual([
       {
         jobId: id(1),
+        attemptId: expect.any(String),
+        // The Processing read carries no failure cause; the session list does.
+        failureUnread: true,
         step: 'research',
         subject: 'Packet A',
         lotId: lot,

@@ -1,3 +1,4 @@
+import { sessionList } from '#/test/agent-sessions'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import userEvent from '@testing-library/user-event'
@@ -1593,13 +1594,9 @@ test('the batch is shown paused from its own read, whatever the account-wide lis
       <ApiClientsProvider
         value={{
           agents: {
-            sessions: vi.fn(async () => ({
-              sessions: [],
-              paused_batch_ids: [],
-              paused_truncated: true as const,
-              next_before: null,
-              sessions_supported: true,
-            })),
+            sessions: vi.fn(async () =>
+              sessionList({ paused_batch_ids: [], paused_truncated: true }),
+            ),
             settings: vi.fn(async () => agentSettings('1', null, { session_concurrency: 1 })),
             pause: vi.fn(async () => undefined),
           },
@@ -1974,13 +1971,9 @@ function mountPause(client: ProcessingClient, cache: QueryClient, pause: () => P
       <ApiClientsProvider
         value={{
           agents: {
-            sessions: vi.fn(async () => ({
-              sessions: [],
-              paused_batch_ids: [],
-              paused_truncated: true as const,
-              next_before: null,
-              sessions_supported: true,
-            })),
+            sessions: vi.fn(async () =>
+              sessionList({ paused_batch_ids: [], paused_truncated: true }),
+            ),
             settings: vi.fn(async () => agentSettings('1', null, { session_concurrency: 1 })),
             pause: vi.fn(pause),
           },

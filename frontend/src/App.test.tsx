@@ -1,3 +1,4 @@
+import { sessionList } from '#/test/agent-sessions'
 import { act, cleanup } from '@testing-library/react'
 import { useState, type ReactNode } from 'react'
 import { captureClient, manualClient } from '@invimport/contracts/client'
@@ -1256,12 +1257,7 @@ test('Settings opened from Agents goes back to it across sections, and the guard
       return response(settings)
     }
     if (path.endsWith('/agent-sessions')) {
-      return response({
-        sessions: [],
-        next_before: null,
-        sessions_supported: true,
-        paused_batch_ids: [],
-      })
+      return response(sessionList({ paused_batch_ids: [] }))
     }
     return headerRead(path) ?? navigationFallback(path)
   })
@@ -1308,7 +1304,7 @@ test('with unsaved agent settings, the Agents sub-nav still moves within the pag
       )
     }
     if (path.endsWith('/agent-sessions')) {
-      return response({ sessions: [], next_before: null, sessions_supported: true })
+      return response(sessionList())
     }
     return headerRead(path) ?? navigationFallback(path)
   })
@@ -1347,7 +1343,7 @@ test('a refused browser Back from unsaved settings keeps the return route for a 
       )
     }
     if (path.endsWith('/agent-sessions')) {
-      return response({ sessions: [], next_before: null, sessions_supported: true })
+      return response(sessionList())
     }
     return headerRead(path) ?? navigationFallback(path)
   })

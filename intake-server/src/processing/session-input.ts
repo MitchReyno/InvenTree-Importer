@@ -15,6 +15,19 @@ import {
 } from './model.ts'
 import { sessionProfiles, type SessionProfileId } from './session-policy.ts'
 
+/** The profile, selection and sealed settings a session input records. */
+export type SessionInputProfile =
+  | {
+      id: 'native-agent/2' | 'shared-vm-agent/1' | 'shared-vm-agent/2' | 'shared-vm-agent/3'
+      agent: AgentSelectionDto
+      settingsRevision: string
+      /** Sealed with the attempt, so a later save can't change what a queued session reads. */
+      partDescriptionStyle?: string
+      /** Sealed with the attempt; off for every profile but `shared-vm-agent/3`. */
+      web?: { public_pages: boolean; prefer_datasheets: boolean }
+    }
+  | { id: 'synthetic-session/1' }
+
 export type SessionLotStage = 'research' | 'images' | 'inventory'
 
 /**
@@ -26,17 +39,7 @@ export function sessionLotInputManifest(
   subjectId: string,
   stage: SessionLotStage,
   media: RetainedMediaDescriptor,
-  profile:
-    | {
-        id: 'native-agent/2' | 'shared-vm-agent/1' | 'shared-vm-agent/2' | 'shared-vm-agent/3'
-        agent: AgentSelectionDto
-        settingsRevision: string
-        /** Sealed with the attempt, so a later save can't change what a queued session reads. */
-        partDescriptionStyle?: string
-        /** Sealed with the attempt; off for every profile but `shared-vm-agent/3`. */
-        web?: { public_pages: boolean; prefer_datasheets: boolean }
-      }
-    | { id: 'synthetic-session/1' },
+  profile: SessionInputProfile,
   pinnedProposalIds: readonly string[] = [],
 ): ProcessingInputV6Dto {
   const fields = mediaInputManifest(snapshot, subjectId, stage, [], null, media, {
@@ -94,7 +97,7 @@ export function decodeJobInput(bytes: Buffer, digest: Buffer) {
 export function sessionLeadInputManifest(
   snapshot: CaptureSnapshotDto,
   media: RetainedMediaDescriptor,
-  profile: Parameters<typeof sessionLotInputManifest>[4],
+  profile: SessionInputProfile,
 ): ProcessingInputV6Dto {
   const decoded = decodeMediaInputs(
     Buffer.from(media.manifest, 'utf8'),

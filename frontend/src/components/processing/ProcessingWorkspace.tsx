@@ -47,6 +47,7 @@ import { AnsweredQuestion } from './AnsweredQuestion'
 import { ClosedQuestion } from './ClosedQuestion'
 import { ProcessingJobCard } from './ProcessingJobCard'
 import { SessionPanel } from './SessionPanel'
+import { JobEarlierAttempts } from './JobEarlierAttempts'
 import { SessionPage } from './SessionPage'
 import { QuestionAnswer } from './QuestionAnswer'
 import { ProcessingOverview } from './ProcessingOverview'
@@ -58,10 +59,13 @@ import { STEP_LABEL } from './ProcessingParts'
 import { batchHref, processingStepFor } from '#/navigation/batch-route'
 import { lotsFormed } from '#/processing/lots-formed'
 import { lotSteps, stepSummary, type LotStage } from '#/processing/lot-steps'
-import { retainedJobsSource } from '#/processing/source'
+import { listedSessions, retainedJobsSource, type SourceSession } from '#/processing/source'
+import type { RowRecovery } from './SessionRowItem'
+import { useSessionList } from '#/agents/useSessionList'
+import type { SessionListRead } from '#/agents/session-list'
+import { startFreshReason, startFreshRefusal } from '#/processing/start-fresh'
 import { useDirtySources } from '#/operator/useDirtySources'
 import { openQuestionsByLot } from '#/operator/review-model'
-import type { AgentSessionListDto } from '@invimport/contracts'
 import type { InstructionDelivery } from '#/processing/instruction-delivery'
 import { useApiClients, useServerScope, useRetainedPollInterval } from '#/context'
 import type { CaptureEdit } from '#/capture/types'
@@ -89,16 +93,6 @@ function recentActivity(
     at: job.latest_status!.at,
     current: index === lines.length - 1 && job.session_state === 'running',
   }))
-}
-
-/** When this batch's first agent session started. */
-function firstStart(sessions: AgentSessionListDto['sessions'] | undefined, batchId: string) {
-  const starts = (sessions ?? [])
-    .filter((session) => session.batch_id === batchId && session.started_at)
-    .map((session) => session.started_at!)
-    .sort()
-
-  return starts[0]
 }
 
 /** The per-lot steps a lot table pill can focus; Examine runs once for the batch. */
@@ -239,13 +233,13 @@ export function ProcessingWorkspace({
     fresh.verifiedRead,
   )
   const snapshot = fresh.data
-  // The Agents page's own reads, so both share one cache entry.
-  const agentSessions = useFreshRead({
-    queryKey: serverQueryKey(scope, 'agent-sessions', 'newest'),
-    queryFn: () => agents!.sessions(),
-    enabled: agents !== undefined && view === 'overview',
+  // The batch's own session list: one row per session with its earlier attempts, a page at a time.
+  const batchSessions = useSessionList(agents?.sessions ?? NO_SESSIONS, {
+    filter: 'all',
+    batchId: batch.id,
+    enabled: agents !== undefined && sessionPageJobId === undefined,
     refetchInterval: pollInterval,
-  }).query
+  })
   const agentSettings = useFreshRead({
     queryKey: serverQueryKey(scope, 'agent-settings'),
     queryFn: () => agents!.settings(),
@@ -257,11 +251,11 @@ export function ProcessingWorkspace({
   const liveRead = (read: { isSuccess: boolean; isError: boolean; fetchStatus: string }) =>
     read.isSuccess && !read.isError && read.fetchStatus !== 'paused'
 
-  // The list is one page across every batch, so a start time needs the whole history.
-  const started =
-    liveRead(agentSessions) && agentSessions.data?.next_before === null
-      ? firstStart(agentSessions.data.sessions, batch.id)
-      : undefined
+  // Counted by the server across every attempt of the batch, whatever page is loaded.
+  const started = liveRead(batchSessions.fresh.query)
+    ? (batchSessions.list?.batches.find((item) => item.batch_id === batch.id)?.first_started_at ??
+      undefined)
+    : undefined
   const sessionLimit = liveRead(agentSettings) ? agentSettings.data?.session_concurrency : undefined
   // The batch's own read says whether it is paused; a change shows once it is read again. Pause
   // and Resume send no revision, so they wait for a read started after the last live hint.
@@ -349,7 +343,8 @@ export function ProcessingWorkspace({
     }
   }
 
-  async function perform(work: () => Promise<unknown>) {
+  /** `startFresh` names a refusal by Start fresh's reasons; other commands keep their own words. */
+  async function perform(work: () => Promise<unknown>, { startFresh = false } = {}) {
     if (!commandReadAvailable()) {
       throw new Error('processing_fresh_read_required')
     }
@@ -357,18 +352,16 @@ export function ProcessingWorkspace({
     setError('')
     let commandFailed = false
     let refusedAnswer: IntakeRequestError | null = null
+    let refusedFresh: string | undefined
     try {
       await work()
     } catch (failure) {
       commandFailed = true
       // The server read the answer and refused it; its form marks the step and keeps the draft.
       refusedAnswer = confirmedAnswerRefusal(failure)
+      refusedFresh = startFresh ? startFreshRefusal(failure) : undefined
       if (!refusedAnswer) {
-        setError(
-          failure instanceof IntakeRequestError && failure.code === 'subject_retired'
-            ? 'A selected lot was split or merged. Choose its successor lots instead.'
-            : 'Command not confirmed. Inspect retained status before deciding whether to submit another command.',
-        )
+        setError(commandFailureMessage(failure, refusedFresh))
       }
     }
 
@@ -381,6 +374,9 @@ export function ProcessingWorkspace({
         // A refusal is confirmed: nothing was saved, and the form already keeps the draft.
         message =
           'The answer wasn\u2019t accepted, and current status is unavailable. Refresh before sending it again.'
+      } else if (refusedFresh) {
+        // Also confirmed: no new attempt started, so the reason still holds.
+        message = `Start fresh was refused: ${refusedFresh} Current status is unavailable; refresh before trying again.`
       } else if (commandFailed) {
         message =
           'Command not confirmed and current status is unavailable. Your input and original delivery identity are kept.'
@@ -491,23 +487,53 @@ export function ProcessingWorkspace({
     }).catch(() => {})
   }
 
-  /** Explicitly replace the provider conversation while retaining its application lineage. */
+  /**
+   * Explicitly replace the provider conversation while retaining its application lineage. A
+   * refusal says why; either way the reads carrying eligibility are read again, since settings
+   * saved in another tab reach this one only then.
+   */
   function restart(job: ProcessingSnapshotDto['jobs'][number]) {
     if (!client.replaceSession) {
       return
     }
-    void perform(() =>
-      client.replaceSession!(
-        batch.id,
-        job.id,
-        {
-          expected_capture_revision: batch.revision,
-          expected_revision: job.revision,
-          attempt_id: job.attempt_id,
-        },
-        crypto.randomUUID(),
-      ),
-    ).catch(() => {})
+    void perform(
+      () =>
+        client.replaceSession!(
+          batch.id,
+          job.id,
+          {
+            // From the same read as the job's revision and eligibility.
+            expected_capture_revision: snapshot?.capture_revision ?? batch.revision,
+            expected_revision: job.revision,
+            attempt_id: job.attempt_id,
+          },
+          crypto.randomUUID(),
+        ),
+      { startFresh: true },
+    )
+      .catch(() => {})
+      .finally(() => {
+        void queryClient.invalidateQueries({ queryKey })
+        void queryClient.invalidateQueries({ queryKey: serverQueryKey(scope, 'agent-sessions') })
+      })
+  }
+
+  /** Why Start fresh can't run for this job now, from its eligibility or this mount's read. */
+  function freshUnavailable(job: ProcessingSnapshotDto['jobs'][number] | undefined) {
+    if (!client.replaceSession) {
+      return 'Start fresh is not available for this setup.'
+    }
+    if (batch.archived) {
+      return 'The batch is archived. Resume it to start a fresh session.'
+    }
+    const refusal = startFreshReason(job?.start_fresh)
+    if (refusal) {
+      return refusal
+    }
+    if (offline) {
+      return 'Processing status is unavailable.'
+    }
+    return runnerDisabled ? (waitReason ?? 'Updating…') : undefined
   }
 
   const jobs = snapshot?.jobs.filter((job) => onStep(job.stage, view)) ?? []
@@ -578,6 +604,61 @@ export function ProcessingWorkspace({
     ...retained,
     questions: retained.questions.filter((question) => !confirmedAnswer(question.id)),
   }
+  // The batch's session list as rows, once this mount has read it; until then the snapshot's.
+  const sessionList = liveRead(batchSessions.fresh.query)
+    ? {
+        rows: listedSessions(batchSessions.rows, subjects, activeLotIds),
+        more: batchSessions,
+      }
+    : undefined
+
+  /**
+   * A refusal that holds whatever attempt the job is on, such as an archived batch or a retired
+   * lot; only the attempt's own state waits for the reads to agree.
+   */
+  function lastingRefusal(job: ProcessingSnapshotDto['jobs'][number] | undefined) {
+    // The setup and the archive come first, as the command checks them first.
+    if (!client.replaceSession || batch.archived) {
+      return freshUnavailable(undefined)
+    }
+    // The batch read knows a retired lot whatever the job's eligibility says.
+    if (job?.subject_id && retiredLotIds.has(job.subject_id)) {
+      return startFreshReason({ allowed: false, reason: 'subject_retired' })
+    }
+    const eligibility = job?.start_fresh
+    const ofJob =
+      eligibility && !eligibility.allowed && eligibility.reason !== 'session_not_replaceable'
+        ? startFreshReason(eligibility)
+        : undefined
+    return ofJob ?? freshUnavailable(undefined)
+  }
+
+  /** A failed session row's recovery, from this mount's read of its job. */
+  function sessionRecovery(session: SourceSession): RowRecovery {
+    const job = snapshot?.jobs.find((candidate) => candidate.id === session.jobId)
+    // The row offers Start fresh by its own state. The row and this mount's read must show the
+    // same recoverable attempt, or the press would replace another one; it waits until they do.
+    const sameAttempt = job !== undefined && session.attemptId === job.attempt_id
+    const runnable =
+      sameAttempt && job.session_state !== undefined && RECOVERABLE.has(job.session_state)
+    const startFresh = {
+      run: () => {
+        if (runnable) {
+          restart(job)
+        }
+      },
+      // A reason that holds whatever the job, such as an archived batch, still shows.
+      reason: runnable ? freshUnavailable(job) : (lastingRefusal(job) ?? 'Updating…'),
+    }
+    return {
+      startFresh: RECOVERABLE.has(session.state) ? startFresh : undefined,
+      lotHref: session.lotId
+        ? batchHref(batch.id, { tab: 'review', view: 'lots', lotId: session.lotId })
+        : undefined,
+      loadFailure: client.failure,
+    }
+  }
+
   const lotRows = snapshot
     ? lotSteps(snapshot.jobs, liveLots, { paused: snapshot.paused === true })
     : []
@@ -785,6 +866,7 @@ export function ProcessingWorkspace({
         }
       }}
       freshDisabled={runnerDisabled || !client.replaceSession || pageJob === undefined}
+      freshReason={freshUnavailable(pageJob)}
     />
   )
 
@@ -881,6 +963,21 @@ export function ProcessingWorkspace({
             paused={snapshot?.paused === true}
             waitReason={waitReason}
             chooseQuestion={(id) => navigate(view, id)}
+            earlier={
+              job.session_state && client.history && Number(job.attempt_number) > 1 ? (
+                <JobEarlierAttempts
+                  batchId={batch.id}
+                  jobId={job.id}
+                  count={Number(job.attempt_number) - 1}
+                  history={client.history}
+                />
+              ) : undefined
+            }
+            startFresh={
+              job.session_state && RECOVERABLE.has(job.session_state)
+                ? { run: () => restart(job), reason: freshUnavailable(job) }
+                : undefined
+            }
             cancel={() => {
               void perform(() =>
                 client.cancel(
@@ -1011,6 +1108,8 @@ export function ProcessingWorkspace({
                   batchId={batch.id}
                   source={source}
                   onOpenSession={setSessionJobId}
+                  sessionList={sessionList}
+                  sessionRecovery={sessionRecovery}
                   instructions={
                     <InstructionField
                       text={instructions ? instructions.text : ''}
@@ -1071,6 +1170,8 @@ export function ProcessingWorkspace({
                       : undefined
                   }
                   onOpenSession={setSessionJobId}
+                  sessionList={sessionList}
+                  sessionRecovery={sessionRecovery}
                   help={STEP_HELP[view]}
                   answered={answeredGroup(jobs)}
                 >
@@ -1173,6 +1274,7 @@ export function ProcessingWorkspace({
                     client={{ history: client.history, chat: client.chat, failure: client.failure }}
                     startFresh={() => restart(sessionJob)}
                     freshDisabled={runnerDisabled || !client.replaceSession}
+                    freshReason={freshUnavailable(sessionJob)}
                   />
                 </Dialog>
               )}
@@ -1198,6 +1300,29 @@ const NO_RETIRED_LOTS: ReadonlySet<string> = new Set()
 const noSubscription = () => () => {}
 
 const noVersion = () => 0
+
+/** Session states whose card offers Start fresh: failed, stopped or unable to resume. */
+const RECOVERABLE: ReadonlySet<string> = new Set([
+  'cancelled',
+  'failed',
+  'interrupted',
+  'resume_unavailable',
+  'waiting_for_login',
+])
+
+/** Processing without an agents client reads no session list. */
+const NO_SESSIONS: SessionListRead = () => Promise.reject(new Error('agent_sessions_unavailable'))
+
+/** What a refused or unconfirmed command says: a known refusal its reason, anything else caution. */
+function commandFailureMessage(failure: unknown, refusedFresh: string | undefined) {
+  if (refusedFresh) {
+    return `Start fresh was refused: ${refusedFresh}`
+  }
+  if (failure instanceof IntakeRequestError && failure.code === 'subject_retired') {
+    return 'A selected lot was split or merged. Choose its successor lots instead.'
+  }
+  return 'Command not confirmed. Inspect retained status before deciding whether to submit another command.'
+}
 
 const Workspace = styled(PageStack).attrs({ as: 'section' })``
 

@@ -18,14 +18,21 @@ import {
   question,
   status,
 } from '#/test/session-history'
-import { HistoryList } from './HistoryList'
+import { SessionConversation } from './SessionConversation'
 
 const context = { batchId: H.batch, jobId: H.job, step: 'research' as const }
 
 afterEach(() => setDebugMode(false))
 
 function show(entries: SessionHistoryEntryDto[]) {
-  render(<HistoryList label="Session history" items={drawerItems(entries)} context={context} />)
+  render(
+    <SessionConversation
+      label="Session history"
+      items={drawerItems(entries)}
+      context={context}
+      working={false}
+    />,
+  )
   return screen.getByRole('list', { name: 'Session history' })
 }
 
@@ -289,7 +296,8 @@ test('a photo view expands to the recut region with its delivered size, linking 
   setDebugMode(true)
   // The drawer folds photo views; the session page renders each one.
   render(
-    <HistoryList
+    <SessionConversation
+      working={false}
       label="Page history"
       items={[{ kind: 'entry', id: 'x', summary: 'x', entry: photoView(1, 1) }]}
       context={context}
@@ -421,7 +429,8 @@ test('an existing company or category is named by its InvenTree record, a new ca
   )
   // Validated as the history read would send them.
   render(
-    <HistoryList
+    <SessionConversation
+      working={false}
       label="Catalogue choices"
       items={history([created, existing]).entries.map((entry) => ({
         kind: 'entry' as const,

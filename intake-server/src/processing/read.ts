@@ -6,6 +6,7 @@ import {
   validate,
   type CaptureSnapshotDto,
   type ProcessingJobDto,
+  type StartFreshEligibilityDto,
   type ProcessingQuestionV1Dto,
   type ProcessingQuestionV2Dto,
   type ProcessingSnapshotDto,
@@ -42,6 +43,7 @@ import {
 import { decodeJobInput } from './session-input.ts'
 import { agentSessions } from '#/agents/schema.ts'
 import { mediaVersions } from '#/media/schema.ts'
+import { startFreshEligibility } from './start-fresh-eligibility.ts'
 import { latestStatuses } from '#/agents/tools/outbox.ts'
 import { verifyRetainedResearchSources } from './research-sources.ts'
 import { canCancelProcessingAttempt } from './state.ts'
@@ -289,6 +291,8 @@ export async function processingSnapshot(
   client: PoolClient,
   config: ProcessingConfig,
   capture: CaptureSnapshotDto,
+  /** The batch's own read says whether Start fresh would be accepted; summaries skip it. */
+  { startFresh = false }: { startFresh?: boolean } = {},
 ): Promise<ProcessingSnapshotDto> {
   const retainedJobs = await selectedJobs(client, capture.id)
   const media = await readProcessingMediaScopes(client, config, capture, lotSubjects(retainedJobs))
@@ -313,6 +317,15 @@ export async function processingSnapshot(
   )
   const currentness = await proposalCurrentness(client, capture.id)
   const statuses = await latestStatuses(client, [...sessionStates.keys()])
+  const sessionJobIds = retainedJobs
+    .filter((job) => sessionStates.get(job.attemptId))
+    .map((job) => job.id)
+  const eligibility = startFresh
+    ? await startFreshEligibility(client, config, sessionJobIds, {
+        captures: new Map([[capture.id, capture]]),
+        lotMedia: media,
+      })
+    : new Map<string, StartFreshEligibilityDto>()
   const jobs: ProcessingJobDto[] = []
   for (const job of retainedJobs) {
     const sessionState = sessionStates.get(job.attemptId)
@@ -342,6 +355,7 @@ export async function processingSnapshot(
       ...(currency.blockedCode ? { blocked_code: currency.blockedCode } : {}),
       ...(sessionState ? { session_state: sessionState } : {}),
       ...(latestStatus ? { latest_status: latestStatus } : {}),
+      ...(eligibility.has(job.id) ? { start_fresh: eligibility.get(job.id)! } : {}),
       proposals,
       questions,
     })

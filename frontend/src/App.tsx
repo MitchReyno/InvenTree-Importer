@@ -207,6 +207,7 @@ export default function App() {
             subjects: new Map(
               [...batch.lots, ...batch.parts].map((subject) => [subject.id, subject.label]),
             ),
+            liveLots: new Set(batch.lots.filter((lot) => !lot.retired).map((lot) => lot.id)),
           }
         }}
       />

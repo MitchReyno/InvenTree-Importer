@@ -7,7 +7,7 @@ import { batchHref } from '#/navigation/batch-route'
 import type { ConversationItem } from '#/processing/session-history'
 import { answerEffectsText, answerPayloadText } from '#/processing/question-summary'
 import { color, radius, space } from '#/theme/generated/tokens'
-import { AttemptDivider } from './AttemptDivider'
+import { AttemptDivider, type FreshAction } from './AttemptDivider'
 import { ChatBubble } from './ChatBubble'
 import { HistoryEntry } from './HistoryEntry'
 import type { HistoryContext } from './HistoryLink'
@@ -23,6 +23,8 @@ export type ConversationRowProps = {
    */
   answerForm?: (questionId: string) => ReactNode
   loadFailure?: FailureLoader
+  /** Start fresh beside the current attempt's failure, where one is offered. */
+  startFresh?: FreshAction
 }
 
 /** An answer as the operator's bubble, quoting the question it answers with a link to it. */
@@ -62,9 +64,21 @@ function AnswerBubble({ entry, context }: { entry: SessionHistoryEntryDto; conte
 }
 
 /** One row of a session's history: a divider, a chat bubble, a question card or a history row. */
-export function ConversationRow({ item, context, answerForm, loadFailure }: ConversationRowProps) {
+export function ConversationRow({
+  item,
+  context,
+  answerForm,
+  loadFailure,
+  startFresh,
+}: ConversationRowProps) {
   if (item.kind === 'attempt') {
-    return <AttemptDivider attempt={item.attempt} loadFailure={loadFailure} />
+    return (
+      <AttemptDivider
+        attempt={item.attempt}
+        loadFailure={loadFailure}
+        startFresh={startFresh?.attemptId === item.attempt.id ? startFresh : undefined}
+      />
+    )
   }
   if (item.kind !== 'entry') {
     return <HistoryRow item={item} context={context} />

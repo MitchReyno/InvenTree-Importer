@@ -11,6 +11,7 @@ import { useNewestHistory } from '#/processing/useSessionHistory'
 import { processingStepFor, sessionPageHref } from '#/navigation/batch-route'
 import { Link, ReadState, Small, VisuallyHidden } from '#/components/ui'
 import { space } from '#/theme/generated/tokens'
+import { startFreshReason } from '#/processing/start-fresh'
 import { SessionChatPanel } from './SessionChatPanel'
 import { SessionSkeleton } from './SessionSkeleton'
 import { SessionConversation } from './SessionConversation'
@@ -20,6 +21,8 @@ interface Props {
   job: ProcessingJobDto
   client: Required<Pick<ProcessingClient, 'history' | 'chat'>> & Pick<ProcessingClient, 'failure'>
   freshDisabled?: boolean
+  /** Why Start fresh would be refused now, from the batch's Processing read. */
+  freshReason?: string
   startFresh: () => void
 }
 
@@ -27,7 +30,14 @@ interface Props {
  * The drawer's session: the newest page of its history, messages and answers in their place,
  * and the message box. It reads only the newest page; "Open full session" leads to every entry. Live hints invalidate it like every read.
  */
-export function SessionPanel({ batchId, job, client, startFresh, freshDisabled }: Props) {
+export function SessionPanel({
+  batchId,
+  job,
+  client,
+  startFresh,
+  freshDisabled,
+  freshReason,
+}: Props) {
   const history = useNewestHistory(client.history, batchId, job.id)
   const storeKey = `${batchId}:${job.id}`
   const pending = usePendingSend(storeKey)
@@ -94,6 +104,7 @@ export function SessionPanel({ batchId, job, client, startFresh, freshDisabled }
           await history.refetch()
         }}
         startFresh={startFresh}
+        freshReason={freshReason ?? startFreshReason(session.start_fresh)}
         freshDisabled={
           freshDisabled || history.isError || session.current_attempt_id !== job.attempt_id
         }

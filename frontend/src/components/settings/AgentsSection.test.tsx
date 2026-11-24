@@ -1,4 +1,6 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { sessionList, sessionRow } from '#/test/agent-sessions'
+import { sessionListKey } from '#/agents/session-list'
 import userEvent from '@testing-library/user-event'
 import { useState, type ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, test, vi, type Mock } from 'vitest'
@@ -56,29 +58,6 @@ const initial: AgentSettingsDto = agentSettings('7', {
   model: 'sonnet',
 })
 
-type Session = AgentSessionListDto['sessions'][number]
-
-function session(overrides: Partial<Session>): Session {
-  return {
-    attempt_id: crypto.randomUUID(),
-    job_id: crypto.randomUUID(),
-    batch_id: 'batch-a',
-    subject_id: null,
-    stage: 'research',
-    state: 'running',
-    occupies_lane: false,
-    queued_at: '2026-11-10T01:00:00.000Z',
-    started_at: null,
-    finished_at: null,
-    session_state: null,
-    latest_status: null,
-    latest_on_job: true,
-    paused: false,
-    failure: null,
-    ...overrides,
-  } as Session
-}
-
 function client() {
   return {
     settings: vi.fn(async () => initial),
@@ -91,19 +70,13 @@ function client() {
         revision: '8',
       }),
     ),
-    sessions: vi.fn(
-      async (): Promise<AgentSessionListDto> =>
-        ({
-          sessions: [
-            session({ occupies_lane: true }),
-            session({ occupies_lane: true }),
-            session({ occupies_lane: true }),
-            session({ state: 'queued' }),
-          ],
-          next_before: null,
-          sessions_supported: true,
-          paused_batch_ids: [],
-        }) as unknown as AgentSessionListDto,
+    // The meter reads the server's totals, which count sessions on no page this list holds.
+    sessions: vi.fn(async (): Promise<AgentSessionListDto> =>
+      sessionList({
+        sessions: [sessionRow({ state: 'running', occupies_lane: true })],
+        totals: { slots_in_use: 3, queued: 1, waiting: 0 },
+        paused_batch_ids: [],
+      }),
     ),
     failure: vi.fn(),
     pause: vi.fn(),
@@ -876,7 +849,7 @@ test('Pause all agents waits for a list read started after the last live hint, a
   const resume = screen.getByRole('button', { name: 'Resume all agents' })
   await waitFor(() => expect(pause).not.toHaveAttribute('aria-disabled'))
   const registry = freshReads(cache)
-  const key = serverQueryKey(fixtureScope, 'agent-sessions', 'newest')
+  const key = sessionListKey(fixtureScope, { filter: 'all' })
 
   // A hint arrives: during the reconciliation delay the settled read predates it.
   act(() => registry.noteHint())
@@ -1113,6 +1086,23 @@ describe('Web research', () => {
         }),
       ),
     )
+  })
+
+  test('a confirmed save re-reads the Processing reads and histories that say whether Start fresh is allowed', async () => {
+    const cache = createServerQueryClient()
+    const snapshot = serverQueryKey(fixtureScope, 'processing', 'batch-a')
+    const page = serverQueryKey(fixtureScope, 'processing', 'batch-a', 'history', 'job', 'page')
+    cache.setQueryData(snapshot, { cached: true })
+    cache.setQueryData(page, { cached: true })
+    const api = client()
+    render(<Harness api={api} />, { cache })
+    await screen.findByRole('group', { name: 'Claude' })
+    expect(cache.getQueryState(snapshot)?.isInvalidated).toBe(false)
+
+    fireEvent.click(publicPages())
+    await autosaved(() => expect(api.saveSettings).toHaveBeenCalled())
+    await waitFor(() => expect(cache.getQueryState(snapshot)?.isInvalidated).toBe(true))
+    expect(cache.getQueryState(page)?.isInvalidated).toBe(true)
   })
 
   for (const saved of [

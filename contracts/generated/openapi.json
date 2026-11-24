@@ -1398,8 +1398,71 @@
           {
             "name": "before",
             "in": "query",
+            "description": "The cursor of the page read last; returns the next page.",
+            "schema": {
+              "minLength": 1,
+              "maxLength": 200,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "schema": {
+              "anyOf": [
+                {
+                  "const": "needs_attention",
+                  "type": "string"
+                },
+                {
+                  "const": "working",
+                  "type": "string"
+                },
+                {
+                  "const": "waiting",
+                  "type": "string"
+                },
+                {
+                  "const": "queued",
+                  "type": "string"
+                },
+                {
+                  "const": "done_today",
+                  "type": "string"
+                },
+                {
+                  "const": "all",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          {
+            "name": "batch_id",
+            "in": "query",
             "schema": {
               "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+              "type": "string"
+            }
+          },
+          {
+            "name": "day_start",
+            "in": "query",
+            "description": "The start of the browser's local day, for Done today.",
+            "schema": {
+              "maxLength": 40,
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "day_end",
+            "in": "query",
+            "description": "The end of the browser's local day, exclusive.",
+            "schema": {
+              "maxLength": 40,
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
               "type": "string"
             }
           }
@@ -77568,6 +77631,105 @@
               }
             }
           },
+          "start_fresh": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "allowed"
+                ],
+                "properties": {
+                  "allowed": {
+                    "const": true,
+                    "type": "boolean"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "allowed",
+                  "reason"
+                ],
+                "properties": {
+                  "allowed": {
+                    "const": false,
+                    "type": "boolean"
+                  },
+                  "reason": {
+                    "anyOf": [
+                      {
+                        "const": "unsupported_processing_profile",
+                        "type": "string"
+                      },
+                      {
+                        "const": "batch_archived",
+                        "type": "string"
+                      },
+                      {
+                        "const": "subject_retired",
+                        "type": "string"
+                      },
+                      {
+                        "const": "media_not_ready",
+                        "type": "string"
+                      },
+                      {
+                        "const": "media_input_capacity",
+                        "type": "string"
+                      },
+                      {
+                        "const": "session_not_replaceable",
+                        "type": "string"
+                      },
+                      {
+                        "const": "session_reap_pending",
+                        "type": "string"
+                      },
+                      {
+                        "const": "inventory_waiting",
+                        "type": "string"
+                      },
+                      {
+                        "const": "identity_waiting",
+                        "type": "string"
+                      },
+                      {
+                        "const": "agent_profile_retired",
+                        "type": "string"
+                      },
+                      {
+                        "const": "unsupported_processing_stage",
+                        "type": "string"
+                      },
+                      {
+                        "const": "agent_settings_required",
+                        "type": "string"
+                      },
+                      {
+                        "const": "retained_evidence_required",
+                        "type": "string"
+                      },
+                      {
+                        "const": "unsupported_processing_input",
+                        "type": "string"
+                      },
+                      {
+                        "const": "processing_input_capacity",
+                        "type": "string"
+                      },
+                      {
+                        "const": "processing_channel_unconfigured",
+                        "type": "string"
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          },
           "proposals": {
             "maxItems": 100,
             "type": "array",
@@ -83255,6 +83417,105 @@
                       "type": "string"
                     }
                   }
+                },
+                "start_fresh": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "allowed"
+                      ],
+                      "properties": {
+                        "allowed": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "allowed",
+                        "reason"
+                      ],
+                      "properties": {
+                        "allowed": {
+                          "const": false,
+                          "type": "boolean"
+                        },
+                        "reason": {
+                          "anyOf": [
+                            {
+                              "const": "unsupported_processing_profile",
+                              "type": "string"
+                            },
+                            {
+                              "const": "batch_archived",
+                              "type": "string"
+                            },
+                            {
+                              "const": "subject_retired",
+                              "type": "string"
+                            },
+                            {
+                              "const": "media_not_ready",
+                              "type": "string"
+                            },
+                            {
+                              "const": "media_input_capacity",
+                              "type": "string"
+                            },
+                            {
+                              "const": "session_not_replaceable",
+                              "type": "string"
+                            },
+                            {
+                              "const": "session_reap_pending",
+                              "type": "string"
+                            },
+                            {
+                              "const": "inventory_waiting",
+                              "type": "string"
+                            },
+                            {
+                              "const": "identity_waiting",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_profile_retired",
+                              "type": "string"
+                            },
+                            {
+                              "const": "unsupported_processing_stage",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_settings_required",
+                              "type": "string"
+                            },
+                            {
+                              "const": "retained_evidence_required",
+                              "type": "string"
+                            },
+                            {
+                              "const": "unsupported_processing_input",
+                              "type": "string"
+                            },
+                            {
+                              "const": "processing_input_capacity",
+                              "type": "string"
+                            },
+                            {
+                              "const": "processing_channel_unconfigured",
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 },
                 "proposals": {
                   "maxItems": 100,
@@ -94818,6 +95079,10 @@
         "type": "object",
         "required": [
           "sessions",
+          "filter",
+          "counts",
+          "totals",
+          "batches",
           "next_before",
           "sessions_supported"
         ],
@@ -94836,17 +95101,25 @@
                 "stage",
                 "state",
                 "latest_on_job",
+                "attempt_number",
                 "selection",
                 "settings_revision",
                 "queued_at",
                 "started_at",
                 "finished_at",
+                "state_since",
                 "native_session_id",
                 "actual_model",
                 "progress",
                 "occupies_lane",
                 "session_state",
-                "latest_status"
+                "latest_status",
+                "archived",
+                "runs_on",
+                "web",
+                "start_fresh",
+                "earlier_attempts",
+                "earlier_attempt_count"
               ],
               "properties": {
                 "attempt_id": {
@@ -94947,6 +95220,10 @@
                 "latest_on_job": {
                   "type": "boolean"
                 },
+                "attempt_number": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
                 "selection": {
                   "anyOf": [
                     {
@@ -95032,6 +95309,10 @@
                       "type": "null"
                     }
                   ]
+                },
+                "state_since": {
+                  "maxLength": 40,
+                  "type": "string"
                 },
                 "native_session_id": {
                   "anyOf": [
@@ -95198,6 +95479,377 @@
                     },
                     "details_available": {
                       "type": "boolean"
+                    },
+                    "failed_at": {
+                      "maxLength": 40,
+                      "type": "string"
+                    },
+                    "cause": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "provider"
+                      ],
+                      "properties": {
+                        "code": {
+                          "anyOf": [
+                            {
+                              "const": "agent_login_required",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_credentials_unavailable",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_process_unavailable",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_version_unqualified",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_version_unavailable",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_admission_unavailable",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_admission_timeout",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_home_unavailable",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_home_customizations_refused",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_input_invalid",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_profile_retired",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_host_customization_refused",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_policy_refused",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_tool_refused",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_request_refused",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_protocol_invalid",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_process_failed",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_input_closed",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_delivery_failed",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_turn_failed",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_result_missing",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_truncated_frame",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_output_capacity",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_frame_capacity",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_timeout",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_cancelled",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_worker_interrupted",
+                              "type": "string"
+                            },
+                            {
+                              "const": "resume_unavailable",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_reap_pending",
+                              "type": "string"
+                            },
+                            {
+                              "const": "invalid_contract",
+                              "type": "string"
+                            },
+                            {
+                              "const": "evidence_unavailable",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_unknown",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "provider": {
+                          "anyOf": [
+                            {
+                              "const": "codex",
+                              "type": "string"
+                            },
+                            {
+                              "const": "claude",
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "provider_error": {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "result",
+                            "http_status"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "anyOf": [
+                                {
+                                  "const": "unknown",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "authentication_failed",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "oauth_org_not_allowed",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "account_on_hold",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "verification_required",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "billing_error",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "rate_limit",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "overloaded",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "invalid_request",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "model_not_found",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "server_error",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "max_output_tokens",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "cloud_credential_error",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "contextWindowExceeded",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "sessionBudgetExceeded",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "usageLimitExceeded",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "rateLimitExceeded",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "flexUnavailable",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "serverOverloaded",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "modelNotFound",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "policyCapacityUnavailable",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "cyberPolicy",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "misalignmentPolicyViolation",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "tooManyDenials",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "internalServerError",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "unauthorized",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "badRequest",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "threadRollbackFailed",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "sandboxError",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "other",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "httpConnectionFailed",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "responseStreamConnectionFailed",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "responseStreamDisconnected",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "responseTooManyFailedAttempts",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "activeTurnNotSteerable",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "result": {
+                              "anyOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "const": "success",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "error_during_execution",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "error_max_turns",
+                                      "type": "string"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "http_status": {
+                              "anyOf": [
+                                {
+                                  "minimum": 100,
+                                  "maximum": 599,
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "last_status": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "text",
+                        "at"
+                      ],
+                      "properties": {
+                        "text": {
+                          "minLength": 1,
+                          "maxLength": 120,
+                          "pattern": "^[^\\r\\n\\u2028\\u2029]*$",
+                          "type": "string"
+                        },
+                        "at": {
+                          "maxLength": 40,
+                          "type": "string"
+                        }
+                      }
                     }
                   }
                 },
@@ -95231,9 +95883,860 @@
                 "paused": {
                   "const": true,
                   "type": "boolean"
+                },
+                "archived": {
+                  "type": "boolean"
+                },
+                "runs_on": {
+                  "anyOf": [
+                    {
+                      "const": "agent_vm",
+                      "type": "string"
+                    },
+                    {
+                      "const": "host",
+                      "type": "string"
+                    },
+                    {
+                      "const": "fixture",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "web": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "public_pages",
+                        "prefer_datasheets"
+                      ],
+                      "properties": {
+                        "public_pages": {
+                          "type": "boolean"
+                        },
+                        "prefer_datasheets": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "start_fresh": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "allowed"
+                      ],
+                      "properties": {
+                        "allowed": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "allowed",
+                        "reason"
+                      ],
+                      "properties": {
+                        "allowed": {
+                          "const": false,
+                          "type": "boolean"
+                        },
+                        "reason": {
+                          "anyOf": [
+                            {
+                              "const": "unsupported_processing_profile",
+                              "type": "string"
+                            },
+                            {
+                              "const": "batch_archived",
+                              "type": "string"
+                            },
+                            {
+                              "const": "subject_retired",
+                              "type": "string"
+                            },
+                            {
+                              "const": "media_not_ready",
+                              "type": "string"
+                            },
+                            {
+                              "const": "media_input_capacity",
+                              "type": "string"
+                            },
+                            {
+                              "const": "session_not_replaceable",
+                              "type": "string"
+                            },
+                            {
+                              "const": "session_reap_pending",
+                              "type": "string"
+                            },
+                            {
+                              "const": "inventory_waiting",
+                              "type": "string"
+                            },
+                            {
+                              "const": "identity_waiting",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_profile_retired",
+                              "type": "string"
+                            },
+                            {
+                              "const": "unsupported_processing_stage",
+                              "type": "string"
+                            },
+                            {
+                              "const": "agent_settings_required",
+                              "type": "string"
+                            },
+                            {
+                              "const": "retained_evidence_required",
+                              "type": "string"
+                            },
+                            {
+                              "const": "unsupported_processing_input",
+                              "type": "string"
+                            },
+                            {
+                              "const": "processing_input_capacity",
+                              "type": "string"
+                            },
+                            {
+                              "const": "processing_channel_unconfigured",
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                },
+                "earlier_attempts": {
+                  "maxItems": 20,
+                  "type": "array",
+                  "items": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "attempt_id",
+                      "number",
+                      "state",
+                      "session_state",
+                      "queued_at"
+                    ],
+                    "properties": {
+                      "attempt_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "number": {
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "state": {
+                        "anyOf": [
+                          {
+                            "const": "queued",
+                            "type": "string"
+                          },
+                          {
+                            "const": "running",
+                            "type": "string"
+                          },
+                          {
+                            "const": "waiting_for_user",
+                            "type": "string"
+                          },
+                          {
+                            "const": "waiting_for_login",
+                            "type": "string"
+                          },
+                          {
+                            "const": "waiting_for_capacity",
+                            "type": "string"
+                          },
+                          {
+                            "const": "ready",
+                            "type": "string"
+                          },
+                          {
+                            "const": "failed",
+                            "type": "string"
+                          },
+                          {
+                            "const": "cancelled",
+                            "type": "string"
+                          },
+                          {
+                            "const": "superseded",
+                            "type": "string"
+                          },
+                          {
+                            "const": "interrupted",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "session_state": {
+                        "anyOf": [
+                          {
+                            "anyOf": [
+                              {
+                                "const": "queued",
+                                "type": "string"
+                              },
+                              {
+                                "const": "running",
+                                "type": "string"
+                              },
+                              {
+                                "const": "waiting_input",
+                                "type": "string"
+                              },
+                              {
+                                "const": "finished",
+                                "type": "string"
+                              },
+                              {
+                                "const": "cancelling",
+                                "type": "string"
+                              },
+                              {
+                                "const": "cancelled",
+                                "type": "string"
+                              },
+                              {
+                                "const": "interrupted",
+                                "type": "string"
+                              },
+                              {
+                                "const": "failed",
+                                "type": "string"
+                              },
+                              {
+                                "const": "waiting_for_login",
+                                "type": "string"
+                              },
+                              {
+                                "const": "waiting_for_capacity",
+                                "type": "string"
+                              },
+                              {
+                                "const": "resume_unavailable",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "queued_at": {
+                        "maxLength": 40,
+                        "type": "string"
+                      },
+                      "ended_at": {
+                        "maxLength": 40,
+                        "type": "string"
+                      },
+                      "failure": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "category",
+                          "summary",
+                          "recovery",
+                          "details_available"
+                        ],
+                        "properties": {
+                          "id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "category": {
+                            "anyOf": [
+                              {
+                                "const": "authentication",
+                                "type": "string"
+                              },
+                              {
+                                "const": "configuration",
+                                "type": "string"
+                              },
+                              {
+                                "const": "tool_policy",
+                                "type": "string"
+                              },
+                              {
+                                "const": "validation",
+                                "type": "string"
+                              },
+                              {
+                                "const": "evidence",
+                                "type": "string"
+                              },
+                              {
+                                "const": "provider_network",
+                                "type": "string"
+                              },
+                              {
+                                "const": "timeout",
+                                "type": "string"
+                              },
+                              {
+                                "const": "interrupted",
+                                "type": "string"
+                              },
+                              {
+                                "const": "internal",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "summary": {
+                            "maxLength": 256,
+                            "type": "string"
+                          },
+                          "recovery": {
+                            "maxLength": 512,
+                            "type": "string"
+                          },
+                          "details_available": {
+                            "type": "boolean"
+                          },
+                          "failed_at": {
+                            "maxLength": 40,
+                            "type": "string"
+                          },
+                          "cause": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "code",
+                              "provider"
+                            ],
+                            "properties": {
+                              "code": {
+                                "anyOf": [
+                                  {
+                                    "const": "agent_login_required",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_credentials_unavailable",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_process_unavailable",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_version_unqualified",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_version_unavailable",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_admission_unavailable",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_admission_timeout",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_home_unavailable",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_home_customizations_refused",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_input_invalid",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_profile_retired",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_host_customization_refused",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_policy_refused",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_tool_refused",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_request_refused",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_protocol_invalid",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_process_failed",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_input_closed",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_delivery_failed",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_turn_failed",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_result_missing",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_truncated_frame",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_output_capacity",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_frame_capacity",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_timeout",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_cancelled",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_worker_interrupted",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "resume_unavailable",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_reap_pending",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "invalid_contract",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "evidence_unavailable",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "agent_unknown",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "provider": {
+                                "anyOf": [
+                                  {
+                                    "const": "codex",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "claude",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "provider_error": {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "kind",
+                                  "result",
+                                  "http_status"
+                                ],
+                                "properties": {
+                                  "kind": {
+                                    "anyOf": [
+                                      {
+                                        "const": "unknown",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "authentication_failed",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "oauth_org_not_allowed",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "account_on_hold",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "verification_required",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "billing_error",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "rate_limit",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "overloaded",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "invalid_request",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "model_not_found",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "server_error",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "max_output_tokens",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "cloud_credential_error",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "contextWindowExceeded",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "sessionBudgetExceeded",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "usageLimitExceeded",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "rateLimitExceeded",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "flexUnavailable",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "serverOverloaded",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "modelNotFound",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "policyCapacityUnavailable",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "cyberPolicy",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "misalignmentPolicyViolation",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "tooManyDenials",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "internalServerError",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "unauthorized",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "badRequest",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "threadRollbackFailed",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "sandboxError",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "other",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "httpConnectionFailed",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "responseStreamConnectionFailed",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "responseStreamDisconnected",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "responseTooManyFailedAttempts",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "activeTurnNotSteerable",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "result": {
+                                    "anyOf": [
+                                      {
+                                        "anyOf": [
+                                          {
+                                            "const": "success",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "error_during_execution",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "error_max_turns",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "http_status": {
+                                    "anyOf": [
+                                      {
+                                        "minimum": 100,
+                                        "maximum": 599,
+                                        "type": "integer"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "last_status": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "text",
+                              "at"
+                            ],
+                            "properties": {
+                              "text": {
+                                "minLength": 1,
+                                "maxLength": 120,
+                                "pattern": "^[^\\r\\n\\u2028\\u2029]*$",
+                                "type": "string"
+                              },
+                              "at": {
+                                "maxLength": 40,
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "earlier_attempt_count": {
+                  "minimum": 0,
+                  "type": "integer"
                 }
               }
             }
+          },
+          "filter": {
+            "anyOf": [
+              {
+                "const": "needs_attention",
+                "type": "string"
+              },
+              {
+                "const": "working",
+                "type": "string"
+              },
+              {
+                "const": "waiting",
+                "type": "string"
+              },
+              {
+                "const": "queued",
+                "type": "string"
+              },
+              {
+                "const": "done_today",
+                "type": "string"
+              },
+              {
+                "const": "all",
+                "type": "string"
+              }
+            ]
+          },
+          "counts": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "needs_attention",
+              "working",
+              "waiting",
+              "queued",
+              "all"
+            ],
+            "properties": {
+              "needs_attention": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "working": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "waiting": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "queued": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "done_today": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "all": {
+                "minimum": 0,
+                "type": "integer"
+              }
+            }
+          },
+          "totals": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "slots_in_use",
+              "queued",
+              "waiting"
+            ],
+            "properties": {
+              "slots_in_use": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "queued": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "waiting": {
+                "minimum": 0,
+                "type": "integer"
+              }
+            }
+          },
+          "batches": {
+            "maxItems": 1000,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "batch_id",
+                "archived",
+                "sessions",
+                "matching",
+                "first_started_at"
+              ],
+              "properties": {
+                "batch_id": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                },
+                "archived": {
+                  "type": "boolean"
+                },
+                "sessions": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "matching": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "first_started_at": {
+                  "anyOf": [
+                    {
+                      "maxLength": 40,
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "batches_truncated": {
+            "const": true,
+            "type": "boolean"
           },
           "paused_batch_ids": {
             "maxItems": 1000,
@@ -95250,7 +96753,9 @@
           "next_before": {
             "anyOf": [
               {
-                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "minLength": 1,
+                "maxLength": 200,
+                "pattern": "^[A-Za-z0-9_-]+$",
                 "type": "string"
               },
               {
@@ -95262,6 +96767,66 @@
             "type": "boolean"
           }
         }
+      },
+      "AgentSessionQuery": {
+        "additionalProperties": false,
+        "type": "object",
+        "properties": {
+          "before": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "type": "string"
+          },
+          "filter": {
+            "anyOf": [
+              {
+                "const": "needs_attention",
+                "type": "string"
+              },
+              {
+                "const": "working",
+                "type": "string"
+              },
+              {
+                "const": "waiting",
+                "type": "string"
+              },
+              {
+                "const": "queued",
+                "type": "string"
+              },
+              {
+                "const": "done_today",
+                "type": "string"
+              },
+              {
+                "const": "all",
+                "type": "string"
+              }
+            ]
+          },
+          "batch_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "day_start": {
+            "maxLength": 40,
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+            "type": "string"
+          },
+          "day_end": {
+            "maxLength": 40,
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+            "type": "string"
+          }
+        }
+      },
+      "AgentSessionCursor": {
+        "minLength": 1,
+        "maxLength": 200,
+        "pattern": "^[A-Za-z0-9_-]+$",
+        "type": "string"
       },
       "AgentPauseUpdate": {
         "additionalProperties": false,
@@ -95965,7 +97530,8 @@
               "subject_id",
               "current_attempt_id",
               "attempts",
-              "inbox_acked_seq"
+              "inbox_acked_seq",
+              "start_fresh"
             ],
             "properties": {
               "job_id": {
@@ -96361,6 +97927,377 @@
                         },
                         "details_available": {
                           "type": "boolean"
+                        },
+                        "failed_at": {
+                          "maxLength": 40,
+                          "type": "string"
+                        },
+                        "cause": {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "code",
+                            "provider"
+                          ],
+                          "properties": {
+                            "code": {
+                              "anyOf": [
+                                {
+                                  "const": "agent_login_required",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_credentials_unavailable",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_process_unavailable",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_version_unqualified",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_version_unavailable",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_admission_unavailable",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_admission_timeout",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_home_unavailable",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_home_customizations_refused",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_input_invalid",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_profile_retired",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_host_customization_refused",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_policy_refused",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_tool_refused",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_request_refused",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_protocol_invalid",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_process_failed",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_input_closed",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_delivery_failed",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_turn_failed",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_result_missing",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_truncated_frame",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_output_capacity",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_frame_capacity",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_timeout",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_cancelled",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_worker_interrupted",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "resume_unavailable",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_reap_pending",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "invalid_contract",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "evidence_unavailable",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent_unknown",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "provider": {
+                              "anyOf": [
+                                {
+                                  "const": "codex",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "claude",
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "provider_error": {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "result",
+                                "http_status"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "anyOf": [
+                                    {
+                                      "const": "unknown",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "authentication_failed",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "oauth_org_not_allowed",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "account_on_hold",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "verification_required",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "billing_error",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "rate_limit",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "overloaded",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "invalid_request",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "model_not_found",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "server_error",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "max_output_tokens",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "cloud_credential_error",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "contextWindowExceeded",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "sessionBudgetExceeded",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "usageLimitExceeded",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "rateLimitExceeded",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "flexUnavailable",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "serverOverloaded",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "modelNotFound",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "policyCapacityUnavailable",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "cyberPolicy",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "misalignmentPolicyViolation",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "tooManyDenials",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "internalServerError",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "unauthorized",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "badRequest",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "threadRollbackFailed",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "sandboxError",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "other",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "httpConnectionFailed",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "responseStreamConnectionFailed",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "responseStreamDisconnected",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "responseTooManyFailedAttempts",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "activeTurnNotSteerable",
+                                      "type": "string"
+                                    }
+                                  ]
+                                },
+                                "result": {
+                                  "anyOf": [
+                                    {
+                                      "anyOf": [
+                                        {
+                                          "const": "success",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "const": "error_during_execution",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "const": "error_max_turns",
+                                          "type": "string"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "http_status": {
+                                  "anyOf": [
+                                    {
+                                      "minimum": 100,
+                                      "maximum": 599,
+                                      "type": "integer"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "last_status": {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "text",
+                            "at"
+                          ],
+                          "properties": {
+                            "text": {
+                              "minLength": 1,
+                              "maxLength": 120,
+                              "pattern": "^[^\\r\\n\\u2028\\u2029]*$",
+                              "type": "string"
+                            },
+                            "at": {
+                              "maxLength": 40,
+                              "type": "string"
+                            }
+                          }
                         }
                       }
                     }
@@ -96371,6 +98308,105 @@
                 "pattern": "^(0|[1-9][0-9]{0,18})(?![\\s\\S])",
                 "format": "int64",
                 "type": "string"
+              },
+              "start_fresh": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "allowed"
+                    ],
+                    "properties": {
+                      "allowed": {
+                        "const": true,
+                        "type": "boolean"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "allowed",
+                      "reason"
+                    ],
+                    "properties": {
+                      "allowed": {
+                        "const": false,
+                        "type": "boolean"
+                      },
+                      "reason": {
+                        "anyOf": [
+                          {
+                            "const": "unsupported_processing_profile",
+                            "type": "string"
+                          },
+                          {
+                            "const": "batch_archived",
+                            "type": "string"
+                          },
+                          {
+                            "const": "subject_retired",
+                            "type": "string"
+                          },
+                          {
+                            "const": "media_not_ready",
+                            "type": "string"
+                          },
+                          {
+                            "const": "media_input_capacity",
+                            "type": "string"
+                          },
+                          {
+                            "const": "session_not_replaceable",
+                            "type": "string"
+                          },
+                          {
+                            "const": "session_reap_pending",
+                            "type": "string"
+                          },
+                          {
+                            "const": "inventory_waiting",
+                            "type": "string"
+                          },
+                          {
+                            "const": "identity_waiting",
+                            "type": "string"
+                          },
+                          {
+                            "const": "agent_profile_retired",
+                            "type": "string"
+                          },
+                          {
+                            "const": "unsupported_processing_stage",
+                            "type": "string"
+                          },
+                          {
+                            "const": "agent_settings_required",
+                            "type": "string"
+                          },
+                          {
+                            "const": "retained_evidence_required",
+                            "type": "string"
+                          },
+                          {
+                            "const": "unsupported_processing_input",
+                            "type": "string"
+                          },
+                          {
+                            "const": "processing_input_capacity",
+                            "type": "string"
+                          },
+                          {
+                            "const": "processing_channel_unconfigured",
+                            "type": "string"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                ]
               }
             }
           },
@@ -121265,6 +123301,724 @@
           },
           "details_available": {
             "type": "boolean"
+          },
+          "failed_at": {
+            "maxLength": 40,
+            "type": "string"
+          },
+          "cause": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "code",
+              "provider"
+            ],
+            "properties": {
+              "code": {
+                "anyOf": [
+                  {
+                    "const": "agent_login_required",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent_credentials_unavailable",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent_process_unavailable",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent_version_unqualified",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent_version_unavailable",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent_admission_unavailable",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent_admission_timeout",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent_home_unavailable",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent_home_customizations_refused",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent_input_invalid",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent_profile_retired",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent_host_customization_refused",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent_policy_refused",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent_tool_refused",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent_request_refused",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent_protocol_invalid",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent_process_failed",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent_input_closed",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent_delivery_failed",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent_turn_failed",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent_result_missing",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent_truncated_frame",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent_output_capacity",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent_frame_capacity",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent_timeout",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent_cancelled",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent_worker_interrupted",
+                    "type": "string"
+                  },
+                  {
+                    "const": "resume_unavailable",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent_reap_pending",
+                    "type": "string"
+                  },
+                  {
+                    "const": "invalid_contract",
+                    "type": "string"
+                  },
+                  {
+                    "const": "evidence_unavailable",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent_unknown",
+                    "type": "string"
+                  }
+                ]
+              },
+              "provider": {
+                "anyOf": [
+                  {
+                    "const": "codex",
+                    "type": "string"
+                  },
+                  {
+                    "const": "claude",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "provider_error": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "kind",
+                  "result",
+                  "http_status"
+                ],
+                "properties": {
+                  "kind": {
+                    "anyOf": [
+                      {
+                        "const": "unknown",
+                        "type": "string"
+                      },
+                      {
+                        "const": "authentication_failed",
+                        "type": "string"
+                      },
+                      {
+                        "const": "oauth_org_not_allowed",
+                        "type": "string"
+                      },
+                      {
+                        "const": "account_on_hold",
+                        "type": "string"
+                      },
+                      {
+                        "const": "verification_required",
+                        "type": "string"
+                      },
+                      {
+                        "const": "billing_error",
+                        "type": "string"
+                      },
+                      {
+                        "const": "rate_limit",
+                        "type": "string"
+                      },
+                      {
+                        "const": "overloaded",
+                        "type": "string"
+                      },
+                      {
+                        "const": "invalid_request",
+                        "type": "string"
+                      },
+                      {
+                        "const": "model_not_found",
+                        "type": "string"
+                      },
+                      {
+                        "const": "server_error",
+                        "type": "string"
+                      },
+                      {
+                        "const": "max_output_tokens",
+                        "type": "string"
+                      },
+                      {
+                        "const": "cloud_credential_error",
+                        "type": "string"
+                      },
+                      {
+                        "const": "contextWindowExceeded",
+                        "type": "string"
+                      },
+                      {
+                        "const": "sessionBudgetExceeded",
+                        "type": "string"
+                      },
+                      {
+                        "const": "usageLimitExceeded",
+                        "type": "string"
+                      },
+                      {
+                        "const": "rateLimitExceeded",
+                        "type": "string"
+                      },
+                      {
+                        "const": "flexUnavailable",
+                        "type": "string"
+                      },
+                      {
+                        "const": "serverOverloaded",
+                        "type": "string"
+                      },
+                      {
+                        "const": "modelNotFound",
+                        "type": "string"
+                      },
+                      {
+                        "const": "policyCapacityUnavailable",
+                        "type": "string"
+                      },
+                      {
+                        "const": "cyberPolicy",
+                        "type": "string"
+                      },
+                      {
+                        "const": "misalignmentPolicyViolation",
+                        "type": "string"
+                      },
+                      {
+                        "const": "tooManyDenials",
+                        "type": "string"
+                      },
+                      {
+                        "const": "internalServerError",
+                        "type": "string"
+                      },
+                      {
+                        "const": "unauthorized",
+                        "type": "string"
+                      },
+                      {
+                        "const": "badRequest",
+                        "type": "string"
+                      },
+                      {
+                        "const": "threadRollbackFailed",
+                        "type": "string"
+                      },
+                      {
+                        "const": "sandboxError",
+                        "type": "string"
+                      },
+                      {
+                        "const": "other",
+                        "type": "string"
+                      },
+                      {
+                        "const": "httpConnectionFailed",
+                        "type": "string"
+                      },
+                      {
+                        "const": "responseStreamConnectionFailed",
+                        "type": "string"
+                      },
+                      {
+                        "const": "responseStreamDisconnected",
+                        "type": "string"
+                      },
+                      {
+                        "const": "responseTooManyFailedAttempts",
+                        "type": "string"
+                      },
+                      {
+                        "const": "activeTurnNotSteerable",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "result": {
+                    "anyOf": [
+                      {
+                        "anyOf": [
+                          {
+                            "const": "success",
+                            "type": "string"
+                          },
+                          {
+                            "const": "error_during_execution",
+                            "type": "string"
+                          },
+                          {
+                            "const": "error_max_turns",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "http_status": {
+                    "anyOf": [
+                      {
+                        "minimum": 100,
+                        "maximum": 599,
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "last_status": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "text",
+              "at"
+            ],
+            "properties": {
+              "text": {
+                "minLength": 1,
+                "maxLength": 120,
+                "pattern": "^[^\\r\\n\\u2028\\u2029]*$",
+                "type": "string"
+              },
+              "at": {
+                "maxLength": 40,
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "SessionFailureCause": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "provider"
+        ],
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "const": "agent_login_required",
+                "type": "string"
+              },
+              {
+                "const": "agent_credentials_unavailable",
+                "type": "string"
+              },
+              {
+                "const": "agent_process_unavailable",
+                "type": "string"
+              },
+              {
+                "const": "agent_version_unqualified",
+                "type": "string"
+              },
+              {
+                "const": "agent_version_unavailable",
+                "type": "string"
+              },
+              {
+                "const": "agent_admission_unavailable",
+                "type": "string"
+              },
+              {
+                "const": "agent_admission_timeout",
+                "type": "string"
+              },
+              {
+                "const": "agent_home_unavailable",
+                "type": "string"
+              },
+              {
+                "const": "agent_home_customizations_refused",
+                "type": "string"
+              },
+              {
+                "const": "agent_input_invalid",
+                "type": "string"
+              },
+              {
+                "const": "agent_profile_retired",
+                "type": "string"
+              },
+              {
+                "const": "agent_host_customization_refused",
+                "type": "string"
+              },
+              {
+                "const": "agent_policy_refused",
+                "type": "string"
+              },
+              {
+                "const": "agent_tool_refused",
+                "type": "string"
+              },
+              {
+                "const": "agent_request_refused",
+                "type": "string"
+              },
+              {
+                "const": "agent_protocol_invalid",
+                "type": "string"
+              },
+              {
+                "const": "agent_process_failed",
+                "type": "string"
+              },
+              {
+                "const": "agent_input_closed",
+                "type": "string"
+              },
+              {
+                "const": "agent_delivery_failed",
+                "type": "string"
+              },
+              {
+                "const": "agent_turn_failed",
+                "type": "string"
+              },
+              {
+                "const": "agent_result_missing",
+                "type": "string"
+              },
+              {
+                "const": "agent_truncated_frame",
+                "type": "string"
+              },
+              {
+                "const": "agent_output_capacity",
+                "type": "string"
+              },
+              {
+                "const": "agent_frame_capacity",
+                "type": "string"
+              },
+              {
+                "const": "agent_timeout",
+                "type": "string"
+              },
+              {
+                "const": "agent_cancelled",
+                "type": "string"
+              },
+              {
+                "const": "agent_worker_interrupted",
+                "type": "string"
+              },
+              {
+                "const": "resume_unavailable",
+                "type": "string"
+              },
+              {
+                "const": "agent_reap_pending",
+                "type": "string"
+              },
+              {
+                "const": "invalid_contract",
+                "type": "string"
+              },
+              {
+                "const": "evidence_unavailable",
+                "type": "string"
+              },
+              {
+                "const": "agent_unknown",
+                "type": "string"
+              }
+            ]
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "const": "codex",
+                "type": "string"
+              },
+              {
+                "const": "claude",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "provider_error": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "kind",
+              "result",
+              "http_status"
+            ],
+            "properties": {
+              "kind": {
+                "anyOf": [
+                  {
+                    "const": "unknown",
+                    "type": "string"
+                  },
+                  {
+                    "const": "authentication_failed",
+                    "type": "string"
+                  },
+                  {
+                    "const": "oauth_org_not_allowed",
+                    "type": "string"
+                  },
+                  {
+                    "const": "account_on_hold",
+                    "type": "string"
+                  },
+                  {
+                    "const": "verification_required",
+                    "type": "string"
+                  },
+                  {
+                    "const": "billing_error",
+                    "type": "string"
+                  },
+                  {
+                    "const": "rate_limit",
+                    "type": "string"
+                  },
+                  {
+                    "const": "overloaded",
+                    "type": "string"
+                  },
+                  {
+                    "const": "invalid_request",
+                    "type": "string"
+                  },
+                  {
+                    "const": "model_not_found",
+                    "type": "string"
+                  },
+                  {
+                    "const": "server_error",
+                    "type": "string"
+                  },
+                  {
+                    "const": "max_output_tokens",
+                    "type": "string"
+                  },
+                  {
+                    "const": "cloud_credential_error",
+                    "type": "string"
+                  },
+                  {
+                    "const": "contextWindowExceeded",
+                    "type": "string"
+                  },
+                  {
+                    "const": "sessionBudgetExceeded",
+                    "type": "string"
+                  },
+                  {
+                    "const": "usageLimitExceeded",
+                    "type": "string"
+                  },
+                  {
+                    "const": "rateLimitExceeded",
+                    "type": "string"
+                  },
+                  {
+                    "const": "flexUnavailable",
+                    "type": "string"
+                  },
+                  {
+                    "const": "serverOverloaded",
+                    "type": "string"
+                  },
+                  {
+                    "const": "modelNotFound",
+                    "type": "string"
+                  },
+                  {
+                    "const": "policyCapacityUnavailable",
+                    "type": "string"
+                  },
+                  {
+                    "const": "cyberPolicy",
+                    "type": "string"
+                  },
+                  {
+                    "const": "misalignmentPolicyViolation",
+                    "type": "string"
+                  },
+                  {
+                    "const": "tooManyDenials",
+                    "type": "string"
+                  },
+                  {
+                    "const": "internalServerError",
+                    "type": "string"
+                  },
+                  {
+                    "const": "unauthorized",
+                    "type": "string"
+                  },
+                  {
+                    "const": "badRequest",
+                    "type": "string"
+                  },
+                  {
+                    "const": "threadRollbackFailed",
+                    "type": "string"
+                  },
+                  {
+                    "const": "sandboxError",
+                    "type": "string"
+                  },
+                  {
+                    "const": "other",
+                    "type": "string"
+                  },
+                  {
+                    "const": "httpConnectionFailed",
+                    "type": "string"
+                  },
+                  {
+                    "const": "responseStreamConnectionFailed",
+                    "type": "string"
+                  },
+                  {
+                    "const": "responseStreamDisconnected",
+                    "type": "string"
+                  },
+                  {
+                    "const": "responseTooManyFailedAttempts",
+                    "type": "string"
+                  },
+                  {
+                    "const": "activeTurnNotSteerable",
+                    "type": "string"
+                  }
+                ]
+              },
+              "result": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "const": "success",
+                        "type": "string"
+                      },
+                      {
+                        "const": "error_during_execution",
+                        "type": "string"
+                      },
+                      {
+                        "const": "error_max_turns",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "http_status": {
+                "anyOf": [
+                  {
+                    "minimum": 100,
+                    "maximum": 599,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
           }
         }
       },

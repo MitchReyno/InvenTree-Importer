@@ -1,4 +1,5 @@
-import type { AgentSessionListDto, AgentSettingsDto } from '@invimport/contracts'
+import type { AgentSettingsDto } from '@invimport/contracts'
+import type { SessionListRead } from '#/agents/session-list'
 import type {
   SessionFailureDto,
   ProcessingAnswerDto,
@@ -49,7 +50,7 @@ export type ProcessingView = 'overview' | 'examine' | 'research' | 'images' | 'i
 
 /** The agent-session read Processing shares with the Agents page, for start times and the slot limit. */
 export type AgentsRead = {
-  sessions: (before?: string) => Promise<AgentSessionListDto>
+  sessions: SessionListRead
   settings: () => Promise<AgentSettingsDto>
   /** Pauses or resumes the batch's sessions; absent where this setup cannot. */
   pause?: (batchId: string, paused: boolean) => Promise<unknown>

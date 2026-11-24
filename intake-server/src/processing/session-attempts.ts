@@ -7,13 +7,14 @@ import { agentSessions } from '#/agents/schema.ts'
 import { readAgentSettings } from '#/agents/settings.ts'
 import { resolveSelection } from '#/agents/resolve-selection.ts'
 import type { LockedMediaInputs } from '#/media/locked-inputs.ts'
-import { channelToken, type ProcessingConfig } from './attempts.ts'
+import { channelToken, processingChannelConfigured, type ProcessingConfig } from './attempts.ts'
 import { MAX_PROCESSING_SNAPSHOT_BYTES } from './limits.ts'
 import { fail, sealed, type Stage } from './model.ts'
 import { processingAttempts, processingInputs } from './schema.ts'
 import {
   sessionLeadInputManifest,
   sessionLotInputManifest,
+  type SessionInputProfile,
   type SessionLotStage,
 } from './session-input.ts'
 import {
@@ -26,31 +27,38 @@ import {
 const LOT_STAGES: readonly Stage[] = ['research', 'images', 'inventory']
 const WEB_OFF = { public_pages: false, prefer_datasheets: false }
 
+interface SessionAttemptOptions {
+  /** The Examine trigger reads the saved selection without locking the settings row. */
+  lockSettings?: boolean
+  /** Settings already read in this transaction, so several attempts seal the same read. */
+  settings?: AgentSettingsDto
+  /** The identity proposals a per-lot successor starts from; revisions arrive as inbox items. */
+  pinnedProposalIds?: readonly string[]
+  /** The input `prepareSessionAttempt` already sealed, so a caller can check before writing. */
+  prepared?: SealedSessionInput
+}
+
+/** A sealed `/6` input: its canonical bytes and their digest. */
+export interface SealedSessionInput {
+  bytes: Buffer
+  digest: Buffer
+}
+
+type SessionJob = { id: string; subject_id: string | null; stage: Stage | 'examine' }
+
 /**
- * A session attempt: `/6` input, `/5` command on the session queue, and its session. The batch's
- * Examine lead job has no subject and batch-scoped media; every other stage is per lot.
+ * Every decision a new session attempt makes before its first write: the profile, the stage, the
+ * resolved selection, the sealed input and its size, and the runner channel. Start fresh's
+ * preflight calls it too, so both refuse the same way in the same order.
  */
-export async function createSessionAttempt(
+export async function prepareSessionAttempt(
   client: PoolClient,
   config: ProcessingConfig,
   profileId: SessionProfileId,
   snapshot: CaptureSnapshotDto,
-  job: { id: string; subject_id: string | null; stage: Stage | 'examine' },
-  number: string,
-  media: LockedMediaInputs,
-  parentId: string | null,
-  /** The Examine trigger reads the saved selection without locking the settings row. */
-  {
-    lockSettings = true,
-    pinnedProposalIds = [],
-    settings: given,
-  }: {
-    lockSettings?: boolean
-    /** Settings already read in this transaction, so several attempts seal the same read. */
-    settings?: AgentSettingsDto
-    /** The identity proposals a per-lot successor starts from; revisions arrive as inbox items. */
-    pinnedProposalIds?: readonly string[]
-  } = {},
+  job: SessionJob,
+  media: { manifest: string; manifestDigest: string },
+  { lockSettings = true, pinnedProposalIds = [], settings: given }: SessionAttemptOptions = {},
 ) {
   // `shared-vm-agent/2` is retired: no new attempt is sealed for it.
   if (profileId === 'shared-vm-agent/2') {
@@ -61,11 +69,8 @@ export async function createSessionAttempt(
   if (!lead && (job.subject_id === null || !LOT_STAGES.includes(job.stage as Stage))) {
     fail('unsupported_processing_stage', 422)
   }
-  const attemptId = randomUUID()
-  const inputId = randomUUID()
-  const commandId = randomUUID()
   const descriptor = { manifest: media.manifest, sha256: media.manifestDigest }
-  let profile: Parameters<typeof sessionLotInputManifest>[4] = { id: 'synthetic-session/1' }
+  let profile: SessionInputProfile = { id: 'synthetic-session/1' }
   if (profileId !== 'synthetic-session/1') {
     const settings = given ?? (await readAgentSettings(client, config, lockSettings))
     const agent = resolveSelection(settings, job.stage)
@@ -96,6 +101,34 @@ export async function createSessionAttempt(
   if (manifest.bytes.length > MAX_PROCESSING_SNAPSHOT_BYTES) {
     fail('processing_input_capacity', 422)
   }
+  // Checked before any write, so a missing secret never leaves a half-made attempt to roll back.
+  if (!processingChannelConfigured(config)) {
+    fail('processing_channel_unconfigured', 503)
+  }
+  return manifest
+}
+
+/**
+ * A session attempt: `/6` input, `/5` command on the session queue, and its session. The batch's
+ * Examine lead job has no subject and batch-scoped media; every other stage is per lot.
+ */
+export async function createSessionAttempt(
+  client: PoolClient,
+  config: ProcessingConfig,
+  profileId: SessionProfileId,
+  snapshot: CaptureSnapshotDto,
+  job: SessionJob,
+  number: string,
+  media: LockedMediaInputs,
+  parentId: string | null,
+  options: SessionAttemptOptions = {},
+) {
+  const manifest =
+    options.prepared ??
+    (await prepareSessionAttempt(client, config, profileId, snapshot, job, media, options))
+  const attemptId = randomUUID()
+  const inputId = randomUUID()
+  const commandId = randomUUID()
   const db = queryDatabase(client)
   await executeDatabaseQuery(
     db.insert(processingInputs).values({

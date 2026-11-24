@@ -28,6 +28,34 @@ function attempt(ids: Ids, n: number, number: number, extra: Partial<SessionHist
   } as SessionHistoryAttemptDto
 }
 
+/** The failed Images job's three attempts, newest first: two refused setups, then an overload. */
+function retriedAttempts(ids: Ids): SessionHistoryAttemptDto[] {
+  const refused = (n: number) => ({
+    id: ids.id(n),
+    category: 'configuration' as const,
+    summary: 'The native session configuration was not accepted.',
+    recovery: 'Check the supported CLI version and configuration.',
+    details_available: false,
+    cause: { code: 'agent_admission_unavailable' as const, provider: 'claude' as const },
+  })
+
+  return [
+    attempt(ids, 24, 3, { state: 'failed', session_state: 'failed' }),
+    attempt(ids, 42, 2, {
+      state: 'superseded',
+      session_state: 'failed',
+      ended: { at: '2026-11-06T07:25:00.000Z', source: 'transition' },
+      failure: refused(93),
+    }),
+    attempt(ids, 41, 1, {
+      state: 'superseded',
+      session_state: 'failed',
+      ended: { at: '2026-11-06T07:15:00.000Z', source: 'transition' },
+      failure: refused(94),
+    }),
+  ]
+}
+
 function photoLink(ids: Ids) {
   return {
     kind: 'capture_evidence' as const,
@@ -267,8 +295,15 @@ function otherHistory(ids: Ids, jobId: string): SessionHistoryDto {
       stage: 'examine',
       subject_id: ids.lot(2),
       current_attempt_id: attemptId,
-      attempts: [attempt(ids, 20 + Number(jobId.slice(-2)), 1, { state: 'waiting_for_user' })],
+      attempts:
+        jobId === ids.id(4)
+          ? retriedAttempts(ids)
+          : [attempt(ids, 20 + Number(jobId.slice(-2)), 1, { state: 'waiting_for_user' })],
       inbox_acked_seq: '0',
+      start_fresh:
+        jobId === ids.id(4)
+          ? { allowed: true }
+          : { allowed: false, reason: 'session_not_replaceable' },
     },
     entries: [
       agentEntry(attemptId, 1, 4, 5, 'Asked about the last letter', {
