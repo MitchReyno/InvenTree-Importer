@@ -10,7 +10,16 @@ import {
 import { Banner, Button, DebugDetails, QuestionCard, Small } from '#/components/ui'
 import { Fieldset } from '#/forms'
 import { color, space, typeVar } from '#/theme/generated/tokens'
-import { confirmedAnswerRefusal, stepAnswerText } from '#/processing/question-summary'
+import {
+  ANSWER_NOT_CONFIRMED,
+  confirmedAnswerRefusal,
+  stepAnswerText,
+} from '#/processing/question-summary'
+import {
+  canSendNew,
+  standingWarning,
+  type QuestionStanding,
+} from '#/processing/question-standing'
 import {
   draftStarted,
   emptyDraft,
@@ -26,8 +35,8 @@ export type SteppedAnswerFormProps = {
   /** The question and capture revision this mount pinned. */
   question: ProcessingQuestionV2Dto
   captureRevision: string
-  /** The pinned question is no longer the current open one, or the capture moved on. */
-  stale: boolean
+  /** Whether the pinned question can still take a new answer, and why not. */
+  standing: QuestionStanding
   disabled: boolean
   readOnly: boolean
   captureHref?: string
@@ -50,8 +59,6 @@ type Refusal = { stepId?: string; message: string }
 
 const STEP_REFUSED = 'This answer wasn’t accepted. Check it and send again.'
 const ANSWER_REFUSED = 'The answer wasn’t accepted. Check your answers and send again.'
-const NOT_CONFIRMED =
-  'Answer not confirmed. Your answer may already be saved. Retry sends only this original answer; discard clears only the local draft.'
 
 /**
  * A `/2` question answered one step at a time: one step shows its answer and Send; several show
@@ -60,7 +67,7 @@ const NOT_CONFIRMED =
 export function SteppedAnswerForm({
   question,
   captureRevision,
-  stale,
+  standing,
   disabled,
   readOnly,
   captureHref,
@@ -97,7 +104,10 @@ export function SteppedAnswerForm({
   }, [position])
 
   const retrying = submission.current !== null
+  const stale = !canSendNew(standing)
   const started = drafts.some(draftStarted)
+  // The warning is for what the form holds; a clean form has nothing it can't send.
+  const warning = started || retrying ? standingWarning(standing, retrying) : null
   const locked = formState.isSubmitting || readOnly || retrying
   const complete = drafts.every(stepComplete)
   // Next only moves through the draft; the consequence line belongs beside Send.
@@ -179,7 +189,7 @@ export function SteppedAnswerForm({
   if (formState.isSubmitting) {
     sendLabel = 'Saving answer…'
   } else if (retrying) {
-    sendLabel = 'Retry exact answer'
+    sendLabel = 'Try again'
   }
   const current = position === 'review' ? undefined : steps[position]
   const progress =
@@ -205,14 +215,13 @@ export function SteppedAnswerForm({
         }
         answer={
           <>
-            {stale && (
+            {warning && (
               <div role="status">
-                <Banner tone="warn">
-                  {retrying
-                    ? 'The saved question context changed. Retry only the original unconfirmed answer, or discard the local draft.'
-                    : 'This question is superseded or its saved context changed. Your unsaved answer is preserved; it cannot be applied to another question.'}
-                </Banner>
+                <Banner tone="warn">{warning}</Banner>
               </div>
+            )}
+            {formState.isSubmitting && (
+              <Small role="status">Sending… the form stays locked until the answer is saved.</Small>
             )}
             <Fieldset disabled={locked}>
               <div ref={body}>
@@ -263,7 +272,7 @@ export function SteppedAnswerForm({
             )}
             {unconfirmed && (
               <div role="alert">
-                <Banner tone="bad">{NOT_CONFIRMED}</Banner>
+                <Banner tone="bad">{ANSWER_NOT_CONFIRMED}</Banner>
               </div>
             )}
             {blockedReason && <Small>{blockedReason}</Small>}

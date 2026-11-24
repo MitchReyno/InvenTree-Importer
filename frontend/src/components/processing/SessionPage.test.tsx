@@ -468,7 +468,7 @@ test('observations from different photos stay apart on the page', async () => {
   expect(screen.getByText('Recorded an observation in Bench bag spill')).toBeInTheDocument()
 })
 
-test('an unsaved answer on the page stays, marked superseded, when the question is answered elsewhere', async () => {
+test('an unsaved answer on the page stays, marked answered elsewhere, when another place answers it', async () => {
   const user = userEvent.setup()
   let page = history([asked])
   const processing = client(() => Promise.resolve(page))
@@ -485,7 +485,7 @@ test('an unsaved answer on the page stays, marked superseded, when the question 
   page = history([question(4, 4, { state: 'answered' })])
   await invalidate()
 
-  await waitFor(() => expect(card).toHaveTextContent(/superseded/))
+  await waitFor(() => expect(card).toHaveTextContent('Answered elsewhere; your unsaved answer can’t be sent.'))
   expect(within(card).getByRole('radio', { name: /ATmega328PB-AU/ })).toBeChecked()
   expect(processing.answer).not.toHaveBeenCalled()
 })

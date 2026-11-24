@@ -1,5 +1,6 @@
 import type { SessionHistoryDetailsDto, SessionHistoryEntryDto } from '@invimport/contracts'
 import { Button, EventTime } from '#/components/ui'
+import { answerEffectsText } from '#/processing/question-summary'
 import { DetailLabel, Muted } from './history-styles'
 import type { HistoryContext } from './HistoryLink'
 import { LotDetails } from './LotDetails'
@@ -9,26 +10,11 @@ import { ProposalDetails } from './ProposalDetails'
 import { QuestionDetails } from './QuestionDetails'
 import { RegroupDetails } from './RegroupDetails'
 
-type Details<K extends SessionHistoryDetailsDto['kind']> = Extract<
-  SessionHistoryDetailsDto,
-  { kind: K }
->
-
 /** The kinds whose details add nothing to their one-line summary. */
 const ONE_LINE = new Set<SessionHistoryDetailsDto['kind']>(['status', 'chat', 'reply'])
 
 export function hasDetails(entry: SessionHistoryEntryDto) {
   return !ONE_LINE.has(entry.details.kind)
-}
-
-function answerEffectsText(details: Details<'answer'>) {
-  const parts = details.effects.map((effect) =>
-    effect.kind === 'quantity'
-      ? `Lot quantity set to ${effect.value} (${effect.basis})`
-      : 'note added',
-  )
-  const text = parts.join(' · ')
-  return text ? text.charAt(0).toUpperCase() + text.slice(1) : 'Nothing changed in Capture.'
 }
 
 /** What an entry expands to, by kind; values a record holds now are labelled current. */
@@ -63,7 +49,7 @@ export function HistoryEntryDetails({
     case 'question':
       return <QuestionDetails details={details} />
     case 'answer':
-      return <p>{answerEffectsText(details)}</p>
+      return <p>{answerEffectsText(details.effects) || "Nothing changed in Capture."}</p>
     case 'instruction':
       return (
         <>

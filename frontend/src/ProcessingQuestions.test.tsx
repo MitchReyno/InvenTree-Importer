@@ -75,7 +75,7 @@ test('lost acknowledgement preserves typed value and exact idempotency key for r
   await user.type(screen.getByLabelText('Quantity'), '17.000001')
   await user.click(screen.getByRole('button', { name: 'Save answer and queue continuation' }))
   await waitFor(() => expect(answer).toHaveBeenCalledTimes(1))
-  await user.click(screen.getByRole('button', { name: 'Retry exact answer' }))
+  await user.click(screen.getByRole('button', { name: 'Try again' }))
   await waitFor(() => expect(answer).toHaveBeenCalledTimes(2))
 
   expect(answer.mock.calls[1]).toEqual(answer.mock.calls[0])
@@ -196,7 +196,7 @@ test.each(['answered', 'missing', 'replaced'] as const)(
     await user.type(screen.getByLabelText('Quantity'), '17.000001')
     await user.click(screen.getByRole('radio', { name: /^Estimated/ }))
     await user.click(screen.getByRole('button', { name: 'Save answer and queue continuation' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Answer not confirmed')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Not sent: the server didn’t answer')
     const original = structuredClone(answer.mock.calls[0])
 
     let currentQuestion: ProcessingQuestionDto | undefined
@@ -213,7 +213,7 @@ test.each(['answered', 'missing', 'replaced'] as const)(
       <QuestionAnswer {...props} currentQuestion={currentQuestion} currentCaptureRevision="9" />,
     )
     const retry = screen.getByRole('button', {
-      name: 'Retry exact answer',
+      name: 'Try again',
     })
     expect(retry).toBeEnabled()
     expect(screen.getByLabelText('Quantity')).toBeDisabled()
@@ -255,7 +255,7 @@ test('unconfirmed fields stay frozen and a forced field change cannot replace th
   // The retained delivery must also survive programmatic values outside native disabled controls.
   fireEvent.change(quantity, { target: { value: '99' } })
   fireEvent.click(screen.getByRole('radio', { name: /^Estimated/ }))
-  await user.click(screen.getByRole('button', { name: 'Retry exact answer' }))
+  await user.click(screen.getByRole('button', { name: 'Try again' }))
   await waitFor(() => expect(answer).toHaveBeenCalledTimes(2))
   expect(answer.mock.calls[1]).toEqual(original)
 })
@@ -290,7 +290,7 @@ test('exact retry retains unavailable-read and archive gates without losing its 
         currentCaptureRevision="9"
       />,
     )
-    expect(screen.getByRole('button', { name: 'Retry exact answer' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Discard unsaved answer' })).toBeEnabled()
     await act(async () => {
       fireEvent.submit(screen.getByRole('form', { name: 'Pinned application question' }))
@@ -301,7 +301,7 @@ test('exact retry retains unavailable-read and archive gates without losing its 
   view.rerender(
     <QuestionAnswer {...props} currentQuestion={undefined} currentCaptureRevision="9" />,
   )
-  await user.click(screen.getByRole('button', { name: 'Retry exact answer' }))
+  await user.click(screen.getByRole('button', { name: 'Try again' }))
   await waitFor(() => expect(answer).toHaveBeenCalledTimes(2))
   expect(answer.mock.calls[1]).toEqual(original)
 })

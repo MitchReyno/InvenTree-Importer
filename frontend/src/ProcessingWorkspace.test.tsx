@@ -257,7 +257,7 @@ test('warm cache and cache writes cannot authorize commands; failed reads retain
   expect(mounted.navigate).not.toHaveBeenCalled()
 })
 
-test('cold mount pins only the fresh question state, never the stale warm-cache context', async () => {
+test('cold mount reads only the fresh question state, never the stale warm-cache context', async () => {
   const user = userEvent.setup()
   const client = clientFixture()
   const cache = createServerQueryClient()
@@ -294,18 +294,13 @@ test('cold mount pins only the fresh question state, never the stale warm-cache 
     fresh.resolve(current)
     await fresh.promise
   })
-  const form = await screen.findByRole('form', { name: 'Pinned application question' })
-  setDebugMode(true)
-  const identity = within(form).getByRole('group', { name: 'Debug: Question identity' })
-  expect(identity).toHaveTextContent('Question revision2')
-  expect(identity).not.toHaveTextContent('Question revision1')
-  setDebugMode(false)
-  expect(within(form).getByText('How many are in Packet A?')).toBeInTheDocument()
-  expect(within(form).queryByText('The new current question')).not.toBeInTheDocument()
-  await user.type(within(form).getByLabelText('Quantity'), '51')
-  expect(
-    within(form).getByRole('button', { name: 'Save answer and queue continuation' }),
-  ).toBeDisabled()
+  // The question it names is answered now, so it shows answered rather than as a form, and
+  // the newer open question is never substituted for it.
+  const group = await screen.findByRole('region', { name: 'Answered' })
+  expect(group).toHaveTextContent('How many are in Packet A?')
+  expect(group).toHaveTextContent('Answered · details not shown')
+  expect(screen.queryByRole('form', { name: 'Pinned application question' })).toBeNull()
+  expect(group).not.toHaveTextContent('The new current question')
   expect(client.answer).not.toHaveBeenCalled()
 })
 
@@ -953,7 +948,7 @@ test('a drawer draft survives its question being answered elsewhere', async () =
     name: 'Session question: Is Packet A already in InvenTree?',
   })
   await waitFor(() =>
-    expect(form).toHaveTextContent('This question is superseded or its saved context changed'),
+    expect(form).toHaveTextContent('Answered elsewhere; your unsaved answer can’t be sent.'),
   )
   expect(answerBox('Is Packet A already in InvenTree?')).toHaveValue('Different tube')
   expect(dirty).toHaveBeenLastCalledWith(true)
@@ -1024,7 +1019,7 @@ test('the drawer’s link to the page’s question asks first while a drawer ans
   expect(dirty).toHaveBeenLastCalledWith(true)
 })
 
-test('a drawer draft keeps its revision when another answer moves it, and reads as superseded', async () => {
+test('a drawer draft keeps its revision when another answer moves it, and says its context changed', async () => {
   const user = userEvent.setup()
   const { client, cache, dirty, key } = mountInventoryDrawer(inventorySnapshot())
   const first = 'Is Packet A already in InvenTree?'
@@ -1037,7 +1032,7 @@ test('a drawer draft keeps its revision when another answer moves it, and reads 
   })
   const form = screen.getByRole('form', { name: `Session question: ${first}` })
   await waitFor(() =>
-    expect(form).toHaveTextContent('This question is superseded or its saved context changed'),
+    expect(form).toHaveTextContent('Its saved context changed since you started'),
   )
   expect(answerBox(first)).toHaveValue('Different tube')
   expect(dirty).toHaveBeenLastCalledWith(true)
@@ -1781,16 +1776,16 @@ test('a stepped drawer question is answered with live option cards, and a refuse
   await user.click(within(form).getByRole('button', { name: 'Send 2 answers' }))
 
   // An uncertain failure keeps the exact payload and key for the retry.
-  const retry = await within(form).findByRole('button', { name: 'Retry exact answer' })
+  const retry = await within(form).findByRole('button', { name: 'Try again' })
   const answered = steppedInventorySnapshot()
   answered.jobs[0].questions[0].state = 'answered'
   client.read.mockResolvedValue(answered)
   await user.click(retry)
-  // Once saved, the question leaves the drawer and focus goes to its heading.
+  // Once saved, the question folds under Answered and focus goes to that heading.
   await waitFor(() => expect(screen.queryByRole('form', { name: /^Session question/ })).toBeNull())
   await waitFor(() =>
     expect(
-      within(screen.getByRole('dialog')).getByRole('heading', { name: 'Inventory · Packet A' }),
+      within(screen.getByRole('dialog')).getByRole('heading', { name: /^Answered/ }),
     ).toHaveFocus(),
   )
   const calls = client.answer.mock.calls
