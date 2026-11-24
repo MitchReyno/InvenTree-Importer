@@ -195,33 +195,66 @@ test('each agent entry resolves its summary, details and links; retired lots and
     // Repeating that suggestion writes nothing new.
     await proposeLot({ lot_id: packetB, observation_ids: [extra] })
     await proposeLot({ lot_id: packetB, observation_ids: [front] })
-    // A reason PostgreSQL can't store is refused before anything is written.
-    const outboxBefore = await fixture.db.pool.query(
-      'SELECT count(*)::int AS n FROM agent_session_outbox WHERE session_id=$1',
-      [lead.attempt],
-    )
-    const unstorable = await sessionHandlers(fixture).propose_lot(token, {
-      base_revision: revision,
-      lot_id: packetB,
-      observation_ids: [front],
-      separation_reason: 'Date code \u0000 2407',
-    })
-    assert.equal(!unstorable.result.ok && unstorable.result.error, 'validation_failed')
-    assert.deepEqual(
-      !unstorable.result.ok && unstorable.result.issues?.map((issue) => issue.path),
-      ['/separation_reason'],
-    )
-    const outboxAfter = await fixture.db.pool.query(
-      'SELECT count(*)::int AS n FROM agent_session_outbox WHERE session_id=$1',
-      [lead.attempt],
-    )
-    assert.equal(outboxAfter.rows[0].n, outboxBefore.rows[0].n)
-    const unchangedBatch = (await fixture.http(`/batches/${batchId}`)).value as {
-      revision: string
+    // A reason PostgreSQL can't store, with a NUL or an unpaired surrogate, is refused before
+    // anything is written.
+    const outboxCount = async () => {
+      const rows = await fixture.db.pool.query<{ n: number }>(
+        'SELECT count(*)::int AS n FROM agent_session_outbox WHERE session_id=$1',
+        [lead.attempt],
+      )
+      return rows.rows[0].n
     }
-    assert.equal(unchangedBatch.revision, revision)
+    for (const reason of ['Date code \u0000 2407', 'Date code \ud800 2407']) {
+      const outboxBefore = await outboxCount()
+      const unstorable = await sessionHandlers(fixture).propose_lot(token, {
+        base_revision: revision,
+        lot_id: packetB,
+        observation_ids: [front],
+        separation_reason: reason,
+      })
+      assert.equal(!unstorable.result.ok && unstorable.result.error, 'validation_failed')
+      assert.deepEqual(
+        !unstorable.result.ok && unstorable.result.issues?.map((issue) => issue.path),
+        ['/separation_reason'],
+      )
+      assert.equal(await outboxCount(), outboxBefore)
+      const unchangedBatch = (await fixture.http(`/batches/${batchId}`)).value as {
+        revision: string
+      }
+      assert.equal(unchangedBatch.revision, revision)
+    }
     // The first call on the operator-edited diodes lot only suggests.
     await proposeLot({ lot_id: diodes, observation_ids: [back] })
+    // Repeating it writes no second suggestion, though the session is still told it only
+    // suggested.
+    const repeated = await call('propose_lot', token, {
+      base_revision: revision,
+      lot_id: diodes,
+      observation_ids: [back],
+    })
+    revision = repeated.revision!
+    assert.equal((repeated as { suggested?: boolean }).suggested, true)
+    const backSuggestions = await fixture.db.pool.query(
+      `SELECT 1 FROM capture_lot_evidence_observation
+        WHERE lot_id=$1 AND evidence_observation_id=$2 AND status='suggested'`,
+      [diodes, back],
+    )
+    assert.equal(backSuggestions.rowCount, 1)
+    // A regroup of the same observation onto that suggestion is still only a suggestion.
+    const onSuggestion = await call('regroup', token, {
+      base_revision: revision,
+      moves: [{ observation_id: back, to_lot_id: diodes }],
+    })
+    revision = onSuggestion.revision!
+    const backActive = await fixture.db.pool.query<{ lot_id: string }>(
+      `SELECT lot_id FROM capture_lot_evidence_observation
+        WHERE evidence_observation_id=$1 AND status='active'`,
+      [back],
+    )
+    assert.deepEqual(
+      backActive.rows.map((row) => row.lot_id),
+      [packetB],
+    )
     // The agent revises its first observation in place, under the same ID.
     await observe(0, 'RC0603 10k 2341', front)
     await call('status', token, { text: 'Comparing date codes' })
@@ -303,6 +336,7 @@ test('each agent entry resolves its summary, details and links; retired lots and
       diodeEntries.map((entry) => [entry.summary, details(entry, 'lot').outcome]),
       [
         ['Proposed Diodes', null],
+        ['Proposed no change to Diodes', 'unchanged'],
         ['Suggested changes to Diodes', 'suggested'],
         ['Formed Diodes', 'formed'],
       ],
@@ -335,7 +369,10 @@ test('each agent entry resolves its summary, details and links; retired lots and
     assert.deepEqual(diodeLot.estimate, { quantity: '12', basis: 'Twelve visible' })
     assert.equal(diodeLot.operator_edited, true)
 
-    const [older, inPlace, mixed] = entriesOf(history, 'regroup')
+    const [older, stillSuggested, inPlace, mixed] = entriesOf(history, 'regroup')
+    assert.deepEqual(details(stillSuggested, 'regroup').moves, [
+      { observation_id: back, from_lot_id: packetB, to_lot_id: diodes, outcome: 'suggested' },
+    ])
     assert.deepEqual(details(inPlace, 'regroup').moves, [
       { observation_id: loose, from_lot_id: diodes, to_lot_id: diodes, outcome: 'unchanged' },
     ])
