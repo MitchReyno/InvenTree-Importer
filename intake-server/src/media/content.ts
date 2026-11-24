@@ -189,6 +189,64 @@ export function mediaContent(pool: Pool, binding: CaptureBinding, store: BlobSto
     },
 
     /**
+     * A question figure's rendered view or thumbnail, under the session history's scope: the
+     * question must belong to this batch's job and actor. A removed photo or an unknown figure is
+     * not found; a render still queued, one that failed or one no longer kept is a conflict
+     * naming which.
+     */
+    async questionFigure(
+      batchId: string,
+      figure: { jobId: string; questionId: string; index: number },
+      size: 'view' | 'thumb',
+    ) {
+      const digest = await transaction(pool, async (client) => {
+        await prepareMediaTransaction(client)
+        await captureInTransaction(client, binding, batchId)
+        const rows = await client.query<{
+          removed: boolean
+          state: 'queued' | 'ready' | 'failed' | null
+          digest: string | null
+        }>(
+          `SELECT ${versionRemovedSql('v')} AS removed, r.state,
+             encode(CASE WHEN $8='view' THEN r.view_digest ELSE r.thumb_digest END,'hex') AS digest
+           FROM public.processing_question_figure f
+           JOIN public.processing_question q ON q.id=f.question_id
+           JOIN public.processing_job j ON j.id=q.job_id
+           JOIN public.processing_attempt a ON a.id=q.attempt_id
+           JOIN public.command c ON c.id=a.command_id
+           JOIN public.media_version v ON v.batch_id=f.batch_id AND v.id=f.version_id
+           LEFT JOIN public.processing_figure_render r
+             ON r.purpose='view' AND r.recipe_digest=f.recipe_digest
+           WHERE f.question_id=$1 AND f.figure_index=$2 AND j.id=$3 AND j.batch_id=$4
+             AND c.actor_id=$5 AND c.target_id=$6 AND c.target_context_id=$7`,
+          [
+            figure.questionId,
+            figure.index,
+            figure.jobId,
+            batchId,
+            binding.actorId,
+            binding.targetId,
+            binding.targetContextId,
+            size,
+          ],
+        )
+        const found = rows.rows[0]
+        if (!found || found.removed) {
+          fail('not_found', 404)
+        }
+        if (found!.state === 'queued') {
+          fail('figure_preparing', 409)
+        }
+        // A view the sweep deleted, as for a photo removed and later restored, isn't made again.
+        if (found!.state === 'failed' || found!.state === null) {
+          fail('figure_render_failed', 409)
+        }
+        return found!.digest!
+      })
+      return { bytes: await store.read(digest), mediaType: 'image/webp' as const }
+    },
+
+    /**
      * An observation's region at a display size. A `rev` naming a region other than the current
      * one is refused, so a page never shows a stale crop under a new revision or vice versa.
      */

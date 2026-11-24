@@ -418,6 +418,14 @@ async function main() {
           { revalidated: true },
         ),
       },
+      '/api/v1/batches/{batchId}/processing/sessions/{jobId}/questions/{questionId}/figures/{index}/{size}':
+        {
+          get: browserResource(
+            'image/webp',
+            "A question figure's rendered view or thumbnail (size view or thumb, index 1 to 5); use a browser resource URL.",
+            { revalidated: true },
+          ),
+        },
       '/api/v1/batches/{batchId}/media/observations/{resourceId}/crop': {
         get: browserResource(
           ['image/png', 'image/webp'],
@@ -464,10 +472,20 @@ async function main() {
     },
     components: { schemas },
   }
+  // Path parameters are IDs, except a question figure's position and size.
+  const PATH_PARAMETER_SCHEMAS = {
+    index: { type: 'integer', minimum: 1, maximum: 5 },
+    size: { type: 'string', enum: ['view', 'thumb'] },
+  }
   for (const [path, item] of Object.entries(document.paths)) {
     const names = [...path.matchAll(/\{([^}]+)\}/g)].map((match) => match[1])
     if (names.length > 0) {
-      item.parameters = names.map((name) => ({ name, in: 'path', required: true, schema: Id }))
+      item.parameters = names.map((name) => ({
+        name,
+        in: 'path',
+        required: true,
+        schema: PATH_PARAMETER_SCHEMAS[name] ?? Id,
+      }))
     }
   }
   const declarations = await generateOpenApiTypes(document)

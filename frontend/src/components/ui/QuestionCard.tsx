@@ -12,6 +12,8 @@ type QuestionCardProps = {
   /** The assumption the agent is working with until the operator answers. */
   assumption?: string
   closeups?: Closeup[]
+  /** The agent's pictures, first in the card's body. */
+  pictures?: ReactNode
   answer: ReactNode
   secondary?: ReactNode
 }
@@ -22,6 +24,7 @@ export function QuestionCard({
   why,
   assumption,
   closeups = [],
+  pictures,
   answer,
   secondary,
 }: QuestionCardProps) {
@@ -34,6 +37,7 @@ export function QuestionCard({
       </Question>
       <Why>{why}</Why>
       <Body>
+        {pictures}
         {closeups.length > 0 && (
           <Closeups>
             {closeups.map((closeup) => (

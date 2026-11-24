@@ -1,10 +1,13 @@
 import { createHash } from 'node:crypto'
 import {
+  assertMediaDecoderInputHeader,
   assertMediaRecipe,
   MEDIA_PREVIEW_MAX_BYTES,
   MEDIA_SOURCE_MAX_BYTES,
   type MediaRecipeDto,
   type MediaRenditionSize,
+  type MediaViewMarkDto,
+  type MediaViewRecipeDto,
 } from '@invimport/contracts/media'
 
 export const MEDIA_LIMITS = Object.freeze({
@@ -74,6 +77,63 @@ export function checkedRenditionInput(input: RenditionInput) {
   ) {
     throw new Error('invalid_decode_input')
   }
+}
+
+/**
+ * One retained page PNG and a view of it. Marks are sent only for an agent's preview; `null`
+ * renders no preview, and an empty list renders an unmarked one.
+ */
+export interface ViewInput {
+  version: 'media-view/1'
+  digest: string
+  bytes: Buffer
+  width: number
+  height: number
+  recipe: MediaViewRecipeDto
+  marks: MediaViewMarkDto[] | null
+}
+
+export interface ViewImage {
+  width: number
+  height: number
+  bytes: Buffer
+}
+
+/** The operator's WebP view and thumbnail, and the marked PNG preview when marks were sent. */
+export type ViewResult =
+  | {
+      state: 'ready'
+      toolchain: string
+      view: ViewImage
+      thumb: ViewImage
+      preview: ViewImage | null
+    }
+  | { state: 'malformed'; toolchain: string }
+
+/** Refuses input the server should never send; a page that doesn't fit the recipe is `malformed`. */
+export function checkedViewInput(input: ViewInput) {
+  if (
+    input.version !== 'media-view/1' ||
+    input.bytes.length === 0 ||
+    input.bytes.length > MEDIA_PREVIEW_MAX_BYTES ||
+    !Number.isInteger(input.width) ||
+    !Number.isInteger(input.height) ||
+    input.width < 1 ||
+    input.height < 1 ||
+    input.width * input.height > MEDIA_LIMITS.pixels ||
+    createHash('sha256').update(input.bytes).digest('hex') !== input.digest
+  ) {
+    throw new Error('invalid_decode_input')
+  }
+  // The recipe and marks have the header's shape; it throws `invalid_decoder_input` otherwise.
+  assertMediaDecoderInputHeader({
+    version: input.version,
+    digest: input.digest,
+    width: input.width,
+    height: input.height,
+    recipe: input.recipe,
+    marks: input.marks,
+  })
 }
 
 export function checkedInput(input: DecodeInput) {

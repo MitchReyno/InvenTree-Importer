@@ -170,6 +170,19 @@ export async function rendered(
   return output
 }
 
+const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
+
+/** Whether the bytes start as a PNG of exactly these dimensions, read from the signature and IHDR. */
+export function pngHeaderMatches(bytes: Buffer, width: number, height: number) {
+  return (
+    bytes.length >= 24 &&
+    bytes.subarray(0, 8).equals(PNG_SIGNATURE) &&
+    bytes.subarray(12, 16).equals(Buffer.from('IHDR')) &&
+    bytes.readUInt32BE(16) === width &&
+    bytes.readUInt32BE(20) === height
+  )
+}
+
 /**
  * Renditions of a retained page PNG for the backfill. Only bytes that are a single PNG of exactly
  * the recorded dimensions are rendered; anything else is `malformed`, a positive mismatch.
@@ -185,15 +198,7 @@ export async function renderRetained(
     toolchain: MEDIA_TOOLCHAIN,
     renditions: [],
   }
-  // A mismatch is identified from the bytes themselves: the PNG signature and IHDR dimensions.
-  const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
-  if (
-    input.bytes.length < 24 ||
-    !input.bytes.subarray(0, 8).equals(signature) ||
-    !input.bytes.subarray(12, 16).equals(Buffer.from('IHDR')) ||
-    input.bytes.readUInt32BE(16) !== input.width ||
-    input.bytes.readUInt32BE(20) !== input.height
-  ) {
+  if (!pngHeaderMatches(input.bytes, input.width, input.height)) {
     return malformed
   }
   // Any library failure from here is not a claim about the bytes, so it propagates as interrupted.
@@ -211,9 +216,7 @@ export async function decode(input: DecodeInput): Promise<DecodedMedia> {
   try {
     const isPdf = input.bytes.subarray(0, 5).toString('ascii') === '%PDF-'
     const jpegSignature = input.bytes.subarray(0, 3).equals(Buffer.from([255, 216, 255]))
-    const pngSignature = input.bytes
-      .subarray(0, 8)
-      .equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+    const pngSignature = input.bytes.subarray(0, 8).equals(PNG_SIGNATURE)
     if (!isPdf && !jpegSignature && !pngSignature) {
       throw new UnsupportedMediaError('unsupported_source_type')
     }

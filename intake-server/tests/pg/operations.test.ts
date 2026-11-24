@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID, createHash } from 'node:crypto'
-import { mkdtemp, readFile, readdir, realpath, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { manualFixture } from '../support/manual.ts'
@@ -10,6 +10,7 @@ import { ownedPgTools } from '../support/pg-tools.ts'
 import { mediaRepository } from '#/media/repository.ts'
 import { PART_ATTACHMENT_PNG } from '../support/part-attachment.ts'
 import { backupArchive, restoreArchive } from '#/operations/archive.ts'
+import { MAX_ARCHIVE_BLOBS } from '#/operations/archive-model.ts'
 import { BlobStore } from '#/media/blob-store.ts'
 import { compatibleSchema } from '#/operations/compatibility.ts'
 import { requireDisabledGate } from '#/operations/quiescence.ts'
@@ -180,6 +181,83 @@ test(
     } finally {
       await restored.dispose()
       await fixture.dispose()
+    }
+  },
+)
+
+test(
+  'the archive skips collected blobs nothing references and fails on a referenced one with no file',
+  { timeout: 60000 },
+  async () => {
+    const fixture = await manualFixture({ media: true })
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'intake-archive-')))
+    try {
+      const capture = await fixture.seedCapture()
+      const repository = mediaRepository(fixture.api.pool, fixture.config, fixture.store!)
+      const media = await repository.snapshot(capture.batch.id)
+      await repository.upload(
+        capture.batch.id,
+        randomUUID(),
+        media.revision,
+        'Retained original',
+        PART_ATTACHMENT_PNG,
+      )
+      // Swept figure renders: their immutable rows stay after the sweep collected their files.
+      // More of them than a page of rows, and than the archive's blob limit.
+      await fixture.db.pool.query(
+        `INSERT INTO media_blob(digest,byte_size)
+         SELECT sha256(('collected render ' || n)::bytea), 16 FROM generate_series(1, $1::int) n`,
+        [MAX_ARCHIVE_BLOBS + 1],
+      )
+      await disabled(fixture.gateRoot)
+      const config = {
+        databaseUrl: fixture.db.url,
+        schedulerDatabaseUrl: fixture.scheduler.url,
+        gateRoot: fixture.gateRoot,
+        blobRoot: join(fixture.root, 'blobs'),
+        archive: join(root, 'archive'),
+      }
+      assert.equal((await backupArchive(fixture.db.pool, config, ownedPgTools)).blobs, 1)
+      const manifest = JSON.parse(await readFile(join(config.archive, 'manifest.json'), 'utf8'))
+      const original = createHash('sha256').update(PART_ATTACHMENT_PNG).digest('hex')
+      assert.deepEqual(
+        manifest.blobs.map((blob: { digest: string }) => blob.digest),
+        [original],
+      )
+
+      // The archive restores, with the original's bytes and activation still disabled.
+      const restored = await isolatedDatabase({ migrate: false, restore: true })
+      try {
+        const result = await restoreArchive(
+          restored.pool,
+          {
+            ...config,
+            databaseUrl: restored.url,
+            schedulerDatabaseUrl: restored.url,
+            blobRoot: join(root, 'restored-blobs'),
+          },
+          ownedPgTools,
+        )
+        assert.equal(result.status, 'restored-quarantined')
+        assert.equal((await requireDisabledGate(fixture.gateRoot)).activation.enabled, false)
+        const restoredStore = await BlobStore.initialize(
+          join(root, 'restored-blobs'),
+          manifest.store_id,
+        )
+        assert.ok((await restoredStore.read(original)).equals(PART_ATTACHMENT_PNG))
+      } finally {
+        await restored.dispose()
+      }
+
+      // The original's file going missing is never skipped: a version references it.
+      await rm(join(config.blobRoot, 'objects', original.slice(0, 2), original))
+      await assert.rejects(
+        backupArchive(fixture.db.pool, { ...config, archive: join(root, 'second') }, ownedPgTools),
+        /archive_blob_missing/,
+      )
+    } finally {
+      await fixture.dispose()
+      await rm(root, { recursive: true, force: true })
     }
   },
 )

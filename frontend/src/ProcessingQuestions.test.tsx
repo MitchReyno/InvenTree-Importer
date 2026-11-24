@@ -24,6 +24,7 @@ test('a polled replacement cannot redirect a dirty pinned answer', async () => {
   const answer = vi.fn().mockResolvedValue(undefined)
   const dirty = vi.fn()
   const props = {
+    batchId: 'batch',
     question,
     captureRevision: '8',
     currentQuestion: question,
@@ -63,6 +64,7 @@ test('lost acknowledgement preserves typed value and exact idempotency key for r
   const answer = vi.fn().mockRejectedValue(new Error('connection_lost'))
   render(
     <QuestionAnswer
+      batchId="batch"
       question={question}
       captureRevision="8"
       currentQuestion={question}
@@ -93,6 +95,7 @@ test('RHF reports dirty input synchronously and keeps TypeBox quantity errors wi
   const dirty = vi.fn()
   render(
     <QuestionAnswer
+      batchId="batch"
       question={question}
       captureRevision="8"
       currentQuestion={question}
@@ -118,6 +121,7 @@ test('a replacement question prop cannot adopt the mounted form draft, even with
   const user = userEvent.setup()
   const answer = vi.fn().mockResolvedValue(undefined)
   const props = {
+    batchId: 'batch',
     question,
     captureRevision: '8',
     currentQuestion: question,
@@ -152,6 +156,7 @@ test('pending submission freezes fields and confirmed save clears the guard with
   const dirty = vi.fn()
   render(
     <QuestionAnswer
+      batchId="batch"
       question={question}
       captureRevision="8"
       currentQuestion={question}
@@ -184,6 +189,7 @@ test.each(['answered', 'missing', 'replaced'] as const)(
     const answer = vi.fn().mockRejectedValueOnce(new Error('lost_ack')).mockResolvedValue(undefined)
     const dirty = vi.fn()
     const props = {
+      batchId: 'batch',
       question,
       captureRevision: '8',
       currentQuestion: question,
@@ -234,6 +240,7 @@ test('unconfirmed fields stay frozen and a forced field change cannot replace th
   const answer = vi.fn().mockRejectedValueOnce(new Error('lost_ack')).mockResolvedValue(undefined)
   render(
     <QuestionAnswer
+      batchId="batch"
       question={question}
       captureRevision="8"
       currentQuestion={question}
@@ -264,6 +271,7 @@ test('exact retry retains unavailable-read and archive gates without losing its 
   const user = userEvent.setup()
   const answer = vi.fn().mockRejectedValueOnce(new Error('lost_ack')).mockResolvedValue(undefined)
   const props = {
+    batchId: 'batch',
     question,
     captureRevision: '8',
     currentQuestion: question,
@@ -312,6 +320,7 @@ test('explicit discard releases an unconfirmed delivery and permits a new valida
   const dirty = vi.fn()
   render(
     <QuestionAnswer
+      batchId="batch"
       question={question}
       captureRevision="8"
       currentQuestion={question}

@@ -10,13 +10,18 @@ import { evidenceRequest } from '#/agents/shared-vm/evidence-request.ts'
 import { AgentChild } from '#/agents/child.ts'
 import { stageEvidence, evidenceDelivery } from '#/agents/shared-vm/stage-evidence.ts'
 
-test('only fetch_evidence negotiates a larger reply and stages an 8 MiB delivery', async (t) => {
+test('only fetch_evidence and an ask preview negotiate a larger reply; a fetch stages an 8 MiB delivery', async (t) => {
   const call = { jsonrpc: '2.0', method: 'tools/call', params: { name: 'fetch_evidence' }, id: 1 }
-  assert.deepEqual(evidenceRequest(JSON.stringify(call)), { id: 1 })
+  assert.deepEqual(evidenceRequest(JSON.stringify(call)), { id: 1, kind: 'fetch' })
   assert.equal(
     evidenceRequest(JSON.stringify({ ...call, params: { name: 'read_batch' } })),
     undefined,
   )
+  const ask = (args: object) =>
+    JSON.stringify({ ...call, params: { name: 'ask', arguments: args } })
+  assert.deepEqual(evidenceRequest(ask({ preview: true })), { id: 1, kind: 'preview' })
+  assert.equal(evidenceRequest(ask({})), undefined)
+  assert.equal(evidenceRequest(ask({ preview: 'true' })), undefined)
   const bytes = Buffer.alloc(8 * 1024 * 1024, 17)
   const source = {
     kind: 'media_version',

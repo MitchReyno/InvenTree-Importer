@@ -11,6 +11,7 @@ import {
   Q,
 } from '#/test/answered-questions'
 import { answeredLine, newestAnsweredFirst } from '#/processing/answered-line'
+import { F, figuresQuestion, wornSuffixFigures } from '#/test/question-figures'
 import { AnsweredQuestions } from './AnsweredQuestions'
 import { ClosedQuestion } from './ClosedQuestion'
 
@@ -19,6 +20,7 @@ const lot = { label: 'Lot 4', href: '#batch/review/lots/lot' }
 
 function show(questions: ProcessingQuestionDto[], withLot = true) {
   const items = questions.map((question) => ({
+    batchId: F.batch,
     question,
     line: answeredLine({ question, sessionState: 'running', stage: 'Examine' }),
     stage: 'Examine',
@@ -161,4 +163,18 @@ test('a titled multi-step answer with its values omitted still shows each step�
     'An estimated 380.',
   ])
   expect(group).toHaveTextContent('Shown in the session.')
+})
+
+test('an expanded Answered line keeps the question’s pictures, which open the larger view', async () => {
+  const group = show([answered(figuresQuestion(wornSuffixFigures()), fullAnswer('ATmega328P-AU'))])
+  expect(within(group).queryByRole('button', { name: /^Open picture/ })).not.toBeVisible()
+
+  await userEvent.click(group.querySelector('summary')!)
+  const open = within(group).getByRole('button', { name: /^Open picture 1 of 4/ })
+  expect(open).toBeVisible()
+  expect(within(group).getByRole('group', { name: 'Pictures' })).toBeVisible()
+  await userEvent.click(open)
+  expect(screen.getByRole('dialog', { name: 'The worn suffix, boxed' })).toHaveTextContent(
+    'Picture 1 of 4 · Which ATmega328P variant is this?',
+  )
 })

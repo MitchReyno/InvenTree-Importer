@@ -13,6 +13,9 @@ import { QuestionAnswer } from './QuestionAnswer'
 type Pin = { question: ProcessingQuestionDto; revision: string }
 
 type Props = {
+  batchId: string
+  /** The label of a live lot a question is about, for its pictures' larger view. */
+  lotLabel: (subjectId: string | null) => string | undefined
   /** The session's open questions, from the latest Processing read. */
   questions: ProcessingQuestionDto[]
   /** Any question in the latest read, whatever its state; undefined once it is gone. */
@@ -73,6 +76,8 @@ function nextPins(
  */
 export function DrawerAnswers(props: Props) {
   const {
+    batchId,
+    lotLabel,
     questions,
     lookup,
     captureRevision,
@@ -147,6 +152,8 @@ export function DrawerAnswers(props: Props) {
     return (
       <div key={`${id}:${pin.revision}`} data-question-form={id}>
         <QuestionAnswer
+          batchId={batchId}
+          lot={lotLabel(question.subject_id)}
           label={`Session question: ${questionView(question).title}`}
           question={question}
           captureRevision={pin.revision}

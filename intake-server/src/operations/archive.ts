@@ -2,9 +2,10 @@ import { constants } from 'node:fs'
 import { open } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { join, resolve } from 'node:path'
-import type { Pool } from 'pg'
+import type { Pool, PoolClient } from 'pg'
 import { canonical } from '@invimport/contracts/json'
 import { BlobStore } from '#/media/blob-store.ts'
+import { blobReferenced } from '#/media/blob-reference.ts'
 import { readMediaStoreIdentity } from '#/media/store-identity.ts'
 import { compatibleSchema, expectedMigrations } from './compatibility.ts'
 import { privateDirectory, privateFile, newDirectory, writeExclusive } from './files.ts'
@@ -63,6 +64,74 @@ async function hashDump(path: string) {
   }
 }
 
+/**
+ * A blob's bytes for the archive, or null when its file was collected and nothing references it,
+ * as for a swept figure render whose immutable `media_blob` row remains. A referenced blob with
+ * no file still fails the archive.
+ */
+async function archivedBlob(client: PoolClient, store: BlobStore, digest: string) {
+  try {
+    return await store.read(digest)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error
+    }
+    if (await blobReferenced(client, digest)) {
+      throw new Error('archive_blob_missing', { cause: error })
+    }
+    return null
+  }
+}
+
+/** `media_blob` rows are read this many at a time. */
+const ARCHIVE_BLOB_PAGE = 1000
+
+/**
+ * Copies every blob the archive holds into `objects`, paging through `media_blob` by digest, and
+ * returns them in digest order. A run past the blob count or total size limit stops as soon as
+ * it is known, so a too-large store fails without copying everything first.
+ */
+async function copyArchivedBlobs(
+  client: PoolClient,
+  store: BlobStore | undefined,
+  objects: string,
+) {
+  const archived: { digest: string; size: string }[] = []
+  let total = 0n
+  let after: Buffer = Buffer.alloc(0)
+  for (;;) {
+    const page = await client.query<{ digest: Buffer; size: string }>(
+      `SELECT digest, byte_size AS size FROM public.media_blob
+       WHERE digest > $1 ORDER BY digest LIMIT $2`,
+      [after, ARCHIVE_BLOB_PAGE],
+    )
+    for (const row of page.rows) {
+      if (!store) {
+        throw new Error('archive_blob_root_required')
+      }
+      const digest = row.digest.toString('hex')
+      const bytes = await archivedBlob(client, store, digest)
+      // A collected render's row outlives its file; nothing references it, so it isn't copied.
+      if (!bytes) {
+        continue
+      }
+      if (String(bytes.length) !== row.size) {
+        throw new Error('archive_blob_size_mismatch')
+      }
+      total += BigInt(row.size)
+      if (archived.length >= MAX_ARCHIVE_BLOBS || total > BigInt(MAX_ARCHIVE_BYTES)) {
+        throw new Error('archive_limit')
+      }
+      await writeExclusive(join(objects, digest), bytes)
+      archived.push({ digest, size: row.size })
+    }
+    if (page.rows.length < ARCHIVE_BLOB_PAGE) {
+      return archived
+    }
+    after = page.rows[page.rows.length - 1].digest
+  }
+}
+
 /** Same-database scheduler and table locks give one committed database/blob cut. */
 export async function backupArchive(
   pool: Pool,
@@ -102,32 +171,20 @@ export async function backupArchive(
       throw new Error('external_activation_changed')
     }
     const storeId = await readMediaStoreIdentity(client)
-    const blobs = await client.query<{ digest: string; size: string }>(
-      `SELECT encode(digest,'hex') AS digest,byte_size AS size FROM public.media_blob ORDER BY digest LIMIT $1`,
-      [MAX_ARCHIVE_BLOBS + 1],
-    )
+    const store = config.blobRoot ? await BlobStore.initialize(config.blobRoot, storeId) : undefined
+    const archived = await copyArchivedBlobs(client, store, objects)
+    // The limits apply to the blobs the archive holds, not to collected rows it skipped.
     const manifest = archiveManifest({
       format: 'bench-intake-archive/1',
       database_sha256: '0'.repeat(64),
       external_binding_sha256: gate.bindingSha256,
       store_id: storeId,
-      blobs: blobs.rows,
+      blobs: archived,
       migrations: await expectedMigrations(),
       scheduler: 'same-database',
       credentials: 'excluded',
       activation: 'externally-disabled',
     })
-    if (manifest.blobs.length && !config.blobRoot) {
-      throw new Error('archive_blob_root_required')
-    }
-    const store = config.blobRoot ? await BlobStore.initialize(config.blobRoot, storeId) : undefined
-    for (const blob of manifest.blobs) {
-      const bytes = await store!.read(blob.digest)
-      if (String(bytes.length) !== blob.size) {
-        throw new Error('archive_blob_size_mismatch')
-      }
-      await writeExclusive(join(objects, blob.digest), bytes)
-    }
     const snapshot = await client.query<{ snapshot: string }>(
       'SELECT pg_catalog.pg_export_snapshot() AS snapshot',
     )

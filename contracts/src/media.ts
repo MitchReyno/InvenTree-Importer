@@ -134,6 +134,85 @@ export const RotatedMediaRecipe = object({
 export const MediaRecipe = Type.Union([LegacyMediaRecipe, RotatedMediaRecipe])
 export type RotatedMediaRecipeDto = Static<typeof RotatedMediaRecipe>
 
+/** Straightening turns a view at most this far either way, in millidegrees. */
+export const VIEW_MAX_STRAIGHTEN_MILLIDEGREES = 15_000
+/** A rendered view's long edge stays within this; a small region is enlarged towards the minimum. */
+export const VIEW_MAX_LONG_EDGE = 2048
+export const VIEW_MIN_LONG_EDGE = 1024
+/** A small region is enlarged at most this many times. */
+export const VIEW_MAX_ZOOM = 4
+export const VIEW_THUMB_LONG_EDGE = 480
+export const VIEW_MAX_MARKS = 8
+export const VIEW_MARK_LABEL_MAX_CHARACTERS = 40
+
+/**
+ * What a picture shows of one page: a region in the page preview's pixels, turned by quarter turns
+ * and straightened by a small angle. Positive angles turn the picture's content clockwise.
+ */
+export const MediaViewGeometry = object({
+  region: object({ x: pixel, y: pixel, width: dimension, height: dimension }),
+  quarter_turns: Type.Integer({ minimum: 0, maximum: 3 }),
+  straighten_millidegrees: Type.Integer({
+    minimum: -VIEW_MAX_STRAIGHTEN_MILLIDEGREES,
+    maximum: VIEW_MAX_STRAIGHTEN_MILLIDEGREES,
+  }),
+})
+/**
+ * The shared view recipe: one page of one evidence version, its preview's size and the view.
+ * The original is never changed; the decoder renders the view from the page preview.
+ */
+export const MediaViewRecipe = object({
+  version: Type.Literal('bench-intake-view/1'),
+  source_version_id: Id,
+  source_digest: Digest,
+  page: Type.Integer({ minimum: 1, maximum: 30 }),
+  page_width: dimension,
+  page_height: dimension,
+  view: MediaViewGeometry,
+})
+/** Mark positions are whole ten-thousandths of the rendered view, so sealed recipes hold integers. */
+export const VIEW_MARK_UNITS = 10_000
+const fraction = Type.Integer({ minimum: 0, maximum: VIEW_MARK_UNITS })
+const markPoint = object({ x: fraction, y: fraction })
+const markLabel = Type.String({ minLength: 1, maxLength: VIEW_MARK_LABEL_MAX_CHARACTERS })
+/**
+ * A mark the agent draws over a view, in ten-thousandths of the rendered view's width and height. A
+ * circle is drawn round in the middle of its box; a box must lie within the view.
+ */
+export const MediaViewMark = Type.Union([
+  object({
+    kind: Type.Union(
+      (['circle', 'ellipse', 'box', 'highlight'] as const).map((kind) => Type.Literal(kind)),
+    ),
+    geometry: object({ x: fraction, y: fraction, width: fraction, height: fraction }),
+    label: Type.Optional(markLabel),
+  }),
+  object({
+    kind: Type.Literal('arrow'),
+    geometry: object({ from: markPoint, to: markPoint }),
+    label: Type.Optional(markLabel),
+  }),
+  object({ kind: Type.Literal('label'), at: markPoint, label: markLabel }),
+])
+export const MediaViewMarks = Type.Array(MediaViewMark, { maxItems: VIEW_MAX_MARKS })
+export type MediaViewGeometryDto = Static<typeof MediaViewGeometry>
+
+/** Interpreted checks for retained recipes and marks, as the decoder and render queue read them. */
+export function assertMediaViewRecipe(value: unknown): asserts value is MediaViewRecipeDto {
+  if (!Value.Check(MediaViewRecipe, value)) {
+    throw new Error('invalid_view_recipe')
+  }
+}
+
+export function assertMediaViewMarks(value: unknown): asserts value is MediaViewMarkDto[] {
+  if (!Value.Check(MediaViewMarks, value)) {
+    throw new Error('invalid_view_marks')
+  }
+}
+
+export type MediaViewRecipeDto = Static<typeof MediaViewRecipe>
+export type MediaViewMarkDto = Static<typeof MediaViewMark>
+
 export const MediaDecodeState = Type.Union(
   ['queued', 'ready', 'unsupported', 'encrypted', 'malformed', 'limit_exceeded', 'interrupted'].map(
     (state) => Type.Literal(state),
@@ -312,6 +391,7 @@ export type MediaReceiptDto = Static<typeof MediaReceipt>
 export type MediaEditDto = Static<typeof MediaEdit>
 export const mediaSchemas = {
   MediaRecipe,
+  MediaViewRecipe,
   MediaVersion,
   MediaSnapshot,
   MediaReceipt,
@@ -382,6 +462,36 @@ export function assertMediaRenditionOutputHeader(
   value: unknown,
 ): asserts value is MediaRenditionOutputHeaderDto {
   if (!Value.Check(MediaRenditionOutputHeader, value)) {
+    throw new Error('invalid_decoder_output')
+  }
+}
+
+const MediaViewOutputImage = object({
+  width: dimension,
+  height: dimension,
+  byte_size: Type.Integer({ minimum: 1, maximum: MEDIA_PREVIEW_MAX_BYTES }),
+  digest: Digest,
+})
+/**
+ * A rendered view: the operator's WebP view and thumbnail, and, when marks were sent, a PNG preview
+ * with them drawn in for the agent. `malformed` means the page bytes or the recipe don't fit.
+ */
+const MediaViewOutputHeader = Type.Union([
+  object({
+    state: Type.Literal('ready'),
+    toolchain: Type.Literal(MEDIA_TOOLCHAIN),
+    view: MediaViewOutputImage,
+    thumb: MediaViewOutputImage,
+    preview: Type.Union([MediaViewOutputImage, Type.Null()]),
+  }),
+  object({ state: Type.Literal('malformed'), toolchain: Type.Literal(MEDIA_TOOLCHAIN) }),
+])
+export type MediaViewOutputHeaderDto = Static<typeof MediaViewOutputHeader>
+
+export function assertMediaViewOutputHeader(
+  value: unknown,
+): asserts value is MediaViewOutputHeaderDto {
+  if (!Value.Check(MediaViewOutputHeader, value)) {
     throw new Error('invalid_decoder_output')
   }
 }
@@ -494,6 +604,8 @@ export function assertAttachmentReceipt(value: unknown): asserts value is Attach
 export {
   MEDIA_MICRO_PIXELS,
   regionTrigonometry,
+  viewLayout,
+  type ViewLayout,
   rotatedMediaRegion,
   requireMediaRecipeBounds,
 } from './media-geometry.ts'
@@ -510,6 +622,15 @@ const MediaDecoderInputHeader = Type.Union([
     digest: Digest,
     width: dimension,
     height: dimension,
+  }),
+  /** One retained page PNG, rendered into a view of the recipe; marks only for an agent preview. */
+  object({
+    version: Type.Literal('media-view/1'),
+    digest: Digest,
+    width: dimension,
+    height: dimension,
+    recipe: MediaViewRecipe,
+    marks: Type.Union([MediaViewMarks, Type.Null()]),
   }),
 ])
 type MediaDecoderInputHeaderDto = Static<typeof MediaDecoderInputHeader>

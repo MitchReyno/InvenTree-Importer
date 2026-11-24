@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto'
 import { assertMediaDecoderInputHeader } from '@invimport/contracts/media'
 import { strictJson } from '@invimport/contracts/json'
 import { decode, renderRetained } from './decode.ts'
-import { MEDIA_LIMITS } from './decoder-protocol.ts'
+import { MEDIA_LIMITS, type ViewImage } from './decoder-protocol.ts'
+import { renderView } from './view.ts'
 
 const MAX_HEADER_BYTES = 8192
 
@@ -36,7 +37,42 @@ const sizedHeader = (item: { size: string; width: number; height: number; bytes:
   digest: digest(item.bytes),
 })
 
-if (value.version === 'media-renditions/1') {
+const imageHeader = (item: ViewImage) => ({
+  width: item.width,
+  height: item.height,
+  byte_size: item.bytes.length,
+  digest: digest(item.bytes),
+})
+
+if (value.version === 'media-view/1') {
+  const rendered = await renderView({
+    version: value.version,
+    digest: value.digest,
+    width: value.width,
+    height: value.height,
+    bytes: protocol.subarray(headerEnd + 1),
+    recipe: value.recipe,
+    marks: value.marks,
+  })
+  if (rendered.state === 'ready') {
+    const resultHeader = JSON.stringify({
+      state: rendered.state,
+      toolchain: rendered.toolchain,
+      view: imageHeader(rendered.view),
+      thumb: imageHeader(rendered.thumb),
+      preview: rendered.preview ? imageHeader(rendered.preview) : null,
+    })
+    process.stdout.write(resultHeader + '\n')
+    // The view, then the thumbnail, then the preview when there is one.
+    process.stdout.write(rendered.view.bytes)
+    process.stdout.write(rendered.thumb.bytes)
+    if (rendered.preview) {
+      process.stdout.write(rendered.preview.bytes)
+    }
+  } else {
+    process.stdout.write(JSON.stringify(rendered) + '\n')
+  }
+} else if (value.version === 'media-renditions/1') {
   const rendered = await renderRetained({
     version: value.version,
     digest: value.digest,

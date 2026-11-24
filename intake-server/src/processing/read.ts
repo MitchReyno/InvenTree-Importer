@@ -9,6 +9,8 @@ import {
   type StartFreshEligibilityDto,
   type ProcessingQuestionV1Dto,
   type ProcessingQuestionV2Dto,
+  type ProcessingQuestionFigureDto,
+  type QuestionFigureDto,
   type ProcessingSnapshotDto,
   type ProcessingStateDto,
   type ProcessingActivityDto,
@@ -60,6 +62,7 @@ import { activeSubjectJobs, countSteps, retiredLotIds } from './steps.ts'
 import { pausedAmong } from '#/agents/pause.ts'
 import { answeredQuestionFacts } from './answered-questions.ts'
 import { budgetAnswers } from './answer-summary.ts'
+import { questionFigureStates, type FigureStates } from './question-figures.ts'
 
 const jobColumns = {
   id: processingJobs.id,
@@ -271,6 +274,7 @@ async function questionsForJob(
   if (questions.length > MAX_JOB_RESULTS) {
     fail('processing_capacity')
   }
+  const figureStates = await questionFigureStates(client, job.id)
   return questions.map((question) => {
     const staleOpenQuestion =
       question.state === 'open' &&
@@ -282,7 +286,7 @@ async function questionsForJob(
       input_sha256: question.manifestDigest.toString('hex'),
       revision: question.revision.toString(),
       state: staleOpenQuestion ? 'superseded' : question.state,
-      ...questionContent(question, job.subjectId, batchSubjects),
+      ...questionContent(question, job.subjectId, batchSubjects, figureStates),
       ...(question.askedAt ? { asked_at: question.askedAt.toISOString() } : {}),
     }
   })
@@ -570,7 +574,7 @@ type QuestionContent =
   | Pick<ProcessingQuestionV1Dto, 'subject_id' | 'spec' | 'fields' | 'assumption'>
   | Pick<
       ProcessingQuestionV2Dto,
-      'subject_id' | 'schema_version' | 'fields' | 'title' | 'reason' | 'steps'
+      'subject_id' | 'schema_version' | 'fields' | 'title' | 'reason' | 'steps' | 'figures'
     >
 
 /**
@@ -578,9 +582,10 @@ type QuestionContent =
  * they affect and their assumptions; an earlier runner question has neither.
  */
 function questionContent(
-  question: RetainedQuestionSeal,
+  question: RetainedQuestionSeal & { id: string },
   subjectId: string | null,
   batchSubjects: ReadonlySet<string>,
+  figureStates: FigureStates,
 ): QuestionContent {
   if (!isSessionMessage(question)) {
     const spec = retainedQuestionSpec(
@@ -604,6 +609,7 @@ function questionContent(
       ...(ask.title ? { title: ask.title } : {}),
       reason: ask.reason,
       steps: ask.steps,
+      ...(ask.figures ? { figures: shownFigures(question.id, ask.figures, figureStates) } : {}),
     }
   }
   return {
@@ -612,6 +618,21 @@ function questionContent(
     fields: ask.fields,
     assumption: ask.assumption,
   }
+}
+
+/** A question's figures with each one's render state and the page it shows. */
+function shownFigures(
+  questionId: string,
+  figures: QuestionFigureDto[],
+  states: FigureStates,
+): ProcessingQuestionFigureDto[] {
+  return figures.map((figure, index) => {
+    const state = states.get(questionId)?.get(index + 1)
+    if (!state) {
+      fail('retained_question_figure_missing')
+    }
+    return { ...figure, ...state! }
+  })
 }
 
 function configuredRunnerStatus(

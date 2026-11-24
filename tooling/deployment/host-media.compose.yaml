@@ -47,5 +47,29 @@ services:
     volumes:
       - decoder-ipc:/run/decoder:ro
       - blobs:/var/lib/intake/blobs
+  # Long-running consumer of question figure renders, restarted if it stops.
+  figure-render:
+    image: ${INTAKE_APP_IMAGE:?select the verified app image}
+    platform: linux/arm64
+    pull_policy: never
+    command: [node, --import, tsx, src/media/render-worker-main.ts]
+    restart: unless-stopped
+    user: "1000:1000"
+    depends_on:
+      decoder-dispatch: {condition: service_healthy}
+      provision: {condition: service_completed_successfully}
+    network_mode: service:database
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp]
+    env_file: ["${INTAKE_MEDIA_RUNTIME_ENV:?provide the private media-role environment}"]
+    environment:
+      INTAKE_MEDIA_DISPATCH_SOCKET: /run/decoder/worker.sock
+      INTAKE_MEDIA_DECODER_IMAGE: ${INTAKE_MEDIA_DECODER_IMAGE}
+      INTAKE_BLOB_ROOT: /var/lib/intake/blobs/store
+    volumes:
+      - decoder-ipc:/run/decoder:ro
+      - blobs:/var/lib/intake/blobs
 volumes:
   decoder-ipc: {}

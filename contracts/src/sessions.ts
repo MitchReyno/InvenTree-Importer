@@ -19,6 +19,7 @@ import {
   QuestionNumberValue,
   QuestionOtherValue,
   QuestionTextValue,
+  QuestionFigures,
   STATUS_LINE_MAX_CHARACTERS,
   SessionProposal,
   ProposalStaleReason,
@@ -68,6 +69,10 @@ export const SessionAskArgsV2 = object({
   steps: QuestionSteps,
   /** An earlier, unanswered question of this session that this one replaces; it closes. */
   replaces: Type.Optional(Id),
+  /** Pictures of delivered evidence pages, most helpful first. */
+  figures: Type.Optional(QuestionFigures),
+  /** A dry run: render the figures with their marks for the agent and post nothing. */
+  preview: Type.Optional(Type.Literal(true)),
 })
 export const SessionReplyArgs = object({ inbox_item_id: Id, text: message })
 /** Passing a cursor acknowledges every inbox item up to it. */
@@ -105,6 +110,10 @@ export const SessionToolError = Type.Union(
       'capacity_reached',
       'tool_failed',
       'media_evidence_removed',
+      /** A figure preview wasn't rendered within its wait; call again. */
+      'preview_not_ready',
+      /** Too many figure previews are waiting to render; call again shortly. */
+      'preview_busy',
       /** The call's commit was not acknowledged, so its effect may or may not have happened. */
       'outcome_uncertain',
     ] as const
@@ -286,6 +295,22 @@ export const SessionToolResult = Type.Union([
         media_type: Type.Union([Type.Literal('image/png'), Type.Literal('image/jpeg')]),
         sha256: Digest,
       }),
+    ),
+    /**
+     * ask with `preview: true`: each figure rendered with its marks, in order, as the images that
+     * follow. A preview posts no question and grants no citation.
+     */
+    preview: Type.Optional(
+      Type.Array(
+        object({
+          figure: Type.Integer({ minimum: 1, maximum: 5 }),
+          width: Type.Integer({ minimum: 1 }),
+          height: Type.Integer({ minimum: 1 }),
+          media_type: Type.Union([Type.Literal('image/png'), Type.Literal('image/jpeg')]),
+          sha256: Digest,
+        }),
+        { minItems: 1, maxItems: 5 },
+      ),
     ),
     /** fetch_evidence for the lead session: the evidence's label and the operator's note. */
     evidence_label: Type.Optional(Type.String({ minLength: 1, maxLength: 256 })),

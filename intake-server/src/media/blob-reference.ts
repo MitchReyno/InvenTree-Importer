@@ -44,7 +44,9 @@ export async function blobReferenced(client: PoolClient, digest: string): Promis
          OR EXISTS(SELECT 1 FROM media_preview WHERE blob_digest=$1)
          OR EXISTS(SELECT 1 FROM media_preview_rendition WHERE blob_digest=$1)
          OR EXISTS(SELECT 1 FROM media_approval_pin WHERE blob_digest=$1)
-         OR EXISTS(SELECT 1 FROM media_command_pin WHERE blob_digest=$1) AS referenced`,
+         OR EXISTS(SELECT 1 FROM media_command_pin WHERE blob_digest=$1)
+         OR EXISTS(SELECT 1 FROM processing_figure_render
+                   WHERE view_digest=$1 OR thumb_digest=$1 OR preview_digest=$1) AS referenced`,
     [Buffer.from(digest, 'hex')],
   )
   return result.rows[0].referenced

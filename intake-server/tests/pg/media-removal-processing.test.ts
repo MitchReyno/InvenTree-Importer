@@ -236,7 +236,7 @@ test('each of the three joins stales a proposal, and publication refuses removed
     store,
     statusIntervalMs: 0,
     imageBudget: new Map<string, number>(),
-    deliveredMedia: new Map<string, Set<string>>(),
+    deliveredMedia: new Map(),
     cropCacheDir: join(root, 'crops'),
   }
   const tools = sessionTools(context)
@@ -461,7 +461,7 @@ test('a proposal citing a removed photo only in its catalogue goes stale, and In
     store,
     statusIntervalMs: 0,
     imageBudget: new Map<string, number>(),
-    deliveredMedia: new Map<string, Set<string>>(),
+    deliveredMedia: new Map(),
   })
   const source = (version: { evidence: string; version: string }, bytes: Buffer) => ({
     kind: 'media_version' as const,

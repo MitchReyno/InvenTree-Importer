@@ -21,7 +21,7 @@ import {
   type ProcessingInputDto,
 } from '@invimport/contracts'
 import { catalogueSources, deliveredSourceCheck, validateProposalSources } from './provenance.ts'
-import { canonical } from '@invimport/contracts/json'
+import { canonical, canonicalRecord } from '@invimport/contracts/json'
 import { decodeProposal, decodeQuestionSpec, fail, unseal } from './model.ts'
 
 interface MessageSeal {
@@ -190,7 +190,7 @@ export function retainedSessionQuestion(
   const ask = value as SessionAskArgsDto | SessionAskArgsV2Dto
   if (
     envelope.kind !== 'question' ||
-    canonical(envelope.payload) !== canonical(ask) ||
+    canonicalRecord(envelope.payload) !== canonicalRecord(ask) ||
     (subjectId === null
       ? ask.subject_id !== null && !batchSubjects.has(ask.subject_id)
       : ask.subject_id !== subjectId)

@@ -1,11 +1,15 @@
 import { sha256 } from '#/db/authority.ts'
 import { evidenceNotes } from '#/capture/context-input.ts'
 import { syntheticLeadTurn } from './synthetic-lead.ts'
+import { decodeMediaInputs } from '#/media/inputs.ts'
 import type { SessionDriverContext } from './session-runner.ts'
 import type { SessionTurn } from './session-adapters.ts'
 
 export interface SyntheticResult {
   ok: boolean
+  pages?: { page: number; width: number; height: number }[]
+  /** Present only when the fetch gave the session an image of that page. */
+  delivered?: { page: number }
   items?: { id: string; seq: string; kind: string; payload?: Record<string, unknown> }[]
 }
 
@@ -42,6 +46,52 @@ export function syntheticQuestion(subjectId: string) {
       },
     ],
   }
+}
+
+/**
+ * A picture of the lot's first photo for the synthetic question: the session fetches the photo,
+ * so its first page is delivered, and shows the middle half of it with one box. None when the
+ * session has no photo, the fetch is refused, or the host gives page sizes without an image.
+ */
+async function syntheticFigures(
+  manifest: SessionDriverContext['manifest'],
+  call: (name: string, args: Record<string, unknown>) => Promise<SyntheticResult>,
+) {
+  const photo = decodeMediaInputs(
+    Buffer.from(manifest.media.manifest, 'utf8'),
+    Buffer.from(manifest.media.sha256, 'hex'),
+  ).versions[0]
+  if (!photo) {
+    return undefined
+  }
+  const fetched = await call('fetch_evidence', {
+    evidence_id: photo.evidenceId,
+    version_id: photo.versionId,
+  })
+  const page = fetched.pages?.find((item) => item.page === fetched.delivered?.page)
+  if (!fetched.ok || !page) {
+    return undefined
+  }
+  const width = Math.max(1, Math.floor(page.width / 2))
+  const height = Math.max(1, Math.floor(page.height / 2))
+  return [
+    {
+      source: {
+        kind: 'evidence_page',
+        evidence_id: photo.evidenceId,
+        version_id: photo.versionId,
+        page: page.page,
+      },
+      view: {
+        region: { x: Math.floor(page.width / 4), y: Math.floor(page.height / 4), width, height },
+        quarter_turns: 0,
+        straighten_millidegrees: 0,
+      },
+      marks: [{ kind: 'box', geometry: { x: 2500, y: 2500, width: 5000, height: 5000 } }],
+      caption: 'The lot, as the session sees it',
+      why: 'Count the items inside the box.',
+    },
+  ]
 }
 
 export async function syntheticTurn(
@@ -124,7 +174,11 @@ export async function syntheticTurn(
   }
   const answered = items.some((item) => item.kind === 'answer')
   if (!answered && !turn.resume && context.manifest.subject_id) {
-    await call('ask', syntheticQuestion(context.manifest.subject_id))
+    const figures = await syntheticFigures(context.manifest, call)
+    await call('ask', {
+      ...syntheticQuestion(context.manifest.subject_id),
+      ...(figures ? { figures } : {}),
+    })
   }
   const last = items.at(-1)
   if (last) {

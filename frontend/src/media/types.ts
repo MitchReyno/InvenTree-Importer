@@ -34,6 +34,21 @@ export function photoViewCrop(batchId: string, jobId: string, attemptId: string,
   return `/api/v1/batches/${job}/photo-views/${encodeURIComponent(attemptId)}/${encodeURIComponent(seq)}/crop`
 }
 
+/** A rendered question picture: the larger `view` or its `thumb`. */
+export type QuestionFigureSize = 'view' | 'thumb'
+
+/** A question's picture as the figure route serves it; `index` counts from 1, in the agent's order. */
+export function questionFigureImage(
+  batchId: string,
+  jobId: string,
+  questionId: string,
+  index: number,
+  size: QuestionFigureSize,
+) {
+  const job = `${encodeURIComponent(batchId)}/processing/sessions/${encodeURIComponent(jobId)}`
+  return `/api/v1/batches/${job}/questions/${encodeURIComponent(questionId)}/figures/${index}/${size}`
+}
+
 /** `onConfirmed` runs once the change is confirmed, whether by this request or its exact retry. */
 export type EditMedia = (
   change: MediaEditDto['change'],

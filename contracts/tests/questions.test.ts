@@ -454,3 +454,113 @@ test('a /2 ask may name the earlier question it replaces', () => {
   validate('SessionAskArgsV2', { ...ask, replaces: id(4) })
   assert.deepEqual(issuePaths('SessionAskArgsV2', { ...ask, replaces: 'q1' }), ['/replaces'])
 })
+
+const figure = {
+  source: { kind: 'evidence_page', evidence_id: id(20), version_id: id(21), page: 1 },
+  view: {
+    region: { x: 1840, y: 1210, width: 900, height: 500 },
+    quarter_turns: 1,
+    straighten_millidegrees: -2500,
+  },
+  marks: [
+    { kind: 'box', geometry: { x: 7000, y: 3000, width: 2000, height: 3000 } },
+    { kind: 'label', at: { x: 6000, y: 8000 }, label: 'Worn: B or nothing?' },
+    { kind: 'arrow', geometry: { from: { x: 1000, y: 9000 }, to: { x: 3000, y: 6000 } } },
+  ],
+  caption: 'The worn suffix, boxed',
+  why: 'The last letters are worn; P-AU and PB-AU differ only in that B.',
+}
+
+test('a /2 ask may carry up to 5 figures with up to 8 marks, and a preview flag', () => {
+  validate('SessionAskArgsV2', { ...ask, figures: [figure] })
+  validate('SessionAskArgsV2', { ...ask, figures: Array(5).fill(figure), preview: true })
+  const marks = Array(8).fill({
+    kind: 'circle',
+    geometry: { x: 0, y: 0, width: 10000, height: 10000 },
+  })
+  validate('SessionAskArgsV2', { ...ask, figures: [{ ...figure, marks }] })
+  assert.deepEqual(issuePaths('SessionAskArgsV2', { ...ask, figures: Array(6).fill(figure) }), [
+    '/figures',
+  ])
+  assert.deepEqual(issuePaths('SessionAskArgsV2', { ...ask, figures: [] }), ['/figures'])
+  assert.deepEqual(
+    issuePaths('SessionAskArgsV2', {
+      ...ask,
+      figures: [{ ...figure, marks: [...marks, marks[0]] }],
+    }),
+    ['/figures/0/marks'],
+  )
+  assert.deepEqual(issuePaths('SessionAskArgsV2', { ...ask, preview: false }), ['/preview'])
+})
+
+test('a figure bounds its caption, why, mark labels, source and view', () => {
+  const paths = (changed: object) =>
+    issuePaths('SessionAskArgsV2', { ...ask, figures: [{ ...figure, ...changed }] })
+  assert.deepEqual(paths({ caption: 'c'.repeat(80) }), [])
+  assert.ok(paths({ caption: 'c'.repeat(81) }).includes('/figures/0/caption'))
+  assert.ok(paths({ caption: ' ' }).includes('/figures/0/caption'))
+  assert.deepEqual(paths({ why: 'w'.repeat(200) }), [])
+  assert.ok(paths({ why: 'w'.repeat(201) }).includes('/figures/0/why'))
+  const label = (text: string) =>
+    paths({ marks: [{ kind: 'label', at: { x: 5000, y: 5000 }, label: text }] })
+  assert.deepEqual(label('l'.repeat(40)), [])
+  assert.ok(label('l'.repeat(41)).some((path) => path.startsWith('/figures/0/marks/0')))
+  assert.ok(
+    paths({ marks: [{ kind: 'box', geometry: { x: 1.2, y: 0, width: 1000, height: 1000 } }] }).some(
+      (path) => path.startsWith('/figures/0/marks/0'),
+    ),
+  )
+  assert.ok(paths({ marks: [{ kind: 'label', at: { x: 5000, y: 5000 } }] }).length > 0)
+  assert.ok(paths({ source: { ...figure.source, kind: 'web_page' } }).length > 0)
+  assert.ok(paths({ source: { ...figure.source, page: 31 } }).includes('/figures/0/source/page'))
+  const view = (changed: object) => paths({ view: { ...figure.view, ...changed } })
+  assert.deepEqual(view({ quarter_turns: 3 }), [])
+  assert.ok(view({ quarter_turns: 4 }).includes('/figures/0/view/quarter_turns'))
+  assert.ok(view({ quarter_turns: -1 }).includes('/figures/0/view/quarter_turns'))
+  assert.deepEqual(view({ straighten_millidegrees: 15000 }), [])
+  assert.deepEqual(view({ straighten_millidegrees: -15000 }), [])
+  assert.ok(
+    view({ straighten_millidegrees: 15001 }).includes('/figures/0/view/straighten_millidegrees'),
+  )
+  assert.ok(
+    view({ straighten_millidegrees: -15001 }).includes('/figures/0/view/straighten_millidegrees'),
+  )
+  assert.ok(
+    view({ straighten_millidegrees: 1.5 }).includes('/figures/0/view/straighten_millidegrees'),
+  )
+  assert.ok(
+    view({ region: { x: 0, y: 0, width: 0, height: 5 } }).includes('/figures/0/view/region/width'),
+  )
+})
+
+test('the read model carries a /2 question’s figures with their state and page size', () => {
+  const question = {
+    id: id(30),
+    job_id: id(31),
+    attempt_id: id(32),
+    input_sha256: digest('a'),
+    revision: '1',
+    state: 'open',
+    subject_id: id(1),
+    schema_version: 'bench-intake-question/2',
+    fields: ['identity'],
+    reason: 'Worn marking.',
+    steps: [choiceStep],
+  }
+  const shown = {
+    ...figure,
+    state: 'ready',
+    evidence_label: 'IMG_3020',
+    document: false,
+    page_width: 4032,
+    page_height: 3024,
+  }
+  validate('ProcessingQuestion', { ...question, figures: [shown] })
+  for (const state of ['preparing', 'failed', 'removed']) {
+    validate('ProcessingQuestion', { ...question, figures: [{ ...shown, state }] })
+  }
+  assert.ok(
+    issuePaths('ProcessingQuestion', { ...question, figures: [{ ...shown, state: 'queued' }] })
+      .length > 0,
+  )
+})

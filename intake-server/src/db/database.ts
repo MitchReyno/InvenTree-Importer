@@ -1,4 +1,4 @@
-import { Pool, type PoolClient } from 'pg'
+import { Client, Pool, type PoolClient } from 'pg'
 import { DrizzleQueryError } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import * as schema from './schema.ts'
@@ -34,6 +34,44 @@ export function database(connectionString: string) {
     /* No reconnect confers writer authority. Apply owns fatal lock loss. */
   })
   return { pool, orm: queryDatabase(pool), close: () => pool.end() }
+}
+
+/** The parts of node-postgres's protocol cancel that its types leave out. */
+interface CancellingClient {
+  connection: {
+    on(event: 'error' | 'end', listener: () => void): void
+    stream: { destroy(): void; unref(): void }
+  }
+  cancel(target: PoolClient, query: unknown): void
+}
+
+/** How long a cancel request's socket may stay open; the server normally closes it at once. */
+const CANCEL_SOCKET_LIFETIME_MS = 5_000
+
+/**
+ * Asks the server to stop the statement a pool client is running, with a protocol cancel request
+ * on a fresh socket rather than a new session, so it works when the role's connection limit is
+ * reached. Best effort: the server answers nothing, a refused socket is ignored, and a stalled
+ * one is closed after `CANCEL_SOCKET_LIFETIME_MS`.
+ */
+export function cancelRunningStatement(
+  pool: Pool,
+  target: PoolClient,
+  lifetimeMs = CANCEL_SOCKET_LIFETIME_MS,
+) {
+  const running = (target as PoolClient & { activeQuery?: unknown }).activeQuery
+  if (!running) {
+    return
+  }
+  const canceller = new Client(pool.options) as unknown as CancellingClient
+  // The socket is opened outside the pool, so it gets its own bound. Neither it nor its timer
+  // keeps the process up once connected; a connect still pending can delay exit until it settles.
+  const lifetime = setTimeout(() => canceller.connection.stream.destroy(), lifetimeMs)
+  lifetime.unref()
+  canceller.connection.stream.unref()
+  canceller.connection.on('end', () => clearTimeout(lifetime))
+  canceller.connection.on('error', () => undefined)
+  canceller.cancel(target, running)
 }
 
 export async function transaction<T>(
