@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import type { BatchAttentionDto } from '@invimport/contracts'
 import styled from 'styled-components'
 import { sessionPageHref, batchHref } from '#/navigation/batch-route'
-import type { ProcessingSource, StepProgress } from '#/processing/source'
+import type { ProcessingSource, SourceSession, StepProgress } from '#/processing/source'
 import type { LotSteps } from '#/processing/lot-steps'
 import { color, space, type, typeVar } from '#/theme/generated/tokens'
 import {
@@ -18,13 +18,15 @@ import {
 } from '#/components/ui'
 import { PauseButton } from '#/components/agents/PauseButton'
 import { stageSegment } from '#/header/workSegments'
-import { Card, CardTitle, Muted, SessionRows, plural } from './ProcessingParts'
+import { Card, CardTitle, Muted, SessionRows, plural, type MoreSessions } from './ProcessingParts'
 import { LotTable } from './LotTable'
 import { NeedsYouCard } from './NeedsYouCard'
 
 type Props = {
   batchId: string
   source: ProcessingSource
+  /** The batch's session list, one row per session with its earlier attempts, when read. */
+  sessionList?: { rows: SourceSession[]; more: MoreSessions }
   /** The batch instruction field, owned by the workspace that saves it. */
   instructions: ReactNode
   /** Agents' newest status lines across the batch, oldest first. */
@@ -94,6 +96,7 @@ export function ProcessingOverview({
   paused = false,
   still = false,
   onOpenSession,
+  sessionList,
 }: Props) {
   const runningSessions = source.sessions.filter((session) => session.state === 'running').length
   const working = source.sessions.length
@@ -196,7 +199,8 @@ export function ProcessingOverview({
             </TitleRow>
             {pause?.paused && <Muted>Paused: no session starts new work until you resume.</Muted>}
             <SessionRows
-              sessions={source.sessions}
+              sessions={sessionList?.rows ?? source.sessions}
+              more={sessionList?.more}
               paused={source.paused}
               onOpen={onOpenSession}
               pageHref={(session) => sessionPageHref(batchId, session.step, session.jobId)}

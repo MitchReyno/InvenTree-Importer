@@ -1,5 +1,6 @@
 import styled from 'styled-components'
 import {
+  Button,
   hoverTransition,
   linkTouchArea,
   media,
@@ -7,6 +8,8 @@ import {
   raisedOnField,
   StatePill,
 } from '#/components/ui'
+import { EarlierAttempts } from '#/components/agents/EarlierAttempts'
+import { failureHeadline, NEEDS_RECOVERY } from '#/agents/session-list'
 import { workState } from '#/header/workSegments'
 import { batchHref } from '#/navigation/batch-route'
 import type { SourceQuestion, SourceSession } from '#/processing/source'
@@ -23,11 +26,20 @@ export function plural(count: number, one: string, many = `${one}s`) {
   return `${count} ${count === 1 ? one : many}`
 }
 
+/** Load more for a session list read a page at a time. */
+export type MoreSessions = {
+  canLoadMore: boolean
+  loadingMore: boolean
+  moreFailed: boolean
+  loadMore: () => void
+}
+
 export function SessionRows({
   sessions,
   paused = false,
   onOpen,
   pageHref,
+  more,
 }: {
   sessions: SourceSession[]
   /** The batch's agents are paused, so queued sessions read Paused. */
@@ -35,46 +47,73 @@ export function SessionRows({
   onOpen: (jobId: string) => void
   /** The session's full page; the row itself opens the drawer. */
   pageHref?: (session: SourceSession) => string
+  more?: MoreSessions
 }) {
   return (
-    <SessionList>
-      {sessions.map((session) => (
-        <li key={session.jobId}>
-          <SessionRow
-            type="button"
-            data-session-job={session.jobId}
-            aria-label={`Open session: ${STEP_LABEL[session.step]} · ${session.subject}`}
-            aria-describedby={`session-${session.jobId}-state${
-              session.status ? ` session-${session.jobId}-status` : ''
-            }`}
-            onClick={() => onOpen(session.jobId)}
-          >
-            <SessionLabel>
-              <Pill tone="neutral" glyph="">
-                {STEP_LABEL[session.step]}
-              </Pill>
-              <b>{session.subject}</b>
-            </SessionLabel>
-            <span id={`session-${session.jobId}-state`}>
-              <StatePill state={workState(session.state, { paused })} />
-            </span>
-            {session.status && (
-              <SessionStatus id={`session-${session.jobId}-status`}>{session.status}</SessionStatus>
-            )}
-          </SessionRow>
-          {pageHref && (
-            <PageLink
-              href={pageHref(session)}
-              aria-label={`Open full session: ${STEP_LABEL[session.step]} · ${session.subject}`}
-            >
-              Full session
-            </PageLink>
-          )}
-        </li>
-      ))}
-    </SessionList>
+    <>
+      <SessionList>
+        {sessions.map((session) => {
+          // A failed session leads with its cause; any other with its latest status line.
+          const line = NEEDS_RECOVERY.has(session.state)
+            ? failureHeadline(session.failure)
+            : session.status
+          return (
+            <li key={session.jobId}>
+              <SessionRow
+                type="button"
+                data-session-job={session.jobId}
+                aria-label={`Open session: ${STEP_LABEL[session.step]} · ${session.subject}`}
+                aria-describedby={`session-${session.jobId}-state${
+                  line ? ` session-${session.jobId}-status` : ''
+                }`}
+                onClick={() => onOpen(session.jobId)}
+              >
+                <SessionLabel>
+                  <Pill tone="neutral" glyph="">
+                    {STEP_LABEL[session.step]}
+                  </Pill>
+                  <b>{session.subject}</b>
+                </SessionLabel>
+                <span id={`session-${session.jobId}-state`}>
+                  <StatePill state={workState(session.state, { paused })} />
+                </span>
+                {line && (
+                  <SessionStatus id={`session-${session.jobId}-status`}>{line}</SessionStatus>
+                )}
+              </SessionRow>
+              {pageHref && (
+                <PageLink
+                  href={pageHref(session)}
+                  aria-label={`Open full session: ${STEP_LABEL[session.step]} · ${session.subject}`}
+                >
+                  Full session
+                </PageLink>
+              )}
+              {session.earlier && (
+                <Earlier>
+                  <EarlierAttempts
+                    count={session.earlier.count}
+                    attempts={session.earlier.attempts}
+                  />
+                </Earlier>
+              )}
+            </li>
+          )
+        })}
+      </SessionList>
+      {more?.canLoadMore && (
+        <Button size="sm" disabled={more.loadingMore} onClick={more.loadMore}>
+          Load more
+        </Button>
+      )}
+      {more?.moreFailed && <Muted role="alert">More sessions couldn’t be loaded.</Muted>}
+    </>
   )
 }
+
+const Earlier = styled.div`
+  padding: 0 ${space[8]} ${space[4]};
+`
 
 const PageLink = styled.a`
   display: inline-block;

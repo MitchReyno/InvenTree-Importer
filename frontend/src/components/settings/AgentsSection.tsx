@@ -28,6 +28,10 @@ import { TagSuggestionsForm } from './agents/TagSuggestionsForm'
 import { useDirtyForms } from './agents/useDirtyForms'
 import { createSaveQueue } from './agents/save-queue'
 import type { SettingsPage } from './agents/useSettingsSave'
+import { sessionListKey } from '#/agents/session-list'
+
+/** Every session, for the list's totals; no page or filter narrows them. */
+const ALL_SESSIONS = { filter: 'all' } as const
 
 type Props = {
   client: ReturnType<typeof agentsClient>
@@ -56,10 +60,10 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
     queryFn: () => client.settings(),
   })
   const settings = settingsFresh.query
-  // The Agents page's list; its first page gives the slot use it shows too.
+  // The session list's totals count every session, whatever page or filter the list shows.
   const sessionsFresh = useFreshRead({
-    queryKey: serverQueryKey(scope, 'agent-sessions', 'newest'),
-    queryFn: () => client.sessions(),
+    queryKey: sessionListKey(scope, ALL_SESSIONS),
+    queryFn: () => client.sessions(ALL_SESSIONS),
     refetchInterval: poll === false ? 10000 : poll,
   })
   const sessions = sessionsFresh.query
@@ -113,12 +117,22 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
   }, [subsection, ready])
 
   /**
+   * A save can change whether Start fresh would be accepted, which the Processing reads, their
+   * session histories and the session list carry; settings are on no batch's event stream.
+   */
+  function refreshEligibility() {
+    void queryClient.invalidateQueries({ queryKey: serverQueryKey(scope, 'processing') })
+    void queryClient.invalidateQueries({ queryKey: serverQueryKey(scope, 'agent-sessions') })
+  }
+
+  /**
    * Publishes confirmed settings and answers with what is current. A read that was already
    * running, or a reload older than a save confirmed meanwhile, never replaces newer settings.
    */
   function adoptLoaded(confirmed: AgentSettingsDto, source: 'save' | 'reload') {
     if (source === 'save') {
       localSaves.current.add(confirmed.revision)
+      refreshEligibility()
     }
     const latest = newestRevision(
       confirmed,
@@ -158,7 +172,10 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
             queryClient.getQueryData<AgentSettingsDto>(settingsKey),
           ),
         adopt: adoptLoaded,
-        ownSave: (revision) => localSaves.current.add(revision),
+        ownSave: (revision) => {
+          localSaves.current.add(revision)
+          refreshEligibility()
+        },
         localSaves: localSaves.current,
         reportDirty: reportDirty.report,
       }

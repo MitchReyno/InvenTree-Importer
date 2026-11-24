@@ -1,25 +1,15 @@
 import styled from 'styled-components'
-import { color, space, type } from '#/theme/generated/tokens'
+import { color, space, type, typeVar } from '#/theme/generated/tokens'
 import { useId, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { SessionFailureDto, SessionFailureSummaryDto } from '@invimport/contracts'
 import { serverQueryKey } from '#/queries/scope'
-import { Button, DebugDetails, Link, Spinner } from '#/components/ui'
+import { Button, DebugDetails, EventTime, HelpButton, Link, Spinner } from '#/components/ui'
 import { useServerScope } from '#/context'
 import { useDebugMode } from '#/debug/debug-mode'
+import { failureHeadline } from '#/agents/session-list'
 
 export type FailureLoader = (attemptId: string, failureId: string) => Promise<SessionFailureDto>
-const labels: Record<SessionFailureDto['category'], string> = {
-  authentication: 'Authentication',
-  configuration: 'Configuration',
-  tool_policy: 'Tool policy',
-  validation: 'Validation',
-  evidence: 'Evidence',
-  provider_network: 'Provider / network',
-  timeout: 'Timeout',
-  interrupted: 'Interrupted',
-  internal: 'Internal / unknown',
-}
 
 /** The provider's own error, kind first, then its result type or HTTP status when given. */
 function providerErrorText(error: SessionFailureDto['provider_error']) {
@@ -36,6 +26,22 @@ function providerErrorText(error: SessionFailureDto['provider_error']) {
   return parts.join(' · ')
 }
 
+/** The codes behind a failure, for debug mode only: category, cause code and provider error. */
+function failureCodes(failure: SessionFailureSummaryDto) {
+  const codes: string[] = [failure.category]
+  if (failure.cause) {
+    codes.push(failure.cause.code)
+    const error = failure.cause.provider_error
+    if (error) {
+      codes.push(error.kind)
+      if (error.http_status !== null) {
+        codes.push(String(error.http_status))
+      }
+    }
+  }
+  return codes.join(' · ')
+}
+
 export const FAILED_SESSION_STATES = new Set([
   'failed',
   'interrupted',
@@ -44,8 +50,29 @@ export const FAILED_SESSION_STATES = new Set([
 ])
 
 /**
- * Category, summary and recovery always show. In debug mode, Show details reads the retained
- * diagnostics on demand; expanding only reads, and never sends chat or retries work.
+ * A failure in one line: its recorded cause in plain words, then its last status line and when
+ * it was posted, or when the failure was recorded.
+ */
+export function FailureLine({ failure }: { failure?: SessionFailureSummaryDto }) {
+  const status = failure?.last_status
+  const at = status?.at ?? failure?.failed_at
+  return (
+    <Line>
+      <strong>{failureHeadline(failure)}</strong>
+      {(status || at) && (
+        <When>
+          {status && <span>Last status: {status.text}</span>}
+          {at && <EventTime at={at} />}
+        </When>
+      )}
+    </Line>
+  )
+}
+
+/**
+ * A failure's cause in plain words, with the category's advice behind a help button. Codes show
+ * only in debug mode, where Show details reads the retained diagnostics on demand; expanding only
+ * reads, and never sends chat or retries work.
  */
 export function SessionFailureDetails({
   attemptId,
@@ -79,11 +106,11 @@ export function SessionFailureDetails({
   const available = Boolean(load && failure?.details_available)
   return (
     <FailureSection aria-label="Session failure">
-      <p>
-        <strong>{failure ? labels[failure.category] : 'Category unavailable'}</strong>
-        {failure && `: ${failure.summary}`}
-      </p>
-      {failure && <p>{failure.recovery}</p>}
+      <Lead>
+        <FailureLine failure={failure} />
+        {failure && <HelpButton label="What to do" explanation={failure.recovery} />}
+      </Lead>
+      {debug && failure && <Codes>{failureCodes(failure)}</Codes>}
       {sessionHref && <Link href={sessionHref}>Open session</Link>}
       {debug && (
         <Button
@@ -151,6 +178,31 @@ export function SessionFailureDetails({
     </FailureSection>
   )
 }
+
+const Line = styled.span`
+  display: grid;
+  gap: ${space[1]};
+  min-width: 0;
+`
+
+const When = styled.span`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${space[1]} ${space[3]};
+  font-size: ${typeVar.small.size};
+  color: ${color.muted};
+`
+
+const Lead = styled.div`
+  display: flex;
+  align-items: start;
+  gap: ${space[3]};
+`
+
+const Codes = styled.code`
+  font-size: ${typeVar.small.size};
+  color: ${color.muted};
+`
 
 const FailureSection = styled.section`
   flex-basis: 100%;

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
 import { sessionPageHref, batchHref } from '#/navigation/batch-route'
-import type { ProcessingSource, WorkStep } from '#/processing/source'
+import type { ProcessingSource, SourceSession, WorkStep } from '#/processing/source'
 import type { StepSummary } from '#/processing/lot-steps'
 import { color, space, type } from '#/theme/generated/tokens'
 import {
@@ -13,12 +13,21 @@ import {
   StatePill,
   type WorkState,
 } from '#/components/ui'
-import { Card, CardTitle, Muted, QuestionRows, SessionRows } from './ProcessingParts'
+import {
+  Card,
+  CardTitle,
+  Muted,
+  QuestionRows,
+  SessionRows,
+  type MoreSessions,
+} from './ProcessingParts'
 
 type Props = {
   batchId: string
   step: WorkStep
   source: ProcessingSource
+  /** The batch's session list, one row per session with its earlier attempts, when read. */
+  sessionList?: { rows: SourceSession[]; more: MoreSessions }
   /** This step's own count and state, as its section below reads them. */
   summary: StepSummary
   /** The lot the address asks to focus, with its state at this step. */
@@ -41,6 +50,7 @@ export function StepPage({
   summary,
   focus,
   onOpenSession,
+  sessionList,
   help,
   children,
 }: Props) {
@@ -77,7 +87,8 @@ export function StepPage({
         <Card aria-label="Sessions">
           <CardTitle>Sessions</CardTitle>
           <SessionRows
-            sessions={sessions}
+            sessions={sessionList?.rows.filter((session) => session.step === step) ?? sessions}
+            more={sessionList?.more}
             paused={source.paused}
             onOpen={onOpenSession}
             pageHref={(session) => sessionPageHref(batchId, session.step, session.jobId)}

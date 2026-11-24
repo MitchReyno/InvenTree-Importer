@@ -4,6 +4,7 @@ import {
   type SessionHistoryAttemptDto,
   type SessionHistoryDto,
   type SessionHistoryEntryDto,
+  type StartFreshEligibilityDto,
 } from '@invimport/contracts'
 
 /** Fixed identities for session history fixtures, valid under the contract's ID patterns. */
@@ -348,7 +349,13 @@ export function history(
     before,
     attempts = [attemptHeader()],
     acked = '100',
-  }: { before?: string; attempts?: SessionHistoryAttemptDto[]; acked?: string } = {},
+    startFresh = { allowed: true },
+  }: {
+    before?: string
+    attempts?: SessionHistoryAttemptDto[]
+    acked?: string
+    startFresh?: StartFreshEligibilityDto
+  } = {},
 ): SessionHistoryDto {
   // The read lists attempts newest first, as the server does.
   const newestFirst = [...attempts].sort((a, b) => b.number - a.number)
@@ -361,6 +368,7 @@ export function history(
       current_attempt_id: newestFirst[0].id,
       attempts: newestFirst,
       inbox_acked_seq: acked,
+      start_fresh: startFresh,
     },
     entries,
     ...(before ? { before } : {}),

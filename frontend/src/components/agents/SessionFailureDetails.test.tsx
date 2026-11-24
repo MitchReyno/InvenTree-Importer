@@ -39,16 +39,61 @@ afterEach(() => {
   act(() => debugModeController().setEnabled(false))
 })
 
-test('with debug mode off, recovery shows and no details are offered or read', () => {
+test('with debug mode off, the cause leads in plain words, advice waits behind help and no code shows', async () => {
   act(() => debugModeController().setEnabled(false))
   const load = vi.fn().mockResolvedValue(details)
-  render(<SessionFailureDetails attemptId="attempt" failure={details} load={load} />)
+  render(
+    <SessionFailureDetails
+      attemptId="attempt"
+      failure={{
+        ...details,
+        failed_at: '2026-11-07T00:00:00Z',
+        cause: { code: 'agent_tool_refused', provider: 'codex' },
+        last_status: { text: 'Fetching a page on a private address', at: '2026-11-07T00:00:00Z' },
+      }}
+      load={load}
+    />,
+  )
 
-  expect(screen.getByText('Tool policy')).toBeVisible()
-  expect(screen.getByText('Check CLI configuration.')).toBeVisible()
+  expect(screen.getByText("Stopped: the agent tried a tool it isn't allowed to use")).toBeVisible()
+  expect(screen.getByText('Last status: Fetching a page on a private address')).toBeVisible()
+  expect(screen.queryByText('Check CLI configuration.')).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'What to do' }))
+  expect(await screen.findByText('Check CLI configuration.')).toBeVisible()
+  expect(screen.queryByText(/agent_tool_refused/)).not.toBeInTheDocument()
+  expect(screen.queryByText(/tool_policy/)).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Show details' })).not.toBeInTheDocument()
-  expect(screen.queryByText('agent_tool_refused')).not.toBeInTheDocument()
   expect(load).not.toHaveBeenCalled()
+})
+
+test('an overloaded Claude turn reads with its HTTP status, and its codes show only in debug mode', () => {
+  const failure = {
+    ...details,
+    category: 'provider_network' as const,
+    cause: {
+      code: 'agent_turn_failed' as const,
+      provider: 'claude' as const,
+      provider_error: { kind: 'overloaded', result: null, http_status: 529 },
+    },
+  }
+  act(() => debugModeController().setEnabled(false))
+  const view = render(<SessionFailureDetails attemptId="attempt" failure={failure} />)
+  expect(screen.getByText("Couldn't reach Claude: the API was overloaded (HTTP 529)")).toBeVisible()
+  expect(screen.queryByText(/provider_network/)).not.toBeInTheDocument()
+  view.unmount()
+
+  act(() => debugModeController().setEnabled(true))
+  render(<SessionFailureDetails attemptId="attempt" failure={failure} />)
+  expect(screen.getByText('provider_network · agent_turn_failed · overloaded · 529')).toBeVisible()
+})
+
+test('a failure recorded without a cause says so rather than showing advice as the cause', () => {
+  act(() => debugModeController().setEnabled(false))
+  render(<SessionFailureDetails attemptId="attempt" failure={details} />)
+
+  expect(screen.getByText('Failed · the cause wasn’t recorded')).toBeVisible()
+  expect(screen.queryByText('Check CLI configuration.')).not.toBeInTheDocument()
+  expect(screen.queryByText(details.summary)).not.toBeInTheDocument()
 })
 
 test('details load lazily, open by keyboard, close and reuse the retained result', async () => {

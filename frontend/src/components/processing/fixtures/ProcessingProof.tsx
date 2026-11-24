@@ -2,7 +2,7 @@ import type {
   AgentSettingsDto,
   BatchAttentionDto,
   SessionFailureDto,
-  AgentSessionListDto,
+  AgentSessionDto,
   CaptureSnapshotDto,
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
@@ -11,6 +11,8 @@ import { Masthead } from '#/components/masthead/Masthead'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { AgentSessions } from '#/components/agents/AgentSessions'
 import { fixtureHistory } from './session-history'
+import { sessionList, sessionRow } from '#/test/agent-sessions'
+import { heyyySessions, HEYYY_LOT, HEYYY_NAMES } from '#/components/agents/fixtures/heyyy'
 import { ProcessingWorkspace } from '#/components/processing/ProcessingWorkspace'
 import { Main, PageContent } from '#/components/AppLayout'
 import { useInstructionDelivery } from '#/processing/instruction-delivery'
@@ -212,7 +214,15 @@ const snapshot = (withSessions: boolean) =>
             }
           : {},
       ),
-      job(4, 'images', 'failed', lot(1), withSessions ? { session_state: 'failed' } : {}),
+      job(
+        4,
+        'images',
+        'failed',
+        lot(1),
+        withSessions
+          ? { session_state: 'failed', attempt_number: '3', start_fresh: { allowed: true } }
+          : {},
+      ),
       ...(withSessions
         ? [
             job(5, 'examine', 'running', null, {
@@ -258,27 +268,23 @@ const savedSettings: AgentSettingsDto = {
 }
 
 function session(n: number, stage: string, subject: string | null, extra: object) {
-  return {
+  return sessionRow({
     attempt_id: id(n + 20),
     batch_id: batchId,
     job_id: id(n),
     subject_id: subject,
-    stage,
+    stage: stage as AgentSessionDto['stage'],
     state: 'running',
-    latest_on_job: true,
     selection,
     settings_revision: '2',
     queued_at: '2026-11-06T08:00:00.000Z',
     started_at: '2026-11-06T08:01:00.000Z',
-    finished_at: null,
-    native_session_id: null,
-    actual_model: null,
+    state_since: '2026-11-06T08:01:00.000Z',
     progress: 'responding',
     occupies_lane: true,
     session_state: 'running',
-    latest_status: null,
     ...extra,
-  }
+  })
 }
 
 const failure: SessionFailureDto = {
@@ -373,10 +379,8 @@ const attention = {
 /** Paused batches; Pause all and Resume change it, and the next list read shows it. */
 const paused = new Set<string>()
 
-const sessionList = (supported: boolean) =>
-  ({
-    paused_batch_ids: [...paused],
-    sessions: (supported
+const fixtureSessions = (supported: boolean) => {
+  const rows = (supported
       ? [
           session(4, 'images', lot(1), {
             state: 'failed',
@@ -384,7 +388,28 @@ const sessionList = (supported: boolean) =>
             occupies_lane: false,
             progress: 'settled',
             finished_at: failure.timestamp,
-            failure,
+            state_since: failure.timestamp,
+            failure: {
+              ...failure,
+              failed_at: failure.timestamp,
+              cause: { code: 'agent_turn_failed', provider: 'claude', provider_error: failure.provider_error },
+            },
+            attempt_number: 3,
+            start_fresh: { allowed: true },
+            earlier_attempt_count: 2,
+            earlier_attempts: [2, 1].map((number) => ({
+              attempt_id: id(40 + number),
+              number,
+              state: 'superseded' as const,
+              session_state: 'failed' as const,
+              queued_at: '2026-11-06T07:00:00.000Z',
+              ended_at: `2026-11-06T07:${number}5:00.000Z`,
+              failure: {
+                ...failure,
+                id: id(92 + number),
+                cause: { code: 'agent_admission_unavailable' as const, provider: 'claude' as const },
+              },
+            })),
           }),
           session(3, 'research', lot(3), {
             latest_status: {
@@ -400,10 +425,24 @@ const sessionList = (supported: boolean) =>
           }),
         ]
       : []
-    ).map((item) => (paused.has(item.batch_id) ? { ...item, paused: true } : item)),
-    next_before: null,
+  ).map((item) => (paused.has(item.batch_id) ? { ...item, paused: true as const } : item))
+  return sessionList({
+    paused_batch_ids: [...paused],
+    sessions: rows,
+    counts: { needs_attention: 2, working: 1, waiting: 1, queued: 0, done_today: 0, all: 3 },
+    totals: { slots_in_use: 1, queued: 0, waiting: 1 },
+    batches: [
+      {
+        batch_id: batchId,
+        archived: false,
+        sessions: 3,
+        matching: 3,
+        first_started_at: '2026-11-06T08:01:00.000Z',
+      },
+    ],
     sessions_supported: supported,
-  }) as unknown as AgentSessionListDto
+  })
+}
 
 const pauseClient = {
   pause: async (batchId: string, pause: boolean) => {
@@ -478,11 +517,20 @@ export function ProcessingProof() {
       <RefreshSignal>
         <PageContent $width="content">
           <Main>
-            {page.startsWith('agents') ? (
+            {page.startsWith('agents-heyyy') ? (
+              <AgentSessions
+                client={{ sessions: heyyySessions, settings: async () => savedSettings }}
+                batches={async (id) => ({
+                  title: HEYYY_NAMES[id] ?? 'Batch',
+                  subjects: new Map([[HEYYY_LOT, 'GE S2CN1 diodes']]),
+                  liveLots: new Set([HEYYY_LOT]),
+                })}
+              />
+            ) : page.startsWith('agents') ? (
               <AgentSessions
                 key={view}
                 client={{
-                  sessions: async () => sessionList(sessions),
+                  sessions: async () => fixtureSessions(sessions),
                   failure: async () => failure,
                   settings: async () => savedSettings,
                   ...pauseClient,
@@ -490,13 +538,14 @@ export function ProcessingProof() {
                 batches={async () => ({
                   title: batch.title,
                   subjects: new Map(batch.lots.map((item) => [item.id, item.label])),
+                  liveLots: new Set(batch.lots.map((item) => item.id)),
                 })}
               />
             ) : (
               <ApiClientsProvider
                 value={{
                   agents: {
-                    sessions: async () => sessionList(sessions),
+                    sessions: async () => fixtureSessions(sessions),
                     settings: async () => savedSettings,
                     pause: pauseClient.pause,
                   },
