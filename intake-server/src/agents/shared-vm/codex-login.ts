@@ -175,6 +175,8 @@ export class CodexAccount {
   private lastCheck?: CheckedState
   private lastFailure?: 'timeout' | 'unavailable'
   private lastCheckStartedAt?: number
+  /** When the last check ended, whatever its outcome: freshness counts from here. */
+  private lastCheckEndedAt?: number
   private check?: StatusCheck
   /** A check whose process wasn't confirmed gone; no further check starts beside it. */
   private reapUnconfirmed = false
@@ -239,6 +241,10 @@ export class CodexAccount {
       if (fromMemory) {
         return fromMemory
       }
+      // Nobody waits for the answer of a request that has ended, so it reads and starts nothing.
+      if (signal?.aborted) {
+        return this.lastResult()
+      }
       const generation = this.generation
       const present = await exists(join(this.root, 'account'))
       // A sign-in change may have started or finished while the directory was read.
@@ -293,7 +299,10 @@ export class CodexAccount {
       // A first check starts at once; after it fails, it is retried at the interval.
       return this.lastFailure === undefined || intervalPassed
     }
-    const stale = now - this.lastCheck.at >= this.status.freshMs
+    // A failed check counts as recent too, so a failing account is retried at the freshness
+    // window, not on every read, unless Check again asks.
+    const lastEnded = this.lastCheckEndedAt ?? this.lastCheck.at
+    const stale = now - lastEnded >= this.status.freshMs
     return intervalPassed && (stale || refresh)
   }
 
@@ -310,12 +319,15 @@ export class CodexAccount {
         }
       },
       (error: unknown) => {
-        if (error instanceof ResearchReapPendingError) {
+        const reapUnconfirmed = error instanceof ResearchReapPendingError
+        if (reapUnconfirmed) {
           this.reapUnconfirmed = true
         }
-        // A failed check keeps an earlier result, which still says how old it is.
+        // A failed check keeps an earlier result, which still says how old it is. `timeout`
+        // promises the process is gone, so a check whose reap isn't confirmed is unavailable.
         if (generation === this.generation) {
-          this.lastFailure = stop.signal.reason instanceof CheckTimedOut ? 'timeout' : 'unavailable'
+          const timedOut = stop.signal.reason instanceof CheckTimedOut && !reapUnconfirmed
+          this.lastFailure = timedOut ? 'timeout' : 'unavailable'
         }
       },
     )
@@ -323,6 +335,9 @@ export class CodexAccount {
     this.check = check
     void done.finally(() => {
       clearTimeout(timer)
+      if (generation === this.generation) {
+        this.lastCheckEndedAt = this.status.now()
+      }
       if (this.check === check) {
         this.check = undefined
       }
@@ -344,6 +359,7 @@ export class CodexAccount {
     this.lastCheck = undefined
     this.lastFailure = undefined
     this.lastCheckStartedAt = undefined
+    this.lastCheckEndedAt = undefined
   }
 
   private async readAccount(signal: AbortSignal): Promise<'signed_in' | 'signed_out'> {

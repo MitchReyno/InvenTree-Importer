@@ -553,8 +553,9 @@ test('a Codex check whose process is not confirmed gone starts no other, and blo
     { refreshTimeoutMs: 50, minRefreshIntervalMs: 0, freshMs: 0 },
   )
   assert.deepEqual(await account.readStatus(), { state: 'checking' })
-  assert.deepEqual(await checked(account), { state: 'timeout' })
-  assert.deepEqual(await account.readStatus(true), { state: 'timeout' })
+  // Timed out, but `timeout` would say the process is gone.
+  assert.deepEqual(await checked(account), { state: 'unavailable' })
+  assert.deepEqual(await account.readStatus(true), { state: 'unavailable' })
   assert.equal(starts, 1)
   // The sign-out still runs; the exclusive lock is what refuses it while the process lives.
   assert.deepEqual(await account.action('disconnect'), { state: 'disconnected' })
@@ -583,11 +584,97 @@ test('a Codex status read is busy during a sign-in change, and never refuses one
   assert.deepEqual(await account.readStatus(true), { state: 'busy' })
   releaseAction()
   await disconnecting.catch(() => {})
+})
 
-  // An operator action arriving during a check runs rather than failing.
-  await mkdir(join(root, 'account'), { recursive: true })
-  void account.readStatus()
+test('an operator status read runs during a Codex check and leaves it running', async (t) => {
+  const root = await scratch(t, 'codex-status-beside-')
+  await mkdir(join(root, 'account'))
+  let checks = 0
+  let releaseCheck: (() => void) | undefined
+  const account = new CodexAccount(root, () => {
+    // The first shared-lock process is the background check; the next is the operator's read.
+    const isCheck = ++checks === 1
+    return {
+      initialize: async () => {},
+      close: async () => {},
+      connected: () =>
+        isCheck
+          ? new Promise<boolean>((resolve) => (releaseCheck = () => resolve(true)))
+          : Promise.resolve(true),
+      request: async () => device,
+    }
+  })
+  assert.deepEqual(await account.readStatus(), { state: 'checking' })
+  await waitFor(() => releaseCheck !== undefined, 'the check to hold')
   assert.deepEqual(await account.action('status'), { state: 'connected' })
+  // Neither stopped nor forgotten: the check is still the one running, and its result counts.
+  assert.deepEqual(await account.readStatus(true), { state: 'checking' })
+  assert.equal(checks, 2)
+  releaseCheck!()
+  assert.equal((await checked(account)).state, 'signed_in')
+  assert.equal(checks, 2)
+})
+
+test('a request that has ended starts no Codex check', async (t) => {
+  const root = await scratch(t, 'codex-status-ended-')
+  await mkdir(join(root, 'account'))
+  let starts = 0
+  const account = new CodexAccount(root, () => {
+    starts++
+    return {
+      initialize: async () => {},
+      close: async () => {},
+      connected: async () => true,
+      request: async () => device,
+    }
+  })
+  assert.deepEqual(await account.readStatus(true, AbortSignal.abort()), { state: 'checking' })
+  assert.equal(starts, 0)
+})
+
+test('a stale Codex result whose Check again fails ends its refresh, and is not checked again on every read', async (t) => {
+  const root = await scratch(t, 'codex-status-forced-fails-')
+  await mkdir(join(root, 'account'))
+  let starts = 0
+  let failing = false
+  let clock = 0
+  const account = new CodexAccount(
+    root,
+    () => {
+      starts++
+      return {
+        initialize: async () => {},
+        close: async () => {},
+        connected: async () => {
+          if (failing) {
+            throw new Error('codex_account_unavailable')
+          }
+          return true
+        },
+        request: async () => device,
+      }
+    },
+    { freshMs: 1000, minRefreshIntervalMs: 300, now: () => clock },
+  )
+  assert.equal((await checked(account)).state, 'signed_in')
+  failing = true
+  clock = 1000
+  const forced = await account.readStatus(true)
+  assert.ok(forced.state === 'signed_in' && forced.refreshing)
+  // The failed check ends the refresh; the result stays, with its age.
+  assert.deepEqual(await checked(account), { state: 'signed_in', ageMs: 1000, refreshing: false })
+  assert.equal(starts, 2)
+  // Still older than the window, but a check just ended: plain reads start none.
+  clock = 1400
+  assert.deepEqual(await account.readStatus(), {
+    state: 'signed_in',
+    ageMs: 1400,
+    refreshing: false,
+  })
+  assert.equal(starts, 2)
+  // Check again still can, past the interval.
+  await account.readStatus(true)
+  assert.equal(starts, 3)
 })
 
 // Stand-ins for `flock` and the Codex app-server, so the real account RPC runs: the lock mode
