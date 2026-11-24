@@ -26277,7 +26277,7 @@ export interface components {
                 revision: string;
                 sha256: string;
                 sections: {
-                    name: "batch" | "human" | "asked" | "evidence" | "match" | "observations" | "lots" | "identity" | "vocabulary" | "keep_out";
+                    name: "batch" | "human" | "asked" | "evidence" | "match" | "observations" | "lots" | "parts" | "identity" | "vocabulary" | "keep_out";
                     count: number;
                 }[];
                 page: number;
@@ -26528,6 +26528,13 @@ export interface components {
                     observation_set_version: string | null;
                     observation_ids: string[];
                     suggested_observation_ids: string[];
+                } | {
+                    /** @constant */
+                    kind: "part";
+                    part_subject_id: string;
+                    label: string;
+                    /** Format: int64 */
+                    revision: string;
                 } | {
                     /** @constant */
                     kind: "identity";
@@ -27796,7 +27803,7 @@ export interface components {
             /** Format: int64 */
             revision: string;
             sections: {
-                name: "batch" | "human" | "asked" | "evidence" | "match" | "observations" | "lots" | "identity" | "vocabulary" | "keep_out";
+                name: "batch" | "human" | "asked" | "evidence" | "match" | "observations" | "lots" | "parts" | "identity" | "vocabulary" | "keep_out";
                 count: number;
             }[];
             entries: ({
@@ -28045,6 +28052,13 @@ export interface components {
                 observation_set_version: string | null;
                 observation_ids: string[];
                 suggested_observation_ids: string[];
+            } | {
+                /** @constant */
+                kind: "part";
+                part_subject_id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
             } | {
                 /** @constant */
                 kind: "identity";
@@ -28832,7 +28846,7 @@ export interface components {
             /** Format: int64 */
             revision: string;
             sections: {
-                name: "batch" | "human" | "asked" | "evidence" | "match" | "observations" | "lots" | "identity" | "vocabulary" | "keep_out";
+                name: "batch" | "human" | "asked" | "evidence" | "match" | "observations" | "lots" | "parts" | "identity" | "vocabulary" | "keep_out";
                 count: number;
             }[];
             sha256: string;
@@ -29086,6 +29100,13 @@ export interface components {
                     observation_set_version: string | null;
                     observation_ids: string[];
                     suggested_observation_ids: string[];
+                } | {
+                    /** @constant */
+                    kind: "part";
+                    part_subject_id: string;
+                    label: string;
+                    /** Format: int64 */
+                    revision: string;
                 } | {
                     /** @constant */
                     kind: "identity";
@@ -30118,6 +30139,13 @@ export interface components {
                 suggested_observation_ids: string[];
             } | {
                 /** @constant */
+                kind: "part";
+                part_subject_id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+            } | {
+                /** @constant */
                 kind: "identity";
                 proposal_id: string;
                 stale: boolean;
@@ -30903,7 +30931,7 @@ export interface components {
             revision: string;
             sha256: string;
             sections: {
-                name: "batch" | "human" | "asked" | "evidence" | "match" | "observations" | "lots" | "identity" | "vocabulary" | "keep_out";
+                name: "batch" | "human" | "asked" | "evidence" | "match" | "observations" | "lots" | "parts" | "identity" | "vocabulary" | "keep_out";
                 count: number;
             }[];
             page: number;
@@ -31154,6 +31182,13 @@ export interface components {
                 observation_set_version: string | null;
                 observation_ids: string[];
                 suggested_observation_ids: string[];
+            } | {
+                /** @constant */
+                kind: "part";
+                part_subject_id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
             } | {
                 /** @constant */
                 kind: "identity";
@@ -32065,7 +32100,7 @@ export interface components {
                 /** Format: int64 */
                 revision: string;
                 sections: {
-                    name: "batch" | "human" | "asked" | "evidence" | "match" | "observations" | "lots" | "identity" | "vocabulary" | "keep_out";
+                    name: "batch" | "human" | "asked" | "evidence" | "match" | "observations" | "lots" | "parts" | "identity" | "vocabulary" | "keep_out";
                     count: number;
                 }[];
                 sha256: string;
@@ -32319,6 +32354,13 @@ export interface components {
                         observation_set_version: string | null;
                         observation_ids: string[];
                         suggested_observation_ids: string[];
+                    } | {
+                        /** @constant */
+                        kind: "part";
+                        part_subject_id: string;
+                        label: string;
+                        /** Format: int64 */
+                        revision: string;
                     } | {
                         /** @constant */
                         kind: "identity";
@@ -33220,7 +33262,7 @@ export interface components {
                 /** Format: int64 */
                 revision: string;
                 sections: {
-                    name: "batch" | "human" | "asked" | "evidence" | "match" | "observations" | "lots" | "identity" | "vocabulary" | "keep_out";
+                    name: "batch" | "human" | "asked" | "evidence" | "match" | "observations" | "lots" | "parts" | "identity" | "vocabulary" | "keep_out";
                     count: number;
                 }[];
                 sha256: string;
@@ -33474,6 +33516,13 @@ export interface components {
                         observation_set_version: string | null;
                         observation_ids: string[];
                         suggested_observation_ids: string[];
+                    } | {
+                        /** @constant */
+                        kind: "part";
+                        part_subject_id: string;
+                        label: string;
+                        /** Format: int64 */
+                        revision: string;
                     } | {
                         /** @constant */
                         kind: "identity";

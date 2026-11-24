@@ -33,11 +33,16 @@ async function notedPhoto(fixture: Fixture, batchId: string, label: string, note
   )
 }
 
-/** A session worker child for the fixture's actor; `stop` sends SIGTERM and waits for its exit. */
-async function startWorker(fixture: Fixture, stageInputs: boolean) {
+/** A worker's home and private state root, kept across its restarts as a deployment keeps them. */
+async function workerRoot() {
   const root = await mkdtemp(join(tmpdir(), 'stage-briefs-process-'))
+  await mkdir(join(root, 'state'), { mode: 0o700 })
+  return root
+}
+
+/** A session worker child for the fixture's actor; `stop` sends SIGTERM and waits for its exit. */
+async function startWorker(fixture: Fixture, root: string, stageInputs: boolean) {
   const stateRoot = join(root, 'state')
-  await mkdir(stateRoot, { mode: 0o700 })
   const worker = spawn(
     process.execPath,
     [
@@ -133,14 +138,15 @@ test(
   { timeout: 180000 },
   async (t) => {
     const fixture = await processingFixture({ profileId: 'synthetic-session/1' })
-    t.after(() => fixture.dispose())
     // The in-test API and the worker both run with the test-only switch.
     fixture.config.stageInputs = 'local'
     const capture = await fixture.seedCapture()
     const batchId = capture.batch.id
     await notedPhoto(fixture, batchId, 'Tray', '16 MHz crystal')
-    const worker = await startWorker(fixture, true)
+    const worker = await startWorker(fixture, await workerRoot(), true)
+    // Hooks run in order: the worker stops before the fixture's database goes.
     t.after(() => worker.stop())
+    t.after(() => fixture.dispose())
 
     // The worker's sweep starts a `/7` lead, which forms the lot and queues its successors.
     const rows = await worker.until(
@@ -177,12 +183,20 @@ test(
   { timeout: 240000 },
   async (t) => {
     const fixture = await processingFixture({ profileId: 'synthetic-session/1' })
+    const root = await workerRoot()
+    const workers: Awaited<ReturnType<typeof startWorker>>[] = []
+    // Hooks run in order: every worker stops before the fixture's database goes.
+    t.after(async () => {
+      for (const worker of workers) {
+        await worker.stop()
+      }
+    })
     t.after(() => fixture.dispose())
     const capture = await fixture.seedCapture()
     const batchId = capture.batch.id
     await notedPhoto(fixture, batchId, 'Tray', '16 MHz crystal')
-    const before = await startWorker(fixture, false)
-    t.after(() => before.stop())
+    const before = await startWorker(fixture, root, false)
+    workers.push(before)
     await before.until(
       () => successors(fixture, batchId, '16 mhz crystal'),
       (found) => found.length === 2 && found.every((row) => row.sessionState === 'waiting_input'),
@@ -194,8 +208,8 @@ test(
     // The worker comes back with the switch on, and new evidence reaches the retained lead.
     fixture.config.stageInputs = 'local'
     await notedPhoto(fixture, batchId, 'Bag', '10k resistor')
-    const after = await startWorker(fixture, true)
-    t.after(() => after.stop())
+    const after = await startWorker(fixture, root, true)
+    workers.push(after)
     const queued = await after.until(
       () => successors(fixture, batchId, '10k resistor'),
       (found) => found.length === 2,

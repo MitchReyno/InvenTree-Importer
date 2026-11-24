@@ -13,17 +13,18 @@ Departures from the plan, surprises and decisions the design left open, recorded
 ### Brief revision and views
 
 - A brief's `revision` is the capture revision it was read at. A question asked or answered without a capture edit leaves the number unchanged but changes the brief, so `newer` compares the brief's digest, not the number, and reports the current capture revision.
-- Pages are at most 32 KiB of entries (`BRIEF_PAGE_MAX_BYTES`), and a brief has at most 64 pages (`BRIEF_MAX_PAGES`). An entry too large for a page, or a brief past 64 pages, is refused as `processing_input_capacity`.
+- Entries are packed into pages of about 32 KiB (`BRIEF_PAGE_MAX_BYTES`); an entry larger than that, such as a note of 8,192 four-byte characters, has a page of its own. One entry may be at most 192 KiB (`BRIEF_ENTRY_MAX_BYTES`), a stored page 256 KiB, and a brief at most 64 pages (`BRIEF_MAX_PAGES`); beyond those the brief is refused as `processing_input_capacity`.
 - A sealed input keeps as many leading pages in its manifest as fit the 240 KiB retained-input cap; the rest are in `processing_input_page`, each sealed by index and digest in the manifest.
 - Current views are kept whole in `processing_brief_view`, by digest, up to 2 MiB each. An attempt keeps the four it read most recently (`BRIEF_VIEWS_PER_ATTEMPT`) and drops the rest; a token for a dropped view, or a view past 2 MiB, is refused as `brief_revision_unavailable`.
 - Page tokens are the cursor (attempt, view, digest, page) as canonical JSON in base64url. They are not secret: a read checks that the token names the caller's own attempt and a view it still has, so a forged token can only reach that session's own briefs.
 
-- A read tool assembles a current view in one repeatable-read transaction, so a view never mixes two capture revisions. It takes no row locks there (a repeatable-read transaction can fail on a lock of a row changed since its snapshot); it checks that the capability names a running session whose attempt is running and current, and writes only the attempt's kept views. No test interleaves an edit inside one read: the interleaving needs a seam inside the read that the code doesn't have.
+- A read tool assembles a current view in one repeatable-read transaction, so a view never mixes two capture revisions. It takes no row locks and writes nothing there (a repeatable-read transaction can fail on a row changed since its snapshot); it checks that the capability names a running session whose attempt is running and current. A read that starts a current view keeps it afterwards in its own transaction, under a per-attempt advisory lock, so reads at once neither fail on each other's insert nor keep more than the bound. No test interleaves an edit inside one read: the interleaving needs a seam inside the read that the code doesn't have.
 - `read_batch` for a `/7` lead returns the revision of the brief it read as `revision`, the lead's `base_revision`, so a write based on an older page is checked against that page's revision. A `/6` lead's `read_batch` keeps its schema (no arguments) and description.
 
 ### Brief content the design left open
 
 - **Asked-list fields.** Examine works on markings, identity and quantity; Research on markings, identity and research; Images on identity and images. A question is in a brief when its subject is in scope and it names one of the stage's fields. An earlier runner question names no fields and is always listed.
+- **Parts.** The Examine brief has a `parts` section (each Part subject's id, label and revision), as `read_batch` listed Parts for earlier leads.
 - **Pinned identities.** A Research brief's identity entry carries the pinned proposal as published (summary, catalogue, sources and reliance), not only its id, so its values reach Research before typed outputs exist.
 - **Lot edits** are the lots the operator created or edited, as they stand now, each with `edit_id` `lot:<lot>@<revision>`. No proposal source kind cites an edit yet; citations belong to the typed outputs (task 2).
 - **Corrections from before this change.** An agent observation the operator edited with no kept reading shows its current reading with `earlier_known: false`. The row doesn't say what the edit was, so an observation only moved or marked as the same item by the operator reads this way too.
@@ -33,8 +34,13 @@ Departures from the plan, surprises and decisions the design left open, recorded
 ### Pipeline version
 
 - Every queueing entry point (Start, stable-identity successors, replacement and the Start-fresh check) seals the lead's version, read from the lead job's current input, or the configuration's when the batch has no lead. A new lead seals the configuration's version.
+- Under `/7`, Start pins the lot's stable identity (the lead's latest identity proposal relying on the lot's current observation set that isn't stale), as stable-identity queueing does; an operator-entered lot has none. Earlier versions keep Start's empty pins.
 - Under `/7`, Start offers Research and Images only: an Inventory stage in the request is left out, and a request for Inventory alone is refused as `unsupported_processing_stage`. Waiting for a `/7` lead is PR-G2's; Match for operator-entered lots is PR-C's.
 - A batch with a `/7` lead under a configured profile that can't run it (no stage packs, or no sessions at all) is refused at Start, replacement and the Start-fresh check as `unsupported_processing_profile` (422), an existing Start-fresh refusal, rather than sealing a `/6` attempt or a legacy stage for it.
+
+### Contract validators compile on first use
+
+`@invimport/contracts` compiled every schema when it was imported. The brief's schemas added about 1.2 s to that, which made the API's first start miss the 5 s health deadline in `tests/pg/media-startup-authority.test.ts`. Validators now compile on first use and are kept; importing the contracts takes about 0.2 s instead of about 2.8 s. A contracts test compiles every schema, so a schema the strict compiler refuses still fails a test.
 
 ### Open items
 

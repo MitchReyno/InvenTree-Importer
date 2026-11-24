@@ -19,7 +19,7 @@ const object = <T extends TProperties>(properties: T) =>
  */
 export const BRIEF_SHARED_SECTIONS = ['batch', 'human', 'asked', 'evidence', 'match'] as const
 export const BRIEF_STAGE_SECTIONS = {
-  examine: ['observations', 'lots'],
+  examine: ['observations', 'lots', 'parts'],
   research: ['identity', 'observations', 'vocabulary'],
   images: ['observations', 'keep_out'],
 } as const
@@ -193,6 +193,14 @@ export const BriefLotEntry = object({
   suggested_observation_ids: Type.Array(Id, { maxItems: 1000 }),
 })
 
+/** Examine: a Part subject of the batch, which a lot may share. */
+export const BriefPartEntry = object({
+  kind: Type.Literal('part'),
+  part_subject_id: Id,
+  label: Type.String({ minLength: 1, maxLength: 256 }),
+  revision: Revision,
+})
+
 /** Research: an identity the session was pinned to, by its id, with the proposal as published. */
 export const BriefIdentityEntry = object({
   kind: Type.Literal('identity'),
@@ -222,6 +230,7 @@ export const BriefEntry = Type.Union([
   BriefEvidenceEntry,
   BriefObservationEntry,
   BriefLotEntry,
+  BriefPartEntry,
   BriefIdentityEntry,
   BriefKeepOutEntry,
 ])

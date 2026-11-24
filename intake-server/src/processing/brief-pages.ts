@@ -10,8 +10,15 @@ import {
 import { canonicalRecord, strictJson } from '@invimport/contracts/json'
 import { fail, sealed, unseal } from './model.ts'
 
-/** Each page's entries stay within this, so a page fits any tool reply with room to spare. */
+/** Entries are packed into pages of about this; an entry larger than it has a page of its own. */
 export const BRIEF_PAGE_MAX_BYTES = 32 * 1024
+/**
+ * The largest one entry may be. It covers the largest entries capture allows, such as a note of
+ * 8,192 code points that each escape to six bytes, or an evidence item read in many regions.
+ */
+export const BRIEF_ENTRY_MAX_BYTES = 192 * 1024
+/** A stored page's sealed bytes stay within this, matching `processing_input_page`'s bound. */
+const BRIEF_PAGE_STORE_MAX_BYTES = 256 * 1024
 /** The opening renders the brief within this, and summarises what is past it. */
 export const BRIEF_OPENING_MAX_BYTES = 48 * 1024
 /** A kept current view may be at most this, which bounds the store per view. */
@@ -31,18 +38,20 @@ function entryBytes(entry: BriefEntryDto) {
 }
 
 /**
- * Splits a brief's entries into pages of at most `BRIEF_PAGE_MAX_BYTES` each, in order. An entry
- * too large for a page, or a brief past `BRIEF_MAX_PAGES`, is over capacity.
+ * Splits a brief's entries into pages, in order, packing each to about `BRIEF_PAGE_MAX_BYTES`;
+ * an entry larger than that has a page to itself. An entry past `BRIEF_ENTRY_MAX_BYTES`, or a
+ * brief past `BRIEF_MAX_PAGES`, is over capacity.
  */
 export function briefPages(brief: SessionBriefDto): SealedBriefPage[] {
   const groups: BriefEntryDto[][] = [[]]
   let used = 0
   for (const entry of brief.entries) {
     const size = entryBytes(entry)
-    if (size > BRIEF_PAGE_MAX_BYTES) {
+    if (size > BRIEF_ENTRY_MAX_BYTES) {
       fail('processing_input_capacity', 422)
     }
-    if (used + size > BRIEF_PAGE_MAX_BYTES) {
+    const pageHasEntries = groups[groups.length - 1].length > 0
+    if (pageHasEntries && used + size > BRIEF_PAGE_MAX_BYTES) {
       groups.push([])
       used = 0
     }
@@ -115,7 +124,7 @@ export async function sealedBriefPage(
   if (row.page_digest.toString('hex') !== sealedPage.sha256) {
     fail('processing_input_page_corrupt')
   }
-  const value = unseal(row.page_bytes, row.page_digest)
+  const value = unseal(row.page_bytes, row.page_digest, BRIEF_PAGE_STORE_MAX_BYTES)
   validate('BriefPage', value)
   const page = value as BriefPageDto
   if (page.index !== index || page.entries.length !== sealedPage.entry_count) {
@@ -137,6 +146,11 @@ export async function storeInputPages(
       [inputId, page.page.index, page.bytes, page.digest],
     )
   }
+}
+
+/** Whether a current view is within the bound a kept view may be. */
+export function briefViewKeepable(brief: SessionBriefDto) {
+  return sealed(brief).bytes.length <= BRIEF_VIEW_MAX_BYTES
 }
 
 /**

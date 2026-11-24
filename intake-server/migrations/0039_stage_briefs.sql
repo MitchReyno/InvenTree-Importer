@@ -25,7 +25,7 @@ FROM (VALUES
 CREATE TABLE processing_input_page (
   input_id uuid NOT NULL REFERENCES processing_input(id) ON DELETE RESTRICT,
   page_index integer NOT NULL CHECK (page_index BETWEEN 1 AND 64),
-  page_bytes bytea NOT NULL CHECK (octet_length(page_bytes) BETWEEN 1 AND 65536),
+  page_bytes bytea NOT NULL CHECK (octet_length(page_bytes) BETWEEN 1 AND 262144),
   page_digest bytea NOT NULL CHECK (page_digest = sha256(page_bytes)),
   PRIMARY KEY (input_id, page_index)
 );

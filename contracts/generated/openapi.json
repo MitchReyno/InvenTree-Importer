@@ -124478,6 +124478,10 @@
                               "type": "string"
                             },
                             {
+                              "const": "parts",
+                              "type": "string"
+                            },
+                            {
                               "const": "identity",
                               "type": "string"
                             },
@@ -126020,6 +126024,36 @@
                                 "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                                 "type": "string"
                               }
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "part_subject_id",
+                            "label",
+                            "revision"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "part",
+                              "type": "string"
+                            },
+                            "part_subject_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "label": {
+                              "minLength": 1,
+                              "maxLength": 256,
+                              "type": "string"
+                            },
+                            "revision": {
+                              "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                              "format": "int64",
+                              "type": "string"
                             }
                           }
                         },
@@ -134041,6 +134075,10 @@
                       "type": "string"
                     },
                     {
+                      "const": "parts",
+                      "type": "string"
+                    },
+                    {
                       "const": "identity",
                       "type": "string"
                     },
@@ -135573,6 +135611,36 @@
                         "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                         "type": "string"
                       }
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "part_subject_id",
+                    "label",
+                    "revision"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "part",
+                      "type": "string"
+                    },
+                    "part_subject_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "label": {
+                      "minLength": 1,
+                      "maxLength": 256,
+                      "type": "string"
+                    },
+                    "revision": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
                     }
                   }
                 },
@@ -139986,6 +140054,10 @@
                       "type": "string"
                     },
                     {
+                      "const": "parts",
+                      "type": "string"
+                    },
+                    {
                       "const": "identity",
                       "type": "string"
                     },
@@ -141549,6 +141621,36 @@
                               "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                               "type": "string"
                             }
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "kind",
+                          "part_subject_id",
+                          "label",
+                          "revision"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "const": "part",
+                            "type": "string"
+                          },
+                          "part_subject_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "label": {
+                            "minLength": 1,
+                            "maxLength": 256,
+                            "type": "string"
+                          },
+                          "revision": {
+                            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                            "format": "int64",
+                            "type": "string"
                           }
                         }
                       },
@@ -147410,6 +147512,36 @@
                   "type": "object",
                   "required": [
                     "kind",
+                    "part_subject_id",
+                    "label",
+                    "revision"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "part",
+                      "type": "string"
+                    },
+                    "part_subject_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "label": {
+                      "minLength": 1,
+                      "maxLength": 256,
+                      "type": "string"
+                    },
+                    "revision": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "kind",
                     "proposal_id",
                     "stale",
                     "proposal"
@@ -151831,6 +151963,10 @@
                       "type": "string"
                     },
                     {
+                      "const": "parts",
+                      "type": "string"
+                    },
+                    {
                       "const": "identity",
                       "type": "string"
                     },
@@ -153373,6 +153509,36 @@
                         "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                         "type": "string"
                       }
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "part_subject_id",
+                    "label",
+                    "revision"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "part",
+                      "type": "string"
+                    },
+                    "part_subject_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "label": {
+                      "minLength": 1,
+                      "maxLength": 256,
+                      "type": "string"
+                    },
+                    "revision": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
                     }
                   }
                 },
@@ -158379,6 +158545,10 @@
                               "type": "string"
                             },
                             {
+                              "const": "parts",
+                              "type": "string"
+                            },
+                            {
                               "const": "identity",
                               "type": "string"
                             },
@@ -159942,6 +160112,36 @@
                                       "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                                       "type": "string"
                                     }
+                                  }
+                                }
+                              },
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "kind",
+                                  "part_subject_id",
+                                  "label",
+                                  "revision"
+                                ],
+                                "properties": {
+                                  "kind": {
+                                    "const": "part",
+                                    "type": "string"
+                                  },
+                                  "part_subject_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "label": {
+                                    "minLength": 1,
+                                    "maxLength": 256,
+                                    "type": "string"
+                                  },
+                                  "revision": {
+                                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                    "format": "int64",
+                                    "type": "string"
                                   }
                                 }
                               },
@@ -164889,6 +165089,10 @@
                               "type": "string"
                             },
                             {
+                              "const": "parts",
+                              "type": "string"
+                            },
+                            {
                               "const": "identity",
                               "type": "string"
                             },
@@ -166452,6 +166656,36 @@
                                       "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                                       "type": "string"
                                     }
+                                  }
+                                }
+                              },
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "kind",
+                                  "part_subject_id",
+                                  "label",
+                                  "revision"
+                                ],
+                                "properties": {
+                                  "kind": {
+                                    "const": "part",
+                                    "type": "string"
+                                  },
+                                  "part_subject_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "label": {
+                                    "minLength": 1,
+                                    "maxLength": 256,
+                                    "type": "string"
+                                  },
+                                  "revision": {
+                                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                    "format": "int64",
+                                    "type": "string"
                                   }
                                 }
                               },

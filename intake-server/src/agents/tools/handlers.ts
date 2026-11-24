@@ -16,6 +16,7 @@ import {
   type WebPageSourceDto,
   type ProcessingRelianceDto,
   type SessionAskArgsV2Dto,
+  type SessionBriefDto,
   type SessionReadBriefBatchArgsDto,
   type SessionReadLotArgsDto,
   type SessionToolErrorDto,
@@ -57,7 +58,7 @@ import type { BlobStore } from '#/media/blob-store.ts'
 import { sha256 } from '#/db/authority.ts'
 import { capabilityDigest, resolveSessionCapability, type SessionPrincipal } from './capability.ts'
 import { refuse, ToolRefusal } from './refusal.ts'
-import { readBriefPage, stagePrincipal } from './brief-read.ts'
+import { keepBriefView, readBriefPage, stagePrincipal } from './brief-read.ts'
 import { agentSessionOutbox, agentSessions } from '#/agents/schema.ts'
 import { appendSessionOutbox, lastStatusAt } from './outbox.ts'
 import sharp from 'sharp'
@@ -716,17 +717,20 @@ async function hasBrief(context: SessionToolContext, token: string) {
 
 /**
  * A brief read in one repeatable-read snapshot, so a current view never mixes two revisions. It
- * takes no row locks, which a repeatable-read transaction could fail on; it checks that the
- * capability names a running session whose attempt is running and current, and changes nothing
- * but the attempt's kept views.
+ * takes no row locks, which a repeatable-read transaction could fail on, and writes nothing; it
+ * checks that the capability names a running session whose attempt is running and current. A
+ * read that starts a current view keeps it afterwards, in its own transaction.
  */
 async function withBriefRead(
   context: SessionToolContext,
   token: string,
-  work: (client: PoolClient, principal: SessionPrincipal) => Promise<SessionToolOutput['result']>,
+  work: (
+    client: PoolClient,
+    principal: SessionPrincipal,
+  ) => Promise<{ result: SessionToolOutput['result']; keep: SessionBriefDto | null }>,
 ): Promise<SessionToolOutput> {
   try {
-    return await transaction(context.pool, async (client) => {
+    const read = await transaction(context.pool, async (client) => {
       await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ')
       const found =
         (await resolveSessionCapability(client, token)) ??
@@ -740,8 +744,13 @@ async function withBriefRead(
       if (!current.rowCount) {
         refuse('capability_refused', 'This session capability is not valid.')
       }
-      return { result: await work(client, found) }
+      return { ...(await work(client, found)), attemptId: found.attemptId }
     })
+    // Kept after the snapshot commits, so the page's token names a view that is kept.
+    if (read.keep) {
+      await keepBriefView(context.pool, read.attemptId, read.keep)
+    }
+    return { result: read.result }
   } catch (error) {
     if (!(error instanceof ToolRefusal)) {
       throw error
@@ -1586,8 +1595,11 @@ export function sessionTools(context: SessionToolContext) {
           if (stage.manifest.stage !== 'examine') {
             refuse('tool_not_allowed', 'Only the batch Examine lead session reads the whole batch.')
           }
-          const brief = await readBriefPage(client, context.config, stage, input)
-          return ok(client, principal, { revision: brief.revision, brief })
+          const read = await readBriefPage(client, context.config, stage, input)
+          return {
+            result: await ok(client, principal, { revision: read.page.revision, brief: read.page }),
+            keep: read.keep,
+          }
         })
       }
       return withSession(context, token, { capture: false }, async (client, principal) => {
@@ -1611,8 +1623,11 @@ export function sessionTools(context: SessionToolContext) {
           refuse('tool_not_allowed', 'This session does not serve that lot.')
         }
         const { lot_id: _lotId, ...request } = input
-        const brief = await readBriefPage(client, context.config, stage, request)
-        return ok(client, principal, { revision: brief.revision, brief })
+        const read = await readBriefPage(client, context.config, stage, request)
+        return {
+          result: await ok(client, principal, { revision: read.page.revision, brief: read.page }),
+          keep: read.keep,
+        }
       }),
 
     record_observation: (token: string, args: unknown) =>

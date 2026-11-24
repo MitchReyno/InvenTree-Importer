@@ -173,6 +173,28 @@ async function settingsForSuccessors(client: PoolClient, config: ProcessingConfi
   return readAgentSettings(client, config)
 }
 
+/**
+ * The lot's stable identity: the lead's latest identity proposal relying on the lot's current
+ * observation set that hasn't gone stale. None for a lot Examine hasn't identified.
+ */
+export async function stableIdentityOf(client: PoolClient, batchId: string, lotId: string) {
+  const rows = await client.query<{ id: string }>(
+    `SELECT p.id FROM public.processing_proposal p
+     JOIN public.processing_attempt a ON a.id=p.attempt_id
+     JOIN public.processing_job j ON j.id=a.job_id AND j.stage='examine' AND j.batch_id=$1
+     JOIN public.processing_message m ON m.id=p.message_id
+     JOIN public.capture_lot l ON l.id=$2
+     WHERE p.relies_on->'fields' ? 'identity'
+       AND p.relies_on->'sources' @> jsonb_build_array(jsonb_build_object(
+         'kind','observation_set','lot_id',$2::text,'version',l.observation_set_version::text))
+       AND NOT EXISTS (SELECT 1 FROM public.processing_proposal_stale s WHERE s.proposal_id=p.id)
+     ORDER BY a.number DESC, m.sequence DESC
+     LIMIT 1`,
+    [batchId, lotId],
+  )
+  return rows.rows.map((row) => row.id)
+}
+
 /** Claim-time check: every identity a successor was pinned to is still current. */
 export async function pinnedIdentityCurrent(client: PoolClient, pinned: readonly string[]) {
   if (!pinned.length) {

@@ -185,7 +185,7 @@ test('under the switch the lead and its successors seal briefs with their stages
   assert.equal(lead.stage_instructions_sha256, await packDigest(fixture, 'examine'))
   assert.deepEqual(
     lead.brief.sections.map((section) => section.name),
-    [...SHARED, 'observations', 'lots'],
+    [...SHARED, 'observations', 'lots', 'parts'],
   )
 
   const { lot: led, row: researchRow } = await successorOf(batch, 'led 0603 red', 'research')
@@ -411,6 +411,7 @@ test('a correction keeps the reading before and after; an earlier one shows only
 test('read_batch gives a /7 lead its brief with full readings; earlier leads keep their view', async (t) => {
   const stage = await formedBatch(t, { stageInputs: true })
   const legacy = await formedBatch(t)
+  await edit(stage.fixture, stage.batchId, { kind: 'add_part', label: 'Crystal Part' })
   await withClients(async (open) => {
     const lead = await open(stage.deps.toolUrl, await running(stage.fixture, stage.leadAttempt))
     assert.equal((await toolNames(lead)).includes('read_lot'), false)
@@ -419,6 +420,9 @@ test('read_batch gives a /7 lead its brief with full readings; earlier leads kee
     assert.equal(read.ok, true, JSON.stringify(read))
     assert.equal(read.brief!.view, 'current')
     assert.equal(read.revision, (await snapshotOf(stage.fixture, stage.batchId)).revision)
+    // The lead sees the batch's Parts, which a lot may share.
+    const [part] = ofKind(read.brief!.entries, 'part')
+    assert.equal(part.label, 'Crystal Part')
     const observations = ofKind(read.brief!.entries, 'observation')
     assert.deepEqual(observations.map((entry) => entry.observation.readings.markings).sort(), [
       ['16 MHz crystal'],
@@ -544,6 +548,9 @@ test('a large brief keeps the manifest under its cap, its opening within budget 
   const attemptId = await requeueResearch(fixture, batchId, led.id)
   const sealed = await sealedInput(fixture, attemptId)
   const manifest = stageInput(sealed.manifest)
+  // Start pins the lot's stable identity, as stable-identity queueing does.
+  const [identity] = await batch.identities(led.id)
+  assert.deepEqual(manifest.pinned_proposal_ids, [identity.id])
   assert.ok(sealed.bytes.length <= MAX_PROCESSING_SNAPSHOT_BYTES)
   const stored = manifest.brief.pages.filter((page) => !page.entries)
   assert.ok(stored.length > 0, 'some pages are only in the page store')
@@ -903,4 +910,60 @@ test('a kept current view larger than the default JSON bound reads back', async 
     return keptCurrentView(client, row.attempt_id, briefDigest(large))
   })
   assert.equal(canonicalRecord(read), canonicalRecord(large))
+})
+
+test('an entry larger than a page has a page of its own', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId } = batch
+  const led = await batch.lot('led 0603 red')
+  // The longest note capture allows, in four-byte characters: over 32 KiB as one entry.
+  await edit(fixture, batchId, { kind: 'note', subject_id: led.id, text: '\u{1F4C4}'.repeat(8192) })
+  const attemptId = await requeueResearch(fixture, batchId, led.id)
+  const manifest = stageInput((await sealedInput(fixture, attemptId)).manifest)
+  const alone = manifest.brief.pages.find((page) =>
+    page.entries?.some((entry) => entry.kind === 'note' && entry.text.length === 16384),
+  )
+  assert.ok(alone, 'the note is sealed')
+  assert.equal(alone.entry_count, 1)
+  await withClients(async (open) => {
+    const session = await open(batch.deps.toolUrl, await running(fixture, attemptId))
+    const pages = await allPages(session, led.id, {})
+    assert.ok(pages.some((page) => page.entries.length === 1 && page.entries[0].kind === 'note'))
+  })
+})
+
+test("reads at once keep the view bound and don't fail on each other", async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId } = batch
+  const { lot: led, row } = await successorOf(batch, 'led 0603 red', 'research')
+  await withClients(async (open) => {
+    // Two connections of the same run, as a provider may open.
+    const token = await running(fixture, row.attempt_id)
+    const session = await open(batch.deps.toolUrl, token)
+    const second = await open(batch.deps.toolUrl, token)
+    // Two first reads of the same view at once.
+    const same = await Promise.all([
+      call(session, 'read_lot', { lot_id: led.id }),
+      call(session, 'read_lot', { lot_id: led.id }),
+    ])
+    assert.deepEqual(
+      same.map((read) => read.ok),
+      [true, true],
+    )
+    for (let index = 0; index < BRIEF_VIEWS_PER_ATTEMPT - 1; index += 1) {
+      await edit(fixture, batchId, { kind: 'note', subject_id: led.id, text: `View ${index}.` })
+      assert.equal((await call(session, 'read_lot', { lot_id: led.id })).ok, true)
+    }
+    // Two new views at once on a full store: the bound still holds.
+    await edit(fixture, batchId, { kind: 'note', subject_id: led.id, text: 'One more.' })
+    const first = call(session, 'read_lot', { lot_id: led.id })
+    await edit(fixture, batchId, { kind: 'note', subject_id: led.id, text: 'And another.' })
+    const reads = await Promise.all([first, call(second, 'read_lot', { lot_id: led.id })])
+    assert.ok(reads.every((read) => read.ok))
+    const kept = await fixture.db.pool.query(
+      'SELECT 1 FROM processing_brief_view WHERE attempt_id=$1',
+      [row.attempt_id],
+    )
+    assert.ok(kept.rowCount! <= BRIEF_VIEWS_PER_ATTEMPT)
+  })
 })

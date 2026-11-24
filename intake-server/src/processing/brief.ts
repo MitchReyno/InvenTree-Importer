@@ -603,6 +603,15 @@ export function projectBrief(
     match: [],
     observations: scopedObservations.map((observation) => ({ kind: 'observation', observation })),
     lots: scope.stage === 'examine' ? lotEntries(snapshot, corrections) : [],
+    parts:
+      scope.stage === 'examine'
+        ? snapshot.parts.map((part) => ({
+            kind: 'part',
+            part_subject_id: part.id,
+            label: part.label,
+            revision: part.revision,
+          }))
+        : [],
     identity: facts.identities.map((identity) => ({
       kind: 'identity',
       proposal_id: identity.proposalId,

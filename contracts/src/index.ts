@@ -1,7 +1,7 @@
 import { Type, type Static, type TProperties } from '@sinclair/typebox'
 import { copyValidationIssues } from './validation-issues.ts'
 export type { ValidationIssue } from './validation-issues.ts'
-import { Ajv2020 } from 'ajv/dist/2020.js'
+import { Ajv2020, type ValidateFunction } from 'ajv/dist/2020.js'
 import {
   Id,
   Revision,
@@ -219,19 +219,31 @@ const ajv = new Ajv2020({
   removeAdditional: false,
 })
 ajv.addFormat('int64', validInt64)
-const validators = new Map(
-  Object.entries(schemas).map(([key, schema]) => [key, ajv.compile(schema)]),
-)
+/**
+ * Each schema is compiled on its first use and kept, so importing the contracts doesn't spend
+ * seconds compiling schemas a process never validates (a server must answer its health check
+ * within seconds of starting).
+ */
+const validators = new Map<keyof typeof schemas, ValidateFunction>()
+
+function validatorFor(name: keyof typeof schemas) {
+  let validator = validators.get(name)
+  if (!validator) {
+    validator = ajv.compile(schemas[name])
+    validators.set(name, validator)
+  }
+  return validator
+}
 
 export function validate(name: keyof typeof schemas, value: unknown): void {
-  if (!validators.get(name)!(value)) {
+  if (!validatorFor(name)(value)) {
     throw new Error('invalid_contract')
   }
 }
 
 /** Copies bounded schema issues immediately; existing validate callers keep their error contract. */
 export function validationIssues(name: keyof typeof schemas, value: unknown) {
-  const validator = validators.get(name)!
+  const validator = validatorFor(name)
   if (validator(value)) {
     return []
   }

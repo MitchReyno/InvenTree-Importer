@@ -1,4 +1,5 @@
-import type { PoolClient } from 'pg'
+import type { Pool, PoolClient } from 'pg'
+import { transaction } from '#/db/database.ts'
 import type {
   CaptureSnapshotDto,
   ProcessingInputV7Dto,
@@ -14,6 +15,7 @@ import { assembleBrief, type BriefVersion } from '#/processing/brief.ts'
 import {
   briefDigest,
   briefPages,
+  briefViewKeepable,
   keepCurrentView,
   keptCurrentView,
   pageToken,
@@ -128,13 +130,15 @@ async function currentBrief(
   return assembleBrief(client, capture.snapshot, scope)
 }
 
-/** The cursor a read starts from, keeping the current view when it asks for that. */
-async function startingCursor(
-  client: PoolClient,
+/**
+ * The cursor a read starts from: the token's, the sealed brief's first page, or the current
+ * view's first page, which the caller keeps once the read's snapshot has committed.
+ */
+function startingCursor(
   principal: StagePrincipal,
   request: BriefReadRequest,
   current: SessionBriefDto,
-): Promise<BriefPageCursor> {
+): BriefPageCursor {
   const sealed = principal.manifest.brief
   if (request.page_token !== undefined) {
     const cursor = readPageToken(request.page_token)
@@ -151,9 +155,6 @@ async function startingCursor(
     }
     return { attemptId: principal.attemptId, view: 'sealed', digest: sealed.sha256, page: 1 }
   }
-  if (!(await keepCurrentView(client, principal.attemptId, current))) {
-    refuse('brief_revision_unavailable', UNAVAILABLE)
-  }
   return {
     attemptId: principal.attemptId,
     view: 'current',
@@ -162,8 +163,26 @@ async function startingCursor(
   }
 }
 
-/** The pages of the view a cursor names: the sealed brief's, or a kept current view's. */
-async function viewPage(client: PoolClient, principal: StagePrincipal, cursor: BriefPageCursor) {
+/** A view's header, page count and one page's entries. */
+function pageOf(header: SessionBriefDto, cursor: BriefPageCursor) {
+  const pages = briefPages(header)
+  if (cursor.page > pages.length) {
+    refuse('brief_revision_unavailable', UNAVAILABLE)
+  }
+  return { header, pageCount: pages.length, entries: pages[cursor.page - 1].page.entries }
+}
+
+/**
+ * The page a cursor names: the sealed brief's, the current brief just assembled (its first
+ * read), or a kept current view's.
+ */
+async function viewPage(
+  client: PoolClient,
+  principal: StagePrincipal,
+  cursor: BriefPageCursor,
+  current: SessionBriefDto,
+  fresh: boolean,
+) {
   const sealed = principal.manifest.brief
   if (cursor.view === 'sealed') {
     if (cursor.digest !== sealed.sha256 || cursor.page > sealed.pages.length) {
@@ -175,54 +194,77 @@ async function viewPage(client: PoolClient, principal: StagePrincipal, cursor: B
       entries: await sealedBriefPage(client, principal.inputId, sealed, cursor.page),
     }
   }
+  if (fresh) {
+    return pageOf(current, cursor)
+  }
   const kept =
     (await keptCurrentView(client, principal.attemptId, cursor.digest)) ??
     refuse('brief_revision_unavailable', UNAVAILABLE)
-  const pages = briefPages(kept)
-  if (cursor.page > pages.length) {
-    refuse('brief_revision_unavailable', UNAVAILABLE)
-  }
-  return {
-    header: { ...kept, sha256: cursor.digest },
-    pageCount: pages.length,
-    entries: pages[cursor.page - 1].page.entries,
-  }
+  return pageOf(kept, cursor)
+}
+
+/** A page read, and the current view to keep for its later pages when it started one. */
+export interface BriefRead {
+  page: SessionBriefPageDto
+  keep: SessionBriefDto | null
 }
 
 /**
- * One page of a `/7` session's brief. A page token continues the view it came from, even after
- * an edit; each page says whether the current brief differs from it.
+ * One page of a `/7` session's brief, read in the caller's snapshot. A page token continues the
+ * view it came from, even after an edit; each page says whether the current brief differs from
+ * it. A read that starts a current view returns it to keep (`keepBriefView`) before the page's
+ * token is used.
  */
 export async function readBriefPage(
   client: PoolClient,
   config: ProcessingConfig,
   principal: StagePrincipal,
   request: BriefReadRequest,
-): Promise<SessionBriefPageDto> {
+): Promise<BriefRead> {
   try {
     const current = await currentBrief(client, config, principal)
-    const cursor = await startingCursor(client, principal, request, current)
-    const { header, pageCount, entries } = await viewPage(client, principal, cursor)
-    const currentDigest = briefDigest(current)
+    const cursor = startingCursor(principal, request, current)
+    const fresh = request.page_token === undefined && cursor.view === 'current'
+    if (fresh && !briefViewKeepable(current)) {
+      refuse('brief_revision_unavailable', UNAVAILABLE)
+    }
+    const { header, pageCount, entries } = await viewPage(client, principal, cursor, current, fresh)
     return {
-      view: cursor.view,
-      stage: header.stage,
-      lot_id: header.lot_id,
-      revision: header.revision,
-      sha256: cursor.digest,
-      sections: header.sections,
-      page: cursor.page,
-      page_count: pageCount,
-      entries,
-      next_page_token:
-        cursor.page < pageCount ? pageToken({ ...cursor, page: cursor.page + 1 }) : null,
-      newer: currentDigest === cursor.digest ? null : { revision: current.revision },
+      page: {
+        view: cursor.view,
+        stage: header.stage,
+        lot_id: header.lot_id,
+        revision: header.revision,
+        sha256: cursor.digest,
+        sections: header.sections,
+        page: cursor.page,
+        page_count: pageCount,
+        entries,
+        next_page_token:
+          cursor.page < pageCount ? pageToken({ ...cursor, page: cursor.page + 1 }) : null,
+        newer: briefDigest(current) === cursor.digest ? null : { revision: current.revision },
+      },
+      keep: fresh ? current : null,
     }
   } catch (error) {
-    // A brief past the page bound can't be kept or paged; the session reads again later.
+    // A view past the page bound can't be paged; the session reads again later.
     if (error instanceof ProcessingError && error.code === 'processing_input_capacity') {
       refuse('brief_revision_unavailable', UNAVAILABLE)
     }
     throw error
   }
+}
+
+/**
+ * Keeps a current view for the attempt in its own transaction, serialized per attempt, so two
+ * reads at once can't break the bound or fail on each other's insert.
+ */
+export async function keepBriefView(pool: Pool, attemptId: string, brief: SessionBriefDto) {
+  await transaction(pool, async (client) => {
+    await client.query(
+      "SELECT pg_advisory_xact_lock(hashtext('processing_brief_view'), hashtext($1))",
+      [attemptId],
+    )
+    await keepCurrentView(client, attemptId, brief)
+  })
 }

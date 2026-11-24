@@ -15,7 +15,7 @@ import { prepareMediaTransaction } from '#/media/transaction.ts'
 import { reserveProcessingMedia, reservedMediaFor } from './media.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { checkJobCapacity, queueJob, supersedeJobAttempts } from './jobs.ts'
-import { successorsCurrent } from './stable-identity.ts'
+import { stableIdentityOf, successorsCurrent } from './stable-identity.ts'
 import { fail, stageOrder } from './model.ts'
 import { commandScope, lockLane } from './scope.ts'
 import { canCancelProcessingAttempt, lockProcessingAttempt, processingJobColumns } from './state.ts'
@@ -105,6 +105,12 @@ export async function startProcessing(
         await checkJobCapacity(client, batchId, input.subject_ids, stages)
         for (const subjectId of [...input.subject_ids].sort()) {
           let dependencies: string[] = []
+          // A `/7` successor starts from the lot's stable identity, as stable-identity queueing
+          // pins it; a lot Examine hasn't identified has none.
+          const pinned =
+            sessions && inputVersion === 'bench-intake-input/7'
+              ? await stableIdentityOf(client, batchId, subjectId)
+              : []
           for (const stage of stages) {
             const attempt = await queueJob(
               client,
@@ -114,7 +120,7 @@ export async function startProcessing(
               stage,
               dependencies,
               reservedMediaFor(media, subjectId),
-              [],
+              pinned,
               { inputVersion: sessions ? inputVersion : undefined },
             )
             jobIds.push(attempt.jobId)
