@@ -416,3 +416,18 @@ test('the montage lays crops out as montage.py does', async () => {
     assert.ok(measured.mean <= 3, `cell ${index} mean ${measured.mean}`)
   }
 })
+
+test('a region one pixel past a correctly identified page makes the whole preview malformed', async () => {
+  const bench = await benchPage()
+  const result = await renderPreview(
+    previewInput(bench, [
+      { label: 'valid', page: 0, recipe: recipe(bench, [0, 0, 100, 100]) },
+      {
+        label: 'past the edge',
+        page: 0,
+        recipe: recipe(bench, [bench.page.width - 99, 0, bench.page.width + 1, 100]),
+      },
+    ]),
+  )
+  assert.deepEqual(result, { state: 'malformed', toolchain: MEDIA_TOOLCHAIN })
+})

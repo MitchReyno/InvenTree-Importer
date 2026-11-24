@@ -120,7 +120,8 @@ test('grid labels are in page pixels, whatever the preview scale', async () => {
     result.x_labels,
     [160, 170, 180, 190, 200, 210, 220, 230, 240, 250, 260, 270, 280, 290, 300, 310, 320],
   )
-  assert.deepEqual(result.y_labels, [170, 180, 190, 200, 210, 220, 230])
+  // y 170 would sit under the 'lopsided' box's name at the same corner, so it is left out.
+  assert.deepEqual(result.y_labels, [180, 190, 200, 210, 220, 230])
 
   const image = await rgbRaster(result.image.bytes)
   assert.deepEqual([image.width, image.height], [900, 400])
@@ -329,4 +330,80 @@ test('a line at the region edge is drawn inside the preview, with its label', as
   const offset = (100 * image.width + lineColumn) * 3
   const [red, green, blue] = image.data.subarray(offset, offset + 3)
   assert.ok(red > 200 && green < 160 && blue < 160, `line pixel ${red},${green},${blue}`)
+})
+
+/**
+ * The runs of columns holding a white chip in rows `top` to `bottom`, each with the colour of the
+ * ink it holds: red for an x label, blue for a y label, otherwise a box name.
+ */
+function chipRuns(image: Awaited<ReturnType<typeof rgbRaster>>, top: number, bottom: number) {
+  const runs: { from: number; to: number; ink: 'red' | 'blue' | 'other' }[] = []
+  for (const column of chipColumns(image, top, bottom)) {
+    const last = runs.at(-1)
+    if (last && column === last.to + 1) {
+      last.to = column
+    } else {
+      runs.push({ from: column, to: column, ink: 'other' })
+    }
+  }
+  for (const run of runs) {
+    for (let y = top; y < bottom; y++) {
+      for (let x = run.from; x <= run.to; x++) {
+        const offset = (y * image.width + x) * 3
+        const [red, green, blue] = image.data.subarray(offset, offset + 3)
+        if (red > 120 && green < 90 && blue < 90) {
+          run.ink = 'red'
+        } else if (blue > 120 && red < 90 && green < 90) {
+          run.ink = 'blue'
+        }
+      }
+    }
+  }
+  return runs
+}
+
+test('a box name never hides an axis label the result reports', async () => {
+  const page = await greyPage(400, 400)
+  const result = await renderGrid({
+    version: 'media-grid/1',
+    digest: page.digest,
+    width: page.width,
+    height: page.height,
+    bytes: page.bytes,
+    region: { x: 0, y: 0, width: 200, height: 200 },
+    preview_width: 200,
+    step: 100,
+    object: null,
+    boxes: [{ name: 'crop box', box: { x: 97, y: 0, width: 60, height: 60 } }],
+  })
+  assert.ok(result.state === 'ready')
+  const image = await rgbRaster(result.image.bytes)
+  // Text rows only, where a chip covers any grid line behind it.
+  const runs = chipRuns(image, 5, 16)
+  assert.equal(runs.filter((run) => run.ink === 'red').length, result.x_labels.length)
+  assert.ok(!result.x_labels.includes(100), 'the label under the box name is left out')
+  assert.ok(
+    runs.some((run) => run.ink === 'other'),
+    'the box name is drawn',
+  )
+})
+
+test('a y label clear of the x labels is kept, as grid.py keeps it', async () => {
+  const page = await greyPage(400, 400)
+  const { result, image } = await gridOf(page, { x: 20, y: 95, width: 200, height: 200 }, 200, 100)
+  assert.deepEqual(result.x_labels, [100, 200])
+  assert.deepEqual(result.y_labels, [100, 200])
+  const runs = chipRuns(image, 9, 20)
+  assert.ok(
+    runs.some((run) => run.ink === 'blue'),
+    'the y label at the top is drawn',
+  )
+})
+
+test('x labels fit a preview only just taller than their chips', async () => {
+  const page = await greyPage(2000, 170)
+  const { result, image } = await gridOf(page, { x: 0, y: 0, width: 2000, height: 170 }, 200, 500)
+  assert.deepEqual([image.width, image.height], [200, 17])
+  assert.deepEqual(result.x_labels, [500, 1000, 1500])
+  assert.equal(chipRuns(image, 0, 17).filter((run) => run.ink === 'red').length, 3)
 })

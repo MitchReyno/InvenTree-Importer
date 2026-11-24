@@ -152,13 +152,35 @@ function fitsPreview(chipBounds: Chip, plan: GridPlan) {
   )
 }
 
+function overlaps(first: Chip, second: Chip) {
+  return (
+    first.left < second.right &&
+    second.left < first.right &&
+    first.top < second.bottom &&
+    second.top < first.bottom
+  )
+}
+
+/** A label laid out on its chip: text starting at (x, y). */
+interface PlacedLabel {
+  x: number
+  y: number
+  text: string
+  colour: string
+  bounds: Chip
+}
+
+function placed(context: SKRSContext2D, x: number, y: number, text: string, colour: string) {
+  return { x, y, text, colour, bounds: chipAround(x, y, context.measureText(text).width) }
+}
+
 /** A label on a white chip, so it stays legible on foil, glare and busy backgrounds. */
-function chip(context: SKRSContext2D, x: number, y: number, text: string, colour: string) {
-  const bounds = chipAround(x, y, context.measureText(text).width)
+function drawChip(context: SKRSContext2D, label: PlacedLabel) {
+  const { bounds } = label
   context.fillStyle = '#ffffff'
   context.fillRect(bounds.left, bounds.top, bounds.right - bounds.left, bounds.bottom - bounds.top)
-  context.fillStyle = colour
-  context.fillText(text, x, y)
+  context.fillStyle = label.colour
+  context.fillText(label.text, label.x, label.y)
 }
 
 /**
@@ -200,17 +222,30 @@ function drawLines(context: SKRSContext2D, plan: GridPlan) {
 }
 
 /**
- * Labels go on last, so no line crosses them. A label that would run off the right or bottom edge
- * goes on its line's other side; one that still doesn't fit, or would cover the previous label, is
- * left out. Only the labels drawn are returned.
+ * Lays out the box names and the axis labels together. Box names keep their places at their boxes'
+ * corners; an axis label goes on its line's far side when it would run off the right or bottom
+ * edge, and is left out when it still doesn't fit or would cover a label already placed. Only the
+ * labels placed are returned.
  */
-function drawLabels(context: SKRSContext2D, plan: GridPlan) {
+function layoutLabels(
+  context: SKRSContext2D,
+  plan: GridPlan,
+  boxNames: PlacedLabel[],
+): { chips: PlacedLabel[]; xLabels: number[]; yLabels: number[] } {
   const { region, scale, previewWidth, previewHeight } = plan
+  const chips = [...boxNames]
+
+  const fitsFreely = (label: PlacedLabel) =>
+    fitsPreview(label.bounds, plan) && chips.every((other) => !overlaps(label.bounds, other.bounds))
+
   const widest = context.measureText(String(region.x1)).width
   const xStep = labelStep(plan, widest + 2 * CHIP_PAD_X + LABEL_GAP_PX)
-  const yStep = labelStep(plan, LABEL_FONT_PX + 2 * CHIP_PAD_Y + LABEL_GAP_PX)
+  // The x label row sits 3 px down, or as far down as a short preview allows.
+  const rowTop = Math.max(
+    CHIP_PAD_Y,
+    Math.min(LABEL_OFFSET_PX, previewHeight - LABEL_FONT_PX - CHIP_PAD_Y),
+  )
   const xLabels: number[] = []
-  let previousRight = -Infinity
   for (const x of multiples(region.x0, region.x1, xStep)) {
     const line = previewPixel(x, region.x0, scale, previewWidth)
     const width = context.measureText(String(x)).width
@@ -218,15 +253,14 @@ function drawLabels(context: SKRSContext2D, plan: GridPlan) {
     if (left + width + CHIP_PAD_X > previewWidth) {
       left = line - LABEL_OFFSET_PX - width
     }
-    const bounds = chipAround(left, LABEL_OFFSET_PX, width)
-    if (fitsPreview(bounds, plan) && bounds.left >= previousRight) {
-      chip(context, left, LABEL_OFFSET_PX, String(x), COLOURS.labelX)
+    const label = placed(context, left, rowTop, String(x), COLOURS.labelX)
+    if (fitsFreely(label)) {
+      chips.push(label)
       xLabels.push(x)
-      previousRight = bounds.right
     }
   }
-  // y labels start below the row of x labels, so the two never overlap in the corner.
-  let previousBottom = xLabels.length > 0 ? chipAround(0, LABEL_OFFSET_PX, 0).bottom : -Infinity
+
+  const yStep = labelStep(plan, LABEL_FONT_PX + 2 * CHIP_PAD_Y + LABEL_GAP_PX)
   const yLabels: number[] = []
   for (const y of multiples(region.y0, region.y1, yStep)) {
     const line = previewPixel(y, region.y0, scale, previewHeight)
@@ -234,14 +268,13 @@ function drawLabels(context: SKRSContext2D, plan: GridPlan) {
     if (top + LABEL_FONT_PX + CHIP_PAD_Y > previewHeight) {
       top = line - LABEL_OFFSET_PX - LABEL_FONT_PX
     }
-    const bounds = chipAround(LABEL_OFFSET_PX, top, context.measureText(String(y)).width)
-    if (fitsPreview(bounds, plan) && bounds.top >= previousBottom) {
-      chip(context, LABEL_OFFSET_PX, top, String(y), COLOURS.labelY)
+    const label = placed(context, LABEL_OFFSET_PX, top, String(y), COLOURS.labelY)
+    if (fitsFreely(label)) {
+      chips.push(label)
       yLabels.push(y)
-      previousBottom = bounds.bottom
     }
   }
-  return { xLabels, yLabels }
+  return { chips, xLabels, yLabels }
 }
 
 /** The object's bounds, dashed. */
@@ -258,7 +291,7 @@ function drawObject(context: SKRSContext2D, plan: GridPlan, object: Corners) {
   context.setLineDash([])
 }
 
-/** A proposed box with its centre crosshair and name. */
+/** A proposed box with its centre crosshair; returns its name's label, drawn with the others. */
 function drawBox(
   context: SKRSContext2D,
   plan: GridPlan,
@@ -283,7 +316,7 @@ function drawBox(
   context.moveTo(centreX, centreY - 12)
   context.lineTo(centreX, centreY + 12)
   context.stroke()
-  chip(context, left + 4, top + 4, name, colour)
+  return placed(context, left + 4, top + 4, name, colour)
 }
 
 /** A box's size and its margins to the object, flagged as grid.py flags them. */
@@ -351,20 +384,25 @@ async function drawGrid(input: GridInput, plan: GridPlan) {
   context.font = `${LABEL_FONT_PX}px "${markFont()}"`
   context.textBaseline = 'top'
   drawLines(context, plan)
-  const labels = drawLabels(context, plan)
   const object = input.object ? corners(input.object) : null
   if (object) {
     drawObject(context, plan, object)
   }
-  for (const [index, item] of input.boxes.entries()) {
+  const boxNames = input.boxes.map((item, index) =>
     drawBox(
       context,
       plan,
       corners(item.box),
       item.name,
       COLOURS.boxes[index % COLOURS.boxes.length],
-    )
+    ),
+  )
+  // Every label goes on last, over the lines and outlines, laid out so none covers another.
+  const layout = layoutLabels(context, plan, boxNames)
+  for (const label of layout.chips) {
+    drawChip(context, label)
   }
+  const labels = { xLabels: layout.xLabels, yLabels: layout.yLabels }
   const bytes = await canvas.encode('png')
   if (bytes.length > MEDIA_LIMITS.outputBytes) {
     throw new GridLimitError('grid_output_limit')
