@@ -10,8 +10,7 @@ import { Banner, Button, DisplayOnly, ReadState, SettingRow } from '#/components
 import { ChatGPTSignIn } from '#/components/agents/ChatGPTSignIn'
 import { PauseAllAgents } from '#/components/agents/PauseAllAgents'
 import { PersonalClaudeCredential } from '#/components/agents/PersonalClaudeCredential'
-import { useChatGPTSignIn } from '#/components/agents/useChatGPTSignIn'
-import { usePersonalClaudeCredential } from '#/components/agents/usePersonalClaudeCredential'
+import { useProviderStatus } from '#/components/agents/useProviderStatus'
 import { newestRevision } from './newest-revision'
 import { SettingsSection } from './SettingsSection'
 import { SettingsSkeleton } from './SettingsSkeleton'
@@ -28,6 +27,19 @@ import { TagSuggestionsForm } from './agents/TagSuggestionsForm'
 import { useDirtyForms } from './agents/useDirtyForms'
 import { createSaveQueue } from './agents/save-queue'
 import type { SettingsPage } from './agents/useSettingsSave'
+import { sessionListKey } from '#/agents/session-list'
+import { invalidateStartFreshReads } from '#/processing/start-fresh'
+
+/** Every session, for the list's totals; no page or filter narrows them. */
+const ALL_SESSIONS = { filter: 'all' } as const
+
+/** What a confirmed Claude change leaves stored, or undefined when only the VM can say. */
+function claudeState(configured: boolean | undefined) {
+  if (configured === undefined) {
+    return undefined
+  }
+  return configured ? 'saved' : 'not_saved'
+}
 
 type Props = {
   client: ReturnType<typeof agentsClient>
@@ -38,15 +50,13 @@ type Props = {
 }
 
 /**
- * Settings › Agents: every setting that shapes agent behaviour, in subsections. The credential
- * panels' state lives here, so it mounts and unmounts with the section and the provider cards
- * mirror the panels.
+ * Settings › Agents: every setting that shapes agent behaviour, in subsections. The providers'
+ * sign-in status is read here, so it is read each time the section opens.
  */
 export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
   const scope = useServerScope()
   const poll = useRetainedPollInterval()
-  const credential = usePersonalClaudeCredential()
-  const signIn = useChatGPTSignIn()
+  const providerStatus = useProviderStatus(client)
   const queryClient = useQueryClient()
   // Says whether this profile's sessions have web access; until it answers, the form stays usable.
   const readiness = useReadiness(true)
@@ -56,10 +66,10 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
     queryFn: () => client.settings(),
   })
   const settings = settingsFresh.query
-  // The Agents page's list; its first page gives the slot use it shows too.
+  // The session list's totals count every session, whatever page or filter the list shows.
   const sessionsFresh = useFreshRead({
-    queryKey: serverQueryKey(scope, 'agent-sessions', 'newest'),
-    queryFn: () => client.sessions(),
+    queryKey: sessionListKey(scope, ALL_SESSIONS),
+    queryFn: () => client.sessions(ALL_SESSIONS),
     refetchInterval: poll === false ? 10000 : poll,
   })
   const sessions = sessionsFresh.query
@@ -119,6 +129,7 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
   function adoptLoaded(confirmed: AgentSettingsDto, source: 'save' | 'reload') {
     if (source === 'save') {
       localSaves.current.add(confirmed.revision)
+      invalidateStartFreshReads(queryClient, scope)
     }
     const latest = newestRevision(
       confirmed,
@@ -158,7 +169,10 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
             queryClient.getQueryData<AgentSettingsDto>(settingsKey),
           ),
         adopt: adoptLoaded,
-        ownSave: (revision) => localSaves.current.add(revision),
+        ownSave: (revision) => {
+          localSaves.current.add(revision)
+          invalidateStartFreshReads(queryClient, scope)
+        },
         localSaves: localSaves.current,
         reportDirty: reportDirty.report,
       }
@@ -197,10 +211,21 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
       {form ? (
         <ProvidersAndSteps
           {...form}
-          status={{ claude: credential.card, codex: signIn.card }}
+          status={providerStatus}
           credentials={{
-            claude: <PersonalClaudeCredential credential={credential} />,
-            codex: <ChatGPTSignIn signIn={signIn} />,
+            claude: (
+              <PersonalClaudeCredential
+                onChanged={(configured, late) =>
+                  providerStatus.signInChanged('claude', claudeState(configured), { late })
+                }
+              />
+            ),
+            codex: (
+              <ChatGPTSignIn
+                onConfirmed={() => providerStatus.signInChanged('codex', 'signed_in')}
+                onChanged={() => providerStatus.signInChanged('codex')}
+              />
+            ),
           }}
           sessions={sessionsSubsection}
         />

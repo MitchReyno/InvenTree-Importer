@@ -83,3 +83,41 @@ Only allowlisted resources, through display projections, SHALL be stored, under 
 - **GIVEN** a session with Review, Processing and Agents read, and a credential dialog used
 - **WHEN** session storage is inspected
 - **THEN** it holds only the allowlisted display reads, with no CSRF token, credential, session identifier, draft or pending mutation.
+
+### Requirement: A replaced read is not a failure
+
+A read cancelled because a live update replaced it SHALL wait for the replacing read, for at most 10 seconds, and SHALL show nothing while it waits. Only a replacing read that fails, pauses or doesn't settle in time SHALL count as unavailable. A cancelled read SHALL still never verify a command.
+
+#### Scenario: Live update during the reload after an answer
+
+- **GIVEN** the operator answers a question, and the reload of saved values that follows is in flight
+- **WHEN** the answer's live update cancels that read and a replacing read succeeds
+- **THEN** no banner or message shows on any tab, and the new saved values show.
+
+#### Scenario: Replacing read fails
+
+- **GIVEN** a reload of saved values cancelled by a live update
+- **WHEN** the replacing read fails
+- **THEN** the batch reports the saved values as unavailable.
+
+### Requirement: Unavailable saved values are reported calmly
+
+When saved values can't be read, the batch SHALL show an amber notice saying when the values shown were loaded, with Try now, SHALL keep trying, and SHALL clear the notice once a read succeeds. Only when there are unsaved changes SHALL it name them, say they are kept and offer "Discard my changes". After a confirmed command whose status can't be read, Processing SHALL say "Saved. Showing the last status from HH:MM until it can be read again."
+
+#### Scenario: Nothing edited
+
+- **GIVEN** no unsaved changes, and the server can't be read after a save
+- **WHEN** the reload fails
+- **THEN** an amber notice reads "Couldn't load the latest values. Showing what was loaded at 13:12. Trying again…" with Try now and no Discard, and it clears itself once a read works.
+
+#### Scenario: Unsaved changes
+
+- **GIVEN** unsaved changes to Lot 3's quantity and Lot 5's location, and the server can't be read
+- **WHEN** the reload fails
+- **THEN** the notice says "Your unsaved changes to Lot 3 · quantity and Lot 5 · location are kept." with Try now and "Discard my changes", which drops only those changes.
+
+#### Scenario: Saved command, status unavailable
+
+- **GIVEN** an answer the server confirmed, and the Processing read after it fails
+- **WHEN** Processing shows the outcome
+- **THEN** it reads "Saved. Showing the last status from 13:12 until it can be read again.", and its commands stay disabled until a read succeeds.

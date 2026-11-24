@@ -1393,7 +1393,14 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
+                    /** @description The cursor of the page read last; returns the next page. */
                     before?: string;
+                    filter?: "needs_attention" | "working" | "waiting" | "queued" | "done_today" | "all";
+                    batch_id?: string;
+                    /** @description The start of the browser's local day, for Done today. */
+                    day_start?: string;
+                    /** @description The end of the browser's local day, exclusive. */
+                    day_end?: string;
                 };
                 header?: never;
                 path?: never;
@@ -18175,6 +18182,14 @@ export interface components {
                 text: string;
                 at: string;
             };
+            start_fresh?: {
+                /** @constant */
+                allowed: true;
+            } | {
+                /** @constant */
+                allowed: false;
+                reason: "unsupported_processing_profile" | "batch_archived" | "subject_retired" | "media_not_ready" | "media_input_capacity" | "session_not_replaceable" | "session_reap_pending" | "inventory_waiting" | "identity_waiting" | "agent_profile_retired" | "unsupported_processing_stage" | "agent_settings_required" | "retained_evidence_required" | "unsupported_processing_input" | "processing_input_capacity" | "processing_channel_unconfigured";
+            };
             proposals: {
                 id: string;
                 message_id: string;
@@ -19083,6 +19098,14 @@ export interface components {
                 latest_status?: {
                     text: string;
                     at: string;
+                };
+                start_fresh?: {
+                    /** @constant */
+                    allowed: true;
+                } | {
+                    /** @constant */
+                    allowed: false;
+                    reason: "unsupported_processing_profile" | "batch_archived" | "subject_retired" | "media_not_ready" | "media_input_capacity" | "session_not_replaceable" | "session_reap_pending" | "inventory_waiting" | "identity_waiting" | "agent_profile_retired" | "unsupported_processing_stage" | "agent_settings_required" | "retained_evidence_required" | "unsupported_processing_input" | "processing_input_capacity" | "processing_channel_unconfigured";
                 };
                 proposals: {
                     id: string;
@@ -21011,6 +21034,7 @@ export interface components {
                 stage: "examine" | "reading" | "identifying" | "research" | "images" | "inventory";
                 state: "queued" | "running" | "waiting_for_user" | "waiting_for_login" | "waiting_for_capacity" | "ready" | "failed" | "cancelled" | "superseded" | "interrupted";
                 latest_on_job: boolean;
+                attempt_number: number;
                 selection: {
                     provider: "codex" | "claude";
                     authentication: "api_key" | "subscription";
@@ -21020,6 +21044,7 @@ export interface components {
                 queued_at: string;
                 started_at: string | null;
                 finished_at: string | null;
+                state_since: string;
                 native_session_id: string | null;
                 actual_model: string | null;
                 progress: "queued" | "starting" | "responding" | "settled";
@@ -21031,6 +21056,20 @@ export interface components {
                     summary: string;
                     recovery: string;
                     details_available: boolean;
+                    failed_at?: string;
+                    cause?: {
+                        code: "agent_login_required" | "agent_credentials_unavailable" | "agent_process_unavailable" | "agent_version_unqualified" | "agent_version_unavailable" | "agent_admission_unavailable" | "agent_admission_timeout" | "agent_home_unavailable" | "agent_home_customizations_refused" | "agent_input_invalid" | "agent_profile_retired" | "agent_host_customization_refused" | "agent_policy_refused" | "agent_tool_refused" | "agent_request_refused" | "agent_protocol_invalid" | "agent_process_failed" | "agent_input_closed" | "agent_delivery_failed" | "agent_turn_failed" | "agent_result_missing" | "agent_truncated_frame" | "agent_output_capacity" | "agent_frame_capacity" | "agent_timeout" | "agent_cancelled" | "agent_worker_interrupted" | "resume_unavailable" | "agent_reap_pending" | "invalid_contract" | "evidence_unavailable" | "agent_unknown";
+                        provider: "codex" | "claude" | null;
+                        provider_error?: {
+                            kind: "unknown" | "authentication_failed" | "oauth_org_not_allowed" | "account_on_hold" | "verification_required" | "billing_error" | "rate_limit" | "overloaded" | "invalid_request" | "model_not_found" | "server_error" | "max_output_tokens" | "cloud_credential_error" | "contextWindowExceeded" | "sessionBudgetExceeded" | "usageLimitExceeded" | "rateLimitExceeded" | "flexUnavailable" | "serverOverloaded" | "modelNotFound" | "policyCapacityUnavailable" | "cyberPolicy" | "misalignmentPolicyViolation" | "tooManyDenials" | "internalServerError" | "unauthorized" | "badRequest" | "threadRollbackFailed" | "sandboxError" | "other" | "httpConnectionFailed" | "responseStreamConnectionFailed" | "responseStreamDisconnected" | "responseTooManyFailedAttempts" | "activeTurnNotSteerable";
+                            result: ("success" | "error_during_execution" | "error_max_turns") | null;
+                            http_status: number | null;
+                        };
+                    };
+                    last_status?: {
+                        text: string;
+                        at: string;
+                    };
                 };
                 latest_status: {
                     text: string;
@@ -21038,13 +21077,88 @@ export interface components {
                 } | null;
                 /** @constant */
                 paused?: true;
+                archived: boolean;
+                runs_on: "agent_vm" | "host" | "fixture";
+                web: {
+                    public_pages: boolean;
+                    prefer_datasheets: boolean;
+                } | null;
+                start_fresh: {
+                    /** @constant */
+                    allowed: true;
+                } | {
+                    /** @constant */
+                    allowed: false;
+                    reason: "unsupported_processing_profile" | "batch_archived" | "subject_retired" | "media_not_ready" | "media_input_capacity" | "session_not_replaceable" | "session_reap_pending" | "inventory_waiting" | "identity_waiting" | "agent_profile_retired" | "unsupported_processing_stage" | "agent_settings_required" | "retained_evidence_required" | "unsupported_processing_input" | "processing_input_capacity" | "processing_channel_unconfigured";
+                };
+                earlier_attempts: {
+                    attempt_id: string;
+                    number: number;
+                    state: "queued" | "running" | "waiting_for_user" | "waiting_for_login" | "waiting_for_capacity" | "ready" | "failed" | "cancelled" | "superseded" | "interrupted";
+                    session_state: ("queued" | "running" | "waiting_input" | "finished" | "cancelling" | "cancelled" | "interrupted" | "failed" | "waiting_for_login" | "waiting_for_capacity" | "resume_unavailable") | null;
+                    queued_at: string;
+                    ended_at?: string;
+                    failure?: {
+                        id: string;
+                        category: "authentication" | "configuration" | "tool_policy" | "validation" | "evidence" | "provider_network" | "timeout" | "interrupted" | "internal";
+                        summary: string;
+                        recovery: string;
+                        details_available: boolean;
+                        failed_at?: string;
+                        cause?: {
+                            code: "agent_login_required" | "agent_credentials_unavailable" | "agent_process_unavailable" | "agent_version_unqualified" | "agent_version_unavailable" | "agent_admission_unavailable" | "agent_admission_timeout" | "agent_home_unavailable" | "agent_home_customizations_refused" | "agent_input_invalid" | "agent_profile_retired" | "agent_host_customization_refused" | "agent_policy_refused" | "agent_tool_refused" | "agent_request_refused" | "agent_protocol_invalid" | "agent_process_failed" | "agent_input_closed" | "agent_delivery_failed" | "agent_turn_failed" | "agent_result_missing" | "agent_truncated_frame" | "agent_output_capacity" | "agent_frame_capacity" | "agent_timeout" | "agent_cancelled" | "agent_worker_interrupted" | "resume_unavailable" | "agent_reap_pending" | "invalid_contract" | "evidence_unavailable" | "agent_unknown";
+                            provider: "codex" | "claude" | null;
+                            provider_error?: {
+                                kind: "unknown" | "authentication_failed" | "oauth_org_not_allowed" | "account_on_hold" | "verification_required" | "billing_error" | "rate_limit" | "overloaded" | "invalid_request" | "model_not_found" | "server_error" | "max_output_tokens" | "cloud_credential_error" | "contextWindowExceeded" | "sessionBudgetExceeded" | "usageLimitExceeded" | "rateLimitExceeded" | "flexUnavailable" | "serverOverloaded" | "modelNotFound" | "policyCapacityUnavailable" | "cyberPolicy" | "misalignmentPolicyViolation" | "tooManyDenials" | "internalServerError" | "unauthorized" | "badRequest" | "threadRollbackFailed" | "sandboxError" | "other" | "httpConnectionFailed" | "responseStreamConnectionFailed" | "responseStreamDisconnected" | "responseTooManyFailedAttempts" | "activeTurnNotSteerable";
+                                result: ("success" | "error_during_execution" | "error_max_turns") | null;
+                                http_status: number | null;
+                            };
+                        };
+                        last_status?: {
+                            text: string;
+                            at: string;
+                        };
+                    };
+                }[];
+                earlier_attempt_count: number;
             }[];
+            filter: "needs_attention" | "working" | "waiting" | "queued" | "done_today" | "all";
+            counts: {
+                needs_attention: number;
+                working: number;
+                waiting: number;
+                queued: number;
+                done_today?: number;
+                all: number;
+            };
+            totals: {
+                slots_in_use: number;
+                queued: number;
+                waiting: number;
+            };
+            batches: {
+                batch_id: string;
+                archived: boolean;
+                sessions: number;
+                matching: number;
+                first_started_at: string | null;
+            }[];
+            /** @constant */
+            batches_truncated?: true;
             paused_batch_ids?: string[];
             /** @constant */
             paused_truncated?: true;
             next_before: string | null;
             sessions_supported: boolean;
         };
+        AgentSessionQuery: {
+            before?: string;
+            filter?: "needs_attention" | "working" | "waiting" | "queued" | "done_today" | "all";
+            batch_id?: string;
+            day_start?: string;
+            day_end?: string;
+        };
+        AgentSessionCursor: string;
         AgentPauseUpdate: {
             paused: boolean;
         };
@@ -21194,10 +21308,32 @@ export interface components {
                         summary: string;
                         recovery: string;
                         details_available: boolean;
+                        failed_at?: string;
+                        cause?: {
+                            code: "agent_login_required" | "agent_credentials_unavailable" | "agent_process_unavailable" | "agent_version_unqualified" | "agent_version_unavailable" | "agent_admission_unavailable" | "agent_admission_timeout" | "agent_home_unavailable" | "agent_home_customizations_refused" | "agent_input_invalid" | "agent_profile_retired" | "agent_host_customization_refused" | "agent_policy_refused" | "agent_tool_refused" | "agent_request_refused" | "agent_protocol_invalid" | "agent_process_failed" | "agent_input_closed" | "agent_delivery_failed" | "agent_turn_failed" | "agent_result_missing" | "agent_truncated_frame" | "agent_output_capacity" | "agent_frame_capacity" | "agent_timeout" | "agent_cancelled" | "agent_worker_interrupted" | "resume_unavailable" | "agent_reap_pending" | "invalid_contract" | "evidence_unavailable" | "agent_unknown";
+                            provider: "codex" | "claude" | null;
+                            provider_error?: {
+                                kind: "unknown" | "authentication_failed" | "oauth_org_not_allowed" | "account_on_hold" | "verification_required" | "billing_error" | "rate_limit" | "overloaded" | "invalid_request" | "model_not_found" | "server_error" | "max_output_tokens" | "cloud_credential_error" | "contextWindowExceeded" | "sessionBudgetExceeded" | "usageLimitExceeded" | "rateLimitExceeded" | "flexUnavailable" | "serverOverloaded" | "modelNotFound" | "policyCapacityUnavailable" | "cyberPolicy" | "misalignmentPolicyViolation" | "tooManyDenials" | "internalServerError" | "unauthorized" | "badRequest" | "threadRollbackFailed" | "sandboxError" | "other" | "httpConnectionFailed" | "responseStreamConnectionFailed" | "responseStreamDisconnected" | "responseTooManyFailedAttempts" | "activeTurnNotSteerable";
+                                result: ("success" | "error_during_execution" | "error_max_turns") | null;
+                                http_status: number | null;
+                            };
+                        };
+                        last_status?: {
+                            text: string;
+                            at: string;
+                        };
                     };
                 }[];
                 /** Format: int64 */
                 inbox_acked_seq: string;
+                start_fresh: {
+                    /** @constant */
+                    allowed: true;
+                } | {
+                    /** @constant */
+                    allowed: false;
+                    reason: "unsupported_processing_profile" | "batch_archived" | "subject_retired" | "media_not_ready" | "media_input_capacity" | "session_not_replaceable" | "session_reap_pending" | "inventory_waiting" | "identity_waiting" | "agent_profile_retired" | "unsupported_processing_stage" | "agent_settings_required" | "retained_evidence_required" | "unsupported_processing_input" | "processing_input_capacity" | "processing_channel_unconfigured";
+                };
             };
             entries: ({
                 id: string;
@@ -25547,6 +25683,29 @@ export interface components {
             summary: string;
             recovery: string;
             details_available: boolean;
+            failed_at?: string;
+            cause?: {
+                code: "agent_login_required" | "agent_credentials_unavailable" | "agent_process_unavailable" | "agent_version_unqualified" | "agent_version_unavailable" | "agent_admission_unavailable" | "agent_admission_timeout" | "agent_home_unavailable" | "agent_home_customizations_refused" | "agent_input_invalid" | "agent_profile_retired" | "agent_host_customization_refused" | "agent_policy_refused" | "agent_tool_refused" | "agent_request_refused" | "agent_protocol_invalid" | "agent_process_failed" | "agent_input_closed" | "agent_delivery_failed" | "agent_turn_failed" | "agent_result_missing" | "agent_truncated_frame" | "agent_output_capacity" | "agent_frame_capacity" | "agent_timeout" | "agent_cancelled" | "agent_worker_interrupted" | "resume_unavailable" | "agent_reap_pending" | "invalid_contract" | "evidence_unavailable" | "agent_unknown";
+                provider: "codex" | "claude" | null;
+                provider_error?: {
+                    kind: "unknown" | "authentication_failed" | "oauth_org_not_allowed" | "account_on_hold" | "verification_required" | "billing_error" | "rate_limit" | "overloaded" | "invalid_request" | "model_not_found" | "server_error" | "max_output_tokens" | "cloud_credential_error" | "contextWindowExceeded" | "sessionBudgetExceeded" | "usageLimitExceeded" | "rateLimitExceeded" | "flexUnavailable" | "serverOverloaded" | "modelNotFound" | "policyCapacityUnavailable" | "cyberPolicy" | "misalignmentPolicyViolation" | "tooManyDenials" | "internalServerError" | "unauthorized" | "badRequest" | "threadRollbackFailed" | "sandboxError" | "other" | "httpConnectionFailed" | "responseStreamConnectionFailed" | "responseStreamDisconnected" | "responseTooManyFailedAttempts" | "activeTurnNotSteerable";
+                    result: ("success" | "error_during_execution" | "error_max_turns") | null;
+                    http_status: number | null;
+                };
+            };
+            last_status?: {
+                text: string;
+                at: string;
+            };
+        };
+        SessionFailureCause: {
+            code: "agent_login_required" | "agent_credentials_unavailable" | "agent_process_unavailable" | "agent_version_unqualified" | "agent_version_unavailable" | "agent_admission_unavailable" | "agent_admission_timeout" | "agent_home_unavailable" | "agent_home_customizations_refused" | "agent_input_invalid" | "agent_profile_retired" | "agent_host_customization_refused" | "agent_policy_refused" | "agent_tool_refused" | "agent_request_refused" | "agent_protocol_invalid" | "agent_process_failed" | "agent_input_closed" | "agent_delivery_failed" | "agent_turn_failed" | "agent_result_missing" | "agent_truncated_frame" | "agent_output_capacity" | "agent_frame_capacity" | "agent_timeout" | "agent_cancelled" | "agent_worker_interrupted" | "resume_unavailable" | "agent_reap_pending" | "invalid_contract" | "evidence_unavailable" | "agent_unknown";
+            provider: "codex" | "claude" | null;
+            provider_error?: {
+                kind: "unknown" | "authentication_failed" | "oauth_org_not_allowed" | "account_on_hold" | "verification_required" | "billing_error" | "rate_limit" | "overloaded" | "invalid_request" | "model_not_found" | "server_error" | "max_output_tokens" | "cloud_credential_error" | "contextWindowExceeded" | "sessionBudgetExceeded" | "usageLimitExceeded" | "rateLimitExceeded" | "flexUnavailable" | "serverOverloaded" | "modelNotFound" | "policyCapacityUnavailable" | "cyberPolicy" | "misalignmentPolicyViolation" | "tooManyDenials" | "internalServerError" | "unauthorized" | "badRequest" | "threadRollbackFailed" | "sandboxError" | "other" | "httpConnectionFailed" | "responseStreamConnectionFailed" | "responseStreamDisconnected" | "responseTooManyFailedAttempts" | "activeTurnNotSteerable";
+                result: ("success" | "error_during_execution" | "error_max_turns") | null;
+                http_status: number | null;
+            };
         };
         EvidenceRegion: {
             /** @constant */
@@ -25917,6 +26076,8 @@ export type AgentSettingsSaveResult = components['schemas']['AgentSettingsSaveRe
 export type AgentProviderSettings = components['schemas']['AgentProviderSettings']
 export type AgentStageSelection = components['schemas']['AgentStageSelection']
 export type AgentSessionList = components['schemas']['AgentSessionList']
+export type AgentSessionQuery = components['schemas']['AgentSessionQuery']
+export type AgentSessionCursor = components['schemas']['AgentSessionCursor']
 export type AgentPauseUpdate = components['schemas']['AgentPauseUpdate']
 export type AgentPause = components['schemas']['AgentPause']
 export type AgentPauseAll = components['schemas']['AgentPauseAll']
@@ -25954,6 +26115,7 @@ export type SessionInboxSubmission = components['schemas']['SessionInboxSubmissi
 export type SessionInboxReceipt = components['schemas']['SessionInboxReceipt']
 export type SessionFailure = components['schemas']['SessionFailure']
 export type SessionFailureSummary = components['schemas']['SessionFailureSummary']
+export type SessionFailureCause = components['schemas']['SessionFailureCause']
 export type EvidenceRegion = components['schemas']['EvidenceRegion']
 export type EvidenceReadings = components['schemas']['EvidenceReadings']
 export type CaptureEvidenceObservation = components['schemas']['CaptureEvidenceObservation']

@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react'
 import { useFormContext } from 'react-hook-form'
 import styled from 'styled-components'
-import { AGENT_MODEL_SUGGESTIONS, type AgentProviderId } from '@invimport/contracts'
-import { SegmentedControl, Small } from '#/components/ui'
-import { CheckboxLabel, Input } from '#/forms'
+import type { AgentProviderId } from '@invimport/contracts'
+import { Button, EventTime, Pill, SegmentedControl, Small, Switch } from '#/components/ui'
 import { color, radius, space, typeVar } from '#/theme/generated/tokens'
-import type { ProviderStatus } from '#/components/agents/provider-status'
-import { PROVIDER_LABEL, validModel, type ProviderFormValues } from './provider-form'
+import type { ProviderCardStatus } from '#/components/agents/useProviderStatus'
+import { ModelPicker } from './ModelPicker'
+import { PROVIDER_LABEL, type ProviderFormValues } from './provider-form'
 import { SignInHelp } from './SignInHelp'
 
 const AUTHENTICATION = [
@@ -14,62 +14,79 @@ const AUTHENTICATION = [
   { id: 'api_key', label: 'API key' },
 ]
 
+type Props = {
+  provider: AgentProviderId
+  /** Its sign-in status, read from the agent VM. */
+  status: ProviderCardStatus
+  /** Check again is reading the status. */
+  checking: boolean
+  onCheckAgain: () => void
+  /** Why its switch was refused: the last provider on, or no model ID to turn on with. */
+  refused?: 'last' | 'model'
+  onEnabledChange: (enabled: boolean) => void
+  /** Reports an edit to the sign-in choice or the default model, which save as they change. */
+  onAutoEdit: () => void
+  /** The button that opens its sign-in dialog. */
+  credential: ReactNode
+}
+
 /**
- * One provider, set up on its own: on or off and sign-in, which save as they change, the default
- * model with its own Save, and its credential panel.
+ * One provider, set up on its own: on or off, sign-in and default model, which save as they
+ * change; its sign-in status from the agent VM, and the button for its sign-in dialog.
  */
 export function ProviderCard({
   provider,
   status,
-  textBusy,
+  checking,
+  onCheckAgain,
   refused,
   onEnabledChange,
   onAutoEdit,
-  onTextEdit,
   credential,
-}: {
-  provider: AgentProviderId
-  /** What its credential panel shows. */
-  status: ProviderStatus
-  /** The model field's Save is running, so the field is read-only. */
-  textBusy: boolean
-  /** Why its switch was refused: the last provider on, or no saved model ID to turn on with. */
-  refused?: 'last' | 'model'
-  onEnabledChange: (enabled: boolean) => void
-  /** Reports an edit to the sign-in choice, which fires no input event. */
-  onAutoEdit: () => void
-  onTextEdit: () => void
-  credential: ReactNode
-}) {
-  const { register, watch, setValue, formState } = useFormContext<ProviderFormValues>()
+}: Props) {
+  const { watch, setValue } = useFormContext<ProviderFormValues>()
   const settings = watch(`providers.${provider}`)
   const label = PROVIDER_LABEL[provider]
-  const modelError = formState.errors.providers?.[provider]?.default_model
-  const listId = `${provider}-models`
   const statusId = `${provider}-card-status`
-  const errorId = `${provider}-model-error`
   const refusedId = `${provider}-refused`
 
   return (
     <Card role="group" aria-label={label} aria-describedby={statusId}>
       <Head>
         <b>{label}</b>
-        <Small id={statusId}>{status}</Small>
+        <span id={statusId}>
+          <Pill tone={status.pill.tone} glyph={status.pill.glyph}>
+            {status.pill.word}
+          </Pill>
+        </span>
       </Head>
-      <CheckboxLabel>
-        <input
-          type="checkbox"
-          checked={settings.enabled}
-          aria-describedby={refused ? refusedId : undefined}
-          onChange={(event) => onEnabledChange(event.target.checked)}
-        />
-        On
-      </CheckboxLabel>
+      {status.savedAt && (
+        <Small>
+          Saved <EventTime at={status.savedAt} />
+        </Small>
+      )}
+      {status.failedAt && (
+        <Failure>
+          Last session couldn’t sign in · <EventTime at={status.failedAt} />
+        </Failure>
+      )}
+      <Row>
+        {credential}
+        <Button size="sm" variant="link" disabled={checking} onClick={onCheckAgain}>
+          Check again
+        </Button>
+      </Row>
+      <Switch
+        label="On"
+        checked={settings.enabled}
+        aria-describedby={refused ? refusedId : undefined}
+        onChange={onEnabledChange}
+      />
       {refused && (
         <Invalid id={refusedId} role="alert">
           {refused === 'last'
             ? 'At least one provider stays on.'
-            : `Save a valid default model before turning ${label} on.`}
+            : `Choose a default model before turning ${label} on.`}
         </Invalid>
       )}
       <SegmentedControl
@@ -86,32 +103,22 @@ export function ProviderCard({
       <Small>
         <SignInHelp provider={provider} authentication={settings.authentication} />
       </Small>
-      <ModelField>
-        Default model
-        <Model
-          {...register(`providers.${provider}.default_model`, {
-            validate: (value, values) => validModel(value, values.providers[provider].enabled),
-            onChange: onTextEdit,
-          })}
-          aria-invalid={modelError ? true : undefined}
-          aria-describedby={modelError ? errorId : undefined}
-          list={listId}
-          readOnly={textBusy}
-          autoComplete="off"
-          placeholder="Choose a model or enter its exact ID"
+      <Model>
+        <ModelPicker
+          label="Default model"
+          providers={[provider]}
+          // A provider's own default model can be chosen before it is turned on.
+          selectable={{ claude: true, codex: true }}
+          value={settings.default_model ? { provider, model: settings.default_model } : null}
+          onChange={(choice) => {
+            if (!choice) {
+              return
+            }
+            setValue(`providers.${provider}.default_model`, choice.model, { shouldDirty: true })
+            onAutoEdit()
+          }}
         />
-      </ModelField>
-      <datalist id={listId}>
-        {AGENT_MODEL_SUGGESTIONS[provider].map((model) => (
-          <option key={model} value={model} />
-        ))}
-      </datalist>
-      {modelError && (
-        <Invalid id={errorId} role="alert">
-          Choose a valid model ID for {label}.
-        </Invalid>
-      )}
-      {credential}
+      </Model>
     </Card>
   )
 }
@@ -137,22 +144,28 @@ const Card = styled.div`
 
 const Head = styled.div`
   display: flex;
-  align-items: baseline;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: space-between;
   gap: ${space[4]};
   width: 100%;
 `
 
-const ModelField = styled.label`
+const Row = styled.div`
   display: flex;
-  flex-direction: column;
-  gap: ${space[2]};
-  width: 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[4]};
 `
 
-const Model = styled(Input)`
+const Model = styled.div`
   width: 100%;
   max-width: 320px;
+`
+
+const Failure = styled.span`
+  font-size: ${typeVar.small.size};
+  color: ${color.warn};
 `
 
 const Invalid = styled.span`

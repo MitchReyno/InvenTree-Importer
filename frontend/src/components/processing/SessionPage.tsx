@@ -10,6 +10,7 @@ import { useSessionPageHistory } from '#/processing/useSessionHistory'
 import { useQuestionsWithDrafts } from '#/processing/useQuestionsWithDrafts'
 import type { ProcessingClient } from '#/processing/types'
 import { space } from '#/theme/generated/tokens'
+import { startFreshReason } from '#/processing/start-fresh'
 import { SessionChatPanel } from './SessionChatPanel'
 import { SessionConversation } from './SessionConversation'
 import { SessionPageHeader } from './SessionPageHeader'
@@ -43,6 +44,8 @@ type Props = {
   sendUnavailable?: string
   startFresh: () => void
   freshDisabled: boolean
+  /** Why Start fresh would be refused now, from the batch's Processing read. */
+  freshReason?: string
 }
 
 const isNotFound = (error: unknown) =>
@@ -103,6 +106,7 @@ export function SessionPage(props: Props) {
   const stepLabel = STEP_LABEL[step] ?? 'Processing'
   const title = `${stepLabel} · ${props.subjectLabel(session.subject_id)}`
   const current = session.attempts.find((attempt) => attempt.id === session.current_attempt_id)
+  const freshReason = props.freshReason ?? startFreshReason(session.start_fresh)
   return (
     <Page>
       <SessionPageHeader
@@ -142,6 +146,12 @@ export function SessionPage(props: Props) {
             context={context}
             answerForm={props.answerForm}
             loadFailure={props.loadFailure}
+            startFresh={{
+              attemptId: session.current_attempt_id,
+              run: props.startFresh,
+              disabled: props.freshDisabled || session.current_attempt_id !== props.job?.attempt_id,
+              reason: freshReason,
+            }}
           />
           <SessionChatPanel
             storeKey={`${batchId}:${jobId}`}
@@ -153,6 +163,7 @@ export function SessionPage(props: Props) {
               await query.refetch()
             }}
             startFresh={props.startFresh}
+            freshReason={freshReason}
             sendUnavailable={props.sendUnavailable}
             freshDisabled={
               props.freshDisabled || session.current_attempt_id !== props.job?.attempt_id

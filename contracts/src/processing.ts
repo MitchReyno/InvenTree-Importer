@@ -754,6 +754,38 @@ export const ProposalStaleReason = Type.Union(
     ] as const
   ).map((reason) => Type.Literal(reason)),
 )
+/** Every refusal Start fresh makes before its first write, in the order it checks them. */
+export const START_FRESH_REFUSALS = [
+  'unsupported_processing_profile',
+  'batch_archived',
+  'subject_retired',
+  'media_not_ready',
+  'media_input_capacity',
+  'session_not_replaceable',
+  'session_reap_pending',
+  'inventory_waiting',
+  'identity_waiting',
+  'agent_profile_retired',
+  'unsupported_processing_stage',
+  'agent_settings_required',
+  'retained_evidence_required',
+  'unsupported_processing_input',
+  'processing_input_capacity',
+  'processing_channel_unconfigured',
+] as const
+export type StartFreshRefusal = (typeof START_FRESH_REFUSALS)[number]
+/**
+ * Whether Start fresh would be accepted now, from a read-only run of the command's checks. The
+ * command stays authoritative and checks again; agent settings are not on a batch's event stream.
+ */
+export const StartFreshEligibility = Type.Union([
+  object({ allowed: Type.Literal(true) }),
+  object({
+    allowed: Type.Literal(false),
+    reason: Type.Union(START_FRESH_REFUSALS.map((code) => Type.Literal(code))),
+  }),
+])
+export type StartFreshEligibilityDto = Static<typeof StartFreshEligibility>
 export const ProcessingJob = object({
   id: Id,
   /** Null only for the batch-level Examine lead job. */
@@ -771,6 +803,8 @@ export const ProcessingJob = object({
   session_state: Type.Optional(SessionState),
   /** The latest session's newest status line, when it has posted one. */
   latest_status: Type.Optional(object({ text: statusLine, at: Type.String({ maxLength: 40 }) })),
+  /** Session profiles only: whether Start fresh would be accepted for this job now. */
+  start_fresh: Type.Optional(StartFreshEligibility),
   proposals: Type.Array(
     object({
       id: Id,

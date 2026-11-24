@@ -1,4 +1,5 @@
 import { vi } from 'vitest'
+import { sessionList } from './agent-sessions'
 import type {
   AgentSessionListDto,
   AgentSettingsDto,
@@ -82,14 +83,8 @@ export function agentSettingsServer(initial: AgentSettingsDto) {
       }
       return result
     }),
-    sessions: vi.fn(
-      async (): Promise<AgentSessionListDto> =>
-        ({
-          sessions: [],
-          next_before: null,
-          sessions_supported: true,
-          paused_batch_ids: [],
-        }) as unknown as AgentSessionListDto,
+    sessions: vi.fn(async (): Promise<AgentSessionListDto> =>
+      sessionList({ paused_batch_ids: [] }),
     ),
     failure: vi.fn(),
     pause: vi.fn(),

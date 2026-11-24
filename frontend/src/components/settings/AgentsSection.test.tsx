@@ -1,4 +1,6 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { sessionList, sessionRow } from '#/test/agent-sessions'
+import { sessionListKey } from '#/agents/session-list'
 import userEvent from '@testing-library/user-event'
 import { useState, type ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, test, vi, type Mock } from 'vitest'
@@ -6,6 +8,7 @@ import type {
   AgentSessionListDto,
   AgentSettingsDto,
   AgentSettingsUpdateDto,
+  ProviderStatusDto,
 } from '@invimport/contracts'
 import { IntakeRequestError, type agentsClient } from '@invimport/contracts/client'
 import { useQueryClient } from '@tanstack/react-query'
@@ -17,6 +20,8 @@ import { deferred } from '#/test/deferred'
 import type { SettingsSectionId } from '#/navigation/app-route'
 import { Settings } from './Settings'
 import { resetRunnerQueue } from '#/components/agents/useChatGPTSignIn'
+import { KEY_PAUSE_MS } from '#/components/agents/usePersonalClaudeCredential'
+import { SETTLE_MS } from '#/components/agents/useProviderStatus'
 import { agentSettings, agentSettingsUpdate } from '#/test/agent-settings'
 
 // Readiness says whether this profile's sessions have web access; each test sets it.
@@ -56,29 +61,6 @@ const initial: AgentSettingsDto = agentSettings('7', {
   model: 'sonnet',
 })
 
-type Session = AgentSessionListDto['sessions'][number]
-
-function session(overrides: Partial<Session>): Session {
-  return {
-    attempt_id: crypto.randomUUID(),
-    job_id: crypto.randomUUID(),
-    batch_id: 'batch-a',
-    subject_id: null,
-    stage: 'research',
-    state: 'running',
-    occupies_lane: false,
-    queued_at: '2026-11-10T01:00:00.000Z',
-    started_at: null,
-    finished_at: null,
-    session_state: null,
-    latest_status: null,
-    latest_on_job: true,
-    paused: false,
-    failure: null,
-    ...overrides,
-  } as Session
-}
-
 function client() {
   return {
     settings: vi.fn(async () => initial),
@@ -91,24 +73,29 @@ function client() {
         revision: '8',
       }),
     ),
-    sessions: vi.fn(
-      async (): Promise<AgentSessionListDto> =>
-        ({
-          sessions: [
-            session({ occupies_lane: true }),
-            session({ occupies_lane: true }),
-            session({ occupies_lane: true }),
-            session({ state: 'queued' }),
-          ],
-          next_before: null,
-          sessions_supported: true,
-          paused_batch_ids: [],
-        }) as unknown as AgentSessionListDto,
+    // The meter reads the server's totals, which count sessions on no page this list holds.
+    sessions: vi.fn(async (): Promise<AgentSessionListDto> =>
+      sessionList({
+        sessions: [sessionRow({ state: 'running', occupies_lane: true })],
+        totals: { slots_in_use: 3, queued: 1, waiting: 0 },
+        paused_batch_ids: [],
+      }),
     ),
     failure: vi.fn(),
     pause: vi.fn(),
     pauseAll: vi.fn(async (paused: boolean) => ({ paused, batch_ids: [] })),
     deliverInstructions: vi.fn(),
+    providerStatus: vi.fn(async (): Promise<ProviderStatusDto> => providerStatus()),
+  }
+}
+
+/** The read-only status: a saved Claude token and Codex signed out, unless a test says otherwise. */
+function providerStatus(overrides: Partial<ProviderStatusDto> = {}): ProviderStatusDto {
+  return {
+    claude: { state: 'saved', saved_at: null, last_sign_in_failure: null },
+    codex: { state: 'signed_out', last_sign_in_failure: null },
+    read_at: '2026-11-24T05:00:00.000Z',
+    ...overrides,
   }
 }
 
@@ -159,7 +146,7 @@ async function renderAgents(api = client(), dirty?: (value: boolean) => void, re
   return api
 }
 
-/** A provider card's status, as its credential panel shows it, describes the card. */
+/** A provider card's status pill describes the card. */
 function expectCard(provider: 'Claude' | 'Codex', status: string) {
   expect(screen.getByRole('group', { name: provider })).toHaveAccessibleDescription(status)
 }
@@ -179,163 +166,456 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-describe('the Claude card mirrors its credential panel', () => {
-  function openClaude(key = 'operator') {
-    fireEvent.click(screen.getByRole('button', { name: 'Personal Claude subscription' }))
-    fireEvent.change(screen.getByLabelText('Personal runner management key'), {
-      target: { value: key },
-    })
-  }
-
-  test('Not checked, then Configured, then Unconfigured once the credential is removed', async () => {
-    send
-      .mockResolvedValueOnce(Response.json({ configured: true, revision: 'one' }))
-      .mockResolvedValueOnce(Response.json({ configured: false, revision: 'two' }))
-    await renderAgents()
-    expectCard('Claude', 'Not checked')
-    expectCard('Codex', 'Not checked')
-    openClaude()
-    fireEvent.click(screen.getByRole('button', { name: 'Check configuration' }))
-    await waitFor(() => expectCard('Claude', 'Configured'))
-    fireEvent.click(screen.getByRole('button', { name: 'Remove token' }))
-    await waitFor(() => expectCard('Claude', 'Unconfigured'))
+describe('provider cards read their sign-in status from the agent VM', () => {
+  test('on opening, each card shows its status with no key asked for and no Not checked', async () => {
+    const api = await renderAgents()
+    await waitFor(() => expectCard('Claude', 'Token saved'))
+    expectCard('Codex', 'Not signed in')
+    expect(screen.queryByText('Not checked')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/management key/)).not.toBeInTheDocument()
+    expect(api.providerStatus).toHaveBeenCalledTimes(1)
+    expect(send).not.toHaveBeenCalled()
   })
 
-  test('a failed check reads Check failed, and a key edit keeps it while the panel shows its error', async () => {
-    send.mockResolvedValueOnce(new Response(null, { status: 503 }))
-    await renderAgents()
-    openClaude()
-    fireEvent.click(screen.getByRole('button', { name: 'Check configuration' }))
-    await screen.findByRole('alert')
-    expectCard('Claude', 'Check failed')
-    fireEvent.change(screen.getByLabelText('Personal runner management key'), {
-      target: { value: 'other' },
-    })
-    expect(screen.getByRole('alert')).toBeVisible()
-    expectCard('Claude', 'Check failed')
+  test('Checking… while the first read runs', async () => {
+    const api = client()
+    api.providerStatus.mockImplementation(() => new Promise<ProviderStatusDto>(() => {}))
+    await renderAgents(api)
+    expectCard('Claude', 'Checking…')
+    expectCard('Codex', 'Checking…')
   })
 
-  test('a key edit after a result and a collapse each read Not checked', async () => {
-    send
-      .mockResolvedValueOnce(Response.json({ configured: true, revision: 'one' }))
-      .mockResolvedValueOnce(Response.json({ configured: true, revision: 'one' }))
-    await renderAgents()
-    openClaude()
-    fireEvent.click(screen.getByRole('button', { name: 'Check configuration' }))
-    await waitFor(() => expectCard('Claude', 'Configured'))
-    fireEvent.change(screen.getByLabelText('Personal runner management key'), {
-      target: { value: 'other' },
-    })
-    expectCard('Claude', 'Not checked')
-    fireEvent.click(screen.getByRole('button', { name: 'Check configuration' }))
-    await waitFor(() => expectCard('Claude', 'Configured'))
-    fireEvent.click(screen.getByRole('button', { name: 'Personal Claude subscription' }))
-    expectCard('Claude', 'Not checked')
+  test('an unreachable VM reads as unknown with its reason, never as signed out', async () => {
+    const api = client()
+    api.providerStatus.mockResolvedValue(
+      providerStatus({
+        claude: { state: 'unknown', reason: 'vm_unreachable', last_sign_in_failure: null },
+        codex: { state: 'unknown', reason: 'vm_unreachable', last_sign_in_failure: null },
+      }),
+    )
+    await renderAgents(api)
+    await waitFor(() => expectCard('Claude', 'Can’t reach the agent VM'))
+    expectCard('Codex', 'Can’t reach the agent VM')
+    expect(screen.queryByText('No token')).not.toBeInTheDocument()
+    expect(screen.queryByText('Not signed in')).not.toBeInTheDocument()
+  })
+
+  test('each provider’s status stands alone: one busy, the other known', async () => {
+    const api = client()
+    api.providerStatus.mockResolvedValue(
+      providerStatus({ codex: { state: 'unknown', reason: 'busy', last_sign_in_failure: null } }),
+    )
+    await renderAgents(api)
+    await waitFor(() => expectCard('Codex', 'Agent VM busy'))
+    expectCard('Claude', 'Token saved')
+  })
+
+  test.each([
+    ['guest_outdated', 'Agent VM needs an update'],
+    ['timeout', 'Status timed out'],
+  ] as const)('%s reads as %s', async (reason, word) => {
+    const api = client()
+    api.providerStatus.mockResolvedValue(
+      providerStatus({ codex: { state: 'unknown', reason, last_sign_in_failure: null } }),
+    )
+    await renderAgents(api)
+    await waitFor(() => expectCard('Codex', word))
+  })
+
+  test('a status still being read in the VM reads as Checking…, not as a failure', async () => {
+    const api = client()
+    const checking = { state: 'unknown', reason: 'checking', last_sign_in_failure: null }
+    api.providerStatus.mockResolvedValue(
+      providerStatus({ codex: checking as unknown as ProviderStatusDto['codex'] }),
+    )
+    await renderAgents(api)
+    await waitFor(() => expectCard('Claude', 'Token saved'))
+    expectCard('Codex', 'Checking…')
+  })
+
+  test('Check again reads the status again, showing Checking… until it lands', async () => {
+    const api = client()
+    await renderAgents(api)
+    await waitFor(() => expectCard('Codex', 'Not signed in'))
+
+    let answer: (value: ProviderStatusDto) => void = () => undefined
+
+    api.providerStatus.mockImplementationOnce(
+      () => new Promise<ProviderStatusDto>((resolve) => (answer = resolve)),
+    )
+    const codex = within(screen.getByRole('group', { name: 'Codex' }))
+    fireEvent.click(codex.getByRole('button', { name: 'Check again' }))
+    await waitFor(() => expectCard('Codex', 'Checking…'))
+    await act(async () =>
+      answer(providerStatus({ codex: { state: 'signing_in', last_sign_in_failure: null } })),
+    )
+    expectCard('Codex', 'Signing in')
+    expect(api.providerStatus).toHaveBeenCalledTimes(2)
+  })
+
+  test('a failed status read shows the status as unavailable, never signed out', async () => {
+    const api = client()
+    api.providerStatus.mockRejectedValue(new IntakeRequestError(503, 'unavailable'))
+    await renderAgents(api)
+    await waitFor(() => expectCard('Claude', 'Status unavailable'))
+    expectCard('Codex', 'Status unavailable')
+  })
+
+  test('the last session’s sign-in failure shows on its own line, apart from the pill', async () => {
+    const api = client()
+    api.providerStatus.mockResolvedValue(
+      providerStatus({
+        claude: {
+          state: 'saved',
+          saved_at: null,
+          last_sign_in_failure: {
+            attempt_id: '70000000-0000-4000-8000-000000000007',
+            failure_id: '71000000-0000-4000-8000-000000000007',
+            failed_at: '2026-11-24T04:00:00.000Z',
+          },
+        },
+      }),
+    )
+    await renderAgents(api)
+    const claude = within(screen.getByRole('group', { name: 'Claude' }))
+    expect(await claude.findByText(/Last session couldn’t sign in/)).toBeVisible()
+    expectCard('Claude', 'Token saved')
+    expect(
+      within(screen.getByRole('group', { name: 'Codex' })).queryByText(/couldn’t sign in/),
+    ).not.toBeInTheDocument()
   })
 })
 
-describe('the Codex card mirrors its sign-in panel', () => {
-  function challenge(loginId = 'device-1') {
-    return Response.json({
-      state: 'pending',
-      loginId,
-      userCode: 'TEST-CODE',
-      verificationUrl: 'https://auth.openai.com/codex/device',
-    })
+describe('sign-in dialogs update the card', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+  })
+
+  async function enterKey(label: string, value = 'operator') {
+    fireEvent.change(screen.getByLabelText(label), { target: { value } })
+    await act(() => vi.advanceTimersByTimeAsync(KEY_PAUSE_MS))
   }
 
-  async function startSignIn() {
-    fireEvent.click(screen.getByRole('button', { name: 'ChatGPT subscription' }))
-    fireEvent.change(screen.getByLabelText('Codex runner management key'), {
-      target: { value: 'key' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: 'Sign in with ChatGPT' }))
-    expect(await screen.findByText('TEST-CODE')).toBeTruthy()
-  }
-
-  test('Signing in, then Connected when the poll returns connected, then Not connected', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true })
+  test('removing the token in its dialog shows No token once the VM confirms, then follows the VM', async () => {
+    const api = client()
+    await renderAgents(api)
+    await waitFor(() => expectCard('Claude', 'Token saved'))
     send
-      .mockResolvedValueOnce(challenge())
-      .mockResolvedValueOnce(Response.json({ state: 'connected' }))
-      .mockResolvedValueOnce(Response.json({ state: 'disconnected' }))
-    await renderAgents()
-    await startSignIn()
-    expectCard('Codex', 'Signing in')
-    await act(() => vi.advanceTimersByTimeAsync(3000))
-    await screen.findByText('Connected to ChatGPT')
-    expectCard('Codex', 'Connected')
-    fireEvent.click(screen.getByRole('button', { name: 'Disconnect ChatGPT' }))
-    await screen.findByRole('button', { name: 'Sign in with ChatGPT' })
-    expectCard('Codex', 'Not connected')
+      .mockResolvedValueOnce(Response.json({ configured: true, revision: 'one' }))
+      .mockResolvedValueOnce(Response.json({ configured: false, revision: 'two' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Subscription token…' }))
+    await enterKey('Personal runner management key')
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove token' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expectCard('Claude', 'No token')
+    // A read within the server's reuse window may predate the change, so it doesn't replace it.
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Claude' })).getByRole('button', {
+        name: 'Check again',
+      }),
+    )
+    await act(() => vi.advanceTimersByTimeAsync(10))
+    expectCard('Claude', 'No token')
+    api.providerStatus.mockResolvedValue(
+      providerStatus({ claude: { state: 'not_saved', last_sign_in_failure: null } }),
+    )
+    await act(() => vi.advanceTimersByTimeAsync(SETTLE_MS))
+    await waitFor(() => expect(api.providerStatus).toHaveBeenCalledTimes(3))
+    expectCard('Claude', 'No token')
   })
 
-  test('a declined sign-in reads Declined and a failed request reads Check failed', async () => {
+  test('a read asked for before the change settled never replaces what the VM confirmed', async () => {
+    const api = client()
+    const cache = createServerQueryClient()
+    render(<Harness api={api} />, { cache })
+    await waitFor(() => expectCard('Claude', 'Token saved'))
     send
-      .mockResolvedValueOnce(Response.json({ state: 'denied' }))
-      .mockResolvedValueOnce(new Response(null, { status: 500 }))
-    await renderAgents()
-    fireEvent.click(screen.getByRole('button', { name: 'ChatGPT subscription' }))
-    fireEvent.change(screen.getByLabelText('Codex runner management key'), {
-      target: { value: 'key' },
+      .mockResolvedValueOnce(Response.json({ configured: true, revision: 'one' }))
+      .mockResolvedValueOnce(Response.json({ configured: false, revision: 'two' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Subscription token…' }))
+    await enterKey('Personal runner management key')
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove token' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    const removedAt = Date.now()
+    api.providerStatus.mockResolvedValue(
+      providerStatus({ claude: { state: 'not_saved', last_sign_in_failure: null } }),
+    )
+    await act(() => vi.advanceTimersByTimeAsync(SETTLE_MS + 1000))
+    expectCard('Claude', 'No token')
+    // A slow read asked for just after the change answers last, with the VM as it was before.
+    act(() => {
+      cache.setQueryData(serverQueryKey(fixtureScope, 'provider-status'), {
+        status: providerStatus(),
+        requestedAt: removedAt + 1000,
+      })
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Check ChatGPT connection' }))
-    await screen.findByText('Sign-in was declined or expired.')
-    expectCard('Codex', 'Declined')
-    fireEvent.click(screen.getByRole('button', { name: 'Check ChatGPT connection' }))
-    await screen.findByRole('alert')
-    expectCard('Codex', 'Check failed')
+    await act(() => vi.advanceTimersByTimeAsync(10))
+    expectCard('Claude', 'No token')
   })
 
-  test('collapsing the panel reads Not checked', async () => {
-    send.mockResolvedValueOnce(challenge())
-    await renderAgents()
-    await startSignIn()
-    fireEvent.click(screen.getByRole('button', { name: 'ChatGPT subscription' }))
-    expectCard('Codex', 'Not checked')
-  })
-
-  test('a key edit while signing in reads Not checked, and a late poll for the old sign-in changes nothing', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true })
-
-    let answer: (value: Response) => void = () => undefined
-
+  test('leaving and returning within the window keeps the confirmed change and reads again after it', async () => {
+    const api = client()
+    await renderAgents(api)
+    await waitFor(() => expectCard('Claude', 'Token saved'))
     send
-      .mockResolvedValueOnce(challenge())
-      .mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
-    await renderAgents()
-    await startSignIn()
-    await act(() => vi.advanceTimersByTimeAsync(3000))
-    expect(send).toHaveBeenCalledTimes(2)
-    fireEvent.change(screen.getByLabelText('Codex runner management key'), {
-      target: { value: 'other key' },
-    })
-    expectCard('Codex', 'Not checked')
-    await act(async () => answer(Response.json({ state: 'connected' })))
-    expectCard('Codex', 'Not checked')
-  })
-
-  test('leaving the section while signing in stops the poll, and coming back sends no poll with an empty key', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true })
-    send.mockResolvedValue(challenge())
-    await renderAgents()
-    await startSignIn()
+      .mockResolvedValueOnce(Response.json({ configured: true, revision: 'one' }))
+      .mockResolvedValueOnce(Response.json({ configured: false, revision: 'two' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Subscription token…' }))
+    await enterKey('Personal runner management key')
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove token' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     fireEvent.click(screen.getByRole('button', { name: 'Leave Agents' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Return to Agents' }))
+    await screen.findByRole('group', { name: 'Claude' })
+    // The VM's reused read still says a token is saved; the card keeps what it confirmed.
+    await act(() => vi.advanceTimersByTimeAsync(10))
+    expectCard('Claude', 'No token')
+    api.providerStatus.mockResolvedValue(
+      providerStatus({ claude: { state: 'not_saved', last_sign_in_failure: null } }),
+    )
+    const before = api.providerStatus.mock.calls.length
+    await act(() => vi.advanceTimersByTimeAsync(SETTLE_MS))
+    await waitFor(() => expect(api.providerStatus.mock.calls.length).toBeGreaterThan(before))
+    expectCard('Claude', 'No token')
+  })
+
+  test('a first read still running when the window ends is replaced by a new read', async () => {
+    const api = client()
+
+    let answer: (value: ProviderStatusDto) => void = () => undefined
+
+    api.providerStatus.mockImplementationOnce(
+      () => new Promise<ProviderStatusDto>((resolve) => (answer = resolve)),
+    )
+    await renderAgents(api)
+    expectCard('Codex', 'Checking…')
+    send
+      .mockResolvedValueOnce(Response.json({ state: 'disconnected' }))
+      .mockResolvedValueOnce(Response.json({ state: 'disconnected' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in to ChatGPT…' }))
+    await enterKey('Codex runner management key', 'key')
+    // A start is a sign-in change, so the card waits for a read asked for after it.
+    fireEvent.click(await screen.findByRole('button', { name: 'Sign in with ChatGPT' }))
+    await act(() => vi.advanceTimersByTimeAsync(10))
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    api.providerStatus.mockResolvedValue(
+      providerStatus({ codex: { state: 'signing_in', last_sign_in_failure: null } }),
+    )
+    await act(() => vi.advanceTimersByTimeAsync(SETTLE_MS))
+    await waitFor(() => expect(api.providerStatus).toHaveBeenCalledTimes(2))
+    await act(async () => answer(providerStatus()))
+    await waitFor(() => expectCard('Codex', 'Signing in'))
+  })
+
+  test('returning after the window while an older read still runs reads afresh at once', async () => {
+    const api = client()
+    await renderAgents(api)
+    await waitFor(() => expectCard('Claude', 'Token saved'))
+    send
+      .mockResolvedValueOnce(Response.json({ configured: false, revision: 'one' }))
+      .mockImplementationOnce(() => new Promise<Response>(() => {}))
+    fireEvent.click(screen.getByRole('button', { name: 'Subscription token…' }))
+    await enterKey('Personal runner management key')
+    await screen.findByText('No token is saved.')
+    fireEvent.change(screen.getByLabelText('Subscription token'), {
+      target: { value: 'sk-ant-oat01-abcdefghijklmnop' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save token' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    await act(() => vi.advanceTimersByTimeAsync(10))
+    expectCard('Claude', 'Checking…')
+    // A read asked for inside the window, still running when the section is left.
+    api.providerStatus.mockImplementationOnce(() => new Promise<ProviderStatusDto>(() => {}))
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Claude' })).getByRole('button', {
+        name: 'Check again',
+      }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Leave Agents' }))
+    await act(() => vi.advanceTimersByTimeAsync(SETTLE_MS + 1000))
+    const before = api.providerStatus.mock.calls.length
+    fireEvent.click(screen.getByRole('button', { name: 'Return to Agents' }))
+    await screen.findByRole('group', { name: 'Claude' })
+    await waitFor(() => expect(api.providerStatus.mock.calls.length).toBeGreaterThan(before))
+    await waitFor(() => expectCard('Claude', 'Token saved'))
+  })
+
+  test('a late answer to an older dialog keeps a newer confirmed change', async () => {
+    const api = client()
+    await renderAgents(api)
+    await waitFor(() => expectCard('Claude', 'Token saved'))
+
+    let late: (value: Response) => void = () => undefined
+
+    send
+      .mockResolvedValueOnce(Response.json({ configured: true, revision: 'one' }))
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => (late = resolve)))
+    fireEvent.click(screen.getByRole('button', { name: 'Subscription token…' }))
+    await enterKey('Personal runner management key')
+    await screen.findByText('A token is saved.')
+    fireEvent.change(screen.getByLabelText('Subscription token'), {
+      target: { value: 'sk-ant-oat01-abcdefghijklmnop' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Replace token' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    send
+      .mockResolvedValueOnce(Response.json({ configured: true, revision: 'two' }))
+      .mockResolvedValueOnce(Response.json({ configured: false, revision: 'three' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Subscription token…' }))
+    await enterKey('Personal runner management key')
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove token' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expectCard('Claude', 'No token')
+    await act(async () => late(Response.json({ configured: true, revision: 'two' })))
+    await act(() => vi.advanceTimersByTimeAsync(10))
+    expectCard('Claude', 'No token')
+  })
+
+  test('the Codex dialog closes once the VM confirms the account, and the card says Signed in', async () => {
+    await renderAgents()
+    await waitFor(() => expectCard('Codex', 'Not signed in'))
+    send
+      .mockResolvedValueOnce(Response.json({ state: 'disconnected' }))
+      .mockResolvedValueOnce(
+        Response.json({
+          state: 'pending',
+          loginId: 'device-1',
+          userCode: 'TEST-CODE',
+          verificationUrl: 'https://auth.openai.com/codex/device',
+        }),
+      )
+      .mockResolvedValueOnce(Response.json({ state: 'connected' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in to ChatGPT…' }))
+    await enterKey('Codex runner management key', 'key')
+    fireEvent.click(await screen.findByRole('button', { name: 'Sign in with ChatGPT' }))
+    expect(await screen.findByText('TEST-CODE')).toBeVisible()
+    await act(() => vi.advanceTimersByTimeAsync(3000))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expectCard('Codex', 'Signed in')
+  })
+
+  test('closing the Codex dialog mid-sign-in has the card read the VM again, not the dialog', async () => {
+    const api = client()
+    await renderAgents(api)
+    await waitFor(() => expectCard('Codex', 'Not signed in'))
+    send
+      .mockResolvedValueOnce(Response.json({ state: 'disconnected' }))
+      .mockResolvedValueOnce(
+        Response.json({
+          state: 'pending',
+          loginId: 'device-1',
+          userCode: 'TEST-CODE',
+          verificationUrl: 'https://auth.openai.com/codex/device',
+        }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          state: 'pending',
+          loginId: 'device-1',
+          userCode: 'TEST-CODE',
+          verificationUrl: 'https://auth.openai.com/codex/device',
+        }),
+      )
+      .mockResolvedValueOnce(Response.json({ state: 'disconnected' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in to ChatGPT…' }))
+    await enterKey('Codex runner management key', 'key')
+    fireEvent.click(await screen.findByRole('button', { name: 'Sign in with ChatGPT' }))
+    expect(await screen.findByText('TEST-CODE')).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expectCard('Codex', 'Checking…')
+    await act(() => vi.advanceTimersByTimeAsync(10))
+    expect(send.mock.calls.map(([, request]) => JSON.parse(String(request?.body)))).toEqual([
+      { action: 'status' },
+      { action: 'start' },
+      { action: 'status', loginId: 'device-1' },
+      { action: 'cancel', loginId: 'device-1' },
+    ])
+    api.providerStatus.mockResolvedValue(providerStatus())
+    await act(() => vi.advanceTimersByTimeAsync(SETTLE_MS))
+    await waitFor(() => expectCard('Codex', 'Not signed in'))
+  })
+
+  test('leaving the section while signing in finishes the sign-in once, and coming back polls nothing', async () => {
+    send.mockResolvedValueOnce(Response.json({ state: 'disconnected' }))
+    send.mockImplementation(async () =>
+      Response.json({
+        state: 'pending',
+        loginId: 'device-1',
+        userCode: 'TEST-CODE',
+        verificationUrl: 'https://auth.openai.com/codex/device',
+      }),
+    )
+    await renderAgents()
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in to ChatGPT…' }))
+    await enterKey('Codex runner management key', 'key')
+    fireEvent.click(await screen.findByRole('button', { name: 'Sign in with ChatGPT' }))
+    expect(await screen.findByText('TEST-CODE')).toBeVisible()
+    // The page behind the dialog is inert; navigation still leaves the section.
+    fireEvent.click(screen.getByText('Leave Agents'))
     await act(() => vi.advanceTimersByTimeAsync(9000))
     fireEvent.click(screen.getByRole('button', { name: 'Return to Agents' }))
     await screen.findByRole('group', { name: 'Claude' })
     await act(() => vi.advanceTimersByTimeAsync(9000))
-
-    expect(send).toHaveBeenCalledTimes(1)
+    const actions = send.mock.calls.map(([, request]) => JSON.parse(String(request?.body)).action)
+    expect(actions).toEqual(['status', 'start', 'status', 'cancel'])
     for (const [, request] of send.mock.calls) {
       expect(new Headers(request?.headers).get('authorization')).toBe('Bearer key')
     }
-    expectCard('Codex', 'Not checked')
+  })
+
+  test('after leaving and returning, a Codex command waits for the runner call still running', async () => {
+    let answer: (value: Response) => void = () => undefined
+
+    send
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
+      .mockResolvedValueOnce(Response.json({ state: 'disconnected' }))
+    await renderAgents()
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in to ChatGPT…' }))
+    await enterKey('Codex runner management key', 'key')
+    expect(send).toHaveBeenCalledTimes(1)
+    // The page behind the dialog is inert; navigation still leaves the section.
+    fireEvent.click(screen.getByText('Leave Agents'))
+    fireEvent.click(screen.getByRole('button', { name: 'Return to Agents' }))
+    await screen.findByRole('group', { name: 'Claude' })
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in to ChatGPT…' }))
+    await enterKey('Codex runner management key', 'key')
+    expect(send).toHaveBeenCalledTimes(1)
+    await act(async () => answer(Response.json({ state: 'disconnected' })))
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(2))
+    await screen.findByRole('button', { name: 'Sign in with ChatGPT' })
+  })
+
+  test('a Codex runner call outlasting the guest limits fails and frees the queue', async () => {
+    send.mockImplementationOnce(
+      (_url, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(init.signal?.reason))
+        }),
+    )
+    send.mockResolvedValueOnce(Response.json({ state: 'disconnected' }))
+    await renderAgents()
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in to ChatGPT…' }))
+    await enterKey('Codex runner management key', 'key')
+    expect(send).toHaveBeenCalledTimes(1)
+    // Still waiting well past one guest RPC limit, then failing once the full bound has passed.
+    await act(() => vi.advanceTimersByTimeAsync(85_000))
+    expect(screen.queryByRole('alert')).toBeNull()
+    await act(() => vi.advanceTimersByTimeAsync(5_000))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not confirm sign-in status')
+    await enterKey('Codex runner management key', 'key again')
+    await screen.findByRole('button', { name: 'Sign in with ChatGPT' })
+    expect(send).toHaveBeenCalledTimes(2)
   })
 })
 
 /** A subsection's card, inside its region of the same name, to scope its own Save. */
 const card = (name: string) => screen.getAllByRole('region', { name }).at(-1)!
+
+/** Picks an option in a model picker, by searching for it first. */
+function pick(picker: HTMLElement, option: string, search = option.split(' · ').at(-1)!) {
+  fireEvent.change(picker, { target: { value: search } })
+  fireEvent.click(screen.getByRole('option', { name: option }))
+}
 
 /** Waits past the autosave pause, for a save sent on its own. */
 const autosaved = (assertion: () => void) => waitFor(assertion, { timeout: 3000 })
@@ -352,17 +632,14 @@ const bothOn = agentSettings(
   },
 )
 
-test('each provider card saves its switch and sign-in as they change, with the steps, and its model with Save', async () => {
+test('each provider card saves its switch, sign-in and default model as they change, with the steps', async () => {
   const api = await renderAgents()
   const codex = screen.getByRole('group', { name: 'Codex' })
-  fireEvent.click(within(codex).getByRole('checkbox', { name: 'On' }))
+  fireEvent.click(within(codex).getByRole('switch', { name: 'On' }))
   fireEvent.click(within(codex).getByRole('button', { name: 'API key' }))
   expect(within(codex).getByText('OPENAI_API_KEY')).toBeVisible()
   expect(screen.queryByLabelText('API key')).not.toBeInTheDocument()
-  const research = screen.getByRole('group', { name: 'Research' })
-  fireEvent.change(within(research).getByRole('combobox', { name: 'Research provider' }), {
-    target: { value: 'codex' },
-  })
+  pick(screen.getByRole('combobox', { name: 'Research' }), 'Codex · gpt-6.1-sol')
   await autosaved(() =>
     expect(api.saveSettings).toHaveBeenCalledWith(
       agentSettingsUpdate(
@@ -379,11 +656,8 @@ test('each provider card saves its switch and sign-in as they change, with the s
     ),
   )
   expect(api.saveSettings).toHaveBeenCalledTimes(1)
-  fireEvent.change(within(codex).getByRole('combobox', { name: 'Default model' }), {
-    target: { value: 'gpt-6-luna' },
-  })
-  fireEvent.click(within(card('Providers')).getByRole('button', { name: 'Save' }))
-  await waitFor(() =>
+  pick(within(codex).getByRole('combobox', { name: 'Default model' }), 'gpt-6-luna')
+  await autosaved(() =>
     expect(api.saveSettings).toHaveBeenLastCalledWith(
       expect.objectContaining({
         expected_revision: '8',
@@ -396,18 +670,77 @@ test('each provider card saves its switch and sign-in as they change, with the s
   )
 })
 
+test('searching a step’s picker and picking Sonnet sets the step to Claude with it, and saves', async () => {
+  const api = client()
+  api.settings.mockResolvedValue(bothOn)
+  await renderAgents(api)
+  pick(screen.getByRole('combobox', { name: 'Research' }), 'Claude · sonnet', 'son')
+  await autosaved(() =>
+    expect(api.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage_selections: { research: { provider: 'claude', model: 'sonnet' } },
+      }),
+    ),
+  )
+})
+
+test('a provider turned on with a default model picked in the same pause saves both', async () => {
+  const api = client()
+  api.settings.mockResolvedValue(
+    agentSettings('7', initialSelection, {
+      providers: {
+        claude: { enabled: true, authentication: 'subscription', default_model: 'sonnet' },
+        codex: { enabled: false, authentication: 'subscription', default_model: '' },
+      },
+    }),
+  )
+  await renderAgents(api)
+  const codex = within(screen.getByRole('group', { name: 'Codex' }))
+  pick(codex.getByRole('combobox', { name: 'Default model' }), 'gpt-6-astra')
+  fireEvent.click(codex.getByRole('switch', { name: 'On' }))
+  expect(codex.getByRole('switch', { name: 'On' })).toBeChecked()
+  await autosaved(() =>
+    expect(api.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providers: expect.objectContaining({
+          codex: { enabled: true, authentication: 'subscription', default_model: 'gpt-6-astra' },
+        }),
+      }),
+    ),
+  )
+  expect(api.saveSettings).toHaveBeenCalledTimes(1)
+})
+
+test('on/off settings are switches and the default provider is a two-option segmented control', async () => {
+  await renderAgents()
+  expect(screen.getAllByRole('switch', { name: 'On' })).toHaveLength(2)
+  expect(screen.getByRole('switch', { name: 'Suggest tags for new batches' })).toBeVisible()
+  expect(screen.getByRole('switch', { name: 'Allow public web pages' })).toBeVisible()
+  expect(screen.getByRole('switch', { name: 'Parts · up to 250' })).toBeVisible()
+  expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+  const defaultProvider = within(screen.getAllByRole('group', { name: 'Default provider' }).at(-1)!)
+  expect(defaultProvider.getAllByRole('button').map((option) => option.textContent)).toEqual([
+    'Claude',
+    'Codex',
+  ])
+})
+
 test('turning a provider off shows its steps on Default with a note, and saves at once', async () => {
   const api = client()
   api.settings.mockResolvedValue(bothOn)
   await renderAgents(api)
   const research = within(screen.getByRole('group', { name: 'Research' }))
-  expect(research.getByRole('combobox', { name: 'Research provider' })).toHaveValue('codex')
+  expect(research.getByText('Codex · gpt-6-luna')).toBeVisible()
   fireEvent.click(
-    within(screen.getByRole('group', { name: 'Codex' })).getByRole('checkbox', { name: 'On' }),
+    within(screen.getByRole('group', { name: 'Codex' })).getByRole('switch', { name: 'On' }),
   )
-  expect(research.getByRole('combobox', { name: 'Research provider' })).toHaveValue('')
+  expect(research.getByText('Default · Claude sonnet')).toBeVisible()
   expect(research.getByText(/now uses Default/)).toBeVisible()
-  expect(screen.getByRole('radio', { name: 'Codex' })).toBeDisabled()
+  expect(
+    within(screen.getAllByRole('group', { name: 'Default provider' }).at(-1)!).getByRole('button', {
+      name: 'Codex',
+    }),
+  ).toHaveAttribute('aria-disabled', 'true')
   await waitFor(() =>
     expect(api.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -470,16 +803,17 @@ test('a description style over 500 characters shows the limit and sends nothing'
   expect(style).toHaveValue('x'.repeat(501))
 })
 
-test('typing a model holds the navigation guard', async () => {
+test('picking a model holds the navigation guard until its save confirms', async () => {
   const dirty = vi.fn()
   await renderAgents(client(), dirty)
-  fireEvent.change(
+  pick(
     within(screen.getByRole('group', { name: 'Claude' })).getByRole('combobox', {
       name: 'Default model',
     }),
-    { target: { value: 'opus' } },
+    'opus',
   )
   expect(dirty).toHaveBeenLastCalledWith(true, expect.any(Function))
+  await autosaved(() => expect(dirty).toHaveBeenLastCalledWith(false, undefined))
 })
 
 test('pressing Save twice sends one save', async () => {
@@ -541,15 +875,14 @@ test('a refresh never mixes into a Providers draft, and saving it is a conflict'
   await renderAgents(api)
   const claude = within(screen.getByRole('group', { name: 'Claude' }))
   const codex = within(screen.getByRole('group', { name: 'Codex' }))
-  fireEvent.change(codex.getByRole('combobox', { name: 'Default model' }), {
-    target: { value: 'gpt-6-luna' },
-  })
+  pick(codex.getByRole('combobox', { name: 'Default model' }), 'gpt-6-luna')
   fireEvent.click(screen.getByRole('button', { name: 'Read settings again' }))
   await waitFor(() => expect(api.settings).toHaveBeenCalledTimes(2))
   await new Promise((done) => setTimeout(done, 20))
-  expect(claude.getByRole('checkbox', { name: 'On' })).toBeChecked()
-  fireEvent.click(within(card('Providers')).getByRole('button', { name: 'Save' }))
-  expect(await screen.findByText(/changed in another tab/)).toBeVisible()
+  expect(claude.getByRole('switch', { name: 'On' })).toBeChecked()
+  expect(
+    (await screen.findAllByText(/changed in another tab/, {}, { timeout: 3000 }))[0],
+  ).toBeVisible()
   // Sent under the revision the edit was made over, so the server refuses it.
   expect(api.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ expected_revision: '7' }))
 })
@@ -663,7 +996,7 @@ test('an edit made before a change from elsewhere is refused, keeping the edit a
   fireEvent.click(screen.getByRole('button', { name: 'Read settings again' }))
   // The other tab's change has reached the page before Save.
   await waitFor(() =>
-    expect(screen.getByRole('checkbox', { name: 'Suggest tags for new batches' })).toBeChecked(),
+    expect(screen.getByRole('switch', { name: 'Suggest tags for new batches' })).toBeChecked(),
   )
   fireEvent.click(within(card('Instructions')).getByRole('button', { name: 'Save' }))
   await waitFor(() =>
@@ -825,7 +1158,7 @@ test('a text Save waits for a running autosave, then saves on its revision', asy
 
 test('Suggest tags for new batches saves on its own', async () => {
   const api = await renderAgents()
-  fireEvent.click(screen.getByRole('checkbox', { name: 'Suggest tags for new batches' }))
+  fireEvent.click(screen.getByRole('switch', { name: 'Suggest tags for new batches' }))
   await autosaved(() =>
     expect(api.saveSettings).toHaveBeenCalledWith(
       agentSettingsUpdate('7', initialSelection, { auto_tags_default: true }),
@@ -876,7 +1209,7 @@ test('Pause all agents waits for a list read started after the last live hint, a
   const resume = screen.getByRole('button', { name: 'Resume all agents' })
   await waitFor(() => expect(pause).not.toHaveAttribute('aria-disabled'))
   const registry = freshReads(cache)
-  const key = serverQueryKey(fixtureScope, 'agent-sessions', 'newest')
+  const key = sessionListKey(fixtureScope, { filter: 'all' })
 
   // A hint arrives: during the reconciliation delay the settled read predates it.
   act(() => registry.noteHint())
@@ -975,99 +1308,6 @@ test('after a save the slot meter compares slot use with the saved limit', async
   expect(within(sessions).getByRole('status')).toHaveTextContent('2')
 })
 
-test('while a model Save is pending its fields are read-only, and the switches stay usable', async () => {
-  const api = client()
-
-  let finish: (value: AgentSettingsDto) => void = () => undefined
-
-  api.saveSettings.mockImplementation(
-    () => new Promise<AgentSettingsDto>((resolve) => (finish = resolve)),
-  )
-  await renderAgents(api)
-  const claude = within(screen.getByRole('group', { name: 'Claude' }))
-  const model = claude.getByRole('combobox', { name: 'Default model' })
-  fireEvent.change(model, { target: { value: 'opus' } })
-  fireEvent.click(within(card('Providers')).getByRole('button', { name: 'Save' }))
-  await waitFor(() => expect(api.saveSettings).toHaveBeenCalled())
-  expect(model).toHaveAttribute('readonly')
-  expect(claude.getByRole('button', { name: 'API key' })).not.toHaveAttribute('aria-disabled')
-  await act(async () => finish({ ...initial, revision: '8' }))
-  expect(model).not.toHaveAttribute('readonly')
-})
-
-test('an invalid default model is refused in the form and nothing is sent', async () => {
-  const api = await renderAgents()
-  const claude = within(screen.getByRole('group', { name: 'Claude' }))
-  fireEvent.change(claude.getByRole('combobox', { name: 'Default model' }), {
-    target: { value: '-bad' },
-  })
-  fireEvent.click(within(card('Providers')).getByRole('button', { name: 'Save' }))
-  expect(await claude.findByText(/Choose a valid model ID for Claude/)).toBeVisible()
-  expect(api.saveSettings).not.toHaveBeenCalled()
-})
-
-test('after leaving and returning, a Codex command waits for the runner call still running', async () => {
-  let answer: (value: Response) => void = () => undefined
-
-  send
-    .mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
-    .mockResolvedValueOnce(Response.json({ state: 'disconnected' }))
-  await renderAgents()
-  fireEvent.click(screen.getByRole('button', { name: 'ChatGPT subscription' }))
-  fireEvent.change(screen.getByLabelText('Codex runner management key'), {
-    target: { value: 'key' },
-  })
-  fireEvent.click(screen.getByRole('button', { name: 'Check ChatGPT connection' }))
-  await waitFor(() => expect(send).toHaveBeenCalledTimes(1))
-
-  fireEvent.click(screen.getByRole('button', { name: 'Leave Agents' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Return to Agents' }))
-  await screen.findByRole('group', { name: 'Claude' })
-  fireEvent.click(screen.getByRole('button', { name: 'ChatGPT subscription' }))
-  fireEvent.change(screen.getByLabelText('Codex runner management key'), {
-    target: { value: 'key' },
-  })
-  fireEvent.click(screen.getByRole('button', { name: 'Check ChatGPT connection' }))
-  await new Promise((done) => setTimeout(done, 20))
-  expect(send).toHaveBeenCalledTimes(1)
-
-  await act(async () => answer(Response.json({ state: 'disconnected' })))
-  await waitFor(() => expect(send).toHaveBeenCalledTimes(2))
-  await screen.findByRole('button', { name: 'Sign in with ChatGPT' })
-})
-
-test('a Codex runner call outlasting the guest limits fails and frees the queue', async () => {
-  vi.useFakeTimers({ shouldAdvanceTime: true })
-  send.mockImplementationOnce(
-    (_url, init) =>
-      new Promise<Response>((_resolve, reject) => {
-        init?.signal?.addEventListener('abort', () => reject(init.signal?.reason))
-      }),
-  )
-  send.mockResolvedValueOnce(Response.json({ state: 'disconnected' }))
-  await renderAgents()
-  fireEvent.click(screen.getByRole('button', { name: 'ChatGPT subscription' }))
-  fireEvent.change(screen.getByLabelText('Codex runner management key'), {
-    target: { value: 'key' },
-  })
-  fireEvent.click(screen.getByRole('button', { name: 'Check ChatGPT connection' }))
-  await waitFor(() => expect(send).toHaveBeenCalledTimes(1))
-
-  // Still waiting well past one guest RPC limit, then failing once the full bound has passed.
-  await act(() => vi.advanceTimersByTimeAsync(85_000))
-  expect(screen.queryByRole('alert')).toBeNull()
-  expect(screen.getByRole('group', { name: 'Codex' })).not.toHaveAccessibleDescription(
-    'Check failed',
-  )
-
-  await act(() => vi.advanceTimersByTimeAsync(5_000))
-  expect(await screen.findByRole('alert')).toHaveTextContent('Could not confirm sign-in status')
-  expectCard('Codex', 'Check failed')
-  fireEvent.click(screen.getByRole('button', { name: 'Check ChatGPT connection' }))
-  await screen.findByRole('button', { name: 'Sign in with ChatGPT' })
-  expect(send).toHaveBeenCalledTimes(2)
-})
-
 test('a settings read that was already running cannot replace a confirmed save', async () => {
   const api = client()
 
@@ -1093,10 +1333,10 @@ test('a settings read that was already running cannot replace a confirmed save',
 })
 
 describe('Web research', () => {
-  const publicPages = () => screen.getByRole('checkbox', { name: 'Allow public web pages' })
+  const publicPages = () => screen.getByRole('switch', { name: 'Allow public web pages' })
 
   const datasheets = () =>
-    screen.getByRole('checkbox', { name: 'Prefer manufacturer datasheets over distributor pages' })
+    screen.getByRole('switch', { name: 'Prefer manufacturer datasheets over distributor pages' })
 
   test('both settings start on, explain provider search and save as they change', async () => {
     const api = await renderAgents()
@@ -1113,6 +1353,23 @@ describe('Web research', () => {
         }),
       ),
     )
+  })
+
+  test('a confirmed save re-reads the Processing reads and histories that say whether Start fresh is allowed', async () => {
+    const cache = createServerQueryClient()
+    const snapshot = serverQueryKey(fixtureScope, 'processing', 'batch-a')
+    const page = serverQueryKey(fixtureScope, 'processing', 'batch-a', 'history', 'job', 'page')
+    cache.setQueryData(snapshot, { cached: true })
+    cache.setQueryData(page, { cached: true })
+    const api = client()
+    render(<Harness api={api} />, { cache })
+    await screen.findByRole('group', { name: 'Claude' })
+    expect(cache.getQueryState(snapshot)?.isInvalidated).toBe(false)
+
+    fireEvent.click(publicPages())
+    await autosaved(() => expect(api.saveSettings).toHaveBeenCalled())
+    await waitFor(() => expect(cache.getQueryState(snapshot)?.isInvalidated).toBe(true))
+    expect(cache.getQueryState(page)?.isInvalidated).toBe(true)
   })
 
   for (const saved of [
@@ -1162,7 +1419,9 @@ describe('Web research', () => {
     api.settings.mockResolvedValueOnce(initial).mockResolvedValueOnce({ ...initial, revision: '9' })
     await renderAgents(api)
     fireEvent.click(datasheets())
-    expect(await screen.findByText(/changed in another tab/, {}, { timeout: 3000 })).toBeVisible()
+    expect(
+      (await screen.findAllByText(/changed in another tab/, {}, { timeout: 3000 }))[0],
+    ).toBeVisible()
     expect(datasheets()).not.toBeChecked()
     fireEvent.click(screen.getByRole('button', { name: /Reload/ }))
     await waitFor(() => expect(datasheets()).toBeChecked())

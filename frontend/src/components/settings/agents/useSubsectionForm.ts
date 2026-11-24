@@ -85,6 +85,15 @@ function expectedRevision(
   return newest.revision
 }
 
+/** The provider a provider choice names: the default provider's, or a step's when not Default. */
+function namedProvider(fields: SettingsFields, key: FieldKey): AgentProviderId | undefined {
+  if (key === 'default_provider') {
+    return fields.default_provider ?? undefined
+  }
+  const stage = key.slice('stage_selections.'.length) as AgentSettingsStage
+  return fields.stage_selections[stage]?.provider
+}
+
 /**
  * One subsection's form over the shared settings. Non-text edits save on their own after a
  * pause; text edits wait for Save. Each save is built when it is sent, from the newest settings
@@ -133,13 +142,9 @@ export function useSubsectionForm<V extends FieldValues>({
   const unresolved = useRef<Partial<Record<SaveMode, Unresolved>>>({})
   const resendTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const savedOnce = useRef(false)
-  /** Steps whose provider the operator chose here, apart from a model typed for them. */
-  const providerEdits = useRef(new Set<FieldKey>())
-  /** The fields the last text Save covered, kept for its Try again. */
-  const textScope = useRef<KeyScope>(EVERY_KEY)
   /**
    * The value each text draft was typed over, kept through a retry that moves the form onto a
-   * newer read, so a model changed elsewhere since is still a conflict for its Save.
+   * newer read, so a field changed elsewhere since is still a conflict for its Save.
    */
   const draftBase = useRef(new Map<FieldKey, string>())
   /** Counts Reloads, so a recovery that a Reload superseded settles nothing. */
@@ -195,7 +200,6 @@ export function useSubsectionForm<V extends FieldValues>({
   function settle(settings: AgentSettingsDto) {
     showValues(read(settings))
     touched.current.clear()
-    providerEdits.current.clear()
     draftBase.current.clear()
     shown.current = undefined
     setBase(undefined)
@@ -206,13 +210,6 @@ export function useSubsectionForm<V extends FieldValues>({
   /** Moves the edit onto `settings`: its drafts stay, every other field shows `settings`. */
   function rebase(settings: AgentSettingsDto) {
     const draft = draftOver(baseRef.current ?? settings)
-    // A model draft belongs to its step's provider: if that changed elsewhere, the draft goes.
-    for (const key of touchedIn('text')) {
-      if (!providerEdits.current.has(key) && providerChanged(draft, fieldsOf(settings), key)) {
-        touched.current.delete(key)
-        draftBase.current.delete(key)
-      }
-    }
     const next = withFields(fieldsOf(settings), draft, touched.current.keys())
     showValues(read({ ...next, revision: settings.revision }))
     shown.current = next
@@ -248,9 +245,6 @@ export function useSubsectionForm<V extends FieldValues>({
           draftBase.current.set(key, JSON.stringify(fieldValue(previous, key)))
         }
         touched.current.set(key, mode)
-        if (mode === 'auto' && providerChanged(draft, previous, key)) {
-          providerEdits.current.add(key)
-        }
       }
     }
     shown.current = draft
@@ -316,15 +310,6 @@ export function useSubsectionForm<V extends FieldValues>({
         touched.current.delete(key)
       }
     }
-    // Interim, until the model picker: a step's new provider autosaves with its saved default
-    // model, while a model typed for it waits for Save.
-    const stepProviders =
-      mode === 'auto'
-        ? touchedIn('text').filter(
-            (key) => providerEdits.current.has(key) && providerChanged(draft, confirmed, key),
-          )
-        : []
-    changed.push(...stepProviders)
     if (changed.length === 0) {
       channel.setState(mode === 'auto' && savedOnce.current ? 'saved' : 'idle')
       tidy(newest)
@@ -344,7 +329,7 @@ export function useSubsectionForm<V extends FieldValues>({
       report()
       return 'hold'
     }
-    const composed = withStepProviderDefaults(withFields(confirmed, draft, changed), stepProviders)
+    const composed = withFields(confirmed, draft, changed)
     const sent = validatedAtDispatch(composed, confirmed, changed)
     if (sent.keys.every((key) => sameField(sent.settings, confirmed, key))) {
       // Validation left nothing to change.
@@ -361,31 +346,6 @@ export function useSubsectionForm<V extends FieldValues>({
       save_id: crypto.randomUUID(),
     }
     return deliver(mode, { request, keys: sent.keys })
-  }
-
-  /** A step whose provider differs from the confirmed one; its model is another matter. */
-  function providerChanged(draft: SettingsFields, confirmed: SettingsFields, key: FieldKey) {
-    if (!key.startsWith('stage_selections.')) {
-      return false
-    }
-    const stage = key.slice('stage_selections.'.length) as AgentSettingsStage
-    return draft.stage_selections[stage]?.provider !== confirmed.stage_selections[stage]?.provider
-  }
-
-  /** Each listed step on its provider's saved default model, never a typed model draft. */
-  function withStepProviderDefaults(settings: SettingsFields, steps: FieldKey[]) {
-    const next = structuredClone(settings)
-    for (const key of steps) {
-      const stage = key.slice('stage_selections.'.length) as AgentSettingsStage
-      const choice = next.stage_selections[stage]
-      if (choice) {
-        next.stage_selections[stage] = {
-          provider: choice.provider,
-          model: settings.providers[choice.provider].default_model,
-        }
-      }
-    }
-    return next
   }
 
   /**
@@ -444,15 +404,28 @@ export function useSubsectionForm<V extends FieldValues>({
     if (kept.every(([refused]) => refused.length === 0)) {
       return settings
     }
-    const providerChoices = changed.filter(
-      (key) =>
-        key.endsWith('.enabled') ||
-        key === 'default_provider' ||
-        key.startsWith('stage_selections.'),
+    // Only the refused switches go back, with the choices that name their providers either way;
+    // other picks in the same save are kept and sent.
+    const refusedProviders = new Set(
+      kept.flatMap(([refused]) => refused.map((key) => key.split('.')[1] as AgentProviderId)),
     )
+
+    const names = (fields: SettingsFields, key: FieldKey) => {
+      const provider = namedProvider(fields, key)
+      return provider !== undefined && refusedProviders.has(provider)
+    }
+
+    const providerChoices = changed.filter((key) => {
+      if (key.endsWith('.enabled')) {
+        return refusedProviders.has(key.split('.')[1] as AgentProviderId)
+      }
+      if (key === 'default_provider' || key.startsWith('stage_selections.')) {
+        return names(settings, key) || names(confirmed, key)
+      }
+      return false
+    })
     for (const key of providerChoices) {
       touched.current.delete(key)
-      providerEdits.current.delete(key)
       changed.splice(changed.indexOf(key), 1)
     }
     const restored = withFields(settings, confirmed, providerChoices)
@@ -523,9 +496,6 @@ export function useSubsectionForm<V extends FieldValues>({
       if (sameField(draft, save.request, key)) {
         touched.current.delete(key)
         draftBase.current.delete(key)
-      }
-      if (!providerChanged(draft, save.request, key)) {
-        providerEdits.current.delete(key)
       }
     }
     if (mode === 'auto') {
@@ -630,7 +600,7 @@ export function useSubsectionForm<V extends FieldValues>({
             }
             unresolved.current[mode] = undefined
             rebase(current)
-            return guarded(mode, mode === 'text' ? textScope.current : EVERY_KEY)
+            return guarded(mode)
           })(),
         ),
       { resolving: true },
@@ -654,7 +624,6 @@ export function useSubsectionForm<V extends FieldValues>({
     const sent = attemptedKeys(pending) ?? touchedIn(mode)
     for (const key of mode === 'auto' ? touchedIn('auto') : sent) {
       touched.current.delete(key)
-      providerEdits.current.delete(key)
       draftBase.current.delete(key)
     }
     unresolved.current[mode] = undefined
@@ -669,57 +638,33 @@ export function useSubsectionForm<V extends FieldValues>({
     }
   }
 
-  /**
-   * Save: sends the form's text edits within `scope`, once `fields` (every field by default)
-   * pass their own validation and the values pass `check`. A draft elsewhere in the form never
-   * blocks or joins it.
-   */
-  function saveText({
-    check,
-    scope = EVERY_KEY,
-    fields,
-  }: { check?: (values: V) => boolean; scope?: KeyScope; fields?: Path<V>[] } = {}) {
+  /** Save: sends the form's text edits once they pass their own validation. */
+  function saveText() {
     if (pendingText.current || text.busy || queue.running || queue.held) {
       return
     }
     pendingText.current = true
     void (async () => {
-      const valid = await form.trigger(fields)
-      if (!valid || (check && !check(form.getValues()))) {
+      const valid = await form.trigger()
+      if (!valid) {
         return
       }
-      textScope.current = scope
-      // A provider change still in its pause goes first, so the model saves over it.
+      // A change of this form still in its pause goes first, so the text saves over it.
       page.queue.sendNow(owners.auto)
-      await page.queue.run(owners.text, () => guarded('text', scope))
+      await page.queue.run(owners.text, () => guarded('text'))
     })().finally(() => {
       pendingText.current = false
     })
   }
 
-  /**
-   * Drops the text edits within `scope` for the loaded settings; what the server saved is left as
-   * it is.
-   */
-  function discardText(scope: KeyScope = EVERY_KEY) {
+  /** Drops the text edits for the loaded settings; what the server saved is left as it is. */
+  function discardText() {
     if (text.busy) {
       return
     }
-    const draft = draftOver(baseRef.current ?? loaded)
-    const discarded = touchedIn('text').filter(scope)
-    // A step's provider chosen here stays chosen, on its saved default model, for its autosave.
-    const keptProviders = discarded.filter((key) => providerEdits.current.has(key))
-    for (const key of discarded) {
+    for (const key of touchedIn('text')) {
       touched.current.delete(key)
       draftBase.current.delete(key)
-    }
-    for (const key of keptProviders) {
-      touched.current.set(key, 'auto')
-    }
-    if (keptProviders.length > 0) {
-      const next = withStepProviderDefaults(draft, keptProviders)
-      showValues(read({ ...next, revision: (baseRef.current ?? loaded).revision }))
-      shown.current = next
     }
     unresolved.current.text = undefined
     text.setState('idle')
@@ -736,8 +681,6 @@ export function useSubsectionForm<V extends FieldValues>({
   return {
     form,
     markEdited,
-    /** Keys with an edit awaiting Save, for placing a Save beside the fields it sends. */
-    textKeys: touchedIn('text'),
     autosave: {
       state: auto.state,
       revision: loaded.revision,

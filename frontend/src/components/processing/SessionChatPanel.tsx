@@ -12,6 +12,8 @@ interface Props {
   /** Queues one message; the same key is reused only to retry that exact message. */
   send: (text: string, key: string) => Promise<unknown>
   freshDisabled?: boolean
+  /** Why Start fresh would be refused now; the button is disabled and says so. */
+  freshReason?: string
   startFresh: () => void
   /** The message box's label; the session page names its step. */
   label?: string
@@ -89,6 +91,7 @@ export function SessionChatPanel({
   send,
   startFresh,
   freshDisabled,
+  freshReason,
   label = 'Message this session',
   showLog = true,
   sendUnavailable,
@@ -100,7 +103,12 @@ export function SessionChatPanel({
       <Panel>
         <Paragraph>
           This session was cancelled.{' '}
-          <Button type="button" onClick={startFresh} disabled={freshDisabled}>
+          <Button
+            type="button"
+            onClick={startFresh}
+            disabled={freshDisabled}
+            disabledReason={freshReason}
+          >
             Start a fresh session
           </Button>
         </Paragraph>
@@ -135,6 +143,7 @@ export function SessionChatPanel({
             type="button"
             onClick={startFresh}
             disabled={freshDisabled || pending !== undefined}
+            disabledReason={freshReason}
           >
             Start a fresh session
           </Button>

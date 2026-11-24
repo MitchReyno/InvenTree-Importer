@@ -16,6 +16,7 @@ import { fail } from '#/processing/model.ts'
 import { decodeJobInput } from '#/processing/session-input.ts'
 import { webAccess } from '#/processing/session-policy.ts'
 import { latestSessionFailures } from '#/agents/failures.ts'
+import { startFreshEligibility } from '#/processing/start-fresh-eligibility.ts'
 import { resolveHistoryEntries, type HistoryRow, type HistoryJob } from './history-entries.ts'
 
 /** Inbox rows sort as if their attempt were this, below every real attempt ID. */
@@ -118,7 +119,8 @@ async function scopedSessionJob(
   }
 }
 
-function runsOn(profileId: string): SessionHistoryAttemptDto['runs_on'] {
+/** Where an attempt's profile runs it: the paired agent VM, the host, or the fixture. */
+export function runsOn(profileId: string): SessionHistoryAttemptDto['runs_on'] {
   if (profileId === 'synthetic-session/1') {
     return 'fixture'
   }
@@ -194,10 +196,18 @@ async function historyAttempts(client: PoolClient, job: HistoryJob) {
       runs_on: runsOn(row.profile_id),
       selection: manifest.agent,
       actual_model: row.actual_model,
-      web: webAccess(row.profile_id) === 'available' ? (manifest.web ?? null) : null,
+      web: sealedWeb(row.profile_id, manifest),
       ...(failure ? { failure } : {}),
     }
   })
+}
+
+/** The web setting sealed in an attempt's input; null when its profile has no web access. */
+export function sealedWeb(
+  profileId: string,
+  manifest: { web?: SessionHistoryAttemptDto['web'] },
+): SessionHistoryAttemptDto['web'] {
+  return webAccess(profileId) === 'available' ? (manifest.web ?? null) : null
 }
 
 function attemptEnd(row: {
@@ -351,6 +361,9 @@ export async function readSessionHistory(
     const job = await scopedSessionJob(client, config, batchId, jobId)
     const { snapshot } = await captureInTransaction(client, config, batchId)
     const attempts = await historyAttempts(client, job)
+    const eligibility = await startFreshEligibility(client, config, [job.id], {
+      captures: new Map([[batchId, snapshot]]),
+    })
     const ackedSeq = await inboxCursor(client, jobId)
     const rows = await historyRows(client, jobId, before)
     const page = rows.slice(0, SESSION_HISTORY_PAGE_SIZE)
@@ -365,6 +378,7 @@ export async function readSessionHistory(
         current_attempt_id: job.currentAttemptId,
         attempts,
         inbox_acked_seq: ackedSeq.toString(),
+        start_fresh: eligibility.get(job.id)!,
       },
       entries,
       ...(rows.length > SESSION_HISTORY_PAGE_SIZE && oldest

@@ -1,3 +1,4 @@
+import { sessionList } from '#/test/agent-sessions'
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
@@ -1639,7 +1640,7 @@ test('a failed delivery of saved instructions keeps its retry after the save rel
         operator,
         processing,
         agents: {
-          sessions: vi.fn(async () => ({ sessions: [], truncated: false })) as never,
+          sessions: vi.fn(async () => sessionList()),
           settings: vi.fn(async () => ({
             revision: '1',
             selection: null,

@@ -1,4 +1,4 @@
-import type { AgentSettingsUpdateDto } from './agents.ts'
+import type { AgentSessionQueryDto, AgentSettingsUpdateDto } from './agents.ts'
 import { successfulData } from './client-policy.ts'
 import { typedClient } from './client-runtime.ts'
 
@@ -14,8 +14,9 @@ export function agentsClient(baseUrl: string, csrfToken: string, transport: type
     settings: () => successfulData(client.GET('/api/v1/agent-settings')),
     saveSettings: (input: AgentSettingsUpdateDto) =>
       successfulData(client.PUT('/api/v1/agent-settings', { body: input })),
-    sessions: (before?: string) =>
-      successfulData(client.GET('/api/v1/agent-sessions', { params: { query: { before } } })),
+    /** One page of sessions: the newest without `before`, filtered and scoped as asked. */
+    sessions: (query: AgentSessionQueryDto = {}) =>
+      successfulData(client.GET('/api/v1/agent-sessions', { params: { query } })),
     /** Pauses or resumes one batch's agent sessions; pausing cancels nothing. */
     pause: (batchId: string, paused: boolean) =>
       successfulData(

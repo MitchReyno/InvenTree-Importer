@@ -4,7 +4,9 @@ import type { Pool } from 'pg'
 import {
   Id,
   schemas,
+  validationIssues,
   type AgentPauseUpdateDto,
+  type AgentSessionQueryDto,
   type AgentSettingsUpdateDto,
   type ProviderStatusQueryDto,
 } from '@invimport/contracts'
@@ -109,20 +111,21 @@ export function registerAgents(
         return readSessionFailure(pool, config, request.params.attemptId, request.params.failureId)
       },
     )
-    scope.get<{ Querystring: { before?: string } }>(
+    scope.get<{ Querystring: Record<string, unknown> }>(
       '/api/v1/agent-sessions',
       { schema: { response: { 200: schemas.AgentSessionList } } },
-      (request) => {
-        const keys = Object.keys(request.query)
-        if (
-          keys.some((key) => key !== 'before') ||
-          (request.query.before !== undefined &&
-            !new RegExp(Id.pattern!).test(request.query.before))
-        ) {
-          throw new ProcessingError('invalid_session_cursor', 400)
-        }
-        return listAgentSessions(pool, config, request.query.before)
-      },
+      (request) => listAgentSessions(pool, config, sessionQuery(request.query)),
     )
   })
+}
+
+/** The list's query as the contract allows it; a malformed cursor is refused as one. */
+function sessionQuery(query: Record<string, unknown>): AgentSessionQueryDto {
+  if (query.before !== undefined && validationIssues('AgentSessionCursor', query.before).length) {
+    throw new ProcessingError('invalid_session_cursor', 400)
+  }
+  if (validationIssues('AgentSessionQuery', query).length) {
+    throw new ProcessingError('invalid_session_query', 400)
+  }
+  return query as AgentSessionQueryDto
 }

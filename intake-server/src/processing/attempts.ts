@@ -35,8 +35,13 @@ export interface ProcessingConfig extends CaptureBinding {
   sourceProtectedOrigins?: readonly string[]
 }
 
+/** Whether a private runner channel secret is configured; attempts can't be sealed without one. */
+export function processingChannelConfigured(config: Pick<ProcessingConfig, 'channelSecret'>) {
+  return Buffer.byteLength(config.channelSecret) >= MIN_CHANNEL_SECRET_BYTES
+}
+
 export function channelToken(config: ProcessingConfig, attemptId: string): string {
-  if (Buffer.byteLength(config.channelSecret) < MIN_CHANNEL_SECRET_BYTES) {
+  if (!processingChannelConfigured(config)) {
     fail('processing_channel_unconfigured', 503)
   }
   return createHmac('sha256', config.channelSecret)

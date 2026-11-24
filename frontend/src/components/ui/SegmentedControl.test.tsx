@@ -22,6 +22,27 @@ function Views() {
 }
 
 describe('SegmentedControl', () => {
+  it('shows an option that cannot be chosen now, and ignores choosing it', async () => {
+    const chosen: string[] = []
+    render(
+      <SegmentedControl
+        label="Default provider"
+        value="claude"
+        onChange={(id) => chosen.push(id)}
+        options={[
+          { id: 'claude', label: 'Claude' },
+          { id: 'codex', label: 'Codex', disabled: true },
+        ]}
+      />,
+    )
+
+    const codex = screen.getByRole('button', { name: 'Codex' })
+    expect(codex).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('button', { name: 'Claude' })).not.toHaveAttribute('aria-disabled')
+    await userEvent.click(codex)
+    expect(chosen).toEqual([])
+  })
+
   it('moves the tab stop with focus, so Shift+Tab leaves the group after arrowing', async () => {
     render(
       <>

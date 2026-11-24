@@ -1,4 +1,11 @@
-import { oldestQuestionFirst, questionView, type ProcessingSnapshotDto } from '@invimport/contracts'
+import {
+  oldestQuestionFirst,
+  questionView,
+  type AgentSessionDto,
+  type ProcessingSnapshotDto,
+  type SessionFailureSummaryDto,
+} from '@invimport/contracts'
+import { earlierFromList, type EarlierAttempt } from '#/agents/session-list'
 import { assumptionLine, questionKindLabel, stepKinds } from './question-summary'
 import { processingStepFor } from '#/navigation/batch-route'
 
@@ -56,6 +63,13 @@ export type SourceSession = {
   state: NonNullable<Job['session_state']>
   /** The session's newest status line, if it has posted one. */
   status: string | null
+  /** From the session list only: the current attempt's failure and the attempts before it. */
+  failure?: SessionFailureSummaryDto
+  earlier?: { count: number; attempts: readonly EarlierAttempt[] }
+  /** The current attempt, whose failure details can be read. */
+  attemptId?: string
+  /** A row from the Processing read alone, which doesn't carry the failure's cause. */
+  failureUnread?: boolean
 }
 
 export type LotStatus = { step: WorkStep; text: string; state: SourceSession['state'] }
@@ -165,6 +179,9 @@ export function retainedJobsSource(
       ? [
           {
             jobId: job.id,
+            attemptId: job.attempt_id,
+            // The Processing read carries no failure summary; the session list does.
+            failureUnread: true,
             step: workStep(job),
             subject: subject(job),
             lotId:
@@ -211,4 +228,33 @@ export function retainedJobsSource(
     jobsOn,
     paused: snapshot.paused === true,
   }
+}
+
+/** The batch's session list as Processing's session rows, each with its earlier attempts. */
+export function listedSessions(
+  rows: readonly AgentSessionDto[],
+  subjects: ReadonlyMap<string, string>,
+  activeLotIds: ReadonlySet<string>,
+): SourceSession[] {
+  // An earlier profile's attempt has no session; the snapshot doesn't list it as one either.
+  return rows.flatMap((row) => {
+    if (row.session_state === null) {
+      return []
+    }
+    const step = processingStepFor(row.stage)
+    return {
+      jobId: row.job_id,
+      attemptId: row.attempt_id,
+      step: step === 'overview' ? 'examine' : step,
+      subject:
+        row.subject_id === null
+          ? 'Whole batch'
+          : (subjects.get(row.subject_id) ?? 'Unknown subject'),
+      lotId: row.subject_id !== null && activeLotIds.has(row.subject_id) ? row.subject_id : null,
+      state: row.session_state,
+      status: row.latest_status?.text ?? null,
+      ...(row.failure ? { failure: row.failure } : {}),
+      earlier: { count: row.earlier_attempt_count, attempts: earlierFromList(row) },
+    }
+  })
 }

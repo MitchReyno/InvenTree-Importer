@@ -58,6 +58,8 @@ export function ProcessingJobCard({
   chooseQuestion,
   session,
   paused = false,
+  earlier,
+  startFresh,
 }: {
   job: Job
   batch: CaptureSnapshotDto
@@ -70,6 +72,10 @@ export function ProcessingJobCard({
   session?: ReactNode
   /** The batch's agents are paused, so queued work reads Paused. */
   paused?: boolean
+  /** The job's earlier attempts, folded under its attempt line. */
+  earlier?: ReactNode
+  /** A failed or stopped session's Start fresh, with why it would be refused now. */
+  startFresh?: { run: () => void; reason?: string }
 }) {
   const subject = [...batch.lots, ...batch.parts].find((value) => value.id === job.subject_id)
   const cancellable =
@@ -103,6 +109,7 @@ export function ProcessingJobCard({
         Attempt {job.attempt_number}
         {STATE_REASON[job.state] && ` · ${STATE_REASON[job.state]}`}
       </Small>
+      {earlier}
       {job.blocked_code && <Paragraph role="status">{blockerLabels[job.blocked_code]}</Paragraph>}
       {job.proposals.map((proposal) => (
         <div key={proposal.id}>
@@ -151,6 +158,11 @@ export function ProcessingJobCard({
             onClick={cancel}
           >
             Cancel this attempt
+          </Button>
+        )}
+        {startFresh && (
+          <Button disabledReason={startFresh.reason} onClick={startFresh.run}>
+            Start fresh
           </Button>
         )}
       </Actions>

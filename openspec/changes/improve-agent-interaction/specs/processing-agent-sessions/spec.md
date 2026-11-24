@@ -224,3 +224,65 @@ Tool-capable VM sessions SHALL support `INTAKE_VM_EVIDENCE_DELIVERY` with values
 - **GIVEN** a pairing that negotiated evidence release confirmation and explicitly identifies the image format as legacy
 - **WHEN** the guest stages a legacy preview with page metadata and no delivered digest
 - **THEN** it computes the digest of the staged preview and retains the original source citation. For a legacy original it verifies the source digest. A modern rendition with missing or malformed required digest metadata is refused.
+
+### Requirement: Answered questions report their answer and delivery
+
+Within the budget of "Answer summaries fit the snapshot", the Processing read SHALL return, with each answered question, when it was answered, a bounded summary of each step's answer, the answer's capture effects and, for a session question, whether the session has acknowledged the answer in its inbox and when. A read time SHALL come from the acknowledgement that first reached the answer; one acknowledged before read times were kept SHALL be read with no time.
+
+#### Scenario: Waiting, then read
+
+- **GIVEN** an answered `/2` question whose answer is above the session's acknowledgement cursor, in a snapshot whose answers all fit in full
+- **WHEN** Processing is read, and read again after the session's read_inbox acknowledges past the answer
+- **THEN** the first read gives the answer waiting with no read time, and the second gives it read at that acknowledgement's time.
+
+#### Scenario: Earlier runner question
+
+- **GIVEN** an answered question of an earlier runner profile, in a snapshot whose answers all fit in full
+- **WHEN** Processing is read
+- **THEN** it carries the answer's time and summary with no inbox delivery, and says whether the history route would serve its job now: no for a job with only runner attempts, yes for a job a later session attempt ran.
+
+### Requirement: Answer summaries fit the snapshot
+
+When the answers would pass the Processing snapshot's size limit, the read SHALL budget them newest first: the full answer while it fits, then its time and delivery with the values marked omitted, then no `answer` member. Every answered question SHALL keep its session-history flag in every tier. A snapshot that is too large even without answer members SHALL fail as an oversized snapshot does today.
+
+#### Scenario: Many answers near the size limit
+
+- **GIVEN** a retained batch near the snapshot's size limit with many answered questions
+- **WHEN** Processing is read
+- **THEN** the read succeeds, the newest answers carry their summaries, older ones carry only their time and delivery with values omitted, any that still don't fit carry no answer member, and every answered question keeps its session-history flag.
+
+### Requirement: A question can name the one it replaces
+
+An `ask` MAY name an earlier question of the same session that it replaces, while that question is unanswered. The earlier question SHALL close and the Processing read SHALL return which question replaced it.
+
+#### Scenario: Replacing a question
+
+- **GIVEN** an open question asking for a lot's count, which new evidence makes wrong
+- **WHEN** the session asks again naming the open question as replaced
+- **THEN** the earlier question closes, the read gives the new question as its replacement, and an ask naming an answered question or another session's question is refused as correctable.
+
+### Requirement: Questions carry pictures
+
+An `ask` MAY carry up to 5 figures in the agent's order. Each SHALL name an evidence page delivered to the session, a view (a region of the page, quarter turns and straightening of at most 15°), up to 8 marks (circle, ellipse, box, arrow, highlight or a label of at most 40 characters), a caption of at most 80 characters and why it is shown in at most 200. The app SHALL render each view from the original without changing it, and SHALL NOT burn marks into it.
+
+#### Scenario: Valid figure
+
+- **GIVEN** a Research session that fetched IMG_3020
+- **WHEN** it asks with one figure cropping the worn suffix, turned upright, with one box and the label "Worn: B or nothing?"
+- **THEN** the question is stored with its figure, and the operator's picture is rendered from the original with the box drawn over it.
+
+#### Scenario: Invalid figure
+
+- **GIVEN** an ask whose figure names evidence never delivered to the session, a page of a delivered PDF that the session was never given, a region outside the page, six figures or nine marks
+- **WHEN** the tool server validates it
+- **THEN** it returns a correctable result naming the figure and field, and nothing is stored.
+
+### Requirement: Agents preview their pictures
+
+An `ask` with `preview: true` SHALL validate and render its figures with their marks drawn in, return them to the agent within its image budget, and SHALL NOT store or show a question; its renders are temporary. A preview not rendered within its bounded wait SHALL return no images and a result the agent can retry.
+
+#### Scenario: Preview then ask
+
+- **GIVEN** an Examine session preparing a question with two figures
+- **WHEN** it calls ask with `preview: true` and then without it
+- **THEN** the first call returns both rendered figures with marks, stores no question and tells the operator nothing, and the second stores one question whose pictures match the preview apart from the marks being an overlay.

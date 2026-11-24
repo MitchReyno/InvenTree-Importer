@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { S, sessionList, sessionRow } from '#/test/agent-sessions'
 import styled from 'styled-components'
 import type {
   AgentSettingsDto,
@@ -21,6 +22,7 @@ import { useHashRoute } from '#/navigation/useHashRoute'
 import { space } from '#/theme/generated/tokens'
 import type { HeaderClient } from '#/header/types'
 import { Settings } from '../Settings'
+import { fakeProviderStatus, installFakeRunner } from './fake-runner'
 
 const scope = {
   origin: 'http://localhost:3000',
@@ -50,27 +52,9 @@ let saved: AgentSettingsDto = {
   web: { public_pages: true, prefer_datasheets: true },
 }
 
-function session(index: number, running: boolean) {
-  return {
-    attempt_id: `20000000-0000-4000-8000-00000000000${index}`,
-    job_id: `21000000-0000-4000-8000-00000000000${index}`,
-    batch_id: batchId,
-    subject_id: null,
-    stage: 'research',
-    state: running ? 'running' : 'queued',
-    occupies_lane: running,
-    latest_on_job: true,
-    queued_at: '2026-11-10T01:00:00.000Z',
-    started_at: null,
-    finished_at: null,
-    session_state: null,
-    latest_status: null,
-  }
-}
-
 /**
- * An in-memory agents client. The credential panels still POST to `/personal-runner/*`, which this
- * fixture's server doesn't answer, so their checks fail.
+ * An in-memory agents client. The sign-in dialogs POST to `/personal-runner/*`, which the
+ * fixture page's fake runner answers (`fake-runner.ts`).
  */
 const agents = {
   settings: async () => saved,
@@ -82,17 +66,30 @@ const agents = {
     saved = { ...fields, revision: String(Number(expected_revision) + 1) }
     return saved
   },
-  sessions: async () => ({
-    sessions: [session(1, true), session(2, true), session(3, true), session(4, false)],
-    next_before: null,
-    sessions_supported: true,
-  }),
+  sessions: async () =>
+    sessionList({
+      sessions: [1, 2, 3, 4].map((index) =>
+        sessionRow({
+          attempt_id: S.attempt(index),
+          job_id: S.job(index),
+          batch_id: batchId,
+          subject_id: null,
+          state: index < 4 ? 'running' : 'queued',
+          occupies_lane: index < 4,
+        }),
+      ),
+      totals: { slots_in_use: 3, queued: 1, waiting: 0 },
+    }),
   failure: async () => {
     throw new Error('owned_fixture_no_failure')
   },
   pause: async () => ({}),
   pauseAll: async (paused: boolean) => ({ paused, batch_ids: [] }),
   deliverInstructions: async () => ({ sessions: 0 }),
+  providerStatus: async () => {
+    await new Promise((resolve) => setTimeout(resolve, 150))
+    return fakeProviderStatus()
+  },
 } as unknown as ReturnType<typeof agentsClient>
 
 // Staged for the demo: once checked, InvenTree has refused the token, and later reads say so,
@@ -238,6 +235,8 @@ const batchDefaults = {
 
 export function SettingsProof() {
   const [cache] = useState(batchReads)
+  // Syncs the page's fetch with the fake VM while the fixture is shown.
+  useEffect(() => installFakeRunner(), [])
   const route = useHashRoute('settings')
 
   return (
