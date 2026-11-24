@@ -2,7 +2,7 @@ import { test, type TestContext } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
-import { once } from 'node:events'
+import { EventEmitter, once } from 'node:events'
 import { mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -141,16 +141,17 @@ test(
         runNative: async (_context, _opening, request) => {
           await request({ provider: { providerSessionId: randomUUID(), actualModel: 'haiku' } })
           let id = 0
-          const prepared = Promise.withResolvers<void>()
-          const disconnected = Promise.withResolvers<void>()
+          const provider = new EventEmitter()
+          const prepared = once(provider, 'prepared')
+          const disconnected = once(provider, 'disconnected')
           let loseResponse = true
           let proxy = await startMcpProxy(
             async (operation) => {
               const reply = await request(operation)
               if (loseResponse && operation.mcp) {
                 loseResponse = false
-                prepared.resolve()
-                await disconnected.promise
+                provider.emit('prepared')
+                await disconnected
               }
               return reply
             },
@@ -191,17 +192,17 @@ test(
             ).structuredContent
           try {
             const failed = assert.rejects(call('fetch_evidence', evidence))
-            await prepared.promise
+            await prepared
             await proxy.close()
             await failed
             proxy = await startMcpProxy(request, true, 'file')
-            disconnected.resolve()
+            provider.emit('disconnected')
             assert.equal((await propose()).error, 'source_not_delivered')
             const result = await call('fetch_evidence', evidence)
             assert.deepEqual(await readFile(result.structuredContent.local_file.path), original)
             assert.equal((await propose()).ok, true)
           } finally {
-            disconnected.resolve()
+            provider.emit('disconnected')
             await proxy.close()
           }
         },
