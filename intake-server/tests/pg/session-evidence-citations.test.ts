@@ -12,11 +12,16 @@ import { BlobStore } from '#/media/blob-store.ts'
 import { readMediaStoreIdentity } from '#/media/store-identity.ts'
 import { transaction } from '#/db/database.ts'
 import { issueSessionCapability, revokeSessionCapability } from '#/agents/tools/capability.ts'
-import { sessionTools, SESSION_IMAGE_BUDGET_BYTES } from '#/agents/tools/handlers.ts'
+import { TurnEvidenceReleases } from '#/agents/shared-vm/evidence-release.ts'
+import {
+  recordMediaDelivery,
+  sessionTools,
+  SESSION_IMAGE_BUDGET_BYTES,
+} from '#/agents/tools/handlers.ts'
 
 const digest = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex')
 
-for (const mode of ['manifest', 'notice', 'lead'] as const) {
+for (const mode of ['manifest', 'notice', 'lead', 'original'] as const) {
   test(`${mode}: fetched source cites original bytes and needs actual delivery`, async () => {
     const fixture = await processingFixture()
     const root = await realpath(await mkdtemp(join(tmpdir(), 'citation-test-')))
@@ -27,7 +32,10 @@ for (const mode of ['manifest', 'notice', 'lead'] as const) {
       })
         .png()
         .toBuffer()
-      const preview = await sharp(original).resize(32, 24).png().toBuffer()
+      const preview = await sharp(original)
+        .resize(mode === 'original' ? 64 : 32, mode === 'original' ? 48 : 24)
+        .png({ compressionLevel: 9 })
+        .toBuffer()
       const store = await BlobStore.initialize(
         join(root, 'blobs'),
         await readMediaStoreIdentity(fixture.db.pool),
@@ -39,7 +47,7 @@ for (const mode of ['manifest', 'notice', 'lead'] as const) {
       const photo = await seedPhoto(
         fixture,
         capture.batch.id,
-        { width: 32, height: 24 },
+        mode === 'original' ? { width: 64, height: 48 } : { width: 32, height: 24 },
         'Test photo',
         0,
         { original, preview },
@@ -59,7 +67,24 @@ for (const mode of ['manifest', 'notice', 'lead'] as const) {
       const session =
         mode === 'lead'
           ? await leadSession(fixture, capture)
-          : await lotSession(fixture, capture, capture.packetA)
+          : await lotSession(
+              fixture,
+              capture,
+              capture.packetA,
+              mode === 'original'
+                ? {
+                    profile: {
+                      id: 'shared-vm-agent/3',
+                      agent: {
+                        provider: 'codex',
+                        authentication: 'subscription',
+                        model: 'fixture',
+                      },
+                      settingsRevision: '1',
+                    },
+                  }
+                : {},
+            )
       if (mode !== 'manifest') {
         await fixture.db.pool.query(
           "INSERT INTO agent_session_inbox(id,session_lineage_id,seq,kind,payload,idempotency_key) VALUES($1,$2,1,'evidence',$3,$4)",
@@ -78,6 +103,7 @@ for (const mode of ['manifest', 'notice', 'lead'] as const) {
         pool: fixture.runner.pool,
         config: fixture.config,
         store,
+        evidenceImage: 'original' as const,
         statusIntervalMs: 0,
         imageBudget: new Map<string, number>(),
         deliveredMedia: new Map<string, Set<string>>(),
@@ -111,6 +137,34 @@ for (const mode of ['manifest', 'notice', 'lead'] as const) {
       }
       assert.deepEqual(fetched.result.source, source)
       assert.notEqual(source.sha256, digest(preview))
+      if (mode === 'original') {
+        assert.deepEqual(Buffer.from(fetched.images![0]!.base64, 'base64'), original)
+        assert.equal(fetched.result.delivered?.scale, 1)
+        assert.equal(fetched.result.delivered?.sha256, digest(original))
+        const releases = new TurnEvidenceReleases()
+        const { releaseId } = releases.prepare(
+          1,
+          JSON.stringify({
+            id: 1,
+            result: {
+              content: [{ type: 'image' }],
+              structuredContent: fetched.result,
+            },
+          }),
+          'current',
+        )
+        const confirm = () =>
+          releases.confirm(releaseId, (v) =>
+            recordMediaDelivery(context.deliveredMedia, session.job, v),
+          )
+        assert.equal((await tools.propose(token, proposal())).result.ok, false)
+        confirm()
+        confirm()
+        assert.throws(
+          () => new TurnEvidenceReleases().confirm(releaseId, () => {}),
+          /unknown_evidence_release/,
+        )
+      }
       const wrong = await tools.propose(token, proposal({ ...source, sha256: digest(preview) }))
       assert.deepEqual(
         [wrong.result.ok, !wrong.result.ok && wrong.result.error],
@@ -127,14 +181,23 @@ for (const mode of ['manifest', 'notice', 'lead'] as const) {
       const cropped = await restarted.fetch_evidence(token, {
         ...args,
         page: 1,
-        region: { x: 0, y: 0, width: 16, height: 12, source_width: 32, source_height: 24 },
+        region: {
+          x: 0,
+          y: 0,
+          width: 16,
+          height: 12,
+          source_width: mode === 'original' ? 64 : 32,
+          source_height: mode === 'original' ? 48 : 24,
+        },
       })
       assert.ok(cropped.result.ok)
       if (cropped.result.ok) {
         assert.deepEqual(cropped.result.source, source)
       }
       assert.equal(cropped.images?.length, 1)
-      assert.equal((await restarted.propose(token, proposal())).result.ok, true)
+      assert.equal((await restarted.propose(token, proposal())).result.ok, mode !== 'original')
+      if (mode === 'original')
+        assert.notDeepEqual(Buffer.from(cropped.images![0]!.base64, 'base64'), original)
       const read = await fixture.http(`/batches/${capture.batch.id}/processing`)
       assert.equal(read.status, 200, 'a delivered citation keeps Processing readable')
       if (mode === 'notice') {

@@ -380,6 +380,15 @@ test('scripted agents get no provider access; real agents get it; VM agents get 
   ]) {
     assert.deepEqual(worker({ ...settings, ...providers }), pairing, JSON.stringify(settings))
   }
+  assert.equal(
+    worker({ INTAKE_RUN_AGENTS_IN_VM: 'true', INTAKE_VM_EVIDENCE_IMAGE: 'original' })
+      .INTAKE_VM_EVIDENCE_IMAGE,
+    'original',
+  )
+  assert.deepEqual(
+    refusedNames({ INTAKE_VM_EVIDENCE_IMAGE: 'large' }, 'invalid_development_setting'),
+    ['INTAKE_VM_EVIDENCE_IMAGE'],
+  )
   const vmWorker = worker({ INTAKE_RUN_AGENTS_IN_VM: 'true', ...VM })
   assert.deepEqual(vmWorker, {
     INTAKE_VM_PAIR: '/pair',
@@ -556,6 +565,7 @@ test('real VM agents get a managed VM with every default', () => {
     pair: '/state/vm-pair',
     port: '14313',
     tools: true,
+    evidenceDelivery: 'file',
     keepRunning: false,
   })
   assert.deepEqual(resolved.defaulted, [
@@ -576,6 +586,7 @@ test('explicit VM values win and are not marked as defaults', () => {
     pair: '/pair',
     port: '14320',
     tools: true,
+    evidenceDelivery: 'file',
     keepRunning: false,
   })
   assert.deepEqual(resolved.defaulted, [])
@@ -687,4 +698,19 @@ test('defaults are reported for unmanaged VM modes too', () => {
       JSON.stringify(settings),
     )
   }
+})
+
+test('VM evidence delivery validates and defaults before launch', () => {
+  const base = { INTAKE_USE_MOCK_AI_AGENTS: 'false', INTAKE_RUN_AGENTS_IN_VM: 'true', ...VM }
+  for (const value of [undefined, '', 'inline', 'file']) {
+    const resolved = resolveDevelopmentSettings(
+      { ...base, INTAKE_VM_EVIDENCE_DELIVERY: value },
+      STATE,
+    )
+    assert.equal(resolved.vm.evidenceDelivery, value || 'file')
+  }
+  assert.deepEqual(
+    refusedNames({ INTAKE_VM_EVIDENCE_DELIVERY: 'typo' }, 'invalid_development_setting'),
+    ['INTAKE_VM_EVIDENCE_DELIVERY'],
+  )
 })

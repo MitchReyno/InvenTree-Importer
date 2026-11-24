@@ -314,6 +314,7 @@ function relayEnv(plan, baseEnv, providerFlag) {
   return {
     ...baseEnv,
     [providerFlag]: '1',
+    INTAKE_VM_EVIDENCE_DELIVERY: plan.evidenceDelivery ?? 'file',
     ...(plan.tools ? { INTAKE_VM_BUILTIN_TOOLS: '1' } : {}),
   }
 }

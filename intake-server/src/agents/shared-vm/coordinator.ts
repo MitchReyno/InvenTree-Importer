@@ -1,3 +1,4 @@
+import { evidenceFormatHeader, TurnEvidenceReleases } from './evidence-release.ts'
 import { evidenceRequest } from './evidence-request.ts'
 import { checkServerIdentity, createServer, type TLSSocket } from 'node:tls'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -15,6 +16,7 @@ import { settled } from '#/events/settled.ts'
 
 export interface SessionBridgeOptions {
   /** Hosts each tool turn's egress proxy refuses; see `bridgeProtectedHosts`. */
+  confirmEvidence?: (job: string, version: string) => void
   protectedHosts: readonly string[]
 }
 
@@ -42,7 +44,6 @@ export async function startSessionBridge(
   const rich = new WeakSet<TLSSocket>()
   const reapPeers = new WeakSet<TLSSocket>()
   const probePeers = new WeakSet<TLSSocket>()
-  const evidencePeers = new WeakSet<TLSSocket>()
   const subscriptions = new WeakMap<TLSSocket, string>()
   const connected = new Set<TLSSocket>()
   const server = createServer(
@@ -89,10 +90,10 @@ export async function startSessionBridge(
             if (greeting.turnPolicy !== true) {
               throw new Error('runner_turn_policy_unsupported')
             }
-            rich.add(socket)
-            if (greeting.evidenceFiles === true) {
-              evidencePeers.add(socket)
+            if (greeting.evidenceRelease !== 1 || greeting.evidenceFiles !== true) {
+              throw new Error('runner_evidence_release_unsupported')
             }
+            rich.add(socket)
           }
           if (greeting.ready !== protocol) {
             throw new Error('runner_protocol_mismatch')
@@ -161,6 +162,7 @@ export async function startSessionBridge(
 
     context.signal.addEventListener('abort', stop, { once: true })
     const deliveredItems = new Set<string>()
+    const releases = new TurnEvidenceReleases()
     const command = {
       protocol,
       ...context.identity,
@@ -169,7 +171,7 @@ export async function startSessionBridge(
       instructions: turn.instructions,
       text: turn.text,
       tools: turn.tools,
-      ...(toolWorker ? { protected_hosts: options!.protectedHosts } : {}),
+      ...(toolWorker ? { protected_hosts: options!.protectedHosts, evidenceRelease: 1 } : {}),
     }
     let dispatched = false
     try {
@@ -221,6 +223,16 @@ export async function startSessionBridge(
           await frames.send({ ok: true })
           continue
         }
+        if ('releaseId' in msg) {
+          if (!toolWorker || !options?.confirmEvidence) {
+            throw new Error('unexpected_evidence_release')
+          }
+          releases.confirm(msg.releaseId, (version) =>
+            options.confirmEvidence!(context.identity.lineage, version),
+          )
+          await frames.send({ ok: true })
+          continue
+        }
         if (msg.nextDelivery === true) {
           const item = await turn.nextDelivery()
           if (item) {
@@ -255,19 +267,16 @@ export async function startSessionBridge(
             },
             body: msg.mcp,
           })
-          const maxBytes =
-            toolWorker && evidencePeers.has(socket) && evidenceRequest(msg.mcp)
-              ? evidenceReplyLimit
-              : undefined
-          await frames.send(
-            {
-              status: response.status,
-              body: response.body
-                ? await readBounded(response.body as unknown as AsyncIterable<Uint8Array>, maxBytes)
-                : '',
-            },
-            maxBytes,
-          )
+          const maxBytes = toolWorker && evidenceRequest(msg.mcp) ? evidenceReplyLimit : undefined
+          const body = response.body
+            ? await readBounded(response.body as unknown as AsyncIterable<Uint8Array>, maxBytes)
+            : ''
+          const fetchRequest = evidenceRequest(msg.mcp)
+          const envelope =
+            toolWorker && response.status === 200 && fetchRequest
+              ? releases.prepare(fetchRequest.id, body, response.headers.get(evidenceFormatHeader))
+              : {}
+          await frames.send({ status: response.status, body, ...envelope }, maxBytes)
           continue
         }
         if (msg.done === true) {
