@@ -241,6 +241,7 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - **Scope and approach:**
   - `contracts/src/sessions.ts` (`SessionHistory`, `SessionHistoryEntry`, and `moves` on new regroup outbox items);
   - `regroup` in `capture/evidence-observations.ts`, which returns each move's outcome, and the regroup handler, which records the moves with their source lots and outcomes;
+  - `propose_lot`, which takes an optional `separation_reason` and records it on its `lot` outbox item with what the call did (formed, extended, suggested or unchanged);
   - `read_inbox` in `agents/tools/handlers.ts`, which publishes `session_changed` when it advances the acknowledgement cursor;
   - `intake-server/src/agents/tools/timeline.ts` and its route in `processing/routes.ts`;
   - `media/region-crops.ts` for the crop route, `GET …/photo-views/:attemptId/:seq/crop`.

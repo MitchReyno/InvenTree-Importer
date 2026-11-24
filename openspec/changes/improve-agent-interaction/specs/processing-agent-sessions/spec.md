@@ -102,6 +102,22 @@ A proposal MAY cite a web page by URL in its top-level sources, with an optional
 - **WHEN** the tool server validates it
 - **THEN** it returns a correctable validation result naming the source, and nothing is stored.
 
+### Requirement: Lot-forming calls record what they did
+
+The outbox item for a `propose_lot` call SHALL record whether the call formed the lot, extended it, only suggested membership or changed nothing, judged from the changes it applied and the suggestions it wrote, and the reason for keeping the lot separate when the session gives one through `propose_lot`'s optional `separation_reason`. The outbox item for a `regroup` call SHALL record each move with its source lot and whether it was applied, only suggested or unchanged because the observation was already in that lot. Text PostgreSQL cannot store SHALL be refused with a correctable validation result before anything is written.
+
+#### Scenario: Lot kept apart
+
+- **GIVEN** the lead session forms "10 kΩ resistor — packet B" with the separation reason "same MPN as packet A, date code 2407 vs 2341"
+- **WHEN** the operator expands its history entry
+- **THEN** the entry reads "Formed 10 kΩ resistor — packet B" and shows that reason, while an entry for a call that gave no reason says the reason was not retained.
+
+#### Scenario: Suggestion only
+
+- **GIVEN** an agent lot and an observation the operator placed in another lot
+- **WHEN** the lead session extends the agent lot with that observation, and then repeats the call
+- **THEN** the first entry reads "Suggested changes to" the lot and the second "Proposed no change to" it, and Capture holds one suggestion.
+
 ### Requirement: Status lines stay readable
 
 The session instructions SHALL tell the agent to write status lines in plain words about the item, without internal IDs such as proposal, observation or attempt identifiers.
