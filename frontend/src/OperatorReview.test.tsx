@@ -1,6 +1,7 @@
 import { sessionList } from '#/test/agent-sessions'
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { searchAndPick } from '#/test/picker'
 import type { ReactNode } from 'react'
 import { ServerStateProvider } from './components/query/ServerStateProvider'
 import { createServerQueryClient } from './queries/client'
@@ -475,7 +476,7 @@ test.each([new TypeError('connection reset'), new IntakeRequestError(500, 'inter
     await openTableAndSelect(user)
     await user.selectOptions(screen.getByLabelText('Quantity'), 'set')
     await user.type(screen.getByLabelText('Exact pieces for every selected lot'), '12.5')
-    await user.selectOptions(screen.getByLabelText('Location'), `observation:${observedLocation}`)
+    await searchAndPick(user, 'Location', 'drawer', 'Drawer 4 (#43)')
     await user.click(screen.getByRole('button', { name: 'Preview bulk edit' }))
     const preview = await screen.findByRole('region', { name: 'Impact preview' })
     expect(preview).toHaveTextContent('Packet A, Packet B')

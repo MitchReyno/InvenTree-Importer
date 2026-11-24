@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { pickOption, searchAndPick } from '#/test/picker'
 import { expect, it, vi } from 'vitest'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { IntakeRequestError } from '@invimport/contracts/client'
@@ -152,4 +153,99 @@ it('states what splitting and merging keep in the dialog itself, with no help po
     screen.getByText(/the merged lot uses the batch default until you choose one/),
   ).toBeVisible()
   expect(screen.queryByRole('button', { name: /^About/ })).not.toBeInTheDocument()
+})
+
+const twoParts = {
+  ...batch,
+  parts: [
+    { id: 'p1', label: 'Resistor' },
+    { id: 'p2', label: 'Capacitor' },
+  ],
+} as unknown as CaptureSnapshotDto
+
+function previewOnly() {
+  return vi.fn().mockResolvedValue({
+    status: 'previewed',
+    revision: '7',
+    impact: {
+      invalidated_review_subject_ids: [],
+      affected_lot_ids: ['l1'],
+      affected_part_ids: [],
+      stale_preparation_ids: [],
+      retired_lot_ids: [],
+      created_lots: [],
+      created_part: null,
+    },
+  })
+}
+
+it('a move chooses its destination from a segmented control and searches its Part proposal', async () => {
+  const user = userEvent.setup()
+  const restructure = previewOnly()
+  const onDirtyChange = vi.fn()
+  render(
+    <RestructureDialog
+      kind="move"
+      batch={twoParts}
+      lotIds={['l1']}
+      excludedLotIds={[]}
+      client={{ restructure } as unknown as OperatorReviewClient}
+      disabled={false}
+      reload={vi.fn()}
+      onClose={vi.fn()}
+      onDirtyChange={onDirtyChange}
+    />,
+  )
+  const destination = screen.getByRole('group', { name: 'Destination' })
+  expect(destination).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'New' }))
+  expect(screen.getByLabelText('New Part proposal label')).toBeVisible()
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+  await user.click(screen.getByRole('button', { name: 'Existing' }))
+  await searchAndPick(user, 'Part proposal', 'cap', 'Capacitor')
+  await user.click(screen.getByRole('button', { name: 'Preview impact' }))
+  await waitFor(() => expect(restructure).toHaveBeenCalledTimes(1))
+  expect(restructure.mock.calls[0][1].change).toEqual({
+    kind: 'move_lots',
+    lot_ids: ['l1'],
+    destination: { kind: 'existing', part_subject_id: 'p2' },
+  })
+})
+
+it('a merge can leave out the Part proposal', async () => {
+  const user = userEvent.setup()
+  const restructure = previewOnly()
+  render(
+    <RestructureDialog
+      kind="merge"
+      batch={
+        {
+          ...twoParts,
+          lots: [
+            { ...batch.lots[0], part_subject_id: 'p1' },
+            { id: 'l2', label: 'Tubes', evidence_observation_ids: [], retired: false },
+          ],
+        } as unknown as CaptureSnapshotDto
+      }
+      lotIds={['l1', 'l2']}
+      excludedLotIds={[]}
+      client={{ restructure } as unknown as OperatorReviewClient}
+      disabled={false}
+      reload={vi.fn()}
+      onClose={vi.fn()}
+    />,
+  )
+  await user.type(screen.getByLabelText('Merged lot quantity'), '4')
+  await pickOption(user, 'Part proposal', 'No Part proposal')
+  await user.click(
+    screen.getByRole('checkbox', {
+      name: 'These are one physical contribution, not just the same Part',
+    }),
+  )
+  await user.click(screen.getByRole('button', { name: 'Preview impact' }))
+  await waitFor(() => expect(restructure).toHaveBeenCalledTimes(1))
+  expect(restructure.mock.calls[0][1].change).toMatchObject({
+    kind: 'merge_lots',
+    part_subject_id: null,
+  })
 })

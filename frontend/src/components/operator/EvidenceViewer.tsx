@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import styled from 'styled-components'
 import { media, Small, Button, DebugDetails } from '#/components/ui'
-import { Label, Select } from '#/forms'
+import { ChoicePicker, Label, Select } from '#/forms'
 import { color, radius, size, space, typeVar } from '#/theme/generated/tokens'
 import type { MediaEvidenceDto, MediaSnapshotDto } from '@invimport/contracts'
 import {
@@ -266,31 +266,24 @@ export function EvidenceViewer({
               : 'No preview selected. Choose a ready retained source below, or add evidence in Capture.'}
         </Empty>
       )}
-      <Label>
-        Evidence source and version
-        <Select
-          value={version && source ? version.id : ''}
-          onChange={(event) => chooseVersion(event.target.value)}
-        >
-          <option value="" disabled>
-            {sourceUnavailable
-              ? 'Selected source unavailable — choose explicitly'
-              : 'Choose retained evidence'}
-          </option>
-          {evidence.flatMap((item) =>
-            item.versions.map((value) => (
-              <option
-                key={value.id}
-                value={value.id}
-                disabled={value.state !== 'ready' || value.pages.length === 0}
-              >
-                {labels.versions.get(value.id)}
-                {value.state !== 'ready' ? ` · ${value.state}` : ''}
-              </option>
-            )),
-          )}
-        </Select>
-      </Label>
+      <ChoicePicker
+        label="Evidence source and version"
+        noun="versions"
+        placeholder={
+          sourceUnavailable
+            ? 'Selected source unavailable — choose explicitly'
+            : 'Choose retained evidence'
+        }
+        choices={evidence.flatMap((item) =>
+          item.versions.map((value) => ({
+            value: value.id,
+            label: `${labels.versions.get(value.id) ?? ''}${value.state !== 'ready' ? ` · ${value.state}` : ''}`,
+            disabled: value.state !== 'ready' || value.pages.length === 0,
+          })),
+        )}
+        value={version && source ? version.id : ''}
+        onChange={chooseVersion}
+      />
       {version && source && (
         <Controls>
           <Label>

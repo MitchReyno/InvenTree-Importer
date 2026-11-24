@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { Small, Button } from '#/components/ui'
-import { Fieldset, Form, Input, Label, Select } from '#/forms'
+import { ChoicePicker, Fieldset, Form, Input, Label, Select } from '#/forms'
 import { useReportDirty } from '#/navigation/useReportDirty'
 import type { CaptureEdit } from '#/capture/types'
 
@@ -79,6 +79,7 @@ export function QuickLotEdit({ batch, lot, disabled, edit, onDirtyChange }: Prop
   const [defaults, setDefaults] = useState(() => initialValues(lot))
   const {
     register,
+    control,
     handleSubmit,
     watch,
     reset,
@@ -138,20 +139,33 @@ export function QuickLotEdit({ batch, lot, disabled, edit, onDirtyChange }: Prop
           </Label>
         )}
         {errors.quantity && <Small role="alert">{errors.quantity.message}</Small>}
-        <Label>
-          Location
-          <Select {...register('location')}>
-            <option value="mode:inherit">Use batch default</option>
-            <option value="mode:clear">No location (explicit)</option>
-            <option value="mode:unknown">Explicitly unknown</option>
-            <option value="mode:unset">Not selected</option>
-            {locations.map((item) => (
-              <option key={item.id} value={`observation:${item.id}`}>
-                {item.label} (#{item.pk})
-              </option>
-            ))}
-          </Select>
-        </Label>
+        <Controller
+          name="location"
+          control={control}
+          render={({ field }) => (
+            <ChoicePicker
+              label="Location"
+              noun="locations"
+              placeholder="Choose a location…"
+              choices={[
+                { value: 'mode:inherit', label: 'Use batch default' },
+                { value: 'mode:clear', label: 'No location (explicit)' },
+                { value: 'mode:unknown', label: 'Explicitly unknown' },
+                { value: 'mode:unset', label: 'Not selected' },
+                ...locations.map((item) => ({
+                  value: `observation:${item.id}`,
+                  label: `${item.label} (#${item.pk})`,
+                })),
+              ]}
+              value={field.value}
+              disabled={disabled}
+              onChange={(value) => {
+                field.onChange(value)
+                onDirtyChange?.(differsFrom(defaults, getValues()))
+              }}
+            />
+          )}
+        />
         <Small>Affects only this lot. Read another location in Capture to add it here.</Small>
         <Button type="submit" disabled={!isDirty}>
           Save lot values

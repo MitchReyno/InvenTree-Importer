@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Banner, media, Paragraph, Small, Button, Dialog } from '#/components/ui'
-import { CheckboxLabel, Fieldset, Form, Input, Label, Select } from '#/forms'
-import { useFieldArray, useForm, type FieldErrors } from 'react-hook-form'
+import { Banner, media, Paragraph, SegmentedControl, Small, Button, Dialog } from '#/components/ui'
+import { CheckboxLabel, ChoicePicker, Fieldset, Form, Input, Label, Select } from '#/forms'
+import { Controller, useFieldArray, useForm, type FieldErrors } from 'react-hook-form'
 import styled from 'styled-components'
 import { color, radius, space } from '#/theme/generated/tokens'
 import type { CaptureSnapshotDto, OperatorImpactDto, RestructureDto } from '@invimport/contracts'
@@ -44,6 +44,12 @@ interface Props {
   onClose: () => void
   onDirtyChange?: (dirty: boolean) => void
 }
+
+const DESTINATIONS: { id: Values['destination']; label: string }[] = [
+  { id: 'existing', label: 'Existing' },
+  { id: 'new', label: 'New' },
+  { id: 'none', label: 'None' },
+]
 
 const TITLES: Record<RestructureKind, string> = {
   split: 'Split lot',
@@ -172,6 +178,9 @@ export function RestructureDialog({
   )
   const destination = watch('destination')
   const locked = apply.busy || apply.pending
+  // The fieldset disables native inputs; the pickers take it as a prop.
+  const fieldsDisabled = disabled || locked || previewBusy
+  const partChoices = batch.parts.map((part) => ({ value: part.id, label: part.label }))
 
   // Field-array rows and the retained command change without a native change event.
   function reportDraft() {
@@ -263,7 +272,7 @@ export function RestructureDialog({
         Discard restructure edits
       </Button>
       <Form onChange={reportDraft} onSubmit={handleSubmit(runPreview)}>
-        <Fieldset disabled={disabled || locked || previewBusy}>
+        <Fieldset disabled={fieldsDisabled}>
           {kind === 'split' && (
             <>
               {children.fields.map((field, index) => (
@@ -338,17 +347,24 @@ export function RestructureDialog({
                 Merged lot quantity
                 <Input inputMode="decimal" {...register('quantity', quantityRule)} />
               </Label>
-              <Label>
-                Part proposal
-                <Select {...register('partId')}>
-                  <option value="">No Part proposal</option>
-                  {batch.parts.map((part) => (
-                    <option key={part.id} value={part.id}>
-                      {part.label}
-                    </option>
-                  ))}
-                </Select>
-              </Label>
+              <Controller
+                name="partId"
+                control={control}
+                render={({ field }) => (
+                  <ChoicePicker
+                    label="Part proposal"
+                    noun="Part proposals"
+                    placeholder="Choose a Part proposal…"
+                    choices={[{ value: '', label: 'No Part proposal' }, ...partChoices]}
+                    value={field.value}
+                    disabled={fieldsDisabled}
+                    onChange={(value) => {
+                      field.onChange(value)
+                      reportDraft()
+                    }}
+                  />
+                )}
+              />
               <CheckboxLabel>
                 <Input
                   type="checkbox"
@@ -367,27 +383,44 @@ export function RestructureDialog({
           )}
           {kind === 'move' && (
             <>
-              <Label>
-                Destination
-                <Select {...register('destination')}>
-                  <option value="existing">Existing Part proposal</option>
-                  <option value="new">New Part proposal</option>
-                  <option value="none">No Part proposal</option>
-                </Select>
-              </Label>
+              <Controller
+                name="destination"
+                control={control}
+                render={({ field }) => (
+                  <Label as="div">
+                    Destination
+                    <SegmentedControl
+                      label="Destination"
+                      options={DESTINATIONS}
+                      value={field.value}
+                      onChange={(id) => {
+                        field.onChange(id)
+                        reportDraft()
+                      }}
+                    />
+                  </Label>
+                )}
+              />
               {destination === 'existing' && (
-                <Label>
-                  Part proposal
-                  <Select
-                    {...register('destinationPartId', { required: 'Choose a Part proposal.' })}
-                  >
-                    {batch.parts.map((part) => (
-                      <option key={part.id} value={part.id}>
-                        {part.label}
-                      </option>
-                    ))}
-                  </Select>
-                </Label>
+                <Controller
+                  name="destinationPartId"
+                  control={control}
+                  rules={{ required: 'Choose a Part proposal.' }}
+                  render={({ field }) => (
+                    <ChoicePicker
+                      label="Part proposal"
+                      noun="Part proposals"
+                      placeholder="Choose a Part proposal…"
+                      choices={partChoices}
+                      value={field.value}
+                      disabled={fieldsDisabled}
+                      onChange={(value) => {
+                        field.onChange(value)
+                        reportDraft()
+                      }}
+                    />
+                  )}
+                />
               )}
               {destination === 'new' && (
                 <Label>

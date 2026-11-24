@@ -1,5 +1,6 @@
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { searchAndPick } from '#/test/picker'
 import { expect, test, vi } from 'vitest'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { render } from '#/test/render'
@@ -79,6 +80,39 @@ test('closing the editor with changes releases the guard', async () => {
   await user.type(quantity, '0')
   unmount()
   expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+})
+
+test('a location is searched among the observed ones and saved alone', async () => {
+  const user = userEvent.setup()
+  const drawer = {
+    id: 'obs-1',
+    model: 'location',
+    pk: '43',
+    label: 'Drawer 4',
+    target_context_id: 'ctx',
+  }
+  const edit = vi.fn(async () => true)
+  const onDirtyChange = vi.fn()
+  render(
+    <QuickLotEdit
+      batch={{ ...batch, observations: [drawer] } as unknown as CaptureSnapshotDto}
+      lot={lot}
+      disabled={false}
+      edit={edit}
+      onDirtyChange={onDirtyChange}
+    />,
+  )
+  await searchAndPick(user, 'Location', 'draw', 'Drawer 4 (#43)')
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+  await user.click(screen.getByRole('button', { name: /save/i }))
+  expect(edit).toHaveBeenCalledWith({
+    kind: 'lot',
+    id: 'lot-1',
+    location: {
+      mode: 'set',
+      value: { observation_id: 'obs-1', target_context_id: 'ctx', model: 'location', pk: '43' },
+    },
+  })
 })
 
 test('the Location field says how to offer another location', () => {

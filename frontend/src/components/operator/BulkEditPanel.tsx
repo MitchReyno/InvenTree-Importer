@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Banner, Panel, Paragraph, Small, Button } from '#/components/ui'
 import { useConfirmation } from '#/context'
-import { Fieldset, Form, Input, Label, Select } from '#/forms'
-import { useForm } from 'react-hook-form'
+import { ChoicePicker, Fieldset, Form, Input, Label, Select } from '#/forms'
+import { Controller, useForm } from 'react-hook-form'
 import styled from 'styled-components'
 import { color, radius, space } from '#/theme/generated/tokens'
 import type { BulkEditDto, CaptureSnapshotDto, OperatorImpactDto } from '@invimport/contracts'
@@ -84,6 +84,7 @@ export function BulkEditPanel({
 }: Props) {
   const {
     register,
+    control,
     handleSubmit,
     watch,
     reset,
@@ -116,6 +117,8 @@ export function BulkEditPanel({
   const quantityMode = watch('quantityMode')
   const locations = batch.observations.filter((item) => item.model === 'location')
   const locked = apply.busy || apply.pending
+  // The fieldset disables native inputs; the location picker takes it as a prop.
+  const rowDisabled = disabled || locked || previewBusy || !selectedIds.length
   const selectionKey = selectedIds.join(',')
   // A different selection invalidates the shown preview; a pending exact intent keeps it.
   const preview =
@@ -187,7 +190,7 @@ export function BulkEditPanel({
         onChange={() => onDirtyChange?.(differsFromDefaults(getValues()) || apply.pending)}
         onSubmit={handleSubmit(runPreview)}
       >
-        <Row disabled={disabled || locked || previewBusy || !selectedIds.length}>
+        <Row disabled={rowDisabled}>
           <Label>
             Quantity
             <Select {...register('quantityMode')}>
@@ -212,21 +215,34 @@ export function BulkEditPanel({
               />
             </Label>
           )}
-          <Label>
-            Location
-            <Select {...register('location')}>
-              <option value="keep">Keep each lot's value</option>
-              <option value="mode:inherit">Use batch default</option>
-              <option value="mode:clear">No location (explicit)</option>
-              <option value="mode:unknown">Explicitly unknown</option>
-              <option value="mode:unset">Not selected</option>
-              {locations.map((item) => (
-                <option key={item.id} value={`observation:${item.id}`}>
-                  {item.label} (#{item.pk})
-                </option>
-              ))}
-            </Select>
-          </Label>
+          <Controller
+            name="location"
+            control={control}
+            render={({ field }) => (
+              <ChoicePicker
+                label="Location"
+                noun="locations"
+                placeholder="Choose a location…"
+                choices={[
+                  { value: 'keep', label: "Keep each lot's value" },
+                  { value: 'mode:inherit', label: 'Use batch default' },
+                  { value: 'mode:clear', label: 'No location (explicit)' },
+                  { value: 'mode:unknown', label: 'Explicitly unknown' },
+                  { value: 'mode:unset', label: 'Not selected' },
+                  ...locations.map((item) => ({
+                    value: `observation:${item.id}`,
+                    label: `${item.label} (#${item.pk})`,
+                  })),
+                ]}
+                value={field.value}
+                disabled={rowDisabled}
+                onChange={(value) => {
+                  field.onChange(value)
+                  onDirtyChange?.(differsFromDefaults(getValues()) || apply.pending)
+                }}
+              />
+            )}
+          />
           <Button type="submit" disabled={previewBusy}>
             Preview bulk edit
           </Button>
