@@ -342,7 +342,7 @@
 - **Verification:** frontend checks; a demo video of the cards, a refused save and the Codex sign-in, using fixtures.
 - **Risks and decisions:** the management key must never be kept after a dialog closes. A test checks this.
 
-- [ ] 13.1 Read the guidelines, `frontend/ARCHITECTURE.md`'s Settings › Agents section and the credential hooks.
+- [x] 13.1 Read the guidelines, `frontend/ARCHITECTURE.md`'s Settings › Agents section and the credential hooks.
 - [ ] 13.2 RED: tests for the model picker (search, groups, a provider that's off, exact IDs, both fields set by one pick), the pill states and Check again, the switches, the segmented default provider, the dialogs' shape checks, Save disabled while checking, failures keeping the dialog open, the fresh key-protected status read enabling Save and Remove, a stale revision after a replacement elsewhere, the Codex dialog closing on confirmation, and dialog generations (closing with a queued call, then reopening with a different key: the old call is not sent, one final poll runs and a pending login is cancelled, late answers are ignored).
 - [ ] 13.3 GREEN: extract `SearchablePicker` from `SearchableReferencePicker` (its tests must pass unchanged), add `ModelPicker`, and implement the cards, the controls and the dialogs.
 - [ ] 13.4 Update `frontend/ARCHITECTURE.md`. Run the frontend checks, and record the demo video.

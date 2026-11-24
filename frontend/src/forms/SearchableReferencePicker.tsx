@@ -1,26 +1,7 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import Select, {
-  components,
-  type InputActionMeta,
-  type InputProps,
-  type StylesConfig,
-} from 'react-select'
-import styled from 'styled-components'
-import {
-  color,
-  duration,
-  easing,
-  radius,
-  shadow,
-  size,
-  space,
-  typeVar,
-} from '#/theme/generated/tokens'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CatalogueCoverageDto, CatalogueRecordDto } from '@invimport/contracts'
 import { rankReferences, type RankTier } from '#/capture/reference-rank'
-import { Small } from '#/components/ui/primitives'
-import { Label } from './inputs'
-import { media } from '#/components/ui/media'
+import { SearchablePicker } from './SearchablePicker'
 
 export type PickerSearch = (
   query: string,
@@ -75,8 +56,8 @@ const optionKey = (option: Option) =>
       : `${option.record.kind}:${option.record.pk}`
 
 /**
- * One searchable single selection for supplier, Default location and parent location. The
- * scored list is final: react-select's substring filter is disabled so typo matches survive.
+ * One searchable InvenTree record for supplier, Default location and parent location, on
+ * `SearchablePicker`. The scored list is final, so typo matches survive.
  */
 export function SearchableReferencePicker({
   label,
@@ -92,7 +73,6 @@ export function SearchableReferencePicker({
   disabled = false,
   disabledReason,
 }: Props) {
-  const id = useId()
   const [input, setInput] = useState('')
   const [remote, setRemote] = useState<{
     query: string
@@ -163,20 +143,7 @@ export function SearchableReferencePicker({
     return list
   }, [candidates, input, onCreate, remote])
 
-  function onInputChange(next: string, meta: InputActionMeta) {
-    if (meta.action === 'input-change') {
-      setInput(next)
-    } else if (
-      meta.action === 'set-value' ||
-      meta.action === 'input-blur' ||
-      meta.action === 'menu-close'
-    ) {
-      setInput('')
-    }
-  }
-
   const searchFailed = remote?.failed === true && remote.query === input.trim()
-  const describedBy = `${id}-status`
   const truncated = coverage?.truncated
     ? `Suggestions use ${coverage.loaded.toLocaleString('en')} of ${coverage.total.toLocaleString('en')} ${noun}. Refine the search or enter an exact ID.`
     : ''
@@ -190,108 +157,37 @@ export function SearchableReferencePicker({
           : truncated
 
   return (
-    <Label as="div">
-      <label id={`${id}-label`} htmlFor={id}>
-        {label}
-      </label>
-      <Select<Option>
-        inputId={id}
-        components={pickerComponents}
-        {...{ statusId: statusText ? describedBy : undefined }}
-        options={options}
-        value={value ? { kind: 'selected', value } : null}
-        inputValue={input}
-        onInputChange={onInputChange}
-        onChange={(option) => {
-          if (option?.kind === 'create') {
-            onCreate?.(option.name)
-          } else if (option?.kind === 'record') {
-            onChange(option.record)
-          }
-        }}
-        filterOption={null}
-        getOptionLabel={(option) =>
-          option.kind === 'create' ? `${createLabel} “${option.name}”` : optionLabel(option)
+    <SearchablePicker<Option>
+      label={label}
+      status={statusText}
+      options={options}
+      value={value ? { kind: 'selected', value } : null}
+      inputValue={input}
+      onInputChange={setInput}
+      onChange={(option) => {
+        if (option.kind === 'create') {
+          onCreate?.(option.name)
+        } else if (option.kind === 'record') {
+          onChange(option.record)
         }
-        getOptionValue={optionKey}
-        isDisabled={disabled}
-        isLoading={status === 'loading' || searching}
-        loadingMessage={() => `Searching ${noun}…`}
-        noOptionsMessage={() =>
-          status === 'unavailable'
-            ? `${label} search unavailable`
-            : searchFailed
-              ? `${label} search unavailable; no matches in the loaded ${noun}`
-              : input.trim()
-                ? `No matches in the loaded ${noun}`
-                : `No ${noun} loaded`
-        }
-        placeholder={`Search ${noun} by name or ID`}
-        styles={styles}
-      />
-      {statusText && <Status id={describedBy}>{statusText}</Status>}
-    </Label>
-  )
-}
-
-/** react-select drops `aria-describedby`; append the picker status to its own description. */
-function DescribedInput(props: InputProps<Option, false>) {
-  const statusId = (props.selectProps as { statusId?: string }).statusId
-  const own = props['aria-describedby']
-  return (
-    <components.Input
-      {...props}
-      aria-describedby={[own, statusId].filter(Boolean).join(' ') || undefined}
+      }}
+      getOptionLabel={(option) =>
+        option.kind === 'create' ? `${createLabel} “${option.name}”` : optionLabel(option)
+      }
+      getOptionValue={optionKey}
+      disabled={disabled}
+      loading={status === 'loading' || searching}
+      loadingMessage={() => `Searching ${noun}…`}
+      noOptionsMessage={() =>
+        status === 'unavailable'
+          ? `${label} search unavailable`
+          : searchFailed
+            ? `${label} search unavailable; no matches in the loaded ${noun}`
+            : input.trim()
+              ? `No matches in the loaded ${noun}`
+              : `No ${noun} loaded`
+      }
+      placeholder={`Search ${noun} by name or ID`}
     />
   )
 }
-
-const pickerComponents = { Input: DescribedInput }
-
-const styles: StylesConfig<Option, false> = {
-  control: (base, state) => ({
-    ...base,
-    minHeight: 44,
-    borderColor: state.isFocused ? color.accent : color.lineStrong,
-    borderRadius: radius.input,
-    borderStyle: state.isDisabled ? 'dashed' : 'solid',
-    boxShadow: state.isFocused ? `0 0 0 2px ${color.accent}` : 'none',
-    '&:hover': { borderColor: state.isFocused ? color.accent : color.lineStrong },
-    transition: `border-color ${duration.fast} ${easing.linear}`,
-    [media.reducedMotion]: { transition: 'none' },
-    background: state.isDisabled ? color.surface2 : color.surface,
-  }),
-  singleValue: (base, state) => ({
-    ...base,
-    color: state.isDisabled ? color.muted : color.fg,
-  }),
-  placeholder: (base) => ({ ...base, color: color.muted }),
-  // react-select hides a disabled input, which removes the named combobox from assistive tech.
-  input: (base) => ({ ...base, visibility: 'visible', color: color.fg }),
-  menu: (base) => ({
-    ...base,
-    zIndex: 5,
-    padding: 4,
-    border: `1px solid ${color.line}`,
-    borderRadius: radius.card,
-    background: color.surface,
-    boxShadow: shadow,
-  }),
-  option: (base, state) => ({
-    ...base,
-    padding: `${space[3]} ${space[4]}`,
-    borderRadius: radius.input,
-    overflowWrap: 'anywhere',
-    color: color.fg,
-    background: state.isSelected || state.isFocused ? color.accentWeak : 'transparent',
-    transition: `background-color ${duration.fast} ${easing.linear}`,
-    ':active': { backgroundColor: color.accentWeak, color: color.fg },
-    [media.compact]: { display: 'flex', alignItems: 'center', minHeight: size.touch },
-    [media.reducedMotion]: { transition: 'none' },
-  }),
-  noOptionsMessage: (base) => ({ ...base, color: color.muted }),
-}
-
-const Status = styled(Small)`
-  font-weight: ${typeVar.body.weight};
-`
