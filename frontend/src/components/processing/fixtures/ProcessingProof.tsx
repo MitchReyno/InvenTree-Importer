@@ -380,7 +380,8 @@ const attention = {
 const paused = new Set<string>()
 
 const fixtureSessions = (supported: boolean) => {
-  const rows = (supported
+  const rows = (
+    supported
       ? [
           session(4, 'images', lot(1), {
             state: 'failed',
@@ -392,7 +393,11 @@ const fixtureSessions = (supported: boolean) => {
             failure: {
               ...failure,
               failed_at: failure.timestamp,
-              cause: { code: 'agent_turn_failed', provider: 'claude', provider_error: failure.provider_error },
+              cause: {
+                code: 'agent_turn_failed',
+                provider: 'claude',
+                provider_error: failure.provider_error,
+              },
             },
             attempt_number: 3,
             start_fresh: { allowed: true },
@@ -407,7 +412,10 @@ const fixtureSessions = (supported: boolean) => {
               failure: {
                 ...failure,
                 id: id(92 + number),
-                cause: { code: 'agent_admission_unavailable' as const, provider: 'claude' as const },
+                cause: {
+                  code: 'agent_admission_unavailable' as const,
+                  provider: 'claude' as const,
+                },
               },
             })),
           }),

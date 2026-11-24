@@ -87,7 +87,7 @@ export function SessionRowItem({ session, paused, onOpen, pageHref, recovery }: 
               load={recovery?.loadFailure}
             />
           ) : (
-            <FailureSummary failure={session.failure} />
+            <FailureSummary failure={session.failure} unread={session.failureUnread} />
           )}
         </Below>
       )}
@@ -102,7 +102,7 @@ export function SessionRowItem({ session, paused, onOpen, pageHref, recovery }: 
               Start fresh
             </Button>
           )}
-          {session.attemptId && (
+          {session.attemptId && !session.failureUnread && (
             <Button
               size="sm"
               variant="ghost"

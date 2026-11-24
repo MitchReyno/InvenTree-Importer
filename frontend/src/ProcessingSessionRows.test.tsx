@@ -425,3 +425,43 @@ test('a stale Cancel is not reported as a refused Start fresh', async () => {
   expect(alert).toHaveTextContent('Command not confirmed')
   expect(alert).not.toHaveTextContent(/Start fresh/)
 })
+
+test('a row and the Processing read showing different attempts keep Start fresh waiting', async () => {
+  // The list still shows attempt 2; this mount's read already holds attempt 3.
+  const row = sessionRow({
+    attempt_id: H.attempt2,
+    batch_id: H.batch,
+    job_id: H.job,
+    subject_id: H.lot,
+    state: 'failed',
+    session_state: 'failed',
+    failure: refused,
+  })
+  const api = clients(failedJob(), sessionList({ sessions: [row] }))
+  mount(api, 'overview')
+
+  const card = await screen.findByRole('region', { name: 'Agent sessions' })
+  const recovery = await within(card).findByRole('group', { name: /^Recover/ })
+  const fresh = within(recovery).getByRole('button', { name: 'Start fresh' })
+  expect(fresh).toHaveAccessibleDescription('Updating…')
+  fireEvent.click(fresh)
+  expect(api.processing.replaceSession).not.toHaveBeenCalled()
+})
+
+test('without the session list a failed row says where its cause is, and still offers recovery', async () => {
+  const api = clients(failedJob())
+  api.agents.sessions.mockRejectedValue(new Error('offline'))
+  mount(api, 'overview')
+
+  const card = await screen.findByRole('region', { name: 'Agent sessions' })
+  expect(
+    await within(card).findByText('Failed · its cause shows on the full session page'),
+  ).toBeVisible()
+  expect(within(card).queryByText('Failed · the cause wasn’t recorded')).not.toBeInTheDocument()
+  expect(within(card).getByRole('link', { name: /^Open full session:/ })).toHaveAttribute(
+    'href',
+    `#${H.batch}/processing/research/sessions/${H.job}`,
+  )
+  const recovery = within(card).getByRole('group', { name: /^Recover/ })
+  expect(within(recovery).getByRole('button', { name: 'Start fresh' })).toBeVisible()
+})

@@ -501,7 +501,10 @@ test('Load more adds the next page of sessions beneath the first', async () => {
   await waitFor(() =>
     expect(within(group).getAllByRole('link', { name: /^Open session:/ })).toHaveLength(3),
   )
-  expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument()
+  // Every page is in: the button stays where focus was and says so.
+  const more = screen.getByRole('button', { name: 'Load more' })
+  expect(more).toHaveAttribute('aria-disabled', 'true')
+  expect(more).toHaveAccessibleDescription('Every session is loaded.')
 })
 
 test('Load more stays in place while its page loads, and a page that failed can be read again', async () => {
@@ -531,7 +534,7 @@ test('Load more stays in place while its page loads, and a page that failed can 
     page.reject(new Error('offline'))
     await page.promise.catch(() => {})
   })
-  expect(await screen.findByText('More sessions couldn’t be loaded.')).toBeVisible()
+  expect(await screen.findByText(/More sessions couldn’t be read/)).toBeVisible()
   const retry = screen.getByRole('button', { name: 'Try loading more again' })
   expect(retry).toBe(more)
 
@@ -543,6 +546,49 @@ test('Load more stays in place while its page loads, and a page that failed can 
   await waitFor(() =>
     expect(within(group).getAllByRole('link', { name: /^Open session:/ })).toHaveLength(3),
   )
+})
+
+test('a loaded page whose re-read fails says its rows may be out of date and offers a retry', async () => {
+  vi.useRealTimers()
+  const cache = createServerQueryClient()
+  const first = { ...lists.needs_attention!, next_before: 'b2xkZXI' }
+  const later = sessionRow({
+    attempt_id: S.attempt(80),
+    job_id: S.job(80),
+    batch_id: heyyy,
+    state: 'failed',
+    session_state: 'failed',
+  })
+  const api = client({ needs_attention: first })
+  let failLater = false
+  api.sessions.mockImplementation(async (query?: AgentSessionQueryDto) => {
+    if (!query?.before) {
+      return first
+    }
+    if (failLater) {
+      throw new Error('offline')
+    }
+    return sessionList({ ...first, sessions: [later], next_before: null })
+  })
+  render(<AgentSessions client={api} batches={batches} />, { cache })
+  await screen.findByRole('region', { name: 'Heyyy' })
+  fireEvent.click(screen.getByRole('button', { name: 'Load more' }))
+  const group = screen.getByRole('region', { name: 'Heyyy' })
+  await waitFor(() =>
+    expect(within(group).getAllByRole('link', { name: /^Open session:/ })).toHaveLength(3),
+  )
+
+  failLater = true
+  await act(async () => {
+    await cache.refetchQueries({ queryKey: serverQueryKey(fixtureScope, 'agent-sessions') })
+  })
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'More sessions couldn’t be read; those shown from it may be out of date.',
+  )
+  expect(within(group).getAllByRole('link', { name: /^Open session:/ })).toHaveLength(3)
+  failLater = false
+  fireEvent.click(screen.getByRole('button', { name: 'Try loading more again' }))
+  await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
 })
 
 test('the Agents heading carries the AI mark; session rows do not', async () => {

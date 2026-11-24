@@ -29,6 +29,7 @@ Implementation of BI-019's agent interaction work, delivered PR by PR as the tas
 
 ## Decisions made during implementation
 
+- **2026-11-24T20:30+11:00, task 10 (PR-G), after review round 3:** A Processing row's Start fresh waits ("Updating…") until the row and this mount's Processing read show the same attempt, so a press never replaces an attempt the row doesn't show. Rows drawn from the Processing read alone, before or without the session list, say the cause shows on the full session page rather than that none was recorded. A loaded page whose re-read fails says its rows may be out of date and offers to read it again, and once every page is in, Load more stays in place, unavailable, as a focus target.
 - **2026-11-24T19:30+11:00, task 10 (PR-G), after review round 2:**
   - Start fresh's preflight also reports `retained_evidence_required` (a lot left with no photo or meaningful note) and `unsupported_processing_input` (such as a selected Part attachment) per job, so one such job no longer fails the whole read.
   - Start fresh sends the capture revision of the Processing read that gave the job's revision and eligibility, not the batch's, and only Start fresh's refusals read as "Start fresh was refused"; a stale Cancel keeps its own message.

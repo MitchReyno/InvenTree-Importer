@@ -66,8 +66,10 @@ export type SourceSession = {
   /** From the session list only: the current attempt's failure and the attempts before it. */
   failure?: SessionFailureSummaryDto
   earlier?: { count: number; attempts: readonly EarlierAttempt[] }
-  /** From the session list: the current attempt, whose failure details can be read. */
+  /** The current attempt, whose failure details can be read. */
   attemptId?: string
+  /** A row from the Processing read alone, which doesn't carry the failure's cause. */
+  failureUnread?: boolean
 }
 
 export type LotStatus = { step: WorkStep; text: string; state: SourceSession['state'] }
@@ -177,6 +179,9 @@ export function retainedJobsSource(
       ? [
           {
             jobId: job.id,
+            attemptId: job.attempt_id,
+            // The Processing read carries no failure summary; the session list does.
+            failureUnread: true,
             step: workStep(job),
             subject: subject(job),
             lotId:

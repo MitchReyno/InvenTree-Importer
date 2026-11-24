@@ -7,6 +7,7 @@ export type MoreSessions = {
   canLoadMore: boolean
   loadingMore: boolean
   moreFailed: boolean
+  loadedMore?: boolean
   loadMore: () => void
   retryMore: () => void
 }
@@ -16,7 +17,8 @@ export type MoreSessions = {
  * failed again from the same place.
  */
 export function LoadMore({ more }: { more: MoreSessions }) {
-  if (!more.canLoadMore && !more.loadingMore && !more.moreFailed) {
+  const done = !more.canLoadMore && !more.loadingMore && !more.moreFailed
+  if (done && !more.loadedMore) {
     return null
   }
   // One button throughout, so focus stays on it from a press to the page landing or failing.
@@ -25,11 +27,18 @@ export function LoadMore({ more }: { more: MoreSessions }) {
       <Button
         size="sm"
         busy={more.loadingMore}
+        reasonDisplay="quiet"
+        // Once every page is in, the button stays where focus was and says so.
+        disabledReason={done ? 'Every session is loaded.' : undefined}
         onClick={more.moreFailed ? more.retryMore : more.loadMore}
       >
         {more.moreFailed ? 'Try loading more again' : 'Load more'}
       </Button>
-      {more.moreFailed && <Small role="alert">More sessions couldn’t be loaded.</Small>}
+      {more.moreFailed && (
+        <Small role="alert">
+          More sessions couldn’t be read; those shown from it may be out of date.
+        </Small>
+      )}
     </Paging>
   )
 }

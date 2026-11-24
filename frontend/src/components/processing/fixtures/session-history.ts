@@ -295,12 +295,15 @@ function otherHistory(ids: Ids, jobId: string): SessionHistoryDto {
       stage: 'examine',
       subject_id: ids.lot(2),
       current_attempt_id: attemptId,
-      attempts: jobId === ids.id(4) ? retriedAttempts(ids) : [
-        attempt(ids, 20 + Number(jobId.slice(-2)), 1, { state: 'waiting_for_user' }),
-      ],
+      attempts:
+        jobId === ids.id(4)
+          ? retriedAttempts(ids)
+          : [attempt(ids, 20 + Number(jobId.slice(-2)), 1, { state: 'waiting_for_user' })],
       inbox_acked_seq: '0',
       start_fresh:
-        jobId === ids.id(4) ? { allowed: true } : { allowed: false, reason: 'session_not_replaceable' },
+        jobId === ids.id(4)
+          ? { allowed: true }
+          : { allowed: false, reason: 'session_not_replaceable' },
     },
     entries: [
       agentEntry(attemptId, 1, 4, 5, 'Asked about the last letter', {

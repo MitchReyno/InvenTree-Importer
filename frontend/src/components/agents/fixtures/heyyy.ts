@@ -41,7 +41,8 @@ const overloaded = (n: number, at: string): SessionFailureSummaryDto => ({
   id: S.failure(n),
   category: 'provider_network',
   summary: 'The provider connection or protocol failed.',
-  recovery: 'Claude was busy or unreachable. Start a fresh session when it’s back; nothing it published is lost.',
+  recovery:
+    'Claude was busy or unreachable. Start a fresh session when it’s back; nothing it published is lost.',
   details_available: false,
   failed_at: at,
   cause: {
@@ -169,7 +170,9 @@ function matches(row: AgentSessionDto, filter: AgentSessionFilter) {
 const count = (filter: AgentSessionFilter) => rows.filter((row) => matches(row, filter)).length
 
 /** One read of the fixture list, filtered and scoped as the server would. */
-export async function heyyySessions(query: AgentSessionQueryDto = {}): Promise<AgentSessionListDto> {
+export async function heyyySessions(
+  query: AgentSessionQueryDto = {},
+): Promise<AgentSessionListDto> {
   const filter = query.filter ?? 'all'
   const scoped = rows.filter((row) => !query.batch_id || row.batch_id === query.batch_id)
   const batchIds = [...new Set(scoped.map((row) => row.batch_id))]
