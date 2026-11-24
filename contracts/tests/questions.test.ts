@@ -401,3 +401,56 @@ test('an attention question item carries each step kind and assumption', () => {
     }),
   )
 })
+
+test('an answered question carries its answer in full or with its values omitted', () => {
+  const answered = {
+    ...questionBase,
+    state: 'answered',
+    spec: { kind: 'quantity', prompt: 'How many?', reason: 'Torn label.' },
+    fields: ['quantity'],
+    assumption: 'Ten.',
+    session_history: true,
+  }
+  const full = {
+    answer_id: id(9),
+    answered_at: '2026-11-24T02:08:00.000Z',
+    values: [{ step_id: null, prompt: 'How many?', text: '186 counted', truncated: false }],
+    effects: [{ kind: 'quantity', lot_id: id(1), value: '186', basis: 'counted' }],
+    delivery: { state: 'read', read_at: '2026-11-24T02:09:00.000Z' },
+  }
+  validate('ProcessingQuestion', { ...answered, answer: full })
+  // An earlier runner answer has no inbox, so no delivery.
+  const { delivery: _delivery, ...runnerAnswer } = full
+  validate('ProcessingQuestion', { ...answered, answer: runnerAnswer })
+  validate('ProcessingQuestion', {
+    ...answered,
+    answer: { answered_at: full.answered_at, values_omitted: true, delivery: full.delivery },
+  })
+  // The state-only tier has no member; every tier keeps the session-history flag.
+  validate('ProcessingQuestion', answered)
+  validate('ProcessingQuestion', { ...answered, state: 'superseded', replaced_by: id(10) })
+
+  assert.ok(
+    issuePaths('ProcessingQuestion', {
+      ...answered,
+      answer: { ...full, values: [{ ...full.values[0], text: 'x'.repeat(201) }] },
+    }).length,
+  )
+  assert.ok(
+    issuePaths('ProcessingQuestion', {
+      ...answered,
+      answer: { answered_at: full.answered_at, values_omitted: true, values: full.values },
+    }).length,
+  )
+  assert.ok(
+    issuePaths('ProcessingQuestion', {
+      ...answered,
+      answer: { ...full, delivery: { state: 'sent', read_at: null } },
+    }).length,
+  )
+})
+
+test('a /2 ask may name the earlier question it replaces', () => {
+  validate('SessionAskArgsV2', { ...ask, replaces: id(4) })
+  assert.deepEqual(issuePaths('SessionAskArgsV2', { ...ask, replaces: 'q1' }), ['/replaces'])
+})

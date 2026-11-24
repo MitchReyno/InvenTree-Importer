@@ -471,7 +471,7 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
   - a demo video: answering on the step page, the line folding, the clock turning to a tick as the agent reads it, and expanding it.
 - **Risks and decisions:** the canvas boards FixAnsweredQuestion, FixDrawerChat and FixDrawerChatRail (variant B, chosen) are the reference. "Read" is the session's acknowledgement, never a claim that it acted. If BI-022's PR-B (the `/7` duplicate check) has merged first, this PR exempts an ask that names the open question it `replaces` from that check, with its test.
 
-- [ ] 13.1 Read the shared, frontend and intake-server code guidelines, the frontend and intake-server architecture and the board. List every reader of `stale` and every surface that mounts `QuestionAnswer`.
+- [x] 13.1 Read the shared, frontend and intake-server code guidelines, the frontend and intake-server architecture and the board. List every reader of `stale` and every surface that mounts `QuestionAnswer`.
 - [ ] 13.2 RED: frontend tests:
   - [ ] 13.2.1 The step-page regression: render `ProcessingWorkspace` with `?question=`, answer it, return it answered from `client.read`, and again after a remount; it shows the Answered line, never a form or the superseded warning, and focus moves to the next open question or the "Answered" heading.
   - [ ] 13.2.2 `questionStanding` for each standing, with and without a draft or an unconfirmed retry.

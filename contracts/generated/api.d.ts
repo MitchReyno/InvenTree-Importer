@@ -18054,6 +18054,41 @@ export interface components {
             state: "open" | "answered" | "superseded";
             subject_id: string | null;
             asked_at?: string;
+            answer?: {
+                answer_id: string;
+                answered_at: string;
+                values: {
+                    step_id: string | null;
+                    prompt: string;
+                    text: string;
+                    truncated: boolean;
+                }[];
+                effects: ({
+                    /** @constant */
+                    kind: "quantity";
+                    lot_id: string;
+                    value: string;
+                    basis: "counted" | "estimated";
+                } | {
+                    /** @constant */
+                    kind: "note";
+                    subject_id: string | null;
+                })[];
+                delivery?: {
+                    state: "waiting" | "read";
+                    read_at: string | null;
+                };
+            } | {
+                answered_at: string;
+                /** @constant */
+                values_omitted: true;
+                delivery?: {
+                    state: "waiting" | "read";
+                    read_at: string | null;
+                };
+            };
+            session_history?: boolean;
+            replaced_by?: string;
             spec: {
                 kind: "quantity" | "clarification";
                 prompt: string;
@@ -18071,6 +18106,41 @@ export interface components {
             state: "open" | "answered" | "superseded";
             subject_id: string | null;
             asked_at?: string;
+            answer?: {
+                answer_id: string;
+                answered_at: string;
+                values: {
+                    step_id: string | null;
+                    prompt: string;
+                    text: string;
+                    truncated: boolean;
+                }[];
+                effects: ({
+                    /** @constant */
+                    kind: "quantity";
+                    lot_id: string;
+                    value: string;
+                    basis: "counted" | "estimated";
+                } | {
+                    /** @constant */
+                    kind: "note";
+                    subject_id: string | null;
+                })[];
+                delivery?: {
+                    state: "waiting" | "read";
+                    read_at: string | null;
+                };
+            } | {
+                answered_at: string;
+                /** @constant */
+                values_omitted: true;
+                delivery?: {
+                    state: "waiting" | "read";
+                    read_at: string | null;
+                };
+            };
+            session_history?: boolean;
+            replaced_by?: string;
             /** @constant */
             schema_version: "bench-intake-question/2";
             fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
@@ -18108,6 +18178,41 @@ export interface components {
             state: "open" | "answered" | "superseded";
             subject_id: string | null;
             asked_at?: string;
+            answer?: {
+                answer_id: string;
+                answered_at: string;
+                values: {
+                    step_id: string | null;
+                    prompt: string;
+                    text: string;
+                    truncated: boolean;
+                }[];
+                effects: ({
+                    /** @constant */
+                    kind: "quantity";
+                    lot_id: string;
+                    value: string;
+                    basis: "counted" | "estimated";
+                } | {
+                    /** @constant */
+                    kind: "note";
+                    subject_id: string | null;
+                })[];
+                delivery?: {
+                    state: "waiting" | "read";
+                    read_at: string | null;
+                };
+            } | {
+                answered_at: string;
+                /** @constant */
+                values_omitted: true;
+                delivery?: {
+                    state: "waiting" | "read";
+                    read_at: string | null;
+                };
+            };
+            session_history?: boolean;
+            replaced_by?: string;
             spec: {
                 kind: "quantity" | "clarification";
                 prompt: string;
@@ -18126,6 +18231,41 @@ export interface components {
             state: "open" | "answered" | "superseded";
             subject_id: string | null;
             asked_at?: string;
+            answer?: {
+                answer_id: string;
+                answered_at: string;
+                values: {
+                    step_id: string | null;
+                    prompt: string;
+                    text: string;
+                    truncated: boolean;
+                }[];
+                effects: ({
+                    /** @constant */
+                    kind: "quantity";
+                    lot_id: string;
+                    value: string;
+                    basis: "counted" | "estimated";
+                } | {
+                    /** @constant */
+                    kind: "note";
+                    subject_id: string | null;
+                })[];
+                delivery?: {
+                    state: "waiting" | "read";
+                    read_at: string | null;
+                };
+            } | {
+                answered_at: string;
+                /** @constant */
+                values_omitted: true;
+                delivery?: {
+                    state: "waiting" | "read";
+                    read_at: string | null;
+                };
+            };
+            session_history?: boolean;
+            replaced_by?: string;
             /** @constant */
             schema_version: "bench-intake-question/2";
             fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
@@ -18152,6 +18292,43 @@ export interface components {
                     kind: "text";
                 };
             }[];
+        };
+        ProcessingAnswerSummary: {
+            answer_id: string;
+            answered_at: string;
+            values: {
+                step_id: string | null;
+                prompt: string;
+                text: string;
+                truncated: boolean;
+            }[];
+            effects: ({
+                /** @constant */
+                kind: "quantity";
+                lot_id: string;
+                value: string;
+                basis: "counted" | "estimated";
+            } | {
+                /** @constant */
+                kind: "note";
+                subject_id: string | null;
+            })[];
+            delivery?: {
+                state: "waiting" | "read";
+                read_at: string | null;
+            };
+        } | {
+            answered_at: string;
+            /** @constant */
+            values_omitted: true;
+            delivery?: {
+                state: "waiting" | "read";
+                read_at: string | null;
+            };
+        };
+        AnswerDelivery: {
+            state: "waiting" | "read";
+            read_at: string | null;
         };
         ProcessingJob: {
             id: string;
@@ -19012,6 +19189,41 @@ export interface components {
                 state: "open" | "answered" | "superseded";
                 subject_id: string | null;
                 asked_at?: string;
+                answer?: {
+                    answer_id: string;
+                    answered_at: string;
+                    values: {
+                        step_id: string | null;
+                        prompt: string;
+                        text: string;
+                        truncated: boolean;
+                    }[];
+                    effects: ({
+                        /** @constant */
+                        kind: "quantity";
+                        lot_id: string;
+                        value: string;
+                        basis: "counted" | "estimated";
+                    } | {
+                        /** @constant */
+                        kind: "note";
+                        subject_id: string | null;
+                    })[];
+                    delivery?: {
+                        state: "waiting" | "read";
+                        read_at: string | null;
+                    };
+                } | {
+                    answered_at: string;
+                    /** @constant */
+                    values_omitted: true;
+                    delivery?: {
+                        state: "waiting" | "read";
+                        read_at: string | null;
+                    };
+                };
+                session_history?: boolean;
+                replaced_by?: string;
                 spec: {
                     kind: "quantity" | "clarification";
                     prompt: string;
@@ -19029,6 +19241,41 @@ export interface components {
                 state: "open" | "answered" | "superseded";
                 subject_id: string | null;
                 asked_at?: string;
+                answer?: {
+                    answer_id: string;
+                    answered_at: string;
+                    values: {
+                        step_id: string | null;
+                        prompt: string;
+                        text: string;
+                        truncated: boolean;
+                    }[];
+                    effects: ({
+                        /** @constant */
+                        kind: "quantity";
+                        lot_id: string;
+                        value: string;
+                        basis: "counted" | "estimated";
+                    } | {
+                        /** @constant */
+                        kind: "note";
+                        subject_id: string | null;
+                    })[];
+                    delivery?: {
+                        state: "waiting" | "read";
+                        read_at: string | null;
+                    };
+                } | {
+                    answered_at: string;
+                    /** @constant */
+                    values_omitted: true;
+                    delivery?: {
+                        state: "waiting" | "read";
+                        read_at: string | null;
+                    };
+                };
+                session_history?: boolean;
+                replaced_by?: string;
                 /** @constant */
                 schema_version: "bench-intake-question/2";
                 fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
@@ -19921,6 +20168,41 @@ export interface components {
                     state: "open" | "answered" | "superseded";
                     subject_id: string | null;
                     asked_at?: string;
+                    answer?: {
+                        answer_id: string;
+                        answered_at: string;
+                        values: {
+                            step_id: string | null;
+                            prompt: string;
+                            text: string;
+                            truncated: boolean;
+                        }[];
+                        effects: ({
+                            /** @constant */
+                            kind: "quantity";
+                            lot_id: string;
+                            value: string;
+                            basis: "counted" | "estimated";
+                        } | {
+                            /** @constant */
+                            kind: "note";
+                            subject_id: string | null;
+                        })[];
+                        delivery?: {
+                            state: "waiting" | "read";
+                            read_at: string | null;
+                        };
+                    } | {
+                        answered_at: string;
+                        /** @constant */
+                        values_omitted: true;
+                        delivery?: {
+                            state: "waiting" | "read";
+                            read_at: string | null;
+                        };
+                    };
+                    session_history?: boolean;
+                    replaced_by?: string;
                     spec: {
                         kind: "quantity" | "clarification";
                         prompt: string;
@@ -19938,6 +20220,41 @@ export interface components {
                     state: "open" | "answered" | "superseded";
                     subject_id: string | null;
                     asked_at?: string;
+                    answer?: {
+                        answer_id: string;
+                        answered_at: string;
+                        values: {
+                            step_id: string | null;
+                            prompt: string;
+                            text: string;
+                            truncated: boolean;
+                        }[];
+                        effects: ({
+                            /** @constant */
+                            kind: "quantity";
+                            lot_id: string;
+                            value: string;
+                            basis: "counted" | "estimated";
+                        } | {
+                            /** @constant */
+                            kind: "note";
+                            subject_id: string | null;
+                        })[];
+                        delivery?: {
+                            state: "waiting" | "read";
+                            read_at: string | null;
+                        };
+                    } | {
+                        answered_at: string;
+                        /** @constant */
+                        values_omitted: true;
+                        delivery?: {
+                            state: "waiting" | "read";
+                            read_at: string | null;
+                        };
+                    };
+                    session_history?: boolean;
+                    replaced_by?: string;
                     /** @constant */
                     schema_version: "bench-intake-question/2";
                     fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
@@ -22166,6 +22483,7 @@ export interface components {
                                 kind: "text";
                             };
                         }[];
+                        replaces?: string;
                     };
                     state: "open" | "answered" | "superseded";
                 } | {
@@ -23259,6 +23577,7 @@ export interface components {
                                 kind: "text";
                             };
                         }[];
+                        replaces?: string;
                     };
                     state: "open" | "answered" | "superseded";
                 } | {
@@ -24207,6 +24526,7 @@ export interface components {
                         kind: "text";
                     };
                 }[];
+                replaces?: string;
             };
         };
         SessionState: "queued" | "running" | "waiting_input" | "finished" | "cancelling" | "cancelled" | "interrupted" | "failed" | "waiting_for_login" | "waiting_for_capacity" | "resume_unavailable";
@@ -24249,6 +24569,7 @@ export interface components {
                     kind: "text";
                 };
             }[];
+            replaces?: string;
         };
         SessionAnswerStepValue: {
             /** @constant */
@@ -25857,6 +26178,8 @@ export type ProcessingEnvelope = components['schemas']['ProcessingEnvelope']
 export type ProcessingQuestion = components['schemas']['ProcessingQuestion']
 export type ProcessingQuestionV1 = components['schemas']['ProcessingQuestionV1']
 export type ProcessingQuestionV2 = components['schemas']['ProcessingQuestionV2']
+export type ProcessingAnswerSummary = components['schemas']['ProcessingAnswerSummary']
+export type AnswerDelivery = components['schemas']['AnswerDelivery']
 export type ProcessingJob = components['schemas']['ProcessingJob']
 export type ProcessingSnapshot = components['schemas']['ProcessingSnapshot']
 export type ProcessingReceipt = components['schemas']['ProcessingReceipt']
