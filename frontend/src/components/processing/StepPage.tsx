@@ -34,6 +34,8 @@ type Props = {
   /** How the step works, behind a help button beside its heading. */
   help?: string
   /** The step's outputs: readings, sources, crops or matches. */
+  /** The step's answered questions, folded below its open ones. */
+  answered?: ReactNode
   children?: ReactNode
 }
 
@@ -51,6 +53,7 @@ export function StepPage({
   sessionList,
   sessionRecovery,
   help,
+  answered,
   children,
 }: Props) {
   const progress = source.steps.find((item) => item.step === step)
@@ -76,10 +79,11 @@ export function StepPage({
           <StatePill state={focus.state} />
         </Focus>
       )}
-      {questions.length > 0 && (
+      {(questions.length > 0 || answered) && (
         <Card aria-label="Questions">
           <CardTitle>Questions</CardTitle>
-          <QuestionRows batchId={batchId} questions={questions} />
+          {questions.length > 0 && <QuestionRows batchId={batchId} questions={questions} />}
+          {answered}
         </Card>
       )}
       {sessions.length > 0 && (

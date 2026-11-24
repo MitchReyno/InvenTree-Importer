@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { and, eq, sql } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
 import {
+  MAX_ANSWER_SUMMARY_BYTES,
   validate,
   validationIssues,
   type ValidationIssue,
@@ -980,14 +981,68 @@ async function requireRoom(
   const retained = await client.query<{ bytes: string }>(
     `SELECT (COALESCE((SELECT sum(octet_length(p.value_bytes)+${RESULT_PROJECTION_BYTES}) FROM public.processing_proposal p
         JOIN public.processing_attempt a ON a.id=p.attempt_id WHERE a.batch_id=$1),0)
-      + COALESCE((SELECT sum(octet_length(q.spec_bytes)+${RESULT_PROJECTION_BYTES}) FROM public.processing_question q
+      + COALESCE((SELECT sum(octet_length(q.spec_bytes)+${RESULT_PROJECTION_BYTES}+${MAX_ANSWER_SUMMARY_BYTES}) FROM public.processing_question q
         WHERE q.batch_id=$1),0))::text AS bytes`,
     [principal.batchId],
   )
-  const projected = BigInt(retained.rows[0].bytes) + BigInt(newBytes + RESULT_PROJECTION_BYTES)
+  // Each question also keeps room for its answer's summary in the read.
+  const allowance = RESULT_PROJECTION_BYTES + (label === 'questions' ? MAX_ANSWER_SUMMARY_BYTES : 0)
+  const projected = BigInt(retained.rows[0].bytes) + BigInt(newBytes + allowance)
   if (projected > BigInt(SESSION_RESULT_BUDGET_BYTES)) {
     refuse('capacity_reached', 'This batch has reached the size limit for retained results.')
   }
+}
+
+/**
+ * The question an ask replaces must be this session's, unanswered and not replaced already. It is
+ * locked here, after the job and attempt, so its state can't change before it closes.
+ */
+async function requireReplaceable(
+  client: PoolClient,
+  principal: SessionPrincipal,
+  questionId: string,
+) {
+  const rows = await client.query<{ state: string; replaced: boolean }>(
+    `SELECT q.state, EXISTS (
+         SELECT 1 FROM public.processing_question_replacement r WHERE r.question_id=q.id
+       ) AS replaced
+       FROM public.processing_question q WHERE q.id=$1 AND q.job_id=$2 FOR UPDATE OF q`,
+    [questionId, principal.jobId],
+  )
+  const found = rows.rows[0]
+  let reason: string | null = null
+  if (!found) {
+    reason = 'Name an earlier question of this session.'
+  } else if (found.state === 'answered') {
+    reason = 'That question is already answered; ask a new question instead.'
+  } else if (found.replaced) {
+    reason = 'That question was already replaced.'
+  }
+  if (reason) {
+    throw new ToolRefusal('validation_failed', reason, [
+      { path: '/replaces', rule: 'schema', reason },
+    ])
+  }
+}
+
+/** Closes the replaced question and records which question replaced it. */
+async function replaceQuestion(
+  client: PoolClient,
+  jobId: string,
+  questionId: string,
+  replacedBy: string,
+) {
+  await client.query(
+    `INSERT INTO public.processing_question_replacement(job_id,question_id,replaced_by)
+     VALUES($1,$2,$3)`,
+    [jobId, questionId, replacedBy],
+  )
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .update(processingQuestions)
+      .set({ state: 'superseded', revision: sql`${processingQuestions.revision}+1` })
+      .where(eq(processingQuestions.id, questionId)),
+  )
 }
 
 /** `processing_message.envelope_bytes` holds at most this many bytes (migration 0006). */
@@ -1299,6 +1354,9 @@ export function sessionTools(context: SessionToolContext) {
         if (stepProblem) {
           throw new ToolRefusal('validation_failed', stepProblem.message, [stepProblem.issue])
         }
+        if (ask.replaces !== undefined) {
+          await requireReplaceable(client, principal, ask.replaces)
+        }
         const envelope = await sealSessionEnvelope(client, principal, 'question', ask)
         await requireRoom(client, principal, 'questions', sealed(ask).bytes.length)
         const { messageId, streamId } = await retainSessionMessage(
@@ -1332,6 +1390,9 @@ export function sessionTools(context: SessionToolContext) {
               specDigest: spec.digest,
             }),
         )
+        if (ask.replaces !== undefined) {
+          await replaceQuestion(client, principal.jobId, ask.replaces, id)
+        }
         await appendSessionOutbox(client, principal.attemptId, {
           kind: 'question',
           payload: { question_id: id },

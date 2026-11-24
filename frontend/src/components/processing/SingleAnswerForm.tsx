@@ -8,7 +8,8 @@ import {
   type ProcessingAnswerV1Dto,
   type ProcessingQuestionV1Dto,
 } from '@invimport/contracts'
-import { confirmedAnswerRefusal } from '#/processing/question-summary'
+import { ANSWER_NOT_CONFIRMED, confirmedAnswerRefusal } from '#/processing/question-summary'
+import { canSendNew, standingWarning, type QuestionStanding } from '#/processing/question-standing'
 import { Small, Banner, QuestionCard, Button, DebugDetails } from '#/components/ui'
 import { Fieldset, Input, Label, TextArea, OptionRow } from '#/forms'
 
@@ -16,8 +17,8 @@ export type SingleAnswerFormProps = {
   /** The question and capture revision this mount pinned. */
   question: ProcessingQuestionV1Dto
   captureRevision: string
-  /** The pinned question is no longer the current open one, or the capture moved on. */
-  stale: boolean
+  /** Whether the pinned question can still take a new answer, and why not. */
+  standing: QuestionStanding
   disabled: boolean
   readOnly: boolean
   captureHref?: string
@@ -69,7 +70,7 @@ function validatedAnswerInput(
 export function SingleAnswerForm({
   question,
   captureRevision,
-  stale,
+  standing,
   disabled,
   readOnly,
   captureHref,
@@ -92,7 +93,10 @@ export function SingleAnswerForm({
   const submission = useRef<AnswerSubmission | null>(null)
 
   const retrying = submission.current !== null
+  const stale = !canSendNew(standing)
   const hasCurrentDraft = !stale && formState.isDirty
+  // The warning is for what the form holds; a clean form has nothing it can't send.
+  const warning = formState.isDirty || retrying ? standingWarning(standing, retrying) : null
   const deliveryUnavailable = disabled || readOnly || formState.isSubmitting
   const submitDisabled = deliveryUnavailable || (!retrying && !hasCurrentDraft)
   // A session question reaches the running or resumable session; it never starts a continuation.
@@ -102,7 +106,7 @@ export function SingleAnswerForm({
   if (formState.isSubmitting) {
     actionLabel = 'Saving answer…'
   } else if (retrying) {
-    actionLabel = 'Retry exact answer'
+    actionLabel = 'Try again'
   }
   const error = formState.errors.value?.message ?? formState.errors.root?.command?.message
   const errorId = `answer-error-${question.id}`
@@ -175,8 +179,7 @@ export function SingleAnswerForm({
       }
       setError('root.command', {
         type: 'server',
-        message:
-          'Answer not confirmed. Your answer may already be saved. Retry sends only this original answer; discard clears only the local draft.',
+        message: ANSWER_NOT_CONFIRMED,
       })
     }
   }
@@ -195,14 +198,13 @@ export function SingleAnswerForm({
         }
         answer={
           <>
-            {stale && (
+            {warning && (
               <div role="status">
-                <Banner tone="warn">
-                  {retrying
-                    ? 'The saved question context changed. Retry only the original unconfirmed answer, or discard the local draft.'
-                    : 'This question is superseded or its saved context changed. Your unsaved answer is preserved; it cannot be applied to another question.'}
-                </Banner>
+                <Banner tone="warn">{warning}</Banner>
               </div>
+            )}
+            {formState.isSubmitting && (
+              <Small role="status">Sending… the form stays locked until the answer is saved.</Small>
             )}
             <Fieldset disabled={formState.isSubmitting || readOnly || retrying}>
               <Field>

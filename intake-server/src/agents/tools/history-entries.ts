@@ -17,6 +17,7 @@ import {
   type RegroupMoveDto,
 } from '@invimport/contracts'
 import { fail } from '#/processing/model.ts'
+import { answerEffects } from '#/processing/answer-summary.ts'
 import { decodeSessionInput } from '#/processing/session-input.ts'
 import { retainedSessionProposal, retainedSessionQuestion } from '#/processing/retained.ts'
 import { proposalCurrentnessFacts } from '#/processing/read.ts'
@@ -768,23 +769,6 @@ function photoViewEntry(resolved: Resolved, item: OutboxOf<'photo_view'>): Built
   }
 }
 
-/** What the answer changed: a number sets the lot's quantity, other steps add one note. */
-function answerEffects(
-  payload: SessionAnswerPayloadDto,
-  subjectId: string | null,
-): Extract<SessionHistoryDetailsDto, { kind: 'answer' }>['effects'] {
-  const values = 'value' in payload ? [payload.value] : payload.steps.map((step) => step.value)
-  const effects: Extract<SessionHistoryDetailsDto, { kind: 'answer' }>['effects'] = []
-  const number = values.find((value) => value.kind === 'quantity' || value.kind === 'number')
-  if (number && subjectId && (number.kind === 'quantity' || number.kind === 'number')) {
-    effects.push({ kind: 'quantity', lot_id: subjectId, value: number.value, basis: number.basis })
-  }
-  if (values.some((value) => value.kind !== 'quantity' && value.kind !== 'number')) {
-    effects.push({ kind: 'note', subject_id: subjectId })
-  }
-  return effects
-}
-
 function answerValueText(
   value:
     | Extract<SessionAnswerPayloadDto, { value: unknown }>['value']
@@ -808,7 +792,7 @@ function answerEntry(resolved: Resolved, item: InboxOf<'answer'>): Built {
   return {
     summary: oneLine(`You answered: ${values.map(answerValueText).join(' · ')}`),
     links: [questionLink(resolved, payload.question_id), ...lot],
-    details: { kind: 'answer', answer: payload, effects: answerEffects(payload, subject) },
+    details: { kind: 'answer', answer: payload, effects: answerEffects(values, subject) },
   }
 }
 

@@ -1,5 +1,6 @@
 import { IntakeRequestError } from '@invimport/contracts/client'
 import type {
+  AnswerEffectDto,
   QuestionStepAnswerDto,
   QuestionStepValueDto,
   SessionAnswerPayloadDto,
@@ -65,6 +66,10 @@ export function answerPayloadText(payload: SessionAnswerPayloadDto) {
   return value.kind === 'quantity' ? value.value : value.text
 }
 
+/** An answer whose request got no response: it may be saved, so only it may be sent again. */
+export const ANSWER_NOT_CONFIRMED =
+  'Not sent: the server didn’t answer, so it may or may not be saved. Your answer is kept; Try again sends this same answer, and discard clears only the local draft.'
+
 /**
  * The server read the answer and refused it, so nothing was saved and the draft can be fixed. Any
  * other failure leaves the outcome unknown, and only the exact answer may be sent again.
@@ -76,4 +81,31 @@ export function confirmedAnswerRefusal(failure: unknown): IntakeRequestError | n
     failure.code === 'invalid_answer'
 
   return refused ? failure : null
+}
+
+/** What an answer changed, as the history says it: "Lot quantity set to 380 (estimated) · note added". */
+export function answerEffectsText(effects: readonly AnswerEffectDto[]) {
+  const parts = effects.map((effect) =>
+    effect.kind === 'quantity'
+      ? `Lot quantity set to ${effect.value} (${effect.basis})`
+      : 'note added',
+  )
+  const text = parts.join(' · ')
+
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
+/** What an answer changed, naming the lot: "Packet A's quantity is now 186 (counted)". */
+export function answerEffectsSentence(
+  effects: readonly AnswerEffectDto[],
+  lotLabel: (lotId: string) => string,
+) {
+  const parts = effects.map((effect) =>
+    effect.kind === 'quantity'
+      ? `${lotLabel(effect.lot_id)}’s quantity is now ${effect.value} (${effect.basis})`
+      : 'a note was added',
+  )
+  const text = parts.join('; ')
+
+  return text.charAt(0).toUpperCase() + text.slice(1)
 }

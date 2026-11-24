@@ -3,6 +3,7 @@ import { QueryClientProvider, type QueryClient } from '@tanstack/react-query'
 import { createServerQueryClient } from '#/queries/client'
 import { type ServerScope } from '#/queries/scope'
 import { snapshots } from '#/queries/snapshots'
+import { dropScopeSends, retireCoveredSends } from '#/processing/pending-sends'
 import { freshReads } from '#/queries/fresh-reads'
 import { ServerScopeContext } from '#/context'
 
@@ -32,8 +33,21 @@ export function ServerStateProvider({ children, scope, client }: Props) {
       return
     }
     snapshots.prune(scope)
-    return () => snapshots.dropPendingWrites(scope)
+    return () => {
+      snapshots.dropPendingWrites(scope)
+      // Messages being sent belong to the scope too; another scope never shows them.
+      dropScopeSends(scope)
+    }
   }, [scope])
+
+  // Follows the query cache, an external store here: each change of a held history read may
+  // cover saved messages, which are then dropped, and a removed read has no copy left to show.
+  useEffect(() => {
+    if (!scope) {
+      return
+    }
+    return queryClient.getQueryCache().subscribe(() => retireCoveredSends(queryClient, scope))
+  }, [queryClient, scope])
 
   useEffect(() => {
     return () => {

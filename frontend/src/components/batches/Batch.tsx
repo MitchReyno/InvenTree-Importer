@@ -48,6 +48,7 @@ import { ReviewMapStage } from '#/components/review/ReviewMapStage'
 import { createSharperRequestStore } from '#/components/processing/ExamineView'
 import { useInstructionDelivery } from '#/processing/instruction-delivery'
 import { createDrawerRestore } from '#/processing/drawer-restore'
+import { createAnswerOutcomes } from '#/processing/answer-outcomes'
 import { useAcceptedOperatorReview } from '#/operator/useAcceptedOperatorReview'
 import { displaysRestored, RestoredTab } from './RestoredTab'
 import { TabSkeleton } from './TabSkeleton'
@@ -117,6 +118,8 @@ export function Batch({
   const sharperRequests = useMemo(createSharperRequestStore, [id])
   // Above Processing's remount key, so a drawer open when an answer reloads comes back.
   const drawerRestore = useMemo(createDrawerRestore, [id])
+  // Confirmed answers outlive Processing's remounts until a read shows them answered.
+  const answerOutcomes = useMemo(createAnswerOutcomes, [id])
   if (batchRoute?.tab === 'changes' && batchRoute.view === 'ready' && batchRoute.preparationId) {
     shownPreparation.current = batchRoute.preparationId
   }
@@ -491,6 +494,7 @@ export function Batch({
         attentionUnavailable={attentionUnavailable}
         sharperRequests={sharperRequests}
         drawerRestore={drawerRestore}
+        answerOutcomes={answerOutcomes}
         onDirtyChange={reportDirty}
         retiredLotIds={retired}
         instructions={{

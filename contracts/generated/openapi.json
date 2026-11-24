@@ -75594,6 +75594,233 @@
                 "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
                 "type": "string"
               },
+              "answer": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "answer_id",
+                      "answered_at",
+                      "values",
+                      "effects"
+                    ],
+                    "properties": {
+                      "answer_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "answered_at": {
+                        "maxLength": 40,
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                        "type": "string"
+                      },
+                      "values": {
+                        "minItems": 1,
+                        "maxItems": 4,
+                        "type": "array",
+                        "items": {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "step_id",
+                            "prompt",
+                            "text",
+                            "truncated"
+                          ],
+                          "properties": {
+                            "step_id": {
+                              "anyOf": [
+                                {
+                                  "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "prompt": {
+                              "maxLength": 200,
+                              "type": "string"
+                            },
+                            "text": {
+                              "maxLength": 200,
+                              "type": "string"
+                            },
+                            "truncated": {
+                              "type": "boolean"
+                            }
+                          }
+                        }
+                      },
+                      "effects": {
+                        "maxItems": 2,
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "lot_id",
+                                "value",
+                                "basis"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "quantity",
+                                  "type": "string"
+                                },
+                                "lot_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "value": {
+                                  "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "basis": {
+                                  "anyOf": [
+                                    {
+                                      "const": "counted",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "estimated",
+                                      "type": "string"
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "subject_id"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "note",
+                                  "type": "string"
+                                },
+                                "subject_id": {
+                                  "anyOf": [
+                                    {
+                                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      "delivery": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "state",
+                          "read_at"
+                        ],
+                        "properties": {
+                          "state": {
+                            "anyOf": [
+                              {
+                                "const": "waiting",
+                                "type": "string"
+                              },
+                              {
+                                "const": "read",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "read_at": {
+                            "anyOf": [
+                              {
+                                "maxLength": 40,
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "answered_at",
+                      "values_omitted"
+                    ],
+                    "properties": {
+                      "answered_at": {
+                        "maxLength": 40,
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                        "type": "string"
+                      },
+                      "values_omitted": {
+                        "const": true,
+                        "type": "boolean"
+                      },
+                      "delivery": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "state",
+                          "read_at"
+                        ],
+                        "properties": {
+                          "state": {
+                            "anyOf": [
+                              {
+                                "const": "waiting",
+                                "type": "string"
+                              },
+                              {
+                                "const": "read",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "read_at": {
+                            "anyOf": [
+                              {
+                                "maxLength": 40,
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              "session_history": {
+                "type": "boolean"
+              },
+              "replaced_by": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
               "spec": {
                 "additionalProperties": false,
                 "type": "object",
@@ -75732,6 +75959,233 @@
               "asked_at": {
                 "maxLength": 40,
                 "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                "type": "string"
+              },
+              "answer": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "answer_id",
+                      "answered_at",
+                      "values",
+                      "effects"
+                    ],
+                    "properties": {
+                      "answer_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "answered_at": {
+                        "maxLength": 40,
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                        "type": "string"
+                      },
+                      "values": {
+                        "minItems": 1,
+                        "maxItems": 4,
+                        "type": "array",
+                        "items": {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "step_id",
+                            "prompt",
+                            "text",
+                            "truncated"
+                          ],
+                          "properties": {
+                            "step_id": {
+                              "anyOf": [
+                                {
+                                  "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "prompt": {
+                              "maxLength": 200,
+                              "type": "string"
+                            },
+                            "text": {
+                              "maxLength": 200,
+                              "type": "string"
+                            },
+                            "truncated": {
+                              "type": "boolean"
+                            }
+                          }
+                        }
+                      },
+                      "effects": {
+                        "maxItems": 2,
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "lot_id",
+                                "value",
+                                "basis"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "quantity",
+                                  "type": "string"
+                                },
+                                "lot_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "value": {
+                                  "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "basis": {
+                                  "anyOf": [
+                                    {
+                                      "const": "counted",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "estimated",
+                                      "type": "string"
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "subject_id"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "note",
+                                  "type": "string"
+                                },
+                                "subject_id": {
+                                  "anyOf": [
+                                    {
+                                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      "delivery": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "state",
+                          "read_at"
+                        ],
+                        "properties": {
+                          "state": {
+                            "anyOf": [
+                              {
+                                "const": "waiting",
+                                "type": "string"
+                              },
+                              {
+                                "const": "read",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "read_at": {
+                            "anyOf": [
+                              {
+                                "maxLength": 40,
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "answered_at",
+                      "values_omitted"
+                    ],
+                    "properties": {
+                      "answered_at": {
+                        "maxLength": 40,
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                        "type": "string"
+                      },
+                      "values_omitted": {
+                        "const": true,
+                        "type": "boolean"
+                      },
+                      "delivery": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "state",
+                          "read_at"
+                        ],
+                        "properties": {
+                          "state": {
+                            "anyOf": [
+                              {
+                                "const": "waiting",
+                                "type": "string"
+                              },
+                              {
+                                "const": "read",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "read_at": {
+                            "anyOf": [
+                              {
+                                "maxLength": 40,
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              "session_history": {
+                "type": "boolean"
+              },
+              "replaced_by": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                 "type": "string"
               },
               "schema_version": {
@@ -75961,6 +76415,233 @@
             "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
             "type": "string"
           },
+          "answer": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "answer_id",
+                  "answered_at",
+                  "values",
+                  "effects"
+                ],
+                "properties": {
+                  "answer_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "answered_at": {
+                    "maxLength": 40,
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                    "type": "string"
+                  },
+                  "values": {
+                    "minItems": 1,
+                    "maxItems": 4,
+                    "type": "array",
+                    "items": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "step_id",
+                        "prompt",
+                        "text",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "step_id": {
+                          "anyOf": [
+                            {
+                              "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "prompt": {
+                          "maxLength": 200,
+                          "type": "string"
+                        },
+                        "text": {
+                          "maxLength": 200,
+                          "type": "string"
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  },
+                  "effects": {
+                    "maxItems": 2,
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "lot_id",
+                            "value",
+                            "basis"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "quantity",
+                              "type": "string"
+                            },
+                            "lot_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "value": {
+                              "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "basis": {
+                              "anyOf": [
+                                {
+                                  "const": "counted",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "estimated",
+                                  "type": "string"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "subject_id"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "note",
+                              "type": "string"
+                            },
+                            "subject_id": {
+                              "anyOf": [
+                                {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "delivery": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "state",
+                      "read_at"
+                    ],
+                    "properties": {
+                      "state": {
+                        "anyOf": [
+                          {
+                            "const": "waiting",
+                            "type": "string"
+                          },
+                          {
+                            "const": "read",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "read_at": {
+                        "anyOf": [
+                          {
+                            "maxLength": 40,
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "answered_at",
+                  "values_omitted"
+                ],
+                "properties": {
+                  "answered_at": {
+                    "maxLength": 40,
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                    "type": "string"
+                  },
+                  "values_omitted": {
+                    "const": true,
+                    "type": "boolean"
+                  },
+                  "delivery": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "state",
+                      "read_at"
+                    ],
+                    "properties": {
+                      "state": {
+                        "anyOf": [
+                          {
+                            "const": "waiting",
+                            "type": "string"
+                          },
+                          {
+                            "const": "read",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "read_at": {
+                        "anyOf": [
+                          {
+                            "maxLength": 40,
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "session_history": {
+            "type": "boolean"
+          },
+          "replaced_by": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
           "spec": {
             "additionalProperties": false,
             "type": "object",
@@ -76099,6 +76780,233 @@
           "asked_at": {
             "maxLength": 40,
             "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+            "type": "string"
+          },
+          "answer": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "answer_id",
+                  "answered_at",
+                  "values",
+                  "effects"
+                ],
+                "properties": {
+                  "answer_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "answered_at": {
+                    "maxLength": 40,
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                    "type": "string"
+                  },
+                  "values": {
+                    "minItems": 1,
+                    "maxItems": 4,
+                    "type": "array",
+                    "items": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "step_id",
+                        "prompt",
+                        "text",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "step_id": {
+                          "anyOf": [
+                            {
+                              "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "prompt": {
+                          "maxLength": 200,
+                          "type": "string"
+                        },
+                        "text": {
+                          "maxLength": 200,
+                          "type": "string"
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  },
+                  "effects": {
+                    "maxItems": 2,
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "lot_id",
+                            "value",
+                            "basis"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "quantity",
+                              "type": "string"
+                            },
+                            "lot_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "value": {
+                              "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "basis": {
+                              "anyOf": [
+                                {
+                                  "const": "counted",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "estimated",
+                                  "type": "string"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "subject_id"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "note",
+                              "type": "string"
+                            },
+                            "subject_id": {
+                              "anyOf": [
+                                {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "delivery": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "state",
+                      "read_at"
+                    ],
+                    "properties": {
+                      "state": {
+                        "anyOf": [
+                          {
+                            "const": "waiting",
+                            "type": "string"
+                          },
+                          {
+                            "const": "read",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "read_at": {
+                        "anyOf": [
+                          {
+                            "maxLength": 40,
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "answered_at",
+                  "values_omitted"
+                ],
+                "properties": {
+                  "answered_at": {
+                    "maxLength": 40,
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                    "type": "string"
+                  },
+                  "values_omitted": {
+                    "const": true,
+                    "type": "boolean"
+                  },
+                  "delivery": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "state",
+                      "read_at"
+                    ],
+                    "properties": {
+                      "state": {
+                        "anyOf": [
+                          {
+                            "const": "waiting",
+                            "type": "string"
+                          },
+                          {
+                            "const": "read",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "read_at": {
+                        "anyOf": [
+                          {
+                            "maxLength": 40,
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "session_history": {
+            "type": "boolean"
+          },
+          "replaced_by": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
             "type": "string"
           },
           "schema_version": {
@@ -76256,6 +77164,260 @@
                 }
               }
             }
+          }
+        }
+      },
+      "ProcessingAnswerSummary": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "answer_id",
+              "answered_at",
+              "values",
+              "effects"
+            ],
+            "properties": {
+              "answer_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "answered_at": {
+                "maxLength": 40,
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                "type": "string"
+              },
+              "values": {
+                "minItems": 1,
+                "maxItems": 4,
+                "type": "array",
+                "items": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "step_id",
+                    "prompt",
+                    "text",
+                    "truncated"
+                  ],
+                  "properties": {
+                    "step_id": {
+                      "anyOf": [
+                        {
+                          "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "prompt": {
+                      "maxLength": 200,
+                      "type": "string"
+                    },
+                    "text": {
+                      "maxLength": 200,
+                      "type": "string"
+                    },
+                    "truncated": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              },
+              "effects": {
+                "maxItems": 2,
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "kind",
+                        "lot_id",
+                        "value",
+                        "basis"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "const": "quantity",
+                          "type": "string"
+                        },
+                        "lot_id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "value": {
+                          "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "basis": {
+                          "anyOf": [
+                            {
+                              "const": "counted",
+                              "type": "string"
+                            },
+                            {
+                              "const": "estimated",
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "kind",
+                        "subject_id"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "const": "note",
+                          "type": "string"
+                        },
+                        "subject_id": {
+                          "anyOf": [
+                            {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "delivery": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "state",
+                  "read_at"
+                ],
+                "properties": {
+                  "state": {
+                    "anyOf": [
+                      {
+                        "const": "waiting",
+                        "type": "string"
+                      },
+                      {
+                        "const": "read",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "read_at": {
+                    "anyOf": [
+                      {
+                        "maxLength": 40,
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "answered_at",
+              "values_omitted"
+            ],
+            "properties": {
+              "answered_at": {
+                "maxLength": 40,
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                "type": "string"
+              },
+              "values_omitted": {
+                "const": true,
+                "type": "boolean"
+              },
+              "delivery": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "state",
+                  "read_at"
+                ],
+                "properties": {
+                  "state": {
+                    "anyOf": [
+                      {
+                        "const": "waiting",
+                        "type": "string"
+                      },
+                      {
+                        "const": "read",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "read_at": {
+                    "anyOf": [
+                      {
+                        "maxLength": 40,
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "AnswerDelivery": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "state",
+          "read_at"
+        ],
+        "properties": {
+          "state": {
+            "anyOf": [
+              {
+                "const": "waiting",
+                "type": "string"
+              },
+              {
+                "const": "read",
+                "type": "string"
+              }
+            ]
+          },
+          "read_at": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -81250,6 +82412,233 @@
                       "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
                       "type": "string"
                     },
+                    "answer": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "answer_id",
+                            "answered_at",
+                            "values",
+                            "effects"
+                          ],
+                          "properties": {
+                            "answer_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "answered_at": {
+                              "maxLength": 40,
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                              "type": "string"
+                            },
+                            "values": {
+                              "minItems": 1,
+                              "maxItems": 4,
+                              "type": "array",
+                              "items": {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "step_id",
+                                  "prompt",
+                                  "text",
+                                  "truncated"
+                                ],
+                                "properties": {
+                                  "step_id": {
+                                    "anyOf": [
+                                      {
+                                        "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "prompt": {
+                                    "maxLength": 200,
+                                    "type": "string"
+                                  },
+                                  "text": {
+                                    "maxLength": 200,
+                                    "type": "string"
+                                  },
+                                  "truncated": {
+                                    "type": "boolean"
+                                  }
+                                }
+                              }
+                            },
+                            "effects": {
+                              "maxItems": 2,
+                              "type": "array",
+                              "items": {
+                                "anyOf": [
+                                  {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "kind",
+                                      "lot_id",
+                                      "value",
+                                      "basis"
+                                    ],
+                                    "properties": {
+                                      "kind": {
+                                        "const": "quantity",
+                                        "type": "string"
+                                      },
+                                      "lot_id": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                        "type": "string"
+                                      },
+                                      "value": {
+                                        "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                                        "type": "string"
+                                      },
+                                      "basis": {
+                                        "anyOf": [
+                                          {
+                                            "const": "counted",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "estimated",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "kind",
+                                      "subject_id"
+                                    ],
+                                    "properties": {
+                                      "kind": {
+                                        "const": "note",
+                                        "type": "string"
+                                      },
+                                      "subject_id": {
+                                        "anyOf": [
+                                          {
+                                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            "delivery": {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "state",
+                                "read_at"
+                              ],
+                              "properties": {
+                                "state": {
+                                  "anyOf": [
+                                    {
+                                      "const": "waiting",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "read",
+                                      "type": "string"
+                                    }
+                                  ]
+                                },
+                                "read_at": {
+                                  "anyOf": [
+                                    {
+                                      "maxLength": 40,
+                                      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "answered_at",
+                            "values_omitted"
+                          ],
+                          "properties": {
+                            "answered_at": {
+                              "maxLength": 40,
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                              "type": "string"
+                            },
+                            "values_omitted": {
+                              "const": true,
+                              "type": "boolean"
+                            },
+                            "delivery": {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "state",
+                                "read_at"
+                              ],
+                              "properties": {
+                                "state": {
+                                  "anyOf": [
+                                    {
+                                      "const": "waiting",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "read",
+                                      "type": "string"
+                                    }
+                                  ]
+                                },
+                                "read_at": {
+                                  "anyOf": [
+                                    {
+                                      "maxLength": 40,
+                                      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    "session_history": {
+                      "type": "boolean"
+                    },
+                    "replaced_by": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
                     "spec": {
                       "additionalProperties": false,
                       "type": "object",
@@ -81388,6 +82777,233 @@
                     "asked_at": {
                       "maxLength": 40,
                       "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                      "type": "string"
+                    },
+                    "answer": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "answer_id",
+                            "answered_at",
+                            "values",
+                            "effects"
+                          ],
+                          "properties": {
+                            "answer_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "answered_at": {
+                              "maxLength": 40,
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                              "type": "string"
+                            },
+                            "values": {
+                              "minItems": 1,
+                              "maxItems": 4,
+                              "type": "array",
+                              "items": {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "step_id",
+                                  "prompt",
+                                  "text",
+                                  "truncated"
+                                ],
+                                "properties": {
+                                  "step_id": {
+                                    "anyOf": [
+                                      {
+                                        "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "prompt": {
+                                    "maxLength": 200,
+                                    "type": "string"
+                                  },
+                                  "text": {
+                                    "maxLength": 200,
+                                    "type": "string"
+                                  },
+                                  "truncated": {
+                                    "type": "boolean"
+                                  }
+                                }
+                              }
+                            },
+                            "effects": {
+                              "maxItems": 2,
+                              "type": "array",
+                              "items": {
+                                "anyOf": [
+                                  {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "kind",
+                                      "lot_id",
+                                      "value",
+                                      "basis"
+                                    ],
+                                    "properties": {
+                                      "kind": {
+                                        "const": "quantity",
+                                        "type": "string"
+                                      },
+                                      "lot_id": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                        "type": "string"
+                                      },
+                                      "value": {
+                                        "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                                        "type": "string"
+                                      },
+                                      "basis": {
+                                        "anyOf": [
+                                          {
+                                            "const": "counted",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "estimated",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "kind",
+                                      "subject_id"
+                                    ],
+                                    "properties": {
+                                      "kind": {
+                                        "const": "note",
+                                        "type": "string"
+                                      },
+                                      "subject_id": {
+                                        "anyOf": [
+                                          {
+                                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            "delivery": {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "state",
+                                "read_at"
+                              ],
+                              "properties": {
+                                "state": {
+                                  "anyOf": [
+                                    {
+                                      "const": "waiting",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "read",
+                                      "type": "string"
+                                    }
+                                  ]
+                                },
+                                "read_at": {
+                                  "anyOf": [
+                                    {
+                                      "maxLength": 40,
+                                      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "answered_at",
+                            "values_omitted"
+                          ],
+                          "properties": {
+                            "answered_at": {
+                              "maxLength": 40,
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                              "type": "string"
+                            },
+                            "values_omitted": {
+                              "const": true,
+                              "type": "boolean"
+                            },
+                            "delivery": {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "state",
+                                "read_at"
+                              ],
+                              "properties": {
+                                "state": {
+                                  "anyOf": [
+                                    {
+                                      "const": "waiting",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "read",
+                                      "type": "string"
+                                    }
+                                  ]
+                                },
+                                "read_at": {
+                                  "anyOf": [
+                                    {
+                                      "maxLength": 40,
+                                      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    "session_history": {
+                      "type": "boolean"
+                    },
+                    "replaced_by": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                       "type": "string"
                     },
                     "schema_version": {
@@ -86583,6 +88199,233 @@
                             "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
                             "type": "string"
                           },
+                          "answer": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "answer_id",
+                                  "answered_at",
+                                  "values",
+                                  "effects"
+                                ],
+                                "properties": {
+                                  "answer_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "answered_at": {
+                                    "maxLength": 40,
+                                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                                    "type": "string"
+                                  },
+                                  "values": {
+                                    "minItems": 1,
+                                    "maxItems": 4,
+                                    "type": "array",
+                                    "items": {
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "step_id",
+                                        "prompt",
+                                        "text",
+                                        "truncated"
+                                      ],
+                                      "properties": {
+                                        "step_id": {
+                                          "anyOf": [
+                                            {
+                                              "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+                                              "type": "string"
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "prompt": {
+                                          "maxLength": 200,
+                                          "type": "string"
+                                        },
+                                        "text": {
+                                          "maxLength": 200,
+                                          "type": "string"
+                                        },
+                                        "truncated": {
+                                          "type": "boolean"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "effects": {
+                                    "maxItems": 2,
+                                    "type": "array",
+                                    "items": {
+                                      "anyOf": [
+                                        {
+                                          "additionalProperties": false,
+                                          "type": "object",
+                                          "required": [
+                                            "kind",
+                                            "lot_id",
+                                            "value",
+                                            "basis"
+                                          ],
+                                          "properties": {
+                                            "kind": {
+                                              "const": "quantity",
+                                              "type": "string"
+                                            },
+                                            "lot_id": {
+                                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                              "type": "string"
+                                            },
+                                            "value": {
+                                              "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                                              "type": "string"
+                                            },
+                                            "basis": {
+                                              "anyOf": [
+                                                {
+                                                  "const": "counted",
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "const": "estimated",
+                                                  "type": "string"
+                                                }
+                                              ]
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "additionalProperties": false,
+                                          "type": "object",
+                                          "required": [
+                                            "kind",
+                                            "subject_id"
+                                          ],
+                                          "properties": {
+                                            "kind": {
+                                              "const": "note",
+                                              "type": "string"
+                                            },
+                                            "subject_id": {
+                                              "anyOf": [
+                                                {
+                                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "type": "null"
+                                                }
+                                              ]
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "delivery": {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "state",
+                                      "read_at"
+                                    ],
+                                    "properties": {
+                                      "state": {
+                                        "anyOf": [
+                                          {
+                                            "const": "waiting",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "read",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      "read_at": {
+                                        "anyOf": [
+                                          {
+                                            "maxLength": 40,
+                                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "answered_at",
+                                  "values_omitted"
+                                ],
+                                "properties": {
+                                  "answered_at": {
+                                    "maxLength": 40,
+                                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                                    "type": "string"
+                                  },
+                                  "values_omitted": {
+                                    "const": true,
+                                    "type": "boolean"
+                                  },
+                                  "delivery": {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "state",
+                                      "read_at"
+                                    ],
+                                    "properties": {
+                                      "state": {
+                                        "anyOf": [
+                                          {
+                                            "const": "waiting",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "read",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      "read_at": {
+                                        "anyOf": [
+                                          {
+                                            "maxLength": 40,
+                                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          "session_history": {
+                            "type": "boolean"
+                          },
+                          "replaced_by": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
                           "spec": {
                             "additionalProperties": false,
                             "type": "object",
@@ -86721,6 +88564,233 @@
                           "asked_at": {
                             "maxLength": 40,
                             "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                            "type": "string"
+                          },
+                          "answer": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "answer_id",
+                                  "answered_at",
+                                  "values",
+                                  "effects"
+                                ],
+                                "properties": {
+                                  "answer_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "answered_at": {
+                                    "maxLength": 40,
+                                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                                    "type": "string"
+                                  },
+                                  "values": {
+                                    "minItems": 1,
+                                    "maxItems": 4,
+                                    "type": "array",
+                                    "items": {
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "step_id",
+                                        "prompt",
+                                        "text",
+                                        "truncated"
+                                      ],
+                                      "properties": {
+                                        "step_id": {
+                                          "anyOf": [
+                                            {
+                                              "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+                                              "type": "string"
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "prompt": {
+                                          "maxLength": 200,
+                                          "type": "string"
+                                        },
+                                        "text": {
+                                          "maxLength": 200,
+                                          "type": "string"
+                                        },
+                                        "truncated": {
+                                          "type": "boolean"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "effects": {
+                                    "maxItems": 2,
+                                    "type": "array",
+                                    "items": {
+                                      "anyOf": [
+                                        {
+                                          "additionalProperties": false,
+                                          "type": "object",
+                                          "required": [
+                                            "kind",
+                                            "lot_id",
+                                            "value",
+                                            "basis"
+                                          ],
+                                          "properties": {
+                                            "kind": {
+                                              "const": "quantity",
+                                              "type": "string"
+                                            },
+                                            "lot_id": {
+                                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                              "type": "string"
+                                            },
+                                            "value": {
+                                              "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                                              "type": "string"
+                                            },
+                                            "basis": {
+                                              "anyOf": [
+                                                {
+                                                  "const": "counted",
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "const": "estimated",
+                                                  "type": "string"
+                                                }
+                                              ]
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "additionalProperties": false,
+                                          "type": "object",
+                                          "required": [
+                                            "kind",
+                                            "subject_id"
+                                          ],
+                                          "properties": {
+                                            "kind": {
+                                              "const": "note",
+                                              "type": "string"
+                                            },
+                                            "subject_id": {
+                                              "anyOf": [
+                                                {
+                                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "type": "null"
+                                                }
+                                              ]
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "delivery": {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "state",
+                                      "read_at"
+                                    ],
+                                    "properties": {
+                                      "state": {
+                                        "anyOf": [
+                                          {
+                                            "const": "waiting",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "read",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      "read_at": {
+                                        "anyOf": [
+                                          {
+                                            "maxLength": 40,
+                                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "answered_at",
+                                  "values_omitted"
+                                ],
+                                "properties": {
+                                  "answered_at": {
+                                    "maxLength": 40,
+                                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                                    "type": "string"
+                                  },
+                                  "values_omitted": {
+                                    "const": true,
+                                    "type": "boolean"
+                                  },
+                                  "delivery": {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "state",
+                                      "read_at"
+                                    ],
+                                    "properties": {
+                                      "state": {
+                                        "anyOf": [
+                                          {
+                                            "const": "waiting",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "read",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      "read_at": {
+                                        "anyOf": [
+                                          {
+                                            "maxLength": 40,
+                                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          "session_history": {
+                            "type": "boolean"
+                          },
+                          "replaced_by": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                             "type": "string"
                           },
                           "schema_version": {
@@ -101994,6 +104064,10 @@
                                           }
                                         }
                                       }
+                                    },
+                                    "replaces": {
+                                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                      "type": "string"
                                     }
                                   }
                                 }
@@ -108264,6 +110338,10 @@
                                           }
                                         }
                                       }
+                                    },
+                                    "replaces": {
+                                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                      "type": "string"
                                     }
                                   }
                                 }
@@ -113576,6 +115654,10 @@
                         }
                       }
                     }
+                  },
+                  "replaces": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
                   }
                 }
               }
@@ -113905,6 +115987,10 @@
                 }
               }
             }
+          },
+          "replaces": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
           }
         }
       },

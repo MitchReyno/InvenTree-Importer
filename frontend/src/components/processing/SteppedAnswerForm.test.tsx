@@ -293,10 +293,10 @@ test('an uncertain failure retries only the original answer and key', async () =
   mount(oneStep, answer)
   await user.click(screen.getByRole('radio', { name: /Yes, same Part/ }))
   await user.click(screen.getByRole('button', { name: 'Send answer' }))
-  expect(await screen.findByRole('alert')).toHaveTextContent('Answer not confirmed')
+  expect(await screen.findByRole('alert')).toHaveTextContent('Not sent: the server didn’t answer')
   // The draft is locked to what was sent.
   expect(screen.getByRole('radio', { name: /No, different Parts/ })).toBeDisabled()
-  await user.click(screen.getByRole('button', { name: 'Retry exact answer' }))
+  await user.click(screen.getByRole('button', { name: 'Try again' }))
   const [first, second] = answer.mock.calls
   expect(second).toEqual(first)
 })

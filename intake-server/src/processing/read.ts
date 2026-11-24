@@ -58,6 +58,8 @@ import {
 } from './schema.ts'
 import { activeSubjectJobs, countSteps, retiredLotIds } from './steps.ts'
 import { pausedAmong } from '#/agents/pause.ts'
+import { answeredQuestionFacts } from './answered-questions.ts'
+import { budgetAnswers } from './answer-summary.ts'
 
 const jobColumns = {
   id: processingJobs.id,
@@ -369,6 +371,13 @@ export async function processingSnapshot(
     cursor: capture.cursor,
     ...((await pausedAmong(client, [capture.id])).size ? { paused: true as const } : {}),
   }
+  // Answer members are budgeted into the room the snapshot leaves without them, newest first.
+  const answers = await answeredQuestionFacts(client, config, capture.id, jobs)
+  const withoutAnswers = Buffer.byteLength(canonicalRecord(snapshot))
+  if (withoutAnswers > MAX_PROCESSING_SNAPSHOT_BYTES) {
+    fail('processing_capacity')
+  }
+  budgetAnswers(answers, MAX_PROCESSING_SNAPSHOT_BYTES - withoutAnswers)
   validate('ProcessingSnapshot', snapshot)
   if (Buffer.byteLength(canonicalRecord(snapshot)) > MAX_PROCESSING_SNAPSHOT_BYTES) {
     fail('processing_capacity')

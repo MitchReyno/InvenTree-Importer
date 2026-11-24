@@ -18,14 +18,21 @@ import {
   question,
   status,
 } from '#/test/session-history'
-import { HistoryList } from './HistoryList'
+import { SessionConversation } from './SessionConversation'
 
 const context = { batchId: H.batch, jobId: H.job, step: 'research' as const }
 
 afterEach(() => setDebugMode(false))
 
 function show(entries: SessionHistoryEntryDto[]) {
-  render(<HistoryList label="Session history" items={drawerItems(entries)} context={context} />)
+  render(
+    <SessionConversation
+      label="Session history"
+      items={drawerItems(entries)}
+      context={context}
+      working={false}
+    />,
+  )
   return screen.getByRole('list', { name: 'Session history' })
 }
 
@@ -238,7 +245,7 @@ test('a question expands to its steps and assumptions, linking to Answer and the
   ).toBeInTheDocument()
 })
 
-test('your answer expands to what it changed', async () => {
+test('your answer shows as your bubble with what it changed and its lot', () => {
   show([
     input(
       4,
@@ -264,11 +271,11 @@ test('your answer expands to what it changed', async () => {
       },
     ),
   ])
-  const details = await expand('You answered: same Part · 380 estimated')
-
-  expect(details).toHaveTextContent('Lot quantity set to 380 (estimated) · note added')
-  expect(details).toHaveTextContent('You')
-  expect(within(details).getByRole('link', { name: 'Open Packet A in Review' })).toBeInTheDocument()
+  // An answer is the operator's bubble, with what it changed beside its time.
+  const bubble = screen.getByText('same Part · 380 estimated').closest('[data-mine]') as HTMLElement
+  expect(bubble).toHaveTextContent('You')
+  expect(bubble).toHaveTextContent('Lot quantity set to 380 (estimated) · note added')
+  expect(within(bubble).getByRole('link', { name: 'Open Packet A in Review' })).toBeInTheDocument()
 })
 
 test('an input the session has not read says so, and an app notice is marked as the app’s', () => {
@@ -289,7 +296,8 @@ test('a photo view expands to the recut region with its delivered size, linking 
   setDebugMode(true)
   // The drawer folds photo views; the session page renders each one.
   render(
-    <HistoryList
+    <SessionConversation
+      working={false}
       label="Page history"
       items={[{ kind: 'entry', id: 'x', summary: 'x', entry: photoView(1, 1) }]}
       context={context}
@@ -421,7 +429,8 @@ test('an existing company or category is named by its InvenTree record, a new ca
   )
   // Validated as the history read would send them.
   render(
-    <HistoryList
+    <SessionConversation
+      working={false}
       label="Catalogue choices"
       items={history([created, existing]).entries.map((entry) => ({
         kind: 'entry' as const,

@@ -1,5 +1,5 @@
 import { IntakeRequestError } from '@invimport/contracts/client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import styled from 'styled-components'
 import { color, radius, ring, size, space } from '#/theme/generated/tokens'
 import { useQueryClient } from '@tanstack/react-query'
@@ -11,6 +11,7 @@ import {
   type BatchAttentionDto,
   type CaptureSnapshotDto,
   type ProcessingAnswerDto,
+  type ProcessingJobDto,
   type ProcessingQuestionDto,
   type ProcessingSnapshotDto,
   type ProcessingStartDto,
@@ -34,6 +35,17 @@ import { ProcessingImages } from './ProcessingImages'
 import { ProcessingInventory } from './ProcessingInventory'
 import { DrawerAnswers } from './DrawerAnswers'
 import type { DrawerRestoreStore } from '#/processing/drawer-restore'
+import {
+  createAnswerOutcomes,
+  sentAnswerValues,
+  type AnswerFocusTarget,
+  type AnswerOutcomeStore,
+} from '#/processing/answer-outcomes'
+import { answeredItems, closedLinks, isAnswered } from '#/processing/answered-items'
+import { questionStanding } from '#/processing/question-standing'
+import { AnsweredQuestions } from './AnsweredQuestions'
+import { AnsweredQuestion } from './AnsweredQuestion'
+import { ClosedQuestion } from './ClosedQuestion'
 import { ProcessingJobCard } from './ProcessingJobCard'
 import { SessionPanel } from './SessionPanel'
 import { JobEarlierAttempts } from './JobEarlierAttempts'
@@ -104,6 +116,8 @@ interface Props {
   sharperRequests?: SharperRequestStore
   /** Brings an open session drawer back after an answer's reload remounts Processing. */
   drawerRestore?: DrawerRestoreStore
+  /** The answers this tab confirmed, kept above Processing's remounts until a read has them. */
+  answerOutcomes?: AnswerOutcomeStore
   batch: CaptureSnapshotDto
   client: ProcessingClient
   view: ProcessingView
@@ -157,10 +171,19 @@ export function ProcessingWorkspace({
   sessionPageJobId,
   sharperRequests,
   drawerRestore,
+  answerOutcomes: batchOutcomes,
   edit,
   displayOnly = false,
 }: Props) {
   const { agents, media } = useApiClients()
+  // Without Batch's store, as in a standalone mount, this mount keeps its own.
+  const [ownOutcomes] = useState(createAnswerOutcomes)
+  const answerOutcomes = batchOutcomes ?? ownOutcomes
+  // A confirmed answer re-renders every surface that lists its question.
+  useSyncExternalStore(answerOutcomes.subscribe, answerOutcomes.version)
+
+  const confirmedAnswer = (questionId: string) => answerOutcomes.get(questionId)
+
   // A route change shows the session its link names, or none: opening a question navigates, and
   // the drawer closes only once the route actually changes.
   const route = `${view}:${questionId}:${sessionId}`
@@ -282,9 +305,15 @@ export function ProcessingWorkspace({
       setPinned(null)
     }
   } else if (pinned?.question.id !== questionId && !waitingForRead && !offline && snapshot) {
+    // Only an open question takes a form; an answered or closed one shows its card instead.
     const question = snapshot.jobs
       .flatMap((job) => job.questions)
-      .find((candidate) => candidate.id === questionId)
+      .find(
+        (candidate) =>
+          candidate.id === questionId &&
+          candidate.state === 'open' &&
+          !confirmedAnswer(candidate.id),
+      )
     if (question) {
       setPinned({ question, captureRevision: snapshot.capture_revision })
     }
@@ -374,10 +403,28 @@ export function ProcessingWorkspace({
     key: string,
     { fromDrawer = false } = {},
   ) {
+    // Where focus was at Send, so a later move of the operator's cancels the move after it.
+    const sentFrom = document.activeElement
     setSaving('answer')
     try {
+      const question = allQuestions.find((candidate) => candidate.id === id)
+      // The focus target is chosen now, from the questions this surface showed open.
+      const next = fromDrawer ? null : nextFocusAfter(id)
       // Each answer form reports itself clean once its own save is confirmed.
-      await perform(() => client.answer(batch.id, id, input, key))
+      await perform(async () => {
+        const receipt = await client.answer(batch.id, id, input, key)
+        // Confirmed: the line shows it saved through a failed read or a remount.
+        answerOutcomes.record(
+          {
+            questionId: id,
+            answerId: receipt.answer_id,
+            values: question ? sentAnswerValues(question, input) : [],
+            savedAt: new Date().toISOString(),
+          },
+          next,
+          sentFrom,
+        )
+      })
       // The reload remounts Processing; an open drawer comes back, focused as it would have been.
       if (sessionJobId === null) {
         drawerRestore?.disarm()
@@ -514,9 +561,86 @@ export function ProcessingWorkspace({
 
   const liveLots = batch.lots.filter((lot) => !retiredLotIds.has(lot.id))
   const activeLotIds = new Set(liveLots.map((lot) => lot.id))
-  const source = snapshot
+
+  const lotLabel = (id: string) => subjects.get(id) ?? 'The lot'
+
+  const answeredContext = {
+    batchId: batch.id,
+    confirmed: confirmedAnswer,
+    liveLotLabel: (id: string | null) =>
+      id !== null && activeLotIds.has(id) ? subjects.get(id) : undefined,
+    stageName: (job: ProcessingJobDto) => STEP_LABEL[processingStepFor(job.stage)] ?? 'The agent',
+  }
+
+  /** The jobs' answered questions, folded under "Answered" below their open ones. */
+  function answeredGroup(groupJobs: readonly ProcessingJobDto[]) {
+    return (
+      <AnsweredQuestions items={answeredItems(groupJobs, answeredContext)} lotLabel={lotLabel} />
+    )
+  }
+
+  /** A question's card once it takes no new answer: its Answered line, or why it closed. */
+  function questionOutcome(question: ProcessingQuestionDto) {
+    const jobs = snapshot?.jobs ?? []
+    if (isAnswered(question, confirmedAnswer)) {
+      const job = jobs.find((candidate) => candidate.id === question.job_id)
+      const [item] = job ? answeredItems([{ ...job, questions: [question] }], answeredContext) : []
+      return item ? <AnsweredQuestion {...item} lotLabel={lotLabel} /> : null
+    }
+    if (question.state === 'open') {
+      return null
+    }
+    return <ClosedQuestion question={question} {...closedLinks(jobs, question, batch.id)} />
+  }
+
+  /** A loaded question card that will take a form once a fresh read pins its open question. */
+  function formAwaited(page: HTMLElement | null, after: string) {
+    const openCards = allQuestions.filter(
+      (question) =>
+        question.state === 'open' &&
+        question.id !== after &&
+        !confirmedAnswer(question.id) &&
+        page?.querySelector(`[data-question-card="${question.id}"]`),
+    )
+    const formed = openCards.some((question) =>
+      page?.querySelector(`[data-question-form="${question.id}"] :is(input, textarea)`),
+    )
+
+    return openCards.length > 0 && !formed && waitingForRead
+  }
+
+  /** The session's closed questions, each saying why, unless a kept draft form says it already. */
+  function closedQuestions(job: ProcessingJobDto) {
+    return job.questions
+      .filter(
+        (question) => question.state === 'superseded' && !drafts.isDirty(`answer:${question.id}`),
+      )
+      .map((question) => <div key={`closed:${question.id}`}>{questionOutcome(question)}</div>)
+  }
+
+  /** Where focus goes once a step page's answer folds: the next open question, or "Answered". */
+  function nextFocusAfter(answeredId: string): AnswerFocusTarget | null {
+    // The page mounts forms only for questions in its loaded history, so the form is found then.
+    if (sessionPageJobId !== undefined) {
+      return { kind: 'page_form', after: answeredId }
+    }
+    if (view === 'overview') {
+      return null
+    }
+    const next = (source?.questions ?? []).find(
+      (question) => question.step === view && question.id !== answeredId,
+    )
+    return next ? { kind: 'question', questionId: next.id } : { kind: 'answered' }
+  }
+
+  const retained = snapshot
     ? retainedJobsSource(snapshot, subjects, activeLotIds, retiredLotIds)
     : null
+  // A question this tab answered leaves the open lists at once, before any read says so.
+  const source = retained && {
+    ...retained,
+    questions: retained.questions.filter((question) => !confirmedAnswer(question.id)),
+  }
   // The batch's session list as rows, once this mount has read it; until then the snapshot's.
   const sessionList = liveRead(batchSessions.fresh.query)
     ? {
@@ -600,6 +724,50 @@ export function ProcessingWorkspace({
   }, [focusKey, loaded])
   const liveSessionJob = snapshot?.jobs.find((job) => job.id === sessionJobId && job.session_state)
 
+  // The page's answer has folded; focus follows once its target has rendered, even after a
+  // failed read or a remount, as the drawer's restore does.
+  const workspace = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const target = answerOutcomes.pendingFocus()
+    // While the answer's reload runs, this mount may be about to go; the next one moves focus.
+    if (!target || saving === 'answer') {
+      return
+    }
+    const page = workspace.current
+    // A next question that closed meanwhile gives way to the Answered heading.
+    const stillOpen =
+      target.kind !== 'question' ||
+      allQuestions.some(
+        (question) =>
+          question.id === target.questionId &&
+          question.state === 'open' &&
+          !confirmedAnswer(question.id),
+      )
+    // A loaded question card whose form waits for this mount's fresh read is waited for.
+    if (target.kind === 'page_form' && formAwaited(page, target.after)) {
+      return
+    }
+    const element = focusTarget(page, stillOpen ? target : { kind: 'answered' })
+    if (element) {
+      element.focus()
+      answerOutcomes.focusPlaced(element)
+    }
+  })
+  // A fresh read that returns a question answered, in any tier, replaces this tab's outcome.
+  const answeredInRead =
+    fresh.verified && snapshot
+      ? snapshot.jobs
+          .flatMap((job) => job.questions)
+          .filter((question) => question.state === 'answered')
+          .map((question) => question.id)
+          .join(' ')
+      : ''
+  useEffect(() => {
+    if (answeredInRead) {
+      answerOutcomes.prune(new Set(answeredInRead.split(' ')))
+    }
+  }, [answeredInRead, answerOutcomes])
+
   /** An answer form other than this source has an unsaved draft. */
   const otherAnswerDirty = (source: string) =>
     drafts.hasOtherSources('instructions', 'correction', source)
@@ -624,7 +792,7 @@ export function ProcessingWorkspace({
 
   // Only the live read's questions are open; a session that left has none.
   const openInDrawer = (liveSessionJob?.questions ?? []).filter(
-    (question) => question.state === 'open',
+    (question) => question.state === 'open' && !confirmedAnswer(question.id),
   )
   const allQuestions = snapshot?.jobs.flatMap((job) => job.questions) ?? []
   if (closeBlocked && !unsavedInDrawer) {
@@ -696,23 +864,37 @@ export function ProcessingWorkspace({
     if (!snapshot) {
       return null
     }
-    const open = allQuestions.filter((question) => question.id === id && question.state === 'open')
+    const open = allQuestions.filter(
+      (question) => question.id === id && question.state === 'open' && !confirmedAnswer(id),
+    )
+    const question = allQuestions.find((candidate) => candidate.id === id)
     return (
-      <DrawerAnswers
-        questions={open}
-        lookup={(questionId) => allQuestions.find((candidate) => candidate.id === questionId)}
-        captureRevision={snapshot.capture_revision}
-        fresh={!waitingForRead}
-        disabled={runnerDisabled || drafts.isDirty('instructions') || drafts.isDirty('correction')}
-        readOnly={batch.archived || saving === 'instructions'}
-        saving={saving === 'answer'}
-        isDirty={(questionId) => drafts.isDirty(`answer:${questionId}`)}
-        otherAnswerDirty={(questionId) => otherAnswerDirty(`answer:${questionId}`)}
-        answer={(questionId, input, key) => answer(questionId, input, key)}
-        readFailed={offline}
-        reportFor={(questionId) => drafts.forSource(`answer:${questionId}`)}
-        fallback={questionLink}
-      />
+      <>
+        <DrawerAnswers
+          questions={open}
+          lookup={(questionId) => allQuestions.find((candidate) => candidate.id === questionId)}
+          captureRevision={snapshot.capture_revision}
+          fresh={!waitingForRead}
+          disabled={
+            runnerDisabled || drafts.isDirty('instructions') || drafts.isDirty('correction')
+          }
+          readOnly={batch.archived || saving === 'instructions'}
+          saving={saving === 'answer'}
+          isDirty={(questionId) =>
+            !confirmedAnswer(questionId) && drafts.isDirty(`answer:${questionId}`)
+          }
+          otherAnswerDirty={(questionId) => otherAnswerDirty(`answer:${questionId}`)}
+          answer={(questionId, input, key) => answer(questionId, input, key)}
+          readFailed={offline}
+          reportFor={(questionId) => drafts.forSource(`answer:${questionId}`)}
+          fallback={questionLink}
+        />
+        {/* An answered question folds into the page's Answered group; a closed one says why. */}
+        {question &&
+          !isAnswered(question, confirmedAnswer) &&
+          !drafts.isDirty(`answer:${id}`) &&
+          questionOutcome(question)}
+      </>
     )
   }
 
@@ -728,6 +910,7 @@ export function ProcessingWorkspace({
       subjectLabel={subjectLabel}
       isLot={(id) => id !== null && activeLotIds.has(id)}
       answerForm={pageAnswerForm}
+      answered={pageJob && answeredGroup([pageJob])}
       isAnswerDirty={(questionId) => drafts.isDirty(`answer:${questionId}`)}
       // A message carries no revision, so it waits for a read started after the last live hint.
       sendUnavailable={batch.archived ? 'Resume the batch to send messages.' : revisionlessReason}
@@ -740,6 +923,33 @@ export function ProcessingWorkspace({
       freshReason={freshUnavailable(pageJob)}
     />
   )
+
+  // A pinned form stays while its question is open or it holds a draft or an unconfirmed retry.
+  const pinnedStanding =
+    pinned && snapshot
+      ? questionStanding({
+          pinned: pinned.question,
+          pinnedCaptureRevision: pinned.captureRevision,
+          current: currentQuestion,
+          currentCaptureRevision: snapshot.capture_revision,
+          answeredHere: confirmedAnswer(pinned.question.id) !== undefined,
+        })
+      : null
+  const pinnedForm =
+    questionId !== undefined &&
+    pinned?.question.id === questionId &&
+    (pinnedStanding === 'open' ||
+      pinnedStanding === 'context_moved' ||
+      // A confirmed answer clears its draft, though the form reports clean only afterwards.
+      (drafts.isDirty('answer') && pinnedStanding !== 'answered_here'))
+      ? pinned
+      : null
+  const namedQuestion = questionId ? currentQuestion : undefined
+  // The step's Answered group already shows its own answered questions.
+  const namedOnPage =
+    namedQuestion !== undefined &&
+    isAnswered(namedQuestion, confirmedAnswer) &&
+    jobs.some((job) => job.id === namedQuestion.job_id)
 
   const activity = recentActivity(snapshot, subjectLabel)
   const queue = snapshot && (
@@ -856,7 +1066,7 @@ export function ProcessingWorkspace({
   )
 
   return (
-    <Workspace>
+    <Workspace ref={workspace}>
       {batch.archived && (
         <div role="status">
           <Banner tone="plain">
@@ -896,14 +1106,15 @@ export function ProcessingWorkspace({
           {snapshot && source && (
             <>
               {view !== 'overview' && <Panel>{queue}</Panel>}
-              {questionId && pinned?.question.id === questionId ? (
+              {pinnedForm ? (
                 <>
                   <QuestionAnswer
-                    key={`${pinned.question.id}:${pinned.captureRevision}`}
-                    question={pinned.question}
-                    captureRevision={pinned.captureRevision}
+                    key={`${pinnedForm.question.id}:${pinnedForm.captureRevision}`}
+                    question={pinnedForm.question}
+                    captureRevision={pinnedForm.captureRevision}
                     currentQuestion={currentQuestion}
                     currentCaptureRevision={snapshot.capture_revision}
+                    answeredHere={confirmedAnswer(pinnedForm.question.id) !== undefined}
                     disabled={
                       runnerDisabled ||
                       drafts.isDirty('instructions') ||
@@ -932,9 +1143,13 @@ export function ProcessingWorkspace({
                     </Small>
                   )}
                 </>
+              ) : namedQuestion && !namedOnPage && questionOutcome(namedQuestion) ? (
+                // Answered or closed: its card, never a form.
+                questionOutcome(namedQuestion)
               ) : (
                 // While this visit's read lands the question waits quietly; it pins once verified.
                 questionId &&
+                !namedQuestion &&
                 (offline || !waitingForRead) && (
                   <Banner tone="warn">
                     {offline
@@ -1013,6 +1228,7 @@ export function ProcessingWorkspace({
                   sessionList={sessionList}
                   sessionRecovery={sessionRecovery}
                   help={STEP_HELP[view]}
+                  answered={answeredGroup(jobs)}
                 >
                   {view === 'images' || jobs.length > 0 ? (
                     <>
@@ -1097,7 +1313,7 @@ export function ProcessingWorkspace({
                       }
                       readOnly={batch.archived || saving === 'instructions'}
                       saving={saving === 'answer'}
-                      isDirty={(id) => drafts.isDirty(`answer:${id}`)}
+                      isDirty={(id) => !confirmedAnswer(id) && drafts.isDirty(`answer:${id}`)}
                       otherAnswerDirty={(id) => otherAnswerDirty(`answer:${id}`)}
                       answer={(id, input, key) => answer(id, input, key, { fromDrawer: true })}
                       focusNext={restored?.focusNext ?? false}
@@ -1106,6 +1322,8 @@ export function ProcessingWorkspace({
                       fallback={questionLink}
                     />
                   )}
+                  {answersInDrawer && closedQuestions(sessionJob)}
+                  {answersInDrawer && answeredGroup([sessionJob])}
                   <SessionPanel
                     batchId={batch.id}
                     job={sessionJob}
@@ -1134,6 +1352,25 @@ function clearSessionLink(jobId?: string) {
 }
 
 const NO_RETIRED_LOTS: ReadonlySet<string> = new Set()
+
+/**
+ * The element an answer's focus target names on the page: the next question's row or form, else
+ * the Answered heading, as when the next question isn't on the page.
+ */
+function focusTarget(page: HTMLElement | null, target: AnswerFocusTarget) {
+  let next: HTMLElement | null | undefined = null
+  if (target.kind === 'question') {
+    next = page?.querySelector<HTMLElement>(
+      `[data-question-row="${target.questionId}"], [data-question-form="${target.questionId}"] :is(input, textarea)`,
+    )
+  } else if (target.kind === 'page_form') {
+    next = page?.querySelector<HTMLElement>(
+      `[data-question-form]:not([data-question-form="${target.after}"]) :is(input, textarea)`,
+    )
+  }
+
+  return next ?? page?.querySelector<HTMLElement>('[data-answered-heading]')
+}
 
 /** Session states whose card offers Start fresh: failed, stopped or unable to resume. */
 const RECOVERABLE: ReadonlySet<string> = new Set([

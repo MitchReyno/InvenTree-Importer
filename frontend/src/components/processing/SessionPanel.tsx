@@ -5,7 +5,13 @@ import {
 } from '#/components/agents/SessionFailureDetails'
 import type { ProcessingJobDto } from '@invimport/contracts'
 import type { ProcessingClient } from '#/processing/types'
-import { chatMessages, drawerItems } from '#/processing/session-history'
+import { drawerItems } from '#/processing/session-history'
+import {
+  newestInboxSeq,
+  unreadPendingSends,
+  usePendingSendKey,
+  usePendingSends,
+} from '#/processing/pending-sends'
 import { useNewestHistory } from '#/processing/useSessionHistory'
 import { processingStepFor, sessionPageHref } from '#/navigation/batch-route'
 import { Link, ReadState, Small, VisuallyHidden } from '#/components/ui'
@@ -13,7 +19,7 @@ import { space } from '#/theme/generated/tokens'
 import { startFreshReason } from '#/processing/start-fresh'
 import { SessionChatPanel } from './SessionChatPanel'
 import { SessionSkeleton } from './SessionSkeleton'
-import { HistoryList } from './HistoryList'
+import { SessionConversation } from './SessionConversation'
 
 interface Props {
   batchId: string
@@ -26,8 +32,8 @@ interface Props {
 }
 
 /**
- * The drawer's session: the newest page of its history and its chat. It reads only the newest
- * page; "Open full session" leads to every entry. Live hints invalidate it like every read.
+ * The drawer's session: the newest page of its history, messages and answers in their place,
+ * and the message box. It reads only the newest page; "Open full session" leads to every entry. Live hints invalidate it like every read.
  */
 export function SessionPanel({
   batchId,
@@ -38,6 +44,8 @@ export function SessionPanel({
   freshReason,
 }: Props) {
   const history = useNewestHistory(client.history, batchId, job.id)
+  const storeKey = usePendingSendKey(batchId, job.id)
+  const pending = usePendingSends(storeKey)
   const step = processingStepFor(job.stage)
   const fullSession = sessionPageHref(batchId, step, job.id)
   if (!history.data) {
@@ -52,6 +60,7 @@ export function SessionPanel({
     )
   }
   const { session, entries } = history.data
+  const shownPending = unreadPendingSends(pending, history.data)
   const current = session.attempts.find((attempt) => attempt.id === session.current_attempt_id)
   const sessionState = current?.session_state ?? job.session_state ?? 'queued'
   const latest = entries.find((entry) => entry.details.kind === 'status')
@@ -81,24 +90,26 @@ export function SessionPanel({
         )}
         <History>
           {history.data.before && <Small>Older entries are on the full session page.</Small>}
-          {entries.length > 0 && (
-            <HistoryList
+          {(entries.length > 0 || shownPending.length > 0) && (
+            <SessionConversation
               label="Session history"
               items={drawerItems(entries)}
               context={{ batchId, jobId: job.id, step }}
+              working={sessionState === 'running'}
+              pending={shownPending}
             />
           )}
           <Link href={fullSession}>Open full session</Link>
         </History>
       </section>
       <SessionChatPanel
-        storeKey={`${batchId}:${job.id}`}
+        storeKey={storeKey}
+        batchId={batchId}
+        jobId={job.id}
         state={sessionState}
-        messages={chatMessages(entries, { answers: true })}
-        send={async (text, key) => {
-          await client.chat(batchId, job.id, { idempotency_key: key, text }, key)
-          await history.refetch()
-        }}
+        newestInboxSeq={newestInboxSeq(entries)}
+        send={(text, key) => client.chat(batchId, job.id, { idempotency_key: key, text }, key)}
+        refresh={() => void history.refetch()}
         startFresh={startFresh}
         freshReason={freshReason ?? startFreshReason(session.start_fresh)}
         freshDisabled={

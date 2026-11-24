@@ -28,6 +28,7 @@ export function QuestionRows({
         <li key={question.id}>
           <span>
             <a
+              data-question-row={question.id}
               href={batchHref(batchId, {
                 tab: 'processing',
                 step: question.step,

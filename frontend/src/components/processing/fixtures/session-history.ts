@@ -317,9 +317,63 @@ function otherHistory(ids: Ids, jobId: string): SessionHistoryDto {
   }
 }
 
-/** The fixture's history read: the Research job pages, every other job one page. */
-export function fixtureHistory(ids: Ids) {
+/**
+ * The Examine lead session as the drawer shows it: actions with a message and its reply between
+ * them, and the operator's answer once one is given.
+ */
+function examineHistory(ids: Ids, answer: Entry | undefined): SessionHistoryDto {
+  const attemptId = ids.id(25)
+
+  const step = (seq: number, minute: number, text: string) =>
+    agentEntry(attemptId, 1, seq, minute, text, { kind: 'status', text })
+
+  const entries: Entry[] = [
+    step(6, 16, 'Checking whether packet A’s two photos show one bag'),
+    ...(answer ? [answer] : []),
+    step(5, 14, 'Formed 10 kΩ resistor 0603, packet B'),
+    agentEntry(attemptId, 1, 4, 13, 'Replied: Thanks, I’ll keep them apart.', {
+      kind: 'reply',
+      inbox_item_id: ids.id(62),
+      text: 'Thanks, I’ll keep them apart.',
+    }),
+    {
+      id: 'inbox:1',
+      at: at(13),
+      who: 'operator',
+      read: true,
+      summary: 'The two resistor packets are separate purchases.',
+      links: [],
+      details: { kind: 'chat', text: 'The two resistor packets are separate purchases.' },
+    },
+    photoView(ids, attemptId, 1, 3, 12),
+    step(2, 11, 'Recorded 10 observations in Bench bag spill'),
+    step(1, 10, 'Formed 10 kΩ resistor 0603, packet A'),
+  ]
+
+  return {
+    session: {
+      job_id: ids.id(5),
+      batch_id: ids.batchId,
+      stage: 'examine',
+      subject_id: null,
+      current_attempt_id: attemptId,
+      attempts: [attempt(ids, 25, 1, {})],
+      inbox_acked_seq: '1',
+      start_fresh: { allowed: false, reason: 'session_not_replaceable' },
+    },
+    entries,
+  } as SessionHistoryDto
+}
+
+/**
+ * The fixture's history read: the Research job pages, the Examine lead with any answer given,
+ * every other job one page.
+ */
+export function fixtureHistory(ids: Ids, examineAnswer: () => Entry | undefined = () => undefined) {
   return async (_batch: string, jobId: string, before?: string) => {
+    if (jobId === ids.id(5)) {
+      return examineHistory(ids, examineAnswer())
+    }
     if (jobId !== ids.id(3)) {
       return otherHistory(ids, jobId)
     }
