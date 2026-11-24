@@ -845,3 +845,114 @@ test('a stale pinned identity makes Start fresh wait', async (t) => {
     reason: 'identity_waiting',
   })
 })
+
+test('a session whose sealed input the app would refuse is ineligible while every read still works', async () => {
+  const { mediaEditor } = await import('../support/media-removal.ts')
+  const { seedPhoto } = await import('../support/sessions.ts')
+  const { grantMedia } = await import('#/media/grants.ts')
+  const f = await processingFixture({ profileId: 'synthetic-session/1' })
+  try {
+    await grantMedia(f.db.pool, f.api.name, 'api')
+    const capture = await f.seedCapture()
+    const healthy = await sessionChain(f, capture, capture.packetA, [failedStep])
+    const media = mediaEditor(f.api.pool, f.config, capture.batch.id)
+    // A bare batch: no note anywhere, so its lot's only evidence is one photo.
+    const created = await f.http('/batches', { title: 'Bare', note: '' })
+    assert.equal(created.status, 201)
+    const bare = created.value as Capture['batch']
+    const added = await f.http(`/batches/${bare.id}/edits`, {
+      expected_revision: bare.revision,
+      change: { kind: 'add_lot', label: 'Bare lot', note: '', part_subject_id: null },
+    })
+    assert.equal(added.status, 200)
+    const bareBatch = added.value as Capture['batch']
+    const bareLot = bareBatch.lots[0]
+    const photo = await seedPhoto(f, bare.id, { width: 10, height: 10 }, 'Only photo')
+    const bareMedia = mediaEditor(f.api.pool, f.config, bare.id)
+    await bareMedia.applied({
+      kind: 'link',
+      evidence_id: photo.evidence,
+      subject_id: bareLot.id,
+      linked: true,
+    })
+    const bareCapture = { batch: bareBatch, packetA: bareLot } as Capture
+    const evidenceless = await sessionChain(f, bareCapture, bareLot, [failedStep])
+    await bareMedia.applied({ kind: 'remove', evidence_ids: [photo.evidence] })
+
+    // A lot of a Part whose photo is selected as a Part attachment.
+    await capture.edit({ kind: 'add_part', label: 'Shared Part' })
+    const part = capture.batch.parts.find((item) => item.label === 'Shared Part')!
+    await capture.edit({
+      kind: 'add_lot',
+      label: 'Part lot',
+      note: 'Belongs to the shared Part.',
+      part_subject_id: part.id,
+    })
+    const partLot = capture.batch.lots.find((item) => item.label === 'Part lot')!
+    const datasheet = await seedPhoto(f, capture.batch.id, { width: 10, height: 10 }, 'Datasheet')
+    await media.applied({
+      kind: 'link',
+      evidence_id: datasheet.evidence,
+      subject_id: partLot.id,
+      linked: true,
+    })
+    const attached = await sessionChain(f, capture, partLot, [failedStep])
+    await media.applied({
+      kind: 'select_attachment',
+      subject_id: part.id,
+      mode: 'selected',
+      version_id: datasheet.version,
+      destination: 'part_attachment',
+    })
+
+    const rows = new Map((await list(f)).sessions.map((row) => [row.job_id, row]))
+    assert.deepEqual(rows.get(evidenceless.job)!.start_fresh, {
+      allowed: false,
+      reason: 'retained_evidence_required',
+    })
+    assert.deepEqual(rows.get(attached.job)!.start_fresh, {
+      allowed: false,
+      reason: 'unsupported_processing_input',
+    })
+    assert.deepEqual(rows.get(healthy.job)!.start_fresh, { allowed: true })
+
+    const noAnswers = undefined as never
+    const repository = processingRepository(f.api.pool, f.config, noAnswers)
+    const snapshot = await repository.read(bare.id)
+    assert.deepEqual(snapshot.jobs.find((job) => job.id === evidenceless.job)!.start_fresh, {
+      allowed: false,
+      reason: 'retained_evidence_required',
+    })
+    const partSnapshot = await repository.read(capture.batch.id)
+    assert.deepEqual(partSnapshot.jobs.find((job) => job.id === healthy.job)!.start_fresh, {
+      allowed: true,
+    })
+    const history = await readSessionHistory(f.api.pool, f.config, bare.id, evidenceless.job)
+    assert.deepEqual(history.session.start_fresh, {
+      allowed: false,
+      reason: 'retained_evidence_required',
+    })
+
+    // The command refuses the same way.
+    const current = await f.http(`/batches/${bare.id}`)
+    await assert.rejects(
+      replaceSession(f.api.pool, f.config, bare.id, evidenceless.job, randomUUID(), {
+        expected_capture_revision: (current.value as Capture['batch']).revision,
+        expected_revision: '1',
+        attempt_id: evidenceless.current,
+      }),
+      { code: 'retained_evidence_required' },
+    )
+    const partCapture = await f.http(`/batches/${capture.batch.id}`)
+    await assert.rejects(
+      replaceSession(f.api.pool, f.config, capture.batch.id, attached.job, randomUUID(), {
+        expected_capture_revision: (partCapture.value as Capture['batch']).revision,
+        expected_revision: '1',
+        attempt_id: attached.current,
+      }),
+      { code: 'unsupported_processing_input' },
+    )
+  } finally {
+    await f.dispose()
+  }
+})

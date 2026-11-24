@@ -97,7 +97,7 @@ export function decodeJobInput(bytes: Buffer, digest: Buffer) {
 export function sessionLeadInputManifest(
   snapshot: CaptureSnapshotDto,
   media: RetainedMediaDescriptor,
-  profile: Parameters<typeof sessionLotInputManifest>[4],
+  profile: SessionInputProfile,
 ): ProcessingInputV6Dto {
   const decoded = decodeMediaInputs(
     Buffer.from(media.manifest, 'utf8'),
