@@ -180,7 +180,9 @@ export function ProcessingWorkspace({
     answerOutcomes?.subscribe ?? noSubscription,
     answerOutcomes?.version ?? noVersion,
   )
+
   const confirmedAnswer = (questionId: string) => answerOutcomes?.get(questionId)
+
   // A route change shows the session its link names, or none: opening a question navigates, and
   // the drawer closes only once the route actually changes.
   const route = `${view}:${questionId}:${sessionId}`
@@ -555,14 +557,15 @@ export function ProcessingWorkspace({
 
   const liveLots = batch.lots.filter((lot) => !retiredLotIds.has(lot.id))
   const activeLotIds = new Set(liveLots.map((lot) => lot.id))
+
   const lotLabel = (id: string) => subjects.get(id) ?? 'The lot'
+
   const answeredContext = {
     batchId: batch.id,
     confirmed: confirmedAnswer,
     liveLotLabel: (id: string | null) =>
       id !== null && activeLotIds.has(id) ? subjects.get(id) : undefined,
-    stageName: (job: ProcessingJobDto) =>
-      STEP_LABEL[processingStepFor(job.stage)] ?? 'The agent',
+    stageName: (job: ProcessingJobDto) => STEP_LABEL[processingStepFor(job.stage)] ?? 'The agent',
   }
 
   /** The jobs' answered questions, folded under "Answered" below their open ones. */
@@ -596,6 +599,7 @@ export function ProcessingWorkspace({
     )
     return next ? { kind: 'question', questionId: next.id } : { kind: 'answered' }
   }
+
   const retained = snapshot
     ? retainedJobsSource(snapshot, subjects, activeLotIds, retiredLotIds)
     : null
@@ -823,24 +827,28 @@ export function ProcessingWorkspace({
     const question = allQuestions.find((candidate) => candidate.id === id)
     return (
       <>
-      <DrawerAnswers
-        questions={open}
-        lookup={(questionId) => allQuestions.find((candidate) => candidate.id === questionId)}
-        captureRevision={snapshot.capture_revision}
-        fresh={!waitingForRead}
-        disabled={runnerDisabled || drafts.isDirty('instructions') || drafts.isDirty('correction')}
-        readOnly={batch.archived || saving === 'instructions'}
-        saving={saving === 'answer'}
-        isDirty={(questionId) => drafts.isDirty(`answer:${questionId}`)}
-        otherAnswerDirty={(questionId) => otherAnswerDirty(`answer:${questionId}`)}
-        answer={(questionId, input, key) => answer(questionId, input, key)}
-        readFailed={offline}
-        reportFor={(questionId) => drafts.forSource(`answer:${questionId}`)}
-        fallback={questionLink}
-      />
-      {question &&
-        (isAnswered(question, confirmedAnswer) || !drafts.isDirty(`answer:${id}`)) &&
-        questionOutcome(question)}
+        <DrawerAnswers
+          questions={open}
+          lookup={(questionId) => allQuestions.find((candidate) => candidate.id === questionId)}
+          captureRevision={snapshot.capture_revision}
+          fresh={!waitingForRead}
+          disabled={
+            runnerDisabled || drafts.isDirty('instructions') || drafts.isDirty('correction')
+          }
+          readOnly={batch.archived || saving === 'instructions'}
+          saving={saving === 'answer'}
+          isDirty={(questionId) =>
+            !confirmedAnswer(questionId) && drafts.isDirty(`answer:${questionId}`)
+          }
+          otherAnswerDirty={(questionId) => otherAnswerDirty(`answer:${questionId}`)}
+          answer={(questionId, input, key) => answer(questionId, input, key)}
+          readFailed={offline}
+          reportFor={(questionId) => drafts.forSource(`answer:${questionId}`)}
+          fallback={questionLink}
+        />
+        {question &&
+          (isAnswered(question, confirmedAnswer) || !drafts.isDirty(`answer:${id}`)) &&
+          questionOutcome(question)}
       </>
     )
   }
@@ -886,7 +894,8 @@ export function ProcessingWorkspace({
     pinned?.question.id === questionId &&
     (pinnedStanding === 'open' ||
       pinnedStanding === 'context_moved' ||
-      drafts.isDirty('answer'))
+      // A confirmed answer clears its draft, though the form reports clean only afterwards.
+      (drafts.isDirty('answer') && pinnedStanding !== 'answered_here'))
       ? pinned
       : null
   const namedQuestion = questionId ? currentQuestion : undefined
@@ -1258,7 +1267,7 @@ export function ProcessingWorkspace({
                       }
                       readOnly={batch.archived || saving === 'instructions'}
                       saving={saving === 'answer'}
-                      isDirty={(id) => drafts.isDirty(`answer:${id}`)}
+                      isDirty={(id) => !confirmedAnswer(id) && drafts.isDirty(`answer:${id}`)}
                       otherAnswerDirty={(id) => otherAnswerDirty(`answer:${id}`)}
                       answer={(id, input, key) => answer(id, input, key, { fromDrawer: true })}
                       focusNext={restored?.focusNext ?? false}

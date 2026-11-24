@@ -41,9 +41,7 @@ type LineInput = {
 }
 
 function answerWords(question: ProcessingQuestionDto, values: AnswerValueLine[]) {
-  const text = values
-    .map((value) => (value.truncated ? `${value.text}…` : value.text))
-    .join(' · ')
+  const text = values.map((value) => (value.truncated ? `${value.text}…` : value.text)).join(' · ')
   const steps = 'steps' in question ? question.steps : []
   const choice = steps.length === 1 && steps[0].answer.kind === 'choice'
 
@@ -69,7 +67,12 @@ function deliveryIcon(delivery: AnswerDeliveryDto | null): AnsweredIcon {
 }
 
 /** An answered question as one line: the read's answer when it has one, else this tab's. */
-export function answeredLine({ question, confirmed, sessionState, stage }: LineInput): AnsweredLine {
+export function answeredLine({
+  question,
+  confirmed,
+  sessionState,
+  stage,
+}: LineInput): AnsweredLine {
   const title = questionView(question).title
   const sessionHistory = question.session_history === true
   const summary = question.state === 'answered' ? question.answer : undefined
@@ -134,9 +137,9 @@ export function answeredLine({ question, confirmed, sessionState, stage }: LineI
  * The Answered group's order: newest answer first; answers with no time follow, in the order
  * they were asked.
  */
-export function newestAnsweredFirst<T extends { line: AnsweredLine; question: ProcessingQuestionDto }>(
-  lines: readonly T[],
-): T[] {
+export function newestAnsweredFirst<
+  T extends { line: AnsweredLine; question: ProcessingQuestionDto },
+>(lines: readonly T[]): T[] {
   return [...lines].sort((a, b) => {
     const left = a.line.answeredAt
     const right = b.line.answeredAt

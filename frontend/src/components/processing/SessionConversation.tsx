@@ -6,7 +6,7 @@ import {
   type ConversationFilter,
   type ConversationItem,
 } from '#/processing/session-history'
-import { color, space } from '#/theme/generated/tokens'
+import { color, radius, space, zIndex } from '#/theme/generated/tokens'
 import { ChatBubble } from './ChatBubble'
 import { ConversationRow, type ConversationRowProps } from './ConversationRow'
 
@@ -106,13 +106,13 @@ const Row = styled.li`
   &[data-rail='action']::before {
     content: '';
     position: absolute;
-    z-index: 1;
+    z-index: ${zIndex.raised};
     box-sizing: border-box;
     left: calc(${RAIL_X} - ${DOT} / 2);
     top: calc(${DOT_Y} - ${DOT} / 2);
     width: ${DOT};
     height: ${DOT};
-    border-radius: 50%;
+    border-radius: ${radius.round};
     border: ${space[1]} solid ${color.muted};
     background: ${color.surface};
   }

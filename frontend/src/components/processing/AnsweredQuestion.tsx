@@ -164,7 +164,7 @@ const Glyph = styled.span<{ $kind: AnsweredIcon }>`
   place-items: center;
   width: ${icon.md};
   height: ${icon.md};
-  border-radius: 50%;
+  border-radius: ${radius.round};
   background: ${({ $kind }) => ($kind === 'clock' ? color.surface2 : color.okWeak)};
   color: ${({ $kind }) => ($kind === 'clock' ? color.muted : color.ok)};
   svg {
@@ -252,7 +252,7 @@ const Dot = styled.span<{ $done: boolean }>`
   justify-self: center;
   width: ${space[4]};
   height: ${space[4]};
-  border-radius: 50%;
+  border-radius: ${radius.round};
   box-sizing: border-box;
   background: ${({ $done }) => ($done ? color.ok : 'transparent')};
   border: ${({ $done }) => ($done ? '0' : `2px solid ${color.muted}`)};

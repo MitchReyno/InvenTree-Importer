@@ -86,13 +86,7 @@ export function SessionChatPanel({
             Start a fresh session
           </Button>
         </Paragraph>
-        <SessionChat
-          messages={[]}
-          onSend={() => {}}
-          label={label}
-          showLog={false}
-          disabled
-        />
+        <SessionChat messages={[]} onSend={() => {}} label={label} showLog={false} disabled />
       </Panel>
     )
   }

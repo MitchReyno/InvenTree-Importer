@@ -10,6 +10,7 @@ import { color, radius, space } from '#/theme/generated/tokens'
 import { AttemptDivider, type FreshAction } from './AttemptDivider'
 import { ChatBubble } from './ChatBubble'
 import { HistoryEntry } from './HistoryEntry'
+import { HistoryLinks } from './HistoryLinks'
 import type { HistoryContext } from './HistoryLink'
 import { HistoryRow } from './HistoryRow'
 import { STEP_LABEL } from './ProcessingParts'
@@ -28,11 +29,19 @@ export type ConversationRowProps = {
 }
 
 /** An answer as the operator's bubble, quoting the question it answers with a link to it. */
-function AnswerBubble({ entry, context }: { entry: SessionHistoryEntryDto; context: HistoryContext }) {
+function AnswerBubble({
+  entry,
+  context,
+}: {
+  entry: SessionHistoryEntryDto
+  context: HistoryContext
+}) {
   if (entry.details.kind !== 'answer') {
     return null
   }
   const asker = STEP_LABEL[context.step] ?? 'The agent'
+  // The question link is the quote; the rest, such as the lot, follow the answer.
+  const lotLinks = entry.links.filter((candidate) => candidate.kind !== 'question')
   const link = entry.links.find((candidate) => candidate.kind === 'question')
   const question =
     link?.kind === 'question' ? (
@@ -59,6 +68,7 @@ function AnswerBubble({ entry, context }: { entry: SessionHistoryEntryDto; conte
       unread={entry.who !== 'agent' && !entry.read}
       quote={{ asker, question }}
       note={answerEffectsText(entry.details.effects) || undefined}
+      links={lotLinks.length > 0 && <HistoryLinks links={lotLinks} context={context} />}
     />
   )
 }

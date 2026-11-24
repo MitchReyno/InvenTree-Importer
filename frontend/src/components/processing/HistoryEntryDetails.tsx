@@ -49,7 +49,7 @@ export function HistoryEntryDetails({
     case 'question':
       return <QuestionDetails details={details} />
     case 'answer':
-      return <p>{answerEffectsText(details.effects) || "Nothing changed in Capture."}</p>
+      return <p>{answerEffectsText(details.effects) || 'Nothing changed in Capture.'}</p>
     case 'instruction':
       return (
         <>

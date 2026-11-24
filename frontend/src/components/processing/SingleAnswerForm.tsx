@@ -9,11 +9,7 @@ import {
   type ProcessingQuestionV1Dto,
 } from '@invimport/contracts'
 import { ANSWER_NOT_CONFIRMED, confirmedAnswerRefusal } from '#/processing/question-summary'
-import {
-  canSendNew,
-  standingWarning,
-  type QuestionStanding,
-} from '#/processing/question-standing'
+import { canSendNew, standingWarning, type QuestionStanding } from '#/processing/question-standing'
 import { Small, Banner, QuestionCard, Button, DebugDetails } from '#/components/ui'
 import { Fieldset, Input, Label, TextArea, OptionRow } from '#/forms'
 

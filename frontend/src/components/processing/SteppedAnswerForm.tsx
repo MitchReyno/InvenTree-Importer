@@ -15,11 +15,7 @@ import {
   confirmedAnswerRefusal,
   stepAnswerText,
 } from '#/processing/question-summary'
-import {
-  canSendNew,
-  standingWarning,
-  type QuestionStanding,
-} from '#/processing/question-standing'
+import { canSendNew, standingWarning, type QuestionStanding } from '#/processing/question-standing'
 import {
   draftStarted,
   emptyDraft,

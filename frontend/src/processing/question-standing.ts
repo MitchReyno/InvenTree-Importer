@@ -5,13 +5,7 @@ import type { ProcessingQuestionDto } from '@invimport/contracts'
  * answer. Only `open` and `context_moved` questions are still open.
  */
 export type QuestionStanding =
-  | 'open'
-  | 'context_moved'
-  | 'answered_here'
-  | 'answered_elsewhere'
-  | 'replaced'
-  | 'closed'
-  | 'gone'
+  'open' | 'context_moved' | 'answered_here' | 'answered_elsewhere' | 'replaced' | 'closed' | 'gone'
 
 export type StandingInput = {
   /** The question as the form pinned it, with the capture revision it was pinned at. */

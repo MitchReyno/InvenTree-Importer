@@ -1031,9 +1031,7 @@ test('a drawer draft keeps its revision when another answer moves it, and says i
     await cache.refetchQueries({ queryKey: key })
   })
   const form = screen.getByRole('form', { name: `Session question: ${first}` })
-  await waitFor(() =>
-    expect(form).toHaveTextContent('Its saved context changed since you started'),
-  )
+  await waitFor(() => expect(form).toHaveTextContent('Its saved context changed since you started'))
   expect(answerBox(first)).toHaveValue('Different tube')
   expect(dirty).toHaveBeenLastCalledWith(true)
 })

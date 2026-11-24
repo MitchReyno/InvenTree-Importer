@@ -18,13 +18,15 @@ type Props = {
   quote?: { asker: string; question: ReactNode }
   /** What the answer changed, beside its time. */
   note?: string
+  /** Where the answer leads, such as its lot in Review. */
+  links?: ReactNode
 }
 
 /**
  * A message, reply or answer as a bubble: the operator's on the right, the agent's on the left,
  * each naming its author. An answer quotes the question it answers.
  */
-export function ChatBubble({ id, mine, author, text, at, unread, quote, note }: Props) {
+export function ChatBubble({ id, mine, author, text, at, unread, quote, note, links }: Props) {
   return (
     <Message data-mine={mine} $mine={mine} id={id} tabIndex={id ? -1 : undefined}>
       <Who>{author}</Who>
@@ -35,6 +37,7 @@ export function ChatBubble({ id, mine, author, text, at, unread, quote, note }: 
         </Quote>
       )}
       <Text>{text}</Text>
+      {links}
       <Foot>
         {note && <span>{note}</span>}
         {unread && <span>Not read yet</span>}

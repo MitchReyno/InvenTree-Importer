@@ -4,7 +4,6 @@ import { expect, test, vi } from 'vitest'
 import { render } from '#/test/render'
 import { SessionChatPanel as SessionChat } from './SessionChatPanel'
 
-
 test('the composer queues a message for a finished session', async () => {
   const send = vi.fn().mockResolvedValue(undefined)
   render(

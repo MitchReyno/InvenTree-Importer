@@ -126,12 +126,23 @@ function conversationPage(waiting = false) {
           answer: {
             question_id: H.question,
             answer_id: H.inboxItem,
-            steps: [{ step_id: 'labels', value: { kind: 'choice', option_id: 'mix', label: 'A mixture' } }],
+            steps: [
+              {
+                step_id: 'labels',
+                value: { kind: 'choice', option_id: 'mix', label: 'A mixture' },
+              },
+            ],
           },
           effects: [{ kind: 'note', subject_id: H.lot }],
         },
         {
-          links: [{ kind: 'question', question_id: H.question, label: 'Do the photos show the same parts?' }],
+          links: [
+            {
+              kind: 'question',
+              question_id: H.question,
+              label: 'Do the photos show the same parts?',
+            },
+          ],
         },
       ),
       status(3, 4, 'Formed 1N2904, code 344'),
@@ -166,10 +177,9 @@ test('the drawer shows messages, replies and answers in one list in history orde
   expect(text[4]).toContain('Formed 1N2904, code 344')
   // The answer shows once, quoting the question with a link to it, its effect beside its time.
   expect(text[5]).toMatch(/^YouResearch asked/)
-  expect(within(rows(list)[5]).getByRole('link', { name: 'Do the photos show the same parts?' })).toHaveAttribute(
-    'href',
-    `#${H.batch}/processing/research/${H.question}`,
-  )
+  expect(
+    within(rows(list)[5]).getByRole('link', { name: 'Do the photos show the same parts?' }),
+  ).toHaveAttribute('href', `#${H.batch}/processing/research/${H.question}`)
   expect(text[5]).toContain('A mixture')
   expect(text[5]).toContain('Note added')
   expect(screen.getAllByText('A mixture')).toHaveLength(1)

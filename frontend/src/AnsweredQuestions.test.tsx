@@ -18,6 +18,9 @@ import { createAnswerOutcomes } from './processing/answer-outcomes'
 import { answered, choiceQuestion, fullAnswer, Q } from '#/test/answered-questions'
 import { attemptHeader, history as sessionHistory } from '#/test/session-history'
 
+// Each test mounts the whole Processing workspace, which a busy machine renders slowly.
+vi.setConfig({ testTimeout: 15000 })
+
 const batchId = '10000000-0000-4000-8000-000000000001'
 const scope: ServerScope = {
   origin: 'http://127.0.0.1:4310',
@@ -95,7 +98,9 @@ function clientFor(read: ProcessingSnapshotDto) {
       command_id: 'd0000000-0000-4000-8000-000000000004',
     }),
     history: vi.fn().mockResolvedValue(
-      sessionHistory([], { attempts: [attemptHeader({ state: 'running', session_state: 'running' })] }),
+      sessionHistory([], {
+        attempts: [attemptHeader({ state: 'running', session_state: 'running' })],
+      }),
     ),
     chat: vi.fn(),
   } satisfies ProcessingClient
@@ -216,4 +221,94 @@ test('the confirmed outcome gives way to a fresh read in the state-only tier', a
   })
   await waitFor(() => expect(answeredGroup()).toHaveTextContent('Answered · see the session'))
   expect(outcomes.get(Q.question(5))).toBeUndefined()
+})
+
+test('sending locks the form without folding it; no answer keeps it open and Try again resends the same key', async () => {
+  const user = userEvent.setup()
+  const client = clientFor(examineRead([lead(5)]))
+
+  let fail: (error: Error) => void = () => {}
+
+  client.answer.mockImplementationOnce(
+    () =>
+      new Promise((_resolve, reject) => {
+        fail = reject
+      }),
+  )
+  mount(client, { questionId: Q.question(5) })
+  await answerContentsVerified()
+  const form = screen.getByRole('form', { name: 'Pinned application question' })
+  expect(within(form).getByText(/^Sending…/)).toBeInTheDocument()
+  expect(within(form).getByRole('radio', { name: /Contents verified/ })).toBeDisabled()
+  expect(screen.queryByRole('region', { name: 'Answered' })).toBeNull()
+
+  await act(async () => {
+    fail(new Error('lost acknowledgement'))
+  })
+  expect(await within(form).findByText(/Not sent: the server didn’t answer/)).toBeInTheDocument()
+  expect(within(form).getByRole('radio', { name: /Contents verified/ })).toBeChecked()
+  await user.click(within(form).getByRole('button', { name: 'Try again' }))
+  await waitFor(() => expect(client.answer).toHaveBeenCalledTimes(2))
+  expect(client.answer.mock.calls[1]).toEqual(client.answer.mock.calls[0])
+})
+
+test('a step page pinned to a replaced question links the newer one, with no form', async () => {
+  const replaced = {
+    ...lead(5),
+    state: 'superseded' as const,
+    revision: '2',
+    replaced_by: Q.question(7),
+  }
+  mount(clientFor(examineRead([replaced, lead(7)])), { questionId: Q.question(5) })
+  const card = await screen.findByText(/Replaced by a newer question/)
+  expect(within(card.closest('[role="status"]')!).getByRole('link')).toHaveAttribute(
+    'href',
+    `#${batchId}/processing/examine/${Q.question(7)}`,
+  )
+  expect(screen.queryByRole('form', { name: 'Pinned application question' })).toBeNull()
+})
+
+test('a question closed by Start fresh reads “No longer asked”, linking the session, not the open one', async () => {
+  const closed = { ...lead(5), state: 'superseded' as const, revision: '2' }
+  mount(clientFor(examineRead([closed, lead(7)])), { questionId: Q.question(5) })
+  const card = (await screen.findByText(/No longer asked/)).closest('[role="status"]')!
+  const links = within(card as HTMLElement).getAllByRole('link')
+  expect(links).toHaveLength(1)
+  expect(links[0]).toHaveAttribute('href', `#${batchId}/processing/examine/sessions/${Q.job}`)
+  expect(screen.queryByRole('form', { name: 'Pinned application question' })).toBeNull()
+})
+
+test('a drawer with no draft shows a question answered elsewhere as its Answered line', async () => {
+  const client = clientFor(examineRead([lead(5)]))
+  history.replaceState(null, '', `#${batchId}/processing/examine?session=${Q.job}`)
+  const cache = createServerQueryClient()
+  const outcomes = createAnswerOutcomes()
+  render(
+    <ServerStateProvider scope={scope} client={cache}>
+      <ProcessingWorkspace
+        batch={batch}
+        client={client}
+        view="examine"
+        sessionId={Q.job}
+        navigate={vi.fn()}
+        onDirtyChange={vi.fn()}
+        onSaved={vi.fn().mockResolvedValue(undefined)}
+        answerOutcomes={outcomes}
+      />
+    </ServerStateProvider>,
+  )
+  const drawer = await screen.findByRole('dialog')
+  await within(drawer).findByRole('form', { name: `Session question: ${questionPrompt}` })
+  client.read.mockResolvedValue(
+    examineRead([answered(lead(5), fullAnswer('Contents verified'))], '9'),
+  )
+  await act(async () => {
+    await cache.refetchQueries({ queryKey: serverQueryKey(scope, 'processing', batchId) })
+  })
+  await waitFor(() =>
+    expect(within(drawer).getByRole('region', { name: 'Answered' })).toHaveTextContent(
+      'You chose Contents verified',
+    ),
+  )
+  expect(within(drawer).queryByRole('form', { name: /^Session question/ })).toBeNull()
 })

@@ -273,7 +273,12 @@ describe('the session page', () => {
   })
 
   it('marks the rail: dots on actions, solid between them, dashed across bubbles, now last', () => {
-    const items = drawerItems([status(3, 4, 'Later'), chat(1, 3, 'Hello'), status(2, 2, 'B'), status(1, 1, 'A')])
+    const items = drawerItems([
+      status(3, 4, 'Later'),
+      chat(1, 3, 'Hello'),
+      status(2, 2, 'B'),
+      status(1, 1, 'A'),
+    ])
     expect(railMarks(items, true)).toEqual([
       { action: true, line: 'solid', now: false },
       { action: true, line: 'dashed', now: false },

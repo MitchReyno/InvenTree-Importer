@@ -209,6 +209,14 @@ test('one conversation in time order, with a divider for each attempt', async ()
     'data-mine',
     'false',
   )
+  // The same rail as the drawer: dots on the agent's actions, none on the bubbles.
+  const items = [...list.children] as HTMLElement[]
+  const bubble = within(list).getByText('Will do.').closest('li')!
+  expect(bubble.dataset.rail).toBeUndefined()
+  expect(items.find((row) => row.textContent?.includes('Comparing pin-outs'))?.dataset.rail).toBe(
+    'action',
+  )
+  expect(items.filter((row) => row.dataset.now)).toHaveLength(1)
 })
 
 test('filter chips narrow the conversation, and Load older adds the older page above', async () => {
@@ -485,7 +493,9 @@ test('an unsaved answer on the page stays, marked answered elsewhere, when anoth
   page = history([question(4, 4, { state: 'answered' })])
   await invalidate()
 
-  await waitFor(() => expect(card).toHaveTextContent('Answered elsewhere; your unsaved answer can’t be sent.'))
+  await waitFor(() =>
+    expect(card).toHaveTextContent('Answered elsewhere; your unsaved answer can’t be sent.'),
+  )
   expect(within(card).getByRole('radio', { name: /ATmega328PB-AU/ })).toBeChecked()
   expect(processing.answer).not.toHaveBeenCalled()
 })

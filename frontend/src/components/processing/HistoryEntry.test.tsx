@@ -245,7 +245,7 @@ test('a question expands to its steps and assumptions, linking to Answer and the
   ).toBeInTheDocument()
 })
 
-test('your answer expands to what it changed', async () => {
+test('your answer shows as your bubble with what it changed and its lot', () => {
   show([
     input(
       4,
@@ -271,11 +271,11 @@ test('your answer expands to what it changed', async () => {
       },
     ),
   ])
-  const details = await expand('You answered: same Part · 380 estimated')
-
-  expect(details).toHaveTextContent('Lot quantity set to 380 (estimated) · note added')
-  expect(details).toHaveTextContent('You')
-  expect(within(details).getByRole('link', { name: 'Open Packet A in Review' })).toBeInTheDocument()
+  // An answer is the operator's bubble, with what it changed beside its time.
+  const bubble = screen.getByText('same Part · 380 estimated').closest('[data-mine]') as HTMLElement
+  expect(bubble).toHaveTextContent('You')
+  expect(bubble).toHaveTextContent('Lot quantity set to 380 (estimated) · note added')
+  expect(within(bubble).getByRole('link', { name: 'Open Packet A in Review' })).toBeInTheDocument()
 })
 
 test('an input the session has not read says so, and an app notice is marked as the app’s', () => {

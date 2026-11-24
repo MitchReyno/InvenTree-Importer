@@ -88,7 +88,12 @@ export function answered<T extends ProcessingQuestionDto>(
   question: T,
   answer?: ProcessingAnswerSummaryDto,
 ): T {
-  const value = { ...question, state: 'answered' as const, revision: '2', ...(answer ? { answer } : {}) }
+  const value = {
+    ...question,
+    state: 'answered' as const,
+    revision: '2',
+    ...(answer ? { answer } : {}),
+  }
   validate('ProcessingQuestion', value)
   return value
 }

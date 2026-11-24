@@ -24,12 +24,12 @@ export function ClosedQuestion({
         <b>{title}</b>{' '}
         {replacementHref ? (
           <>
-            Replaced by a newer question. <Link href={replacementHref}>Open the newer question</Link>
+            Replaced by a newer question.{' '}
+            <Link href={replacementHref}>Open the newer question</Link>
           </>
         ) : (
           <>
-            No longer asked.{' '}
-            {sessionHref && <Link href={sessionHref}>See it in the session</Link>}
+            No longer asked. {sessionHref && <Link href={sessionHref}>See it in the session</Link>}
           </>
         )}
       </Banner>
