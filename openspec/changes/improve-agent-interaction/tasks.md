@@ -307,7 +307,7 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
   - [x] 7.4.6 A correction sent before a Start fresh sits at its send time, shown as the app's notice of the operator's correction; observations from different photos stay ungrouped; a mixed photo and web run is one drawer line.
   - [x] 7.4.7 The photos and sources panels on a long session say older entries are not loaded, and list an older photo view and source once Load older loads them.
 - [x] 7.5 GREEN: implement the renderer, the drawer change, the page and the entry points (Agents rows, session lists, failure details). Remove the old timeline response.
-- [ ] 7.6 Update the fixtures and the frontend architecture. Run the frontend checks, and the intake unit and PG tiers for the removed timeline response and its consumers. Record the demo video for the PR description.
+- [x] 7.6 Update the fixtures and the frontend architecture. Run the frontend checks, and the intake unit and PG tiers for the removed timeline response and its consumers. Record the demo video for the PR description.
 
 ## 8. Stage counts and the paused flag
 
