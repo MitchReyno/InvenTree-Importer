@@ -53,11 +53,21 @@ function moreSessions() {
 }
 
 function toggleTags() {
-  fireEvent.click(screen.getByRole('checkbox', { name: 'Suggest tags for new batches' }))
+  fireEvent.click(screen.getByRole('switch', { name: 'Suggest tags for new batches' }))
 }
 
 function providerSwitch(provider: 'Claude' | 'Codex') {
-  return within(screen.getByRole('group', { name: provider })).getByRole('checkbox', { name: 'On' })
+  return within(screen.getByRole('group', { name: provider })).getByRole('switch', { name: 'On' })
+}
+
+/** Picks an option in a step's or a card's model picker, by searching for it first. */
+function pick(picker: HTMLElement, option: string, search = option.split(' · ').at(-1)!) {
+  fireEvent.change(picker, { target: { value: search } })
+  fireEvent.click(screen.getByRole('option', { name: option }))
+}
+
+function stepPicker(step: string) {
+  return within(screen.getByRole('group', { name: step })).getByRole('combobox', { name: step })
 }
 
 /** A subsection, whose heading carries its save status. */
@@ -133,7 +143,7 @@ describe('non-text settings save as they change', () => {
 
   test('a switch change saves on its own and releases the guard once confirmed', async () => {
     const { server, dirty } = await renderAgents()
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Allow public web pages' }))
+    fireEvent.click(screen.getByRole('switch', { name: 'Allow public web pages' }))
     expect(dirty()).toBe(true)
     await wait(600)
     expect(server.saved.web).toEqual({ public_pages: false, prefer_datasheets: true })
@@ -150,7 +160,7 @@ describe('conflicts and lost acknowledgements', () => {
     await wait(600)
     const status = within(heading('Tag suggestions')).getByRole('alert')
     expect(status).toHaveTextContent('Tag suggestions: Not saved: changed in another tab')
-    expect(screen.getByRole('checkbox', { name: 'Suggest tags for new batches' })).toBeChecked()
+    expect(screen.getByRole('switch', { name: 'Suggest tags for new batches' })).toBeChecked()
     expect(within(status).getByRole('button', { name: 'Try the same save again' })).toBeVisible()
     // Later saves wait while the outcome is contested.
     moreSessions()
@@ -160,7 +170,7 @@ describe('conflicts and lost acknowledgements', () => {
 
     fireEvent.click(within(status).getByRole('button', { name: /Reload/ }))
     await wait()
-    expect(screen.getByRole('checkbox', { name: 'Suggest tags for new batches' })).not.toBeChecked()
+    expect(screen.getByRole('switch', { name: 'Suggest tags for new batches' })).not.toBeChecked()
     expect(within(heading('Tag suggestions')).queryByRole('alert')).not.toBeInTheDocument()
     // The queue resumes; the queued edit keeps the revision it was made over, so it meets the
     // same conflict rather than overwriting the other tab's change unseen.
@@ -301,7 +311,7 @@ describe("a change that can't be confirmed", () => {
     fireEvent.click(within(status).getByRole('button', { name: /Reload/ }))
     await wait(1000)
     expect(server.sent()).toHaveLength(sent)
-    expect(screen.getByRole('checkbox', { name: 'Suggest tags for new batches' })).toBeChecked()
+    expect(screen.getByRole('switch', { name: 'Suggest tags for new batches' })).toBeChecked()
     expect(screen.queryByText(/Couldn’t confirm/)).not.toBeInTheDocument()
     expect(dirty()).toBe(false)
   })
@@ -320,7 +330,7 @@ describe("a change that can't be confirmed", () => {
   test('a replay confirms its save, and a newer read from another tab leaves queued edits on the conflict path', async () => {
     const { server } = await renderAgents()
     server.deliver('lost-after-commit')
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Allow public web pages' }))
+    fireEvent.click(screen.getByRole('switch', { name: 'Allow public web pages' }))
     await wait(600)
     server.otherTab({ new_batch_instructions: 'From the other tab' })
     toggleTags()
@@ -337,9 +347,7 @@ describe('providers', () => {
   test('turning a provider off saves at once with its steps reset, superseding a queued step choice', async () => {
     const { server } = await renderAgents(bothOn)
     const research = within(screen.getByRole('group', { name: 'Research' }))
-    fireEvent.change(research.getByRole('combobox', { name: 'Research provider' }), {
-      target: { value: 'codex' },
-    })
+    pick(stepPicker('Research'), 'Codex · gpt-6-luna')
     await wait(200)
     fireEvent.click(providerSwitch('Codex'))
     await wait(0)
@@ -351,9 +359,9 @@ describe('providers', () => {
     })
     await wait(1000)
     expect(server.sent()).toHaveLength(1)
-    expect(research.getByRole('combobox', { name: 'Research provider' })).toHaveValue('')
+    expect(research.getByText('Default · Claude opus')).toBeVisible()
     expect(research.getByText(/now uses Default/)).toBeVisible()
-    expect(screen.getByRole('radio', { name: 'Codex' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Codex' })).toHaveAttribute('aria-disabled', 'true')
   })
 
   test('turning off the default provider moves the default and resets its saved steps, together', async () => {
@@ -392,12 +400,7 @@ describe('providers', () => {
     server.otherTab({
       providers: { ...bothOn.providers, codex: { ...bothOn.providers.codex, enabled: false } },
     })
-    fireEvent.change(
-      within(screen.getByRole('group', { name: 'Research' })).getByRole('combobox', {
-        name: 'Research provider',
-      }),
-      { target: { value: 'codex' } },
-    )
+    pick(stepPicker('Research'), 'Codex · gpt-6.1-sol')
     await wait(600)
     fireEvent.click(
       within(heading('Provider and model per step')).getByRole('button', {
@@ -415,31 +418,6 @@ describe('providers', () => {
 })
 
 describe('round 1 regressions', () => {
-  test('a step provider autosaves with its saved default model while a model typed for it waits for Save', async () => {
-    const { server } = await renderAgents(bothOn)
-    const research = within(screen.getByRole('group', { name: 'Research' }))
-    fireEvent.change(research.getByRole('combobox', { name: 'Research provider' }), {
-      target: { value: 'codex' },
-    })
-    await wait(200)
-    fireEvent.change(research.getByRole('combobox', { name: 'Research model' }), {
-      target: { value: 'gpt-6-luna' },
-    })
-    await wait(600)
-    expect(server.sent()).toHaveLength(1)
-    expect(server.sent()[0].stage_selections).toEqual({
-      research: { provider: 'codex', model: 'gpt-6.1-sol' },
-    })
-    expect(research.getByRole('combobox', { name: 'Research model' })).toHaveValue('gpt-6-luna')
-    fireEvent.click(
-      within(heading('Provider and model per step')).getByRole('button', { name: 'Save' }),
-    )
-    await wait()
-    expect(server.saved.stage_selections).toEqual({
-      research: { provider: 'codex', model: 'gpt-6-luna' },
-    })
-  })
-
   test('Try again after another tab turned the other provider off keeps this one on', async () => {
     const { server } = await renderAgents(bothOn)
     server.otherTab({
@@ -475,35 +453,6 @@ describe('round 1 regressions', () => {
     expect(screen.queryByText(/Couldn’t confirm/)).not.toBeInTheDocument()
   })
 
-  test("each model Save and Discard covers only its own subsection's fields", async () => {
-    const { server } = await renderAgents({
-      ...bothOn,
-      stage_selections: { research: { provider: 'codex', model: 'gpt-6.1-sol' } },
-    })
-    fireEvent.change(
-      within(screen.getByRole('group', { name: 'Claude' })).getByRole('combobox', {
-        name: 'Default model',
-      }),
-      { target: { value: 'sonnet' } },
-    )
-    const researchModel = within(screen.getByRole('group', { name: 'Research' })).getByRole(
-      'combobox',
-      { name: 'Research model' },
-    )
-    fireEvent.change(researchModel, { target: { value: 'gpt-6-luna' } })
-    fireEvent.click(within(heading('Providers')).getByRole('button', { name: 'Save' }))
-    await wait()
-    expect(server.saved.providers.claude.default_model).toBe('sonnet')
-    expect(server.saved.stage_selections.research?.model).toBe('gpt-6.1-sol')
-    expect(researchModel).toHaveValue('gpt-6-luna')
-    fireEvent.click(
-      within(heading('Provider and model per step')).getByRole('button', {
-        name: 'Discard my edit',
-      }),
-    )
-    expect(researchModel).toHaveValue('gpt-6.1-sol')
-  })
-
   test('a save that fails before it is sent offers Try again, which sends it and frees the queue', async () => {
     const { server } = await renderAgents()
     vi.spyOn(crypto, 'randomUUID').mockImplementationOnce(() => {
@@ -530,12 +479,6 @@ describe('round 2 regressions', () => {
       ...bothOn,
       stage_selections: { research: { provider: 'claude', model: 'opus' } },
     })
-    fireEvent.change(
-      within(screen.getByRole('group', { name: 'Research' })).getByRole('combobox', {
-        name: 'Research model',
-      }),
-      { target: { value: 'sonnet' } },
-    )
     server.otherTab({ stage_selections: { research: { provider: 'codex', model: 'gpt-6-luna' } } })
     fireEvent.click(
       within(screen.getByRole('group', { name: 'Claude' })).getByRole('button', {
@@ -551,36 +494,6 @@ describe('round 2 regressions', () => {
     expect(server.saved.stage_selections).toEqual({
       research: { provider: 'codex', model: 'gpt-6-luna' },
     })
-  })
-
-  test('a model Save checks only its own fields, and its Try again keeps that scope', async () => {
-    const { server } = await renderAgents({
-      ...bothOn,
-      stage_selections: { research: { provider: 'codex', model: 'gpt-6.1-sol' } },
-    })
-    fireEvent.change(
-      within(screen.getByRole('group', { name: 'Research' })).getByRole('combobox', {
-        name: 'Research model',
-      }),
-      { target: { value: '-not an id' } },
-    )
-    fireEvent.change(
-      within(screen.getByRole('group', { name: 'Claude' })).getByRole('combobox', {
-        name: 'Default model',
-      }),
-      { target: { value: 'sonnet' } },
-    )
-    vi.spyOn(crypto, 'randomUUID').mockImplementationOnce(() => {
-      throw new Error('no_entropy')
-    })
-    fireEvent.click(within(heading('Providers')).getByRole('button', { name: 'Save' }))
-    await wait()
-    expect(server.sent()).toHaveLength(0)
-    fireEvent.click(within(heading('Providers')).getByRole('button', { name: 'Try again' }))
-    await wait()
-    expect(server.sent()).toHaveLength(1)
-    expect(server.saved.providers.claude.default_model).toBe('sonnet')
-    expect(server.saved.stage_selections.research?.model).toBe('gpt-6.1-sol')
   })
 
   test('a confirmed save whose read answers after the page is left reports nothing', async () => {
@@ -617,7 +530,7 @@ describe('round 2 regressions', () => {
     expect(providerSwitch('Codex')).not.toBeChecked()
     expect(
       within(screen.getByRole('group', { name: 'Codex' })).getByRole('alert'),
-    ).toHaveTextContent('Save a valid default model before turning Codex on')
+    ).toHaveTextContent('Choose a default model before turning Codex on')
     await wait(2000)
     expect(server.sent()).toHaveLength(0)
   })
@@ -640,109 +553,6 @@ describe('round 2 regressions', () => {
   })
 })
 
-describe('round 3 fixes', () => {
-  function chooseResearch(provider: string) {
-    fireEvent.change(
-      within(screen.getByRole('group', { name: 'Research' })).getByRole('combobox', {
-        name: 'Research provider',
-      }),
-      { target: { value: provider } },
-    )
-  }
-
-  function researchModel() {
-    return within(screen.getByRole('group', { name: 'Research' })).getByRole('combobox', {
-      name: 'Research model',
-    })
-  }
-
-  test('discarding a typed step model keeps the provider chosen in the same pause', async () => {
-    const { server } = await renderAgents(bothOn)
-    chooseResearch('codex')
-    fireEvent.change(researchModel(), { target: { value: 'gpt-6-luna' } })
-    fireEvent.click(
-      within(heading('Provider and model per step')).getByRole('button', {
-        name: 'Discard my edit',
-      }),
-    )
-    await wait(600)
-    expect(server.saved.stage_selections).toEqual({
-      research: { provider: 'codex', model: 'gpt-6.1-sol' },
-    })
-  })
-
-  test('saving a typed step model sends the provider chosen in the same pause first', async () => {
-    const { server } = await renderAgents(bothOn)
-    chooseResearch('codex')
-    fireEvent.change(researchModel(), { target: { value: 'gpt-6-luna' } })
-    fireEvent.click(
-      within(heading('Provider and model per step')).getByRole('button', { name: 'Save' }),
-    )
-    await wait()
-    expect(server.sent().map((request) => request.stage_selections.research)).toEqual([
-      { provider: 'codex', model: 'gpt-6.1-sol' },
-      { provider: 'codex', model: 'gpt-6-luna' },
-    ])
-  })
-
-  test('a sign-in retry leaves a model draft typed over a value changed elsewhere in conflict', async () => {
-    const { server } = await renderAgents(bothOn)
-    const claude = within(screen.getByRole('group', { name: 'Claude' }))
-    fireEvent.change(claude.getByRole('combobox', { name: 'Default model' }), {
-      target: { value: 'sonnet' },
-    })
-    server.otherTab({
-      providers: {
-        ...bothOn.providers,
-        claude: { ...bothOn.providers.claude, default_model: 'haiku' },
-      },
-    })
-    fireEvent.click(claude.getByRole('button', { name: 'API key' }))
-    await wait(600)
-    fireEvent.click(
-      within(heading('Providers')).getByRole('button', { name: 'Try the same save again' }),
-    )
-    await wait()
-    expect(server.saved.providers.claude).toEqual({
-      enabled: true,
-      authentication: 'api_key',
-      default_model: 'haiku',
-    })
-    const sent = server.sent().length
-    fireEvent.click(within(heading('Providers')).getByRole('button', { name: 'Save' }))
-    await wait()
-    expect(server.sent()).toHaveLength(sent)
-    expect(within(heading('Providers')).getByRole('alert')).toHaveTextContent(
-      /changed in another tab/,
-    )
-  })
-
-  test("Reload after a refused model Save keeps the other subsection's draft", async () => {
-    const { server } = await renderAgents({
-      ...bothOn,
-      stage_selections: { research: { provider: 'codex', model: 'gpt-6.1-sol' } },
-    })
-    fireEvent.change(researchModel(), { target: { value: 'gpt-6-luna' } })
-    fireEvent.change(
-      within(screen.getByRole('group', { name: 'Claude' })).getByRole('combobox', {
-        name: 'Default model',
-      }),
-      { target: { value: 'sonnet' } },
-    )
-    server.otherTab({
-      providers: {
-        ...bothOn.providers,
-        claude: { ...bothOn.providers.claude, default_model: 'haiku' },
-      },
-    })
-    fireEvent.click(within(heading('Providers')).getByRole('button', { name: 'Save' }))
-    await wait()
-    fireEvent.click(within(heading('Providers')).getByRole('button', { name: 'Reload' }))
-    await wait()
-    expect(researchModel()).toHaveValue('gpt-6-luna')
-  })
-})
-
 describe('text keeps an explicit Save', () => {
   test('Instructions show Save and Discard only while edited, and save nothing until Save', async () => {
     const { server } = await renderAgents()
@@ -759,31 +569,6 @@ describe('text keeps an explicit Save', () => {
     await wait()
     expect(server.saved.new_batch_instructions).toBe('Count reels by label.')
     expect(card.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
-  })
-
-  test('the interim model fields keep their own Save, which sends only themselves', async () => {
-    const { server } = await renderAgents(bothOn)
-    const codex = within(screen.getByRole('group', { name: 'Codex' }))
-    fireEvent.change(codex.getByRole('combobox', { name: 'Default model' }), {
-      target: { value: 'gpt-6-luna' },
-    })
-    fireEvent.click(codex.getByRole('button', { name: 'Subscription' }))
-    await wait(600)
-    expect(server.sent()).toHaveLength(1)
-    expect(server.sent()[0].providers.codex).toEqual({
-      enabled: true,
-      authentication: 'subscription',
-      default_model: 'gpt-6.1-sol',
-    })
-    const providers = within(heading('Providers'))
-    fireEvent.click(providers.getByRole('button', { name: 'Save' }))
-    await wait()
-    expect(server.sent()[1].providers.codex).toEqual({
-      enabled: true,
-      authentication: 'subscription',
-      default_model: 'gpt-6-luna',
-    })
-    expect(providers.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
   })
 })
 

@@ -1,51 +1,95 @@
-import { Button } from '#/components/ui'
+import { useState } from 'react'
+import styled from 'styled-components'
+import { Button, Dialog } from '#/components/ui'
 import { TextField } from '#/forms'
-import type { PersonalClaudeCredentialState } from './usePersonalClaudeCredential'
+import { color, space } from '#/theme/generated/tokens'
+import { usePersonalClaudeCredential } from './usePersonalClaudeCredential'
 
 type Props = {
-  /** The panel's state, held by the Agents settings section so its provider card agrees. */
-  credential: PersonalClaudeCredentialState
+  /** The VM confirmed a change, or one may have happened; the card reads its status again. */
+  onChanged: (configured: boolean | undefined) => void
 }
 
-export function PersonalClaudeCredential({ credential }: Props) {
-  const { key, token, status, message, busy, open, submit, toggle, editKey } = credential
+/** "Subscription token…" on the Claude card, and the dialog it opens. */
+export function PersonalClaudeCredential({ onChanged }: Props) {
+  const [open, setOpen] = useState(false)
 
   return (
-    <section>
-      <Button disabled={busy} aria-expanded={open} onClick={toggle}>
-        Personal Claude subscription
-      </Button>
-      {open && (
-        <fieldset disabled={busy}>
-          <legend>Shared VM credential</legend>
-          <TextField
-            label="Personal runner management key"
-            type="password"
-            autoComplete="off"
-            ref={key}
-            onChange={editKey}
-          />
-          <Button onClick={() => void submit('status')}>Check configuration</Button>
-          {status && (
-            <>
-              <p role="status">{status.configured ? 'Configured' : 'Unconfigured'}</p>
-              <TextField
-                ref={token}
-                label="CLAUDE_CODE_OAUTH_TOKEN"
-                type="password"
-                autoComplete="off"
-              />
-              <Button onClick={() => void submit('save')}>
-                {status.configured ? 'Replace token' : 'Save token'}
-              </Button>
-              {status.configured && (
-                <Button onClick={() => void submit('remove')}>Remove token</Button>
-              )}
-            </>
-          )}
-          {message && <p role="alert">{message}</p>}
-        </fieldset>
-      )}
-    </section>
+    <>
+      <Button onClick={() => setOpen(true)}>Subscription token…</Button>
+      {open && <TokenDialog onChanged={onChanged} onClose={() => setOpen(false)} />}
+    </>
   )
 }
+
+function TokenDialog({ onChanged, onClose }: Props & { onClose: () => void }) {
+  const { token, status, phase, message, editKey, save, remove } = usePersonalClaudeCredential({
+    onChanged,
+    onClose,
+  })
+  const ready = status !== undefined && phase === 'idle'
+
+  let state = 'Enter the management key to read the token’s status.'
+  if (phase === 'checking') {
+    state = 'Checking…'
+  } else if (status) {
+    state = status.configured ? 'A token is saved.' : 'No token is saved.'
+  }
+
+  return (
+    <Dialog title="Claude subscription token" onClose={onClose}>
+      <Form
+        onSubmit={(event) => {
+          event.preventDefault()
+          save()
+        }}
+      >
+        <TextField
+          label="Personal runner management key"
+          type="password"
+          autoComplete="off"
+          help="Held only while this dialog is open."
+          onChange={(event) => editKey(event.target.value)}
+        />
+        <p role="status">{state}</p>
+        <TextField
+          ref={token}
+          label="Subscription token"
+          type="password"
+          autoComplete="off"
+          help="From claude setup-token; it starts sk-ant-oat01-."
+        />
+        {message && <Alert role="alert">{message}</Alert>}
+        <Actions>
+          <Button type="submit" variant="primary" disabled={!ready}>
+            {phase === 'saving' ? 'Saving…' : status?.configured ? 'Replace token' : 'Save token'}
+          </Button>
+          {status?.configured && (
+            <Button disabled={!ready} onClick={remove}>
+              {phase === 'removing' ? 'Removing…' : 'Remove token'}
+            </Button>
+          )}
+        </Actions>
+      </Form>
+    </Dialog>
+  )
+}
+
+const Form = styled.form`
+  display: flex;
+  flex-direction: column;
+  gap: ${space[5]};
+  p {
+    margin: 0;
+  }
+`
+
+const Actions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${space[3]};
+`
+
+const Alert = styled.p`
+  color: ${color.bad};
+`

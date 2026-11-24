@@ -1,92 +1,185 @@
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi, type Mock } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { PersonalClaudeCredential } from './PersonalClaudeCredential'
-import { usePersonalClaudeCredential } from './usePersonalClaudeCredential'
+import { KEY_PAUSE_MS } from './usePersonalClaudeCredential'
 
-afterEach(() => vi.unstubAllGlobals())
+const TOKEN = 'sk-ant-oat01-abcdefghijklmnop'
 
-/** The panel with its state, as the Agents settings section holds it. */
-function Credential() {
-  return <PersonalClaudeCredential credential={usePersonalClaudeCredential()} />
+let send: Mock<typeof fetch>
+let onChanged: Mock<(configured: boolean | undefined) => void>
+
+beforeEach(() => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  send = vi.fn<typeof fetch>()
+  onChanged = vi.fn()
+  vi.stubGlobal('isSecureContext', true)
+  vi.stubGlobal('fetch', send)
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.useRealTimers()
+})
+
+const sent = () => send.mock.calls.map(([, request]) => JSON.parse(String(request?.body)))
+
+const authorizations = () =>
+  send.mock.calls.map(([, request]) => new Headers(request?.headers).get('authorization'))
+
+function openDialog() {
+  render(<PersonalClaudeCredential onChanged={onChanged} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Subscription token…' }))
+  return screen.getByRole('dialog', { name: 'Claude subscription token' })
 }
 
-it('saves only on explicit submit and clears the password after the guest acknowledges', async () => {
-  const send = vi
-    .fn()
+/** Types the key and waits past its pause, for the protected status read. */
+async function enterKey(value = 'operator') {
+  fireEvent.change(screen.getByLabelText('Personal runner management key'), {
+    target: { value },
+  })
+  await act(() => vi.advanceTimersByTimeAsync(KEY_PAUSE_MS))
+}
+
+function typeToken(value: string) {
+  fireEvent.change(screen.getByLabelText('Subscription token'), { target: { value } })
+}
+
+const save = () => screen.getByRole('button', { name: /Save token|Replace token|Saving…/ })
+
+it('reads the protected status after the key is entered, then saves and closes once the VM confirms', async () => {
+  send
     .mockResolvedValueOnce(Response.json({ configured: false, revision: 'one' }))
     .mockResolvedValueOnce(Response.json({ configured: true, revision: 'two' }))
-    .mockResolvedValueOnce(new Response(null, { status: 503 }))
-  vi.stubGlobal('isSecureContext', true)
-  vi.stubGlobal('fetch', send)
-  render(<Credential />)
-  fireEvent.click(screen.getByText('Personal Claude subscription'))
-  fireEvent.change(screen.getByLabelText('Personal runner management key'), {
-    target: { value: 'operator' },
-  })
-  fireEvent.click(screen.getByText('Check configuration'))
-  const field = (await screen.findByLabelText('CLAUDE_CODE_OAUTH_TOKEN')) as HTMLInputElement
-  expect(field.type).toBe('password')
-  fireEvent.change(field, { target: { value: 'secret-sentinel' } })
-  expect(send).toHaveBeenCalledTimes(1)
-  fireEvent.click(screen.getByText('Save token'))
-  await screen.findByText('Configured')
-  expect(field.value).toBe('')
-  expect(JSON.parse(send.mock.calls[1][1].body)).toEqual({
-    action: 'save',
-    revision: 'one',
-    token: 'secret-sentinel',
-  })
-  fireEvent.click(screen.getByText('Remove token'))
-  await screen.findByRole('alert')
-  expect(JSON.parse(send.mock.calls[2][1].body)).toEqual({ action: 'remove', revision: 'two' })
+  openDialog()
+  expect(save()).toBeDisabled()
+  await enterKey()
+  expect(await screen.findByText('No token is saved.')).toBeVisible()
+  expect(save()).toBeEnabled()
+  typeToken(TOKEN)
+  fireEvent.click(save())
+  expect(save()).toBeDisabled()
+  await act(() => vi.advanceTimersByTimeAsync(0))
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(sent()).toEqual([{ action: 'status' }, { action: 'save', revision: 'one', token: TOKEN }])
+  expect(onChanged).toHaveBeenCalledExactlyOnceWith(true)
 })
 
-it('discards an unconfirmed offline save and reconnects without replaying the secret', async () => {
-  const sentinel = 'fixture-offline-token'
-  const send = vi
-    .fn()
-    .mockResolvedValueOnce(Response.json({ configured: false, revision: 'first' }))
-    .mockRejectedValueOnce(new Error(sentinel))
-    .mockResolvedValueOnce(Response.json({ configured: false, revision: 'first' }))
-  vi.stubGlobal('isSecureContext', true)
-  vi.stubGlobal('fetch', send)
-  render(<Credential />)
-  fireEvent.click(screen.getByText('Personal Claude subscription'))
-  fireEvent.click(screen.getByText('Check configuration'))
-  fireEvent.change(await screen.findByLabelText('CLAUDE_CODE_OAUTH_TOKEN'), {
-    target: { value: sentinel },
-  })
-  fireEvent.click(screen.getByText('Save token'))
-  expect((await screen.findByRole('alert')).textContent).not.toContain(sentinel)
-  expect(screen.getByRole('group', { name: 'Shared VM credential' })).toBeEnabled()
-  expect(screen.queryByLabelText('CLAUDE_CODE_OAUTH_TOKEN')).toBeNull()
-  fireEvent.click(screen.getByText('Check configuration'))
-  const field = (await screen.findByLabelText('CLAUDE_CODE_OAUTH_TOKEN')) as HTMLInputElement
-  expect(field.value).toBe('')
-  expect(send.mock.calls.map(([, request]) => JSON.parse(request.body).action)).toEqual([
-    'status',
-    'save',
-    'status',
-  ])
-  expect(send.mock.calls[2][1].body).not.toContain(sentinel)
-})
-
-it('locks the panel while a request is unanswered', async () => {
-  let answer!: (response: Response) => void
-  const send = vi.fn(
-    () =>
-      new Promise<Response>((resolve) => {
-        answer = resolve
-      }),
+it('an API key pasted as a token keeps the dialog open and sends nothing', async () => {
+  send.mockResolvedValueOnce(Response.json({ configured: true, revision: 'one' }))
+  openDialog()
+  await enterKey()
+  await screen.findByText('A token is saved.')
+  typeToken('sk-ant-api03-abcdefghijklmnop')
+  fireEvent.click(save())
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'That looks like an API key, not a subscription token',
   )
-  vi.stubGlobal('isSecureContext', true)
-  vi.stubGlobal('fetch', send)
-  render(<Credential />)
-  fireEvent.click(screen.getByText('Personal Claude subscription'))
-  fireEvent.click(screen.getByText('Check configuration'))
-  expect(screen.getByRole('group', { name: 'Shared VM credential' })).toBeDisabled()
-  expect(screen.getByRole('button', { name: 'Personal Claude subscription' })).toBeDisabled()
-  await act(async () => answer(Response.json({ configured: false, revision: 'one' })))
-  expect(await screen.findByText('Unconfigured')).toBeVisible()
-  expect(screen.getByRole('group', { name: 'Shared VM credential' })).toBeEnabled()
+  expect(screen.getByRole('dialog')).toBeVisible()
+  expect(sent()).toEqual([{ action: 'status' }])
+  expect(onChanged).not.toHaveBeenCalled()
+})
+
+it('a wrong management key is refused with the reason, and Save and Remove stay disabled', async () => {
+  send.mockResolvedValueOnce(new Response('{}', { status: 403 }))
+  openDialog()
+  await enterKey('wrong')
+  expect(await screen.findByRole('alert')).toHaveTextContent('The management key was refused')
+  expect(save()).toBeDisabled()
+  expect(screen.queryByRole('button', { name: 'Remove token' })).not.toBeInTheDocument()
+  expect(sent()).toEqual([{ action: 'status' }])
+})
+
+it('a token replaced elsewhere is refused as stale: the dialog stays open, says so and reads again', async () => {
+  send
+    .mockResolvedValueOnce(Response.json({ configured: true, revision: 'one' }))
+    .mockResolvedValueOnce(new Response('{}', { status: 409 }))
+    .mockResolvedValueOnce(Response.json({ configured: true, revision: 'three' }))
+  openDialog()
+  await enterKey()
+  await screen.findByText('A token is saved.')
+  typeToken(TOKEN)
+  fireEvent.click(save())
+  await act(() => vi.advanceTimersByTimeAsync(0))
+  expect(screen.getByRole('dialog')).toBeVisible()
+  expect(screen.getByRole('alert')).toHaveTextContent('The token changed since this dialog read it')
+  expect(sent().map((body) => body.action)).toEqual(['status', 'save', 'status'])
+  expect(save()).toBeEnabled()
+  expect(onChanged).not.toHaveBeenCalled()
+})
+
+it('Remove closes once the VM confirms no token is stored', async () => {
+  send
+    .mockResolvedValueOnce(Response.json({ configured: true, revision: 'one' }))
+    .mockResolvedValueOnce(Response.json({ configured: false, revision: 'two' }))
+  openDialog()
+  await enterKey()
+  fireEvent.click(await screen.findByRole('button', { name: 'Remove token' }))
+  await act(() => vi.advanceTimersByTimeAsync(0))
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(sent()[1]).toEqual({ action: 'remove', revision: 'one' })
+  expect(onChanged).toHaveBeenCalledExactlyOnceWith(false)
+})
+
+it('an unanswered save keeps the dialog open, never replays the token, and reads the status again', async () => {
+  send
+    .mockResolvedValueOnce(Response.json({ configured: false, revision: 'one' }))
+    .mockRejectedValueOnce(new TypeError('network_failed'))
+    .mockResolvedValueOnce(Response.json({ configured: false, revision: 'one' }))
+  openDialog()
+  await enterKey()
+  await screen.findByText('No token is saved.')
+  typeToken(TOKEN)
+  fireEvent.click(save())
+  await act(() => vi.advanceTimersByTimeAsync(0))
+  expect(screen.getByRole('alert')).toHaveTextContent('Couldn’t reach the Claude token service')
+  expect(screen.getByRole('alert').textContent).not.toContain(TOKEN)
+  expect(sent().map((body) => body.action)).toEqual(['status', 'save', 'status'])
+  expect(send.mock.calls[2][1]?.body).not.toContain(TOKEN)
+})
+
+it('editing the key ends the read in flight, ignoring its answer, and reads with the new key', async () => {
+  let answer: (value: Response) => void = () => undefined
+
+  send
+    .mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
+    .mockResolvedValueOnce(Response.json({ configured: false, revision: 'two' }))
+  openDialog()
+  await enterKey('first')
+  await enterKey('second')
+  await act(async () => answer(Response.json({ configured: true, revision: 'one' })))
+  expect(await screen.findByText('No token is saved.')).toBeVisible()
+  expect(authorizations()).toEqual(['Bearer first', 'Bearer second'])
+})
+
+it('closing drops the key: a reopened dialog starts empty and never sends the old key', async () => {
+  send.mockResolvedValue(Response.json({ configured: false, revision: 'one' }))
+  openDialog()
+  await enterKey('old key')
+  await screen.findByText('No token is saved.')
+  fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Subscription token…' }))
+  expect(screen.getByLabelText('Personal runner management key')).toHaveValue('')
+  expect(save()).toBeDisabled()
+  await act(() => vi.advanceTimersByTimeAsync(KEY_PAUSE_MS * 2))
+  await enterKey('new key')
+  expect(authorizations()).toEqual(['Bearer old key', 'Bearer new key'])
+})
+
+it('closing during a save ignores its late answer and has the card read the status again', async () => {
+  let answer: (value: Response) => void = () => undefined
+
+  send
+    .mockResolvedValueOnce(Response.json({ configured: false, revision: 'one' }))
+    .mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
+  openDialog()
+  await enterKey()
+  await screen.findByText('No token is saved.')
+  typeToken(TOKEN)
+  fireEvent.click(save())
+  fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+  expect(onChanged).toHaveBeenCalledExactlyOnceWith(undefined)
+  await act(async () => answer(Response.json({ configured: true, revision: 'two' })))
+  expect(onChanged).toHaveBeenCalledTimes(1)
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })

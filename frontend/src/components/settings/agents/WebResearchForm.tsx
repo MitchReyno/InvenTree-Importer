@@ -1,6 +1,5 @@
 import type { AgentSettingsDto } from '@invimport/contracts'
-import { SettingRow, type DisabledControlProps } from '#/components/ui'
-import { CheckboxLabel } from '#/forms'
+import { SettingRow, Switch, type DisabledControlProps } from '#/components/ui'
 import { SettingsCard } from '#/components/settings/SettingsCard'
 import { AgentAutosaveStatus } from './AgentAutosaveStatus'
 import { AgentSubsection } from './AgentSubsection'
@@ -29,6 +28,10 @@ const NO_WEB =
 
 const PUBLIC_PAGES = 'Allow public web pages'
 const DATASHEETS = 'Prefer manufacturer datasheets over distributor pages'
+const SWITCHES = [
+  ['publicPages', PUBLIC_PAGES],
+  ['datasheets', DATASHEETS],
+] as const
 
 type Props = SubsectionFormProps & {
   /** The readiness web state; `unavailable` disables both settings without changing them. */
@@ -59,10 +62,7 @@ export function WebResearchForm({ web, ...props }: Props) {
     const saved = props.loaded.web
 
     const box = (label: string, checked: boolean, control: DisabledControlProps) => (
-      <CheckboxLabel>
-        <input type="checkbox" checked={checked} readOnly {...control} />
-        {label}
-      </CheckboxLabel>
+      <Switch label={label} checked={checked} onChange={() => {}} {...control} />
     )
 
     return (
@@ -91,20 +91,17 @@ export function WebResearchForm({ web, ...props }: Props) {
       <SettingsCard aria-label="Web research">
         <SettingRow label="Web research" help={HELP}>
           <Stack>
-            <CheckboxLabel>
-              <input
-                type="checkbox"
-                {...form.register('publicPages', { onChange: () => markEdited('auto') })}
+            {SWITCHES.map(([field, label]) => (
+              <Switch
+                key={field}
+                label={label}
+                checked={form.watch(field)}
+                onChange={(checked) => {
+                  form.setValue(field, checked, { shouldDirty: true })
+                  markEdited('auto')
+                }}
               />
-              {PUBLIC_PAGES}
-            </CheckboxLabel>
-            <CheckboxLabel>
-              <input
-                type="checkbox"
-                {...form.register('datasheets', { onChange: () => markEdited('auto') })}
-              />
-              {DATASHEETS}
-            </CheckboxLabel>
+            ))}
           </Stack>
         </SettingRow>
       </SettingsCard>

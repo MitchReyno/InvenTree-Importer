@@ -4,7 +4,12 @@ import { media } from './media'
 import { useRovingFocus } from './useRovingFocus'
 import { hoverTransition } from './motion'
 
-export type SegmentOption = { id: string; label: string }
+export type SegmentOption = {
+  id: string
+  label: string
+  /** This option can't be chosen now; it stays visible and reachable by focus. */
+  disabled?: boolean
+}
 
 type SegmentedControlProps = {
   label: string
@@ -38,9 +43,9 @@ export function SegmentedControl({
           key={option.id}
           type="button"
           aria-pressed={option.id === value}
-          aria-disabled={disabled ? 'true' : undefined}
+          aria-disabled={disabled || option.disabled ? 'true' : undefined}
           onClick={() => {
-            if (!disabled) {
+            if (!disabled && !option.disabled) {
               onChange(option.id)
             }
           }}
