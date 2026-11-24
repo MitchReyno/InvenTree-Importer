@@ -227,7 +227,7 @@ Tool-capable VM sessions SHALL support `INTAKE_VM_EVIDENCE_DELIVERY` with values
 
 ### Requirement: Answered questions report their answer and delivery
 
-The Processing read SHALL return, with each answered question, when it was answered, a bounded summary of each step's answer, the answer's capture effects and, for a session question, whether the session has acknowledged the answer in its inbox and when. A read time SHALL come from the acknowledgement that first reached the answer; one acknowledged before read times were kept SHALL be read with no time.
+Within the budget of "Answer summaries fit the snapshot", the Processing read SHALL return, with each answered question, when it was answered, a bounded summary of each step's answer, the answer's capture effects and, for a session question, whether the session has acknowledged the answer in its inbox and when. A read time SHALL come from the acknowledgement that first reached the answer; one acknowledged before read times were kept SHALL be read with no time.
 
 #### Scenario: Waiting, then read
 

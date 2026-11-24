@@ -229,7 +229,7 @@ The message box in the session drawer and on the session page SHALL be labelled 
 
 ### Requirement: Answered questions fold away
 
-Once an answer is saved, the question SHALL fold to one line in an "Answered" group below the open questions, newest first, in the session drawer, on the step page and on the session page alike. The line SHALL say what was answered and whether the session has read it yet. Expanding it SHALL show the question, the assumption it replaced, the answer, what it changed, when it was sent and read, and links to the session and the lot.
+Once an answer is saved, the question SHALL fold to one line in an "Answered" group below the open questions, newest first, in the session drawer, on the step page and on the session page alike. When the read carries the answer's summary, the line SHALL say what was answered and whether the session has read it, and expanding it SHALL show the question, the assumption it replaced, the answer, what it changed, when it was sent and read, and links to the lot and to the session when one exists.
 
 #### Scenario: Answering on the step page shows it answered, never superseded
 
@@ -257,13 +257,13 @@ Once an answer is saved, the question SHALL fold to one line in an "Answered" gr
 
 ### Requirement: An answered line without its summary
 
-An answered question that the read returns without its values SHALL show "Answered · see the session" with a link to the session, and its delivery when the read has it. Lines with no answer time SHALL follow the timed ones, in the order they were asked. A saved answer SHALL keep its line until a fresh read shows the question answered.
+An answered question that the read returns without its values SHALL show "Answered · see the session" with a link to the session, and its delivery when the read has it; a question with no session history, such as an earlier runner's, SHALL show "Answered · details not shown" with no session link. Lines with no answer time SHALL follow the timed ones, in the order they were asked. A saved answer SHALL keep its line until a fresh read shows the question answered.
 
 #### Scenario: A retained batch near the size limit
 
 - **GIVEN** a batch whose oldest answers the read returns without values, the very oldest with only their answered state
 - **WHEN** the step page lists its answered questions
-- **THEN** the newest show their answers, the older read "Answered · see the session" with their delivery, and those with no time come last in the order they were asked.
+- **THEN** the newest show their answers, the older read "Answered · see the session" with their delivery, those with no time come last in the order they were asked, and an earlier runner's answer reads "Answered · details not shown" with no session link.
 
 ### Requirement: An answer form says why it can't send
 

@@ -262,7 +262,7 @@ For `/7` work, an Examine proposal SHALL name any live lot of its batch, and a R
 
 ### Requirement: Questions are not asked twice
 
-In a session whose input is `bench-intake-input/7`, a publishing `ask` SHALL return the existing question, storing nothing, when an open or answered question already covers the same subject and overlapping fields, unless the new question names evidence or a conflict the earlier one did not, or names the open question it replaces. An `ask` with `preview: true` SHALL bypass this check, store nothing and follow BI-019's preview rules for validation, the image budget and the bounded wait.
+In a session whose input is `bench-intake-input/7`, a publishing `ask` SHALL return the existing question, storing nothing, when an open or answered question already covers the same subject and overlapping fields, unless the new question names evidence or a conflict the earlier one did not, or names the open question it replaces. A `preview: true` ask SHALL bypass this check, store no question and follow BI-019's preview rules, including its temporary renders.
 
 #### Scenario: Examine already asked
 
