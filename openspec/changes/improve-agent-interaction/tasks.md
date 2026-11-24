@@ -2,7 +2,7 @@
 
 ## Plan context
 
-- **Plan:** the [proposal](proposal.md) and [design](design.md), with deltas in `specs/` for `ui-design-system`, `processing-workspace`, `processing-stage-pipeline`, `processing-agent-sessions`, `agents-overview` and `header-workflow-status`.
+- **Plan:** the [proposal](proposal.md) and [design](design.md), with deltas in `specs/` for `ui-design-system`, `processing-workspace`, `processing-stage-pipeline`, `processing-agent-sessions`, `agents-overview` `header-workflow-status` and `shared-vm-execution`.
 - **Reuse:** rebuild `Dialog.tsx` on `@radix-ui/react-dialog`, from the Radix family the frontend already uses for popovers, extend the existing contracts and form stack, and use native `<details>` for expandable entries. Radix Dialog is the only new dependency.
 - **Change name:** `improve-agent-interaction`. Branches are `feat/improve-agent-interaction-<suffix>`, and subjects are `type(improve-agent-interaction): …`.
 - **Items:** BI-019, plus BI-015's answer-options item, which this change takes over.
@@ -431,5 +431,5 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - [ ] 12.1 Add regressions for both modes, large/repeated results, refusals, integrity/write failures, validation and launch propagation; observe the new behavior fail.
 - [ ] 12.2 Implement the enum from development settings and standalone relay to the VM tool worker and evidence projection, preserving inline defaults and cleanup.
 - [ ] 12.3 Document configuration, provider file-opening guidance, lifetime and rollout; run the applicable checks and record limitations.
-- [ ] 12.5 Implement and test coordinator/guest release confirmation before new citation grants. Cover first and repeated fetches outside the manifest, staging and response failures, duplicate or stale confirmations, worker restart, incompatible peers, and legacy preview/original digest handling in both modes. Verify the subsequent proposal decision through the coordinator.
+- [ ] 12.5 Implement and test coordinator/guest release confirmation before new citation grants. Cover first and repeated fetches outside the manifest, staging and response failures, duplicate or stale confirmations, worker restart, incompatible peers, and legacy preview/original digest handling over compatible peers in both modes. Verify the subsequent proposal decision through the coordinator.
 - [ ] 12.4 Independently review the exact implementation before publication; publish and verify selected CI only when requested.

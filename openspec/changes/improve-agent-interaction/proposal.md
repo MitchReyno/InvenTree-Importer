@@ -151,6 +151,8 @@ None.
 
 ### Modified capabilities
 
+- `shared-vm-execution`: tool-capable peers negotiate release confirmation before dispatch and can carry legacy-format evidence after negotiation.
+
 - `processing-workspace`: the session drawer closes from its backdrop, and steps are answered in the drawer. The Inventory drawer's option cards become live. Expandable history with links, the operator's inputs in it, the drawer/page split and the session page.
 - `agents-overview`: each session row links to its session page.
 - `header-workflow-status`: stage rows in the workflow details, the stage bar states, only working stages animating, and Resume as the one command in the workflow details.
