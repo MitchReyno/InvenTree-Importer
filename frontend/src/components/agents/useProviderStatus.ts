@@ -12,42 +12,87 @@ import {
   type ProviderState,
 } from './provider-status'
 
+/** How often the status is read while the VM's Codex check runs. */
+export const POLL_MS = 1000
+
 /**
- * How long after a sign-in change a status read may still be one the VM made before it: the
- * server reuses a guest read for 5 s, and a read takes up to 2 s, plus a margin.
+ * How long a run of reads waits for a Codex check: the VM stops a check after 10 s, so this is
+ * that and a margin.
  */
-export const SETTLE_MS = 8000
+export const POLL_LIMIT_MS = 15_000
 
 /** What a provider card shows of its sign-in. */
 export type ProviderCardStatus = {
   pill: ProviderPill
   /** When the Claude token was saved, where the VM recorded it. */
   savedAt: string | null
+  /** When the VM last checked Codex's sign-in; Claude is read on every request. */
+  checkedAt: string | null
+  /** A check the card is waiting for is running. */
+  refreshing: boolean
   /** When the provider's latest session couldn't sign in, if it was the latest. */
   failedAt: string | null
 }
 
-/** A sign-in change the card shows until a read asked for after it lands. */
-type Settling = { at: number; state?: Exclude<ProviderState, 'unknown'> }
+type KnownState = Exclude<ProviderState, 'unknown'>
 
-type SettlingByProvider = Partial<Record<AgentProviderId, Settling>>
+/** A sign-in change the card shows until a read asked for after its fresh read lands. */
+type Settling = { at: number; state?: KnownState }
 
-const NONE_SETTLING: SettlingByProvider = {}
+type SettlingState = {
+  changes: Partial<Record<AgentProviderId, Settling>>
+  /** When the newest fresh read (Check again, or one a change asked for) was asked for. */
+  freshAt: number
+}
 
-type StatusSource = { providerStatus: () => Promise<ProviderStatusDto> }
+const NONE_SETTLING: SettlingState = { changes: {}, freshAt: 0 }
 
-/** A status read, with when it was asked for: an answer can't be newer than its request. */
-type StatusRead = { status: ProviderStatusDto; requestedAt: number }
-
-async function readStatus(client: StatusSource): Promise<StatusRead> {
-  const requestedAt = Date.now()
-  const status = await client.providerStatus()
-  return { status, requestedAt }
+type StatusSource = {
+  providerStatus: (options?: { refresh?: boolean }) => Promise<ProviderStatusDto>
 }
 
 /**
- * The read-only sign-in status of both providers: read when Settings › Agents opens, on Check
- * again, and after a sign-in change, never with the management key.
+ * A status read, with when it was asked for, since an answer can't be newer than its request,
+ * and when the reads waiting for an unfinished Codex check started.
+ */
+type StatusRead = { status: ProviderStatusDto; requestedAt: number; waitingSince?: number }
+
+/** Whether the VM has no Codex check running that the card waits for. */
+function codexSettled(status: ProviderStatusDto) {
+  const codex = status.codex
+  if (codex.state === 'unknown') {
+    return codex.reason !== 'checking'
+  }
+  return !codex.refreshing
+}
+
+/** Whether a run of reads waiting for a Codex check is still within its limit. */
+function stillWaiting(read: StatusRead | undefined) {
+  if (read?.waitingSince === undefined) {
+    return false
+  }
+  return read.requestedAt - read.waitingSince < POLL_LIMIT_MS
+}
+
+async function readStatus(
+  client: StatusSource,
+  refresh: boolean,
+  previous: StatusRead | undefined,
+): Promise<StatusRead> {
+  const requestedAt = Date.now()
+  const status = await client.providerStatus(refresh ? { refresh: true } : undefined)
+  if (codexSettled(status)) {
+    return { status, requestedAt }
+  }
+  // A fresh read starts a new run of reads; a read after it carries on the same run.
+  const waitingSince = refresh ? requestedAt : (previous?.waitingSince ?? requestedAt)
+  return { status, requestedAt, waitingSince }
+}
+
+/**
+ * The read-only sign-in status of both providers: read when Settings › Agents opens, freshly on
+ * Check again and after a sign-in change, and again each second while the VM's Codex check runs,
+ * never with the management key.
  */
 export function useProviderStatus(client: StatusSource) {
   const scope = useServerScope()
@@ -55,8 +100,9 @@ export function useProviderStatus(client: StatusSource) {
   const queryKey = serverQueryKey(scope, 'provider-status')
   const query = useQuery({
     queryKey,
-    queryFn: () => readStatus(client),
+    queryFn: () => readStatus(client, false, queryClient.getQueryData<StatusRead>(queryKey)),
     retry: false,
+    refetchInterval: (current) => (stillWaiting(current.state.data) ? POLL_MS : false),
   })
   // Sign-in changes still settling are kept with the status read, not this section, so a change
   // made just before leaving still holds when Settings › Agents opens again.
@@ -72,38 +118,40 @@ export function useProviderStatus(client: StatusSource) {
   const settling = settlingQuery.data
   const [checking, setChecking] = useState(false)
 
-  // Syncs a timer per settling change: once its window has passed, the status is read again.
-  // Leaving drops the timers; opening the section again schedules what is still due.
+  // Syncs with the settling changes kept in the query cache: a change asks for its fresh read
+  // itself, but one recorded while the section was closed (a late dialog answer) is read now.
   useEffect(() => {
-    const due = Object.values(settling)
-      .map((change) => change.at + SETTLE_MS - Date.now())
-      .filter((wait) => wait > 0)
-    const timers = due.map((wait) => setTimeout(() => void readAfresh(), wait))
-    // A window that passed with no read asked for after it (a read from before it may still be
-    // running, which opening the section would join) is read afresh at once.
-    const asked = queryClient.getQueryData<StatusRead>(queryKey)?.requestedAt ?? 0
-    const overdue = Object.values(settling).some((change) => {
-      const deadline = change.at + SETTLE_MS
-      return deadline <= Date.now() && asked < deadline
-    })
-    if (overdue) {
+    const unasked = Object.values(settling.changes).some((change) => settling.freshAt < change.at)
+    if (unasked) {
       void readAfresh()
     }
-    return () => timers.forEach(clearTimeout)
-    // readAfresh reads through the query client; only the settling changes start timers.
+    // readAfresh reads through the query client; only the settling changes call for it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settling])
 
   /**
-   * A new read. A read still running may have been asked for before a change settled, so it is
-   * cancelled rather than joined.
+   * A fresh read: the server skips its reused read and asks Codex for a new check. A read still
+   * running may have been asked for before a change, so it is cancelled rather than joined.
    */
   async function readAfresh() {
+    const freshAt = Date.now()
+    queryClient.setQueryData<SettlingState>(settleKey, (current = NONE_SETTLING) => ({
+      ...current,
+      freshAt,
+    }))
     await queryClient.cancelQueries({ queryKey, exact: true })
-    await queryClient.refetchQueries({ queryKey, exact: true })
+    await queryClient
+      .fetchQuery({
+        queryKey,
+        queryFn: () => readStatus(client, true, queryClient.getQueryData<StatusRead>(queryKey)),
+        retry: false,
+      })
+      .catch(() => {
+        // The query keeps the failure, which the cards show.
+      })
   }
 
-  /** Check again: one place to ask, so a forced refresh can be added to the read. */
+  /** Check again: a fresh read, then the reads until the VM's check lands. */
   async function checkAgain() {
     setChecking(true)
     try {
@@ -115,41 +163,59 @@ export function useProviderStatus(client: StatusSource) {
 
   /**
    * A sign-in change: the card shows `state`, what the VM just confirmed, or "Checking…" when
-   * the outcome is the VM's to report, until a read made after the change lands.
+   * the outcome is the VM's to report, until a read asked for after its fresh read lands.
    */
   function signInChanged(
     provider: AgentProviderId,
-    state?: Exclude<ProviderState, 'unknown'>,
+    state?: KnownState,
     { late = false }: { late?: boolean } = {},
   ) {
     const at = Date.now()
-    queryClient.setQueryData<SettlingByProvider>(settleKey, (current = NONE_SETTLING) => {
-      // A late answer to an older change restarts the window but keeps a newer confirmation.
-      const kept = late ? current[provider]?.state : state
-      return { ...current, [provider]: { at, state: kept } }
+    queryClient.setQueryData<SettlingState>(settleKey, (current = NONE_SETTLING) => {
+      // A late answer to an older change restarts the wait but keeps a newer confirmation.
+      const kept = late ? current.changes[provider]?.state : state
+      return { ...current, changes: { ...current.changes, [provider]: { at, state: kept } } }
     })
+    void readAfresh()
   }
 
-  // A read asked for before a change settled may report the VM before it; a failed read reports
-  // nothing about it either way.
-  const answeredAt = Math.max(query.data?.requestedAt ?? 0, query.errorUpdatedAt)
+  const read = query.data
+  // A failed read reports nothing about a change either way, but ends the wait for it.
+  const answeredAt = Math.max(read?.requestedAt ?? 0, query.errorUpdatedAt)
+  const waiting = stillWaiting(read)
+
+  /** A change is shown until a read asked for after its fresh read answers, and settles. */
+  function changeShown(provider: AgentProviderId) {
+    const change = settling.changes[provider]
+    if (!change) {
+      return undefined
+    }
+    const answeredAfter = settling.freshAt >= change.at && answeredAt >= settling.freshAt
+    const stillChecking = provider === 'codex' && waiting && !query.isError
+    return answeredAfter && !stillChecking ? undefined : change
+  }
 
   function cardStatus(provider: AgentProviderId): ProviderCardStatus {
-    const answer = query.data?.status[provider]
+    const answer = read?.status[provider]
     const failedAt = answer?.last_sign_in_failure?.failed_at ?? null
     const savedAt = answer?.state === 'saved' ? answer.saved_at : null
-    const change = settling[provider]
-    if (change && answeredAt < change.at + SETTLE_MS) {
+    const none = { savedAt: null, checkedAt: null, failedAt }
+    const change = changeShown(provider)
+    if (change) {
       const pill = change.state ? confirmedPill(change.state) : checkingPill()
-      return { pill, savedAt: null, failedAt }
-    }
-    if (query.isFetching && (checking || !answer)) {
-      return { pill: checkingPill(), savedAt: null, failedAt }
+      return { ...none, pill, refreshing: change.state !== undefined }
     }
     if (query.isError || !answer) {
-      return { pill: query.isError ? READ_FAILED : checkingPill(), savedAt: null, failedAt: null }
+      const pill = query.isError && !query.isFetching ? READ_FAILED : checkingPill()
+      return { ...none, pill, refreshing: false, failedAt: query.isError ? null : failedAt }
     }
-    return { pill: providerPill(answer), savedAt, failedAt }
+    const pill = providerPill(answer)
+    const known = answer.state !== 'unknown'
+    const checkedAt = provider === 'codex' && known ? answer.checked_at : null
+    // Check again keeps the known pill and says beside it that a check runs.
+    const refreshing =
+      known && ((checking && query.isFetching) || (provider === 'codex' && waiting))
+    return { pill, savedAt, checkedAt, refreshing, failedAt }
   }
 
   return {

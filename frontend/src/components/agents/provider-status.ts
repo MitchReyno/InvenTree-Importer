@@ -22,7 +22,7 @@ const STATE_PILL: Record<Exclude<ProviderState, 'unknown'>, ProviderPill> = {
 }
 
 /** Each reason the status couldn't be read; none of them means signed out. */
-const UNKNOWN_WORD: Record<ProviderStatusUnknownReason, string> = {
+const UNKNOWN_WORD: Record<Exclude<ProviderStatusUnknownReason, 'checking'>, string> = {
   vm_unreachable: 'Can’t reach the agent VM',
   guest_outdated: 'Agent VM needs an update',
   busy: 'Agent VM busy',
@@ -48,8 +48,7 @@ export function providerPill(
     return STATE_PILL[status.state]
   }
   // A VM still working on its first answer is checking, not failing.
-  const reason: string = status.reason
-  if (reason === 'checking') {
+  if (status.reason === 'checking') {
     return CHECKING
   }
   const word = UNKNOWN_WORD[status.reason] ?? READ_FAILED.word

@@ -220,13 +220,24 @@ test(
     assert.ok(!JSON.stringify(body).includes(revision))
     assert.ok(refreshes.every((refresh) => !refresh))
 
-    // Within the reuse window a plain read doesn't reach the worker; Check again does, and its
-    // answer is reused by the next plain read.
+    // An answer whose Codex check hasn't finished is never reused, so a client waiting for the
+    // check reads the worker each time; a settled one is reused within the window.
     codex = { state: 'signed_in', checked_at: checkedAt, refreshing: true }
     const asked = refreshes.length
+    const waiting = (await fixture.http('/agents/provider-status')).value as ProviderStatusDto
+    assert.ok(waiting.codex.state === 'signed_in' && waiting.codex.refreshing)
+    assert.equal(refreshes.length, asked + 1)
+    codex = { state: 'signed_in', checked_at: checkedAt, refreshing: false }
+    const settled = (await fixture.http('/agents/provider-status')).value as ProviderStatusDto
+    assert.ok(settled.codex.state === 'signed_in' && !settled.codex.refreshing)
+    assert.equal(refreshes.length, asked + 2)
+    codex = { state: 'signed_out', checked_at: checkedAt, refreshing: false }
     const reused = (await fixture.http('/agents/provider-status')).value as ProviderStatusDto
-    assert.equal(reused.codex.state, 'unknown')
-    assert.equal(refreshes.length, asked)
+    assert.equal(reused.codex.state, 'signed_in')
+    assert.equal(refreshes.length, asked + 2)
+
+    // Check again does reach the worker, and its answer is reused by the next plain read.
+    codex = { state: 'signed_in', checked_at: checkedAt, refreshing: true }
     const forced = await fixture.http('/agents/provider-status?refresh=true')
     assert.equal(forced.status, 200)
     assert.deepEqual((forced.value as ProviderStatusDto).codex, {
@@ -235,10 +246,7 @@ test(
       refreshing: true,
       last_sign_in_failure: null,
     })
-    assert.deepEqual(refreshes.slice(asked), [true])
-    const after = (await fixture.http('/agents/provider-status')).value as ProviderStatusDto
-    assert.equal(after.codex.state, 'signed_in')
-    assert.equal(refreshes.length, asked + 1)
+    assert.deepEqual(refreshes.slice(asked), [false, false, true])
 
     // Anything else in the query is refused.
     assert.equal((await fixture.http('/agents/provider-status?refresh=1')).status, 400)

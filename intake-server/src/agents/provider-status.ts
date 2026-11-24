@@ -35,10 +35,24 @@ const NOT_CONFIGURED: DisplayProviderStatuses = {
   codex: { state: 'unknown', reason: 'not_configured' },
 }
 
+/** Whether Codex has no check running that a reader may be waiting for. */
+function codexSettled(statuses: DisplayProviderStatuses | undefined) {
+  const codex = statuses?.codex
+  if (!codex) {
+    return true
+  }
+  if (codex.state === 'unknown') {
+    return codex.reason !== 'checking'
+  }
+  return !codex.refreshing
+}
+
 /**
  * Asks the session worker, at most once per cache window, with concurrent callers sharing a read.
  * Check again asks at once, sharing only another Check again in flight, and its answer is reused
- * like any other. A profile that runs no agent sessions has no worker to ask.
+ * like any other. An answer whose Codex check hasn't finished is never reused, so a client
+ * waiting for that check reads the worker each time. A profile that runs no agent sessions has no
+ * worker to ask.
  */
 export function workerStatusSource(
   pool: Pool,
@@ -59,13 +73,18 @@ export function workerStatusSource(
     return { statuses, readAt: now() }
   }
 
-  /** Makes `pending` the reused read once it succeeds; a failed read is never reused. */
+  /** Makes `pending` the reused read once it settles; a failed read is never reused. */
   const remember = (pending: Promise<GuestStatusRead>) => {
     cached = { read: pending, until: Number.POSITIVE_INFINITY }
     void pending.then(
-      () => {
-        if (cached?.read === pending) {
+      (answer) => {
+        if (cached?.read !== pending) {
+          return
+        }
+        if (codexSettled(answer.statuses)) {
           cached = { read: pending, until: monotonicNow() + cacheMs }
+        } else {
+          cached = undefined
         }
       },
       () => {

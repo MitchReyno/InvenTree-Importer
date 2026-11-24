@@ -2,7 +2,15 @@ import type { ReactNode } from 'react'
 import { useFormContext } from 'react-hook-form'
 import styled from 'styled-components'
 import type { AgentProviderId } from '@invimport/contracts'
-import { Button, EventTime, Pill, SegmentedControl, Small, Switch } from '#/components/ui'
+import {
+  Button,
+  EventTime,
+  Pill,
+  RelativeTime,
+  SegmentedControl,
+  Small,
+  Switch,
+} from '#/components/ui'
 import { color, radius, space, typeVar } from '#/theme/generated/tokens'
 import type { ProviderCardStatus } from '#/components/agents/useProviderStatus'
 import { ModelPicker } from './ModelPicker'
@@ -65,6 +73,7 @@ export function ProviderCard({
           Saved <EventTime at={status.savedAt} />
         </Small>
       )}
+      <CheckLine status={status} />
       {status.failedAt && (
         <Failure>
           Last session couldn’t sign in · <EventTime at={status.failedAt} />
@@ -120,6 +129,25 @@ export function ProviderCard({
         />
       </Model>
     </Card>
+  )
+}
+
+/** When the VM last checked, and quietly whether a newer check runs, beside the pill. */
+function CheckLine({ status }: { status: ProviderCardStatus }) {
+  if (!status.checkedAt && !status.refreshing) {
+    return null
+  }
+
+  return (
+    <Small>
+      {status.checkedAt && (
+        <span>
+          Checked <RelativeTime at={status.checkedAt} />
+        </span>
+      )}
+      {status.checkedAt && status.refreshing && ' · '}
+      {status.refreshing && <span>Checking…</span>}
+    </Small>
   )
 }
 

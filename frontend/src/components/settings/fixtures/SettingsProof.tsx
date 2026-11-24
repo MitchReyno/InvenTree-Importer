@@ -22,7 +22,7 @@ import { useHashRoute } from '#/navigation/useHashRoute'
 import { space } from '#/theme/generated/tokens'
 import type { HeaderClient } from '#/header/types'
 import { Settings } from '../Settings'
-import { fakeProviderStatus, installFakeRunner } from './fake-runner'
+import { fakeCodexCheck, fakeProviderStatus, installFakeRunner } from './fake-runner'
 
 const scope = {
   origin: 'http://localhost:3000',
@@ -86,7 +86,10 @@ const agents = {
   pause: async () => ({}),
   pauseAll: async (paused: boolean) => ({ paused, batch_ids: [] }),
   deliverInstructions: async () => ({ sessions: 0 }),
-  providerStatus: async () => {
+  providerStatus: async (options?: { refresh?: boolean }) => {
+    if (options?.refresh) {
+      fakeCodexCheck()
+    }
     await new Promise((resolve) => setTimeout(resolve, 150))
     return fakeProviderStatus()
   },
