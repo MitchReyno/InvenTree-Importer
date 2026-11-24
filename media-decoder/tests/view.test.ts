@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import sharp from 'sharp'
+import { createCanvas } from '@napi-rs/canvas'
 import {
   MEDIA_TOOLCHAIN,
   viewLayout,
@@ -437,19 +438,37 @@ test('a label in a wide, short view fits its height, and a hairline view still r
   }
   assert.ok(text > 20, `label text pixels: ${text}`)
 
-  // A view a few pixels wide still draws its label, however small, rather than nothing: its
-  // preview differs from the same view's preview without marks.
+  // A view a few pixels wide still draws its label's glyphs, however small. Digits share one
+  // advance width in the label font, so an '8' and a '1' get the same pill and differ only where
+  // their glyphs are drawn.
+  const measure = createCanvas(1, 1).getContext('2d')
+  measure.font = `40px "${markFont()}"`
+  assert.equal(measure.measureText('8').width, measure.measureText('1').width)
   const hairline = recipe(
     { width: PAGE_WIDTH, height: PAGE_HEIGHT },
     { region: { x: 600, y: 0, width: 4, height: 800 } },
   )
-  const thin = await ready(
-    viewInput(page, hairline, [{ kind: 'label', at: { x: 5000, y: 5000 }, label }]),
-  )
-  const bare = await ready(viewInput(page, hairline, []))
-  const marked = await rgb(thin.preview!.bytes, 'png')
-  const plain = await rgb(bare.preview!.bytes, 'png')
-  assert.notDeepEqual(marked.data, plain.data, 'the label is drawn')
+  const hairlinePreview = async (marks: MediaViewMarkDto[]) => {
+    const rendered = await ready(viewInput(page, hairline, marks))
+    return rgb(rendered.preview!.bytes, 'png')
+  }
+  const labelled = (text: string) =>
+    hairlinePreview([{ kind: 'label', at: { x: 5000, y: 5000 }, label: text }])
+  const bare = await hairlinePreview([])
+  const eight = await labelled('8')
+  const one = await labelled('1')
+  const footprint = (image: Raster) => {
+    const changed: number[] = []
+    for (let offset = 0; offset < image.data.length; offset += 3) {
+      if (!image.data.subarray(offset, offset + 3).equals(bare.data.subarray(offset, offset + 3))) {
+        changed.push(offset / 3)
+      }
+    }
+    return changed
+  }
+  assert.ok(footprint(eight).length > 0, 'a pill is drawn')
+  assert.deepEqual(footprint(eight), footprint(one), 'the same pill')
+  assert.notDeepEqual(eight.data, one.data, 'the glyphs are drawn')
 })
 
 test('empty marks still give a preview; null marks give none', async () => {

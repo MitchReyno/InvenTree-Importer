@@ -1325,7 +1325,8 @@ const QUERY_CANCELED = '57014'
 
 /**
  * The preview's renders and, if the sweep took any, whether a photo was removed. The database
- * stops the reads at the deadline; a read that outlives the wait still returns its connection.
+ * stops the reads at the deadline, and no statement starts after it: a connection whose timeout
+ * would need resetting once the wait is over is discarded rather than reset.
  */
 async function previewState(context: SessionToolContext, preview: QueuedPreview, deadline: number) {
   if (Date.now() >= deadline) {
@@ -1342,7 +1343,8 @@ async function previewState(context: SessionToolContext, preview: QueuedPreview,
   // A connection lost while checked out is reported here, not to the process.
   client.on('error', onError)
   try {
-    // Each statement gets only the time left; none starts once the wait is over.
+    // Each statement gets only the time left; none starts once the wait is over, and setting
+    // the timeout may itself use up what was left.
     const withinWait = async () => {
       const remaining = Math.ceil(deadline - Date.now())
       if (remaining <= 0) {
@@ -1350,7 +1352,7 @@ async function previewState(context: SessionToolContext, preview: QueuedPreview,
       }
       timed = true
       await client.query(`SET statement_timeout = ${remaining}`)
-      return true
+      return Date.now() < deadline
     }
 
     if (!(await withinWait())) {
@@ -1372,12 +1374,14 @@ async function previewState(context: SessionToolContext, preview: QueuedPreview,
     broken = true
     throw error
   } finally {
-    if (timed && !broken) {
+    const resettable = timed && !broken && Date.now() < deadline
+    if (resettable) {
       await client.query('RESET statement_timeout').catch(() => {
         broken = true
       })
     }
-    client.release(broken)
+    const timeoutLeftSet = timed && !resettable
+    client.release(broken || timeoutLeftSet)
     client.removeListener('error', onError)
   }
 }

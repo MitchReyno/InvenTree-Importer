@@ -77,10 +77,7 @@ function tools(fixture: Fixture, deliveredMedia = new Map()) {
   }
 }
 
-function sessionHandlers(
-  fixture: Fixture,
-  deliveredMedia = new Map(),
-) {
+function sessionHandlers(fixture: Fixture, deliveredMedia = new Map()) {
   return sessionTools({
     pool: fixture.runner.pool,
     writerPool: fixture.writer.pool,

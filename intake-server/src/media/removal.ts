@@ -74,7 +74,7 @@ export async function requirePresentVersion(
   }
 }
 
-/** Versions of the batch whose evidence item is removed now. */
+/** Versions of the batch whose evidence item is removed now, read in one statement. */
 export async function removedVersionIds(
   client: PoolClient,
   batchId: string,
@@ -83,14 +83,12 @@ export async function removedVersionIds(
   if (!versionIds.length) {
     return new Set<string>()
   }
-  const removed = await removedEvidenceIds(client, batchId)
-  const rows = await executeDatabaseQuery(
-    queryDatabase(client)
-      .select({ id: mediaVersions.id, evidenceId: mediaVersions.evidenceId })
-      .from(mediaVersions)
-      .where(and(eq(mediaVersions.batchId, batchId), inArray(mediaVersions.id, [...versionIds]))),
+  const removed = await client.query<{ id: string }>(
+    `SELECT v.id FROM public.media_version v
+     WHERE v.batch_id = $1 AND v.id = ANY($2::uuid[]) AND ${versionRemovedSql('v')}`,
+    [batchId, [...versionIds]],
   )
-  return new Set(rows.filter((row) => removed.has(row.evidenceId)).map((row) => row.id))
+  return new Set(removed.rows.map((row) => row.id))
 }
 
 export async function retainRemoval(

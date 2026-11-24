@@ -246,6 +246,12 @@ function consumer(setup: Setup, render: RenderView) {
   }
 }
 
+/** The work's outcome, observed from now so a rejection is never unhandled. */
+async function outcomeOf<T>(work: Promise<T>): Promise<PromiseSettledResult<T>> {
+  const [outcome] = await Promise.allSettled([work])
+  return outcome
+}
+
 async function renderRows(setup: Setup, purpose: 'view' | 'preview') {
   const rows = await setup.fixture.db.pool.query<{
     id: string
@@ -795,15 +801,18 @@ test('a preview that settles after its wait is still not ready, and one swept wh
   })
 })
 
-test('a preview whose checkout or state read is slower than its wait answers in time and returns its connection', async () => {
+test('a preview whose checkout or state read is slower than its wait answers in time, sends no SQL after it and returns its connection', async () => {
   await withFigureSession(async (setup) => {
-    const { token, lot, photoFigure, context } = setup
+    const { fixture, token, lot, photoFigure, context } = setup
     await fetched(setup, setup.photo)
     const stop = consumer(setup, fakeRenderer())
     try {
-      for (const slow of ['checkout', 'read'] as const) {
+      // `gone`: the late read finds its render deleted, which would otherwise ask about removals.
+      for (const slow of ['checkout', 'read', 'gone'] as const) {
         let released = 0
         let checkedOut = 0
+        let stateReadsDone = false
+        const lateStatements: string[] = []
         // Checkouts after the ask's own transaction are the preview's state reads.
         const slowPool = new Proxy(context.pool, {
           get(target, property) {
@@ -814,17 +823,34 @@ test('a preview whose checkout or state read is slower than its wait answers in 
                 const readsState = checkedOut > 1
                 if (readsState && slow === 'checkout') {
                   await new Promise((resolve) => setTimeout(resolve, 1_500))
+                  stateReadsDone = true
                 }
                 const release = client.release.bind(client)
                 client.release = (error?: Error | boolean) => {
                   released += 1
                   release(error)
                 }
-                if (readsState && slow === 'read') {
+                if (readsState) {
                   const query = client.query.bind(client) as (...args: unknown[]) => unknown
                   ;(client as { query: unknown }).query = async (...args: unknown[]) => {
-                    if (String(args[0]).includes('processing_figure_render WHERE id = ANY')) {
+                    const statement = String(args[0])
+                    if (stateReadsDone) {
+                      lateStatements.push(statement)
+                    }
+                    const readsRenders = statement.includes(
+                      'processing_figure_render WHERE id = ANY',
+                    )
+                    if (readsRenders && slow !== 'checkout') {
                       await new Promise((resolve) => setTimeout(resolve, 1_500))
+                      if (slow === 'gone') {
+                        await fixture.db.pool.query(
+                          `DELETE FROM processing_figure_render WHERE id = ANY($1::uuid[])`,
+                          [(args[1] as unknown[])[0]],
+                        )
+                      }
+                      const result = await query(...args)
+                      stateReadsDone = true
+                      return result
                     }
                     return query(...args)
                   }
@@ -846,8 +872,10 @@ test('a preview whose checkout or state read is slower than its wait answers in 
         assert.equal(refusal(late).error, 'preview_not_ready', slow)
         assert.equal(late.images, undefined)
         assert.ok(elapsed < 1_000, `${slow}: answered after ${elapsed} ms`)
-        // The late read finishes on its own and gives its connection back.
+        // The late read finishes on its own and gives its connection back without more SQL.
         await new Promise((resolve) => setTimeout(resolve, 2_000))
+        assert.ok(stateReadsDone, `${slow}: the slow step finished`)
+        assert.deepEqual(lateStatements, [], `${slow}: no statement after the wait`)
         assert.equal(released, checkedOut, `${slow}: every connection returned`)
       }
     } finally {
@@ -1218,15 +1246,6 @@ test('an upload decode waiting on the dispatcher runs right after the render hol
       await requestDecode(socket, 'decoder', Buffer.from('render'), 0)
       return fake(input)
     }
-    let first!: () => void
-    const firstStarted = new Promise<void>((resolve) => {
-      first = resolve
-    })
-    const watching = setInterval(() => {
-      if (busy) {
-        first()
-      }
-    }, 5)
     const stop = new AbortController()
     const running = runFigureRenderConsumer({
       pool: setup.media.pool,
@@ -1236,6 +1255,29 @@ test('an upload decode waiting on the dispatcher runs right after the render hol
       signal: stop.signal,
       pollMs: 50,
     })
+    // Observed from the start, so a consumer failure is reported here rather than unhandled.
+    let consumerSettled = false
+    const consumerOutcome = running.then(
+      () => undefined,
+      (error: unknown) => error,
+    )
+    void consumerOutcome.then(() => {
+      consumerSettled = true
+    })
+    const startupDeadline = Date.now() + 10_000
+    let watching: ReturnType<typeof setInterval> | undefined
+    const firstStarted = new Promise<void>((resolve, reject) => {
+      watching = setInterval(() => {
+        if (busy) {
+          resolve()
+        } else if (consumerSettled) {
+          reject(new Error('the render consumer stopped before its first render'))
+        } else if (Date.now() > startupDeadline) {
+          reject(new Error('no render reached the dispatcher within 10 s'))
+        }
+      }, 5)
+    })
+    let consumerError: unknown
     try {
       await firstStarted
       // An upload's decode arrives while the first render holds the slot.
@@ -1247,10 +1289,11 @@ test('an upload decode waiting on the dispatcher runs right after the render hol
     } finally {
       clearInterval(watching)
       stop.abort()
-      await running
+      consumerError = await consumerOutcome
       await new Promise((resolve) => dispatcher.close(resolve))
       await rm(socketRoot, { recursive: true, force: true })
     }
+    assert.equal(consumerError, undefined)
     // The consumer pauses after each render, so the waiting upload takes the next turn.
     assert.deepEqual(ran, ['render', 'upload', 'render', 'render'])
   })
@@ -1619,8 +1662,12 @@ test('a render settling while the sweep deletes it and a ready render of the sam
       await gate
       return store.publish(client, bytes)
     }
-    const settling = renderFigureStep(media.pool, gated, binding, same)
-    let sweeping: ReturnType<typeof sweepFigureRenders> | undefined
+    // Each operation is observed as it starts, so a failure is drained here, never unhandled.
+    const settlement = outcomeOf(renderFigureStep(media.pool, gated, binding, same))
+    type SweepResult = Awaited<ReturnType<typeof sweepFigureRenders>>
+    let sweep: Promise<PromiseSettledResult<SweepResult>> | undefined
+    let settled: PromiseSettledResult<string>
+    let swept: PromiseSettledResult<SweepResult> | undefined
     let waiting = false
     try {
       await Promise.race([
@@ -1631,7 +1678,7 @@ test('a render settling while the sweep deletes it and a ready render of the sam
         kind: 'remove',
         evidence_ids: [setup.photo.evidence],
       })
-      sweeping = sweepFigureRenders(media.pool, store, binding)
+      sweep = outcomeOf(sweepFigureRenders(media.pool, store, binding))
       for (let tries = 0; !waiting && tries < 200; tries += 1) {
         await new Promise((resolve) => setTimeout(resolve, 20))
         const blocked = await fixture.db.pool.query(
@@ -1641,16 +1688,18 @@ test('a render settling while the sweep deletes it and a ready render of the sam
         waiting = (blocked.rowCount ?? 0) > 0
       }
     } finally {
-      // Released whatever happened, so neither operation is left holding a connection.
+      // Released whatever happened, and both operations settle before the fixture is torn down.
       open()
+      settled = await settlement
+      swept = await sweep
     }
-    const [settled, swept] = await Promise.allSettled([settling, sweeping!])
     assert.ok(waiting, 'the sweep waited on the settling render')
-    assert.equal(settled.status, 'fulfilled', String((settled as PromiseRejectedResult).reason))
-    assert.equal(swept.status, 'fulfilled', String((swept as PromiseRejectedResult).reason))
+    assert.ok(swept, 'the sweep started')
+    assert.ok(settled.status === 'fulfilled', String((settled as PromiseRejectedResult).reason))
+    assert.ok(swept.status === 'fulfilled', String((swept as PromiseRejectedResult).reason))
 
-    assert.equal((settled as PromiseFulfilledResult<string>).value, 'rendered')
-    assert.equal((swept as PromiseFulfilledResult<{ deleted: number }>).value.deleted, 2)
+    assert.equal(settled.value, 'rendered')
+    assert.equal(swept.value.deleted, 2)
     const left = await fixture.db.pool.query('SELECT 1 FROM processing_figure_render')
     assert.equal(left.rowCount, 0)
     assert.equal(outputs.size, 2, 'one view and one thumbnail, shared by both renders')
