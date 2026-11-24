@@ -1,5 +1,6 @@
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { pickOption } from '#/test/picker'
 import { test, expect, vi } from 'vitest'
 import type { CaptureSnapshotDto, MediaSnapshotDto, OperatorReviewDto } from '@invimport/contracts'
 import { IntakeRequestError } from '@invimport/contracts/client'
@@ -98,7 +99,7 @@ test('selection moves atomically and conflict preserves the exact selected evide
   )
   await user.click(await screen.findByRole('checkbox', { name: 'Select Front label' }))
   await user.click(screen.getByRole('checkbox', { name: 'Select Back marking' }))
-  await user.selectOptions(screen.getByLabelText('Move selected evidence to'), groupB)
+  await pickOption(user, 'Move selected evidence to', 'Packet B')
   await user.click(screen.getByRole('button', { name: 'Move selected evidence' }))
   await waitFor(() => expect(client.edit).toHaveBeenCalledOnce())
   expect(vi.mocked(client.edit).mock.calls[0][1]).toEqual({
@@ -786,7 +787,7 @@ test('an older completed read cannot roll back acknowledged membership', async (
     />,
   )
   await user.click(await screen.findByRole('checkbox', { name: 'Select Front label' }))
-  await user.selectOptions(screen.getByLabelText('Move selected evidence to'), groupB)
+  await pickOption(user, 'Move selected evidence to', 'Packet B')
   await user.click(screen.getByRole('button', { name: 'Move selected evidence' }))
   const destination = await screen.findByRole('region', { name: /Packet B · 1/ })
   await waitFor(() =>
@@ -1048,7 +1049,7 @@ test('confirms a move with a toast whose Undo moves the files back', async () =>
     />,
   )
   await user.click(await screen.findByRole('checkbox', { name: 'Select Front label' }))
-  await user.selectOptions(screen.getByLabelText('Move selected evidence to'), 'Packet B')
+  await pickOption(user, 'Move selected evidence to', 'Packet B')
   await user.click(screen.getByRole('button', { name: 'Move selected evidence' }))
 
   const toast = await screen.findByText('Moved 1 file to Packet B')
@@ -1087,7 +1088,7 @@ test('a move confirmed while a viewer is open keeps its Undo out of reach until 
     />,
   )
   await user.click(await screen.findByRole('checkbox', { name: 'Select Front label' }))
-  await user.selectOptions(screen.getByLabelText('Move selected evidence to'), 'Packet B')
+  await pickOption(user, 'Move selected evidence to', 'Packet B')
   await user.click(screen.getByRole('button', { name: 'Move selected evidence' }))
   await user.click(screen.getByRole('button', { name: 'Open Back marking' }))
   expect(screen.getByRole('dialog', { name: 'Back marking' })).toBeInTheDocument()
@@ -1133,7 +1134,7 @@ test('Undo waits while another draft is open, so the draft is not lost', async (
     />,
   )
   await user.click(await screen.findByRole('checkbox', { name: 'Select Front label' }))
-  await user.selectOptions(screen.getByLabelText('Move selected evidence to'), 'Packet B')
+  await pickOption(user, 'Move selected evidence to', 'Packet B')
   await user.click(screen.getByRole('button', { name: 'Move selected evidence' }))
   const toast = await screen.findByText('Moved 1 file to Packet B')
   await user.click(screen.getByRole('button', { name: 'New group' }))
@@ -1192,7 +1193,7 @@ test('a move confirmed by an exact retry still raises its toast', async () => {
     />,
   )
   await user.click(await screen.findByRole('checkbox', { name: 'Select Front label' }))
-  await user.selectOptions(screen.getByLabelText('Move selected evidence to'), 'Packet B')
+  await pickOption(user, 'Move selected evidence to', 'Packet B')
   await user.click(screen.getByRole('button', { name: 'Move selected evidence' }))
   await user.click(await screen.findByRole('button', { name: 'Retry exact media request' }))
   expect(await screen.findByText('Moved 1 file to Packet B')).toBeInTheDocument()
@@ -1287,7 +1288,7 @@ function renderMoves(client: MediaClient) {
 
 async function moveFrontToB(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole('checkbox', { name: 'Select Front label' }))
-  await user.selectOptions(screen.getByLabelText('Move selected evidence to'), groupB)
+  await pickOption(user, 'Move selected evidence to', 'Packet B')
   await user.click(screen.getByRole('button', { name: 'Move selected evidence' }))
 }
 

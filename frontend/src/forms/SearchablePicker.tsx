@@ -1,9 +1,7 @@
-import { useId, useMemo, type ReactNode } from 'react'
+import { useId, useMemo, type KeyboardEvent, type ReactNode, type Ref } from 'react'
 import Select, {
-  components,
   type GroupBase,
   type InputActionMeta,
-  type InputProps,
   type OptionsOrGroups,
   type StylesConfig,
 } from 'react-select'
@@ -17,9 +15,12 @@ import {
   size,
   space,
   typeVar,
+  zIndex,
 } from '#/theme/generated/tokens'
 import { Small } from '#/components/ui/primitives'
+import { visuallyHidden } from '#/components/ui/VisuallyHidden'
 import { media } from '#/components/ui/media'
+import { DescribedInput } from './DescribedInput'
 import { Label } from './inputs'
 
 export type SearchablePickerProps<O> = {
@@ -44,6 +45,18 @@ export type SearchablePickerProps<O> = {
   placeholder: string
   /** A line below the picker, which also describes it. */
   status?: string
+  /** The label names the picker for assistive technology but isn't drawn, as in a table row. */
+  labelHidden?: boolean
+  /** Control height for a row of small buttons; phones keep the touch height. */
+  compact?: boolean
+  /** Announced on the search field; a form's own rules enforce it. */
+  required?: boolean
+  invalid?: boolean
+  /** The menu opens in a layer over the page, so a scrolling container can't clip it. */
+  menuInLayer?: boolean
+  /** The search field, for a caller that moves focus to the picker. */
+  inputRef?: Ref<HTMLInputElement>
+  className?: string
 }
 
 /**
@@ -67,12 +80,19 @@ export function SearchablePicker<O>({
   noOptionsMessage,
   placeholder,
   status,
+  labelHidden = false,
+  compact = false,
+  required = false,
+  invalid = false,
+  menuInLayer = false,
+  inputRef,
+  className,
 }: SearchablePickerProps<O>) {
   const id = useId()
   const describedBy = `${id}-status`
   // Stable for the picker's life: a new Input component would remount the field and lose focus.
   const parts = useMemo(() => ({ Input: DescribedInput<O> }), [])
-  const styles = useMemo(() => pickerStyles<O>(), [])
+  const styles = useMemo(() => pickerStyles<O>(compact), [compact])
 
   function changeInput(next: string, meta: InputActionMeta) {
     if (meta.action === 'input-change') {
@@ -86,15 +106,36 @@ export function SearchablePicker<O>({
     }
   }
 
+  // react-select leaves Enter alone when the open menu has nothing to pick, and a form would
+  // take it as a submit; an open menu keeps every Enter.
+  function keepEnterInMenu(event: KeyboardEvent<HTMLDivElement>) {
+    const target = event.target as HTMLElement
+    if (event.key === 'Enter' && target.getAttribute('aria-expanded') === 'true') {
+      event.preventDefault()
+    }
+  }
+
   return (
-    <Label as="div">
-      <label id={`${id}-label`} htmlFor={id}>
+    // The search text isn't a form value, so its typing stops here rather than reaching a form's
+    // change handler; a pick reaches the caller through `onChange`.
+    <Label
+      as="div"
+      className={className}
+      onChange={(event) => event.stopPropagation()}
+      onKeyDown={keepEnterInMenu}
+    >
+      <PickerLabel id={`${id}-label`} htmlFor={id} $hidden={labelHidden}>
         {label}
-      </label>
+      </PickerLabel>
       <Select<O, false, GroupBase<O>>
         inputId={id}
         components={parts}
-        {...{ statusId: status ? describedBy : undefined }}
+        {...{
+          statusId: status ? describedBy : undefined,
+          searchRef: inputRef,
+          announceRequired: required,
+        }}
+        aria-invalid={invalid || undefined}
         options={options}
         value={value}
         inputValue={inputValue}
@@ -105,6 +146,8 @@ export function SearchablePicker<O>({
           }
         }}
         filterOption={null}
+        // Tab leaves the field, as it does a native select; only Enter or a click picks.
+        tabSelectsValue={false}
         getOptionLabel={getOptionLabel}
         getOptionValue={getOptionValue}
         isOptionDisabled={isOptionDisabled}
@@ -115,29 +158,23 @@ export function SearchablePicker<O>({
         noOptionsMessage={noOptionsMessage}
         placeholder={placeholder}
         styles={styles}
+        menuPortalTarget={menuInLayer ? document.body : undefined}
+        menuPosition={menuInLayer ? 'fixed' : 'absolute'}
+        // A layered menu doesn't follow the page, so scrolling the page closes it.
+        closeMenuOnScroll={menuInLayer}
       />
       {status && <Status id={describedBy}>{status}</Status>}
     </Label>
   )
 }
 
-/** react-select drops `aria-describedby`; append the picker status to its own description. */
-function DescribedInput<O>(props: InputProps<O, false, GroupBase<O>>) {
-  const statusId = (props.selectProps as { statusId?: string }).statusId
-  const own = props['aria-describedby']
-  return (
-    <components.Input
-      {...props}
-      aria-describedby={[own, statusId].filter(Boolean).join(' ') || undefined}
-    />
-  )
-}
-
-function pickerStyles<O>(): StylesConfig<O, false, GroupBase<O>> {
+function pickerStyles<O>(compact: boolean): StylesConfig<O, false, GroupBase<O>> {
   return {
     control: (base, state) => ({
       ...base,
-      minHeight: 44,
+      minHeight: compact ? size.control : size.touch,
+      fontSize: compact ? typeVar.small.size : base.fontSize,
+      [media.compact]: { minHeight: size.touch },
       borderColor: state.isFocused ? color.accent : color.lineStrong,
       borderRadius: radius.input,
       borderStyle: state.isDisabled ? 'dashed' : 'solid',
@@ -188,8 +225,13 @@ function pickerStyles<O>(): StylesConfig<O, false, GroupBase<O>> {
       [media.reducedMotion]: { transition: 'none' },
     }),
     noOptionsMessage: (base) => ({ ...base, color: color.muted }),
+    menuPortal: (base) => ({ ...base, zIndex: zIndex.popover }),
   }
 }
+
+const PickerLabel = styled.label<{ $hidden: boolean }>`
+  ${({ $hidden }) => ($hidden ? visuallyHidden : '')}
+`
 
 const Status = styled(Small)`
   font-weight: ${typeVar.body.weight};

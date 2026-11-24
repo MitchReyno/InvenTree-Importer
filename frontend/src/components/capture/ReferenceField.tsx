@@ -1,5 +1,5 @@
 import { Small, Button } from '#/components/ui'
-import { Field, Input, Label, Select } from '#/forms'
+import { ChoicePicker, Field, Input, Label } from '#/forms'
 import { useState } from 'react'
 import type { CaptureObservationDto } from '@invimport/contracts'
 import type { Snapshot, Reference } from '#/capture/types'
@@ -10,6 +10,8 @@ type ReferenceFieldProps = {
   value: Reference
   defaults: boolean
   batch: Snapshot
+  /** Set by the enclosing form, whose fieldset doesn't reach the picker. */
+  disabled?: boolean
   onChange: (value: Reference) => void
   observe: CaptureObserve
 }
@@ -20,6 +22,7 @@ export function ReferenceField({
   value,
   defaults,
   batch,
+  disabled,
   onChange,
   observe,
 }: ReferenceFieldProps) {
@@ -40,30 +43,28 @@ export function ReferenceField({
 
   return (
     <Field>
-      <Label>
-        {title} selection
-        <Select
-          value={value.mode === 'set' ? value.value.observation_id : value.mode}
-          onChange={(e) => {
-            const o = observations.find((o) => o.id === e.target.value)
-            if (o) {
-              choose(o)
-            } else {
-              onChange({ mode: e.target.value as 'unset' | 'unknown' | 'clear' | 'inherit' })
-            }
-          }}
-        >
-          {!defaults && <option value="inherit">Use batch default</option>}
-          <option value="unset">Not selected</option>
-          <option value="unknown">Explicitly unknown</option>
-          <option value="clear">Explicitly clear</option>
-          {observations.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.label} (#{o.pk}) · observed
-            </option>
-          ))}
-        </Select>
-      </Label>
+      <ChoicePicker
+        label={`${title} selection`}
+        noun={model === 'part' ? 'Parts' : 'locations'}
+        placeholder={`Choose a ${title.toLowerCase()}…`}
+        choices={[
+          ...(defaults ? [] : [{ value: 'inherit', label: 'Use batch default' }]),
+          { value: 'unset', label: 'Not selected' },
+          { value: 'unknown', label: 'Explicitly unknown' },
+          { value: 'clear', label: 'Explicitly clear' },
+          ...observations.map((o) => ({ value: o.id, label: `${o.label} (#${o.pk}) · observed` })),
+        ]}
+        value={value.mode === 'set' ? value.value.observation_id : value.mode}
+        disabled={disabled}
+        onChange={(choice) => {
+          const o = observations.find((o) => o.id === choice)
+          if (o) {
+            choose(o)
+          } else {
+            onChange({ mode: choice as 'unset' | 'unknown' | 'clear' | 'inherit' })
+          }
+        }}
+      />
       <Label>
         {title} record ID
         <Input

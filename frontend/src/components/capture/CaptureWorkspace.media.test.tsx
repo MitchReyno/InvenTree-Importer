@@ -5,6 +5,7 @@ import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { render, fixtureScope } from '#/test/render'
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { pickOption, pickerText } from '#/test/picker'
 import { afterEach, expect, test, vi } from 'vitest'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import type { MediaClient } from '#/media/types'
@@ -344,9 +345,9 @@ test('an evidence group location is saved through the capture command', async ()
       </BatchCommandsProvider>
     </ApiClientsProvider>,
   )
-  const field = await screen.findByLabelText('Location for group Bag X')
+  const field = await screen.findByRole('combobox', { name: 'Location for group Bag X' })
   await waitFor(() => expect(field).toBeEnabled())
-  await user.selectOptions(field, 'clear')
+  await pickOption(user, 'Location for group Bag X', 'Explicitly no location')
   expect(edit).toHaveBeenCalledWith({
     kind: 'group_location',
     group_id: groupId,
@@ -371,11 +372,11 @@ test('an unconfirmed group location stays chosen and dirty until retried or disc
       </BatchCommandsProvider>
     </ApiClientsProvider>,
   )
-  const field = await screen.findByLabelText('Location for group Bag X')
+  const field = await screen.findByRole('combobox', { name: 'Location for group Bag X' })
   await waitFor(() => expect(field).toBeEnabled())
-  await user.selectOptions(field, 'clear')
+  await pickOption(user, 'Location for group Bag X', 'Explicitly no location')
   await screen.findByText(/group location was not confirmed/)
-  expect(field).toHaveValue('clear')
+  expect(pickerText('Location for group Bag X')).toBe('Explicitly no location')
   expect(dirty).toHaveBeenLastCalledWith(true)
   expect(screen.getByLabelText('Batch title')).toBeDisabled()
   edit.mockResolvedValue(true as never)
@@ -414,9 +415,9 @@ test('discarding an unconfirmed group location reloads through the owner and kee
       </BatchCommandsProvider>
     </ApiClientsProvider>,
   )
-  const field = await screen.findByLabelText('Location for group Bag X')
+  const field = await screen.findByRole('combobox', { name: 'Location for group Bag X' })
   await waitFor(() => expect(field).toBeEnabled())
-  await user.selectOptions(field, 'clear')
+  await pickOption(user, 'Location for group Bag X', 'Explicitly no location')
   await user.click(await screen.findByRole('button', { name: 'Discard group location change' }))
   expect(reload).toHaveBeenCalledOnce()
   expect(dirty).toHaveBeenLastCalledWith(true)
@@ -424,7 +425,7 @@ test('discarding an unconfirmed group location reloads through the owner and kee
   // Still mounted means the owner did not reload; the change and its protection remain.
   expect(await screen.findByText(/Saved values could not be reloaded/)).toBeVisible()
   expect(dirty).toHaveBeenLastCalledWith(true)
-  expect(field).toHaveValue('clear')
+  expect(pickerText('Location for group Bag X')).toBe('Explicitly no location')
 })
 
 test('batch notes sit in the evidence card', async () => {

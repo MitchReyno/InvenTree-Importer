@@ -356,7 +356,7 @@
   - records, growing lists and exact-value fields use the searchable picker;
   - short fixed lists become a segmented control or stay a styled native select, chosen per screen;
   - the design system documents the guideline.
-- **Scope and approach:** the 46 native select JSX sites in 28 components (Capture, Review, the Review Map, Records, the operator panels, media, Changes and the bulk bar), counted as in the design and refreshed after PR-H removes `StepChoices`, using `forms/SearchablePicker` (task 13), `SearchableReferencePicker` and `SegmentedControl` (design: "Choosing a dropdown control").
+- **Scope and approach:** the 46 native select JSX sites in 28 components (Capture, Review, the Review Map, Records, the operator panels, media, Changes and the bulk bar), counted as in the design and refreshed after PR-H removes `StepChoices`, using `forms/SearchablePicker` (task 13), `SearchableReferencePicker`, a `ChoicePicker` for lists the batch already holds, and `SegmentedControl` (design: "Choosing a dropdown control").
 - **Prerequisites:** task 13 merged.
 - **Acceptance:** "Searchable picker for records and growing lists", "Short fixed choices follow a guideline".
 - **TDD approach:** each converted field's existing tests are updated for the new control first, and fail until it's converted. A new test for a record field checks search.
@@ -367,10 +367,10 @@
   - the audit table in the PR description.
 - **Risks and decisions:** it's broad, so convert by screen in separate commits. Keep each field's value and validation unchanged.
 
-- [ ] 14.1 Audit all native selects: their screen, option count, kind (record, growing, fixed) and proposed control. Put the table in the PR description.
-- [ ] 14.2 RED: update each converted field's tests to the new control, and add search tests for the record fields.
-- [ ] 14.3 GREEN: convert the fields, screen by screen.
-- [ ] 14.4 Capture each changed field. Run the frontend checks, and record the demo video.
+- [x] 14.1 Audit all native selects: their screen, option count, kind (record, growing, fixed) and proposed control. Put the table in the PR description.
+- [x] 14.2 RED: update each converted field's tests to the new control, and add search tests for the record fields.
+- [x] 14.3 GREEN: convert the fields, screen by screen.
+- [x] 14.4 Capture each changed field. Run the frontend checks, and record the demo video.
 
 ## 15. A replaced read is not a failure
 
@@ -410,7 +410,7 @@
 - [ ] PR-E: implement task 9, review the exact head, publish with the phone and desktop checks and the demo, CI green, merge. Merged as #253 at `9e0891ed`; task 9.4's real-device checks stay open.
 - [x] PR-F: implement task 11, review the exact head, publish with the demo, CI green, merge. Merged as #256 at `ec974af1`.
 - [ ] PR-G: implement task 12, review the exact head, publish, CI green, run the live VM check with Mitch's go-ahead, merge. Merged as #264 at `dcc10495`; the live VM check stays open.
-- [ ] PR-H: implement task 13, review the exact head, publish with the demo, CI green, merge.
+- [x] PR-H: implement task 13, review the exact head, publish with the demo, CI green, merge. Merged as #267 at `3000b14d`; its real-VM Settings check stays open (see `notes.md`).
 - [ ] PR-I: implement task 14, review the exact head, publish with the audit, captures and the demo, CI green, merge.
 - [ ] PR-J: implement task 15, review the exact head, publish with the demo, CI green, merge.
 - [ ] Update BI-020 as PRs merge. It is Done only after every implementation PR (PR-A to PR-J) merges and its acceptance is evidenced.

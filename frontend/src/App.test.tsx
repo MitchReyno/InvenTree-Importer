@@ -1,4 +1,5 @@
 import { sessionList } from '#/test/agent-sessions'
+import { pickOption } from '#/test/picker'
 import { act, cleanup } from '@testing-library/react'
 import { useState, type ReactNode } from 'react'
 import { captureClient, manualClient } from '@invimport/contracts/client'
@@ -588,7 +589,7 @@ test('capture form reports input dirty synchronously and preserves exact draft a
   )
   expect(label).toHaveValue('My retained draft')
   await user.selectOptions(screen.getByRole('combobox', { name: 'Quantity mode' }), 'unknown')
-  await user.selectOptions(screen.getByRole('combobox', { name: 'Location selection' }), 'clear')
+  await pickOption(user, 'Location selection', 'Explicitly clear')
   await user.click(screen.getByRole('button', { name: 'Save human changes' }))
   await waitFor(() =>
     expect(edit).toHaveBeenCalledWith({

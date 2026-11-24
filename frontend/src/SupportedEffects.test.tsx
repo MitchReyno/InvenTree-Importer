@@ -1,5 +1,6 @@
 import { expect, test, vi } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { picker } from '#/test/picker'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { render } from './test/render'
 import { CaptureEditor } from './components/capture/CaptureEditor'
@@ -56,9 +57,25 @@ test('human explicitly chooses one shared new Part with an observed category and
       />
     </BatchCommandsProvider>,
   )
-  await user.selectOptions(screen.getByLabelText('Part action'), 'create')
+  onDirty.mockClear()
+  await user.click(screen.getByRole('button', { name: 'Reuse a Part' }))
+  expect(onDirty).not.toHaveBeenCalled()
+  await user.click(screen.getByRole('button', { name: 'Create a Part' }))
   await user.type(screen.getByLabelText('New Part name'), 'Resistor Ω')
-  await user.selectOptions(screen.getByLabelText('Existing category'), categoryId)
+  await user.click(screen.getByRole('button', { name: 'Save human changes' }))
+  const category = picker('Existing category')
+  await waitFor(() => expect(category).toHaveFocus())
+  expect(category).toHaveAttribute('aria-required', 'true')
+  expect(category).toHaveAttribute('aria-invalid', 'true')
+  expect(category).toHaveAccessibleDescription(/Choose an observed category\./)
+  expect(edit).not.toHaveBeenCalled()
+  onDirty.mockClear()
+  await user.type(category, 'resis')
+  expect(onDirty).not.toHaveBeenCalled()
+  await user.click(
+    within(screen.getByRole('listbox')).getByRole('option', { name: 'Resistors (#81)' }),
+  )
+  expect(onDirty).toHaveBeenCalledExactlyOnceWith(true)
   await user.click(screen.getByRole('button', { name: 'Save human changes' }))
   await waitFor(() => expect(edit).toHaveBeenCalledOnce())
   expect(edit).toHaveBeenCalledWith({

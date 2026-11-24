@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { BatchRecordDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { companiesFor, partName, referenceTo, specOf } from '#/records/model'
 import { Small } from '#/components/ui'
-import { Label, Select } from '#/forms'
+import { ChoicePicker } from '#/forms'
 import { CompanyDecision } from './CompanyDecision'
 import { SaveRow, useRecordSave, type Save } from './draft'
 
@@ -74,17 +74,16 @@ export function ProposedCompanyEditor({
           No {noun} was proposed, so set the {proposed.role} on the Part instead.
         </Small>
       )}
-      <Label>
-        Use another {proposed.role}
-        <Select value={other} disabled={blocked} onChange={(event) => setOther(event.target.value)}>
-          <option value="">Choose an observed {proposed.role}</option>
-          {companies.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.label}
-            </option>
-          ))}
-        </Select>
-      </Label>
+      <ChoicePicker
+        label={`Use another ${proposed.role}`}
+        clearable
+        noun={`${proposed.role}s`}
+        placeholder={`Choose an observed ${proposed.role}`}
+        choices={companies.map((item) => ({ value: item.id, label: item.label }))}
+        value={other}
+        disabled={blocked}
+        onChange={setOther}
+      />
       <SaveRow
         label={`Use this ${proposed.role}`}
         disabled={blocked || !chosen}

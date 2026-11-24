@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { listedOptions, pickOption, picker, searchAndPick } from '#/test/picker'
 import { expect, it, vi } from 'vitest'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { ObservationMove } from './ObservationMove'
@@ -15,6 +16,7 @@ const batch = {
 } as unknown as CaptureSnapshotDto
 
 it('moves an observation to another live lot or out of any lot', async () => {
+  const user = userEvent.setup()
   const edit = vi.fn().mockResolvedValue(true)
   render(
     <ObservationMove
@@ -26,18 +28,18 @@ it('moves an observation to another live lot or out of any lot', async () => {
       disabled={false}
     />,
   )
-  const select = screen.getByLabelText('Move Reel to')
-  expect(screen.queryByRole('option', { name: 'Old' })).not.toBeInTheDocument()
-  expect(screen.queryByRole('option', { name: 'Red LEDs' })).not.toBeInTheDocument()
-  await userEvent.selectOptions(select, 'Green LEDs')
-  await userEvent.click(screen.getByRole('button', { name: 'Move' }))
+  await user.click(picker('Move Reel to'))
+  expect(listedOptions()).toEqual(['Not chosen', 'Green LEDs', 'No lot'])
+  await user.keyboard('{Escape}')
+  await searchAndPick(user, 'Move Reel to', 'green', 'Green LEDs')
+  await user.click(screen.getByRole('button', { name: 'Move' }))
   expect(edit).toHaveBeenCalledWith({
     kind: 'observation_move',
     observation_id: 'o1',
     lot_id: 'l2',
   })
-  await userEvent.selectOptions(select, 'No lot')
-  await userEvent.click(screen.getByRole('button', { name: 'Move' }))
+  await pickOption(user, 'Move Reel to', 'No lot')
+  await user.click(screen.getByRole('button', { name: 'Move' }))
   expect(edit).toHaveBeenLastCalledWith({
     kind: 'observation_move',
     observation_id: 'o1',

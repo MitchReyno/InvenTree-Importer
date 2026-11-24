@@ -9,6 +9,8 @@ import { serverQueryKey } from '#/queries/scope'
 import { fixtureScope } from '#/test/render'
 import type { MediaClient } from '#/media/types'
 import { MediaWorkspace } from './MediaWorkspace'
+import { mediaIdentityLabels } from '#/media/identity-labels'
+import { listedOptions, pickOption, pickerText } from '#/test/picker'
 import { trackDialogOpeners } from '#/components/ui'
 
 const batch: CaptureSnapshotDto = {
@@ -192,43 +194,43 @@ test('attachment options distinguish colliding identities and match visible reta
       />
     </ServerStateProvider>,
   )
-  const select = await screen.findByRole<HTMLSelectElement>('combobox', {
-    name: 'Attachment for Chosen lot',
-  })
-  await waitFor(() => expect(select).toBeEnabled())
-  const options = Array.from(select.querySelectorAll('option')).filter(
-    (option) => option.value !== 'unset' && option.value !== 'declined',
+  const name = 'Attachment for Chosen lot'
+  const choice = await screen.findByRole('combobox', { name })
+  await waitFor(() => expect(choice).toBeEnabled())
+  const versionIds = populated.evidence.flatMap((evidence) =>
+    evidence.versions.map((version) => version.id),
   )
-  expect(options).toHaveLength(4)
-  expect(new Set(options.map((option) => option.textContent)).size).toBe(4)
-  expect(options.map((option) => option.value)).toEqual(
-    populated.evidence.flatMap((evidence) => evidence.versions.map((version) => version.id)),
-  )
+  const labels = mediaIdentityLabels(populated.evidence).versions
   const user = userEvent.setup()
-  for (const option of options) {
+  await user.click(choice)
+  const options = listedOptions().slice(2)
+  await user.keyboard('{Escape}')
+  expect(options).toHaveLength(4)
+  expect(new Set(options).size).toBe(4)
+  expect(options).toEqual(versionIds.map((id) => labels.get(id)))
+  for (const [position, label] of options.entries()) {
     // Each file opens by its numbered name; its viewer shows the same exact version identity.
     const index = populated.evidence.findIndex((evidence) =>
-      evidence.versions.some((version) => version.id === option.value),
+      evidence.versions.some((version) => version.id === versionIds[position]),
     )
     const fileName = `photo.png (${index + 1})`
     await user.click(screen.getByRole('button', { name: `Open ${fileName}` }))
     const viewer = screen.getByRole('dialog', { name: fileName })
     const visibleVersion = within(viewer).getAllByText(
-      (text, element) =>
-        element?.tagName === 'SMALL' && text.startsWith(`${option.textContent} · ready`),
+      (text, element) => element?.tagName === 'SMALL' && text.startsWith(`${label} · ready`),
     )
     expect(visibleVersion).toHaveLength(1)
     await user.click(within(viewer).getByRole('button', { name: 'Close' }))
-    expect(option.textContent).toContain('photo.png · evidence 11111111')
-    expect(option.textContent).toContain(' · crop 22222222')
+    expect(label).toContain('photo.png · evidence 11111111')
+    expect(label).toContain(' · crop 22222222')
   }
-  const selectedOption = select.selectedOptions[0]
-  expect(selectedOption.value).toBe(selectedVersion.id)
-  expect(select).toHaveAccessibleDescription(`Selected attachment: ${selectedOption.textContent}`)
-  expect(screen.getByText(`Selected attachment: ${selectedOption.textContent}`)).toBeVisible()
+  const selectedLabel = labels.get(selectedVersion.id)
+  expect(pickerText(name)).toBe(selectedLabel)
+  expect(choice).toHaveAccessibleDescription(`Selected attachment: ${selectedLabel}`)
+  expect(screen.getByText(`Selected attachment: ${selectedLabel}`)).toBeVisible()
 
   const replacementVersion = populated.evidence[0].versions[0]
-  await userEvent.setup().selectOptions(select, replacementVersion.id)
+  await pickOption(user, name, labels.get(replacementVersion.id)!)
   expect(media.edit).toHaveBeenCalledWith(
     populatedBatch.id,
     {

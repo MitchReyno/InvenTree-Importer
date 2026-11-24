@@ -1,10 +1,8 @@
-import { useId } from 'react'
 import styled from 'styled-components'
 import { space } from '#/theme/generated/tokens'
 import type { CaptureSnapshotDto, MediaEditDto, MediaSnapshotDto } from '@invimport/contracts'
 import { mediaIdentityLabels } from '#/media/identity-labels'
-import { Small } from '#/components/ui'
-import { Label, Select } from '#/forms'
+import { ChoicePicker } from '#/forms'
 
 type Props = {
   batch: CaptureSnapshotDto
@@ -16,7 +14,6 @@ type Props = {
 
 /** Chooses the retained version attached to one physical lot or shared Part. */
 export function SubjectAttachmentChoice({ batch, subjectId, snapshot, disabled, edit }: Props) {
-  const id = useId()
   const part = batch.parts.find((item) => item.id === subjectId)
   const subject = batch.lots.find((item) => item.id === subjectId) ?? part
   if (!subject) {
@@ -35,14 +32,26 @@ export function SubjectAttachmentChoice({ batch, subjectId, snapshot, disabled, 
   }
   return (
     <Choice>
-      <Label htmlFor={id}>Attachment for {subject.label}</Label>
-      <Select
-        id={id}
-        aria-describedby={`${id}-selection`}
-        disabled={disabled}
+      <ChoicePicker
+        label={`Attachment for ${subject.label}`}
+        noun="versions"
+        placeholder="Choose an attachment…"
+        choices={[
+          { value: 'unset', label: 'Not chosen' },
+          { value: 'declined', label: `No attachment for this ${noun}` },
+          ...snapshot.evidence.flatMap((evidence) =>
+            evidence.versions
+              .filter((version) => version.state === 'ready')
+              .map((version) => ({
+                value: version.id,
+                label: labels.versions.get(version.id) ?? version.id,
+              })),
+          ),
+        ]}
         value={selection?.version_id ?? selection?.mode ?? 'unset'}
-        onChange={(event) => {
-          const value = event.target.value
+        disabled={disabled}
+        status={`Selected attachment: ${description}`}
+        onChange={(value) => {
           const mode = value === 'unset' || value === 'declined' ? value : 'selected'
           void edit({
             kind: 'select_attachment',
@@ -52,20 +61,7 @@ export function SubjectAttachmentChoice({ batch, subjectId, snapshot, disabled, 
             destination,
           }).catch(() => undefined)
         }}
-      >
-        <option value="unset">Not chosen</option>
-        <option value="declined">No attachment for this {noun}</option>
-        {snapshot.evidence.flatMap((evidence) =>
-          evidence.versions
-            .filter((version) => version.state === 'ready')
-            .map((version) => (
-              <option key={version.id} value={version.id}>
-                {labels.versions.get(version.id)}
-              </option>
-            )),
-        )}
-      </Select>
-      <Small id={`${id}-selection`}>Selected attachment: {description}</Small>
+      />
     </Choice>
   )
 }
@@ -80,8 +76,5 @@ const Choice = styled.div`
     min-width: 0;
     max-width: 100%;
     overflow-wrap: anywhere;
-  }
-  select {
-    max-width: 100%;
   }
 `

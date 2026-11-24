@@ -1,6 +1,6 @@
 # Implementation notes
 
-Implementation of the UI polish and calm loading plan, delivered as PR-A to PR-J after the plan PRs (#247, #248). PR-A merged in #250, PR-B in #254, PR-C in #259, PR-D in #255, PR-E in #253, PR-F in #256 and PR-G in #264; PR-H is underway; PR-I and PR-J remain, with PR-G's live VM check (see the open items).
+Implementation of the UI polish and calm loading plan, delivered as PR-A to PR-J after the plan PRs (#247, #248). PR-A merged in #250, PR-B in #254, PR-C in #259, PR-D in #255, PR-E in #253, PR-F in #256, PR-G in #264, PR-H in #267 and the follow-up PR-G2 in #268; PR-I is underway and PR-J remains, with PR-G's live VM check and PR-H's real-VM Settings check (see the open items).
 
 ## Changes to the plan
 
@@ -14,6 +14,7 @@ Implementation of the UI polish and calm loading plan, delivered as PR-A to PR-J
 
 - **2026-11-24T10:00+11:00, task 5 (PR-C):** `useFreshRead` gains a `keepPrevious` option (TanStack's `keepPreviousData`), so Records and Processing › Inventory keep showing the previous revision's records while the next revision's key is first read, as `useBatchRecords`' placeholder did. The placeholder never verifies the new key, so record edits wait for its own read.
 - **2026-11-24T10:00+11:00, task 5 (PR-C):** no new snapshot projection was added. The reads moved here are either excluded by the allowlist (the Agents list) or not on it (settings, the batch list, media, records' InvenTree values), so they render cached-first from the in-memory cache only.
+- **2026-11-25T03:04+11:00, task 14 (PR-I):** the converted record fields choose among the batch's observed records, not the catalogue, so they use a new `forms/ChoicePicker` on `SearchablePicker` rather than `SearchableReferencePicker`, which searches the InvenTree catalogue. The design and the task scope now name it. The design system artifact's "Choosing a dropdown" guide is not written by this PR (it lives outside the repository); the component gallery's new "Choosing a dropdown" section and `frontend/ARCHITECTURE.md` carry the guideline with examples meanwhile (see the open items).
 
 ## Unexpected challenges
 
@@ -120,6 +121,51 @@ Implementation of the UI polish and calm loading plan, delivered as PR-A to PR-J
 - **2026-11-24T19:24+11:00, tasks 12 and 13 (PR-G2), review round 1 of the card adoption:** a Check again now never joins a read in flight at the API, the worker or the coordinator, so a change's fresh read can't be answered by one asked for before it. Each change waits for the run of reads its own fresh read starts, so a later Check again can't bring back a settled confirmation. A run ends when the check lands, when a read fails, or when the first read asked for after its 15 s deadline (monotonic clock) answers; a run that ends with no Codex result reads "Status timed out". The Effect that re-asked on return is gone: a change's fresh read runs through the query client and finishes after leaving. Codex's card has a polite status region announcing the check and its outcome. Found while filming: a check time ahead of the page's minute clock (server clock ahead, or a tick still due) read "Checked in 1 minute"; it now reads "just now". Not changed: a failed read after a change still ends the wait and shows "Status unavailable", as PR-H's card did after its window; the "keeps the change's outcome" line in the architecture is about the dialog's own protected read.
 - **2026-11-25T01:30+11:00, tasks 12 and 13 (PR-G2), review round 2 of the card adoption (fixed, not re-reviewed):** each fresh read now gets a strictly larger number, and a change is settled only by a read of its own fresh read's run (or a newer fresh read's), recorded as the read lands. A fresh read that is cancelled, such as by a live hint refreshing every read, or that joins an older fresh read asks again, up to three times, unless a newer fresh read has taken over. A failed read marks its run ended in the cache, so coming back starts a new run instead of reviving a change. The status region announces a failed read and a check that didn't finish in time. Not changed: each request is already bounded by the client's 10 s operation timeout (`client-policy.ts`), so no extra abort was added.
 
+- **2026-11-25T02:16+11:00, task 14.1 (PR-I), the dropdown audit:** on `b1d38bea` there are 45 native select JSX sites in 27 components, counted as the design counts them (the Review Map's three `LinkSelect`s included; tests, fixtures, the generic `TextField` wrapper and react-select inside `SearchablePicker` excluded). PR-H's removal of `StepChoices` accounts for the one site and component fewer than the plan's 46 in 28. Records, lists that grow with the batch and the batch's observed records move to the searchable picker; short fixed lists stay native unless two or three short options fit one line. Choices the guideline doesn't settle are explained in the table. Option counts are for a typical batch; "n" grows with it.
+
+| Site | Field | Options | Kind | Control |
+| --- | --- | --- | --- | --- |
+| `capture/AssignedLocationField` | Location for this Part's lots; a group's location | 2 + observed locations | record | Searchable picker |
+| `capture/ReferenceField` | Location selection; Existing Part selection | 3–4 + observed Parts or locations | record | Searchable picker |
+| `capture/CaptureContextFields` | Supplier selection | 3–4 + observed suppliers | record | Searchable picker |
+| `capture/CaptureContextFields` | Purchase date mode; Capture tags mode | 4–5 | fixed | Native: five long modes don't fit a segmented row |
+| `capture/QuantityField` | Quantity mode | 4–5 | fixed | Native, as above |
+| `capture/MappingReader` | Read existing mapping type | 4 | fixed | Native: "Category parameter mapping" is too long for a phone-width segment |
+| `capture/CaptureEditor` | Shared Part proposal | 1 + batch Parts | growing | Searchable picker |
+| `capture/CaptureEditor` | Part action | 2 | fixed | Segmented control ("Reuse a Part", "Create a Part") |
+| `capture/PartCreationFields` | Existing category; Parameter template; Category parameter mapping; Existing manufacturer; Existing supplier | n observed records (+ "No … relationship") | record | Searchable picker (5 sites) |
+| `changes/ReadyToAdd` | Prepared selection | n preparations | growing | Searchable picker: preparations accumulate with the batch, and their lot lists are long to scan |
+| `review/ReviewMap` | Link a file to a lot; Move a region to; Same item as | n lots or regions | growing | Searchable picker, compact with a hidden label, sized to the small button beside it |
+| `review/RegionStage` | Page | the photo's pages | fixed | Native: a document's page count, not batch data |
+| `review/records/TemplateEditor` | Use another template; Mapping in a category | n observed records | record | Searchable picker (2 sites) |
+| `review/records/PartEditor` | Move to category; a parameter's mapping | n observed records | record | Searchable picker (2 sites) |
+| `review/records/SourcingEditor` | Manufacturer or Supplier | n observed companies | record | Searchable picker |
+| `review/records/LocationDetail` | Location type | 1 ("Not known") | deferred | Native, kept: a disabled deferred feature (`DisabledFeature`) with nothing to search; it changes when location types are read |
+| `review/records/ParameterEditor` | Add a parameter; Mapping in this category | n observed records | record | Searchable picker (2 sites) |
+| `review/records/PartDecision` | Existing category | n observed categories | record | Searchable picker |
+| `review/records/CompanyEditor` | Use another manufacturer or supplier | n observed companies | record | Searchable picker |
+| `review/records/ProposedCompanyEditor` | Use another manufacturer or supplier | n observed companies | record | Searchable picker |
+| `operator/QuickLotEdit` | Quantity | 5 | fixed | Native, as Capture's quantity mode |
+| `operator/QuickLotEdit` | Location | 4 + observed locations | record | Searchable picker |
+| `operator/BulkEditPanel` | Quantity | 6 | fixed | Native, in the bulk row |
+| `operator/BulkEditPanel` | Location | 5 + observed locations | record | Searchable picker |
+| `operator/RestructureDialog` | Where each observation goes | 2–10 new lots made in the dialog | fixed | Native: one per observation row, listing only the dialog's own new lots |
+| `operator/RestructureDialog` | Merge's Part proposal; Move's Part proposal | n batch Parts | growing | Searchable picker (2 sites) |
+| `operator/RestructureDialog` | Destination | 3 | fixed | Segmented control ("Existing", "New", "None") |
+| `operator/EvidenceViewer` | Evidence source and version | n retained versions | growing | Searchable picker, unready versions listed but not pickable |
+| `operator/EvidenceViewer` | Document page | the version's pages | fixed | Native, as the Region stage's page |
+| `operator/ObservationMove` | Move an observation to | n lots + "No lot" | growing | Searchable picker |
+| `media/MediaWorkspace` | Move selected evidence to | n groups + Ungrouped | growing | Searchable picker |
+| `media/SubjectAttachmentChoice` | Attachment for a lot or Part | 2 + ready versions | growing | Searchable picker |
+| `media/MediaCropFields` | Aspect ratio | 5 | fixed | Native: five ratios in a narrow crop-field column |
+| `ui/BulkBar` | Field | the caller's fields | fixed | Native: the bulk bar is a tight space; no screen passes several fields today |
+
+Totals: 31 searchable pickers, 2 segmented controls and 12 native selects kept.
+
+- **2026-11-25T03:04+11:00, task 14 (PR-I), review round 1:** a picker whose empty value only prompted ("Choose an observed …") offers "Not chosen" first (`clearable`), so a choice can be undone and its editor return to clean, as the native empty option allowed. Picking the option already chosen changes nothing, since react-select reports it as a change. Escape with a picker's menu open closes the menu, not the dialog around it (`ModalFrame` leaves an expanded combobox's Escape alone). Required pickers announce it and their error, and take focus on a refused submit; react-select's own `required` isn't used, because its hidden input would block the form's submit before React Hook Form shows the error.
+- **2026-11-25T03:18+11:00, task 14 (PR-I), review round 2:** Tab leaves every searchable picker without picking the highlighted option (`tabSelectsValue` off), as it leaves a native select, so typing a search and tabbing away can't send an edit. Choosing the segment already pressed (Part action, a move's destination) reports nothing. Restructure's required Part proposal carries its error as its description. Not done here: the design system artifact's guide and board O11 (finding 4), which stay an open item because they are published outside the repository and need Mitch's go-ahead.
+- **2026-11-25T03:26+11:00, task 14 (PR-I), review round 3 (fixed, not re-reviewed):** Enter in an open picker menu never submits the enclosing form, including when nothing matches (react-select leaves that Enter alone). The Review Map's pickers open their menus in a layer over the page, closed by a page scroll, so the diagram's scroller can't clip them. Segmented controls inside a locked form show as unavailable. `DescribedInput` moved to its own file. Found while filming: a segmented control under a field label stretched to the label's width; it now keeps its own width.
+
 ## Open items
 
 - **2026-11-24T02:56+11:00, task 9 (PR-E):** Task 9.4's phone checks (iOS Safari and Android Chrome: Take photos offers the camera and the library, and the library picks several photos) and the desktop Safari drop and paste check are for Mitch to run on real devices. The Camera / Photo library fallback is added only if a phone's sheet lacks one route.
@@ -131,3 +177,5 @@ Implementation of the UI polish and calm loading plan, delivered as PR-A to PR-J
 - **2026-11-24T16:02+11:00, task 12.4 (PR-G), delivery checklist:** PR-G merged in #264 before its live status-route check, at Mitch's choice. The check is pending his restart of `pnpm dev`, which refreshes the runner image and reprovisions the management containers; 12.4 and PR-G's delivery line stay unticked until it runs.
 - **2026-11-24T17:35+11:00, task 13 (PR-H):** a Codex start whose answer was lost is cleaned up by a status read that names whichever login is pending, which could be another tab's started at the same moment. Binding cleanup to the exact attempt needs a caller-supplied attempt ID in the guest's `start` action, a guest change outside PR-H; the follow-up PR-G2 (or a later guest change) could add it. The settle window (8 s) can shrink once the status route takes a refresh request (PR-G2).
 - **2026-11-24T17:35+11:00, task 13 (PR-H):** the plan's "Settings on the real VM showing the statuses with no key" check for PR-H is still to run with Mitch, after his `pnpm dev` restart; PR-H's work used the fixture page only.
+- **2026-11-25T02:13+11:00, delivery checklist (PR-I):** PR-H's delivery line is ticked: it merged in #267, and the line's own text (implement, review, publish with the demo, CI, merge) is met. Its plan row also lists "Settings on the real VM showing the statuses with no key", which the line doesn't name, so that check stays open here (the 2026-11-24T17:35 item above) rather than holding the line unticked. PR-G's line and task 12.4 stay unticked for its live check, and PR-E's for task 9.4.
+- **2026-11-25T03:04+11:00, task 14 (PR-I):** the Bench Intake Design System artifact still needs its "Choosing a dropdown" guide and the `SearchablePicker` component (design: "Choosing a dropdown control"), and canvas board O11. They live outside the repository, so this PR didn't publish them; the requirement "Short fixed choices follow a guideline" is met in the repository by the component gallery and `frontend/ARCHITECTURE.md` until they are.
