@@ -15,6 +15,7 @@ import { render } from '#/test/render'
 import { deferred } from '#/test/deferred'
 import {
   H,
+  at,
   attemptHeader,
   chat,
   history,
@@ -47,7 +48,7 @@ function mount(
 }
 
 function send(text: string) {
-  fireEvent.change(screen.getByLabelText('Message this session'), { target: { value: text } })
+  fireEvent.change(screen.getByLabelText('Message Research'), { target: { value: text } })
   fireEvent.click(screen.getByRole('button', { name: 'Send' }))
 }
 
@@ -450,6 +451,61 @@ test('a send that fails after its scope ended does not come back when the scope 
   await screen.findByRole('list', { name: 'Session history' })
   expect(screen.queryByRole('alert')).toBeNull()
   expect(screen.queryByText(/Sent before leaving/)).toBeNull()
-  fireEvent.change(screen.getByLabelText('Message this session'), { target: { value: 'Again' } })
+  fireEvent.change(screen.getByLabelText('Message Research'), { target: { value: 'Again' } })
   expect(screen.getByRole('button', { name: 'Send' })).not.toBeDisabled()
+})
+
+test('the header says where a retried session stands, from its history', async () => {
+  const attempts = [
+    attemptHeader({
+      id: '00000000-0000-4000-8000-0000000000a1',
+      number: 1,
+      state: 'failed',
+      session_state: 'failed',
+      queued_at: at(2),
+      ended: { at: at(4), source: 'transition' },
+    }),
+    attemptHeader({
+      id: '00000000-0000-4000-8000-0000000000a2',
+      number: 2,
+      state: 'failed',
+      session_state: 'failed',
+      queued_at: at(5),
+      started_because: 'after_failure',
+      ended: { at: at(6), source: 'transition' },
+    }),
+    attemptHeader({
+      number: 3,
+      state: 'ready',
+      session_state: 'finished',
+      queued_at: at(7),
+      started_because: 'after_failure',
+      ended: { at: at(13), source: 'transition' },
+    }),
+  ]
+  mount(() => Promise.resolve(history([status(1, 12, 'Checked the datasheet')], { attempts })))
+
+  const header = await screen.findByRole('region', { name: 'Session details' })
+  expect(header).toHaveTextContent('Claude Opus 5.5 · agent VM · web on')
+  const times = within(header)
+    .getAllByRole('time', { hidden: true })
+    .map((time) => time.getAttribute('datetime'))
+  // The span runs from the first attempt's queue time to the current attempt's end; the
+  // earlier attempts' own times follow in their fold.
+  expect(times.slice(0, 2)).toEqual([at(2), at(13)])
+  expect(header).toHaveTextContent('Attempt 3 ·')
+  expect(within(header).getByText('2 earlier failed')).toBeVisible()
+  expect(within(header).getByRole('link', { name: 'Open full session' })).toBeVisible()
+  expect(screen.getAllByRole('link', { name: 'Open full session' })).toHaveLength(1)
+})
+
+test('a first attempt shows no retry line, and a session on this computer says so', async () => {
+  const attempts = [
+    attemptHeader({ runs_on: 'host', profile_id: 'claude-session/2', web: null }),
+  ]
+  mount(() => Promise.resolve(history([], { attempts })))
+
+  const header = await screen.findByRole('region', { name: 'Session details' })
+  expect(header).toHaveTextContent('Claude Opus 5.5 · this computer · no web')
+  expect(header).not.toHaveTextContent('Attempt')
 })

@@ -345,6 +345,10 @@ const WEB_OFF =
 const DATASHEETS =
   'Prefer manufacturer datasheets over distributor pages, and take exact values from the datasheet.'
 
+/** Asks for status lines the operator can read; not digest-bound, so new sessions get it. */
+export const STATUS_GUIDANCE =
+  'Write each status line in plain words about the item, such as “Proposed GE S2CN1 diodes as a 1N4148-class switching diode”, without internal IDs such as proposal, observation or attempt identifiers.'
+
 /** The sealed web research lines for a VM tool session; other sessions have no web access. */
 function webGuidance(manifest: ProcessingInputV6Dto) {
   if (webAccess(manifest.profile_id) !== 'available') {
@@ -392,6 +396,7 @@ export function openingText(manifest: ProcessingInputV6Dto, pending: number, res
       (manifest.part_description_style ? `${STYLE_GUIDANCE} ` : '') +
       webGuidance(manifest) +
       'Report steps with status, publish proposals with propose, ask questions with ask and keep working. ' +
+      `${STATUS_GUIDANCE} ` +
       `${ASK_GUIDANCE} ` +
       'Check read_inbox whenever pending_inbox is above zero. An instruction item is the operator’s saved instruction for the batch, or for one evidence group when it names one: follow it from then on; empty text withdraws the earlier one. ' +
       'Put catalogue values in the proposal’s catalogue block, each with its sources, and with source_kind and agreement when you know them: an existing category, parameter, manufacturer or supplier as the observed reference, or a proposed_new name with a reason when none exists. Only existing references can enter a Part spec; the rest are kept for the operator. When sources disagree on a parameter, give the value you used, the others as alternatives with their sources, and chosen_because. List the category’s mapped templates you found no value for in required_missing, each with why. For an existing category, give the reason you chose it and any alternative you considered; name the nearest existing Part you chose not to reuse in not_reused, with why.',

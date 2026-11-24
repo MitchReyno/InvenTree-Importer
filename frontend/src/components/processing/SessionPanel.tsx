@@ -18,8 +18,10 @@ import { Link, ReadState, Small, VisuallyHidden } from '#/components/ui'
 import { space } from '#/theme/generated/tokens'
 import { startFreshReason } from '#/processing/start-fresh'
 import { SessionChatPanel } from './SessionChatPanel'
+import { STEP_LABEL } from './ProcessingParts'
 import { SessionSkeleton } from './SessionSkeleton'
 import { SessionConversation } from './SessionConversation'
+import { SessionDrawerHeader } from './SessionDrawerHeader'
 
 interface Props {
   batchId: string
@@ -67,6 +69,7 @@ export function SessionPanel({
   const failed = current && (current.failure || FAILED_SESSION_STATES.has(sessionState))
   return (
     <>
+      <SessionDrawerHeader session={session} fullSession={fullSession} />
       {(history.isRefetchError || history.fetchStatus === 'paused') && (
         <Small role="status">Session history could not be refreshed; showing the last copy.</Small>
       )}
@@ -99,13 +102,13 @@ export function SessionPanel({
               pending={shownPending}
             />
           )}
-          <Link href={fullSession}>Open full session</Link>
         </History>
       </section>
       <SessionChatPanel
         storeKey={storeKey}
         batchId={batchId}
         jobId={job.id}
+        label={`Message ${STEP_LABEL[step] ?? 'Processing'}`}
         state={sessionState}
         newestInboxSeq={newestInboxSeq(entries)}
         send={(text, key) => client.chat(batchId, job.id, { idempotency_key: key, text }, key)}

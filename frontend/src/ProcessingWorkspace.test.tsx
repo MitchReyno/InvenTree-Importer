@@ -606,7 +606,7 @@ test('the Inventory drawer answers its open question through the question path',
     name: 'Session question: Is Packet A already in InvenTree?',
   })
   expect(form).toHaveTextContent('Is Packet A already in InvenTree?')
-  expect(within(drawer).getByRole('textbox', { name: 'Message this session' })).toBeVisible()
+  expect(within(drawer).getByRole('textbox', { name: 'Message Inventory' })).toBeVisible()
 
   await user.type(
     within(form).getByRole('textbox', { name: 'Clarification' }),
@@ -1205,7 +1205,7 @@ test('focus the operator moves while the remount’s read is still pending stays
       name: 'Send answer to the session',
     }),
   )
-  const chat = await screen.findByRole('textbox', { name: 'Message this session' })
+  const chat = await screen.findByRole('textbox', { name: 'Message Inventory' })
   chat.focus()
 
   await act(async () => {
@@ -1238,7 +1238,7 @@ test('focus the operator moves while the remount’s read fails stays where they
     }),
   )
   expect(await screen.findByText(/Processing status unavailable/)).toBeInTheDocument()
-  const chat = await screen.findByRole('textbox', { name: 'Message this session' })
+  const chat = await screen.findByRole('textbox', { name: 'Message Inventory' })
   chat.focus()
 
   await act(async () => {
