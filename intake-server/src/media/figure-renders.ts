@@ -534,7 +534,7 @@ export async function sweepFigureRenders(
   return { deleted, collected }
 }
 
-interface ReleasedBlob {
+export interface ReleasedBlob {
   digest: string
   /** The release's exact time, as text, so a newer release of the digest is told apart. */
   released: string
@@ -542,11 +542,11 @@ interface ReleasedBlob {
 
 /**
  * Collects one released blob under its blob lock, the lock releases are recorded under. A release
- * recorded since it was selected is left for a later sweep. A blob something references again
- * only clears its release; one whose file is too young to collect keeps it. The blob's
+ * recorded since it was selected is left for a later sweep. A blob something references again,
+ * or whose file is already gone, only clears its release; one whose file is too young keeps it. The blob's
  * `media_blob` row is immutable and stays; the archive skips such a row once its file is gone.
  */
-async function collectReleasedBlob(pool: Pool, store: BlobStore, released: ReleasedBlob) {
+export async function collectReleasedBlob(pool: Pool, store: BlobStore, released: ReleasedBlob) {
   const digest = Buffer.from(released.digest, 'hex')
   return transaction(pool, async (client) => {
     await prepareMediaTransaction(client)
@@ -573,8 +573,8 @@ async function collectReleasedBlob(pool: Pool, store: BlobStore, released: Relea
     }
     const cutoff = new Date(Date.now() - MIN_GC_AGE_MS)
     const removedFile = await store.collect(client, released.digest, cutoff, blobReferenced)
-    // A file too young to collect keeps its release for a later sweep.
-    if (removedFile) {
+    // A file too young to collect keeps its release for a later sweep; an absent one has none.
+    if (removedFile || !(await store.has(released.digest))) {
       await clearRelease()
     }
     return removedFile

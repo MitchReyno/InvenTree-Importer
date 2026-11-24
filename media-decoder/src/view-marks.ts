@@ -115,7 +115,8 @@ function drawPill(context: SKRSContext2D, text: string, x: number, y: number, st
   context.font = size.font
   context.textBaseline = 'middle'
   context.textAlign = 'left'
-  context.fillText(text, left + size.padding, top + size.height / 2)
+  // At the smallest sizes the measure can still exceed the view; the text is held to the pill.
+  context.fillText(text, left + size.padding, top + size.height / 2, size.width - size.padding * 2)
 }
 
 /** A box-like mark's label sits below it, or above it when there is no room below. */

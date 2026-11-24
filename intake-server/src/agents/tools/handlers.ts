@@ -1309,8 +1309,9 @@ async function storeQuestionFigures(
 async function settledPreviews(context: SessionToolContext, ids: string[]) {
   const deadline = Date.now() + (context.figurePreviewWaitMs ?? FIGURE_PREVIEW_WAIT_MS)
   for (;;) {
-    const renders = await previewRenders(context.pool, ids)
-    if (Date.now() > deadline) {
+    // The read, its connection included, gets only the time left; a late answer doesn't count.
+    const renders = await beforeDeadline(previewRenders(context.pool, ids), deadline)
+    if (renders === LATE || Date.now() > deadline) {
       return 'not_ready' as const
     }
     if (!renders.some((render) => render.state === 'queued')) {
@@ -1320,6 +1321,44 @@ async function settledPreviews(context: SessionToolContext, ids: string[]) {
   }
 }
 
+const LATE = Symbol('late')
+
+/**
+ * The work's result, or `LATE` once the deadline passes first. Late work is left to finish on
+ * its own; its result and any failure are dropped.
+ */
+async function beforeDeadline<T>(work: Promise<T>, deadline: number): Promise<T | typeof LATE> {
+  const remaining = deadline - Date.now()
+  if (remaining <= 0) {
+    work.catch(() => undefined)
+    return LATE
+  }
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const late = new Promise<typeof LATE>((resolve) => {
+    timer = setTimeout(() => resolve(LATE), remaining)
+  })
+  try {
+    return await Promise.race([work, late])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/** A committed preview's render requests and the versions its figures show. */
+interface QueuedPreview {
+  ids: string[]
+  batchId: string
+  versions: string[]
+}
+
+/** Whether any of the preview's photos has been removed since it was asked. */
+async function previewSourceRemoved(context: SessionToolContext, preview: QueuedPreview) {
+  return transaction(context.pool, async (client) => {
+    const removed = await removedVersionIds(client, preview.batchId, preview.versions)
+    return removed.size > 0
+  })
+}
+
 /**
  * Waits for a committed preview's renders and returns them as images within the run's image
  * budget. A preview not rendered in time returns no images and may be called again.
@@ -1327,7 +1366,7 @@ async function settledPreviews(context: SessionToolContext, ids: string[]) {
 async function previewOutput(
   context: SessionToolContext,
   run: string,
-  ids: string[],
+  preview: QueuedPreview,
   asked: SessionToolOutput,
 ): Promise<SessionToolOutput> {
   if (!asked.result.ok) {
@@ -1340,7 +1379,7 @@ async function previewOutput(
     result: { ok: false, error, message, pending_inbox: pending },
   })
 
-  const settled = await settledPreviews(context, ids)
+  const settled = await settledPreviews(context, preview.ids)
   if (settled === 'not_ready') {
     return notOk(
       'preview_not_ready',
@@ -1348,6 +1387,13 @@ async function previewOutput(
     )
   }
   const gone = settled.findIndex((render) => render.state === 'gone')
+  // An expired preview the sweep took meanwhile is asked again; a removed photo is not.
+  if (gone >= 0 && !(await previewSourceRemoved(context, preview))) {
+    return notOk(
+      'preview_not_ready',
+      'The preview expired before it could be sent. Call ask with preview: true again to see it.',
+    )
+  }
   if (gone >= 0) {
     return notOk(
       'media_evidence_removed',
@@ -1627,7 +1673,7 @@ export function sessionTools(context: SessionToolContext) {
       ),
 
     ask: async (token: string, args: unknown): Promise<SessionToolOutput> => {
-      let previews: string[] | undefined
+      let previews: QueuedPreview | undefined
       const asked = await withSession(
         context,
         token,
@@ -1657,7 +1703,11 @@ export function sessionTools(context: SessionToolContext) {
             : []
           if (ask.preview) {
             requirePreviewRelay(principal)
-            previews = await queuePreviews(client, principal, figures)
+            previews = {
+              ids: await queuePreviews(client, principal, figures),
+              batchId: principal.batchId,
+              versions: figures.map((item) => item.recipe.source_version_id),
+            }
             return ok(client, principal)
           }
           const envelope = await sealSessionEnvelope(client, principal, 'question', ask)

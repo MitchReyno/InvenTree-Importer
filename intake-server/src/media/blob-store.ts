@@ -147,6 +147,20 @@ export class BlobStore {
     return { digest, size: String(bytes.length) }
   }
 
+  /** Whether the blob's file is present, without reading or checking it. */
+  async has(digest: string): Promise<boolean> {
+    checkedDigest(digest)
+    try {
+      await lstat(join(this.root, 'objects', digest.slice(0, 2), digest))
+      return true
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return false
+      }
+      throw error
+    }
+  }
+
   async read(digest: string): Promise<Buffer> {
     checkedDigest(digest)
     const directory = join(this.root, 'objects', digest.slice(0, 2))

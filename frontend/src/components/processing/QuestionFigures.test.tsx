@@ -103,6 +103,12 @@ test('a label wider than a narrow picture takes a smaller size so all of it show
   expect(Number(long.getAttribute('font-size'))).toBeLessThan(
     Number(short.getAttribute('font-size')),
   )
+  // Wide glyphs can't push the text past its pill: its length is held to the pill's inside.
+  for (const text of [short, long]) {
+    const pill = text.previousElementSibling!
+    expect(text).toHaveAttribute('lengthAdjust', 'spacingAndGlyphs')
+    expect(Number(text.getAttribute('textLength'))).toBeLessThan(Number(pill.getAttribute('width')))
+  }
   for (const pill of Array.from(marks.querySelectorAll('rect.pill'))) {
     const x = Number(pill.getAttribute('x'))
     expect(x).toBeGreaterThanOrEqual(0)
@@ -217,8 +223,17 @@ test('a picture that fails to load is tried again, and says so only after its re
       expect(picture()).toHaveAttribute('src', `${image(1)}?retry=${retry}`)
     }
     fireEvent.error(picture()!)
-    expect(picture()).toBeNull()
+    expect(picture()).not.toBeVisible()
     expect(open).toHaveAccessibleDescription('Picture couldn’t be loaded')
+
+    // It keeps being asked for, slowly, and shows once the route serves it.
+    act(() => {
+      vi.advanceTimersByTime(30_000)
+    })
+    expect(picture()).toHaveAttribute('src', `${image(1)}?retry=4`)
+    fireEvent.load(picture()!)
+    expect(picture()).toBeVisible()
+    expect(open).not.toHaveAccessibleDescription('Picture couldn’t be loaded')
   } finally {
     vi.useRealTimers()
   }
@@ -386,6 +401,9 @@ test('a zoomed picture takes focus and keeps the arrow keys for moving around it
   expect(stage).toHaveAttribute('tabindex', '0')
   expect(within(dialog).getByRole('region', { name: /^Picture at 150%/ })).toBe(stage)
   stage.focus()
+  // The key keeps its default action, so the browser scrolls the zoomed picture.
+  expect(fireEvent.keyDown(stage, { key: 'ArrowRight' })).toBe(true)
+  expect(fireEvent.keyDown(stage, { key: 'ArrowLeft' })).toBe(true)
   await userEvent.keyboard('{ArrowRight}')
   expect(dialog).toHaveTextContent('Picture 1 of 4')
   expect(within(dialog).getByRole('group', { name: 'Zoom' })).toHaveTextContent('150%')

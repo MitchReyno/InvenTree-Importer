@@ -222,6 +222,30 @@ test(
         [original],
       )
 
+      // The archive restores, with the original's bytes and activation still disabled.
+      const restored = await isolatedDatabase({ migrate: false, restore: true })
+      try {
+        const result = await restoreArchive(
+          restored.pool,
+          {
+            ...config,
+            databaseUrl: restored.url,
+            schedulerDatabaseUrl: restored.url,
+            blobRoot: join(root, 'restored-blobs'),
+          },
+          ownedPgTools,
+        )
+        assert.equal(result.status, 'restored-quarantined')
+        assert.equal((await requireDisabledGate(fixture.gateRoot)).activation.enabled, false)
+        const restoredStore = await BlobStore.initialize(
+          join(root, 'restored-blobs'),
+          manifest.store_id,
+        )
+        assert.ok((await restoredStore.read(original)).equals(PART_ATTACHMENT_PNG))
+      } finally {
+        await restored.dispose()
+      }
+
       // The original's file going missing is never skipped: a version references it.
       await rm(join(config.blobRoot, 'objects', original.slice(0, 2), original))
       await assert.rejects(

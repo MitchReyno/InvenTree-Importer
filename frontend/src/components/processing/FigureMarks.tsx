@@ -110,6 +110,9 @@ function labelPill({ text, left, top, width, height, size }: Pill) {
         fontSize={pill.size}
         textAnchor="middle"
         dominantBaseline="central"
+        // Glyph widths are estimated, so the text is held to the pill's inside as the preview's is.
+        textLength={pill.width - pill.size * PILL_PADDING_EMS * 2}
+        lengthAdjust="spacingAndGlyphs"
       >
         {text}
       </text>
