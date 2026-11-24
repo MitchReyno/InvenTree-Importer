@@ -158,7 +158,11 @@ function codexStatus(value: Record<string, unknown>): CodexBridgeStatus | undefi
   const state = value.state
   if (state === 'signed_in' || state === 'signed_out' || state === 'signing_in') {
     const checked = checkedAt(value)
-    return checked && Object.keys(value).length === 2 ? { state, checked_at: checked } : undefined
+    const refreshing = value.refreshing
+    if (!checked || typeof refreshing !== 'boolean' || Object.keys(value).length !== 3) {
+      return undefined
+    }
+    return { state, checked_at: checked, refreshing }
   }
   return unknownStatus(value)
 }

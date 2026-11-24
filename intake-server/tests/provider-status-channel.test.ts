@@ -81,7 +81,7 @@ test('a reply arrives, then a stalled UNLISTEN closes the connection within the 
   const checkedAt = '2026-11-24T00:10:58.000Z'
   const status = {
     claude: { state: 'not_saved', checked_at: checkedAt },
-    codex: { state: 'signed_in', checked_at: checkedAt },
+    codex: { state: 'signed_in', checked_at: checkedAt, refreshing: false },
   }
   const queries: string[] = []
   const released: (boolean | undefined)[] = []
@@ -137,7 +137,7 @@ test('a worker reply that stalls is dropped at the request expiry, and close wai
       revision: '9f7a2b3c-1d4e-4f5a-8b6c-7d8e9f0a1b2c',
       checked_at: checkedAt,
     },
-    codex: { state: 'signed_in', checked_at: checkedAt },
+    codex: { state: 'signed_in', checked_at: checkedAt, refreshing: false },
   }))
   await new Promise((resolve) => setTimeout(resolve, 20))
   const expiresAt = Date.now() + 400
@@ -182,7 +182,7 @@ test('Check again reaches the worker as its own read, never folded into a plain 
     }
     return {
       claude: { state: 'unknown', reason: 'vm_unreachable' },
-      codex: { state: 'signed_in', checked_at: checkedAt },
+      codex: { state: 'signed_in', checked_at: checkedAt, refreshing: false },
     }
   })
   await new Promise((resolve) => setTimeout(resolve, 20))

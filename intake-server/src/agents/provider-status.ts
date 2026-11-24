@@ -129,7 +129,12 @@ function codexView(
   if (status.state === 'unknown') {
     return { state: 'unknown', reason: status.reason, last_sign_in_failure: failure }
   }
-  return { state: status.state, checked_at: status.checked_at, last_sign_in_failure: failure }
+  return {
+    state: status.state,
+    checked_at: status.checked_at,
+    refreshing: status.refreshing,
+    last_sign_in_failure: failure,
+  }
 }
 
 /**

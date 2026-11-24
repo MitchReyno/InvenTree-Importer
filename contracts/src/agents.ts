@@ -193,6 +193,8 @@ export const CodexProviderStatus = Type.Union([
       Type.Literal('signed_out'),
     ]),
     ...checkedAt,
+    /** A newer check is running; read again for its result. Never set for Claude. */
+    refreshing: Type.Boolean(),
     ...lastSignInFailure,
   }),
   object({ ...providerStatusUnknown, ...lastSignInFailure }),

@@ -15,6 +15,7 @@ import { pairing } from './pair.ts'
 import { settled } from '#/events/settled.ts'
 import {
   guestProviderStatus,
+  MIN_STATUS_WITHIN_MS,
   STATUS_FRAME_LIMIT,
   STATUS_PROTOCOL,
   type GuestProviderStatus,
@@ -65,7 +66,8 @@ export type ClaudeBridgeStatus =
   | { state: 'not_saved'; revision: string; checked_at: string }
   | UnknownStatus
 export type CodexBridgeStatus =
-  { state: 'signed_in' | 'signed_out' | 'signing_in'; checked_at: string } | UnknownStatus
+  | { state: 'signed_in' | 'signed_out' | 'signing_in'; checked_at: string; refreshing: boolean }
+  | UnknownStatus
 
 export interface BridgeProviderStatuses {
   claude: ClaudeBridgeStatus
@@ -210,14 +212,25 @@ export async function startSessionBridge(
     return 'service_unavailable'
   }
 
-  async function statusPeer(provider: StatusProvider, signal: AbortSignal) {
-    const until = Date.now() + statusTiming.peerWaitMs
+  // Status connections a read has taken and not yet returned or destroyed, per provider.
+  const borrowed = { claude: 0, codex: 0 }
+
+  /**
+   * An idle status connection, waited for briefly when there is none; but one another read has
+   * borrowed comes back when that read ends, so it is waited for while this read's own deadline
+   * still leaves the guest time to answer.
+   */
+  async function statusPeer(provider: StatusProvider, signal: AbortSignal, endsAt: number) {
+    const shortWaitUntil = Date.now() + statusTiming.peerWaitMs
+    const borrowedWaitUntil = endsAt - GUEST_ANSWER_MARGIN_MS - MIN_STATUS_WITHIN_MS
     for (;;) {
       const peer = statusPeers[provider].entries().next()
       if (!peer.done) {
         statusPeers[provider].delete(peer.value[0])
+        borrowed[provider]++
         return peer.value
       }
+      const until = borrowed[provider] > 0 ? borrowedWaitUntil : shortWaitUntil
       if (Date.now() >= until || signal.aborted) {
         return undefined
       }
@@ -232,7 +245,7 @@ export async function startSessionBridge(
   ): Promise<ClaudeBridgeStatus | CodexBridgeStatus> {
     const deadline = AbortSignal.timeout(deadlineMs)
     const endsAt = Date.now() + deadlineMs
-    const peer = await statusPeer(provider, deadline)
+    const peer = await statusPeer(provider, deadline, endsAt)
     if (!peer) {
       return { state: 'unknown', reason: absentReason(provider) }
     }
@@ -261,6 +274,7 @@ export async function startSessionBridge(
       return { state: 'unknown', reason: deadline.aborted ? 'timeout' : 'service_unavailable' }
     } finally {
       deadline.removeEventListener('abort', abandon)
+      borrowed[provider]--
     }
   }
 
@@ -577,6 +591,7 @@ function bridgeStatus(
       return {
         state: status.state,
         checked_at: new Date(receivedAt - status.age_ms).toISOString(),
+        refreshing: status.refreshing,
       }
   }
 }

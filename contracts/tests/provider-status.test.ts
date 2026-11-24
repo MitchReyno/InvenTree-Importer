@@ -17,7 +17,12 @@ const status: ProviderStatusDto = {
     checked_at: checkedAt,
     last_sign_in_failure: failure,
   },
-  codex: { state: 'signing_in', checked_at: checkedAt, last_sign_in_failure: null },
+  codex: {
+    state: 'signing_in',
+    checked_at: checkedAt,
+    refreshing: false,
+    last_sign_in_failure: null,
+  },
   read_at: '2026-11-24T00:11:00.000Z',
 }
 
@@ -30,10 +35,12 @@ test('each provider reads as one of its states, or unknown with a listed reason'
     validate('ProviderStatus', { ...status, claude })
   }
   for (const state of ['signed_in', 'signing_in', 'signed_out']) {
-    validate('ProviderStatus', {
-      ...status,
-      codex: { state, checked_at: checkedAt, last_sign_in_failure: null },
-    })
+    for (const refreshing of [false, true]) {
+      validate('ProviderStatus', {
+        ...status,
+        codex: { state, checked_at: checkedAt, refreshing, last_sign_in_failure: null },
+      })
+    }
   }
   // A Codex status with no completed check yet says so, never signed out.
   assert.ok(PROVIDER_STATUS_UNKNOWN_REASONS.includes('checking'))
@@ -53,6 +60,14 @@ test('each provider reads as one of its states, or unknown with a listed reason'
     { ...status, codex: { state: 'signed_in' } },
     // A known state always says when it was checked; an unknown one has no check to date.
     { ...status, codex: { state: 'signed_in', last_sign_in_failure: null } },
+    {
+      ...status,
+      codex: { state: 'signed_in', checked_at: checkedAt, last_sign_in_failure: null },
+    },
+    {
+      ...status,
+      claude: { ...status.claude, refreshing: false },
+    },
     { ...status, claude: { state: 'not_saved', last_sign_in_failure: null } },
     {
       ...status,

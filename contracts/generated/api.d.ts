@@ -21093,6 +21093,7 @@ export interface components {
             codex: {
                 state: "signed_in" | "signing_in" | "signed_out";
                 checked_at: string;
+                refreshing: boolean;
                 last_sign_in_failure: {
                     attempt_id: string;
                     failure_id: string;

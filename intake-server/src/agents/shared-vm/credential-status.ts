@@ -27,11 +27,11 @@ export function claudeStatusReader(directory: string) {
 
 /**
  * Codex's answer, read without changing a sign-in. It comes at once from the last check, which
- * runs apart from the request, so the request's signal doesn't stop it.
+ * runs apart from the request: the request's signal only keeps an ended request from starting one.
  */
 export function codexStatusReader(account: CodexAccount): StatusReader {
-  return async (_signal, refresh) => {
-    const status = await account.readStatus(refresh)
+  return async (signal, refresh) => {
+    const status = await account.readStatus(refresh, signal)
     switch (status.state) {
       case 'signed_in':
       case 'signed_out':
@@ -39,10 +39,10 @@ export function codexStatusReader(account: CodexAccount): StatusReader {
         return {
           provider: 'codex',
           state: status.state,
-          age_ms: Math.max(0, Date.now() - status.checkedAt),
+          age_ms: Math.round(status.ageMs),
+          refreshing: status.refreshing,
         }
       case 'checking':
-        return { provider: 'codex', state: status.state }
       case 'busy':
       case 'timeout':
       case 'unavailable':

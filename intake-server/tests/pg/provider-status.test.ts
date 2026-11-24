@@ -21,7 +21,7 @@ const revision = '9f7a2b3c-1d4e-4f5a-8b6c-7d8e9f0a1b2c'
 const checkedAt = '2026-11-24T00:10:58.000Z'
 const statuses: BridgeProviderStatuses = {
   claude: { state: 'saved', revision, saved_at: '2026-11-23T22:00:00.000Z', checked_at: checkedAt },
-  codex: { state: 'signing_in', checked_at: checkedAt },
+  codex: { state: 'signing_in', checked_at: checkedAt, refreshing: false },
 }
 
 type Fixture = Awaited<ReturnType<typeof processingFixture>>
@@ -31,7 +31,7 @@ type Selection = { provider: 'claude' | 'codex'; authentication: 'subscription' 
 /** What the worker sends the API: the same statuses without Claude's revision. */
 const display = {
   claude: { state: 'saved', saved_at: '2026-11-23T22:00:00.000Z', checked_at: checkedAt },
-  codex: { state: 'signing_in', checked_at: checkedAt },
+  codex: { state: 'signing_in', checked_at: checkedAt, refreshing: false },
 }
 
 /** Listens on `channel` as another database role would, keeping every payload seen. */
@@ -222,7 +222,7 @@ test(
 
     // Within the reuse window a plain read doesn't reach the worker; Check again does, and its
     // answer is reused by the next plain read.
-    codex = { state: 'signed_in', checked_at: checkedAt }
+    codex = { state: 'signed_in', checked_at: checkedAt, refreshing: true }
     const asked = refreshes.length
     const reused = (await fixture.http('/agents/provider-status')).value as ProviderStatusDto
     assert.equal(reused.codex.state, 'unknown')
@@ -232,6 +232,7 @@ test(
     assert.deepEqual((forced.value as ProviderStatusDto).codex, {
       state: 'signed_in',
       checked_at: checkedAt,
+      refreshing: true,
       last_sign_in_failure: null,
     })
     assert.deepEqual(refreshes.slice(asked), [true])

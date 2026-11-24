@@ -110,11 +110,11 @@ Each provider's status read SHALL reach that provider's credential process throu
 
 - **GIVEN** a deployment running both providers, where Codex's credential process doesn't answer
 - **WHEN** the server reads provider status
-- **THEN** Claude's status is reported, Codex reads as unknown because it timed out, and the abandoned Codex request leaves no work running on the guest.
+- **THEN** Claude's status is reported, Codex reads as unknown because it timed out, and the abandoned Codex request's own work stops on the guest; only a background Codex check keeps running, until its own timeout.
 
 ### Requirement: Codex status answered from the last check
 
-A Codex account check takes longer than a status read may wait, so Codex SHALL answer each read at once from its last completed check, with that check's time. A read SHALL start one background check, never more than one at a time, when there is no result, when it is older than the freshness window, or when Check again asks, at most once per interval. With no completed check Codex SHALL read as unknown because it is checking, never as signed out.
+A Codex account check takes longer than a status read may wait, so Codex SHALL answer each read at once from its last completed check, with that check's time and whether a newer one is running. A read SHALL start one background check, never more than one at a time, when there is no result, when it is older than the freshness window, or when Check again asks, at most once per interval. With no completed check Codex SHALL read as unknown because it is checking, never as signed out.
 
 #### Scenario: Codex check slower than the read
 
@@ -132,7 +132,7 @@ A Codex account check takes longer than a status read may wait, so Codex SHALL a
 
 - **GIVEN** a fresh Codex result
 - **WHEN** the operator chooses Check again, twice in quick succession
-- **THEN** each answer comes at once with the last result, one new check starts, and the second request within the interval starts none.
+- **THEN** each answer comes at once with the last result marked as refreshing, one new check starts, and the second request within the interval starts none.
 
 ### Requirement: Codex checks stop and are forgotten
 

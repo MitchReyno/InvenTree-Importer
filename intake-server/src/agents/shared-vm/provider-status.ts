@@ -21,6 +21,8 @@ export const GUEST_STATUS_DEADLINE_MS = 1500
 const STATUS_CLEANUP_MS = 500
 /** The shortest read worth starting. */
 const MIN_STATUS_READ_MS = 100
+/** The least `within_ms` for which the guest starts a read at all. */
+export const MIN_STATUS_WITHIN_MS = STATUS_CLEANUP_MS + MIN_STATUS_READ_MS
 /** Status frames are tiny; anything larger is refused before it is read. */
 export const STATUS_FRAME_LIMIT = 4096
 const MAX_STATUS_CONNECTIONS = 4
@@ -29,13 +31,19 @@ export type StatusProvider = 'claude' | 'codex'
 
 /**
  * A guest's answer. The revision stays between the guest and the server. Codex answers from its
- * last check, `age_ms` old, measured on the guest so its clock never has to match the server's;
- * an older guest sends no age, because it read the account for that request.
+ * last check, `age_ms` old, measured on the guest so its clock never has to match the server's,
+ * and says whether a newer check is running; an older guest sends neither, because it read the
+ * account for that request.
  */
 export type GuestProviderStatus =
   | { provider: 'claude'; state: 'saved'; revision: string; saved_at: string | null }
   | { provider: 'claude'; state: 'not_saved'; revision: string }
-  | { provider: 'codex'; state: 'signed_in' | 'signed_out' | 'signing_in'; age_ms: number }
+  | {
+      provider: 'codex'
+      state: 'signed_in' | 'signed_out' | 'signing_in'
+      age_ms: number
+      refreshing: boolean
+    }
   | { provider: 'codex'; state: 'checking' }
   | { provider: StatusProvider; state: 'busy' | 'timeout' | 'unavailable' }
 
@@ -99,12 +107,17 @@ function codexGuestStatus(answer: Record<string, unknown>): GuestProviderStatus 
     return undefined
   }
   if (hasExactly(answer, ['provider', 'state'])) {
-    return { provider: 'codex', state, age_ms: 0 }
+    return { provider: 'codex', state, age_ms: 0, refreshing: false }
   }
   const age = answer.age_ms
   const validAge = typeof age === 'number' && Number.isSafeInteger(age) && age >= 0
-  if (validAge && hasExactly(answer, ['provider', 'state', 'age_ms'])) {
-    return { provider: 'codex', state, age_ms: age }
+  const refreshing = answer.refreshing
+  if (
+    validAge &&
+    typeof refreshing === 'boolean' &&
+    hasExactly(answer, ['provider', 'state', 'age_ms', 'refreshing'])
+  ) {
+    return { provider: 'codex', state, age_ms: age, refreshing }
   }
   return undefined
 }
@@ -204,7 +217,7 @@ async function readWithin(
   closed: AbortSignal,
 ): Promise<GuestProviderStatus> {
   const withinMs = request.withinMs
-  if (withinMs < STATUS_CLEANUP_MS + MIN_STATUS_READ_MS) {
+  if (withinMs < MIN_STATUS_WITHIN_MS) {
     return { provider: options.provider, state: 'timeout' }
   }
   const deadline = AbortSignal.timeout(withinMs - STATUS_CLEANUP_MS)

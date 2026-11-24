@@ -93486,6 +93486,7 @@
                 "required": [
                   "state",
                   "checked_at",
+                  "refreshing",
                   "last_sign_in_failure"
                 ],
                 "properties": {
@@ -93508,6 +93509,9 @@
                   "checked_at": {
                     "maxLength": 40,
                     "type": "string"
+                  },
+                  "refreshing": {
+                    "type": "boolean"
                   },
                   "last_sign_in_failure": {
                     "anyOf": [

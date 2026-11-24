@@ -164,6 +164,7 @@ test(
     assert.deepEqual(status.codex, {
       state: 'signing_in',
       checked_at: status.codex.checked_at,
+      refreshing: false,
       last_sign_in_failure: null,
     })
     // Both were read for this request, on the server's clock.
