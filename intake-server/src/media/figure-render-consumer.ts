@@ -57,17 +57,27 @@ export interface RenderConsumerOptions {
 export async function runFigureRenderConsumer(options: RenderConsumerOptions) {
   const listener = await options.pool.connect()
   let wake: (() => void) | undefined
+  let lost: Error | undefined
   listener.on('notification', () => wake?.())
+  // A lost listening connection stops the consumer, for its supervisor to restart, rather than
+  // reaching the process as an unhandled error. Attached before LISTEN, and kept once discarded.
+  listener.on('error', (error) => {
+    lost = error
+    wake?.()
+  })
   try {
     await listener.query(`LISTEN ${FIGURE_RENDER_CHANNEL}`)
   } catch (error) {
     // Not subscribed, so nothing needs undoing; the connection is discarded, not reused.
     listener.release(true)
-    throw error
+    throw lost ?? error
   }
   let nextSweep = 0
   try {
     while (!options.signal.aborted) {
+      if (lost) {
+        throw lost
+      }
       if (Date.now() >= nextSweep) {
         await sweepFigureRenders(options.pool, options.store, options.binding)
         nextSweep = Date.now() + (options.sweepIntervalMs ?? RENDER_SWEEP_INTERVAL_MS)
@@ -97,7 +107,11 @@ export async function runFigureRenderConsumer(options: RenderConsumerOptions) {
       wake = undefined
     }
   } finally {
-    await listener.query(`UNLISTEN ${FIGURE_RENDER_CHANNEL}`).catch(() => undefined)
-    listener.release()
+    if (lost) {
+      listener.release(true)
+    } else {
+      await listener.query(`UNLISTEN ${FIGURE_RENDER_CHANNEL}`).catch(() => undefined)
+      listener.release()
+    }
   }
 }

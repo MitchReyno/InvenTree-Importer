@@ -801,18 +801,21 @@ test('a preview that settles after its wait is still not ready, and one swept wh
   })
 })
 
-test('a preview whose checkout or state read is slower than its wait answers in time, sends no SQL after it and returns its connection', async () => {
+test('a preview whose checkout or state read is slower than its wait answers in time, closes the read at the deadline and sends no SQL after it', async () => {
   await withFigureSession(async (setup) => {
     const { fixture, token, lot, photoFigure, context } = setup
     await fetched(setup, setup.photo)
     const stop = consumer(setup, fakeRenderer())
+    const waitMs = 100
     try {
-      // `set`: setting the timeout uses up the wait. `gone`: the late read finds its render
-      // deleted, which would otherwise ask about removals.
-      for (const slow of ['checkout', 'set', 'read', 'gone'] as const) {
+      // `blocked`: part of the wait goes before the read, then the read blocks in the database.
+      // `gone`: the late read would find its render deleted and ask about removals.
+      for (const slow of ['checkout', 'blocked', 'gone'] as const) {
         let released = 0
         let discarded = 0
         let checkedOut = 0
+        let stateCheckoutAt = 0
+        let discardedAt = 0
         let stateReadsDone = false
         const lateStatements: string[] = []
         // Checkouts after the ask's own transaction are the preview's state reads.
@@ -827,43 +830,48 @@ test('a preview whose checkout or state read is slower than its wait answers in 
                   await new Promise((resolve) => setTimeout(resolve, 1_500))
                   stateReadsDone = true
                 }
+                if (readsState && !stateCheckoutAt) {
+                  stateCheckoutAt = Date.now()
+                }
                 const release = client.release.bind(client)
                 client.release = (error?: Error | boolean) => {
                   released += 1
                   if (error) {
                     discarded += 1
+                    discardedAt = Date.now()
                   }
                   release(error)
                 }
                 if (readsState) {
-                  const query = client.query.bind(client) as (...args: unknown[]) => unknown
+                  const query = client.query.bind(client) as (
+                    ...args: unknown[]
+                  ) => Promise<unknown>
                   ;(client as { query: unknown }).query = async (...args: unknown[]) => {
                     const statement = String(args[0])
                     if (stateReadsDone) {
                       lateStatements.push(statement)
                     }
-                    if (slow === 'set' && statement.startsWith('SET statement_timeout')) {
-                      const result = await query(...args)
-                      await new Promise((resolve) => setTimeout(resolve, 1_500))
-                      stateReadsDone = true
-                      return result
-                    }
                     const readsRenders = statement.includes(
                       'processing_figure_render WHERE id = ANY',
                     )
-                    if (readsRenders && (slow === 'read' || slow === 'gone')) {
-                      await new Promise((resolve) => setTimeout(resolve, 1_500))
-                      if (slow === 'gone') {
+                    if (!readsRenders || slow === 'checkout') {
+                      return query(...args)
+                    }
+                    try {
+                      if (slow === 'blocked') {
+                        await new Promise((resolve) => setTimeout(resolve, waitMs * 0.6))
+                        await query('SELECT pg_sleep(2)')
+                      } else {
+                        await new Promise((resolve) => setTimeout(resolve, 1_500))
                         await fixture.db.pool.query(
                           `DELETE FROM processing_figure_render WHERE id = ANY($1::uuid[])`,
                           [(args[1] as unknown[])[0]],
                         )
                       }
-                      const result = await query(...args)
+                      return await query(...args)
+                    } finally {
                       stateReadsDone = true
-                      return result
                     }
-                    return query(...args)
                   }
                 }
                 return client
@@ -873,7 +881,7 @@ test('a preview whose checkout or state read is slower than its wait answers in 
             return typeof value === 'function' ? value.bind(target) : value
           },
         })
-        const tools = sessionTools({ ...context, pool: slowPool, figurePreviewWaitMs: 100 })
+        const tools = sessionTools({ ...context, pool: slowPool, figurePreviewWaitMs: waitMs })
         const started = Date.now()
         const late = await tools.ask(
           token,
@@ -883,13 +891,17 @@ test('a preview whose checkout or state read is slower than its wait answers in 
         assert.equal(refusal(late).error, 'preview_not_ready', slow)
         assert.equal(late.images, undefined)
         assert.ok(elapsed < 1_000, `${slow}: answered after ${elapsed} ms`)
-        // The late read finishes on its own and gives its connection back without more SQL.
-        await new Promise((resolve) => setTimeout(resolve, 2_000))
+        // The slow step ends on its own; nothing more is sent and every connection is returned.
+        await new Promise((resolve) => setTimeout(resolve, 2_500))
         assert.ok(stateReadsDone, `${slow}: the slow step finished`)
         assert.deepEqual(lateStatements, [], `${slow}: no statement after the wait`)
         assert.equal(released, checkedOut, `${slow}: every connection returned`)
-        // A connection whose timeout was set and not reset in time is discarded, not reused.
+        // A read cut off at the deadline loses its connection then, however long it would run.
         assert.equal(discarded, slow === 'checkout' ? 0 : 1, `${slow}: discarded connections`)
+        if (slow !== 'checkout') {
+          const heldFor = discardedAt - stateCheckoutAt
+          assert.ok(heldFor <= waitMs + 100, `${slow}: connection held ${heldFor} ms`)
+        }
       }
     } finally {
       await stop()
@@ -1312,25 +1324,32 @@ test('an upload decode waiting on the dispatcher runs right after the render hol
   })
 })
 
-// Bounded: a connection the consumer kept would otherwise hold the fixture's teardown.
-test(
-  'a render consumer that cannot subscribe fails and discards its connection',
-  { timeout: 60_000 },
-  async () => {
+test('a render consumer whose subscription is refused or loses its connection fails and discards it', async () => {
+  for (const failure of ['refused', 'lost'] as const) {
     await withFigureSession(async (setup) => {
+      const { fixture } = setup
       const releases: (Error | boolean | undefined)[] = []
-      const refusing = new Proxy(setup.media.pool, {
+      let releaseReal: ((error?: Error | boolean) => void) | undefined
+      const failing = new Proxy(setup.media.pool, {
         get(target, property) {
           if (property === 'connect') {
             return async () => {
               const client = await target.connect()
               const release = client.release.bind(client)
+              releaseReal = release
               client.release = (error?: Error | boolean) => {
                 releases.push(error)
                 release(error)
               }
-              ;(client as { query: unknown }).query = async () => {
-                throw new Error('listen_refused')
+              const query = client.query.bind(client) as (...args: unknown[]) => Promise<unknown>
+              ;(client as { query: unknown }).query = async (...args: unknown[]) => {
+                if (failure === 'refused') {
+                  throw new Error('listen_refused')
+                }
+                // The listening connection's backend goes away while it subscribes.
+                const pid = (client as unknown as { processID: number }).processID
+                await fixture.db.pool.query('SELECT pg_terminate_backend($1)', [pid])
+                return query(...args)
               }
               return client
             }
@@ -1339,20 +1358,28 @@ test(
           return typeof value === 'function' ? value.bind(target) : value
         },
       })
-      await assert.rejects(
-        runFigureRenderConsumer({
-          pool: refusing,
-          store: setup.store,
-          binding: setup.binding,
-          render: fakeRenderer(),
-          signal: new AbortController().signal,
-        }),
-        /listen_refused/,
-      )
-      assert.deepEqual(releases, [true])
+      try {
+        await assert.rejects(
+          runFigureRenderConsumer({
+            pool: failing,
+            store: setup.store,
+            binding: setup.binding,
+            render: fakeRenderer(),
+            signal: new AbortController().signal,
+          }),
+          failure === 'refused' ? /listen_refused/ : Error,
+        )
+        // Still running here: a lost connection reached the consumer, not the process.
+        assert.deepEqual(releases, [true], failure)
+      } finally {
+        // A connection the consumer kept would hold the fixture's teardown.
+        if (!releases.length) {
+          releaseReal?.(true)
+        }
+      }
     })
-  },
-)
+  }
+})
 
 test('render claims honour leases, recover an expired one, fail after three attempts and publish processing_changed', async () => {
   await withFigureSession(async (setup) => {

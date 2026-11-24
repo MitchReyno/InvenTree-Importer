@@ -1321,74 +1321,68 @@ async function settledPreviews(context: SessionToolContext, preview: QueuedPrevi
   }
 }
 
-const QUERY_CANCELED = '57014'
-
 /**
- * The preview's renders and, if the sweep took any, whether a photo was removed. The database
- * stops the reads at the deadline, and no statement starts after it: a connection whose timeout
- * would need resetting once the wait is over is discarded rather than reset.
+ * The preview's renders and, if the sweep took any, whether a photo was removed. One timer bounds
+ * the reads: at the deadline it closes the connection, cancelling whatever is in flight, so no
+ * read holds a connection past the wait and none starts after it.
  */
 async function previewState(context: SessionToolContext, preview: QueuedPreview, deadline: number) {
   if (Date.now() >= deadline) {
     return LATE
   }
   const client = await context.pool.connect()
+  if (Date.now() >= deadline) {
+    // Nothing was sent, so the connection goes back as it came.
+    client.release()
+    return LATE
+  }
   let broken = false
-  let timed = false
+  let released = false
 
   const onError = () => {
     broken = true
   }
 
-  // A connection lost while checked out is reported here, not to the process.
-  client.on('error', onError)
-  try {
-    // Each read gets only the time left. Setting the timeout may itself use up what was left,
-    // so the clock is checked again and the read sent in the same step: none starts once the
-    // wait is over.
-    const withinWait = async <T>(read: () => Promise<T>): Promise<T | typeof LATE> => {
-      const remaining = Math.ceil(deadline - Date.now())
-      if (remaining <= 0) {
-        return LATE
-      }
-      timed = true
-      await client.query(`SET statement_timeout = ${remaining}`)
-      if (Date.now() >= deadline) {
-        return LATE
-      }
-      return read()
-    }
+  const closeAtDeadline = () => {
+    released = true
+    client.release(true)
+  }
 
-    const renders = await withinWait(() => previewRenders(client, preview.ids))
-    if (renders === LATE) {
+  // A connection lost while checked out is reported here, not to the process. A discarded
+  // connection keeps the handler, since it may still report its closing.
+  client.on('error', onError)
+  const timer = setTimeout(closeAtDeadline, deadline - Date.now())
+
+  const past = () => released || Date.now() >= deadline
+
+  try {
+    const renders = await previewRenders(client, preview.ids)
+    if (past()) {
       return LATE
     }
     if (!renders.some((render) => render.state === 'gone')) {
       return { renders, removed: false }
     }
-    const removed = await withinWait(() =>
-      removedVersionIds(client, preview.batchId, preview.versions),
-    )
-    if (removed === LATE) {
+    const removed = await removedVersionIds(client, preview.batchId, preview.versions)
+    if (past()) {
       return LATE
     }
     return { renders, removed: removed.size > 0 }
   } catch (error) {
-    if ((error as { code?: string }).code === QUERY_CANCELED) {
+    if (released) {
       return LATE
     }
     broken = true
     throw error
   } finally {
-    const resettable = timed && !broken && Date.now() < deadline
-    if (resettable) {
-      await client.query('RESET statement_timeout').catch(() => {
-        broken = true
-      })
+    clearTimeout(timer)
+    if (!released) {
+      released = true
+      client.release(broken)
+      if (!broken) {
+        client.removeListener('error', onError)
+      }
     }
-    const timeoutLeftSet = timed && !resettable
-    client.release(broken || timeoutLeftSet)
-    client.removeListener('error', onError)
   }
 }
 
