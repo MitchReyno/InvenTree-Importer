@@ -1107,10 +1107,11 @@ test('saved values that can’t be read name the unsaved lot change, and Discard
   await user.clear(quantity)
   await user.type(quantity, '123')
 
-  // The saved batch can't be read now.
+  // The saved batch can't be read now, while its review has moved on.
   vi.mocked(client.read).mockRejectedValue(new Error('server_unreachable'))
+  vi.mocked(operator.read).mockResolvedValue({ ...operatorReview, revision: '13' })
   await act(async () => {
-    await cache.invalidateQueries({ queryKey: serverQueryKey(fixtureScope, 'capture', batchId) })
+    await cache.invalidateQueries({ queryKey: serverQueryKey(fixtureScope) })
   })
   const notice = (await screen.findByText(/Couldn’t load the latest values/)).closest(
     '[role="status"]',
@@ -1120,6 +1121,8 @@ test('saved values that can’t be read name the unsaved lot change, and Discard
   )
   expect(within(notice as HTMLElement).getByRole('button', { name: 'Try now' })).toBeEnabled()
   expect(screen.queryByRole('button', { name: /Discard local edits/ })).not.toBeInTheDocument()
+  // The batch's operator review banner, with its Discard, waits behind the notice.
+  expect(screen.queryByText(/Local input is retained until exact retry/)).not.toBeInTheDocument()
   expect(screen.queryByRole('alert')).not.toBeInTheDocument()
 
   // A read that works now is not adopted under the draft, though the notice clears.
@@ -2025,7 +2028,8 @@ test('Review shows no unavailable banner while the operator review is first read
     </ApiClientsProvider>,
   )
   const mark = await screen.findByRole('button', { name: 'Mark selected reviewed' })
-  expect(screen.queryByText(/operator review is unavailable or changed/)).not.toBeInTheDocument()
+  // The batch's operator review banner, with its Discard, waits behind the notice.
+  expect(screen.queryByText(/Local input is retained until exact retry/)).not.toBeInTheDocument()
   expect(mark).toHaveAttribute('aria-disabled', 'true')
   expect(mark).toHaveAccessibleDescription('Updating…')
 

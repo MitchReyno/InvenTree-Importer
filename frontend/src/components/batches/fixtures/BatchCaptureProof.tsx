@@ -20,10 +20,13 @@ import { cancelVerified } from '#/queries/fresh-reads'
 import { serverQueryKey } from '#/queries/scope'
 
 /**
- * `?reads=live-race` slows each Capture and Processing read to 600 ms and, 150 ms after an answer is
- * accepted, sends what a live update does (cancel every read, then invalidate), so it lands in the
- * reload the answer starts. `?reads=offline` makes those reads fail for `offline-ms` (12 s) after an
- * answer, then work again.
+ * `?reads=live-race` slows each Capture and Processing read to 600 ms and, 150 ms into the first
+ * Capture read after an answer (the batch's reload), sends what a live update does: cancel every
+ * read, then invalidate.
+ *
+ * `?reads=offline` makes those reads fail for `offline-ms` (12 s) after an answer, then work again;
+ * with `offline-at` they fail from that many ms after the page loads instead, and a stand-in live
+ * update reads them then.
  */
 const params = new URLSearchParams(location.search)
 const readMode = params.get('reads')
@@ -31,6 +34,7 @@ const OFFLINE_MS = Number(params.get('offline-ms') ?? '12000')
 const RACE_READ_MS = 600
 const RACE_HINT_MS = 150
 let offlineUntil = 0
+let raceNextCaptureRead = false
 let sendLiveUpdate: (() => void) | null = null
 
 function wait(ms: number) {
@@ -48,13 +52,21 @@ async function fixtureNetwork() {
   }
 }
 
+const OFFLINE_AT_MS = params.get('offline-at')
+if (readMode === 'offline' && OFFLINE_AT_MS !== null) {
+  setTimeout(() => {
+    offlineUntil = Date.now() + OFFLINE_MS
+    sendLiveUpdate?.()
+  }, Number(OFFLINE_AT_MS))
+}
+
 /** What happens to reads once an answer is accepted. */
 function afterAnswer() {
   if (readMode === 'offline') {
     offlineUntil = Date.now() + OFFLINE_MS
   }
   if (readMode === 'live-race') {
-    setTimeout(() => sendLiveUpdate?.(), RACE_HINT_MS)
+    raceNextCaptureRead = true
   }
 }
 
@@ -478,6 +490,10 @@ function applyEdit(change: Change) {
 
 const captureClient = {
   read: async () => {
+    if (raceNextCaptureRead) {
+      raceNextCaptureRead = false
+      setTimeout(() => sendLiveUpdate?.(), RACE_HINT_MS)
+    }
     await fixtureNetwork()
     return { ...batch }
   },

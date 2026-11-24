@@ -741,7 +741,9 @@ export function Batch({
         {operatorUnavailable &&
           !operatorReviewPending &&
           acceptedOperatorReview &&
-          !visibleError && (
+          !visibleError &&
+          // The saved values notice covers it: a review at the values shown can't be read either.
+          !savedValuesUnavailable && (
             <div role="status">
               <Banner tone="bad">
                 <Paragraph>
