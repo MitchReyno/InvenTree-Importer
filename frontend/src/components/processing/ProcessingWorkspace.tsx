@@ -2,7 +2,7 @@ import { IntakeRequestError } from '@invimport/contracts/client'
 import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { color, radius, ring, size, space } from '#/theme/generated/tokens'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey } from '#/queries/scope'
 import { useFreshRead } from '#/queries/useFreshRead'
 import { useRestoredSnapshot, useSnapshotWriter } from '#/queries/useSnapshot'
@@ -216,18 +216,18 @@ export function ProcessingWorkspace({
   )
   const snapshot = fresh.data
   // The Agents page's own reads, so both share one cache entry.
-  const agentSessions = useQuery({
+  const agentSessions = useFreshRead({
     queryKey: serverQueryKey(scope, 'agent-sessions', 'newest'),
     queryFn: () => agents!.sessions(),
     enabled: agents !== undefined && view === 'overview',
     refetchInterval: pollInterval,
-  })
-  const agentSettings = useQuery({
+  }).query
+  const agentSettings = useFreshRead({
     queryKey: serverQueryKey(scope, 'agent-settings'),
     queryFn: () => agents!.settings(),
     enabled: agents !== undefined && view === 'overview',
     refetchInterval: pollInterval,
-  })
+  }).query
 
   // A read that failed or paused keeps old data; it is withheld rather than shown as current.
   const liveRead = (read: { isSuccess: boolean; isError: boolean; fetchStatus: string }) =>
@@ -248,6 +248,7 @@ export function ProcessingWorkspace({
       ? {
           paused: snapshot.paused === true,
           unavailableReason: revisionlessReason,
+          readyNow: () => !displayOnly && fresh.settledAfterHintNow(),
           change: async (paused: boolean) => {
             if (displayOnly || !fresh.settledAfterHintNow()) {
               throw new Error('processing_fresh_read_required')
@@ -261,12 +262,12 @@ export function ProcessingWorkspace({
         }
       : undefined
   // Capture's media read names Examine's photos by file and group.
-  const mediaSnapshot = useQuery({
+  const mediaSnapshot = useFreshRead({
     queryKey: serverQueryKey(scope, 'media', batch.id),
     queryFn: () => media!.snapshot(batch.id),
     enabled: media !== undefined && view === 'examine',
     refetchInterval: pollInterval,
-  })
+  }).query
   const offline = fresh.phase === 'failed'
   // Edits and instructions are closed in an archived batch, and while only restored data shows.
   const fenced = batch.archived || displayOnly

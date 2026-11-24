@@ -1,9 +1,12 @@
-import { screen, waitFor } from '@testing-library/react'
+import { act, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import type { BatchDefaultsDto, CatalogueModelDto, CatalogueRecordDto } from '@invimport/contracts'
 import { fixtureScope, render } from '#/test/render'
+import { deferred } from '#/test/deferred'
+import { createServerQueryClient } from '#/queries/client'
+import { serverQueryKey } from '#/queries/scope'
 import type { BatchDefaultsClient, CatalogueClient } from '#/catalogue/types'
 import { BatchDefaultsSection } from './BatchDefaultsSection'
 import { BatchDefaultsForm } from './BatchDefaultsForm'
@@ -241,4 +244,51 @@ test('any choice can be discarded, restoring the saved records and releasing the
   await user.click(screen.getByRole('button', { name: 'Discard my edit' }))
   expect(screen.getByRole('button', { name: 'No default location' })).toBeVisible()
   expect(dirty).toHaveBeenLastCalledWith(false)
+})
+
+test('a first visit shows the form’s skeleton, not a loading line, until the defaults land', async () => {
+  const api = clients()
+  const read = deferred<BatchDefaultsDto>()
+  api.batchDefaults.read.mockReturnValueOnce(read.promise)
+  render(<BatchDefaultsSection onDirtyChange={vi.fn()} />, {
+    clients: {
+      catalogue: api.catalogue,
+      batchDefaults: api.batchDefaults as unknown as BatchDefaultsClient,
+    },
+  })
+
+  expect(screen.queryByText(/Loading saved defaults/)).toBeNull()
+  expect(screen.getByRole('status')).toHaveTextContent('Loading')
+  await act(async () => {
+    read.resolve(saved)
+    await read.promise
+  })
+  expect(await screen.findByRole('combobox', { name: 'Default location' })).toBeVisible()
+})
+
+test('a return visit shows the cached defaults read-only at once, and editable once read', async () => {
+  const api = clients()
+  const read = deferred<BatchDefaultsDto>()
+  api.batchDefaults.read.mockReturnValueOnce(read.promise)
+  const cache = createServerQueryClient()
+  cache.setQueryData(serverQueryKey(fixtureScope, 'batch-defaults'), saved)
+  render(<BatchDefaultsSection onDirtyChange={vi.fn()} />, {
+    cache,
+    clients: {
+      catalogue: api.catalogue,
+      batchDefaults: api.batchDefaults as unknown as BatchDefaultsClient,
+    },
+  })
+
+  const cached = screen.getByRole('combobox', { name: 'Default location' })
+  expect(cached.closest('[inert]')).not.toBeNull()
+  await act(async () => {
+    read.resolve(saved)
+    await read.promise
+  })
+  await waitFor(() =>
+    expect(
+      screen.getByRole('combobox', { name: 'Default location' }).closest('[inert]'),
+    ).toBeNull(),
+  )
 })

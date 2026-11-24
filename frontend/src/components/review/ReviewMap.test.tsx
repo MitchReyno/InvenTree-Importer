@@ -221,7 +221,8 @@ describe('ReviewMap', () => {
     cleanup()
 
     map({ loading: true })
-    expect(screen.getByText('Reading evidence…')).toBeInTheDocument()
+    expect(screen.queryByText(/Reading evidence/)).not.toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Loading')
     expect(screen.queryByText('No evidence')).not.toBeInTheDocument()
   })
 

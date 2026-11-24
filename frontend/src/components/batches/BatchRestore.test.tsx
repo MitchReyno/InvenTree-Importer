@@ -6,6 +6,7 @@ import type { Client } from '#/capture/client'
 import type { ManualClient } from '#/manual/types'
 import type { ProcessingClient } from '#/processing/types'
 import { serverQueryKey } from '#/queries/scope'
+import { createServerQueryClient } from '#/queries/client'
 import { snapshots } from '#/queries/snapshots'
 import { fixtureScope, render } from '#/test/render'
 import { Batch } from './Batch'
@@ -152,4 +153,63 @@ test('a snapshot from another target is never shown', async () => {
   expect(screen.getByRole('status')).toHaveTextContent('Loading')
   expect(screen.queryByText(/Resuming saved batch/)).not.toBeInTheDocument()
   expect(screen.queryByText('Restored reels')).not.toBeInTheDocument()
+})
+
+test.each([
+  { tab: 'Capture', route: `${batchId}/capture` },
+  { tab: 'the Map', route: `${batchId}/review/map` },
+  { tab: 'Changes', route: `${batchId}/changes/ready` },
+])(
+  'a first visit to $tab shows its skeleton, not a loading line, until Capture is read',
+  ({ route }) => {
+    sessionStorage.clear()
+    const client = { read: vi.fn(() => never<CaptureSnapshotDto>()) } as unknown as Client
+    render(
+      <Batch
+        id={batchId}
+        client={client}
+        manual={{} as ManualClient}
+        route={route}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    expect(screen.queryByText(/Resuming saved batch/)).not.toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Loading')
+  },
+)
+
+test('a return to Capture shows the cached batch read-only until Capture’s read lands', async () => {
+  sessionStorage.clear()
+  let landCapture: ((value: CaptureSnapshotDto) => void) | undefined
+  const client = {
+    read: vi.fn(
+      () =>
+        new Promise<CaptureSnapshotDto>((resolve) => {
+          landCapture = resolve
+        }),
+    ),
+  } as unknown as Client
+  const queryClient = createServerQueryClient()
+  queryClient.setQueryData(serverQueryKey(fixtureScope, 'capture', batchId), capture)
+  render(
+    <Batch
+      id={batchId}
+      client={client}
+      manual={{} as ManualClient}
+      route={`${batchId}/capture`}
+      onDirtyChange={vi.fn()}
+    />,
+    { cache: queryClient },
+  )
+
+  expect(screen.getByRole('heading', { name: 'Restored reels' })).toBeInTheDocument()
+  const fence = document.querySelector('[data-display-only]')
+  expect(fence).toHaveAttribute('inert')
+  expect(fence).toContainElement(
+    screen.getByRole('heading', { name: 'Batch settings', hidden: true }),
+  )
+
+  await act(async () => landCapture!(capture))
+  await waitFor(() => expect(document.querySelector('[data-display-only]')).toBeNull())
+  expect(screen.getByRole('heading', { name: 'Batch settings' })).toBeVisible()
 })

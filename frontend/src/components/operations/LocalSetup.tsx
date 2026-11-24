@@ -1,6 +1,7 @@
 import styled from 'styled-components'
 import type { useReadiness } from '#/debug/useReadiness'
-import { Button, Paragraph, Small } from '#/components/ui'
+import { Button, Paragraph, ReadState, Spinner } from '#/components/ui'
+import { LocalSetupSkeleton } from './LocalSetupSkeleton'
 import { color, space, typeVar } from '#/theme/generated/tokens'
 
 type LocalSetupProps = {
@@ -19,7 +20,7 @@ function webAccessLabel(web: 'available' | 'unavailable', compact: boolean) {
 
 /** What the local server reports about its setup, with Check again. */
 export function LocalSetup({ readiness, compact = false }: LocalSetupProps) {
-  const failed = readiness.isError || readiness.fetchStatus === 'paused'
+  const failed = readiness.phase === 'failed'
 
   return (
     <Stack>
@@ -34,37 +35,43 @@ export function LocalSetup({ readiness, compact = false }: LocalSetupProps) {
           Local setup checks are unavailable. Check the local server configuration and application
           version.
         </Paragraph>
-      ) : readiness.data ? (
-        <Facts>
-          <dt>Saved state</dt>
-          <dd>{compact ? 'Reachable' : 'Reachable · compatible application version'}</dd>
-          <dt>Media</dt>
-          <dd>{readiness.data.media === 'configured' ? 'Configured' : 'Disabled'}</dd>
-          {!compact && (
-            <>
-              <dt>Inventory execution</dt>
-              <dd>Supervised runner only</dd>
-            </>
-          )}
-          <dt>Web access</dt>
-          <dd>{webAccessLabel(readiness.data.web, compact)}</dd>
-          {!compact && (
-            <>
-              <dt>Deployment</dt>
-              <dd>Restricted local development</dd>
-            </>
-          )}
-        </Facts>
       ) : (
-        <Small role="status">Checking local setup…</Small>
+        <ReadState
+          phase={readiness.phase}
+          // The Dev mode menu is a debug read, so it waits with a spinner rather than a skeleton.
+          skeleton={compact ? <Spinner /> : <LocalSetupSkeleton />}
+        >
+          {readiness.data && (
+            <Facts>
+              <dt>Saved state</dt>
+              <dd>{compact ? 'Reachable' : 'Reachable · compatible application version'}</dd>
+              <dt>Media</dt>
+              <dd>{readiness.data.media === 'configured' ? 'Configured' : 'Disabled'}</dd>
+              {!compact && (
+                <>
+                  <dt>Inventory execution</dt>
+                  <dd>Supervised runner only</dd>
+                </>
+              )}
+              <dt>Web access</dt>
+              <dd>{webAccessLabel(readiness.data.web, compact)}</dd>
+              {!compact && (
+                <>
+                  <dt>Deployment</dt>
+                  <dd>Restricted local development</dd>
+                </>
+              )}
+            </Facts>
+          )}
+        </ReadState>
       )}
       {!compact && (
         <span>
           <Button
             size="sm"
-            disabled={readiness.isFetching}
+            disabled={readiness.query.isFetching}
             onClick={() => {
-              void readiness.refetch()
+              void readiness.query.refetch()
             }}
           >
             Check again

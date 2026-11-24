@@ -9,8 +9,10 @@ import {
   PageStack,
   Pill,
   raisedOnField,
+  Skeleton,
 } from '#/components/ui'
 import { Select } from '#/forms'
+import { ReviewMapSkeleton } from './ReviewMapSkeleton'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { RegionStage } from './RegionStage'
 import { reviewMap, type MapEdge } from '#/operator/review-map'
@@ -89,11 +91,24 @@ export function ReviewMap({
   const paths = useConnectorPaths(canvas, { batch, evidence, retiredLotIds, predecessors })
 
   if (loading) {
+    // The page's own layout, so the columns and Tell Examine stay where the map draws them.
     return (
       <MapShell
         canvas={canvas}
         aside={aside}
-        notice={<Muted role="status">Reading evidence…</Muted>}
+        ready
+        notice={<VisuallyHidden role="status">Loading</VisuallyHidden>}
+        title={<Skeleton width="30%" height={space[9]} />}
+        evidence={
+          <Column aria-hidden="true">
+            <ReviewMapSkeleton />
+          </Column>
+        }
+        lots={
+          <div aria-hidden="true">
+            <ReviewMapSkeleton />
+          </div>
+        }
       />
     )
   }

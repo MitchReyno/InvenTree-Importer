@@ -6,10 +6,11 @@ import { useQuery } from '@tanstack/react-query'
 import type { ProcessingJobDto } from '@invimport/contracts'
 import type { ProcessingClient } from '#/processing/types'
 import { serverQueryKey } from '#/queries/scope'
-import { Small } from '#/components/ui'
+import { ReadState, Small } from '#/components/ui'
 import { chatMessages, SessionChatPanel } from './SessionChatPanel'
 import { SessionTimeline } from './SessionTimeline'
-import { useServerScope, useRetainedPollInterval } from '#/context'
+import { SessionSkeleton } from './SessionSkeleton'
+import { useServerScope, useRetainedPollInterval, useReportRefreshing } from '#/context'
 
 interface Props {
   batchId: string
@@ -29,14 +30,19 @@ export function SessionPanel({ batchId, job, client, startFresh, freshDisabled }
     queryFn: () => client.session(batchId, job.id),
     refetchInterval: pollInterval,
   })
+  useReportRefreshing(timeline.data !== undefined && timeline.isFetching)
   if (!timeline.data) {
-    return (
-      <Small>{timeline.isError ? 'Session history is unavailable.' : 'Loading session…'}</Small>
+    return timeline.isError || timeline.fetchStatus === 'paused' ? (
+      <Small>Session history is unavailable.</Small>
+    ) : (
+      <ReadState phase="empty" skeleton={<SessionSkeleton />}>
+        {null}
+      </ReadState>
     )
   }
   return (
     <>
-      {timeline.isRefetchError && (
+      {(timeline.isRefetchError || timeline.fetchStatus === 'paused') && (
         <Small role="status">Session history could not be refreshed; showing the last copy.</Small>
       )}
       {(timeline.data.failure || FAILED_SESSION_STATES.has(timeline.data.session_state)) && (

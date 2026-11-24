@@ -1,4 +1,4 @@
-import { Banner, Button, media, onField, PageStack } from '#/components/ui'
+import { Banner, Button, media, onField, PageStack, ReadState } from '#/components/ui'
 import { Input } from '#/forms'
 import { useEffect, useRef, useState } from 'react'
 import { NewBatchForm } from './NewBatchForm'
@@ -11,8 +11,9 @@ import type { BatchCreate } from '@invimport/contracts/api'
 import type { Client } from '#/capture/client'
 import styled from 'styled-components'
 import { color, size, space, type, typeVar } from '#/theme/generated/tokens'
-import { useQuery } from '@tanstack/react-query'
 import { serverQueryKey } from '#/queries/scope'
+import { useFreshRead } from '#/queries/useFreshRead'
+import { BatchesSkeleton } from './BatchesSkeleton'
 import { useServerScope } from '#/context'
 
 interface BatchesClient extends Omit<Client, 'list'> {
@@ -37,10 +38,11 @@ export function Batches({ client, onDirtyChange }: Props) {
     archived: archived ? ('include' as const) : ('exclude' as const),
     offset: String(offset),
   }
-  const batchesQuery = useQuery({
+  const fresh = useFreshRead({
     queryKey: serverQueryKey(scope, 'batches', JSON.stringify(options)),
     queryFn: () => client.list(options),
   })
+  const batchesQuery = fresh.query
   const batches = batchesQuery.data
   // Command identity outlives the mountable editor, including discard/reopen after lost ACK.
   const createIntent = useRef({ payload: '', key: crypto.randomUUID() })
@@ -150,19 +152,23 @@ export function Batches({ client, onDirtyChange }: Props) {
             Show archived
           </ArchiveToggle>
         </ListHead>
-        {!batches && batchesQuery.isError ? null : !batches ? (
-          <Note role="status">Loading retained batches…</Note>
-        ) : !visible.length ? (
-          <Note>{emptyMessage}</Note>
-        ) : (
-          <BatchList>
-            {visible.map((b) => (
-              <li key={b.id}>
-                <BatchRow batch={b} />
-              </li>
-            ))}
-          </BatchList>
-        )}
+        <ReadState
+          phase={fresh.phase}
+          hasData={batches !== undefined}
+          skeleton={<BatchesSkeleton />}
+        >
+          {visible.length > 0 ? (
+            <BatchList>
+              {visible.map((b) => (
+                <li key={b.id}>
+                  <BatchRow batch={b} />
+                </li>
+              ))}
+            </BatchList>
+          ) : (
+            batches && <Note>{emptyMessage}</Note>
+          )}
+        </ReadState>
         {(offset > 0 || batches?.truncated) && (
           <Pagination aria-label="Batch pages">
             <Button

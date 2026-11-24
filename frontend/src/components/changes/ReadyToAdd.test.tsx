@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import type {
@@ -9,6 +9,7 @@ import type {
   PreparationTreeDto,
 } from '@invimport/contracts'
 import { render } from '#/test/render'
+import { deferred } from '#/test/deferred'
 import { ReadyToAdd } from './ReadyToAdd'
 
 const id = (n: number) => `00000000-0000-4000-8000-${n.toString(16).padStart(12, '0')}`
@@ -556,5 +557,24 @@ describe('ReadyToAdd', () => {
     expect(screen.queryByRole('button', { name: 'Tree' })).not.toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Stock items, 3' })).toBeVisible()
     expect(screen.getByRole('region', { name: 'Parts, 1' })).toHaveTextContent('Existing resistor')
+  })
+
+  it('reads every record behind a skeleton below the records the preparation names', async () => {
+    const { props } = setup()
+    cleanup()
+    const tree = deferred<PreparationTreeDto>()
+    render(<ReadyToAdd {...props} readTree={vi.fn(() => tree.promise)} />)
+
+    expect(screen.queryByText(/Reading every record/)).not.toBeInTheDocument()
+    expect(screen.getByText('Loading')).toHaveAttribute('role', 'status')
+    await act(async () => {
+      tree.resolve({
+        preparation_id: props.preview!.id,
+        plan_version: 'bench-effects-plan/2',
+        nodes: treeNodes,
+      })
+      await tree.promise
+    })
+    await waitFor(() => expect(screen.queryByText('Loading')).not.toBeInTheDocument())
   })
 })

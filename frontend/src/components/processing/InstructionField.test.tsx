@@ -25,7 +25,8 @@ test('the instructions box is marked as an agent touchpoint', () => {
 
 test('saved instructions that arrive after mount are shown', () => {
   const { field, props, rerender } = renderField(undefined)
-  expect(screen.getByRole('status')).toHaveTextContent('Reading the saved instructions…')
+  expect(screen.queryByText(/Reading the saved instructions/)).not.toBeInTheDocument()
+  expect(screen.getByRole('status')).toHaveTextContent('Loading')
   rerender(<InstructionField {...props} text="Keep packets apart." />)
   expect(field()).toHaveValue('Keep packets apart.')
 })

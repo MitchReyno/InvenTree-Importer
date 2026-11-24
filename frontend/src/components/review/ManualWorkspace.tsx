@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Banner, Paragraph, Heading, VisuallyHidden, Button, ReadState } from '#/components/ui'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey } from '#/queries/scope'
 import { useFreshRead } from '#/queries/useFreshRead'
 import { useRestoredSnapshot, useSnapshotWriter } from '#/queries/useSnapshot'
@@ -21,6 +21,7 @@ import {
 import { useDirtySources } from '#/operator/useDirtySources'
 import { ReviewWorkspace } from './ReviewWorkspace'
 import { ReviewSkeleton } from './ReviewSkeleton'
+import { ChangesSkeleton } from '#/components/changes/ChangesSkeleton'
 import { ReadyToAdd } from '#/components/changes/ReadyToAdd'
 import { Added } from '#/components/changes/Added'
 import { useTargetNavigation } from '#/header/useTargetNavigation'
@@ -44,6 +45,8 @@ interface Props {
   navigate: (stage: ManualStage, resourceId?: string, options?: { replace?: boolean }) => void
   /** Present only when its revision matches `batch`; stale projections are not shown. */
   operatorReview?: OperatorReviewDto
+  /** The operator review for this revision is still being read: a wait, not an unavailable review. */
+  operatorReviewPending?: boolean
   onDirtyChange?: (dirty: boolean) => void
   /** Drawn from restored snapshots before Capture's read lands; nothing can be changed. */
   displayOnly?: boolean
@@ -79,6 +82,7 @@ export function ManualWorkspace({
   rememberedPreparationId,
   navigate,
   operatorReview,
+  operatorReviewPending = false,
   onDirtyChange,
   displayOnly = false,
 }: Props) {
@@ -87,12 +91,12 @@ export function ManualWorkspace({
   const pollInterval = useRetainedPollInterval()
   const scope = useServerScope()
   const queryClient = useQueryClient()
-  const mediaQuery = useQuery({
+  const mediaQuery = useFreshRead({
     queryKey: serverQueryKey(scope, 'media', batch.id),
     queryFn: () => media!.snapshot(batch.id),
     enabled: stage === 'review' && media !== undefined,
     refetchInterval: pollInterval,
-  })
+  }).query
   const restoredProcessing = useRestoredSnapshot('processing', batch.id)
   // Cached data is history: acceptance needs this mount's own read, settled at this revision.
   const processingFresh = useFreshRead({
@@ -360,6 +364,7 @@ export function ManualWorkspace({
         batch={batch}
         workspace={workspace}
         operatorReview={operatorReview}
+        operatorReviewPending={operatorReviewPending}
         media={mediaQuery.data}
         mediaUnavailable={mediaQuery.isError || mediaQuery.fetchStatus === 'paused'}
         mediaLoading={media !== undefined && mediaQuery.isPending}
@@ -471,7 +476,7 @@ export function ManualWorkspace({
       <ReadState
         phase={workspaceFresh.phase}
         hasData={workspace !== undefined}
-        skeleton={<ReviewSkeleton />}
+        skeleton={stage === 'review' ? <ReviewSkeleton /> : <ChangesSkeleton />}
       >
         {content}
       </ReadState>

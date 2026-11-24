@@ -59,6 +59,16 @@ test('the local setup check runs when the section opens and reports the web stat
   expect(screen.queryByLabelText(/credential|key|password/i)).not.toBeInTheDocument()
 })
 
+test('the local setup check shows its skeleton, not a checking line, until it is read', async () => {
+  vi.stubGlobal('fetch', readinessTransport())
+  render(<DeveloperSection />)
+
+  expect(screen.queryByText(/Checking local setup/)).not.toBeInTheDocument()
+  expect(screen.getByText('Loading')).toHaveAttribute('role', 'status')
+  await screen.findByText('Reachable · compatible application version')
+  expect(screen.queryByText('Loading')).not.toBeInTheDocument()
+})
+
 test('the local setup check shows web access when the VM tool profile has it', async () => {
   vi.stubGlobal('fetch', readinessTransport(true, { web: 'available' }))
   render(<DeveloperSection />)

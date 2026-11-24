@@ -47,6 +47,8 @@ type Props = {
     paused: boolean
     /** Why Pause or Resume waits, such as a read still landing; absent when it is available. */
     unavailableReason?: string
+    /** Checked when pressed; a press before a settled read does nothing. */
+    readyNow?: () => boolean
     change: (paused: boolean) => Promise<unknown>
   }
   onOpenSession: (jobId: string) => void
@@ -188,6 +190,7 @@ export function ProcessingOverview({
                   paused={pause.paused}
                   change={pause.change}
                   unavailableReason={pause.unavailableReason}
+                  readyNow={pause.readyNow}
                 />
               )}
             </TitleRow>

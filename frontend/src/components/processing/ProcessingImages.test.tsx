@@ -1,7 +1,8 @@
-import { screen, within } from '@testing-library/react'
+import { act, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import { render } from '#/test/render'
+import { deferred } from '#/test/deferred'
 import { ProcessingImages } from './ProcessingImages'
 import type { MediaSnapshotDto } from '@invimport/contracts'
 
@@ -85,4 +86,23 @@ test('a help button beside the outputs heading says preparing a crop does not ap
   expect(await screen.findByRole('dialog', { name: 'About image outputs' })).toHaveTextContent(
     'Preparing a crop does not approve it for inventory.',
   )
+})
+
+test('a first visit shows the gallery’s skeleton, not a loading line, until the read lands', async () => {
+  const read = deferred<MediaSnapshotDto>()
+  const client = {
+    snapshot: vi.fn(() => read.promise),
+    removalImpact: vi.fn(),
+    upload: vi.fn(),
+    edit: vi.fn(),
+  }
+  render(<ProcessingImages batchId="batch" client={client} />)
+
+  expect(screen.queryByText(/Loading retained image outputs/)).not.toBeInTheDocument()
+  expect(screen.getByRole('status')).toHaveTextContent('Loading')
+  await act(async () => {
+    read.resolve(saved)
+    await read.promise
+  })
+  expect(await screen.findByRole('heading', { name: 'Saved packet' })).toBeVisible()
 })
