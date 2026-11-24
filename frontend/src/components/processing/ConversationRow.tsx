@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import type { FailureLoader } from '#/components/agents/SessionFailureDetails'
 import type { ConversationItem } from '#/processing/session-history'
 import { color, radius, space } from '#/theme/generated/tokens'
-import { AttemptDivider } from './AttemptDivider'
+import { AttemptDivider, type FreshAction } from './AttemptDivider'
 import { ChatBubble } from './ChatBubble'
 import { HistoryEntry } from './HistoryEntry'
 import type { HistoryContext } from './HistoryLink'
@@ -15,12 +15,26 @@ export type ConversationRowProps = {
   /** The form that answers a question in place; it keeps an unsaved draft after it closes. */
   answerForm: (questionId: string) => ReactNode
   loadFailure?: FailureLoader
+  /** Start fresh beside the current attempt's failure, where one is offered. */
+  startFresh?: FreshAction
 }
 
 /** One row of the session page: a divider, a chat bubble, a question card or a history row. */
-export function ConversationRow({ item, context, answerForm, loadFailure }: ConversationRowProps) {
+export function ConversationRow({
+  item,
+  context,
+  answerForm,
+  loadFailure,
+  startFresh,
+}: ConversationRowProps) {
   if (item.kind === 'attempt') {
-    return <AttemptDivider attempt={item.attempt} loadFailure={loadFailure} />
+    return (
+      <AttemptDivider
+        attempt={item.attempt}
+        loadFailure={loadFailure}
+        startFresh={startFresh?.attemptId === item.attempt.id ? startFresh : undefined}
+      />
+    )
   }
   if (item.kind !== 'entry') {
     return <HistoryRow item={item} context={context} />

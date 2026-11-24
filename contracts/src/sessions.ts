@@ -22,6 +22,7 @@ import {
   SessionProposal,
   ProposalStaleReason,
   WebPageSource,
+  StartFreshEligibility,
   statusLine,
 } from './processing.ts'
 import { ContractValidationIssue } from './validation-issues.ts'
@@ -592,6 +593,8 @@ export const SessionHistoryMetadata = object({
   attempts: Type.Array(SessionHistoryAttempt, { minItems: 1 }),
   /** Inbox items at or below this sequence were acknowledged by the session. */
   inbox_acked_seq: CursorSequence,
+  /** Whether Start fresh would be accepted for the job now. */
+  start_fresh: StartFreshEligibility,
 })
 export const SessionHistoryQuery = object({ before: Type.Optional(SessionHistoryCursor) })
 /** One page of a session's history, newest first, with its metadata from the same snapshot. */

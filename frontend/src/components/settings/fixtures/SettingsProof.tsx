@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { S, sessionList, sessionRow } from '#/test/agent-sessions'
 import styled from 'styled-components'
 import type {
   AgentSettingsDto,
@@ -51,24 +52,6 @@ let saved: AgentSettingsDto = {
   web: { public_pages: true, prefer_datasheets: true },
 }
 
-function session(index: number, running: boolean) {
-  return {
-    attempt_id: `20000000-0000-4000-8000-00000000000${index}`,
-    job_id: `21000000-0000-4000-8000-00000000000${index}`,
-    batch_id: batchId,
-    subject_id: null,
-    stage: 'research',
-    state: running ? 'running' : 'queued',
-    occupies_lane: running,
-    latest_on_job: true,
-    queued_at: '2026-11-10T01:00:00.000Z',
-    started_at: null,
-    finished_at: null,
-    session_state: null,
-    latest_status: null,
-  }
-}
-
 /**
  * An in-memory agents client. The sign-in dialogs POST to `/personal-runner/*`, which the
  * fixture page's fake runner answers (`fake-runner.ts`).
@@ -83,11 +66,20 @@ const agents = {
     saved = { ...fields, revision: String(Number(expected_revision) + 1) }
     return saved
   },
-  sessions: async () => ({
-    sessions: [session(1, true), session(2, true), session(3, true), session(4, false)],
-    next_before: null,
-    sessions_supported: true,
-  }),
+  sessions: async () =>
+    sessionList({
+      sessions: [1, 2, 3, 4].map((index) =>
+        sessionRow({
+          attempt_id: S.attempt(index),
+          job_id: S.job(index),
+          batch_id: batchId,
+          subject_id: null,
+          state: index < 4 ? 'running' : 'queued',
+          occupies_lane: index < 4,
+        }),
+      ),
+      totals: { slots_in_use: 3, queued: 1, waiting: 0 },
+    }),
   failure: async () => {
     throw new Error('owned_fixture_no_failure')
   },

@@ -161,6 +161,27 @@ export async function resolveBatchMediaInputs(
   return scopeMediaInputs(snapshot, BATCH_MEDIA_SCOPE)
 }
 
+/** The Examine lead's batch scope as a read, without the locks the command takes. */
+export async function readBatchMediaInputResult(
+  client: PoolClient,
+  binding: CaptureBinding,
+  batchId: string,
+): Promise<MediaInputScopeResult> {
+  await prepareMediaTransaction(client)
+  const snapshot = await mediaSnapshot(client, binding, batchId)
+  try {
+    return { kind: 'ready', inputs: scopeMediaInputs(snapshot, BATCH_MEDIA_SCOPE) }
+  } catch (error) {
+    if (!(error instanceof MediaInputUnavailableError)) {
+      throw error
+    }
+    return {
+      kind: 'blocked',
+      code: error.reason === 'not_ready' ? 'media_not_ready' : 'media_input_capacity',
+    }
+  }
+}
+
 /** Compatible single-scope resolver; pin-capable consumers use lockMediaInputs instead. */
 export async function resolveMediaInputs(
   client: PoolClient,

@@ -1,18 +1,19 @@
 import { SessionFailureSummary } from './session-failures.ts'
 import { Type, type Static, type TProperties } from '@sinclair/typebox'
-import { Id, Revision, CursorSequence } from './scalars.ts'
+import { Id, IsoTime, Revision, CursorSequence } from './scalars.ts'
 import {
   ProcessingState,
   ProcessingStageV2,
   ProcessingQuestionSpec,
   ProcessingProposalV2,
+  StartFreshEligibility,
 } from './processing.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
 
 import { AgentSelection } from './agent-selection.ts'
-import { SessionLatestStatus, SessionState } from './sessions.ts'
+import { SessionHistoryAttempt, SessionLatestStatus, SessionState } from './sessions.ts'
 import type { AgentSelectionDto } from './agent-selection.ts'
 export { AgentSelection, type AgentSelectionDto } from './agent-selection.ts'
 /** How many sessions may run provider turns at once; waiting sessions hold no slot. */
@@ -84,7 +85,53 @@ export const AgentSettingsSaveReplay = object({
   replayed: Type.Literal(true),
 })
 export const AgentSettingsSaveResult = Type.Union([AgentSettings, AgentSettingsSaveReplay])
+/** The Agents page's filter chips; each applies its rule to both its rows and its count. */
+export const AGENT_SESSION_FILTERS = [
+  'needs_attention',
+  'working',
+  'waiting',
+  'queued',
+  'done_today',
+  'all',
+] as const
+export type AgentSessionFilter = (typeof AGENT_SESSION_FILTERS)[number]
+export const AgentSessionFilterSchema = Type.Union(
+  AGENT_SESSION_FILTERS.map((filter) => Type.Literal(filter)),
+)
+/** An opaque position in the list's order, issued by the list itself. */
+export const AgentSessionCursor = Type.String({
+  minLength: 1,
+  maxLength: 200,
+  pattern: '^[A-Za-z0-9_-]+$',
+})
+/**
+ * Which sessions to list. The browser's local day bounds date Done today; without them the list
+ * neither counts nor filters by it.
+ */
+export const AgentSessionQuery = object({
+  before: Type.Optional(AgentSessionCursor),
+  filter: Type.Optional(AgentSessionFilterSchema),
+  batch_id: Type.Optional(Id),
+  day_start: Type.Optional(IsoTime),
+  day_end: Type.Optional(IsoTime),
+})
+const time = Type.String({ maxLength: 40 })
+const sessionCount = Type.Integer({ minimum: 0 })
+/** An attempt before the session's current one, as its row folds it. */
+export const AgentSessionEarlierAttempt = object({
+  attempt_id: Id,
+  number: Type.Integer({ minimum: 1 }),
+  state: ProcessingState,
+  session_state: Type.Union([SessionState, Type.Null()]),
+  queued_at: time,
+  /** Its latest transition into its current ended state; absent while live or unrecorded. */
+  ended_at: Type.Optional(time),
+  failure: Type.Optional(SessionFailureSummary),
+})
+/** The most earlier attempts one row carries; `earlier_attempt_count` counts them all. */
+export const MAX_EARLIER_ATTEMPTS = 20
 export const AgentSessionList = object({
+  /** One row per session (job), its current attempt first; ordered by that attempt's queue time. */
   sessions: Type.Array(
     object({
       attempt_id: Id,
@@ -94,13 +141,17 @@ export const AgentSessionList = object({
       subject_id: Type.Union([Id, Type.Null()]),
       stage: ProcessingStageV2,
       state: ProcessingState,
+      /** Whether this attempt is the job's current one; a switch to another profile can end it. */
       latest_on_job: Type.Boolean(),
+      attempt_number: Type.Integer({ minimum: 1 }),
       /** Null for the deterministic synthetic session profile. */
       selection: Type.Union([AgentSelection, Type.Null()]),
       settings_revision: Type.Union([Revision, Type.Null()]),
-      queued_at: Type.String({ maxLength: 40 }),
-      started_at: Type.Union([Type.String({ maxLength: 40 }), Type.Null()]),
-      finished_at: Type.Union([Type.String({ maxLength: 40 }), Type.Null()]),
+      queued_at: time,
+      started_at: Type.Union([time, Type.Null()]),
+      finished_at: Type.Union([time, Type.Null()]),
+      /** When the attempt entered its current state, from its latest transition. */
+      state_since: time,
       native_session_id: Type.Union([Type.String({ maxLength: 128 }), Type.Null()]),
       actual_model: Type.Union([Type.String({ maxLength: 128 }), Type.Null()]),
       progress: Type.Union([
@@ -116,14 +167,57 @@ export const AgentSessionList = object({
       latest_status: Type.Union([SessionLatestStatus, Type.Null()]),
       /** Its batch's agents are paused: it starts no new work until resumed. */
       paused: Type.Optional(Type.Literal(true)),
+      /** Its batch is archived. */
+      archived: Type.Boolean(),
+      runs_on: SessionHistoryAttempt.properties.runs_on,
+      /** The web setting sealed in the attempt's input; null when its profile has no web access. */
+      web: SessionHistoryAttempt.properties.web,
+      start_fresh: StartFreshEligibility,
+      /** Newest first, at most `MAX_EARLIER_ATTEMPTS`. */
+      earlier_attempts: Type.Array(AgentSessionEarlierAttempt, { maxItems: MAX_EARLIER_ATTEMPTS }),
+      earlier_attempt_count: sessionCount,
     }),
     { maxItems: 50 },
   ),
+  filter: AgentSessionFilterSchema,
+  /**
+   * Sessions matching each chip in the list's scope; archived batches count only under All.
+   * Done today is absent without the day bounds.
+   */
+  counts: object({
+    needs_attention: sessionCount,
+    working: sessionCount,
+    waiting: sessionCount,
+    queued: sessionCount,
+    done_today: Type.Optional(sessionCount),
+    all: sessionCount,
+  }),
+  /** Across every session in scope, whatever the filter and page. */
+  totals: object({
+    /** Attempts holding a slot, a stopped one still held until its worker is reaped included. */
+    slots_in_use: sessionCount,
+    queued: sessionCount,
+    waiting: sessionCount,
+  }),
+  /** Every batch in scope with sessions, newest activity first, with how many match the filter. */
+  batches: Type.Array(
+    object({
+      batch_id: Id,
+      archived: Type.Boolean(),
+      sessions: sessionCount,
+      matching: sessionCount,
+      /** The earliest retained start of any of its attempts; a resumed turn doesn't move it. */
+      first_started_at: Type.Union([time, Type.Null()]),
+    }),
+    { maxItems: 1000 },
+  ),
+  /** More batches are in scope than the summary holds. */
+  batches_truncated: Type.Optional(Type.Literal(true)),
   /** Every paused batch of the account, whether or not its sessions are on this page. */
   paused_batch_ids: Type.Optional(Type.Array(Id, { maxItems: 1000 })),
   /** More batches are paused than the list holds; each session row still says its own. */
   paused_truncated: Type.Optional(Type.Literal(true)),
-  next_before: Type.Union([Id, Type.Null()]),
+  next_before: Type.Union([AgentSessionCursor, Type.Null()]),
   /** False when the configured profile runs no agent sessions, so an empty list means nothing. */
   sessions_supported: Type.Boolean(),
 })
@@ -213,6 +307,8 @@ export const agentSchemas = {
   AgentProviderSettings,
   AgentStageSelection,
   AgentSessionList,
+  AgentSessionQuery,
+  AgentSessionCursor,
   AgentPauseUpdate,
   AgentPause,
   AgentPauseAll,
@@ -230,6 +326,9 @@ export type AgentSettingsSaveResultDto = Static<typeof AgentSettingsSaveResult>
 export type AgentProviderSettingsDto = Static<typeof AgentProviderSettings>
 export type AgentStageSelectionDto = Static<typeof AgentStageSelection>
 export type AgentSessionListDto = Static<typeof AgentSessionList>
+export type AgentSessionQueryDto = Static<typeof AgentSessionQuery>
+export type AgentSessionDto = AgentSessionListDto['sessions'][number]
+export type AgentSessionEarlierAttemptDto = Static<typeof AgentSessionEarlierAttempt>
 export type ProviderStatusUnknownReason = (typeof PROVIDER_STATUS_UNKNOWN_REASONS)[number]
 export type ProviderSignInFailureDto = Static<typeof ProviderSignInFailure>
 export type ClaudeProviderStatusDto = Static<typeof ClaudeProviderStatus>

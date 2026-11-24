@@ -87,9 +87,14 @@ test('a failed current attempt shows its failure summary from the history metada
             failure: {
               id: H.failure,
               category: 'provider_network',
-              summary: 'The provider was overloaded.',
+              summary: 'The provider connection or protocol failed.',
               recovery: 'Start a fresh session later.',
               details_available: false,
+              cause: {
+                code: 'agent_turn_failed',
+                provider: 'claude',
+                provider_error: { kind: 'overloaded', result: null, http_status: 529 },
+              },
             },
           }),
         ],
@@ -97,5 +102,7 @@ test('a failed current attempt shows its failure summary from the history metada
     ),
   )
 
-  expect(await screen.findByText(/The provider was overloaded\./)).toBeInTheDocument()
+  expect(
+    await screen.findByText("Couldn't reach Claude: the API was overloaded (HTTP 529)"),
+  ).toBeInTheDocument()
 })

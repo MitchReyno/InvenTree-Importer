@@ -54,6 +54,7 @@ function page(entries: SessionHistoryEntryDto[], before?: string): SessionHistor
       current_attempt_id: second,
       attempts: [attempt(second, 2), attempt(first, 1)],
       inbox_acked_seq: '0',
+      start_fresh: { allowed: false, reason: 'session_not_replaceable' },
     },
     entries,
     ...(before ? { before } : {}),

@@ -423,6 +423,13 @@ test('command /5 binds the session handler', () => {
   )
 })
 
+const emptyListFields = {
+  filter: 'all',
+  counts: { needs_attention: 0, working: 0, waiting: 0, queued: 0, all: 0 },
+  totals: { slots_in_use: 0, queued: 0, waiting: 0 },
+  batches: [],
+}
+
 test('a lead job and its session have no subject', () => {
   validate('ProcessingJob', {
     id: id(70),
@@ -458,12 +465,26 @@ test('a lead job and its session have no subject', () => {
         occupies_lane: true,
         session_state: 'running',
         latest_status: { text: 'Reading the label', at: '2026-11-06T01:02:04.000Z' },
+        attempt_number: 1,
+        state_since: '2026-11-06T01:02:03.004Z',
+        archived: false,
+        runs_on: 'fixture',
+        web: null,
+        start_fresh: { allowed: false, reason: 'session_not_replaceable' },
+        earlier_attempts: [],
+        earlier_attempt_count: 0,
       },
     ],
+    ...emptyListFields,
     next_before: null,
     sessions_supported: true,
   })
-  validate('AgentSessionList', { sessions: [], next_before: null, sessions_supported: false })
+  validate('AgentSessionList', {
+    sessions: [],
+    ...emptyListFields,
+    next_before: null,
+    sessions_supported: false,
+  })
   assert.throws(() => validate('AgentSessionList', { sessions: [], next_before: null }))
 })
 
@@ -671,6 +692,7 @@ const historyPage = (entries: unknown[], extra: object = {}) => ({
     current_attempt_id: id(40),
     attempts: [historyAttempt],
     inbox_acked_seq: '0',
+    start_fresh: { allowed: true },
   },
   entries,
   ...extra,

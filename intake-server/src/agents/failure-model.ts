@@ -3,11 +3,13 @@ import {
   CLAUDE_ERROR_KINDS,
   CLAUDE_RESULT_TYPES,
   CODEX_ERROR_KINDS,
+  type SessionFailureCode,
   type SessionFailureDto,
 } from '@invimport/contracts'
 
 type Category = SessionFailureDto['category']
-const categories: Record<string, Category> = {
+/** Typed into the contracts' code list, so a code the summaries can't name doesn't compile. */
+export const categories: Record<Exclude<SessionFailureCode, 'agent_unknown'>, Category> = {
   agent_login_required: 'authentication',
   agent_credentials_unavailable: 'authentication',
   agent_process_unavailable: 'configuration',
@@ -166,11 +168,11 @@ const codeDescriptions: Partial<Record<string, { summary: string; recovery: stri
 }
 
 function known(error: unknown) {
-  const code =
+  const code: SessionFailureCode =
     error instanceof NativeSessionError && Object.hasOwn(categories, error.code)
-      ? error.code
+      ? (error.code as SessionFailureCode)
       : 'agent_unknown'
-  const category = categories[code] ?? 'internal'
+  const category = code === 'agent_unknown' ? 'internal' : categories[code]
   return { code, category, ...descriptions[category], ...codeDescriptions[code] }
 }
 

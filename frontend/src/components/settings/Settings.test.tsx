@@ -1,4 +1,5 @@
 import { act, screen, within } from '@testing-library/react'
+import { sessionList } from '#/test/agent-sessions'
 import userEvent from '@testing-library/user-event'
 import { useQueryClient } from '@tanstack/react-query'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
@@ -36,12 +37,7 @@ function agents() {
       agentSettings('7', { provider: 'claude', authentication: 'subscription', model: 'sonnet' }),
     ),
     saveSettings: vi.fn(),
-    sessions: vi.fn(async () => ({
-      sessions: [],
-      next_before: null,
-      sessions_supported: true,
-      paused_batch_ids: [],
-    })),
+    sessions: vi.fn(async () => sessionList({ paused_batch_ids: [] })),
     failure: vi.fn(),
     pause: vi.fn(),
     pauseAll: vi.fn(),

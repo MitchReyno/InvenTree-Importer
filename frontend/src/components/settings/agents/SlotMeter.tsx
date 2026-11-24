@@ -1,7 +1,6 @@
 import styled from 'styled-components'
 import type { AgentSessionListDto } from '@invimport/contracts'
 import { Link, Small } from '#/components/ui'
-import { slotUse } from '#/components/agents/slot-use'
 import { space, typeVar } from '#/theme/generated/tokens'
 
 type SlotMeterProps = {
@@ -19,7 +18,9 @@ export function SlotMeter({ list, failed, limit }: SlotMeterProps) {
   if (!list || list.sessions_supported === false) {
     return null
   }
-  const { inUse, queued } = slotUse(list.sessions)
+  // Counted by the server across every session, whatever page or filter a list shows.
+  const inUse = list.totals.slots_in_use
+  const queued = list.totals.queued
   const use =
     queued > 0 ? `${inUse} of ${limit} in use · ${queued} queued` : `${inUse} of ${limit} in use`
 

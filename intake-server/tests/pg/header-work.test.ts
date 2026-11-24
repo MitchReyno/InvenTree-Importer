@@ -71,8 +71,15 @@ test('header retains physically occupied cancelled sessions and fences foreign s
       )
     }
     const firstHistory = await listAgentSessions(fixture.api.pool, fixture.config)
-    assert.equal(firstHistory.sessions.length, 50)
-    assert(!firstHistory.sessions.some((session) => session.attempt_id === attemptId))
+    // One row for the job, whose occupied first attempt is beyond its folded earlier attempts.
+    assert.equal(firstHistory.sessions.length, 1)
+    assert.equal(firstHistory.sessions[0].earlier_attempt_count, 51)
+    assert(
+      !firstHistory.sessions[0].earlier_attempts.some(
+        (attempt) => attempt.attempt_id === attemptId,
+      ),
+    )
+    assert.equal(firstHistory.totals.slots_in_use, 1)
     const config = {
       ...devConfig({
         INTAKE_ORIGIN: 'http://127.0.0.1:4333',
