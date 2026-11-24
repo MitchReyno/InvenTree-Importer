@@ -2082,3 +2082,51 @@ test('Manual Review’s read after a command waits through a live update’s can
   expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   expect(screen.queryByText(/Status unavailable/)).not.toBeInTheDocument()
 })
+
+test('a replacement that doesn’t land in 10 s shows Review unavailable until a read lands', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  try {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const cache = createServerQueryClient()
+    const manual = manualClient()
+    const afterCommand = deferred<ManualWorkspaceDto>()
+    const replacement = deferred<ManualWorkspaceDto>()
+    render(
+      <ApiClientsProvider value={{ operator: operatorClient() }}>
+        <BatchCommandsProvider value={batchCommands({})}>
+          <ManualWorkspace
+            batch={batch}
+            client={manual}
+            stage="review"
+            navigate={vi.fn()}
+            operatorReview={operatorReview}
+            onDirtyChange={vi.fn()}
+          />
+        </BatchCommandsProvider>
+      </ApiClientsProvider>,
+      { cache },
+    )
+    await user.click(await screen.findByRole('button', { name: 'Table' }))
+    await user.click(await screen.findByRole('checkbox', { name: 'Select Packet A' }))
+    vi.mocked(manual.workspace)
+      .mockReturnValueOnce(afterCommand.promise)
+      .mockReturnValueOnce(replacement.promise)
+    await user.click(screen.getByRole('button', { name: 'Mark selected reviewed' }))
+    await act(async () => {
+      await cancelVerified(cache, { queryKey: serverQueryKey(fixtureScope) }, { silent: true })
+      void cache.invalidateQueries({ queryKey: serverQueryKey(fixtureScope) })
+    })
+
+    await act(() => vi.advanceTimersByTimeAsync(10_000))
+    expect(await screen.findByText(/Status unavailable/)).toBeInTheDocument()
+    const mark = screen.getByRole('button', { name: 'Mark selected reviewed' })
+    expect(mark.hasAttribute('disabled') || mark.getAttribute('aria-disabled') === 'true').toBe(
+      true,
+    )
+
+    await act(async () => replacement.resolve(workspace))
+    await waitFor(() => expect(screen.queryByText(/Status unavailable/)).not.toBeInTheDocument())
+  } finally {
+    vi.useRealTimers()
+  }
+})

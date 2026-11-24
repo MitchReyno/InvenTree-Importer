@@ -101,7 +101,9 @@ export function useFreshRead<T>({
   )
 
   const mountOrder = mounted?.order
-  const failed = query.isError || query.fetchStatus === 'paused'
+  // A replacement that ran out of time is a failure too, until a newer read lands.
+  const failed =
+    query.isError || query.fetchStatus === 'paused' || registry.unavailableSinceRead(queryKey)
   const verified = enabled && registry.verified(queryKey, mountOrder)
   const settledAfterHint = enabled && registry.settledAfterHint(queryKey, mountOrder)
   const data = query.data ?? restored
@@ -121,6 +123,7 @@ export function useFreshRead<T>({
     const healthy =
       state?.status === 'success' &&
       state.fetchStatus !== 'paused' &&
+      !registry.unavailableSinceRead(queryKey) &&
       registry.adoptedOrder(queryKey) === renderedRead
     const proven =
       test === 'verified'

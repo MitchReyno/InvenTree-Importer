@@ -551,7 +551,10 @@ export function Batch({
         : undefined,
     [batch, mediaCurrent, retired, predecessors, operatorUnavailable],
   )
-  const readUnavailable = captureQuery.isError || captureQuery.fetchStatus === 'paused'
+  const readUnavailable =
+    captureQuery.isError ||
+    captureQuery.fetchStatus === 'paused' ||
+    registry.unavailableSinceRead(queryKey)
   const applicationAvailable = useApplicationAvailable(captureQuery.dataUpdatedAt, readUnavailable)
   // Values are shown but can't be read now: only a network read started since clears this.
   const savedValuesUnavailable = accepted !== null && registry.unavailableSinceRead(queryKey)

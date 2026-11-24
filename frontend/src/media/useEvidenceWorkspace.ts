@@ -78,7 +78,7 @@ export function useEvidenceWorkspace(
   const command = useRetainedCommand((input: MediaEditDto, requestKey: string) =>
     client.edit(batchId, input, requestKey),
   )
-  const readFailed = query.isError || query.fetchStatus === 'paused'
+  const readFailed = mediaRead.phase === 'failed'
   const unavailable = readFailed || !query.isFetchedAfterMount || !verifiedOnce
   // The sources live in a ref, so whether any draft is dirty is what reruns the adoption below.
   const { dirty: anyDraft, hasOtherSources } = drafts

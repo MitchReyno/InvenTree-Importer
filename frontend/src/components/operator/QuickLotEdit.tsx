@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { Small, Button } from '#/components/ui'
@@ -97,38 +97,65 @@ export function QuickLotEdit({ batch, lot, disabled, edit, onDirtyChange }: Prop
   const quantityMode = watch('quantityMode')
   const locations = batch.observations.filter((item) => item.model === 'location')
 
+  // A save in flight keeps its values: until it is answered nothing is offered to drop.
+  const saving = useRef(false)
+
   function discard() {
     reset(defaults)
     onDirtyChange?.(false)
   }
 
+  // The batch notice holds the latest discard, against the baseline as it is when pressed.
+  const latestDiscard = useRef(discard)
+  useEffect(() => {
+    latestDiscard.current = discard
+  })
+  const [discardNamed] = useState(() => () => {
+    if (!saving.current) {
+      latestDiscard.current()
+    }
+  })
+
   /** The changed fields, named by lot, each dropped with the whole editor's discard. */
   function unsaved(values: Values): UnsavedChange[] {
+    if (saving.current) {
+      return []
+    }
     return changedFields(defaults, values).map((field) => ({
       label: `${lot.label} · ${field}`,
-      discard,
+      discard: discardNamed,
     }))
   }
 
   function reportValues() {
     const changes = unsaved(getValues())
-    reportDirty(onDirtyChange, changes.length > 0, changes)
+    reportDirty(onDirtyChange, changes.length > 0 || saving.current, changes)
   }
 
   useReportDirty(isDirty, onDirtyChange, isDirty ? unsaved(getValues()) : undefined)
 
   async function save(values: Values) {
     const quantityTouched = Boolean(dirtyFields.quantityMode || dirtyFields.quantity)
-    const saved = await edit({
-      kind: 'lot',
-      id: lot.id,
-      ...(quantityTouched ? { quantity: quantityChange(values) } : {}),
-      ...(dirtyFields.location ? { location: locationChange(batch, values.location) } : {}),
-    })
+    saving.current = true
+    onDirtyChange?.(true)
+    let saved: Awaited<ReturnType<CaptureEdit>>
+    try {
+      saved = await edit({
+        kind: 'lot',
+        id: lot.id,
+        ...(quantityTouched ? { quantity: quantityChange(values) } : {}),
+        ...(dirtyFields.location ? { location: locationChange(batch, values.location) } : {}),
+      })
+    } finally {
+      saving.current = false
+    }
     if (saved !== false) {
       setDefaults(values)
       reset(values)
       onDirtyChange?.(false)
+    } else {
+      // Refused or unconfirmed: the edits are kept and can be named again.
+      reportValues()
     }
   }
 
