@@ -370,7 +370,7 @@
 - [x] 14.1 Audit all native selects: their screen, option count, kind (record, growing, fixed) and proposed control. Put the table in the PR description.
 - [x] 14.2 RED: update each converted field's tests to the new control, and add search tests for the record fields.
 - [x] 14.3 GREEN: convert the fields, screen by screen.
-- [ ] 14.4 Capture each changed field. Run the frontend checks, and record the demo video.
+- [x] 14.4 Capture each changed field. Run the frontend checks, and record the demo video.
 
 ## 15. A replaced read is not a failure
 
