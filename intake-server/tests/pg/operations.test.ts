@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID, createHash } from 'node:crypto'
-import { mkdtemp, readFile, readdir, realpath, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { manualFixture } from '../support/manual.ts'
@@ -180,6 +180,57 @@ test(
     } finally {
       await restored.dispose()
       await fixture.dispose()
+    }
+  },
+)
+
+test(
+  'the archive skips a collected blob nothing references and fails on a referenced one with no file',
+  { timeout: 30000 },
+  async () => {
+    const fixture = await manualFixture({ media: true })
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'intake-archive-')))
+    try {
+      const capture = await fixture.seedCapture()
+      const repository = mediaRepository(fixture.api.pool, fixture.config, fixture.store!)
+      const media = await repository.snapshot(capture.batch.id)
+      await repository.upload(
+        capture.batch.id,
+        randomUUID(),
+        media.revision,
+        'Retained original',
+        PART_ATTACHMENT_PNG,
+      )
+      // A swept figure render: its immutable row stays after the sweep collected its file.
+      const collected = createHash('sha256').update('collected render').digest()
+      await fixture.db.pool.query('INSERT INTO media_blob(digest,byte_size) VALUES($1,16)', [
+        collected,
+      ])
+      await disabled(fixture.gateRoot)
+      const config = {
+        databaseUrl: fixture.db.url,
+        schedulerDatabaseUrl: fixture.scheduler.url,
+        gateRoot: fixture.gateRoot,
+        blobRoot: join(fixture.root, 'blobs'),
+        archive: join(root, 'archive'),
+      }
+      assert.equal((await backupArchive(fixture.db.pool, config, ownedPgTools)).blobs, 1)
+      const manifest = JSON.parse(await readFile(join(config.archive, 'manifest.json'), 'utf8'))
+      const original = createHash('sha256').update(PART_ATTACHMENT_PNG).digest('hex')
+      assert.deepEqual(
+        manifest.blobs.map((blob: { digest: string }) => blob.digest),
+        [original],
+      )
+
+      // The original's file going missing is never skipped: a version references it.
+      await rm(join(config.blobRoot, 'objects', original.slice(0, 2), original))
+      await assert.rejects(
+        backupArchive(fixture.db.pool, { ...config, archive: join(root, 'second') }, ownedPgTools),
+        /archive_blob_missing/,
+      )
+    } finally {
+      await fixture.dispose()
+      await rm(root, { recursive: true, force: true })
     }
   },
 )

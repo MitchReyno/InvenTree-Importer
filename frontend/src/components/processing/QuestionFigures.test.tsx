@@ -1,4 +1,4 @@
-import { act, screen, within } from '@testing-library/react'
+import { act, fireEvent, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import type { MediaSnapshotDto, ProcessingQuestionFigureDto } from '@invimport/contracts'
@@ -82,6 +82,34 @@ test('every labelled mark shows its label, as the agent’s preview draws it', (
   expect(labels).toEqual(['pin 1', 'dot', 'logo', 'code'])
 })
 
+test('a label wider than a narrow picture takes a smaller size so all of it shows', () => {
+  show([
+    figure(1, {
+      view: {
+        region: { x: 1840, y: 1210, width: 100, height: 600 },
+        quarter_turns: 0,
+        straighten_millidegrees: 0,
+      },
+      marks: [
+        { kind: 'label', at: { x: 5000, y: 2000 }, label: 'Short' },
+        { kind: 'label', at: { x: 5000, y: 8000 }, label: 'W'.repeat(40) },
+      ],
+    }),
+  ])
+
+  const marks = marksIn(screen.getByRole('button', { name: /^Open picture 1 of 1/ }))!
+  const viewWidth = Number(marks.getAttribute('viewBox')!.split(' ')[2])
+  const [short, long] = Array.from(marks.querySelectorAll('text'))
+  expect(Number(long.getAttribute('font-size'))).toBeLessThan(
+    Number(short.getAttribute('font-size')),
+  )
+  for (const pill of Array.from(marks.querySelectorAll('rect.pill'))) {
+    const x = Number(pill.getAttribute('x'))
+    expect(x).toBeGreaterThanOrEqual(0)
+    expect(x + Number(pill.getAttribute('width'))).toBeLessThanOrEqual(viewWidth)
+  }
+})
+
 test('two pictures sit side by side, badged A and B', () => {
   show([
     figure(2, { caption: 'Packet A: date code 2341' }),
@@ -162,6 +190,38 @@ test('a picture still being made, or one that couldn’t be made, shows in its p
     'Picture couldn’t be made',
   )
   expect(document.querySelectorAll('img')).toHaveLength(0)
+})
+
+test('a picture that fails to load is tried again, and says so only after its retries', () => {
+  vi.useFakeTimers()
+  try {
+    show([figure(1, { caption: 'Flaky' })])
+    const open = screen.getByRole('button', { name: 'Open picture 1 of 1: Flaky' })
+
+    const picture = () => open.querySelector('img')
+
+    fireEvent.error(picture()!)
+    act(() => {
+      vi.advanceTimersByTime(2_000)
+    })
+    expect(picture()).toHaveAttribute('src', `${image(1)}?retry=1`)
+
+    for (const [retry, wait] of [
+      [2, 4_000],
+      [3, 6_000],
+    ]) {
+      fireEvent.error(picture()!)
+      act(() => {
+        vi.advanceTimersByTime(wait)
+      })
+      expect(picture()).toHaveAttribute('src', `${image(1)}?retry=${retry}`)
+    }
+    fireEvent.error(picture()!)
+    expect(picture()).toBeNull()
+    expect(open).toHaveAccessibleDescription('Picture couldn’t be loaded')
+  } finally {
+    vi.useRealTimers()
+  }
 })
 
 async function openDialog() {
@@ -315,6 +375,25 @@ test('Whole photo outlines the window the picture samples, shrunk near the page 
   // Centred on the region's centre, so the outline's right side stays on the page.
   expect(x + width / 2).toBeCloseTo(3750)
   expect(x + width).toBeLessThan(4000)
+})
+
+test('a zoomed picture takes focus and keeps the arrow keys for moving around it', async () => {
+  const dialog = await openDialog()
+  const stage = within(dialog).getByTestId('figure-stage')
+  expect(stage).toHaveAttribute('tabindex', '-1')
+
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Zoom in' }))
+  expect(stage).toHaveAttribute('tabindex', '0')
+  expect(within(dialog).getByRole('region', { name: /^Picture at 150%/ })).toBe(stage)
+  stage.focus()
+  await userEvent.keyboard('{ArrowRight}')
+  expect(dialog).toHaveTextContent('Picture 1 of 4')
+  expect(within(dialog).getByRole('group', { name: 'Zoom' })).toHaveTextContent('150%')
+
+  // Elsewhere in the dialog the arrows still move between pictures.
+  within(dialog).getByRole('button', { name: 'Next picture' }).focus()
+  await userEvent.keyboard('{ArrowRight}')
+  expect(dialog).toHaveTextContent('Picture 2 of 4')
 })
 
 test('previous and next buttons, thumbnails and arrow keys move between pictures', async () => {

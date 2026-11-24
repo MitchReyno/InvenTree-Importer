@@ -2,9 +2,10 @@ import { constants } from 'node:fs'
 import { open } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { join, resolve } from 'node:path'
-import type { Pool } from 'pg'
+import type { Pool, PoolClient } from 'pg'
 import { canonical } from '@invimport/contracts/json'
 import { BlobStore } from '#/media/blob-store.ts'
+import { blobReferenced } from '#/media/blob-reference.ts'
 import { readMediaStoreIdentity } from '#/media/store-identity.ts'
 import { compatibleSchema, expectedMigrations } from './compatibility.ts'
 import { privateDirectory, privateFile, newDirectory, writeExclusive } from './files.ts'
@@ -60,6 +61,25 @@ async function hashDump(path: string) {
     return hash.digest('hex')
   } finally {
     await file.close()
+  }
+}
+
+/**
+ * A blob's bytes for the archive, or null when its file was collected and nothing references it,
+ * as for a swept figure render whose immutable `media_blob` row remains. A referenced blob with
+ * no file still fails the archive.
+ */
+async function archivedBlob(client: PoolClient, store: BlobStore, digest: string) {
+  try {
+    return await store.read(digest)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error
+    }
+    if (await blobReferenced(client, digest)) {
+      throw new Error('archive_blob_missing', { cause: error })
+    }
+    return null
   }
 }
 
@@ -121,13 +141,20 @@ export async function backupArchive(
       throw new Error('archive_blob_root_required')
     }
     const store = config.blobRoot ? await BlobStore.initialize(config.blobRoot, storeId) : undefined
+    const archived: typeof manifest.blobs = []
     for (const blob of manifest.blobs) {
-      const bytes = await store!.read(blob.digest)
+      const bytes = await archivedBlob(client, store!, blob.digest)
+      // A collected render's row outlives its file; nothing references it, so it isn't copied.
+      if (!bytes) {
+        continue
+      }
       if (String(bytes.length) !== blob.size) {
         throw new Error('archive_blob_size_mismatch')
       }
       await writeExclusive(join(objects, blob.digest), bytes)
+      archived.push(blob)
     }
+    manifest.blobs = archived
     const snapshot = await client.query<{ snapshot: string }>(
       'SELECT pg_catalog.pg_export_snapshot() AS snapshot',
     )

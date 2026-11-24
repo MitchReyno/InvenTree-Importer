@@ -24,6 +24,7 @@ import {
 } from '../support/question-figures.ts'
 import { seedAuthority } from '../support/database.ts'
 import { BlobStore, lockBlob } from '#/media/blob-store.ts'
+import { DecoderDispatcherBusyError } from '#/media/dispatcher-client.ts'
 import { readMediaStoreIdentity } from '#/media/store-identity.ts'
 import { mediaContent } from '#/media/content.ts'
 import { transaction } from '#/db/database.ts'
@@ -61,6 +62,11 @@ const VM_PROFILE = {
   settingsRevision: '1',
 }
 
+/** `true` for the `shared-vm-agent/3` relay; `'v1'` for the older relay without the larger frame. */
+type FigureSessionOptions = { vm?: boolean | 'v1' }
+
+const V1_PROFILE = 'shared-vm-agent/1' as const
+
 const digest = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex')
 
 /**
@@ -68,7 +74,7 @@ const digest = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex
  * 300 × 400), with a third photo outside the manifest for an evidence notice and a fourth the
  * session is never given. The web app serves media, and a media role renders figures.
  */
-async function figureSession(fixture: Fixture, root: string, options: { vm?: boolean } = {}) {
+async function figureSession(fixture: Fixture, root: string, options: FigureSessionOptions = {}) {
   const store = await BlobStore.initialize(
     join(root, 'blobs'),
     await readMediaStoreIdentity(fixture.db.pool),
@@ -102,7 +108,9 @@ async function figureSession(fixture: Fixture, root: string, options: { vm?: boo
     fixture,
     capture,
     capture.packetA,
-    options.vm ? { profile: VM_PROFILE } : {},
+    options.vm
+      ? { profile: { ...VM_PROFILE, id: options.vm === 'v1' ? V1_PROFILE : VM_PROFILE.id } }
+      : {},
   )
   const token = await transaction(fixture.runner.pool, (client) =>
     issueSessionCapability(client, session.attempt),
@@ -163,7 +171,7 @@ async function figureSession(fixture: Fixture, root: string, options: { vm?: boo
 
 async function withFigureSession(
   run: (setup: Setup) => Promise<void>,
-  options: { vm?: boolean } = {},
+  options: FigureSessionOptions = {},
 ) {
   const fixture = await processingFixture({ autoStart: false })
   const root = await realpath(await mkdtemp(join(tmpdir(), 'question-figures-')))
@@ -763,6 +771,25 @@ test('a preview that settles after its wait is still not ready, and one swept wh
   })
 })
 
+test('a preview on the relay without the larger frame is refused before anything renders', async () => {
+  await withFigureSession(
+    async (setup) => {
+      const { tools, token, lot, photoFigure } = setup
+      recordMediaDelivery(setup.context.deliveredMedia, setup.session.job, setup.photo.version, {
+        attemptId: setup.session.attempt,
+        page: 1,
+      })
+
+      const refused = refusal(await tools.ask(token, figureQuestion(lot, [photoFigure()], true)))
+      assert.equal(refused.error, 'validation_failed')
+      assert.equal(refused.issues?.[0]?.path, '/preview')
+      assert.equal((await renderRows(setup, 'preview')).length, 0)
+      accepted(await tools.ask(token, figureQuestion(lot, [photoFigure()])))
+    },
+    { vm: 'v1' },
+  )
+})
+
 /** Deterministic noise, which JPEG can't compress much. */
 function noise(width: number, height: number, seed: number) {
   const pixels = Buffer.alloc(width * height * 3)
@@ -987,6 +1014,21 @@ test('render claims honour leases, recover an expired one, fail after three atte
     assert.equal(await processingChanged(fixture, setup.batchId), events + 1)
     assert.equal(await step(at(RENDER_LEASE_MS)), 'idle')
 
+    // A busy dispatcher ran nothing, so the second render is claimed again without spending
+    // its attempts, however often the slot is taken.
+    await fixture.db.pool.query(
+      'UPDATE processing_figure_render SET lease_owner=NULL, lease_expires_at=NULL WHERE id=$1',
+      [flaky!.id],
+    )
+    const busy: RenderView = async () => {
+      throw new DecoderDispatcherBusyError()
+    }
+    for (const ms of [0, 6_000, 12_000, 18_000]) {
+      assert.equal(await step(at(RENDER_LEASE_MS + ms), busy), 'retrying')
+    }
+    const waited = await figureRender(setup, asked.id!, 2)
+    assert.deepEqual([waited!.state, waited!.attempts], ['queued', 0])
+
     // The second render's renderer keeps failing: each failure frees the lease after a delay.
     await fixture.db.pool.query(
       'UPDATE processing_figure_render SET lease_owner=NULL, lease_expires_at=NULL WHERE id=$1',
@@ -1174,11 +1216,23 @@ test('a blob released while a collection holds its lock stays recorded for the n
     }
     await sweeping
 
-    const recorded = await fixture.db.pool.query(
-      'SELECT 1 FROM processing_figure_blob_release WHERE digest=$1',
-      [Buffer.from(view, 'hex')],
-    )
-    assert.equal(recorded.rowCount, 1)
+    const recorded = () =>
+      fixture.db.pool.query('SELECT 1 FROM processing_figure_blob_release WHERE digest=$1', [
+        Buffer.from(view, 'hex'),
+      ])
+    assert.equal((await recorded()).rowCount, 1)
+
+    // Due a day later, but its file was written just now: it waits, still recorded.
+    const later = () => new Date(Date.now() + 25 * 60 * 60 * 1000)
+    assert.equal((await sweepFigureRenders(media.pool, store, binding, later)).collected, 0)
+    assert.equal((await recorded()).rowCount, 1)
+
+    const old = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
+    const file = join(setup.root, 'blobs', 'objects', view.slice(0, 2), view)
+    await utimes(file, old, old)
+    assert.ok((await sweepFigureRenders(media.pool, store, binding, later)).collected >= 1)
+    assert.equal((await recorded()).rowCount, 0)
+    await assert.rejects(stat(file), { code: 'ENOENT' })
   })
 })
 

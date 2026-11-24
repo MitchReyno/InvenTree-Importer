@@ -370,6 +370,39 @@ test('a label is an amber pill with dark text drawn in the bundled font', async 
   assert.ok(text > 100, `label text pixels: ${text}`)
 })
 
+test('a label wider than a narrow view is drawn smaller so none of it is cut off', async () => {
+  const page = await quadrantPage()
+  // A tall, narrow region: the view is narrower than this label at its usual size.
+  const viewRecipe = recipe(
+    { width: PAGE_WIDTH, height: PAGE_HEIGHT },
+    { region: { x: 500, y: 100, width: 200, height: 600 } },
+  )
+  const label = 'W'.repeat(24)
+  const result = await ready(
+    viewInput(page, viewRecipe, [{ kind: 'label', at: { x: 5000, y: 5000 }, label }]),
+  )
+  const preview = await rgb(result.preview!.bytes, 'png')
+
+  // The pill's ends are padding: no text pixel reaches the view's left or right edge columns.
+  for (const x of [0, 1, preview.width - 2, preview.width - 1]) {
+    for (let y = 0; y < preview.height; y++) {
+      assert.ok(
+        distance(pixel(preview, x, y), LABEL_TEXT) > 40,
+        `text at the edge, column ${x}, row ${y}`,
+      )
+    }
+  }
+  let text = 0
+  for (let y = 0; y < preview.height; y++) {
+    for (let x = 0; x < preview.width; x++) {
+      if (distance(pixel(preview, x, y), LABEL_TEXT) <= 40) {
+        text++
+      }
+    }
+  }
+  assert.ok(text > 40, `label text pixels: ${text}`)
+})
+
 test('empty marks still give a preview; null marks give none', async () => {
   const page = await quadrantPage()
   const viewRecipe = recipe(

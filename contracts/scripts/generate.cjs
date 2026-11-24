@@ -472,10 +472,20 @@ async function main() {
     },
     components: { schemas },
   }
+  // Path parameters are IDs, except a question figure's position and size.
+  const PATH_PARAMETER_SCHEMAS = {
+    index: { type: 'integer', minimum: 1, maximum: 5 },
+    size: { type: 'string', enum: ['view', 'thumb'] },
+  }
   for (const [path, item] of Object.entries(document.paths)) {
     const names = [...path.matchAll(/\{([^}]+)\}/g)].map((match) => match[1])
     if (names.length > 0) {
-      item.parameters = names.map((name) => ({ name, in: 'path', required: true, schema: Id }))
+      item.parameters = names.map((name) => ({
+        name,
+        in: 'path',
+        required: true,
+        schema: PATH_PARAMETER_SCHEMAS[name] ?? Id,
+      }))
     }
   }
   const declarations = await generateOpenApiTypes(document)

@@ -1224,6 +1224,26 @@ async function requireFigures(
   return resolved.figures
 }
 
+/**
+ * A preview's images need the larger evidence frame. The `shared-vm-agent/1` relay doesn't
+ * negotiate it, so a preview there would break its frame; it is refused before anything renders.
+ */
+function requirePreviewRelay(principal: SessionPrincipal) {
+  if (principal.manifest.profile_id === 'shared-vm-agent/1') {
+    throw new ToolRefusal(
+      'validation_failed',
+      'Previews are not available in this session. Ask without preview; the operator sees the pictures.',
+      [
+        {
+          path: '/preview',
+          rule: 'unsupported',
+          reason: 'This session cannot receive preview images.',
+        },
+      ],
+    )
+  }
+}
+
 /** Stores a preview's marked render requests, refusing when too many are already waiting. */
 async function queuePreviews(
   client: PoolClient,
@@ -1288,19 +1308,16 @@ async function storeQuestionFigures(
  */
 async function settledPreviews(context: SessionToolContext, ids: string[]) {
   const deadline = Date.now() + (context.figurePreviewWaitMs ?? FIGURE_PREVIEW_WAIT_MS)
-  let renders = await previewRenders(context.pool, ids)
-  while (renders.some((render) => render.state === 'queued')) {
-    const remaining = deadline - Date.now()
-    if (remaining <= 0) {
-      return 'not_ready' as const
-    }
-    await delay(Math.min(FIGURE_PREVIEW_POLL_MS, remaining))
-    renders = await previewRenders(context.pool, ids)
+  for (;;) {
+    const renders = await previewRenders(context.pool, ids)
     if (Date.now() > deadline) {
       return 'not_ready' as const
     }
+    if (!renders.some((render) => render.state === 'queued')) {
+      return renders
+    }
+    await delay(Math.min(FIGURE_PREVIEW_POLL_MS, deadline - Date.now()))
   }
-  return renders
 }
 
 /**
@@ -1639,6 +1656,7 @@ export function sessionTools(context: SessionToolContext) {
             ? await requireFigures(client, principal, ask.figures, context)
             : []
           if (ask.preview) {
+            requirePreviewRelay(principal)
             previews = await queuePreviews(client, principal, figures)
             return ok(client, principal)
           }

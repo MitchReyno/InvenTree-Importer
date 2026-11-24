@@ -79,16 +79,28 @@ function clamp(value: number, minimum: number, maximum: number) {
   return Math.min(Math.max(value, minimum), Math.max(minimum, maximum))
 }
 
-/** The label pill's size for a text, in pixels. */
+/**
+ * The label pill's size for a text, in pixels. A pill wider than the view is drawn in a smaller
+ * font so the whole label shows; the operator's overlay fits its labels the same way.
+ */
 function pillSize(context: SKRSContext2D, text: string, style: MarkStyle) {
   context.font = style.font
-  const padding = style.fontSize * 0.6
+  const natural = context.measureText(text).width + style.fontSize * PILL_PADDING_EMS * 2
+  const fontSize =
+    natural > style.width ? Math.max(1, (style.fontSize * style.width) / natural) : style.fontSize
+  const font = `${fontSize}px "${markFont()}"`
+  context.font = font
+  const padding = fontSize * PILL_PADDING_EMS
   return {
-    width: context.measureText(text).width + padding * 2,
-    height: style.fontSize * 1.6,
+    width: Math.min(style.width, context.measureText(text).width + padding * 2),
+    height: fontSize * 1.6,
     padding,
+    font,
   }
 }
+
+/** A pill's padding either side of its text, in ems. */
+const PILL_PADDING_EMS = 0.6
 
 /** Draws a filled amber pill with dark text, its top left at (x, y), kept inside the view. */
 function drawPill(context: SKRSContext2D, text: string, x: number, y: number, style: MarkStyle) {
@@ -100,6 +112,7 @@ function drawPill(context: SKRSContext2D, text: string, x: number, y: number, st
   context.roundRect(left, top, size.width, size.height, size.height / 2)
   context.fill()
   context.fillStyle = LABEL_TEXT
+  context.font = size.font
   context.textBaseline = 'middle'
   context.textAlign = 'left'
   context.fillText(text, left + size.padding, top + size.height / 2)

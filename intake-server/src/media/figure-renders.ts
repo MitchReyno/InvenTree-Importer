@@ -16,6 +16,7 @@ import { BlobStore, lockBlob, MIN_GC_AGE_MS } from './blob-store.ts'
 import { blobReferenced, retainBlob } from './blob-reference.ts'
 import { prepareMediaTransaction } from './transaction.ts'
 import { versionRemovedSql } from './removal.ts'
+import { DecoderDispatcherBusyError } from './dispatcher-client.ts'
 
 /** A render that fails this many times settles as failed. */
 export const MAX_RENDER_ATTEMPTS = 3
@@ -54,9 +55,26 @@ export async function enqueueFigureRenders(
 ): Promise<string[]> {
   const ids: string[] = []
   for (const request of requests) {
-    const recipe = sealed(request.recipe)
-    const marks = request.marks === undefined ? undefined : sealed(request.marks)
-    const purpose = marks ? 'preview' : 'view'
+    ids.push(await enqueueFigureRender(client, batchId, request, previewFor))
+  }
+  await client.query('SELECT pg_notify($1, $2)', [FIGURE_RENDER_CHANNEL, batchId])
+  return ids
+}
+
+/** How many times an enqueue retries when the request it conflicted with is swept meanwhile. */
+const ENQUEUE_ATTEMPTS = 3
+
+/** Stores one render request, or returns the existing request for the same output. */
+async function enqueueFigureRender(
+  client: PoolClient,
+  batchId: string,
+  request: FigureRenderRequest,
+  previewFor?: string,
+): Promise<string> {
+  const recipe = sealed(request.recipe)
+  const marks = request.marks === undefined ? undefined : sealed(request.marks)
+  const purpose = marks ? 'preview' : 'view'
+  for (let attempt = 0; attempt < ENQUEUE_ATTEMPTS; attempt += 1) {
     const inserted = await client.query<{ id: string }>(
       `INSERT INTO public.processing_figure_render(
          id, batch_id, version_id, page, purpose, recipe_bytes, recipe_digest,
@@ -78,8 +96,7 @@ export async function enqueueFigureRenders(
       ],
     )
     if (inserted.rows[0]) {
-      ids.push(inserted.rows[0].id)
-      continue
+      return inserted.rows[0].id
     }
     const existing = await client.query<{ id: string }>(
       purpose === 'view'
@@ -89,10 +106,12 @@ export async function enqueueFigureRenders(
            WHERE purpose='preview' AND recipe_digest=$1 AND marks_digest=$2`,
       purpose === 'view' ? [recipe.digest] : [recipe.digest, marks!.digest],
     )
-    ids.push(existing.rows[0].id)
+    // The sweep can delete the conflicting request between the insert and this read.
+    if (existing.rows[0]) {
+      return existing.rows[0].id
+    }
   }
-  await client.query('SELECT pg_notify($1, $2)', [FIGURE_RENDER_CHANNEL, batchId])
-  return ids
+  throw new Error('figure_render_enqueue_conflict')
 }
 
 /** How many of a session's previews are still waiting to render. */
@@ -269,8 +288,8 @@ async function pagePreview(pool: Pool, recipe: MediaViewRecipeDto) {
 }
 
 /**
- * Publishes the outputs and settles the claim, if it is still this consumer's; otherwise the
- * outputs are released for collection.
+ * Publishes the outputs and settles the claim, if it is still this consumer's; otherwise nothing
+ * is published.
  */
 async function settleReady(
   pool: Pool,
@@ -283,6 +302,16 @@ async function settleReady(
   await transaction(pool, async (client) => {
     await prepareMediaTransaction(client)
     const streamId = await batchStream(client, binding, claim.batch_id)
+    // The row before its blobs, the order the sweep takes them in, so neither waits on the other.
+    const owned = await client.query(
+      `SELECT 1 FROM public.processing_figure_render
+       WHERE id=$1 AND lease_owner=$2 AND state='queued' FOR UPDATE`,
+      [claim.id, claim.owner],
+    )
+    // Another consumer took over the expired lease, or the sweep deleted the request.
+    if (!owned.rowCount) {
+      return
+    }
     const digests = outputs.map((output) => sha256(output.bytes).toString('hex'))
     for (const digest of [...new Set(digests)].sort()) {
       await lockBlob(client, digest)
@@ -318,8 +347,7 @@ async function settleReady(
           ],
     )
     if (!settled.rowCount) {
-      await releaseBlobs(client, digests)
-      return
+      throw new Error('figure_render_claim_changed')
     }
     await appendEvent(client, streamId, 'processing_changed', { batch_id: claim.batch_id })
   })
@@ -355,6 +383,16 @@ async function settleAttemptFailed(
     )
     return 'retrying'
   })
+}
+
+/** Gives a claim back without spending its attempt, to be claimed again after the retry delay. */
+async function deferClaim(pool: Pool, claim: ClaimedRender, now: Date) {
+  await pool.query(
+    `UPDATE public.processing_figure_render
+     SET attempts=attempts-1, lease_owner=NULL, lease_expires_at=$3
+     WHERE id=$1 AND lease_owner=$2 AND state='queued'`,
+    [claim.id, claim.owner, new Date(now.getTime() + RENDER_RETRY_DELAY_MS)],
+  )
 }
 
 export type RenderStepOutcome = 'rendered' | 'failed' | 'retrying' | 'idle'
@@ -393,7 +431,12 @@ export async function renderFigureStep(
       recipe: claim.recipe,
       marks: claim.purpose === 'preview' ? (claim.marks ?? []) : null,
     })
-  } catch {
+  } catch (error) {
+    // Another decode holds the dispatcher's slot: nothing ran, so no attempt is spent.
+    if (error instanceof DecoderDispatcherBusyError) {
+      await deferClaim(pool, claim, clock())
+      return 'retrying'
+    }
     // An infrastructure failure doesn't prove the request bad, so it is retried.
     return settleAttemptFailed(pool, binding, claim, false, clock())
   }
@@ -476,25 +519,64 @@ export async function sweepFigureRenders(
     )
     return removed.rowCount ?? 0
   })
-  const due = await pool.query<{ digest: string }>(
-    `SELECT encode(digest,'hex') AS digest FROM public.processing_figure_blob_release
+  const due = await pool.query<ReleasedBlob>(
+    `SELECT encode(digest,'hex') AS digest, released_at::text AS released
+     FROM public.processing_figure_blob_release
      WHERE released_at < $1 ORDER BY released_at LIMIT 100`,
     [new Date(now.getTime() - MIN_GC_AGE_MS)],
   )
   let collected = 0
-  for (const { digest } of due.rows) {
-    const done = await transaction(pool, async (client) => {
-      await prepareMediaTransaction(client)
-      const cutoff = new Date(Date.now() - MIN_GC_AGE_MS)
-      const removedFile = await store.collect(client, digest, cutoff, blobReferenced)
-      await client.query('DELETE FROM public.processing_figure_blob_release WHERE digest=$1', [
-        Buffer.from(digest, 'hex'),
-      ])
-      return removedFile
-    })
-    if (done) {
+  for (const released of due.rows) {
+    if (await collectReleasedBlob(pool, store, released)) {
       collected += 1
     }
   }
   return { deleted, collected }
+}
+
+interface ReleasedBlob {
+  digest: string
+  /** The release's exact time, as text, so a newer release of the digest is told apart. */
+  released: string
+}
+
+/**
+ * Collects one released blob under its blob lock, the lock releases are recorded under. A release
+ * recorded since it was selected is left for a later sweep. A blob something references again
+ * only clears its release; one whose file is too young to collect keeps it. The blob's
+ * `media_blob` row is immutable and stays; the archive skips such a row once its file is gone.
+ */
+async function collectReleasedBlob(pool: Pool, store: BlobStore, released: ReleasedBlob) {
+  const digest = Buffer.from(released.digest, 'hex')
+  return transaction(pool, async (client) => {
+    await prepareMediaTransaction(client)
+    await lockBlob(client, released.digest)
+
+    const clearRelease = () =>
+      client.query(
+        `DELETE FROM public.processing_figure_blob_release
+         WHERE digest=$1 AND released_at=$2::timestamptz`,
+        [digest, released.released],
+      )
+
+    const current = await client.query(
+      `SELECT 1 FROM public.processing_figure_blob_release
+       WHERE digest=$1 AND released_at=$2::timestamptz`,
+      [digest, released.released],
+    )
+    if (!current.rowCount) {
+      return false
+    }
+    if (await blobReferenced(client, released.digest)) {
+      await clearRelease()
+      return false
+    }
+    const cutoff = new Date(Date.now() - MIN_GC_AGE_MS)
+    const removedFile = await store.collect(client, released.digest, cutoff, blobReferenced)
+    // A file too young to collect keeps its release for a later sweep.
+    if (removedFile) {
+      await clearRelease()
+    }
+    return removedFile
+  })
 }

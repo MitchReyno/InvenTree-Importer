@@ -1,4 +1,4 @@
-import { useId, useState, type KeyboardEvent } from 'react'
+import { useId, useRef, useState, type KeyboardEvent } from 'react'
 import styled from 'styled-components'
 import {
   Button,
@@ -65,6 +65,7 @@ export function QuestionFigureDialog({
   const [showMarks, setShowMarks] = useState(true)
   const [zoom, setZoom] = useState(FIT)
   const [whole, setWhole] = useState(false)
+  const stage = useRef<HTMLDivElement>(null)
   const count = figures.length
   const shown = Math.min(index, count - 1)
   const figure = figures[shown]
@@ -94,6 +95,10 @@ export function QuestionFigureDialog({
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     // The thumbnail strip handles its own arrows.
     if (event.defaultPrevented) {
+      return
+    }
+    // A zoomed picture keeps its arrows for panning while it has focus.
+    if (zoom !== FIT && event.target === stage.current) {
       return
     }
     if (event.key === 'ArrowLeft') {
@@ -129,7 +134,17 @@ export function QuestionFigureDialog({
         <Columns>
           <Main>
             <StageFrame>
-              <Stage data-testid="figure-stage">
+              <Stage
+                ref={stage}
+                data-testid="figure-stage"
+                tabIndex={zoom === FIT ? -1 : 0}
+                role="region"
+                aria-label={
+                  zoom === FIT
+                    ? 'Picture'
+                    : `Picture at ${zoom}%; use the arrow keys to move around it`
+                }
+              >
                 <Canvas $ratio={aspect.width / aspect.height} $zoom={zoom / 100}>
                   {whole ? (
                     <FigureWholePage figure={figure} batchId={batchId} />
@@ -319,6 +334,10 @@ const Stage = styled.div`
   display: flex;
   height: ${STAGE_HEIGHT};
   overflow: auto;
+  &:focus-visible {
+    outline: ${ring.width} solid ${color.accent};
+    outline-offset: calc(-1 * ${ring.width});
+  }
 `
 
 /** Auto margins centre a fitted picture and keep every edge of a zoomed one scrollable. */

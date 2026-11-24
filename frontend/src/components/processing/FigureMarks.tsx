@@ -54,16 +54,27 @@ export function FigureMarks({ marks, width, height }: Props) {
 const LABEL_SIZE_SHARE = 0.028
 /** An estimate of a character's width in ems, enough to size the pill around the text. */
 const LABEL_CHARACTER_EMS = 0.58
+/** A pill's padding either side of its text, in ems, as the agent's preview pads it. */
+const PILL_PADDING_EMS = 0.6
 /** The space between a shape and its label, in label heights. */
 const LABEL_GAP_SIZES = 0.3
 
-type PillSize = { width: number; height: number }
+type PillSize = { width: number; height: number; size: number }
 
-/** A label pill's size, so it can be placed before it is drawn. */
+/**
+ * A label pill's size, so it can be placed before it is drawn. A pill wider than the view takes
+ * a smaller text size so the whole label shows, as the agent's preview fits it.
+ */
 function pillSize(text: string, viewWidth: number, size: number): PillSize {
+  const natural = text.length * size * LABEL_CHARACTER_EMS + size * PILL_PADDING_EMS * 2
+  const fitted = natural > viewWidth ? (size * viewWidth) / natural : size
   return {
-    width: Math.min(viewWidth, text.length * size * LABEL_CHARACTER_EMS + size),
-    height: size * 1.6,
+    width: Math.min(
+      viewWidth,
+      text.length * fitted * LABEL_CHARACTER_EMS + fitted * PILL_PADDING_EMS * 2,
+    ),
+    height: fitted * 1.6,
+    size: fitted,
   }
 }
 
@@ -84,12 +95,19 @@ function labelPill({ text, left, top, width, height, size }: Pill) {
   const y = clamp(top, 0, height - pill.height)
   return (
     <>
-      <rect className="pill" x={x} y={y} width={pill.width} height={pill.height} rx={size * 0.4} />
+      <rect
+        className="pill"
+        x={x}
+        y={y}
+        width={pill.width}
+        height={pill.height}
+        rx={pill.size * 0.4}
+      />
       <text
         className="label"
         x={x + pill.width / 2}
         y={y + pill.height / 2}
-        fontSize={size}
+        fontSize={pill.size}
         textAnchor="middle"
         dominantBaseline="central"
       >

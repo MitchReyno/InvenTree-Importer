@@ -72,3 +72,20 @@ test('JSON operations require registered runtime schemas and explicit bounded po
     /unsupported_client_request_representation/,
   )
 })
+
+test('a question figure route declares its position and size, not IDs', async () => {
+  const { readFile } = await import('node:fs/promises')
+  const document = JSON.parse(
+    await readFile(new URL('../generated/openapi.json', import.meta.url), 'utf8'),
+  ) as { paths: Record<string, { parameters?: { name: string; schema: unknown }[] }> }
+  const route =
+    document.paths[
+      '/api/v1/batches/{batchId}/processing/sessions/{jobId}/questions/{questionId}/figures/{index}/{size}'
+    ]
+  const schemas = Object.fromEntries(
+    (route.parameters ?? []).map((parameter) => [parameter.name, parameter.schema]),
+  )
+  assert.deepEqual(schemas.index, { type: 'integer', minimum: 1, maximum: 5 })
+  assert.deepEqual(schemas.size, { type: 'string', enum: ['view', 'thumb'] })
+  assert.deepEqual(schemas.questionId, schemas.jobId)
+})

@@ -3,6 +3,13 @@ import { MEDIA_DECODER_HEADER_MAX_BYTES } from '@invimport/contracts/media'
 import { MEDIA_LIMITS } from '@invimport/media-decoder/protocol'
 import { settled } from '#/events/settled.ts'
 
+/** The dispatcher's one decode slot is taken; the request was not run and may be sent again. */
+export class DecoderDispatcherBusyError extends Error {
+  constructor() {
+    super('decoder_dispatch_busy')
+  }
+}
+
 export function requestDecode(socketPath: string, image: string, packet: Buffer): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const req = request(
@@ -17,6 +24,9 @@ export function requestDecode(socketPath: string, image: string, packet: Buffer)
       settled(
         async (res: IncomingMessage) => {
           try {
+            if (res.statusCode === 503) {
+              throw new DecoderDispatcherBusyError()
+            }
             if (res.statusCode !== 200) {
               throw new Error('decoder_dispatch_refused')
             }

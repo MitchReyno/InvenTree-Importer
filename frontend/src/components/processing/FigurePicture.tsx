@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import type { ProcessingQuestionFigureDto } from '@invimport/contracts'
 import { figureAspect, figureStateText } from '#/processing/question-figures'
@@ -21,11 +21,30 @@ type Props = {
  * over it. A picture that can't be shown says why in its place.
  */
 export function FigurePicture({ figure, src, showMarks, compact = false, statusId }: Props) {
-  // The read can say ready a moment before the route serves it, or after the photo went.
-  const [failedSrc, setFailedSrc] = useState<string | null>(null)
+  // The read can say ready a moment before the route serves it, or a load can fail on the way,
+  // so a failed load is tried again a few times before the picture says it couldn't be loaded.
+  const [loading, setLoading] = useState<LoadAttempt>({ src, retries: 0, failed: false })
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const attempt = loading.src === src ? loading : { src, retries: 0, failed: false }
   const { width, height } = figureAspect(figure)
   const unavailable =
-    figureStateText(figure.state) ?? (failedSrc === src ? 'Picture couldn’t be loaded' : undefined)
+    figureStateText(figure.state) ?? (attempt.failed ? 'Picture couldn’t be loaded' : undefined)
+  const imageSrc = attempt.retries === 0 ? src : `${src}?retry=${attempt.retries}`
+
+  // The retry timer is the external system; it is cleared if the picture goes first.
+  useEffect(() => () => clearTimeout(retryTimer.current), [])
+
+  function handleError() {
+    if (attempt.retries >= MAX_LOAD_RETRIES) {
+      setLoading({ ...attempt, failed: true })
+      return
+    }
+    clearTimeout(retryTimer.current)
+    retryTimer.current = setTimeout(
+      () => setLoading({ src, retries: attempt.retries + 1, failed: false }),
+      LOAD_RETRY_DELAY_MS * (attempt.retries + 1),
+    )
+  }
 
   return (
     <Frame $ratio={`${width} / ${height}`} data-figure-state={figure.state}>
@@ -35,13 +54,19 @@ export function FigurePicture({ figure, src, showMarks, compact = false, statusI
         </Placeholder>
       ) : (
         <>
-          <img src={src} alt="" draggable={false} onError={() => setFailedSrc(src)} />
+          <img src={imageSrc} alt="" draggable={false} onError={handleError} />
           {showMarks && <FigureMarks marks={figure.marks ?? []} width={width} height={height} />}
         </>
       )}
     </Frame>
   )
 }
+
+type LoadAttempt = { src: string; retries: number; failed: boolean }
+
+/** A picture that fails to load is tried again this many times, each a little later. */
+const MAX_LOAD_RETRIES = 3
+const LOAD_RETRY_DELAY_MS = 2_000
 
 const Frame = styled.span<{ $ratio: string }>`
   position: relative;

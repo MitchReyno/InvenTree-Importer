@@ -2868,8 +2868,8 @@ export interface paths {
                 batchId: string;
                 jobId: string;
                 questionId: string;
-                index: string;
-                size: string;
+                index: number;
+                size: "view" | "thumb";
             };
             cookie?: never;
         };
@@ -2882,8 +2882,8 @@ export interface paths {
                     batchId: string;
                     jobId: string;
                     questionId: string;
-                    index: string;
-                    size: string;
+                    index: number;
+                    size: "view" | "thumb";
                 };
                 cookie?: never;
             };
