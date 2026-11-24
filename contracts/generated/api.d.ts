@@ -7100,32 +7100,60 @@ export interface components {
                     text: string;
                     at: string;
                 } | null;
+                current: boolean;
             }[];
             batch_steps?: {
                 batch_id: string;
+                paused: boolean;
+                lots: number;
                 steps: {
                     examine: {
                         jobs: number;
                         ready: number;
                         running: number;
+                        waiting: number;
+                        queued: number;
+                        questions: number;
+                        failed: number;
+                        ready_lots: number;
                     };
                     research: {
                         jobs: number;
                         ready: number;
                         running: number;
+                        waiting: number;
+                        queued: number;
+                        questions: number;
+                        failed: number;
+                        ready_lots: number;
                     };
                     images: {
                         jobs: number;
                         ready: number;
                         running: number;
+                        waiting: number;
+                        queued: number;
+                        questions: number;
+                        failed: number;
+                        ready_lots: number;
                     };
                     inventory: {
                         jobs: number;
                         ready: number;
                         running: number;
+                        waiting: number;
+                        queued: number;
+                        questions: number;
+                        failed: number;
+                        ready_lots: number;
                     };
                 };
             }[];
+            paused_batches: {
+                batch_id: string;
+                title: string;
+            }[];
+            paused_truncated: boolean;
             work_truncated: boolean;
             sessions_truncated: boolean;
             lane_occupied: boolean;
@@ -7160,6 +7188,8 @@ export interface components {
                 questions: number;
                 failed: number;
                 running: number;
+                lots: number;
+                paused: boolean;
                 steps: {
                     examine: {
                         questions: number;
@@ -7167,6 +7197,9 @@ export interface components {
                         jobs: number;
                         ready: number;
                         running: number;
+                        waiting: number;
+                        queued: number;
+                        ready_lots: number;
                     };
                     research: {
                         questions: number;
@@ -7174,6 +7207,9 @@ export interface components {
                         jobs: number;
                         ready: number;
                         running: number;
+                        waiting: number;
+                        queued: number;
+                        ready_lots: number;
                     };
                     images: {
                         questions: number;
@@ -7181,6 +7217,9 @@ export interface components {
                         jobs: number;
                         ready: number;
                         running: number;
+                        waiting: number;
+                        queued: number;
+                        ready_lots: number;
                     };
                     inventory: {
                         questions: number;
@@ -7188,6 +7227,9 @@ export interface components {
                         jobs: number;
                         ready: number;
                         running: number;
+                        waiting: number;
+                        queued: number;
+                        ready_lots: number;
                     };
                 };
             };

@@ -1,12 +1,14 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { setDebugMode } from '#/test/debug-mode'
 import type { BatchAttentionDto, ConnectionStatusDto, HeaderWorkDto } from '@invimport/contracts'
 import { render, fixtureScope } from '#/test/render'
 import { stubPhoneViewport } from '#/test/viewport'
+import { freshReads } from '#/queries/fresh-reads'
 import { serverQueryKey } from '#/queries/scope'
+import { createServerQueryClient } from '#/queries/client'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { eventTimeText } from '#/components/ui'
 import { HeaderStatus } from './HeaderStatus'
@@ -70,6 +72,8 @@ function work(): HeaderWorkDto {
     observed_at: new Date().toISOString(),
     work: [],
     active_sessions: [],
+    paused_batches: [],
+    paused_truncated: false,
     work_truncated: false,
     sessions_truncated: false,
     lane_occupied: false,
@@ -203,8 +207,11 @@ test('current batch work, retained steps and logically cancelled occupied agents
         occupies_lane: true,
         session_state: null,
         latest_status: null,
+        current: true,
       },
     ],
+    paused_batches: [],
+    paused_truncated: false,
     work_truncated: true,
     sessions_truncated: true,
     lane_occupied: true,
@@ -506,6 +513,7 @@ test('a session shows its latest status line, and a waiting session holds no slo
           text: 'Comparing markings with datasheet candidates',
           at: '2026-11-06T01:02:03.000Z',
         },
+        current: true,
       },
       {
         ...row,
@@ -515,6 +523,7 @@ test('a session shows its latest status line, and a waiting session holds no slo
         occupies_lane: false,
         session_state: 'waiting_input',
         latest_status: { text: 'Asked how many reels there are', at: '2026-11-06T01:03:00.000Z' },
+        current: true,
       },
     ],
   })
@@ -571,17 +580,35 @@ test('the bar ends with activity, connection and the Settings button', async () 
     )
 })
 
-const stepCounts = { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 }
+const stepCounts = {
+  questions: 0,
+  failed: 0,
+  jobs: 0,
+  ready: 0,
+  running: 0,
+  waiting: 0,
+  queued: 0,
+  ready_lots: 0,
+}
 
 /** Stands in for the batch screen, which fills the capture and attention reads the header shares. */
-function BatchReads({ attention }: { attention: BatchAttentionDto }) {
+function BatchReads({
+  attention,
+  read,
+}: {
+  attention: BatchAttentionDto
+  read?: () => Promise<BatchAttentionDto>
+}) {
+  const queryClient = useQueryClient()
+  const attentionKey = serverQueryKey(fixtureScope, 'attention', batchId, '4')
   useQuery({
     queryKey: serverQueryKey(fixtureScope, 'capture', batchId),
     queryFn: async () => ({ id: batchId, title: 'Mouser 3381-22 + bench bag', revision: '4' }),
   })
+  // Numbered as the batch screen's own attention read is.
   useQuery({
-    queryKey: serverQueryKey(fixtureScope, 'attention', batchId, '4'),
-    queryFn: async () => attention,
+    queryKey: attentionKey,
+    queryFn: freshReads(queryClient).track(attentionKey, read ?? (async () => attention)),
   })
   return null
 }
@@ -596,6 +623,7 @@ function processingWork(): HeaderWorkDto {
     progress: 'responding' as const,
     session_state: 'running' as const,
     latest_status: null,
+    current: true,
   }
   return {
     ...work(),
@@ -646,6 +674,8 @@ const attention: BatchAttentionDto = {
     questions: 3,
     failed: 1,
     running: 2,
+    lots: 0,
+    paused: false,
     steps: {
       examine: { ...stepCounts, jobs: 4, ready: 4 },
       research: { ...stepCounts, jobs: 10, ready: 6, running: 2 },
@@ -658,6 +688,126 @@ const attention: BatchAttentionDto = {
   items: [],
   items_truncated: false,
 }
+
+test('bars stop moving after a live hint until both the work and attention reads since then land', async () => {
+  const user = userEvent.setup()
+  const api = client()
+  vi.mocked(api.work).mockResolvedValue(processingWork())
+  const cache = createServerQueryClient()
+
+  let releaseAttention: (value: BatchAttentionDto) => void = () => {}
+
+  let attentionReads = 0
+  render(
+    <ServerStateProvider scope={fixtureScope} client={cache}>
+      <BatchReads
+        attention={attention}
+        read={() => {
+          attentionReads += 1
+          if (attentionReads === 1) {
+            return Promise.resolve(attention)
+          }
+          return new Promise((resolve) => {
+            releaseAttention = resolve
+          })
+        }}
+      />
+      <HeaderStatus client={api} batchId={batchId} />
+    </ServerStateProvider>,
+  )
+  await user.click(await screen.findByRole('button', { name: 'Workflow activity' }))
+
+  const moving = () => document.querySelectorAll('[data-animated="true"]').length
+
+  await waitFor(() => expect(moving()).toBeGreaterThan(0))
+
+  act(() => freshReads(cache).noteHint())
+  expect(moving()).toBe(0)
+
+  // The work read lands first; the attention counts still predate the hint.
+  await act(async () => {
+    await cache.invalidateQueries({ queryKey: serverQueryKey(fixtureScope, 'header-work') })
+  })
+  act(() => {
+    void cache.invalidateQueries({ queryKey: serverQueryKey(fixtureScope, 'attention') })
+  })
+  await waitFor(() => expect(attentionReads).toBe(2))
+  expect(moving()).toBe(0)
+
+  await act(async () => releaseAttention(attention))
+  await waitFor(() => expect(moving()).toBeGreaterThan(0))
+})
+
+test('counts from a newer header read win over older attention counts, so a finished stage stops moving', async () => {
+  const user = userEvent.setup()
+  const api = client()
+  const finished = processingWork()
+  finished.work = [
+    {
+      ...finished.work[0],
+      state: 'ready',
+      occupies_lane: false,
+      steps: [{ stage: 'research', state: 'ready' }],
+    } as HeaderWorkDto['work'][number],
+  ]
+  finished.active_sessions = []
+  finished.lane_occupied = false
+  finished.batch_steps = [
+    {
+      batch_id: batchId,
+      paused: false,
+      lots: 10,
+      steps: {
+        examine: { ...stepCounts, jobs: 4, ready: 4 },
+        research: { ...stepCounts, jobs: 10, ready: 10, ready_lots: 10 },
+        images: stepCounts,
+        inventory: stepCounts,
+      },
+    },
+  ]
+  vi.mocked(api.work).mockResolvedValue(finished)
+  const cache = createServerQueryClient()
+  render(
+    <ServerStateProvider scope={fixtureScope} client={cache}>
+      {/* The batch screen's attention read starts first, so it is the older read. */}
+      <BatchReads attention={attention} />
+      <HeaderStatus client={api} batchId={batchId} />
+    </ServerStateProvider>,
+  )
+  await user.click(await screen.findByRole('button', { name: 'Workflow activity' }))
+  const panel = await screen.findByRole('dialog', { name: 'Workflow details' })
+  const research = await within(panel).findByRole('link', { name: /^Research/ })
+
+  await waitFor(() => expect(research).toHaveTextContent('Done'))
+  expect(document.querySelectorAll('[data-animated="true"]')).toHaveLength(0)
+})
+
+test('a failed refresh keeps the last stages shown, still, beside the unavailable notice', async () => {
+  const user = userEvent.setup()
+  const api = client()
+  vi.mocked(api.work).mockResolvedValueOnce(processingWork())
+  vi.mocked(api.work).mockRejectedValue(new Error('work_read_failed'))
+  const cache = createServerQueryClient()
+  render(
+    <ServerStateProvider scope={fixtureScope} client={cache}>
+      <HeaderStatus client={api} batchId={batchId} />
+    </ServerStateProvider>,
+  )
+  await user.click(await screen.findByRole('button', { name: 'Workflow activity' }))
+  const panel = await screen.findByRole('dialog', { name: 'Workflow details' })
+
+  const moving = () => document.querySelectorAll('[data-animated="true"]').length
+
+  await waitFor(() => expect(moving()).toBeGreaterThan(0))
+
+  await act(async () => {
+    await cache.refetchQueries({ queryKey: serverQueryKey(fixtureScope, 'header-work') })
+  })
+
+  expect(await within(panel).findByText(/Workflow read unavailable/)).toBeInTheDocument()
+  expect(within(panel).getByRole('link', { name: /^Research/ })).toBeInTheDocument()
+  expect(moving()).toBe(0)
+})
 
 test('inside its batch the activity label names what waits, then counts the agents holding a slot, with no batch name or question count', async () => {
   const api = client()
@@ -683,24 +833,35 @@ test('inside its batch the activity label names what waits, then counts the agen
   const steps = within(trigger).getAllByRole('listitem', { hidden: true })
   expect(steps.map((step) => step.textContent)).toEqual([
     'Examine: done',
-    'Research: running',
+    'Research: working',
     'Images: failed',
-    'Inventory: waiting',
+    'Inventory: not started',
   ])
 })
 
 test('away from the batch the header step counts give the partial fill and "Research: 3 of 5"', async () => {
   const user = userEvent.setup()
   const api = client()
-  const step = { jobs: 0, ready: 0, running: 0 }
+  const step = {
+    jobs: 0,
+    ready: 0,
+    running: 0,
+    waiting: 0,
+    queued: 0,
+    questions: 0,
+    failed: 0,
+    ready_lots: 0,
+  }
   vi.mocked(api.work).mockResolvedValue({
     ...processingWork(),
     batch_steps: [
       {
         batch_id: batchId,
+        paused: false,
+        lots: 5,
         steps: {
           examine: { ...step, jobs: 4, ready: 4 },
-          research: { jobs: 5, ready: 3, running: 1 },
+          research: { ...step, jobs: 5, ready: 3, running: 1, ready_lots: 3 },
           images: step,
           inventory: step,
         },
@@ -711,13 +872,13 @@ test('away from the batch the header step counts give the partial fill and "Rese
 
   const trigger = await screen.findByRole('button', { name: 'Workflow activity' })
   await waitFor(() => expect(trigger).toHaveAccessibleDescription(/Research: 3 of 5/))
-  const running = trigger.querySelector('[data-state="running"] i')
+  const running = trigger.querySelector('[data-state="working"] i')
   expect(running).toHaveStyle({ width: '60%' })
 
   await user.click(trigger)
   const panel = screen.getByRole('dialog', { name: 'Workflow details' })
   const job = within(panel).getByRole('region', { name: 'Other batch · Processing' })
-  expect(job.querySelector('[data-state="running"] i')).toHaveStyle({ width: '60%' })
+  expect(job.querySelector('[data-state="working"] i')).toHaveStyle({ width: '60%' })
 })
 
 test('a batch the header read does not count shows its running step without a fraction', async () => {
@@ -752,8 +913,9 @@ test('the workflow panel shows each job as step segments and keeps raw IDs out o
   expect(within(panel).queryByRole('button', { name: /Close/ })).toBeNull()
   expect(within(panel).queryByRole('list', { name: 'Retained steps' })).toBeNull()
   const job = within(panel).getByRole('region', { name: 'Current batch · Processing' })
-  expect(within(job).getByText('Research: running')).toBeInTheDocument()
-  expect(within(job).getByText('Working')).toBeInTheDocument()
+  expect(within(job).getByText('Research: working')).toBeInTheDocument()
+  // The batch's pill and the uncounted Research row both read Working.
+  expect(within(job).getAllByText('Working')).toHaveLength(2)
   expect(within(job).getByRole('link', { name: 'Open processing' })).toBeInTheDocument()
   const details = within(job).getByText('Details').closest('details')!
   expect(details).not.toHaveAttribute('open')
@@ -910,7 +1072,7 @@ test('the planned steps come from all of the batch’s jobs, one step each', asy
       within(trigger)
         .getAllByRole('listitem', { hidden: true })
         .map((step) => step.textContent),
-    ).toEqual(['Examine: done', 'Research: running', 'Images: waiting', 'Inventory: waiting']),
+    ).toEqual(['Examine: done', 'Research: working', 'Images: queued', 'Inventory: not started']),
   )
 })
 
@@ -935,6 +1097,7 @@ test('an import run keeps its own state, apart from Processing’s questions and
     active_sessions: busy.active_sessions.map((session) => ({
       ...session,
       latest_status: { text: 'Comparing supplier listings', at: new Date().toISOString() },
+      current: true,
     })),
   })
   render(
@@ -1069,6 +1232,7 @@ test('outside a batch the pill shows only the work of the batch its headline nam
         occupies_lane: false,
         session_state: 'waiting_input',
         latest_status: null,
+        current: true,
       },
     ],
     work_truncated: true,
@@ -1105,7 +1269,7 @@ describe('at phone width', () => {
     expect(status.querySelector('[data-ai-mark]')).not.toBeNull()
     await waitFor(() =>
       expect(status).toHaveAccessibleDescription(
-        /Examine: done, Research: running, Images: failed, Inventory: waiting/,
+        /Examine: done, Research: working, Images: failed, Inventory: queued/,
       ),
     )
     expect(status.compareDocumentPosition(menu) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()

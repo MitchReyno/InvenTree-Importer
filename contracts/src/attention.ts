@@ -9,13 +9,19 @@ const choice = <const T extends readonly string[]>(values: T) =>
 
 const count = Type.Integer({ minimum: 0, maximum: 100000 })
 
-/** A step's open work, and its attempts: how many there are, are ready and are running. */
+/**
+ * A step's open work, and its jobs by state: `waiting` jobs wait for the operator, `queued` ones
+ * for a slot. `ready_lots` counts live lots with a ready job at the step.
+ */
 const stepWork = object({
   questions: count,
   failed: count,
   jobs: count,
   ready: count,
   running: count,
+  waiting: count,
+  queued: count,
+  ready_lots: count,
 })
 
 /** Bounds the panel; counts stay exact when items are truncated. */
@@ -68,6 +74,10 @@ export const BatchAttention = object({
     questions: count,
     failed: count,
     running: count,
+    /** The batch's live lots, which a lot step's `ready_lots` is counted against. */
+    lots: count,
+    /** The batch's agents are paused. */
+    paused: Type.Boolean(),
     /** Exact per step, since the item list can be truncated. */
     steps: object({
       examine: stepWork,

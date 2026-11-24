@@ -141,6 +141,16 @@ export class FreshReadRegistry {
   }
 
   /**
+   * Whether the cache's adopted read of a key started after the last live hint, even while a newer
+   * read is in flight, so a display can tell a read that predates the newest change from one
+   * that is only being refreshed.
+   */
+  adoptedAfterHint(queryKey: QueryKey) {
+    const adopted = this.#entries.get(hashKey(queryKey))?.adopted
+    return adopted !== undefined && adopted.startOrder > this.#lastHint
+  }
+
+  /**
    * Holds a command with no revision until the cache adopts a read of this key that started after
    * this call and after the last live hint. `readAgain` starts that read itself, so it needs no
    * mounted page; `ready()` checks again at dispatch.

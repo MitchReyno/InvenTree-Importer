@@ -1,5 +1,5 @@
 import type { Pool } from 'pg'
-import { validate, type HeaderWorkDto } from '@invimport/contracts'
+import { MAX_HEADER_PAUSED_BATCHES, validate, type HeaderWorkDto } from '@invimport/contracts'
 import { transaction } from '#/db/database.ts'
 import type { ProcessingConfig } from '#/processing/attempts.ts'
 import type { ManualConfig } from '#/review/authority.ts'
@@ -9,6 +9,7 @@ import { requireHeaderContext } from './binding.ts'
 import { activeHeaderSessions } from './active-sessions.ts'
 import { processingHeaderWork } from './processing.ts'
 import { importHeaderWork } from './imports.ts'
+import { pausedBatches } from '#/agents/pause.ts'
 
 export type HeaderReadConfig = ProcessingConfig & ManualConfig
 
@@ -25,6 +26,7 @@ export async function headerWork(
     const sessions = await activeHeaderSessions(client, config, batchId)
     const processing = await processingHeaderWork(client, config, activity, batchId)
     const imports = await importHeaderWork(client, config, batchId)
+    const paused = await pausedBatches(client, config, MAX_HEADER_PAUSED_BATCHES, batchId)
     const work = [...processing.work, ...imports.work]
     work.sort(
       (left, right) =>
@@ -41,6 +43,8 @@ export async function headerWork(
       work: work.slice(0, 100),
       active_sessions: sessions.sessions,
       batch_steps: processing.batchSteps,
+      paused_batches: paused.batches,
+      paused_truncated: paused.truncated,
       work_truncated: activity.truncated || imports.truncated || work.length > 100,
       sessions_truncated: sessions.truncated,
       lane_occupied: activity.lane_occupied,

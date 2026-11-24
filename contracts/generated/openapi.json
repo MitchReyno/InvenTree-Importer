@@ -18762,6 +18762,8 @@
           "observed_at",
           "work",
           "active_sessions",
+          "paused_batches",
+          "paused_truncated",
           "work_truncated",
           "sessions_truncated",
           "lane_occupied"
@@ -19172,7 +19174,8 @@
                 "progress",
                 "occupies_lane",
                 "session_state",
-                "latest_status"
+                "latest_status",
+                "current"
               ],
               "properties": {
                 "attempt_id": {
@@ -19422,6 +19425,9 @@
                       "type": "null"
                     }
                   ]
+                },
+                "current": {
+                  "type": "boolean"
                 }
               }
             }
@@ -19434,12 +19440,22 @@
               "type": "object",
               "required": [
                 "batch_id",
+                "paused",
+                "lots",
                 "steps"
               ],
               "properties": {
                 "batch_id": {
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                   "type": "string"
+                },
+                "paused": {
+                  "type": "boolean"
+                },
+                "lots": {
+                  "minimum": 0,
+                  "maximum": 100000,
+                  "type": "integer"
                 },
                 "steps": {
                   "additionalProperties": false,
@@ -19457,7 +19473,12 @@
                       "required": [
                         "jobs",
                         "ready",
-                        "running"
+                        "running",
+                        "waiting",
+                        "queued",
+                        "questions",
+                        "failed",
+                        "ready_lots"
                       ],
                       "properties": {
                         "jobs": {
@@ -19471,6 +19492,31 @@
                           "type": "integer"
                         },
                         "running": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "waiting": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "queued": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "questions": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "failed": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "ready_lots": {
                           "minimum": 0,
                           "maximum": 100000,
                           "type": "integer"
@@ -19483,7 +19529,12 @@
                       "required": [
                         "jobs",
                         "ready",
-                        "running"
+                        "running",
+                        "waiting",
+                        "queued",
+                        "questions",
+                        "failed",
+                        "ready_lots"
                       ],
                       "properties": {
                         "jobs": {
@@ -19497,6 +19548,31 @@
                           "type": "integer"
                         },
                         "running": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "waiting": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "queued": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "questions": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "failed": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "ready_lots": {
                           "minimum": 0,
                           "maximum": 100000,
                           "type": "integer"
@@ -19509,7 +19585,12 @@
                       "required": [
                         "jobs",
                         "ready",
-                        "running"
+                        "running",
+                        "waiting",
+                        "queued",
+                        "questions",
+                        "failed",
+                        "ready_lots"
                       ],
                       "properties": {
                         "jobs": {
@@ -19523,6 +19604,31 @@
                           "type": "integer"
                         },
                         "running": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "waiting": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "queued": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "questions": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "failed": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "ready_lots": {
                           "minimum": 0,
                           "maximum": 100000,
                           "type": "integer"
@@ -19535,7 +19641,12 @@
                       "required": [
                         "jobs",
                         "ready",
-                        "running"
+                        "running",
+                        "waiting",
+                        "queued",
+                        "questions",
+                        "failed",
+                        "ready_lots"
                       ],
                       "properties": {
                         "jobs": {
@@ -19552,6 +19663,31 @@
                           "minimum": 0,
                           "maximum": 100000,
                           "type": "integer"
+                        },
+                        "waiting": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "queued": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "questions": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "failed": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "ready_lots": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
                         }
                       }
                     }
@@ -19559,6 +19695,32 @@
                 }
               }
             }
+          },
+          "paused_batches": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "batch_id",
+                "title"
+              ],
+              "properties": {
+                "batch_id": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                },
+                "title": {
+                  "minLength": 1,
+                  "maxLength": 256,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "paused_truncated": {
+            "type": "boolean"
           },
           "work_truncated": {
             "type": "boolean"
@@ -19786,6 +19948,8 @@
               "questions",
               "failed",
               "running",
+              "lots",
+              "paused",
               "steps"
             ],
             "properties": {
@@ -19803,6 +19967,14 @@
                 "minimum": 0,
                 "maximum": 100000,
                 "type": "integer"
+              },
+              "lots": {
+                "minimum": 0,
+                "maximum": 100000,
+                "type": "integer"
+              },
+              "paused": {
+                "type": "boolean"
               },
               "steps": {
                 "additionalProperties": false,
@@ -19822,7 +19994,10 @@
                       "failed",
                       "jobs",
                       "ready",
-                      "running"
+                      "running",
+                      "waiting",
+                      "queued",
+                      "ready_lots"
                     ],
                     "properties": {
                       "questions": {
@@ -19846,6 +20021,21 @@
                         "type": "integer"
                       },
                       "running": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "waiting": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "queued": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "ready_lots": {
                         "minimum": 0,
                         "maximum": 100000,
                         "type": "integer"
@@ -19860,7 +20050,10 @@
                       "failed",
                       "jobs",
                       "ready",
-                      "running"
+                      "running",
+                      "waiting",
+                      "queued",
+                      "ready_lots"
                     ],
                     "properties": {
                       "questions": {
@@ -19884,6 +20077,21 @@
                         "type": "integer"
                       },
                       "running": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "waiting": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "queued": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "ready_lots": {
                         "minimum": 0,
                         "maximum": 100000,
                         "type": "integer"
@@ -19898,7 +20106,10 @@
                       "failed",
                       "jobs",
                       "ready",
-                      "running"
+                      "running",
+                      "waiting",
+                      "queued",
+                      "ready_lots"
                     ],
                     "properties": {
                       "questions": {
@@ -19922,6 +20133,21 @@
                         "type": "integer"
                       },
                       "running": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "waiting": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "queued": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "ready_lots": {
                         "minimum": 0,
                         "maximum": 100000,
                         "type": "integer"
@@ -19936,7 +20162,10 @@
                       "failed",
                       "jobs",
                       "ready",
-                      "running"
+                      "running",
+                      "waiting",
+                      "queued",
+                      "ready_lots"
                     ],
                     "properties": {
                       "questions": {
@@ -19960,6 +20189,21 @@
                         "type": "integer"
                       },
                       "running": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "waiting": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "queued": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "ready_lots": {
                         "minimum": 0,
                         "maximum": 100000,
                         "type": "integer"

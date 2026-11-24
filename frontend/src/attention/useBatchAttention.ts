@@ -1,5 +1,6 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { BatchAttentionDto } from '@invimport/contracts'
+import { freshReads } from '#/queries/fresh-reads'
 import { serverQueryKey } from '#/queries/scope'
 import { useServerScope, useRetainedPollInterval } from '#/context'
 
@@ -15,11 +16,16 @@ export function useBatchAttention(
   revision: string | undefined,
 ) {
   const scope = useServerScope()
+  const queryClient = useQueryClient()
   const pollInterval = useRetainedPollInterval()
+  const queryKey = serverQueryKey(scope, 'attention', batchId, revision ?? 'unknown')
 
   return useQuery({
-    queryKey: serverQueryKey(scope, 'attention', batchId, revision ?? 'unknown'),
-    queryFn: () => client!.read(batchId),
+    queryKey,
+    // Numbered, so the masthead can tell counts read since the last live hint.
+    queryFn: freshReads(queryClient).track<BatchAttentionDto>(queryKey, () =>
+      client!.read(batchId),
+    ),
     enabled: client !== undefined,
     refetchInterval: pollInterval,
     placeholderData: (previous) => previous,

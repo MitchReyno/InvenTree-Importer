@@ -1,5 +1,5 @@
 import type { Pool, PoolClient } from 'pg'
-import { and, asc, eq, inArray } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { AgentPauseAllDto, AgentPauseDto } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
 import { appendEvent } from '#/db/authority.ts'
@@ -129,4 +129,29 @@ export async function pausedAmong(client: PoolClient, batchIds: readonly string[
       .where(inArray(agentBatchPauses.batchId, [...batchIds])),
   )
   return new Set(rows.map((row) => row.id))
+}
+
+/**
+ * The account's paused live batches with their titles, the open batch first, up to `limit`, and
+ * whether more are paused. A paused batch is listed whether or not it has any jobs.
+ */
+export async function pausedBatches(
+  client: PoolClient,
+  config: Scope,
+  limit: number,
+  openBatchId?: string,
+) {
+  const rows = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ batch_id: captureBatches.id, title: captureBatches.title })
+      .from(agentBatchPauses)
+      .innerJoin(captureBatches, eq(captureBatches.id, agentBatchPauses.batchId))
+      .where(and(inScope(config), eq(captureBatches.archived, false)))
+      .orderBy(
+        desc(sql`CASE WHEN ${captureBatches.id} = ${openBatchId ?? null} THEN 1 ELSE 0 END`),
+        asc(captureBatches.id),
+      )
+      .limit(limit + 1),
+  )
+  return { batches: rows.slice(0, limit), truncated: rows.length > limit }
 }

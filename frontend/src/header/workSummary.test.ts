@@ -45,6 +45,7 @@ function session(stage: string, overrides: Partial<Session> = {}): Session {
     occupies_lane: true,
     session_state: 'running',
     latest_status: null,
+    current: true,
     ...overrides,
   } as Session
 }
@@ -60,6 +61,8 @@ function read(overrides: Partial<HeaderWorkDto> = {}): HeaderWorkDto {
     work_truncated: false,
     sessions_truncated: false,
     lane_occupied: false,
+    paused_batches: [],
+    paused_truncated: false,
     ...overrides,
   }
 }

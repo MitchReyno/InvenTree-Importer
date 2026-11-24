@@ -30,4 +30,11 @@ describe('StatePill', () => {
 
     expect(screen.getByText('Waiting for you · 2')).toBeInTheDocument()
   })
+
+  it('puts a leading count in place of the state word', () => {
+    render(<StatePill state="working" label="2 working" />)
+
+    expect(screen.getByText('2 working')).toBeInTheDocument()
+    expect(screen.queryByText('Working')).not.toBeInTheDocument()
+  })
 })

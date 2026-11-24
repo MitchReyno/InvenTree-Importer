@@ -268,19 +268,29 @@ export function ComponentGallery() {
             <ProgressSegments
               steps={[
                 { label: 'Examine', state: 'done' },
-                { label: 'Research', state: 'running', fraction: 0.4 },
-                { label: 'Images', state: 'waiting' },
+                { label: 'Research', state: 'working', fraction: 0.4 },
+                { label: 'Images', state: 'waiting_for_you' },
               ]}
             />
             <Skeleton width="120px" height="16px" />
           </Row>
+          {/* Every stage state, counted where a share is shown and uncounted otherwise. */}
           <ProgressSegments
             size="lg"
             steps={[
               { label: 'Examine', state: 'done' },
-              { label: 'Research', state: 'running' },
-              { label: 'Images', state: 'waiting' },
-              { label: 'Inventory', state: 'waiting' },
+              { label: 'Research', state: 'working', fraction: 0.58 },
+              { label: 'Images', state: 'paused', fraction: 0.75 },
+              { label: 'Inventory', state: 'queued', fraction: 0 },
+            ]}
+          />
+          <ProgressSegments
+            size="lg"
+            steps={[
+              { label: 'Examine', state: 'waiting_for_you' },
+              { label: 'Research', state: 'working' },
+              { label: 'Images', state: 'failed' },
+              { label: 'Inventory', state: 'not_started' },
             ]}
           />
         </Section>
