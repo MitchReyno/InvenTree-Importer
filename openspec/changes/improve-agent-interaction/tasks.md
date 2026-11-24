@@ -2,7 +2,7 @@
 
 ## Plan context
 
-- **Plan:** the [proposal](proposal.md) and [design](design.md), with deltas in `specs/` for `ui-design-system`, `processing-workspace`, `processing-stage-pipeline`, `processing-agent-sessions`, `agents-overview` and `header-workflow-status`.
+- **Plan:** the [proposal](proposal.md) and [design](design.md), with deltas in `specs/` for `ui-design-system`, `processing-workspace`, `processing-stage-pipeline`, `processing-agent-sessions`, `agents-overview` `header-workflow-status` and `shared-vm-execution`.
 - **Reuse:** rebuild `Dialog.tsx` on `@radix-ui/react-dialog`, from the Radix family the frontend already uses for popovers, extend the existing contracts and form stack, and use native `<details>` for expandable entries. Radix Dialog is the only new dependency.
 - **Change name:** `improve-agent-interaction`. Branches are `feat/improve-agent-interaction-<suffix>`, and subjects are `type(improve-agent-interaction): …`.
 - **Items:** BI-019, plus BI-015's answer-options item, which this change takes over.
@@ -29,6 +29,7 @@
 | 9. Activity popover stage rows and bar states | Frontend behavior | 8 | header-workflow-status "Stage rows in workflow details", "Stage bar states", "Only working stages animate", "Expand work steps and existing actions" (Resume) |
 | 10. Session rows, failures in plain words and Agents filters | Contracts, intake server and frontend | 7; 9 or polish for the shared components | agents-overview "Agents page", "Agents filter rules", "Session rows", "Failed rows offer recovery"; processing-workspace "Failures in plain words" |
 | 11. Drawer header, activity feed and message box | Contracts, intake server and frontend, plus one instruction sentence | 6, 7, 10; 9 or polish for the shared components | processing-workspace "Session drawer header", "Activity in the app's words", "Labelled message box"; processing-agent-sessions "Status lines stay readable" |
+| 12. Configurable VM evidence delivery | Intake server and deployment tooling | 5 (merged) | processing-agent-sessions "Configurable VM evidence delivery" |
 
 ## PR delivery map
 
@@ -45,6 +46,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 | PR-G | A session-level Agents read, one row per session, failures in plain words, recovery actions and the Agents page filters | 10 | One read and its rows; its links and failure display reach the session page | PR-E merged, and PR-F or polish merged for the shared components | `feat/improve-agent-interaction-session-rows`; `feat(improve-agent-interaction): one row per session with its real failure` | Contracts tests, intake unit and PG tiers, frontend checks; demo video; review; CI |
 | PR-H | Drawer header, recent activity in the app's words, the labelled message box and readable status lines | 11 | Builds on the history read, the session page and the session-level read | PR-D2, PR-E and PR-G merged, and PR-F or polish merged for the shared components | `feat/improve-agent-interaction-session-details`; `feat(improve-agent-interaction): clearer session header, activity and message box` | Contracts tests, intake unit and PG tiers for the batch activity read and the instruction text, frontend checks; demo video; review; CI |
 | PR-F | Per-stage counts and the paused flag, stage rows in the activity popover and the new bar states; the shared `WorkState`, `StatePill` and `EventTime` components if `polish-ui-styling-and-loading` hasn't merged first | 8, 9 | Independent of questions and history, small enough to review end to end | PR-0; whichever of PR-F and polish merges second reuses the other's shared components | `feat/improve-agent-interaction-activity-stages`; `feat(improve-agent-interaction): show each stage's state and counts in the activity popover` | Contracts tests, intake PG tier, frontend checks; demo video; review; CI |
+| PR-I | Configurable inline or file evidence delivery, launch wiring and regressions | 12 | One transport behavior across its configuration and guest boundaries | PR-D1 merged; independent of the remaining UI work | `interactive-app` ← `feat/improve-agent-interaction-evidence-delivery`; `feat(improve-agent-interaction): configure VM evidence delivery` | Development, deployment and intake checks; independent review before publication; CI |
 
 ## Parallel work
 
@@ -53,13 +55,13 @@ How the PR map above lets work run at the same time. A PR can start once every P
 | Wave | Can run in parallel | Waits for |
 | --- | --- | --- |
 | 1 | PR-A · PR-B · PR-D1 · PR-F | PR-0 (all four); PR-F coordinates its shared components with `polish-ui-styling-and-loading` |
-| 2 | PR-D2 | PR-B and PR-D1 |
+| 2 | PR-D2 · PR-I | PR-D2 waits for PR-B and PR-D1; PR-I waits only for PR-D1 |
 | 3 | PR-E | PR-B and PR-D2 |
 | 4 | PR-G | PR-E; PR-F or polish for the shared components |
 | 5 | PR-H | PR-D2, PR-E and PR-G; PR-F or polish |
 
 - **Critical path:** PR-B → PR-D2 → PR-E → PR-G → PR-H, five PRs in sequence. PR-A has slack; PR-F can start after PR-0 but holds PR-G unless polish lands first. PR-D1 runs beside PR-B; PR-D2 starts once the later of the two merges.
-- **Most parallel moment:** wave 1, four PRs. After it, only one PR is ready at a time.
+- **Most parallel moment:** wave 1, four PRs. PR-I can also proceed independently after PR-D1; the remaining UI bundles follow their dependency chain.
 - **Conflicts to expect between parallel PRs:** PR-B and PR-F both change the Processing read the frontend uses (questions and step counts), and both touch `ProcessingWorkspace.tsx`, which `polish-ui-styling-and-loading` also edits. PR-B and PR-D1 both change `contracts/src/sessions.ts`, `processing.ts` and `agents/tools/handlers.ts`, and whichever lands first adds the shared envelope writer's size check. Whichever merges later rebases.
 - **Effect on BI-022:** `agent-stage-inputs-outputs` waits for this change's PR-B (stepped questions), PR-D1 (`photo_view`), PR-E (session page) and PR-G (session rows). PR-D1 is in wave 1, so it doesn't hold BI-022 back.
 
@@ -291,23 +293,23 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
   - a phone-width check of the page.
 - **Risks and decisions:** keep the drawer light; it reads only the newest page.
 
-- [ ] 7.1 Read the shared and frontend code guidelines, the frontend architecture and the canvas boards (option B is the page layout).
-- [ ] 7.2 RED: route tests for parsing and building the session page route.
-- [ ] 7.3 RED: renderer tests:
-  - [ ] 7.3.1 Each kind's details and links.
-  - [ ] 7.3.2 "gone" links.
-  - [ ] 7.3.3 Grouping of consecutive entries.
-  - [ ] 7.3.4 The drawer's summary lines and "Open full session".
-- [ ] 7.4 RED: page tests:
-  - [ ] 7.4.1 One conversation in time order, with attempt dividers, including one whose reason isn't retained and reads only "Attempt N".
-  - [ ] 7.4.2 Filter chips and Load older; an invalidation re-reads the newest page and replaces it, keeping loaded older pages without duplicates; one new entry keeps the entry it pushed off the newest page; more than one page of new entries between refreshes drops the older pages and Load older continues from the new page; answering a matching question in another job refreshes a proposal's provisional links on the newest page; a chat sent from another tab shows after the next invalidation, and an acknowledgement with no new entry shows through the `session_changed` that `read_inbox` publishes.
-  - [ ] 7.4.3 Sending a message once.
-  - [ ] 7.4.4 Answering a question in place, with the drawer's draft shown as superseded, and commands disabled while the page's Processing read is loading, failed or paused, including a warm cache whose mounted read is still pending.
-  - [ ] 7.4.5 Not found, and the debug block only in debug mode.
-  - [ ] 7.4.6 A correction sent before a Start fresh sits at its send time, shown as the app's notice of the operator's correction; observations from different photos stay ungrouped; a mixed photo and web run is one drawer line.
-  - [ ] 7.4.7 The photos and sources panels on a long session say older entries are not loaded, and list an older photo view and source once Load older loads them.
-- [ ] 7.5 GREEN: implement the renderer, the drawer change, the page and the entry points (Agents rows, session lists, failure details). Remove the old timeline response.
-- [ ] 7.6 Update the fixtures and the frontend architecture. Run the frontend checks, and the intake unit and PG tiers for the removed timeline response and its consumers. Record the demo video for the PR description.
+- [x] 7.1 Read the shared and frontend code guidelines, the frontend architecture and the canvas boards (option B is the page layout).
+- [x] 7.2 RED: route tests for parsing and building the session page route.
+- [x] 7.3 RED: renderer tests:
+  - [x] 7.3.1 Each kind's details and links.
+  - [x] 7.3.2 "gone" links.
+  - [x] 7.3.3 Grouping of consecutive entries.
+  - [x] 7.3.4 The drawer's summary lines and "Open full session".
+- [x] 7.4 RED: page tests:
+  - [x] 7.4.1 One conversation in time order, with attempt dividers, including one whose reason isn't retained and reads only "Attempt N".
+  - [x] 7.4.2 Filter chips and Load older; an invalidation re-reads the newest page and replaces it, keeping loaded older pages without duplicates; one new entry keeps the entry it pushed off the newest page; more than one page of new entries between refreshes drops the older pages and Load older continues from the new page; answering a matching question in another job refreshes a proposal's provisional links on the newest page; a chat sent from another tab shows after the next invalidation, and an acknowledgement with no new entry shows through the `session_changed` that `read_inbox` publishes.
+  - [x] 7.4.3 Sending a message once.
+  - [x] 7.4.4 Answering a question in place, with the drawer's draft shown as superseded, and commands disabled while the page's Processing read is loading, failed or paused, including a warm cache whose mounted read is still pending.
+  - [x] 7.4.5 Not found, and the debug block only in debug mode.
+  - [x] 7.4.6 A correction sent before a Start fresh sits at its send time, shown as the app's notice of the operator's correction; observations from different photos stay ungrouped; a mixed photo and web run is one drawer line.
+  - [x] 7.4.7 The photos and sources panels on a long session say older entries are not loaded, and list an older photo view and source once Load older loads them.
+- [x] 7.5 GREEN: implement the renderer, the drawer change, the page and the entry points (Agents rows, session lists, failure details). Remove the old timeline response.
+- [x] 7.6 Update the fixtures and the frontend architecture. Run the frontend checks, and the intake unit and PG tiers for the removed timeline response and its consumers. Record the demo video for the PR description.
 
 ## 8. Stage counts and the paused flag
 
@@ -405,11 +407,31 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - [x] PR-A: implement task 1, review the exact head, publish with the demo, CI green, merge. Merged as #252 at `17c3d509`.
 - [x] PR-B: implement tasks 2, 3 and 4, review the exact head, publish with the demo, CI green, merge. Merged as #251 at `54477ac3`.
 - [x] PR-D1: implement task 5, review the exact head, publish, CI green, merge. Merged as #257 at `4fcdbd54`.
-- [ ] PR-D2: implement task 6, review the exact head, publish, CI green, merge.
+- [x] PR-D2: implement task 6, review the exact head, publish, CI green, merge. Merged as #260 at `14a5c632`.
 - [ ] PR-E: implement task 7, review the exact head, publish with the demo, CI green, merge.
 - [x] PR-F: implement tasks 8 and 9, review the exact head, publish with the demo, CI green, merge. Merged as #258 at `d09984bc`.
 - [ ] PR-G: implement task 10, review the exact head, publish with the demo, CI green, merge.
 - [ ] PR-H: implement task 11, review the exact head, publish with the demo, CI green, merge.
-- [ ] Update BI-019's status as PRs merge. It is Done only after PR-A, PR-B, PR-D1, PR-D2, PR-E, PR-F, PR-G and PR-H merge and its acceptance is evidenced.
+- [ ] Update BI-019's status as PRs merge. It is Done only after PR-A, PR-B, PR-D1, PR-D2, PR-E, PR-F, PR-G, PR-H and PR-I merge and its acceptance is evidenced.
 - [ ] Mark the design log entries D37 (PR-A), D38 (PR-B), D39 and D41 (PR-E) and D42 (PR-F) Built, with their PRs (D40's page layout was replaced by D41).
 - [ ] Before archiving, run `pnpm openspec:overlap --change improve-agent-interaction`, sync the specs, and record final open items in `notes.md`.
+
+
+## 12. Configurable VM evidence delivery
+
+- **PR delivery:** PR-I.
+- **Outcome:** an operator can select file-only evidence delivery for tool-capable VM sessions while preserving inline compatibility.
+- **Scope:** development environment/settings and VM relay launch, relay and guest launcher, guest evidence staging, tests, example environment and operator/architecture docs.
+- **Non-goals:** UI controls, transport ceiling changes, new provider tools, database schema changes, automatic retries or live inventory actions.
+- **Prerequisite:** task 5 merged.
+- **Acceptance:** all scenarios of "Configurable VM evidence delivery".
+- **Approach:** pass a validated enum explicitly through existing launch boundaries; preserve verification, temporary-file ownership, cleanup and upstream authority.
+- **Verification:** focused RED/GREEN tests and applicable intake, tooling, types and formatting checks; native visual inspection is separately qualified.
+
+- [x] 12.1 Add regressions for both modes, large/repeated results, refusals, integrity/write failures, validation and launch propagation; observe the new behavior fail.
+- [x] 12.2 Implement the enum from development settings and standalone relay to the VM tool worker and evidence projection, preserving explicit inline delivery and cleanup.
+- [x] 12.3 Document configuration, provider file-opening guidance, lifetime and rollout; run the applicable checks and record limitations.
+- [x] 12.5 Implement and test coordinator/guest release confirmation before new citation grants. Cover first and repeated fetches outside the manifest, staging and response failures, duplicate or stale confirmations, worker restart, incompatible peers, and legacy preview/original digest handling over compatible peers in both modes. Bind the image format to the producing encoder contract. Test a stripped current rendition with pages and missing/unknown tags against an explicitly legacy preview. Verify the subsequent proposal decision through the coordinator.
+- [ ] 12.4 Independently review the exact implementation before publication; publish and verify selected CI only when requested.
+
+- [x] 12.6 Configure whole-photo preview or original independently of delivery mode, and verify exact bytes, budgets, crop semantics and launch configuration.

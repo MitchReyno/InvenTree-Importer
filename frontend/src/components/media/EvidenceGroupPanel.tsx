@@ -33,6 +33,8 @@ import { useApiClients } from '#/context'
 import type { CaptureEdit } from '#/capture/types'
 
 type Props = {
+  /** A file the address names; its viewer opens on arrival when it is in this group. */
+  initialOpenId?: string
   batch: CaptureSnapshotDto
   snapshot: MediaSnapshotDto
   groupId: string | null
@@ -81,6 +83,7 @@ type Props = {
 }
 
 export function EvidenceGroupPanel({
+  initialOpenId,
   batch,
   snapshot,
   groupId,
@@ -115,9 +118,21 @@ export function EvidenceGroupPanel({
 }: Props) {
   const { operator } = useApiClients()
   const [noteId, setNoteId] = useState<string | null>(null)
-  const [openId, setOpenId] = useState<string | null>(null)
+
+  const namedHere = (photoId: string | undefined) => {
+    const named = snapshot.evidence.find((item) => item.id === photoId)
+    return named && named.group_id === groupId ? named.id : null
+  }
+
+  const [openId, setOpenId] = useState<string | null>(() => namedHere(initialOpenId))
+  // A link to another photo while Capture stays mounted opens it, unless a note draft is open.
+  const [linkedPhoto, setLinkedPhoto] = useState(initialOpenId)
   // Closing the viewer would unmount the note editor and lose its draft.
   const [noteDirty, setNoteDirty] = useState(false)
+  if (linkedPhoto !== initialOpenId && !noteDirty) {
+    setLinkedPhoto(initialOpenId)
+    setOpenId(namedHere(initialOpenId))
+  }
   const [instructions, setInstructions] = useState(false)
   const group = snapshot.groups.find((item) => item.id === groupId)
   const name = group?.label ?? 'Ungrouped'

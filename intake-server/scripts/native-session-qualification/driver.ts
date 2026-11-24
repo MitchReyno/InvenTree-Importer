@@ -21,9 +21,9 @@ import {
   type ProcessingJobDto,
   type ProcessingQuestionDto,
   type ProcessingSnapshotDto,
-  type SessionTimelineDto,
 } from '@invimport/contracts'
 import { chatHandled } from './chat.ts'
+import { readSessionTrace, retainedChatTime, type SessionTrace } from './trace.ts'
 
 const { values: args } = parseArgs({
   options: {
@@ -108,15 +108,16 @@ const terminal = new Set(['ready', 'failed', 'cancelled', 'superseded', 'interru
 const idleSession = new Set(['finished', 'waiting_input', 'cancelled', 'failed', 'interrupted'])
 const read = (batchId: string) => processing.read(batchId) as Promise<ProcessingSnapshotDto>
 const timeline = (batchId: string, jobId: string) =>
-  processing.session(batchId, jobId) as Promise<SessionTimelineDto>
+  readSessionTrace((before) => processing.history(batchId, jobId, before))
 const running = (job: ProcessingJobDto) =>
   job.state === 'running' && job.session_state === 'running'
 
-const leadObservations = (line?: SessionTimelineDto) =>
-  line?.outbox.filter((item) => item.kind === 'observation').length ?? 0
+const leadObservations = (line?: SessionTrace) => line?.observations ?? 0
 const chats: {
   jobId: string
   id: string
+  /** The inbox sequence, which names the chat's entry in the history read. */
+  seq: string
   text: string
   purpose: string
   sentAt: string
@@ -130,7 +131,7 @@ async function chat(batchId: string, jobId: string, text: string, purpose: strin
     { idempotency_key: randomUUID(), text },
     randomUUID(),
   )
-  chats.push({ jobId, id: receipt.item_id, text, purpose, sentAt: requested })
+  chats.push({ jobId, id: receipt.item_id, seq: receipt.seq, text, purpose, sentAt: requested })
   note('chat', { purpose, jobId })
 }
 
@@ -271,7 +272,7 @@ if (cancelled) {
 
 // 8. Collect.
 const final = await read(batchId)
-const timelines: Record<string, SessionTimelineDto> = {}
+const timelines: Record<string, SessionTrace> = {}
 const failures: Record<string, unknown> = {}
 for (const job of final.jobs) {
   timelines[job.id] = await timeline(batchId, job.id)
@@ -367,8 +368,7 @@ function readAt(sent: (typeof chats)[number]) {
 }
 
 for (const sent of chats) {
-  const retained = timelines[sent.jobId]?.inbox.find((item) => item.id === sent.id)
-  sent.sentAt = retained?.created_at ?? sent.sentAt
+  sent.sentAt = retainedChatTime(timelines[sent.jobId], sent.seq) ?? sent.sentAt
 }
 const chatResults = chats.map((sent) => {
   const outbox = timelines[sent.jobId]?.outbox ?? []

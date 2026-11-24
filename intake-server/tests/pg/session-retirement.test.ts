@@ -56,7 +56,7 @@ async function settledSession(
   const slots = await fixture.db.pool.query('SELECT 1 FROM agent_slot WHERE attempt_id=$1', [
     attempt,
   ])
-  // What the Agents list and session timeline show for the attempt.
+  // What the Agents list and session history show for the attempt.
   const shown = (await latestSessionFailures(fixture.db.pool, [attempt])).get(attempt)
   return {
     state: session.rows[0].session_state,

@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
+import type { SessionHistoryDto } from '@invimport/contracts'
 import { processingFixture } from '../support/processing.ts'
 import { legacySessionQuestion, lotSession, oneStepAsk } from '../support/sessions.ts'
 import { sealed } from '#/processing/model.ts'
@@ -509,7 +510,7 @@ test('answers and chat reach the running session once, through the inbox', async
   })
 })
 
-test('the timeline, session list and header show the latest status line and the waiting state', async () => {
+test('the history, session list and header show the latest status line and the waiting state', async () => {
   const { listAgentSessions } = await import('#/agents/session/sessions.ts')
   const { activeHeaderSessions } = await import('#/header/active-sessions.ts')
   await withSessions(async ({ fixture, url, a, capture }) => {
@@ -549,21 +550,23 @@ test('the timeline, session list and header show the latest status line and the 
       a.job,
     ])
 
-    const timeline = await fixture.http(`/batches/${capture.batch.id}/processing/${a.job}/session`)
-    assert.equal(timeline.status, 200, JSON.stringify(timeline.value))
-    const value = timeline.value as {
-      session_state: string
-      outbox: { kind: string; payload: { text?: string } }[]
-    }
-    assert.equal(value.session_state, 'waiting_input')
+    const read = await fixture.http(`/batches/${capture.batch.id}/processing/${a.job}/history`)
+    assert.equal(read.status, 200, JSON.stringify(read.value))
+    const value = read.value as SessionHistoryDto
+    const current = value.session.attempts.find((item) => item.id === a.attempt)
+    assert.equal(current?.session_state, 'waiting_input')
+    // Newest first, as the history reads.
     assert.deepEqual(
-      value.outbox.map((item) => item.kind),
-      ['status', 'question'],
+      value.entries.map((entry) => entry.details.kind),
+      ['question', 'status'],
     )
     const missing = await fixture.http(
-      `/batches/${capture.batch.id}/processing/${randomUUID()}/session`,
+      `/batches/${capture.batch.id}/processing/${randomUUID()}/history`,
     )
     assert.equal(missing.status, 404)
+    // The earlier timeline response is gone.
+    const removed = await fixture.http(`/batches/${capture.batch.id}/processing/${a.job}/session`)
+    assert.equal(removed.status, 404)
 
     const listed = (await listAgentSessions(fixture.api.pool, fixture.config)).sessions.find(
       (row) => row.attempt_id === a.attempt,

@@ -101,6 +101,12 @@ async function connectCoordinator(signal) {
   socket.once('close', () => peer.stdin.end())
   return socket
 }
+const delivery = process.env.INTAKE_VM_EVIDENCE_DELIVERY || 'file'
+if (delivery !== 'inline' && delivery !== 'file') throw new Error('invalid_evidence_delivery')
+const tools = process.env.INTAKE_VM_BUILTIN_TOOLS === '1'
+if (tools && !(codex || subscription)) throw new Error('tool_worker_requires_selected_provider')
+const toolScript = tools ? readFileSync(new URL('./tool-turn.sh', import.meta.url), 'utf8') : ''
+
 // A subscription relay also carries its provider's status connection. The credential service is
 // the TLS client on it (see intake-server/src/agents/shared-vm/provider-status.ts, which also
 // names the socket); this end only moves bytes.
@@ -232,10 +238,6 @@ async function carryStatus() {
   }
 }
 const status = statusContainer ? carryStatus().catch(() => {}) : undefined
-
-const tools = process.env.INTAKE_VM_BUILTIN_TOOLS === '1'
-if (tools && !(codex || subscription)) throw new Error('tool_worker_requires_selected_provider')
-const toolScript = tools ? readFileSync(new URL('./tool-turn.sh', import.meta.url), 'utf8') : ''
 for (;;) {
   let socket
   try {
@@ -261,6 +263,7 @@ for (;;) {
           image,
           codex ? 'codex' : 'claude',
           runId,
+          delivery,
         ]
       : [
           'shell',

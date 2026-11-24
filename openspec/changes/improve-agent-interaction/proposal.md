@@ -37,7 +37,7 @@ The outcome sought:
 
 The design for items 1 and 2 is on the Bench Intake Redesign canvas, v70. The boards are "Session drawer: click outside to close, one question at a time" and "Agent questions: choices, numbers, words and steps", with the "Proposal: agent questions" sticky. The design log entries are D37 and D38. Items 3 and 4 are in v71–v75: "Session timeline: expandable entries with links", and the session page as "Option B (chosen) · Agent session page as a conversation", beside the unchosen option A (D39–D41). Items 5 and 6 are on the Masthead options page: "Activity popover: stage rows, counts and bar states" (D42).
 
-Mitch will add more agent-interaction items to this change. This proposal covers the seven above; later items are folded in with `openspec-update-change`.
+Mitch will add more agent-interaction items to this change. This proposal covers the seven above and configurable VM evidence delivery; later items are folded in with `openspec-update-change`.
 
 ## Change identity and linked items
 
@@ -94,6 +94,7 @@ In scope:
 - A server-built session history view: each entry has its summary, details and typed link targets, the operator's inputs are included, and older entries page in.
 - Expandable, grouped entries in the drawer, with one summary line for runs of photo views and web reads.
 - A recorded photo view for each delivered `fetch_evidence` image.
+- Configurable VM evidence delivery: `INTAKE_VM_EVIDENCE_DELIVERY=inline|file`, default `file`; file mode supplies a temporary local image path and citation metadata without inline image bytes.
 - A proposal source kind for an agent-reported web page URL, shown as unverified.
 - The batch-scoped session page as a conversation, with a message box and questions answered in place, linked from the drawer, the Agents page, the session lists and the failure details.
 - Per-step `waiting` and `queued` counts, `questions`, the batch's live `lots`, and the batch's `paused` flag in the header and attention reads.
@@ -120,7 +121,7 @@ Non-goals:
 Compatibility:
 
 - Retained session envelopes with the `/1` ask payload must still decode and stay answerable.
-- Tools and contracts stay app-owned; there is no provider or VM surface change.
+- Tools and contracts stay app-owned. Configurable evidence delivery changes only the representation returned inside tool-capable VM sessions; it adds no tool or filesystem authority. Tool-capable VM peers must support confirmation of a released fetch before the coordinator grants new citation authority.
 - `native-agent/2` and `shared-vm-agent/3` sessions get the new `ask` schema through the same tool server, so no profile bump is needed. The admission checks compare tool names, not schemas; design confirms this. `shared-vm-agent/2` is retired and keeps only its readable history.
 
 ## Reuse and dependency assessment
@@ -149,6 +150,8 @@ Compatibility:
 None.
 
 ### Modified capabilities
+
+- `shared-vm-execution`: tool-capable peers negotiate release confirmation before dispatch and can carry legacy-format evidence after negotiation.
 
 - `processing-workspace`: the session drawer closes from its backdrop, and steps are answered in the drawer. The Inventory drawer's option cards become live. Expandable history with links, the operator's inputs in it, the drawer/page split and the session page.
 - `agents-overview`: each session row links to its session page.
@@ -200,3 +203,5 @@ Assumptions:
 - A number step needs a live lot subject. "Answer in words" turns that step's value into text, and the lot quantity is then unchanged.
 - A stepped answer is sent once, after the summary. Partial answers are not sent.
 - The history read returns 200 entries per page, newest first, from one snapshot, with a `before` cursor for older pages. On each change the drawer and the page re-read the newest page; the drawer reads only that page.
+
+Allow operators to select exact stored photo bytes independently of VM file or inline delivery.

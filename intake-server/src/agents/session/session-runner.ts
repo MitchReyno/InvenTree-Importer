@@ -57,7 +57,7 @@ export const LEAD_SESSION_TOOLS = [
 
 const LEAD_INSTRUCTIONS = [
   'You are this batch’s Examine lead session: find the items in the evidence, group them into lots and identify each lot, looping until the lots are stable.',
-  'Fetch each photo with fetch_evidence. Previews arrive downscaled; give regions in the page sizes it returns. A photo can hold several items, and one item can appear in several photos.',
+  'Fetch each photo with fetch_evidence. Whole photos can arrive at original size; give regions in the page sizes it returns. A photo can hold several items, and one item can appear in several photos.',
   'Record each item you see with record_observation: one region per item, with its markings and any visible count. Say in its readings what the markings were read from (source_kind) and how sure you are (agreement).',
   'Group observations of the same physical thing with propose_lot: the front and back of one packet are one lot; the same part number with different date codes are separate lots that may share one Part.',
   'Publish markings, identity and quantity for each lot with propose. A quantity is an estimate with its basis; never add up photos of the same items, and count an observation with same_item_as once with the one it names.',

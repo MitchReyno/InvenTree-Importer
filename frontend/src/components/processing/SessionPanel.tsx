@@ -1,72 +1,104 @@
+import styled from 'styled-components'
 import {
   SessionFailureDetails,
   FAILED_SESSION_STATES,
 } from '#/components/agents/SessionFailureDetails'
-import { useQuery } from '@tanstack/react-query'
 import type { ProcessingJobDto } from '@invimport/contracts'
 import type { ProcessingClient } from '#/processing/types'
-import { serverQueryKey } from '#/queries/scope'
-import { ReadState, Small } from '#/components/ui'
-import { chatMessages, SessionChatPanel } from './SessionChatPanel'
-import { SessionTimeline } from './SessionTimeline'
+import { chatMessages, drawerItems } from '#/processing/session-history'
+import { useNewestHistory } from '#/processing/useSessionHistory'
+import { processingStepFor, sessionPageHref } from '#/navigation/batch-route'
+import { Link, ReadState, Small, VisuallyHidden } from '#/components/ui'
+import { space } from '#/theme/generated/tokens'
+import { SessionChatPanel } from './SessionChatPanel'
 import { SessionSkeleton } from './SessionSkeleton'
-import { useServerScope, useRetainedPollInterval, useReportRefreshing } from '#/context'
+import { HistoryList } from './HistoryList'
 
 interface Props {
   batchId: string
   job: ProcessingJobDto
-  client: Required<Pick<ProcessingClient, 'session' | 'chat'>> & Pick<ProcessingClient, 'failure'>
+  client: Required<Pick<ProcessingClient, 'history' | 'chat'>> & Pick<ProcessingClient, 'failure'>
   freshDisabled?: boolean
   startFresh: () => void
 }
 
-/** A session's steps and chat. Live hints invalidate this read like every retained read. */
+/**
+ * The drawer's session: the newest page of its history and its chat. It reads only the newest
+ * page; "Open full session" leads to every entry. Live hints invalidate it like every read.
+ */
 export function SessionPanel({ batchId, job, client, startFresh, freshDisabled }: Props) {
-  const scope = useServerScope()
-  // Same retained-read polling as the Processing snapshot, for when live hints are unavailable.
-  const pollInterval = useRetainedPollInterval()
-  const timeline = useQuery({
-    queryKey: serverQueryKey(scope, 'processing', batchId, 'session', job.id),
-    queryFn: () => client.session(batchId, job.id),
-    refetchInterval: pollInterval,
-  })
-  useReportRefreshing(timeline.data !== undefined && timeline.isFetching)
-  if (!timeline.data) {
-    return timeline.isError || timeline.fetchStatus === 'paused' ? (
-      <Small>Session history is unavailable.</Small>
+  const history = useNewestHistory(client.history, batchId, job.id)
+  const step = processingStepFor(job.stage)
+  const fullSession = sessionPageHref(batchId, step, job.id)
+  if (!history.data) {
+    return history.isError || history.fetchStatus === 'paused' ? (
+      <Small>
+        Session history is unavailable. <Link href={fullSession}>Open full session</Link>
+      </Small>
     ) : (
       <ReadState phase="empty" skeleton={<SessionSkeleton />}>
         {null}
       </ReadState>
     )
   }
+  const { session, entries } = history.data
+  const current = session.attempts.find((attempt) => attempt.id === session.current_attempt_id)
+  const sessionState = current?.session_state ?? job.session_state ?? 'queued'
+  const latest = entries.find((entry) => entry.details.kind === 'status')
+  const failed = current && (current.failure || FAILED_SESSION_STATES.has(sessionState))
   return (
     <>
-      {(timeline.isRefetchError || timeline.fetchStatus === 'paused') && (
+      {(history.isRefetchError || history.fetchStatus === 'paused') && (
         <Small role="status">Session history could not be refreshed; showing the last copy.</Small>
       )}
-      {(timeline.data.failure || FAILED_SESSION_STATES.has(timeline.data.session_state)) && (
+      {failed && (
         <SessionFailureDetails
-          key={`${timeline.data.attempt_id}:${timeline.data.failure?.id ?? 'legacy'}`}
-          attemptId={timeline.data.attempt_id}
-          failure={timeline.data.failure}
+          key={`${current.id}:${current.failure?.id ?? 'legacy'}`}
+          attemptId={current.id}
+          failure={current.failure}
           load={client.failure}
         />
       )}
-      <SessionTimeline timeline={timeline.data} />
+      <section aria-label="Agent session">
+        {latest ? (
+          <VisuallyHidden role="status" aria-live="polite">
+            Current activity: {latest.summary}
+          </VisuallyHidden>
+        ) : (
+          <Small role="status" aria-live="polite">
+            No status yet. The agent’s steps appear here as it works.
+          </Small>
+        )}
+        <History>
+          {history.data.before && <Small>Older entries are on the full session page.</Small>}
+          {entries.length > 0 && (
+            <HistoryList
+              label="Session history"
+              items={drawerItems(entries)}
+              context={{ batchId, jobId: job.id, step }}
+            />
+          )}
+          <Link href={fullSession}>Open full session</Link>
+        </History>
+      </section>
       <SessionChatPanel
         storeKey={`${batchId}:${job.id}`}
-        state={timeline.data.session_state}
-        messages={chatMessages(timeline.data)}
+        state={sessionState}
+        messages={chatMessages(entries, { answers: true })}
         send={async (text, key) => {
           await client.chat(batchId, job.id, { idempotency_key: key, text }, key)
-          await timeline.refetch()
+          await history.refetch()
         }}
         startFresh={startFresh}
         freshDisabled={
-          freshDisabled || timeline.isError || timeline.data.attempt_id !== job.attempt_id
+          freshDisabled || history.isError || session.current_attempt_id !== job.attempt_id
         }
       />
     </>
   )
 }
+
+const History = styled.div`
+  display: grid;
+  gap: ${space[3]};
+`

@@ -509,3 +509,71 @@ test('the guest lookup runs the real limactl on PATH by default', async (t) => {
   )
   assert.equal(dir, '/home/fake.guest/bench-intake-guest')
 })
+
+test('both provider relays receive the explicit evidence delivery mode', () => {
+  const { launch, launched } = fakeLaunch()
+  startVmChildren({ ...PLAN, evidenceDelivery: 'file' }, { ...CONTEXT, launch })
+  for (const relay of launched.slice(1)) {
+    assert.equal(relay.options.env.INTAKE_VM_EVIDENCE_DELIVERY, 'file')
+  }
+})
+
+test(
+  'standalone relay forwards file delivery to the guest launch and rejects invalid modes',
+  { timeout: 10000 },
+  async (t) => {
+    const { spawn, spawnSync } = require('node:child_process')
+    const { createServer } = require('node:net')
+    const { once } = require('node:events')
+    const { mkdtemp, writeFile, rm } = require('node:fs/promises')
+    const { tmpdir } = require('node:os')
+    const { join, resolve } = require('node:path')
+    const relayPath = resolve(__dirname, '../deployment/bridge/relay.mjs')
+    const args = [relayPath, 'test-vm', '14313', '/guest', 'runner:test']
+    const invalid = spawnSync(process.execPath, args, {
+      env: { PATH: process.env.PATH, INTAKE_VM_EVIDENCE_DELIVERY: 'invalid' },
+      encoding: 'utf8',
+      timeout: 3000,
+    })
+    assert.equal(invalid.status, 1)
+    assert.match(invalid.stderr, /invalid_evidence_delivery/)
+    const dir = await mkdtemp(join(tmpdir(), 'relay-evidence-'))
+    t.after(() => rm(dir, { recursive: true, force: true }))
+    await writeFile(
+      join(dir, 'limactl'),
+      [
+        '#!/usr/bin/env node',
+        "if (process.argv.includes('docker')) process.exit(0)",
+        "process.stdout.write(JSON.stringify(process.argv.slice(2))+'\\n')",
+        "process.stdin.resume().on('end', () => process.exit(0))",
+      ].join('\n'),
+      { mode: 0o700 },
+    )
+    const server = createServer()
+    server.listen(0, '127.0.0.1')
+    await once(server, 'listening')
+    t.after(() => server.close())
+    const connected = once(server, 'connection')
+    args[2] = String(server.address().port)
+    const relay = spawn(process.execPath, args, {
+      env: {
+        PATH: dir + ':' + process.env.PATH,
+        INTAKE_VM_CODEX_SUBSCRIPTION: '1',
+        INTAKE_VM_BUILTIN_TOOLS: '1',
+        INTAKE_VM_EVIDENCE_DELIVERY: 'file',
+      },
+      stdio: ['ignore', 'ignore', 'pipe'],
+    })
+    const ended = once(relay, 'exit')
+    t.after(() => relay.kill('SIGKILL'))
+    const [socket] = await connected
+    t.after(() => socket.destroy())
+    const [bytes] = await once(socket, 'data')
+    const guestArgs = JSON.parse(bytes.toString())
+    assert.deepEqual(guestArgs.slice(-5, -1), ['/guest', 'runner:test', 'codex', guestArgs.at(-2)])
+    assert.match(guestArgs.at(-2), /^[a-f0-9-]{36}$/)
+    assert.equal(guestArgs.at(-1), 'file')
+    relay.kill('SIGTERM')
+    assert.deepEqual(await ended, [0, null])
+  },
+)

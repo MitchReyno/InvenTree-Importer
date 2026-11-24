@@ -53,6 +53,8 @@ interface Props {
   headingId?: string
   /** Shown right after the capture actions. */
   afterActions?: ReactNode
+  /** A photo the address names: its viewer opens on arrival, or it says it was removed. */
+  photoId?: string
 }
 
 const GROUPS_EXPLANATION =
@@ -124,6 +126,7 @@ export function MediaWorkspace({
   captureEdit,
   headingId,
   afterActions,
+  photoId,
 }: Props) {
   const state = useEvidenceWorkspace(batch.id, client, disabled, onDirtyChange)
   const { snapshot, drafts, command, edit } = state
@@ -503,6 +506,15 @@ export function MediaWorkspace({
         <RefusedFilesNotice reason={refusedFiles} onDismiss={() => setRefusedFiles(null)} />
       )}
       {afterActions}
+      {snapshot && photoId && !snapshot.evidence.some((item) => item.id === photoId) && (
+        <div role="status">
+          <Banner tone="warn">
+            {snapshot.removed?.some((item) => item.id === photoId)
+              ? 'Photo removed. It is listed with the deleted files below, where it can be restored.'
+              : 'That photo is not in this batch.'}
+          </Banner>
+        </div>
+      )}
       <LabelRow>
         <EvidenceLabel id={headingId}>Evidence</EvidenceLabel>
         {snapshot && <Small as="span">{evidenceCount}</Small>}
@@ -639,6 +651,7 @@ export function MediaWorkspace({
                 return (
                   <EvidenceGroupPanel
                     key={groupId ?? 'ungrouped'}
+                    initialOpenId={photoId}
                     batch={batch}
                     snapshot={snapshot}
                     groupId={groupId}

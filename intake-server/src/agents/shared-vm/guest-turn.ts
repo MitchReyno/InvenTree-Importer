@@ -66,6 +66,7 @@ export async function serveGuestTurn(socket: TLSSocket, options: GuestTurnOption
     terminalProbe: true,
     builtinTools: isolated,
     evidenceFiles: isolated,
+    evidenceRelease: isolated ? 1 : undefined,
     // This supervisor publishes each tool turn's egress policy from the command.
     turnPolicy: isolated,
     claudeSubscription: provider === 'claude',
@@ -116,6 +117,9 @@ export async function serveGuestTurn(socket: TLSSocket, options: GuestTurnOption
     throw new Error('wrong_guest_route')
   }
   // Validated before any effect; probes inspect a finished turn and change no policy.
+  if (isolated && !probe && command.evidenceRelease !== 1) {
+    throw new Error('runner_evidence_release_unsupported')
+  }
   const policy = isolated && !probe ? turnPolicy(manifest, command.protected_hosts) : undefined
   const identity = { lineage: command.lineage, attemptId: command.attemptId, turn: command.turn }
   const cwd = join(options.sessionsRoot, identity.lineage)

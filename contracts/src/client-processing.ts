@@ -56,13 +56,6 @@ export function processingClient(
         }),
       ),
 
-    session: (id: string, jobId: string) =>
-      successfulData(
-        client.GET('/api/v1/batches/{id}/processing/{jobId}/session', {
-          params: { path: { id, jobId } },
-        }),
-      ),
-
     /** The newest page of a session's history, or the page older than `before`. */
     history: (id: string, jobId: string, before?: string) =>
       successfulData(

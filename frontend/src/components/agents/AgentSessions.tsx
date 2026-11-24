@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQueries, useQueryClient } from '@tanstack/react-query'
 import styled from 'styled-components'
 import type { AgentSessionListDto, AgentSettingsDto } from '@invimport/contracts'
-import { batchHref, processingStepFor, sessionHref } from '#/navigation/batch-route'
+import { batchHref, processingStepFor, sessionPageHref } from '#/navigation/batch-route'
 import { serverQueryKey } from '#/queries/scope'
 import { useFreshRead } from '#/queries/useFreshRead'
 import { color, radius, space, type, typeVar } from '#/theme/generated/tokens'
@@ -289,13 +289,13 @@ export function AgentSessions({ client, batches }: Props) {
                           value: step,
                           content: (
                             <Link
-                              href={sessionHref(
+                              href={sessionPageHref(
                                 batchId,
                                 processingStepFor(session.stage),
                                 session.job_id,
                               )}
-                              // The drawer shows a job's latest attempt, so an earlier row says so.
-                              aria-label={`${session.latest_on_job ? 'Open session' : 'Open latest session'}: ${step} · ${subject}`}
+                              // The page shows every attempt, so an earlier attempt's row opens it too.
+                              aria-label={`Open session: ${step} · ${subject}`}
                             >
                               {step}
                             </Link>
@@ -316,6 +316,11 @@ export function AgentSessions({ client, batches }: Props) {
                                       attemptId={session.attempt_id}
                                       failure={session.failure}
                                       load={client.failure}
+                                      sessionHref={sessionPageHref(
+                                        batchId,
+                                        processingStepFor(session.stage),
+                                        session.job_id,
+                                      )}
                                     />
                                   </>
                                 ),

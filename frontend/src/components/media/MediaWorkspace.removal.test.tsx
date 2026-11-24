@@ -867,3 +867,36 @@ test('the group focused after a confirmed delete shows its ring until focus leav
   act(() => region.blur())
   expect(region).not.toHaveAttribute('data-focus-ring')
 })
+
+test('a photo link opens that photo’s viewer, and a removed photo says so', async () => {
+  const named = (snapshot: MediaSnapshotDto) => (
+    <MediaWorkspace
+      batch={batch}
+      client={mediaClient(snapshot)}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+      photoId={front}
+    />
+  )
+
+  const view = render(named(present))
+  expect(await screen.findByRole('dialog', { name: 'Front label' })).toBeInTheDocument()
+  // Following a link to another photo while Capture stays mounted opens that one.
+  view.rerender(
+    <MediaWorkspace
+      batch={batch}
+      client={mediaClient(present)}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+      photoId={back}
+    />,
+  )
+  expect(await screen.findByRole('dialog', { name: 'Back marking' })).toBeInTheDocument()
+  view.unmount()
+
+  render(named(afterRemoval))
+  expect(await screen.findByText(/^Photo removed\./)).toBeInTheDocument()
+  expect(screen.queryByRole('dialog')).toBeNull()
+})

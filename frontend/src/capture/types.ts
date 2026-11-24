@@ -31,6 +31,8 @@ export type CaptureWorkspaceProps = {
   onDirtyChange?: (dirty: boolean) => void
   operatorReview?: OperatorReviewDto
   settings?: SettingsPorts
+  /** A photo the address names, whose viewer opens on arrival. */
+  photoId?: string
 }
 
 /** Raw retained commands for the autosave owner; it supplies revisions and delivery keys. */

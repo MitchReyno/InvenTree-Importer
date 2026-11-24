@@ -483,7 +483,8 @@ export function Batch({
         batch={batch}
         client={processing}
         step={batchRoute.step}
-        questionId={batchRoute.questionId}
+        questionId={'questionId' in batchRoute ? batchRoute.questionId : undefined}
+        sessionPageJobId={'sessionJobId' in batchRoute ? batchRoute.sessionJobId : undefined}
         sessionId={parsed.kind === 'route' ? sessionFromQuery(parsed.query) : null}
         focusLotId={parsed.kind === 'route' ? lotFromQuery(parsed.query) : null}
         attention={attentionForRevision}
@@ -572,6 +573,7 @@ export function Batch({
         }
         onDirtyChange={reportCaptureDirty}
         settings={settingsPorts}
+        photoId={batchRoute?.tab === 'capture' ? batchRoute.photoId : undefined}
       />
     )
   } else if (

@@ -24,6 +24,7 @@ export function CaptureWorkspace({
   onDirtyChange,
   operatorReview,
   settings,
+  photoId,
 }: CaptureWorkspaceProps) {
   const { observe, reload } = useBatchCommands()
   const { processing } = useApiClients()
@@ -155,6 +156,7 @@ export function CaptureWorkspace({
           onNoteDirtyChange={reportNote}
           notesSlot={setNotesTarget}
           afterActions={phone ? glance : undefined}
+          photoId={photoId}
         />
         <SettingsColumn>
           {!phone && glance}

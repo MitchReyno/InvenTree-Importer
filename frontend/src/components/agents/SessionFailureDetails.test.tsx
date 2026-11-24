@@ -4,6 +4,7 @@ import { afterEach, beforeEach, test, expect, vi } from 'vitest'
 import { render } from '#/test/render'
 import type { SessionFailureDto } from '@invimport/contracts'
 import { SessionFailureDetails } from './SessionFailureDetails'
+import { H, attemptHeader, history } from '#/test/session-history'
 import { SessionPanel } from '#/components/processing/SessionPanel'
 import { debugModeController } from '#/debug/debug-mode'
 
@@ -87,21 +88,30 @@ test('opening Processing details preserves the chat draft and never retries or s
   const client = {
     chat,
     failure: vi.fn().mockResolvedValue(details),
-    session: vi.fn().mockResolvedValue({
-      job_id: 'job',
-      attempt_id: 'attempt',
-      session_state: 'failed',
-      failure: details,
-      outbox: [],
-      inbox: [],
-      truncated: false,
-    }),
+    // The history read checks its ids; the failure details read returns the fixture.
+    history: vi.fn().mockResolvedValue(
+      history([], {
+        attempts: [
+          attemptHeader({
+            state: 'failed',
+            session_state: 'failed',
+            failure: {
+              id: H.failure,
+              category: details.category,
+              summary: details.summary,
+              recovery: details.recovery,
+              details_available: true,
+            },
+          }),
+        ],
+      }),
+    ),
   }
   // Only the job identity is read by this component.
   render(
     <SessionPanel
       batchId="batch"
-      job={{ id: 'job' } as never}
+      job={{ id: H.job, stage: 'research', attempt_id: H.attempt } as never}
       client={client}
       startFresh={fresh}
     />,

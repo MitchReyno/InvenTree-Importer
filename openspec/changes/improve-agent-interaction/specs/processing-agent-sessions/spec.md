@@ -10,6 +10,53 @@ A status line SHALL be one line of at most 120 characters, and the server SHALL 
 - **WHEN** the session submits it
 - **THEN** the tool call returns a validation error the agent can correct, and nothing is published.
 
+### Requirement: Bounded agent evidence images
+
+A tool-capable VM coordinator SHALL accept `INTAKE_VM_EVIDENCE_IMAGE=preview|original`, defaulting to `preview` for an unset or empty value and rejecting unknown values at startup. In original mode a whole-page fetch of a ready JPEG or PNG SHALL deliver the exact bytes of the authorized version, including embedded metadata, up to the remaining 8 MiB run budget. Both file and inline delivery use those same bytes. Crops and PDF pages use the bounded preview in either mode.
+
+Outside the whole-photo original mode, every image fetch_evidence returns to an agent SHALL be cut from the version's decoded page preview, be at most 2,576 px on its long edge and at most 1.25 MiB encoded. The result SHALL state the delivered width, height and scale relative to the page preview, and the per-run image budget SHALL count the delivered bytes.
+
+#### Scenario: Large original in a lot session
+
+- **GIVEN** preview mode and a lot session whose manifest delivers a 6144 × 8160 photo
+- **WHEN** the agent fetches that evidence without a page or region
+- **THEN** it receives a 1940 × 2576 image with its width, height and scale stated. The result's source reference names the original version and its SHA-256, and a proposal citing that reference is accepted.
+
+#### Scenario: Large region of a page
+
+- **GIVEN** an Examine session and a page preview of 6144 × 8160
+- **WHEN** the agent requests a region 5000 px wide and 6000 px tall in page-preview pixels
+- **THEN** it receives that region scaled to fit within 2,576 px, with the scale stated, and the cited source is the version, not the crop.
+
+#### Scenario: Small region or small page
+
+- **GIVEN** a region, or a lot session's page, no larger than 2,576 px on either side
+- **WHEN** the agent fetches it
+- **THEN** it receives it at its own size, never enlarged, with scale 1, and a later region request still uses page-preview pixels.
+
+#### Scenario: Examine overview
+
+- **GIVEN** preview mode, an Examine session and a page of any size
+- **WHEN** the agent fetches it without a region
+- **THEN** it receives an overview at most 768 px on its long edge, lossless where it fits the size cap, with its scale stated.
+
+#### Scenario: Requested page has no preview
+
+- **GIVEN** a version the session may fetch, whose requested page has no decoded preview
+- **WHEN** the agent fetches it
+- **THEN** the result refuses with `validation_failed`, grants no delivery authority, and sends no original bytes. Encrypted and undecoded versions never reach a session: a lot manifest refuses them as `media_not_ready` and Examine leaves them out.
+
+#### Scenario: Too large at any quality, or removed meanwhile
+
+- **GIVEN** a cut that exceeds 1.25 MiB even at the lowest JPEG quality, or evidence the operator removes while its preview is read
+- **WHEN** the agent fetches it
+- **THEN** the result carries metadata only, or refuses with `media_evidence_removed`; no image is sent, the budget is not charged, and no delivery authority is granted.
+
+#### Scenario: Exact photo bytes
+
+- **WHEN** original mode fetches a whole ready photo
+- **THEN** its delivered digest matches the pinned version and its scale is 1. If its bytes exceed the remaining budget, only metadata is returned and no new citation is granted.
+
 ## ADDED Requirements
 
 ### Requirement: Structured session questions
@@ -104,7 +151,13 @@ A proposal MAY cite a web page by URL in its top-level sources, with an optional
 
 ### Requirement: Lot-forming calls record what they did
 
-The outbox item for a `propose_lot` call SHALL record whether it formed the lot, extended it, only suggested membership or changed nothing, judged from the label, Part, estimate and memberships it applied and the suggestions it wrote; clearing the lot's Re-examine flag, which a successful call on an existing lot does, does not count. It SHALL record the reason for keeping the lot separate when the session gives one in the optional `separation_reason`; a reason PostgreSQL cannot store SHALL be refused as a correctable validation result before anything is written. A `regroup` item SHALL record each move with its source lot and whether it was applied, only suggested or unchanged.
+Each `propose_lot` outbox item SHALL record its outcome (formed, extended, suggested or unchanged) and any supplied `separation_reason`. Each `regroup` item SHALL record each move's source lot, destination lot and outcome (applied, suggested or unchanged).
+
+#### Scenario: Determining a proposal's outcome
+
+- **WHEN** the server classifies a lot proposal
+- **THEN** it considers the label, Part, estimate and memberships applied and suggestions written. Clearing the Re-examine flag alone counts as unchanged.
+- **AND** if PostgreSQL cannot store the supplied reason, the call returns a correctable validation result before writing anything.
 
 #### Scenario: Lot kept apart
 
@@ -127,3 +180,47 @@ The session instructions SHALL tell the agent to write status lines in plain wor
 - **GIVEN** a Research session that has just published a proposal
 - **WHEN** it reports status
 - **THEN** the instructions it received ask for a line such as "Proposed GE S2CN1 diodes as a 1N4148-class switching diode", not "Proposal f067afc5 published".
+
+### Requirement: Configurable VM evidence delivery
+
+Tool-capable VM sessions SHALL support `INTAKE_VM_EVIDENCE_DELIVERY` with values `inline` and `file`. Unset or empty SHALL select `file`; any other value SHALL be refused before launching a turn. The development launcher and standalone relay SHALL forward the selected mode to the tool worker. Routes without VM file tools SHALL retain their existing delivery.
+
+#### Scenario: File delivery
+
+- **GIVEN** a tool-capable Claude or Codex VM session configured for file delivery or with an unset or empty setting
+- **WHEN** an authorized image fetch succeeds
+- **THEN** the guest applies the digest rules in [Guest-staged evidence matches the delivered image](../../../../specs/shared-vm-execution/spec.md#requirement-guest-staged-evidence-matches-the-delivered-image) and saves the delivered bytes in an owner-only temporary file and returns its path, source and rendition metadata, and instructions to open it with the provider's image/file tool, with no inline image bytes.
+- **AND** the file is removed when the turn ends, and the response instructs the agent to fetch again on later turns and cite source metadata rather than the temporary path.
+
+#### Scenario: Inline compatibility
+
+- **GIVEN** a tool-capable VM session with the setting explicitly set to inline
+- **WHEN** an image fetch succeeds
+- **THEN** its existing inline image and staged-file metadata are returned.
+
+#### Scenario: Refused or unavailable image
+
+- **GIVEN** either delivery mode
+- **WHEN** the fetch is refused or returns metadata only
+- **THEN** no file is created and the result is unchanged.
+- **AND** a digest mismatch or failed file write returns no successful file result.
+
+#### Scenario: Oversized inline image becomes a bounded file result
+
+- **GIVEN** a delivered image whose base64 representation exceeds the Codex frame limit
+- **WHEN** file mode stages it
+- **THEN** the returned metadata and path fit the existing transport limit without losing the delivered bytes or citation metadata, including across repeated fetches.
+
+
+#### Scenario: Staging cannot establish a new citation after a failed delivery
+
+- **GIVEN** a tool-capable VM worker fetching a version outside the manifest for the first time, in either delivery mode
+- **WHEN** the file write, digest check, provider-facing response write or confirmation of that write fails
+- **THEN** a subsequent proposal citing that version is refused even if the prepared photo appears in history.
+- **AND** a later confirmed delivery can authorize that version under the existing citation rules; a failed repeat fetch does not revoke an earlier valid delivery.
+
+#### Scenario: Staging a legacy-format preview
+
+- **GIVEN** a pairing that negotiated evidence release confirmation and explicitly identifies the image format as legacy
+- **WHEN** the guest stages a legacy preview with page metadata and no delivered digest
+- **THEN** it computes the digest of the staged preview and retains the original source citation. For a legacy original it verifies the source digest. A modern rendition with missing or malformed required digest metadata is refused.

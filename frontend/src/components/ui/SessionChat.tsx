@@ -14,6 +14,8 @@ type SessionChatProps = {
   sendDisabled?: boolean
   label?: string
   maxLength?: number
+  /** False where the conversation is shown elsewhere, as on the session page. */
+  showLog?: boolean
 }
 
 export function SessionChat({
@@ -23,6 +25,7 @@ export function SessionChat({
   sendDisabled = false,
   label = 'Message',
   maxLength,
+  showLog = true,
 }: SessionChatProps) {
   const inputId = useId()
   const [draft, setDraft] = useState('')
@@ -39,14 +42,16 @@ export function SessionChat({
 
   return (
     <Chat>
-      <Log role="log" aria-label="Session messages">
-        {messages.map((message) => (
-          <Message key={message.id} $mine={message.mine}>
-            <Who>{message.who}</Who>
-            {message.text}
-          </Message>
-        ))}
-      </Log>
+      {showLog && (
+        <Log role="log" aria-label="Session messages">
+          {messages.map((message) => (
+            <Message key={message.id} $mine={message.mine}>
+              <Who>{message.who}</Who>
+              {message.text}
+            </Message>
+          ))}
+        </Log>
+      )}
       <Compose onSubmit={handleSubmit}>
         <label htmlFor={inputId}>{label}</label>
         <textarea
