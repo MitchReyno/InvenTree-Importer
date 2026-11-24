@@ -28,6 +28,11 @@ import { TagSuggestionsForm } from './agents/TagSuggestionsForm'
 import { useDirtyForms } from './agents/useDirtyForms'
 import { createSaveQueue } from './agents/save-queue'
 import type { SettingsPage } from './agents/useSettingsSave'
+import { sessionListKey } from '#/agents/session-list'
+import { invalidateStartFreshReads } from '#/processing/start-fresh'
+
+/** Every session, for the list's totals; no page or filter narrows them. */
+const ALL_SESSIONS = { filter: 'all' } as const
 
 type Props = {
   client: ReturnType<typeof agentsClient>
@@ -56,10 +61,10 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
     queryFn: () => client.settings(),
   })
   const settings = settingsFresh.query
-  // The Agents page's list; its first page gives the slot use it shows too.
+  // The session list's totals count every session, whatever page or filter the list shows.
   const sessionsFresh = useFreshRead({
-    queryKey: serverQueryKey(scope, 'agent-sessions', 'newest'),
-    queryFn: () => client.sessions(),
+    queryKey: sessionListKey(scope, ALL_SESSIONS),
+    queryFn: () => client.sessions(ALL_SESSIONS),
     refetchInterval: poll === false ? 10000 : poll,
   })
   const sessions = sessionsFresh.query
@@ -119,6 +124,7 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
   function adoptLoaded(confirmed: AgentSettingsDto, source: 'save' | 'reload') {
     if (source === 'save') {
       localSaves.current.add(confirmed.revision)
+      invalidateStartFreshReads(queryClient, scope)
     }
     const latest = newestRevision(
       confirmed,
@@ -158,7 +164,10 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
             queryClient.getQueryData<AgentSettingsDto>(settingsKey),
           ),
         adopt: adoptLoaded,
-        ownSave: (revision) => localSaves.current.add(revision),
+        ownSave: (revision) => {
+          localSaves.current.add(revision)
+          invalidateStartFreshReads(queryClient, scope)
+        },
         localSaves: localSaves.current,
         reportDirty: reportDirty.report,
       }

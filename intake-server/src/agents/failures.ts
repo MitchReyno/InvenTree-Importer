@@ -1,11 +1,16 @@
 import type { Pool, PoolClient } from 'pg'
 import {
+  SESSION_FAILURE_CODES,
+  UNINFORMATIVE_FAILURE_CODES,
   validate,
+  type SessionFailureCauseDto,
+  type SessionFailureCode,
   type SessionFailureDto,
   type SessionFailureSummaryDto,
 } from '@invimport/contracts'
 import type { ProcessingConfig } from '#/processing/attempts.ts'
 import { fail } from '#/processing/model.ts'
+import { latestStatuses } from '#/agents/tools/outbox.ts'
 
 const MAX_DIAGNOSTIC_BYTES = 16 * 1024
 
@@ -38,6 +43,32 @@ export async function retainSessionFailure(client: PoolClient, diagnostic: Sessi
   }
 }
 
+const LISTED_CODES = new Set<string>(SESSION_FAILURE_CODES)
+
+/** A code that names more than "the turn failed"; a code older than the list never does. */
+function informativeCode(code: string): code is SessionFailureCode {
+  return LISTED_CODES.has(code) && !UNINFORMATIVE_FAILURE_CODES.has(code as SessionFailureCode)
+}
+
+/**
+ * The recorded cause from the allowlists only: the innermost informative code and the provider's
+ * error. Absent when neither says more than that the turn failed, as before causes were kept.
+ */
+export function failureCause(diagnostic: SessionFailureDto): SessionFailureCauseDto | undefined {
+  const codes = [diagnostic.code, ...diagnostic.causes.map((cause) => cause.code)]
+  const specific = codes.filter(informativeCode).at(-1)
+  const providerError = diagnostic.provider_error
+  if (!specific && !providerError) {
+    return undefined
+  }
+  return {
+    code: specific ?? 'agent_turn_failed',
+    provider: diagnostic.provider,
+    ...(providerError ? { provider_error: providerError } : {}),
+  }
+}
+
+/** Each attempt's failure for its current turn, with its cause and its last status line. */
 export async function latestSessionFailures(client: Pool | PoolClient, attemptIds: string[]) {
   if (!attemptIds.length) {
     return new Map<string, SessionFailureSummaryDto>()
@@ -49,11 +80,26 @@ export async function latestSessionFailures(client: Pool | PoolClient, attemptId
     WHERE failure.attempt_id = ANY($1::uuid[])`,
     [attemptIds],
   )
+  const statuses = await latestStatuses(
+    client,
+    result.rows.map((row) => row.attempt_id),
+  )
   const summaries = new Map<string, SessionFailureSummaryDto>()
   for (const row of result.rows) {
     validate('SessionFailure', row.diagnostic)
-    const { id, category, summary, recovery, details_available } = row.diagnostic
-    summaries.set(row.attempt_id, { id, category, summary, recovery, details_available })
+    const { id, category, summary, recovery, details_available, timestamp } = row.diagnostic
+    const cause = failureCause(row.diagnostic)
+    const lastStatus = statuses.get(row.attempt_id)
+    summaries.set(row.attempt_id, {
+      id,
+      category,
+      summary,
+      recovery,
+      details_available,
+      failed_at: timestamp,
+      ...(cause ? { cause } : {}),
+      ...(lastStatus ? { last_status: lastStatus } : {}),
+    })
   }
   return summaries
 }

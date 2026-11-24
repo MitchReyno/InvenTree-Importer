@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color, space, type } from '#/theme/generated/tokens'
+import { color, space, type, typeVar } from '#/theme/generated/tokens'
 import { useId, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { SessionFailureDto, SessionFailureSummaryDto } from '@invimport/contracts'
@@ -7,19 +7,9 @@ import { serverQueryKey } from '#/queries/scope'
 import { Button, DebugDetails, Link, Spinner } from '#/components/ui'
 import { useServerScope } from '#/context'
 import { useDebugMode } from '#/debug/debug-mode'
+import { FailureSummary } from './FailureSummary'
 
 export type FailureLoader = (attemptId: string, failureId: string) => Promise<SessionFailureDto>
-const labels: Record<SessionFailureDto['category'], string> = {
-  authentication: 'Authentication',
-  configuration: 'Configuration',
-  tool_policy: 'Tool policy',
-  validation: 'Validation',
-  evidence: 'Evidence',
-  provider_network: 'Provider / network',
-  timeout: 'Timeout',
-  interrupted: 'Interrupted',
-  internal: 'Internal / unknown',
-}
 
 /** The provider's own error, kind first, then its result type or HTTP status when given. */
 function providerErrorText(error: SessionFailureDto['provider_error']) {
@@ -36,6 +26,22 @@ function providerErrorText(error: SessionFailureDto['provider_error']) {
   return parts.join(' · ')
 }
 
+/** The codes behind a failure, for debug mode only: category, cause code and provider error. */
+function failureCodes(failure: SessionFailureSummaryDto) {
+  const codes: string[] = [failure.category]
+  if (failure.cause) {
+    codes.push(failure.cause.code)
+    const error = failure.cause.provider_error
+    if (error) {
+      codes.push(error.kind)
+      if (error.http_status !== null) {
+        codes.push(String(error.http_status))
+      }
+    }
+  }
+  return codes.join(' · ')
+}
+
 export const FAILED_SESSION_STATES = new Set([
   'failed',
   'interrupted',
@@ -44,8 +50,9 @@ export const FAILED_SESSION_STATES = new Set([
 ])
 
 /**
- * Category, summary and recovery always show. In debug mode, Show details reads the retained
- * diagnostics on demand; expanding only reads, and never sends chat or retries work.
+ * A failure's cause in plain words, with the category's advice behind a help button. Codes show
+ * only in debug mode, where Show details reads the retained diagnostics on demand; expanding only
+ * reads, and never sends chat or retries work.
  */
 export function SessionFailureDetails({
   attemptId,
@@ -79,11 +86,8 @@ export function SessionFailureDetails({
   const available = Boolean(load && failure?.details_available)
   return (
     <FailureSection aria-label="Session failure">
-      <p>
-        <strong>{failure ? labels[failure.category] : 'Category unavailable'}</strong>
-        {failure && `: ${failure.summary}`}
-      </p>
-      {failure && <p>{failure.recovery}</p>}
+      <FailureSummary failure={failure} />
+      {debug && failure && <Codes>{failureCodes(failure)}</Codes>}
       {sessionHref && <Link href={sessionHref}>Open session</Link>}
       {debug && (
         <Button
@@ -151,6 +155,11 @@ export function SessionFailureDetails({
     </FailureSection>
   )
 }
+
+const Codes = styled.code`
+  font-size: ${typeVar.small.size};
+  color: ${color.muted};
+`
 
 const FailureSection = styled.section`
   flex-basis: 100%;

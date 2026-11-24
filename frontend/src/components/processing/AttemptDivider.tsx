@@ -5,7 +5,7 @@ import {
   FAILED_SESSION_STATES,
   type FailureLoader,
 } from '#/components/agents/SessionFailureDetails'
-import { EventTime } from '#/components/ui'
+import { Button, EventTime } from '#/components/ui'
 import { color, space, typeVar } from '#/theme/generated/tokens'
 
 /** How an attempt stands or ended, in words that say what happened to that attempt. */
@@ -33,13 +33,23 @@ function attemptTitle(attempt: SessionHistoryAttemptDto) {
   return reason ? `Attempt ${attempt.number} · ${reason}` : `Attempt ${attempt.number}`
 }
 
+/** Start fresh for the session's current attempt, disabled with its reason where refused. */
+export type FreshAction = {
+  attemptId: string
+  run: () => void
+  disabled: boolean
+  reason?: string
+}
+
 /** Where an attempt was queued in the conversation: how it ended, and its failure when it failed. */
 export function AttemptDivider({
   attempt,
   loadFailure,
+  startFresh,
 }: {
   attempt: SessionHistoryAttemptDto
   loadFailure?: FailureLoader
+  startFresh?: FreshAction
 }) {
   const title = attemptTitle(attempt)
   const failed = attempt.failure || FAILED_SESSION_STATES.has(attempt.session_state ?? '')
@@ -64,6 +74,18 @@ export function AttemptDivider({
           failure={attempt.failure}
           load={loadFailure}
         />
+      )}
+      {failed && startFresh && (
+        <div>
+          <Button
+            size="sm"
+            onClick={startFresh.run}
+            disabled={startFresh.disabled}
+            disabledReason={startFresh.reason}
+          >
+            Start fresh
+          </Button>
+        </div>
       )}
     </Divider>
   )

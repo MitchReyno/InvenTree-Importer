@@ -10,19 +10,16 @@ import { reserveProcessingMedia, reservedMediaFor } from './media.ts'
 import { commandScope, lockLane } from './scope.ts'
 import { fail } from './model.ts'
 import { isSessionProfile } from './session-policy.ts'
-import { createSessionAttempt } from './session-attempts.ts'
-import { decodeSessionInput } from './session-input.ts'
+import { createSessionAttempt, prepareSessionAttempt } from './session-attempts.ts'
 import { pinnedIdentityCurrent, successorsCurrent } from './stable-identity.ts'
 import { supersedeJobAttempts } from './supersede.ts'
+import {
+  REPLACEABLE_STATES,
+  jobsHoldingSlots,
+  pinnedProposals,
+  subjectRetired,
+} from './start-fresh-eligibility.ts'
 import { instructNewSession } from '#/agents/instructions.ts'
-
-const REPLACEABLE_STATES = new Set([
-  'cancelled',
-  'failed',
-  'interrupted',
-  'resume_unavailable',
-  'waiting_for_login',
-])
 
 /** Explicit replacement retains the lineage, inbox cursor and historical attempt effects. */
 export async function replaceSession(
@@ -59,10 +56,7 @@ export async function replaceSession(
           batchId,
         ])
         const job = found.rows[0] ?? fail('not_found', 404)
-        if (
-          job.subject_id &&
-          capture.snapshot.lots.some((lot) => lot.id === job.subject_id && lot.retired)
-        ) {
+        if (subjectRetired(capture.snapshot, job.subject_id)) {
           fail('subject_retired', 409)
         }
         const lead = job.stage === 'examine' && job.subject_id === null
@@ -96,11 +90,7 @@ export async function replaceSession(
         if (!REPLACEABLE_STATES.has(prior.session_state)) {
           fail('session_not_replaceable', 409)
         }
-        const held = await client.query(
-          'SELECT 1 FROM agent_slot s JOIN processing_attempt a ON a.id=s.attempt_id WHERE a.job_id=$1',
-          [jobId],
-        )
-        if (held.rowCount) {
+        if ((await jobsHoldingSlots(client, [jobId])).size) {
           fail('session_reap_pending', 409)
         }
         if (
@@ -114,13 +104,20 @@ export async function replaceSession(
           [prior.input_id],
         )
         const inputRow = inputs.rows[0] ?? fail('processing_input_missing', 409)
-        const pinned = decodeSessionInput(
-          inputRow.manifest_bytes,
-          inputRow.manifest_digest,
-        ).pinned_proposal_ids
+        const pinned = pinnedProposals(inputRow)
         if (!(await pinnedIdentityCurrent(client, pinned))) {
           fail('identity_waiting', 409)
         }
+        // Every refusal comes before the first write, so a refused replacement supersedes nothing.
+        const prepared = await prepareSessionAttempt(
+          client,
+          config,
+          profileId,
+          capture.snapshot,
+          { id: jobId, ...job },
+          media,
+          { pinnedProposalIds: pinned },
+        )
         await supersedeJobAttempts(client, jobId)
         const attempt = await createSessionAttempt(
           client,
@@ -131,7 +128,7 @@ export async function replaceSession(
           (BigInt(prior.number) + 1n).toString(),
           media,
           prior.input_id,
-          { pinnedProposalIds: pinned },
+          { pinnedProposalIds: pinned, prepared },
         )
         await client.query(
           "UPDATE processing_job SET current_attempt_id=$2,state='queued',revision=revision+1 WHERE id=$1",

@@ -32,7 +32,7 @@ export function processingRepository(
         await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
         await prepareMediaTransaction(client)
         const capture = await captureInTransaction(client, config, batchId)
-        return processingSnapshot(client, config, capture.snapshot)
+        return processingSnapshot(client, config, capture.snapshot, { startFresh: true })
       })
     },
 
