@@ -418,7 +418,7 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - [ ] PR-H: implement task 11, review the exact head, publish with the demo, CI green, merge.
 - [x] PR-I: implement task 12, review the exact head, publish, CI green, merge. Merged as #262 at `b383ca91`.
 - [x] PR-J: implement task 13, review the exact head, publish with the demo, CI green, merge. Merged as #269 at `80260c93`.
-- [ ] PR-K: implement task 14, review the exact head, publish with the demo, CI green, merge.
+- [x] PR-K: implement task 14, review the exact head, publish with the demo, CI green, merge. Merged as #272 at `4a2a3c85`.
 - [ ] Update BI-019's status as PRs merge. It is Done only after PR-A, PR-B, PR-D1, PR-D2, PR-E, PR-F, PR-G, PR-H, PR-I, PR-J and PR-K merge and its acceptance is evidenced.
 - [ ] Mark the design log entries D37 (PR-A), D38 (PR-B), D39 and D41 (PR-E) and D42 (PR-F) Built, with their PRs (D40's page layout was replaced by D41).
 - [ ] Before archiving, run `pnpm openspec:overlap --change improve-agent-interaction`, sync the specs, and record final open items in `notes.md`.
