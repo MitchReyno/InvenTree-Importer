@@ -1,16 +1,12 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
-import type { SessionHistoryEntryDto } from '@invimport/contracts'
 import type { FailureLoader } from '#/components/agents/SessionFailureDetails'
-import { Link } from '#/components/ui'
-import { batchHref } from '#/navigation/batch-route'
 import type { ConversationItem } from '#/processing/session-history'
-import { answerEffectsText, answerPayloadText } from '#/processing/question-summary'
 import { color, radius, space } from '#/theme/generated/tokens'
 import { AttemptDivider, type FreshAction } from './AttemptDivider'
+import { AnswerBubble } from './AnswerBubble'
 import { ChatBubble } from './ChatBubble'
 import { HistoryEntry } from './HistoryEntry'
-import { HistoryLinks } from './HistoryLinks'
 import type { HistoryContext } from './HistoryLink'
 import { HistoryRow } from './HistoryRow'
 import { STEP_LABEL } from './ProcessingParts'
@@ -26,51 +22,6 @@ export type ConversationRowProps = {
   loadFailure?: FailureLoader
   /** Start fresh beside the current attempt's failure, where one is offered. */
   startFresh?: FreshAction
-}
-
-/** An answer as the operator's bubble, quoting the question it answers with a link to it. */
-function AnswerBubble({
-  entry,
-  context,
-}: {
-  entry: SessionHistoryEntryDto
-  context: HistoryContext
-}) {
-  if (entry.details.kind !== 'answer') {
-    return null
-  }
-  const asker = STEP_LABEL[context.step] ?? 'The agent'
-  // The question link is the quote; the rest, such as the lot, follow the answer.
-  const lotLinks = entry.links.filter((candidate) => candidate.kind !== 'question')
-  const link = entry.links.find((candidate) => candidate.kind === 'question')
-  const question =
-    link?.kind === 'question' ? (
-      <Link
-        href={batchHref(context.batchId, {
-          tab: 'processing',
-          step: context.step,
-          questionId: link.question_id,
-        })}
-      >
-        {link.label}
-      </Link>
-    ) : (
-      <span>A question no longer listed</span>
-    )
-
-  return (
-    <ChatBubble
-      id={entry.id}
-      mine
-      author="You"
-      text={answerPayloadText(entry.details.answer)}
-      at={entry.at}
-      unread={entry.who !== 'agent' && !entry.read}
-      quote={{ asker, question }}
-      note={answerEffectsText(entry.details.effects) || undefined}
-      links={lotLinks.length > 0 && <HistoryLinks links={lotLinks} context={context} />}
-    />
-  )
 }
 
 /** One row of a session's history: a divider, a chat bubble, a question card or a history row. */

@@ -10,8 +10,10 @@ type Props = {
   /** "You", or the agent's stage name. */
   author: string
   text: string
-  /** When it was saved; absent while it is being sent. */
+  /** When it was saved; absent until a history read holds it. */
   at?: string
+  /** What shows in place of the time until then: "Sending…", or "Saved" once confirmed. */
+  pendingLabel?: string
   /** The operator's input the session hasn't read yet. */
   unread?: boolean
   /** The question an answer replies to, quoted above it. */
@@ -26,7 +28,18 @@ type Props = {
  * A message, reply or answer as a bubble: the operator's on the right, the agent's on the left,
  * each naming its author. An answer quotes the question it answers.
  */
-export function ChatBubble({ id, mine, author, text, at, unread, quote, note, links }: Props) {
+export function ChatBubble({
+  id,
+  mine,
+  author,
+  text,
+  at,
+  pendingLabel = 'Sending…',
+  unread,
+  quote,
+  note,
+  links,
+}: Props) {
   return (
     <Message data-mine={mine} $mine={mine} id={id} tabIndex={id ? -1 : undefined}>
       <Who>{author}</Who>
@@ -41,7 +54,7 @@ export function ChatBubble({ id, mine, author, text, at, unread, quote, note, li
       <Foot>
         {note && <span>{note}</span>}
         {unread && <span>Not read yet</span>}
-        {at ? <EventTime at={at} /> : <span>Sending…</span>}
+        {at ? <EventTime at={at} /> : <span>{pendingLabel}</span>}
       </Foot>
     </Message>
   )

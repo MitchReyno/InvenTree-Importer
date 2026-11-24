@@ -5,7 +5,7 @@ import { render } from '#/test/render'
 import { SessionChatPanel as SessionChat } from './SessionChatPanel'
 
 test('the composer queues a message for a finished session', async () => {
-  const send = vi.fn().mockResolvedValue(undefined)
+  const send = vi.fn().mockResolvedValue({ seq: '1' })
   render(
     <SessionChat storeKey="batch:finished" state="finished" send={send} startFresh={vi.fn()} />,
   )
@@ -19,7 +19,7 @@ test('the composer queues a message for a finished session', async () => {
 })
 
 test('an unconfirmed send keeps its message and key until retried or discarded', async () => {
-  const send = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue(undefined)
+  const send = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue({ seq: '1' })
   render(
     <SessionChat storeKey="batch:running-1" state="running" send={send} startFresh={vi.fn()} />,
   )
@@ -66,7 +66,7 @@ test('a cancelled session offers a fresh session and takes no messages', () => {
 })
 
 test('an unconfirmed send survives leaving and returning to the session', async () => {
-  const send = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue(undefined)
+  const send = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue({ seq: '1' })
   const view = render(
     <SessionChat storeKey="batch:navigate" state="finished" send={send} startFresh={vi.fn()} />,
   )
@@ -90,7 +90,7 @@ test('leaving during an unresolved send cannot start a second send of it', async
   const send = vi
     .fn()
     .mockImplementationOnce(() => new Promise((_, fail) => (reject = fail)))
-    .mockResolvedValue(undefined)
+    .mockResolvedValue({ seq: '1' })
   const view = render(
     <SessionChat storeKey="batch:in-flight" state="finished" send={send} startFresh={vi.fn()} />,
   )
@@ -114,7 +114,7 @@ test('leaving during an unresolved send cannot start a second send of it', async
 })
 
 test('a failed session explains that a fresh session is needed after sending', async () => {
-  const send = vi.fn().mockResolvedValue(undefined)
+  const send = vi.fn().mockResolvedValue({ seq: '1' })
   render(<SessionChat storeKey="batch:failed" state="failed" send={send} startFresh={vi.fn()} />)
   fireEvent.change(screen.getByLabelText('Message this session'), { target: { value: 'Hello?' } })
   fireEvent.click(screen.getByRole('button', { name: 'Send' }))
@@ -159,7 +159,7 @@ test('a cancelled session takes no messages', () => {
 })
 
 test('a retry waits while sending is unavailable, then reuses the original message and key', async () => {
-  const send = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue(undefined)
+  const send = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue({ seq: '1' })
 
   const panel = (unavailable?: string) => (
     <SessionChat

@@ -36,6 +36,7 @@ import { ProcessingInventory } from './ProcessingInventory'
 import { DrawerAnswers } from './DrawerAnswers'
 import type { DrawerRestoreStore } from '#/processing/drawer-restore'
 import {
+  createAnswerOutcomes,
   sentAnswerValues,
   type AnswerFocusTarget,
   type AnswerOutcomeStore,
@@ -170,18 +171,18 @@ export function ProcessingWorkspace({
   sessionPageJobId,
   sharperRequests,
   drawerRestore,
-  answerOutcomes,
+  answerOutcomes: batchOutcomes,
   edit,
   displayOnly = false,
 }: Props) {
   const { agents, media } = useApiClients()
+  // Without Batch's store, as in a standalone mount, this mount keeps its own.
+  const [ownOutcomes] = useState(createAnswerOutcomes)
+  const answerOutcomes = batchOutcomes ?? ownOutcomes
   // A confirmed answer re-renders every surface that lists its question.
-  useSyncExternalStore(
-    answerOutcomes?.subscribe ?? noSubscription,
-    answerOutcomes?.version ?? noVersion,
-  )
+  useSyncExternalStore(answerOutcomes.subscribe, answerOutcomes.version)
 
-  const confirmedAnswer = (questionId: string) => answerOutcomes?.get(questionId)
+  const confirmedAnswer = (questionId: string) => answerOutcomes.get(questionId)
 
   // A route change shows the session its link names, or none: opening a question navigates, and
   // the drawer closes only once the route actually changes.
@@ -411,7 +412,7 @@ export function ProcessingWorkspace({
       await perform(async () => {
         const receipt = await client.answer(batch.id, id, input, key)
         // Confirmed: the line shows it saved through a failed read or a remount.
-        answerOutcomes?.record(
+        answerOutcomes.record(
           {
             questionId: id,
             answerId: receipt.answer_id,
@@ -591,7 +592,18 @@ export function ProcessingWorkspace({
 
   /** Where focus goes once a step page's answer folds: the next open question, or "Answered". */
   function nextFocusAfter(answeredId: string): AnswerFocusTarget | null {
-    if (sessionPageJobId !== undefined || view === 'overview') {
+    if (sessionPageJobId !== undefined) {
+      const open = snapshot?.jobs
+        .find((job) => job.id === sessionPageJobId)
+        ?.questions.find(
+          (question) =>
+            question.state === 'open' &&
+            question.id !== answeredId &&
+            !confirmedAnswer(question.id),
+        )
+      return open ? { kind: 'question', questionId: open.id } : { kind: 'answered' }
+    }
+    if (view === 'overview') {
       return null
     }
     const next = (source?.questions ?? []).find(
@@ -695,19 +707,29 @@ export function ProcessingWorkspace({
   // failed read or a remount, as the drawer's restore does.
   const workspace = useRef<HTMLElement>(null)
   useEffect(() => {
-    const target = answerOutcomes?.peekFocus()
+    const target = answerOutcomes.peekFocus()
     // While the answer's reload runs, this mount may be about to go; the next one moves focus.
     if (!target || saving === 'answer') {
       return
     }
     const page = workspace.current
-    const element =
-      target.kind === 'question'
-        ? page?.querySelector<HTMLElement>(`[data-question-row="${target.questionId}"]`)
-        : page?.querySelector<HTMLElement>('[data-answered-heading]')
+    // A next question that closed meanwhile gives way to the Answered heading.
+    const stillOpen =
+      target.kind === 'question' &&
+      allQuestions.some(
+        (question) =>
+          question.id === target.questionId &&
+          question.state === 'open' &&
+          !confirmedAnswer(question.id),
+      )
+    const element = stillOpen
+      ? page?.querySelector<HTMLElement>(
+          `[data-question-row="${target.questionId}"], [data-question-form="${target.questionId}"] :is(input, textarea)`,
+        )
+      : page?.querySelector<HTMLElement>('[data-answered-heading]')
     if (element) {
       element.focus()
-      answerOutcomes!.clearFocus()
+      answerOutcomes.clearFocus()
     }
   })
   // A fresh read that returns a question answered, in any tier, replaces this tab's outcome.
@@ -721,7 +743,7 @@ export function ProcessingWorkspace({
       : ''
   useEffect(() => {
     if (answeredInRead) {
-      answerOutcomes?.prune(new Set(answeredInRead.split(' ')))
+      answerOutcomes.prune(new Set(answeredInRead.split(' ')))
     }
   }, [answeredInRead, answerOutcomes])
 
@@ -846,8 +868,10 @@ export function ProcessingWorkspace({
           reportFor={(questionId) => drafts.forSource(`answer:${questionId}`)}
           fallback={questionLink}
         />
+        {/* An answered question folds into the page's Answered group; a closed one says why. */}
         {question &&
-          (isAnswered(question, confirmedAnswer) || !drafts.isDirty(`answer:${id}`)) &&
+          !isAnswered(question, confirmedAnswer) &&
+          !drafts.isDirty(`answer:${id}`) &&
           questionOutcome(question)}
       </>
     )
@@ -865,6 +889,7 @@ export function ProcessingWorkspace({
       subjectLabel={subjectLabel}
       isLot={(id) => id !== null && activeLotIds.has(id)}
       answerForm={pageAnswerForm}
+      answered={pageJob && answeredGroup([pageJob])}
       isAnswerDirty={(questionId) => drafts.isDirty(`answer:${questionId}`)}
       // A message carries no revision, so it waits for a read started after the last live hint.
       sendUnavailable={batch.archived ? 'Resume the batch to send messages.' : revisionlessReason}
@@ -1305,10 +1330,6 @@ function clearSessionLink(jobId?: string) {
 }
 
 const NO_RETIRED_LOTS: ReadonlySet<string> = new Set()
-
-const noSubscription = () => () => {}
-
-const noVersion = () => 0
 
 /** Session states whose card offers Start fresh: failed, stopped or unable to resume. */
 const RECOVERABLE: ReadonlySet<string> = new Set([

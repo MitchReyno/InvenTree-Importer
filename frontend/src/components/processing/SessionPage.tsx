@@ -12,7 +12,7 @@ import type { ProcessingClient } from '#/processing/types'
 import { space } from '#/theme/generated/tokens'
 import { startFreshReason } from '#/processing/start-fresh'
 import { SessionChatPanel } from './SessionChatPanel'
-import { usePendingSend } from '#/processing/pending-sends'
+import { newestInboxSeq, unreadPendingSend, usePendingSend } from '#/processing/pending-sends'
 import { SessionConversation } from './SessionConversation'
 import { SessionPageHeader } from './SessionPageHeader'
 import { SessionPagePanels } from './SessionPagePanels'
@@ -39,6 +39,8 @@ type Props = {
   /** Whether the subject is a live lot, so the header can link it in Review. */
   isLot: (id: string | null) => boolean
   answerForm: (questionId: string) => ReactNode
+  /** The session's answered questions, folded below its open ones. */
+  answered?: ReactNode
   /** A question's answer form on this page holds an unsaved draft. */
   isAnswerDirty: (questionId: string) => boolean
   /** Why a message can't be sent now; absent when it can. */
@@ -109,6 +111,7 @@ export function SessionPage(props: Props) {
   const title = `${stepLabel} · ${props.subjectLabel(session.subject_id)}`
   const current = session.attempts.find((attempt) => attempt.id === session.current_attempt_id)
   const sessionState = current?.session_state ?? props.job?.session_state ?? 'queued'
+  const shownPending = unreadPendingSend(pending, entries)
   const freshReason = props.freshReason ?? startFreshReason(session.start_fresh)
   return (
     <Page>
@@ -147,7 +150,9 @@ export function SessionPage(props: Props) {
             label="Session conversation"
             items={conversation({ ...held, entries: questions.entries })}
             working={sessionState === 'running'}
-            sending={pending?.status === 'sending' ? pending.text : undefined}
+            pending={
+              shownPending && { text: shownPending.text, saved: shownPending.status === 'saved' }
+            }
             filter={filter}
             context={context}
             answerForm={props.answerForm}
@@ -159,13 +164,17 @@ export function SessionPage(props: Props) {
               reason: freshReason,
             }}
           />
+          {props.answered}
           <SessionChatPanel
             storeKey={`${batchId}:${jobId}`}
             state={sessionState}
             label={`Message ${stepLabel}`}
+            newestInboxSeq={newestInboxSeq(entries)}
             send={async (text, key) => {
-              await client.chat(batchId, jobId, { idempotency_key: key, text }, key)
-              await query.refetch()
+              const receipt = await client.chat(batchId, jobId, { idempotency_key: key, text }, key)
+              // The message shows as saved until a read holds it, whether or not this read lands.
+              void query.refetch()
+              return receipt
             }}
             startFresh={props.startFresh}
             freshReason={freshReason}

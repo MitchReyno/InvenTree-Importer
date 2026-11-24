@@ -15,7 +15,9 @@ interface Props {
   storeKey: string
   state: SessionStateDto
   /** Queues one message; the same key is reused only to retry that exact message. */
-  send: (text: string, key: string) => Promise<unknown>
+  send: (text: string, key: string) => Promise<{ seq: string }>
+  /** The newest inbox row the history shows, so the message is recognised once it arrives. */
+  newestInboxSeq?: number
   freshDisabled?: boolean
   /** Why Start fresh would be refused now; the button is disabled and says so. */
   freshReason?: string
@@ -28,13 +30,14 @@ interface Props {
 
 async function deliver(
   storeKey: string,
-  item: Omit<PendingSend, 'status'>,
+  item: Omit<PendingSend, 'status' | 'seq'>,
   send: Props['send'],
 ): Promise<boolean> {
   setPendingSend(storeKey, { ...item, status: 'sending' })
   try {
-    await send(item.text, item.key)
-    setPendingSend(storeKey, undefined)
+    const receipt = await send(item.text, item.key)
+    // Kept until a history read holds the saved row, so it neither vanishes nor shows twice.
+    setPendingSend(storeKey, { ...item, status: 'saved', seq: Number(receipt.seq) })
     return true
   } catch {
     setPendingSend(storeKey, { ...item, status: 'unconfirmed' })
@@ -64,6 +67,7 @@ export function SessionChatPanel({
   storeKey,
   state,
   send,
+  newestInboxSeq = 0,
   startFresh,
   freshDisabled,
   freshReason,
@@ -98,7 +102,9 @@ export function SessionChatPanel({
       return
     }
     setMessage('')
-    void deliver(storeKey, { text, key: crypto.randomUUID() }, send).then((ok) => ok && confirmed())
+    void deliver(storeKey, { text, key: crypto.randomUUID(), after: newestInboxSeq }, send).then(
+      (ok) => ok && confirmed(),
+    )
   }
 
   return (
@@ -109,7 +115,7 @@ export function SessionChatPanel({
           <Button
             type="button"
             onClick={startFresh}
-            disabled={freshDisabled || pending !== undefined}
+            disabled={freshDisabled || hasPendingSend(storeKey)}
             disabledReason={freshReason}
           >
             Start a fresh session
@@ -136,7 +142,7 @@ export function SessionChatPanel({
       <SessionChat
         messages={[]}
         onSend={submit}
-        sendDisabled={pending !== undefined || sendUnavailable !== undefined}
+        sendDisabled={hasPendingSend(storeKey) || sendUnavailable !== undefined}
         label={label}
         showLog={false}
         maxLength={4096}

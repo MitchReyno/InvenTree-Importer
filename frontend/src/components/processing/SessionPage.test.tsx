@@ -240,6 +240,8 @@ test('filter chips narrow the conversation, and Load older adds the older page a
   await user.click(screen.getByRole('button', { name: /^Photos,/ }))
   expect(shown('Hello')).not.toBeVisible()
   expect(shown(/Prepared part of MCU close-up/)).toBeVisible()
+  // The rail follows the rows a filter shows: the visible photo view keeps its dot.
+  expect(shown(/Prepared part of MCU close-up/).closest('li')?.dataset.rail).toBe('action')
   await user.click(screen.getByRole('button', { name: /^Web,/ }))
   expect(shown('Read ww1.microchip.com')).toBeVisible()
   expect(shown('Proposed ATmega328P-AU')).not.toBeVisible()
@@ -361,6 +363,70 @@ test('an open question is answered in place through the session question path', 
     attempt_id: H.attempt,
   })
   await waitFor(() => expect(onSaved).toHaveBeenCalled())
+})
+
+test('the page folds answered questions into one Answered group, newest first, below the conversation', async () => {
+  const user = userEvent.setup()
+  const open = snapshot.jobs[0].questions[0]
+  if (!('steps' in open)) {
+    throw new Error('expected a /2 question')
+  }
+
+  const answeredAt = (minute: number) => `2026-11-24T02:${String(minute).padStart(2, '0')}:00.000Z`
+
+  const folded = (id: string, prompt: string, asked: string, at: string) => ({
+    ...open,
+    id,
+    state: 'answered' as const,
+    revision: '2',
+    asked_at: asked,
+    session_history: true,
+    steps: [{ ...open.steps[0], prompt }],
+    answer: {
+      answer_id: H.inboxItem,
+      answered_at: at,
+      values: [{ step_id: 'variant', prompt, text: 'ATmega328P-AU', truncated: false }],
+      effects: [],
+      delivery: { state: 'waiting' as const, read_at: null },
+    },
+  })
+
+  const read = structuredClone(snapshot)
+  // Asked first but answered last, so it leads the group.
+  read.jobs[0].questions.push(
+    folded('c1000000-0000-4000-8000-00000000000c', 'Older question', answeredAt(1), answeredAt(30)),
+    folded('c2000000-0000-4000-8000-00000000000c', 'Newer question', answeredAt(2), answeredAt(20)),
+  )
+  validate('ProcessingSnapshot', read)
+  const processing = client(history([asked]))
+  processing.read.mockResolvedValue(read)
+  mount(processing)
+  const group = await screen.findByRole('region', { name: 'Answered' })
+  const lines = [...group.querySelectorAll('summary')].map((line) => line.textContent)
+  expect(lines[0]).toContain('Older question')
+  expect(lines[1]).toContain('Newer question')
+  expect(
+    conversationOf().compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy()
+
+  // Answering the open one folds it too, and focus goes to the Answered heading.
+  const answeredNow = structuredClone(read)
+  answeredNow.jobs[0].questions[0] = folded(
+    H.question,
+    'Which ATmega328P variant is this?',
+    answeredAt(4),
+    answeredAt(40),
+  )
+  processing.read.mockResolvedValue(answeredNow)
+  const card = screen.getByRole('form', {
+    name: 'Session question: Which ATmega328P variant is this?',
+  })
+  await user.click(await within(card).findByRole('radio', { name: /ATmega328PB-AU/ }))
+  await user.click(within(card).getByRole('button', { name: /Send/ }))
+  await waitFor(() => expect(screen.getByRole('heading', { name: /^Answered/ })).toHaveFocus())
+  expect(screen.getByRole('region', { name: 'Answered' })).toHaveTextContent(
+    'Which ATmega328P variant is this?',
+  )
 })
 
 test('answering waits for the page’s own Processing read, and stops while it fails or pauses', async () => {

@@ -1,4 +1,5 @@
-import { act, screen, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { createServerQueryClient } from '#/queries/client'
 import { expect, test, vi } from 'vitest'
 import type { ProcessingJobDto, SessionHistoryDto } from '@invimport/contracts'
 import { render } from '#/test/render'
@@ -29,8 +30,16 @@ function mount(
     Promise.resolve({ seq: '9', item_id: H.inboxItem }),
 ) {
   const client = { history: vi.fn(read), chat: vi.fn(chat) }
-  render(<SessionPanel batchId={H.batch} job={job} client={client} startFresh={vi.fn()} />)
-  return client
+  const cache = createServerQueryClient()
+  render(<SessionPanel batchId={H.batch} job={job} client={client} startFresh={vi.fn()} />, {
+    cache,
+  })
+  return Object.assign(client, { cache })
+}
+
+function send(text: string) {
+  fireEvent.change(screen.getByLabelText('Message this session'), { target: { value: text } })
+  fireEvent.click(screen.getByRole('button', { name: 'Send' }))
 }
 
 test('a session’s history shows a skeleton, not a loading line, until it is read', async () => {
@@ -226,14 +235,7 @@ test('a message being sent shows last with “Sending…” until the read retur
     () => sent.promise,
   )
   const list = await screen.findByRole('list', { name: 'Session history' })
-  const box = screen.getByLabelText('Message this session')
-  await act(async () => {
-    box.focus()
-    ;(box as HTMLTextAreaElement).value = ''
-  })
-  const { fireEvent } = await import('@testing-library/react')
-  fireEvent.change(box, { target: { value: 'Is the date code readable?' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+  send('Is the date code readable?')
   const last = await within(list).findByRole('listitem', { name: 'Your message, sending' })
   expect(last).toHaveTextContent('You')
   expect(last).toHaveTextContent('Is the date code readable?')
@@ -244,4 +246,58 @@ test('a message being sent shows last with “Sending…” until the read retur
     await sent.promise
   })
   expect(within(list).queryByRole('listitem', { name: 'Your message, sending' })).toBeNull()
+})
+
+test('a message the read holds before its send returns shows once, never twice', async () => {
+  const sent = deferred<{ seq: string; item_id: string }>()
+  let page = conversationPage()
+  const client = mount(
+    () => Promise.resolve(page),
+    () => sent.promise,
+  )
+  const list = await screen.findByRole('list', { name: 'Session history' })
+  send('Is the date code readable?')
+  await within(list).findByRole('listitem', { name: 'Your message, sending' })
+
+  // A live read lands with the saved row before the send's response does.
+  page = history([chat(9, 7, 'Is the date code readable?'), ...conversationPage().entries], {
+    attempts: conversationPage().session.attempts,
+  })
+  await act(async () => {
+    await client.cache.refetchQueries()
+  })
+  await waitFor(() =>
+    expect(within(list).getAllByText('Is the date code readable?')).toHaveLength(1),
+  )
+  expect(within(list).queryByRole('listitem', { name: /^Your message/ })).toBeNull()
+  await act(async () => {
+    sent.resolve({ seq: '9', item_id: H.inboxItem })
+    await sent.promise
+  })
+  expect(within(list).getAllByText('Is the date code readable?')).toHaveLength(1)
+})
+
+test('a saved message whose refresh fails stays shown as saved until a read holds it', async () => {
+  let page: () => Promise<SessionHistoryDto> = () => Promise.resolve(conversationPage())
+
+  const client = mount(() => page())
+  const list = await screen.findByRole('list', { name: 'Session history' })
+  page = () => Promise.reject(new Error('offline'))
+  send('Is the date code readable?')
+
+  const saved = await within(list).findByRole('listitem', { name: 'Your message, saved' })
+  expect(saved).toHaveTextContent('Saved')
+  page = () =>
+    Promise.resolve(
+      history([chat(9, 7, 'Is the date code readable?'), ...conversationPage().entries], {
+        attempts: conversationPage().session.attempts,
+      }),
+    )
+  await act(async () => {
+    await client.cache.refetchQueries()
+  })
+  await waitFor(() =>
+    expect(within(list).queryByRole('listitem', { name: /^Your message/ })).toBeNull(),
+  )
+  expect(within(list).getAllByText('Is the date code readable?')).toHaveLength(1)
 })

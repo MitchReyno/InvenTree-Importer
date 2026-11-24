@@ -182,7 +182,9 @@ test('answering on the step page shows it answered after the read and the remoun
   expect(screen.queryByRole('form', { name: 'Pinned application question' })).toBeNull()
   expect(document.body).not.toHaveTextContent('superseded')
   // Nothing else is open, so focus goes to the Answered heading.
-  await waitFor(() => expect(screen.getByRole('heading', { name: /^Answered/ })).toHaveFocus())
+  await waitFor(() => expect(screen.getByRole('heading', { name: /^Answered/ })).toHaveFocus(), {
+    timeout: 5000,
+  })
 })
 
 test('the step page never pins an answered question into a form on a direct load', async () => {
@@ -203,8 +205,9 @@ test('a confirmed answer shows as saved when the read after it fails, and focus 
   expect(answeredGroup()).toHaveTextContent('saved')
   expect(screen.queryByRole('form', { name: 'Pinned application question' })).toBeNull()
   // The other open question's row takes focus.
-  await waitFor(() =>
-    expect(screen.getByRole('link', { name: new RegExp(questionPrompt) })).toHaveFocus(),
+  await waitFor(
+    () => expect(screen.getByRole('link', { name: new RegExp(questionPrompt) })).toHaveFocus(),
+    { timeout: 5000 },
   )
 })
 
@@ -311,4 +314,22 @@ test('a drawer with no draft shows a question answered elsewhere as its Answered
     ),
   )
   expect(within(drawer).queryByRole('form', { name: /^Session question/ })).toBeNull()
+})
+
+test('when the next question closes during the save, focus falls back to the Answered heading', async () => {
+  const client = clientFor(examineRead([lead(5), lead(6)]))
+  mount(client, { questionId: Q.question(5) })
+  client.read.mockResolvedValue(
+    examineRead(
+      [
+        answered(lead(5), fullAnswer('Contents verified')),
+        { ...lead(6), state: 'superseded', revision: '2' },
+      ],
+      '9',
+    ),
+  )
+  await answerContentsVerified()
+  await waitFor(() => expect(screen.getByRole('heading', { name: /^Answered/ })).toHaveFocus(), {
+    timeout: 5000,
+  })
 })

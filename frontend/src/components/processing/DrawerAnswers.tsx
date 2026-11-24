@@ -145,7 +145,7 @@ export function DrawerAnswers(props: Props) {
     const blocked = otherAnswerDirty(id)
 
     return (
-      <div key={`${id}:${pin.revision}`}>
+      <div key={`${id}:${pin.revision}`} data-question-form={id}>
         <QuestionAnswer
           label={`Session question: ${questionView(question).title}`}
           question={question}

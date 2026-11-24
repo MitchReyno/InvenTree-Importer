@@ -24,15 +24,6 @@ const ICON_NAME: Record<AnsweredIcon, string> = {
   answered: 'Answered',
 }
 
-function LineIcon({ kind }: { kind: AnsweredIcon }) {
-  return (
-    <Glyph $kind={kind}>
-      {kind === 'clock' ? <ClockIcon /> : <CheckIcon />}
-      <VisuallyHidden>{ICON_NAME[kind]}</VisuallyHidden>
-    </Glyph>
-  )
-}
-
 /**
  * An answered question folded to one line: what was answered and whether the session has read
  * it. It expands to the question, the assumption it replaced, the answer, what it changed, when
@@ -46,7 +37,10 @@ export function AnsweredQuestion({ line, question, stage, sessionHref, lot, lotL
   return (
     <Line id={`answered-${line.questionId}`} data-answered-question={line.questionId}>
       <summary>
-        <LineIcon kind={line.icon} />
+        <Glyph $kind={line.icon}>
+          {line.icon === 'clock' ? <ClockIcon /> : <CheckIcon />}
+          <VisuallyHidden>{ICON_NAME[line.icon]}</VisuallyHidden>
+        </Glyph>
         <Title>{line.title}</Title>
         <Said>
           {line.answer && (

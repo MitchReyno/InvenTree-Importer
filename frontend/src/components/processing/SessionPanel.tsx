@@ -6,7 +6,7 @@ import {
 import type { ProcessingJobDto } from '@invimport/contracts'
 import type { ProcessingClient } from '#/processing/types'
 import { drawerItems } from '#/processing/session-history'
-import { usePendingSend } from '#/processing/pending-sends'
+import { newestInboxSeq, unreadPendingSend, usePendingSend } from '#/processing/pending-sends'
 import { useNewestHistory } from '#/processing/useSessionHistory'
 import { processingStepFor, sessionPageHref } from '#/navigation/batch-route'
 import { Link, ReadState, Small, VisuallyHidden } from '#/components/ui'
@@ -55,6 +55,7 @@ export function SessionPanel({
     )
   }
   const { session, entries } = history.data
+  const shownPending = unreadPendingSend(pending, entries)
   const current = session.attempts.find((attempt) => attempt.id === session.current_attempt_id)
   const sessionState = current?.session_state ?? job.session_state ?? 'queued'
   const latest = entries.find((entry) => entry.details.kind === 'status')
@@ -84,13 +85,15 @@ export function SessionPanel({
         )}
         <History>
           {history.data.before && <Small>Older entries are on the full session page.</Small>}
-          {(entries.length > 0 || pending?.status === 'sending') && (
+          {(entries.length > 0 || shownPending) && (
             <SessionConversation
               label="Session history"
               items={drawerItems(entries)}
               context={{ batchId, jobId: job.id, step }}
               working={sessionState === 'running'}
-              sending={pending?.status === 'sending' ? pending.text : undefined}
+              pending={
+                shownPending && { text: shownPending.text, saved: shownPending.status === 'saved' }
+              }
             />
           )}
           <Link href={fullSession}>Open full session</Link>
@@ -99,9 +102,12 @@ export function SessionPanel({
       <SessionChatPanel
         storeKey={storeKey}
         state={sessionState}
+        newestInboxSeq={newestInboxSeq(entries)}
         send={async (text, key) => {
-          await client.chat(batchId, job.id, { idempotency_key: key, text }, key)
-          await history.refetch()
+          const receipt = await client.chat(batchId, job.id, { idempotency_key: key, text }, key)
+          // The message shows as saved until a read holds it, whether or not this read lands.
+          void history.refetch()
+          return receipt
         }}
         startFresh={startFresh}
         freshReason={freshReason ?? startFreshReason(session.start_fresh)}

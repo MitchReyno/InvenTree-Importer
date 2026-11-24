@@ -3,6 +3,7 @@ import { motion } from '#/components/ui'
 import {
   railMarks,
   shownUnder,
+  type RailMark,
   type ConversationFilter,
   type ConversationItem,
 } from '#/processing/session-history'
@@ -16,8 +17,8 @@ type Props = Omit<ConversationRowProps, 'item'> & {
   label: string
   /** The session is working now, so its latest action carries the "now" dot. */
   working: boolean
-  /** A message being sent, shown last until a read returns it in its place. */
-  sending?: string
+  /** A message being sent or just saved, shown last until a read returns it in its place. */
+  pending?: { text: string; saved: boolean }
 }
 
 /**
@@ -31,35 +32,50 @@ export function SessionConversation({
   filter = 'all',
   label,
   working,
-  sending,
+  pending,
   ...row
 }: Props) {
-  // A filtered view hides rows, so only the full list draws the rail.
-  const marks = railMarks(items, working)
-  const rail = filter === 'all'
+  // The rail runs through the rows a filter shows; hidden rows stay mounted with no marks.
+  const shown = items.map((item) => shownUnder(item, filter))
+  const visible = items.flatMap((_item, index) => (shown[index] ? [index] : []))
+  const visibleMarks = railMarks(
+    visible.map((index) => items[index]),
+    working,
+  )
+  const marks = items.map(() => NO_MARK)
+  visible.forEach((index, position) => {
+    marks[index] = visibleMarks[position]
+  })
 
   return (
     <List aria-label={label}>
       {items.map((item, index) => (
         <Row
           key={item.id}
-          hidden={!shownUnder(item, filter)}
-          data-rail={rail && marks[index].action ? 'action' : undefined}
-          data-line={(rail && marks[index].line) || undefined}
-          data-now={(rail && marks[index].now) || undefined}
-          aria-current={rail && marks[index].now ? 'step' : undefined}
+          hidden={!shown[index]}
+          data-rail={marks[index].action ? 'action' : undefined}
+          data-line={marks[index].line ?? undefined}
+          data-now={marks[index].now || undefined}
+          aria-current={marks[index].now ? 'step' : undefined}
         >
           <ConversationRow item={item} {...row} />
         </Row>
       ))}
-      {sending !== undefined && (
-        <Row aria-label="Your message, sending">
-          <ChatBubble mine author="You" text={sending} />
+      {pending && (
+        <Row aria-label={pending.saved ? 'Your message, saved' : 'Your message, sending'}>
+          <ChatBubble
+            mine
+            author="You"
+            text={pending.text}
+            pendingLabel={pending.saved ? 'Saved' : 'Sending…'}
+          />
         </Row>
       )}
     </List>
   )
 }
+
+const NO_MARK: RailMark = { action: false, line: null, now: false }
 
 const DOT = space[4]
 const NOW_DOT = space[5]
