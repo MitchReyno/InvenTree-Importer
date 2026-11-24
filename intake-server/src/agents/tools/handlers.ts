@@ -1323,8 +1323,8 @@ async function settledPreviews(context: SessionToolContext, preview: QueuedPrevi
 
 /**
  * The preview's renders and, if the sweep took any, whether a photo was removed. One timer bounds
- * the reads: at the deadline it closes the connection, cancelling whatever is in flight, so no
- * read holds a connection past the wait and none starts after it.
+ * the reads: at the deadline it closes the connection and cancels the statement in flight on the
+ * server, so no read holds a connection past the wait and none starts after it.
  */
 async function previewState(context: SessionToolContext, preview: QueuedPreview, deadline: number) {
   if (Date.now() >= deadline) {
@@ -1345,7 +1345,14 @@ async function previewState(context: SessionToolContext, preview: QueuedPreview,
 
   const closeAtDeadline = () => {
     released = true
+    // Closing the socket frees the pool's slot, but the server keeps running a statement until it
+    // next writes; cancelling it by backend ID stops it too. Best effort: a failure leaves only
+    // that statement to finish.
+    const backend = (client as PoolClient & { processID?: number }).processID
     client.release(true)
+    if (backend !== undefined) {
+      void context.pool.query('SELECT pg_cancel_backend($1)', [backend]).catch(() => undefined)
+    }
   }
 
   // A connection lost while checked out is reported here, not to the process. A discarded

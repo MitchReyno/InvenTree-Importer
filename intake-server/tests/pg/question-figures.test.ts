@@ -891,6 +891,15 @@ test('a preview whose checkout or state read is slower than its wait answers in 
         assert.equal(refusal(late).error, 'preview_not_ready', slow)
         assert.equal(late.images, undefined)
         assert.ok(elapsed < 1_000, `${slow}: answered after ${elapsed} ms`)
+        if (slow === 'blocked') {
+          // Seen from another connection well before the two-second sleep would end itself.
+          await new Promise((resolve) => setTimeout(resolve, 300))
+          const sleeping = await fixture.db.pool.query(
+            `SELECT 1 FROM pg_stat_activity
+             WHERE query = 'SELECT pg_sleep(2)' AND state = 'active'`,
+          )
+          assert.equal(sleeping.rowCount, 0, 'the blocked read is cancelled on the server')
+        }
         // The slow step ends on its own; nothing more is sent and every connection is returned.
         await new Promise((resolve) => setTimeout(resolve, 2_500))
         assert.ok(stateReadsDone, `${slow}: the slow step finished`)
