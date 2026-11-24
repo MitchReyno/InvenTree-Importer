@@ -71,3 +71,4 @@ Implementation of BI-019's agent interaction work, delivered PR by PR as the tas
   - Long unbroken words in chat bubbles and the Inventory comparison card wrap by CSS but were not checked in a browser, because the fixture has no chat message or open Inventory question.
   - The native-session qualification script has type errors against the current agent settings contract (`selection`) that predate PR-B, and its folder is outside every tsconfig.
 - The session page's web-read entry for a cited URL is task 7 (PR-E); the photo-view crop route is task 6 (PR-D2).
+- PR-F follow-up: the masthead chip and the workflow details' batch heading can count differently, as in "Examine waiting for you · 1" beside "Waiting for you · 2". The chip's summary (`header/workSummary.ts`) counts jobs waiting for the operator; the heading counts open questions. Decide which count both should show.

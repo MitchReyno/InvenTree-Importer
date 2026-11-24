@@ -318,7 +318,7 @@ describe('ActivityPopover with counts newer than the session list', () => {
   it('counts the heading questions from the same read as the rows', async () => {
     const data = workingBatch()
     const steps = data.batch_steps![0].steps
-    // An older attention read still has two open questions; the newer header read has none.
+    // An older attention read still has two open questions; the newer header read has three.
     const older: BatchAttentionDto = {
       batch_id: batch,
       revision: '3',
@@ -328,11 +328,19 @@ describe('ActivityPopover with counts newer than the session list', () => {
       items: [],
       items_truncated: false,
     }
-    data.batch_steps![0].steps = { ...steps, examine: { ...none, jobs: 1, ready: 1 } }
+    data.batch_steps![0].steps = {
+      ...steps,
+      examine: { ...none, jobs: 1, ready: 1, questions: 1 },
+      inventory: { ...none, jobs: 1, waiting: 1, questions: 2 },
+    }
     await popover(data, { attention: older, countsFromAttention: false })
     const group = screen.getByRole('region', { name: 'Heyyy · Processing' })
+    const links = rows(group)
 
+    expect(within(group).getByText('Waiting for you · 3')).toBeInTheDocument()
     expect(group).not.toHaveTextContent('Waiting for you · 2')
+    expect(links[0]).toHaveTextContent('12 lots formed · 1 question')
+    expect(links[3]).toHaveTextContent('2 questions waiting for your answer')
   })
 })
 
