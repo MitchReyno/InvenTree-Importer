@@ -122,3 +122,41 @@ test('a provider error is retained from the fixed lists only, and never its text
     assert.throws(() => validate('SessionFailure', { ...diagnostic, provider_error: forged }))
   }
 })
+
+test('the failure categories cover exactly the contracts list of typed codes', async () => {
+  const { SESSION_FAILURE_CODES } = await import('@invimport/contracts')
+  const { categories } = await import('#/agents/failure-model.ts')
+  assert.deepEqual(
+    Object.keys(categories).sort(),
+    SESSION_FAILURE_CODES.filter((code) => code !== 'agent_unknown').sort(),
+  )
+})
+
+test('a failure cause is the innermost informative code and the provider error, or nothing', async () => {
+  const { failureCause } = await import('#/agents/failures.ts')
+  const vm = sessionFailure(
+    new NativeSessionError('agent_turn_failed', {
+      cause: new NativeSessionError('agent_protocol_invalid'),
+    }),
+    { ...context, provider: 'claude' },
+  )
+  assert.deepEqual(failureCause(vm), { code: 'agent_protocol_invalid', provider: 'claude' })
+  const overloaded = sessionFailure(
+    new NativeSessionError('agent_turn_failed', {
+      providerError: providerError('claude', { kind: 'overloaded', httpStatus: 529 }),
+    }),
+    { ...context, provider: 'claude' },
+  )
+  assert.deepEqual(failureCause(overloaded), {
+    code: 'agent_turn_failed',
+    provider: 'claude',
+    provider_error: { kind: 'overloaded', result: null, http_status: 529 },
+  })
+  const untyped = sessionFailure(new Error('raw text'), context)
+  assert.equal(failureCause(untyped), undefined)
+  const legacy = { ...untyped, code: 'agent_turn_failed', causes: [] }
+  assert.equal(failureCause(legacy), undefined)
+  // A code retained before the list existed says nothing the app can name.
+  const unlisted = { ...untyped, code: 'agent_retired_code', causes: [] }
+  assert.equal(failureCause(unlisted), undefined)
+})

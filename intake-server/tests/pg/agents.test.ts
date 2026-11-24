@@ -124,7 +124,13 @@ test('native settings bind at queue time, conflict safely, survive completion an
     assert.notEqual(next.attempt_ids[0], queued.attempt_ids[0])
     history = await listAgentSessions(fixture.api.pool, fixture.config)
     assert.deepEqual(history.sessions[0].selection, second)
-    assert.equal(history.sessions.length, 2)
+    // The restart is the same job's second attempt, so it folds the first under one row.
+    assert.equal(history.sessions.length, 1)
+    assert.equal(history.sessions[0].attempt_number, 2)
+    assert.deepEqual(
+      history.sessions[0].earlier_attempts.map((attempt) => [attempt.attempt_id, attempt.state]),
+      [[queued.attempt_ids[0], 'failed']],
+    )
     assert.equal(
       (await listAgentSessions(fixture.api.pool, { ...fixture.config, actorId: randomUUID() }))
         .sessions.length,
@@ -138,7 +144,7 @@ test('native settings bind at queue time, conflict safely, survive completion an
       listAgentSessions(
         fixture.api.pool,
         { ...fixture.config, actorId: randomUUID() },
-        queued.attempt_ids[0],
+        { before: queued.attempt_ids[0] },
       ),
       { message: 'invalid_session_cursor' },
     )
@@ -200,18 +206,23 @@ test('session history pages every retained attempt in queue order and refuses id
       )
       ids.add(queued.attempt_ids[0])
     }
+    // Fifty-three attempts of one job would have spanned two attempt pages; they are one row.
     const newest = await listAgentSessions(fixture.api.pool, fixture.config)
-    assert.equal(newest.sessions.length, 50)
-    assert.ok(newest.next_before)
-    const older = await listAgentSessions(fixture.api.pool, fixture.config, newest.next_before)
-    assert.equal(older.sessions.length, 3)
-    assert.equal(older.next_before, null)
+    assert.equal(newest.sessions.length, 1)
+    assert.equal(newest.next_before, null)
     // native-agent/1 runs one-shot attempts, not sessions.
     assert.equal(newest.sessions_supported, false)
-    const all = [...newest.sessions, ...older.sessions]
-    assert.deepEqual(new Set(all.map((session) => session.attempt_id)), ids)
+    const [row] = newest.sessions
+    assert.equal(row.attempt_number, 53)
+    assert.equal(row.earlier_attempt_count, 52)
+    assert.deepEqual(
+      row.earlier_attempts.map((attempt) => attempt.number),
+      Array.from({ length: 20 }, (_, index) => 52 - index),
+    )
+    const all = [row, ...row.earlier_attempts]
+    assert.ok(all.every((attempt) => ids.has(attempt.attempt_id)))
     assert.ok(
-      all.every((session, index) => index === 0 || session.queued_at <= all[index - 1].queued_at),
+      all.every((attempt, index) => index === 0 || attempt.queued_at <= all[index - 1].queued_at),
     )
     await assert.rejects(
       fixture.db.pool.query(
