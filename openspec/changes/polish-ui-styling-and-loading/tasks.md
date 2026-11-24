@@ -312,10 +312,10 @@
   - Provider token verification is out of scope here (12.1.3 only investigates it). Save confirms shape and storage, and failures show as the last-session line.
   - A guest image change needs the runner image refreshed: managed `pnpm dev` rebuilds it, and unmanaged mode only warns that it's stale and points to `pnpm vm:setup` (`tooling/dev.cjs:190–195,633–646`). The provider management containers run the credential entry point from that image (`personal-claude.sh:22–25`, `personal-codex.sh:20–24`), so they restart on it too. The deployment README covers both modes.
 
-- [ ] 12.1 Investigate and decide, recording each decision and its reason in `notes.md`:
-  - [ ] 12.1.1 The transport for the API-to-worker status request, and a new worker-to-guest path to each credential process's status-only endpoint (the relay has none today): how the endpoint authenticates the paired worker, how both providers are reached in one deployment, and how a timed-out call is abandoned and its guest work released.
-  - [ ] 12.1.2 That Codex `account/read` without refresh has no side effects.
-  - [ ] 12.1.3 Whether the Claude CLI in the guest can confirm a setup token cheaply without starting a session. If it can, propose it as a follow-up requirement; it is not part of this task.
+- [x] 12.1 Investigate and decide, recording each decision and its reason in `notes.md`:
+  - [x] 12.1.1 The transport for the API-to-worker status request, and a new worker-to-guest path to each credential process's status-only endpoint (the relay has none today): how the endpoint authenticates the paired worker, how both providers are reached in one deployment, and how a timed-out call is abandoned and its guest work released.
+  - [x] 12.1.2 That Codex `account/read` without refresh has no side effects.
+  - [x] 12.1.3 Whether the Claude CLI in the guest can confirm a setup token cheaply without starting a session. If it can, propose it as a follow-up requirement; it is not part of this task.
 - [ ] 12.2 RED: tests for:
   - [ ] 12.2.1 The status-only endpoint: Claude saved with and without `credential_meta`; Codex signed in, signing in (before any turn), and an expired login left untouched; a read overlapping an active turn; no secrets.
   - [ ] 12.2.6 `credential_meta` through upgrade, rollback, a replace or remove on the older image, and re-upgrade, showing no stale save time.
