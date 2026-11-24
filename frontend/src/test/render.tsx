@@ -1,5 +1,6 @@
 import { render as renderUi, type RenderOptions } from '@testing-library/react'
 import type { ReactElement, ReactNode } from 'react'
+import type { QueryClient } from '@tanstack/react-query'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import {
   ApiClientsProvider,
@@ -24,12 +25,18 @@ export function render(
   {
     clients = {},
     commands,
+    cache,
     ...options
-  }: RenderOptions & { clients?: ApiClients; commands?: Partial<BatchCommands> } = {},
+  }: RenderOptions & {
+    clients?: ApiClients
+    commands?: Partial<BatchCommands>
+    /** A query client the test holds, for cached reads or the fresh-read registry. */
+    cache?: QueryClient
+  } = {},
 ) {
   function Wrapper({ children }: { children: ReactNode }) {
     return (
-      <ServerStateProvider scope={fixtureScope}>
+      <ServerStateProvider scope={fixtureScope} client={cache}>
         <ConfirmationProvider>
           <ApiClientsProvider value={clients}>
             <BatchCommandsProvider value={batchCommands(commands)}>

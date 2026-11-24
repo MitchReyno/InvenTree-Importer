@@ -1436,3 +1436,11 @@ function navigationFallback(path: string) {
   }
   return response({ code: 'not_found', message: 'Not found', correlation_id: 'test' }, 404)
 }
+
+test('until bootstrap is read the app shows a page skeleton, not a loading line', () => {
+  vi.spyOn(globalThis, 'fetch').mockReturnValue(new Promise(() => undefined))
+  render(<App />)
+
+  expect(screen.queryByText('Loading…')).not.toBeInTheDocument()
+  expect(screen.getByText('Loading')).toHaveAttribute('role', 'status')
+})

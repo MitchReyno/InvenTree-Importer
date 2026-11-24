@@ -5,7 +5,16 @@ import type {
   OperatorLotDto,
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
-import { HelpButton, Paragraph, Small, Subheading, Pill, localTime } from '#/components/ui'
+import {
+  HelpButton,
+  Paragraph,
+  ReadState,
+  Skeleton,
+  Small,
+  Subheading,
+  Pill,
+  localTime,
+} from '#/components/ui'
 import { Field } from '#/forms'
 import { color, space, type } from '#/theme/generated/tokens'
 import { mediaDisplayLabels } from '#/media/identity-labels'
@@ -109,12 +118,15 @@ export function LotEvidence({
           ? `This lot's observations · ${observations}${files ? ` from ${files}` : ''}`
           : `This lot's evidence${files ? ` · ${files}` : ''}`}
       </PaneTitle>
-      {!media && (mediaUnavailable || mediaLoading) && (
+      {!media && mediaUnavailable && (
         <Small role="status">
-          {mediaUnavailable
-            ? 'Retained media is unavailable. File presence and previews could not be confirmed.'
-            : 'Loading retained media…'}
+          Retained media is unavailable. File presence and previews could not be confirmed.
         </Small>
+      )}
+      {!media && !mediaUnavailable && mediaLoading && (
+        <ReadState phase="empty" skeleton={<Skeleton width="100%" height={space[20]} />}>
+          {null}
+        </ReadState>
       )}
       {media && (
         <EvidenceViewer

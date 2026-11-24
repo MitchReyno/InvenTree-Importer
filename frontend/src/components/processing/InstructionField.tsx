@@ -2,7 +2,7 @@ import { IntakeRequestError } from '@invimport/contracts/client'
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import { color, space, typeVar } from '#/theme/generated/tokens'
-import { AiMark, Button, HelpButton, Small } from '#/components/ui'
+import { AiMark, Button, HelpButton, Small, VisuallyHidden } from '#/components/ui'
 import { TextArea } from '#/forms'
 import { deliveryMessage, type InstructionDelivery } from '#/processing/instruction-delivery'
 import { useReportDirty } from '#/navigation/useReportDirty'
@@ -107,6 +107,7 @@ export function InstructionField({
         value={value}
         maxLength={MAX_CHARACTERS}
         disabled={!instruct || !loaded || saving || locked}
+        aria-busy={!loaded && !unavailable ? true : undefined}
         onChange={(event) => {
           const next = event.target.value
           const differs = next !== text
@@ -141,7 +142,8 @@ export function InstructionField({
           The saved instructions are unavailable, so they cannot be changed here right now.
         </Problem>
       )}
-      {!loaded && !unavailable && <Small role="status">Reading the saved instructions…</Small>}
+      {/* The field waits in place, disabled, so nothing appears in the page while it is read. */}
+      {!loaded && !unavailable && <VisuallyHidden role="status">Loading</VisuallyHidden>}
       {dirty && saveBlockedReason && <Small>{saveBlockedReason}</Small>}
       {instruct ? (
         <>

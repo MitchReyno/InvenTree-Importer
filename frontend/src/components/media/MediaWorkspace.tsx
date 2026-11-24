@@ -8,13 +8,15 @@ import type {
   MediaVersionDto,
   OperatorReviewDto,
 } from '@invimport/contracts'
-import { Paragraph, Small, Banner, Toast, Button, HelpButton } from '#/components/ui'
+import { Paragraph, Small, Banner, Toast, Button, HelpButton, ReadState } from '#/components/ui'
+import { EvidenceSkeleton } from './EvidenceSkeleton'
 import { Label, Select } from '#/forms'
 import type { MediaClient } from '#/media/types'
 import { useEvidenceWorkspace } from '#/media/useEvidenceWorkspace'
 import { uploadProgress, useUploadQueue, type UploadItem } from '#/media/useUploadQueue'
 import { uploadRefusal } from '#/media/upload-gate'
 import { usePastedFiles } from '#/browser/usePastedFiles'
+import { useMountedRef } from '#/lifecycle/useMountedRef'
 import { RefusedFilesNotice } from './RefusedFilesNotice'
 import { MediaUpload, type EvidenceUploadHandle } from './MediaUpload'
 import { MediaCropDialog } from './MediaCropDialog'
@@ -125,6 +127,7 @@ export function MediaWorkspace({
 }: Props) {
   const state = useEvidenceWorkspace(batch.id, client, disabled, onDirtyChange)
   const { snapshot, drafts, command, edit } = state
+  const mounted = useMountedRef()
   const upload = useRef<EvidenceUploadHandle>(null)
   const uploads = useUploadQueue({
     currentRevision: async () => (await state.refresh()).revision,
@@ -341,6 +344,10 @@ export function MediaWorkspace({
   }
 
   function focusAfterRemoval(pending: PendingRemoval) {
+    // A dialog that closes because the workspace left moves no focus into the next page.
+    if (!mounted.current) {
+      return null
+    }
     const opener = removalOpener.current
     if (!removalConfirmed.current && opener?.isConnected) {
       return opener
@@ -526,7 +533,12 @@ export function MediaWorkspace({
           Refresh
         </Button>
       </LabelRow>
-      {state.unavailable && (
+      {!snapshot && !state.readFailed && (
+        <ReadState phase="empty" skeleton={<EvidenceSkeleton />}>
+          {null}
+        </ReadState>
+      )}
+      {state.readFailed && (
         <div role="alert">
           <Banner tone="warn">
             Current saved media could not be confirmed. Local file, selection and crop inputs are

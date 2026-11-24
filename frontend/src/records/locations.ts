@@ -133,16 +133,16 @@ export function locationPath(
 
 const UNAVAILABLE = 'Path unavailable: InvenTree couldn’t be read'
 
-/** The path in words; a list leaves out a path still being read. */
-export function locationPathText(path: LocationPath): string {
+/** A path that has been read, or can't be; a path still being read shows as a skeleton. */
+export type SettledLocationPath = Exclude<LocationPath, { kind: 'reading' }>
+
+/** The path in words. */
+export function locationPathText(path: SettledLocationPath): string {
   if (path.kind === 'known') {
     return path.path
   }
-  if (path.kind === 'unavailable') {
-    return UNAVAILABLE
-  }
 
-  return path.kind === 'reading' ? 'Reading…' : 'Not known'
+  return path.kind === 'unavailable' ? UNAVAILABLE : 'Not known'
 }
 
 /**

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { validate, type MediaEditDto, type MediaSnapshotDto } from '@invimport/contracts'
 import { serverQueryKey } from '#/queries/scope'
+import { useFreshRead } from '#/queries/useFreshRead'
 import { useDirtySources } from '#/operator/useDirtySources'
 import { useRetainedCommand } from '#/operator/useRetainedCommand'
 import type { MediaClient } from './types'
@@ -30,11 +31,19 @@ export function useEvidenceWorkspace(
   const cache = useQueryClient()
   const key = serverQueryKey(scope, 'media', batchId)
   const pollInterval = useRetainedPollInterval()
-  const query = useQuery({
+  // Shares the media key with the Map and Images, so its requests are tracked like theirs.
+  const mediaRead = useFreshRead({
     queryKey: key,
     queryFn: () => client.snapshot(batchId),
     refetchInterval: pollInterval,
   })
+  const query = mediaRead.query
+  // The first accepted snapshot needs a read this workspace saw start, not one it joined (such as
+  // the cached Capture view's); after that, receipts and their rereads keep it current.
+  const [verifiedOnce, setVerifiedOnce] = useState(false)
+  if (!verifiedOnce && mediaRead.verified) {
+    setVerifiedOnce(true)
+  }
   const drafts = useDirtySources(onDirtyChange)
   const accepted = useRef<MediaSnapshotDto | undefined>(undefined)
   const [snapshot, setSnapshot] = useState<MediaSnapshotDto>()
@@ -49,7 +58,8 @@ export function useEvidenceWorkspace(
   const command = useRetainedCommand((input: MediaEditDto, requestKey: string) =>
     client.edit(batchId, input, requestKey),
   )
-  const unavailable = query.isError || query.fetchStatus === 'paused' || !query.isFetchedAfterMount
+  const readFailed = query.isError || query.fetchStatus === 'paused'
+  const unavailable = readFailed || !query.isFetchedAfterMount || !verifiedOnce
   // The sources live in a ref, so whether any draft is dirty is what reruns the adoption below.
   const { dirty: anyDraft, hasOtherSources } = drafts
 
@@ -250,6 +260,8 @@ export function useEvidenceWorkspace(
     snapshot,
     query,
     unavailable,
+    /** The read failed or paused; until the first read lands commands wait without saying so. */
+    readFailed,
     drafts,
     error,
     setError,

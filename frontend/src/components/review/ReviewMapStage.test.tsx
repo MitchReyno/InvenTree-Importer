@@ -1,12 +1,16 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { describe, expect, it, vi } from 'vitest'
-import { render } from '#/test/render'
+import { fixtureScope, render } from '#/test/render'
+import { deferred } from '#/test/deferred'
+import { createServerQueryClient } from '#/queries/client'
+import { freshReads } from '#/queries/fresh-reads'
+import { serverQueryKey } from '#/queries/scope'
 import type { MediaClient } from '#/media/types'
 import type { ProcessingClient } from '#/processing/types'
 import { ReviewMapStage } from './ReviewMapStage'
-import { ApiClientsProvider, BatchCommandsProvider } from '#/context'
+import { ApiClientsProvider, BatchCommandsProvider, RetainedPollIntervalContext } from '#/context'
 import { batchCommands } from '#/test/batch-commands'
 
 const lot = (id: string, label: string) => ({ id, label, part_subject_id: null })
@@ -178,6 +182,78 @@ describe('ReviewMapStage', () => {
       ),
     )
     expect(client.edit).toHaveBeenCalledOnce()
+  })
+
+  it('links a new lot’s file even when an equal media read lands while the lot is saved', async () => {
+    const client = media()
+    const withLot = {
+      ...batch,
+      revision: '5',
+      lots: [...batch.lots, lot('n', 'Stray photo')],
+    } as unknown as CaptureSnapshotDto
+    const saving = deferred<CaptureSnapshotDto>()
+    const edit = vi.fn(() => saving.promise)
+    const cache = createServerQueryClient()
+    render(<ReviewMapStage batch={batch} retiredLotIds={new Set()} onDirtyChange={vi.fn()} />, {
+      cache,
+      commands: { edit, reload: vi.fn(async () => undefined) },
+      clients: { media: client },
+    })
+    const make = await screen.findByRole('button', { name: 'New lot from this: Stray photo' })
+    await waitFor(() => expect(make).toBeEnabled())
+    fireEvent.click(make)
+    await waitFor(() => expect(edit).toHaveBeenCalledOnce())
+
+    // Another read of the same media lands while the lot is being saved.
+    await act(async () => {
+      await cache.refetchQueries({ queryKey: serverQueryKey(fixtureScope, 'media', batch.id) })
+    })
+    await act(async () => {
+      saving.resolve(withLot)
+      await saving.promise
+    })
+    await waitFor(() =>
+      expect(client.edit).toHaveBeenCalledWith(
+        batch.id,
+        {
+          expected_revision: '9',
+          change: { kind: 'link', evidence_id: 'f2', subject_id: 'n', linked: true },
+        },
+        expect.any(String),
+      ),
+    )
+    expect(screen.queryByText(/its file is not linked/)).not.toBeInTheDocument()
+  })
+
+  it('leaves a new lot’s file unlinked, and says so, when only a receipt is cached by then', async () => {
+    const client = media()
+    const withLot = {
+      ...batch,
+      revision: '5',
+      lots: [...batch.lots, lot('n', 'Stray photo')],
+    } as unknown as CaptureSnapshotDto
+    const saving = deferred<CaptureSnapshotDto>()
+    const cache = createServerQueryClient()
+    render(<ReviewMapStage batch={batch} retiredLotIds={new Set()} onDirtyChange={vi.fn()} />, {
+      cache,
+      commands: { edit: vi.fn(() => saving.promise), reload: vi.fn(async () => undefined) },
+      clients: { media: client },
+    })
+    const make = await screen.findByRole('button', { name: 'New lot from this: Stray photo' })
+    await waitFor(() => expect(make).toBeEnabled())
+    fireEvent.click(make)
+
+    // A cache write replaces the read while the lot is saved: it is not a read of the media.
+    act(() => {
+      cache.setQueryData(serverQueryKey(fixtureScope, 'media', batch.id), snapshot)
+    })
+    vi.mocked(client.snapshot).mockReturnValue(new Promise(() => undefined))
+    await act(async () => {
+      saving.resolve(withLot)
+      await saving.promise
+    })
+    expect(await screen.findByText(/its file is not linked/)).toBeVisible()
+    expect(client.edit).not.toHaveBeenCalled()
   })
 
   it('sends no link when the new lot was not saved', async () => {
@@ -616,5 +692,83 @@ describe('ReviewMapStage', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(client.edit).not.toHaveBeenCalled()
+  })
+
+  it('makes two edits in a row with live hints on and polling off, the second once the first is read again', async () => {
+    const client = media()
+    const linked = {
+      ...snapshot,
+      revision: '10',
+      evidence: [snapshot.evidence[0], { ...snapshot.evidence[1], linked_subject_ids: ['a'] }],
+    } as MediaSnapshotDto
+    const reread = deferred<MediaSnapshotDto>()
+    vi.mocked(client.edit).mockResolvedValueOnce(linked)
+    const cache = createServerQueryClient()
+    render(
+      <RetainedPollIntervalContext.Provider value={false}>
+        <ReviewMapStage batch={batch} retiredLotIds={new Set()} onDirtyChange={vi.fn()} />
+      </RetainedPollIntervalContext.Provider>,
+      {
+        cache,
+        clients: { media: client },
+        commands: { edit: vi.fn(async () => true), reload: vi.fn(async () => undefined) },
+      },
+    )
+    const stray = await screen.findByRole('listitem', { name: /Stray photo/ })
+    fireEvent.change(within(stray).getByLabelText('Link Stray photo to a lot'), {
+      target: { value: 'a' },
+    })
+    vi.mocked(client.snapshot).mockReturnValueOnce(reread.promise)
+    fireEvent.click(within(stray).getByRole('button', { name: 'Link' }))
+    await waitFor(() => expect(client.edit).toHaveBeenCalledTimes(1))
+
+    // The receipt is shown, but only a read of the map's own verifies the next edit.
+    const unlink = await screen.findByRole('button', { name: 'Unlink Packet A from Stray photo' })
+    expect(unlink).toBeDisabled()
+    expect(client.snapshot).toHaveBeenCalledTimes(2)
+
+    // A live hint while the reread is in flight: the edit carries its revision, so the reread is
+    // enough.
+    act(() => freshReads(cache).noteHint())
+    await act(async () => {
+      reread.resolve(linked)
+      await reread.promise
+    })
+    await waitFor(() => expect(unlink).toBeEnabled())
+    fireEvent.click(unlink)
+    await waitFor(() =>
+      expect(client.edit).toHaveBeenLastCalledWith(
+        batch.id,
+        {
+          expected_revision: '10',
+          change: { kind: 'link', evidence_id: 'f2', subject_id: 'a', linked: false },
+        },
+        expect.any(String),
+      ),
+    )
+  })
+
+  it('a return visit shows the cached map at once, with its edits waiting for the read', async () => {
+    const client = media()
+    const read = deferred<MediaSnapshotDto>()
+    vi.mocked(client.snapshot).mockReturnValueOnce(read.promise)
+    const cache = createServerQueryClient()
+    cache.setQueryData(serverQueryKey(fixtureScope, 'media', batch.id), snapshot)
+    render(<ReviewMapStage batch={batch} retiredLotIds={new Set()} onDirtyChange={vi.fn()} />, {
+      cache,
+      clients: { media: client },
+      commands: { edit: vi.fn(async () => true), reload: vi.fn(async () => undefined) },
+    })
+
+    const stray = screen.getByRole('listitem', { name: /Stray photo/ })
+    fireEvent.change(within(stray).getByLabelText('Link Stray photo to a lot'), {
+      target: { value: 'a' },
+    })
+    expect(within(stray).getByRole('button', { name: 'Link' })).toBeDisabled()
+    await act(async () => {
+      read.resolve(snapshot)
+      await read.promise
+    })
+    await waitFor(() => expect(within(stray).getByRole('button', { name: 'Link' })).toBeEnabled())
   })
 })

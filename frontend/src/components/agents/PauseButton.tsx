@@ -14,6 +14,12 @@ type Props = {
   resumeLabel?: string
   /** Why the change waits, such as a read still landing; shown quietly, without moving the page. */
   unavailableReason?: string
+  /**
+   * Checked again when pressed: a change that sends no revision needs a settled read started after
+   * the last live hint. Until then a press does nothing, so no failure is claimed for a send that
+   * never started.
+   */
+  readyNow?: () => boolean
 }
 
 /**
@@ -26,6 +32,7 @@ export function PauseButton({
   pauseLabel = 'Pause all',
   resumeLabel = 'Resume',
   unavailableReason,
+  readyNow,
 }: Props) {
   const { busy, error, run } = useAsyncAction()
 
@@ -36,14 +43,17 @@ export function PauseButton({
         disabled={busy}
         reasonDisplay="quiet"
         disabledReason={unavailableReason}
-        onClick={() =>
+        onClick={() => {
+          if (readyNow && !readyNow()) {
+            return
+          }
           void run(
             () => change(!paused),
             paused
               ? 'Resuming failed; the agents are still paused.'
               : 'Pausing failed; the agents are still running.',
           )
-        }
+        }}
       >
         {paused ? resumeLabel : pauseLabel}
       </Button>

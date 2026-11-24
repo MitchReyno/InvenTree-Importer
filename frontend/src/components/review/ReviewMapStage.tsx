@@ -1,14 +1,17 @@
 import { useState } from 'react'
 import { Banner, Button } from '#/components/ui'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { serverQueryKey } from '#/queries/scope'
+import { useFreshRead } from '#/queries/useFreshRead'
+import { freshReads } from '#/queries/fresh-reads'
 import { RestructureDialog } from '#/components/operator/RestructureDialog'
+import type { CaptureEdit } from '#/capture/types'
 
 import { ReviewMap } from './ReviewMap'
 import { TellExamine } from './TellExamine'
 import { useDirtySources } from '#/operator/useDirtySources'
-import { useApiClients, useServerScope, useBatchCommands } from '#/context'
+import { useApiClients, useServerScope, useBatchCommands, useReportRefreshing } from '#/context'
 
 type Props = {
   batch: CaptureSnapshotDto
@@ -42,11 +45,14 @@ export function ReviewMapStage({
   const scope = useServerScope()
   const queryClient = useQueryClient()
   const key = serverQueryKey(scope, 'media', batch.id)
-  const query = useQuery({
+  // The Map's edits need a read of its own: cached data, and the receipt an edit writes, never do.
+  const fresh = useFreshRead({
     queryKey: key,
     queryFn: () => media!.snapshot(batch.id),
     enabled: Boolean(media),
   })
+  const query = fresh.query
+  useReportRefreshing(fresh.phase === 'refreshing')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [unfinished, setUnfinished] = useState<Unfinished | null>(null)
@@ -55,10 +61,16 @@ export function ReviewMapStage({
     lotIds: string[]
   } | null>(null)
 
-  async function link(evidenceId: string, lotId: string, linked: boolean) {
+  /**
+   * Links or unlinks a file at the media revision in the cache now. The operator's own press needs
+   * the read the Map showed; the link that finishes a new lot was already checked when it started,
+   * and a read landing meanwhile must not leave the lot half made, so it needs only a current read.
+   */
+  async function link(evidenceId: string, lotId: string, linked: boolean, continuation = false) {
     // Read at send time: a handler may run after its closure's media read was replaced.
     const snapshot = queryClient.getQueryData<MediaSnapshotDto>(key) ?? query.data
-    if (!media || !snapshot) {
+    const ready = continuation ? mediaReadCurrent() : fresh.commandsReadyNow()
+    if (!media || !snapshot || !ready) {
       return false
     }
     setBusy(true)
@@ -73,6 +85,8 @@ export function ReviewMapStage({
         crypto.randomUUID(),
       )
       queryClient.setQueryData(key, next)
+      // The receipt is shown at once; reading it again verifies the Map's next edit.
+      void queryClient.invalidateQueries({ queryKey: key })
       return true
     } catch {
       setError('The link could not be saved. Refresh and try again.')
@@ -83,8 +97,21 @@ export function ReviewMapStage({
     }
   }
 
+  /**
+   * The cache holds an HTTP read of the media, neither failed nor paused; a receipt written since
+   * does not count. It may be newer than the read the Map showed.
+   */
+  function mediaReadCurrent() {
+    const state = queryClient.getQueryState(key)
+    const adopted = freshReads(queryClient).adoptedOrder(key) !== undefined
+    return state?.status === 'success' && state.fetchStatus !== 'paused' && adopted
+  }
+
   /** Makes a lot, then links its file or moves its region into it once the save is confirmed. */
   async function newLot(from: LotSource, label: string, note: string) {
+    if (!fresh.commandsReadyNow()) {
+      return
+    }
     const knownLotIds = batch.lots.map((lot) => lot.id)
     setBusy(true)
     setError('')
@@ -108,7 +135,11 @@ export function ReviewMapStage({
         return
       }
       // This closure's batch predates the new lot, so the move names the accepted revision.
-      await finish({ from, label, lotId: created.id, lotLabel: created.label }, accepted.revision)
+      await finish(
+        { from, label, lotId: created.id, lotLabel: created.label },
+        accepted.revision,
+        true,
+      )
     } catch {
       setError('The lot could not be made. Refresh and try again.')
     } finally {
@@ -125,6 +156,9 @@ export function ReviewMapStage({
   }
 
   async function markSameItem(observationId: string, sameAs: string | null) {
+    if (!mediaReadCurrent()) {
+      return
+    }
     setBusy(true)
     setError('')
     try {
@@ -143,7 +177,16 @@ export function ReviewMapStage({
     }
   }
 
-  async function moveRegion(observationId: string, lotId: string | null, revision?: string) {
+  async function moveRegion(
+    observationId: string,
+    lotId: string | null,
+    revision?: string,
+    continuation = false,
+  ) {
+    // The move that finishes a new lot was checked when the lot was started.
+    if (!continuation && !mediaReadCurrent()) {
+      return false
+    }
     setBusy(true)
     setError('')
     try {
@@ -166,19 +209,31 @@ export function ReviewMapStage({
     }
   }
 
+  /**
+   * Region edits are capture edits with the batch's revision; they name the media read's regions,
+   * so they need an HTTP read of the media in the cache, not a receipt or a failed read. The editor
+   * keeps its draft when refused.
+   */
+  const editRegion: CaptureEdit = async (...args) => {
+    if (!mediaReadCurrent()) {
+      return false
+    }
+    return edit(...args)
+  }
+
   // The new lot exists; its file link or region move is kept until confirmed so it can be finished.
-  async function finish(step: Unfinished, revision?: string) {
+  async function finish(step: Unfinished, revision?: string, continuation = false) {
     setUnfinished(step)
     const done =
       step.from.kind === 'file'
-        ? await link(step.from.evidenceId, step.lotId, true)
-        : await moveRegion(step.from.observationId, step.lotId, revision)
+        ? await link(step.from.evidenceId, step.lotId, true, continuation)
+        : await moveRegion(step.from.observationId, step.lotId, revision, continuation)
     if (done) {
       setUnfinished(null)
     }
   }
 
-  const disabled = busy || batch.archived || !media || !query.data
+  const disabled = busy || batch.archived || !media || !query.data || !fresh.commandsReady
 
   const tellExamine = !batch.archived && (
     <TellExamine batchId={batch.id} onDirtyChange={drafts.forSource('tell-examine')} />
@@ -207,6 +262,14 @@ export function ReviewMapStage({
           yet.
         </Banner>
       )}
+      {fresh.phase === 'failed' && query.data && (
+        <div role="alert">
+          <Banner tone="bad">
+            Evidence status is unavailable. The map shows the last read, and its edits wait for a
+            fresh one.
+          </Banner>
+        </div>
+      )}
       {!media ? (
         <div role="status">
           <Banner tone="bad">Evidence is not available in this setup.</Banner>
@@ -216,7 +279,7 @@ export function ReviewMapStage({
           batch={batch}
           evidence={query.data?.evidence}
           removed={query.data?.removed}
-          loading={query.isPending}
+          loading={fresh.phase === 'empty'}
           approvedLotIds={approvedLotIds}
           restructureUnavailable={restructureUnavailable}
           retiredLotIds={retiredLotIds}
@@ -224,10 +287,10 @@ export function ReviewMapStage({
           disabled={disabled}
           link={link}
           newLotFrom={newLotFrom}
-          moveRegion={moveRegion}
+          moveRegion={(observationId, lotId) => moveRegion(observationId, lotId)}
           newLotFromRegion={newLotFromRegion}
           markSameItem={markSameItem}
-          editRegion={edit}
+          editRegion={editRegion}
           onRegionDirtyChange={drafts.forSource('region')}
           selectionLocked={drafts.isDirty('region')}
           discarded={discarded}

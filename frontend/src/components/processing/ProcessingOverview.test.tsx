@@ -409,7 +409,8 @@ describe('InstructionField', () => {
       />,
     )
     expect(screen.getByLabelText('Instructions for the whole batch')).toBeDisabled()
-    expect(screen.getByText('Reading the saved instructions…')).toBeInTheDocument()
+    expect(screen.queryByText(/Reading the saved instructions/)).not.toBeInTheDocument()
+    expect(screen.getByText('Loading')).toHaveAttribute('role', 'status')
 
     rerender(
       <InstructionField

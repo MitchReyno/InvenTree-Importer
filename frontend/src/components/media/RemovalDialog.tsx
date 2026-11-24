@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import styled from 'styled-components'
 import { color, radius, space, typeVar } from '#/theme/generated/tokens'
 import type { CaptureSnapshotDto, MediaEvidenceDto } from '@invimport/contracts'
-import { Banner, Button, Dialog, Paragraph, Small } from '#/components/ui'
+import { Banner, Button, Dialog, Paragraph, Small, Spinner } from '#/components/ui'
 import { useServerScope } from '#/context'
 import { serverQueryKey } from '#/queries/scope'
 import type { MediaClient } from '#/media/types'
@@ -171,7 +171,12 @@ export function RemovalDialog({
         <Paragraph>
           {leavesSentence(items)} You can restore {pronoun} from Deleted files.
         </Paragraph>
-        {!impact && !failed && <Small role="status">Checking which lots use {pronoun}…</Small>}
+        {/* Read when the dialog opens for this choice, so it waits with a spinner. */}
+        {!impact && !failed && (
+          <Small role="status">
+            <Spinner /> Checking which lots use {pronoun}…
+          </Small>
+        )}
         {failed && (
           <div role="alert">
             <Banner

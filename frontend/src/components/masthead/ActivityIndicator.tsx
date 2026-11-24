@@ -20,6 +20,7 @@ import {
 import { workSummary, type WorkSummary } from '#/header/workSummary'
 import {
   AiMark,
+  Skeleton,
   Spinner,
   media,
   ProgressSegments,
@@ -163,8 +164,15 @@ export function ActivityIndicator({
           </Labels>
           {/* At phone width a read that is not current says so first, then the spinner or the
               job's word, beside the step segments. */}
-          {(!fresh || !running || held || urgent(summary)) && (
-            <ShortText aria-hidden="true" data-short={compact} />
+          {/* Before the first read, a skeleton holds the word's place. */}
+          {compact === undefined ? (
+            <ShortSkeleton aria-hidden="true" data-reading="">
+              <Skeleton width={space[12]} height={space[4]} />
+            </ShortSkeleton>
+          ) : (
+            (!fresh || !running || held || urgent(summary)) && (
+              <ShortText aria-hidden="true" data-short={compact} />
+            )
           )}
           {showSegments && (
             <Segments data-named={fresh && urgent(summary)}>
@@ -264,13 +272,16 @@ function compactSummaryWord(summary: WorkSummary, held: boolean) {
   return summary.headline === 'Status incomplete' ? 'Incomplete' : 'Active'
 }
 
-/** At phone width the labels hide, so a workflow read that is not current names its state. */
+/**
+ * At phone width the labels hide, so a workflow read that is not current names its state; one not
+ * read yet has no word.
+ */
 function compactWord(unavailable: boolean, loaded: boolean) {
   if (unavailable) {
     return 'Unavailable'
   }
 
-  return loaded ? 'Stale' : 'Reading…'
+  return loaded ? 'Stale' : undefined
 }
 
 const GLYPH_COLOR: Partial<Record<WorkState, string>> = {
@@ -324,6 +335,13 @@ const More = styled.span`
   color: ${color.onAccent};
   font-size: ${typeVar.label.size};
   font-weight: ${typeVar.pill.weight};
+`
+
+const ShortSkeleton = styled.span`
+  display: none;
+  ${media.compact} {
+    display: inline-block;
+  }
 `
 
 const ShortText = styled.span`

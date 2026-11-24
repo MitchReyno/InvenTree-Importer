@@ -1,6 +1,10 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
-import { render } from '#/test/render'
+import { fixtureScope, render } from '#/test/render'
+import { deferred } from '#/test/deferred'
+import { createServerQueryClient } from '#/queries/client'
+import { freshReads } from '#/queries/fresh-reads'
+import { serverQueryKey } from '#/queries/scope'
 import { AgentSessions } from './AgentSessions'
 import { debugModeController } from '#/debug/debug-mode'
 import { agentSettings } from '#/test/agent-settings'
@@ -423,4 +427,173 @@ test('a cancelled session still holding its slot reads Working in the Working fi
   const row = screen.getAllByRole('row').find((r) => within(r).queryAllByRole('cell').length > 0)!
   expect(within(row).getByText('Working')).toBeInTheDocument()
   expect(within(row).queryByText(/Not started|Paused/)).toBeNull()
+})
+
+test('a first visit shows the page’s skeleton, not a loading line, until the list lands', async () => {
+  vi.useRealTimers()
+  const api = client()
+  const list = deferred<AgentSessionListDto>()
+  api.sessions.mockReturnValueOnce(list.promise)
+  render(<AgentSessions client={api} batches={batches} />)
+
+  expect(screen.queryByText(/Loading sessions/)).not.toBeInTheDocument()
+  expect(screen.getByRole('status')).toHaveTextContent('Loading')
+  expect(screen.queryByRole('region', { name: 'Summary' })).not.toBeInTheDocument()
+
+  await act(async () => {
+    list.resolve({ sessions, next_before: null, sessions_supported: true })
+    await list.promise
+  })
+  expect(await screen.findByRole('region', { name: 'Summary' })).toBeVisible()
+})
+
+test('a return visit shows the cached list at once, with Pause waiting quietly for the read', async () => {
+  vi.useRealTimers()
+  const cache = createServerQueryClient()
+  cache.setQueryData(serverQueryKey(fixtureScope, 'agent-sessions', 'newest'), {
+    sessions,
+    next_before: null,
+    sessions_supported: true,
+  })
+  const api = {
+    ...client(),
+    pause: vi.fn(async (batchId: string, paused: boolean) => ({ batch_id: batchId, paused })),
+    pauseAll: vi.fn(async (paused: boolean) => ({ paused, batch_ids: [] })),
+  }
+  const list = deferred<AgentSessionListDto>()
+  api.sessions.mockReturnValueOnce(list.promise)
+  render(<AgentSessions client={api} batches={batches} />, { cache })
+
+  const summary = screen.getByRole('region', { name: 'Summary' })
+  const pauseAll = within(summary).getByRole('button', { name: 'Pause all agents' })
+  expect(pauseAll).toHaveAttribute('aria-disabled', 'true')
+  expect(pauseAll).toHaveAccessibleDescription('Updating…')
+  fireEvent.click(pauseAll)
+  expect(api.pauseAll).not.toHaveBeenCalled()
+
+  await act(async () => {
+    list.resolve({ sessions, next_before: null, sessions_supported: true })
+    await list.promise
+  })
+  await waitFor(() => expect(pauseAll).not.toHaveAttribute('aria-disabled'))
+})
+
+test.each([
+  { scope: 'one batch', labels: ['Resume'] },
+  { scope: 'every batch', labels: ['Pause all agents', 'Resume all agents'] },
+])(
+  'Pause and Resume for $scope wait for a read started after the last live hint, and are checked again when pressed',
+  async ({ scope, labels }) => {
+    vi.useRealTimers()
+    const cache = createServerQueryClient()
+    const pausedList = {
+      sessions: sessions.map((session) =>
+        session.batch_id === 'batch-a' ? { ...session, paused: true as const } : session,
+      ),
+      paused_batch_ids: ['batch-a'],
+      next_before: null,
+      sessions_supported: true,
+    }
+    const api = {
+      ...client(),
+      pause: vi.fn(async (batchId: string, paused: boolean) => ({ batch_id: batchId, paused })),
+      pauseAll: vi.fn(async (paused: boolean) => ({ paused, batch_ids: [] })),
+    }
+    api.sessions.mockResolvedValue(pausedList)
+    render(<AgentSessions client={api} batches={batches} />, { cache })
+    const region = await screen.findByRole('region', {
+      name: scope === 'one batch' ? 'Mouser order' : 'Summary',
+    })
+    const buttons = await Promise.all(
+      labels.map((label) => within(region).findByRole('button', { name: label })),
+    )
+    const resume = buttons.at(-1)!
+    await waitFor(() => expect(resume).not.toHaveAttribute('aria-disabled'))
+    const registry = freshReads(cache)
+    const key = serverQueryKey(fixtureScope, 'agent-sessions', 'newest')
+
+    // A hint arrives: during the reconciliation delay the settled read predates it.
+    act(() => registry.noteHint())
+    for (const button of buttons) {
+      expect(button).toHaveAttribute('aria-disabled', 'true')
+      expect(button).toHaveAccessibleDescription('Updating…')
+      fireEvent.click(button)
+    }
+    expect(api.pause).not.toHaveBeenCalled()
+    expect(api.pauseAll).not.toHaveBeenCalled()
+
+    // Reconciliation queued behind a read that started before the hint: that read is not enough.
+    const before = deferred<AgentSessionListDto>()
+    api.sessions.mockReturnValueOnce(before.promise)
+    act(() => {
+      void cache.refetchQueries({ queryKey: key })
+    })
+    act(() => registry.noteHint())
+    await act(async () => {
+      before.resolve(pausedList)
+      await before.promise
+    })
+    for (const button of buttons) {
+      expect(button).toHaveAttribute('aria-disabled', 'true')
+    }
+
+    // The reconciliation's own read lands, and they are available again.
+    await act(async () => {
+      await cache.invalidateQueries({ queryKey: key })
+    })
+    await waitFor(() => expect(resume).not.toHaveAttribute('aria-disabled'))
+    for (const button of buttons) {
+      expect(button).not.toHaveAttribute('aria-disabled')
+    }
+
+    // A hint between the last render and the press is caught when pressed, in either direction.
+    await act(async () => {
+      registry.noteHint()
+      for (const button of buttons) {
+        button.click()
+      }
+    })
+    expect(api.pause).not.toHaveBeenCalled()
+    expect(api.pauseAll).not.toHaveBeenCalled()
+    // Nothing was sent, so nothing failed: the press waits quietly with the rest.
+    expect(within(region).queryByRole('alert')).not.toBeInTheDocument()
+    expect(resume).toHaveAccessibleDescription('Updating…')
+
+    await act(async () => {
+      await cache.invalidateQueries({ queryKey: key })
+    })
+    await waitFor(() => expect(resume).not.toHaveAttribute('aria-disabled'))
+    fireEvent.click(resume)
+    if (scope === 'one batch') {
+      await waitFor(() => expect(api.pause).toHaveBeenCalledWith('batch-a', false))
+    } else {
+      await waitFor(() => expect(api.pauseAll).toHaveBeenCalledWith(false))
+    }
+  },
+)
+
+test('a running batch’s Pause waits for a read started after the last live hint', async () => {
+  vi.useRealTimers()
+  const cache = createServerQueryClient()
+  const api = {
+    ...client(),
+    pause: vi.fn(async (batchId: string, paused: boolean) => ({ batch_id: batchId, paused })),
+    pauseAll: vi.fn(),
+  }
+  render(<AgentSessions client={api} batches={batches} />, { cache })
+  const group = await screen.findByRole('region', { name: 'Mouser order' })
+  const pause = within(group).getByRole('button', { name: 'Pause all' })
+  await waitFor(() => expect(pause).not.toHaveAttribute('aria-disabled'))
+
+  act(() => freshReads(cache).noteHint())
+  expect(pause).toHaveAccessibleDescription('Updating…')
+  fireEvent.click(pause)
+  expect(api.pause).not.toHaveBeenCalled()
+
+  await act(async () => {
+    await cache.invalidateQueries({ queryKey: serverQueryKey(fixtureScope, 'agent-sessions') })
+  })
+  await waitFor(() => expect(pause).not.toHaveAttribute('aria-disabled'))
+  fireEvent.click(pause)
+  await waitFor(() => expect(api.pause).toHaveBeenCalledWith('batch-a', true))
 })

@@ -38,6 +38,8 @@ import {
   Link,
   Panel,
   Paragraph,
+  ReadState,
+  Skeleton,
   Small,
   RecordStatePill,
   media,
@@ -284,7 +286,6 @@ export function ReadyToAdd({
           <Paragraph>Nothing is prepared yet.</Paragraph>
         ) : (
           <>
-            {treeQuery.isPending && readTree && <Small role="status">Reading every record…</Small>}
             {(treeQuery.isError || tree?.nodes === null) && (
               <Small>The full list isn’t available, so only stock, Parts and locations show.</Small>
             )}
@@ -319,6 +320,12 @@ export function ReadyToAdd({
                   })),
                 }))}
               />
+            )}
+            {treeQuery.isPending && readTree && (
+              // The rest of the records arrive below the ones the preparation already names.
+              <ReadState phase="empty" skeleton={<Skeleton width="100%" height={space[12]} />}>
+                {null}
+              </ReadState>
             )}
             <DebugDetails
               label="Exact approval binding"

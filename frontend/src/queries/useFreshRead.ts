@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useState, useSyncExternalStore } from 'react'
 import {
   hashKey,
+  keepPreviousData,
   useQuery,
   useQueryClient,
   type QueryKey,
@@ -22,6 +23,8 @@ export interface FreshReadOptions<T> {
   current?: (data: T) => boolean
   /** Display-only data restored from session storage; shown while the query has none. */
   restored?: T
+  /** Shows the previous key's data while a new key is first read; it never verifies the new key. */
+  keepPrevious?: boolean
 }
 
 export interface FreshRead<T> {
@@ -58,6 +61,7 @@ export function useFreshRead<T>({
   refetchInterval,
   current,
   restored,
+  keepPrevious = false,
 }: FreshReadOptions<T>): FreshRead<T> {
   const client = useQueryClient()
   const registry = freshReads(client)
@@ -89,6 +93,7 @@ export function useFreshRead<T>({
     queryFn: registry.track(queryKey, () => queryFn()),
     enabled,
     refetchInterval,
+    placeholderData: keepPrevious ? keepPreviousData : undefined,
   })
   useSyncExternalStore(
     useCallback((notify) => registry.subscribe(notify), [registry]),
