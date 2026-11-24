@@ -20,6 +20,7 @@ Mitch reported these problems while working with agents in a live batch on 2026-
    - The message box has no label or hint.
 8. **An answered question comes back as a superseded form** (Mitch, 2026-11-24). On the step page, a question answered through its question link re-renders as an empty form with "This question is superseded or its saved context changed…" and Send disabled, though nothing replaced it. Nothing says what was answered or whether the agent has it.
 9. **Agents can't show the operator what they mean** (Mitch, 2026-11-24). A question about a worn marking or two similar labels is text only; the operator has to find the photo and the spot.
+10. **The drawer's messages are out of order** (Mitch, 2026-11-24). The drawer puts every message and answer in a separate list below the history, with no time, so they look newer than they are, and each answer shows twice.
 
 The outcome sought:
 
@@ -32,7 +33,7 @@ The outcome sought:
 - A number step checks the value as it is typed, with a plain fix, and offers "Answer in words" when a number can't be given.
 - The agent states the assumption it works on for each step, and the drawer and Needs you show it.
 
-- Every history entry with more to show expands in place to its details, and links to the pages it concerns. Runs of the same action are grouped. The operator's inputs (answers and instructions) and the app's notices of new photos and revisions appear in the history; chat stays in the chat.
+- Every history entry with more to show expands in place to its details, and links to the pages it concerns. Runs of the same action are grouped. The operator's inputs (answers and instructions) and the app's notices of new photos and revisions appear in the history; messages, replies and answers are bubbles at their time, in the drawer and on the session page alike (item 10).
 - Each session gets a page inside its batch's Processing that shows it as one conversation, oldest first: action rows, chat bubbles, question cards answered in place, the operator's inputs and attempt dividers. It has filters, a message box, side panels for the photos it viewed and the sources it cited, and debug details. The drawer summarises photo views and web reads in one line and links to the page.
 - The activity popover is 520 px wide on desktop, with one row per stage linking to its step page, showing a count where there is one, a state and a short status line.
 - Each stage's bar shows done, working, waiting for you, paused, queued, not started or failed. Only a stage being worked on now animates, and a paused batch is hatched and offers Resume.
@@ -41,9 +42,9 @@ The outcome sought:
 
 The design for items 1 and 2 is on the Bench Intake Redesign canvas, v70. The boards are "Session drawer: click outside to close, one question at a time" and "Agent questions: choices, numbers, words and steps", with the "Proposal: agent questions" sticky. The design log entries are D37 and D38. Items 3 and 4 are in v71–v75: "Session timeline: expandable entries with links", and the session page as "Option B (chosen) · Agent session page as a conversation", beside the unchosen option A (D39–D41). Items 5 and 6 are on the Masthead options page: "Activity popover: stage rows, counts and bar states" (D42).
 
-Items 8 and 9 are on the canvas boards FixAnsweredQuestion, QuestionFigures and QuestionFigureDialog, approved by Mitch on 2026-11-24.
+Items 8 to 10 are on the canvas boards FixAnsweredQuestion, QuestionFigures, QuestionFigureDialog and FixDrawerChat, approved by Mitch on 2026-11-24.
 
-Mitch will add more agent-interaction items to this change. This proposal covers the nine above and configurable VM evidence delivery; later items are folded in with `openspec-update-change`.
+Mitch will add more agent-interaction items to this change. This proposal covers the ten above and configurable VM evidence delivery; later items are folded in with `openspec-update-change`.
 
 ## Change identity and linked items
 
@@ -114,6 +115,7 @@ In scope:
   - recent activity in the app's words, with the agent's note muted, and instructions to keep internal IDs out of status lines (S8);
   - the labelled message box (O6).
 - Answered questions (item 8): the folded Answered line and its delivery state on every answer surface, named reasons for an unanswerable form, the answer summary and delivery on the Processing question read, and an acknowledgement log for read times.
+- Drawer message order (item 10, task 13): one time-ordered list of author-labelled bubbles in the drawer, each answer once with its question quoted, and the separate message list removed.
 - Question pictures (item 9): optional figures and a preview on `ask`, a shared view recipe and decoder operation, render requests run by the media worker, a session-scoped figure route, the card layouts and the larger view.
 
 Non-goals:
@@ -202,15 +204,16 @@ Decided by Mitch on 2026-11-23:
 - A choice is clicked, then sent (Send or Next).
 - Up to 4 steps and 2–6 options per choice; one option per step (no multi-select).
 - Every dialog closes from its backdrop, through its own close guard.
-- The operator's inputs appear in the history; chat stays in the chat.
+- The operator's inputs appear in the history; chat stays in the chat (replaced on 2026-11-24 by item 10: messages and answers sit in the history in order).
 - Photo views are recorded, and runs of the same action are grouped.
 - Web reads: exact URLs for pages the agent cites, shown as agent-reported; proxy hosts later.
 - The session page is batch-scoped and shown as a conversation (option B). It has a message box, and questions are answered in place with the same form as the drawer.
 - The activity popover gets stage rows, counts, a status line and new bar states. It is wider on desktop.
 
-Decided by Mitch on 2026-11-24 (boards FixAnsweredQuestion, QuestionFigures and QuestionFigureDialog):
+Decided by Mitch on 2026-11-24 (boards FixAnsweredQuestion, QuestionFigures, QuestionFigureDialog and FixDrawerChat):
 
 - An answered question folds under "Answered", newest first, with a clock or a tick for its delivery, in all three places.
+- The drawer shows messages, replies and answers in time order as bubbles labelled "You" or the stage name, each answer once with its question quoted; this replaces the earlier "chat stays in the chat".
 - A question carries at most five pictures, in the agent's order; each is a view recipe over an original, rendered by the app through one decoder operation, with marks as an overlay and never burned in. `ask` gains the figures and a preview; no tool is added.
 
 Assumptions:

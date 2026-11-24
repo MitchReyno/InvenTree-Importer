@@ -98,13 +98,13 @@ When expanded, a proposal SHALL show its summary, its sources, what it relies on
 
 ### Requirement: Your inputs in the session history
 
-A session's history SHALL include the operator's answers, with what they changed, and instructions, marked as theirs and placed at the time they were sent, and the app's notices of new evidence and revisions, marked as the app's. An input the session has not read yet SHALL say so. Chat messages SHALL stay in the chat.
+A session's history SHALL include the operator's answers, with what they changed, and instructions, marked as theirs and placed at the time they were sent, and the app's notices of new evidence and revisions, marked as the app's. An input the session has not read yet SHALL say so. Answers, chat messages and the agent's replies SHALL show as chat bubbles at their time.
 
 #### Scenario: Answer in the history
 
 - **GIVEN** the operator answered a three-step question
 - **WHEN** the session's history shows it
-- **THEN** an entry "You answered: same Part · 380 estimated · Drawer R4" expands to "Lot quantity set to 380 (estimated) · note added", with a link to the lot.
+- **THEN** the operator's bubble quotes the question, reads "same Part · 380 estimated · Drawer R4", and shows "Lot quantity set to 380 (estimated) · note added" beside its time, with a link to the lot.
 
 ### Requirement: Drawer and session page split
 
@@ -264,6 +264,28 @@ An answered question that the read returns without its values SHALL show "Answer
 - **GIVEN** a batch whose oldest answers the read returns without values, the very oldest with only their answered state
 - **WHEN** the step page lists its answered questions
 - **THEN** the newest show their answers, the older read "Answered · see the session" with their delivery, those with no time come last in the order they were asked, and an earlier runner's answer reads "Answered · details not shown" with no session link.
+
+### Requirement: Messages and answers in time order
+
+The session drawer and the session page SHALL show the operator's messages, the agent's replies and answers in one list in history order, as bubbles with their time and their author ("You" or the stage name). An answer SHALL appear once, quoting the question it answers with a link to it. A message being sent SHALL show "Sending…" in place of its time until it is saved. The drawer SHALL NOT keep a separate message list.
+
+#### Scenario: A message between agent actions
+
+- **GIVEN** an Examine session that formed a lot at 15:53, then got the operator's message and replied at 15:54, then formed another lot
+- **WHEN** the drawer shows its history
+- **THEN** the "You" bubble and the "Examine" reply sit between the two lots with their times, and nothing repeats below the history.
+
+#### Scenario: An answer quotes its question
+
+- **GIVEN** the operator answered "Are package labels reliable descriptions of their contents?"
+- **WHEN** the drawer shows the answer
+- **THEN** it appears once, as a "You" bubble under "Examine asked" and the question, which links to the question.
+
+#### Scenario: Sending
+
+- **GIVEN** the operator sends a message from the drawer
+- **WHEN** the send hasn't been saved yet
+- **THEN** the message shows at the end with "Sending…" in place of its time, and takes its place in order once saved.
 
 ### Requirement: An answer form says why it can't send
 
