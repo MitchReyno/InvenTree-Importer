@@ -368,8 +368,8 @@
 - **Risks and decisions:** it's broad, so convert by screen in separate commits. Keep each field's value and validation unchanged.
 
 - [x] 14.1 Audit all native selects: their screen, option count, kind (record, growing, fixed) and proposed control. Put the table in the PR description.
-- [ ] 14.2 RED: update each converted field's tests to the new control, and add search tests for the record fields.
-- [ ] 14.3 GREEN: convert the fields, screen by screen.
+- [x] 14.2 RED: update each converted field's tests to the new control, and add search tests for the record fields.
+- [x] 14.3 GREEN: convert the fields, screen by screen.
 - [ ] 14.4 Capture each changed field. Run the frontend checks, and record the demo video.
 
 ## 15. A replaced read is not a failure
