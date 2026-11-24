@@ -29,6 +29,7 @@ Implementation of BI-019's agent interaction work, delivered PR by PR as the tas
 
 ## Decisions made during implementation
 
+- **2026-11-24T18:40+11:00, task 10 (PR-G), after review round 1 (server):** `replaceSession` now prepares the new attempt (profile, stage, settings, sealed input size and channel) before it supersedes the old one, so every refusal precedes its first write; the sealed input passes to `createSessionAttempt` so nothing is sealed twice. The input's profile has a named type (`SessionInputProfile`). The Agents cursor refuses year 0000 as the history cursor does.
 - **2026-11-24T18:10+11:00, task 10 (PR-G), after review round 1 (frontend):**
   - Each page Load more adds starts after the previous page as last read, never a stored cursor, so a session that crosses a page boundary between reads is neither skipped nor shown twice.
   - Switching to a chip not read yet keeps the summary and chips (and focus) in place and says "Updating…" until its rows land.
