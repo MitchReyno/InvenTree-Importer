@@ -1,5 +1,6 @@
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { pickOption } from '#/test/picker'
 import { useState } from 'react'
 import { expect, test, vi } from 'vitest'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
@@ -106,9 +107,9 @@ test('an uncertain attachment change blocks closing and offers only exact retry 
   }
   const reload = vi.fn(async () => undefined)
   render(<Harness client={client} reload={reload} />)
-  const choice = await screen.findByLabelText('Attachment for Packet A')
+  const choice = await screen.findByRole('combobox', { name: 'Attachment for Packet A' })
   await waitFor(() => expect(choice).toBeEnabled())
-  await user.selectOptions(choice, versionId)
+  await pickOption(user, 'Attachment for Packet A', /^packet\.png/)
   await screen.findByRole('button', { name: 'Retry exact attachment change' })
   expect(
     screen.getByRole('button', { name: /Close editor · save or discard first/ }),
@@ -133,14 +134,14 @@ test('a subject draft and an attachment change fence each other', async () => {
   }
   const reload = vi.fn(async () => undefined)
   render(<Harness client={client} reload={reload} />)
-  const choice = await screen.findByLabelText('Attachment for Packet A')
+  const choice = await screen.findByRole('combobox', { name: 'Attachment for Packet A' })
   await waitFor(() => expect(choice).toBeEnabled())
   const label = screen.getByLabelText('Lot label')
   await user.type(label, ' renamed')
   expect(choice).toBeDisabled()
   await user.click(screen.getByRole('button', { name: 'Discard unsaved input' }))
   await waitFor(() => expect(choice).toBeEnabled())
-  await user.selectOptions(choice, versionId)
+  await pickOption(user, 'Attachment for Packet A', /^packet\.png/)
   await screen.findByRole('button', { name: 'Retry exact attachment change' })
   expect(label).toBeDisabled()
   expect(
@@ -173,9 +174,9 @@ test('a confirmed attachment change keeps the subject form fenced until the relo
 
   const reload = vi.fn(() => new Promise<void>((resolve) => (finishReload = resolve)))
   render(<Harness client={client} reload={reload} />)
-  const choice = await screen.findByLabelText('Attachment for Packet A')
+  const choice = await screen.findByRole('combobox', { name: 'Attachment for Packet A' })
   await waitFor(() => expect(choice).toBeEnabled())
-  await user.selectOptions(choice, versionId)
+  await pickOption(user, 'Attachment for Packet A', /^packet\.png/)
   await waitFor(() => expect(client.edit).toHaveBeenCalledOnce())
   expect(screen.getByLabelText('Lot label')).toBeDisabled()
   finishRead()

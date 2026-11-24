@@ -1,5 +1,6 @@
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { picker, pickerText } from '#/test/picker'
 import { expect, test, vi } from 'vitest'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { IntakeRequestError } from '@invimport/contracts/client'
@@ -426,9 +427,9 @@ test('Move to group… selects the file and focuses the existing move control', 
   await user.click(await screen.findByRole('button', { name: 'Actions for Front label' }))
   await user.keyboard('{ArrowDown}{Enter}')
 
-  const destination = screen.getByLabelText('Move selected evidence to')
+  const destination = picker('Move selected evidence to')
   await waitFor(() => expect(destination).toHaveFocus())
-  expect(destination).toHaveValue('')
+  expect(pickerText('Move selected evidence to')).toBe('Ungrouped')
   expect(screen.getByRole('checkbox', { name: 'Select Front label' })).toBeChecked()
   expect(screen.getByRole('checkbox', { name: 'Select Back marking' })).not.toBeChecked()
   await user.click(screen.getByRole('button', { name: 'Move selected evidence' }))
