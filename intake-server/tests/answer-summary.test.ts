@@ -152,3 +152,46 @@ test('a compact answer with a read time stays small, and tiers run newest first'
   assert.equal(answers[1].question.answer, answers[1].compact)
   assert.equal(answers[0].question.answer, undefined)
 })
+
+test("tiers only step down newest first, whatever each answer's size", () => {
+  const at = (minute: number) => `2026-11-24T02:${minute.toString().padStart(2, '0')}:00.000Z`
+  const sized = (minute: number, text: string, delivery?: { state: 'read'; read_at: string }) => {
+    const input = {
+      answerId: id(minute),
+      answeredAt: at(minute),
+      values: [{ stepId: null, prompt: 'Which?', value: { kind: 'text' as const, text } }],
+      effects: [],
+      ...(delivery ? { delivery } : {}),
+    }
+    const answer: BudgetedAnswer = {
+      question: {},
+      full: fullAnswerSummary(input),
+      compact: compactAnswerSummary(input),
+      answeredAt: input.answeredAt,
+    }
+    return answer
+  }
+  const read = { state: 'read' as const, read_at: at(59) }
+
+  // Full to compact: a newer long answer can't fit in full, so a shorter older one stays compact.
+  const fullBoundary = [sized(1, 'x'), sized(2, 'y'.repeat(200), read), sized(3, 'z', read)]
+  const newestFull = answerMemberBytes(fullBoundary[2].full!)
+  budgetAnswers(
+    fullBoundary,
+    newestFull +
+      answerMemberBytes(fullBoundary[1].compact) +
+      answerMemberBytes(fullBoundary[0].full!),
+  )
+  assert.equal(fullBoundary[2].question.answer, fullBoundary[2].full)
+  assert.equal(fullBoundary[1].question.answer, fullBoundary[1].compact)
+  assert.equal(fullBoundary[0].question.answer, fullBoundary[0].compact)
+
+  // Compact to none: a newer compact member with a read time doesn't fit, so a smaller older
+  // runner one without delivery gets none too.
+  const noneBoundary = [sized(1, 'x'), sized(2, 'y', read)]
+  const olderCompact = answerMemberBytes(noneBoundary[0].compact)
+  assert.ok(olderCompact < answerMemberBytes(noneBoundary[1].compact))
+  budgetAnswers(noneBoundary, olderCompact)
+  assert.equal(noneBoundary[1].question.answer, undefined)
+  assert.equal(noneBoundary[0].question.answer, undefined)
+})
