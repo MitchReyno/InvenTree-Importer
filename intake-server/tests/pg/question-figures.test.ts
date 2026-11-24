@@ -884,12 +884,18 @@ test('a preview whose checkout or state read is slower than its wait answers in 
                           () => undefined,
                           (error: unknown) => error,
                         )
-                        const seen = await fixture.db.pool.query(
-                          `SELECT 1 FROM pg_stat_activity
-                           WHERE pid = $1 AND query = 'SELECT pg_sleep(2)' AND state = 'active'`,
-                          [sleepingBackend],
-                        )
-                        sleepSeen = (seen.rowCount ?? 0) > 0
+                        // Polled, since the sleep starts on its own connection a moment later.
+                        for (let tries = 0; !sleepSeen && tries < 30; tries += 1) {
+                          const seen = await fixture.db.pool.query(
+                            `SELECT 1 FROM pg_stat_activity
+                             WHERE pid = $1 AND query = 'SELECT pg_sleep(2)' AND state = 'active'`,
+                            [sleepingBackend],
+                          )
+                          sleepSeen = (seen.rowCount ?? 0) > 0
+                          if (!sleepSeen) {
+                            await new Promise((resolve) => setTimeout(resolve, 5))
+                          }
+                        }
                         const failure = await sleep
                         if (failure) {
                           throw failure
