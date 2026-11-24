@@ -6,7 +6,6 @@ import {
   MAX_ANSWER_SUMMARY_BYTES,
   validate,
   validationIssues,
-  type ValidationIssue,
   type ProcessingMediaSourceDto,
   type ProposeLotArgsDto,
   type RecordObservationArgsDto,
@@ -17,6 +16,8 @@ import {
   type WebPageSourceDto,
   type ProcessingRelianceDto,
   type SessionAskArgsV2Dto,
+  type SessionReadBatchArgsDto,
+  type SessionReadLotArgsDto,
   type SessionToolErrorDto,
   type SessionToolResultDto,
   webPageUrlAccepted,
@@ -55,6 +56,8 @@ import { decodeMediaInputs } from '#/media/inputs.ts'
 import type { BlobStore } from '#/media/blob-store.ts'
 import { sha256 } from '#/db/authority.ts'
 import { capabilityDigest, resolveSessionCapability, type SessionPrincipal } from './capability.ts'
+import { refuse, ToolRefusal } from './refusal.ts'
+import { readBriefPage, stagePrincipal } from './brief-read.ts'
 import { agentSessionOutbox, agentSessions } from '#/agents/schema.ts'
 import { appendSessionOutbox, lastStatusAt } from './outbox.ts'
 import sharp from 'sharp'
@@ -575,20 +578,6 @@ async function finishEvidenceFetch(
 export interface SessionToolOutput {
   result: SessionToolResultDto
   images?: { mediaType: string; base64: string }[]
-}
-
-class ToolRefusal extends Error {
-  constructor(
-    readonly code: SessionToolErrorDto,
-    message: string,
-    readonly issues?: ValidationIssue[],
-  ) {
-    super(message)
-  }
-}
-
-const refuse = (code: SessionToolErrorDto, message: string): never => {
-  throw new ToolRefusal(code, message)
 }
 
 function validated<T>(name: Parameters<typeof validate>[0], value: unknown): T {
@@ -1548,11 +1537,41 @@ export function sessionTools(context: SessionToolContext) {
   return {
     read_batch: (token: string, args: unknown) =>
       withSession(context, token, { capture: false }, async (client, principal) => {
-        validated('SessionReadBatchArgs', args)
+        const input = validated<SessionReadBatchArgsDto>('SessionReadBatchArgs', args)
         if ((principal.stage as string) !== 'examine') {
           refuse('tool_not_allowed', 'Only the batch Examine lead session reads the whole batch.')
         }
+        // A `/7` lead reads its brief, which carries the batch with full readings.
+        if (principal.manifest.schema_version === 'bench-intake-input/7') {
+          const brief = await readBriefPage(
+            client,
+            context.config,
+            stagePrincipal(principal),
+            input,
+          )
+          // The batch's current revision, which the lead passes as base_revision.
+          return ok(client, principal, { revision: brief.newer?.revision ?? brief.revision, brief })
+        }
+        if (input.revision !== undefined || input.page_token !== undefined) {
+          refuse('tool_not_allowed', 'Only stage sessions page a brief; call read_batch with {}.')
+        }
         return ok(client, principal, { batch: await leadBatchView(client, principal.batchId) })
+      }),
+
+    read_lot: (token: string, args: unknown) =>
+      withSession(context, token, { capture: false }, async (client, principal) => {
+        const input = validated<SessionReadLotArgsDto>('SessionReadLotArgs', args)
+        const stage = stagePrincipal(principal)
+        if (stage.manifest.stage === 'examine') {
+          refuse('tool_not_allowed', 'The Examine lead session reads its brief with read_batch.')
+        }
+        // A session reads only the lots it serves.
+        if (input.lot_id !== principal.subjectId) {
+          refuse('tool_not_allowed', 'This session does not serve that lot.')
+        }
+        const { lot_id: _lotId, ...request } = input
+        const brief = await readBriefPage(client, context.config, stage, request)
+        return ok(client, principal, { revision: brief.newer?.revision ?? brief.revision, brief })
       }),
 
     record_observation: (token: string, args: unknown) =>

@@ -42,7 +42,7 @@ import {
   retainedSessionQuestion,
   type RetainedQuestionSeal,
 } from './retained.ts'
-import { decodeJobInput } from './session-input.ts'
+import { decodeJobInput, isSessionInput } from './session-input.ts'
 import { agentSessions } from '#/agents/schema.ts'
 import { mediaVersions } from '#/media/schema.ts'
 import { startFreshEligibility } from './start-fresh-eligibility.ts'
@@ -127,7 +127,7 @@ async function inputCurrency(
   media: JobMedia,
 ): Promise<InputCurrency> {
   const input = decodeJobInput(job.inputBytes, job.inputDigest)
-  if (input.schema_version === 'bench-intake-input/6') {
+  if (isSessionInput(input)) {
     // Per-proposal currentness replaces whole-input sealing for sessions (design D5).
     if (!media.available) {
       return { current: false, blockedCode: media.blockedCode }
@@ -196,7 +196,7 @@ async function proposalsForJob(
   let batchVersions: Parameters<typeof retainedSessionProposal>[4] | undefined
   for (const proposal of proposals) {
     if (isSessionMessage(proposal)) {
-      if (manifest.schema_version !== 'bench-intake-input/6') {
+      if (!isSessionInput(manifest)) {
         fail('retained_proposal_binding_invalid')
       }
       // The propose tool checked delivery; a citation still names a real version of this batch.
@@ -222,7 +222,7 @@ async function proposalsForJob(
       projected.push({ id: proposal.id, message_id: proposal.messageId, value })
       continue
     }
-    if (manifest.schema_version === 'bench-intake-input/6') {
+    if (isSessionInput(manifest)) {
       fail('retained_proposal_binding_invalid')
     }
     const value = retainedProposalValue(

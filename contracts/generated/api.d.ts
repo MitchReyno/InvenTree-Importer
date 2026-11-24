@@ -10785,6 +10785,1080 @@ export interface components {
                 };
             } | null;
         };
+        ProcessingInputV7: {
+            /** @constant */
+            schema_version: "bench-intake-input/7";
+            batch_id: string;
+            source_id: string;
+            /** Format: int64 */
+            capture_revision: string;
+            defaults: {
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+            };
+            notes: {
+                id: string;
+                subject_id: string | null;
+                text: string;
+                actor_id: string;
+                created_at: string;
+                /** @constant */
+                producer: "human";
+            }[];
+            observations: {
+                id: string;
+                model: "part" | "location" | "category" | "parameter_template" | "category_parameter" | "company";
+                mapping?: {
+                    /** @constant */
+                    kind: "category";
+                } | {
+                    /** @constant */
+                    kind: "parameter_template";
+                    model_type: "part.part" | null;
+                    enabled: boolean;
+                } | {
+                    /** @constant */
+                    kind: "category_parameter";
+                    /** Format: int64 */
+                    category_id: string;
+                    /** Format: int64 */
+                    template_id: string;
+                } | {
+                    /** @constant */
+                    kind: "company";
+                    manufacturer: boolean;
+                    supplier: boolean;
+                };
+                /** Format: int64 */
+                pk: string;
+                target_context_id: string;
+                label: string;
+                observed_at: string;
+            }[];
+            instruction_sha256: string;
+            media: {
+                manifest: string;
+                sha256: string;
+            };
+            pinned_proposal_ids: string[];
+            web?: {
+                public_pages: boolean;
+                prefer_datasheets: boolean;
+            };
+            part_description_style?: string;
+            /** @constant */
+            profile_id: "synthetic-session/1";
+            /** @constant */
+            instruction_version: "synthetic-session/1";
+            /** @constant */
+            tool_profile_version: "native-session-stage-tools/1";
+            agent: null;
+            settings_revision: null;
+            stage_instructions_sha256: string;
+            brief: {
+                /** @constant */
+                schema_version: "bench-intake-brief/1";
+                stage: "examine" | "research" | "images";
+                lot_id: string | null;
+                /** Format: int64 */
+                revision: string;
+                sections: {
+                    name: "batch" | "human" | "asked" | "evidence" | "match" | "observations" | "lots" | "identity" | "vocabulary" | "keep_out";
+                    count: number;
+                }[];
+                sha256: string;
+                pages: {
+                    index: number;
+                    sha256: string;
+                    entry_count: number;
+                    entries?: ({
+                        /** @constant */
+                        kind: "batch";
+                        batch_id: string;
+                        title: string;
+                        defaults: {
+                            quantity: {
+                                /** @constant */
+                                mode: "unset";
+                            } | {
+                                /** @constant */
+                                mode: "unknown";
+                            } | {
+                                /** @constant */
+                                mode: "clear";
+                            } | {
+                                /** @constant */
+                                mode: "set";
+                                value: string;
+                            } | {
+                                /** @constant */
+                                mode: "inherit";
+                            };
+                            location: {
+                                /** @constant */
+                                mode: "unset";
+                            } | {
+                                /** @constant */
+                                mode: "unknown";
+                            } | {
+                                /** @constant */
+                                mode: "clear";
+                            } | {
+                                /** @constant */
+                                mode: "set";
+                                value: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    model: "part" | "location";
+                                    /** Format: int64 */
+                                    pk: string;
+                                };
+                            } | {
+                                /** @constant */
+                                mode: "inherit";
+                            };
+                        };
+                        instructions: {
+                            instruction_id: string;
+                            group_id: string | null;
+                            text: string;
+                        }[];
+                        web: {
+                            public_pages: boolean;
+                            prefer_datasheets: boolean;
+                        };
+                    } | {
+                        /** @constant */
+                        kind: "note";
+                        /** @constant */
+                        source: "human";
+                        note_id: string;
+                        subject_id: string | null;
+                        text: string;
+                        text_sha256: string;
+                        actor_id: string;
+                        created_at: string;
+                    } | {
+                        /** @constant */
+                        kind: "answer";
+                        /** @constant */
+                        source: "human";
+                        question_id: string;
+                        answer_id: string;
+                        subject_id: string | null;
+                        actor_id: string;
+                        answered_at: string;
+                        steps: {
+                            step_id: string | null;
+                            prompt: string;
+                            value: string;
+                        }[];
+                    } | {
+                        /** @constant */
+                        kind: "correction";
+                        /** @constant */
+                        source: "human";
+                        observation_id: string;
+                        lot_id: string | null;
+                        before: {
+                            markings: string[];
+                            text?: string;
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        } | null;
+                        after: {
+                            markings: string[];
+                            text?: string;
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        earlier_known: boolean;
+                        actor_id: string | null;
+                        corrected_at: string | null;
+                        revision: string | null;
+                    } | {
+                        /** @constant */
+                        kind: "lot_edit";
+                        /** @constant */
+                        source: "human";
+                        edit_id: string;
+                        lot_id: string;
+                        /** Format: int64 */
+                        lot_revision: string;
+                        label: string;
+                        quantity: {
+                            /** @constant */
+                            mode: "unset";
+                        } | {
+                            /** @constant */
+                            mode: "unknown";
+                        } | {
+                            /** @constant */
+                            mode: "clear";
+                        } | {
+                            /** @constant */
+                            mode: "set";
+                            value: string;
+                        } | {
+                            /** @constant */
+                            mode: "inherit";
+                        };
+                        part_subject_id: string | null;
+                        excluded: {
+                            reason: string;
+                            at: string;
+                        } | null;
+                    } | {
+                        /** @constant */
+                        kind: "question";
+                        question_id: string;
+                        job_id: string;
+                        subject_id: string | null;
+                        fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                        state: "open" | "answered" | "superseded";
+                        title: string;
+                        steps: {
+                            id: string;
+                            prompt: string;
+                            assumption: string | null;
+                        }[];
+                        answer_id: string | null;
+                    } | {
+                        /** @constant */
+                        kind: "evidence";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                        media_type: string;
+                        label: string | null;
+                        regions: {
+                            observation_id: string;
+                            page: number;
+                            region: {
+                                /** @constant */
+                                kind: "pixels";
+                                x: number;
+                                y: number;
+                                width: number;
+                                height: number;
+                                source_width: number;
+                                source_height: number;
+                            } | {
+                                /** @constant */
+                                kind: "lines";
+                                from_line: number;
+                                to_line: number;
+                            };
+                            lot_id: string | null;
+                        }[];
+                    } | {
+                        /** @constant */
+                        kind: "observation";
+                        observation: {
+                            id: string;
+                            evidence_version_id: string;
+                            page: number;
+                            region: {
+                                /** @constant */
+                                kind: "pixels";
+                                x: number;
+                                y: number;
+                                width: number;
+                                height: number;
+                                source_width: number;
+                                source_height: number;
+                            } | {
+                                /** @constant */
+                                kind: "lines";
+                                from_line: number;
+                                to_line: number;
+                            };
+                            readings: {
+                                markings: string[];
+                                text?: string;
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            visible_count: number | null;
+                            status: "active" | "suggested";
+                            supersedes_observation_id: string | null;
+                            origin: "agent" | "operator";
+                            agent_session_id: string | null;
+                            operator_edited: boolean;
+                            /** Format: int64 */
+                            revision: string;
+                            lot_id: string | null;
+                            suggested_lot_ids: string[];
+                            same_item_as?: string;
+                        };
+                    } | {
+                        /** @constant */
+                        kind: "lot";
+                        lot_id: string;
+                        label: string;
+                        origin: "agent" | "operator";
+                        operator_edited: boolean;
+                        retired: boolean;
+                        excluded: {
+                            reason: string;
+                            at: string;
+                        } | null;
+                        reexamine: boolean;
+                        corrected_observation_ids: string[];
+                        part_subject_id: string | null;
+                        estimated_quantity: string | null;
+                        quantity_basis: string | null;
+                        observation_set_version: string | null;
+                        observation_ids: string[];
+                        suggested_observation_ids: string[];
+                    } | {
+                        /** @constant */
+                        kind: "identity";
+                        proposal_id: string;
+                        summary: string;
+                        fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                        stale: boolean;
+                    } | {
+                        /** @constant */
+                        kind: "keep_out";
+                        observation_id: string;
+                        lot_id: string | null;
+                        evidence_version_id: string;
+                        page: number;
+                        region: {
+                            /** @constant */
+                            kind: "pixels";
+                            x: number;
+                            y: number;
+                            width: number;
+                            height: number;
+                            source_width: number;
+                            source_height: number;
+                        } | {
+                            /** @constant */
+                            kind: "lines";
+                            from_line: number;
+                            to_line: number;
+                        };
+                        markings: string[];
+                    })[];
+                }[];
+            };
+            /** @constant */
+            stage: "examine";
+            subject_id: null;
+            subject: null;
+            linked_part: null;
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-input/7";
+            batch_id: string;
+            source_id: string;
+            /** Format: int64 */
+            capture_revision: string;
+            defaults: {
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+            };
+            notes: {
+                id: string;
+                subject_id: string | null;
+                text: string;
+                actor_id: string;
+                created_at: string;
+                /** @constant */
+                producer: "human";
+            }[];
+            observations: {
+                id: string;
+                model: "part" | "location" | "category" | "parameter_template" | "category_parameter" | "company";
+                mapping?: {
+                    /** @constant */
+                    kind: "category";
+                } | {
+                    /** @constant */
+                    kind: "parameter_template";
+                    model_type: "part.part" | null;
+                    enabled: boolean;
+                } | {
+                    /** @constant */
+                    kind: "category_parameter";
+                    /** Format: int64 */
+                    category_id: string;
+                    /** Format: int64 */
+                    template_id: string;
+                } | {
+                    /** @constant */
+                    kind: "company";
+                    manufacturer: boolean;
+                    supplier: boolean;
+                };
+                /** Format: int64 */
+                pk: string;
+                target_context_id: string;
+                label: string;
+                observed_at: string;
+            }[];
+            instruction_sha256: string;
+            media: {
+                manifest: string;
+                sha256: string;
+            };
+            pinned_proposal_ids: string[];
+            web?: {
+                public_pages: boolean;
+                prefer_datasheets: boolean;
+            };
+            part_description_style?: string;
+            /** @constant */
+            profile_id: "synthetic-session/1";
+            /** @constant */
+            instruction_version: "synthetic-session/1";
+            /** @constant */
+            tool_profile_version: "native-session-stage-tools/1";
+            agent: null;
+            settings_revision: null;
+            stage_instructions_sha256: string;
+            brief: {
+                /** @constant */
+                schema_version: "bench-intake-brief/1";
+                stage: "examine" | "research" | "images";
+                lot_id: string | null;
+                /** Format: int64 */
+                revision: string;
+                sections: {
+                    name: "batch" | "human" | "asked" | "evidence" | "match" | "observations" | "lots" | "identity" | "vocabulary" | "keep_out";
+                    count: number;
+                }[];
+                sha256: string;
+                pages: {
+                    index: number;
+                    sha256: string;
+                    entry_count: number;
+                    entries?: ({
+                        /** @constant */
+                        kind: "batch";
+                        batch_id: string;
+                        title: string;
+                        defaults: {
+                            quantity: {
+                                /** @constant */
+                                mode: "unset";
+                            } | {
+                                /** @constant */
+                                mode: "unknown";
+                            } | {
+                                /** @constant */
+                                mode: "clear";
+                            } | {
+                                /** @constant */
+                                mode: "set";
+                                value: string;
+                            } | {
+                                /** @constant */
+                                mode: "inherit";
+                            };
+                            location: {
+                                /** @constant */
+                                mode: "unset";
+                            } | {
+                                /** @constant */
+                                mode: "unknown";
+                            } | {
+                                /** @constant */
+                                mode: "clear";
+                            } | {
+                                /** @constant */
+                                mode: "set";
+                                value: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    model: "part" | "location";
+                                    /** Format: int64 */
+                                    pk: string;
+                                };
+                            } | {
+                                /** @constant */
+                                mode: "inherit";
+                            };
+                        };
+                        instructions: {
+                            instruction_id: string;
+                            group_id: string | null;
+                            text: string;
+                        }[];
+                        web: {
+                            public_pages: boolean;
+                            prefer_datasheets: boolean;
+                        };
+                    } | {
+                        /** @constant */
+                        kind: "note";
+                        /** @constant */
+                        source: "human";
+                        note_id: string;
+                        subject_id: string | null;
+                        text: string;
+                        text_sha256: string;
+                        actor_id: string;
+                        created_at: string;
+                    } | {
+                        /** @constant */
+                        kind: "answer";
+                        /** @constant */
+                        source: "human";
+                        question_id: string;
+                        answer_id: string;
+                        subject_id: string | null;
+                        actor_id: string;
+                        answered_at: string;
+                        steps: {
+                            step_id: string | null;
+                            prompt: string;
+                            value: string;
+                        }[];
+                    } | {
+                        /** @constant */
+                        kind: "correction";
+                        /** @constant */
+                        source: "human";
+                        observation_id: string;
+                        lot_id: string | null;
+                        before: {
+                            markings: string[];
+                            text?: string;
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        } | null;
+                        after: {
+                            markings: string[];
+                            text?: string;
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        earlier_known: boolean;
+                        actor_id: string | null;
+                        corrected_at: string | null;
+                        revision: string | null;
+                    } | {
+                        /** @constant */
+                        kind: "lot_edit";
+                        /** @constant */
+                        source: "human";
+                        edit_id: string;
+                        lot_id: string;
+                        /** Format: int64 */
+                        lot_revision: string;
+                        label: string;
+                        quantity: {
+                            /** @constant */
+                            mode: "unset";
+                        } | {
+                            /** @constant */
+                            mode: "unknown";
+                        } | {
+                            /** @constant */
+                            mode: "clear";
+                        } | {
+                            /** @constant */
+                            mode: "set";
+                            value: string;
+                        } | {
+                            /** @constant */
+                            mode: "inherit";
+                        };
+                        part_subject_id: string | null;
+                        excluded: {
+                            reason: string;
+                            at: string;
+                        } | null;
+                    } | {
+                        /** @constant */
+                        kind: "question";
+                        question_id: string;
+                        job_id: string;
+                        subject_id: string | null;
+                        fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                        state: "open" | "answered" | "superseded";
+                        title: string;
+                        steps: {
+                            id: string;
+                            prompt: string;
+                            assumption: string | null;
+                        }[];
+                        answer_id: string | null;
+                    } | {
+                        /** @constant */
+                        kind: "evidence";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                        media_type: string;
+                        label: string | null;
+                        regions: {
+                            observation_id: string;
+                            page: number;
+                            region: {
+                                /** @constant */
+                                kind: "pixels";
+                                x: number;
+                                y: number;
+                                width: number;
+                                height: number;
+                                source_width: number;
+                                source_height: number;
+                            } | {
+                                /** @constant */
+                                kind: "lines";
+                                from_line: number;
+                                to_line: number;
+                            };
+                            lot_id: string | null;
+                        }[];
+                    } | {
+                        /** @constant */
+                        kind: "observation";
+                        observation: {
+                            id: string;
+                            evidence_version_id: string;
+                            page: number;
+                            region: {
+                                /** @constant */
+                                kind: "pixels";
+                                x: number;
+                                y: number;
+                                width: number;
+                                height: number;
+                                source_width: number;
+                                source_height: number;
+                            } | {
+                                /** @constant */
+                                kind: "lines";
+                                from_line: number;
+                                to_line: number;
+                            };
+                            readings: {
+                                markings: string[];
+                                text?: string;
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            };
+                            visible_count: number | null;
+                            status: "active" | "suggested";
+                            supersedes_observation_id: string | null;
+                            origin: "agent" | "operator";
+                            agent_session_id: string | null;
+                            operator_edited: boolean;
+                            /** Format: int64 */
+                            revision: string;
+                            lot_id: string | null;
+                            suggested_lot_ids: string[];
+                            same_item_as?: string;
+                        };
+                    } | {
+                        /** @constant */
+                        kind: "lot";
+                        lot_id: string;
+                        label: string;
+                        origin: "agent" | "operator";
+                        operator_edited: boolean;
+                        retired: boolean;
+                        excluded: {
+                            reason: string;
+                            at: string;
+                        } | null;
+                        reexamine: boolean;
+                        corrected_observation_ids: string[];
+                        part_subject_id: string | null;
+                        estimated_quantity: string | null;
+                        quantity_basis: string | null;
+                        observation_set_version: string | null;
+                        observation_ids: string[];
+                        suggested_observation_ids: string[];
+                    } | {
+                        /** @constant */
+                        kind: "identity";
+                        proposal_id: string;
+                        summary: string;
+                        fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                        stale: boolean;
+                    } | {
+                        /** @constant */
+                        kind: "keep_out";
+                        observation_id: string;
+                        lot_id: string | null;
+                        evidence_version_id: string;
+                        page: number;
+                        region: {
+                            /** @constant */
+                            kind: "pixels";
+                            x: number;
+                            y: number;
+                            width: number;
+                            height: number;
+                            source_width: number;
+                            source_height: number;
+                        } | {
+                            /** @constant */
+                            kind: "lines";
+                            from_line: number;
+                            to_line: number;
+                        };
+                        markings: string[];
+                    })[];
+                }[];
+            };
+            stage: "research" | "images";
+            subject_id: string;
+            subject: {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                contribution_key: string;
+                part_subject_id: string | null;
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                /** @constant */
+                retired?: true;
+                /** @constant */
+                origin?: "agent";
+                agent_session_id?: string;
+                /** @constant */
+                operator_edited?: true;
+                /** @constant */
+                reexamine?: true;
+                excluded?: {
+                    reason: string;
+                    at: string;
+                };
+                formed_at?: string;
+                estimated_quantity?: string;
+                quantity_basis?: string;
+                evidence_observation_ids?: string[];
+                /** Format: int64 */
+                observation_set_version?: string;
+            } | {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                choice: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "create";
+                    spec: {
+                        name: string;
+                        description?: string;
+                        category: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "category";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        parameters: {
+                            template: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "parameter_template";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            category_mapping: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "category_parameter";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            value: string;
+                        }[];
+                        manufacturer: null | {
+                            company: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            mpn: string;
+                        };
+                        supplier: null | {
+                            company: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            sku: string;
+                        };
+                        tags: string[];
+                    };
+                };
+                location?: {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
+            };
+            linked_part: {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                choice: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "create";
+                    spec: {
+                        name: string;
+                        description?: string;
+                        category: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "category";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        parameters: {
+                            template: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "parameter_template";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            category_mapping: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "category_parameter";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            value: string;
+                        }[];
+                        manufacturer: null | {
+                            company: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            mpn: string;
+                        };
+                        supplier: null | {
+                            company: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            sku: string;
+                        };
+                        tags: string[];
+                    };
+                };
+                location?: {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
+            } | null;
+        };
         ProcessingCommandV5: {
             /** @constant */
             schema_version: "bench-intake-processing-command/5";
@@ -26084,7 +27158,7 @@ export interface components {
                 };
             };
         };
-        SessionToolError: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached" | "tool_failed" | "media_evidence_removed" | "preview_not_ready" | "preview_busy" | "outcome_uncertain";
+        SessionToolError: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached" | "tool_failed" | "media_evidence_removed" | "preview_not_ready" | "preview_busy" | "outcome_uncertain" | "brief_revision_unavailable";
         SessionToolResult: {
             /** @constant */
             ok: true;
@@ -26269,10 +27343,306 @@ export interface components {
                     same_item_as?: string;
                 }[];
             };
+            brief?: {
+                view: "sealed" | "current";
+                stage: "examine" | "research" | "images";
+                lot_id: string | null;
+                /** Format: int64 */
+                revision: string;
+                sha256: string;
+                sections: {
+                    name: "batch" | "human" | "asked" | "evidence" | "match" | "observations" | "lots" | "identity" | "vocabulary" | "keep_out";
+                    count: number;
+                }[];
+                page: number;
+                page_count: number;
+                entries: ({
+                    /** @constant */
+                    kind: "batch";
+                    batch_id: string;
+                    title: string;
+                    defaults: {
+                        quantity: {
+                            /** @constant */
+                            mode: "unset";
+                        } | {
+                            /** @constant */
+                            mode: "unknown";
+                        } | {
+                            /** @constant */
+                            mode: "clear";
+                        } | {
+                            /** @constant */
+                            mode: "set";
+                            value: string;
+                        } | {
+                            /** @constant */
+                            mode: "inherit";
+                        };
+                        location: {
+                            /** @constant */
+                            mode: "unset";
+                        } | {
+                            /** @constant */
+                            mode: "unknown";
+                        } | {
+                            /** @constant */
+                            mode: "clear";
+                        } | {
+                            /** @constant */
+                            mode: "set";
+                            value: {
+                                observation_id: string;
+                                target_context_id: string;
+                                model: "part" | "location";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                        } | {
+                            /** @constant */
+                            mode: "inherit";
+                        };
+                    };
+                    instructions: {
+                        instruction_id: string;
+                        group_id: string | null;
+                        text: string;
+                    }[];
+                    web: {
+                        public_pages: boolean;
+                        prefer_datasheets: boolean;
+                    };
+                } | {
+                    /** @constant */
+                    kind: "note";
+                    /** @constant */
+                    source: "human";
+                    note_id: string;
+                    subject_id: string | null;
+                    text: string;
+                    text_sha256: string;
+                    actor_id: string;
+                    created_at: string;
+                } | {
+                    /** @constant */
+                    kind: "answer";
+                    /** @constant */
+                    source: "human";
+                    question_id: string;
+                    answer_id: string;
+                    subject_id: string | null;
+                    actor_id: string;
+                    answered_at: string;
+                    steps: {
+                        step_id: string | null;
+                        prompt: string;
+                        value: string;
+                    }[];
+                } | {
+                    /** @constant */
+                    kind: "correction";
+                    /** @constant */
+                    source: "human";
+                    observation_id: string;
+                    lot_id: string | null;
+                    before: {
+                        markings: string[];
+                        text?: string;
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    } | null;
+                    after: {
+                        markings: string[];
+                        text?: string;
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    earlier_known: boolean;
+                    actor_id: string | null;
+                    corrected_at: string | null;
+                    revision: string | null;
+                } | {
+                    /** @constant */
+                    kind: "lot_edit";
+                    /** @constant */
+                    source: "human";
+                    edit_id: string;
+                    lot_id: string;
+                    /** Format: int64 */
+                    lot_revision: string;
+                    label: string;
+                    quantity: {
+                        /** @constant */
+                        mode: "unset";
+                    } | {
+                        /** @constant */
+                        mode: "unknown";
+                    } | {
+                        /** @constant */
+                        mode: "clear";
+                    } | {
+                        /** @constant */
+                        mode: "set";
+                        value: string;
+                    } | {
+                        /** @constant */
+                        mode: "inherit";
+                    };
+                    part_subject_id: string | null;
+                    excluded: {
+                        reason: string;
+                        at: string;
+                    } | null;
+                } | {
+                    /** @constant */
+                    kind: "question";
+                    question_id: string;
+                    job_id: string;
+                    subject_id: string | null;
+                    fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                    state: "open" | "answered" | "superseded";
+                    title: string;
+                    steps: {
+                        id: string;
+                        prompt: string;
+                        assumption: string | null;
+                    }[];
+                    answer_id: string | null;
+                } | {
+                    /** @constant */
+                    kind: "evidence";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                    media_type: string;
+                    label: string | null;
+                    regions: {
+                        observation_id: string;
+                        page: number;
+                        region: {
+                            /** @constant */
+                            kind: "pixels";
+                            x: number;
+                            y: number;
+                            width: number;
+                            height: number;
+                            source_width: number;
+                            source_height: number;
+                        } | {
+                            /** @constant */
+                            kind: "lines";
+                            from_line: number;
+                            to_line: number;
+                        };
+                        lot_id: string | null;
+                    }[];
+                } | {
+                    /** @constant */
+                    kind: "observation";
+                    observation: {
+                        id: string;
+                        evidence_version_id: string;
+                        page: number;
+                        region: {
+                            /** @constant */
+                            kind: "pixels";
+                            x: number;
+                            y: number;
+                            width: number;
+                            height: number;
+                            source_width: number;
+                            source_height: number;
+                        } | {
+                            /** @constant */
+                            kind: "lines";
+                            from_line: number;
+                            to_line: number;
+                        };
+                        readings: {
+                            markings: string[];
+                            text?: string;
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        visible_count: number | null;
+                        status: "active" | "suggested";
+                        supersedes_observation_id: string | null;
+                        origin: "agent" | "operator";
+                        agent_session_id: string | null;
+                        operator_edited: boolean;
+                        /** Format: int64 */
+                        revision: string;
+                        lot_id: string | null;
+                        suggested_lot_ids: string[];
+                        same_item_as?: string;
+                    };
+                } | {
+                    /** @constant */
+                    kind: "lot";
+                    lot_id: string;
+                    label: string;
+                    origin: "agent" | "operator";
+                    operator_edited: boolean;
+                    retired: boolean;
+                    excluded: {
+                        reason: string;
+                        at: string;
+                    } | null;
+                    reexamine: boolean;
+                    corrected_observation_ids: string[];
+                    part_subject_id: string | null;
+                    estimated_quantity: string | null;
+                    quantity_basis: string | null;
+                    observation_set_version: string | null;
+                    observation_ids: string[];
+                    suggested_observation_ids: string[];
+                } | {
+                    /** @constant */
+                    kind: "identity";
+                    proposal_id: string;
+                    summary: string;
+                    fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                    stale: boolean;
+                } | {
+                    /** @constant */
+                    kind: "keep_out";
+                    observation_id: string;
+                    lot_id: string | null;
+                    evidence_version_id: string;
+                    page: number;
+                    region: {
+                        /** @constant */
+                        kind: "pixels";
+                        x: number;
+                        y: number;
+                        width: number;
+                        height: number;
+                        source_width: number;
+                        source_height: number;
+                    } | {
+                        /** @constant */
+                        kind: "lines";
+                        from_line: number;
+                        to_line: number;
+                    };
+                    markings: string[];
+                })[];
+                next_page_token: string | null;
+                newer: {
+                    /** Format: int64 */
+                    revision: string;
+                } | null;
+            };
         } | {
             /** @constant */
             ok: false;
-            error: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached" | "tool_failed" | "media_evidence_removed" | "preview_not_ready" | "preview_busy" | "outcome_uncertain";
+            error: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached" | "tool_failed" | "media_evidence_removed" | "preview_not_ready" | "preview_busy" | "outcome_uncertain" | "brief_revision_unavailable";
             issues?: {
                 path: string;
                 rule: string;
@@ -26744,7 +28114,1179 @@ export interface components {
                 same_item_as?: string;
             }[];
         };
-        SessionReadBatchArgs: Record<string, never>;
+        SessionBrief: {
+            /** @constant */
+            schema_version: "bench-intake-brief/1";
+            stage: "examine" | "research" | "images";
+            lot_id: string | null;
+            /** Format: int64 */
+            revision: string;
+            sections: {
+                name: "batch" | "human" | "asked" | "evidence" | "match" | "observations" | "lots" | "identity" | "vocabulary" | "keep_out";
+                count: number;
+            }[];
+            entries: ({
+                /** @constant */
+                kind: "batch";
+                batch_id: string;
+                title: string;
+                defaults: {
+                    quantity: {
+                        /** @constant */
+                        mode: "unset";
+                    } | {
+                        /** @constant */
+                        mode: "unknown";
+                    } | {
+                        /** @constant */
+                        mode: "clear";
+                    } | {
+                        /** @constant */
+                        mode: "set";
+                        value: string;
+                    } | {
+                        /** @constant */
+                        mode: "inherit";
+                    };
+                    location: {
+                        /** @constant */
+                        mode: "unset";
+                    } | {
+                        /** @constant */
+                        mode: "unknown";
+                    } | {
+                        /** @constant */
+                        mode: "clear";
+                    } | {
+                        /** @constant */
+                        mode: "set";
+                        value: {
+                            observation_id: string;
+                            target_context_id: string;
+                            model: "part" | "location";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                    } | {
+                        /** @constant */
+                        mode: "inherit";
+                    };
+                };
+                instructions: {
+                    instruction_id: string;
+                    group_id: string | null;
+                    text: string;
+                }[];
+                web: {
+                    public_pages: boolean;
+                    prefer_datasheets: boolean;
+                };
+            } | {
+                /** @constant */
+                kind: "note";
+                /** @constant */
+                source: "human";
+                note_id: string;
+                subject_id: string | null;
+                text: string;
+                text_sha256: string;
+                actor_id: string;
+                created_at: string;
+            } | {
+                /** @constant */
+                kind: "answer";
+                /** @constant */
+                source: "human";
+                question_id: string;
+                answer_id: string;
+                subject_id: string | null;
+                actor_id: string;
+                answered_at: string;
+                steps: {
+                    step_id: string | null;
+                    prompt: string;
+                    value: string;
+                }[];
+            } | {
+                /** @constant */
+                kind: "correction";
+                /** @constant */
+                source: "human";
+                observation_id: string;
+                lot_id: string | null;
+                before: {
+                    markings: string[];
+                    text?: string;
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                } | null;
+                after: {
+                    markings: string[];
+                    text?: string;
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                };
+                earlier_known: boolean;
+                actor_id: string | null;
+                corrected_at: string | null;
+                revision: string | null;
+            } | {
+                /** @constant */
+                kind: "lot_edit";
+                /** @constant */
+                source: "human";
+                edit_id: string;
+                lot_id: string;
+                /** Format: int64 */
+                lot_revision: string;
+                label: string;
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                part_subject_id: string | null;
+                excluded: {
+                    reason: string;
+                    at: string;
+                } | null;
+            } | {
+                /** @constant */
+                kind: "question";
+                question_id: string;
+                job_id: string;
+                subject_id: string | null;
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                state: "open" | "answered" | "superseded";
+                title: string;
+                steps: {
+                    id: string;
+                    prompt: string;
+                    assumption: string | null;
+                }[];
+                answer_id: string | null;
+            } | {
+                /** @constant */
+                kind: "evidence";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+                media_type: string;
+                label: string | null;
+                regions: {
+                    observation_id: string;
+                    page: number;
+                    region: {
+                        /** @constant */
+                        kind: "pixels";
+                        x: number;
+                        y: number;
+                        width: number;
+                        height: number;
+                        source_width: number;
+                        source_height: number;
+                    } | {
+                        /** @constant */
+                        kind: "lines";
+                        from_line: number;
+                        to_line: number;
+                    };
+                    lot_id: string | null;
+                }[];
+            } | {
+                /** @constant */
+                kind: "observation";
+                observation: {
+                    id: string;
+                    evidence_version_id: string;
+                    page: number;
+                    region: {
+                        /** @constant */
+                        kind: "pixels";
+                        x: number;
+                        y: number;
+                        width: number;
+                        height: number;
+                        source_width: number;
+                        source_height: number;
+                    } | {
+                        /** @constant */
+                        kind: "lines";
+                        from_line: number;
+                        to_line: number;
+                    };
+                    readings: {
+                        markings: string[];
+                        text?: string;
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    visible_count: number | null;
+                    status: "active" | "suggested";
+                    supersedes_observation_id: string | null;
+                    origin: "agent" | "operator";
+                    agent_session_id: string | null;
+                    operator_edited: boolean;
+                    /** Format: int64 */
+                    revision: string;
+                    lot_id: string | null;
+                    suggested_lot_ids: string[];
+                    same_item_as?: string;
+                };
+            } | {
+                /** @constant */
+                kind: "lot";
+                lot_id: string;
+                label: string;
+                origin: "agent" | "operator";
+                operator_edited: boolean;
+                retired: boolean;
+                excluded: {
+                    reason: string;
+                    at: string;
+                } | null;
+                reexamine: boolean;
+                corrected_observation_ids: string[];
+                part_subject_id: string | null;
+                estimated_quantity: string | null;
+                quantity_basis: string | null;
+                observation_set_version: string | null;
+                observation_ids: string[];
+                suggested_observation_ids: string[];
+            } | {
+                /** @constant */
+                kind: "identity";
+                proposal_id: string;
+                summary: string;
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                stale: boolean;
+            } | {
+                /** @constant */
+                kind: "keep_out";
+                observation_id: string;
+                lot_id: string | null;
+                evidence_version_id: string;
+                page: number;
+                region: {
+                    /** @constant */
+                    kind: "pixels";
+                    x: number;
+                    y: number;
+                    width: number;
+                    height: number;
+                    source_width: number;
+                    source_height: number;
+                } | {
+                    /** @constant */
+                    kind: "lines";
+                    from_line: number;
+                    to_line: number;
+                };
+                markings: string[];
+            })[];
+        };
+        SealedBrief: {
+            /** @constant */
+            schema_version: "bench-intake-brief/1";
+            stage: "examine" | "research" | "images";
+            lot_id: string | null;
+            /** Format: int64 */
+            revision: string;
+            sections: {
+                name: "batch" | "human" | "asked" | "evidence" | "match" | "observations" | "lots" | "identity" | "vocabulary" | "keep_out";
+                count: number;
+            }[];
+            sha256: string;
+            pages: {
+                index: number;
+                sha256: string;
+                entry_count: number;
+                entries?: ({
+                    /** @constant */
+                    kind: "batch";
+                    batch_id: string;
+                    title: string;
+                    defaults: {
+                        quantity: {
+                            /** @constant */
+                            mode: "unset";
+                        } | {
+                            /** @constant */
+                            mode: "unknown";
+                        } | {
+                            /** @constant */
+                            mode: "clear";
+                        } | {
+                            /** @constant */
+                            mode: "set";
+                            value: string;
+                        } | {
+                            /** @constant */
+                            mode: "inherit";
+                        };
+                        location: {
+                            /** @constant */
+                            mode: "unset";
+                        } | {
+                            /** @constant */
+                            mode: "unknown";
+                        } | {
+                            /** @constant */
+                            mode: "clear";
+                        } | {
+                            /** @constant */
+                            mode: "set";
+                            value: {
+                                observation_id: string;
+                                target_context_id: string;
+                                model: "part" | "location";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                        } | {
+                            /** @constant */
+                            mode: "inherit";
+                        };
+                    };
+                    instructions: {
+                        instruction_id: string;
+                        group_id: string | null;
+                        text: string;
+                    }[];
+                    web: {
+                        public_pages: boolean;
+                        prefer_datasheets: boolean;
+                    };
+                } | {
+                    /** @constant */
+                    kind: "note";
+                    /** @constant */
+                    source: "human";
+                    note_id: string;
+                    subject_id: string | null;
+                    text: string;
+                    text_sha256: string;
+                    actor_id: string;
+                    created_at: string;
+                } | {
+                    /** @constant */
+                    kind: "answer";
+                    /** @constant */
+                    source: "human";
+                    question_id: string;
+                    answer_id: string;
+                    subject_id: string | null;
+                    actor_id: string;
+                    answered_at: string;
+                    steps: {
+                        step_id: string | null;
+                        prompt: string;
+                        value: string;
+                    }[];
+                } | {
+                    /** @constant */
+                    kind: "correction";
+                    /** @constant */
+                    source: "human";
+                    observation_id: string;
+                    lot_id: string | null;
+                    before: {
+                        markings: string[];
+                        text?: string;
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    } | null;
+                    after: {
+                        markings: string[];
+                        text?: string;
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    earlier_known: boolean;
+                    actor_id: string | null;
+                    corrected_at: string | null;
+                    revision: string | null;
+                } | {
+                    /** @constant */
+                    kind: "lot_edit";
+                    /** @constant */
+                    source: "human";
+                    edit_id: string;
+                    lot_id: string;
+                    /** Format: int64 */
+                    lot_revision: string;
+                    label: string;
+                    quantity: {
+                        /** @constant */
+                        mode: "unset";
+                    } | {
+                        /** @constant */
+                        mode: "unknown";
+                    } | {
+                        /** @constant */
+                        mode: "clear";
+                    } | {
+                        /** @constant */
+                        mode: "set";
+                        value: string;
+                    } | {
+                        /** @constant */
+                        mode: "inherit";
+                    };
+                    part_subject_id: string | null;
+                    excluded: {
+                        reason: string;
+                        at: string;
+                    } | null;
+                } | {
+                    /** @constant */
+                    kind: "question";
+                    question_id: string;
+                    job_id: string;
+                    subject_id: string | null;
+                    fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                    state: "open" | "answered" | "superseded";
+                    title: string;
+                    steps: {
+                        id: string;
+                        prompt: string;
+                        assumption: string | null;
+                    }[];
+                    answer_id: string | null;
+                } | {
+                    /** @constant */
+                    kind: "evidence";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                    media_type: string;
+                    label: string | null;
+                    regions: {
+                        observation_id: string;
+                        page: number;
+                        region: {
+                            /** @constant */
+                            kind: "pixels";
+                            x: number;
+                            y: number;
+                            width: number;
+                            height: number;
+                            source_width: number;
+                            source_height: number;
+                        } | {
+                            /** @constant */
+                            kind: "lines";
+                            from_line: number;
+                            to_line: number;
+                        };
+                        lot_id: string | null;
+                    }[];
+                } | {
+                    /** @constant */
+                    kind: "observation";
+                    observation: {
+                        id: string;
+                        evidence_version_id: string;
+                        page: number;
+                        region: {
+                            /** @constant */
+                            kind: "pixels";
+                            x: number;
+                            y: number;
+                            width: number;
+                            height: number;
+                            source_width: number;
+                            source_height: number;
+                        } | {
+                            /** @constant */
+                            kind: "lines";
+                            from_line: number;
+                            to_line: number;
+                        };
+                        readings: {
+                            markings: string[];
+                            text?: string;
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        };
+                        visible_count: number | null;
+                        status: "active" | "suggested";
+                        supersedes_observation_id: string | null;
+                        origin: "agent" | "operator";
+                        agent_session_id: string | null;
+                        operator_edited: boolean;
+                        /** Format: int64 */
+                        revision: string;
+                        lot_id: string | null;
+                        suggested_lot_ids: string[];
+                        same_item_as?: string;
+                    };
+                } | {
+                    /** @constant */
+                    kind: "lot";
+                    lot_id: string;
+                    label: string;
+                    origin: "agent" | "operator";
+                    operator_edited: boolean;
+                    retired: boolean;
+                    excluded: {
+                        reason: string;
+                        at: string;
+                    } | null;
+                    reexamine: boolean;
+                    corrected_observation_ids: string[];
+                    part_subject_id: string | null;
+                    estimated_quantity: string | null;
+                    quantity_basis: string | null;
+                    observation_set_version: string | null;
+                    observation_ids: string[];
+                    suggested_observation_ids: string[];
+                } | {
+                    /** @constant */
+                    kind: "identity";
+                    proposal_id: string;
+                    summary: string;
+                    fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                    stale: boolean;
+                } | {
+                    /** @constant */
+                    kind: "keep_out";
+                    observation_id: string;
+                    lot_id: string | null;
+                    evidence_version_id: string;
+                    page: number;
+                    region: {
+                        /** @constant */
+                        kind: "pixels";
+                        x: number;
+                        y: number;
+                        width: number;
+                        height: number;
+                        source_width: number;
+                        source_height: number;
+                    } | {
+                        /** @constant */
+                        kind: "lines";
+                        from_line: number;
+                        to_line: number;
+                    };
+                    markings: string[];
+                })[];
+            }[];
+        };
+        BriefPage: {
+            /** @constant */
+            schema_version: "bench-intake-brief-page/1";
+            index: number;
+            entries: ({
+                /** @constant */
+                kind: "batch";
+                batch_id: string;
+                title: string;
+                defaults: {
+                    quantity: {
+                        /** @constant */
+                        mode: "unset";
+                    } | {
+                        /** @constant */
+                        mode: "unknown";
+                    } | {
+                        /** @constant */
+                        mode: "clear";
+                    } | {
+                        /** @constant */
+                        mode: "set";
+                        value: string;
+                    } | {
+                        /** @constant */
+                        mode: "inherit";
+                    };
+                    location: {
+                        /** @constant */
+                        mode: "unset";
+                    } | {
+                        /** @constant */
+                        mode: "unknown";
+                    } | {
+                        /** @constant */
+                        mode: "clear";
+                    } | {
+                        /** @constant */
+                        mode: "set";
+                        value: {
+                            observation_id: string;
+                            target_context_id: string;
+                            model: "part" | "location";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                    } | {
+                        /** @constant */
+                        mode: "inherit";
+                    };
+                };
+                instructions: {
+                    instruction_id: string;
+                    group_id: string | null;
+                    text: string;
+                }[];
+                web: {
+                    public_pages: boolean;
+                    prefer_datasheets: boolean;
+                };
+            } | {
+                /** @constant */
+                kind: "note";
+                /** @constant */
+                source: "human";
+                note_id: string;
+                subject_id: string | null;
+                text: string;
+                text_sha256: string;
+                actor_id: string;
+                created_at: string;
+            } | {
+                /** @constant */
+                kind: "answer";
+                /** @constant */
+                source: "human";
+                question_id: string;
+                answer_id: string;
+                subject_id: string | null;
+                actor_id: string;
+                answered_at: string;
+                steps: {
+                    step_id: string | null;
+                    prompt: string;
+                    value: string;
+                }[];
+            } | {
+                /** @constant */
+                kind: "correction";
+                /** @constant */
+                source: "human";
+                observation_id: string;
+                lot_id: string | null;
+                before: {
+                    markings: string[];
+                    text?: string;
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                } | null;
+                after: {
+                    markings: string[];
+                    text?: string;
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                };
+                earlier_known: boolean;
+                actor_id: string | null;
+                corrected_at: string | null;
+                revision: string | null;
+            } | {
+                /** @constant */
+                kind: "lot_edit";
+                /** @constant */
+                source: "human";
+                edit_id: string;
+                lot_id: string;
+                /** Format: int64 */
+                lot_revision: string;
+                label: string;
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                part_subject_id: string | null;
+                excluded: {
+                    reason: string;
+                    at: string;
+                } | null;
+            } | {
+                /** @constant */
+                kind: "question";
+                question_id: string;
+                job_id: string;
+                subject_id: string | null;
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                state: "open" | "answered" | "superseded";
+                title: string;
+                steps: {
+                    id: string;
+                    prompt: string;
+                    assumption: string | null;
+                }[];
+                answer_id: string | null;
+            } | {
+                /** @constant */
+                kind: "evidence";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+                media_type: string;
+                label: string | null;
+                regions: {
+                    observation_id: string;
+                    page: number;
+                    region: {
+                        /** @constant */
+                        kind: "pixels";
+                        x: number;
+                        y: number;
+                        width: number;
+                        height: number;
+                        source_width: number;
+                        source_height: number;
+                    } | {
+                        /** @constant */
+                        kind: "lines";
+                        from_line: number;
+                        to_line: number;
+                    };
+                    lot_id: string | null;
+                }[];
+            } | {
+                /** @constant */
+                kind: "observation";
+                observation: {
+                    id: string;
+                    evidence_version_id: string;
+                    page: number;
+                    region: {
+                        /** @constant */
+                        kind: "pixels";
+                        x: number;
+                        y: number;
+                        width: number;
+                        height: number;
+                        source_width: number;
+                        source_height: number;
+                    } | {
+                        /** @constant */
+                        kind: "lines";
+                        from_line: number;
+                        to_line: number;
+                    };
+                    readings: {
+                        markings: string[];
+                        text?: string;
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    visible_count: number | null;
+                    status: "active" | "suggested";
+                    supersedes_observation_id: string | null;
+                    origin: "agent" | "operator";
+                    agent_session_id: string | null;
+                    operator_edited: boolean;
+                    /** Format: int64 */
+                    revision: string;
+                    lot_id: string | null;
+                    suggested_lot_ids: string[];
+                    same_item_as?: string;
+                };
+            } | {
+                /** @constant */
+                kind: "lot";
+                lot_id: string;
+                label: string;
+                origin: "agent" | "operator";
+                operator_edited: boolean;
+                retired: boolean;
+                excluded: {
+                    reason: string;
+                    at: string;
+                } | null;
+                reexamine: boolean;
+                corrected_observation_ids: string[];
+                part_subject_id: string | null;
+                estimated_quantity: string | null;
+                quantity_basis: string | null;
+                observation_set_version: string | null;
+                observation_ids: string[];
+                suggested_observation_ids: string[];
+            } | {
+                /** @constant */
+                kind: "identity";
+                proposal_id: string;
+                summary: string;
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                stale: boolean;
+            } | {
+                /** @constant */
+                kind: "keep_out";
+                observation_id: string;
+                lot_id: string | null;
+                evidence_version_id: string;
+                page: number;
+                region: {
+                    /** @constant */
+                    kind: "pixels";
+                    x: number;
+                    y: number;
+                    width: number;
+                    height: number;
+                    source_width: number;
+                    source_height: number;
+                } | {
+                    /** @constant */
+                    kind: "lines";
+                    from_line: number;
+                    to_line: number;
+                };
+                markings: string[];
+            })[];
+        };
+        SessionBriefPage: {
+            view: "sealed" | "current";
+            stage: "examine" | "research" | "images";
+            lot_id: string | null;
+            /** Format: int64 */
+            revision: string;
+            sha256: string;
+            sections: {
+                name: "batch" | "human" | "asked" | "evidence" | "match" | "observations" | "lots" | "identity" | "vocabulary" | "keep_out";
+                count: number;
+            }[];
+            page: number;
+            page_count: number;
+            entries: ({
+                /** @constant */
+                kind: "batch";
+                batch_id: string;
+                title: string;
+                defaults: {
+                    quantity: {
+                        /** @constant */
+                        mode: "unset";
+                    } | {
+                        /** @constant */
+                        mode: "unknown";
+                    } | {
+                        /** @constant */
+                        mode: "clear";
+                    } | {
+                        /** @constant */
+                        mode: "set";
+                        value: string;
+                    } | {
+                        /** @constant */
+                        mode: "inherit";
+                    };
+                    location: {
+                        /** @constant */
+                        mode: "unset";
+                    } | {
+                        /** @constant */
+                        mode: "unknown";
+                    } | {
+                        /** @constant */
+                        mode: "clear";
+                    } | {
+                        /** @constant */
+                        mode: "set";
+                        value: {
+                            observation_id: string;
+                            target_context_id: string;
+                            model: "part" | "location";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                    } | {
+                        /** @constant */
+                        mode: "inherit";
+                    };
+                };
+                instructions: {
+                    instruction_id: string;
+                    group_id: string | null;
+                    text: string;
+                }[];
+                web: {
+                    public_pages: boolean;
+                    prefer_datasheets: boolean;
+                };
+            } | {
+                /** @constant */
+                kind: "note";
+                /** @constant */
+                source: "human";
+                note_id: string;
+                subject_id: string | null;
+                text: string;
+                text_sha256: string;
+                actor_id: string;
+                created_at: string;
+            } | {
+                /** @constant */
+                kind: "answer";
+                /** @constant */
+                source: "human";
+                question_id: string;
+                answer_id: string;
+                subject_id: string | null;
+                actor_id: string;
+                answered_at: string;
+                steps: {
+                    step_id: string | null;
+                    prompt: string;
+                    value: string;
+                }[];
+            } | {
+                /** @constant */
+                kind: "correction";
+                /** @constant */
+                source: "human";
+                observation_id: string;
+                lot_id: string | null;
+                before: {
+                    markings: string[];
+                    text?: string;
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                } | null;
+                after: {
+                    markings: string[];
+                    text?: string;
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                };
+                earlier_known: boolean;
+                actor_id: string | null;
+                corrected_at: string | null;
+                revision: string | null;
+            } | {
+                /** @constant */
+                kind: "lot_edit";
+                /** @constant */
+                source: "human";
+                edit_id: string;
+                lot_id: string;
+                /** Format: int64 */
+                lot_revision: string;
+                label: string;
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                part_subject_id: string | null;
+                excluded: {
+                    reason: string;
+                    at: string;
+                } | null;
+            } | {
+                /** @constant */
+                kind: "question";
+                question_id: string;
+                job_id: string;
+                subject_id: string | null;
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                state: "open" | "answered" | "superseded";
+                title: string;
+                steps: {
+                    id: string;
+                    prompt: string;
+                    assumption: string | null;
+                }[];
+                answer_id: string | null;
+            } | {
+                /** @constant */
+                kind: "evidence";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+                media_type: string;
+                label: string | null;
+                regions: {
+                    observation_id: string;
+                    page: number;
+                    region: {
+                        /** @constant */
+                        kind: "pixels";
+                        x: number;
+                        y: number;
+                        width: number;
+                        height: number;
+                        source_width: number;
+                        source_height: number;
+                    } | {
+                        /** @constant */
+                        kind: "lines";
+                        from_line: number;
+                        to_line: number;
+                    };
+                    lot_id: string | null;
+                }[];
+            } | {
+                /** @constant */
+                kind: "observation";
+                observation: {
+                    id: string;
+                    evidence_version_id: string;
+                    page: number;
+                    region: {
+                        /** @constant */
+                        kind: "pixels";
+                        x: number;
+                        y: number;
+                        width: number;
+                        height: number;
+                        source_width: number;
+                        source_height: number;
+                    } | {
+                        /** @constant */
+                        kind: "lines";
+                        from_line: number;
+                        to_line: number;
+                    };
+                    readings: {
+                        markings: string[];
+                        text?: string;
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    };
+                    visible_count: number | null;
+                    status: "active" | "suggested";
+                    supersedes_observation_id: string | null;
+                    origin: "agent" | "operator";
+                    agent_session_id: string | null;
+                    operator_edited: boolean;
+                    /** Format: int64 */
+                    revision: string;
+                    lot_id: string | null;
+                    suggested_lot_ids: string[];
+                    same_item_as?: string;
+                };
+            } | {
+                /** @constant */
+                kind: "lot";
+                lot_id: string;
+                label: string;
+                origin: "agent" | "operator";
+                operator_edited: boolean;
+                retired: boolean;
+                excluded: {
+                    reason: string;
+                    at: string;
+                } | null;
+                reexamine: boolean;
+                corrected_observation_ids: string[];
+                part_subject_id: string | null;
+                estimated_quantity: string | null;
+                quantity_basis: string | null;
+                observation_set_version: string | null;
+                observation_ids: string[];
+                suggested_observation_ids: string[];
+            } | {
+                /** @constant */
+                kind: "identity";
+                proposal_id: string;
+                summary: string;
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                stale: boolean;
+            } | {
+                /** @constant */
+                kind: "keep_out";
+                observation_id: string;
+                lot_id: string | null;
+                evidence_version_id: string;
+                page: number;
+                region: {
+                    /** @constant */
+                    kind: "pixels";
+                    x: number;
+                    y: number;
+                    width: number;
+                    height: number;
+                    source_width: number;
+                    source_height: number;
+                } | {
+                    /** @constant */
+                    kind: "lines";
+                    from_line: number;
+                    to_line: number;
+                };
+                markings: string[];
+            })[];
+            next_page_token: string | null;
+            newer: {
+                /** Format: int64 */
+                revision: string;
+            } | null;
+        };
+        SessionReadLotArgs: {
+            lot_id: string;
+            /** Format: int64 */
+            revision?: string;
+            page_token?: string;
+        };
+        SessionReadBatchArgs: {
+            /** Format: int64 */
+            revision?: string;
+            page_token?: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -26845,6 +29387,7 @@ export type PreparationNode = components['schemas']['PreparationNode']
 export type PreparationTree = components['schemas']['PreparationTree']
 export type ProcessingStageV2 = components['schemas']['ProcessingStageV2']
 export type ProcessingInputV6 = components['schemas']['ProcessingInputV6']
+export type ProcessingInputV7 = components['schemas']['ProcessingInputV7']
 export type ProcessingCommandV5 = components['schemas']['ProcessingCommandV5']
 export type ProcessingField = components['schemas']['ProcessingField']
 export type ProcessingReliance = components['schemas']['ProcessingReliance']
@@ -26991,4 +29534,9 @@ export type ProposeLotArgs = components['schemas']['ProposeLotArgs']
 export type RegroupArgs = components['schemas']['RegroupArgs']
 export type LotFormingConflict = components['schemas']['LotFormingConflict']
 export type LeadBatchView = components['schemas']['LeadBatchView']
+export type SessionBrief = components['schemas']['SessionBrief']
+export type SealedBrief = components['schemas']['SealedBrief']
+export type BriefPage = components['schemas']['BriefPage']
+export type SessionBriefPage = components['schemas']['SessionBriefPage']
+export type SessionReadLotArgs = components['schemas']['SessionReadLotArgs']
 export type SessionReadBatchArgs = components['schemas']['SessionReadBatchArgs']

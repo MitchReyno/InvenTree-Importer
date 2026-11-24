@@ -11,6 +11,8 @@ export interface SyntheticResult {
   /** Present only when the fetch gave the session an image of that page. */
   delivered?: { page: number }
   items?: { id: string; seq: string; kind: string; payload?: Record<string, unknown> }[]
+  /** read_lot: one page of the session's brief. */
+  brief?: { revision: string; entries: unknown[]; next_page_token: string | null }
 }
 
 /**
@@ -94,6 +96,34 @@ async function syntheticFigures(
   ]
 }
 
+/**
+ * A `/7` lot session reads its lot's current brief to the last page, and says what it read in
+ * its first status line; earlier sessions have no brief.
+ */
+async function syntheticBriefRead(
+  manifest: SessionDriverContext['manifest'],
+  call: (name: string, args: Record<string, unknown>) => Promise<SyntheticResult>,
+) {
+  if (manifest.schema_version !== 'bench-intake-input/7' || !manifest.subject_id) {
+    return undefined
+  }
+  let args: Record<string, unknown> = { lot_id: manifest.subject_id }
+  let entries = 0
+  let revision = ''
+  for (;;) {
+    const read = await call('read_lot', args)
+    if (!read.ok || !read.brief) {
+      return 'Could not read the brief'
+    }
+    revision = read.brief.revision
+    entries += read.brief.entries.length
+    if (!read.brief.next_page_token) {
+      return `Read the brief at revision ${revision}: ${entries} entries`
+    }
+    args = { lot_id: manifest.subject_id, page_token: read.brief.next_page_token }
+  }
+}
+
 export async function syntheticTurn(
   turn: Pick<SessionTurn, 'resume'>,
   context: Pick<SessionDriverContext, 'manifest' | 'cwd'>,
@@ -121,7 +151,10 @@ export async function syntheticTurn(
     return
   }
 
-  await call('status', { text: turn.resume ? 'Reading new inbox items' : 'Reading the evidence' })
+  const brief = await syntheticBriefRead(context.manifest, call)
+  await call('status', {
+    text: brief ?? (turn.resume ? 'Reading new inbox items' : 'Reading the evidence'),
+  })
   const read = await call('read_inbox', { after_seq: '0' })
   const items = read.items ?? []
   const note = evidenceNotes(context.manifest.notes, context.manifest.batch_id)[0]

@@ -4,7 +4,7 @@ import {
   type CaptureSnapshotDto,
   type EvidenceReadingsDto,
   type EvidenceRegionDto,
-  type ProcessingInputV6Dto,
+  type SessionInputDto,
   type SessionAnswerPayloadDto,
   type SessionAskArgsDto,
   type SessionAskArgsV2Dto,
@@ -208,7 +208,7 @@ async function proposalsOfAttempts(
   )
   const versions = await batchVersions(client, context.job.batchId)
   const lots = new Set(context.capture.lots.map((lot) => lot.id))
-  const manifests = new Map<string, ProcessingInputV6Dto>()
+  const manifests = new Map<string, SessionInputDto>()
   for (const row of rows.rows) {
     const manifest =
       manifests.get(row.attempt_id) ?? decodeSessionInput(row.manifest_bytes, row.manifest_digest)

@@ -135,7 +135,18 @@ export async function processingFixture(options: ProcessingFixtureOptions = {}) 
     const runner = await createRole('runner')
     const scheduler = await createRole('scheduler')
     const writer = await createRole('agent_writer')
-    const config = {
+    const config: {
+      origin: string
+      actorId: string
+      targetId: string
+      targetContextId: string
+      channelSecret: string
+      profileId: ProcessingFixtureOptions['profileId']
+      credentialRef: string
+      apiKey: string
+      /** The test-only switch; a test turns it on to seal `/7` for new leads. */
+      stageInputs?: 'local'
+    } = {
       origin: 'http://127.0.0.1:1',
       actorId: identity.actor,
       targetId: identity.target,

@@ -7,6 +7,7 @@ import { ResearchReceiptSource } from './research.ts'
 import { mappedReference } from './effects.ts'
 import { valueEvidence } from './value-evidence.ts'
 import { MediaViewGeometry, MediaViewMarks } from './media.ts'
+import { SealedBrief } from './brief.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
@@ -202,6 +203,43 @@ export const ProcessingInputV6 = Type.Union(
     inputV6Scopes.map((scope) => object({ ...inputV6Shared, ...profile, ...scope })),
   ),
 )
+/** The tool profile a `/7` input seals: the session tools plus its stage's tools. */
+export const STAGE_TOOL_PROFILE = 'native-session-stage-tools/1'
+
+const inputV7Scopes = [
+  inputV6Scopes[0],
+  {
+    // A `/7` lot is served by Research or Images; no Inventory session is queued for it.
+    stage: Type.Union([Type.Literal('research'), Type.Literal('images')]),
+    subject_id: Id,
+    subject: ProcessingInputV2.properties.subject,
+    linked_part: ProcessingInputV2.properties.linked_part,
+  },
+]
+/**
+ * A stage session's opening manifest: the `/6` fields, its stage pack's digest and the brief it
+ * starts from. Until a profile seals it by configuration, only `synthetic-session/1` under the
+ * test-only fixture switch writes it.
+ */
+export const ProcessingInputV7 = Type.Union(
+  inputV7Scopes.map((scope) =>
+    object({
+      ...inputV6Shared,
+      schema_version: Type.Literal('bench-intake-input/7'),
+      profile_id: Type.Literal('synthetic-session/1'),
+      instruction_version: Type.Literal('synthetic-session/1'),
+      tool_profile_version: Type.Literal(STAGE_TOOL_PROFILE),
+      agent: Type.Null(),
+      settings_revision: Type.Null(),
+      /** The digest of the stage's instruction pack, which follows the profile's instructions. */
+      stage_instructions_sha256: Digest,
+      brief: SealedBrief,
+      ...scope,
+    }),
+  ),
+)
+/** Every session input a session handler decodes. */
+export const SessionInput = Type.Union([ProcessingInputV6, ProcessingInputV7])
 export const ProcessingInput = Type.Union([
   ProcessingInputV1,
   ProcessingInputV2,
@@ -977,6 +1015,7 @@ export const ProcessingActivity = object({
 export const processingSchemas = {
   ProcessingStageV2,
   ProcessingInputV6,
+  ProcessingInputV7,
   ProcessingCommandV5,
   ProcessingField,
   ProcessingReliance,
@@ -1091,6 +1130,8 @@ export type ProcessingEnvelopeV4Dto = Static<typeof ProcessingEnvelopeV4>
 
 export type ProcessingStageV2Dto = Static<typeof ProcessingStageV2>
 export type ProcessingInputV6Dto = Static<typeof ProcessingInputV6>
+export type ProcessingInputV7Dto = Static<typeof ProcessingInputV7>
+export type SessionInputDto = Static<typeof SessionInput>
 export type ProcessingCommandV5Dto = Static<typeof ProcessingCommandV5>
 export type ProcessingFieldDto = Static<typeof ProcessingField>
 export type ProcessingRelianceDto = Static<typeof ProcessingReliance>

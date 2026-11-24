@@ -84,7 +84,8 @@ export async function deliverInstructions(
 type Binding = Pick<ProcessingConfig, 'actorId' | 'targetId' | 'targetContextId'>
 
 /** The latest version of each instruction: the whole batch's and each evidence group's. */
-async function currentInstructions(client: PoolClient, batchId: string) {
+/** The batch's latest saved instructions: the whole batch's and each evidence group's. */
+export async function currentInstructions(client: PoolClient, batchId: string) {
   return executeDatabaseQuery(
     queryDatabase(client)
       .selectDistinctOn([captureInstructions.groupId], {

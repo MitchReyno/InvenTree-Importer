@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { and, eq, inArray, or, sql } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
-import type { ProcessingInputV6Dto, SessionStateDto } from '@invimport/contracts'
+import type { ProcessingInputV7Dto, SessionInputDto, SessionStateDto } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
 import { appendEvent, sha256 } from '#/db/authority.ts'
 import type { ProcessingConfig } from '#/processing/attempts.ts'
@@ -22,6 +22,9 @@ import {
 import { lockProcessingAttempt, transitionAttempt } from '#/processing/state.ts'
 import { decodeSessionInput } from '#/processing/session-input.ts'
 import { webAccess } from '#/processing/session-policy.ts'
+import { expectedToolProfile } from '#/processing/stage-policy.ts'
+import { openingBrief, pageToken } from '#/processing/brief-pages.ts'
+import { fail } from '#/processing/model.ts'
 import { evidenceNotes } from '#/capture/context-input.ts'
 import { decodeMediaInputs } from '#/media/inputs.ts'
 import { agentBatchPauses, agentSessionInbox, agentSessions } from '#/agents/schema.ts'
@@ -54,6 +57,18 @@ export const LEAD_SESSION_TOOLS = [
   'record_observation',
   'regroup',
 ]
+/** A `/7` Research or Images session also reads its lot's brief. */
+export const STAGE_LOT_SESSION_TOOLS = [...SESSION_TOOLS, 'read_lot']
+
+/** The intake tools a session is offered, from its sealed input. */
+export function sessionToolNames(manifest: SessionInputDto) {
+  if (manifest.stage === 'examine') {
+    return LEAD_SESSION_TOOLS
+  }
+  return manifest.schema_version === 'bench-intake-input/7'
+    ? STAGE_LOT_SESSION_TOOLS
+    : SESSION_TOOLS
+}
 
 const LEAD_INSTRUCTIONS = [
   'You are this batch’s Examine lead session: find the items in the evidence, group them into lots and identify each lot, looping until the lots are stable.',
@@ -85,7 +100,7 @@ const RESUMABLE: SessionStateDto[] = ['waiting_input', 'finished', 'interrupted'
 
 export interface SessionDriverContext {
   identity: { attemptId: string; turn: string; lineage: string }
-  manifest: ProcessingInputV6Dto
+  manifest: SessionInputDto
   cwd: string
   signal: AbortSignal
 }
@@ -97,7 +112,7 @@ export interface SessionRunnerDeps {
   host: NativeAgentHost
   toolUrl: string
   /** Replaces the provider for a profile, for the synthetic profile and process tests. */
-  drivers?: Partial<Record<ProcessingInputV6Dto['profile_id'], SessionDriver>>
+  drivers?: Partial<Record<SessionInputDto['profile_id'], SessionDriver>>
   /** Overrides the per-turn deadline, for tests. */
   turnDeadlineMs?: number
 }
@@ -346,7 +361,7 @@ const DATASHEETS =
   'Prefer manufacturer datasheets over distributor pages, and take exact values from the datasheet.'
 
 /** The sealed web research lines for a VM tool session; other sessions have no web access. */
-function webGuidance(manifest: ProcessingInputV6Dto) {
+function webGuidance(manifest: SessionInputDto) {
   if (webAccess(manifest.profile_id) !== 'available') {
     return ''
   }
@@ -355,10 +370,74 @@ function webGuidance(manifest: ProcessingInputV6Dto) {
   return `${web.public_pages ? WEB_ON : WEB_OFF} ${web.prefer_datasheets ? `${DATASHEETS} ` : ''}`
 }
 
-/** Exported for tests. */
-export function openingText(manifest: ProcessingInputV6Dto, pending: number, resumed: boolean) {
+const INBOX_GUIDANCE =
+  'Check read_inbox whenever pending_inbox is above zero. An instruction item is the operator’s saved instruction for the batch, or for one evidence group when it names one: follow it from then on; empty text withdraws the earlier one.'
+const CATALOGUE_GUIDANCE =
+  'Put catalogue values in the proposal’s catalogue block, each with its sources, and with source_kind and agreement when you know them: an existing category, parameter, manufacturer or supplier as the observed reference, or a proposed_new name with a reason when none exists. Only existing references can enter a Part spec; the rest are kept for the operator. When sources disagree on a parameter, give the value you used, the others as alternatives with their sources, and chosen_because. List the category’s mapped templates you found no value for in required_missing, each with why. For an existing category, give the reason you chose it and any alternative you considered; name the nearest existing Part you chose not to reuse in not_reused, with why.'
+const BRIEF_GUIDANCE =
+  'Your brief is in brief: the batch, the human-provided facts (source "human"; weigh them first), the questions already asked, the evidence you may fetch with the regions earlier stages read, and your stage’s sections. When brief.rest is set, read the rest with the tool and page_token it names; pass each page’s next_page_token for the next. Without arguments the tool returns the current brief and its revision; a page whose newer is set comes from an older brief.'
+
+/** The opening of a `/7` session: its sealed brief within its budget, and where the rest is. */
+function stageOpeningText(manifest: ProcessingInputV7Dto, pending: number, attemptId: string) {
+  const brief = manifest.brief
+  const { shown, total, restPage } = openingBrief(brief)
+  const tool = manifest.stage === 'examine' ? 'read_batch' : 'read_lot'
+  const rest =
+    restPage === null
+      ? null
+      : {
+          shown: shown.length,
+          total,
+          tool,
+          arguments: {
+            ...(manifest.subject_id ? { lot_id: manifest.subject_id } : {}),
+            page_token: pageToken({
+              attemptId,
+              view: 'sealed',
+              digest: brief.sha256,
+              page: restPage,
+            }),
+          },
+        }
+  return JSON.stringify({
+    stage: manifest.stage,
+    capture_revision: manifest.capture_revision,
+    subject_id: manifest.subject_id,
+    brief: {
+      revision: brief.revision,
+      sha256: brief.sha256,
+      sections: brief.sections,
+      entries: shown,
+      rest,
+    },
+    pending_inbox: pending,
+    ...(manifest.part_description_style
+      ? { part_description_style: manifest.part_description_style }
+      : {}),
+    instructions:
+      (manifest.stage === 'examine' ? `${LEAD_INSTRUCTIONS} ` : '') +
+      `${BRIEF_GUIDANCE} ` +
+      (manifest.part_description_style ? `${STYLE_GUIDANCE} ` : '') +
+      webGuidance(manifest) +
+      'Report steps with status, publish proposals with propose, ask questions with ask and keep working. ' +
+      `${ASK_GUIDANCE} ` +
+      `${INBOX_GUIDANCE} ` +
+      CATALOGUE_GUIDANCE,
+  })
+}
+
+/** Exported for tests. A `/7` opening needs the attempt, which its page tokens name. */
+export function openingText(
+  manifest: SessionInputDto,
+  pending: number,
+  resumed: boolean,
+  attemptId?: string,
+) {
   if (resumed) {
     return `You have ${pending} new inbox item(s). Call read_inbox and continue.`
+  }
+  if (manifest.schema_version === 'bench-intake-input/7') {
+    return stageOpeningText(manifest, pending, attemptId ?? fail('session_attempt_required'))
   }
   const media = decodeMediaInputs(
     Buffer.from(manifest.media.manifest, 'utf8'),
@@ -393,9 +472,38 @@ export function openingText(manifest: ProcessingInputV6Dto, pending: number, res
       webGuidance(manifest) +
       'Report steps with status, publish proposals with propose, ask questions with ask and keep working. ' +
       `${ASK_GUIDANCE} ` +
-      'Check read_inbox whenever pending_inbox is above zero. An instruction item is the operator’s saved instruction for the batch, or for one evidence group when it names one: follow it from then on; empty text withdraws the earlier one. ' +
-      'Put catalogue values in the proposal’s catalogue block, each with its sources, and with source_kind and agreement when you know them: an existing category, parameter, manufacturer or supplier as the observed reference, or a proposed_new name with a reason when none exists. Only existing references can enter a Part spec; the rest are kept for the operator. When sources disagree on a parameter, give the value you used, the others as alternatives with their sources, and chosen_because. List the category’s mapped templates you found no value for in required_missing, each with why. For an existing category, give the reason you chose it and any alternative you considered; name the nearest existing Part you chose not to reuse in not_reused, with why.',
+      `${INBOX_GUIDANCE} ` +
+      CATALOGUE_GUIDANCE,
   })
+}
+
+/** The tool profile a session's input must seal: its profile's for `/6`, the stage one for `/7`. */
+function sealedToolProfile(manifest: SessionInputDto) {
+  return expectedToolProfile(manifest.profile_id, manifest.schema_version)
+}
+
+/**
+ * A `/7` session's stage pack, checked against the digest its input sealed, as the profile's
+ * instructions are; null for `/6`, which has none.
+ */
+async function sealedStagePack(client: PoolClient, manifest: SessionInputDto) {
+  if (manifest.schema_version !== 'bench-intake-input/7') {
+    return null
+  }
+  const rows = await client.query<{ instruction_bytes: Buffer; instruction_digest: Buffer }>(
+    `SELECT instruction_bytes,instruction_digest FROM public.processing_stage_instructions
+     WHERE profile_id=$1 AND stage=$2`,
+    [manifest.profile_id, manifest.stage],
+  )
+  const pack = rows.rows[0]
+  if (
+    !pack ||
+    pack.instruction_digest.toString('hex') !== manifest.stage_instructions_sha256 ||
+    !sha256(pack.instruction_bytes).equals(pack.instruction_digest)
+  ) {
+    throw new NativeSessionError('agent_input_invalid')
+  }
+  return pack.instruction_bytes.toString('utf8')
 }
 
 /** Runs one provider turn for a queued session and settles its next state. */
@@ -514,6 +622,11 @@ export async function runSessionTurn(
       ) {
         throw new NativeSessionError('agent_input_invalid')
       }
+      // The sealed tool profile, and for `/7` the stage pack, are checked as the profile is.
+      if (manifest.tool_profile_version !== sealedToolProfile(manifest)) {
+        throw new NativeSessionError('agent_input_invalid')
+      }
+      const stagePack = await sealedStagePack(client, manifest)
       // Superseded before it started (its lot regrouped, or a new attempt replaced it): settle
       // the session and never run it.
       if (row.attemptState === 'superseded' || row.attemptState === 'cancelled') {
@@ -563,6 +676,7 @@ export async function runSessionTurn(
       return {
         ...row,
         manifest,
+        stagePack,
         capability,
         pending: await pendingSessionInbox(client, row.jobId),
       }
@@ -616,12 +730,16 @@ export async function runSessionTurn(
     onCliVersion: (version) => {
       cliVersion = version
     },
-    instructions: current.instructions.toString('utf8'),
-    text: openingText(current.manifest, current.pending, resumed),
+    // A `/7` session's system prompt is the profile's instructions followed by its stage pack.
+    instructions:
+      current.stagePack === null
+        ? current.instructions.toString('utf8')
+        : `${current.instructions.toString('utf8')}\n\n${current.stagePack}`,
+    text: openingText(current.manifest, current.pending, resumed, attemptId),
     resume: current.providerSessionId ?? undefined,
     toolUrl: deps.toolUrl,
     capability: current.capability,
-    tools: current.manifest.stage === 'examine' ? LEAD_SESSION_TOOLS : SESSION_TOOLS,
+    tools: sessionToolNames(current.manifest),
     // At least once: items stay pending until the session acknowledges them with read_inbox.
     nextDelivery: async () => {
       if (delivered === undefined) {
@@ -809,7 +927,7 @@ export async function runSessionTurn(
 
 export function nativeDriver(
   host: NativeAgentHost,
-  selection: NonNullable<ProcessingInputV6Dto['agent']>,
+  selection: NonNullable<SessionInputDto['agent']>,
 ): SessionDriver {
   return async (turn, context) => {
     const env = agentEnvironment(host, selection, context.cwd)

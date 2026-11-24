@@ -14,6 +14,7 @@ import type {
   LotFormingOutcomeDto,
 } from '@invimport/contracts'
 import { lotItemCount } from '@invimport/contracts'
+import { canonicalRecord } from '@invimport/contracts/json'
 import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { mediaPreviews, mediaVersions } from '#/media/schema.ts'
 import { lockMediaRevision } from '#/media/commands.ts'
@@ -135,6 +136,8 @@ interface LockedObservation {
   revision: bigint
   evidenceVersionId: string
   sameItemAs: string | null
+  /** The stored reading, as recorded; a correction keeps it as the reading before. */
+  readings: Record<string, unknown>
   lotId: string | null
 }
 
@@ -153,6 +156,7 @@ async function lockObservations(client: PoolClient, batchId: string, ids: readon
         revision: captureEvidenceObservations.revision,
         evidenceVersionId: captureEvidenceObservations.evidenceVersionId,
         sameItemAs: captureEvidenceObservations.sameItemAs,
+        readings: captureEvidenceObservations.readings,
       })
       .from(captureEvidenceObservations)
       .where(
@@ -1018,6 +1022,30 @@ export async function currentLotItemCount(client: PoolClient, batchId: string, l
   )
 }
 
+/**
+ * Keeps the reading an operator correction replaces, so a session's brief can show the reading
+ * before and after it. The author and time are the capture revision's. An unchanged reading
+ * keeps nothing.
+ */
+async function retainCorrection(
+  client: PoolClient,
+  batchId: string,
+  observationId: string,
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+  revision: bigint,
+) {
+  if (canonicalRecord(before) === canonicalRecord(after)) {
+    return
+  }
+  await client.query(
+    `INSERT INTO public.capture_evidence_observation_correction
+       (batch_id,observation_id,revision,before_readings,after_readings)
+     VALUES ($1,$2,$3,$4,$5)`,
+    [batchId, observationId, revision.toString(), JSON.stringify(before), JSON.stringify(after)],
+  )
+}
+
 /** Operator observation edits; each marks the observation and the lots it touches as edited. */
 export async function applyObservationEdit(
   client: PoolClient,
@@ -1049,6 +1077,9 @@ async function applyOneObservationEdit(
       }
       id = row.id
       from = row.lotId
+      if (change.readings) {
+        await retainCorrection(client, batchId, row.id, row.readings, change.readings, revision)
+      }
       await executeDatabaseQuery(
         db
           .update(captureEvidenceObservations)
@@ -1158,6 +1189,14 @@ async function applyOneObservationEdit(
   if (change.decision === 'accept') {
     // The edited observation keeps its ID and memberships and takes the suggested content.
     const target = await lockActiveObservation(client, batchId, suggestion.supersedesObservationId!)
+    await retainCorrection(
+      client,
+      batchId,
+      target.id,
+      target.readings,
+      suggestion.readings,
+      revision,
+    )
     await executeDatabaseQuery(
       db
         .update(captureEvidenceObservations)

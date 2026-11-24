@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import type { PoolClient } from 'pg'
-import type { AgentSettingsDto, CaptureSnapshotDto } from '@invimport/contracts'
+import type {
+  AgentSettingsDto,
+  CaptureSnapshotDto,
+  ProcessingInputV6Dto,
+} from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { commands, outbox } from '#/db/schema.ts'
 import { agentSessions } from '#/agents/schema.ts'
@@ -11,7 +15,12 @@ import { channelToken, processingChannelConfigured, type ProcessingConfig } from
 import { MAX_PROCESSING_SNAPSHOT_BYTES } from './limits.ts'
 import { fail, sealed, type Stage } from './model.ts'
 import { processingAttempts, processingInputs } from './schema.ts'
+import { assembleBrief } from './brief.ts'
+import { briefPages, sealBrief, storeInputPages, type SealedBriefPage } from './brief-pages.ts'
+import { stagePacks, type SessionInputVersion } from './stage-policy.ts'
 import {
+  briefScope,
+  stageInputManifest,
   sessionLeadInputManifest,
   sessionLotInputManifest,
   type SessionInputProfile,
@@ -36,12 +45,18 @@ interface SessionAttemptOptions {
   pinnedProposalIds?: readonly string[]
   /** The input `prepareSessionAttempt` already sealed, so a caller can check before writing. */
   prepared?: SealedSessionInput
+  /** The version the batch's pipeline follows (`batchInputVersion`); `/6` when omitted. */
+  inputVersion?: SessionInputVersion
 }
 
-/** A sealed `/6` input: its canonical bytes and their digest. */
+/**
+ * A sealed session input: its canonical bytes and their digest, and for `/7` the brief pages
+ * kept outside the manifest, which are written with it.
+ */
 export interface SealedSessionInput {
   bytes: Buffer
   digest: Buffer
+  pages: readonly SealedBriefPage[]
 }
 
 type SessionJob = { id: string; subject_id: string | null; stage: Stage | 'examine' }
@@ -58,8 +73,13 @@ export async function prepareSessionAttempt(
   snapshot: CaptureSnapshotDto,
   job: SessionJob,
   media: { manifest: string; manifestDigest: string },
-  { lockSettings = true, pinnedProposalIds = [], settings: given }: SessionAttemptOptions = {},
-) {
+  {
+    lockSettings = true,
+    pinnedProposalIds = [],
+    settings: given,
+    inputVersion = 'bench-intake-input/6',
+  }: SessionAttemptOptions = {},
+): Promise<SealedSessionInput> {
   // `shared-vm-agent/2` is retired: no new attempt is sealed for it.
   if (profileId === 'shared-vm-agent/2') {
     fail('agent_profile_retired', 409)
@@ -86,18 +106,20 @@ export async function prepareSessionAttempt(
       web: webAccess(profileId) === 'available' ? { ...settings.web } : WEB_OFF,
     }
   }
-  const manifest = sealed(
-    lead
-      ? sessionLeadInputManifest(snapshot, descriptor, profile)
-      : sessionLotInputManifest(
-          snapshot,
-          job.subject_id!,
-          job.stage as SessionLotStage,
-          descriptor,
-          profile,
-          pinnedProposalIds,
-        ),
-  )
+  const base = lead
+    ? sessionLeadInputManifest(snapshot, descriptor, profile)
+    : sessionLotInputManifest(
+        snapshot,
+        job.subject_id!,
+        job.stage as SessionLotStage,
+        descriptor,
+        profile,
+        pinnedProposalIds,
+      )
+  const manifest =
+    inputVersion === 'bench-intake-input/7'
+      ? await sealStageInput(client, snapshot, base, profileId)
+      : { ...sealed(base), pages: [] }
   if (manifest.bytes.length > MAX_PROCESSING_SNAPSHOT_BYTES) {
     fail('processing_input_capacity', 422)
   }
@@ -106,6 +128,35 @@ export async function prepareSessionAttempt(
     fail('processing_channel_unconfigured', 503)
   }
   return manifest
+}
+
+/**
+ * A `/7` input: the `/6` manifest with its stage pack's digest and the brief, assembled now from
+ * retained state. As many brief pages as fit stay in the manifest under the retained-input cap;
+ * the rest go to the input's page store.
+ */
+async function sealStageInput(
+  client: PoolClient,
+  snapshot: CaptureSnapshotDto,
+  base: ProcessingInputV6Dto,
+  profileId: SessionProfileId,
+): Promise<SealedSessionInput> {
+  const packs = stagePacks[profileId]
+  if (!packs) {
+    fail('pipeline_version_unsupported', 409)
+  }
+  const scope = briefScope(base)
+  const brief = await assembleBrief(client, snapshot, scope)
+  const pages = briefPages(brief)
+  for (let inline = pages.length; inline >= 0; inline -= 1) {
+    const manifest = sealed(
+      stageInputManifest(base, packs[scope.stage], sealBrief(brief, pages, inline)),
+    )
+    if (manifest.bytes.length <= MAX_PROCESSING_SNAPSHOT_BYTES) {
+      return { ...manifest, pages: pages.slice(inline) }
+    }
+  }
+  return fail('processing_input_capacity', 422)
 }
 
 /**
@@ -140,6 +191,7 @@ export async function createSessionAttempt(
       manifestDigest: manifest.digest,
     }),
   )
+  await storeInputPages(client, inputId, manifest.pages)
   const payload = sealed({
     schema_version: 'bench-intake-processing-command/5',
     job_id: job.id,

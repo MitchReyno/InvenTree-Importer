@@ -12,6 +12,7 @@ import { reserveProcessingMedia, reservedMediaFor } from './media.ts'
 import { processingAttempts, processingJobs, processingProposalStale } from './schema.ts'
 import { SUCCESSOR_STAGES } from './supersede.ts'
 import { isSessionProfile } from './session-policy.ts'
+import { batchInputVersion } from './stage-policy.ts'
 import { readAgentSettings } from '#/agents/settings.ts'
 import { resolveSelection } from '#/agents/resolve-selection.ts'
 
@@ -151,10 +152,13 @@ export async function onLeadIdentity(
     return 'waiting'
   }
   await checkJobCapacity(client, snapshot.id, [lotId], [...queueable])
+  // Successors follow the lead's sealed version, so a retained `/6` lead never queues `/7` ones.
+  const inputVersion = await batchInputVersion(client, config, snapshot.id)
   for (const stage of queueable) {
     await queueJob(client, config, snapshot, lotId, stage, [], media, [proposalId], {
       lockSettings: false,
       settings,
+      inputVersion,
     })
   }
   return 'queued'

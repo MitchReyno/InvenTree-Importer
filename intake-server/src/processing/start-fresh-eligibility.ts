@@ -15,6 +15,7 @@ import { readProcessingMediaScopes, type ProcessingMediaAvailability } from './m
 import { ProcessingError, type Stage } from './model.ts'
 import { isSessionProfile, type SessionProfileId } from './session-policy.ts'
 import { prepareSessionAttempt } from './session-attempts.ts'
+import { batchInputVersion } from './stage-policy.ts'
 import { decodeSessionInput } from './session-input.ts'
 import { pinnedIdentityCurrent, successorsCurrent } from './stable-identity.ts'
 
@@ -232,7 +233,11 @@ async function jobEligibility(
         manifest: media.inputs.bytes.toString('utf8'),
         manifestDigest: media.inputs.digest.toString('hex'),
       },
-      { settings, pinnedProposalIds: pinned },
+      {
+        settings,
+        pinnedProposalIds: pinned,
+        inputVersion: await batchInputVersion(client, config, job.batch_id),
+      },
     )
   } catch (error) {
     if (error instanceof ProcessingError && REFUSALS.has(error.code)) {

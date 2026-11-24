@@ -1,4 +1,5 @@
 import { isSessionProfile } from './session-policy.ts'
+import { batchInputVersion } from './stage-policy.ts'
 import type { Pool, PoolClient } from 'pg'
 import { and, eq, sql } from 'drizzle-orm'
 import {
@@ -36,6 +37,8 @@ async function lockedSnapshot(
 }
 
 const SESSION_START_STAGES: readonly string[] = ['research', 'images', 'inventory']
+/** A `/7` batch has no Inventory session; its lots' target comes from Match. */
+const STAGE_INPUT_START_STAGES: readonly string[] = ['research', 'images']
 
 export async function startProcessing(
   pool: Pool,
@@ -77,9 +80,12 @@ export async function startProcessing(
         // Session profiles queue Research and Images as independent per-lot sessions. Reading and
         // identifying become the Examine lead session, and Inventory waits for a stable identity.
         const sessions = config.profileId !== undefined && isSessionProfile(config.profileId)
+        // The batch follows its lead's sealed version, or the configuration's without a lead.
+        const inputVersion = sessions ? await batchInputVersion(client, config, batchId) : undefined
+        const startStages =
+          inputVersion === 'bench-intake-input/7' ? STAGE_INPUT_START_STAGES : SESSION_START_STAGES
         const stages = stageOrder.filter(
-          (stage) =>
-            input.stages.includes(stage) && (!sessions || SESSION_START_STAGES.includes(stage)),
+          (stage) => input.stages.includes(stage) && (!sessions || startStages.includes(stage)),
         )
         if (!stages.length) {
           fail('unsupported_processing_stage', 422)
@@ -104,6 +110,8 @@ export async function startProcessing(
               stage,
               dependencies,
               reservedMediaFor(media, subjectId),
+              [],
+              { inputVersion },
             )
             jobIds.push(attempt.jobId)
             attemptIds.push(attempt.attemptId)

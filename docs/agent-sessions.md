@@ -2,7 +2,7 @@
 
 This is the technical and design reference for Bench Intake's processing agents: what each agent receives, what it produces, how one agent's output reaches the next, and how operator input and new evidence re-steer them.
 
-[Current behaviour](#part-1-current-behaviour) describes the code at `9db1921e` on `interactive-app` (2026-11-23), as read from the source. [Target design](#part-2-target-design) is a proposal, planned in the OpenSpec change `agent-stage-inputs-outputs` (BI-022). Nothing in Part 2 is implemented yet.
+[Current behaviour](#part-1-current-behaviour) describes the code at `9db1921e` on `interactive-app` (2026-11-23), as read from the source. [Target design](#part-2-target-design) is a proposal, planned in the OpenSpec change `agent-stage-inputs-outputs` (BI-022). Part 2 is being built in that change's PRs: so far the sealed briefs of input `/7` and the read tools (task 1), reachable only through a test-only switch; no configuration seals `/7` yet.
 
 Paths are relative to the repository root. Line references are to `9db1921e` and will drift.
 

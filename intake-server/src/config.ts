@@ -152,6 +152,7 @@ export function processingConfig(config: DevConfig, env: NodeJS.ProcessEnv): Pro
   ) {
     throw new Error('unsupported_processing_profile')
   }
+  const stageInputs = stageInputSwitch(env.INTAKE_TEST_STAGE_INPUTS, profileId)
   const approved = researchUrlList(env.INTAKE_RESEARCH_SOURCE_URLS, MAX_RESEARCH_SOURCE_URLS)
   const canonicalUrls = approved.map((value) => canonicalSourceUrl(value).href)
   return Object.freeze({
@@ -162,5 +163,21 @@ export function processingConfig(config: DevConfig, env: NodeJS.ProcessEnv): Pro
     profileId,
     approvedSourceUrls: Object.freeze([...new Set(canonicalUrls)].sort()),
     sourceProtectedOrigins: researchProtectedOrigins(env),
+    ...(stageInputs ? { stageInputs } : {}),
   })
+}
+
+/**
+ * The test-only fixture switch that seals `bench-intake-input/7` for new `synthetic-session/1`
+ * leads on the local synthetic route. No launcher or environment file sets it: the development
+ * loader doesn't pass it, and only tests that start their own processes do.
+ */
+function stageInputSwitch(value: string | undefined, profileId: string) {
+  if (value === undefined || value === '') {
+    return undefined
+  }
+  if (value !== 'local' || profileId !== 'synthetic-session/1') {
+    throw new Error('unsupported_processing_profile')
+  }
+  return value
 }
