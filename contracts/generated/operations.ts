@@ -200,6 +200,14 @@ export const clientOperations = new Map<string, ClientOperation>([
     }
   ],
   [
+    "GET /api/v1/agents/provider-status",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "ProviderStatus"
+    }
+  ],
+  [
     "PUT /api/v1/agents/pause",
     {
       "timeoutMs": 10000,

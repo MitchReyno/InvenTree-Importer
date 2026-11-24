@@ -47,9 +47,10 @@ const GUEST_SERVICES = {
  */
 const SERVICE_MOUNTS = {
   'bench-claude-egress': ['egress'],
-  'bench-claude-management': ['claude-store', 'operator'],
+  // `guest`: the pairing identity that authenticates the status-only endpoint.
+  'bench-claude-management': ['claude-store', 'guest', 'operator'],
   'bench-codex-egress': ['codex-egress'],
-  'bench-codex-management': ['codex-egress', 'codex-state', 'operator'],
+  'bench-codex-management': ['codex-egress', 'codex-state', 'guest', 'operator'],
 }
 /** Management services serve the operator's browser, so they are bound to its origin. */
 const MANAGEMENT_CONTAINERS = new Set(['bench-claude-management', 'bench-codex-management'])

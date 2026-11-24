@@ -57,6 +57,95 @@ async function connectCoordinator() {
   socket.once('close', () => peer.stdin.end())
   return socket
 }
+// A subscription relay also carries its provider's status connection. The credential service is
+// the TLS client on it (see intake-server/src/agents/shared-vm/provider-status.ts, which also
+// names the socket); this end only moves bytes.
+const statusContainer = codex
+  ? 'bench-codex-management'
+  : subscription
+    ? 'bench-claude-management'
+    : undefined
+const statusSocket = '/tmp/bench-status/status.sock'
+const statusPump = `
+  const socket = require('node:net').connect(process.argv[1])
+  socket.once('connect', () => {
+    process.stderr.write('ready\\n')
+    process.stdin.pipe(socket)
+    socket.pipe(process.stdout)
+  })
+  socket.on('error', () => process.exit(1))
+  socket.on('close', () => process.exit())
+`
+/** A missing or older credential service is retried less and less often, up to this. */
+const STATUS_RETRY_MAX_MS = 30000
+const stopping = new AbortController()
+
+async function openStatusPeer() {
+  const peer = spawn(
+    'limactl',
+    [
+      'shell',
+      '--workdir=/',
+      vm,
+      'sudo',
+      'docker',
+      'exec',
+      '-i',
+      statusContainer,
+      'node',
+      '-e',
+      statusPump,
+      statusSocket,
+    ],
+    { stdio: ['pipe', 'pipe', 'pipe'] },
+  )
+  peer.on('error', () => {})
+  const ready = await Promise.race([
+    once(peer.stderr, 'data').then(([data]) => data.toString().trim() === 'ready'),
+    once(peer, 'close').then(() => false),
+  ])
+  if (!ready) {
+    peer.kill()
+  }
+  return ready ? peer : undefined
+}
+
+/** Keeps one status connection from the credential service to the coordinator. */
+async function carryStatus() {
+  let retryMs = 500
+  while (!stopping.signal.aborted) {
+    const peer = await openStatusPeer()
+    let socket
+    if (peer) {
+      socket = await connectCoordinator().catch(() => undefined)
+    }
+    if (!peer || !socket) {
+      peer?.kill()
+      await delay(retryMs, undefined, { signal: stopping.signal }).catch(() => {})
+      retryMs = Math.min(retryMs * 2, STATUS_RETRY_MAX_MS)
+      continue
+    }
+    retryMs = 500
+    const stop = () => {
+      socket.destroy()
+      peer.kill()
+    }
+    stopping.signal.addEventListener('abort', stop, { once: true })
+    socket.on('error', () => socket.destroy())
+    peer.stdin.on('error', () => socket.destroy())
+    socket.once('close', () => {
+      peer.stdin.end()
+      peer.kill()
+    })
+    peer.once('close', () => socket.destroy())
+    socket.pipe(peer.stdin)
+    peer.stdout.pipe(socket)
+    await once(peer, 'close')
+    stopping.signal.removeEventListener('abort', stop)
+  }
+}
+const status = statusContainer ? carryStatus() : undefined
+
 const tools = process.env.INTAKE_VM_BUILTIN_TOOLS === '1'
 if (tools && !(codex || subscription)) throw new Error('tool_worker_requires_selected_provider')
 const toolScript = tools ? readFileSync(new URL('./tool-turn.sh', import.meta.url), 'utf8') : ''
@@ -166,3 +255,5 @@ for (;;) {
   socket.destroy()
   if (terminating) break
 }
+stopping.abort()
+await status

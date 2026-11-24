@@ -70,6 +70,8 @@ export async function serveGuestTurn(socket: TLSSocket, options: GuestTurnOption
     turnPolicy: isolated,
     claudeSubscription: provider === 'claude',
     codexSubscription: provider === 'codex',
+    // This image's credential services answer the read-only provider status.
+    providerStatus: true,
   })
   const packet = await frames.read()
   const probe = 'inspectTerminal' in packet

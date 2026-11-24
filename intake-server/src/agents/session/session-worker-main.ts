@@ -33,6 +33,16 @@ import {
 } from './session-execution.ts'
 import { deliverMissingInstructions } from '#/agents/instructions.ts'
 import { localDatabaseUrl, schedulerDatabaseUrl, schedulerReachable } from './database-urls.ts'
+import { serveProviderStatusRequests } from '#/agents/provider-status-channel.ts'
+import type { BridgeProviderStatuses } from '#/agents/shared-vm/coordinator.ts'
+
+/** A worker without the VM bridge has no provider status to read. */
+async function statusNotConfigured(): Promise<BridgeProviderStatuses> {
+  return {
+    claude: { state: 'unknown', reason: 'not_configured' },
+    codex: { state: 'unknown', reason: 'not_configured' },
+  }
+}
 
 /**
  * The paired VM bridge this worker starts, or undefined without one. Checked before any
@@ -79,6 +89,9 @@ async function main() {
   let scheduler: DBOSClient | undefined
   let tools: Awaited<ReturnType<typeof startSessionToolServer>> | undefined
   let bridge: Awaited<ReturnType<typeof startSessionBridge>> | undefined
+  // Its own connection, so the status listener never takes one of the turns' pool.
+  let statusDb: ReturnType<typeof database> | undefined
+  let statusRequests: ReturnType<typeof serveProviderStatusRequests> | undefined
   let launched = false
   const shutdown = new AbortController()
   const examineSkipped = new Map<string, string>()
@@ -98,6 +111,12 @@ async function main() {
         protectedHosts: vmBridge.protectedHosts,
       })
     }
+    statusDb = database(localDatabaseUrl(process.env.INTAKE_AGENT_DATABASE_URL))
+    statusRequests = serveProviderStatusRequests(
+      statusDb.pool,
+      config,
+      bridge?.providerStatus ?? statusNotConfigured,
+    )
     // The scheduler takes over recovered work, so it must accept a connection first.
     await schedulerReachable(schedulerUrl)
     // This process now owns the actor, so no other worker can be running these turns.
@@ -199,6 +218,8 @@ async function main() {
     if (launched) {
       await DBOS.shutdown({ workflowCompletionTimeoutMS: 10000 })
     }
+    await statusRequests?.close()
+    await statusDb?.close()
     bridge?.close()
     await tools?.close()
     owner?.release(true)
