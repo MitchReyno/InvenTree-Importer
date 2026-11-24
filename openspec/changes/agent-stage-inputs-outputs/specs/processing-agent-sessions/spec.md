@@ -262,13 +262,19 @@ For `/7` work, an Examine proposal SHALL name any live lot of its batch, and a R
 
 ### Requirement: Questions are not asked twice
 
-In a session whose input is `bench-intake-input/7`, `ask` SHALL return the existing question, storing nothing, when an open or answered question already covers the same subject and overlapping fields, unless the new question names evidence or a conflict the earlier one did not.
+In a session whose input is `bench-intake-input/7`, a publishing `ask` SHALL return the existing question, storing nothing, when an open or answered question already covers the same subject and overlapping fields, unless the new question names evidence or a conflict the earlier one did not, or names the open question it replaces. An `ask` with `preview: true` SHALL always render its figures.
 
 #### Scenario: Examine already asked
 
 - **GIVEN** an answered question on the lot about identity and quantity, and a `/7` Research session
 - **WHEN** Research asks about the same fields with no new evidence or conflict
 - **THEN** ask returns the answered question and its answer, and nothing new appears in Needs you.
+
+#### Scenario: Preview beside an existing question
+
+- **GIVEN** an open question on the lot's quantity in a `/7` session
+- **WHEN** the session previews a new quantity question with figures, then publishes it with no new evidence
+- **THEN** the preview returns its rendered figures, and the publishing call returns the existing question.
 
 ### Requirement: Image and logo tools run in the app
 
