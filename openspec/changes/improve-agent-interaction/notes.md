@@ -29,6 +29,14 @@ Implementation of BI-019's agent interaction work, delivered PR by PR as the tas
 
 ## Decisions made during implementation
 
+- **2026-11-24T16:40+11:00, task 10 (PR-G), server:**
+  - The Start fresh preflight (`processing/start-fresh-eligibility.ts`) shares `REPLACEABLE_STATES`, the retired-lot, held-slot and pinned-identity checks with `replaceSession`, and `createSessionAttempt` now calls one `prepareSessionAttempt` step (retired profile, stage, settings, sealed input size and channel) that the preflight calls too. The command's lock order and refusal codes and statuses are unchanged.
+  - The command checks the runner channel secret before its first insert rather than after it; the refusal code and status are the same, and nothing is written first.
+  - A job whose session isn't stopped gets `session_not_replaceable` without reading media, so for those jobs that refusal comes before `batch_archived` or `subject_retired`; a stopped job follows the command's order exactly.
+  - Only the batch's own Processing read carries `start_fresh`; the header and inbox summaries, which build the same snapshot, skip the preflight to keep their polling cheap.
+  - Rows group attempts by `processing_attempt.job_id`, not `session_lineage_id`, so `native-agent/1` attempts, which have no lineage, still list.
+  - Totals count archived batches; chip counts and the batch summary leave them out under every chip but All.
+  - A `cause` with only a provider error carries `code: 'agent_turn_failed'`.
 - **2026-11-24T15:55+11:00, task 10 (PR-G), contracts and frontend:**
   - The session list keeps its `sessions` field and each row's current-attempt fields, so a reader of the old row keeps its meaning; a row is one job, its attempt the job's newest session attempt, and `latest_on_job` says whether that is the job's current attempt. A row folds at most 20 earlier attempts (`MAX_EARLIER_ATTEMPTS`) with `earlier_attempt_count` counting all; the session page lists every one.
   - The day bounds are optional on the read: without them Done today is neither counted nor accepted as a filter. The browser always sends them.

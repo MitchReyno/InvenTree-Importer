@@ -21,7 +21,11 @@ type Options = {
 export function useSessionList(read: SessionListRead, options: Options) {
   const scope = useServerScope()
   const day = localDayBounds(new Date())
-  const base = { filter: options.filter, ...day, ...(options.batchId ? { batch_id: options.batchId } : {}) }
+  const base = {
+    filter: options.filter,
+    ...day,
+    ...(options.batchId ? { batch_id: options.batchId } : {}),
+  }
   const enabled = options.enabled ?? true
   // Cursors of the pages loaded after the first; a new filter or batch starts from the newest.
   const listKey = `${options.filter}:${options.batchId ?? ''}`
