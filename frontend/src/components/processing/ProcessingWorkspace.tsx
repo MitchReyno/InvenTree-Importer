@@ -871,6 +871,8 @@ export function ProcessingWorkspace({
     return (
       <>
         <DrawerAnswers
+          batchId={batch.id}
+          lotLabel={answeredContext.liveLotLabel}
           questions={open}
           lookup={(questionId) => allQuestions.find((candidate) => candidate.id === questionId)}
           captureRevision={snapshot.capture_revision}
@@ -1110,6 +1112,8 @@ export function ProcessingWorkspace({
                 <>
                   <QuestionAnswer
                     key={`${pinnedForm.question.id}:${pinnedForm.captureRevision}`}
+                    batchId={batch.id}
+                    lot={answeredContext.liveLotLabel(pinnedForm.question.subject_id)}
                     question={pinnedForm.question}
                     captureRevision={pinnedForm.captureRevision}
                     currentQuestion={currentQuestion}
@@ -1302,6 +1306,8 @@ export function ProcessingWorkspace({
                     .map(questionLink)}
                   {answersInDrawer && (
                     <DrawerAnswers
+                      batchId={batch.id}
+                      lotLabel={answeredContext.liveLotLabel}
                       questions={openInDrawer.filter((question) => question.id !== questionId)}
                       lookup={(id) => allQuestions.find((question) => question.id === id)}
                       captureRevision={snapshot.capture_revision}

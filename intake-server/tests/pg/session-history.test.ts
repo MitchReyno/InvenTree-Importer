@@ -68,7 +68,7 @@ function entriesOf(history: SessionHistoryDto, kind: Entry['details']['kind']) {
 }
 
 /** The session tools for runner and lead writes, called directly with a session's token. */
-function tools(fixture: Fixture, deliveredMedia = new Map<string, Set<string>>()) {
+function tools(fixture: Fixture, deliveredMedia = new Map<string, Map<string, Set<number>>>()) {
   const handlers = sessionHandlers(fixture, deliveredMedia)
   return async (name: keyof typeof handlers, token: string, args: unknown) => {
     const output = await handlers[name](token, args)
@@ -77,7 +77,10 @@ function tools(fixture: Fixture, deliveredMedia = new Map<string, Set<string>>()
   }
 }
 
-function sessionHandlers(fixture: Fixture, deliveredMedia = new Map<string, Set<string>>()) {
+function sessionHandlers(
+  fixture: Fixture,
+  deliveredMedia = new Map<string, Map<string, Set<number>>>(),
+) {
   return sessionTools({
     pool: fixture.runner.pool,
     writerPool: fixture.writer.pool,
@@ -611,7 +614,7 @@ test('a proposal links its lot, sources, first web reads and every open question
       [randomUUID(), batchId, photo.evidence, capture.packetA.id, fixture.identity.actor],
     )
     const session = await lotSession(fixture, capture, capture.packetA)
-    const call = tools(fixture, new Map([[session.job, new Set([photo.version])]]))
+    const call = tools(fixture, new Map([[session.job, new Map([[photo.version, new Set([1])]])]]))
     const token = await issue(fixture, session.attempt)
     const leadToken = await issue(fixture, lead.attempt)
     const source = noteSource(session.manifest, capture.packetA.id)

@@ -26,7 +26,7 @@ export async function grantMedia(
   if (purpose === 'gc') {
     await pool.query(`GRANT USAGE ON SCHEMA public TO ${role};
       GRANT SELECT ON media_store_identity,media_version,media_preview,media_preview_rendition,media_approval_pin,
-      media_command_pin TO ${role}`)
+      media_command_pin,processing_figure_render TO ${role}`)
     return
   }
   await pool.query(`GRANT SELECT ON ${tables} TO ${role}`)
@@ -52,5 +52,11 @@ export async function grantMedia(
     // The backfill settles its own attempts; the trigger allows only claimed to an outcome.
     await pool.query(`GRANT SELECT,INSERT ON media_rendition_backfill TO ${role};
       GRANT UPDATE(outcome,retry_after) ON media_rendition_backfill TO ${role}`)
+    // The render consumer claims, settles and sweeps figure renders and collects their blobs.
+    await pool.query(`GRANT SELECT,DELETE ON processing_figure_render TO ${role};
+      GRANT UPDATE(state,attempts,lease_owner,lease_expires_at,settled_at,view_digest,view_width,
+        view_height,thumb_digest,preview_digest,preview_width,preview_height) ON processing_figure_render TO ${role};
+      GRANT SELECT ON processing_question_figure TO ${role};
+      GRANT SELECT,INSERT,DELETE ON processing_figure_blob_release TO ${role}`)
   }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import styled from 'styled-components'
 import {
@@ -36,6 +36,8 @@ export type SteppedAnswerFormProps = {
   disabled: boolean
   readOnly: boolean
   captureHref?: string
+  /** The agent's pictures, shown above the answer. */
+  pictures?: ReactNode
   label: string
   blockedReason?: string
   onDirtyChange: (dirty: boolean) => void
@@ -67,6 +69,7 @@ export function SteppedAnswerForm({
   disabled,
   readOnly,
   captureHref,
+  pictures,
   label,
   blockedReason,
   onDirtyChange,
@@ -204,6 +207,7 @@ export function SteppedAnswerForm({
         }
         question={current ? current.prompt : view.title}
         why={view.reason}
+        pictures={pictures}
         assumption={
           current?.assumption
             ? `The agent keeps working on this assumption: ${current.assumption}`

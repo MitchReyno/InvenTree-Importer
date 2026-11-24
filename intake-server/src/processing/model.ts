@@ -4,7 +4,7 @@ import {
   isAutomationIntentNote,
 } from '#/capture/context-input.ts'
 import { nativeProfileId, nativeInstructionDigest } from '#/agents/policy.ts'
-import { canonical, strictJson } from '@invimport/contracts/json'
+import { canonical, canonicalRecord, strictJson } from '@invimport/contracts/json'
 import {
   validate,
   type CaptureSnapshotDto,
@@ -95,15 +95,19 @@ export function failStep(stepId: string): never {
   throw new ProcessingError('invalid_answer', 422, stepId)
 }
 
+/**
+ * Canonical bytes and their digest. Safe integers are kept, as question figures need; documents
+ * without numbers seal to the same bytes as before.
+ */
 export function sealed(value: unknown) {
-  const bytes = Buffer.from(canonical(value))
+  const bytes = Buffer.from(canonicalRecord(value))
   return { bytes, digest: sha256(bytes) }
 }
 
 export function unseal(bytes: Buffer, digest: Buffer): unknown {
   verifyBytes(bytes, digest)
   const value: unknown = strictJson(bytes.toString('utf8'))
-  if (canonical(value) !== bytes.toString('utf8')) {
+  if (canonicalRecord(value) !== bytes.toString('utf8')) {
     fail('noncanonical_retained_input')
   }
   return value

@@ -16,6 +16,7 @@ import { Masthead } from '#/components/masthead/Masthead'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { AgentSessions } from '#/components/agents/AgentSessions'
 import { fixtureHistory } from './session-history'
+import { dateCodeFigures, packetLabelFigures, wornSuffixFigures } from './question-figures'
 import { sessionList, sessionRow } from '#/test/agent-sessions'
 import { heyyySessions, HEYYY_LOT, HEYYY_NAMES } from '#/components/agents/fixtures/heyyy'
 import { ProcessingWorkspace } from '#/components/processing/ProcessingWorkspace'
@@ -178,6 +179,7 @@ const steppedQuestion = () => ({
   title: 'About the 10 kΩ packets',
   reason: 'Same MPN on both labels, but the date codes differ (2341 and 2407).',
   asked_at: '2026-11-06T09:02:00.000Z',
+  figures: packetLabelFigures,
   steps: [
     {
       id: 'same_part',
@@ -227,6 +229,7 @@ const choiceQuestion = () => ({
   fields: ['identity'],
   reason: 'The top marking is worn; “P” and “PB” both fit what is legible.',
   asked_at: '2026-11-06T09:03:00.000Z',
+  figures: wornSuffixFigures,
   steps: [
     {
       id: 'variant',
@@ -237,6 +240,37 @@ const choiceQuestion = () => ({
         options: [
           { id: 'p', label: 'ATmega328P-AU', detail: 'matches slip line 3' },
           { id: 'pb', label: 'ATmega328PB-AU' },
+        ],
+        other: true,
+      },
+    },
+  ],
+})
+
+/** Research's question about the LM358 tube, with one picture. */
+const dateCodeQuestion = () => ({
+  id: id(47),
+  job_id: id(3),
+  attempt_id: id(23),
+  input_sha256: 'a'.repeat(64),
+  revision: '1',
+  state: askedState(id(47)),
+  subject_id: lot(3),
+  schema_version: 'bench-intake-question/2',
+  fields: ['identity'],
+  reason: 'The tube’s date code is half rubbed off.',
+  asked_at: '2026-11-06T09:04:00.000Z',
+  figures: dateCodeFigures,
+  steps: [
+    {
+      id: 'date_code',
+      prompt: 'Is the date code 2348 or 2346?',
+      assumption: 'Working on 2348.',
+      answer: {
+        kind: 'choice',
+        options: [
+          { id: '2348', label: '2348' },
+          { id: '2346', label: '2346' },
         ],
         other: true,
       },
@@ -278,6 +312,7 @@ const snapshot = (withSessions: boolean) =>
                 text: 'Checking the LM358 datasheet',
                 at: '2026-11-06T09:06:00.000Z',
               },
+              questions: [dateCodeQuestion()],
             }
           : {},
       ),
@@ -382,17 +417,17 @@ const failure: SessionFailureDto = {
 
 const stepCounts = { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 }
 
-/** What the batch header counts: both agent questions, the failed Images job and two Review decisions. */
+/** What the batch header counts: the three agent questions, the failed Images job and two Review decisions. */
 const attention = {
   batch_id: batchId,
   revision: batch.revision,
   processing: {
-    questions: 2,
+    questions: 3,
     failed: 1,
     running: 2,
     steps: {
       examine: { ...stepCounts, questions: 1, jobs: 2, ready: 1, running: 1 },
-      research: { ...stepCounts, questions: 1, jobs: 2, running: 2 },
+      research: { ...stepCounts, questions: 2, jobs: 2, running: 2 },
       images: { ...stepCounts, failed: 1, jobs: 1 },
       inventory: stepCounts,
     },
@@ -417,6 +452,15 @@ const attention = {
       detail: null,
       question: { steps: [{ kind: 'choice', options: 2, assumption: 'Assuming the P variant' }] },
       route: `${batchId}/processing/research/${id(46)}`,
+    },
+    {
+      key: 'question:date-code',
+      group: 'question',
+      tab: 'processing',
+      title: 'Is the date code 2348 or 2346?',
+      detail: null,
+      question: { steps: [{ kind: 'choice', options: 2, assumption: 'Working on 2348.' }] },
+      route: `${batchId}/processing/research/${id(47)}`,
     },
     {
       key: 'failed:images',

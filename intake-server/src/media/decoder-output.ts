@@ -3,11 +3,14 @@ import { strictJson } from '@invimport/contracts/json'
 import {
   assertMediaOutputHeader,
   assertMediaRenditionOutputHeader,
+  assertMediaViewOutputHeader,
   expectedRenditionSizes,
   MEDIA_DECODER_HEADER_MAX_BYTES,
   renditionDimensions,
+  viewLayout,
   type MediaOutputPageDto,
   type MediaOutputRenditionDto,
+  type MediaViewOutputHeaderDto,
 } from '@invimport/contracts/media'
 import {
   MEDIA_LIMITS,
@@ -17,6 +20,9 @@ import {
   type DecodedRendition,
   type RenderedPage,
   type RenditionResult,
+  type ViewImage,
+  type ViewInput,
+  type ViewResult,
 } from '@invimport/media-decoder/protocol'
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
 
@@ -166,4 +172,95 @@ export function parseRenditionOutput(
     throw new Error('decoder_output_trailing_bytes')
   }
   return { state: 'ready', toolchain: MEDIA_TOOLCHAIN, renditions }
+}
+
+type ViewOutputImageDto = Extract<MediaViewOutputHeaderDto, { state: 'ready' }>['view']
+
+/** One image of a view result, checked against its header entry and the size the layout predicts. */
+function viewImage(
+  item: ViewOutputImageDto,
+  bytes: Buffer,
+  expected: { width: number; height: number; format: 'webp' | 'png' },
+): ViewImage {
+  if (
+    item.width !== expected.width ||
+    item.height !== expected.height ||
+    bytes.length !== item.byte_size ||
+    bytes.length > MEDIA_LIMITS.outputBytes
+  ) {
+    throw new Error('invalid_decoder_view')
+  }
+  if (expected.format === 'webp') {
+    const encoded = webpDimensions(bytes)
+    if (encoded?.width !== item.width || encoded.height !== item.height) {
+      throw new Error('invalid_decoder_view')
+    }
+  } else {
+    const isPng = bytes.length >= 24 && bytes.subarray(0, 8).equals(PNG_SIGNATURE)
+    if (!isPng || bytes.readUInt32BE(16) !== item.width || bytes.readUInt32BE(20) !== item.height) {
+      throw new Error('invalid_decoder_view')
+    }
+  }
+  if (createHash('sha256').update(bytes).digest('hex') !== item.digest) {
+    throw new Error('decoder_output_digest_mismatch')
+  }
+  return { width: item.width, height: item.height, bytes }
+}
+
+/**
+ * A rendered view: the WebP view and thumbnail at the sizes `viewLayout` gives the recipe, then a
+ * PNG preview at the view's size exactly when marks were sent.
+ */
+export function parseViewOutput(
+  bytes: Buffer,
+  input: Pick<ViewInput, 'recipe' | 'marks'>,
+): ViewResult {
+  const headerEnd = bytes.indexOf(10)
+  if (headerEnd < 0 || headerEnd > MEDIA_DECODER_HEADER_MAX_BYTES) {
+    throw new Error('invalid_decoder_header')
+  }
+  const header = strictJson(bytes.subarray(0, headerEnd).toString('utf8'))
+  assertMediaViewOutputHeader(header)
+  const payload = bytes.subarray(headerEnd + 1)
+  if (header.state !== 'ready') {
+    if (payload.length) {
+      throw new Error('decoder_output_trailing_bytes')
+    }
+    return { state: 'malformed', toolchain: MEDIA_TOOLCHAIN }
+  }
+  const previewExpected = input.marks !== null
+  if (previewExpected !== (header.preview !== null)) {
+    throw new Error('invalid_decoder_view')
+  }
+  const layout = viewLayout(input.recipe)
+  let offset = 0
+
+  const next = (item: ViewOutputImageDto) => {
+    const slice = payload.subarray(offset, offset + item.byte_size)
+    offset += item.byte_size
+    return slice
+  }
+
+  const view = viewImage(header.view, next(header.view), {
+    width: layout.width,
+    height: layout.height,
+    format: 'webp',
+  })
+  const thumb = viewImage(header.thumb, next(header.thumb), {
+    width: layout.thumbWidth,
+    height: layout.thumbHeight,
+    format: 'webp',
+  })
+  let preview: ViewImage | null = null
+  if (header.preview) {
+    preview = viewImage(header.preview, next(header.preview), {
+      width: layout.width,
+      height: layout.height,
+      format: 'png',
+    })
+  }
+  if (offset !== payload.length) {
+    throw new Error('decoder_output_trailing_bytes')
+  }
+  return { state: 'ready', toolchain: MEDIA_TOOLCHAIN, view, thumb, preview }
 }

@@ -4,6 +4,8 @@ import { expect, test, vi } from 'vitest'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import { validate, type ProcessingQuestionV2Dto, type QuestionStepDto } from '@invimport/contracts'
 import { render } from '#/test/render'
+import { figure } from '#/test/question-figures'
+import { questionFigureImage } from '#/media/types'
 import { QuestionAnswer } from './QuestionAnswer'
 
 const questionId = 'e0000000-0000-4000-8000-000000000002'
@@ -65,6 +67,7 @@ type Answer = (questionId: string, input: unknown, key: string) => Promise<void>
 function mount(question: ProcessingQuestionV2Dto, answer = vi.fn<Answer>(async () => {})) {
   const onDirtyChange = vi.fn()
   const props = {
+    batchId: 'batch',
     captureRevision: '4',
     currentCaptureRevision: '4',
     disabled: false,
@@ -317,4 +320,31 @@ test('text limits count characters as the contract does, so 2048 emoji fit and o
   fireEvent.change(box, { target: { value: '\u{1F600}'.repeat(2049) } })
   expect(screen.getByRole('alert')).toHaveTextContent('Keep it to 2048 characters.')
   expect(send).toBeDisabled()
+})
+
+test('pictures sit above the options, and a picture still being made updates from the read', async () => {
+  const packetB = figure(5, { caption: 'Packet B' })
+  const preparing: ProcessingQuestionV2Dto = {
+    ...oneStep,
+    figures: [figure(2, { caption: 'Packet A', state: 'preparing' }), packetB],
+  }
+  validate('ProcessingQuestion', preparing)
+  const { rerender } = mount(preparing)
+
+  const first = screen.getByRole('button', { name: 'Open picture 1 of 2: Packet A' })
+  expect(first).toHaveTextContent('Preparing picture…')
+  const options = screen.getByRole('radio', { name: /Yes, same Part/ })
+  expect(first.compareDocumentPosition(options) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+  // The form stays pinned to its question; its pictures follow the latest read of it.
+  rerender({ ...preparing, figures: [figure(2, { caption: 'Packet A' }), packetB] })
+  const ready = screen.getByRole('button', { name: 'Open picture 1 of 2: Packet A' })
+  expect(ready.querySelector('img')).toHaveAttribute(
+    'src',
+    questionFigureImage('batch', base.job_id, questionId, 1, 'view'),
+  )
+
+  // A picture that can't be shown leaves the question answerable.
+  await userEvent.click(options)
+  expect(screen.getByRole('button', { name: 'Send answer' })).toBeEnabled()
 })

@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { finished } from 'node:stream/promises'
 import { once } from 'node:events'
 import { randomBytes } from 'node:crypto'
-import { stageEvidence, type EvidenceDelivery } from './stage-evidence.ts'
+import { stageEvidence, stagePreview, type EvidenceDelivery } from './stage-evidence.ts'
 import { readBounded } from './frames.ts'
 import { settled } from '#/events/settled.ts'
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -46,14 +46,21 @@ export async function startMcpProxy(
             }
             const evidence = guestTools && reply.status === 200 && evidenceRequest(body)
             let responseBody = reply.body
+
+            const stagingDirectory = () => (evidenceDir ??= mkdtemp('/tmp/bench-evidence-'))
+
+            // A preview's images are staged the same way but never released for citation.
+            const preview = evidence && evidence.kind === 'preview'
             if (evidence) {
-              staging = stageEvidence(
-                evidence.id,
-                reply.body,
-                () => (evidenceDir ??= mkdtemp('/tmp/bench-evidence-')),
-                delivery,
-                reply.evidenceFormat,
-              )
+              staging = preview
+                ? stagePreview(evidence.id, reply.body, stagingDirectory, delivery)
+                : stageEvidence(
+                    evidence.id,
+                    reply.body,
+                    stagingDirectory,
+                    delivery,
+                    reply.evidenceFormat,
+                  )
               try {
                 responseBody = await staging
               } finally {
@@ -62,14 +69,17 @@ export async function startMcpProxy(
               if (closing || res.destroyed) {
                 return
               }
-              if (responseBody !== reply.body && typeof reply.releaseId !== 'string') {
+              if (preview && reply.releaseId !== undefined) {
+                throw new Error('invalid_evidence_release')
+              }
+              if (!preview && responseBody !== reply.body && typeof reply.releaseId !== 'string') {
                 throw new Error('invalid_evidence_release')
               }
             }
             const written = finished(res, { readable: false, cleanup: true })
             res.writeHead(reply.status, { 'content-type': 'application/json' }).end(responseBody)
             await written
-            if (evidence && responseBody !== reply.body) {
+            if (evidence && !preview && responseBody !== reply.body) {
               const ack = await request({ releaseId: reply.releaseId })
               if (ack.ok !== true) {
                 throw new Error('evidence_release_unconfirmed')

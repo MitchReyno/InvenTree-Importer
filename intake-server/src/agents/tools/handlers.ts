@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { setTimeout as delay } from 'node:timers/promises'
 import { and, eq, sql } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
 import {
@@ -55,6 +56,14 @@ import sharp from 'sharp'
 import { regionCropCache } from '#/media/region-crops.ts'
 import { pendingSessionInbox, readSessionInbox, sessionInboxItem } from './inbox.ts'
 import { stepRefusal, subjectRefusal } from './question-checks.ts'
+import { resolveFigures, type ResolvedFigure } from './figures.ts'
+import {
+  enqueueFigureRenders,
+  figureRecipeDigest,
+  MAX_PENDING_PREVIEWS,
+  pendingPreviewCount,
+  previewRenders,
+} from '#/media/figure-renders.ts'
 import { removedVersionIds, versionRemovedSql } from '#/media/removal.ts'
 
 export const SESSION_IMAGE_BUDGET_BYTES = 8 * 1024 * 1024
@@ -79,11 +88,23 @@ export interface SessionToolContext {
   statusIntervalMs: number
   /** Image bytes already returned, by provider run (capability digest). */
   imageBudget: Map<string, number>
-  /** Media versions actually returned to each lineage by fetch_evidence. */
-  deliveredMedia: Map<string, Set<string>>
+  /** Media versions and pages actually returned to each job's session by fetch_evidence. */
+  deliveredMedia: DeliveredMedia
   /** Private directory for region crops, outside the blob store. */
   cropCacheDir?: string
+  /** How long an `ask` preview waits for its renders; `FIGURE_PREVIEW_WAIT_MS` by default. */
+  figurePreviewWaitMs?: number
 }
+
+/** An `ask` preview waits at most this long for the media worker to render its figures. */
+export const FIGURE_PREVIEW_WAIT_MS = 20_000
+/** How often a waiting preview checks its renders. */
+const FIGURE_PREVIEW_POLL_MS = 200
+/**
+ * A preview's images together stay within this, so five of them in base64 fit the VM relay's
+ * evidence frame (`evidenceReplyLimit`) with room for the result text.
+ */
+export const FIGURE_PREVIEW_MAX_BYTES = 6 * 1024 * 1024
 
 /** The lead session's evidence: originals pinned in its manifest plus versions sent as notices. */
 /** A session's fetchable versions: its pinned media plus versions sent to it as notices. */
@@ -410,7 +431,7 @@ async function fetchEvidenceImage(
     return { result: { ...authorized.result, pending_inbox: finished.pending } }
   }
   if (!plan.deferCitation) {
-    recordMediaDelivery(context.deliveredMedia, plan.jobId, plan.versionId)
+    recordMediaDelivery(context.deliveredMedia, plan.jobId, plan.versionId, preview.page)
   }
   return {
     result: {
@@ -431,9 +452,25 @@ async function fetchEvidenceImage(
   }
 }
 
-export function recordMediaDelivery(media: Map<string, Set<string>>, job: string, version: string) {
-  const versions = media.get(job) ?? new Set<string>()
-  versions.add(version)
+/** Media actually given to each job's session: version, then the pages it was given. */
+export type DeliveredMedia = Map<string, Map<string, Set<number>>>
+
+/**
+ * Records a delivered version and page. A delivery from a host that didn't report its page
+ * proves the version for citations but grants no page for a figure.
+ */
+export function recordMediaDelivery(
+  media: DeliveredMedia,
+  job: string,
+  version: string,
+  page?: number,
+) {
+  const versions = media.get(job) ?? new Map<string, Set<number>>()
+  const pages = versions.get(version) ?? new Set<number>()
+  if (page !== undefined) {
+    pages.add(page)
+  }
+  versions.set(version, pages)
   media.set(job, versions)
 }
 
@@ -835,11 +872,15 @@ function refuseUnacceptedWebPages(proposal: SessionProposalDto) {
  * Every citation must come from what this session was given: notes from its opening manifest,
  * media it actually fetched, inbox items of its lineage, and proposals pinned for it or its own.
  */
-async function requireDeliveredSources(
+/**
+ * Whether a cited note or media version was delivered to this session: a version counts once the
+ * session fetched it, and manifest membership decides how its evidence and digest are checked.
+ * Proposals and question figures share it.
+ */
+export async function deliveredSourcePredicate(
   client: PoolClient,
   context: SessionToolContext,
   principal: SessionPrincipal,
-  proposal: SessionProposalDto,
 ) {
   const manifest = principal.manifest
   const inManifest = deliveredSourceCheck({
@@ -847,7 +888,7 @@ async function requireDeliveredSources(
     notes: manifest.notes,
     media: manifest.media,
   })
-  const fetched = context.deliveredMedia.get(principal.jobId) ?? new Set<string>()
+  const fetched = new Set((context.deliveredMedia.get(principal.jobId) ?? new Map()).keys())
 
   const manifestVersions = new Set(
     decodeMediaInputs(
@@ -871,7 +912,7 @@ async function requireDeliveredSources(
       : [],
   )
 
-  const delivered = (source: ProcessingSourceDto) => {
+  const delivered = (source: ProcessingSourceDto | ProcessingMediaSourceDto) => {
     if (source.kind === 'note') {
       return inManifest(source)
     }
@@ -885,6 +926,17 @@ async function requireDeliveredSources(
     return version?.evidence_id === source.evidence_id && version.sha256 === source.sha256
   }
 
+  return delivered
+}
+
+async function requireDeliveredSources(
+  client: PoolClient,
+  context: SessionToolContext,
+  principal: SessionPrincipal,
+  proposal: SessionProposalDto,
+) {
+  const manifest = principal.manifest
+  const delivered = await deliveredSourcePredicate(client, context, principal)
   for (const source of [...proposal.sources, ...catalogueSources(proposal)]) {
     // An agent-reported web page is the one source the app never delivers.
     if (source.kind === 'web_page') {
@@ -951,11 +1003,15 @@ const SESSION_RESULT_BUDGET_BYTES = MAX_PROCESSING_SNAPSHOT_BYTES / 2
 /** A generous upper bound for the read-model fields around one proposal or question. */
 const RESULT_PROJECTION_BYTES = 512
 
+/** The read's extra fields around one question figure: its state, label and page size. */
+const FIGURE_PROJECTION_BYTES = 384
+
 async function requireRoom(
   client: PoolClient,
   principal: SessionPrincipal,
   label: 'proposals' | 'questions',
   newBytes: number,
+  figures = 0,
 ) {
   // Proposals are read per attempt and questions per job, so each limit uses the same scope.
   const query =
@@ -982,11 +1038,16 @@ async function requireRoom(
     `SELECT (COALESCE((SELECT sum(octet_length(p.value_bytes)+${RESULT_PROJECTION_BYTES}) FROM public.processing_proposal p
         JOIN public.processing_attempt a ON a.id=p.attempt_id WHERE a.batch_id=$1),0)
       + COALESCE((SELECT sum(octet_length(q.spec_bytes)+${RESULT_PROJECTION_BYTES}+${MAX_ANSWER_SUMMARY_BYTES}) FROM public.processing_question q
-        WHERE q.batch_id=$1),0))::text AS bytes`,
+        WHERE q.batch_id=$1),0)
+      + COALESCE((SELECT count(*)*${FIGURE_PROJECTION_BYTES} FROM public.processing_question_figure f
+        WHERE f.batch_id=$1),0))::text AS bytes`,
     [principal.batchId],
   )
   // Each question also keeps room for its answer's summary in the read.
-  const allowance = RESULT_PROJECTION_BYTES + (label === 'questions' ? MAX_ANSWER_SUMMARY_BYTES : 0)
+  const allowance =
+    RESULT_PROJECTION_BYTES +
+    (label === 'questions' ? MAX_ANSWER_SUMMARY_BYTES : 0) +
+    figures * FIGURE_PROJECTION_BYTES
   const projected = BigInt(retained.rows[0].bytes) + BigInt(newBytes + allowance)
   if (projected > BigInt(SESSION_RESULT_BUDGET_BYTES)) {
     refuse('capacity_reached', 'This batch has reached the size limit for retained results.')
@@ -1121,6 +1182,173 @@ async function retainSessionMessage(
       .where(eq(processingAttempts.id, principal.attemptId)),
   )
   return { messageId, streamId: capture.streamId }
+}
+
+/** Figures must show only what this session was given; see `resolveFigures`. */
+async function requireFigures(
+  client: PoolClient,
+  principal: SessionPrincipal,
+  figures: NonNullable<SessionAskArgsV2Dto['figures']>,
+  context: SessionToolContext,
+): Promise<ResolvedFigure[]> {
+  const delivered = await deliveredSourcePredicate(client, context, principal)
+  const pages = context.deliveredMedia.get(principal.jobId)
+  const resolved = await resolveFigures(client, principal.batchId, figures, {
+    delivered,
+    pages: (versionId) => pages?.get(versionId) ?? new Set(),
+  })
+  if ('refusal' in resolved) {
+    throw new ToolRefusal(resolved.refusal.code, resolved.refusal.message, [resolved.refusal.issue])
+  }
+  return resolved.figures
+}
+
+/** Stores a preview's marked render requests, refusing when too many are already waiting. */
+async function queuePreviews(
+  client: PoolClient,
+  principal: SessionPrincipal,
+  figures: ResolvedFigure[],
+) {
+  if (!figures.length) {
+    throw new ToolRefusal('validation_failed', 'A preview needs at least one figure.', [
+      { path: '/figures', rule: 'required', reason: 'A preview renders figures; add one.' },
+    ])
+  }
+  const pending = await pendingPreviewCount(client, principal.lineageId!)
+  if (pending + figures.length > MAX_PENDING_PREVIEWS) {
+    refuse(
+      'preview_busy',
+      `This session already has ${pending} previews waiting to render. Wait a moment and preview again.`,
+    )
+  }
+  return enqueueFigureRenders(
+    client,
+    principal.batchId,
+    figures.map((item) => ({ recipe: item.recipe, marks: item.figure.marks ?? [] })),
+    principal.lineageId!,
+  )
+}
+
+/** Records each figure of a stored question and queues its operator view. */
+async function storeQuestionFigures(
+  client: PoolClient,
+  principal: SessionPrincipal,
+  questionId: string,
+  figures: ResolvedFigure[],
+) {
+  if (!figures.length) {
+    return
+  }
+  await enqueueFigureRenders(
+    client,
+    principal.batchId,
+    figures.map((item) => ({ recipe: item.recipe })),
+  )
+  for (const [index, item] of figures.entries()) {
+    await client.query(
+      `INSERT INTO public.processing_question_figure(
+         question_id, figure_index, batch_id, version_id, page, recipe_digest)
+       VALUES($1,$2,$3,$4,$5,$6)`,
+      [
+        questionId,
+        index + 1,
+        principal.batchId,
+        item.recipe.source_version_id,
+        item.recipe.page,
+        figureRecipeDigest(item.recipe),
+      ],
+    )
+  }
+}
+
+/**
+ * Waits for a committed preview's renders and returns them as images within the run's image
+ * budget. A preview not rendered in time returns no images and may be called again.
+ */
+async function previewOutput(
+  context: SessionToolContext,
+  run: string,
+  ids: string[],
+  asked: SessionToolOutput,
+): Promise<SessionToolOutput> {
+  if (!asked.result.ok) {
+    return asked
+  }
+  const committed = asked.result
+  const pending = committed.pending_inbox
+
+  const notOk = (error: SessionToolErrorDto, message: string): SessionToolOutput => ({
+    result: { ok: false, error, message, pending_inbox: pending },
+  })
+
+  const deadline = Date.now() + (context.figurePreviewWaitMs ?? FIGURE_PREVIEW_WAIT_MS)
+  let renders = await previewRenders(context.pool, ids)
+  while (renders.some((render) => render.state === 'queued') && Date.now() < deadline) {
+    await delay(FIGURE_PREVIEW_POLL_MS)
+    renders = await previewRenders(context.pool, ids)
+  }
+  if (renders.some((render) => render.state === 'queued')) {
+    return notOk(
+      'preview_not_ready',
+      'The preview is still being prepared. Call ask with preview: true again to see it.',
+    )
+  }
+  const failed = renders.findIndex((render) => render.state === 'failed')
+  if (failed >= 0) {
+    return notOk(
+      'tool_failed',
+      `Figure ${failed + 1} couldn't be rendered. Choose another region or page, or ask without it.`,
+    )
+  }
+  if (!context.store) {
+    return notOk('tool_failed', 'Previews are unavailable here. Ask without preview.')
+  }
+  const images: DeliveredImage[] = []
+  for (const render of renders) {
+    const bytes = await context.store.read(render.digest!)
+    const image = await boundedImage(
+      bytes,
+      { width: render.width!, height: render.height! },
+      AGENT_IMAGE_LONG_EDGE,
+      false,
+    )
+    if (!image) {
+      return notOk(
+        'validation_failed',
+        'A preview picture is too large to send. Use a smaller region.',
+      )
+    }
+    images.push(image)
+  }
+  const total = images.reduce((sum, image) => sum + image.bytes.length, 0)
+  if (total > FIGURE_PREVIEW_MAX_BYTES) {
+    return notOk(
+      'validation_failed',
+      'The preview pictures are too large to send together. Preview fewer figures or smaller regions.',
+    )
+  }
+  if (!reserveImageBudget(context, run, total)) {
+    return notOk(
+      'capacity_reached',
+      'This run has used its image budget, so the preview was not sent. Ask without preview.',
+    )
+  }
+  return {
+    result: {
+      ...committed,
+      preview: images.map((image, index) => ({
+        figure: index + 1,
+        width: image.width,
+        height: image.height,
+        media_type: image.mediaType,
+        sha256: sha256(image.bytes).toString('hex'),
+      })),
+    },
+    images: images.map((image) => ({
+      mediaType: image.mediaType,
+      base64: image.bytes.toString('base64'),
+    })),
+  }
 }
 
 export function sessionTools(context: SessionToolContext) {
@@ -1336,70 +1564,95 @@ export function sessionTools(context: SessionToolContext) {
         },
       ),
 
-    ask: (token: string, args: unknown) =>
-      withSession(context, token, { capture: true }, async (client, principal, capture) => {
-        const ask = validated<SessionAskArgsV2Dto>('SessionAskArgsV2', args)
-        // Only the lead session may ask about the whole batch or another subject of it.
-        const liveLots = capture!.snapshot.lots.filter((lot) => !lot.retired).map((lot) => lot.id)
-        const subjects = [...liveLots, ...capture!.snapshot.parts.map((part) => part.id)]
-        if (
-          principal.subjectId === null
-            ? ask.subject_id !== null && !subjects.includes(ask.subject_id)
-            : ask.subject_id !== principal.subjectId
-        ) {
-          const wrongSubject = subjectRefusal(ask)
-          throw new ToolRefusal('validation_failed', wrongSubject.message, [wrongSubject.issue])
-        }
-        const stepProblem = stepRefusal(ask, new Set(liveLots))
-        if (stepProblem) {
-          throw new ToolRefusal('validation_failed', stepProblem.message, [stepProblem.issue])
-        }
-        if (ask.replaces !== undefined) {
-          await requireReplaceable(client, principal, ask.replaces)
-        }
-        const envelope = await sealSessionEnvelope(client, principal, 'question', ask)
-        await requireRoom(client, principal, 'questions', sealed(ask).bytes.length)
-        const { messageId, streamId } = await retainSessionMessage(
-          client,
-          capture!,
-          principal,
-          envelope,
-        )
-        const spec = sealed(ask)
-        const id = randomUUID()
-        // Questions do not block: the attempt keeps running on the stated assumption.
-        await executeDatabaseQuery(
-          queryDatabase(client)
-            .insert(processingQuestions)
-            .values({
-              id,
-              batchId: principal.batchId,
-              jobId: principal.jobId,
-              attemptId: principal.attemptId,
-              messageId,
-              inputId: (
-                await executeDatabaseQuery(
-                  queryDatabase(client)
-                    .select({ inputId: processingAttempts.inputId })
-                    .from(processingAttempts)
-                    .where(eq(processingAttempts.id, principal.attemptId)),
-                )
-              )[0].inputId,
-              state: 'open',
-              specBytes: spec.bytes,
-              specDigest: spec.digest,
-            }),
-        )
-        if (ask.replaces !== undefined) {
-          await replaceQuestion(client, principal.jobId, ask.replaces, id)
-        }
-        await appendSessionOutbox(client, principal.attemptId, {
-          kind: 'question',
-          payload: { question_id: id },
-        })
-        await appendEvent(client, streamId, 'processing_changed', { batch_id: principal.batchId })
-        return ok(client, principal, { id })
-      }),
+    ask: async (token: string, args: unknown): Promise<SessionToolOutput> => {
+      let previews: string[] | undefined
+      const asked = await withSession(
+        context,
+        token,
+        { capture: true },
+        async (client, principal, capture) => {
+          const ask = validated<SessionAskArgsV2Dto>('SessionAskArgsV2', args)
+          // Only the lead session may ask about the whole batch or another subject of it.
+          const liveLots = capture!.snapshot.lots.filter((lot) => !lot.retired).map((lot) => lot.id)
+          const subjects = [...liveLots, ...capture!.snapshot.parts.map((part) => part.id)]
+          if (
+            principal.subjectId === null
+              ? ask.subject_id !== null && !subjects.includes(ask.subject_id)
+              : ask.subject_id !== principal.subjectId
+          ) {
+            const wrongSubject = subjectRefusal(ask)
+            throw new ToolRefusal('validation_failed', wrongSubject.message, [wrongSubject.issue])
+          }
+          const stepProblem = stepRefusal(ask, new Set(liveLots))
+          if (stepProblem) {
+            throw new ToolRefusal('validation_failed', stepProblem.message, [stepProblem.issue])
+          }
+          if (ask.replaces !== undefined) {
+            await requireReplaceable(client, principal, ask.replaces)
+          }
+          const figures = ask.figures
+            ? await requireFigures(client, principal, ask.figures, context)
+            : []
+          if (ask.preview) {
+            previews = await queuePreviews(client, principal, figures)
+            return ok(client, principal)
+          }
+          const envelope = await sealSessionEnvelope(client, principal, 'question', ask)
+          await requireRoom(
+            client,
+            principal,
+            'questions',
+            sealed(ask).bytes.length,
+            figures.length,
+          )
+          const { messageId, streamId } = await retainSessionMessage(
+            client,
+            capture!,
+            principal,
+            envelope,
+          )
+          const spec = sealed(ask)
+          const id = randomUUID()
+          // Questions do not block: the attempt keeps running on the stated assumption.
+          await executeDatabaseQuery(
+            queryDatabase(client)
+              .insert(processingQuestions)
+              .values({
+                id,
+                batchId: principal.batchId,
+                jobId: principal.jobId,
+                attemptId: principal.attemptId,
+                messageId,
+                inputId: (
+                  await executeDatabaseQuery(
+                    queryDatabase(client)
+                      .select({ inputId: processingAttempts.inputId })
+                      .from(processingAttempts)
+                      .where(eq(processingAttempts.id, principal.attemptId)),
+                  )
+                )[0].inputId,
+                state: 'open',
+                specBytes: spec.bytes,
+                specDigest: spec.digest,
+              }),
+          )
+          if (ask.replaces !== undefined) {
+            await replaceQuestion(client, principal.jobId, ask.replaces, id)
+          }
+          await storeQuestionFigures(client, principal, id, figures)
+          await appendSessionOutbox(client, principal.attemptId, {
+            kind: 'question',
+            payload: { question_id: id },
+          })
+          await appendEvent(client, streamId, 'processing_changed', { batch_id: principal.batchId })
+          return ok(client, principal, { id })
+        },
+      )
+      if (!previews || !asked.result.ok) {
+        return asked
+      }
+      return previewOutput(context, capabilityDigest(token).toString('hex'), previews, asked)
+    },
 
     fetch_evidence: async (token: string, args: unknown): Promise<SessionToolOutput> =>
       fetchEvidenceImage(context, token, capabilityDigest(token).toString('hex'), args),

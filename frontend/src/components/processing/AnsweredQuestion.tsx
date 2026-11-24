@@ -2,11 +2,15 @@ import { Fragment } from 'react'
 import styled from 'styled-components'
 import { questionView, type ProcessingQuestionDto } from '@invimport/contracts'
 import { CheckIcon, ClockIcon, EventTime, Link, VisuallyHidden } from '#/components/ui'
+import { batchHref } from '#/navigation/batch-route'
 import type { AnsweredIcon, AnsweredLine } from '#/processing/answered-line'
 import { answerEffectsSentence } from '#/processing/question-summary'
 import { color, icon, radius, space, typeVar } from '#/theme/generated/tokens'
+import { QuestionFigures } from './QuestionFigures'
 
 type Props = {
+  /** The question's batch, whose routes serve its pictures. */
+  batchId: string
   line: AnsweredLine
   question: ProcessingQuestionDto
   /** The asking session's stage name: "Examine". */
@@ -28,10 +32,19 @@ const ICON_NAME: Record<AnsweredIcon, string> = {
 /**
  * An answered question folded to one line: what was answered and whether the session has read
  * it. It expands to the question, the assumption it replaced, the answer, what it changed, when
- * it was sent and read, and links to the session and the lot.
+ * it was sent and read, and links to the session and the lot, with the agent's pictures.
  */
-export function AnsweredQuestion({ line, question, stage, sessionHref, lot, lotLabel }: Props) {
+export function AnsweredQuestion({
+  batchId,
+  line,
+  question,
+  stage,
+  sessionHref,
+  lot,
+  lotLabel,
+}: Props) {
   const view = questionView(question)
+  const figures = 'steps' in question ? question.figures : undefined
   const changed = answerEffectsSentence(line.effects, lotLabel)
 
   return (
@@ -64,6 +77,17 @@ export function AnsweredQuestion({ line, question, stage, sessionHref, lot, lotL
         )}
       </summary>
       <Body>
+        {figures && (
+          <QuestionFigures
+            figures={figures}
+            batchId={batchId}
+            jobId={question.job_id}
+            questionId={question.id}
+            questionTitle={view.title}
+            lot={lot?.label}
+            captureHref={batchHref(batchId, { tab: 'capture' })}
+          />
+        )}
         <Facts>
           <dt>Asked</dt>
           <dd>

@@ -5,6 +5,7 @@ import { answeredLine, newestAnsweredFirst, type AnsweredLine } from './answered
 
 /** One line of the Answered group, with where it links. */
 export type AnsweredItem = {
+  batchId: string
   line: AnsweredLine
   question: ProcessingQuestionDto
   stage: string
@@ -53,6 +54,7 @@ export function answeredItems(jobs: readonly ProcessingJobDto[], context: Contex
               }
             : undefined
         return {
+          batchId: context.batchId,
           line,
           question,
           stage,

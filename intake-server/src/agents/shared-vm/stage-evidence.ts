@@ -69,6 +69,69 @@ export async function stageEvidence(
   return JSON.stringify(reply)
 }
 
+const PREVIEW_GUIDANCE =
+  'These are previews of your figures with their marks drawn in, as files in local_files, in figure order. Open each path with your image/file tool to check what the operator will see. The files exist only for this turn. A preview grants no citation; cite only fetched evidence.'
+
+/**
+ * Exposes an `ask` preview's images to guest scripts in the configured delivery mode. Each image
+ * must match the preview entry the trusted host listed for it. Nothing is released: a preview
+ * grants no citation.
+ */
+export async function stagePreview(
+  id: string | number,
+  body: string,
+  directory: () => Promise<string>,
+  delivery: EvidenceDelivery = 'file',
+) {
+  const reply = JSON.parse(body)
+  const result = reply?.result
+  const metadata = result?.structuredContent
+  const images = result?.content?.filter((item: { type: string }) => item.type === 'image')
+  if (!images?.length) {
+    return body
+  }
+  const listed = metadata?.preview
+  if (
+    reply?.id !== id ||
+    result?.isError ||
+    metadata?.ok !== true ||
+    metadata.source !== undefined ||
+    !Array.isArray(listed) ||
+    listed.length !== images.length ||
+    images.length > 5
+  ) {
+    throw new Error('invalid_preview_file')
+  }
+  const files = []
+  for (const [index, image] of images.entries()) {
+    const extension = extensions.get(image.mimeType)
+    const entry = listed[index]
+    if (!extension || typeof image.data !== 'string' || entry?.media_type !== image.mimeType) {
+      throw new Error('invalid_preview_file')
+    }
+    const bytes = Buffer.from(image.data, 'base64')
+    const sha256 = createHash('sha256').update(bytes).digest('hex')
+    if (sha256 !== entry.sha256) {
+      throw new Error('invalid_preview_file')
+    }
+    const path = join(await directory(), randomUUID() + '.' + extension)
+    await writeFile(path, bytes, { flag: 'wx', mode: 0o600 })
+    files.push({
+      figure: entry.figure,
+      path,
+      sha256,
+      byte_length: bytes.length,
+      media_type: image.mimeType,
+    })
+  }
+  metadata.local_files = files
+  result.content = [
+    { type: 'text', text: JSON.stringify(metadata) },
+    ...(delivery === 'file' ? [{ type: 'text', text: PREVIEW_GUIDANCE }] : images),
+  ]
+  return JSON.stringify(reply)
+}
+
 /**
  * The digest the delivered bytes must have. A bounded delivery states its own; a host from before
  * bounded deliveries sent the original (its source digest) or, with page sizes, a preview cut,

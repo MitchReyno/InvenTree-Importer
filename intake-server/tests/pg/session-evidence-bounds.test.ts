@@ -102,7 +102,7 @@ async function prepareSession(
     store,
     statusIntervalMs: 0,
     imageBudget: new Map<string, number>(),
-    deliveredMedia: new Map<string, Set<string>>(),
+    deliveredMedia: new Map<string, Map<string, Set<number>>>(),
     cropCacheDir: join(root, 'crops'),
   }
   return { context, tools: sessionTools(context), token, photo, session, original, store, capture }

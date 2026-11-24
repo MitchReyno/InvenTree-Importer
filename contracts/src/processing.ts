@@ -6,6 +6,7 @@ import { AgentSelection } from './agent-selection.ts'
 import { ResearchReceiptSource } from './research.ts'
 import { mappedReference } from './effects.ts'
 import { valueEvidence } from './value-evidence.ts'
+import { MediaViewGeometry, MediaViewMarks } from './media.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
@@ -378,6 +379,33 @@ export const QuestionStep = object({
   answer: QuestionStepAnswer,
 })
 export const QuestionSteps = Type.Array(QuestionStep, { minItems: 1, maxItems: QUESTION_MAX_STEPS })
+
+export const QUESTION_MAX_FIGURES = 5
+export const QUESTION_FIGURE_CAPTION_MAX_CHARACTERS = 80
+export const QUESTION_FIGURE_WHY_MAX_CHARACTERS = 200
+/** A page of an evidence version the batch holds: a photo, or a page of a PDF. */
+export const QuestionFigureSource = object({
+  kind: Type.Literal('evidence_page'),
+  evidence_id: Id,
+  version_id: Id,
+  page: Type.Integer({ minimum: 1, maximum: 30 }),
+})
+/**
+ * A picture the agent shows with its question: a view of a delivered page, its marks drawn over
+ * it, a caption saying what to look at and why it is shown.
+ */
+export const QuestionFigure = object({
+  source: QuestionFigureSource,
+  view: MediaViewGeometry,
+  marks: Type.Optional(MediaViewMarks),
+  caption: shownText(QUESTION_FIGURE_CAPTION_MAX_CHARACTERS),
+  why: shownText(QUESTION_FIGURE_WHY_MAX_CHARACTERS),
+})
+/** Up to five pictures, in the agent's order, most helpful first. */
+export const QuestionFigures = Type.Array(QuestionFigure, {
+  minItems: 1,
+  maxItems: QUESTION_MAX_FIGURES,
+})
 export const QuestionTitle = shownText(QUESTION_TITLE_MAX_CHARACTERS)
 /**
  * One step's answer. A number step takes a quantity or, answered in words, text; every other step
@@ -765,6 +793,22 @@ export const ProcessingQuestionV1 = object({
   fields: Type.Optional(ProcessingFields),
   assumption: Type.Optional(Type.String({ minLength: 1, maxLength: 2048 })),
 })
+/**
+ * A question's picture as the read shows it. `ready` pictures are served by the figure route;
+ * `preparing` is still being rendered, `failed` couldn't be made and `removed` names a photo
+ * removed from Capture. The page size lets the larger view outline the region on the whole page.
+ */
+export const ProcessingQuestionFigure = object({
+  ...QuestionFigure.properties,
+  state: Type.Union(
+    (['ready', 'preparing', 'failed', 'removed'] as const).map((state) => Type.Literal(state)),
+  ),
+  evidence_label: Type.Optional(Type.String({ minLength: 1, maxLength: 256 })),
+  /** Whether the source is a document (a PDF), whose pictures carry a page badge. */
+  document: Type.Boolean(),
+  page_width: Type.Integer({ minimum: 1 }),
+  page_height: Type.Integer({ minimum: 1 }),
+})
 /** A `/2` session question: its steps carry their own prompts, answer kinds and assumptions. */
 export const ProcessingQuestionV2 = object({
   ...questionBase,
@@ -773,6 +817,9 @@ export const ProcessingQuestionV2 = object({
   title: Type.Optional(QuestionTitle),
   reason: text,
   steps: QuestionSteps,
+  figures: Type.Optional(
+    Type.Array(ProcessingQuestionFigure, { minItems: 1, maxItems: QUESTION_MAX_FIGURES }),
+  ),
 })
 /** Each question's content is sent once, in its version's shape; `questionView` normalises it. */
 export const ProcessingQuestion = Type.Union([ProcessingQuestionV1, ProcessingQuestionV2])
@@ -1010,6 +1057,8 @@ export type ProcessingJobDto = Static<typeof ProcessingJob>
 export type ProcessingQuestionDto = Static<typeof ProcessingQuestion>
 export type ProcessingQuestionV1Dto = Static<typeof ProcessingQuestionV1>
 export type ProcessingQuestionV2Dto = Static<typeof ProcessingQuestionV2>
+export type QuestionFigureDto = Static<typeof QuestionFigure>
+export type ProcessingQuestionFigureDto = Static<typeof ProcessingQuestionFigure>
 export type ProcessingAnswerSummaryDto = Static<typeof ProcessingAnswerSummary>
 export type AnswerDeliveryDto = Static<typeof AnswerDelivery>
 export type AnswerEffectDto = Static<typeof AnswerEffect>

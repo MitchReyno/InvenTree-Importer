@@ -138,6 +138,28 @@ async function work(waitForDelivery, opening) {
       log({ event: 'asked', ok: asked?.ok, id: asked?.id, error: asked?.error })
     }
   }
+  // Fetches the first photo of its manifest from the opening, previews a question with that
+  // page as a figure, then asks it.
+  if (mode === 'ask-figure') {
+    const parsed = JSON.parse(opening)
+    const fetched = await callTool('fetch_evidence', settings.figureSource)
+    const page = fetched?.pages?.[0]
+    const figures = (settings.figureCount ?? 1) > 0 && page
+      ? Array.from({ length: settings.figureCount ?? 1 }, (_, index) => ({
+          source: { kind: 'evidence_page', ...settings.figureSource, page: page.page },
+          view: { region: { x: 0, y: 0, width: page.width, height: page.height }, quarter_turns: index % 4,
+            straighten_millidegrees: 0 },
+          marks: [{ kind: 'box', geometry: { x: 1000, y: 1000, width: 4000, height: 4000 }, label: `Mark ${index + 1}` }],
+          caption: `Figure ${index + 1}`,
+          why: 'Shows the packet.',
+        }))
+      : undefined
+    const question = { ...steppedQuestion(parsed.subject_id), figures }
+    const preview = await callTool('ask', { ...question, preview: true })
+    log({ event: 'previewed', ok: preview?.ok, error: preview?.error, preview: preview?.preview })
+    const asked = await callTool('ask', question)
+    log({ event: 'asked', ok: asked?.ok, id: asked?.id, error: asked?.error })
+  }
   if (mode === 'reply') {
     const read = await callTool('read_inbox', { after_seq: '0' })
     for (const item of read.items ?? []) {

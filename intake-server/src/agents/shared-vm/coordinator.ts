@@ -24,7 +24,7 @@ import {
 
 export interface SessionBridgeOptions {
   /** Hosts each tool turn's egress proxy refuses; see `bridgeProtectedHosts`. */
-  confirmEvidence?: (job: string, version: string) => void
+  confirmEvidence?: (job: string, version: string, page?: number) => void
   protectedHosts: readonly string[]
 }
 
@@ -434,8 +434,8 @@ export async function startSessionBridge(
           if (!toolWorker || !options?.confirmEvidence) {
             throw new Error('unexpected_evidence_release')
           }
-          releases.confirm(msg.releaseId, (version) =>
-            options.confirmEvidence!(context.identity.lineage, version),
+          releases.confirm(msg.releaseId, (release) =>
+            options.confirmEvidence!(context.identity.lineage, release.version, release.page),
           )
           await frames.send({ ok: true })
           continue
@@ -478,7 +478,9 @@ export async function startSessionBridge(
           const body = response.body
             ? await readBounded(response.body as unknown as AsyncIterable<Uint8Array>, maxBytes)
             : ''
-          const fetchRequest = evidenceRequest(msg.mcp)
+          // Only a fetched image can become citable; a preview's images get no release.
+          const evidence = evidenceRequest(msg.mcp)
+          const fetchRequest = evidence?.kind === 'fetch' ? evidence : undefined
           const envelope =
             toolWorker && response.status === 200 && fetchRequest
               ? releases.prepare(fetchRequest.id, body, response.headers.get(evidenceFormatHeader))

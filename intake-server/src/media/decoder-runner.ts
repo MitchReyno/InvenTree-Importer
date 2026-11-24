@@ -1,16 +1,19 @@
 import { spawn } from 'node:child_process'
 import { requestDecode } from './dispatcher-client.ts'
 import { randomUUID } from 'node:crypto'
-import { parseDecoderOutput, parseRenditionOutput } from './decoder-output.ts'
+import { parseDecoderOutput, parseRenditionOutput, parseViewOutput } from './decoder-output.ts'
 import { MEDIA_DECODER_HEADER_MAX_BYTES } from '@invimport/contracts/media'
 import {
   checkedInput,
   checkedRenditionInput,
+  checkedViewInput,
   MEDIA_LIMITS,
   type DecodeInput,
   type DecodedMedia,
   type RenditionInput,
   type RenditionResult,
+  type ViewInput,
+  type ViewResult,
 } from '@invimport/media-decoder/protocol'
 
 /** Requires an operator-built immutable image, never a browser-selected image/command. */
@@ -33,6 +36,23 @@ export async function renderIsolated(
     height: input.height,
   }
   return parseRenditionOutput(await runIsolated(image, header, input.bytes), input)
+}
+
+/**
+ * One view of a retained page PNG: the operator's view and thumbnail, plus the marked preview
+ * when marks are given. Runs in the same bounded container, through the dispatcher when set.
+ */
+export async function renderViewIsolated(image: string, input: ViewInput): Promise<ViewResult> {
+  checkedViewInput(input)
+  const header = {
+    version: input.version,
+    digest: input.digest,
+    width: input.width,
+    height: input.height,
+    recipe: input.recipe,
+    marks: input.marks,
+  }
+  return parseViewOutput(await runIsolated(image, header, input.bytes), input)
 }
 
 async function runIsolated(image: string, header: object, bytes: Buffer): Promise<Buffer> {

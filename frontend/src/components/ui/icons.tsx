@@ -88,3 +88,44 @@ export function CheckIcon(props: IconProps) {
     </svg>
   )
 }
+
+/** Two arrows pointing apart: open something larger. */
+export function ExpandIcon(props: IconProps) {
+  return (
+    <svg {...outline} strokeWidth={2} {...props}>
+      <path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7" />
+    </svg>
+  )
+}
+
+export function ChevronLeftIcon(props: IconProps) {
+  return (
+    <svg {...outline} strokeWidth={2.4} {...props}>
+      <path d="M15 6l-6 6 6 6" />
+    </svg>
+  )
+}
+
+export function ChevronRightIcon(props: IconProps) {
+  return (
+    <svg {...outline} strokeWidth={2.4} {...props}>
+      <path d="M9 6l6 6-6 6" />
+    </svg>
+  )
+}
+
+export function PlusIcon(props: IconProps) {
+  return (
+    <svg {...outline} strokeWidth={2.2} {...props}>
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  )
+}
+
+export function MinusIcon(props: IconProps) {
+  return (
+    <svg {...outline} strokeWidth={2.2} {...props}>
+      <path d="M5 12h14" />
+    </svg>
+  )
+}

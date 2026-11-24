@@ -418,6 +418,14 @@ async function main() {
           { revalidated: true },
         ),
       },
+      '/api/v1/batches/{batchId}/processing/sessions/{jobId}/questions/{questionId}/figures/{index}/{size}':
+        {
+          get: browserResource(
+            'image/webp',
+            "A question figure's rendered view or thumbnail (size view or thumb, index 1 to 5); use a browser resource URL.",
+            { revalidated: true },
+          ),
+        },
       '/api/v1/batches/{batchId}/media/observations/{resourceId}/crop': {
         get: browserResource(
           ['image/png', 'image/webp'],

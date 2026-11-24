@@ -2860,6 +2860,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/batches/{batchId}/processing/sessions/{jobId}/questions/{questionId}/figures/{index}/{size}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+                jobId: string;
+                questionId: string;
+                index: string;
+                size: string;
+            };
+            cookie?: never;
+        };
+        /** @description A question figure's rendered view or thumbnail (size view or thumb, index 1 to 5); use a browser resource URL. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    batchId: string;
+                    jobId: string;
+                    questionId: string;
+                    index: string;
+                    size: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description A question figure's rendered view or thumbnail (size view or thumb, index 1 to 5); use a browser resource URL. */
+                200: {
+                    headers: {
+                        ETag?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "image/webp": Blob;
+                    };
+                };
+                /** @description Unchanged since the If-None-Match validator. */
+                304: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/batches/{batchId}/media/observations/{resourceId}/crop": {
         parameters: {
             query?: never;
@@ -18177,6 +18242,64 @@ export interface components {
                     kind: "text";
                 };
             }[];
+            figures?: {
+                source: {
+                    /** @constant */
+                    kind: "evidence_page";
+                    evidence_id: string;
+                    version_id: string;
+                    page: number;
+                };
+                view: {
+                    region: {
+                        x: number;
+                        y: number;
+                        width: number;
+                        height: number;
+                    };
+                    quarter_turns: number;
+                    straighten_millidegrees: number;
+                };
+                marks?: ({
+                    kind: "circle" | "ellipse" | "box" | "highlight";
+                    geometry: {
+                        x: number;
+                        y: number;
+                        width: number;
+                        height: number;
+                    };
+                    label?: string;
+                } | {
+                    /** @constant */
+                    kind: "arrow";
+                    geometry: {
+                        from: {
+                            x: number;
+                            y: number;
+                        };
+                        to: {
+                            x: number;
+                            y: number;
+                        };
+                    };
+                    label?: string;
+                } | {
+                    /** @constant */
+                    kind: "label";
+                    at: {
+                        x: number;
+                        y: number;
+                    };
+                    label: string;
+                })[];
+                caption: string;
+                why: string;
+                state: "ready" | "preparing" | "failed" | "removed";
+                evidence_label?: string;
+                document: boolean;
+                page_width: number;
+                page_height: number;
+            }[];
         };
         ProcessingQuestionV1: {
             id: string;
@@ -18301,6 +18424,64 @@ export interface components {
                     /** @constant */
                     kind: "text";
                 };
+            }[];
+            figures?: {
+                source: {
+                    /** @constant */
+                    kind: "evidence_page";
+                    evidence_id: string;
+                    version_id: string;
+                    page: number;
+                };
+                view: {
+                    region: {
+                        x: number;
+                        y: number;
+                        width: number;
+                        height: number;
+                    };
+                    quarter_turns: number;
+                    straighten_millidegrees: number;
+                };
+                marks?: ({
+                    kind: "circle" | "ellipse" | "box" | "highlight";
+                    geometry: {
+                        x: number;
+                        y: number;
+                        width: number;
+                        height: number;
+                    };
+                    label?: string;
+                } | {
+                    /** @constant */
+                    kind: "arrow";
+                    geometry: {
+                        from: {
+                            x: number;
+                            y: number;
+                        };
+                        to: {
+                            x: number;
+                            y: number;
+                        };
+                    };
+                    label?: string;
+                } | {
+                    /** @constant */
+                    kind: "label";
+                    at: {
+                        x: number;
+                        y: number;
+                    };
+                    label: string;
+                })[];
+                caption: string;
+                why: string;
+                state: "ready" | "preparing" | "failed" | "removed";
+                evidence_label?: string;
+                document: boolean;
+                page_width: number;
+                page_height: number;
             }[];
         };
         ProcessingAnswerSummary: {
@@ -19320,6 +19501,64 @@ export interface components {
                         kind: "text";
                     };
                 }[];
+                figures?: {
+                    source: {
+                        /** @constant */
+                        kind: "evidence_page";
+                        evidence_id: string;
+                        version_id: string;
+                        page: number;
+                    };
+                    view: {
+                        region: {
+                            x: number;
+                            y: number;
+                            width: number;
+                            height: number;
+                        };
+                        quarter_turns: number;
+                        straighten_millidegrees: number;
+                    };
+                    marks?: ({
+                        kind: "circle" | "ellipse" | "box" | "highlight";
+                        geometry: {
+                            x: number;
+                            y: number;
+                            width: number;
+                            height: number;
+                        };
+                        label?: string;
+                    } | {
+                        /** @constant */
+                        kind: "arrow";
+                        geometry: {
+                            from: {
+                                x: number;
+                                y: number;
+                            };
+                            to: {
+                                x: number;
+                                y: number;
+                            };
+                        };
+                        label?: string;
+                    } | {
+                        /** @constant */
+                        kind: "label";
+                        at: {
+                            x: number;
+                            y: number;
+                        };
+                        label: string;
+                    })[];
+                    caption: string;
+                    why: string;
+                    state: "ready" | "preparing" | "failed" | "removed";
+                    evidence_label?: string;
+                    document: boolean;
+                    page_width: number;
+                    page_height: number;
+                }[];
             })[];
         };
         ProcessingSnapshot: {
@@ -20307,6 +20546,64 @@ export interface components {
                             kind: "text";
                         };
                     }[];
+                    figures?: {
+                        source: {
+                            /** @constant */
+                            kind: "evidence_page";
+                            evidence_id: string;
+                            version_id: string;
+                            page: number;
+                        };
+                        view: {
+                            region: {
+                                x: number;
+                                y: number;
+                                width: number;
+                                height: number;
+                            };
+                            quarter_turns: number;
+                            straighten_millidegrees: number;
+                        };
+                        marks?: ({
+                            kind: "circle" | "ellipse" | "box" | "highlight";
+                            geometry: {
+                                x: number;
+                                y: number;
+                                width: number;
+                                height: number;
+                            };
+                            label?: string;
+                        } | {
+                            /** @constant */
+                            kind: "arrow";
+                            geometry: {
+                                from: {
+                                    x: number;
+                                    y: number;
+                                };
+                                to: {
+                                    x: number;
+                                    y: number;
+                                };
+                            };
+                            label?: string;
+                        } | {
+                            /** @constant */
+                            kind: "label";
+                            at: {
+                                x: number;
+                                y: number;
+                            };
+                            label: string;
+                        })[];
+                        caption: string;
+                        why: string;
+                        state: "ready" | "preparing" | "failed" | "removed";
+                        evidence_label?: string;
+                        document: boolean;
+                        page_width: number;
+                        page_height: number;
+                    }[];
                 })[];
             }[];
             cursor: {
@@ -20747,6 +21044,25 @@ export interface components {
                 width: number;
                 height: number;
             } | null;
+        };
+        MediaViewRecipe: {
+            /** @constant */
+            version: "bench-intake-view/1";
+            source_version_id: string;
+            source_digest: string;
+            page: number;
+            page_width: number;
+            page_height: number;
+            view: {
+                region: {
+                    x: number;
+                    y: number;
+                    width: number;
+                    height: number;
+                };
+                quarter_turns: number;
+                straighten_millidegrees: number;
+            };
         };
         MediaVersion: {
             id: string;
@@ -22631,6 +22947,61 @@ export interface components {
                             };
                         }[];
                         replaces?: string;
+                        figures?: {
+                            source: {
+                                /** @constant */
+                                kind: "evidence_page";
+                                evidence_id: string;
+                                version_id: string;
+                                page: number;
+                            };
+                            view: {
+                                region: {
+                                    x: number;
+                                    y: number;
+                                    width: number;
+                                    height: number;
+                                };
+                                quarter_turns: number;
+                                straighten_millidegrees: number;
+                            };
+                            marks?: ({
+                                kind: "circle" | "ellipse" | "box" | "highlight";
+                                geometry: {
+                                    x: number;
+                                    y: number;
+                                    width: number;
+                                    height: number;
+                                };
+                                label?: string;
+                            } | {
+                                /** @constant */
+                                kind: "arrow";
+                                geometry: {
+                                    from: {
+                                        x: number;
+                                        y: number;
+                                    };
+                                    to: {
+                                        x: number;
+                                        y: number;
+                                    };
+                                };
+                                label?: string;
+                            } | {
+                                /** @constant */
+                                kind: "label";
+                                at: {
+                                    x: number;
+                                    y: number;
+                                };
+                                label: string;
+                            })[];
+                            caption: string;
+                            why: string;
+                        }[];
+                        /** @constant */
+                        preview?: true;
                     };
                     state: "open" | "answered" | "superseded";
                 } | {
@@ -23725,6 +24096,61 @@ export interface components {
                             };
                         }[];
                         replaces?: string;
+                        figures?: {
+                            source: {
+                                /** @constant */
+                                kind: "evidence_page";
+                                evidence_id: string;
+                                version_id: string;
+                                page: number;
+                            };
+                            view: {
+                                region: {
+                                    x: number;
+                                    y: number;
+                                    width: number;
+                                    height: number;
+                                };
+                                quarter_turns: number;
+                                straighten_millidegrees: number;
+                            };
+                            marks?: ({
+                                kind: "circle" | "ellipse" | "box" | "highlight";
+                                geometry: {
+                                    x: number;
+                                    y: number;
+                                    width: number;
+                                    height: number;
+                                };
+                                label?: string;
+                            } | {
+                                /** @constant */
+                                kind: "arrow";
+                                geometry: {
+                                    from: {
+                                        x: number;
+                                        y: number;
+                                    };
+                                    to: {
+                                        x: number;
+                                        y: number;
+                                    };
+                                };
+                                label?: string;
+                            } | {
+                                /** @constant */
+                                kind: "label";
+                                at: {
+                                    x: number;
+                                    y: number;
+                                };
+                                label: string;
+                            })[];
+                            caption: string;
+                            why: string;
+                        }[];
+                        /** @constant */
+                        preview?: true;
                     };
                     state: "open" | "answered" | "superseded";
                 } | {
@@ -24674,6 +25100,61 @@ export interface components {
                     };
                 }[];
                 replaces?: string;
+                figures?: {
+                    source: {
+                        /** @constant */
+                        kind: "evidence_page";
+                        evidence_id: string;
+                        version_id: string;
+                        page: number;
+                    };
+                    view: {
+                        region: {
+                            x: number;
+                            y: number;
+                            width: number;
+                            height: number;
+                        };
+                        quarter_turns: number;
+                        straighten_millidegrees: number;
+                    };
+                    marks?: ({
+                        kind: "circle" | "ellipse" | "box" | "highlight";
+                        geometry: {
+                            x: number;
+                            y: number;
+                            width: number;
+                            height: number;
+                        };
+                        label?: string;
+                    } | {
+                        /** @constant */
+                        kind: "arrow";
+                        geometry: {
+                            from: {
+                                x: number;
+                                y: number;
+                            };
+                            to: {
+                                x: number;
+                                y: number;
+                            };
+                        };
+                        label?: string;
+                    } | {
+                        /** @constant */
+                        kind: "label";
+                        at: {
+                            x: number;
+                            y: number;
+                        };
+                        label: string;
+                    })[];
+                    caption: string;
+                    why: string;
+                }[];
+                /** @constant */
+                preview?: true;
             };
         };
         SessionState: "queued" | "running" | "waiting_input" | "finished" | "cancelling" | "cancelled" | "interrupted" | "failed" | "waiting_for_login" | "waiting_for_capacity" | "resume_unavailable";
@@ -24717,6 +25198,61 @@ export interface components {
                 };
             }[];
             replaces?: string;
+            figures?: {
+                source: {
+                    /** @constant */
+                    kind: "evidence_page";
+                    evidence_id: string;
+                    version_id: string;
+                    page: number;
+                };
+                view: {
+                    region: {
+                        x: number;
+                        y: number;
+                        width: number;
+                        height: number;
+                    };
+                    quarter_turns: number;
+                    straighten_millidegrees: number;
+                };
+                marks?: ({
+                    kind: "circle" | "ellipse" | "box" | "highlight";
+                    geometry: {
+                        x: number;
+                        y: number;
+                        width: number;
+                        height: number;
+                    };
+                    label?: string;
+                } | {
+                    /** @constant */
+                    kind: "arrow";
+                    geometry: {
+                        from: {
+                            x: number;
+                            y: number;
+                        };
+                        to: {
+                            x: number;
+                            y: number;
+                        };
+                    };
+                    label?: string;
+                } | {
+                    /** @constant */
+                    kind: "label";
+                    at: {
+                        x: number;
+                        y: number;
+                    };
+                    label: string;
+                })[];
+                caption: string;
+                why: string;
+            }[];
+            /** @constant */
+            preview?: true;
         };
         SessionAnswerStepValue: {
             /** @constant */
@@ -25548,7 +26084,7 @@ export interface components {
                 };
             };
         };
-        SessionToolError: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached" | "tool_failed" | "media_evidence_removed" | "outcome_uncertain";
+        SessionToolError: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached" | "tool_failed" | "media_evidence_removed" | "preview_not_ready" | "preview_busy" | "outcome_uncertain";
         SessionToolResult: {
             /** @constant */
             ok: true;
@@ -25673,6 +26209,13 @@ export interface components {
                 media_type: "image/png" | "image/jpeg";
                 sha256: string;
             };
+            preview?: {
+                figure: number;
+                width: number;
+                height: number;
+                media_type: "image/png" | "image/jpeg";
+                sha256: string;
+            }[];
             evidence_label?: string;
             evidence_note?: string;
             suggested?: boolean;
@@ -25729,7 +26272,7 @@ export interface components {
         } | {
             /** @constant */
             ok: false;
-            error: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached" | "tool_failed" | "media_evidence_removed" | "outcome_uncertain";
+            error: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached" | "tool_failed" | "media_evidence_removed" | "preview_not_ready" | "preview_busy" | "outcome_uncertain";
             issues?: {
                 path: string;
                 rule: string;
@@ -26381,6 +26924,7 @@ export type ResearchSourceChunk = components['schemas']['ResearchSourceChunk']
 export type ResearchInventoryObservation = components['schemas']['ResearchInventoryObservation']
 export type ResearchInventoryResult = components['schemas']['ResearchInventoryResult']
 export type MediaRecipe = components['schemas']['MediaRecipe']
+export type MediaViewRecipe = components['schemas']['MediaViewRecipe']
 export type MediaVersion = components['schemas']['MediaVersion']
 export type MediaSnapshot = components['schemas']['MediaSnapshot']
 export type MediaReceipt = components['schemas']['MediaReceipt']

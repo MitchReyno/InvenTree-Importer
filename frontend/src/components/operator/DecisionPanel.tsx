@@ -310,6 +310,8 @@ export function DecisionPanel({
         <>
           <QuestionAnswer
             key={answering.id}
+            batchId={batch.id}
+            lot={lot.label}
             question={answering.question}
             captureRevision={answering.captureRevision}
             currentQuestion={openQuestion?.id === answering.id ? openQuestion.question : undefined}

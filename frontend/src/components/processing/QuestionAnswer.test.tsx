@@ -19,6 +19,7 @@ const question: ProcessingQuestionDto = {
   },
 }
 const props = {
+  batchId: 'batch',
   captureRevision: '4',
   currentCaptureRevision: '4',
   disabled: false,

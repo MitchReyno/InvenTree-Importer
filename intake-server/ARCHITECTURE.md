@@ -132,6 +132,16 @@ Only an `owned-fake-effects/2` deployment prepares them (otherwise `record_creat
 through the [supervised record creation](src/execution/ARCHITECTURE.md#supervised-record-creation)
 effects. Real-target creation stays unavailable.
 
+### Question figures
+
+An agent's question may carry up to five figures, each a view of a delivered evidence page (`bench-intake-view/1` in `@invimport/contracts/media`: a region of the page preview, quarter turns and straightening of at most 15°). The decoder renders a view from the retained page PNG with `render_view` (`media-view/1`), never from or into the original; `viewLayout` in `contracts/src/media-geometry.ts` is the one geometry the decoder, the server and the frontend share. Marks are drawn into a separate PNG only for an agent's preview; the operator's WebP view and thumbnail never have them.
+
+Migration `0038` adds `processing_figure_render`, one durable request per operator view (keyed by its recipe digest) or per marked preview (recipe and marks digests), and the immutable `processing_question_figure`, each stored question's figures in order. The `ask` transaction writes both and notifies `processing_figure_render`. `media/figure-renders.ts` owns the queue: a claim takes a lease (`RENDER_LEASE_MS`), an expired lease is claimed again, a request that fails three times or that the decoder calls `malformed` settles `failed`, and every settlement publishes `processing_changed`. Outputs are blob store blobs, positive GC references through `blobReferenced`, and not evidence versions.
+
+The supervised consumer `media/render-worker-main.ts` (`figure-render` in `tooling/deployment/host-media.compose.yaml`) runs under the media role with the dispatcher socket, woken by the notification and polling every second. Managed `pnpm dev` runs the same step in its existing media child through the local launcher. Its sweep deletes preview renders after a day, view renders no question references and every render of a removed version, records their blobs in `processing_figure_blob_release`, and collects each released blob once it is a day old. A view deleted because its photo was removed isn't queued again if the photo is restored; that figure reads as failed.
+
+The Processing read gives each `/2` question's figures a state (`processing/question-figures.ts`): `removed` for a removed photo, otherwise `preparing`, `ready` or `failed` from its view render. `GET /api/v1/batches/:batchId/processing/sessions/:jobId/questions/:questionId/figures/:index/:size` serves the `view` or `thumb` WebP under the session history's scope, 404 for an unknown figure or a removed photo and 409 while it is preparing or after it failed.
+
 ### Removed evidence
 
 Migration `0031` adds append-only `media_evidence_removal`: one row per remove or restore of an evidence item, under the media revision and actor. An item's latest row is its state, and no row means present. Bytes, versions, notes, links and history are kept; the immutability trigger refuses UPDATE and DELETE. `media/removal.ts` owns the state reads and `versionRemovedSql`, the SQL check other modules use; `media/removal-edit.ts` owns the `remove` and `restore` edits that `media/edit.ts` dispatches.
