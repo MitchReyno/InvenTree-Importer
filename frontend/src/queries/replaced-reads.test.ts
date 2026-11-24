@@ -1,14 +1,13 @@
-import { QueryObserver, type QueryClient } from '@tanstack/react-query'
+import { onlineManager, QueryObserver, type QueryClient } from '@tanstack/react-query'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { deferred } from '#/test/deferred'
 import { createServerQueryClient } from './client'
-import { cancelVerified, freshReads } from './fresh-reads'
+import { cancelVerified, freshReads, readReplacingCancels } from './fresh-reads'
 import {
   REPLACED_READ_WAIT_MS,
   REPLACEMENT_START_MS,
   ReadAbandoned,
   ReadUnavailable,
-  readReplacingCancels,
 } from './replaced-reads'
 
 const scopeKey = ['intake', 'fixture']
@@ -280,4 +279,65 @@ test('a read that fails on its own keeps its own error', async () => {
   const failure = new Error('read_refused')
   pending[1].reject(failure)
   await expect(awaited).rejects.toBe(failure)
+})
+
+test('a replacement that runs out of time leaves the shown read unverified until a newer read lands', async () => {
+  const { read, pending } = scriptedReads()
+  const { observer, mountOrder } = observe(read)
+  pending[0].resolve({ value: 'first' })
+  await vi.advanceTimersByTimeAsync(0)
+  expect(freshReads(client).verified(key, mountOrder)).toBe(true)
+
+  const awaited = awaitedRead(observer)
+  const outcome = expect(awaited).rejects.toMatchObject({ reason: 'timeout' })
+  await reconcile()
+  await vi.advanceTimersByTimeAsync(REPLACED_READ_WAIT_MS)
+  await outcome
+  // Commands with a revision wait again, and the key reads as unavailable.
+  expect(freshReads(client).verified(key, mountOrder)).toBe(false)
+  expect(freshReads(client).unavailableSinceRead(key)).toBe(true)
+
+  pending[2].resolve({ value: 'late replacement' })
+  await vi.advanceTimersByTimeAsync(0)
+  expect(freshReads(client).verified(key, mountOrder)).toBe(true)
+  expect(freshReads(client).unavailableSinceRead(key)).toBe(false)
+})
+
+test('a caller that leaves before any cancel stops waiting, and a late answer reaches nothing', async () => {
+  const { read, pending } = scriptedReads()
+  const { observer } = observe(read)
+  pending[0].resolve({ value: 'first' })
+  await vi.advanceTimersByTimeAsync(0)
+  const caller = new AbortController()
+
+  const awaited = awaitedRead(observer, caller.signal)
+  let outcome: unknown
+  awaited.then(
+    (value) => (outcome = value),
+    (error: unknown) => (outcome = error),
+  )
+  caller.abort()
+  await vi.advanceTimersByTimeAsync(0)
+  expect(outcome).toBeInstanceOf(ReadAbandoned)
+  pending[1].resolve({ value: 'late' })
+  await vi.advanceTimersByTimeAsync(0)
+  expect(outcome).toBeInstanceOf(ReadAbandoned)
+})
+
+test('a read that pauses reports the read unavailable without waiting', async () => {
+  onlineManager.setOnline(false)
+  try {
+    const observer = new QueryObserver<{ value: string }>(client, {
+      queryKey: key,
+      queryFn: () => new Promise<{ value: string }>(() => undefined),
+      networkMode: 'online',
+    })
+    const unsubscribe = observer.subscribe(() => undefined)
+    await vi.advanceTimersByTimeAsync(0)
+    const awaited = awaitedRead(observer)
+    await expect(awaited).rejects.toMatchObject({ name: 'ReadUnavailable', reason: 'paused' })
+    unsubscribe()
+  } finally {
+    onlineManager.setOnline(true)
+  }
 })

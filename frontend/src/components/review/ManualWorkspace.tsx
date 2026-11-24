@@ -34,7 +34,7 @@ import {
   useBatchCommands,
 } from '#/context'
 import type { DirtyReport } from '#/navigation/unsaved-changes'
-import { readReplacingCancels } from '#/queries/replaced-reads'
+import { readReplacingCancels } from '#/queries/fresh-reads'
 import { useMountSignal } from '#/lifecycle/useMountSignal'
 
 interface Props {

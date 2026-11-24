@@ -352,3 +352,39 @@ test('an automatic retry that works while a draft is unsaved clears the notice a
   expect(screen.getByRole('heading', { name: 'Packet questions' })).toBeInTheDocument()
   expect(cache.getQueryData(serverQueryKey(fixtureScope, 'capture', batchId))).toEqual(answered)
 })
+
+test('Processing’s saved status outlives the remount after a reload that works', async () => {
+  const reads: (() => Promise<CaptureSnapshotDto>)[] = [async () => saved]
+  const { processing: processingRead } = mount(() => (reads.shift() ?? (async () => answered))())
+  expect(await screen.findByRole('heading', { name: 'Packet questions' })).toBeInTheDocument()
+  processingRead.read.mockRejectedValue(new Error('processing_unreachable'))
+
+  await answerFirstQuestion()
+  // The batch's reload works and re-keys Processing; its own read still fails.
+  expect(
+    await screen.findByRole('heading', { name: 'Packet questions, answered' }),
+  ).toBeInTheDocument()
+  expect(await screen.findByText(/Saved\. Showing the last status from/)).toBeInTheDocument()
+  expect(screen.queryByText(/Processing status unavailable/)).not.toBeInTheDocument()
+  noReloadMessage()
+})
+
+test('the reload after an answer reads afresh rather than joining a read from before it', async () => {
+  const before = deferred<CaptureSnapshotDto>()
+  const reads: (() => Promise<CaptureSnapshotDto>)[] = [async () => saved, () => before.promise]
+  const { client } = mount(() => (reads.shift() ?? (async () => answered))())
+  expect(await screen.findByRole('heading', { name: 'Packet questions' })).toBeInTheDocument()
+  // A background read starts before the answer and is still running when it is saved.
+  act(() => {
+    void cache.invalidateQueries({ queryKey: serverQueryKey(fixtureScope, 'capture', batchId) })
+  })
+  await waitFor(() => expect(client.read).toHaveBeenCalledTimes(2))
+
+  await answerFirstQuestion()
+  await waitFor(() => expect(client.read).toHaveBeenCalledTimes(3))
+  await act(async () => before.resolve(saved))
+  expect(
+    await screen.findByRole('heading', { name: 'Packet questions, answered' }),
+  ).toBeInTheDocument()
+  noReloadMessage()
+})

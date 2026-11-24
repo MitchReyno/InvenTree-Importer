@@ -7,6 +7,7 @@ import type { InstructionDelivery } from '#/processing/instruction-delivery'
 import { useBatchCommands } from '#/context'
 import type { DrawerRestoreStore } from '#/processing/drawer-restore'
 import type { AnswerOutcomeStore } from '#/processing/answer-outcomes'
+import type { SavedStatusStore } from '#/processing/saved-status'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -25,6 +26,7 @@ interface Props {
   sharperRequests?: SharperRequestStore
   drawerRestore?: DrawerRestoreStore
   answerOutcomes?: AnswerOutcomeStore
+  savedStatus?: SavedStatusStore
   onDirtyChange: (dirty: boolean) => void
   /** Retired lots keep their job history but cannot start new attempts. */
   retiredLotIds?: ReadonlySet<string>
@@ -54,6 +56,7 @@ export function ProcessingStage({
   sharperRequests,
   drawerRestore,
   answerOutcomes,
+  savedStatus,
   onDirtyChange,
   retiredLotIds,
   instructions,
@@ -79,6 +82,7 @@ export function ProcessingStage({
       sharperRequests={sharperRequests}
       drawerRestore={drawerRestore}
       answerOutcomes={answerOutcomes}
+      savedStatus={savedStatus}
       navigate={navigateProcessing}
       onDirtyChange={onDirtyChange}
       onSaved={reload}

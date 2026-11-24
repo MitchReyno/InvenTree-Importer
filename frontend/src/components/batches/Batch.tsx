@@ -11,9 +11,8 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey } from '#/queries/scope'
 import { useCachedData } from '#/queries/useCachedData'
-import { freshReads } from '#/queries/fresh-reads'
+import { freshReads, readReplacingCancels } from '#/queries/fresh-reads'
 import { useFreshRead } from '#/queries/useFreshRead'
-import { ReadAbandoned, ReadUnavailable, readReplacingCancels } from '#/queries/replaced-reads'
 import type { DirtyReport, UnsavedChange } from '#/navigation/unsaved-changes'
 import { useMountSignal } from '#/lifecycle/useMountSignal'
 import { useRestoredSnapshot, useSnapshotWriter } from '#/queries/useSnapshot'
@@ -60,6 +59,7 @@ import { createSharperRequestStore } from '#/components/processing/ExamineView'
 import { useInstructionDelivery } from '#/processing/instruction-delivery'
 import { createDrawerRestore } from '#/processing/drawer-restore'
 import { createAnswerOutcomes } from '#/processing/answer-outcomes'
+import { createSavedStatus } from '#/processing/saved-status'
 import { useAcceptedOperatorReview } from '#/operator/useAcceptedOperatorReview'
 import { displaysRestored, RestoredTab } from './RestoredTab'
 import { TabSkeleton } from './TabSkeleton'
@@ -143,6 +143,8 @@ export function Batch({
   const drawerRestore = useMemo(createDrawerRestore, [id])
   // Confirmed answers outlive Processing's remounts until a read shows them answered.
   const answerOutcomes = useMemo(createAnswerOutcomes, [id])
+  // Processing's saved-but-unread status outlives the same remounts.
+  const savedStatus = useMemo(createSavedStatus, [id])
   if (batchRoute?.tab === 'changes' && batchRoute.view === 'ready' && batchRoute.preparationId) {
     shownPreparation.current = batchRoute.preparationId
   }
@@ -400,14 +402,17 @@ export function Batch({
 
   /**
    * Reads the saved batch, waiting through a live update's cancel for the read that replaced it.
-   * A running read is joined, never cancelled.
+   * After a save the read must start after it, so a running read is replaced; a retry joins one.
    */
-  function readSavedValues(signal: AbortSignal) {
+  function readSavedValues(signal: AbortSignal, { joinRunning }: { joinRunning: boolean }) {
     return readReplacingCancels({
       client: queryClient,
       queryKey,
       read: async () => {
-        const result = await captureQuery.refetch({ throwOnError: true, cancelRefetch: false })
+        const result = await captureQuery.refetch({
+          throwOnError: true,
+          cancelRefetch: !joinRunning,
+        })
         if (!result.data) {
           throw new Error('capture_snapshot_missing')
         }
@@ -427,13 +432,6 @@ export function Batch({
     setError('')
   }
 
-  /** A read that failed or paused is in the registry already; one that ran out of time isn't. */
-  function noteReadFailure(failure: unknown) {
-    if (failure instanceof ReadUnavailable && failure.reason === 'timeout') {
-      registry.noteUnavailable(queryKey)
-    }
-  }
-
   /** Loads the saved batch; true when it was read. A failure shows the saved values notice. */
   async function reloadSavedValues() {
     if (editPending.current) {
@@ -441,31 +439,30 @@ export function Batch({
     }
     void queryClient.invalidateQueries({ queryKey: operatorKey })
     try {
-      adoptSavedValues(await readSavedValues(mountSignal()))
+      adoptSavedValues(await readSavedValues(mountSignal(), { joinRunning: false }))
       return true
-    } catch (failure) {
-      if (!(failure instanceof ReadAbandoned)) {
-        noteReadFailure(failure)
-      }
+    } catch {
+      // The registry holds the failure, which shows the saved values notice.
       return false
     }
   }
 
-  /** Reads saved values again while they can't be read, adopting them only with nothing unsaved. */
-  async function retrySavedValues(signal: AbortSignal) {
+  /**
+   * Reads saved values again while they can't be read, adopting them only with nothing unsaved.
+   * It runs for Batch's mount: the read that clears the notice is still adopted.
+   */
+  async function retrySavedValues() {
     if (editPending.current) {
       return
     }
     try {
-      const value = await readSavedValues(signal)
+      const value = await readSavedValues(mountSignal(), { joinRunning: true })
       // Drafts keep their pinned revision; their saves meet the usual conflict checks.
       if (!dirtyNow.current) {
         adoptSavedValues(value)
       }
-    } catch (failure) {
-      if (!(failure instanceof ReadAbandoned)) {
-        noteReadFailure(failure)
-      }
+    } catch {
+      // Still unavailable, or abandoned: the notice and its timer carry on, or are gone.
     }
   }
 
@@ -474,7 +471,7 @@ export function Batch({
     for (const change of unsaved) {
       change.discard()
     }
-    void retrySavedValues(mountSignal())
+    void retrySavedValues()
   }
 
   const reloadForStage = async () => {
@@ -602,6 +599,7 @@ export function Batch({
         sharperRequests={sharperRequests}
         drawerRestore={drawerRestore}
         answerOutcomes={answerOutcomes}
+        savedStatus={savedStatus}
         onDirtyChange={reportDirty}
         retiredLotIds={retired}
         instructions={{
@@ -764,7 +762,7 @@ export function Batch({
             shownAt={accepted.shownAt}
             dirty={draftDirty}
             unsaved={unsaved}
-            onTryNow={() => void retrySavedValues(mountSignal())}
+            onTryNow={() => void retrySavedValues()}
             onDiscard={discardUnsaved}
           />
         )}
@@ -824,20 +822,21 @@ const SnapshotFields = styled.pre`
 `
 
 /** While saved values can't be read, reads them again every few seconds until it works. */
-function useSavedValuesRetry(unavailable: boolean, retry: (signal: AbortSignal) => Promise<void>) {
+function useSavedValuesRetry(unavailable: boolean, retry: () => Promise<void>) {
   const attempt = useEffectEvent(retry)
-  // A timer, cleared on recovery or unmount; each attempt waits for the last to finish.
+  // A timer, stopped on recovery or unmount; each attempt waits for the last to finish. An
+  // attempt under way is left to finish, so the read that recovers is adopted.
   useEffect(() => {
     if (!unavailable) {
       return
     }
-    const controller = new AbortController()
+    let stopped = false
     let timer: ReturnType<typeof setTimeout> | undefined
 
     const schedule = () => {
       timer = setTimeout(() => {
-        void attempt(controller.signal).then(() => {
-          if (!controller.signal.aborted) {
+        void attempt().then(() => {
+          if (!stopped) {
             schedule()
           }
         })
@@ -846,7 +845,7 @@ function useSavedValuesRetry(unavailable: boolean, retry: (signal: AbortSignal) 
 
     schedule()
     return () => {
-      controller.abort()
+      stopped = true
       clearTimeout(timer)
     }
   }, [unavailable])

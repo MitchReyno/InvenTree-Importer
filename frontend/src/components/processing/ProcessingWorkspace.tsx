@@ -5,9 +5,10 @@ import { color, radius, ring, size, space } from '#/theme/generated/tokens'
 import { useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey } from '#/queries/scope'
 import { useFreshRead } from '#/queries/useFreshRead'
-import { freshReads } from '#/queries/fresh-reads'
-import { ReadAbandoned, ReadUnavailable, readReplacingCancels } from '#/queries/replaced-reads'
+import { freshReads, readReplacingCancels } from '#/queries/fresh-reads'
+import { ReadAbandoned } from '#/queries/replaced-reads'
 import { useMountSignal } from '#/lifecycle/useMountSignal'
+import { createSavedStatus, type SavedStatusStore } from '#/processing/saved-status'
 import { useRestoredSnapshot, useSnapshotWriter } from '#/queries/useSnapshot'
 import {
   questionView,
@@ -122,6 +123,8 @@ interface Props {
   drawerRestore?: DrawerRestoreStore
   /** The answers this tab confirmed, kept above Processing's remounts until a read has them. */
   answerOutcomes?: AnswerOutcomeStore
+  /** Batch's store, so "Saved. Showing the last status…" outlives the remount after an answer. */
+  savedStatus?: SavedStatusStore
   batch: CaptureSnapshotDto
   client: ProcessingClient
   view: ProcessingView
@@ -176,6 +179,7 @@ export function ProcessingWorkspace({
   sharperRequests,
   drawerRestore,
   answerOutcomes: batchOutcomes,
+  savedStatus: batchSavedStatus,
   edit,
   displayOnly = false,
 }: Props) {
@@ -301,7 +305,10 @@ export function ProcessingWorkspace({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   // A confirmed command whose read failed, until a newer read than the one shown lands.
-  const [savedUnread, setSavedUnread] = useState<SavedUnread | null>(null)
+  const [ownSavedStatus] = useState(createSavedStatus)
+  const savedStatus = batchSavedStatus ?? ownSavedStatus
+  useSyncExternalStore(savedStatus.subscribe, savedStatus.version)
+  const savedUnread = savedStatus.get()
   const savedUnreadShown =
     savedUnread !== null && freshReads(queryClient).lastReadOrder(queryKey) === savedUnread.lastRead
   const mountSignal = useMountSignal()
@@ -365,12 +372,9 @@ export function ProcessingWorkspace({
   }
 
   /** A confirmed command whose read failed: the last status shows until a read lands. */
-  function showSavedUnread(failure: unknown) {
+  function showSavedUnread() {
     const registry = freshReads(queryClient)
-    if (failure instanceof ReadUnavailable && failure.reason === 'timeout') {
-      registry.noteUnavailable(queryKey)
-    }
-    setSavedUnread({
+    savedStatus.set({
       lastRead: registry.lastReadOrder(queryKey),
       shownAt: queryClient.getQueryState(queryKey)?.dataUpdatedAt ?? Date.now(),
     })
@@ -404,7 +408,7 @@ export function ProcessingWorkspace({
       if (failure instanceof ReadAbandoned) {
         // Unmounted: nothing is left to show the read on.
       } else if (!commandFailed) {
-        showSavedUnread(failure)
+        showSavedUnread()
       } else {
         setError(unreadAfterFailureMessage(refusedAnswer !== null, refusedFresh))
       }
@@ -1409,12 +1413,6 @@ const RECOVERABLE: ReadonlySet<string> = new Set([
 ])
 
 /** Processing without an agents client reads no session list. */
-/** The read shown when a confirmed command's own read failed, and when its status was read. */
-interface SavedUnread {
-  lastRead: number | undefined
-  shownAt: number
-}
-
 const NO_SESSIONS: SessionListRead = () => Promise.reject(new Error('agent_sessions_unavailable'))
 
 /** A command that wasn't confirmed, or was refused, and whose following read failed too. */

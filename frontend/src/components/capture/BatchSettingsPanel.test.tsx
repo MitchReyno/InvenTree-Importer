@@ -169,6 +169,8 @@ test('typing waits for the idle debounce, then sends one complete batch_settings
   expect(saves).toHaveLength(0)
   await idle()
   expect(saves).toHaveLength(1)
+  // A sent save keeps its own recovery: still unsaved, but not offered to the notice's Discard.
+  expect(dirty).toHaveBeenLastCalledWith(true)
   expect(saves[0]).toMatchObject({
     revision: '1',
     change: {
@@ -526,7 +528,8 @@ test('composed instructions are saved and stay dirty while composing', async () 
   fireEvent.change(text, { target: { value: '電子' } })
   await act(async () => saves[0].resolve(nextSnapshot(batch, saves[0])))
   await settle()
-  expect(dirty).toHaveBeenLastCalledWith(true, [settingsChange])
+  // Text still being composed is unsaved, but nothing the notice can drop.
+  expect(dirty).toHaveBeenLastCalledWith(true)
   await act(() => vi.advanceTimersByTimeAsync(2000))
   expect(instructs).toHaveLength(0)
   fireEvent.compositionEnd(text)
@@ -596,7 +599,8 @@ test('an unconfirmed logo upload says so until the same upload is retried', asyn
   await settle()
   const unconfirmed = 'Logo upload not confirmed. Retry the same upload or reload saved values.'
   expect(await within(panel).findByText(unconfirmed)).toBeVisible()
-  expect(dirty).toHaveBeenLastCalledWith(true, [settingsChange])
+  // An unconfirmed upload keeps its own recovery, so the notice offers no Discard for it.
+  expect(dirty).toHaveBeenLastCalledWith(true)
   await user.click(screen.getByRole('button', { name: 'Retry the same save' }))
   await settle()
   expect(uploadLogo).toHaveBeenCalledTimes(2)

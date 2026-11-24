@@ -42,6 +42,7 @@ import { DefaultLocationField } from './DefaultLocationField'
 import { PurchaseOrderPreview } from './PurchaseOrderPreview'
 import { SupplierField, type LogoUpload } from './SupplierField'
 import { batchHref } from '#/navigation/batch-route'
+import { reportDirty, type DirtyReport } from '#/navigation/unsaved-changes'
 
 type Props = Pick<CaptureWorkspaceProps, 'operatorReview'> & {
   observe: CaptureObserve
@@ -54,7 +55,7 @@ type Props = Pick<CaptureWorkspaceProps, 'operatorReview'> & {
   notesTarget?: HTMLElement | null
   /** On a phone the fields fold behind a summary; folded fields stay mounted, keeping drafts. */
   collapsible?: boolean
-  onDirty: (dirty: boolean) => void
+  onDirty: DirtyReport
 }
 
 type LogoPayload = { upload_id: string; draft_id: string }
@@ -181,9 +182,24 @@ export function BatchSettingsPanel({
     // The registration-time saved values are read once; later changes go through adoption.
   }, [queue, hasPorts, instructionLane, logoLane])
 
+  // Only drafts nothing has been sent for can be dropped here; sent or unconfirmed saves keep
+  // their own recovery, so they stay unsaved work the notice doesn't name.
+  const discardable = (state.dirty || tagPending) && queue.canDiscardLocally()
+  const discardRef = useRef(discardUnsent)
   useEffect(() => {
-    onDirty(state.dirty || composingText || tagPending)
-  }, [composingText, onDirty, state.dirty, tagPending])
+    discardRef.current = discardUnsent
+  })
+  const [named] = useState(() => [
+    { label: 'the batch settings', discard: () => discardRef.current() },
+  ])
+  useEffect(() => {
+    reportDirty(onDirty, state.dirty || composingText || tagPending, discardable ? named : [])
+  }, [composingText, discardable, named, onDirty, state.dirty, tagPending])
+
+  /** An input event made a draft; it can be dropped here while nothing is sent. */
+  function reportEdited() {
+    reportDirty(onDirty, true, queue.canDiscardLocally() ? named : [])
+  }
 
   const shownLogo: LogoUpload =
     state.blocked === 'unconfirmed' && state.lanes.logo === 'pending'
@@ -281,7 +297,7 @@ export function BatchSettingsPanel({
   function schedule() {
     const immediate = !textEdit.current
     textEdit.current = false
-    onDirty(true)
+    reportEdited()
     if (composing.current) {
       return
     }
@@ -301,7 +317,7 @@ export function BatchSettingsPanel({
   function updateInstructions(text: string) {
     instructionsTouched.current = true
     setInstructions(text)
-    onDirty(true)
+    reportEdited()
     if (composing.current) {
       return
     }
@@ -325,7 +341,7 @@ export function BatchSettingsPanel({
     const upload_id = crypto.randomUUID()
     files.current.set(upload_id, file)
     setLogo({ state: 'uploading' })
-    onDirty(true)
+    reportEdited()
     queue.update('logo', { upload_id, draft_id: draftId }, { immediate: true })
   }
 
@@ -363,7 +379,7 @@ export function BatchSettingsPanel({
   function reportTagPending(pending: boolean) {
     setTagPending(pending)
     if (pending) {
-      onDirty(true)
+      reportEdited()
     }
   }
 

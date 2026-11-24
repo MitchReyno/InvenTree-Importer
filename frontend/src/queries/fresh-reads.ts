@@ -7,7 +7,7 @@ import {
   type QueryFunctionContext,
   type QueryKey,
 } from '@tanstack/react-query'
-import { readReplacingCancels } from './replaced-reads'
+import { awaitReadReplacingCancels, type ReplacedReadOptions } from './replaced-reads'
 
 /** A request a key's query function started: its number for that key and its global start order. */
 interface Request {
@@ -171,9 +171,17 @@ export class FreshReadRegistry {
     return this.#entries.get(hashKey(queryKey))?.lastRead
   }
 
-  /** Records a read of the key that didn't settle in time as unavailable, as a failure is. */
+  /**
+   * Records a read of the key that didn't settle in time as unavailable, as a failure is: the
+   * shown read no longer verifies a command until a newer one lands.
+   */
   noteUnavailable(queryKey: QueryKey) {
-    this.#entry(hashKey(queryKey)).failedAt = this.nextOrder()
+    const entry = this.#entry(hashKey(queryKey))
+    const running = this.#client.getQueryState(queryKey)?.fetchStatus === 'fetching'
+    // A read still running when the wait gave up counts once it lands: the failure is placed just
+    // before it started.
+    entry.failedAt = running && entry.newest ? entry.newest.startOrder - 0.5 : this.nextOrder()
+    this.#clear(entry)
     this.#changed()
   }
 
@@ -421,6 +429,18 @@ export function freshReads(client: QueryClient) {
     registries.set(client, registry)
   }
   return registry
+}
+
+/**
+ * Awaits a read of a key, waiting through a live update's cancel for the read that replaced it
+ * (`awaitReadReplacingCancels`); a replacement that doesn't settle in time leaves the key
+ * unavailable in the registry until a newer read lands.
+ */
+export function readReplacingCancels<T>(options: Omit<ReplacedReadOptions<T>, 'onTimeout'>) {
+  return awaitReadReplacingCancels({
+    ...options,
+    onTimeout: () => freshReads(options.client).noteUnavailable(options.queryKey),
+  })
 }
 
 /** Cancels reads through the registry, so a cancelled request can never verify a command. */
