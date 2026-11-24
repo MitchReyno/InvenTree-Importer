@@ -265,7 +265,7 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
   - [x] 6.2.9 Another batch or account gets `session_not_found`.
 - [x] 6.3 RED: route tests for the photo-view crop: the recorded region bounded as delivered, a full-page view, two attempts with the same sequence, 404 for a removed version, and scope.
 - [x] 6.4 GREEN: implement the read, the contract and the crop route.
-- [x] 6.5 Check the queries batch per kind, and update `intake-server/src/agents/ARCHITECTURE.md`. Run the intake unit, PG and process tiers, including a read of a database already holding `/6` proposals and photo views. A PG test counts one query per kind on a full page, and the PG history tests read `/6` proposals and photo views written by the existing tools; tier results are on the PR.
+- [x] 6.5 Check the queries batch per kind, and update `intake-server/src/agents/ARCHITECTURE.md`. Run the intake unit, PG and process tiers, including a read of a database already holding `/6` proposals and photo views. A PG test finds a read issues as many statements for a page of many entries as for a few, and the PG history tests read `/6` proposals and photo views written by the existing tools; tier results are on the PR.
 
 ## 7. Expandable timeline and the session page
 
