@@ -21,7 +21,12 @@ import {
   type SessionToolResultDto,
   webPageUrlAccepted,
 } from '@invimport/contracts'
-import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
+import {
+  cancelRunningStatement,
+  executeDatabaseQuery,
+  queryDatabase,
+  transaction,
+} from '#/db/database.ts'
 import { onLeadIdentity } from '#/processing/stable-identity.ts'
 import { appendEvent } from '#/db/authority.ts'
 import { captureBatches } from '#/capture/schema.ts'
@@ -1346,13 +1351,9 @@ async function previewState(context: SessionToolContext, preview: QueuedPreview,
   const closeAtDeadline = () => {
     released = true
     // Closing the socket frees the pool's slot, but the server keeps running a statement until it
-    // next writes; cancelling it by backend ID stops it too. Best effort: a failure leaves only
-    // that statement to finish.
-    const backend = (client as PoolClient & { processID?: number }).processID
+    // next writes, so the statement is cancelled first.
+    cancelRunningStatement(context.pool, client)
     client.release(true)
-    if (backend !== undefined) {
-      void context.pool.query('SELECT pg_cancel_backend($1)', [backend]).catch(() => undefined)
-    }
   }
 
   // A connection lost while checked out is reported here, not to the process. A discarded

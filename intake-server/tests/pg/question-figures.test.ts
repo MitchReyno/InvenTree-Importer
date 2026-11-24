@@ -7,6 +7,7 @@ import { createServer } from 'node:http'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import sharp from 'sharp'
+import type { PoolClient } from 'pg'
 import { validate, type ProcessingQuestionFigureDto } from '@invimport/contracts'
 import { processingFixture } from '../support/processing.ts'
 import { lotSession } from '../support/sessions.ts'
@@ -806,9 +807,13 @@ test('a preview whose checkout or state read is slower than its wait answers in 
     const { fixture, token, lot, photoFigure, context } = setup
     await fetched(setup, setup.photo)
     const stop = consumer(setup, fakeRenderer())
-    const waitMs = 100
+    const waitMs = 300
+    // Every other connection the role may open, held while the read blocks, so cancelling it
+    // can't rely on a new session.
+    const held: PoolClient[] = []
     try {
-      // `blocked`: part of the wait goes before the read, then the read blocks in the database.
+      // `blocked`: part of the wait goes before the read, then the read blocks in the database
+      // with the role at its connection limit.
       // `gone`: the late read would find its render deleted and ask about removals.
       for (const slow of ['checkout', 'blocked', 'gone'] as const) {
         let released = 0
@@ -817,6 +822,9 @@ test('a preview whose checkout or state read is slower than its wait answers in 
         let stateCheckoutAt = 0
         let discardedAt = 0
         let stateReadsDone = false
+        let sleepingBackend = 0
+        let atLimit = false
+        let sleepSeen = false
         const lateStatements: string[] = []
         // Checkouts after the ask's own transaction are the preview's state reads.
         const slowPool = new Proxy(context.pool, {
@@ -859,8 +867,33 @@ test('a preview whose checkout or state read is slower than its wait answers in 
                     }
                     try {
                       if (slow === 'blocked') {
-                        await new Promise((resolve) => setTimeout(resolve, waitMs * 0.6))
-                        await query('SELECT pg_sleep(2)')
+                        await new Promise((resolve) => setTimeout(resolve, waitMs * 0.3))
+                        while (held.length < (target.options.max ?? 10) - 1) {
+                          held.push(await target.connect())
+                        }
+                        const budget = await held[0].query<{ limit: number; open: number }>(
+                          `SELECT r.rolconnlimit AS limit,
+                             (SELECT count(*)::int FROM pg_stat_activity a
+                              WHERE a.usename = current_user) AS open
+                           FROM pg_roles r WHERE r.rolname = current_user`,
+                        )
+                        atLimit = budget.rows[0].open === budget.rows[0].limit
+                        sleepingBackend = (client as unknown as { processID: number }).processID
+                        // Observed at once, so a cancelled sleep is never an unhandled rejection.
+                        const sleep = query('SELECT pg_sleep(2)').then(
+                          () => undefined,
+                          (error: unknown) => error,
+                        )
+                        const seen = await fixture.db.pool.query(
+                          `SELECT 1 FROM pg_stat_activity
+                           WHERE pid = $1 AND query = 'SELECT pg_sleep(2)' AND state = 'active'`,
+                          [sleepingBackend],
+                        )
+                        sleepSeen = (seen.rowCount ?? 0) > 0
+                        const failure = await sleep
+                        if (failure) {
+                          throw failure
+                        }
                       } else {
                         await new Promise((resolve) => setTimeout(resolve, 1_500))
                         await fixture.db.pool.query(
@@ -892,13 +925,20 @@ test('a preview whose checkout or state read is slower than its wait answers in 
         assert.equal(late.images, undefined)
         assert.ok(elapsed < 1_000, `${slow}: answered after ${elapsed} ms`)
         if (slow === 'blocked') {
-          // Seen from another connection well before the two-second sleep would end itself.
+          // The role was at its limit and the backend was sleeping; it stops well before the
+          // two-second sleep would end itself, seen from another connection.
+          assert.ok(atLimit, 'the role is at its connection limit')
+          assert.ok(sleepSeen, 'the read was blocked in the database')
           await new Promise((resolve) => setTimeout(resolve, 300))
           const sleeping = await fixture.db.pool.query(
             `SELECT 1 FROM pg_stat_activity
-             WHERE query = 'SELECT pg_sleep(2)' AND state = 'active'`,
+             WHERE pid = $1 AND query = 'SELECT pg_sleep(2)' AND state = 'active'`,
+            [sleepingBackend],
           )
           assert.equal(sleeping.rowCount, 0, 'the blocked read is cancelled on the server')
+          for (const connection of held.splice(0)) {
+            connection.release()
+          }
         }
         // The slow step ends on its own; nothing more is sent and every connection is returned.
         await new Promise((resolve) => setTimeout(resolve, 2_500))
@@ -913,6 +953,9 @@ test('a preview whose checkout or state read is slower than its wait answers in 
         }
       }
     } finally {
+      for (const connection of held) {
+        connection.release()
+      }
       await stop()
     }
   })
