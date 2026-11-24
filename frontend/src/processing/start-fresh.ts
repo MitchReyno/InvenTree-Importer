@@ -21,6 +21,10 @@ const REASONS: Record<StartFreshRefusal, string> = {
   agent_profile_retired: 'This step’s agent profile has been retired.',
   unsupported_processing_stage: 'This step can’t run as an agent session.',
   agent_settings_required: 'No agent is chosen for this step. Choose one in Agent settings.',
+  retained_evidence_required:
+    'The lot has no photo or note left to work from. Add one in Capture first.',
+  unsupported_processing_input:
+    'The lot’s inputs include something sessions can’t take, such as a selected Part attachment.',
   processing_input_capacity: 'The session’s new input would be larger than one session allows.',
   processing_channel_unconfigured:
     'Processing setup is required: no private runner channel is configured.',

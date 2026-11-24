@@ -1,20 +1,8 @@
 import styled from 'styled-components'
-import {
-  Button,
-  hoverTransition,
-  linkTouchArea,
-  media,
-  Pill,
-  raisedOnField,
-  StatePill,
-} from '#/components/ui'
-import { EarlierAttempts } from '#/components/agents/EarlierAttempts'
-import { NEEDS_RECOVERY } from '#/agents/session-list'
-import { FailureSummary } from '#/components/agents/FailureSummary'
-import { workState } from '#/header/workSegments'
+import { linkTouchArea, raisedOnField } from '#/components/ui'
 import { batchHref } from '#/navigation/batch-route'
-import type { SourceQuestion, SourceSession } from '#/processing/source'
-import { color, radius, size, space, type, typeVar } from '#/theme/generated/tokens'
+import type { SourceQuestion } from '#/processing/source'
+import { color, radius, space, type, typeVar } from '#/theme/generated/tokens'
 
 export const STEP_LABEL: Record<string, string> = {
   examine: 'Examine',
@@ -26,107 +14,6 @@ export const STEP_LABEL: Record<string, string> = {
 export function plural(count: number, one: string, many = `${one}s`) {
   return `${count} ${count === 1 ? one : many}`
 }
-
-/** Load more for a session list read a page at a time. */
-export type MoreSessions = {
-  canLoadMore: boolean
-  loadingMore: boolean
-  moreFailed: boolean
-  loadMore: () => void
-}
-
-export function SessionRows({
-  sessions,
-  paused = false,
-  onOpen,
-  pageHref,
-  more,
-}: {
-  sessions: SourceSession[]
-  /** The batch's agents are paused, so queued sessions read Paused. */
-  paused?: boolean
-  onOpen: (jobId: string) => void
-  /** The session's full page; the row itself opens the drawer. */
-  pageHref?: (session: SourceSession) => string
-  more?: MoreSessions
-}) {
-  return (
-    <>
-      <SessionList>
-        {sessions.map((session) => {
-          // A failed session leads with its cause, below; any other with its latest status line.
-          const failed = NEEDS_RECOVERY.has(session.state) || session.failure !== undefined
-          const line = failed ? null : session.status
-          return (
-            <li key={session.jobId}>
-              <SessionRow
-                type="button"
-                data-session-job={session.jobId}
-                aria-label={`Open session: ${STEP_LABEL[session.step]} · ${session.subject}`}
-                aria-describedby={`session-${session.jobId}-state${
-                  line ? ` session-${session.jobId}-status` : ''
-                }`}
-                onClick={() => onOpen(session.jobId)}
-              >
-                <SessionLabel>
-                  <Pill tone="neutral" glyph="">
-                    {STEP_LABEL[session.step]}
-                  </Pill>
-                  <b>{session.subject}</b>
-                </SessionLabel>
-                <span id={`session-${session.jobId}-state`}>
-                  <StatePill state={workState(session.state, { paused })} />
-                </span>
-                {line && (
-                  <SessionStatus id={`session-${session.jobId}-status`}>{line}</SessionStatus>
-                )}
-              </SessionRow>
-              {pageHref && (
-                <PageLink
-                  href={pageHref(session)}
-                  aria-label={`Open full session: ${STEP_LABEL[session.step]} · ${session.subject}`}
-                >
-                  Full session
-                </PageLink>
-              )}
-              {failed && (
-                <Earlier>
-                  <FailureSummary failure={session.failure} />
-                </Earlier>
-              )}
-              {session.earlier && (
-                <Earlier>
-                  <EarlierAttempts
-                    count={session.earlier.count}
-                    attempts={session.earlier.attempts}
-                  />
-                </Earlier>
-              )}
-            </li>
-          )
-        })}
-      </SessionList>
-      {more?.canLoadMore && (
-        <Button size="sm" disabled={more.loadingMore} onClick={more.loadMore}>
-          Load more
-        </Button>
-      )}
-      {more?.moreFailed && <Muted role="alert">More sessions couldn’t be loaded.</Muted>}
-    </>
-  )
-}
-
-const Earlier = styled.div`
-  padding: 0 ${space[8]} ${space[4]};
-`
-
-const PageLink = styled.a`
-  display: inline-block;
-  margin: ${space[1]} 0 0 ${space[3]};
-  font-size: ${typeVar.small.size};
-  color: ${color.accent};
-  ${linkTouchArea}
-`
 
 export function QuestionRows({
   batchId,
@@ -218,55 +105,4 @@ const Rows = styled.ul`
     font-weight: ${typeVar.bodyStrong.weight};
     ${linkTouchArea}
   }
-`
-
-const SessionList = styled.ul`
-  display: grid;
-  margin: 0 calc(-1 * ${space[8]});
-  padding: 0;
-  list-style: none;
-  li {
-    border-top: 1px solid ${color.line};
-  }
-`
-
-// The whole row opens the session drawer, as on the canvas.
-const SessionRow = styled.button`
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: ${space[2]} ${space[5]};
-  width: 100%;
-  padding: ${space[5]} ${space[8]};
-  border: 0;
-  background: none;
-  color: ${color.fg};
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  ${hoverTransition}
-  &:hover {
-    background: ${color.surface2};
-  }
-  ${media.compact} {
-    min-height: ${size.touch};
-  }
-`
-
-const SessionLabel = styled.span`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: ${space[3]};
-  min-width: 0;
-  b {
-    font-size: ${typeVar.small.size};
-    overflow-wrap: anywhere;
-  }
-`
-
-const SessionStatus = styled.span`
-  grid-column: 1 / -1;
-  ${type.small}
-  color: ${color.muted};
 `

@@ -76517,6 +76517,14 @@
                         "type": "string"
                       },
                       {
+                        "const": "retained_evidence_required",
+                        "type": "string"
+                      },
+                      {
+                        "const": "unsupported_processing_input",
+                        "type": "string"
+                      },
+                      {
                         "const": "processing_input_capacity",
                         "type": "string"
                       },
@@ -81839,6 +81847,14 @@
                             },
                             {
                               "const": "agent_settings_required",
+                              "type": "string"
+                            },
+                            {
+                              "const": "retained_evidence_required",
+                              "type": "string"
+                            },
+                            {
+                              "const": "unsupported_processing_input",
                               "type": "string"
                             },
                             {
@@ -93888,6 +93904,14 @@
                               "type": "string"
                             },
                             {
+                              "const": "retained_evidence_required",
+                              "type": "string"
+                            },
+                            {
+                              "const": "unsupported_processing_input",
+                              "type": "string"
+                            },
+                            {
                               "const": "processing_input_capacity",
                               "type": "string"
                             },
@@ -95927,6 +95951,14 @@
                           },
                           {
                             "const": "agent_settings_required",
+                            "type": "string"
+                          },
+                          {
+                            "const": "retained_evidence_required",
+                            "type": "string"
+                          },
+                          {
+                            "const": "unsupported_processing_input",
                             "type": "string"
                           },
                           {

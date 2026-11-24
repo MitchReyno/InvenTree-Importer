@@ -48,7 +48,8 @@ import { STEP_LABEL } from './ProcessingParts'
 import { batchHref, processingStepFor } from '#/navigation/batch-route'
 import { lotsFormed } from '#/processing/lots-formed'
 import { lotSteps, stepSummary, type LotStage } from '#/processing/lot-steps'
-import { listedSessions, retainedJobsSource } from '#/processing/source'
+import { listedSessions, retainedJobsSource, type SourceSession } from '#/processing/source'
+import type { RowRecovery } from './SessionRowItem'
 import { useSessionList } from '#/agents/useSessionList'
 import type { SessionListRead } from '#/agents/session-list'
 import { startFreshReason, startFreshRefusal } from '#/processing/start-fresh'
@@ -316,7 +317,8 @@ export function ProcessingWorkspace({
     }
   }
 
-  async function perform(work: () => Promise<unknown>) {
+  /** `startFresh` names a refusal by Start fresh's reasons; other commands keep their own words. */
+  async function perform(work: () => Promise<unknown>, { startFresh = false } = {}) {
     if (!commandReadAvailable()) {
       throw new Error('processing_fresh_read_required')
     }
@@ -331,9 +333,9 @@ export function ProcessingWorkspace({
       commandFailed = true
       // The server read the answer and refused it; its form marks the step and keeps the draft.
       refusedAnswer = confirmedAnswerRefusal(failure)
-      refusedFresh = startFreshRefusal(failure)
+      refusedFresh = startFresh ? startFreshRefusal(failure) : undefined
       if (!refusedAnswer) {
-        setError(commandFailureMessage(failure))
+        setError(commandFailureMessage(failure, refusedFresh))
       }
     }
 
@@ -453,17 +455,20 @@ export function ProcessingWorkspace({
     if (!client.replaceSession) {
       return
     }
-    void perform(() =>
-      client.replaceSession!(
-        batch.id,
-        job.id,
-        {
-          expected_capture_revision: batch.revision,
-          expected_revision: job.revision,
-          attempt_id: job.attempt_id,
-        },
-        crypto.randomUUID(),
-      ),
+    void perform(
+      () =>
+        client.replaceSession!(
+          batch.id,
+          job.id,
+          {
+            // From the same read as the job's revision and eligibility.
+            expected_capture_revision: snapshot?.capture_revision ?? batch.revision,
+            expected_revision: job.revision,
+            attempt_id: job.attempt_id,
+          },
+          crypto.randomUUID(),
+        ),
+      { startFresh: true },
     )
       .catch(() => {})
       .finally(() => {
@@ -519,6 +524,22 @@ export function ProcessingWorkspace({
         more: batchSessions,
       }
     : undefined
+
+  /** A failed session row's recovery, from this mount's read of its job. */
+  function sessionRecovery(session: SourceSession): RowRecovery {
+    const job = snapshot?.jobs.find((candidate) => candidate.id === session.jobId)
+    const recoverable = job?.session_state !== undefined && RECOVERABLE.has(job.session_state)
+    return {
+      startFresh: recoverable
+        ? { run: () => restart(job), reason: freshUnavailable(job) }
+        : undefined,
+      lotHref: session.lotId
+        ? batchHref(batch.id, { tab: 'review', view: 'lots', lotId: session.lotId })
+        : undefined,
+      loadFailure: client.failure,
+    }
+  }
+
   const lotRows = snapshot
     ? lotSteps(snapshot.jobs, liveLots, { paused: snapshot.paused === true })
     : []
@@ -896,6 +917,7 @@ export function ProcessingWorkspace({
                   source={source}
                   onOpenSession={setSessionJobId}
                   sessionList={sessionList}
+                  sessionRecovery={sessionRecovery}
                   instructions={
                     <InstructionField
                       text={instructions ? instructions.text : ''}
@@ -957,6 +979,7 @@ export function ProcessingWorkspace({
                   }
                   onOpenSession={setSessionJobId}
                   sessionList={sessionList}
+                  sessionRecovery={sessionRecovery}
                   help={STEP_HELP[view]}
                 >
                   {view === 'images' || jobs.length > 0 ? (
@@ -1093,13 +1116,12 @@ const RECOVERABLE: ReadonlySet<string> = new Set([
 const NO_SESSIONS: SessionListRead = () => Promise.reject(new Error('agent_sessions_unavailable'))
 
 /** What a refused or unconfirmed command says: a known refusal its reason, anything else caution. */
-function commandFailureMessage(failure: unknown) {
+function commandFailureMessage(failure: unknown, refusedFresh: string | undefined) {
+  if (refusedFresh) {
+    return `Start fresh was refused: ${refusedFresh}`
+  }
   if (failure instanceof IntakeRequestError && failure.code === 'subject_retired') {
     return 'A selected lot was split or merged. Choose its successor lots instead.'
-  }
-  const refusal = startFreshRefusal(failure)
-  if (refusal) {
-    return `Start fresh was refused: ${refusal}`
   }
   return 'Command not confirmed. Inspect retained status before deciding whether to submit another command.'
 }

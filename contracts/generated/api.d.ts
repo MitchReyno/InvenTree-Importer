@@ -18141,7 +18141,7 @@ export interface components {
             } | {
                 /** @constant */
                 allowed: false;
-                reason: "unsupported_processing_profile" | "batch_archived" | "subject_retired" | "media_not_ready" | "media_input_capacity" | "session_not_replaceable" | "session_reap_pending" | "inventory_waiting" | "identity_waiting" | "agent_profile_retired" | "unsupported_processing_stage" | "agent_settings_required" | "processing_input_capacity" | "processing_channel_unconfigured";
+                reason: "unsupported_processing_profile" | "batch_archived" | "subject_retired" | "media_not_ready" | "media_input_capacity" | "session_not_replaceable" | "session_reap_pending" | "inventory_waiting" | "identity_waiting" | "agent_profile_retired" | "unsupported_processing_stage" | "agent_settings_required" | "retained_evidence_required" | "unsupported_processing_input" | "processing_input_capacity" | "processing_channel_unconfigured";
             };
             proposals: {
                 id: string;
@@ -19058,7 +19058,7 @@ export interface components {
                 } | {
                     /** @constant */
                     allowed: false;
-                    reason: "unsupported_processing_profile" | "batch_archived" | "subject_retired" | "media_not_ready" | "media_input_capacity" | "session_not_replaceable" | "session_reap_pending" | "inventory_waiting" | "identity_waiting" | "agent_profile_retired" | "unsupported_processing_stage" | "agent_settings_required" | "processing_input_capacity" | "processing_channel_unconfigured";
+                    reason: "unsupported_processing_profile" | "batch_archived" | "subject_retired" | "media_not_ready" | "media_input_capacity" | "session_not_replaceable" | "session_reap_pending" | "inventory_waiting" | "identity_waiting" | "agent_profile_retired" | "unsupported_processing_stage" | "agent_settings_required" | "retained_evidence_required" | "unsupported_processing_input" | "processing_input_capacity" | "processing_channel_unconfigured";
                 };
                 proposals: {
                     id: string;
@@ -21042,7 +21042,7 @@ export interface components {
                 } | {
                     /** @constant */
                     allowed: false;
-                    reason: "unsupported_processing_profile" | "batch_archived" | "subject_retired" | "media_not_ready" | "media_input_capacity" | "session_not_replaceable" | "session_reap_pending" | "inventory_waiting" | "identity_waiting" | "agent_profile_retired" | "unsupported_processing_stage" | "agent_settings_required" | "processing_input_capacity" | "processing_channel_unconfigured";
+                    reason: "unsupported_processing_profile" | "batch_archived" | "subject_retired" | "media_not_ready" | "media_input_capacity" | "session_not_replaceable" | "session_reap_pending" | "inventory_waiting" | "identity_waiting" | "agent_profile_retired" | "unsupported_processing_stage" | "agent_settings_required" | "retained_evidence_required" | "unsupported_processing_input" | "processing_input_capacity" | "processing_channel_unconfigured";
                 };
                 earlier_attempts: {
                     attempt_id: string;
@@ -21230,7 +21230,7 @@ export interface components {
                 } | {
                     /** @constant */
                     allowed: false;
-                    reason: "unsupported_processing_profile" | "batch_archived" | "subject_retired" | "media_not_ready" | "media_input_capacity" | "session_not_replaceable" | "session_reap_pending" | "inventory_waiting" | "identity_waiting" | "agent_profile_retired" | "unsupported_processing_stage" | "agent_settings_required" | "processing_input_capacity" | "processing_channel_unconfigured";
+                    reason: "unsupported_processing_profile" | "batch_archived" | "subject_retired" | "media_not_ready" | "media_input_capacity" | "session_not_replaceable" | "session_reap_pending" | "inventory_waiting" | "identity_waiting" | "agent_profile_retired" | "unsupported_processing_stage" | "agent_settings_required" | "retained_evidence_required" | "unsupported_processing_input" | "processing_input_capacity" | "processing_channel_unconfigured";
                 };
             };
             entries: ({

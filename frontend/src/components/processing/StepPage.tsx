@@ -13,14 +13,10 @@ import {
   StatePill,
   type WorkState,
 } from '#/components/ui'
-import {
-  Card,
-  CardTitle,
-  Muted,
-  QuestionRows,
-  SessionRows,
-  type MoreSessions,
-} from './ProcessingParts'
+import { Card, CardTitle, Muted, QuestionRows } from './ProcessingParts'
+import { SessionRows } from './SessionRows'
+import type { RowRecovery } from './SessionRowItem'
+import type { MoreSessions } from '#/components/agents/LoadMore'
 
 type Props = {
   batchId: string
@@ -28,6 +24,8 @@ type Props = {
   source: ProcessingSource
   /** The batch's session list, one row per session with its earlier attempts, when read. */
   sessionList?: { rows: SourceSession[]; more: MoreSessions }
+  /** What a failed session's row offers to recover it. */
+  sessionRecovery?: (session: SourceSession) => RowRecovery
   /** This step's own count and state, as its section below reads them. */
   summary: StepSummary
   /** The lot the address asks to focus, with its state at this step. */
@@ -51,6 +49,7 @@ export function StepPage({
   focus,
   onOpenSession,
   sessionList,
+  sessionRecovery,
   help,
   children,
 }: Props) {
@@ -89,6 +88,7 @@ export function StepPage({
           <SessionRows
             sessions={sessionList?.rows.filter((session) => session.step === step) ?? sessions}
             more={sessionList?.more}
+            recovery={sessionRecovery}
             paused={source.paused}
             onOpen={onOpenSession}
             pageHref={(session) => sessionPageHref(batchId, session.step, session.jobId)}

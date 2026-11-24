@@ -504,6 +504,47 @@ test('Load more adds the next page of sessions beneath the first', async () => {
   expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument()
 })
 
+test('Load more stays in place while its page loads, and a page that failed can be read again', async () => {
+  vi.useRealTimers()
+  const first = { ...lists.needs_attention!, next_before: 'b2xkZXI' }
+  const later = sessionRow({
+    attempt_id: S.attempt(70),
+    job_id: S.job(70),
+    batch_id: heyyy,
+    state: 'failed',
+    session_state: 'failed',
+  })
+  const api = client({ needs_attention: first })
+  const page = deferred<AgentSessionListDto>()
+  api.sessions.mockImplementation(async (query?: AgentSessionQueryDto) =>
+    query?.before ? page.promise : first,
+  )
+  render(<AgentSessions client={api} batches={batches} />)
+  await screen.findByRole('region', { name: 'Heyyy' })
+
+  const more = screen.getByRole('button', { name: 'Load more' })
+  more.focus()
+  fireEvent.click(more)
+  expect(more).toBeInTheDocument()
+  expect(more).toHaveFocus()
+  await act(async () => {
+    page.reject(new Error('offline'))
+    await page.promise.catch(() => {})
+  })
+  expect(await screen.findByText('More sessions couldn’t be loaded.')).toBeVisible()
+  const retry = screen.getByRole('button', { name: 'Try loading more again' })
+  expect(retry).toBe(more)
+
+  api.sessions.mockImplementation(async (query?: AgentSessionQueryDto) =>
+    query?.before ? sessionList({ ...first, sessions: [later], next_before: null }) : first,
+  )
+  fireEvent.click(retry)
+  const group = screen.getByRole('region', { name: 'Heyyy' })
+  await waitFor(() =>
+    expect(within(group).getAllByRole('link', { name: /^Open session:/ })).toHaveLength(3),
+  )
+})
+
 test('the Agents heading carries the AI mark; session rows do not', async () => {
   render(<AgentSessions client={client()} batches={batches} />)
   const heading = await screen.findByRole('heading', { name: 'Agents', level: 1 })

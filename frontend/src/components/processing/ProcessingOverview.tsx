@@ -18,7 +18,10 @@ import {
 } from '#/components/ui'
 import { PauseButton } from '#/components/agents/PauseButton'
 import { stageSegment } from '#/header/workSegments'
-import { Card, CardTitle, Muted, SessionRows, plural, type MoreSessions } from './ProcessingParts'
+import { Card, CardTitle, Muted, plural } from './ProcessingParts'
+import { SessionRows } from './SessionRows'
+import type { RowRecovery } from './SessionRowItem'
+import type { MoreSessions } from '#/components/agents/LoadMore'
 import { LotTable } from './LotTable'
 import { NeedsYouCard } from './NeedsYouCard'
 
@@ -27,6 +30,8 @@ type Props = {
   source: ProcessingSource
   /** The batch's session list, one row per session with its earlier attempts, when read. */
   sessionList?: { rows: SourceSession[]; more: MoreSessions }
+  /** What a failed session's row offers to recover it. */
+  sessionRecovery?: (session: SourceSession) => RowRecovery
   /** The batch instruction field, owned by the workspace that saves it. */
   instructions: ReactNode
   /** Agents' newest status lines across the batch, oldest first. */
@@ -97,6 +102,7 @@ export function ProcessingOverview({
   still = false,
   onOpenSession,
   sessionList,
+  sessionRecovery,
 }: Props) {
   const runningSessions = source.sessions.filter((session) => session.state === 'running').length
   const working = source.sessions.length
@@ -201,6 +207,7 @@ export function ProcessingOverview({
             <SessionRows
               sessions={sessionList?.rows ?? source.sessions}
               more={sessionList?.more}
+              recovery={sessionRecovery}
               paused={source.paused}
               onOpen={onOpenSession}
               pageHref={(session) => sessionPageHref(batchId, session.step, session.jobId)}

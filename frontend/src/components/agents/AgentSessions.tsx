@@ -31,6 +31,7 @@ import { PauseButton } from './PauseButton'
 import { PauseAllAgents } from './PauseAllAgents'
 import { AgentsSkeleton } from './AgentsSkeleton'
 import { AgentSessionTable } from './AgentSessionTable'
+import { LoadMore } from './LoadMore'
 import type { FailureLoader } from './SessionFailureDetails'
 import { useServerScope, useRetainedPollInterval } from '#/context'
 
@@ -294,16 +295,7 @@ export function AgentSessions({ client, batches }: Props) {
                 </Group>
               )
             })}
-            {sessionList.canLoadMore && (
-              <Paging aria-label="Session pages">
-                <Button size="sm" disabled={sessionList.loadingMore} onClick={sessionList.loadMore}>
-                  Load more
-                </Button>
-              </Paging>
-            )}
-            {sessionList.moreFailed && (
-              <FieldNote role="alert">More sessions couldn’t be loaded.</FieldNote>
-            )}
+            <LoadMore more={sessionList} />
           </>
         )}
       </ReadState>
@@ -441,11 +433,4 @@ const More = styled.p`
   padding: ${space[4]} ${space[7]};
   font-size: ${typeVar.small.size};
   color: ${color.muted};
-`
-
-const Paging = styled.nav`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: ${space[4]};
 `

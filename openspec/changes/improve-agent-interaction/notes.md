@@ -29,6 +29,12 @@ Implementation of BI-019's agent interaction work, delivered PR by PR as the tas
 
 ## Decisions made during implementation
 
+- **2026-11-24T19:30+11:00, task 10 (PR-G), after review round 2:**
+  - Start fresh's preflight also reports `retained_evidence_required` (a lot left with no photo or meaningful note) and `unsupported_processing_input` (such as a selected Part attachment) per job, so one such job no longer fails the whole read.
+  - Start fresh sends the capture revision of the Processing read that gave the job's revision and eligibility, not the batch's, and only Start fresh's refusals read as "Start fresh was refused"; a stale Cancel keeps its own message.
+  - Processing's failed session rows offer the same recovery as the Agents page: Start fresh (run in place, under the mounted read), Failure details and Open lot in Review, with Full session as its Open session.
+  - Load more stays in place, busy, while its page loads, and a page that failed can be read again from the same place.
+  - The contracts test lists every provider error kind's and cause code's sentence, and the failure block is rendered for each.
 - **2026-11-24T18:40+11:00, task 10 (PR-G), after review round 1 (server):** `replaceSession` now prepares the new attempt (profile, stage, settings, sealed input size and channel) before it supersedes the old one, so every refusal precedes its first write; the sealed input passes to `createSessionAttempt` so nothing is sealed twice. The input's profile has a named type (`SessionInputProfile`). The Agents cursor refuses year 0000 as the history cursor does.
 - **2026-11-24T18:10+11:00, task 10 (PR-G), after review round 1 (frontend):**
   - Each page Load more adds starts after the previous page as last read, never a stored cursor, so a session that crosses a page boundary between reads is neither skipped nor shown twice.

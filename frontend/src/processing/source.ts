@@ -66,6 +66,8 @@ export type SourceSession = {
   /** From the session list only: the current attempt's failure and the attempts before it. */
   failure?: SessionFailureSummaryDto
   earlier?: { count: number; attempts: readonly EarlierAttempt[] }
+  /** From the session list: the current attempt, whose failure details can be read. */
+  attemptId?: string
 }
 
 export type LotStatus = { step: WorkStep; text: string; state: SourceSession['state'] }
@@ -237,6 +239,7 @@ export function listedSessions(
     const step = processingStepFor(row.stage)
     return {
       jobId: row.job_id,
+      attemptId: row.attempt_id,
       step: step === 'overview' ? 'examine' : step,
       subject:
         row.subject_id === null

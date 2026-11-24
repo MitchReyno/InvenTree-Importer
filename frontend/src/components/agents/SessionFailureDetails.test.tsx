@@ -2,7 +2,14 @@ import { act, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, test, expect, vi } from 'vitest'
 import { render } from '#/test/render'
-import type { SessionFailureDto } from '@invimport/contracts'
+import {
+  CLAUDE_ERROR_KINDS,
+  CODEX_ERROR_KINDS,
+  SESSION_FAILURE_CODES,
+  failureCauseText,
+  type SessionFailureCauseDto,
+  type SessionFailureDto,
+} from '@invimport/contracts'
 import { SessionFailureDetails } from './SessionFailureDetails'
 import { H, attemptHeader, history } from '#/test/session-history'
 import { SessionPanel } from '#/components/processing/SessionPanel'
@@ -231,3 +238,32 @@ test("a failed turn's details name the provider's own error, and only when it re
   await screen.findByText('agent_tool_refused')
   expect(screen.queryByText('Provider error')).not.toBeInTheDocument()
 })
+
+const recorded: SessionFailureCauseDto[] = [
+  ...CLAUDE_ERROR_KINDS.map((kind) => ({
+    code: 'agent_turn_failed' as const,
+    provider: 'claude' as const,
+    provider_error: { kind, result: null, http_status: 503 },
+  })),
+  ...CODEX_ERROR_KINDS.map((kind) => ({
+    code: 'agent_turn_failed' as const,
+    provider: 'codex' as const,
+    provider_error: { kind, result: null, http_status: null },
+  })),
+  ...SESSION_FAILURE_CODES.map((code) => ({ code, provider: 'claude' as const })),
+]
+
+test.each(recorded)(
+  'a failure recorded as $code $provider_error.kind leads with its own sentence, not the advice',
+  (cause) => {
+    act(() => debugModeController().setEnabled(false))
+    render(<SessionFailureDetails attemptId="attempt" failure={{ ...details, cause }} />)
+
+    expect(screen.getByText(failureCauseText(cause))).toBeVisible()
+    expect(screen.queryByText('Failed · the cause wasn’t recorded')).not.toBeInTheDocument()
+    expect(screen.queryByText(details.recovery)).not.toBeInTheDocument()
+    if (cause.provider_error?.http_status) {
+      expect(screen.getByText(/\(HTTP 503\)$/)).toBeVisible()
+    }
+  },
+)

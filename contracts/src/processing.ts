@@ -768,6 +768,8 @@ export const START_FRESH_REFUSALS = [
   'agent_profile_retired',
   'unsupported_processing_stage',
   'agent_settings_required',
+  'retained_evidence_required',
+  'unsupported_processing_input',
   'processing_input_capacity',
   'processing_channel_unconfigured',
 ] as const

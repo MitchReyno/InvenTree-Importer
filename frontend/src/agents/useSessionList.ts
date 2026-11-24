@@ -80,8 +80,10 @@ export function useSessionList(read: SessionListRead, options: Options) {
     previous: fresh.query.data,
     rows: mergedRows(pages),
     canLoadMore: next !== null,
-    loadingMore: last?.isPending === true,
-    moreFailed: last?.isError === true,
+    loadingMore: last?.isPending === true && !last.isError,
+    moreFailed: last?.isError === true && last.data === undefined,
     loadMore,
+    /** Reads the page that failed again, from the same place. */
+    retryMore: () => void last?.refetch(),
   }
 }

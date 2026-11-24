@@ -75,10 +75,10 @@ function failedJob(start_fresh: StartFreshEligibilityDto = { allowed: true }): P
   }
 }
 
-function snapshotWith(job: ProcessingJobDto): ProcessingSnapshotDto {
+function snapshotWith(job: ProcessingJobDto, captureRevision = '8'): ProcessingSnapshotDto {
   const read: ProcessingSnapshotDto = {
     batch_id: H.batch,
-    capture_revision: '8',
+    capture_revision: captureRevision,
     runner_status: 'native_unverified',
     cursor: batch.cursor,
     jobs: [job],
@@ -354,4 +354,74 @@ test.each([
   act(() => invalidateStartFreshReads(cache, scope))
   await waitFor(() => expect(fresh).not.toHaveAttribute('aria-disabled'))
   expect(fresh).toBeEnabled()
+})
+
+test('a failed row in Processing’s session list offers Start fresh, its failure details and its lot', async () => {
+  const row = sessionRow({
+    attempt_id: H.attempt,
+    batch_id: H.batch,
+    job_id: H.job,
+    subject_id: H.lot,
+    state: 'failed',
+    session_state: 'failed',
+    failure: refused,
+  })
+  const api = clients(failedJob(), sessionList({ sessions: [row] }))
+  mount(api, 'overview')
+
+  const card = await screen.findByRole('region', { name: 'Agent sessions' })
+  const recovery = await within(card).findByRole('group', {
+    name: 'Recover Research · GE S2CN1 diodes',
+  })
+  expect(
+    within(recovery).getByRole('link', { name: 'Open lot in Review: GE S2CN1 diodes' }),
+  ).toHaveAttribute('href', `#${H.batch}/review/lots/${H.lot}`)
+  fireEvent.click(within(recovery).getByRole('button', { name: 'Failure details' }))
+  expect(within(card).getByRole('region', { name: 'Session failure' })).toBeVisible()
+  expect(api.processing.replaceSession).not.toHaveBeenCalled()
+
+  const fresh = within(recovery).getByRole('button', { name: 'Start fresh' })
+  await waitFor(() => expect(fresh).not.toHaveAttribute('aria-disabled'))
+  fireEvent.click(fresh)
+  await waitFor(() => expect(api.processing.replaceSession).toHaveBeenCalledTimes(1))
+})
+
+test('Start fresh sends the capture revision of the read that gave the job’s revision', async () => {
+  const api = clients(failedJob())
+  // The batch prop still holds revision 8; this mount's Processing read is at 9.
+  api.processing.read.mockResolvedValue(snapshotWith(failedJob(), '9'))
+  mount(api, 'research')
+
+  const outputs = await screen.findByRole('region', { name: 'Outputs' })
+  const fresh = within(outputs).getByRole('button', { name: 'Start fresh' })
+  await waitFor(() => expect(fresh).not.toHaveAttribute('aria-disabled'))
+  fireEvent.click(fresh)
+  await waitFor(() =>
+    expect(api.processing.replaceSession).toHaveBeenCalledWith(
+      H.batch,
+      H.job,
+      expect.objectContaining({ expected_capture_revision: '9' }),
+      expect.any(String),
+    ),
+  )
+})
+
+test('a stale Cancel is not reported as a refused Start fresh', async () => {
+  const running: ProcessingJobDto = {
+    ...failedJob(),
+    state: 'running',
+    session_state: 'running',
+    can_cancel: true,
+  }
+  const api = clients(running)
+  api.processing.cancel = vi.fn().mockRejectedValue(new IntakeRequestError(412, 'stale_attempt'))
+  mount(api, 'research')
+
+  const outputs = await screen.findByRole('region', { name: 'Outputs' })
+  const cancel = within(outputs).getByRole('button', { name: 'Cancel this attempt' })
+  await waitFor(() => expect(cancel).not.toHaveAttribute('aria-disabled'))
+  fireEvent.click(cancel)
+  const alert = await screen.findByRole('alert')
+  expect(alert).toHaveTextContent('Command not confirmed')
+  expect(alert).not.toHaveTextContent(/Start fresh/)
 })
