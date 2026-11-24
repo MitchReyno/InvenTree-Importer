@@ -21,6 +21,10 @@ type Props = {
   placeholder: string
   /** Plural noun for the empty-search message, e.g. `lots`. */
   noun: string
+  /** Adds "Not chosen" first, which picks the empty value and shows the placeholder. */
+  clearable?: boolean
+  required?: boolean
+  invalid?: boolean
   disabled?: boolean
   status?: string
   labelHidden?: boolean
@@ -28,6 +32,8 @@ type Props = {
   inputRef?: Ref<HTMLInputElement>
   className?: string
 }
+
+const NOT_CHOSEN: PickerChoice = { value: '', label: 'Not chosen' }
 
 function matches(choice: PickerChoice, words: readonly string[]) {
   const text = choice.label.toLowerCase()
@@ -46,6 +52,9 @@ export function ChoicePicker({
   onChange,
   placeholder,
   noun,
+  clearable = false,
+  required,
+  invalid,
   disabled = false,
   status,
   labelHidden,
@@ -55,21 +64,33 @@ export function ChoicePicker({
 }: Props) {
   const [input, setInput] = useState('')
 
+  const listed = useMemo(
+    () => (clearable ? [NOT_CHOSEN, ...choices] : choices),
+    [choices, clearable],
+  )
+
   const options = useMemo(() => {
     const words = input.toLowerCase().split(/\s+/).filter(Boolean)
-    return choices.filter((choice) => matches(choice, words))
-  }, [choices, input])
+    return listed.filter((choice) => matches(choice, words))
+  }, [listed, input])
 
-  const chosen = choices.find((choice) => choice.value === value) ?? null
+  // A clearable picker's empty value is "nothing chosen yet", so it shows the placeholder.
+  const nothingChosen = clearable && value === ''
+  const chosen = nothingChosen ? undefined : listed.find((choice) => choice.value === value)
 
   return (
     <SearchablePicker<PickerChoice>
       label={label}
       options={options}
-      value={chosen}
+      value={chosen ?? null}
       inputValue={input}
       onInputChange={setInput}
-      onChange={(choice) => onChange(choice.value)}
+      onChange={(choice) => {
+        // react-select reports a pick of the chosen option too; that changes nothing.
+        if (choice.value !== value) {
+          onChange(choice.value)
+        }
+      }}
       getOptionLabel={(choice) => choice.label}
       getOptionValue={(choice) => choice.value}
       isOptionDisabled={(choice) => choice.disabled === true}
@@ -77,6 +98,8 @@ export function ChoicePicker({
       noOptionsMessage={() => (input.trim() ? `No ${noun} match` : `No ${noun}`)}
       placeholder={placeholder}
       status={status}
+      required={required}
+      invalid={invalid}
       labelHidden={labelHidden}
       compact={compact}
       inputRef={inputRef}

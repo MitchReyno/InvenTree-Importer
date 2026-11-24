@@ -71,6 +71,7 @@ export function TemplateEditor({ batch, pk, save, disabled, report }: Props) {
     <>
       <ChoicePicker
         label="Use another template"
+        clearable
         noun="templates"
         placeholder="Choose an observed template…"
         choices={templates.map((item) => ({ value: item.id, label: item.label }))}

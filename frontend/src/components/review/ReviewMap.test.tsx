@@ -298,7 +298,7 @@ describe('ReviewMap', () => {
     const slip = screen.getByRole('listitem', { name: /Packing slip/ })
     await userEvent.setup().click(picker('Link Packing slip to a lot', slip))
 
-    expect(listedOptions()).toEqual(['Packet A', 'Packet B', 'Bag'])
+    expect(listedOptions()).toEqual(['Not chosen', 'Packet A', 'Packet B', 'Bag'])
   })
 
   it('forgets a chosen lot once the file links to it, so Link cannot resend', async () => {

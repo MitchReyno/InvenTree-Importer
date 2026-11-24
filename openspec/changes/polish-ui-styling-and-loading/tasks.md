@@ -356,7 +356,7 @@
   - records, growing lists and exact-value fields use the searchable picker;
   - short fixed lists become a segmented control or stay a styled native select, chosen per screen;
   - the design system documents the guideline.
-- **Scope and approach:** the 46 native select JSX sites in 28 components (Capture, Review, the Review Map, Records, the operator panels, media, Changes and the bulk bar), counted as in the design and refreshed after PR-H removes `StepChoices`, using `forms/SearchablePicker` (task 13), `SearchableReferencePicker` and `SegmentedControl` (design: "Choosing a dropdown control").
+- **Scope and approach:** the 46 native select JSX sites in 28 components (Capture, Review, the Review Map, Records, the operator panels, media, Changes and the bulk bar), counted as in the design and refreshed after PR-H removes `StepChoices`, using `forms/SearchablePicker` (task 13), `SearchableReferencePicker`, a `ChoicePicker` for lists the batch already holds, and `SegmentedControl` (design: "Choosing a dropdown control").
 - **Prerequisites:** task 13 merged.
 - **Acceptance:** "Searchable picker for records and growing lists", "Short fixed choices follow a guideline".
 - **TDD approach:** each converted field's existing tests are updated for the new control first, and fail until it's converted. A new test for a record field checks search.

@@ -34,6 +34,7 @@ export function SourcingEditor({ batch, partId, role, current, save, disabled, r
     <>
       <ChoicePicker
         label={role === 'manufacturer' ? 'Manufacturer' : 'Supplier'}
+        clearable
         noun={`${role}s`}
         placeholder={`Choose an observed ${role}…`}
         choices={companies.map((item) => ({ value: item.id, label: item.label }))}

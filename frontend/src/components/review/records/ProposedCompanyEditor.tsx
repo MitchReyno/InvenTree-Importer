@@ -76,6 +76,7 @@ export function ProposedCompanyEditor({
       )}
       <ChoicePicker
         label={`Use another ${proposed.role}`}
+        clearable
         noun={`${proposed.role}s`}
         placeholder={`Choose an observed ${proposed.role}`}
         choices={companies.map((item) => ({ value: item.id, label: item.label }))}

@@ -7,7 +7,7 @@ import { fixtureScope } from './test/render'
 import { render } from './test/render'
 import { act, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { pickOption, picker } from '#/test/picker'
+import { listedOptions, pickOption, picker } from '#/test/picker'
 import { afterEach, expect, test, vi } from 'vitest'
 import {
   validate,
@@ -525,6 +525,9 @@ test('Approve pins the requested preparation through poll ordering/removal and r
     () => expect(picker('Prepared selection')).toBeInTheDocument(),
     { timeout: 4000 },
   )
+  await user.click(picker('Prepared selection'))
+  expect(listedOptions()).toEqual(['Packet B', 'Packet A'])
+  await user.keyboard('{Escape}')
   expect(screen.getByText('Packet A · 0.000001')).toBeVisible()
   expect(screen.queryByText('Packet B · 23')).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Approve 1 lot and add to InvenTree' })).toBeEnabled()

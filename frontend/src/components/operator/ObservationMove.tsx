@@ -25,6 +25,7 @@ export function ObservationMove({ batch, observationId, lotId, name, edit, disab
     <span>
       <ChoicePicker
         label={`Move ${name} to`}
+        clearable
         noun="lots"
         placeholder="Choose a lot…"
         choices={[

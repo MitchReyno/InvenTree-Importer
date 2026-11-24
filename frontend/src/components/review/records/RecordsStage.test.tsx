@@ -465,6 +465,29 @@ describe('RecordsStage', () => {
     })
   })
 
+  it('clearing a chosen company releases the unsaved-changes guard', async () => {
+    const user = userEvent.setup()
+    const { onDirtyChange } = stage()
+    await open(user, /^Companies/, 'Yageo')
+    const detail = screen.getByRole('region', { name: 'Yageo' })
+    await pickOption(user, 'Use another supplier', 'DigiKey', detail)
+    expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+    await pickOption(user, 'Use another supplier', 'Not chosen', detail)
+    expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+    expect(pickerText('Use another supplier', detail)).toBe('Choose an observed supplier…')
+  })
+
+  it('choosing the current category again keeps its mappings', async () => {
+    const user = userEvent.setup()
+    stage()
+    await open(user, /^Parts/, 'Carbon film resistor')
+    const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
+    await pickOption(user, 'Move to category', 'Capacitors', detail)
+    await pickOption(user, 'Composition in Capacitors', 'Capacitors · Composition', detail)
+    await pickOption(user, 'Move to category', 'Capacitors', detail)
+    expect(pickerText('Composition in Capacitors', detail)).toBe('Capacitors · Composition')
+  })
+
   it('keeps the draft when a save is refused, for an explicit retry', async () => {
     const user = userEvent.setup()
     const { onDirtyChange } = stage(vi.fn(async () => false))

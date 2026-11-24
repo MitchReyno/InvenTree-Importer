@@ -51,12 +51,16 @@ export function PartCreationFields({
         render={({ field, fieldState }) => (
           <ChoicePicker
             label="Existing category"
+            clearable
             noun="categories"
             placeholder="Select an observed category"
             choices={observed(batch, (item) => item.model === 'category')}
             value={field.value}
             disabled={disabled}
             status={fieldState.error?.message}
+            required
+            invalid={Boolean(fieldState.error)}
+            inputRef={field.ref}
             onChange={(value) => {
               field.onChange(value)
               onDirty()
@@ -73,12 +77,16 @@ export function PartCreationFields({
             render={({ field, fieldState }) => (
               <ChoicePicker
                 label="Parameter template"
+                clearable
                 noun="templates"
                 placeholder="Select observed template"
                 choices={observed(batch, (item) => item.model === 'parameter_template')}
                 value={field.value}
                 disabled={disabled}
                 status={fieldState.error?.message}
+                required
+                invalid={Boolean(fieldState.error)}
+                inputRef={field.ref}
                 onChange={(value) => {
                   field.onChange(value)
                   onDirty()
@@ -93,12 +101,16 @@ export function PartCreationFields({
             render={({ field, fieldState }) => (
               <ChoicePicker
                 label="Category parameter mapping"
+                clearable
                 noun="mappings"
                 placeholder="Select observed mapping"
                 choices={observed(batch, (item) => item.model === 'category_parameter')}
                 value={field.value}
                 disabled={disabled}
                 status={fieldState.error?.message}
+                required
+                invalid={Boolean(fieldState.error)}
+                inputRef={field.ref}
                 onChange={(value) => {
                   field.onChange(value)
                   onDirty()

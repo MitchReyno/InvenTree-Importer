@@ -135,7 +135,8 @@ export function ModalFrame({
           {...(labelledBy ? { 'aria-labelledby': labelledBy } : {})}
           onCloseAutoFocus={restoreFocus}
           onEscapeKeyDown={(event) => {
-            if (closeDisabled || !closeOnEscape) {
+            // An open picker's menu takes this Escape; the next one closes the dialog.
+            if (closeDisabled || !closeOnEscape || expandedCombobox(event.target)) {
               event.preventDefault()
             }
           }}
@@ -151,6 +152,14 @@ export function ModalFrame({
         </DialogSurface>
       </RadixDialog.Portal>
     </RadixDialog.Root>
+  )
+}
+
+function expandedCombobox(target: EventTarget | null) {
+  return (
+    target instanceof Element &&
+    target.getAttribute('role') === 'combobox' &&
+    target.getAttribute('aria-expanded') === 'true'
   )
 }
 

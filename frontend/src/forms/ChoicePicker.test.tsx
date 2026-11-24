@@ -137,3 +137,34 @@ test('the input ref reaches the search field, so a caller can focus it', () => {
   render(<Focusing />)
   expect(screen.getByRole('combobox', { name: 'Move to' })).toHaveFocus()
 })
+
+test('picking the chosen value again changes nothing', async () => {
+  const user = userEvent.setup()
+  const { input, onChange } = picker()
+  await user.click(input)
+  await user.click(screen.getByRole('option', { name: 'LM358 op-amps' }))
+  expect(onChange).not.toHaveBeenCalled()
+})
+
+test('a clearable picker offers "Not chosen", which clears to the placeholder', async () => {
+  const user = userEvent.setup()
+  const { input, onChange } = picker({
+    clearable: true,
+    choices: lots.filter((choice) => choice.value !== ''),
+  })
+  await user.click(input)
+  expect(screen.getAllByRole('option')[0]).toHaveTextContent('Not chosen')
+  await user.click(screen.getByRole('option', { name: 'Not chosen' }))
+  expect(onChange).toHaveBeenCalledExactlyOnceWith('')
+})
+
+test('a clearable picker with nothing chosen shows its placeholder', () => {
+  picker({ clearable: true, value: '', choices: lots.filter((choice) => choice.value !== '') })
+  expect(screen.getByText('Choose a lot…')).toBeVisible()
+})
+
+test('a required picker says so, and an invalid one is marked', () => {
+  const { input } = picker({ required: true, invalid: true })
+  expect(input).toHaveAttribute('aria-required', 'true')
+  expect(input).toHaveAttribute('aria-invalid', 'true')
+})

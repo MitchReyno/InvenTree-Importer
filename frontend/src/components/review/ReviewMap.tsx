@@ -302,6 +302,7 @@ export function ReviewMap({
                 <Controls>
                   <LinkPicker
                     label={`Link ${file.label} to a lot`}
+                    clearable
                     labelHidden
                     compact
                     noun="lots"
@@ -472,6 +473,7 @@ function RegionMove({
     <Controls>
       <LinkPicker
         label={`Move ${region.label} to`}
+        clearable
         labelHidden
         compact
         noun="lots"
@@ -543,6 +545,7 @@ function SameItem({
     <Controls>
       <LinkPicker
         label={`${region.label} is the same item as`}
+        clearable
         labelHidden
         compact
         noun="regions"

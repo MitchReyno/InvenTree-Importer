@@ -49,6 +49,9 @@ export type SearchablePickerProps<O> = {
   labelHidden?: boolean
   /** Control height for a row of small buttons; phones keep the touch height. */
   compact?: boolean
+  /** Announced on the search field; a form's own rules enforce it. */
+  required?: boolean
+  invalid?: boolean
   /** The search field, for a caller that moves focus to the picker. */
   inputRef?: Ref<HTMLInputElement>
   className?: string
@@ -77,6 +80,8 @@ export function SearchablePicker<O>({
   status,
   labelHidden = false,
   compact = false,
+  required = false,
+  invalid = false,
   inputRef,
   className,
 }: SearchablePickerProps<O>) {
@@ -108,7 +113,12 @@ export function SearchablePicker<O>({
       <Select<O, false, GroupBase<O>>
         inputId={id}
         components={parts}
-        {...{ statusId: status ? describedBy : undefined, searchRef: inputRef }}
+        {...{
+          statusId: status ? describedBy : undefined,
+          searchRef: inputRef,
+          announceRequired: required,
+        }}
+        aria-invalid={invalid || undefined}
         options={options}
         value={value}
         inputValue={inputValue}
@@ -135,14 +145,19 @@ export function SearchablePicker<O>({
   )
 }
 
-type PickerSelectProps = { statusId?: string; searchRef?: Ref<HTMLInputElement> }
+type PickerSelectProps = {
+  statusId?: string
+  searchRef?: Ref<HTMLInputElement>
+  /** Not react-select's own `required`, whose hidden input would block a form's submit. */
+  announceRequired?: boolean
+}
 
 /**
  * react-select drops `aria-describedby`; append the picker status to its own description. It also
  * owns the input's ref, so the caller's ref is set alongside it.
  */
 function DescribedInput<O>(props: InputProps<O, false, GroupBase<O>>) {
-  const { statusId, searchRef } = props.selectProps as PickerSelectProps
+  const { statusId, searchRef, announceRequired } = props.selectProps as PickerSelectProps
   const own = props['aria-describedby']
   const { innerRef } = props
 
@@ -160,6 +175,7 @@ function DescribedInput<O>(props: InputProps<O, false, GroupBase<O>>) {
     <components.Input
       {...props}
       innerRef={setRefs}
+      aria-required={announceRequired || undefined}
       aria-describedby={[own, statusId].filter(Boolean).join(' ') || undefined}
     />
   )

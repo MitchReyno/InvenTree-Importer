@@ -406,12 +406,15 @@ export function RestructureDialog({
                   name="destinationPartId"
                   control={control}
                   rules={{ required: 'Choose a Part proposal.' }}
-                  render={({ field }) => (
+                  render={({ field, fieldState }) => (
                     <ChoicePicker
                       label="Part proposal"
                       noun="Part proposals"
                       placeholder="Choose a Part proposal…"
                       choices={partChoices}
+                      required
+                      invalid={Boolean(fieldState.error)}
+                      inputRef={field.ref}
                       value={field.value}
                       disabled={fieldsDisabled}
                       onChange={(value) => {

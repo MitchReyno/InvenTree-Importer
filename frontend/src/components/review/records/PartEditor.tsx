@@ -324,6 +324,7 @@ function CategoryField({
             <div key={parameter.template.pk}>
               <ChoicePicker
                 label={`${name} in ${category.label}`}
+                clearable
                 noun="mappings"
                 placeholder="Choose a mapping…"
                 choices={mappingsFor(batch, category.pk, parameter.template.pk).map((item) => ({

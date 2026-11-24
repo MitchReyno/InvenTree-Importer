@@ -297,7 +297,7 @@ useFreshRead(query, { current?: (data) => boolean, restored?: Snapshot }) →
 
 ### Choosing a dropdown control
 
-- **Searchable picker:** records (category, location, company, Part, parameter template, supplier), lists that grow with the batch (lots, groups, observations as move targets), and anything taking a typed exact value. Built on task 13's `SearchablePicker`, with record fields keeping `SearchableReferencePicker`.
+- **Searchable picker:** records (category, location, company, Part, parameter template, supplier), lists that grow with the batch (lots, groups, observations as move targets), and anything taking a typed exact value. Built on task 13's `SearchablePicker`: catalogue record fields keep `SearchableReferencePicker`, and a choice among records or items the batch already holds (its observed records, lots, Part proposals, groups, versions) uses `ChoicePicker`, which searches that list.
 - **Short fixed lists, case by case:**
   - A `SegmentedControl` usually suits two to four short options that fit one line at phone width. Every option stays visible, one tap switches, and it matches Sign-in and Default provider.
   - A styled native `Select` usually suits longer fixed lists, or tight spaces such as table cells and bulk bars. On a phone it opens the system picker, and it's accessible by default.

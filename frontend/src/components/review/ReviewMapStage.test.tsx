@@ -418,7 +418,8 @@ describe('ReviewMapStage', () => {
     await user.click(picker('Bag again is the same item as'))
     // Only regions of the same lot are offered.
     expect(listedOptions().some((name) => name?.includes('Other'))).toBe(false)
-    await user.click(within(screen.getByRole('listbox')).getAllByRole('option')[0])
+    expect(listedOptions()).toHaveLength(2)
+    await user.click(within(screen.getByRole('listbox')).getAllByRole('option')[1])
     await user.click(screen.getByRole('button', { name: 'Mark Bag again as the same item' }))
     expect(edit).toHaveBeenCalledWith({
       kind: 'observation_same_item',

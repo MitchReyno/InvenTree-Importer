@@ -29,7 +29,7 @@ it('moves an observation to another live lot or out of any lot', async () => {
     />,
   )
   await user.click(picker('Move Reel to'))
-  expect(listedOptions()).toEqual(['Green LEDs', 'No lot'])
+  expect(listedOptions()).toEqual(['Not chosen', 'Green LEDs', 'No lot'])
   await user.keyboard('{Escape}')
   await searchAndPick(user, 'Move Reel to', 'green', 'Green LEDs')
   await user.click(screen.getByRole('button', { name: 'Move' }))

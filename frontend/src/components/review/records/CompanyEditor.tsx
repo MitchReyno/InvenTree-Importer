@@ -24,6 +24,7 @@ export function CompanyEditor({ batch, role, pk, save, disabled, report }: Props
     <>
       <ChoicePicker
         label={`Use another ${role}`}
+        clearable
         noun={`${role}s`}
         placeholder={`Choose an observed ${role}…`}
         choices={options.map((item) => ({ value: item.id, label: item.label }))}

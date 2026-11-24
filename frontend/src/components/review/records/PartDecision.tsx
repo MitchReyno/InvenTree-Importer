@@ -39,6 +39,7 @@ export function PartDecision({ batch, partId, save, disabled, report }: Props) {
       </Label>
       <ChoicePicker
         label="Existing category"
+        clearable
         noun="categories"
         placeholder="Choose an observed category…"
         choices={categories.map((item) => ({ value: item.id, label: item.label }))}

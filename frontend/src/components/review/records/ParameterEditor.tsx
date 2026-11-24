@@ -106,6 +106,7 @@ export function NewParameter({
     <>
       <ChoicePicker
         label="Add a parameter"
+        clearable
         noun="templates"
         placeholder="Choose an observed template…"
         choices={templates.map((item) => ({ value: item.id, label: item.label }))}
@@ -117,6 +118,7 @@ export function NewParameter({
         <>
           <ChoicePicker
             label="Mapping in this category"
+            clearable
             noun="mappings"
             placeholder="Choose a mapping…"
             choices={mappings.map((item) => ({ value: item.id, label: item.label }))}

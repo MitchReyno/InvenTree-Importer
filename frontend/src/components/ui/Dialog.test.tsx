@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event'
 import { StrictMode, useState } from 'react'
 import { expect, test, vi } from 'vitest'
+import { ChoicePicker } from '#/forms/ChoicePicker'
 import { Dialog } from './Dialog'
 import { trackDialogOpeners } from './dialog-opener'
 import { Popover } from './Popover'
@@ -86,6 +87,30 @@ test('Escape closes unless closing is blocked', async () => {
   await user.keyboard('{Escape}')
   expect(onClose).toHaveBeenCalledTimes(1)
   expect(screen.getByRole('button', { name: 'Close' })).toBeDisabled()
+})
+
+test('Escape in an open picker closes its menu first, then the dialog', async () => {
+  const user = userEvent.setup()
+  const onClose = vi.fn()
+  render(
+    <Dialog title="Move lots" onClose={onClose}>
+      <ChoicePicker
+        label="Part proposal"
+        noun="Part proposals"
+        placeholder="Choose a Part proposal…"
+        choices={[{ value: 'p1', label: 'Resistor' }]}
+        value=""
+        onChange={() => undefined}
+      />
+    </Dialog>,
+  )
+  await user.click(screen.getByRole('combobox', { name: 'Part proposal' }))
+  expect(screen.getByRole('listbox')).toBeVisible()
+  await user.keyboard('{Escape}')
+  expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  expect(onClose).not.toHaveBeenCalled()
+  await user.keyboard('{Escape}')
+  expect(onClose).toHaveBeenCalledTimes(1)
 })
 
 test('a click on the backdrop closes the dialog and returns focus to the opener', async () => {
