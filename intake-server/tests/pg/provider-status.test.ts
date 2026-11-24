@@ -257,12 +257,17 @@ test(
     held = new Promise<void>((resolve) => (release = resolve))
     codex = { state: 'signed_in', checked_at: checkedAt, refreshing: false }
     const before = fixture.http('/agents/provider-status?refresh=true')
-    await waitUntil(() => refreshes.length === asked + 4, 'the first Check again')
-    codex = { state: 'signed_out', checked_at: checkedAt, refreshing: false }
-    const after = fixture.http('/agents/provider-status?refresh=true')
-    await waitUntil(() => refreshes.length === asked + 5, 'the second Check again')
-    release()
-    held = Promise.resolve()
+    let after: ReturnType<typeof fixture.http>
+    try {
+      await waitUntil(() => refreshes.length === asked + 4, 'the first Check again')
+      codex = { state: 'signed_out', checked_at: checkedAt, refreshing: false }
+      after = fixture.http('/agents/provider-status?refresh=true')
+      await waitUntil(() => refreshes.length === asked + 5, 'the second Check again')
+    } finally {
+      // Released either way, so a failure here never leaves the worker's read held.
+      release()
+      held = Promise.resolve()
+    }
     assert.equal(((await after).value as ProviderStatusDto).codex.state, 'signed_out')
     assert.equal(((await before).value as ProviderStatusDto).codex.state, 'signed_in')
 
