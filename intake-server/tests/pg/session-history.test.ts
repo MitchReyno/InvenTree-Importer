@@ -68,20 +68,24 @@ function entriesOf(history: SessionHistoryDto, kind: Entry['details']['kind']) {
 }
 
 /** The session tools for runner and lead writes, called directly with a session's token. */
-function tools(fixture: Fixture) {
-  const handlers = sessionTools({
-    pool: fixture.runner.pool,
-    writerPool: fixture.writer.pool,
-    config: fixture.config,
-    statusIntervalMs: 0,
-    imageBudget: new Map(),
-    deliveredMedia: new Map(),
-  })
+function tools(fixture: Fixture, deliveredMedia = new Map<string, Set<string>>()) {
+  const handlers = sessionHandlers(fixture, deliveredMedia)
   return async (name: keyof typeof handlers, token: string, args: unknown) => {
     const output = await handlers[name](token, args)
     assert.equal(output.result.ok, true, JSON.stringify(output.result))
     return output.result as { ok: true; id?: string; revision?: string; items?: { seq: string }[] }
   }
+}
+
+function sessionHandlers(fixture: Fixture, deliveredMedia = new Map<string, Set<string>>()) {
+  return sessionTools({
+    pool: fixture.runner.pool,
+    writerPool: fixture.writer.pool,
+    config: fixture.config,
+    statusIntervalMs: 0,
+    imageBudget: new Map(),
+    deliveredMedia,
+  })
 }
 
 function issue(fixture: Fixture, attemptId: string) {
@@ -188,7 +192,34 @@ test('each agent entry resolves its summary, details and links; retired lots and
     // Extending an agent lot with an observation the operator placed only suggests it, and
     // naming one already there changes nothing.
     await proposeLot({ lot_id: packetB, observation_ids: [extra] })
+    // Repeating that suggestion writes nothing new.
+    await proposeLot({ lot_id: packetB, observation_ids: [extra] })
     await proposeLot({ lot_id: packetB, observation_ids: [front] })
+    // A reason PostgreSQL can't store is refused before anything is written.
+    const outboxBefore = await fixture.db.pool.query(
+      'SELECT count(*)::int AS n FROM agent_session_outbox WHERE session_id=$1',
+      [lead.attempt],
+    )
+    const unstorable = await sessionHandlers(fixture).propose_lot(token, {
+      base_revision: revision,
+      lot_id: packetB,
+      observation_ids: [front],
+      separation_reason: 'Date code \u0000 2407',
+    })
+    assert.equal(!unstorable.result.ok && unstorable.result.error, 'validation_failed')
+    assert.deepEqual(
+      !unstorable.result.ok && unstorable.result.issues?.map((issue) => issue.path),
+      ['/separation_reason'],
+    )
+    const outboxAfter = await fixture.db.pool.query(
+      'SELECT count(*)::int AS n FROM agent_session_outbox WHERE session_id=$1',
+      [lead.attempt],
+    )
+    assert.equal(outboxAfter.rows[0].n, outboxBefore.rows[0].n)
+    const unchangedBatch = (await fixture.http(`/batches/${batchId}`)).value as {
+      revision: string
+    }
+    assert.equal(unchangedBatch.revision, revision)
     // The first call on the operator-edited diodes lot only suggests.
     await proposeLot({ lot_id: diodes, observation_ids: [back] })
     // The agent revises its first observation in place, under the same ID.
@@ -261,6 +292,7 @@ test('each agent entry resolves its summary, details and links; retired lots and
       packetEntries.map((entry) => [entry.summary, details(entry, 'lot').outcome]),
       [
         ['Proposed no change to 10 kΩ resistor — packet B', 'unchanged'],
+        ['Proposed no change to 10 kΩ resistor — packet B', 'unchanged'],
         ['Suggested changes to 10 kΩ resistor — packet B', 'suggested'],
         ['Extended 10 kΩ resistor — packet B', 'extended'],
         ['Formed 10 kΩ resistor — packet B', 'formed'],
@@ -275,13 +307,13 @@ test('each agent entry resolves its summary, details and links; retired lots and
         ['Formed Diodes', 'formed'],
       ],
     )
-    const formed = details(packetEntries[3], 'lot')
+    const formed = details(packetEntries[4], 'lot')
     assert.equal(formed.current, true)
     assert.equal(formed.separation_reason, 'Same MPN as packet A, date code 2407 vs 2341')
     assert.deepEqual(formed.not_retained, [])
     // A call that gave no reason says so rather than borrowing another call's.
-    assert.equal(details(packetEntries[2], 'lot').separation_reason, null)
-    assert.deepEqual(details(packetEntries[2], 'lot').not_retained, ['separation_reason'])
+    assert.equal(details(packetEntries[3], 'lot').separation_reason, null)
+    assert.deepEqual(details(packetEntries[3], 'lot').not_retained, ['separation_reason'])
     assert.deepEqual(formed.lot!.estimate, {
       quantity: '380',
       basis: 'Reel label says 400; some were used',
@@ -290,7 +322,7 @@ test('each agent entry resolves its summary, details and links; retired lots and
       formed.lot!.observations.map((item) => item.id).sort(),
       [front, back, spare].sort(),
     )
-    assert.deepEqual(packetEntries[3].links, [
+    assert.deepEqual(packetEntries[4].links, [
       { kind: 'lot', lot_id: packetB, label: '10 kΩ resistor — packet B' },
       { kind: 'map', lot_id: packetB },
     ])
@@ -529,11 +561,27 @@ test('a proposal links its lot, sources, first web reads and every open question
   await withFixture(async (fixture, capture) => {
     const batchId = capture.batch.id
     const lead = await leadSession(fixture, capture)
+    // A photo of packet A, delivered to its session.
+    const photo = await seedPhoto(fixture, batchId, { width: 64, height: 48 }, 'Packet A label')
+    await fixture.db.pool.query(
+      'INSERT INTO media_subject_link(id,batch_id,evidence_id,subject_id,linked,revision,actor_id) VALUES($1,$2,$3,$4,true,1,$5)',
+      [randomUUID(), batchId, photo.evidence, capture.packetA.id, fixture.identity.actor],
+    )
     const session = await lotSession(fixture, capture, capture.packetA)
-    const call = tools(fixture)
+    const call = tools(fixture, new Map([[session.job, new Set([photo.version])]]))
     const token = await issue(fixture, session.attempt)
     const leadToken = await issue(fixture, lead.attempt)
     const source = noteSource(session.manifest, capture.packetA.id)
+    const stored = await fixture.db.pool.query<{ sha256: string }>(
+      "SELECT encode(blob_digest,'hex') AS sha256 FROM media_version WHERE id=$1",
+      [photo.version],
+    )
+    const photoSource = {
+      kind: 'media_version',
+      evidence_id: photo.evidence,
+      version_id: photo.version,
+      sha256: stored.rows[0].sha256,
+    }
     const datasheet = {
       kind: 'web_page',
       url: 'https://example.com/atmega.pdf',
@@ -564,8 +612,8 @@ test('a proposal links its lot, sources, first web reads and every open question
     const first = await propose('ATmega328P-AU', [source, datasheet])
     // The note is cited at the top and on a field, and linked once.
     const second = await propose('ATmega328P-AU, rev D', [datasheet, source, errata], [source])
-    // The note is cited on a field only.
-    const fieldOnly = await propose('ATmega328P-AU in TQFP-32', [errata], [source])
+    // The note and the photo are cited on a field only.
+    const fieldOnly = await propose('ATmega328P-AU in TQFP-32', [errata], [source, photoSource])
     // Two open questions on the lot share the identity field: the session's and the lead's.
     const own = await call(
       'ask',
@@ -600,6 +648,19 @@ test('a proposal links its lot, sources, first web reads and every open question
     const noteLinksOf = (entry: Entry) =>
       entry.links.filter((link) => link.kind === 'note' && link.note_id === source.note_id)
     assert.equal(noteLinksOf(catalogued).length, 1, 'a field-only note source is linked')
+    assert.deepEqual(
+      catalogued.links.filter((link) => link.kind === 'capture_evidence'),
+      [
+        {
+          kind: 'capture_evidence',
+          evidence_id: photo.evidence,
+          version_id: photo.version,
+          page: 1,
+          label: 'Packet A label',
+        },
+      ],
+      'a field-only photo source is linked',
+    )
     assert.equal(noteLinksOf(newer).length, 1, 'a note cited twice is linked once')
     const facts = details(older, 'proposal')
     assert.equal(facts.proposal_id, first.id)
@@ -929,6 +990,65 @@ function racingPool(pool: Pool, race: () => Promise<void>): Pool {
     },
   })
 }
+
+test('a lineage of more than 1000 attempts lists every attempt on every page', async () => {
+  await withFixture(async (fixture, capture) => {
+    const batchId = capture.batch.id
+    const session = await lotSession(fixture, capture, capture.packetA)
+    await setState(fixture, session.attempt, 'failed', 'failed')
+    // Attempts 2–1001 reuse the first attempt's input, each with its own command.
+    await fixture.db.pool.query(
+      `WITH first AS (
+         SELECT a.input_id, a.profile_id, a.channel_digest FROM processing_attempt a WHERE a.id=$1
+       ), ids AS (
+         SELECT n, gen_random_uuid() AS attempt_id, gen_random_uuid() AS command_id,
+                convert_to('{"fixture":"history-attempt","n":' || n || '}', 'UTF8') AS payload
+           FROM generate_series(2, 1001) n
+       ), commands AS (
+         INSERT INTO command(id,actor_id,target_id,target_context_id,kind,handler_version,workflow_id,queue_name,payload_bytes,payload_digest)
+         SELECT command_id, $3, $4, $5, 'process', 'processing/5', 'processing:' || attempt_id,
+                'bench-sessions', payload, sha256(payload)
+           FROM ids
+       ), attempts AS (
+         INSERT INTO processing_attempt(id,batch_id,job_id,number,input_id,profile_id,command_id,channel_digest,state)
+         SELECT ids.attempt_id, $2, $6, ids.n, first.input_id, first.profile_id, ids.command_id,
+                first.channel_digest, 'cancelled'
+           FROM ids, first
+         RETURNING id
+       )
+       INSERT INTO agent_session(attempt_id,session_state,session_lineage_id)
+       SELECT id, 'cancelled', $6 FROM attempts`,
+      [
+        session.attempt,
+        batchId,
+        fixture.identity.actor,
+        fixture.identity.target,
+        fixture.identity.context,
+        session.job,
+      ],
+    )
+    await fixture.db.pool.query(
+      `INSERT INTO agent_session_outbox(session_id,seq,kind,payload)
+       SELECT $1, n, 'status', jsonb_build_object('text', 'Line ' || n) FROM generate_series(1, 201) n`,
+      [session.attempt],
+    )
+    const newest = await readHistory(fixture, batchId, session.job)
+    const older = await readHistory(fixture, batchId, session.job, newest.before)
+    for (const page of [newest, older]) {
+      assert.equal(page.session.attempts.length, 1001)
+      assert.equal(new Set(page.session.attempts.map((attempt) => attempt.id)).size, 1001)
+      assert.equal(page.session.attempts[0].number, 1001)
+      assert.equal(page.session.attempts.at(-1)!.number, 1)
+    }
+    // Paging continues past the newest page without gaps or duplicates.
+    assert.equal(newest.entries.length, 200)
+    const seen = [...newest.entries, ...older.entries].map((entry) => entry.id)
+    assert.equal(new Set(seen).size, seen.length)
+    assert.ok(seen.includes(`outbox:${session.attempt}:201`))
+    assert.ok(older.entries.some((entry) => entry.id === `outbox:${session.attempt}:1`))
+    assert.equal(older.before, undefined)
+  })
+})
 
 test('a page, its cursor and its metadata come from one snapshot', async () => {
   await withFixture(async (fixture, capture) => {

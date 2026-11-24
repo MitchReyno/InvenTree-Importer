@@ -36,6 +36,7 @@ import type { ProcessingConfig } from '#/processing/attempts.ts'
 import { sealed } from '#/processing/model.ts'
 import { MAX_JOB_RESULTS, MAX_PROCESSING_SNAPSHOT_BYTES } from '#/processing/limits.ts'
 import { catalogueSources, deliveredSourceCheck } from '#/processing/provenance.ts'
+import { storableText } from '#/db/storable-text.ts'
 import { lockProcessingAttempt } from '#/processing/state.ts'
 import {
   processingAttempts,
@@ -1081,6 +1082,20 @@ export function sessionTools(context: SessionToolContext) {
     propose_lot: (token: string, args: unknown) =>
       withLeadSession(context, token, async (client, principal) => {
         const input = validated<ProposeLotArgsDto>('ProposeLotArgs', args)
+        // The reason is stored in the outbox's jsonb, which refuses NUL and unpaired surrogates.
+        if (input.separation_reason !== undefined && !storableText(input.separation_reason)) {
+          throw new ToolRefusal(
+            'validation_failed',
+            "The separation reason holds a character that can't be stored. Remove it and retry.",
+            [
+              {
+                path: '/separation_reason',
+                rule: 'schema',
+                reason: 'Text must not hold NUL or unpaired surrogates.',
+              },
+            ],
+          )
+        }
         const result = await proposeLot(client, writer(principal), input)
         return outboxed(client, principal, result, (id) => ({
           kind: 'lot',

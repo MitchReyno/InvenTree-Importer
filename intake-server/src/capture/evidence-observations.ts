@@ -377,7 +377,7 @@ async function suggestMembership(
   revision: bigint,
   sessionId: string,
 ) {
-  await executeDatabaseQuery(
+  const written = await executeDatabaseQuery(
     queryDatabase(client)
       .insert(captureLotEvidenceObservations)
       .values({
@@ -388,8 +388,11 @@ async function suggestMembership(
         agentSessionId: sessionId,
         revision,
       })
-      .onConflictDoNothing(),
+      .onConflictDoNothing()
+      .returning({ lotId: captureLotEvidenceObservations.lotId }),
   )
+  // False when the same suggestion, or the membership itself, was already there.
+  return written.length > 0
 }
 
 /** `record_observation`: a new observation, a revision of an AI one, or a suggested revision. */
@@ -554,8 +557,9 @@ export async function proposeLot(
     if (editedLot(target)) {
       // An observation already in the lot needs no suggestion.
       const outside = args.observation_ids.filter((id) => observations.get(id)!.lotId !== lotId)
+      let wroteSuggestion = false
       for (const observationId of outside) {
-        await suggestMembership(
+        const wrote = await suggestMembership(
           client,
           writer.batchId,
           lotId,
@@ -563,6 +567,7 @@ export async function proposeLot(
           next,
           writer.sessionId,
         )
+        wroteSuggestion ||= wrote
       }
       const revision = await locked.finish({ tool: 'propose_lot', ...args }, writer.sessionId)
       // The session is told its changes to the operator's lot were not applied either way.
@@ -571,7 +576,7 @@ export async function proposeLot(
         revision,
         id: lotId,
         suggested: true,
-        lotOutcome: outside.length ? 'suggested' : 'unchanged',
+        lotOutcome: wroteSuggestion ? 'suggested' : 'unchanged',
       }
     }
     // A new draft Part counts towards the subject limit here too.
@@ -636,6 +641,8 @@ export async function proposeLot(
   }
   // Whether this call changed the lot, apart from suggestions.
   let changedLot = Boolean(args.label || args.part || args.estimated_quantity)
+  // Whether it wrote a new suggestion; repeating one already there writes nothing.
+  let wroteSuggestion = false
   for (const observationId of args.observation_ids) {
     const row = observations.get(observationId)!
     const from = row.lotId ? lots.get(row.lotId) : undefined
@@ -646,7 +653,15 @@ export async function proposeLot(
     if (editedObservation(row) || (from && editedLot(from))) {
       // An observation the operator placed stays put; the lead session can only suggest.
       suggested = true
-      await suggestMembership(client, writer.batchId, lotId, observationId, next, writer.sessionId)
+      const wrote = await suggestMembership(
+        client,
+        writer.batchId,
+        lotId,
+        observationId,
+        next,
+        writer.sessionId,
+      )
+      wroteSuggestion ||= wrote
     } else {
       await setActiveLot(
         client,
@@ -671,15 +686,15 @@ export async function proposeLot(
     id: lotId,
     suggested,
     partSubjectId: createdPartId,
-    lotOutcome: proposeLotOutcome(Boolean(args.lot_id), changedLot, suggested),
+    lotOutcome: proposeLotOutcome(Boolean(args.lot_id), changedLot, wroteSuggestion),
   }
 }
 
-/** What a `propose_lot` call did, from the changes it applied and the suggestions it recorded. */
+/** What a `propose_lot` call did, from the changes it applied and the suggestions it wrote. */
 function proposeLotOutcome(
   extending: boolean,
   changedLot: boolean,
-  suggested: boolean,
+  wroteSuggestion: boolean,
 ): LotFormingOutcomeDto {
   if (!extending) {
     return 'formed'
@@ -687,7 +702,7 @@ function proposeLotOutcome(
   if (changedLot) {
     return 'extended'
   }
-  return suggested ? 'suggested' : 'unchanged'
+  return wroteSuggestion ? 'suggested' : 'unchanged'
 }
 
 /** `regroup`: moves observations between AI lots; edited rows only receive suggestions. */
