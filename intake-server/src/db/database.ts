@@ -64,8 +64,8 @@ export function cancelRunningStatement(
     return
   }
   const canceller = new Client(pool.options) as unknown as CancellingClient
-  // The socket is opened outside the pool, so it gets its own bound, and neither it nor its
-  // timer keeps the process up.
+  // The socket is opened outside the pool, so it gets its own bound. Neither it nor its timer
+  // keeps the process up once connected; a connect still pending can delay exit until it settles.
   const lifetime = setTimeout(() => canceller.connection.stream.destroy(), lifetimeMs)
   lifetime.unref()
   canceller.connection.stream.unref()

@@ -808,20 +808,13 @@ test('a preview whose checkout or state read is slower than its wait answers in 
     await fetched(setup, setup.photo)
     const stop = consumer(setup, fakeRenderer())
     const waitMs = 300
-    // Every other connection the role may open, held while the read blocks, so cancelling it
-    // can't rely on a new session.
+    // Every other connection the role may open, taken before the timed preview and held while
+    // its read blocks, so cancelling the read can't rely on a new session.
     const held: PoolClient[] = []
-    // Every checkout is kept, settled or not, so one still pending when an assertion fails is
-    // released too rather than holding the fixture's teardown.
-    const holding: Promise<PoolClient>[] = []
 
-    const releaseHeld = async () => {
-      held.length = 0
-      const outcomes = await Promise.allSettled(holding.splice(0))
-      for (const outcome of outcomes) {
-        if (outcome.status === 'fulfilled') {
-          outcome.value.release()
-        }
+    const releaseHeld = () => {
+      for (const connection of held.splice(0)) {
+        connection.release()
       }
     }
 
@@ -882,11 +875,6 @@ test('a preview whose checkout or state read is slower than its wait answers in 
                     try {
                       if (slow === 'blocked') {
                         await new Promise((resolve) => setTimeout(resolve, waitMs * 0.3))
-                        while (held.length < (target.options.max ?? 10) - 1) {
-                          const checkout = target.connect()
-                          holding.push(checkout)
-                          held.push(await checkout)
-                        }
                         const budget = await held[0].query<{ limit: number; open: number }>(
                           `SELECT r.rolconnlimit AS limit,
                              (SELECT count(*)::int FROM pg_stat_activity a
@@ -936,6 +924,11 @@ test('a preview whose checkout or state read is slower than its wait answers in 
             return typeof value === 'function' ? value.bind(target) : value
           },
         })
+        if (slow === 'blocked') {
+          while (held.length < (context.pool.options.max ?? 10) - 1) {
+            held.push(await context.pool.connect())
+          }
+        }
         const tools = sessionTools({ ...context, pool: slowPool, figurePreviewWaitMs: waitMs })
         const started = Date.now()
         const late = await tools.ask(
@@ -958,7 +951,7 @@ test('a preview whose checkout or state read is slower than its wait answers in 
             [sleepingBackend],
           )
           assert.equal(sleeping.rowCount, 0, 'the blocked read is cancelled on the server')
-          await releaseHeld()
+          releaseHeld()
         }
         // The slow step ends on its own; nothing more is sent and every connection is returned.
         await new Promise((resolve) => setTimeout(resolve, 2_500))
@@ -973,7 +966,7 @@ test('a preview whose checkout or state read is slower than its wait answers in 
         }
       }
     } finally {
-      await releaseHeld()
+      releaseHeld()
       await stop()
     }
   })
