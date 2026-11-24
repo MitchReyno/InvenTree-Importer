@@ -120,6 +120,47 @@ Implementation of the UI polish and calm loading plan, delivered as PR-A to PR-J
 - **2026-11-24T19:24+11:00, tasks 12 and 13 (PR-G2), review round 1 of the card adoption:** a Check again now never joins a read in flight at the API, the worker or the coordinator, so a change's fresh read can't be answered by one asked for before it. Each change waits for the run of reads its own fresh read starts, so a later Check again can't bring back a settled confirmation. A run ends when the check lands, when a read fails, or when the first read asked for after its 15 s deadline (monotonic clock) answers; a run that ends with no Codex result reads "Status timed out". The Effect that re-asked on return is gone: a change's fresh read runs through the query client and finishes after leaving. Codex's card has a polite status region announcing the check and its outcome. Found while filming: a check time ahead of the page's minute clock (server clock ahead, or a tick still due) read "Checked in 1 minute"; it now reads "just now". Not changed: a failed read after a change still ends the wait and shows "Status unavailable", as PR-H's card did after its window; the "keeps the change's outcome" line in the architecture is about the dialog's own protected read.
 - **2026-11-25T01:30+11:00, tasks 12 and 13 (PR-G2), review round 2 of the card adoption (fixed, not re-reviewed):** each fresh read now gets a strictly larger number, and a change is settled only by a read of its own fresh read's run (or a newer fresh read's), recorded as the read lands. A fresh read that is cancelled, such as by a live hint refreshing every read, or that joins an older fresh read asks again, up to three times, unless a newer fresh read has taken over. A failed read marks its run ended in the cache, so coming back starts a new run instead of reviving a change. The status region announces a failed read and a check that didn't finish in time. Not changed: each request is already bounded by the client's 10 s operation timeout (`client-policy.ts`), so no extra abort was added.
 
+- **2026-11-25T02:16+11:00, task 14.1 (PR-I), the dropdown audit:** on `b1d38bea` there are 45 native select JSX sites in 27 components, counted as the design counts them (the Review Map's three `LinkSelect`s included; tests, fixtures, the generic `TextField` wrapper and react-select inside `SearchablePicker` excluded). PR-H's removal of `StepChoices` accounts for the one site and component fewer than the plan's 46 in 28. Records, lists that grow with the batch and the batch's observed records move to the searchable picker; short fixed lists stay native unless two or three short options fit one line. Choices the guideline doesn't settle are explained in the table. Option counts are for a typical batch; "n" grows with it.
+
+| Site | Field | Options | Kind | Control |
+| --- | --- | --- | --- | --- |
+| `capture/AssignedLocationField` | Location for this Part's lots; a group's location | 2 + observed locations | record | Searchable picker |
+| `capture/ReferenceField` | Location selection; Existing Part selection | 3–4 + observed Parts or locations | record | Searchable picker |
+| `capture/CaptureContextFields` | Supplier selection | 3–4 + observed suppliers | record | Searchable picker |
+| `capture/CaptureContextFields` | Purchase date mode; Capture tags mode | 4–5 | fixed | Native: five long modes don't fit a segmented row |
+| `capture/QuantityField` | Quantity mode | 4–5 | fixed | Native, as above |
+| `capture/MappingReader` | Read existing mapping type | 4 | fixed | Native: "Category parameter mapping" is too long for a phone-width segment |
+| `capture/CaptureEditor` | Shared Part proposal | 1 + batch Parts | growing | Searchable picker |
+| `capture/CaptureEditor` | Part action | 2 | fixed | Segmented control ("Reuse a Part", "Create a Part") |
+| `capture/PartCreationFields` | Existing category; Parameter template; Category parameter mapping; Existing manufacturer; Existing supplier | n observed records (+ "No … relationship") | record | Searchable picker (5 sites) |
+| `changes/ReadyToAdd` | Prepared selection | n preparations | growing | Searchable picker: preparations accumulate with the batch, and their lot lists are long to scan |
+| `review/ReviewMap` | Link a file to a lot; Move a region to; Same item as | n lots or regions | growing | Searchable picker, compact with a hidden label, sized to the small button beside it |
+| `review/RegionStage` | Page | the photo's pages | fixed | Native: a document's page count, not batch data |
+| `review/records/TemplateEditor` | Use another template; Mapping in a category | n observed records | record | Searchable picker (2 sites) |
+| `review/records/PartEditor` | Move to category; a parameter's mapping | n observed records | record | Searchable picker (2 sites) |
+| `review/records/SourcingEditor` | Manufacturer or Supplier | n observed companies | record | Searchable picker |
+| `review/records/LocationDetail` | Location type | 1 ("Not known") | deferred | Native, kept: a disabled deferred feature (`DisabledFeature`) with nothing to search; it changes when location types are read |
+| `review/records/ParameterEditor` | Add a parameter; Mapping in this category | n observed records | record | Searchable picker (2 sites) |
+| `review/records/PartDecision` | Existing category | n observed categories | record | Searchable picker |
+| `review/records/CompanyEditor` | Use another manufacturer or supplier | n observed companies | record | Searchable picker |
+| `review/records/ProposedCompanyEditor` | Use another manufacturer or supplier | n observed companies | record | Searchable picker |
+| `operator/QuickLotEdit` | Quantity | 5 | fixed | Native, as Capture's quantity mode |
+| `operator/QuickLotEdit` | Location | 4 + observed locations | record | Searchable picker |
+| `operator/BulkEditPanel` | Quantity | 6 | fixed | Native, in the bulk row |
+| `operator/BulkEditPanel` | Location | 5 + observed locations | record | Searchable picker |
+| `operator/RestructureDialog` | Where each observation goes | 2–10 new lots made in the dialog | fixed | Native: one per observation row, listing only the dialog's own new lots |
+| `operator/RestructureDialog` | Merge's Part proposal; Move's Part proposal | n batch Parts | growing | Searchable picker (2 sites) |
+| `operator/RestructureDialog` | Destination | 3 | fixed | Segmented control ("Existing", "New", "None") |
+| `operator/EvidenceViewer` | Evidence source and version | n retained versions | growing | Searchable picker, unready versions listed but not pickable |
+| `operator/EvidenceViewer` | Document page | the version's pages | fixed | Native, as the Region stage's page |
+| `operator/ObservationMove` | Move an observation to | n lots + "No lot" | growing | Searchable picker |
+| `media/MediaWorkspace` | Move selected evidence to | n groups + Ungrouped | growing | Searchable picker |
+| `media/SubjectAttachmentChoice` | Attachment for a lot or Part | 2 + ready versions | growing | Searchable picker |
+| `media/MediaCropFields` | Aspect ratio | 5 | fixed | Native: five ratios in a narrow crop-field column |
+| `ui/BulkBar` | Field | the caller's fields | fixed | Native: the bulk bar is a tight space; no screen passes several fields today |
+
+Totals: 31 searchable pickers, 2 segmented controls and 12 native selects kept.
+
 ## Open items
 
 - **2026-11-24T02:56+11:00, task 9 (PR-E):** Task 9.4's phone checks (iOS Safari and Android Chrome: Take photos offers the camera and the library, and the library picks several photos) and the desktop Safari drop and paste check are for Mitch to run on real devices. The Camera / Photo library fallback is added only if a phone's sheet lacks one route.
