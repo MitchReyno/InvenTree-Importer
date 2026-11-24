@@ -35,21 +35,47 @@ const pump = `
   socket.on('error', () => process.exit(1))
   socket.on('close', () => process.exit())
 `
-async function connectCoordinator() {
+// `signal` abandons the attempt and stops its pump; without one the attempt waits as long as it takes.
+async function connectCoordinator(signal) {
   if (!coordinator) {
     const socket = connect(Number(port), '127.0.0.1')
-    await once(socket, 'connect')
+    const abandon = () => socket.destroy()
+    signal?.addEventListener('abort', abandon, { once: true })
+    try {
+      await once(socket, 'connect', { signal })
+    } catch (error) {
+      socket.destroy()
+      throw error
+    } finally {
+      signal?.removeEventListener('abort', abandon)
+    }
     return socket
   }
   const peer = spawn('docker', ['exec', '-i', coordinator, 'node', '-e', pump, port], {
     stdio: ['pipe', 'pipe', 'pipe'],
   })
+  const closed = once(peer, 'close').then(
+    () => false,
+    () => false,
+  )
+  peer.on('error', () => {})
+  const abandoned = new Promise((resolve) => {
+    if (signal?.aborted) {
+      resolve(false)
+    }
+    signal?.addEventListener('abort', () => resolve(false), { once: true })
+  })
   const ready = await Promise.race([
-    once(peer.stderr, 'data').then(([data]) => data.toString().trim() === 'ready'),
-    once(peer, 'close').then(() => false),
+    once(peer.stderr, 'data').then(
+      ([data]) => data.toString().trim() === 'ready',
+      () => false,
+    ),
+    closed,
+    abandoned,
   ])
   if (!ready) {
     peer.kill()
+    await closed
     throw new Error('coordinator_unavailable')
   }
   const socket = Duplex.from({ readable: peer.stdout, writable: peer.stdin })
@@ -139,17 +165,16 @@ async function carryStatusOnce() {
     return false
   }
   const { peer, exited } = opened
-  const settled = new AbortController()
-  const connecting = connectCoordinator().catch(() => undefined)
-  const socket = await Promise.race([
-    connecting,
-    exited,
-    waitFor(STATUS_START_MS, undefined, AbortSignal.any([settled.signal, stopping.signal])),
-  ])
-  settled.abort()
+  // Giving up on the coordinator stops its pump too, so no attempt is left behind.
+  const giveUp = new AbortController()
+  const timer = setTimeout(() => giveUp.abort(), STATUS_START_MS)
+  const abandon = () => giveUp.abort()
+  stopping.signal.addEventListener('abort', abandon, { once: true })
+  void exited.then(abandon)
+  const socket = await connectCoordinator(giveUp.signal).catch(() => undefined)
+  clearTimeout(timer)
+  stopping.signal.removeEventListener('abort', abandon)
   if (!socket) {
-    // A connection that opens after giving up is closed at once.
-    void connecting.then((late) => late?.destroy())
     peer.kill()
     await exited
     return false

@@ -89,8 +89,6 @@ async function main() {
   let scheduler: DBOSClient | undefined
   let tools: Awaited<ReturnType<typeof startSessionToolServer>> | undefined
   let bridge: Awaited<ReturnType<typeof startSessionBridge>> | undefined
-  // Its own connection, so the status listener never takes one of the turns' pool.
-  let statusDb: ReturnType<typeof database> | undefined
   let statusRequests: ReturnType<typeof serveProviderStatusRequests> | undefined
   let launched = false
   const shutdown = new AbortController()
@@ -111,9 +109,9 @@ async function main() {
         protectedHosts: vmBridge.protectedHosts,
       })
     }
-    statusDb = database(localDatabaseUrl(process.env.INTAKE_AGENT_DATABASE_URL))
+    // From the worker's own pool: its role's connection limit leaves no room for another.
     statusRequests = serveProviderStatusRequests(
-      statusDb.pool,
+      db.pool,
       config,
       bridge?.providerStatus ?? statusNotConfigured,
     )
@@ -214,12 +212,12 @@ async function main() {
     }
   } finally {
     shutdown.abort()
+    // First, so a stopping worker holds no connection it isn't using.
+    await statusRequests?.close()
     await scheduler?.destroy()
     if (launched) {
       await DBOS.shutdown({ workflowCompletionTimeoutMS: 10000 })
     }
-    await statusRequests?.close()
-    await statusDb?.close()
     bridge?.close()
     await tools?.close()
     owner?.release(true)

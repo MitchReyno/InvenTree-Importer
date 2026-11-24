@@ -11,8 +11,10 @@ import { settled } from '#/events/settled.ts'
 export const STATUS_PROTOCOL = 'bench-provider-status/1'
 /** In the credential container's private `/tmp`; reached only through `docker exec`. */
 export const STATUS_SOCKET = '/tmp/bench-status/status.sock'
-/** The guest's own bound on one read; the coordinator gives up a little later. */
+/** The guest's own bound on one read, cleanup included; the coordinator gives up a little later. */
 export const GUEST_STATUS_DEADLINE_MS = 1500
+/** Part of a read's time kept for an abandoned read to stop and reap its process. */
+const STATUS_CLEANUP_MS = 500
 /** Status frames are tiny; anything larger is refused before it is read. */
 export const STATUS_FRAME_LIMIT = 4096
 const MAX_STATUS_CONNECTIONS = 4
@@ -117,11 +119,25 @@ export async function serveProviderStatus(options: StatusServiceOptions): Promis
         await frames.send({ ready: STATUS_PROTOCOL, provider })
         for (;;) {
           const request = await frames.read(STATUS_FRAME_LIMIT)
-          if (request.status !== true || !hasExactly(request, ['status'])) {
+          const withinMs = request.within_ms
+          if (
+            request.status !== true ||
+            !hasExactly(request, ['status', 'within_ms']) ||
+            !Number.isSafeInteger(withinMs) ||
+            (withinMs as number) < 0
+          ) {
             throw new Error('invalid_status_request')
           }
-          const status = await readWithin(options, deadlineMs, closed.signal)
+          const { status, cleanedUp } = await readWithin(
+            options,
+            Math.min(deadlineMs, withinMs as number),
+            closed.signal,
+          )
           await frames.send({ provider_status: status }, STATUS_FRAME_LIMIT)
+          if (!cleanedUp) {
+            // Its abandoned work is still stopping, so this connection takes no further read.
+            throw new Error('status_cleanup_unconfirmed')
+          }
         }
       },
       // A refused peer, a closed connection or a bad request ends that connection only.
@@ -134,25 +150,40 @@ export async function serveProviderStatus(options: StatusServiceOptions): Promis
   return server
 }
 
+/**
+ * Answers `timeout` once the abandoned read has finished its cleanup, such as reaping the Codex
+ * account process, or when that cleanup runs out of time, with `cleanedUp` false.
+ */
 async function readWithin(
   options: StatusServiceOptions,
-  deadlineMs: number,
+  withinMs: number,
   closed: AbortSignal,
-): Promise<GuestProviderStatus> {
-  const deadline = AbortSignal.timeout(deadlineMs)
+): Promise<{ status: GuestProviderStatus; cleanedUp: boolean }> {
+  const cleanupMs = Math.min(STATUS_CLEANUP_MS, Math.floor(withinMs / 2))
+  const deadline = AbortSignal.timeout(Math.max(0, withinMs - cleanupMs))
   const signal = AbortSignal.any([closed, deadline])
-  const abandoned = new Promise<never>((_resolve, reject) => {
-    signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+  const reading = options.read(signal).then(
+    (status) => ({ status }),
+    () => ({ status: undefined }),
+  )
+  const abandoned = new Promise<undefined>((resolve) => {
+    signal.addEventListener('abort', () => resolve(undefined), { once: true })
   })
-  // The deadline also fires after a read that already answered.
-  abandoned.catch(() => {})
-  try {
-    return await Promise.race([options.read(signal), abandoned])
-  } catch {
-    closed.throwIfAborted()
-    if (deadline.aborted) {
-      return { provider: options.provider, state: 'timeout' }
-    }
-    return { provider: options.provider, state: 'unavailable' }
+  const first = await Promise.race([reading, abandoned])
+  if (first?.status) {
+    return { status: first.status, cleanedUp: true }
   }
+  closed.throwIfAborted()
+  if (first && !deadline.aborted) {
+    return { status: { provider: options.provider, state: 'unavailable' }, cleanedUp: true }
+  }
+  // Let the abandoned read release what it holds before saying it timed out.
+  const cleanedUp = await Promise.race([reading.then(() => true), delayed(cleanupMs, false)])
+  return { status: { provider: options.provider, state: 'timeout' }, cleanedUp }
+}
+
+function delayed<T>(ms: number, value: T) {
+  return new Promise<T>((resolve) => {
+    setTimeout(() => resolve(value), ms).unref()
+  })
 }

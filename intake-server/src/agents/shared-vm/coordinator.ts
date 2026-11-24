@@ -36,6 +36,9 @@ const MAX_TURN_PEERS = 8
 /** Status connections, apart from turns: one per provider relay, with room for a reconnect. */
 const MAX_STATUS_PEERS = 4
 
+/** Time a guest's answer needs to arrive once its read has ended. */
+const GUEST_ANSWER_MARGIN_MS = 100
+
 /** Under the API's 2 s request, leaving it time to answer. */
 const STATUS_TIMING: StatusTiming = { deadlineMs: 1800, peerWaitMs: 500 }
 
@@ -213,8 +216,10 @@ export async function startSessionBridge(
 
   async function readProvider(
     provider: StatusProvider,
+    deadlineMs: number,
   ): Promise<ClaudeBridgeStatus | CodexBridgeStatus> {
-    const deadline = AbortSignal.timeout(statusTiming.deadlineMs)
+    const deadline = AbortSignal.timeout(deadlineMs)
+    const endsAt = Date.now() + deadlineMs
     const peer = await statusPeer(provider, deadline)
     if (!peer) {
       return { state: 'unknown', reason: absentReason(provider) }
@@ -226,7 +231,9 @@ export async function startSessionBridge(
 
     deadline.addEventListener('abort', abandon, { once: true })
     try {
-      await frames.send({ status: true }, STATUS_FRAME_LIMIT)
+      // The guest finishes, its cleanup included, before this read gives up on it.
+      const withinMs = Math.max(0, endsAt - Date.now() - GUEST_ANSWER_MARGIN_MS)
+      await frames.send({ status: true, within_ms: withinMs }, STATUS_FRAME_LIMIT)
       const answer = await frames.read(STATUS_FRAME_LIMIT)
       if (!('provider_status' in answer) || Object.keys(answer).length !== 1) {
         throw new Error('invalid_provider_status')
@@ -246,18 +253,22 @@ export async function startSessionBridge(
   const reads = new Map<StatusProvider, Promise<ClaudeBridgeStatus | CodexBridgeStatus>>()
 
   /** Concurrent callers share one read per provider. */
-  function sharedRead(provider: StatusProvider) {
+  function sharedRead(provider: StatusProvider, deadlineMs: number) {
     let read = reads.get(provider)
     if (!read) {
-      read = readProvider(provider).finally(() => reads.delete(provider))
+      read = readProvider(provider, deadlineMs).finally(() => reads.delete(provider))
       reads.set(provider, read)
     }
     return read
   }
 
-  /** Reads both providers at once, each within its own deadline. */
-  async function providerStatus(): Promise<BridgeProviderStatuses> {
-    const [claude, codex] = await Promise.all([sharedRead('claude'), sharedRead('codex')])
+  /** Reads both providers at once, each within its own deadline, shortened to `budgetMs`. */
+  async function providerStatus(budgetMs?: number): Promise<BridgeProviderStatuses> {
+    const deadlineMs = Math.max(0, Math.min(statusTiming.deadlineMs, budgetMs ?? Infinity))
+    const [claude, codex] = await Promise.all([
+      sharedRead('claude', deadlineMs),
+      sharedRead('codex', deadlineMs),
+    ])
     // Each guest answer was checked against its own provider's shapes.
     return { claude: claude as ClaudeBridgeStatus, codex: codex as CodexBridgeStatus }
   }

@@ -19,8 +19,10 @@ export const STATUS_REQUEST_TIMEOUT_MS = 2000
 const WORKER_RELISTEN_MS = 1000
 /** How long the API waits for `UNLISTEN` before closing the connection instead. */
 const CLEANUP_MS = 250
-/** Request IDs the worker remembers, so a replayed request is answered once. */
-const ANSWERED_REQUESTS_KEPT = 256
+/** Live requests the worker accepts at once; more are left unanswered. */
+const MAX_LIVE_REQUESTS = 64
+/** Kept back from a request's budget for the reply to reach the API. */
+const REPLY_MARGIN_MS = 150
 
 type Binding = Pick<ProcessingConfig, 'actorId' | 'targetId' | 'targetContextId' | 'channelSecret'>
 
@@ -228,7 +230,8 @@ async function exchange(
   expiresAt: number,
 ): Promise<DisplayProviderStatuses | undefined> {
   const connecting = pool.connect()
-  const client = await Promise.race([connecting, abortedAt(deadline)])
+  // A refused connection is a worker that can't be asked, never a failed route.
+  const client = await Promise.race([connecting, abortedAt(deadline)]).catch(() => undefined)
   if (!client) {
     // A connection that arrives after the deadline goes straight back.
     void connecting.then((late) => late.release()).catch(() => {})
@@ -295,8 +298,13 @@ async function exchange(
     return undefined
   } finally {
     client.off('notification', receive)
-    if (healthy) {
-      healthy = await settlesWithin(client.query(`UNLISTEN ${STATUS_REPLY_CHANNEL}`), CLEANUP_MS)
+    // Cleanup stays inside the same budget; past it the connection is closed instead.
+    const left = expiresAt - Date.now()
+    if (healthy && left > 0) {
+      const cleanupMs = Math.min(CLEANUP_MS, left)
+      healthy = await settlesWithin(client.query(`UNLISTEN ${STATUS_REPLY_CHANNEL}`), cleanupMs)
+    } else {
+      healthy = false
     }
     client.off('error', lost)
     // A connection whose state is uncertain is closed rather than reused.
@@ -305,35 +313,74 @@ async function exchange(
 }
 
 /**
- * Answers this scope's signed requests with `read`, on one dedicated connection that is opened
- * again if it fails. Requests arriving while a read runs share its answer; each request ID is
- * answered once, and not after its expiry.
+ * Answers this scope's signed requests with `read`, given what is left of the request's budget, on
+ * one held connection that is opened again if it fails. Requests arriving while a read runs share
+ * its answer; each request ID is answered at most once, and its reply isn't sent after its expiry.
  */
 export function serveProviderStatusRequests(
   pool: Pool,
   binding: Binding,
-  read: () => Promise<BridgeProviderStatuses>,
+  read: (budgetMs: number) => Promise<BridgeProviderStatuses>,
 ) {
   const stopping = new AbortController()
-  const answered: string[] = []
+  // Each accepted request ID until it expires, so a replay within its life is refused.
+  const live = new Map<string, number>()
   let current: Promise<BridgeProviderStatuses> | undefined
 
-  const shared = () => {
-    current ??= read().finally(() => {
+  const shared = (budgetMs: number) => {
+    current ??= read(budgetMs).finally(() => {
       current = undefined
     })
     return current
   }
 
+  /** Sends the reply only while its request is live, connection included. */
+  const reply = async (request: StatusRequest, status: DisplayProviderStatuses) => {
+    const connecting = pool.connect()
+    const expiry = new AbortController()
+    const timer = setTimeout(() => expiry.abort(), Math.max(0, request.expires_at - Date.now()))
+    try {
+      const client = await Promise.race([connecting, abortedAt(expiry.signal)])
+      if (!client) {
+        void connecting.then((late) => late.release()).catch(() => {})
+        return
+      }
+      try {
+        if (Date.now() < request.expires_at) {
+          await client.query('SELECT pg_notify($1, $2)', [
+            STATUS_REPLY_CHANNEL,
+            sign(binding, 'reply', { id: request.id, status }),
+          ])
+        }
+      } finally {
+        client.release()
+      }
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+
   const answer = async (request: StatusRequest) => {
-    const status = displayStatuses(await shared())
-    if (Date.now() >= request.expires_at) {
+    const budgetMs = request.expires_at - Date.now() - REPLY_MARGIN_MS
+    if (budgetMs <= 0) {
       return
     }
-    await pool.query('SELECT pg_notify($1, $2)', [
-      STATUS_REPLY_CHANNEL,
-      sign(binding, 'reply', { id: request.id, status }),
-    ])
+    const status = displayStatuses(await shared(budgetMs))
+    await reply(request, status)
+  }
+
+  const admit = (request: StatusRequest) => {
+    const now = Date.now()
+    for (const [id, expiresAt] of live) {
+      if (expiresAt <= now) {
+        live.delete(id)
+      }
+    }
+    if (live.has(request.id) || live.size >= MAX_LIVE_REQUESTS) {
+      return false
+    }
+    live.set(request.id, request.expires_at)
+    return true
   }
 
   const receive = (message: Notification) => {
@@ -341,12 +388,8 @@ export function serveProviderStatusRequests(
       return
     }
     const request = liveRequest(binding, opened(binding, 'request', message.payload))
-    if (!request || answered.includes(request.id)) {
+    if (!request || !admit(request)) {
       return
-    }
-    answered.push(request.id)
-    if (answered.length > ANSWERED_REQUESTS_KEPT) {
-      answered.shift()
     }
     // A reply that can't be sent leaves the API to report the worker unavailable.
     void answer(request).catch(() => {})

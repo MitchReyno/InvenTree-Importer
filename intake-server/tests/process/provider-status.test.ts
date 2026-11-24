@@ -2,10 +2,12 @@ import { test, type TestContext } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
-import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { connect } from 'node:tls'
+import { connect as connectNet } from 'node:net'
+import { randomUUID } from 'node:crypto'
 import { setTimeout as delay } from 'node:timers/promises'
 import type { ProviderStatusDto } from '@invimport/contracts'
 import { processingFixture } from '../support/processing.ts'
@@ -43,10 +45,24 @@ exec sleep 600
 `
 
 /** Starts a real relay for one provider and kills its whole process group afterwards. */
-function startRelay(t: TestContext, bin: string, sockets: string, port: number, flag: string) {
+function startRelay(
+  t: TestContext,
+  bin: string,
+  sockets: string,
+  port: number,
+  flag: string,
+  coordinatorContainer?: string,
+) {
   const child = spawn(
     process.execPath,
-    [relay, 'bench-agent-test', String(port), '/guest', 'runner:test'],
+    [
+      relay,
+      'bench-agent-test',
+      String(port),
+      '/guest',
+      'runner:test',
+      ...(coordinatorContainer ? [coordinatorContainer] : []),
+    ],
     {
       detached: true,
       stdio: 'ignore',
@@ -266,5 +282,166 @@ test(
     }
     assert.equal(state, 'not_saved')
     assert.equal(exited, false)
+  },
+)
+
+// A containerized coordinator whose pump never reports ready: each attempt records its pid.
+const STUCK_DOCKER = `#!/bin/sh
+echo $$ > "$STATUS_SOCKETS/coordinator-pump.$$"
+exec sleep 600
+`
+
+test(
+  'a coordinator pump that never starts is stopped each time the status loop gives up on it',
+  { timeout: 150000 },
+  async (t) => {
+    const root = await mkdtemp('/tmp/status-stuck-')
+    t.after(() => rm(root, { recursive: true, force: true }))
+    await pairedCertificates(root)
+    const bin = join(root, 'bin')
+    const sockets = join(root, 'sockets')
+    await mkdir(bin)
+    await mkdir(sockets)
+    await writeFile(join(bin, 'limactl'), FAKE_LIMACTL)
+    await writeFile(join(bin, 'docker'), STUCK_DOCKER)
+    await chmod(join(bin, 'limactl'), 0o755)
+    await chmod(join(bin, 'docker'), 0o755)
+    const store = join(root, 'claude-store')
+    await mkdir(store)
+    const claude = credentialStore(store)
+    t.after(() => claude.close())
+    const server = await startStatusService(
+      'claude',
+      claudeStatusReader(store),
+      join(root, 'bench-guest'),
+      join(sockets, 'bench-claude-management.sock'),
+    )
+    assert.ok(server)
+    t.after(() => server.close())
+    startRelay(t, bin, sockets, await freePort(), 'INTAKE_VM_CLAUDE_SUBSCRIPTION', 'coordinator')
+
+    const pumps = async () => {
+      const { readdir } = await import('node:fs/promises')
+      const names = (await readdir(sockets)).filter((name) => name.startsWith('coordinator-pump.'))
+      return names.map((name) => Number(name.slice('coordinator-pump.'.length)))
+    }
+    const alive = (pid: number) => {
+      try {
+        process.kill(pid, 0)
+        return true
+      } catch {
+        return false
+      }
+    }
+    // The turn loop's attempt and two status attempts.
+    let started: number[] = []
+    for (let i = 0; i < 120 && started.length < 3; i++) {
+      await delay(1000)
+      started = await pumps()
+    }
+    assert.ok(started.length >= 3, 'the status loop retried')
+    // Only the turn loop's attempt, which waits as before, and the current status one remain.
+    await delay(500)
+    assert.ok(started.filter(alive).length <= 2, `${started.filter(alive).length} pumps alive`)
+  },
+)
+
+const docker = (args: string[], input?: string) =>
+  new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve) => {
+    const child = spawn('docker', args, { stdio: ['pipe', 'pipe', 'pipe'] })
+    let stdout = ''
+    let stderr = ''
+    child.stdout.on('data', (data) => (stdout += data))
+    child.stderr.on('data', (data) => (stderr += data))
+    child.once('close', (code) => resolve({ code, stdout, stderr }))
+    child.stdin.end(input ?? '')
+  })
+
+// Listens where the credential service does, and echoes what it is sent.
+const ECHO_SERVICE = `
+  const { mkdirSync } = require('node:fs')
+  mkdirSync('/tmp/bench-status', { recursive: true, mode: 0o700 })
+  require('node:net')
+    .createServer((socket) => socket.on('data', (data) => socket.end('echo:' + data)))
+    .listen('/tmp/bench-status/status.sock', () => console.log('listening'))
+`
+const PROBE = `
+  require('node:net')
+    .connect(process.argv[1])
+    .on('connect', () => console.log('connected'))
+    .on('error', (error) => console.log('refused ' + error.code))
+`
+
+test(
+  "the status socket is reachable through the relay's docker exec only, not from another container or the host",
+  {
+    timeout: 120000,
+    // Any Node image works; the process tier already builds this one.
+    skip: process.env.INTAKE_MEDIA_DECODER_IMAGE
+      ? false
+      : 'Set INTAKE_MEDIA_DECODER_IMAGE to the explicitly built owned image',
+  },
+  async (t) => {
+    const image = process.env.INTAKE_MEDIA_DECODER_IMAGE!
+    const source = await readFile(relay, 'utf8')
+    const pump = /const statusPump = `([\s\S]*?)`/.exec(source)![1].replaceAll('\\\\', '\\')
+    const socketPath = /const statusSocket = '([^']+)'/.exec(source)![1]
+    const name = 'bench-status-isolation-' + randomUUID()
+    const container = [
+      '--network=none',
+      '--read-only',
+      '--tmpfs=/tmp',
+      '--cap-drop=ALL',
+      '--user=1000:1000',
+    ]
+    const started = await docker([
+      'run',
+      '-d',
+      '--rm',
+      '--name',
+      name,
+      ...container,
+      '--entrypoint',
+      'node',
+      image,
+      '-e',
+      ECHO_SERVICE,
+    ])
+    assert.equal(started.code, 0, started.stderr)
+    t.after(() => docker(['rm', '-f', name]))
+    for (let i = 0; i < 50; i++) {
+      if ((await docker(['logs', name])).stdout.includes('listening')) {
+        break
+      }
+      await delay(100)
+    }
+
+    // The relay's pump, run in the service's container, reaches it.
+    const relayed = await docker(['exec', '-i', name, 'node', '-e', pump, socketPath], 'ping')
+    assert.equal(relayed.stderr.trim(), 'ready')
+    assert.equal(relayed.stdout, 'echo:ping')
+
+    // Another container on the same engine, and this host, have no such socket.
+    const other = await docker([
+      'run',
+      '--rm',
+      ...container,
+      '--entrypoint',
+      'node',
+      image,
+      '-e',
+      PROBE,
+      socketPath,
+    ])
+    assert.equal(other.stdout.trim(), 'refused ENOENT')
+    const host = await new Promise<string>((resolve) => {
+      const socket = connectNet(socketPath)
+      socket.once('connect', () => {
+        socket.destroy()
+        resolve('connected')
+      })
+      socket.once('error', (error: NodeJS.ErrnoException) => resolve('refused ' + error.code))
+    })
+    assert.equal(host, 'refused ENOENT')
   },
 )

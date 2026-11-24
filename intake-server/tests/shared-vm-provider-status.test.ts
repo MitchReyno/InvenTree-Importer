@@ -562,11 +562,11 @@ test('each provider reads independently: one timing out leaves the other answere
     t,
     root,
     'codex',
+    // Its work never finishes, even once abandoned, so its connection is closed.
     (signal) =>
-      new Promise((_resolve, reject) => {
+      new Promise(() => {
         signal.addEventListener('abort', () => {
           codexAborted = true
-          reject(signal.reason)
         })
       }),
     5000,
@@ -578,15 +578,15 @@ test('each provider reads independently: one timing out leaves the other answere
   assert.ok(Date.now() - started < 1500)
   assert.equal(status.claude.state, 'not_saved')
   assert.deepEqual(status.codex, { state: 'unknown', reason: 'timeout' })
-  // The coordinator abandons the read; the guest stops its work when the connection closes.
+  // The read is abandoned, and a connection whose work didn't stop is closed.
   await codexRelay.closed
   await waitFor(() => codexAborted, 'the guest to abandon its read')
 })
 
-test('the guest enforces its own deadline', async (t) => {
+test('the guest enforces its own deadline, and reports it once its work is cleaned up', async (t) => {
   const root = await scratch(t, 'status-guest-deadline-')
   const { bridge, port } = await coordinator(t, root, { deadlineMs: 3000, peerWaitMs: 100 })
-  let aborted = false
+  let cleanedAt = 0
   const socketPath = await statusService(
     t,
     root,
@@ -594,18 +594,30 @@ test('the guest enforces its own deadline', async (t) => {
     (signal) =>
       new Promise((_resolve, reject) => {
         signal.addEventListener('abort', () => {
-          aborted = true
-          reject(signal.reason)
+          // Stopping and reaping the account process takes a moment.
+          setTimeout(() => {
+            cleanedAt = Date.now()
+            reject(signal.reason)
+          }, 80)
         })
       }),
-    200,
+    400,
   )
   await relayStatus(t, socketPath, port)
   const started = Date.now()
   const status = await bridge.providerStatus()
-  assert.ok(Date.now() - started < 2000)
+  const answeredAt = Date.now()
+  assert.ok(answeredAt - started < 2000)
   assert.deepEqual(status.codex, { state: 'unknown', reason: 'timeout' })
-  assert.equal(aborted, true)
+  assert.ok(cleanedAt > 0 && cleanedAt <= answeredAt)
+  // A shorter budget from the caller reaches the guest too.
+  cleanedAt = 0
+  const short = Date.now()
+  assert.deepEqual((await bridge.providerStatus(250)).codex, {
+    state: 'unknown',
+    reason: 'timeout',
+  })
+  assert.ok(Date.now() - short < 400)
 })
 
 test('older, missing, busy and unreachable guests read as unknown, never signed out', async (t) => {
