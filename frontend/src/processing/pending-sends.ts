@@ -127,12 +127,15 @@ export function startPendingSend(session: PendingSendSession, send: PendingSend)
  */
 export function settlePendingSend(storeKey: string, send: PendingSend) {
   const sends = pendingSends.get(storeKey) ?? NONE
-  if (!sends.some((candidate) => candidate.key === send.key)) {
+  const held = sends.find((candidate) => candidate.key === send.key)
+  if (!held) {
     return
   }
+  // The floor set when the send started stays, so a retry still matches only newer rows.
+  const settled = { ...send, after: held.after }
   publish(
     storeKey,
-    sends.map((candidate) => (candidate.key === send.key ? send : candidate)),
+    sends.map((candidate) => (candidate.key === send.key ? settled : candidate)),
   )
 }
 

@@ -166,4 +166,32 @@ describe('the send store', () => {
     startPendingSend(session, send('second', 'Again?'))
     expect(unreadPendingSends(heldSends(), read).map((item) => item.key)).toEqual(['second'])
   })
+
+  it('keeps a send’s floor through an unconfirmed attempt, so its retry still shows as sending', () => {
+    const first = send('first', 'Again?')
+    startPendingSend(session, first)
+    settlePendingSend(session.storeKey, {
+      ...first,
+      status: 'saved',
+      seq: 9,
+      savedOrder: nextHistoryOrder(),
+    })
+    const second = send('second', 'Again?')
+    startPendingSend(session, second)
+    settlePendingSend(session.storeKey, { ...second, status: 'unconfirmed' })
+    // The history now holds the first message's row, so the first send retires.
+    const client = createServerQueryClient()
+    const read = {
+      ...history([chat(9, 9, 'Again?'), chat(2, 2, 'Earlier')]),
+      readOrder: nextHistoryOrder(),
+    }
+    client.setQueryData(historyKey('newest'), read)
+    retireCoveredSends(client, scope)
+    expect(heldSends().map((item) => item.key)).toEqual(['second'])
+
+    // The retry passes the record the message box holds, as Retry this message does.
+    const held = heldSends().find((item) => item.key === 'second')!
+    startPendingSend(session, { ...held, status: 'sending' })
+    expect(unreadPendingSends(heldSends(), read).map((item) => item.key)).toEqual(['second'])
+  })
 })
