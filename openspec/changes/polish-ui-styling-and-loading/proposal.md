@@ -41,6 +41,7 @@ Mitch found these while using the app on 2026-11-23:
     - Mitch asked for one dropdown with optional search listing both providers' models, using the same component as Capture's batch settings (`forms/SearchableReferencePicker.tsx`, built on react-select).
 
 11. **Dropdowns are mixed** (Mitch, 2026-11-23). The app has 46 native select JSX sites across 28 components (excluding tests, fixtures and the generic `TextField` wrapper), including long InvenTree record lists (categories, locations, companies, templates) and lot or group pickers that grow with the batch. Only three fields use the searchable batch-settings picker.
+12. **A false "unsaved edits" alarm follows every tab** (Mitch, 2026-11-24; canvas board FixReloadBanner). After answering a question or saving anything, the batch often shows a red "Saved values still unavailable. Local inputs remain unchanged." with "Discard local edits and load saved values", though nothing was edited and the next read succeeded. A live update cancels the reload's read in flight, and the reload counts the cancellation as a failure. Processing's "The command was saved, but current status is unavailable…" has the same cause.
 
 The outcome:
 
@@ -67,6 +68,7 @@ The outcome:
   - sign-in in a dialog. The Claude token dialog checks the token's shape and closes only once the VM confirms it is stored; the Codex dialog runs the ChatGPT device sign-in and closes when it's confirmed. A failed sign-in in a later session shows as a separate "Last session couldn't sign in" line.
 - **Dropdowns:** records and growing lists use the searchable picker. Short fixed lists follow a soft guideline, chosen case by case: usually a segmented control for two to four short options, and a styled native select otherwise. The guideline is documented in the design system with examples.
 - **Popovers** open at their control. **Explanations** move behind help buttons; developer-only text moves to debug mode.
+- **Replaced reads:** a read a live update cancelled and replaced is not a failure, so nothing shows. A real failure with nothing edited shows an amber notice that clears itself; only real unsaved changes are named, kept and offered for discard.
 
 The session-specific fixes from the same review (S1–S4, S6, S8 and O6: session rows, failure causes, links, the drawer header, the Agents filter, the activity feed and the message box) belong to `improve-agent-interaction`. They use this change's state words and times.
 
@@ -115,6 +117,7 @@ In scope:
   - skeletons per page;
   - display-only snapshots of allowlisted reads in session storage;
   - migration of Processing, Review, Changes, Records, Agents, Settings, Batches and the other one-off loading lines to it.
+- Awaited reads that wait for the read replacing a cancelled one, and calm failure notices in the batch and Processing (item 12).
 
 Non-goals:
 
@@ -162,7 +165,7 @@ None.
 - `app-settings`: "Agent settings section" is modified (save as you change, provider status read automatically, dialogs, switches, segmented default provider, model picker). It is written on the synced requirement from `settings-debug-mode` and `simplify-vm-agent-web-and-setup`. Added: the electronics animation switch; saving as you change and text keeping an explicit Save; the read-only status and the separate sign-in failure line; controls matching the design; sign-in dialogs and dropping their work on close; the searchable model picker with its limits and exact IDs.
 - `ui-design-system` (also): the searchable picker for records and growing lists, and short fixed choices following a guideline. "Masthead and electronics current in both themes" is modified so the animation switch can still the current.
 - `shared-vm-execution`: a read-only provider sign-in status the server can read without the management key. It is added as its own requirements. "Personal Claude subscription token" is modified for the "Token saved" wording, and "ChatGPT sign-in for the runner" so closing the dialog completes or cancels a pending login.
-- `live-updates`: commands wait quietly for a current read; cached reads survive a reload within the session. "Live unverifiable workspace state" is unchanged.
+- `live-updates`: commands wait quietly for a current read; cached reads survive a reload within the session; a replaced read is not a failure, and unavailable saved values are reported calmly. "Live unverifiable workspace state" is unchanged.
 
 ## Impact and dependencies
 
@@ -203,6 +206,8 @@ Decided by Mitch on 2026-11-23:
 - One searchable model dropdown, in the batch settings' picker style (canvas v85, board O10). The step pickers list both providers. Reading "the default model field" as the step choices and the cards' default model is my interpretation, flagged to Mitch.
 - Debounced autosave for non-text controls in Settings › Agents, with text fields keeping Save (added 2026-11-23; canvas board O8 "Agent settings save as they change").
 - An on/off switch for the electronics animation that keeps the chosen masthead style (added 2026-11-23; canvas v80, Settings › Appearance).
+
+Decided by Mitch on 2026-11-24 (board FixReloadBanner): a cancelled and replaced read waits up to 10 s for its replacement and shows nothing; a real failure is amber, with the time of the values shown; Discard appears only with real unsaved changes and names them; #254's rule that a cancelled read never verifies stays.
 
 Assumptions:
 
