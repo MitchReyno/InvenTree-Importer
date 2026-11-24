@@ -356,7 +356,7 @@
   - records, growing lists and exact-value fields use the searchable picker;
   - short fixed lists become a segmented control or stay a styled native select, chosen per screen;
   - the design system documents the guideline.
-- **Scope and approach:** the 46 native select JSX sites in 28 components (Capture, Review, the Review Map, Records, the operator panels, media, Changes and the bulk bar), counted as in the design and refreshed after PR-H removes `StepChoices`, using `forms/SearchablePicker` (task 13), `SearchableReferencePicker` and `SegmentedControl` (design: "Choosing a dropdown control").
+- **Scope and approach:** the 46 native select JSX sites in 28 components (Capture, Review, the Review Map, Records, the operator panels, media, Changes and the bulk bar), counted as in the design and refreshed after PR-H removes `StepChoices`, using `forms/SearchablePicker` (task 13), `SearchableReferencePicker`, a `ChoicePicker` for lists the batch already holds, and `SegmentedControl` (design: "Choosing a dropdown control").
 - **Prerequisites:** task 13 merged.
 - **Acceptance:** "Searchable picker for records and growing lists", "Short fixed choices follow a guideline".
 - **TDD approach:** each converted field's existing tests are updated for the new control first, and fail until it's converted. A new test for a record field checks search.
@@ -367,10 +367,10 @@
   - the audit table in the PR description.
 - **Risks and decisions:** it's broad, so convert by screen in separate commits. Keep each field's value and validation unchanged.
 
-- [ ] 14.1 Audit all native selects: their screen, option count, kind (record, growing, fixed) and proposed control. Put the table in the PR description.
-- [ ] 14.2 RED: update each converted field's tests to the new control, and add search tests for the record fields.
-- [ ] 14.3 GREEN: convert the fields, screen by screen.
-- [ ] 14.4 Capture each changed field. Run the frontend checks, and record the demo video.
+- [x] 14.1 Audit all native selects: their screen, option count, kind (record, growing, fixed) and proposed control. Put the table in the PR description.
+- [x] 14.2 RED: update each converted field's tests to the new control, and add search tests for the record fields.
+- [x] 14.3 GREEN: convert the fields, screen by screen.
+- [x] 14.4 Capture each changed field. Run the frontend checks, and record the demo video.
 
 ## 15. A replaced read is not a failure
 
@@ -390,14 +390,14 @@
   - a demo video: answering a question while an agent works, with no banner; a throttled offline read showing the amber notice and clearing itself; the notice naming an unsaved quantity.
 - **Risks and decisions:** the canvas board FixReloadBanner is the reference. `improve-agent-interaction` task 13 fixes the answered question's card separately; each is correct without the other.
 
-- [ ] 15.1 Read the shared and frontend code guidelines, the frontend architecture's query and live-update sections and the board. List every awaited `refetch({ throwOnError: true })` and `fetchQuery` caller and what each shows on failure.
-- [ ] 15.2 RED: tests with the real `QueryClient`:
-  - [ ] 15.2.1 A capture reload in flight while `refreshRetainedReads` cancels the scope resolves with the replacing read's data and sets no notice, on every tab.
-  - [ ] 15.2.2 The same race after a Processing answer: no "current status is unavailable" message.
-  - [ ] 15.2.3 A replacing read that fails, and one that doesn't settle within 10 s, report unavailable; a second cancel inside the window keeps the first deadline; a cancel from removal or a scope change, and a caller unmounting while another observer keeps the query cached, reject as abandoned and start no fallback read; the cancelled generation never verifies a command; Manual Review's awaited refetch under the same race shows nothing.
-  - [ ] 15.2.4 The notice with nothing edited (the displayed snapshot's time, Try now, the retry, clearing on an adopted network read and not on a `setQueryData` write); a successful automatic retry with a dirty editor clearing the notice while the draft and its revision stay; named unsaved changes, with Discard dropping only those while an unlisted mounted draft stays and no newer snapshot is adopted under it; Capture's read adopted through the registry (a background network read clears the notice, a `setQueryData` acknowledgement doesn't); and Processing's "Saved. Showing the last status from…" as the only banner after a confirmed command, clearing on a fresh read.
-- [ ] 15.3 GREEN: implement the helper, the reload state and notice, the labels and Processing's messages.
-- [ ] 15.4 Update `frontend/ARCHITECTURE.md` (awaited reads and cancellation). Run the frontend checks, and record the demo video for the PR description.
+- [x] 15.1 Read the shared and frontend code guidelines, the frontend architecture's query and live-update sections and the board. List every awaited `refetch({ throwOnError: true })` and `fetchQuery` caller and what each shows on failure.
+- [x] 15.2 RED: tests with the real `QueryClient`:
+  - [x] 15.2.1 A capture reload in flight while `refreshRetainedReads` cancels the scope resolves with the replacing read's data and sets no notice, on every tab.
+  - [x] 15.2.2 The same race after a Processing answer: no "current status is unavailable" message.
+  - [x] 15.2.3 A replacing read that fails, and one that doesn't settle within 10 s, report unavailable; a second cancel inside the window keeps the first deadline; a cancel from removal or a scope change, and a caller unmounting while another observer keeps the query cached, reject as abandoned and start no fallback read; the cancelled generation never verifies a command; Manual Review's awaited refetch under the same race shows nothing.
+  - [x] 15.2.4 The notice with nothing edited (the displayed snapshot's time, Try now, the retry, clearing on an adopted network read and not on a `setQueryData` write); a successful automatic retry with a dirty editor clearing the notice while the draft and its revision stay; named unsaved changes, with Discard dropping only those while an unlisted mounted draft stays and no newer snapshot is adopted under it; Capture's read adopted through the registry (a background network read clears the notice, a `setQueryData` acknowledgement doesn't); and Processing's "Saved. Showing the last status from…" as the only banner after a confirmed command, clearing on a fresh read. (Not tested: a named and an unnamed draft mounted at once, which no screen shows today; see `notes.md`.)
+- [x] 15.3 GREEN: implement the helper, the reload state and notice, the labels and Processing's messages.
+- [x] 15.4 Update `frontend/ARCHITECTURE.md` (awaited reads and cancellation). Run the frontend checks, and record the demo video for the PR description.
 
 ## Delivery evidence and lifecycle follow-up
 
@@ -410,8 +410,8 @@
 - [ ] PR-E: implement task 9, review the exact head, publish with the phone and desktop checks and the demo, CI green, merge. Merged as #253 at `9e0891ed`; task 9.4's real-device checks stay open.
 - [x] PR-F: implement task 11, review the exact head, publish with the demo, CI green, merge. Merged as #256 at `ec974af1`.
 - [ ] PR-G: implement task 12, review the exact head, publish, CI green, run the live VM check with Mitch's go-ahead, merge. Merged as #264 at `dcc10495`; the live VM check stays open.
-- [ ] PR-H: implement task 13, review the exact head, publish with the demo, CI green, merge.
-- [ ] PR-I: implement task 14, review the exact head, publish with the audit, captures and the demo, CI green, merge.
+- [x] PR-H: implement task 13, review the exact head, publish with the demo, CI green, merge. Merged as #267 at `3000b14d`; its real-VM Settings check stays open (see `notes.md`).
+- [x] PR-I: implement task 14, review the exact head, publish with the audit, captures and the demo, CI green, merge. Merged as #270 at `2636a105`.
 - [ ] PR-J: implement task 15, review the exact head, publish with the demo, CI green, merge.
 - [ ] Update BI-020 as PRs merge. It is Done only after every implementation PR (PR-A to PR-J) merges and its acceptance is evidenced.
 - [ ] Mark this change's "Fixes: before and after" entries (S5, S7, O1–O5, O7–O11) in the design log as Built, with their PRs.

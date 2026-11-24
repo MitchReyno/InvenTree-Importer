@@ -1,5 +1,6 @@
 // Public form surface. Files inside forms/ and components/ui/ import modules directly, never a barrel.
 export * from './AutoValueField'
+export * from './ChoicePicker'
 export * from './InlineEdit'
 export * from './inputs'
 export * from './OptionRow'

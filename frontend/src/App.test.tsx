@@ -1,4 +1,5 @@
 import { sessionList } from '#/test/agent-sessions'
+import { pickOption } from '#/test/picker'
 import { act, cleanup } from '@testing-library/react'
 import { useState, type ReactNode } from 'react'
 import { captureClient, manualClient } from '@invimport/contracts/client'
@@ -588,7 +589,7 @@ test('capture form reports input dirty synchronously and preserves exact draft a
   )
   expect(label).toHaveValue('My retained draft')
   await user.selectOptions(screen.getByRole('combobox', { name: 'Quantity mode' }), 'unknown')
-  await user.selectOptions(screen.getByRole('combobox', { name: 'Location selection' }), 'clear')
+  await pickOption(user, 'Location selection', 'Explicitly clear')
   await user.click(screen.getByRole('button', { name: 'Save human changes' }))
   await waitFor(() =>
     expect(edit).toHaveBeenCalledWith({
@@ -1174,25 +1175,30 @@ test('a failed attention refresh withholds the old running counts and says so', 
     queued: 0,
     ready_lots: 0,
   }
-  const read = vi
-    .fn()
-    .mockResolvedValueOnce({
-      batch_id: fixture.id,
-      revision: fixture.revision,
-      processing: {
-        questions: 0,
-        failed: 0,
-        running: 2,
-        lots: 0,
-        paused: false,
-        steps: { examine: counts, research: none, images: none, inventory: none },
-      },
-      review: { to_check: 0, changed_after_review: 0, needs_answer: 0, to_decide: 0, records: 0 },
-      changes: { ready: 0, failed: 0, uncertain: 0, runs: 0 },
-      items: [],
-      items_truncated: false,
-    })
-    .mockRejectedValue(new Error('attention_unavailable'))
+  // Reads succeed, before the batch is accepted too, until the refresh below fails.
+  let failing = false
+  const counted = {
+    batch_id: fixture.id,
+    revision: fixture.revision,
+    processing: {
+      questions: 0,
+      failed: 0,
+      running: 2,
+      lots: 0,
+      paused: false,
+      steps: { examine: counts, research: none, images: none, inventory: none },
+    },
+    review: { to_check: 0, changed_after_review: 0, needs_answer: 0, to_decide: 0, records: 0 },
+    changes: { ready: 0, failed: 0, uncertain: 0, runs: 0 },
+    items: [],
+    items_truncated: false,
+  }
+  const read = vi.fn(async () => {
+    if (failing) {
+      throw new Error('attention_unavailable')
+    }
+    return counted
+  })
 
   function Wrapper({ children }: { children: ReactNode }) {
     return (
@@ -1217,6 +1223,7 @@ test('a failed attention refresh withholds the old running counts and says so', 
   const tabs = within(await screen.findByRole('navigation', { name: 'Batch' }))
   await tabs.findByRole('link', { name: 'Processing, working' })
 
+  failing = true
   await act(async () => {
     await cache.refetchQueries({ queryKey: serverQueryKey(fixtureScope, 'attention', fixture.id) })
   })

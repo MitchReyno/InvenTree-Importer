@@ -44,7 +44,7 @@ import {
   RecordStatePill,
   media,
 } from '#/components/ui'
-import { Label, Select } from '#/forms'
+import { ChoicePicker } from '#/forms'
 import { PreparationTreeView } from './PreparationTreeView'
 import { lotCrops } from '#/processing/proposed-lots'
 import { useServerScope } from '#/context'
@@ -226,25 +226,22 @@ export function ReadyToAdd({
           </>
         )}
         {(workspace.preparations.length > 1 || (workspace.preparations.length > 0 && !current)) && (
-          <Label>
-            Prepared selection
-            <Select
-              value={current ? preview.id : ''}
-              onChange={(event) => {
-                const value = workspace.preparations.find((item) => item.id === event.target.value)
-                if (value) {
-                  choose(value)
-                }
-              }}
-            >
-              <option value="">Choose a prepared selection</option>
-              {workspace.preparations.map((value) => (
-                <option key={value.id} value={value.id}>
-                  {value.effects.map((effect) => effect.lot_label).join(', ')}
-                </option>
-              ))}
-            </Select>
-          </Label>
+          <ChoicePicker
+            label="Prepared selection"
+            noun="prepared selections"
+            placeholder="Choose a prepared selection"
+            choices={workspace.preparations.map((value) => ({
+              value: value.id,
+              label: value.effects.map((effect) => effect.lot_label).join(', '),
+            }))}
+            value={current ? preview.id : ''}
+            onChange={(id) => {
+              const value = workspace.preparations.find((item) => item.id === id)
+              if (value) {
+                choose(value)
+              }
+            }}
+          />
         )}
       </Panel>
       <Panel aria-labelledby="what-will-change">

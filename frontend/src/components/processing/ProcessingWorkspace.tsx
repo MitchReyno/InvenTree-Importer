@@ -5,6 +5,10 @@ import { color, radius, ring, size, space } from '#/theme/generated/tokens'
 import { useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey } from '#/queries/scope'
 import { useFreshRead } from '#/queries/useFreshRead'
+import { freshReads, readReplacingCancels } from '#/queries/fresh-reads'
+import { ReadAbandoned } from '#/queries/replaced-reads'
+import { useMountSignal } from '#/lifecycle/useMountSignal'
+import { createSavedStatus, type SavedStatusStore } from '#/processing/saved-status'
 import { useRestoredSnapshot, useSnapshotWriter } from '#/queries/useSnapshot'
 import {
   questionView,
@@ -30,6 +34,7 @@ import {
   PageStack,
   HelpButton,
   ReadState,
+  EventTime,
 } from '#/components/ui'
 import { ProcessingImages } from './ProcessingImages'
 import { ProcessingInventory } from './ProcessingInventory'
@@ -118,6 +123,8 @@ interface Props {
   drawerRestore?: DrawerRestoreStore
   /** The answers this tab confirmed, kept above Processing's remounts until a read has them. */
   answerOutcomes?: AnswerOutcomeStore
+  /** Batch's store, so "Saved. Showing the last status…" outlives the remount after an answer. */
+  savedStatus?: SavedStatusStore
   batch: CaptureSnapshotDto
   client: ProcessingClient
   view: ProcessingView
@@ -172,6 +179,7 @@ export function ProcessingWorkspace({
   sharperRequests,
   drawerRestore,
   answerOutcomes: batchOutcomes,
+  savedStatus: batchSavedStatus,
   edit,
   displayOnly = false,
 }: Props) {
@@ -296,6 +304,14 @@ export function ProcessingWorkspace({
   const [pinned, setPinned] = useState<PinnedQuestion | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  // A confirmed command whose read failed, until a newer read than the one shown lands.
+  const [ownSavedStatus] = useState(createSavedStatus)
+  const savedStatus = batchSavedStatus ?? ownSavedStatus
+  useSyncExternalStore(savedStatus.subscribe, savedStatus.version)
+  const savedUnread = savedStatus.get()
+  const savedUnreadShown =
+    savedUnread !== null && freshReads(queryClient).lastReadOrder(queryKey) === savedUnread.lastRead
+  const mountSignal = useMountSignal()
   const [selected, setSelected] = useState<string[]>([])
   const startSubmission = useRef<{ fingerprint: string; key: string } | null>(null)
   // Pins the first exact question/context read for this URL, during render so no frame shows it
@@ -339,11 +355,29 @@ export function ProcessingWorkspace({
     return !batch.archived && !busy && !displayOnly && fresh.commandsReadyNow()
   }
 
+  /** Reads Processing after a command, waiting through a live update's cancel for its replacement. */
   async function refresh() {
-    const result = await snapshotQuery.refetch({ throwOnError: true })
-    if (!result.data) {
-      throw new Error('processing_snapshot_missing')
-    }
+    await readReplacingCancels({
+      client: queryClient,
+      queryKey,
+      read: async () => {
+        const result = await snapshotQuery.refetch({ throwOnError: true })
+        if (!result.data) {
+          throw new Error('processing_snapshot_missing')
+        }
+        return result.data
+      },
+      signal: mountSignal(),
+    })
+  }
+
+  /** A confirmed command whose read failed: the last status shows until a read lands. */
+  function showSavedUnread() {
+    const registry = freshReads(queryClient)
+    savedStatus.set({
+      lastRead: registry.lastReadOrder(queryKey),
+      shownAt: queryClient.getQueryState(queryKey)?.dataUpdatedAt ?? Date.now(),
+    })
   }
 
   /** `startFresh` names a refusal by Start fresh's reasons; other commands keep their own words. */
@@ -370,21 +404,14 @@ export function ProcessingWorkspace({
 
     try {
       await refresh()
-    } catch {
-      let message =
-        'The command was saved, but current status is unavailable. Refresh retained status before further commands.'
-      if (refusedAnswer) {
-        // A refusal is confirmed: nothing was saved, and the form already keeps the draft.
-        message =
-          'The answer wasn\u2019t accepted, and current status is unavailable. Refresh before sending it again.'
-      } else if (refusedFresh) {
-        // Also confirmed: no new attempt started, so the reason still holds.
-        message = `Start fresh was refused: ${refusedFresh} Current status is unavailable; refresh before trying again.`
-      } else if (commandFailed) {
-        message =
-          'Command not confirmed and current status is unavailable. Your input and original delivery identity are kept.'
+    } catch (failure) {
+      if (failure instanceof ReadAbandoned) {
+        // Unmounted: nothing is left to show the read on.
+      } else if (!commandFailed) {
+        showSavedUnread()
+      } else {
+        setError(unreadAfterFailureMessage(refusedAnswer !== null, refusedFresh))
       }
-      setError(message)
     } finally {
       setBusy(false)
     }
@@ -431,13 +458,8 @@ export function ProcessingWorkspace({
       } else {
         drawerRestore?.set({ route, jobId: sessionJobId, focusNext: fromDrawer })
       }
-      try {
-        await onSaved()
-      } catch {
-        setError(
-          'Answer saved. Current capture is unavailable; refresh before making another change.',
-        )
-      }
+      // The batch says so itself when its saved values can't be read.
+      await onSaved()
     } finally {
       setSaving(null)
     }
@@ -1085,7 +1107,16 @@ export function ProcessingWorkspace({
           </Banner>
         </div>
       )}
-      {offline && (
+      {savedUnread && savedUnreadShown && (
+        <div role="status">
+          <Banner tone="warn">
+            Saved. Showing the last status from{' '}
+            <EventTime at={new Date(savedUnread.shownAt).toISOString()} clockToday /> until it can
+            be read again.
+          </Banner>
+        </div>
+      )}
+      {offline && !savedUnreadShown && (
         <div role="alert">
           <Banner tone="bad">
             Processing status unavailable. The last snapshot is shown; commands are disabled.
@@ -1389,6 +1420,19 @@ const RECOVERABLE: ReadonlySet<string> = new Set([
 
 /** Processing without an agents client reads no session list. */
 const NO_SESSIONS: SessionListRead = () => Promise.reject(new Error('agent_sessions_unavailable'))
+
+/** A command that wasn't confirmed, or was refused, and whose following read failed too. */
+function unreadAfterFailureMessage(refusedAnswer: boolean, refusedFresh: string | undefined) {
+  if (refusedAnswer) {
+    // A refusal is confirmed: nothing was saved, and the form already keeps the draft.
+    return 'The answer wasn\u2019t accepted, and current status is unavailable. Refresh before sending it again.'
+  }
+  if (refusedFresh) {
+    // Also confirmed: no new attempt started, so the reason still holds.
+    return `Start fresh was refused: ${refusedFresh} Current status is unavailable; refresh before trying again.`
+  }
+  return 'Command not confirmed and current status is unavailable. Your input and original delivery identity are kept.'
+}
 
 /** What a refused or unconfirmed command says: a known refusal its reason, anything else caution. */
 function commandFailureMessage(failure: unknown, refusedFresh: string | undefined) {

@@ -10,7 +10,7 @@ import type {
 } from '@invimport/contracts'
 import { Paragraph, Small, Banner, Toast, Button, HelpButton, ReadState } from '#/components/ui'
 import { EvidenceSkeleton } from './EvidenceSkeleton'
-import { Label, Select } from '#/forms'
+import { ChoicePicker } from '#/forms'
 import type { MediaClient } from '#/media/types'
 import { useEvidenceWorkspace } from '#/media/useEvidenceWorkspace'
 import { uploadProgress, useUploadQueue, type UploadItem } from '#/media/useUploadQueue'
@@ -317,7 +317,7 @@ export function MediaWorkspace({
     state.select([item.id])
   }
 
-  function focusMoveDestination(element: HTMLSelectElement | null) {
+  function focusMoveDestination(element: HTMLInputElement | null) {
     if (element && focusMoveControl.current) {
       focusMoveControl.current = false
       element.focus()
@@ -596,22 +596,19 @@ export function MediaWorkspace({
           {state.selected.length > 0 && (
             <MoveControls aria-label="Selected evidence">
               <Small>{state.selected.length} selected · exact evidence identities retained</Small>
-              <Label>
-                Move selected evidence to
-                <Select
-                  ref={focusMoveDestination}
-                  value={destinationGroup}
-                  disabled={blocked('selection')}
-                  onChange={(event) => setDestinationGroup(event.target.value)}
-                >
-                  <option value="">Ungrouped</option>
-                  {snapshot.groups.map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.label}
-                    </option>
-                  ))}
-                </Select>
-              </Label>
+              <ChoicePicker
+                label="Move selected evidence to"
+                noun="groups"
+                placeholder="Choose a group…"
+                choices={[
+                  { value: '', label: 'Ungrouped' },
+                  ...snapshot.groups.map((group) => ({ value: group.id, label: group.label })),
+                ]}
+                value={destinationGroup}
+                disabled={blocked('selection')}
+                inputRef={focusMoveDestination}
+                onChange={setDestinationGroup}
+              />
               <Button
                 disabled={blocked('selection')}
                 onClick={() => void moveEvidence(state.selected, destinationGroup || null)}

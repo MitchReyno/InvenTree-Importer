@@ -50,14 +50,23 @@ import { SubTabs, Tabs } from '#/components/ui/Tabs'
 import { TextField } from '#/forms/TextField'
 import { Toast } from '#/components/ui/Toast'
 import { TreeView } from '#/components/ui/TreeView'
-import { Panel } from '#/components/ui/primitives'
-import { Input, Label } from '#/forms/inputs'
+import { Panel, Small } from '#/components/ui/primitives'
+import { ChoicePicker } from '#/forms/ChoicePicker'
+import { Input, Label, Select } from '#/forms/inputs'
 
 // A blank white page, the hardest ground for a focus ring on a preview.
 const WHITE_PREVIEW =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300'%3E%3Crect width='400' height='300' fill='white'/%3E%3C/svg%3E"
 
 /** Owned browser fixture: every design-system component with synthetic data, no API. */
+const GALLERY_LOCATIONS = [
+  { value: 'default', label: 'Use batch default' },
+  { value: 'drawer-4', label: 'Drawer 4 (#43)' },
+  { value: 'bench-bin', label: 'Bench bin B2 (#51)' },
+  { value: 'inspection', label: 'Incoming inspection drawer (#41)' },
+  { value: 'reel-rack', label: 'Reel rack 3 (#58)' },
+]
+
 const statuses: [PillStatus, string][] = [
   ['ready', 'Ready'],
   ['exists', 'Exists'],
@@ -83,6 +92,8 @@ export function ComponentGallery() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [answer, setAnswer] = useState<string | undefined>()
   const [auto, setAuto] = useState<AutoValue>({ mode: 'auto' })
+  const [galleryLocation, setGalleryLocation] = useState('drawer-4')
+  const [counting, setCounting] = useState('counted')
   const [tags, setTags] = useState<SharedTags>({ manual: ['bench bag', 'SMD'], auto: true })
   const [sessions, setSessions] = useState(3)
   const [webPages, setWebPages] = useState(true)
@@ -651,6 +662,45 @@ export function ComponentGallery() {
             ]}
             onSend={() => {}}
           />
+        </Section>
+
+        <Section title="Choosing a dropdown">
+          <Small>
+            Records and lists that grow with the batch use the searchable picker. Two to four short
+            options that fit one line at phone width suit a segmented control; longer fixed lists
+            and tight spaces keep a styled native select. The screen decides.
+          </Small>
+          <Grid>
+            <ChoicePicker
+              label="Location"
+              noun="locations"
+              placeholder="Choose a location…"
+              choices={GALLERY_LOCATIONS}
+              value={galleryLocation}
+              onChange={setGalleryLocation}
+            />
+            <Label as="div">
+              Quantity
+              <SegmentedControl
+                label="Quantity"
+                options={[
+                  { id: 'counted', label: 'Counted' },
+                  { id: 'estimated', label: 'Estimated' },
+                ]}
+                value={counting}
+                onChange={setCounting}
+              />
+            </Label>
+            <Label>
+              Quantity mode
+              <Select defaultValue="unset">
+                <option value="unset">Not selected</option>
+                <option value="unknown">Explicitly unknown</option>
+                <option value="clear">Explicitly clear</option>
+                <option value="set">Human exact quantity</option>
+              </Select>
+            </Label>
+          </Grid>
         </Section>
 
         <Section title="Forms and existing controls">

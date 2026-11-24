@@ -1,11 +1,13 @@
 import {
   hashKey,
+  isCancelledError,
   type QueryCacheNotifyEvent,
   type QueryClient,
   type QueryFilters,
   type QueryFunctionContext,
   type QueryKey,
 } from '@tanstack/react-query'
+import { awaitReadReplacingCancels, type ReplacedReadOptions } from './replaced-reads'
 
 /** A request a key's query function started: its number for that key and its global start order. */
 interface Request {
@@ -28,6 +30,10 @@ interface KeyEntry {
   manualUpdate?: number
   /** `cancel` is running, so a state change restoring the adopted data is its revert. */
   expectRevert?: boolean
+  /** The start order of the last network read adopted; a cache write, failure or pause keeps it. */
+  lastRead?: number
+  /** When the key last failed, paused or was reported unavailable, in the shared order. */
+  failedAt?: number
   /** Each mounted observer's mount order. */
   observers: Map<symbol, number>
   followUpScheduled: boolean
@@ -151,6 +157,35 @@ export class FreshReadRegistry {
   }
 
   /**
+   * Whether the key failed, paused or was reported unavailable since its last adopted network read,
+   * so it stays unavailable until a read that started after the failure lands; a cache write
+   * never clears it.
+   */
+  unavailableSinceRead(queryKey: QueryKey) {
+    const entry = this.#entries.get(hashKey(queryKey))
+    return entry?.failedAt !== undefined && entry.failedAt > (entry.lastRead ?? 0)
+  }
+
+  /** The last adopted network read of a key, by start order; a cache write or failure keeps it. */
+  lastReadOrder(queryKey: QueryKey) {
+    return this.#entries.get(hashKey(queryKey))?.lastRead
+  }
+
+  /**
+   * Records a read of the key that didn't settle in time as unavailable, as a failure is: the
+   * shown read no longer verifies a command until a newer one lands.
+   */
+  noteUnavailable(queryKey: QueryKey) {
+    const entry = this.#entry(hashKey(queryKey))
+    const running = this.#client.getQueryState(queryKey)?.fetchStatus === 'fetching'
+    // A read still running when the wait gave up counts once it lands: the failure is placed just
+    // before it started.
+    entry.failedAt = running && entry.newest ? entry.newest.startOrder - 0.5 : this.nextOrder()
+    this.#clear(entry)
+    this.#changed()
+  }
+
+  /**
    * Holds a command with no revision until the cache adopts a read of this key that started after
    * this call and after the last live hint. `readAgain` starts that read itself, so it needs no
    * mounted page; `ready()` checks again at dispatch.
@@ -163,11 +198,17 @@ export class FreshReadRegistry {
       return state?.status === 'success' && this.settledAfterHint(queryKey, requested)
     }
 
-    const readAgain = async () => {
-      await this.#client.fetchQuery({
+    const readAgain = async (signal: AbortSignal) => {
+      await readReplacingCancels({
+        client: this.#client,
         queryKey,
-        queryFn: this.track(queryKey, () => read()),
-        staleTime: 0,
+        read: () =>
+          this.#client.fetchQuery({
+            queryKey,
+            queryFn: this.track(queryKey, () => read()),
+            staleTime: 0,
+          }),
+        signal,
       })
     }
 
@@ -241,6 +282,8 @@ export class FreshReadRegistry {
         this.#entries.set(hash, {
           generations: entry.generations,
           cancelled: new Set(),
+          failedAt: entry.failedAt,
+          lastRead: entry.lastRead,
           observers: entry.observers,
           followUpScheduled: false,
         })
@@ -262,6 +305,10 @@ export class FreshReadRegistry {
         return
       case 'error':
       case 'pause':
+        // A cancel is replaced, not failed.
+        if (action.type === 'pause' || !isCancelledError(action.error)) {
+          entry.failedAt = this.nextOrder()
+        }
         this.#clear(entry)
         return
       case 'setState':
@@ -314,6 +361,7 @@ export class FreshReadRegistry {
     }
     entry.adopted = entry.newest
     entry.adoptedData = state.data
+    entry.lastRead = entry.newest?.startOrder
     // Only the newest request can publish, so older cancelled markers are no longer needed.
     entry.cancelled.clear()
     this.#changed()
@@ -363,8 +411,12 @@ export class FreshReadRegistry {
 /** A held command's wait for a read started after it was asked for. */
 export interface ReadRequest {
   ready: () => boolean
-  /** Reads the key (joining a read already running); rejects when that read fails. */
-  readAgain: () => Promise<void>
+  /**
+   * Reads the key (joining a read already running), waiting through a cancel for the read that
+   * replaced it; rejects with `ReadUnavailable` or the read's own error when it fails, and with
+   * `ReadAbandoned` once `signal` aborts.
+   */
+  readAgain: (signal: AbortSignal) => Promise<void>
 }
 
 const registries = new WeakMap<QueryClient, FreshReadRegistry>()
@@ -377,6 +429,18 @@ export function freshReads(client: QueryClient) {
     registries.set(client, registry)
   }
   return registry
+}
+
+/**
+ * Awaits a read of a key, waiting through a live update's cancel for the read that replaced it
+ * (`awaitReadReplacingCancels`); a replacement that doesn't settle in time leaves the key
+ * unavailable in the registry until a newer read lands.
+ */
+export function readReplacingCancels<T>(options: Omit<ReplacedReadOptions<T>, 'onTimeout'>) {
+  return awaitReadReplacingCancels({
+    ...options,
+    onTimeout: () => freshReads(options.client).noteUnavailable(options.queryKey),
+  })
 }
 
 /** Cancels reads through the registry, so a cancelled request can never verify a command. */

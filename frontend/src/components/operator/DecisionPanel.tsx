@@ -47,6 +47,7 @@ import type { LotStatus } from '#/processing/source'
 import { problemActions } from '#/operator/problem-actions'
 import type { Provenance } from '#/operator/review-model'
 import { useApiClients, useBatchCommands } from '#/context'
+import type { DirtyReport } from '#/navigation/unsaved-changes'
 
 type Lot = CaptureSnapshotDto['lots'][number]
 type Part = CaptureSnapshotDto['parts'][number]
@@ -84,7 +85,7 @@ interface Props {
   onQuickEditClosed?: () => void
   /** The lot's latest agent status line, where a session works on it. */
   agent?: LotStatus | null
-  onDirtyChange?: (dirty: boolean) => void
+  onDirtyChange?: DirtyReport
 }
 
 /** Why this lot cannot be marked reviewed yet, in words; null when it can. */

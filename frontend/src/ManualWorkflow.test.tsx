@@ -7,6 +7,7 @@ import { fixtureScope } from './test/render'
 import { render } from './test/render'
 import { act, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { listedOptions, pickOption, picker } from '#/test/picker'
 import { afterEach, expect, test, vi } from 'vitest'
 import {
   validate,
@@ -520,9 +521,13 @@ test('Approve pins the requested preparation through poll ordering/removal and r
   await screen.findByText('Packet A · 0.000001')
   preparations = [later, preview]
   await waitFor(
-    () => expect(screen.getByRole('option', { name: 'Packet B' })).toBeInTheDocument(),
+    // The picker appears once the poll lists a second preparation.
+    () => expect(picker('Prepared selection')).toBeInTheDocument(),
     { timeout: 4000 },
   )
+  await user.click(picker('Prepared selection'))
+  expect(listedOptions()).toEqual(['Packet B', 'Packet A'])
+  await user.keyboard('{Escape}')
   expect(screen.getByText('Packet A · 0.000001')).toBeVisible()
   expect(screen.queryByText('Packet B · 23')).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Approve 1 lot and add to InvenTree' })).toBeEnabled()
@@ -535,7 +540,7 @@ test('Approve pins the requested preparation through poll ordering/removal and r
   expect(screen.getByText('Packet A · 0.000001')).toBeVisible()
   expect(screen.queryByText('Packet B · 23')).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Approve 1 lot and add to InvenTree' })).toBeDisabled()
-  await user.selectOptions(screen.getByLabelText('Prepared selection'), laterId)
+  await pickOption(user, 'Prepared selection', 'Packet B')
   expect(navigate).toHaveBeenCalledWith('approve', laterId)
   view.rerender(<ManualWorkspace {...props} stage="approve" preparationId={laterId} />)
   expect(await screen.findByText('Packet B · 23')).toBeVisible()

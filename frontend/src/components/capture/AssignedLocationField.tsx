@@ -1,4 +1,3 @@
-import { useId } from 'react'
 import styled from 'styled-components'
 import { space } from '#/theme/generated/tokens'
 import type {
@@ -6,8 +5,7 @@ import type {
   CaptureAssignedLocationDto,
 } from '@invimport/contracts'
 import type { Snapshot } from '#/capture/types'
-import { Small } from '#/components/ui'
-import { Field, Label, Select } from '#/forms'
+import { ChoicePicker, Field } from '#/forms'
 
 type Props = {
   label: string
@@ -34,46 +32,48 @@ export function AssignedLocationField({
   inline,
   onChange,
 }: Props) {
-  const id = useId()
   const observations = batch.observations.filter((item) => item.model === 'location')
   const current =
     value === undefined ? 'unset' : value.mode === 'set' ? value.value.observation_id : 'clear'
+  const choices = [
+    { value: 'unset', label: 'No assignment' },
+    { value: 'clear', label: 'Explicitly no location' },
+    ...observations.map((item) => ({
+      value: item.id,
+      label: `${item.label} (#${item.pk}) · observed`,
+    })),
+  ]
+
+  function choose(choice: string) {
+    const observed = observations.find((item) => item.id === choice)
+    if (observed) {
+      onChange({
+        mode: 'set',
+        value: {
+          observation_id: observed.id,
+          target_context_id: observed.target_context_id,
+          model: 'location',
+          pk: observed.pk,
+        },
+      })
+    } else {
+      onChange({ mode: choice === 'clear' ? 'clear' : 'unset' })
+    }
+  }
+
   const Box = inline ? InlineField : Field
   return (
     <Box>
-      <Label htmlFor={id}>{label}</Label>
-      <Select
-        id={id}
+      <ChoicePicker
+        label={label}
+        noun="locations"
+        placeholder="Choose a location…"
+        choices={choices}
         value={current}
         disabled={disabled}
-        aria-describedby={`${id}-scope`}
-        onChange={(event) => {
-          const choice = event.target.value
-          const observed = observations.find((item) => item.id === choice)
-          onChange(
-            observed
-              ? {
-                  mode: 'set',
-                  value: {
-                    observation_id: observed.id,
-                    target_context_id: observed.target_context_id,
-                    model: 'location',
-                    pk: observed.pk,
-                  },
-                }
-              : { mode: choice as 'unset' | 'clear' },
-          )
-        }}
-      >
-        <option value="unset">No assignment</option>
-        <option value="clear">Explicitly no location</option>
-        {observations.map((item) => (
-          <option key={item.id} value={item.id}>
-            {item.label} (#{item.pk}) · observed
-          </option>
-        ))}
-      </Select>
-      <Small id={`${id}-scope`}>{scope}</Small>
+        status={scope}
+        onChange={choose}
+      />
     </Box>
   )
 }

@@ -1,7 +1,7 @@
 import type { CaptureSnapshotDto, InventoryPartSpecDto } from '@invimport/contracts'
 import { mappingsFor, partTemplates, referenceTo } from '#/records/model'
 import { Button } from '#/components/ui'
-import { Input, Label, Select } from '#/forms'
+import { ChoicePicker, Input, Label } from '#/forms'
 import { SaveRow, useDraft, useRecordSave, type Save } from './draft'
 import { useRecordSaving } from '#/context'
 
@@ -104,38 +104,28 @@ export function NewParameter({
   const mapping = mappings.find((item) => item.id === draft.mapping)
   return (
     <>
-      <Label>
-        Add a parameter
-        <Select
-          value={draft.template}
-          disabled={disabled || busy}
-          onChange={(event) => setDraft({ ...draft, template: event.target.value, mapping: '' })}
-        >
-          <option value="">Choose an observed template…</option>
-          {templates.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.label}
-            </option>
-          ))}
-        </Select>
-      </Label>
+      <ChoicePicker
+        label="Add a parameter"
+        clearable
+        noun="templates"
+        placeholder="Choose an observed template…"
+        choices={templates.map((item) => ({ value: item.id, label: item.label }))}
+        value={draft.template}
+        disabled={disabled || busy}
+        onChange={(value) => setDraft({ ...draft, template: value, mapping: '' })}
+      />
       {template && (
         <>
-          <Label>
-            Mapping in this category
-            <Select
-              value={draft.mapping}
-              disabled={disabled || busy}
-              onChange={(event) => setDraft({ ...draft, mapping: event.target.value })}
-            >
-              <option value="">Choose a mapping…</option>
-              {mappings.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.label}
-                </option>
-              ))}
-            </Select>
-          </Label>
+          <ChoicePicker
+            label="Mapping in this category"
+            clearable
+            noun="mappings"
+            placeholder="Choose a mapping…"
+            choices={mappings.map((item) => ({ value: item.id, label: item.label }))}
+            value={draft.mapping}
+            disabled={disabled || busy}
+            onChange={(value) => setDraft({ ...draft, mapping: value })}
+          />
           <Label>
             Value
             <Input

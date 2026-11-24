@@ -1,6 +1,6 @@
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { companiesFor, referenceTo } from '#/records/model'
-import { Input, Label, Select } from '#/forms'
+import { ChoicePicker, Input, Label } from '#/forms'
 import { SaveRow, useDraft, useRecordSave, type Save } from './draft'
 
 type Reference = {
@@ -32,21 +32,16 @@ export function SourcingEditor({ batch, partId, role, current, save, disabled, r
   const code = role === 'manufacturer' ? 'MPN' : 'SKU'
   return (
     <>
-      <Label>
-        {role === 'manufacturer' ? 'Manufacturer' : 'Supplier'}
-        <Select
-          value={draft.company}
-          disabled={disabled || busy}
-          onChange={(event) => setDraft({ ...draft, company: event.target.value })}
-        >
-          <option value="">Choose an observed {role}…</option>
-          {companies.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.label}
-            </option>
-          ))}
-        </Select>
-      </Label>
+      <ChoicePicker
+        label={role === 'manufacturer' ? 'Manufacturer' : 'Supplier'}
+        clearable
+        noun={`${role}s`}
+        placeholder={`Choose an observed ${role}…`}
+        choices={companies.map((item) => ({ value: item.id, label: item.label }))}
+        value={draft.company}
+        disabled={disabled || busy}
+        onChange={(value) => setDraft({ ...draft, company: value })}
+      />
       <Label>
         {code}
         <Input

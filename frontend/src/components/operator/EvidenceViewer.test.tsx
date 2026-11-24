@@ -1,13 +1,14 @@
 import { useEffect } from 'react'
 import { useNavigationGuard } from '#/navigation/useNavigationGuard'
 import { withEvidence } from '#/operator/evidence-location'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent, { type UserEvent } from '@testing-library/user-event'
 import { afterEach, expect, test } from 'vitest'
 import type { MediaEvidenceDto, MediaVersionDto } from '@invimport/contracts'
 import { EvidenceViewer } from './EvidenceViewer'
 import { mediaDisplayLabels } from '#/media/identity-labels'
 import { setDebugMode } from '#/test/debug-mode'
+import { listedOptions, picker, pickerText } from '#/test/picker'
 
 afterEach(() => setDebugMode(false))
 
@@ -40,6 +41,15 @@ const replacement: MediaVersionDto = {
   pages: [{ page: 1, width: 600, height: 800, preview_id: '60000000-0000-4000-8000-000000000006' }],
 }
 
+/**
+ * Picks the version listed `index`th. The fixture's two versions are both originals of one file,
+ * so they share a name; real evidence has one original and numbered crops.
+ */
+async function pickVersion(user: UserEvent, index: number) {
+  await user.click(picker('Evidence source and version'))
+  await user.click(within(screen.getByRole('listbox')).getAllByRole('option')[index])
+}
+
 test('selects exact document pages, zooms and keeps that page when polling adds a version', async () => {
   const user = userEvent.setup()
   const { rerender } = render(<EvidenceViewer batchId="batch" evidence={[evidence]} />)
@@ -56,10 +66,10 @@ test('selects exact document pages, zooms and keeps that page when polling adds 
       evidence={[{ ...evidence, versions: [replacement, original] }]}
     />,
   )
-  expect(screen.getByLabelText('Evidence source and version')).toHaveValue(original.id)
+  expect(pickerText('Evidence source and version')).toBe('Packing slip · original')
   expect(screen.getByLabelText('Document page')).toHaveValue('2')
   expect(screen.getByText('150%')).toBeVisible()
-  await user.selectOptions(screen.getByLabelText('Evidence source and version'), replacement.id)
+  await pickVersion(user, 0)
   expect(screen.getByRole('img')).toHaveAttribute(
     'src',
     '/api/v1/batches/batch/media/previews/60000000-0000-4000-8000-000000000006',
@@ -113,11 +123,11 @@ test('an empty source choice cannot replace the explicitly selected version', as
       evidence={[{ ...evidence, versions: [original, replacement] }]}
     />,
   )
-  const source = screen.getByLabelText('Evidence source and version')
-  await user.selectOptions(source, replacement.id)
-  expect(screen.getByRole('option', { name: 'Choose retained evidence' })).toBeDisabled()
-  fireEvent.change(source, { target: { value: '' } })
-  expect(source).toHaveValue(replacement.id)
+  await pickVersion(user, 1)
+  await user.click(picker('Evidence source and version'))
+  expect(listedOptions()).toEqual(['Packing slip · original', 'Packing slip · original'])
+  await user.keyboard('{Escape}')
+  expect(pickerText('Evidence source and version')).toBe('Packing slip · original')
   expect(screen.getByRole('img')).toHaveAttribute(
     'src',
     '/api/v1/batches/batch/media/previews/60000000-0000-4000-8000-000000000006',
@@ -150,7 +160,11 @@ test('a new lot lifetime chooses its own evidence and resets zoom', async () => 
       evidence={[{ ...evidence, versions: [replacement] }]}
     />,
   )
-  expect(screen.getByLabelText('Evidence source and version')).toHaveValue(replacement.id)
+  expect(pickerText('Evidence source and version')).toBe('Packing slip · original')
+  expect(screen.getByRole('img')).toHaveAttribute(
+    'src',
+    '/api/v1/batches/batch/media/previews/60000000-0000-4000-8000-000000000006',
+  )
   expect(screen.getByText('100%')).toBeVisible()
 })
 
@@ -319,15 +333,15 @@ test('retained group and evidence notes are readable without replacing source id
   expect(screen.queryByText(/Version 2/)).toBeNull()
 })
 
-test('a uniquely named file is labelled by name and kind, with no identifier inline', () => {
+test('a uniquely named file is labelled by name and kind, with no identifier inline', async () => {
   render(<EvidenceViewer batchId="batch" evidence={[evidence]} />)
-  const source = screen.getByLabelText('Evidence source and version')
+  await userEvent.click(picker('Evidence source and version'))
 
-  expect(source).toHaveTextContent('Packing slip · original')
-  expect(source.textContent).not.toMatch(/[0-9a-f]{8}/)
+  expect(listedOptions()).toEqual(['Packing slip · original'])
+  expect(listedOptions().join(' ')).not.toMatch(/[0-9a-f]{8}/)
 })
 
-test('two files with one name are told apart by number, with identifiers only in debug mode', () => {
+test('two files with one name are told apart by number, with identifiers only in debug mode', async () => {
   setDebugMode(true)
   const second: MediaEvidenceDto = {
     ...evidence,
@@ -341,17 +355,16 @@ test('two files with one name are told apart by number, with identifiers only in
     ],
   }
   render(<EvidenceViewer batchId="batch" evidence={[evidence, second]} />)
-  const source = screen.getByLabelText('Evidence source and version')
+  await userEvent.click(picker('Evidence source and version'))
 
-  expect(source).toHaveTextContent('Packing slip (1) · original')
-  expect(source).toHaveTextContent('Packing slip (2) · original')
-  expect(source.textContent).not.toMatch(/[0-9a-f]{8}/)
+  expect(listedOptions()).toEqual(['Packing slip (1) · original', 'Packing slip (2) · original'])
+  expect(listedOptions().join(' ')).not.toMatch(/[0-9a-f]{8}/)
   expect(screen.getByRole('group', { name: 'Debug: Evidence identities' }).textContent).toMatch(
     /evidence [0-9a-f]{8}/,
   )
 })
 
-test('names are numbered across the snapshot it is given, and debug mode pairs each with its identifier', () => {
+test('names are numbered across the snapshot it is given, and debug mode pairs each with its identifier', async () => {
   setDebugMode(true)
 
   const twin = (id: string): MediaEvidenceDto => ({
@@ -370,11 +383,9 @@ test('names are numbered across the snapshot it is given, and debug mode pairs e
   render(
     <EvidenceViewer batchId="batch" evidence={[all[1], all[2]]} labels={mediaDisplayLabels(all)} />,
   )
-  const source = screen.getByLabelText('Evidence source and version')
+  await userEvent.click(picker('Evidence source and version'))
 
-  expect(source).toHaveTextContent('Packing slip (2) · original')
-  expect(source).toHaveTextContent('Packing slip (3) · original')
-  expect(source).not.toHaveTextContent('Packing slip (1)')
+  expect(listedOptions()).toEqual(['Packing slip (2) · original', 'Packing slip (3) · original'])
   expect(screen.getByRole('img')).toHaveAccessibleName('Packing slip (2) · original · page 1')
   expect(screen.getByRole('group', { name: 'Debug: Evidence identities' }).textContent).toMatch(
     /Packing slip \(2\) · originalPacking slip · evidence 10000000/,

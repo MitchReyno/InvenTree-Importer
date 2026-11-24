@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import styled from 'styled-components'
+import { space } from '#/theme/generated/tokens'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { Button } from '#/components/ui'
-import { Label, Select } from '#/forms'
+import { ChoicePicker } from '#/forms'
 import type { CaptureEdit } from '#/capture/types'
 
 interface Props {
@@ -22,23 +24,20 @@ export function ObservationMove({ batch, observationId, lotId, name, edit, disab
     return null
   }
   return (
-    <span>
-      <Label>
-        Move {name} to
-        <Select
-          value={target}
-          disabled={disabled || !edit}
-          onChange={(event) => setTarget(event.target.value)}
-        >
-          <option value="">Choose a lot…</option>
-          {targets.map((lot) => (
-            <option key={lot.id} value={lot.id}>
-              {lot.label}
-            </option>
-          ))}
-          {lotId !== null && <option value="none">No lot</option>}
-        </Select>
-      </Label>{' '}
+    <Move>
+      <ChoicePicker
+        label={`Move ${name} to`}
+        clearable
+        noun="lots"
+        placeholder="Choose a lot…"
+        choices={[
+          ...targets.map((lot) => ({ value: lot.id, label: lot.label })),
+          ...(lotId !== null ? [{ value: 'none', label: 'No lot' }] : []),
+        ]}
+        value={target}
+        disabled={disabled || !edit}
+        onChange={setTarget}
+      />
       <Button
         type="button"
         disabled={disabled || !edit || !target}
@@ -52,6 +51,17 @@ export function ObservationMove({ batch, observationId, lotId, name, edit, disab
       >
         Move
       </Button>
-    </span>
+    </Move>
   )
 }
+
+const Move = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: ${space[3]};
+  > :first-child {
+    flex: 1 1 200px;
+    min-width: 0;
+  }
+`

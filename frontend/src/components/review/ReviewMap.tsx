@@ -11,7 +11,7 @@ import {
   raisedOnField,
   Skeleton,
 } from '#/components/ui'
-import { Select } from '#/forms'
+import { ChoicePicker } from '#/forms'
 import { ReviewMapSkeleton } from './ReviewMapSkeleton'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { RegionStage } from './RegionStage'
@@ -300,19 +300,19 @@ export function ReviewMap({
                   </Regions>
                 )}
                 <Controls>
-                  <LinkSelect
-                    aria-label={`Link ${file.label} to a lot`}
+                  <LinkPicker
+                    label={`Link ${file.label} to a lot`}
+                    clearable
+                    labelHidden
+                    menuInLayer
+                    compact
+                    noun="lots"
+                    placeholder="Link to a lot…"
+                    choices={linkOptions(file).map((lot) => ({ value: lot.id, label: lot.label }))}
                     value={targetFor(file)}
                     disabled={disabled}
-                    onChange={(event) => setTargets({ ...targets, [file.id]: event.target.value })}
-                  >
-                    <option value="">Link to a lot…</option>
-                    {linkOptions(file).map((lot) => (
-                      <option key={lot.id} value={lot.id}>
-                        {lot.label}
-                      </option>
-                    ))}
-                  </LinkSelect>
+                    onChange={(value) => setTargets({ ...targets, [file.id]: value })}
+                  />
                   <Button
                     size="sm"
                     disabled={disabled || !targetFor(file)}
@@ -472,20 +472,22 @@ function RegionMove({
       : ''
   return (
     <Controls>
-      <LinkSelect
-        aria-label={`Move ${region.label} to`}
+      <LinkPicker
+        label={`Move ${region.label} to`}
+        clearable
+        labelHidden
+        menuInLayer
+        compact
+        noun="lots"
+        placeholder="Move to a lot…"
+        choices={[
+          ...targets.map((lot) => ({ value: lot.id, label: lot.label })),
+          ...(region.lotId !== null ? [{ value: 'none', label: 'No lot' }] : []),
+        ]}
         value={target}
         disabled={disabled}
-        onChange={(event) => setChosen(event.target.value)}
-      >
-        <option value="">Move to a lot…</option>
-        {targets.map((lot) => (
-          <option key={lot.id} value={lot.id}>
-            {lot.label}
-          </option>
-        ))}
-        {region.lotId !== null && <option value="none">No lot</option>}
-      </LinkSelect>
+        onChange={setChosen}
+      />
       <Button
         size="sm"
         disabled={disabled || !target}
@@ -543,19 +545,22 @@ function SameItem({
   const target = others.some((other) => other.id === chosen) ? chosen : ''
   return (
     <Controls>
-      <LinkSelect
-        aria-label={`${region.label} is the same item as`}
+      <LinkPicker
+        label={`${region.label} is the same item as`}
+        clearable
+        labelHidden
+        menuInLayer
+        compact
+        noun="regions"
+        placeholder="Same item as…"
+        choices={others.map((other) => ({
+          value: other.id,
+          label: `${other.label} · ${other.file}`,
+        }))}
         value={target}
         disabled={disabled}
-        onChange={(event) => setChosen(event.target.value)}
-      >
-        <option value="">Same item as…</option>
-        {others.map((other) => (
-          <option key={other.id} value={other.id}>
-            {other.label} · {other.file}
-          </option>
-        ))}
-      </LinkSelect>
+        onChange={setChosen}
+      />
       <Button
         size="sm"
         disabled={disabled || !target}
@@ -823,13 +828,10 @@ const CheckHit = styled.label`
   }
 `
 
-/** Sized with the small Link button beside it. */
-const LinkSelect = styled(Select)`
+/** Shares the row with the small Link button beside it. */
+const LinkPicker = styled(ChoicePicker)`
   flex: 1 1 160px;
-  width: auto;
   min-width: 0;
-  padding: ${space[2]} ${space[4]};
-  font-size: ${typeVar.small.size};
 `
 
 const Fix = styled.div`

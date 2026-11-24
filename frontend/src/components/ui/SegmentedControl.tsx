@@ -60,6 +60,8 @@ export function SegmentedControl({
 
 const Group = styled.div`
   display: inline-flex;
+  /* Keeps its own width under a field label's grid, which would stretch it. */
+  justify-self: start;
   overflow: hidden;
   border: 1px solid ${color.lineStrong};
   border-radius: ${radius.btn};

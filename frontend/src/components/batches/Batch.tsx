@@ -1,10 +1,20 @@
 import { Paragraph, Banner, Button, DebugDetails, DisplayOnly, ReadState } from '#/components/ui'
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey } from '#/queries/scope'
 import { useCachedData } from '#/queries/useCachedData'
-import { freshReads } from '#/queries/fresh-reads'
+import { freshReads, readReplacingCancels } from '#/queries/fresh-reads'
 import { useFreshRead } from '#/queries/useFreshRead'
+import type { DirtyReport, UnsavedChange } from '#/navigation/unsaved-changes'
+import { useMountSignal } from '#/lifecycle/useMountSignal'
 import { useRestoredSnapshot, useSnapshotWriter } from '#/queries/useSnapshot'
 import { approvedLotIds, predecessorLotIds, retiredLotIds } from '#/operator/review-model'
 import { unusedEvidenceCount } from '#/operator/review-map'
@@ -49,9 +59,22 @@ import { createSharperRequestStore } from '#/components/processing/ExamineView'
 import { useInstructionDelivery } from '#/processing/instruction-delivery'
 import { createDrawerRestore } from '#/processing/drawer-restore'
 import { createAnswerOutcomes } from '#/processing/answer-outcomes'
+import { createSavedStatus } from '#/processing/saved-status'
 import { useAcceptedOperatorReview } from '#/operator/useAcceptedOperatorReview'
 import { displaysRestored, RestoredTab } from './RestoredTab'
 import { TabSkeleton } from './TabSkeleton'
+import { SavedValuesNotice } from './SavedValuesNotice'
+
+/** How often saved values are read again while they can't be read. */
+const SAVED_VALUES_RETRY_MS = 5000
+
+const NO_CHANGES: readonly UnsavedChange[] = []
+
+/** The batch this tab accepted as edit authority, and when its values were read or saved. */
+interface AcceptedBatch {
+  batch: CaptureSnapshotDto
+  shownAt: number
+}
 
 /** The screen each Review and Changes route mounts until their redesigns replace them. */
 function manualStage(route: BatchRoute | null): ManualStage {
@@ -120,6 +143,8 @@ export function Batch({
   const drawerRestore = useMemo(createDrawerRestore, [id])
   // Confirmed answers outlive Processing's remounts until a read shows them answered.
   const answerOutcomes = useMemo(createAnswerOutcomes, [id])
+  // Processing's saved-but-unread status outlives the same remounts.
+  const savedStatus = useMemo(createSavedStatus, [id])
   if (batchRoute?.tab === 'changes' && batchRoute.view === 'ready' && batchRoute.preparationId) {
     shownPreparation.current = batchRoute.preparationId
   }
@@ -142,7 +167,10 @@ export function Batch({
   const scope = useServerScope()
   const queryClient = useQueryClient()
   const queryKey = serverQueryKey(scope, 'capture', id)
-  const captureQuery = useQuery({ queryKey, queryFn: () => client.read(id) })
+  // Through the fresh-read registry, so a cache write is told from a network read.
+  const captureQuery = useFreshRead({ queryKey, queryFn: () => client.read(id) }).query
+  const registry = freshReads(queryClient)
+  const mountSignal = useMountSignal()
   const processingKey = serverQueryKey(scope, 'processing', id)
 
   // Delivery sends no revision: it waits for a Processing read started after it was asked for and
@@ -164,7 +192,13 @@ export function Batch({
     refetchInterval: pollInterval,
   })
   // This is accepted edit authority, not a mirror of the latest cache value.
-  const [batch, setBatch] = useState<CaptureSnapshotDto | null>(null)
+  const [accepted, setAccepted] = useState<AcceptedBatch | null>(null)
+  const batch = accepted?.batch ?? null
+  // The accepted revision, as a handler reads it after awaiting a read.
+  const shownRevision = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    shownRevision.current = batch?.revision
+  }, [batch?.revision])
   const [error, setError] = useState('')
   const [current, setCurrent] = useState<CaptureSnapshotDto | null>(null)
   const [busy, setBusy] = useState(false)
@@ -185,41 +219,47 @@ export function Batch({
     captureQuery.isSuccess &&
     !captureQuery.isFetching
   ) {
-    setBatch(captureQuery.data)
+    setAccepted({ batch: captureQuery.data, shownAt: captureQuery.dataUpdatedAt })
   }
 
   useSnapshotWriter('batch', id, batch ?? undefined)
 
   function acceptSavedBatch(value: CaptureSnapshotDto) {
     queryClient.setQueryData(queryKey, value)
-    setBatch(value)
+    setAccepted({ batch: value, shownAt: Date.now() })
   }
 
   // Autosave acknowledgements and reconnection reads may resolve out of order; keep the newest.
   function acceptNewerBatch(value: CaptureSnapshotDto) {
-    setBatch((current) => {
-      if (current && BigInt(current.revision) > BigInt(value.revision)) {
+    const shownAt = Date.now()
+    setAccepted((current) => {
+      if (current && BigInt(current.batch.revision) > BigInt(value.revision)) {
         return current
       }
       queryClient.setQueryData(queryKey, value)
-      return value
+      return { batch: value, shownAt }
     })
   }
 
-  // Archive stays disabled while any screen holds an unsaved draft.
+  // Archive stays disabled while any screen holds an unsaved draft; the notice names its changes.
   const [draftDirty, setDraftDirty] = useState(false)
-  const reportDirty = useCallback(
-    (dirty: boolean) => {
+  const [unsaved, setUnsaved] = useState<readonly UnsavedChange[]>(NO_CHANGES)
+  // The same, as handlers read it right after a discard.
+  const dirtyNow = useRef(false)
+  const reportDirty = useCallback<DirtyReport>(
+    (dirty, changes = NO_CHANGES) => {
+      dirtyNow.current = dirty
       setDraftDirty(dirty)
+      setUnsaved(dirty ? changes : NO_CHANGES)
       onDirtyChange(dirty)
     },
     [onDirtyChange],
   )
   const captureDirty = useRef(false)
-  const reportCaptureDirty = useCallback(
-    (dirty: boolean) => {
+  const reportCaptureDirty = useCallback<DirtyReport>(
+    (dirty, changes) => {
       captureDirty.current = dirty
-      reportDirty(dirty)
+      reportDirty(dirty, changes)
     },
     [reportDirty],
   )
@@ -258,9 +298,17 @@ export function Batch({
       (stage === 'capture' && !processingSelected && !captureDirty.current) ||
       (reviewing && !draftDirty)
     if (clean && batch && latest && BigInt(latest.revision) > BigInt(batch.revision)) {
-      setBatch(latest)
+      setAccepted({ batch: latest, shownAt: captureQuery.dataUpdatedAt })
     }
-  }, [batch, captureQuery.data, processingSelected, stage, reviewing, draftDirty])
+  }, [
+    batch,
+    captureQuery.data,
+    captureQuery.dataUpdatedAt,
+    processingSelected,
+    stage,
+    reviewing,
+    draftDirty,
+  ])
 
   async function edit(
     change: CaptureEditDto['change'],
@@ -332,13 +380,19 @@ export function Batch({
     setError('')
     try {
       const observed = await client.observe(id, { model, pk }, crypto.randomUUID())
-      setBatch((b) =>
-        b
+      setAccepted((current) =>
+        current
           ? {
-              ...b,
-              observations: [...b.observations.filter((o) => o.id !== observed.id), observed],
+              ...current,
+              batch: {
+                ...current.batch,
+                observations: [
+                  ...current.batch.observations.filter((o) => o.id !== observed.id),
+                  observed,
+                ],
+              },
             }
-          : b,
+          : current,
       )
       return observed
     } catch {
@@ -351,29 +405,79 @@ export function Batch({
     }
   }
 
-  /** Loads the saved batch; true when it was read. */
+  /**
+   * Reads the saved batch, waiting through a live update's cancel for the read that replaced it.
+   * After a save the read must start after it, so a running read is replaced; a retry joins one.
+   */
+  function readSavedValues(signal: AbortSignal, { joinRunning }: { joinRunning: boolean }) {
+    return readReplacingCancels({
+      client: queryClient,
+      queryKey,
+      read: async () => {
+        const result = await captureQuery.refetch({
+          throwOnError: true,
+          cancelRefetch: !joinRunning,
+        })
+        if (!result.data) {
+          throw new Error('capture_snapshot_missing')
+        }
+        return result.data
+      },
+      signal,
+    })
+  }
+
+  function adoptSavedValues(value: CaptureSnapshotDto) {
+    editIntent.current = null
+    acceptSavedBatch(value)
+    // Re-keying Processing remounts it; a drawer an answer armed comes back on that mount.
+    drawerRestore.carry()
+    setReset((revision) => revision + 1)
+    setCurrent(null)
+    setError('')
+  }
+
+  /** Loads the saved batch; true when it was read. A failure shows the saved values notice. */
   async function reloadSavedValues() {
     if (editPending.current) {
       return false
     }
     void queryClient.invalidateQueries({ queryKey: operatorKey })
     try {
-      const result = await captureQuery.refetch({ throwOnError: true })
-      if (!result.data) {
-        throw new Error('capture_snapshot_missing')
-      }
-      editIntent.current = null
-      acceptSavedBatch(result.data)
-      // Re-keying Processing remounts it; a drawer an answer armed comes back on that mount.
-      drawerRestore.carry()
-      setReset((revision) => revision + 1)
-      setCurrent(null)
-      setError('')
+      adoptSavedValues(await readSavedValues(mountSignal(), { joinRunning: false }))
       return true
     } catch {
-      setError('Saved values still unavailable. Local inputs remain unchanged.')
+      // The registry holds the failure, which shows the saved values notice.
       return false
     }
+  }
+
+  /**
+   * Reads saved values again while they can't be read, adopting them only with nothing unsaved.
+   * It runs for Batch's mount: the read that clears the notice is still adopted.
+   */
+  async function retrySavedValues() {
+    if (editPending.current) {
+      return
+    }
+    try {
+      const value = await readSavedValues(mountSignal(), { joinRunning: true })
+      // Drafts keep their pinned revision; their saves meet the usual conflict checks. Values at
+      // the revision shown change nothing, so the workspaces aren't remounted for them.
+      if (!dirtyNow.current && value.revision !== shownRevision.current) {
+        adoptSavedValues(value)
+      }
+    } catch {
+      // Still unavailable, or abandoned: the notice and its timer carry on, or are gone.
+    }
+  }
+
+  /** Drops exactly the named changes, then reads; a draft left unsaved keeps the batch as shown. */
+  function discardUnsaved() {
+    for (const change of unsaved) {
+      change.discard()
+    }
+    void retrySavedValues()
   }
 
   const reloadForStage = async () => {
@@ -453,11 +557,20 @@ export function Batch({
         : undefined,
     [batch, mediaCurrent, retired, predecessors, operatorUnavailable],
   )
-  const readUnavailable = captureQuery.isError || captureQuery.fetchStatus === 'paused'
+  const readUnavailable =
+    captureQuery.isError ||
+    captureQuery.fetchStatus === 'paused' ||
+    registry.unavailableSinceRead(queryKey)
   const applicationAvailable = useApplicationAvailable(captureQuery.dataUpdatedAt, readUnavailable)
+  // Values are shown but can't be read now: only a network read started since clears this.
+  const savedValuesUnavailable = accepted !== null && registry.unavailableSinceRead(queryKey)
+  useSavedValuesRetry(savedValuesUnavailable, retrySavedValues)
+  // With nothing loaded yet there are no values to show, so the read's failure is the error.
   const visibleError =
     error ||
-    (readUnavailable ? 'Batch unavailable. Check connection and server-side target binding.' : '')
+    (readUnavailable && !accepted
+      ? 'Batch unavailable. Check connection and server-side target binding.'
+      : '')
   const readOrCommandBusy = busy || captureQuery.isFetching
 
   const settingsPorts: SettingsPorts = {
@@ -495,6 +608,7 @@ export function Batch({
         sharperRequests={sharperRequests}
         drawerRestore={drawerRestore}
         answerOutcomes={answerOutcomes}
+        savedStatus={savedStatus}
         onDirtyChange={reportDirty}
         retiredLotIds={retired}
         instructions={{
@@ -634,7 +748,9 @@ export function Batch({
         {operatorUnavailable &&
           !operatorReviewPending &&
           acceptedOperatorReview &&
-          !visibleError && (
+          !visibleError &&
+          // The saved values notice covers it: a review at the values shown can't be read either.
+          !savedValuesUnavailable && (
             <div role="status">
               <Banner tone="bad">
                 <Paragraph>
@@ -650,6 +766,15 @@ export function Batch({
               </Banner>
             </div>
           )}
+        {accepted && savedValuesUnavailable && (
+          <SavedValuesNotice
+            shownAt={accepted.shownAt}
+            dirty={draftDirty}
+            unsaved={unsaved}
+            onTryNow={() => void retrySavedValues()}
+            onDiscard={discardUnsaved}
+          />
+        )}
         {visibleError && (
           <div role="alert">
             <Banner tone="bad">
@@ -704,3 +829,33 @@ const SnapshotFields = styled.pre`
   max-height: 300px;
   font-size: ${typeVar.mono.size};
 `
+
+/** While saved values can't be read, reads them again every few seconds until it works. */
+function useSavedValuesRetry(unavailable: boolean, retry: () => Promise<void>) {
+  const attempt = useEffectEvent(retry)
+  // A timer, stopped on recovery or unmount; each attempt waits for the last to finish. An
+  // attempt under way is left to finish, so the read that recovers is adopted.
+  useEffect(() => {
+    if (!unavailable) {
+      return
+    }
+    let stopped = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+
+    const schedule = () => {
+      timer = setTimeout(() => {
+        void attempt().then(() => {
+          if (!stopped) {
+            schedule()
+          }
+        })
+      }, SAVED_VALUES_RETRY_MS)
+    }
+
+    schedule()
+    return () => {
+      stopped = true
+      clearTimeout(timer)
+    }
+  }, [unavailable])
+}

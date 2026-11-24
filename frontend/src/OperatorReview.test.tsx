@@ -1,6 +1,7 @@
 import { sessionList } from '#/test/agent-sessions'
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { searchAndPick } from '#/test/picker'
 import type { ReactNode } from 'react'
 import { ServerStateProvider } from './components/query/ServerStateProvider'
 import { createServerQueryClient } from './queries/client'
@@ -29,6 +30,8 @@ import type { OperatorReviewClient } from './operator/types'
 import type { MediaClient } from './media/types'
 import { ApiClientsProvider, BatchCommandsProvider } from './context'
 import { batchCommands } from './test/batch-commands'
+import { deferred } from './test/deferred'
+import { cancelVerified } from './queries/fresh-reads'
 
 /** The revision behind a "<label>: Saved" status; the number is kept off the visible text. */
 function savedRevision(label: string) {
@@ -475,7 +478,7 @@ test.each([new TypeError('connection reset'), new IntakeRequestError(500, 'inter
     await openTableAndSelect(user)
     await user.selectOptions(screen.getByLabelText('Quantity'), 'set')
     await user.type(screen.getByLabelText('Exact pieces for every selected lot'), '12.5')
-    await user.selectOptions(screen.getByLabelText('Location'), `observation:${observedLocation}`)
+    await searchAndPick(user, 'Location', 'drawer', 'Drawer 4 (#43)')
     await user.click(screen.getByRole('button', { name: 'Preview bulk edit' }))
     const preview = await screen.findByRole('region', { name: 'Impact preview' })
     expect(preview).toHaveTextContent('Packet A, Packet B')
@@ -628,8 +631,10 @@ test('dirty lot drafts survive local navigation, keyboard movement and closing u
   await user.keyboard('k')
   expect(location.hash).toContain(`/review/lots/${a}`)
   expect(screen.getByRole('button', { name: 'Close lot editor' })).toBeDisabled()
-  // Batch disables Archive from this report while the draft is dirty.
-  expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+  // Batch disables Archive from this report while the draft is dirty, and names the change.
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true, [
+    { label: 'Packet A · quantity', discard: expect.any(Function) },
+  ])
   expect(screen.getByRole('button', { name: 'Compare matches' })).toBeDisabled()
   expect(screen.getByRole('button', { name: 'Split lot…' })).toBeDisabled()
   await user.click(screen.getByRole('button', { name: 'Discard lot edits' }))
@@ -1068,6 +1073,77 @@ test('a lot the lead session forms waits behind a dirty Review draft, then appea
   expect(row.closest('li, div')?.parentElement).toHaveTextContent('＋New')
   // A live update must not leave Review read-only.
   await waitFor(() => expect(screen.getByRole('button', { name: 'Edit lot values' })).toBeEnabled())
+})
+
+test('saved values that can’t be read name the unsaved lot change, and Discard drops only it', async () => {
+  history.replaceState(null, '', `#${batchId}/review/lots/${a}`)
+  const cache = createServerQueryClient()
+  const user = userEvent.setup()
+  const client = { read: vi.fn(async () => batch), edit: vi.fn() } as unknown as Client
+  const operator = operatorClient()
+
+  function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <ServerStateProvider scope={fixtureScope} client={cache}>
+        {children}
+      </ServerStateProvider>
+    )
+  }
+
+  render(
+    <ApiClientsProvider value={{ operator }}>
+      <Batch
+        id={batchId}
+        route={`${batchId}/review/lots/${a}`}
+        client={client}
+        manual={manualClient()}
+        onDirtyChange={vi.fn()}
+      />
+    </ApiClientsProvider>,
+    { wrapper: Wrapper },
+  )
+  await user.click(await screen.findByRole('button', { name: 'Edit lot values' }))
+  const quantity = screen.getByLabelText('Exact pieces')
+  await user.clear(quantity)
+  await user.type(quantity, '123')
+
+  // The saved batch can't be read now, while its review has moved on.
+  vi.mocked(client.read).mockRejectedValue(new Error('server_unreachable'))
+  vi.mocked(operator.read).mockResolvedValue({ ...operatorReview, revision: '13' })
+  await act(async () => {
+    await cache.invalidateQueries({ queryKey: serverQueryKey(fixtureScope) })
+  })
+  const notice = (await screen.findByText(/Couldn’t load the latest values/)).closest(
+    '[role="status"]',
+  )!
+  expect(notice).toHaveTextContent(
+    'Couldn’t load the latest values. Your unsaved changes to Packet A · quantity are kept.',
+  )
+  expect(within(notice as HTMLElement).getByRole('button', { name: 'Try now' })).toBeEnabled()
+  expect(screen.queryByRole('button', { name: /Discard local edits/ })).not.toBeInTheDocument()
+  // The batch's operator review banner, with its Discard, waits behind the notice.
+  expect(screen.queryByText(/Local input is retained until exact retry/)).not.toBeInTheDocument()
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+
+  // A read that works now is not adopted under the draft, though the notice clears.
+  const newer = { ...batch, revision: '13', title: 'Operator review fixture, newer' }
+  vi.mocked(client.read).mockResolvedValue(newer)
+  await user.click(within(notice as HTMLElement).getByRole('button', { name: 'Try now' }))
+  await waitFor(() =>
+    expect(screen.queryByText(/Couldn’t load the latest values/)).not.toBeInTheDocument(),
+  )
+  expect(screen.getByLabelText('Exact pieces')).toHaveValue('123')
+  expect(screen.queryByRole('heading', { name: newer.title })).not.toBeInTheDocument()
+
+  // It fails again; Discard drops exactly the named change, then the latest read is adopted.
+  vi.mocked(client.read).mockRejectedValue(new Error('server_unreachable'))
+  await act(async () => {
+    await cache.invalidateQueries({ queryKey: serverQueryKey(fixtureScope, 'capture', batchId) })
+  })
+  vi.mocked(client.read).mockResolvedValue(newer)
+  await user.click(await screen.findByRole('button', { name: 'Discard my changes' }))
+  expect(await screen.findByRole('heading', { name: newer.title })).toBeInTheDocument()
+  expect(screen.queryByText(/Couldn’t load the latest values/)).not.toBeInTheDocument()
 })
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/
@@ -1952,10 +2028,105 @@ test('Review shows no unavailable banner while the operator review is first read
     </ApiClientsProvider>,
   )
   const mark = await screen.findByRole('button', { name: 'Mark selected reviewed' })
-  expect(screen.queryByText(/operator review is unavailable or changed/)).not.toBeInTheDocument()
+  // The batch's operator review banner, with its Discard, waits behind the notice.
+  expect(screen.queryByText(/Local input is retained until exact retry/)).not.toBeInTheDocument()
   expect(mark).toHaveAttribute('aria-disabled', 'true')
   expect(mark).toHaveAccessibleDescription('Updating…')
 
   await act(async () => failRead!(new Error('offline')))
   expect(await screen.findByText(/operator review is unavailable or changed/)).toBeVisible()
+})
+
+test('Manual Review’s read after a command waits through a live update’s cancel and shows nothing', async () => {
+  const user = userEvent.setup()
+  const cache = createServerQueryClient()
+  const manual = manualClient()
+  const afterCommand = deferred<ManualWorkspaceDto>()
+  const replacement = deferred<ManualWorkspaceDto>()
+  render(
+    <ApiClientsProvider value={{ operator: operatorClient() }}>
+      <BatchCommandsProvider value={batchCommands({})}>
+        <ManualWorkspace
+          batch={batch}
+          client={manual}
+          stage="review"
+          navigate={vi.fn()}
+          operatorReview={operatorReview}
+          onDirtyChange={vi.fn()}
+        />
+      </BatchCommandsProvider>
+    </ApiClientsProvider>,
+    { cache },
+  )
+  await user.click(await screen.findByRole('button', { name: 'Table' }))
+  await user.click(await screen.findByRole('checkbox', { name: 'Select Packet A' }))
+  vi.mocked(manual.workspace)
+    .mockReturnValueOnce(afterCommand.promise)
+    .mockReturnValueOnce(replacement.promise)
+  const reads = vi.mocked(manual.workspace).mock.calls.length
+  await user.click(screen.getByRole('button', { name: 'Mark selected reviewed' }))
+  await waitFor(() => expect(manual.workspace).toHaveBeenCalledTimes(reads + 1))
+
+  await act(async () => {
+    await cancelVerified(cache, { queryKey: serverQueryKey(fixtureScope) }, { silent: true })
+    void cache.invalidateQueries({ queryKey: serverQueryKey(fixtureScope) })
+  })
+  await waitFor(() => expect(manual.workspace).toHaveBeenCalledTimes(reads + 2))
+  // Still the command's own wait, not a failure.
+  expect(screen.getByText('Retaining exact review…')).toBeInTheDocument()
+  await act(async () => afterCommand.resolve(workspace))
+  expect(screen.getByText('Retaining exact review…')).toBeInTheDocument()
+
+  await act(async () => replacement.resolve(workspace))
+  await waitFor(() => expect(screen.queryByText('Retaining exact review…')).not.toBeInTheDocument())
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  expect(screen.queryByText(/Status unavailable/)).not.toBeInTheDocument()
+})
+
+test('a replacement that doesn’t land in 10 s shows Review unavailable until a read lands', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  try {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const cache = createServerQueryClient()
+    const manual = manualClient()
+    const afterCommand = deferred<ManualWorkspaceDto>()
+    const replacement = deferred<ManualWorkspaceDto>()
+    render(
+      <ApiClientsProvider value={{ operator: operatorClient() }}>
+        <BatchCommandsProvider value={batchCommands({})}>
+          <ManualWorkspace
+            batch={batch}
+            client={manual}
+            stage="review"
+            navigate={vi.fn()}
+            operatorReview={operatorReview}
+            onDirtyChange={vi.fn()}
+          />
+        </BatchCommandsProvider>
+      </ApiClientsProvider>,
+      { cache },
+    )
+    await user.click(await screen.findByRole('button', { name: 'Table' }))
+    await user.click(await screen.findByRole('checkbox', { name: 'Select Packet A' }))
+    vi.mocked(manual.workspace)
+      .mockReturnValueOnce(afterCommand.promise)
+      .mockReturnValueOnce(replacement.promise)
+    await user.click(screen.getByRole('button', { name: 'Mark selected reviewed' }))
+    await act(async () => {
+      await cancelVerified(cache, { queryKey: serverQueryKey(fixtureScope) }, { silent: true })
+      void cache.invalidateQueries({ queryKey: serverQueryKey(fixtureScope) })
+    })
+
+    await act(() => vi.advanceTimersByTimeAsync(10_000))
+    expect(await screen.findByText(/Status unavailable/)).toBeInTheDocument()
+    const mark = screen.getByRole('button', { name: 'Mark selected reviewed' })
+    expect(mark.hasAttribute('disabled') || mark.getAttribute('aria-disabled') === 'true').toBe(
+      true,
+    )
+
+    await act(async () => replacement.resolve(workspace))
+    await waitFor(() => expect(screen.queryByText(/Status unavailable/)).not.toBeInTheDocument())
+  } finally {
+    vi.useRealTimers()
+  }
 })

@@ -11,6 +11,7 @@ import { proposedLots } from '#/processing/proposed-lots'
 import { batchHref } from '#/navigation/batch-route'
 import { useSessionStatuses } from '#/processing/session-status'
 import { useApiClients, useBatchCommands } from '#/context'
+import { reportDirty, type DirtyReport, type UnsavedChange } from '#/navigation/unsaved-changes'
 
 type DirtySource = 'settings' | 'media' | 'note'
 
@@ -66,6 +67,9 @@ export function CaptureWorkspace({
     )
   }, [])
 
+  // The settings panel names the drafts it can drop; evidence and note commands stay unnamed.
+  const settingsChanges = useRef<readonly UnsavedChange[]>([])
+
   const report = useCallback(
     (source: DirtySource, value: boolean) => {
       const { onDirtyChange, settings } = latest.current
@@ -73,7 +77,7 @@ export function CaptureWorkspace({
       dirtyFlags.current = { ...dirtyFlags.current, [source]: value }
       const any = Object.values(dirtyFlags.current).some(Boolean)
       setSources(dirtyFlags.current)
-      onDirtyChange?.(any)
+      reportDirty(onDirtyChange, any, dirtyFlags.current.settings ? settingsChanges.current : [])
       // Evidence commands advance the batch revision; settings stay paused until it is adopted.
       if (evidenceWasPending && !dirtyFlags.current.media && !dirtyFlags.current.note && settings) {
         refreshSettings()
@@ -82,12 +86,22 @@ export function CaptureWorkspace({
     [refreshSettings],
   )
 
-  const reportSettings = useCallback((value: boolean) => report('settings', value), [report])
+  const reportSettings = useCallback<DirtyReport>(
+    (value, changes = []) => {
+      settingsChanges.current = changes
+      report('settings', value)
+    },
+    [report],
+  )
   const reportMedia = useCallback((value: boolean) => report('media', value), [report])
   const reportNote = useCallback((value: boolean) => report('note', value), [report])
 
   useEffect(() => {
-    latest.current.onDirtyChange?.(Object.values(dirtyFlags.current).some(Boolean))
+    reportDirty(
+      latest.current.onDirtyChange,
+      Object.values(dirtyFlags.current).some(Boolean),
+      dirtyFlags.current.settings ? settingsChanges.current : [],
+    )
   }, [onDirtyChange])
   useEffect(() => () => latest.current.onDirtyChange?.(false), [])
 
