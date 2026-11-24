@@ -591,6 +591,52 @@ test('a loaded page whose re-read fails says its rows may be out of date and off
   await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
 })
 
+test('a middle page whose re-read fails is reported and read again', async () => {
+  vi.useRealTimers()
+  const cache = createServerQueryClient()
+
+  const row = (n: number) =>
+    sessionRow({
+      attempt_id: S.attempt(n),
+      job_id: S.job(n),
+      batch_id: heyyy,
+      state: 'failed',
+      session_state: 'failed',
+    })
+
+  const first = { ...lists.needs_attention!, next_before: 'cGFnZTI' }
+  const second = sessionList({ ...first, sessions: [row(90)], next_before: 'cGFnZTM' })
+  const third = sessionList({ ...first, sessions: [row(91)], next_before: null })
+  let failSecond = false
+  const api = client({ needs_attention: first })
+  api.sessions.mockImplementation(async (query?: AgentSessionQueryDto) => {
+    if (query?.before === 'cGFnZTI') {
+      if (failSecond) {
+        throw new Error('offline')
+      }
+      return second
+    }
+    return query?.before === 'cGFnZTM' ? third : first
+  })
+  render(<AgentSessions client={api} batches={batches} />, { cache })
+  await screen.findByRole('region', { name: 'Heyyy' })
+  const more = screen.getByRole('button', { name: 'Load more' })
+  fireEvent.click(more)
+  await waitFor(() => expect(more).not.toHaveAttribute('aria-busy'))
+  fireEvent.click(more)
+  await waitFor(() => expect(more).toHaveAccessibleDescription('Every session is loaded.'))
+
+  failSecond = true
+  await act(async () => {
+    await cache.refetchQueries({ queryKey: serverQueryKey(fixtureScope, 'agent-sessions') })
+  })
+  expect(await screen.findByText(/More sessions couldn’t be read/)).toBeVisible()
+  expect(screen.queryByText('Every session is loaded.')).not.toBeInTheDocument()
+  failSecond = false
+  fireEvent.click(screen.getByRole('button', { name: 'Try loading more again' }))
+  await waitFor(() => expect(screen.queryByText(/More sessions couldn’t be read/)).toBeNull())
+})
+
 test('the Agents heading carries the AI mark; session rows do not', async () => {
   render(<AgentSessions client={client()} batches={batches} />)
   const heading = await screen.findByRole('heading', { name: 'Agents', level: 1 })

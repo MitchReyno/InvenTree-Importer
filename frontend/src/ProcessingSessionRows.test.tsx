@@ -465,3 +465,52 @@ test('without the session list a failed row says where its cause is, and still o
   const recovery = within(card).getByRole('group', { name: /^Recover/ })
   expect(within(recovery).getByRole('button', { name: 'Start fresh' })).toBeVisible()
 })
+
+test('a failed row stays offering Start fresh, unavailable, while the Processing read shows a later running attempt', async () => {
+  const row = sessionRow({
+    attempt_id: H.attempt2,
+    batch_id: H.batch,
+    job_id: H.job,
+    subject_id: H.lot,
+    state: 'failed',
+    session_state: 'failed',
+    failure: refused,
+  })
+  const running: ProcessingJobDto = { ...failedJob(), state: 'running', session_state: 'running' }
+  const api = clients(running, sessionList({ sessions: [row] }))
+  mount(api, 'overview')
+
+  const card = await screen.findByRole('region', { name: 'Agent sessions' })
+  const recovery = await within(card).findByRole('group', { name: /^Recover/ })
+  const fresh = within(recovery).getByRole('button', { name: 'Start fresh' })
+  expect(fresh).toHaveAccessibleDescription('Updating…')
+  fireEvent.click(fresh)
+  expect(api.processing.replaceSession).not.toHaveBeenCalled()
+})
+
+test('open failure details fall back to where the cause is when the session list stops reading', async () => {
+  const row = sessionRow({
+    attempt_id: H.attempt,
+    batch_id: H.batch,
+    job_id: H.job,
+    subject_id: H.lot,
+    state: 'failed',
+    session_state: 'failed',
+    failure: refused,
+  })
+  const api = clients(failedJob(), sessionList({ sessions: [row] }))
+  const cache = mount(api, 'overview')
+  const card = await screen.findByRole('region', { name: 'Agent sessions' })
+  const recovery = await within(card).findByRole('group', { name: /^Recover/ })
+  fireEvent.click(within(recovery).getByRole('button', { name: 'Failure details' }))
+  expect(within(card).getByRole('region', { name: 'Session failure' })).toBeVisible()
+
+  api.agents.sessions.mockRejectedValue(new Error('offline'))
+  await act(async () => {
+    await cache.refetchQueries({ queryKey: ['intake'] }).catch(() => {})
+  })
+  expect(
+    await within(card).findByText('Failed · its cause shows on the full session page'),
+  ).toBeVisible()
+  expect(within(card).queryByText('Failed · the cause wasn’t recorded')).not.toBeInTheDocument()
+})

@@ -79,7 +79,7 @@ export function SessionRowItem({ session, paused, onOpen, pageHref, recovery }: 
       )}
       {failed && (
         <Below>
-          {details && session.attemptId ? (
+          {details && session.attemptId && !session.failureUnread ? (
             <SessionFailureDetails
               key={`${session.attemptId}:${session.failure?.id ?? 'legacy'}`}
               attemptId={session.attemptId}

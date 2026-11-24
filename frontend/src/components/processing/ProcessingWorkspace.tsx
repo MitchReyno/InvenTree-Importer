@@ -528,12 +528,21 @@ export function ProcessingWorkspace({
   /** A failed session row's recovery, from this mount's read of its job. */
   function sessionRecovery(session: SourceSession): RowRecovery {
     const job = snapshot?.jobs.find((candidate) => candidate.id === session.jobId)
-    const recoverable = job?.session_state !== undefined && RECOVERABLE.has(job.session_state)
-    // The row and this mount's read must show the same attempt, or the press would replace
-    // another one; it waits until they agree.
-    const reason = session.attemptId === job?.attempt_id ? freshUnavailable(job) : 'Updating…'
+    // The row offers Start fresh by its own state. The row and this mount's read must show the
+    // same recoverable attempt, or the press would replace another one; it waits until they do.
+    const sameAttempt = job !== undefined && session.attemptId === job.attempt_id
+    const runnable =
+      sameAttempt && job.session_state !== undefined && RECOVERABLE.has(job.session_state)
+    const startFresh = {
+      run: () => {
+        if (runnable) {
+          restart(job)
+        }
+      },
+      reason: runnable ? freshUnavailable(job) : 'Updating…',
+    }
     return {
-      startFresh: recoverable ? { run: () => restart(job), reason } : undefined,
+      startFresh: RECOVERABLE.has(session.state) ? startFresh : undefined,
       lotHref: session.lotId
         ? batchHref(batch.id, { tab: 'review', view: 'lots', lotId: session.lotId })
         : undefined,

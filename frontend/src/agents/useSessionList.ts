@@ -81,12 +81,18 @@ export function useSessionList(read: SessionListRead, options: Options) {
     rows: mergedRows(pages),
     canLoadMore: next !== null,
     loadingMore: last?.isPending === true && !last.isError,
-    // A failed re-read counts too: the page's rows stay but may be out of date.
-    moreFailed: last?.isError === true,
+    // A failed re-read of any added page counts: its rows stay but may be out of date.
+    moreFailed: later.some((page) => page.isError),
     /** Load more has added a page, so its button stays as a focus target once all are in. */
     loadedMore: extra > 0,
     loadMore,
     /** Reads the page that failed again, from the same place. */
-    retryMore: () => void last?.refetch(),
+    retryMore: () => {
+      for (const page of later) {
+        if (page.isError) {
+          void page.refetch()
+        }
+      }
+    },
   }
 }
