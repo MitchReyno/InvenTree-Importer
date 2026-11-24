@@ -258,7 +258,6 @@ test('warm cache and cache writes cannot authorize commands; failed reads retain
 })
 
 test('cold mount reads only the fresh question state, never the stale warm-cache context', async () => {
-  const user = userEvent.setup()
   const client = clientFixture()
   const cache = createServerQueryClient()
   const key = serverQueryKey(scope, 'processing', batchId)
@@ -1824,7 +1823,7 @@ test('a refused stepped answer whose refresh then fails says it wasn’t accepte
   expect(within(form).getByLabelText('Your answer')).toHaveValue('Bent leads')
 })
 
-test('a stepped answer sent from the drawer leaves Needs you and shows in the chat beside a /1 answer', async () => {
+test('a stepped answer sent from the drawer leaves Needs you and shows in the history beside a /1 answer', async () => {
   const user = userEvent.setup()
   const answered = steppedInventorySnapshot()
   answered.jobs[0].questions[0].state = 'answered'
@@ -1895,13 +1894,13 @@ test('a stepped answer sent from the drawer leaves Needs you and shows in the ch
   )
   // The saved answer's batch event invalidates the scoped reads, the session's included.
   await act(() => queryClient.invalidateQueries())
-  const log = await within(screen.getByRole('dialog')).findByRole('log', {
-    name: 'Session messages',
+  const log = await within(screen.getByRole('dialog')).findByRole('list', {
+    name: 'Session history',
   })
-  await waitFor(() =>
-    expect(log).toHaveTextContent('Answered: Same tube as stock #1712 · Bent leads'),
-  )
-  expect(log).toHaveTextContent('Answered: 12')
+  // Each answer shows once, as the operator's bubble in the history.
+  await waitFor(() => expect(log).toHaveTextContent('Same tube as stock #1712 · Bent leads'))
+  expect(log).toHaveTextContent('12')
+  expect(log).not.toHaveTextContent('Answered:')
   expect(client.answer).toHaveBeenCalledTimes(1)
 })
 

@@ -4,8 +4,6 @@ import type {
   SessionHistoryEntryDto,
   SessionHistoryLinkDto,
 } from '@invimport/contracts'
-import type { ChatMessage } from '#/components/ui'
-import { answerPayloadText } from './question-summary'
 
 type Entry = SessionHistoryEntryDto
 
@@ -195,12 +193,11 @@ function foldedSummary(run: Entry[]) {
 }
 
 /**
- * The drawer's history, oldest first: chat stays in the chat, and each run of photo views and
- * web reads, mixed or not, folds into one line that the session page spells out.
+ * The drawer's history, oldest first, messages, replies and answers in their place, with each run
+ * of photo views and web reads, mixed or not, folded into one line the session page spells out.
  */
 export function drawerItems(entries: readonly Entry[]): HistoryItem[] {
-  const shown = entries.filter((entry) => !isChat(entry))
-  const oldestFirst = [...shown].reverse()
+  const oldestFirst = [...entries].reverse()
   const items: HistoryItem[] = []
   let run: Entry[] = []
 
@@ -351,22 +348,37 @@ function sourceKey(link: SessionHistoryLinkDto) {
   return null
 }
 
-/**
- * The chat, oldest first: the operator's messages and the agent's replies, and with `answers`
- * the operator's answers too, as the drawer's chat has always shown them.
- */
-export function chatMessages(entries: readonly Entry[], { answers = false } = {}): ChatMessage[] {
-  return [...entries].reverse().flatMap((entry): ChatMessage[] => {
-    if (answers && entry.details.kind === 'answer') {
-      const text = `Answered: ${answerPayloadText(entry.details.answer)}`
-      return [{ id: entry.id, who: 'You', mine: true, text }]
+/** How a row sits on the action rail: a dot for an agent's action, none for anything else. */
+export type RailMark = {
+  action: boolean
+  /** The line below this row: solid to an adjacent action, dashed across rows between. */
+  line: 'solid' | 'dashed' | null
+  /** The latest action of a working session. */
+  now: boolean
+}
+
+function isAction(item: ConversationItem) {
+  if (item.kind === 'elided' || item.kind === 'group') {
+    return item.kind === 'elided' || item.entries[0].who === 'agent'
+  }
+  if (item.kind === 'attempt') {
+    return false
+  }
+  return item.entry.who === 'agent' && !isChat(item.entry)
+}
+
+/** Each row's place on the rail, given whether the session is working now. */
+export function railMarks(items: readonly ConversationItem[], working: boolean): RailMark[] {
+  const actions = items.flatMap((item, index) => (isAction(item) ? [index] : []))
+  const first = actions[0] ?? -1
+  const last = actions.at(-1) ?? -1
+
+  return items.map((_item, index) => {
+    const action = actions.includes(index)
+    let line: RailMark['line'] = null
+    if (index >= first && index < last) {
+      line = action && actions.includes(index + 1) ? 'solid' : 'dashed'
     }
-    if (entry.details.kind === 'chat') {
-      return [{ id: entry.id, who: 'You', mine: true, text: entry.details.text }]
-    }
-    if (entry.details.kind === 'reply') {
-      return [{ id: entry.id, who: 'Agent', mine: false, text: entry.details.text }]
-    }
-    return []
+    return { action, line, now: working && index === last }
   })
 }

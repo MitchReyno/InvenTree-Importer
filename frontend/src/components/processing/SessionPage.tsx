@@ -11,6 +11,7 @@ import { useQuestionsWithDrafts } from '#/processing/useQuestionsWithDrafts'
 import type { ProcessingClient } from '#/processing/types'
 import { space } from '#/theme/generated/tokens'
 import { SessionChatPanel } from './SessionChatPanel'
+import { usePendingSend } from '#/processing/pending-sends'
 import { SessionConversation } from './SessionConversation'
 import { SessionPageHeader } from './SessionPageHeader'
 import { SessionPagePanels } from './SessionPagePanels'
@@ -72,6 +73,7 @@ export function SessionPage(props: Props) {
   }, [reveal])
   const held = query.data
   const questions = useQuestionsWithDrafts(held, props.isAnswerDirty)
+  const pending = usePendingSend(`${batchId}:${jobId}`)
   // A definite "not found" wins over history read earlier, which may belong to another scope.
   if (isNotFound(query.error)) {
     return (
@@ -103,6 +105,7 @@ export function SessionPage(props: Props) {
   const stepLabel = STEP_LABEL[step] ?? 'Processing'
   const title = `${stepLabel} · ${props.subjectLabel(session.subject_id)}`
   const current = session.attempts.find((attempt) => attempt.id === session.current_attempt_id)
+  const sessionState = current?.session_state ?? props.job?.session_state ?? 'queued'
   return (
     <Page>
       <SessionPageHeader
@@ -137,7 +140,10 @@ export function SessionPage(props: Props) {
             {older === 'failed' && <Small role="alert">Older entries couldn’t be loaded.</Small>}
           </Controls>
           <SessionConversation
+            label="Session conversation"
             items={conversation({ ...held, entries: questions.entries })}
+            working={sessionState === 'running'}
+            sending={pending?.status === 'sending' ? pending.text : undefined}
             filter={filter}
             context={context}
             answerForm={props.answerForm}
@@ -145,9 +151,8 @@ export function SessionPage(props: Props) {
           />
           <SessionChatPanel
             storeKey={`${batchId}:${jobId}`}
-            state={current?.session_state ?? props.job?.session_state ?? 'queued'}
+            state={sessionState}
             label={`Message ${stepLabel}`}
-            showLog={false}
             send={async (text, key) => {
               await client.chat(batchId, jobId, { idempotency_key: key, text }, key)
               await query.refetch()

@@ -1,5 +1,5 @@
 import { css, keyframes } from 'styled-components'
-import { duration, easing, offset } from '#/theme/generated/tokens'
+import { color, duration, easing, offset, space } from '#/theme/generated/tokens'
 import { media } from './media'
 
 const pulseFrames = keyframes`
@@ -13,6 +13,13 @@ const spinFrames = keyframes`
 
 const sweepFrames = keyframes`
   to { background-position: -200% 0; }
+`
+
+// A ring that grows from the dot and fades, so the dot itself never changes size.
+const ringFrames = keyframes`
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, ${color.accent} 45%, transparent); }
+  70% { box-shadow: 0 0 0 ${space[4]} color-mix(in srgb, ${color.accent} 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, ${color.accent} 0%, transparent); }
 `
 
 const riseIn = keyframes`
@@ -33,6 +40,14 @@ export const motion = {
   `,
   spin: css`
     animation: ${spinFrames} ${duration.spin} ${easing.linear} infinite;
+  `,
+  /** The "now" dot of a working session: an expanding ring, a still ring under reduced motion. */
+  nowRing: css`
+    animation: ${ringFrames} ${duration.pulse} ${easing.loop} infinite;
+    ${media.reducedMotion} {
+      animation: none;
+      box-shadow: 0 0 0 ${space[2]} ${color.accentWeak};
+    }
   `,
   /** The skeleton shimmer while a preview prepares. */
   sweep: css`

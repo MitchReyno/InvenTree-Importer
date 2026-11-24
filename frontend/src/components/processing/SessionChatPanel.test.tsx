@@ -2,36 +2,8 @@ import { screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import { render } from '#/test/render'
-import { chatMessages } from '#/processing/session-history'
-import { H, chat, input, reply, status } from '#/test/session-history'
 import { SessionChatPanel as SessionChat } from './SessionChatPanel'
 
-// Newest first, as the history read returns them.
-const entries = [
-  reply(4, 5, 'Thanks, checking the back label.'),
-  chat(1, 4, 'Check the back label.'),
-  status(3, 3, 'Comparing markings'),
-  status(1, 1, 'Reading the label'),
-]
-
-test('chat shows the operator message and the agent reply in order', () => {
-  render(
-    <SessionChat
-      storeKey="batch:chat"
-      state="running"
-      messages={chatMessages(entries)}
-      send={vi.fn()}
-      startFresh={vi.fn()}
-    />,
-  )
-  const log = screen.getByRole('log', { name: 'Session messages' })
-  const messages = [...log.children]
-  expect(messages).toHaveLength(2)
-  expect(messages[0]).toHaveTextContent('You')
-  expect(messages[0]).toHaveTextContent('Check the back label.')
-  expect(messages[1]).toHaveTextContent('Agent')
-  expect(messages[1]).toHaveTextContent('Thanks, checking the back label.')
-})
 
 test('the composer queues a message for a finished session', async () => {
   const send = vi.fn().mockResolvedValue(undefined)
@@ -131,7 +103,6 @@ test('leaving during an unresolved send cannot start a second send of it', async
   render(
     <SessionChat storeKey="batch:in-flight" state="finished" send={send} startFresh={vi.fn()} />,
   )
-  expect(screen.getByText(/Sending “Back label\?”/)).toBeVisible()
   fireEvent.change(screen.getByLabelText('Message this session'), {
     target: { value: 'Back label?' },
   })
@@ -174,65 +145,18 @@ test('offers explicit replacement for an incompatible conversation without losin
   expect(screen.getByRole('textbox', { name: 'Message this session' })).toHaveValue('Keep my draft')
 })
 
-test('a cancelled session keeps its conversation visible', () => {
+test('a cancelled session takes no messages', () => {
   render(
     <SessionChat
       storeKey="batch:cancelled-history"
       state="cancelled"
-      messages={[{ id: 'm', who: 'You', text: 'Check the back.', mine: true }]}
       send={vi.fn()}
       startFresh={vi.fn()}
     />,
   )
-  expect(screen.getByRole('log', { name: 'Session messages' })).toHaveTextContent('Check the back.')
+  // The conversation is the history above; the box has no message list of its own.
+  expect(screen.queryByRole('log')).toBeNull()
   expect(screen.getByLabelText('Message this session')).toBeDisabled()
-})
-
-test('replies from a replacement session keep their own identity', () => {
-  const ids = chatMessages([
-    { ...reply(1, 2, 'Two'), attempt: 2, id: `outbox:${H.attempt2}:1` },
-    reply(1, 1, 'One'),
-  ]).map((message) => message.id)
-  expect(new Set(ids).size).toBe(2)
-})
-
-test('the drawer chat shows /1 and /2 answers beside the messages', () => {
-  const answered = [
-    input(2, 5, {
-      kind: 'answer',
-      answer: {
-        question_id: H.question,
-        answer_id: H.inboxItem,
-        steps: [
-          { step_id: 'same', value: { kind: 'choice', option_id: 'yes', label: 'same Part' } },
-          { step_id: 'left', value: { kind: 'number', value: '380', basis: 'estimated' } },
-          { step_id: 'place', value: { kind: 'choice', other: 'Drawer R4' } },
-        ],
-      },
-      effects: [],
-    }),
-    input(1, 4, {
-      kind: 'answer',
-      answer: {
-        question_id: H.question,
-        answer_id: H.proposal,
-        value: { kind: 'quantity', value: '12', basis: 'counted' },
-      },
-      effects: [],
-    }),
-  ]
-  render(
-    <SessionChat
-      storeKey="batch:answers"
-      state="running"
-      messages={chatMessages(answered, { answers: true })}
-      send={vi.fn()}
-      startFresh={vi.fn()}
-    />,
-  )
-  const messages = [...screen.getByRole('log', { name: 'Session messages' }).children]
-  expect(messages[0]).toHaveTextContent('Answered: 12')
-  expect(messages[1]).toHaveTextContent('Answered: same Part · 380 estimated · Drawer R4')
 })
 
 test('a retry waits while sending is unavailable, then reuses the original message and key', async () => {

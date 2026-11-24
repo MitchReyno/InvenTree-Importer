@@ -5,14 +5,15 @@ import {
 } from '#/components/agents/SessionFailureDetails'
 import type { ProcessingJobDto } from '@invimport/contracts'
 import type { ProcessingClient } from '#/processing/types'
-import { chatMessages, drawerItems } from '#/processing/session-history'
+import { drawerItems } from '#/processing/session-history'
+import { usePendingSend } from '#/processing/pending-sends'
 import { useNewestHistory } from '#/processing/useSessionHistory'
 import { processingStepFor, sessionPageHref } from '#/navigation/batch-route'
 import { Link, ReadState, Small, VisuallyHidden } from '#/components/ui'
 import { space } from '#/theme/generated/tokens'
 import { SessionChatPanel } from './SessionChatPanel'
 import { SessionSkeleton } from './SessionSkeleton'
-import { HistoryList } from './HistoryList'
+import { SessionConversation } from './SessionConversation'
 
 interface Props {
   batchId: string
@@ -23,11 +24,13 @@ interface Props {
 }
 
 /**
- * The drawer's session: the newest page of its history and its chat. It reads only the newest
- * page; "Open full session" leads to every entry. Live hints invalidate it like every read.
+ * The drawer's session: the newest page of its history, messages and answers in their place,
+ * and the message box. It reads only the newest page; "Open full session" leads to every entry. Live hints invalidate it like every read.
  */
 export function SessionPanel({ batchId, job, client, startFresh, freshDisabled }: Props) {
   const history = useNewestHistory(client.history, batchId, job.id)
+  const storeKey = `${batchId}:${job.id}`
+  const pending = usePendingSend(storeKey)
   const step = processingStepFor(job.stage)
   const fullSession = sessionPageHref(batchId, step, job.id)
   if (!history.data) {
@@ -71,20 +74,21 @@ export function SessionPanel({ batchId, job, client, startFresh, freshDisabled }
         )}
         <History>
           {history.data.before && <Small>Older entries are on the full session page.</Small>}
-          {entries.length > 0 && (
-            <HistoryList
+          {(entries.length > 0 || pending?.status === 'sending') && (
+            <SessionConversation
               label="Session history"
               items={drawerItems(entries)}
               context={{ batchId, jobId: job.id, step }}
+              working={sessionState === 'running'}
+              sending={pending?.status === 'sending' ? pending.text : undefined}
             />
           )}
           <Link href={fullSession}>Open full session</Link>
         </History>
       </section>
       <SessionChatPanel
-        storeKey={`${batchId}:${job.id}`}
+        storeKey={storeKey}
         state={sessionState}
-        messages={chatMessages(entries, { answers: true })}
         send={async (text, key) => {
           await client.chat(batchId, job.id, { idempotency_key: key, text }, key)
           await history.refetch()
