@@ -324,3 +324,79 @@ export async function legacySessionQuestion(
     return questionId
   })
 }
+
+/** Another attempt of the job, sealed as a session attempt would be, now its current one. */
+export async function nextSessionAttempt(
+  fixture: Fixture,
+  capture: Capture,
+  session: { job: string },
+  lot: { id: string },
+  number: number,
+  profile: Parameters<typeof sessionLotInputManifest>[4],
+  state: 'running' | 'queued' = 'running',
+  /** False for an attempt of a profile without sessions, which has no session row. */
+  withSession = true,
+) {
+  const ids = { attempt: randomUUID(), input: randomUUID(), command: randomUUID() }
+  await transaction(fixture.db.pool, async (client) => {
+    const media = await resolveMediaInputs(
+      client,
+      fixture.config,
+      capture.batch.id,
+      processingSubjectScope(capture.batch, lot.id),
+    )
+    const manifest = sessionLotInputManifest(
+      capture.batch,
+      lot.id,
+      'research',
+      { manifest: media.bytes.toString('utf8'), sha256: media.digest.toString('hex') },
+      profile,
+    )
+    const input = sealed(manifest)
+    const command = sealed({ fixture: 'history-attempt', attempt_id: ids.attempt })
+    await client.query(
+      'INSERT INTO processing_input(id,batch_id,capture_revision,manifest_bytes,manifest_digest) VALUES($1,$2,$3,$4,$5)',
+      [ids.input, capture.batch.id, capture.batch.revision, input.bytes, input.digest],
+    )
+    await client.query(
+      `INSERT INTO command(id,actor_id,target_id,target_context_id,kind,handler_version,workflow_id,queue_name,payload_bytes,payload_digest)
+       VALUES($1,$2,$3,$4,'process','processing/5',$5,'bench-sessions',$6,$7)`,
+      [
+        ids.command,
+        fixture.identity.actor,
+        fixture.identity.target,
+        fixture.identity.context,
+        `processing:${ids.attempt}`,
+        command.bytes,
+        command.digest,
+      ],
+    )
+    await client.query(
+      `INSERT INTO processing_attempt(id,batch_id,job_id,number,input_id,profile_id,command_id,channel_digest,state)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [
+        ids.attempt,
+        capture.batch.id,
+        session.job,
+        number,
+        ids.input,
+        profile.id,
+        ids.command,
+        input.digest,
+        state,
+      ],
+    )
+    if (withSession) {
+      await client.query(
+        'INSERT INTO agent_session(attempt_id,session_state,session_lineage_id) VALUES($1,$2,$3)',
+        [ids.attempt, state, session.job],
+      )
+    }
+    await client.query('UPDATE processing_job SET current_attempt_id=$2, state=$3 WHERE id=$1', [
+      session.job,
+      ids.attempt,
+      state,
+    ])
+  })
+  return ids
+}

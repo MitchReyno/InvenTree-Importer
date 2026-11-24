@@ -10,14 +10,7 @@ import {
   type OperatorReviewDto,
   type ProcessingSnapshotDto,
 } from '@invimport/contracts'
-import {
-  STEPS,
-  STEP_BY_STAGE,
-  activeSubjectJobs,
-  countSteps,
-  type Step,
-  type StepJobs,
-} from '#/processing/steps.ts'
+import { STEP_BY_STAGE, activeSubjectJobs, countStageWork } from '#/processing/steps.ts'
 
 export type AttentionSources = {
   batchId: string
@@ -162,26 +155,12 @@ function resultItems({ batchId, manual }: AttentionSources): AttentionItemDto[] 
     }))
 }
 
-type StepWork = StepJobs & { questions: number; failed: number }
-
-function stepWork(
-  items: AttentionItemDto[],
-  processing: ProcessingSnapshotDto | undefined,
-  review: OperatorReviewDto,
-) {
+/** Each step's work over the jobs of the batch's lead and active subjects. */
+function stepWork(processing: ProcessingSnapshotDto | undefined, review: OperatorReviewDto) {
   const retired = new Set(review.retired_lots.map((lot) => lot.lot_id))
-  const jobs = countSteps(activeSubjectJobs(processing?.jobs ?? [], retired))
+  const live = new Set(review.lots.map((lot) => lot.lot_id))
 
-  const step = (name: Step): StepWork => {
-    const own = items.filter((item) => item.route.split('/')[2] === name)
-    return {
-      questions: own.filter((item) => item.group === 'question').length,
-      failed: own.filter((item) => item.group === 'failed_job').length,
-      ...jobs[name],
-    }
-  }
-
-  return Object.fromEntries(STEPS.map((name) => [name, step(name)])) as Record<Step, StepWork>
+  return countStageWork(activeSubjectJobs(processing?.jobs ?? [], retired), live)
 }
 
 /** Tab counts and need-you items projected together, so badges and the panel agree. */
@@ -204,7 +183,9 @@ export function projectAttention(sources: AttentionSources): BatchAttentionDto {
       questions: questions.length,
       failed: failedJobs.length,
       running: (sources.processing?.jobs ?? []).filter((job) => job.state === 'running').length,
-      steps: stepWork([...questions, ...failedJobs], sources.processing, sources.review),
+      lots: sources.review.lots.length,
+      paused: sources.processing?.paused === true,
+      steps: stepWork(sources.processing, sources.review),
     },
     review: {
       to_check: openLots(sources.review).filter((lot) => lot.review_state !== 'reviewed').length,

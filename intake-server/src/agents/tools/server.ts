@@ -28,7 +28,7 @@ const TOOLS = {
   propose_lot: {
     schema: 'ProposeLotArgs',
     description:
-      'Examine lead session only. Form a draft lot from observations of the same physical thing, or extend one of your lots. Quantities are estimates with a basis; never add up the same items twice.',
+      'Examine lead session only. Form a draft lot from observations of the same physical thing, or extend one of your lots. Quantities are estimates with a basis; never add up the same items twice. When it looks like another lot, say in separation_reason why it is kept apart.',
   },
   regroup: {
     schema: 'RegroupArgs',

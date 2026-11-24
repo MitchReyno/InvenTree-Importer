@@ -7,9 +7,10 @@ import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.
 import { mediaPreviewRenditions, mediaPreviews, mediaVersions } from './schema.ts'
 import { observationCropRevision, type MediaRenditionSize } from '@invimport/contracts/media'
 import type { BlobStore } from './blob-store.ts'
-import type { EvidenceRegionDto } from '@invimport/contracts'
+import { validate, type EvidenceRegionDto, type SessionPhotoViewDto } from '@invimport/contracts'
+import sharp from 'sharp'
 import { regionCropCache } from './region-crops.ts'
-import { requirePresentVersion } from './removal.ts'
+import { requirePresentVersion, versionRemovedSql } from './removal.ts'
 
 /** Object authorization precedes every private-byte read; hashes are never capabilities. */
 export function mediaContent(pool: Pool, binding: CaptureBinding, store: BlobStore) {
@@ -42,6 +43,58 @@ export function mediaContent(pool: Pool, binding: CaptureBinding, store: BlobSto
     })
     // Immutable retained version/preview references keep this exact blob ineligible for GC.
     return store.read(digest)
+  }
+
+  /**
+   * A photo view of a session in this batch of the caller's account, with its version's page
+   * preview; not found when the version was removed or the view isn't the session's.
+   */
+  async function photoViewSource(
+    batchId: string,
+    view: { jobId: string; attemptId: string; seq: string },
+  ) {
+    return transaction(pool, async (client) => {
+      await prepareMediaTransaction(client)
+      await captureInTransaction(client, binding, batchId)
+      const rows = await client.query<{ payload: unknown }>(
+        `SELECT o.payload FROM public.agent_session_outbox o
+           JOIN public.agent_session s ON s.attempt_id=o.session_id
+           JOIN public.processing_attempt a ON a.id=o.session_id
+           JOIN public.processing_job j ON j.id=a.job_id
+           JOIN public.command c ON c.id=a.command_id
+          WHERE o.session_id=$1 AND o.seq=$2 AND o.kind='photo_view'
+            AND s.session_lineage_id=$3 AND j.id=$3 AND j.batch_id=$4
+            AND c.actor_id=$5 AND c.target_id=$6 AND c.target_context_id=$7`,
+        [
+          view.attemptId,
+          view.seq,
+          view.jobId,
+          batchId,
+          binding.actorId,
+          binding.targetId,
+          binding.targetContextId,
+        ],
+      )
+      if (!rows.rows[0]) {
+        fail('not_found', 404)
+      }
+      validate('SessionPhotoView', rows.rows[0].payload)
+      const recorded = rows.rows[0].payload as SessionPhotoViewDto
+      const removed = await client.query<{ removed: boolean }>(
+        `SELECT ${versionRemovedSql('v')} AS removed FROM public.media_version v
+          WHERE v.batch_id=$1 AND v.id=$2`,
+        [batchId, recorded.version_id],
+      )
+      const pages = await client.query<{ id: string; width: number; height: number }>(
+        `SELECT id, width, height FROM public.media_preview
+          WHERE batch_id=$1 AND version_id=$2 AND page=$3`,
+        [batchId, recorded.version_id, recorded.page],
+      )
+      if (removed.rows[0]?.removed !== false || !pages.rows[0]) {
+        fail('not_found', 404)
+      }
+      return { recorded, preview: pages.rows[0] }
+    })
   }
 
   return {
@@ -92,7 +145,49 @@ export function mediaContent(pool: Pool, binding: CaptureBinding, store: BlobSto
       return { ...found, bytes: await store.read(found.digest) }
     },
 
-    /** An observation's pixel region, cut from its page preview through the private cache. */
+    /**
+     * A recorded photo view recut from the same page preview and resized to the size delivered,
+     * as PNG. The delivered image was encoded once more, so this is a reconstruction of it.
+     */
+    async photoViewCrop(
+      batchId: string,
+      view: { jobId: string; attemptId: string; seq: string },
+      cacheDir: string,
+    ) {
+      const { recorded, preview } = await photoViewSource(batchId, view)
+
+      const page = () => lookup(batchId, preview.id, 'preview')
+
+      const region = recorded.region
+      if (
+        region &&
+        (region.x + region.width > preview.width || region.y + region.height > preview.height)
+      ) {
+        // The page was re-rendered at another size; the recorded region no longer applies.
+        fail('region_preview_mismatch', 409)
+      }
+      const cut = region
+        ? (
+            await regionCropCache(cacheDir).crop(
+              { versionId: recorded.version_id, page: recorded.page },
+              {
+                kind: 'pixels',
+                ...region,
+                source_width: preview.width,
+                source_height: preview.height,
+              },
+              page,
+            )
+          ).bytes
+        : await page()
+      const { width, height } = recorded.delivered
+      const bytes = await sharp(cut, { limitInputPixels: false })
+        .resize({ width, height, fit: 'fill' })
+        .png()
+        .toBuffer()
+      return { bytes, mediaType: 'image/png' as const }
+    },
+
     /**
      * An observation's region at a display size. A `rev` naming a region other than the current
      * one is refused, so a page never shows a stale crop under a new revision or vice versa.

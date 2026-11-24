@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import styled, { css } from 'styled-components'
 import { color, radius, size, space, typeVar } from '#/theme/generated/tokens'
-import { media, hoverTransition, Popover } from '#/components/ui'
+import { media, hoverTransition, Popover, useMediaQuery } from '#/components/ui'
 
 type Variant = 'activity' | 'connection'
 
@@ -31,10 +31,17 @@ export function HeaderDisclosure({
   describedBy,
   children,
 }: HeaderDisclosureProps) {
+  const compact = useMediaQuery(media.compact)
+  // On a phone the workflow details are a sheet across the window, less the popover's edge gaps,
+  // centred so neither side of the trigger caps them.
+  const sheet = variant === 'activity' && compact
+  const fullWidth = `calc(100vw - ${space[12]})`
+
   return (
     <Popover
       label={title}
-      width={`min(360px, calc(100vw - ${space[12]}))`}
+      align={sheet ? 'center' : 'end'}
+      width={sheet ? fullWidth : `min(${variant === 'activity' ? '520px' : '360px'}, ${fullWidth})`}
       open={open}
       onOpenChange={onOpenChange}
       trigger={

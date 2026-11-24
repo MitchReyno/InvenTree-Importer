@@ -2,13 +2,14 @@ import { useRef, useState } from 'react'
 import styled from 'styled-components'
 import type { BatchAttentionDto, ConnectionStatusDto, HeaderWorkDto } from '@invimport/contracts'
 import { createServerQueryClient } from '#/queries/client'
+import { freshReads } from '#/queries/fresh-reads'
 import { serverQueryKey } from '#/queries/scope'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { GlobalStyle } from '#/components/GlobalStyle'
 import { HeaderStatus } from '#/components/masthead/HeaderStatus'
 import { Masthead } from '#/components/masthead/Masthead'
 import type { HeaderClient } from '#/header/types'
-import { UpdateHealthContext } from '#/context'
+import { ApiClientsProvider, UpdateHealthContext } from '#/context'
 
 const scope = {
   origin: 'http://localhost:3000',
@@ -23,7 +24,16 @@ const identity = {
 }
 const batchId = '10000000-0000-4000-8000-000000000001'
 const attempt = '20000000-0000-4000-8000-000000000002'
-const noWork = { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 }
+const noWork = {
+  questions: 0,
+  failed: 0,
+  jobs: 0,
+  ready: 0,
+  running: 0,
+  waiting: 0,
+  queued: 0,
+  ready_lots: 0,
+}
 const attention: BatchAttentionDto = {
   batch_id: batchId,
   revision: '4',
@@ -31,6 +41,8 @@ const attention: BatchAttentionDto = {
     questions: 3,
     failed: 0,
     running: 2,
+    lots: 0,
+    paused: false,
     steps: {
       examine: { ...noWork, jobs: 12, ready: 12 },
       research: { ...noWork, questions: 3, jobs: 12, ready: 7, running: 2 },
@@ -56,6 +68,78 @@ function batchReads() {
   return cache
 }
 
+const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString()
+
+/**
+ * A batch part-way through: Examine formed its lots and waits on two questions, Research's turn runs,
+ * Images has 9 of 12 lots and Inventory waits on both. Pausing it hatches the unfinished stages.
+ */
+function stagesWork(paused: boolean): HeaderWorkDto {
+  const id = (n: number) => `2000000${n}-0000-4000-8000-00000000000${n}`
+
+  const session = (n: number, stage: 'examine' | 'research', text: string, minutes: number) => ({
+    attempt_id: id(n),
+    batch_id: batchId,
+    job_id: id(n),
+    stage,
+    state: stage === 'examine' ? ('waiting_for_user' as const) : ('running' as const),
+    selection: {
+      provider: 'claude' as const,
+      authentication: 'subscription' as const,
+      model: 'sonnet',
+    },
+    actual_model: 'claude-sonnet-5-5',
+    progress: 'responding' as const,
+    occupies_lane: stage !== 'examine',
+    session_state: stage === 'examine' ? ('waiting_input' as const) : ('running' as const),
+    latest_status: { text, at: minutesAgo(minutes) },
+    current: true,
+  })
+
+  const job = (n: number, stage: string, state: HeaderWorkDto['work'][number]['state']) =>
+    ({
+      kind: 'processing' as const,
+      id: id(n),
+      batch_id: batchId,
+      attempt_id: id(n),
+      stage,
+      state,
+      input_current: true,
+      occupies_lane: state === 'running',
+      blocked_code: null,
+      steps: [{ stage, state }],
+      steps_complete: false,
+    }) as HeaderWorkDto['work'][number]
+
+  return {
+    ...identity,
+    observed_at: new Date().toISOString(),
+    work: [job(1, 'examine', 'waiting_for_user'), job(2, 'research', 'running')],
+    active_sessions: [
+      session(1, 'examine', 'Asked whether both invoices are one order', 4),
+      session(2, 'research', 'Comparing the reel label with the TI datasheet', 1),
+    ],
+    batch_steps: [
+      {
+        batch_id: batchId,
+        paused,
+        lots: 12,
+        steps: {
+          examine: { ...noWork, jobs: 1, ready: 1, questions: 2 },
+          research: { ...noWork, jobs: 12, ready: 7, running: 1, ready_lots: 7 },
+          images: { ...noWork, jobs: 12, ready: 9, ready_lots: 9 },
+          inventory: noWork,
+        },
+      },
+    ],
+    paused_batches: paused ? [{ batch_id: batchId, title: 'Mouser 3381-22 + bench bag' }] : [],
+    paused_truncated: false,
+    work_truncated: false,
+    sessions_truncated: false,
+    lane_occupied: true,
+  }
+}
+
 type Scenario =
   | 'connected'
   | 'unavailable'
@@ -66,10 +150,12 @@ type Scenario =
   | 'offline'
   | 'unconfigured'
   | 'transport-stale'
+  | 'stages'
   | 'attention'
 
 export function HeaderStatusProof() {
   const [cache] = useState(batchReads)
+  const paused = useRef(true)
   const scenario = useRef<Scenario>('cancelled')
   const [selected, setSelected] = useState<Scenario>('cancelled')
   const [tab, setTab] = useState('Capture')
@@ -110,6 +196,30 @@ export function HeaderStatusProof() {
       if (scenario.current === 'offline') {
         throw new Error('owned_fixture_offline')
       }
+      if (scenario.current === 'stages') {
+        const staged = stagesWork(paused.current)
+        // The open batch's own attention read gives its counts, as on the batch screen, read
+        // through the fresh-read registry as that screen reads it.
+        const counted = staged.batch_steps![0]
+        const attentionKey = serverQueryKey(scope, 'attention', batchId, '4')
+        const counts: BatchAttentionDto = {
+          ...attention,
+          processing: {
+            questions: 2,
+            failed: 0,
+            running: 1,
+            lots: counted.lots,
+            paused: counted.paused,
+            steps: counted.steps,
+          },
+        }
+        void cache.fetchQuery({
+          queryKey: attentionKey,
+          queryFn: freshReads(cache).track(attentionKey, async () => counts),
+          staleTime: 0,
+        })
+        return staged
+      }
       const value: HeaderWorkDto = {
         ...identity,
         observed_at: new Date(
@@ -117,6 +227,8 @@ export function HeaderStatusProof() {
         ).toISOString(),
         work: [],
         active_sessions: [],
+        paused_batches: [],
+        paused_truncated: false,
         work_truncated: scenario.current === 'partial',
         sessions_truncated: scenario.current === 'partial',
         lane_occupied: false,
@@ -183,6 +295,7 @@ export function HeaderStatusProof() {
           occupies_lane: true,
           session_state: null,
           latest_status: null,
+          current: true,
         })
         value.lane_occupied = true
       }
@@ -191,69 +304,87 @@ export function HeaderStatusProof() {
   }
   return (
     <ServerStateProvider scope={scope} client={cache}>
-      <GlobalStyle />
-      {/* Full width above the page, as in the app. */}
-      <Masthead
-        breadcrumb={[{ label: 'Batches', href: '#' }]}
-        status={
-          <UpdateHealthContext.Provider
-            value={{
-              state: 'live',
-              observedAt: Date.now() - (selected === 'transport-stale' ? 61_000 : 0),
-              truncated: false,
-            }}
-          >
-            <HeaderStatus client={client} batchId={batchId} />
-          </UpdateHealthContext.Provider>
-        }
-      />
-      <Main>
-        <p>
-          Owned synthetic header fixture · simulated transport and retained client · no API,
-          inventory or provider traffic. The external target link is inspection-only and must not be
-          opened during qualification.
-        </p>
-        <nav aria-label="Qualification scenario">
-          {(
-            [
-              'connected',
-              'unavailable',
-              'stale',
-              'idle',
-              'partial',
-              'cancelled',
-              'offline',
-              'unconfigured',
-              'transport-stale',
-              'attention',
-            ] satisfies Scenario[]
-          ).map((state) => (
-            <button
-              key={state}
-              aria-pressed={selected === state}
-              onClick={() => {
-                scenario.current = state
-                setSelected(state)
-                void cache.invalidateQueries({ queryKey: serverQueryKey(scope) })
+      <ApiClientsProvider
+        value={{
+          agents: {
+            sessions: async () => {
+              throw new Error('owned_fixture_has_no_sessions')
+            },
+            settings: async () => {
+              throw new Error('owned_fixture_has_no_settings')
+            },
+            pause: async (_batch: string, pause: boolean) => {
+              paused.current = pause
+              return { batch_id: batchId, paused: pause }
+            },
+          },
+        }}
+      >
+        <GlobalStyle />
+        {/* Full width above the page, as in the app. */}
+        <Masthead
+          breadcrumb={[{ label: 'Batches', href: '#' }]}
+          status={
+            <UpdateHealthContext.Provider
+              value={{
+                state: 'live',
+                observedAt: Date.now() - (selected === 'transport-stale' ? 61_000 : 0),
+                truncated: false,
               }}
             >
-              Show {state} state
-            </button>
-          ))}
-        </nav>
-        <nav aria-label="Fixture tabs">
-          {['Capture', 'Processing', 'Review'].map((name) => (
-            <button key={name} onClick={() => setTab(name)}>
-              {name}
-            </button>
-          ))}
-        </nav>
-        <h1>{tab}</h1>
-        <label>
-          Uncommitted human draft
-          <textarea aria-label="Uncommitted human draft" />
-        </label>
-      </Main>
+              <HeaderStatus client={client} batchId={batchId} />
+            </UpdateHealthContext.Provider>
+          }
+        />
+        <Main>
+          <p>
+            Owned synthetic header fixture · simulated transport and retained client · no API,
+            inventory or provider traffic. The external target link is inspection-only and must not
+            be opened during qualification.
+          </p>
+          <nav aria-label="Qualification scenario">
+            {(
+              [
+                'connected',
+                'unavailable',
+                'stale',
+                'idle',
+                'partial',
+                'cancelled',
+                'offline',
+                'unconfigured',
+                'transport-stale',
+                'stages',
+                'attention',
+              ] satisfies Scenario[]
+            ).map((state) => (
+              <button
+                key={state}
+                aria-pressed={selected === state}
+                onClick={() => {
+                  scenario.current = state
+                  setSelected(state)
+                  void cache.invalidateQueries({ queryKey: serverQueryKey(scope) })
+                }}
+              >
+                Show {state} state
+              </button>
+            ))}
+          </nav>
+          <nav aria-label="Fixture tabs">
+            {['Capture', 'Processing', 'Review'].map((name) => (
+              <button key={name} onClick={() => setTab(name)}>
+                {name}
+              </button>
+            ))}
+          </nav>
+          <h1>{tab}</h1>
+          <label>
+            Uncommitted human draft
+            <textarea aria-label="Uncommitted human draft" />
+          </label>
+        </Main>
+      </ApiClientsProvider>
     </ServerStateProvider>
   )
 }

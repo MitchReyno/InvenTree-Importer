@@ -11,6 +11,8 @@ const work = {
   observed_at: '2026-11-03T00:00:00Z',
   work: [],
   active_sessions: [],
+  paused_batches: [],
+  paused_truncated: false,
   work_truncated: false,
   sessions_truncated: false,
   lane_occupied: false,
@@ -30,8 +32,11 @@ test('bounded header contracts refuse private session fields and unknown coverag
     occupies_lane: true,
     session_state: null,
     latest_status: null,
+    current: true,
   }
   validate('HeaderWork', { ...work, active_sessions: [session] })
+  const { current: _current, ...withoutCurrent } = session
+  assert.throws(() => validate('HeaderWork', { ...work, active_sessions: [withoutCurrent] }))
   assert.throws(() =>
     validate('HeaderWork', {
       ...work,
@@ -98,23 +103,82 @@ test('the connection target may carry the InvenTree version, and older reads wit
 
 test('the header may count each step of a batch, and reads without counts stay valid', () => {
   validate('HeaderWork', work)
-  const step = { jobs: 5, ready: 3, running: 1 }
+  const step = {
+    jobs: 5,
+    ready: 3,
+    running: 1,
+    waiting: 1,
+    queued: 0,
+    questions: 2,
+    failed: 0,
+    ready_lots: 3,
+  }
   const steps = { examine: step, research: step, images: step, inventory: step }
-  validate('HeaderWork', { ...work, batch_steps: [{ batch_id: id, steps }] })
+  const entry = { batch_id: id, paused: false, lots: 12, steps }
+  validate('HeaderWork', { ...work, batch_steps: [entry] })
   validate('HeaderWork', { ...work, batch_steps: [] })
   assert.throws(() =>
-    validate('HeaderWork', { ...work, batch_steps: [{ batch_id: id, steps: { examine: step } }] }),
+    validate('HeaderWork', { ...work, batch_steps: [{ ...entry, steps: { examine: step } }] }),
   )
   assert.throws(() =>
     validate('HeaderWork', {
       ...work,
-      batch_steps: [{ batch_id: id, steps: { ...steps, research: { ...step, ready: -1 } } }],
+      batch_steps: [{ ...entry, steps: { ...steps, research: { ...step, ready: -1 } } }],
     }),
   )
   assert.throws(() =>
     validate('HeaderWork', {
       ...work,
-      batch_steps: Array.from({ length: 6 }, () => ({ batch_id: id, steps })),
+      batch_steps: Array.from({ length: 6 }, () => entry),
     }),
   )
+})
+
+test('each counted batch says whether it is paused, how many live lots it has and each step’s waiting work', () => {
+  const step = {
+    jobs: 1,
+    ready: 0,
+    running: 0,
+    waiting: 0,
+    queued: 1,
+    questions: 0,
+    failed: 0,
+    ready_lots: 0,
+  }
+  const steps = { examine: step, research: step, images: step, inventory: step }
+  const entry = { batch_id: id, paused: true, lots: 0, steps }
+  validate('HeaderWork', { ...work, batch_steps: [entry] })
+  for (const field of ['paused', 'lots'] as const) {
+    const { [field]: _omitted, ...without } = entry
+    assert.throws(() => validate('HeaderWork', { ...work, batch_steps: [without] }), field)
+  }
+  for (const field of ['waiting', 'queued', 'questions', 'failed', 'ready_lots'] as const) {
+    const { [field]: _omitted, ...without } = step
+    assert.throws(
+      () =>
+        validate('HeaderWork', {
+          ...work,
+          batch_steps: [{ ...entry, steps: { ...steps, images: without } }],
+        }),
+      field,
+    )
+  }
+})
+
+test('the header lists up to 20 paused batches by name, and says when there are more', () => {
+  const paused = { batch_id: id, title: 'Heyyy batch' }
+  validate('HeaderWork', { ...work, paused_batches: [paused], paused_truncated: false })
+  validate('HeaderWork', {
+    ...work,
+    paused_batches: Array.from({ length: 20 }, () => paused),
+    paused_truncated: true,
+  })
+  assert.throws(() =>
+    validate('HeaderWork', { ...work, paused_batches: Array.from({ length: 21 }, () => paused) }),
+  )
+  assert.throws(() =>
+    validate('HeaderWork', { ...work, paused_batches: [{ ...paused, title: '' }] }),
+  )
+  const { paused_truncated: _omitted, ...withoutFlag } = work
+  assert.throws(() => validate('HeaderWork', withoutFlag))
 })

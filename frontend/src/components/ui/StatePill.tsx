@@ -15,13 +15,22 @@ export const WORK_STATE: Record<WorkState, { word: string; tone: PillTone; glyph
   not_started: { word: 'Not started', tone: 'outline', glyph: '–' },
 }
 
+type StatePillProps = {
+  state: WorkState
+  /** A count after the word, as in "Queued · 3". */
+  detail?: string
+  /** Words that replace the state's own where a count leads, as in "2 working". */
+  label?: string
+}
+
 /** A work state's word and glyph, with an optional detail such as a count after it. */
-export function StatePill({ state, detail }: { state: WorkState; detail?: string }) {
+export function StatePill({ state, detail, label }: StatePillProps) {
   const { word, tone, glyph } = WORK_STATE[state]
+  const own = label ?? word
 
   return (
     <Pill tone={tone} glyph={glyph}>
-      {detail ? `${word} · ${detail}` : word}
+      {detail ? `${own} · ${detail}` : own}
     </Pill>
   )
 }

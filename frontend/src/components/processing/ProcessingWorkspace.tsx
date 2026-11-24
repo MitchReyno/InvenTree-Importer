@@ -827,6 +827,9 @@ export function ProcessingWorkspace({
                 lotsFormed={lotsFormed(batch.lots)}
                 sessionLimit={sessionLimit}
                 pause={pause}
+                paused={snapshot.paused === true}
+                // A restored or failed read, or one from before the last live hint, draws still bars.
+                still={displayOnly || !fresh.settledAfterHint}
               />
             ) : (
               <StepPage

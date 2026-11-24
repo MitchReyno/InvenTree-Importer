@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { expect, test } from 'vitest'
+import { expect, test, vi } from 'vitest'
 import { HeaderDisclosureProof } from './fixtures/HeaderDisclosureProof'
 
 test('controlled header disclosure exposes labelled content and returns focus on Escape', async () => {
@@ -38,4 +38,24 @@ test('the panel has no Close button; a click outside shuts it', async () => {
   expect(panel).toBeVisible()
   await user.click(document.body)
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+})
+
+test('on a phone the workflow details are a centred sheet across the window, not capped by the trigger', async () => {
+  const user = userEvent.setup()
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn((query: string) => ({
+      matches: query.includes('max-width'),
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    })),
+  )
+  render(<HeaderDisclosureProof />)
+
+  await user.click(screen.getByRole('button', { name: 'Workflow activity' }))
+  const panel = await screen.findByRole('dialog', { name: 'Workflow details' })
+
+  expect(panel).toHaveAttribute('data-align', 'center')
+  expect(panel.style.width).toBe('calc(100vw - var(--space-12))')
+  vi.unstubAllGlobals()
 })

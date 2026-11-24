@@ -17,6 +17,7 @@ import {
   HelpButton,
 } from '#/components/ui'
 import { PauseButton } from '#/components/agents/PauseButton'
+import { stageSegment } from '#/header/workSegments'
 import { Card, CardTitle, Muted, SessionRows, plural } from './ProcessingParts'
 import { LotTable } from './LotTable'
 import { NeedsYouCard } from './NeedsYouCard'
@@ -51,33 +52,26 @@ type Props = {
     readyNow?: () => boolean
     change: (paused: boolean) => Promise<unknown>
   }
+  /** The batch is paused, as its read last said; its unfinished steps draw as paused. */
+  paused?: boolean
+  /** The bars stay still while the read they come from is not current. */
+  still?: boolean
   onOpenSession: (jobId: string) => void
 }
 
-const RUNNING_MINIMUM = 0.08
-
-/** A step's bar: done once every attempt is ready, running only while work runs. */
-function segment(step: StepProgress): ProgressStep {
-  if (step.jobs === 0) {
-    return { label: step.label, state: 'waiting' }
+/** A step's bar, with the same states and fill as the masthead's activity popover. */
+function segment(step: StepProgress, paused: boolean): ProgressStep {
+  const counts = {
+    jobs: step.jobs,
+    ready: step.ready,
+    running: step.running,
+    waiting: step.waiting,
+    queued: step.queued,
+    questions: step.questions,
+    failed: step.failed,
+    ready_lots: step.readyLots,
   }
-  if (step.ready === step.jobs) {
-    return { label: step.label, state: 'done' }
-  }
-  if (step.running > 0) {
-    // A sliver stays visible while nothing is ready yet, so running work never draws empty.
-    return {
-      label: step.label,
-      state: 'running',
-      fraction: Math.max(step.ready / step.jobs, RUNNING_MINIMUM),
-    }
-  }
-  if (step.failed > 0 && step.queued + step.waiting === 0) {
-    return { label: step.label, state: 'failed' }
-  }
-
-  // Queued, waiting or stopped work is not running; the counts beneath say which.
-  return { label: step.label, state: 'waiting' }
+  return { ...stageSegment(step.step, counts, step.lots, paused), label: step.label }
 }
 
 /**
@@ -97,6 +91,8 @@ export function ProcessingOverview({
   lotsFormed,
   sessionLimit,
   pause,
+  paused = false,
+  still = false,
   onOpenSession,
 }: Props) {
   const runningSessions = source.sessions.filter((session) => session.state === 'running').length
@@ -132,7 +128,11 @@ export function ProcessingOverview({
               </Muted>
             )}
           </TitleRow>
-          <ProgressSegments size="lg" steps={source.steps.map(segment)} />
+          <ProgressSegments
+            size="lg"
+            still={still}
+            steps={source.steps.map((step) => segment(step, paused))}
+          />
           <StepLabels aria-label="Steps">
             {source.steps.map((step) => (
               <li key={step.step}>

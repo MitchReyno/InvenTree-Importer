@@ -2,7 +2,16 @@ import type { BatchAttentionDto } from '@invimport/contracts'
 import { describe, expect, it } from 'vitest'
 import { stepStatus, tabCount, type TabCountInput } from './tab-count'
 
-const none = { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 }
+const none = {
+  questions: 0,
+  failed: 0,
+  jobs: 0,
+  ready: 0,
+  running: 0,
+  waiting: 0,
+  queued: 0,
+  ready_lots: 0,
+}
 
 function attention(overrides: Partial<BatchAttentionDto> = {}): BatchAttentionDto {
   return {
@@ -12,6 +21,8 @@ function attention(overrides: Partial<BatchAttentionDto> = {}): BatchAttentionDt
       questions: 3,
       failed: 1,
       running: 2,
+      lots: 0,
+      paused: false,
       steps: {
         examine: { ...none, questions: 1, jobs: 12, ready: 12 },
         research: { ...none, jobs: 12, ready: 7, running: 2 },
@@ -35,6 +46,8 @@ const quiet: TabCountInput = {
       questions: 0,
       failed: 2,
       running: 0,
+      lots: 0,
+      paused: false,
       steps: {
         examine: { ...none, jobs: 12, ready: 12 },
         research: { ...none, failed: 2, jobs: 12, ready: 7 },
@@ -117,6 +130,8 @@ describe('stepStatus', () => {
         questions: 0,
         failed: 1,
         running: 0,
+        lots: 0,
+        paused: false,
         steps: {
           examine: { ...none, failed: 1, jobs: 3, ready: 2 },
           research: { ...none, failed: 1, jobs: 1 },

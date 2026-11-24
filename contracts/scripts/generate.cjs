@@ -305,6 +305,19 @@ async function main() {
       '/api/v1/batches/{id}/processing/{jobId}/session': {
         get: get('SessionTimeline', CAPTURE_TIMEOUT_MS),
       },
+      '/api/v1/batches/{id}/processing/{jobId}/history': {
+        get: {
+          ...get('SessionHistory', CAPTURE_TIMEOUT_MS),
+          parameters: [
+            {
+              name: 'before',
+              in: 'query',
+              description: 'The cursor of the page read last; returns the next older page.',
+              schema: schemas.SessionHistoryCursor,
+            },
+          ],
+        },
+      },
       '/api/v1/batches/{id}/processing/{jobId}/replacement': {
         post: post('SessionReplacement', 'ProcessingReceipt', '202', CAPTURE_TIMEOUT_MS),
       },
@@ -366,6 +379,13 @@ async function main() {
           ['image/png', 'image/webp'],
           'Private image preview, revalidated by digest; use a browser resource URL.',
           { parameters: [renditionSize], revalidated: true },
+        ),
+      },
+      '/api/v1/batches/{batchId}/processing/sessions/{jobId}/photo-views/{attemptId}/{seq}/crop': {
+        get: browserResource(
+          'image/png',
+          "A session's photo view recut from its page preview at the size delivered; use a browser resource URL.",
+          { revalidated: true },
         ),
       },
       '/api/v1/batches/{batchId}/media/observations/{resourceId}/crop': {

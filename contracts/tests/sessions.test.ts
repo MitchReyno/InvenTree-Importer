@@ -578,3 +578,156 @@ test('readings and catalogue values may say what kind of source they came from a
     }),
   )
 })
+
+test('a regroup records its moves with their source lots and outcomes; an older one only its lots', () => {
+  const moves = [
+    { observation_id: id(30), from_lot_id: id(4), to_lot_id: id(5), outcome: 'applied' },
+    { observation_id: id(31), from_lot_id: null, to_lot_id: id(5), outcome: 'suggested' },
+    { observation_id: id(32), from_lot_id: id(5), to_lot_id: id(5), outcome: 'unchanged' },
+  ]
+  validate('SessionOutboxItem', {
+    ...outboxBase,
+    kind: 'regroup',
+    payload: { lot_ids: [id(5)], moves },
+  })
+  validate('SessionOutboxItem', { ...outboxBase, kind: 'regroup', payload: { lot_ids: [id(5)] } })
+  // A lot item may say what propose_lot did and why the lot is apart; an older one has only the lot.
+  for (const outcome of ['formed', 'extended', 'suggested', 'unchanged']) {
+    validate('SessionOutboxItem', {
+      ...outboxBase,
+      kind: 'lot',
+      payload: { lot_id: id(4), outcome },
+    })
+  }
+  validate('SessionOutboxItem', {
+    ...outboxBase,
+    kind: 'lot',
+    payload: { lot_id: id(4), outcome: 'formed', separation_reason: 'Date code 2407 vs 2341' },
+  })
+  assert.throws(() =>
+    validate('SessionOutboxItem', {
+      ...outboxBase,
+      kind: 'lot',
+      payload: { lot_id: id(4), separation_reason: '' },
+    }),
+  )
+  validate('ProposeLotArgs', {
+    base_revision: '1',
+    label: 'Packet B',
+    observation_ids: [id(30)],
+    separation_reason: 'Same MPN as packet A, another date code',
+  })
+  assert.throws(() =>
+    validate('ProposeLotArgs', {
+      base_revision: '1',
+      label: 'Packet B',
+      observation_ids: [id(30)],
+      separation_reason: 'x'.repeat(513),
+    }),
+  )
+  assert.throws(() =>
+    validate('SessionOutboxItem', {
+      ...outboxBase,
+      kind: 'lot',
+      payload: { lot_id: id(4), outcome: 'merged' },
+    }),
+  )
+  assert.throws(() =>
+    validate('SessionOutboxItem', {
+      ...outboxBase,
+      kind: 'regroup',
+      payload: { lot_ids: [id(5)], moves: [{ ...moves[0], outcome: 'pending' }] },
+    }),
+  )
+  assert.throws(() =>
+    validate('SessionOutboxItem', {
+      ...outboxBase,
+      kind: 'regroup',
+      payload: { lot_ids: [id(5)], moves: [] },
+    }),
+  )
+})
+
+const historyAttempt = {
+  id: id(40),
+  number: 1,
+  state: 'ready',
+  session_state: 'finished',
+  queued_at: '2026-11-06T01:02:03.004Z',
+  ended: { at: '2026-11-06T01:12:03.004Z', source: 'transition' },
+  started_because: 'first',
+  profile_id: 'shared-vm-agent/3',
+  runs_on: 'agent_vm',
+  selection: { provider: 'claude', authentication: 'subscription', model: 'claude-opus-5-5' },
+  actual_model: null,
+  web: { public_pages: true, prefer_datasheets: true },
+}
+const historyPage = (entries: unknown[], extra: object = {}) => ({
+  session: {
+    job_id: id(41),
+    batch_id: id(42),
+    stage: 'research',
+    subject_id: id(4),
+    current_attempt_id: id(40),
+    attempts: [historyAttempt],
+    inbox_acked_seq: '0',
+  },
+  entries,
+  ...extra,
+})
+
+test('a history page carries resolved entries, the session metadata and one older cursor', () => {
+  const status = {
+    id: `outbox:${id(40)}:1`,
+    at: '2026-11-06T01:02:04.000Z',
+    who: 'agent',
+    attempt: 1,
+    summary: 'Reading the reel label',
+    links: [],
+    details: { kind: 'status', text: 'Reading the reel label' },
+  }
+  const chat = {
+    id: 'inbox:3',
+    at: '2026-11-06T01:02:05.000Z',
+    who: 'operator',
+    read: false,
+    summary: 'Check the datasheet first',
+    links: [{ kind: 'gone', target: 'lot', label: 'Lot retired' }],
+    details: { kind: 'chat', text: 'Check the datasheet first' },
+  }
+  const webRead = {
+    ...status,
+    id: `outbox:${id(40)}:2:web:3`,
+    summary: 'Read ATmega328P datasheet',
+    links: [
+      { kind: 'external_url', url: 'https://example.com/ds.pdf', label: 'ATmega328P datasheet' },
+    ],
+    details: {
+      kind: 'web_read',
+      url: 'https://example.com/ds.pdf',
+      proposal_entry_id: `outbox:${id(40)}:2`,
+    },
+  }
+  validate('SessionHistory', historyPage([chat, webRead, status], { before: 'WyIyMDI2Il0' }))
+  validate('SessionHistory', historyPage([]))
+  // Every attempt is listed, however many a lineage has.
+  const many = Array.from({ length: 1001 }, (_, index) => ({
+    ...historyAttempt,
+    number: index + 1,
+  }))
+  validate('SessionHistory', {
+    ...historyPage([]),
+    session: { ...historyPage([]).session, attempts: many },
+  })
+  // An inbox entry has no attempt, and an agent entry has no read state.
+  assert.throws(() => validate('SessionHistory', historyPage([{ ...chat, attempt: 1 }])))
+  assert.throws(() => validate('SessionHistory', historyPage([{ ...status, read: true }])))
+  assert.throws(() => validate('SessionHistory', historyPage([{ ...status, id: 'outbox:1' }])))
+  assert.throws(() => validate('SessionHistory', historyPage([], { before: 'not a cursor' })))
+  assert.throws(() =>
+    validate('SessionHistory', {
+      ...historyPage([]),
+      session: { ...historyPage([]).session, attempts: [] },
+    }),
+  )
+})

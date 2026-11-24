@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { Pool } from 'pg'
-import { Id, Revision, schemas, type MediaEditDto } from '@invimport/contracts'
+import { Id, Revision, schemas, validInt64, type MediaEditDto } from '@invimport/contracts'
 import { CommandPayloadConflict } from '#/db/authority.ts'
 import { bootstrap, type DevConfig } from '#/config.ts'
 import { CaptureError, fail } from '#/capture/model.ts'
@@ -187,6 +187,44 @@ export function registerMediaRoutes(
       return reply.send(preview.bytes)
     })
 
+    scope.get(
+      '/api/v1/batches/:batchId/processing/sessions/:jobId/photo-views/:attemptId/:seq/crop',
+      async (request, reply) => {
+        const values = request.params as Record<string, unknown>
+        const batchId = identifier(values.batchId)
+        const seq = values.seq
+        if (
+          typeof seq !== 'string' ||
+          !validInt64(seq) ||
+          !new RegExp(Revision.pattern!).test(seq)
+        ) {
+          fail('invalid_id', 400)
+        }
+        const view = {
+          jobId: identifier(values.jobId),
+          attemptId: identifier(values.attemptId),
+          seq: seq as string,
+        }
+        // Authorized on every request, with the same scope as the session's history.
+        const crop = await content.photoViewCrop(batchId, view, cropCacheDir)
+        const etag = `"${createHash('sha256').update(crop.bytes).digest('hex')}"`
+        reply
+          .header('content-security-policy', "default-src 'none'; sandbox")
+          .header('cross-origin-resource-policy', 'same-origin')
+          .header('cache-control', 'private, no-cache')
+          .header('etag', etag)
+        if (matchesEntityTag(request.headers['if-none-match'], etag)) {
+          return reply.code(304).send()
+        }
+        reply
+          .header('content-type', crop.mediaType)
+          .header(
+            'content-disposition',
+            `inline; filename="${view.attemptId}-${view.seq}-photo-view.png"`,
+          )
+        return reply.send(crop.bytes)
+      },
+    )
     scope.get(
       '/api/v1/batches/:batchId/media/observations/:resourceId/crop',
       async (request, reply) => {

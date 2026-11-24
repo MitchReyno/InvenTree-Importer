@@ -36,6 +36,7 @@ import type { ProcessingConfig } from '#/processing/attempts.ts'
 import { sealed } from '#/processing/model.ts'
 import { MAX_JOB_RESULTS, MAX_PROCESSING_SNAPSHOT_BYTES } from '#/processing/limits.ts'
 import { catalogueSources, deliveredSourceCheck } from '#/processing/provenance.ts'
+import { storableText } from '#/db/storable-text.ts'
 import { lockProcessingAttempt } from '#/processing/state.ts'
 import {
   processingAttempts,
@@ -1079,25 +1080,43 @@ export function sessionTools(context: SessionToolContext) {
       }),
 
     propose_lot: (token: string, args: unknown) =>
-      withLeadSession(context, token, async (client, principal) =>
-        outboxed(
-          client,
-          principal,
-          await proposeLot(
-            client,
-            writer(principal),
-            validated<ProposeLotArgsDto>('ProposeLotArgs', args),
-          ),
-          (id) => ({ kind: 'lot', payload: { lot_id: id } }),
-        ),
-      ),
+      withLeadSession(context, token, async (client, principal) => {
+        const input = validated<ProposeLotArgsDto>('ProposeLotArgs', args)
+        // The reason is stored in the outbox's jsonb, which refuses NUL and unpaired surrogates.
+        if (input.separation_reason !== undefined && !storableText(input.separation_reason)) {
+          throw new ToolRefusal(
+            'validation_failed',
+            "The separation reason holds a character that can't be stored. Remove it and retry.",
+            [
+              {
+                path: '/separation_reason',
+                rule: 'schema',
+                reason: 'Text must not hold NUL or unpaired surrogates.',
+              },
+            ],
+          )
+        }
+        const result = await proposeLot(client, writer(principal), input)
+        return outboxed(client, principal, result, (id) => ({
+          kind: 'lot',
+          payload: {
+            lot_id: id,
+            ...(result.ok && result.lotOutcome ? { outcome: result.lotOutcome } : {}),
+            ...(input.separation_reason ? { separation_reason: input.separation_reason } : {}),
+          },
+        }))
+      }),
 
     regroup: (token: string, args: unknown) =>
       withLeadSession(context, token, async (client, principal) => {
         const input = validated<RegroupArgsDto>('RegroupArgs', args)
-        return outboxed(client, principal, await regroup(client, writer(principal), input), () => ({
+        const result = await regroup(client, writer(principal), input)
+        return outboxed(client, principal, result, () => ({
           kind: 'regroup',
-          payload: { lot_ids: [...new Set(input.moves.map((move) => move.to_lot_id))] },
+          payload: {
+            lot_ids: [...new Set(input.moves.map((move) => move.to_lot_id))],
+            ...(result.ok && result.moves ? { moves: result.moves } : {}),
+          },
         }))
       }),
 
@@ -1155,8 +1174,17 @@ export function sessionTools(context: SessionToolContext) {
     read_inbox: (token: string, args: unknown) =>
       withSession(context, token, { capture: false }, async (client, principal) => {
         const { after_seq } = validated<{ after_seq: string }>('SessionReadInboxArgs', args)
-        const items = await readSessionInbox(client, principal.lineageId!, BigInt(after_seq))
-        return ok(client, principal, { items })
+        const read = await readSessionInbox(client, principal.lineageId!, BigInt(after_seq))
+        // An open drawer or session page shows which inputs the session has read.
+        if (read.advanced) {
+          await appendEvent(
+            client,
+            await batchStream(client, principal.batchId),
+            'session_changed',
+            { batch_id: principal.batchId },
+          )
+        }
+        return ok(client, principal, { items: read.items })
       }),
 
     propose: (token: string, args: unknown) =>

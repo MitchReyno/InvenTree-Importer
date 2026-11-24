@@ -241,6 +241,7 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - **Scope and approach:**
   - `contracts/src/sessions.ts` (`SessionHistory`, `SessionHistoryEntry`, and `moves` on new regroup outbox items);
   - `regroup` in `capture/evidence-observations.ts`, which returns each move's outcome, and the regroup handler, which records the moves with their source lots and outcomes;
+  - `propose_lot`, which takes an optional `separation_reason` and records it on its `lot` outbox item with what the call did (formed, extended, suggested or unchanged);
   - `read_inbox` in `agents/tools/handlers.ts`, which publishes `session_changed` when it advances the acknowledgement cursor;
   - `intake-server/src/agents/tools/timeline.ts` and its route in `processing/routes.ts`;
   - `media/region-crops.ts` for the crop route, `GET …/photo-views/:attemptId/:seq/crop`.
@@ -251,20 +252,20 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - **Verification:** `pnpm db:intake test` on the timeline and route tests, and a process test reading a fake session's history.
 - **Risks and decisions:** resolution must stay one query per kind, not one per entry; check the plans in 6.5.
 
-- [ ] 6.1 Read the intake-server architecture. Map how each outbox and inbox kind resolves to labels, state and links.
-- [ ] 6.2 RED: PG tests:
-  - [ ] 6.2.1 Each entry kind resolves its summary, details and links.
-  - [ ] 6.2.2 A retired lot or a removed version gives a "gone" link.
-  - [ ] 6.2.3 With rows written by the existing append paths, answers and chat appear as the operator's from their actor, an instruction saved before a Start fresh and relayed to the new attempt placed at its relay time, with its save time in its details and labelled relayed, and `evidence` and `revision` notices (including an identity revision from another session) as the app's, and one above the acknowledgement cursor reads as not read yet; a `read_inbox` call that advances the cursor publishes `session_changed` in its transaction, and one that doesn't move it publishes nothing.
-  - [ ] 6.2.4 Attempt headers say how an attempt ended, and why it started where the retained input shows it; turns within an attempt are not attempts; a failure or resume with no new inbox or outbox item still updates its header on the next read; the span runs from the queue time, not a turn's `started_at`; an attempt cancelled before its first turn, one cancelled after a settled turn, an idle attempt superseded by Start fresh after a prior turn, and an attempt that finished, was resumed and was then cancelled show the end time of their latest terminal transition, not an earlier turn's.
-  - [ ] 6.2.5 A regroup with recorded moves shows them, and a mixed regroup shows which moves were applied and which only suggested; an older regroup lists its destination lots; an observation revised in place shows its values labelled current in both its entries; earlier attempts' failures resolve; a lot edited after formation shows its values labelled current, and after an operator's quantity change shows the selected quantity apart from the agent's estimate and basis.
-  - [ ] 6.2.6 The `before` cursor pages without gaps or duplicates across retries with repeated sequences and equal timestamps, and across inbox and outbox rows with equal timestamps; the page, its cursor and the metadata come from one snapshot; every read returns the metadata and acknowledgement cursor, including a read of the newest page with no new entries.
-  - [ ] 6.2.7 A proposal links every open question that makes it provisional, with two matching questions.
-  - [ ] 6.2.8 The session metadata for a retried session, including the web setting from each attempt's manifest.
-  - [ ] 6.2.9 Another batch or account gets `session_not_found`.
-- [ ] 6.3 RED: route tests for the photo-view crop: the recorded region bounded as delivered, a full-page view, two attempts with the same sequence, 404 for a removed version, and scope.
-- [ ] 6.4 GREEN: implement the read, the contract and the crop route.
-- [ ] 6.5 Check the queries batch per kind, and update `intake-server/src/agents/ARCHITECTURE.md`. Run the intake unit, PG and process tiers, including a read of a database already holding `/6` proposals and photo views.
+- [x] 6.1 Read the intake-server architecture. Map how each outbox and inbox kind resolves to labels, state and links.
+- [x] 6.2 RED: PG tests:
+  - [x] 6.2.1 Each entry kind resolves its summary, details and links.
+  - [x] 6.2.2 A retired lot or a removed version gives a "gone" link.
+  - [x] 6.2.3 With rows written by the existing append paths, answers and chat appear as the operator's from their actor, an instruction saved before a Start fresh and relayed to the new attempt placed at its relay time, with its save time in its details and labelled relayed, and `evidence` and `revision` notices (including an identity revision from another session) as the app's, and one above the acknowledgement cursor reads as not read yet; a `read_inbox` call that advances the cursor publishes `session_changed` in its transaction, and one that doesn't move it publishes nothing.
+  - [x] 6.2.4 Attempt headers say how an attempt ended, and why it started where the retained input shows it; turns within an attempt are not attempts; a failure or resume with no new inbox or outbox item still updates its header on the next read; the span runs from the queue time, not a turn's `started_at`; an attempt cancelled before its first turn, one cancelled after a settled turn, an idle attempt superseded by Start fresh after a prior turn, and an attempt that finished, was resumed and was then cancelled show the end time of their latest terminal transition, not an earlier turn's.
+  - [x] 6.2.5 A regroup with recorded moves shows them, and a mixed regroup shows which moves were applied and which only suggested; an older regroup lists its destination lots; an observation revised in place shows its values labelled current in both its entries; earlier attempts' failures resolve; a lot edited after formation shows its values labelled current, and after an operator's quantity change shows the selected quantity apart from the agent's estimate and basis.
+  - [x] 6.2.6 The `before` cursor pages without gaps or duplicates across retries with repeated sequences and equal timestamps, and across inbox and outbox rows with equal timestamps; the page, its cursor and the metadata come from one snapshot; every read returns the metadata and acknowledgement cursor, including a read of the newest page with no new entries.
+  - [x] 6.2.7 A proposal links every open question that makes it provisional, with two matching questions.
+  - [x] 6.2.8 The session metadata for a retried session, including the web setting from each attempt's manifest.
+  - [x] 6.2.9 Another batch or account gets `session_not_found`.
+- [x] 6.3 RED: route tests for the photo-view crop: the recorded region bounded as delivered, a full-page view, two attempts with the same sequence, 404 for a removed version, and scope.
+- [x] 6.4 GREEN: implement the read, the contract and the crop route.
+- [x] 6.5 Check the queries batch per kind, and update `intake-server/src/agents/ARCHITECTURE.md`. Run the intake unit, PG and process tiers, including a read of a database already holding `/6` proposals and photo views. A PG test finds a read issues as many statements for a page of many entries as for a few, and the PG history tests read `/6` proposals and photo views written by the existing tools; tier results are on the PR.
 
 ## 7. Expandable timeline and the session page
 
@@ -319,10 +320,10 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - **Verification:** contracts tests; `pnpm db:intake test` on the header and attention tests.
 - **Risks and decisions:** keep the counts in the existing queries; no extra per-step query.
 
-- [ ] 8.1 Read the shared and intake-server code guidelines. Map how `stepJobs` and `stepWork` are counted today.
-- [ ] 8.2 RED: contract tests for the new fields. PG tests for a batch with one waiting-for-you, one queued, one running and one ready job, with open questions, retired lots, a stage with live lots but no jobs yet, a ready Part job beside a live lot with no job at that step, a paused batch, a batch paused with no jobs, more than five paused batches with one that has no work (in `paused_batches`, not cut by the `batch_steps` cap), more than 20 (truncated), `current` false on an earlier attempt of the job that still holds its slot (set up in the fixture, since Start fresh refuses while any attempt of the job holds one), and a failed Research job beside running Images in a batch other than the open one.
-- [ ] 8.3 GREEN: implement the counts and the paused flag in both reads.
-- [ ] 8.4 Run the contracts tests and the intake unit and PG tiers.
+- [x] 8.1 Read the shared and intake-server code guidelines. Map how `stepJobs` and `stepWork` are counted today.
+- [x] 8.2 RED: contract tests for the new fields. PG tests for a batch with one waiting-for-you, one queued, one running and one ready job, with open questions, retired lots, a stage with live lots but no jobs yet, a ready Part job beside a live lot with no job at that step, a paused batch, a batch paused with no jobs, more than five paused batches with one that has no work (in `paused_batches`, not cut by the `batch_steps` cap), more than 20 (truncated), `current` false on an earlier attempt of the job that still holds its slot (set up in the fixture, since Start fresh refuses while any attempt of the job holds one), and a failed Research job beside running Images in a batch other than the open one.
+- [x] 8.3 GREEN: implement the counts and the paused flag in both reads.
+- [x] 8.4 Run the contracts tests and the intake unit and PG tiers.
 
 ## 9. Activity popover stage rows and bar states
 
@@ -343,15 +344,15 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
   - a reduced-motion check.
 - **Risks and decisions:** the Processing overview uses the same bar, so check it in the demo too.
 
-- [ ] 9.1 Read the shared and frontend code guidelines, the frontend architecture and the D42 board.
-- [ ] 9.2 RED: `workSegments` tests:
-  - [ ] 9.2.1 State precedence, including a stage with both working and failed jobs, and a turn still running after the batch is paused, which reads working while the batch shows Paused and Resume.
-  - [ ] 9.2.2 A stage with no jobs yet is never done.
-  - [ ] 9.2.3 No fill without counts, and an uncounted running stage and an uncounted waiting stage read working and waiting for you from their retained jobs.
-  - [ ] 9.2.4 Examine waiting on questions reads as waiting for you.
-- [ ] 9.3 RED: tests for `ProgressSegments`' states, patterns and animation (only working, none under reduced motion), and for the popover's stage rows, links, counts, status lines (a finished stage with a cancelled attempt still holding a slot shows a reason, not that attempt's line, as in "Cancelled attempt still holding a slot") and Resume (including an open batch paused with no jobs), no animation on rows from a failed or stale read, including a finished stage and a stage whose sessions fall outside `active_sessions`, which show a reason rather than an agent line ("Stage with no listed session").
-- [ ] 9.4 GREEN: implement the states, the popover layout and the rows. Update the component gallery.
-- [ ] 9.5 Run the frontend checks. Record the demo video for the PR description.
+- [x] 9.1 Read the shared and frontend code guidelines, the frontend architecture and the D42 board.
+- [x] 9.2 RED: `workSegments` tests:
+  - [x] 9.2.1 State precedence, including a stage with both working and failed jobs, and a turn still running after the batch is paused, which reads working while the batch shows Paused and Resume.
+  - [x] 9.2.2 A stage with no jobs yet is never done.
+  - [x] 9.2.3 No fill without counts, and an uncounted running stage and an uncounted waiting stage read working and waiting for you from their retained jobs.
+  - [x] 9.2.4 Examine waiting on questions reads as waiting for you.
+- [x] 9.3 RED: tests for `ProgressSegments`' states, patterns and animation (only working, none under reduced motion), and for the popover's stage rows, links, counts, status lines (a finished stage with a cancelled attempt still holding a slot shows a reason, not that attempt's line, as in "Cancelled attempt still holding a slot") and Resume (including an open batch paused with no jobs), no animation on rows from a failed or stale read, including a finished stage and a stage whose sessions fall outside `active_sessions`, which show a reason rather than an agent line ("Stage with no listed session").
+- [x] 9.4 GREEN: implement the states, the popover layout and the rows. Update the component gallery.
+- [x] 9.5 Run the frontend checks. Record the demo video for the PR description.
 
 ## 10. Session rows, failures in plain words and Agents filters
 
@@ -403,10 +404,10 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - [ ] PR-0: review the plan read-only (`codex exec -m gpt-6.2-sol -s read-only`, round by round), fix findings, publish, CI green, merge.
 - [x] PR-A: implement task 1, review the exact head, publish with the demo, CI green, merge. Merged as #252 at `17c3d509`.
 - [x] PR-B: implement tasks 2, 3 and 4, review the exact head, publish with the demo, CI green, merge. Merged as #251 at `54477ac3`.
-- [ ] PR-D1: implement task 5, review the exact head, publish, CI green, merge.
+- [x] PR-D1: implement task 5, review the exact head, publish, CI green, merge. Merged as #257 at `4fcdbd54`.
 - [ ] PR-D2: implement task 6, review the exact head, publish, CI green, merge.
 - [ ] PR-E: implement task 7, review the exact head, publish with the demo, CI green, merge.
-- [ ] PR-F: implement tasks 8 and 9, review the exact head, publish with the demo, CI green, merge.
+- [x] PR-F: implement tasks 8 and 9, review the exact head, publish with the demo, CI green, merge. Merged as #258 at `d09984bc`.
 - [ ] PR-G: implement task 10, review the exact head, publish with the demo, CI green, merge.
 - [ ] PR-H: implement task 11, review the exact head, publish with the demo, CI green, merge.
 - [ ] Update BI-019's status as PRs merge. It is Done only after PR-A, PR-B, PR-D1, PR-D2, PR-E, PR-F, PR-G and PR-H merge and its acceptance is evidenced.

@@ -13,6 +13,7 @@ import { commandKey } from '#/api/request.ts'
 import { replaceSession } from './session-replacement.ts'
 import { submitSessionInbox } from '#/agents/tools/inbox.ts'
 import { readSessionTimeline } from '#/agents/tools/timeline.ts'
+import { readSessionHistory } from '#/agents/tools/history.ts'
 import type { LockCapture } from './capture.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { processingRepository } from './repository.ts'
@@ -106,6 +107,19 @@ export function registerProcessing(
       '/api/v1/batches/:id/processing/:jobId/session',
       { schema: { response: { 200: schemas.SessionTimeline } } },
       (request) => readSessionTimeline(pool, config, id(request), id(request, 'jobId')),
+    )
+    scope.get<{ Querystring: { before?: string } }>(
+      '/api/v1/batches/:id/processing/:jobId/history',
+      {
+        schema: {
+          querystring: schemas.SessionHistoryQuery,
+          response: { 200: schemas.SessionHistory },
+        },
+      },
+      (request) =>
+        readSessionHistory(pool, config, id(request), id(request, 'jobId'), {
+          before: request.query.before,
+        }),
     )
     scope.post<{ Body: SessionReplacementDto }>(
       '/api/v1/batches/:id/processing/:jobId/replacement',

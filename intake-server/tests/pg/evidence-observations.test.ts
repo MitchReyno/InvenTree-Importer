@@ -802,6 +802,8 @@ test('operator moves, bulk edits and splits mark lots edited, so the lead sessio
       }),
     )
     assert.ok(again.ok && again.suggested)
+    // Its observations are already there, so the history records no change to the lot.
+    assert.equal(again.lotOutcome, 'unchanged')
     const movedPart = snapshot.lots.find((lot) => lot.id === moved)!.part_subject_id
     assert.equal((await read()).lots.find((lot) => lot.id === moved)!.part_subject_id, movedPart)
     const leftover = snapshot.lots.find((lot) => lot.id === split)!.evidence_observation_ids![0]

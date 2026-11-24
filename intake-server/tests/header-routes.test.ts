@@ -43,6 +43,8 @@ test('header reads use the existing host/origin gate and serialize only scoped c
       observed_at: '2026-11-03T00:00:00Z',
       work: [],
       active_sessions: [],
+      paused_batches: [],
+      paused_truncated: false,
       work_truncated: false,
       sessions_truncated: false,
       lane_occupied: false,
