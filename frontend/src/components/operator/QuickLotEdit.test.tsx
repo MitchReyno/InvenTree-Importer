@@ -34,7 +34,9 @@ test('editing the quantity reports unsaved work, and typing it back releases it'
   const user = userEvent.setup()
   const { quantity, onDirtyChange } = renderEdit()
   await user.type(quantity, '0')
-  expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true, [
+    { label: 'Packet A · quantity', discard: expect.any(Function) },
+  ])
   await user.type(quantity, '{Backspace}')
   expect(quantity).toHaveValue('5')
   expect(onDirtyChange).toHaveBeenLastCalledWith(false)
@@ -61,7 +63,9 @@ test('a refused save keeps the edits and the guard', async () => {
   await user.type(quantity, '12')
   await user.click(screen.getByRole('button', { name: /save/i }))
   expect(quantity).toHaveValue('12')
-  expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true, [
+    { label: 'Packet A · quantity', discard: expect.any(Function) },
+  ])
 })
 
 test('an invalid quantity is refused before anything is sent', async () => {
@@ -103,7 +107,9 @@ test('a location is searched among the observed ones and saved alone', async () 
     />,
   )
   await searchAndPick(user, 'Location', 'draw', 'Drawer 4 (#43)')
-  expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true, [
+    { label: 'Packet A · location', discard: expect.any(Function) },
+  ])
   await user.click(screen.getByRole('button', { name: /save/i }))
   expect(edit).toHaveBeenCalledWith({
     kind: 'lot',

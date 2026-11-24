@@ -33,6 +33,9 @@ import {
   useRetainedPollInterval,
   useBatchCommands,
 } from '#/context'
+import type { DirtyReport } from '#/navigation/unsaved-changes'
+import { readReplacingCancels } from '#/queries/replaced-reads'
+import { useMountSignal } from '#/lifecycle/useMountSignal'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -47,7 +50,7 @@ interface Props {
   operatorReview?: OperatorReviewDto
   /** The operator review for this revision is still being read: a wait, not an unavailable review. */
   operatorReviewPending?: boolean
-  onDirtyChange?: (dirty: boolean) => void
+  onDirtyChange?: DirtyReport
   /** Drawn from restored snapshots before Capture's read lands; nothing can be changed. */
   displayOnly?: boolean
 }
@@ -108,8 +111,10 @@ export function ManualWorkspace({
     current: (read) => read.capture_revision === batch.revision,
   })
   const restoredWorkspace = useRestoredSnapshot('review-workspace', batch.id)
+  const workspaceKey = serverQueryKey(scope, 'manual', batch.id)
+  const mountSignal = useMountSignal()
   const workspaceFresh = useFreshRead({
-    queryKey: serverQueryKey(scope, 'manual', batch.id),
+    queryKey: workspaceKey,
     queryFn: () => client.workspace(batch.id),
     refetchInterval: pollInterval,
     // The stored projection keeps Review's lots only; Changes waits for its own read.
@@ -136,13 +141,20 @@ export function ManualWorkspace({
   const confirm = useConfirmation()
   const [error, setError] = useState('')
 
-  async function refresh() {
-    const result = await workspaceQuery.refetch({ throwOnError: true })
-    if (!result.data) {
-      throw new Error('manual_snapshot_missing')
-    }
-
-    return result.data
+  /** Reads the workspace again, waiting through a live update's cancel for its replacement. */
+  function refresh() {
+    return readReplacingCancels({
+      client: queryClient,
+      queryKey: workspaceKey,
+      read: async () => {
+        const result = await workspaceQuery.refetch({ throwOnError: true })
+        if (!result.data) {
+          throw new Error('manual_snapshot_missing')
+        }
+        return result.data
+      },
+      signal: mountSignal(),
+    })
   }
 
   // A retained approval or a removed lot leaves the selection; history keeps it.

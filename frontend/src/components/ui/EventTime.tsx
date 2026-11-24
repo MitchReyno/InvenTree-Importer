@@ -4,6 +4,7 @@ import { useMinute } from './RelativeTime'
 const CLOCK: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit' }
 const DATE: Intl.DateTimeFormatOptions = { weekday: 'short', day: 'numeric', month: 'short' }
 const FULL: Intl.DateTimeFormatOptions = { dateStyle: 'full', timeStyle: 'medium' }
+const TODAY = 'Today '
 
 function sameDay(a: Date, b: Date) {
   return (
@@ -31,7 +32,7 @@ export function eventTimeText(at: string, now: number, locale?: string) {
   const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1)
   const clock = new Intl.DateTimeFormat(locale, CLOCK).format(event)
   if (sameDay(event, today)) {
-    return `Today ${clock}`
+    return `${TODAY}${clock}`
   }
   if (sameDay(event, yesterday)) {
     return `Yesterday ${clock}`
@@ -48,10 +49,22 @@ export function eventTimeTitle(at: string, locale?: string) {
   return event ? new Intl.DateTimeFormat(locale, FULL).format(event) : null
 }
 
-/** An event's time, saying which day it was; the exact instant is its machine value and title. */
-export function EventTime({ at, now }: { at: string; now?: number }) {
+/**
+ * An event's time, saying which day it was; the exact instant is its machine value and title.
+ * `clockToday` drops "Today" where a sentence reads "loaded at 13:12".
+ */
+export function EventTime({
+  at,
+  now,
+  clockToday = false,
+}: {
+  at: string
+  now?: number
+  clockToday?: boolean
+}) {
   const clock = useMinute()
-  const text = eventTimeText(at, now ?? clock)
+  const dated = eventTimeText(at, now ?? clock)
+  const text = clockToday && dated?.startsWith(TODAY) ? dated.slice(TODAY.length) : dated
   const title = eventTimeTitle(at)
 
   return (

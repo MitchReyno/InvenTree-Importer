@@ -11,6 +11,7 @@ import { proposedLots } from '#/processing/proposed-lots'
 import { batchHref } from '#/navigation/batch-route'
 import { useSessionStatuses } from '#/processing/session-status'
 import { useApiClients, useBatchCommands } from '#/context'
+import { reportDirty, type UnsavedChange } from '#/navigation/unsaved-changes'
 
 type DirtySource = 'settings' | 'media' | 'note'
 
@@ -66,6 +67,10 @@ export function CaptureWorkspace({
     )
   }, [])
 
+  // Discarding the settings' unsaved changes remounts their panel on the accepted batch.
+  const [settingsMount, setSettingsMount] = useState(0)
+  const discardSettings = useRef(() => {})
+
   const report = useCallback(
     (source: DirtySource, value: boolean) => {
       const { onDirtyChange, settings } = latest.current
@@ -73,7 +78,7 @@ export function CaptureWorkspace({
       dirtyFlags.current = { ...dirtyFlags.current, [source]: value }
       const any = Object.values(dirtyFlags.current).some(Boolean)
       setSources(dirtyFlags.current)
-      onDirtyChange?.(any)
+      reportDirty(onDirtyChange, any, namedChanges(dirtyFlags.current, discardSettings.current))
       // Evidence commands advance the batch revision; settings stay paused until it is adopted.
       if (evidenceWasPending && !dirtyFlags.current.media && !dirtyFlags.current.note && settings) {
         refreshSettings()
@@ -83,11 +88,19 @@ export function CaptureWorkspace({
   )
 
   const reportSettings = useCallback((value: boolean) => report('settings', value), [report])
+  discardSettings.current = () => {
+    setSettingsMount((mount) => mount + 1)
+    reportSettings(false)
+  }
   const reportMedia = useCallback((value: boolean) => report('media', value), [report])
   const reportNote = useCallback((value: boolean) => report('note', value), [report])
 
   useEffect(() => {
-    latest.current.onDirtyChange?.(Object.values(dirtyFlags.current).some(Boolean))
+    reportDirty(
+      latest.current.onDirtyChange,
+      Object.values(dirtyFlags.current).some(Boolean),
+      namedChanges(dirtyFlags.current, discardSettings.current),
+    )
   }, [onDirtyChange])
   useEffect(() => () => latest.current.onDirtyChange?.(false), [])
 
@@ -176,6 +189,7 @@ export function CaptureWorkspace({
             </div>
           )}
           <BatchSettingsPanel
+            key={settingsMount}
             batch={batch}
             ports={settings}
             paused={sources.media || sources.note || refresh !== 'idle'}
@@ -231,3 +245,8 @@ const NextStep = styled.div`
     justify-content: center;
   }
 `
+
+/** Settings name their unsaved changes; evidence and note commands are kept, unnamed, until confirmed. */
+function namedChanges(flags: Record<DirtySource, boolean>, discard: () => void): UnsavedChange[] {
+  return flags.settings ? [{ label: 'the batch settings', discard }] : []
+}

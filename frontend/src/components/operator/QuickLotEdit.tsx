@@ -4,6 +4,7 @@ import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { Small, Button } from '#/components/ui'
 import { ChoicePicker, Fieldset, Form, Input, Label, Select } from '#/forms'
 import { useReportDirty } from '#/navigation/useReportDirty'
+import { reportDirty, type DirtyReport, type UnsavedChange } from '#/navigation/unsaved-changes'
 import type { CaptureEdit } from '#/capture/types'
 
 type Lot = CaptureSnapshotDto['lots'][number]
@@ -26,7 +27,7 @@ interface Props {
   lot: Lot
   disabled: boolean
   edit: CaptureEdit
-  onDirtyChange?: (dirty: boolean) => void
+  onDirtyChange?: DirtyReport
 }
 
 function initialValues(lot: Lot): Values {
@@ -41,9 +42,16 @@ function initialValues(lot: Lot): Values {
   }
 }
 
-/** Whether the form holds anything other than the values the editor opened with. */
-function differsFrom(defaults: Values, values: Values) {
-  return (Object.keys(defaults) as (keyof Values)[]).some((key) => values[key] !== defaults[key])
+/** Which of the lot's fields the form changes from the values the editor opened with. */
+function changedFields(defaults: Values, values: Values) {
+  const fields: ('quantity' | 'location')[] = []
+  if (values.quantityMode !== defaults.quantityMode || values.quantity !== defaults.quantity) {
+    fields.push('quantity')
+  }
+  if (values.location !== defaults.location) {
+    fields.push('location')
+  }
+  return fields
 }
 
 function quantityChange(values: Values): Lot['quantity'] {
@@ -89,7 +97,25 @@ export function QuickLotEdit({ batch, lot, disabled, edit, onDirtyChange }: Prop
   const quantityMode = watch('quantityMode')
   const locations = batch.observations.filter((item) => item.model === 'location')
 
-  useReportDirty(isDirty, onDirtyChange)
+  function discard() {
+    reset(defaults)
+    onDirtyChange?.(false)
+  }
+
+  /** The changed fields, named by lot, each dropped with the whole editor's discard. */
+  function unsaved(values: Values): UnsavedChange[] {
+    return changedFields(defaults, values).map((field) => ({
+      label: `${lot.label} · ${field}`,
+      discard,
+    }))
+  }
+
+  function reportValues() {
+    const changes = unsaved(getValues())
+    reportDirty(onDirtyChange, changes.length > 0, changes)
+  }
+
+  useReportDirty(isDirty, onDirtyChange, isDirty ? unsaved(getValues()) : undefined)
 
   async function save(values: Values) {
     const quantityTouched = Boolean(dirtyFields.quantityMode || dirtyFields.quantity)
@@ -107,11 +133,7 @@ export function QuickLotEdit({ batch, lot, disabled, edit, onDirtyChange }: Prop
   }
 
   return (
-    <Form
-      onChange={() => onDirtyChange?.(differsFrom(defaults, getValues()))}
-      onSubmit={handleSubmit(save)}
-      aria-label={`Edit ${lot.label}`}
-    >
+    <Form onChange={reportValues} onSubmit={handleSubmit(save)} aria-label={`Edit ${lot.label}`}>
       <Fieldset disabled={disabled}>
         <Label>
           Quantity
@@ -161,7 +183,7 @@ export function QuickLotEdit({ batch, lot, disabled, edit, onDirtyChange }: Prop
               disabled={disabled}
               onChange={(value) => {
                 field.onChange(value)
-                onDirtyChange?.(differsFrom(defaults, getValues()))
+                reportValues()
               }}
             />
           )}
@@ -171,14 +193,7 @@ export function QuickLotEdit({ batch, lot, disabled, edit, onDirtyChange }: Prop
           Save lot values
         </Button>
       </Fieldset>
-      <Button
-        type="button"
-        disabled={!isDirty || isSubmitting}
-        onClick={() => {
-          reset(defaults)
-          onDirtyChange?.(false)
-        }}
-      >
+      <Button type="button" disabled={!isDirty || isSubmitting} onClick={discard}>
         Discard lot edits
       </Button>
     </Form>

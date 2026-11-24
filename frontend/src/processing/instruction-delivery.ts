@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { isCancelledError } from '@tanstack/react-query'
 import type { ReadRequest } from '#/queries/fresh-reads'
+import { ReadAbandoned } from '#/queries/replaced-reads'
 
 /** Whether the batch's saved instructions reached its agent sessions. */
 export type InstructionDelivery =
@@ -56,12 +56,16 @@ export function useInstructionDelivery(
       // Each pass reads Processing; a hint arriving meanwhile, or joining a read that started
       // earlier, needs another. Checked once more just before sending.
       while (request && !request.ready()) {
-        await readThroughCancels(request)
+        await request.readAgain(current.controller.signal)
         if (current.controller.signal.aborted) {
           return
         }
       }
-    } catch {
+    } catch (error) {
+      // A replaced wait (a Retry, or the batch closing) reports nothing.
+      if (error instanceof ReadAbandoned) {
+        return
+      }
       if (waiting.current === current) {
         waiting.current = null
         setState({ batchId, delivery: { status: 'failed' } })
@@ -88,17 +92,6 @@ export function useInstructionDelivery(
   const deliver = send ? () => deliverNow(send) : undefined
 
   return { delivery, deliver }
-}
-
-/** A read live reconciliation cancels is replaced, not failed; the next pass reads again. */
-async function readThroughCancels(request: ReadRequest) {
-  try {
-    await request.readAgain()
-  } catch (error) {
-    if (!isCancelledError(error)) {
-      throw error
-    }
-  }
 }
 
 export function deliveryMessage(delivery: InstructionDelivery) {

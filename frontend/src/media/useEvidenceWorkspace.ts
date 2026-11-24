@@ -3,6 +3,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { validate, type MediaEditDto, type MediaSnapshotDto } from '@invimport/contracts'
 import { serverQueryKey } from '#/queries/scope'
 import { useFreshRead } from '#/queries/useFreshRead'
+import { readReplacingCancels } from '#/queries/replaced-reads'
+import { useMountSignal } from '#/lifecycle/useMountSignal'
 import { useDirtySources } from '#/operator/useDirtySources'
 import { useRetainedCommand } from '#/operator/useRetainedCommand'
 import type { MediaClient } from './types'
@@ -38,6 +40,24 @@ export function useEvidenceWorkspace(
     refetchInterval: pollInterval,
   })
   const query = mediaRead.query
+  const mountSignal = useMountSignal()
+  const refetch = query.refetch
+  const readMedia = useCallback(
+    (signal: AbortSignal) =>
+      readReplacingCancels({
+        client: cache,
+        queryKey: serverQueryKey(scope, 'media', batchId),
+        read: async () => {
+          const result = await refetch({ throwOnError: true })
+          if (!result.data) {
+            throw new Error('media_snapshot_missing')
+          }
+          return result.data
+        },
+        signal,
+      }),
+    [cache, refetch, scope, batchId],
+  )
   // The first accepted snapshot needs a read this workspace saw start, not one it joined (such as
   // the cached Capture view's); after that, receipts and their rereads keep it current.
   const [verifiedOnce, setVerifiedOnce] = useState(false)
@@ -80,12 +100,9 @@ export function useEvidenceWorkspace(
     cache.setQueryData(key, value)
   }
 
-  async function fresh() {
-    const result = await query.refetch({ throwOnError: true })
-    if (!result.data) {
-      throw new Error('media_snapshot_missing')
-    }
-    return result.data
+  /** Reads media again, waiting through a live update's cancel for the read that replaced it. */
+  function fresh() {
+    return readMedia(mountSignal())
   }
 
   /**
@@ -246,15 +263,7 @@ export function useEvidenceWorkspace(
     }
   }
 
-  const refetch = query.refetch
-
-  const refresh = useCallback(async () => {
-    const value = await refetch({ throwOnError: true })
-    if (!value.data) {
-      throw new Error('media_snapshot_missing')
-    }
-    return value.data
-  }, [refetch])
+  const refresh = useCallback(() => readMedia(mountSignal()), [readMedia, mountSignal])
 
   return {
     snapshot,
