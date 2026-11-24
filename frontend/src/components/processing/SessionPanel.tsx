@@ -60,7 +60,7 @@ export function SessionPanel({
     )
   }
   const { session, entries } = history.data
-  const shownPending = unreadPendingSends(pending, entries)
+  const shownPending = unreadPendingSends(pending, history.data)
   const current = session.attempts.find((attempt) => attempt.id === session.current_attempt_id)
   const sessionState = current?.session_state ?? job.session_state ?? 'queued'
   const latest = entries.find((entry) => entry.details.kind === 'status')
@@ -104,6 +104,8 @@ export function SessionPanel({
       </section>
       <SessionChatPanel
         storeKey={storeKey}
+        batchId={batchId}
+        jobId={job.id}
         state={sessionState}
         newestInboxSeq={newestInboxSeq(entries)}
         send={async (text, key) => {

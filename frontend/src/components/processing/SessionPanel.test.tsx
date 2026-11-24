@@ -286,6 +286,39 @@ test('a message the read holds before its send returns shows once, never twice',
   expect(within(list).getAllByText('Is the date code readable?')).toHaveLength(1)
 })
 
+test('a message read before its receipt stays gone once agent actions push it off the page', async () => {
+  const sent = deferred<{ seq: string; item_id: string }>()
+  let page = conversationPage()
+  const client = mount(
+    () => Promise.resolve(page),
+    () => sent.promise,
+  )
+  const list = await screen.findByRole('list', { name: 'Session history' })
+  send('Is the date code readable?')
+  await within(list).findByRole('listitem', { name: 'Your message, sending' })
+  page = history([chat(9, 7, 'Is the date code readable?'), ...conversationPage().entries], {
+    attempts: conversationPage().session.attempts,
+  })
+  await act(async () => {
+    await client.cache.refetchQueries()
+  })
+  await act(async () => {
+    sent.resolve({ seq: '9', item_id: H.inboxItem })
+    await sent.promise
+  })
+
+  // The newest page now holds only newer agent actions: no inbox row at all.
+  page = history([status(40, 30, 'Still working'), status(39, 29, 'Checking the label')], {
+    attempts: conversationPage().session.attempts,
+  })
+  await act(async () => {
+    await client.cache.refetchQueries()
+  })
+  await within(list).findByText('Still working')
+  expect(within(list).queryByText('Is the date code readable?')).toBeNull()
+  expect(within(list).queryByRole('listitem', { name: /^Your message/ })).toBeNull()
+})
+
 test('a saved message whose refresh fails stays shown as saved until a read holds it', async () => {
   let page: () => Promise<SessionHistoryDto> = () => Promise.resolve(conversationPage())
 
@@ -382,4 +415,27 @@ test('a pending message stays with its server scope', async () => {
   )
   await screen.findByRole('list', { name: 'Session history' })
   expect(screen.queryByText('Only in this scope')).toBeNull()
+})
+
+test('a send that fails after its scope ended does not come back when the scope returns', async () => {
+  const sent = deferred<{ seq: string; item_id: string }>()
+  mount(
+    () => Promise.resolve(conversationPage()),
+    () => sent.promise,
+  )
+  await screen.findByRole('list', { name: 'Session history' })
+  send('Sent before leaving')
+  await screen.findByRole('listitem', { name: 'Your message, sending' })
+  cleanup()
+  await act(async () => {
+    sent.reject(new Error('offline'))
+    await sent.promise.catch(() => undefined)
+  })
+
+  mount(() => Promise.resolve(conversationPage()))
+  await screen.findByRole('list', { name: 'Session history' })
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(screen.queryByText(/Sent before leaving/)).toBeNull()
+  fireEvent.change(screen.getByLabelText('Message this session'), { target: { value: 'Again' } })
+  expect(screen.getByRole('button', { name: 'Send' })).not.toBeDisabled()
 })

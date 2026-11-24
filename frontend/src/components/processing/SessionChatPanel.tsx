@@ -6,14 +6,19 @@ import { SessionChat, Paragraph, Small, Button } from '#/components/ui'
 import {
   dropPendingSend,
   hasPendingSend,
-  setPendingSend,
+  nextHistoryOrder,
+  settlePendingSend,
+  startPendingSend,
   usePendingSends,
   type PendingSend,
+  type PendingSendSession,
 } from '#/processing/pending-sends'
 
 interface Props {
   /** Identifies the session, so a send in flight or unconfirmed survives leaving and returning. */
   storeKey: string
+  batchId: string
+  jobId: string
   state: SessionStateDto
   /** Queues one message; the same key is reused only to retry that exact message. */
   send: (text: string, key: string) => Promise<{ seq: string }>
@@ -30,18 +35,26 @@ interface Props {
 }
 
 async function deliver(
-  storeKey: string,
-  item: Omit<PendingSend, 'status' | 'seq'>,
+  session: PendingSendSession,
+  item: Pick<PendingSend, 'text' | 'key' | 'after'>,
   send: Props['send'],
 ): Promise<boolean> {
-  setPendingSend(storeKey, { ...item, status: 'sending' })
+  const { text, key, after } = item
+  startPendingSend(session, { text, key, after, status: 'sending' })
   try {
-    const receipt = await send(item.text, item.key)
-    // Kept until a history read holds the saved row, so it neither vanishes nor shows twice.
-    setPendingSend(storeKey, { ...item, status: 'saved', seq: Number(receipt.seq) })
+    const receipt = await send(text, key)
+    // Kept until the history reads cover the saved row, so it neither vanishes nor shows twice.
+    settlePendingSend(session.storeKey, {
+      text,
+      key,
+      after,
+      status: 'saved',
+      seq: Number(receipt.seq),
+      savedOrder: nextHistoryOrder(),
+    })
     return true
   } catch {
-    setPendingSend(storeKey, { ...item, status: 'unconfirmed' })
+    settlePendingSend(session.storeKey, { text, key, after, status: 'unconfirmed' })
     return false
   }
 }
@@ -66,6 +79,8 @@ export function chatConfirmation(state: SessionStateDto) {
  */
 export function SessionChatPanel({
   storeKey,
+  batchId,
+  jobId,
   state,
   send,
   newestInboxSeq = 0,
@@ -99,12 +114,14 @@ export function SessionChatPanel({
 
   const confirmed = () => setMessage(chatConfirmation(state))
 
+  const session = { storeKey, batchId, jobId }
+
   const submit = (text: string) => {
     if (hasPendingSend(storeKey) || sendUnavailable) {
       return
     }
     setMessage('')
-    void deliver(storeKey, { text, key: crypto.randomUUID(), after: newestInboxSeq }, send).then(
+    void deliver(session, { text, key: crypto.randomUUID(), after: newestInboxSeq }, send).then(
       (ok) => ok && confirmed(),
     )
   }
@@ -131,7 +148,7 @@ export function SessionChatPanel({
             <Button
               type="button"
               disabled={sendUnavailable !== undefined}
-              onClick={() => void deliver(storeKey, pending, send).then((ok) => ok && confirmed())}
+              onClick={() => void deliver(session, pending, send).then((ok) => ok && confirmed())}
             >
               Retry this message
             </Button>{' '}

@@ -12,6 +12,8 @@ export type HeldHistory = {
   session: SessionHistoryDto['session']
   entries: Entry[]
   before?: string
+  /** The newest page's place in the history read order (`nextHistoryOrder`). */
+  readOrder?: number
 }
 
 /** One row of a history list: an entry, a run grouped into one, or the drawer's folded line. */
@@ -87,6 +89,8 @@ export function appendOlderPage(
     session: held.session,
     entries: [...held.entries, ...older],
     ...(page.before ? { before: page.before } : {}),
+    // An older page changes nothing about when the newest was read.
+    ...(held.readOrder !== undefined ? { readOrder: held.readOrder } : {}),
   }
 }
 

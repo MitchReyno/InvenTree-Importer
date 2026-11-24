@@ -7,7 +7,14 @@ import { SessionChatPanel as SessionChat } from './SessionChatPanel'
 test('the composer queues a message for a finished session', async () => {
   const send = vi.fn().mockResolvedValue({ seq: '1' })
   render(
-    <SessionChat storeKey="batch:finished" state="finished" send={send} startFresh={vi.fn()} />,
+    <SessionChat
+      storeKey="batch:finished"
+      batchId="batch"
+      jobId="job"
+      state="finished"
+      send={send}
+      startFresh={vi.fn()}
+    />,
   )
   const field = screen.getByLabelText('Message this session')
   expect(field).toBeEnabled()
@@ -21,7 +28,14 @@ test('the composer queues a message for a finished session', async () => {
 test('an unconfirmed send keeps its message and key until retried or discarded', async () => {
   const send = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue({ seq: '1' })
   render(
-    <SessionChat storeKey="batch:running-1" state="running" send={send} startFresh={vi.fn()} />,
+    <SessionChat
+      storeKey="batch:running-1"
+      batchId="batch"
+      jobId="job"
+      state="running"
+      send={send}
+      startFresh={vi.fn()}
+    />,
   )
   fireEvent.change(screen.getByLabelText('Message this session'), {
     target: { value: 'Is the date code readable?' },
@@ -42,7 +56,14 @@ test('an unconfirmed send keeps its message and key until retried or discarded',
 test('discarding an unconfirmed send frees the composer', async () => {
   const send = vi.fn().mockRejectedValueOnce(new Error('offline'))
   render(
-    <SessionChat storeKey="batch:running-2" state="running" send={send} startFresh={vi.fn()} />,
+    <SessionChat
+      storeKey="batch:running-2"
+      batchId="batch"
+      jobId="job"
+      state="running"
+      send={send}
+      startFresh={vi.fn()}
+    />,
   )
   fireEvent.change(screen.getByLabelText('Message this session'), { target: { value: 'Hello' } })
   fireEvent.click(screen.getByRole('button', { name: 'Send' }))
@@ -55,6 +76,8 @@ test('a cancelled session offers a fresh session and takes no messages', () => {
   render(
     <SessionChat
       storeKey="batch:cancelled"
+      batchId="batch"
+      jobId="job"
       state="cancelled"
       send={vi.fn()}
       startFresh={startFresh}
@@ -68,7 +91,14 @@ test('a cancelled session offers a fresh session and takes no messages', () => {
 test('an unconfirmed send survives leaving and returning to the session', async () => {
   const send = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue({ seq: '1' })
   const view = render(
-    <SessionChat storeKey="batch:navigate" state="finished" send={send} startFresh={vi.fn()} />,
+    <SessionChat
+      storeKey="batch:navigate"
+      batchId="batch"
+      jobId="job"
+      state="finished"
+      send={send}
+      startFresh={vi.fn()}
+    />,
   )
   fireEvent.change(screen.getByLabelText('Message this session'), {
     target: { value: 'Back label?' },
@@ -77,7 +107,14 @@ test('an unconfirmed send survives leaving and returning to the session', async 
   await screen.findByText(/was not confirmed/)
   view.unmount()
   render(
-    <SessionChat storeKey="batch:navigate" state="finished" send={send} startFresh={vi.fn()} />,
+    <SessionChat
+      storeKey="batch:navigate"
+      batchId="batch"
+      jobId="job"
+      state="finished"
+      send={send}
+      startFresh={vi.fn()}
+    />,
   )
   fireEvent.click(await screen.findByRole('button', { name: 'Retry this message' }))
   await screen.findByText(/Queued/)
@@ -92,7 +129,14 @@ test('leaving during an unresolved send cannot start a second send of it', async
     .mockImplementationOnce(() => new Promise((_, fail) => (reject = fail)))
     .mockResolvedValue({ seq: '1' })
   const view = render(
-    <SessionChat storeKey="batch:in-flight" state="finished" send={send} startFresh={vi.fn()} />,
+    <SessionChat
+      storeKey="batch:in-flight"
+      batchId="batch"
+      jobId="job"
+      state="finished"
+      send={send}
+      startFresh={vi.fn()}
+    />,
   )
   fireEvent.change(screen.getByLabelText('Message this session'), {
     target: { value: 'Back label?' },
@@ -100,7 +144,14 @@ test('leaving during an unresolved send cannot start a second send of it', async
   fireEvent.click(screen.getByRole('button', { name: 'Send' }))
   view.unmount()
   render(
-    <SessionChat storeKey="batch:in-flight" state="finished" send={send} startFresh={vi.fn()} />,
+    <SessionChat
+      storeKey="batch:in-flight"
+      batchId="batch"
+      jobId="job"
+      state="finished"
+      send={send}
+      startFresh={vi.fn()}
+    />,
   )
   fireEvent.change(screen.getByLabelText('Message this session'), {
     target: { value: 'Back label?' },
@@ -115,7 +166,16 @@ test('leaving during an unresolved send cannot start a second send of it', async
 
 test('a failed session explains that a fresh session is needed after sending', async () => {
   const send = vi.fn().mockResolvedValue({ seq: '1' })
-  render(<SessionChat storeKey="batch:failed" state="failed" send={send} startFresh={vi.fn()} />)
+  render(
+    <SessionChat
+      storeKey="batch:failed"
+      batchId="batch"
+      jobId="job"
+      state="failed"
+      send={send}
+      startFresh={vi.fn()}
+    />,
+  )
   fireEvent.change(screen.getByLabelText('Message this session'), { target: { value: 'Hello?' } })
   fireEvent.click(screen.getByRole('button', { name: 'Send' }))
   expect(await screen.findByText(/start a fresh session to continue/)).toBeVisible()
@@ -127,6 +187,8 @@ test('offers explicit replacement for an incompatible conversation without losin
   render(
     <SessionChat
       storeKey="batch:legacy"
+      batchId="batch"
+      jobId="job"
       state="resume_unavailable"
       send={send}
       startFresh={startFresh}
@@ -148,6 +210,8 @@ test('a cancelled session takes no messages', () => {
   render(
     <SessionChat
       storeKey="batch:cancelled-history"
+      batchId="batch"
+      jobId="job"
       state="cancelled"
       send={vi.fn()}
       startFresh={vi.fn()}
@@ -164,6 +228,8 @@ test('a retry waits while sending is unavailable, then reuses the original messa
   const panel = (unavailable?: string) => (
     <SessionChat
       storeKey="batch:guarded-retry"
+      batchId="batch"
+      jobId="job"
       state="running"
       send={send}
       startFresh={vi.fn()}

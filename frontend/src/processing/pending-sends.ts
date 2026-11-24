@@ -1,11 +1,12 @@
 import { useSyncExternalStore } from 'react'
+import type { QueryClient } from '@tanstack/react-query'
 import { useServerScope } from '#/context'
-import type { ServerScope } from '#/queries/scope'
+import { serverQueryKey, type ServerScope } from '#/queries/scope'
 
 /**
  * A chat message being sent, one whose send went unconfirmed, or one saved but not yet in a
- * history read. `after` is the newest inbox row the history showed when it was sent, and `seq`
- * the saved row's own, so the history can tell when the message has reached it.
+ * history read. `after` is the newest inbox row the history showed when it was sent; a saved
+ * send has its row's `seq` and `savedOrder`, its receipt's place in the history read order.
  */
 export type PendingSend = {
   text: string
@@ -13,15 +14,21 @@ export type PendingSend = {
   after: number
   status: 'sending' | 'unconfirmed' | 'saved'
   seq?: number
+  savedOrder?: number
 }
+
+/** A history read's place in the order it shares with send receipts. */
+export type HistoryReadOrder = { readOrder?: number }
 
 /**
  * Sends outlive the composer for as long as the page is open. Each session's sends are kept by
  * delivery key, in the order sent, from before the request starts; an unconfirmed one until the
- * operator retries or discards it, and a saved one with its row's inbox sequence, so each surface
- * can tell from its own read whether it holds the row yet.
+ * operator retries or discards it, and a saved one until every held history read covers it.
  */
 const pendingSends = new Map<string, readonly PendingSend[]>()
+/** Each store key's batch and job, so a held send can find that session's history reads. */
+const sessions = new Map<string, { batchId: string; jobId: string }>()
+let order = 0
 const listeners = new Set<() => void>()
 const NONE: readonly PendingSend[] = []
 
@@ -32,16 +39,24 @@ function subscribe(listener: () => void) {
   }
 }
 
-function publish(storeKey: string, all: readonly PendingSend[]) {
-  const saved = all.filter((send) => send.status === 'saved')
-  const dropped = new Set(saved.slice(0, -MAX_SAVED_SENDS))
-  const sends = all.filter((send) => !dropped.has(send))
+function publish(storeKey: string, sends: readonly PendingSend[]) {
   if (sends.length) {
     pendingSends.set(storeKey, sends)
   } else {
     pendingSends.delete(storeKey)
+    sessions.delete(storeKey)
   }
   listeners.forEach((listener) => listener())
+}
+
+/**
+ * The next place in one order shared by history reads, taken as each read starts, and send
+ * receipts, taken as each arrives. A read placed after a receipt started after the row was saved,
+ * so it holds the row or a newest page that has moved past it.
+ */
+export function nextHistoryOrder() {
+  order += 1
+  return order
 }
 
 function scopeKey(scope: ServerScope) {
@@ -57,7 +72,10 @@ export function pendingSendKey(scope: ServerScope, batchId: string, jobId: strin
 export function dropScopeSends(scope: ServerScope) {
   const prefix = `${scopeKey(scope)}|`
   const ended = [...pendingSends.keys()].filter((key) => key.startsWith(prefix))
-  ended.forEach((key) => pendingSends.delete(key))
+  ended.forEach((key) => {
+    pendingSends.delete(key)
+    sessions.delete(key)
+  })
   if (ended.length) {
     listeners.forEach((listener) => listener())
   }
@@ -68,15 +86,34 @@ export function usePendingSendKey(batchId: string, jobId: string) {
   return pendingSendKey(useServerScope(), batchId, jobId)
 }
 
-/** Records or replaces the send with this delivery key. */
-export function setPendingSend(storeKey: string, send: PendingSend) {
-  const sends = pendingSends.get(storeKey) ?? NONE
+/** The session a store key names, as `pendingSendKey` built it. */
+export type PendingSendSession = { storeKey: string; batchId: string; jobId: string }
+
+/** Starts a send, or a retry of one, with this delivery key. */
+export function startPendingSend(session: PendingSendSession, send: PendingSend) {
+  const sends = pendingSends.get(session.storeKey) ?? NONE
   const known = sends.some((candidate) => candidate.key === send.key)
+  sessions.set(session.storeKey, { batchId: session.batchId, jobId: session.jobId })
   publish(
-    storeKey,
+    session.storeKey,
     known
       ? sends.map((candidate) => (candidate.key === send.key ? send : candidate))
       : [...sends, send],
+  )
+}
+
+/**
+ * Records how a send ended, only while the send is still held: one whose scope ended, or that was
+ * discarded, while its request ran stays gone.
+ */
+export function settlePendingSend(storeKey: string, send: PendingSend) {
+  const sends = pendingSends.get(storeKey) ?? NONE
+  if (!sends.some((candidate) => candidate.key === send.key)) {
+    return
+  }
+  publish(
+    storeKey,
+    sends.map((candidate) => (candidate.key === send.key ? send : candidate)),
   )
 }
 
@@ -113,25 +150,39 @@ export function newestInboxSeq(entries: readonly { id: string }[]) {
   return entries.reduce((newest, entry) => Math.max(newest, inboxSeq(entry.id)), 0)
 }
 
-/** At most this many saved sends are kept per session; older ones are long in its history. */
-const MAX_SAVED_SENDS = 20
+type HeldRead = HistoryReadOrder & { entries: readonly HistoryRow[] }
+
+/**
+ * Whether a read already accounts for a saved send: it holds the send's row or a newer inbox row,
+ * or it started after the receipt, so a row that has left its newest page is older than the page.
+ */
+function readCovers(read: HeldRead, send: PendingSend) {
+  const started = read.readOrder
+  const startedAfterReceipt =
+    started !== undefined && send.savedOrder !== undefined && started > send.savedOrder
+  if (startedAfterReceipt) {
+    return true
+  }
+
+  return send.seq !== undefined && newestInboxSeq(read.entries) >= send.seq
+}
 
 /**
  * The messages to show at the end of a history, "Sending…" or "Saved", that the read doesn't hold
- * yet. A saved send shows while the read is older than its row: it holds neither that row nor any
- * newer inbox row, so a row that later leaves the newest page never returns. Before its receipt,
- * a send is matched to a newer chat row with its text, each row to one send in the order sent.
+ * yet. A saved send shows until the read covers it (`readCovers`), so a row that later leaves the
+ * newest page never returns. Before its receipt, a send is matched to a newer chat row with its
+ * text, each row to one send in the order sent.
  */
-export function unreadPendingSends(sends: readonly PendingSend[], entries: readonly HistoryRow[]) {
-  const newest = newestInboxSeq(entries)
+export function unreadPendingSends(sends: readonly PendingSend[], read: HeldRead) {
+  const { entries } = read
   const claimed = new Set(sends.flatMap((send) => (send.seq === undefined ? [] : [send.seq])))
   const shown: PendingSend[] = []
   for (const send of sends) {
     if (send.status === 'unconfirmed') {
       continue
     }
-    if (send.seq !== undefined) {
-      if (newest < send.seq) {
+    if (send.status === 'saved') {
+      if (!readCovers(read, send)) {
         shown.push(send)
       }
       continue
@@ -154,4 +205,34 @@ export function unreadPendingSends(sends: readonly PendingSend[], entries: reado
   }
 
   return shown
+}
+
+/** The session's history reads that a surface can show, the drawer's and the session page's. */
+function heldReads(client: QueryClient, scope: ServerScope, batchId: string, jobId: string) {
+  return (['newest', 'page'] as const).flatMap((which) => {
+    const key = serverQueryKey(scope, 'processing', batchId, 'history', jobId, which)
+    const read = client.getQueryData<HeldRead>(key)
+    return read ? [read] : []
+  })
+}
+
+/**
+ * Drops this scope's saved sends that every held history read covers. A read not in the cache
+ * has no older copy to show: the surface that mounts it reads afresh.
+ */
+export function retireCoveredSends(client: QueryClient, scope: ServerScope) {
+  const prefix = `${scopeKey(scope)}|`
+  for (const [storeKey, sends] of [...pendingSends]) {
+    const session = sessions.get(storeKey)
+    if (!storeKey.startsWith(prefix) || !session) {
+      continue
+    }
+    const reads = heldReads(client, scope, session.batchId, session.jobId)
+    const kept = sends.filter(
+      (send) => send.status !== 'saved' || !reads.every((read) => readCovers(read, send)),
+    )
+    if (kept.length !== sends.length) {
+      publish(storeKey, kept)
+    }
+  }
 }

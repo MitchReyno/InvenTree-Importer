@@ -117,7 +117,7 @@ export function SessionPage(props: Props) {
   const title = `${stepLabel} · ${props.subjectLabel(session.subject_id)}`
   const current = session.attempts.find((attempt) => attempt.id === session.current_attempt_id)
   const sessionState = current?.session_state ?? props.job?.session_state ?? 'queued'
-  const shownPending = unreadPendingSends(pending, entries)
+  const shownPending = unreadPendingSends(pending, held)
   const freshReason = props.freshReason ?? startFreshReason(session.start_fresh)
   return (
     <Page>
@@ -171,6 +171,8 @@ export function SessionPage(props: Props) {
           {props.answered}
           <SessionChatPanel
             storeKey={storeKey}
+            batchId={batchId}
+            jobId={jobId}
             state={sessionState}
             label={`Message ${stepLabel}`}
             newestInboxSeq={newestInboxSeq(entries)}

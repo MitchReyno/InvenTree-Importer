@@ -84,6 +84,8 @@ export function createAnswerOutcomes() {
   let focus: AnswerFocusTarget | null = null
   // Where a mount put focus; a remount that removed it moves focus again.
   let placed: HTMLElement | null = null
+  // Where focus was when the move was promised; the move is dropped if the operator moves it.
+  let promisedFrom: Element | null = null
   let version = 0
   const listeners = new Set<() => void>()
 
@@ -106,6 +108,7 @@ export function createAnswerOutcomes() {
       confirmed.set(answer.questionId, answer)
       focus = next
       placed = null
+      promisedFrom = document.activeElement
       changed()
     },
     /** Drops answers a fresh read now returns answered, in whichever tier carries them. */
@@ -119,9 +122,13 @@ export function createAnswerOutcomes() {
     },
     /**
      * The focus target still to place: not placed yet, or placed on an element a remount removed
-     * while nothing else took focus. Once a placed element is seen still in the page, it is done.
+     * while nothing else took focus. Once a placed element is seen still in the page, it is done,
+     * and a move the operator made first, such as tabbing on while a form is awaited, cancels it.
      */
     pendingFocus() {
+      if (focus && !placed && operatorMovedFocus(promisedFrom)) {
+        focus = null
+      }
       if (!focus || !placed) {
         return focus
       }
@@ -142,3 +149,13 @@ export function createAnswerOutcomes() {
 }
 
 export type AnswerOutcomeStore = ReturnType<typeof createAnswerOutcomes>
+
+/** Focus is on a control other than where the answer left it, so the operator put it there. */
+function operatorMovedFocus(from: Element | null) {
+  const now = document.activeElement
+  if (now === null || now === document.body || now === from) {
+    return false
+  }
+
+  return now.isConnected
+}

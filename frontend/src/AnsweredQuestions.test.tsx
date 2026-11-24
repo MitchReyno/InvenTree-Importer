@@ -456,6 +456,45 @@ test('after a page answer remounts, focus waits for the next loaded question’s
   )
 })
 
+test('tabbing elsewhere while the next form is awaited keeps focus where the operator put it', async () => {
+  const user = userEvent.setup()
+  const client = clientFor(examineRead([lead(5), lead(6)]))
+  client.history.mockResolvedValue(
+    sessionHistory([question(2, 2, { id: Q.question(6) }), question(1, 1, { id: Q.question(5) })], {
+      attempts: [attemptHeader({ state: 'running', session_state: 'running' })],
+    }),
+  )
+  mount(client, { sessionPageJobId: Q.job })
+  const first = await waitFor(() => {
+    const card = document.querySelector<HTMLElement>(`[data-question-card="${Q.question(5)}"]`)
+    expect(card?.querySelector('form')).toBeTruthy()
+    return card!
+  })
+  const remounted = deferredRead()
+  client.read
+    .mockResolvedValueOnce(
+      examineRead([answered(lead(5), fullAnswer('Contents verified')), lead(6)], '9'),
+    )
+    .mockReturnValueOnce(remounted.promise)
+  await user.click(within(first).getByRole('radio', { name: /Contents verified/ }))
+  await user.click(within(first).getByRole('button', { name: /^Send/ }))
+  await waitFor(() => expect(client.read).toHaveBeenCalledTimes(3))
+
+  // The operator moves on before the next form is ready.
+  const elsewhere = screen.getAllByRole('link')[0]!
+  elsewhere.focus()
+  await act(async () => {
+    remounted.resolve(
+      examineRead([answered(lead(5), fullAnswer('Contents verified')), lead(6)], '9'),
+    )
+    await remounted.promise
+  })
+  await waitFor(() =>
+    expect(document.querySelector(`[data-question-card="${Q.question(6)}"] form`)).toBeTruthy(),
+  )
+  expect(elsewhere).toHaveFocus()
+})
+
 function deferredRead() {
   let resolve: (value: ProcessingSnapshotDto) => void = () => {}
 
