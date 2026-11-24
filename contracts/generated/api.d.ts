@@ -1438,7 +1438,10 @@ export interface paths {
         };
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description Asks for a fresh check; the answer still comes from the last one. */
+                    refresh?: "true";
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -21062,6 +21065,7 @@ export interface components {
                 /** @constant */
                 state: "saved";
                 saved_at: string | null;
+                checked_at: string;
                 last_sign_in_failure: {
                     attempt_id: string;
                     failure_id: string;
@@ -21070,6 +21074,7 @@ export interface components {
             } | {
                 /** @constant */
                 state: "not_saved";
+                checked_at: string;
                 last_sign_in_failure: {
                     attempt_id: string;
                     failure_id: string;
@@ -21078,7 +21083,7 @@ export interface components {
             } | {
                 /** @constant */
                 state: "unknown";
-                reason: "not_configured" | "worker_unavailable" | "vm_unreachable" | "service_unavailable" | "guest_outdated" | "busy" | "timeout";
+                reason: "not_configured" | "worker_unavailable" | "vm_unreachable" | "service_unavailable" | "guest_outdated" | "busy" | "timeout" | "checking";
                 last_sign_in_failure: {
                     attempt_id: string;
                     failure_id: string;
@@ -21087,6 +21092,7 @@ export interface components {
             };
             codex: {
                 state: "signed_in" | "signing_in" | "signed_out";
+                checked_at: string;
                 last_sign_in_failure: {
                     attempt_id: string;
                     failure_id: string;
@@ -21095,7 +21101,7 @@ export interface components {
             } | {
                 /** @constant */
                 state: "unknown";
-                reason: "not_configured" | "worker_unavailable" | "vm_unreachable" | "service_unavailable" | "guest_outdated" | "busy" | "timeout";
+                reason: "not_configured" | "worker_unavailable" | "vm_unreachable" | "service_unavailable" | "guest_outdated" | "busy" | "timeout" | "checking";
                 last_sign_in_failure: {
                     attempt_id: string;
                     failure_id: string;
@@ -21103,6 +21109,10 @@ export interface components {
                 } | null;
             };
             read_at: string;
+        };
+        ProviderStatusQuery: {
+            /** @constant */
+            refresh?: "true";
         };
         BatchDefaultRecord: {
             /** Format: int64 */
@@ -25911,6 +25921,7 @@ export type AgentPause = components['schemas']['AgentPause']
 export type AgentPauseAll = components['schemas']['AgentPauseAll']
 export type InstructionDelivery = components['schemas']['InstructionDelivery']
 export type ProviderStatus = components['schemas']['ProviderStatus']
+export type ProviderStatusQuery = components['schemas']['ProviderStatusQuery']
 export type BatchDefaultRecord = components['schemas']['BatchDefaultRecord']
 export type BatchDefaults = components['schemas']['BatchDefaults']
 export type BatchDefaultsUpdate = components['schemas']['BatchDefaultsUpdate']

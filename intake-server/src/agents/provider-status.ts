@@ -24,8 +24,11 @@ export interface GuestStatusRead {
   readAt: Date
 }
 
-/** Where the route's guest status comes from; the session worker unless a test supplies one. */
-export type GuestStatusSource = () => Promise<GuestStatusRead>
+/**
+ * Where the route's guest status comes from; the session worker unless a test supplies one.
+ * `refresh` is Check again: it skips the reused read and asks Codex for a fresh check.
+ */
+export type GuestStatusSource = (refresh: boolean) => Promise<GuestStatusRead>
 
 const NOT_CONFIGURED: DisplayProviderStatuses = {
   claude: { state: 'unknown', reason: 'not_configured' },
@@ -34,7 +37,8 @@ const NOT_CONFIGURED: DisplayProviderStatuses = {
 
 /**
  * Asks the session worker, at most once per cache window, with concurrent callers sharing a read.
- * A profile that runs no agent sessions has no worker to ask.
+ * Check again asks at once, sharing only another Check again in flight, and its answer is reused
+ * like any other. A profile that runs no agent sessions has no worker to ask.
  */
 export function workerStatusSource(
   pool: Pool,
@@ -43,30 +47,53 @@ export function workerStatusSource(
   now = () => new Date(),
 ): GuestStatusSource {
   let cached: { read: Promise<GuestStatusRead>; until: number } | undefined
+  let forced: Promise<GuestStatusRead> | undefined
 
-  const read = async (): Promise<GuestStatusRead> => {
+  const read = async (refresh: boolean): Promise<GuestStatusRead> => {
     if (!config.profileId || !isSessionProfile(config.profileId)) {
       return { statuses: NOT_CONFIGURED, readAt: now() }
     }
-    const statuses = await requestProviderStatus(pool, config)
+    const statuses = await requestProviderStatus(pool, config, undefined, refresh)
     return { statuses, readAt: now() }
   }
 
-  return () => {
+  /** Makes `pending` the reused read once it succeeds; a failed read is never reused. */
+  const remember = (pending: Promise<GuestStatusRead>) => {
+    cached = { read: pending, until: Number.POSITIVE_INFINITY }
+    void pending.then(
+      () => {
+        if (cached?.read === pending) {
+          cached = { read: pending, until: now().getTime() + cacheMs }
+        }
+      },
+      () => {
+        if (cached?.read === pending) {
+          cached = undefined
+        }
+      },
+    )
+  }
+
+  return (refresh) => {
+    if (refresh) {
+      if (!forced) {
+        const pending = read(true)
+
+        const settle = () => {
+          forced = undefined
+        }
+
+        forced = pending
+        void pending.then(settle, settle)
+        remember(pending)
+      }
+      return forced
+    }
     const time = now().getTime()
     if (!cached || time >= cached.until) {
-      const pending = read()
-      cached = { read: pending, until: Number.POSITIVE_INFINITY }
-      void pending.then(
-        () => {
-          cached = { read: pending, until: now().getTime() + cacheMs }
-        },
-        () => {
-          cached = undefined
-        },
-      )
+      remember(read(false))
     }
-    return cached.read
+    return cached!.read
   }
 }
 
@@ -79,9 +106,14 @@ function claudeView(
   }
   switch (status.state) {
     case 'saved':
-      return { state: 'saved', saved_at: status.saved_at, last_sign_in_failure: failure }
+      return {
+        state: 'saved',
+        saved_at: status.saved_at,
+        checked_at: status.checked_at,
+        last_sign_in_failure: failure,
+      }
     case 'not_saved':
-      return { state: 'not_saved', last_sign_in_failure: failure }
+      return { state: 'not_saved', checked_at: status.checked_at, last_sign_in_failure: failure }
     case 'unknown':
       return { state: 'unknown', reason: status.reason, last_sign_in_failure: failure }
   }
@@ -97,7 +129,7 @@ function codexView(
   if (status.state === 'unknown') {
     return { state: 'unknown', reason: status.reason, last_sign_in_failure: failure }
   }
-  return { state: status.state, last_sign_in_failure: failure }
+  return { state: status.state, checked_at: status.checked_at, last_sign_in_failure: failure }
 }
 
 /**
@@ -108,8 +140,9 @@ export async function readProviderStatus(
   pool: Pool,
   config: ProcessingConfig,
   guest: GuestStatusSource,
+  refresh = false,
 ): Promise<ProviderStatusDto> {
-  const [read, failures] = await Promise.all([guest(), lastSignInFailures(pool, config)])
+  const [read, failures] = await Promise.all([guest(refresh), lastSignInFailures(pool, config)])
   return {
     claude: claudeView(read.statuses?.claude, failures.claude),
     codex: codexView(read.statuses?.codex, failures.codex),

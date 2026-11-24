@@ -1433,7 +1433,18 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "refresh",
+            "in": "query",
+            "description": "Asks for a fresh check; the answer still comes from the last one.",
+            "schema": {
+              "const": "true",
+              "type": "string"
+            }
+          }
+        ]
       }
     },
     "/api/v1/agents/pause": {
@@ -93280,6 +93291,7 @@
                 "required": [
                   "state",
                   "saved_at",
+                  "checked_at",
                   "last_sign_in_failure"
                 ],
                 "properties": {
@@ -93297,6 +93309,10 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "checked_at": {
+                    "maxLength": 40,
+                    "type": "string"
                   },
                   "last_sign_in_failure": {
                     "anyOf": [
@@ -93335,11 +93351,16 @@
                 "type": "object",
                 "required": [
                   "state",
+                  "checked_at",
                   "last_sign_in_failure"
                 ],
                 "properties": {
                   "state": {
                     "const": "not_saved",
+                    "type": "string"
+                  },
+                  "checked_at": {
+                    "maxLength": 40,
                     "type": "string"
                   },
                   "last_sign_in_failure": {
@@ -93415,6 +93436,10 @@
                       },
                       {
                         "const": "timeout",
+                        "type": "string"
+                      },
+                      {
+                        "const": "checking",
                         "type": "string"
                       }
                     ]
@@ -93460,6 +93485,7 @@
                 "type": "object",
                 "required": [
                   "state",
+                  "checked_at",
                   "last_sign_in_failure"
                 ],
                 "properties": {
@@ -93478,6 +93504,10 @@
                         "type": "string"
                       }
                     ]
+                  },
+                  "checked_at": {
+                    "maxLength": 40,
+                    "type": "string"
                   },
                   "last_sign_in_failure": {
                     "anyOf": [
@@ -93553,6 +93583,10 @@
                       {
                         "const": "timeout",
                         "type": "string"
+                      },
+                      {
+                        "const": "checking",
+                        "type": "string"
                       }
                     ]
                   },
@@ -93592,6 +93626,16 @@
           },
           "read_at": {
             "maxLength": 40,
+            "type": "string"
+          }
+        }
+      },
+      "ProviderStatusQuery": {
+        "additionalProperties": false,
+        "type": "object",
+        "properties": {
+          "refresh": {
+            "const": "true",
             "type": "string"
           }
         }

@@ -58,7 +58,7 @@ Agent Settings SHALL support a runner-owned Codex device-code sign-in. The opera
 
 ### Requirement: Read-only provider sign-in status
 
-The intake server SHALL be able to read each VM provider's sign-in status without the management key: whether a Claude subscription token is stored (with its revision, and its save time where recorded), and whether Codex has a committed ChatGPT account or a sign-in in progress. The answer SHALL carry no token, account identifier, key or pairing material.
+The intake server SHALL be able to read each VM provider's sign-in status without the management key: whether a Claude subscription token is stored (with its revision, and its save time where recorded), and whether Codex has a committed ChatGPT account or a sign-in in progress. Each known state SHALL say when it was checked. The answer SHALL carry no token, account identifier, key or pairing material.
 
 #### Scenario: Status without the key
 
@@ -111,3 +111,41 @@ Each provider's status read SHALL reach that provider's credential process throu
 - **GIVEN** a deployment running both providers, where Codex's credential process doesn't answer
 - **WHEN** the server reads provider status
 - **THEN** Claude's status is reported, Codex reads as unknown because it timed out, and the abandoned Codex request leaves no work running on the guest.
+
+### Requirement: Codex status answered from the last check
+
+A Codex account check takes longer than a status read may wait, so Codex SHALL answer each read at once from its last completed check, with that check's time. A read SHALL start one background check, never more than one at a time, when there is no result, when it is older than the freshness window, or when Check again asks, at most once per interval. With no completed check Codex SHALL read as unknown because it is checking, never as signed out.
+
+#### Scenario: Codex check slower than the read
+
+- **GIVEN** a signed-in Codex whose account check takes longer than the status read's budget
+- **WHEN** the server reads provider status before any check has finished, and again after one has
+- **THEN** the first read answers within its budget with Codex checking, and the later read reports Codex signed in with the time it was checked.
+
+#### Scenario: Stale result
+
+- **GIVEN** a Codex result older than the freshness window
+- **WHEN** several reads arrive together
+- **THEN** each reports that result with its time, and exactly one new check starts.
+
+#### Scenario: Check again
+
+- **GIVEN** a fresh Codex result
+- **WHEN** the operator chooses Check again, twice in quick succession
+- **THEN** each answer comes at once with the last result, one new check starts, and the second request within the interval starts none.
+
+### Requirement: Codex checks stop and are forgotten
+
+A background Codex check SHALL stop at its own timeout, its account process killed and reaped. A failed check SHALL keep the previous result with its time, or read as unknown when there is none. A sign-in change (a completed, cancelled or expired login, or a sign-out) SHALL stop a running check rather than wait for it, and SHALL discard the last result so the next read checks again.
+
+#### Scenario: A Codex check times out
+
+- **GIVEN** a Codex account check that never answers
+- **WHEN** its timeout passes
+- **THEN** its account process is gone, and Codex reads as its previous result with that result's time, or as unknown because it timed out when there was none.
+
+#### Scenario: Sign-in change during a check
+
+- **GIVEN** a Codex check in progress
+- **WHEN** the operator signs out
+- **THEN** the sign-out runs without waiting for the check, the check's result is never reported, and the next read after signing in again checks afresh.

@@ -31,8 +31,16 @@ export function agentsClient(baseUrl: string, csrfToken: string, transport: type
           params: { path: { id: batchId } },
         }),
       ),
-    /** Each VM provider's sign-in status, read without the management key. */
-    providerStatus: () => successfulData(client.GET('/api/v1/agents/provider-status')),
+    /**
+     * Each VM provider's sign-in status, read without the management key. `refresh` (Check again)
+     * also starts a fresh Codex check; this answer still comes from the last one.
+     */
+    providerStatus: (options: { refresh?: boolean } = {}) =>
+      successfulData(
+        client.GET('/api/v1/agents/provider-status', {
+          params: { query: options.refresh ? { refresh: 'true' } : {} },
+        }),
+      ),
     /** Pauses or resumes every batch's agent sessions at once. */
     pauseAll: (paused: boolean) =>
       successfulData(client.PUT('/api/v1/agents/pause', { body: { paused } })),

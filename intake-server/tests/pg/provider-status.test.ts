@@ -18,9 +18,10 @@ import { readProviderStatus, workerStatusSource } from '#/agents/provider-status
 import type { BridgeProviderStatuses } from '#/agents/shared-vm/coordinator.ts'
 
 const revision = '9f7a2b3c-1d4e-4f5a-8b6c-7d8e9f0a1b2c'
+const checkedAt = '2026-11-24T00:10:58.000Z'
 const statuses: BridgeProviderStatuses = {
-  claude: { state: 'saved', revision, saved_at: '2026-11-23T22:00:00.000Z' },
-  codex: { state: 'signing_in' },
+  claude: { state: 'saved', revision, saved_at: '2026-11-23T22:00:00.000Z', checked_at: checkedAt },
+  codex: { state: 'signing_in', checked_at: checkedAt },
 }
 
 type Fixture = Awaited<ReturnType<typeof processingFixture>>
@@ -29,8 +30,8 @@ type Selection = { provider: 'claude' | 'codex'; authentication: 'subscription' 
 
 /** What the worker sends the API: the same statuses without Claude's revision. */
 const display = {
-  claude: { state: 'saved', saved_at: '2026-11-23T22:00:00.000Z' },
-  codex: { state: 'signing_in' },
+  claude: { state: 'saved', saved_at: '2026-11-23T22:00:00.000Z', checked_at: checkedAt },
+  codex: { state: 'signing_in', checked_at: checkedAt },
 }
 
 /** Listens on `channel` as another database role would, keeping every payload seen. */
@@ -175,15 +176,21 @@ test(
 )
 
 test(
-  'the provider status route reads the worker, with no revision, token or account',
+  'the provider status route reads the worker, with no revision, token or account, and Check again asks afresh',
   { timeout: 90000 },
   async (t) => {
     const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
     t.after(() => fixture.dispose())
-    const worker = serveProviderStatusRequests(fixture.runner.pool, fixture.config, async () => ({
-      ...statuses,
-      codex: { state: 'unknown', reason: 'timeout' },
-    }))
+    const refreshes: boolean[] = []
+    let codex: BridgeProviderStatuses['codex'] = { state: 'unknown', reason: 'checking' }
+    const worker = serveProviderStatusRequests(
+      fixture.runner.pool,
+      fixture.config,
+      async (_budgetMs, refresh) => {
+        refreshes.push(refresh)
+        return { ...statuses, codex }
+      },
+    )
     // Before the fixture's own cleanup, which waits for the worker's connection.
     await using _worker = { [Symbol.asyncDispose]: () => worker.close() }
     let body: ProviderStatusDto | undefined
@@ -201,13 +208,39 @@ test(
     assert.deepEqual(body.claude, {
       state: 'saved',
       saved_at: '2026-11-23T22:00:00.000Z',
+      checked_at: checkedAt,
       last_sign_in_failure: null,
     })
+    // No Codex check has finished yet: unknown, never signed out.
     assert.deepEqual(body.codex, {
       state: 'unknown',
-      reason: 'timeout',
+      reason: 'checking',
       last_sign_in_failure: null,
     })
+    assert.ok(!JSON.stringify(body).includes(revision))
+    assert.ok(refreshes.every((refresh) => !refresh))
+
+    // Within the reuse window a plain read doesn't reach the worker; Check again does, and its
+    // answer is reused by the next plain read.
+    codex = { state: 'signed_in', checked_at: checkedAt }
+    const asked = refreshes.length
+    const reused = (await fixture.http('/agents/provider-status')).value as ProviderStatusDto
+    assert.equal(reused.codex.state, 'unknown')
+    assert.equal(refreshes.length, asked)
+    const forced = await fixture.http('/agents/provider-status?refresh=true')
+    assert.equal(forced.status, 200)
+    assert.deepEqual((forced.value as ProviderStatusDto).codex, {
+      state: 'signed_in',
+      checked_at: checkedAt,
+      last_sign_in_failure: null,
+    })
+    assert.deepEqual(refreshes.slice(asked), [true])
+    const after = (await fixture.http('/agents/provider-status')).value as ProviderStatusDto
+    assert.equal(after.codex.state, 'signed_in')
+    assert.equal(refreshes.length, asked + 1)
+
+    // Anything else in the query is refused.
+    assert.equal((await fixture.http('/agents/provider-status?refresh=1')).status, 400)
     assert.ok(!JSON.stringify(body).includes(revision))
   },
 )

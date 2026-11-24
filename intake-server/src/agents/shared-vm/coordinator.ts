@@ -52,15 +52,20 @@ export type BridgeStatusUnknownReason =
   | 'guest_outdated'
   | 'busy'
   | 'timeout'
+  | 'checking'
 
 type UnknownStatus = { state: 'unknown'; reason: BridgeStatusUnknownReason }
 
-/** Each provider's status as the coordinator read it; unknown is never signed out. */
+/**
+ * Each provider's status as the coordinator read it; unknown is never signed out. `checked_at`
+ * is when the guest established a known state, on this server's clock.
+ */
 export type ClaudeBridgeStatus =
-  | { state: 'saved'; revision: string; saved_at: string | null }
-  | { state: 'not_saved'; revision: string }
+  | { state: 'saved'; revision: string; saved_at: string | null; checked_at: string }
+  | { state: 'not_saved'; revision: string; checked_at: string }
   | UnknownStatus
-export type CodexBridgeStatus = { state: 'signed_in' | 'signed_out' | 'signing_in' } | UnknownStatus
+export type CodexBridgeStatus =
+  { state: 'signed_in' | 'signed_out' | 'signing_in'; checked_at: string } | UnknownStatus
 
 export interface BridgeProviderStatuses {
   claude: ClaudeBridgeStatus
@@ -223,6 +228,7 @@ export async function startSessionBridge(
   async function readProvider(
     provider: StatusProvider,
     deadlineMs: number,
+    refresh: boolean,
   ): Promise<ClaudeBridgeStatus | CodexBridgeStatus> {
     const deadline = AbortSignal.timeout(deadlineMs)
     const endsAt = Date.now() + deadlineMs
@@ -239,7 +245,9 @@ export async function startSessionBridge(
     try {
       // The guest finishes, its cleanup included, before this read gives up on it.
       const withinMs = Math.max(0, endsAt - Date.now() - GUEST_ANSWER_MARGIN_MS)
-      await frames.send({ status: true, within_ms: withinMs }, STATUS_FRAME_LIMIT)
+      // Only Codex answers from an earlier check; Claude reads its store on every request.
+      const request = refresh && provider === 'codex' ? { refresh: true } : {}
+      await frames.send({ status: true, within_ms: withinMs, ...request }, STATUS_FRAME_LIMIT)
       const answer = await frames.read(STATUS_FRAME_LIMIT)
       if (!('provider_status' in answer) || Object.keys(answer).length !== 1) {
         throw new Error('invalid_provider_status')
@@ -247,7 +255,7 @@ export async function startSessionBridge(
       const status = guestProviderStatus(provider, answer.provider_status)
       deadline.throwIfAborted()
       statusPeers[provider].set(socket, frames)
-      return bridgeStatus(status)
+      return bridgeStatus(status, Date.now())
     } catch {
       socket.destroy()
       return { state: 'unknown', reason: deadline.aborted ? 'timeout' : 'service_unavailable' }
@@ -256,24 +264,34 @@ export async function startSessionBridge(
     }
   }
 
-  const reads = new Map<StatusProvider, Promise<ClaudeBridgeStatus | CodexBridgeStatus>>()
+  const reads = new Map<string, Promise<ClaudeBridgeStatus | CodexBridgeStatus>>()
 
-  /** Concurrent callers share one read per provider. */
-  function sharedRead(provider: StatusProvider, deadlineMs: number) {
-    let read = reads.get(provider)
+  /**
+   * Concurrent callers share one read per provider and kind, so a plain read in flight never
+   * swallows a Check again; the second waits for the status connection the first returns.
+   */
+  function sharedRead(provider: StatusProvider, deadlineMs: number, refresh: boolean) {
+    const key = provider + (refresh ? ':refresh' : '')
+    let read = reads.get(key)
     if (!read) {
-      read = readProvider(provider, deadlineMs).finally(() => reads.delete(provider))
-      reads.set(provider, read)
+      read = readProvider(provider, deadlineMs, refresh).finally(() => reads.delete(key))
+      reads.set(key, read)
     }
     return read
   }
 
-  /** Reads both providers at once, each within its own deadline, shortened to `budgetMs`. */
-  async function providerStatus(budgetMs?: number): Promise<BridgeProviderStatuses> {
+  /**
+   * Reads both providers at once, each within its own deadline, shortened to `budgetMs`.
+   * `refresh` asks Codex to start a fresh check; its answer still comes from the last one.
+   */
+  async function providerStatus(
+    budgetMs?: number,
+    refresh = false,
+  ): Promise<BridgeProviderStatuses> {
     const deadlineMs = Math.max(0, Math.min(statusTiming.deadlineMs, budgetMs ?? Infinity))
     const [claude, codex] = await Promise.all([
-      sharedRead('claude', deadlineMs),
-      sharedRead('codex', deadlineMs),
+      sharedRead('claude', deadlineMs, false),
+      sharedRead('codex', deadlineMs, refresh),
     ])
     // Each guest answer was checked against its own provider's shapes.
     return { claude: claude as ClaudeBridgeStatus, codex: codex as CodexBridgeStatus }
@@ -531,21 +549,35 @@ export async function startSessionBridge(
   }
 }
 
-function bridgeStatus(status: GuestProviderStatus): ClaudeBridgeStatus | CodexBridgeStatus {
+/** `receivedAt` dates a guest's answer; Codex's comes from a check `age_ms` before it. */
+function bridgeStatus(
+  status: GuestProviderStatus,
+  receivedAt: number,
+): ClaudeBridgeStatus | CodexBridgeStatus {
+  const received = new Date(receivedAt).toISOString()
   switch (status.state) {
     case 'busy':
     case 'timeout':
+    case 'checking':
       return { state: 'unknown', reason: status.state }
     case 'unavailable':
       return { state: 'unknown', reason: 'service_unavailable' }
     case 'saved':
-      return { state: status.state, revision: status.revision, saved_at: status.saved_at }
+      return {
+        state: status.state,
+        revision: status.revision,
+        saved_at: status.saved_at,
+        checked_at: received,
+      }
     case 'not_saved':
-      return { state: status.state, revision: status.revision }
+      return { state: status.state, revision: status.revision, checked_at: received }
     case 'signed_in':
     case 'signed_out':
     case 'signing_in':
-      return { state: status.state }
+      return {
+        state: status.state,
+        checked_at: new Date(receivedAt - status.age_ms).toISOString(),
+      }
   }
 }
 

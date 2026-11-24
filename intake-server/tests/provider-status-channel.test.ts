@@ -78,7 +78,11 @@ function signed(kind: 'request' | 'reply', body: unknown) {
 const signedReply = (id: string, status: unknown) => signed('reply', { id, status })
 
 test('a reply arrives, then a stalled UNLISTEN closes the connection within the budget', async () => {
-  const status = { claude: { state: 'not_saved' }, codex: { state: 'signed_in' } }
+  const checkedAt = '2026-11-24T00:10:58.000Z'
+  const status = {
+    claude: { state: 'not_saved', checked_at: checkedAt },
+    codex: { state: 'signed_in', checked_at: checkedAt },
+  }
   const queries: string[] = []
   const released: (boolean | undefined)[] = []
   const client = Object.assign(new EventEmitter(), {
@@ -126,9 +130,14 @@ test('a worker reply that stalls is dropped at the request expiry, and close wai
   const pool = {
     connect: () => Promise.resolve(connections++ === 0 ? listener : replier),
   } as unknown as Pool
+  const checkedAt = '2026-11-24T00:10:58.000Z'
   const worker = serveProviderStatusRequests(pool, binding, async () => ({
-    claude: { state: 'not_saved', revision: '9f7a2b3c-1d4e-4f5a-8b6c-7d8e9f0a1b2c' },
-    codex: { state: 'signed_in' },
+    claude: {
+      state: 'not_saved',
+      revision: '9f7a2b3c-1d4e-4f5a-8b6c-7d8e9f0a1b2c',
+      checked_at: checkedAt,
+    },
+    codex: { state: 'signed_in', checked_at: checkedAt },
   }))
   await new Promise((resolve) => setTimeout(resolve, 20))
   const expiresAt = Date.now() + 400
@@ -148,4 +157,68 @@ test('a worker reply that stalls is dropped at the request expiry, and close wai
   // Closing waited for the stalled reply, which its expiry ended on a closed connection.
   assert.ok(Date.now() >= expiresAt - 5)
   assert.deepEqual(released, [true])
+})
+
+test('Check again reaches the worker as its own read, never folded into a plain one in flight', async () => {
+  const listener = Object.assign(new EventEmitter(), {
+    query: () => Promise.resolve({ rows: [] }),
+    release: () => {},
+  })
+  const replier = Object.assign(new EventEmitter(), {
+    query: () => Promise.resolve({ rows: [] }),
+    release: () => {},
+  })
+  let connections = 0
+  const pool = {
+    connect: () => Promise.resolve(connections++ === 0 ? listener : replier),
+  } as unknown as Pool
+  const checkedAt = '2026-11-24T00:10:58.000Z'
+  const reads: boolean[] = []
+  let finish!: () => void
+  const worker = serveProviderStatusRequests(pool, binding, async (_budgetMs, refresh) => {
+    reads.push(refresh)
+    if (!refresh) {
+      await new Promise<void>((resolve) => (finish = resolve))
+    }
+    return {
+      claude: { state: 'unknown', reason: 'vm_unreachable' },
+      codex: { state: 'signed_in', checked_at: checkedAt },
+    }
+  })
+  await new Promise((resolve) => setTimeout(resolve, 20))
+  const request = (id: string, refresh: boolean | undefined) => {
+    listener.emit('notification', {
+      channel: STATUS_REQUEST_CHANNEL,
+      payload: signed('request', {
+        id,
+        actor_id: binding.actorId,
+        target_id: binding.targetId,
+        target_context_id: binding.targetContextId,
+        expires_at: Date.now() + 1000,
+        ...(refresh === undefined ? {} : { refresh }),
+      }),
+    })
+  }
+  // An API from before Check again sends no flag; a plain read is still in flight.
+  request('plain', undefined)
+  request('plain-2', false)
+  request('forced', true)
+  await new Promise((resolve) => setTimeout(resolve, 20))
+  assert.deepEqual(reads, [false, true])
+  // A flag of the wrong type is refused unread.
+  listener.emit('notification', {
+    channel: STATUS_REQUEST_CHANNEL,
+    payload: signed('request', {
+      id: 'bad',
+      actor_id: binding.actorId,
+      target_id: binding.targetId,
+      target_context_id: binding.targetContextId,
+      expires_at: Date.now() + 1000,
+      refresh: 'true',
+    }),
+  })
+  await new Promise((resolve) => setTimeout(resolve, 20))
+  assert.deepEqual(reads, [false, true])
+  finish()
+  await worker.close()
 })

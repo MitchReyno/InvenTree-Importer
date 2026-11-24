@@ -154,12 +154,22 @@ test(
       // The route reuses a read for 5 s; the relays connect within a few seconds.
       await delay(1000)
     }
-    assert.deepEqual(status?.claude, {
+    assert.ok(status?.claude.state === 'saved' && status.codex.state === 'signing_in')
+    assert.deepEqual(status.claude, {
       state: 'saved',
       saved_at: '2026-11-23T22:00:00.000Z',
+      checked_at: status.claude.checked_at,
       last_sign_in_failure: null,
     })
-    assert.deepEqual(status?.codex, { state: 'signing_in', last_sign_in_failure: null })
+    assert.deepEqual(status.codex, {
+      state: 'signing_in',
+      checked_at: status.codex.checked_at,
+      last_sign_in_failure: null,
+    })
+    // Both were read for this request, on the server's clock.
+    for (const checkedAt of [status.claude.checked_at, status.codex.checked_at]) {
+      assert.ok(Math.abs(Date.parse(checkedAt) - Date.parse(status.read_at)) < 2000)
+    }
     assert.ok(!JSON.stringify(status).includes('sentinel'))
   },
 )

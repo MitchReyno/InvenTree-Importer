@@ -27,11 +27,16 @@ const MAX_STATUS_CONNECTIONS = 4
 
 export type StatusProvider = 'claude' | 'codex'
 
-/** A guest's answer. The revision stays between the guest and the server. */
+/**
+ * A guest's answer. The revision stays between the guest and the server. Codex answers from its
+ * last check, `age_ms` old, measured on the guest so its clock never has to match the server's;
+ * an older guest sends no age, because it read the account for that request.
+ */
 export type GuestProviderStatus =
   | { provider: 'claude'; state: 'saved'; revision: string; saved_at: string | null }
   | { provider: 'claude'; state: 'not_saved'; revision: string }
-  | { provider: 'codex'; state: 'signed_in' | 'signed_out' | 'signing_in' }
+  | { provider: 'codex'; state: 'signed_in' | 'signed_out' | 'signing_in'; age_ms: number }
+  | { provider: 'codex'; state: 'checking' }
   | { provider: StatusProvider; state: 'busy' | 'timeout' | 'unavailable' }
 
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/
@@ -60,8 +65,7 @@ export function guestProviderStatus(provider: StatusProvider, value: unknown): G
     return hasExactly(answer, ['provider', 'state']) ? { provider, state } : refuse()
   }
   if (provider === 'codex') {
-    const signIn = state === 'signed_in' || state === 'signed_out' || state === 'signing_in'
-    return signIn && hasExactly(answer, ['provider', 'state']) ? { provider, state } : refuse()
+    return codexGuestStatus(answer) ?? refuse()
   }
   const revision = typeof answer.revision === 'string' && uuid.test(answer.revision)
   if (state === 'not_saved' && revision && hasExactly(answer, ['provider', 'state', 'revision'])) {
@@ -86,13 +90,59 @@ export function guestProviderStatus(provider: StatusProvider, value: unknown): G
   return refuse()
 }
 
+function codexGuestStatus(answer: Record<string, unknown>): GuestProviderStatus | undefined {
+  const state = answer.state
+  if (state === 'checking') {
+    return hasExactly(answer, ['provider', 'state']) ? { provider: 'codex', state } : undefined
+  }
+  if (state !== 'signed_in' && state !== 'signed_out' && state !== 'signing_in') {
+    return undefined
+  }
+  if (hasExactly(answer, ['provider', 'state'])) {
+    return { provider: 'codex', state, age_ms: 0 }
+  }
+  const age = answer.age_ms
+  const validAge = typeof age === 'number' && Number.isSafeInteger(age) && age >= 0
+  if (validAge && hasExactly(answer, ['provider', 'state', 'age_ms'])) {
+    return { provider: 'codex', state, age_ms: age }
+  }
+  return undefined
+}
+
+/** One status request: how long the guest may take, and whether Check again asked for it. */
+export interface StatusRequest {
+  withinMs: number
+  refresh: boolean
+}
+
+function statusRequest(request: Record<string, unknown>): StatusRequest {
+  const withinMs = request.within_ms
+  const keys =
+    request.refresh === true ? ['status', 'within_ms', 'refresh'] : ['status', 'within_ms']
+  if (
+    request.status !== true ||
+    !hasExactly(request, keys) ||
+    typeof withinMs !== 'number' ||
+    !Number.isSafeInteger(withinMs) ||
+    withinMs < 0
+  ) {
+    throw new Error('invalid_status_request')
+  }
+  return { withinMs, refresh: request.refresh === true }
+}
+
+/**
+ * Reads the status; it must stop its work when `signal` aborts. `refresh` asks it to start a
+ * fresh check where it answers from an earlier one.
+ */
+export type StatusReader = (signal: AbortSignal, refresh: boolean) => Promise<GuestProviderStatus>
+
 export interface StatusServiceOptions {
   provider: StatusProvider
   /** The guest pairing identity: the coordinator is the TLS server on this connection. */
   pairing: ConnectionOptions
   socketPath: string
-  /** Reads the status; it must stop its work when `signal` aborts. */
-  read: (signal: AbortSignal) => Promise<GuestProviderStatus>
+  read: StatusReader
   deadlineMs?: number
 }
 
@@ -124,19 +174,10 @@ export async function serveProviderStatus(options: StatusServiceOptions): Promis
         const frames = new Frames(socket)
         await frames.send({ ready: STATUS_PROTOCOL, provider })
         for (;;) {
-          const request = await frames.read(STATUS_FRAME_LIMIT)
-          const withinMs = request.within_ms
-          if (
-            request.status !== true ||
-            !hasExactly(request, ['status', 'within_ms']) ||
-            !Number.isSafeInteger(withinMs) ||
-            (withinMs as number) < 0
-          ) {
-            throw new Error('invalid_status_request')
-          }
+          const request = statusRequest(await frames.read(STATUS_FRAME_LIMIT))
           const status = await readWithin(
             options,
-            Math.min(deadlineMs, withinMs as number),
+            { ...request, withinMs: Math.min(deadlineMs, request.withinMs) },
             closed.signal,
           )
           await frames.send({ provider_status: status }, STATUS_FRAME_LIMIT)
@@ -159,15 +200,16 @@ export async function serveProviderStatus(options: StatusServiceOptions): Promis
  */
 async function readWithin(
   options: StatusServiceOptions,
-  withinMs: number,
+  request: StatusRequest,
   closed: AbortSignal,
 ): Promise<GuestProviderStatus> {
+  const withinMs = request.withinMs
   if (withinMs < STATUS_CLEANUP_MS + MIN_STATUS_READ_MS) {
     return { provider: options.provider, state: 'timeout' }
   }
   const deadline = AbortSignal.timeout(withinMs - STATUS_CLEANUP_MS)
   const signal = AbortSignal.any([closed, deadline])
-  const reading = options.read(signal).then(
+  const reading = options.read(signal, request.refresh).then(
     (status) => ({ status, reaped: true }),
     (error: unknown) => ({
       status: undefined,
