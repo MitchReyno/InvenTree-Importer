@@ -418,6 +418,62 @@ test('a failure followed by a successful attempt reads Done, with its failure fo
   expect(within(row).queryByRole('group', { name: /^Recover/ })).not.toBeInTheDocument()
 })
 
+test('an earlier profile’s attempt has no page to open, and a cancelled turn still shows its cause', async () => {
+  const legacy = sessionRow({
+    attempt_id: S.attempt(60),
+    job_id: S.job(60),
+    batch_id: quiet,
+    state: 'ready',
+    session_state: null,
+  })
+  const cancelled = sessionRow({
+    attempt_id: S.attempt(61),
+    job_id: S.job(61),
+    batch_id: quiet,
+    stage: 'images',
+    state: 'cancelled',
+    session_state: 'cancelled',
+    failure: { ...refused, id: S.failure(61) },
+  })
+  const all = sessionList({
+    ...lists.all!,
+    sessions: [legacy, cancelled],
+    batches: [batchSummary(quiet, 2, 2)],
+  })
+  render(<AgentSessions client={client({ ...lists, all })} batches={batches} />)
+  await screen.findByRole('region', { name: 'Quiet' })
+  fireEvent.click(screen.getByRole('button', { name: /^All/ }))
+  const group = await screen.findByRole('region', { name: 'Quiet' })
+
+  await within(group).findByText('Research · GE S2CN1 diodes')
+  expect(within(group).getAllByRole('link', { name: /^Open session:/ })).toHaveLength(1)
+  expect(within(group).getByText("The Claude CLI refused this session's setup")).toBeVisible()
+})
+
+test('switching to a filter not read yet keeps the chips in place while its rows load', async () => {
+  vi.useRealTimers()
+  const api = client()
+  render(<AgentSessions client={api} batches={batches} />)
+  await screen.findByRole('region', { name: 'Heyyy' })
+  const working = deferred<AgentSessionListDto>()
+  api.sessions.mockReturnValueOnce(working.promise)
+
+  const chip = screen.getByRole('button', { name: /^Working/ })
+  chip.focus()
+  fireEvent.click(chip)
+  expect(chip).toBeInTheDocument()
+  expect(chip).toHaveFocus()
+  expect(await screen.findByText('Updating…')).toBeVisible()
+  expect(screen.queryByRole('region', { name: 'Heyyy' })).not.toBeInTheDocument()
+
+  await act(async () => {
+    working.resolve(sessionList({ filter: 'working', counts, totals }))
+    await working.promise
+  })
+  expect(await screen.findByText('No sessions match this filter.')).toBeVisible()
+  expect(chip).toHaveAttribute('aria-pressed', 'true')
+})
+
 test('Load more adds the next page of sessions beneath the first', async () => {
   const later = sessionRow({
     attempt_id: S.attempt(40),

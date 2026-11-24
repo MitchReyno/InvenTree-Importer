@@ -229,7 +229,11 @@ export function listedSessions(
   subjects: ReadonlyMap<string, string>,
   activeLotIds: ReadonlySet<string>,
 ): SourceSession[] {
-  return rows.map((row) => {
+  // An earlier profile's attempt has no session; the snapshot doesn't list it as one either.
+  return rows.flatMap((row) => {
+    if (row.session_state === null) {
+      return []
+    }
     const step = processingStepFor(row.stage)
     return {
       jobId: row.job_id,
@@ -239,7 +243,7 @@ export function listedSessions(
           ? 'Whole batch'
           : (subjects.get(row.subject_id) ?? 'Unknown subject'),
       lotId: row.subject_id !== null && activeLotIds.has(row.subject_id) ? row.subject_id : null,
-      state: row.session_state ?? 'queued',
+      state: row.session_state,
       status: row.latest_status?.text ?? null,
       ...(row.failure ? { failure: row.failure } : {}),
       earlier: { count: row.earlier_attempt_count, attempts: earlierFromList(row) },

@@ -94568,7 +94568,7 @@
             }
           },
           "batches": {
-            "maxItems": 200,
+            "maxItems": 1000,
             "type": "array",
             "items": {
               "additionalProperties": false,

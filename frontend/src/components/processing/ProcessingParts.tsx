@@ -9,7 +9,8 @@ import {
   StatePill,
 } from '#/components/ui'
 import { EarlierAttempts } from '#/components/agents/EarlierAttempts'
-import { failureHeadline, NEEDS_RECOVERY } from '#/agents/session-list'
+import { NEEDS_RECOVERY } from '#/agents/session-list'
+import { FailureSummary } from '#/components/agents/FailureSummary'
 import { workState } from '#/header/workSegments'
 import { batchHref } from '#/navigation/batch-route'
 import type { SourceQuestion, SourceSession } from '#/processing/source'
@@ -53,10 +54,9 @@ export function SessionRows({
     <>
       <SessionList>
         {sessions.map((session) => {
-          // A failed session leads with its cause; any other with its latest status line.
-          const line = NEEDS_RECOVERY.has(session.state)
-            ? failureHeadline(session.failure)
-            : session.status
+          // A failed session leads with its cause, below; any other with its latest status line.
+          const failed = NEEDS_RECOVERY.has(session.state) || session.failure !== undefined
+          const line = failed ? null : session.status
           return (
             <li key={session.jobId}>
               <SessionRow
@@ -88,6 +88,11 @@ export function SessionRows({
                 >
                   Full session
                 </PageLink>
+              )}
+              {failed && (
+                <Earlier>
+                  <FailureSummary failure={session.failure} />
+                </Earlier>
               )}
               {session.earlier && (
                 <Earlier>

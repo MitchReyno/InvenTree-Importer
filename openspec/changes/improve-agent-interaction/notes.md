@@ -29,6 +29,13 @@ Implementation of BI-019's agent interaction work, delivered PR by PR as the tas
 
 ## Decisions made during implementation
 
+- **2026-11-24T18:10+11:00, task 10 (PR-G), after review round 1 (frontend):**
+  - Each page Load more adds starts after the previous page as last read, never a stored cursor, so a session that crosses a page boundary between reads is neither skipped nor shown twice.
+  - Switching to a chip not read yet keeps the summary and chips (and focus) in place and says "Updating…" until its rows land.
+  - The batch summary holds up to 1000 batches; past that, a batch is known only by its loaded rows and the page says so.
+  - A `native-agent/1` attempt has no session history, so its Agents row names it without a link and Processing's rows leave it out, as the snapshot does.
+  - A retained failure shows its cause, advice and last status whatever the row's state (a cancelled turn's included), on Agents and Processing rows alike; recovery actions stay on failed, interrupted, unresumable and sign-in sessions.
+  - Start fresh refused for a stale read (`stale_attempt`, `revision_conflict`) says so, and a confirmed refusal keeps its reason when the refresh after it fails too.
 - **2026-11-24T16:40+11:00, task 10 (PR-G), server:**
   - The Start fresh preflight (`processing/start-fresh-eligibility.ts`) shares `REPLACEABLE_STATES`, the retired-lot, held-slot and pinned-identity checks with `replaceSession`, and `createSessionAttempt` now calls one `prepareSessionAttempt` step (retired profile, stage, settings, sealed input size and channel) that the preflight calls too. The command's lock order and refusal codes and statuses are unchanged.
   - The command checks the runner channel secret before its first insert rather than after it; the refusal code and status are the same, and nothing is written first.

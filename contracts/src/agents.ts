@@ -209,7 +209,7 @@ export const AgentSessionList = object({
       /** The earliest retained start of any of its attempts; a resumed turn doesn't move it. */
       first_started_at: Type.Union([time, Type.Null()]),
     }),
-    { maxItems: 200 },
+    { maxItems: 1000 },
   ),
   /** More batches are in scope than the summary holds. */
   batches_truncated: Type.Optional(Type.Literal(true)),

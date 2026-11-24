@@ -4,10 +4,10 @@ import { useId, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { SessionFailureDto, SessionFailureSummaryDto } from '@invimport/contracts'
 import { serverQueryKey } from '#/queries/scope'
-import { Button, DebugDetails, EventTime, HelpButton, Link, Spinner } from '#/components/ui'
+import { Button, DebugDetails, Link, Spinner } from '#/components/ui'
 import { useServerScope } from '#/context'
 import { useDebugMode } from '#/debug/debug-mode'
-import { failureHeadline } from '#/agents/session-list'
+import { FailureSummary } from './FailureSummary'
 
 export type FailureLoader = (attemptId: string, failureId: string) => Promise<SessionFailureDto>
 
@@ -50,26 +50,6 @@ export const FAILED_SESSION_STATES = new Set([
 ])
 
 /**
- * A failure in one line: its recorded cause in plain words, then its last status line and when
- * it was posted, or when the failure was recorded.
- */
-export function FailureLine({ failure }: { failure?: SessionFailureSummaryDto }) {
-  const status = failure?.last_status
-  const at = status?.at ?? failure?.failed_at
-  return (
-    <Line>
-      <strong>{failureHeadline(failure)}</strong>
-      {(status || at) && (
-        <When>
-          {status && <span>Last status: {status.text}</span>}
-          {at && <EventTime at={at} />}
-        </When>
-      )}
-    </Line>
-  )
-}
-
-/**
  * A failure's cause in plain words, with the category's advice behind a help button. Codes show
  * only in debug mode, where Show details reads the retained diagnostics on demand; expanding only
  * reads, and never sends chat or retries work.
@@ -106,10 +86,7 @@ export function SessionFailureDetails({
   const available = Boolean(load && failure?.details_available)
   return (
     <FailureSection aria-label="Session failure">
-      <Lead>
-        <FailureLine failure={failure} />
-        {failure && <HelpButton label="What to do" explanation={failure.recovery} />}
-      </Lead>
+      <FailureSummary failure={failure} />
       {debug && failure && <Codes>{failureCodes(failure)}</Codes>}
       {sessionHref && <Link href={sessionHref}>Open session</Link>}
       {debug && (
@@ -178,26 +155,6 @@ export function SessionFailureDetails({
     </FailureSection>
   )
 }
-
-const Line = styled.span`
-  display: grid;
-  gap: ${space[1]};
-  min-width: 0;
-`
-
-const When = styled.span`
-  display: flex;
-  flex-wrap: wrap;
-  gap: ${space[1]} ${space[3]};
-  font-size: ${typeVar.small.size};
-  color: ${color.muted};
-`
-
-const Lead = styled.div`
-  display: flex;
-  align-items: start;
-  gap: ${space[3]};
-`
 
 const Codes = styled.code`
   font-size: ${typeVar.small.size};

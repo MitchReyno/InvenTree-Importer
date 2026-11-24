@@ -1,4 +1,6 @@
+import type { QueryClient } from '@tanstack/react-query'
 import { IntakeRequestError } from '@invimport/contracts/client'
+import { serverQueryKey, type ServerScope } from '#/queries/scope'
 import {
   START_FRESH_REFUSALS,
   type StartFreshEligibilityDto,
@@ -26,6 +28,12 @@ const REASONS: Record<StartFreshRefusal, string> = {
 
 const REFUSALS = new Set<string>(START_FRESH_REFUSALS)
 
+/** The command's own refusals of a read gone stale; the preflight can't report these. */
+const STALE: Record<string, string> = {
+  stale_attempt: 'The session changed since this page read it. Check it before starting again.',
+  revision_conflict: 'The batch changed since this page read it. Check it before starting again.',
+}
+
 /** Why Start fresh is unavailable, or undefined when it would be accepted. */
 export function startFreshReason(eligibility: StartFreshEligibilityDto | undefined) {
   if (!eligibility || eligibility.allowed) {
@@ -36,8 +44,21 @@ export function startFreshReason(eligibility: StartFreshEligibilityDto | undefin
 
 /** The reason a Start fresh the server refused gives, when it is one of the preflight's. */
 export function startFreshRefusal(failure: unknown) {
-  if (failure instanceof IntakeRequestError && REFUSALS.has(failure.code)) {
+  if (!(failure instanceof IntakeRequestError)) {
+    return undefined
+  }
+  if (REFUSALS.has(failure.code)) {
     return REASONS[failure.code as StartFreshRefusal]
   }
-  return undefined
+  return STALE[failure.code]
+}
+
+/**
+ * Re-reads everything that says whether Start fresh would be accepted: every batch's Processing
+ * read and session histories, and the session list. Agent settings are on no batch's event
+ * stream, so a settings save calls this.
+ */
+export function invalidateStartFreshReads(queryClient: QueryClient, scope: ServerScope) {
+  void queryClient.invalidateQueries({ queryKey: serverQueryKey(scope, 'processing') })
+  void queryClient.invalidateQueries({ queryKey: serverQueryKey(scope, 'agent-sessions') })
 }

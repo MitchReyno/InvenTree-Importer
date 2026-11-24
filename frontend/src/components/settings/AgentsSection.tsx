@@ -29,6 +29,7 @@ import { useDirtyForms } from './agents/useDirtyForms'
 import { createSaveQueue } from './agents/save-queue'
 import type { SettingsPage } from './agents/useSettingsSave'
 import { sessionListKey } from '#/agents/session-list'
+import { invalidateStartFreshReads } from '#/processing/start-fresh'
 
 /** Every session, for the list's totals; no page or filter narrows them. */
 const ALL_SESSIONS = { filter: 'all' } as const
@@ -117,22 +118,13 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
   }, [subsection, ready])
 
   /**
-   * A save can change whether Start fresh would be accepted, which the Processing reads, their
-   * session histories and the session list carry; settings are on no batch's event stream.
-   */
-  function refreshEligibility() {
-    void queryClient.invalidateQueries({ queryKey: serverQueryKey(scope, 'processing') })
-    void queryClient.invalidateQueries({ queryKey: serverQueryKey(scope, 'agent-sessions') })
-  }
-
-  /**
    * Publishes confirmed settings and answers with what is current. A read that was already
    * running, or a reload older than a save confirmed meanwhile, never replaces newer settings.
    */
   function adoptLoaded(confirmed: AgentSettingsDto, source: 'save' | 'reload') {
     if (source === 'save') {
       localSaves.current.add(confirmed.revision)
-      refreshEligibility()
+      invalidateStartFreshReads(queryClient, scope)
     }
     const latest = newestRevision(
       confirmed,
@@ -174,7 +166,7 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
         adopt: adoptLoaded,
         ownSave: (revision) => {
           localSaves.current.add(revision)
-          refreshEligibility()
+          invalidateStartFreshReads(queryClient, scope)
         },
         localSaves: localSaves.current,
         reportDirty: reportDirty.report,

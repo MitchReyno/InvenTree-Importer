@@ -57,23 +57,28 @@ type Props = {
 
 type BatchSummary = AgentSessionListDto['batches'][number]
 
-/** The batches to show, in the summary's order, with any batch a row names past its cap. */
+/**
+ * The batches to show, in the summary's order. A batch past the summary's cap is known only by
+ * its loaded rows, so it counts just those.
+ */
 function shownBatches(list: AgentSessionListDto, rows: readonly AgentSessionDto[]) {
   const listed = new Set(list.batches.map((batch) => batch.batch_id))
-  const extra: BatchSummary[] = []
+  const extra = new Map<string, BatchSummary>()
   for (const row of rows) {
-    if (!listed.has(row.batch_id)) {
-      listed.add(row.batch_id)
-      extra.push({
-        batch_id: row.batch_id,
-        archived: row.archived,
-        sessions: 1,
-        matching: 1,
-        first_started_at: null,
-      })
+    if (listed.has(row.batch_id)) {
+      continue
     }
+    const known = extra.get(row.batch_id)
+    const loaded = (known?.matching ?? 0) + 1
+    extra.set(row.batch_id, {
+      batch_id: row.batch_id,
+      archived: row.archived,
+      sessions: loaded,
+      matching: loaded,
+      first_started_at: null,
+    })
   }
-  return [...list.batches, ...extra]
+  return [...list.batches, ...extra.values()]
 }
 
 /** Every agent session in scope, one row per session, grouped by batch, opening on what needs attention. */
@@ -92,7 +97,10 @@ export function AgentSessions({ client, batches }: Props) {
     filter,
     refetchInterval: poll === false ? 10000 : poll,
   })
-  const { fresh, list, rows } = sessionList
+  const { fresh, rows } = sessionList
+  // Until the chosen filter's first read lands, the last one keeps the summary and chips in place.
+  const selected = sessionList.list
+  const list = selected ?? sessionList.previous
   const query = fresh.query
   const settings = useFreshRead({
     queryKey: serverQueryKey(scope, 'agent-settings'),
@@ -100,7 +108,7 @@ export function AgentSessions({ client, batches }: Props) {
   }).query
   // Pause and Resume send no revision, so they wait for a read started after the last live hint.
   const pauseReason = fresh.settledAfterHint ? undefined : (fresh.reason ?? 'Updating…')
-  const groups = list ? shownBatches(list, rows) : []
+  const groups = selected ? shownBatches(selected, rows) : []
   const names = useQueries({
     queries: groups.map((batch) => ({
       queryKey: serverQueryKey(scope, 'agent-batch-names', batch.batch_id),
@@ -217,7 +225,16 @@ export function AgentSessions({ client, batches }: Props) {
               value={filter}
               onChange={(value) => setFilter(value as AgentSessionFilter)}
             />
-            {groups.length === 0 && <FieldNote>No sessions match this filter.</FieldNote>}
+            {!selected && <FieldNote role="status">Updating…</FieldNote>}
+            {selected && groups.length === 0 && (
+              <FieldNote>No sessions match this filter.</FieldNote>
+            )}
+            {selected?.batches_truncated && (
+              <FieldNote>
+                More batches have sessions than the summary lists; those count only the sessions
+                loaded.
+              </FieldNote>
+            )}
             {groups.map((batch) => {
               const batchNames = nameOf(batch.batch_id)
               const title = batchNames?.title ?? 'Batch'

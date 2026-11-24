@@ -19,6 +19,8 @@ import { ApiClientsProvider } from './context'
 import { agentSettings } from '#/test/agent-settings'
 import { S, sessionList, sessionRow } from '#/test/agent-sessions'
 import { H, attemptHeader, history } from '#/test/session-history'
+import { invalidateStartFreshReads } from './processing/start-fresh'
+import { deferred } from '#/test/deferred'
 
 const scope: ServerScope = {
   origin: 'http://127.0.0.1:4310',
@@ -144,6 +146,7 @@ function mount(
   { processing, agents }: ReturnType<typeof clients>,
   view: ProcessingView,
   sessionId?: string,
+  sessionPageJobId?: string,
 ) {
   const cache = createServerQueryClient()
   render(
@@ -154,6 +157,7 @@ function mount(
           client={processing}
           view={view}
           sessionId={sessionId}
+          sessionPageJobId={sessionPageJobId}
           navigate={vi.fn()}
           onDirtyChange={vi.fn()}
           onSaved={vi.fn().mockResolvedValue(undefined)}
@@ -210,9 +214,12 @@ test('the overview’s rows and start time come from the batch’s session list,
     expect.objectContaining({ filter: 'all', batch_id: H.batch }),
   )
   await within(card).findByText('2 earlier attempts failed')
-  // A failed row leads with its cause where another row shows its status line.
-  const open = within(card).getByRole('button', { name: /^Open session:/ })
-  expect(within(open).getByText("The Claude CLI refused this session's setup")).toBeVisible()
+  // A failed row leads with its cause, with the advice behind help, beside its fold.
+  const item = within(card)
+    .getByRole('button', { name: /^Open session:/ })
+    .closest('li')!
+  expect(within(item).getAllByText("The Claude CLI refused this session's setup")[0]).toBeVisible()
+  expect(within(item).getByRole('button', { name: 'What to do' })).toBeVisible()
   const started = screen.getByText('Started').parentElement!
   expect(started.querySelector('time')).toHaveAttribute('datetime', '2026-11-24T00:05:00.000Z')
 
@@ -289,4 +296,62 @@ test('a step card offers Start fresh disabled with its reason for a retired lot'
   expect(fresh).toHaveAccessibleDescription(
     'This lot was retired, so its session can’t start again.',
   )
+})
+
+test('Start fresh from the Agents page runs only on the session page, under its own Processing read', async () => {
+  const api = clients(failedJob())
+  const read = deferred<ProcessingSnapshotDto>()
+  api.processing.read.mockReturnValueOnce(read.promise)
+  mount(api, 'research', undefined, H.job)
+
+  const fresh = await screen.findByRole('button', { name: 'Start a fresh session' })
+  // Until this page's own read lands the command waits, whatever the Agents page showed.
+  expect(fresh).toHaveAccessibleDescription('Updating…')
+  fireEvent.click(fresh)
+  expect(api.processing.replaceSession).not.toHaveBeenCalled()
+
+  await act(async () => {
+    read.resolve(snapshotWith(failedJob()))
+    await read.promise
+  })
+  await waitFor(() => expect(fresh).not.toHaveAttribute('aria-disabled'))
+  expect(fresh).toBeEnabled()
+  fireEvent.click(fresh)
+  await waitFor(() =>
+    expect(api.processing.replaceSession).toHaveBeenCalledWith(
+      H.batch,
+      H.job,
+      { expected_capture_revision: '8', expected_revision: '4', attempt_id: H.attempt },
+      expect.any(String),
+    ),
+  )
+})
+
+test.each([
+  { place: 'a step card', view: 'research' as const, page: undefined, name: 'Start fresh' },
+  {
+    place: 'the session page',
+    view: 'research' as const,
+    page: H.job,
+    name: 'Start a fresh session',
+  },
+])('a settings save in this tab refreshes $place’s Start fresh', async ({ view, page, name }) => {
+  const api = clients(failedJob({ allowed: false, reason: 'agent_settings_required' }))
+  const cache = mount(api, view, undefined, page)
+  const fresh = await screen.findByRole('button', { name })
+  await waitFor(() =>
+    expect(fresh).toHaveAccessibleDescription(
+      'No agent is chosen for this step. Choose one in Agent settings.',
+    ),
+  )
+
+  // A provider is chosen and saved: the save re-reads what carries eligibility.
+  api.processing.read.mockResolvedValue(snapshotWith(failedJob({ allowed: true })))
+  api.processing.history.mockResolvedValue({
+    ...threeAttempts(),
+    session: { ...threeAttempts().session, start_fresh: { allowed: true } },
+  })
+  act(() => invalidateStartFreshReads(cache, scope))
+  await waitFor(() => expect(fresh).not.toHaveAttribute('aria-disabled'))
+  expect(fresh).toBeEnabled()
 })

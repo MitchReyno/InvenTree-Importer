@@ -324,12 +324,14 @@ export function ProcessingWorkspace({
     setError('')
     let commandFailed = false
     let refusedAnswer: IntakeRequestError | null = null
+    let refusedFresh: string | undefined
     try {
       await work()
     } catch (failure) {
       commandFailed = true
       // The server read the answer and refused it; its form marks the step and keeps the draft.
       refusedAnswer = confirmedAnswerRefusal(failure)
+      refusedFresh = startFreshRefusal(failure)
       if (!refusedAnswer) {
         setError(commandFailureMessage(failure))
       }
@@ -344,6 +346,9 @@ export function ProcessingWorkspace({
         // A refusal is confirmed: nothing was saved, and the form already keeps the draft.
         message =
           'The answer wasn\u2019t accepted, and current status is unavailable. Refresh before sending it again.'
+      } else if (refusedFresh) {
+        // Also confirmed: no new attempt started, so the reason still holds.
+        message = `Start fresh was refused: ${refusedFresh} Current status is unavailable; refresh before trying again.`
       } else if (commandFailed) {
         message =
           'Command not confirmed and current status is unavailable. Your input and original delivery identity are kept.'
@@ -679,7 +684,7 @@ export function ProcessingWorkspace({
         }
       }}
       freshDisabled={runnerDisabled || !client.replaceSession || pageJob === undefined}
-      freshReason={pageJob ? freshUnavailable(pageJob) : undefined}
+      freshReason={freshUnavailable(pageJob)}
     />
   )
 
