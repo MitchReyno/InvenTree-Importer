@@ -1,6 +1,6 @@
 # Implementation notes
 
-Implementation of the UI polish and calm loading plan, delivered as PR-A to PR-I after the plan PRs (#247, #248). PR-A merged in #250, PR-B in #254, PR-D in #255, PR-E in #253 and PR-F in #256; PR-C is underway; PR-G to PR-I remain.
+Implementation of the UI polish and calm loading plan, delivered as PR-A to PR-I after the plan PRs (#247, #248). PR-A merged in #250, PR-B in #254, PR-C in #259, PR-D in #255, PR-E in #253 and PR-F in #256; PR-G is underway; PR-H and PR-I remain.
 
 ## Changes to the plan
 
@@ -83,3 +83,4 @@ Implementation of the UI polish and calm loading plan, delivered as PR-A to PR-I
 - **2026-11-24T03:14+11:00, task 4 (PR-B), for PR-C:** Review's "Current operator review is unavailable or changed" banner still shows while `Batch`'s operator-review read for the batch is pending (`ReviewWorkspace` reads a missing review as unavailable), so it can flash on the first entry into a batch. It is outside the reads PR-B moves; PR-C should show that wait quietly too. Resolved by PR-C (see its decision entry).
 - **2026-11-24T03:48+11:00, task 4 (PR-B):** not added after review round 1, and left for PR-C or a follow-up: an `App`-level reload test with bootstrap and Capture held separately (the restore is tested through `Batch` and the snapshot store), the instruction-save case driven through `Batch` (tested through the delivery owner with a real registry), and a Review acceptance test during a Processing refresh (acceptance's `current` test is covered by the hook and the existing `LotEvidence` test). `Button.tsx` keeps its existing private `Content`, `LinkButton` and `NativeButton` helpers in one file; PR-B added no component there.
 - **2026-11-24T08:19+11:00, tasks 6 and 7 (PR-D):** not covered by a test: the Overview withholding the previous revision's attention read while the next one lands, and a real `?lot=` hash through `Batch` with a restored snapshot and a delayed capture read. Both need a `Batch`-level harness with a revision change; the parts are tested at the workspace and route levels.
+- **2026-11-24T11:12+11:00, delivery checklist:** PR-E merged in #253, but its delivery line stays unticked: the phone checks of task 9.4 (and the desktop Safari drop and paste check) are still owed by Mitch on real devices. PR-B, PR-C, PR-D and PR-F are ticked.

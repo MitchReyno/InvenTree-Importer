@@ -375,11 +375,11 @@
 - [x] PR-0: review both plans read-only (`codex exec -m gpt-6.2-sol -s read-only`; Mitch's standing rule: at most three rounds, with the last round's fixes noted on the PR; material issues left after round three are fixed and listed on the PR for Mitch), fix, publish, CI green, merge (#247).
 - [x] PR-0 follow-up: review the merged plan again (rounds 4–6, same rule), fix, publish, CI green, merge (#248).
 - [x] PR-A: implement tasks 1–3, 8 and 10, review the exact head, publish with captures and the demo, CI green, merge.
-- [ ] PR-B: implement task 4, review the exact head, publish with the demo, CI green, merge.
-- [ ] PR-C: implement task 5, review the exact head, publish with captures and the demo, CI green, merge.
-- [ ] PR-D: implement tasks 6 and 7, review the exact head, publish with captures and the demo, CI green, merge.
+- [x] PR-B: implement task 4, review the exact head, publish with the demo, CI green, merge.
+- [x] PR-C: implement task 5, review the exact head, publish with captures and the demo, CI green, merge.
+- [x] PR-D: implement tasks 6 and 7, review the exact head, publish with captures and the demo, CI green, merge.
 - [ ] PR-E: implement task 9, review the exact head, publish with the phone and desktop checks and the demo, CI green, merge.
-- [ ] PR-F: implement task 11, review the exact head, publish with the demo, CI green, merge.
+- [x] PR-F: implement task 11, review the exact head, publish with the demo, CI green, merge.
 - [ ] PR-G: implement task 12, review the exact head, publish, CI green, run the live VM check with Mitch's go-ahead, merge.
 - [ ] PR-H: implement task 13, review the exact head, publish with the demo, CI green, merge.
 - [ ] PR-I: implement task 14, review the exact head, publish with the audit, captures and the demo, CI green, merge.
