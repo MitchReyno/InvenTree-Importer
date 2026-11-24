@@ -229,7 +229,7 @@ The message box in the session drawer and on the session page SHALL be labelled 
 
 ### Requirement: Answered questions fold away
 
-Once an answer is saved, the question SHALL fold to one line in an "Answered" group below the open questions, newest first, in the session drawer, on the step page and on the session page alike. When the read carries the answer's summary, the line SHALL say what was answered and whether the session has read it, and expanding it SHALL show the question, the assumption it replaced, the answer, what it changed, when it was sent and read, and links to the lot and to the session when one exists.
+Once an answer is saved, the question SHALL fold to one line in an "Answered" group below the open questions, newest first, in the drawer, the step page and the session page alike. With the answer's summary, the line SHALL say what was answered and, given its delivery, whether the session read it. Expanded, it SHALL show the question, the assumption it replaced, the answer, what it changed, the sent and read times known, and links to the lot and, when one exists, the session.
 
 #### Scenario: Answering on the step page shows it answered, never superseded
 
@@ -257,7 +257,7 @@ Once an answer is saved, the question SHALL fold to one line in an "Answered" gr
 
 ### Requirement: An answered line without its summary
 
-An answered question that the read returns without its values SHALL show "Answered · see the session" with a link to the session, and its delivery when the read has it; a question with no session history, such as an earlier runner's, SHALL show "Answered · details not shown" with no session link. Lines with no answer time SHALL follow the timed ones, in the order they were asked. A saved answer SHALL keep its line until a fresh read shows the question answered.
+An answered question that the read returns without its values SHALL show "Answered · see the session" with a link to the session, and its delivery when the read has it; a question the read marks as having no session history, such as an earlier runner's, SHALL show "Answered · details not shown" with no session link. Lines with no answer time SHALL follow the timed ones, in the order they were asked. A saved answer SHALL keep its line until a fresh read shows the question answered.
 
 #### Scenario: A retained batch near the size limit
 

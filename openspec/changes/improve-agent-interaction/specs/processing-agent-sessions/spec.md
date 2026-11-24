@@ -231,15 +231,15 @@ Within the budget of "Answer summaries fit the snapshot", the Processing read SH
 
 #### Scenario: Waiting, then read
 
-- **GIVEN** an answered `/2` question whose answer is above the session's acknowledgement cursor
+- **GIVEN** an answered `/2` question whose answer is above the session's acknowledgement cursor, in a snapshot whose answers all fit in full
 - **WHEN** Processing is read, and read again after the session's read_inbox acknowledges past the answer
 - **THEN** the first read gives the answer waiting with no read time, and the second gives it read at that acknowledgement's time.
 
 #### Scenario: Earlier runner question
 
-- **GIVEN** an answered question of an earlier runner profile
+- **GIVEN** an answered question of an earlier runner profile, in a snapshot whose answers all fit in full
 - **WHEN** Processing is read
-- **THEN** it carries the answer's time and summary with no inbox delivery.
+- **THEN** it carries the answer's time and summary with no inbox delivery, and says the job has no session history.
 
 ### Requirement: Answer summaries fit the snapshot
 
