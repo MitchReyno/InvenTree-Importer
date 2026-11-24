@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import styled from 'styled-components'
 import {
   SessionFailureDetails,
@@ -9,7 +8,6 @@ import type { ProcessingClient } from '#/processing/types'
 import { drawerItems } from '#/processing/session-history'
 import {
   newestInboxSeq,
-  retireArrivedSends,
   unreadPendingSends,
   usePendingSendKey,
   usePendingSends,
@@ -48,13 +46,6 @@ export function SessionPanel({
   const history = useNewestHistory(client.history, batchId, job.id)
   const storeKey = usePendingSendKey(batchId, job.id)
   const pending = usePendingSends(storeKey)
-  const loaded = history.data?.entries
-  // Syncs the pending sends with the history read: a saved message it now holds is retired.
-  useEffect(() => {
-    if (loaded) {
-      retireArrivedSends(storeKey, loaded)
-    }
-  }, [storeKey, loaded])
   const step = processingStepFor(job.stage)
   const fullSession = sessionPageHref(batchId, step, job.id)
   if (!history.data) {

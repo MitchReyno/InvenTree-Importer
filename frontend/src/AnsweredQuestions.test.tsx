@@ -16,7 +16,7 @@ import type { ProcessingClient, ProcessingView } from './processing/types'
 import { createDrawerRestore } from './processing/drawer-restore'
 import { createAnswerOutcomes } from './processing/answer-outcomes'
 import { answered, choiceQuestion, fullAnswer, Q } from '#/test/answered-questions'
-import { attemptHeader, history as sessionHistory } from '#/test/session-history'
+import { attemptHeader, history as sessionHistory, question } from '#/test/session-history'
 
 // Each test mounts the whole Processing workspace, which a busy machine renders slowly.
 vi.setConfig({ testTimeout: 15000 })
@@ -113,12 +113,14 @@ function Harness({
   questionId,
   remount = true,
   outcomes,
+  sessionPageJobId,
 }: {
   client: ProcessingClient
   view?: ProcessingView
   questionId?: string
   remount?: boolean
   outcomes: ReturnType<typeof createAnswerOutcomes>
+  sessionPageJobId?: string
 }) {
   const [reset, setReset] = useState(0)
   const [drawerRestore] = useState(createDrawerRestore)
@@ -130,6 +132,7 @@ function Harness({
       client={client}
       view={view}
       questionId={questionId}
+      sessionPageJobId={sessionPageJobId}
       navigate={vi.fn()}
       onDirtyChange={vi.fn()}
       onSaved={async () => {
@@ -145,7 +148,10 @@ function Harness({
   )
 }
 
-function mount(client: ProcessingClient, props: { questionId?: string; remount?: boolean } = {}) {
+function mount(
+  client: ProcessingClient,
+  props: { questionId?: string; remount?: boolean; sessionPageJobId?: string } = {},
+) {
   const cache = createServerQueryClient()
   const outcomes = createAnswerOutcomes()
   render(
@@ -384,3 +390,77 @@ test('a clean drawer form closed by Start fresh reads “No longer asked”', as
   expect(await within(drawer).findByText(/No longer asked/)).toBeInTheDocument()
   expect(within(drawer).queryByRole('form', { name: /^Session question/ })).toBeNull()
 })
+
+test('a drawer opened after a replacement or a Start fresh still says why each question closed', async () => {
+  const client = clientFor(
+    examineRead([
+      { ...lead(5), state: 'superseded', revision: '2', replaced_by: Q.question(7) },
+      { ...lead(6), state: 'superseded', revision: '2' },
+      lead(7),
+    ]),
+  )
+  render(
+    <ServerStateProvider scope={scope} client={createServerQueryClient()}>
+      <ProcessingWorkspace
+        batch={batch}
+        client={client}
+        view="examine"
+        sessionId={Q.job}
+        navigate={vi.fn()}
+        onDirtyChange={vi.fn()}
+        onSaved={vi.fn().mockResolvedValue(undefined)}
+      />
+    </ServerStateProvider>,
+  )
+  const drawer = await screen.findByRole('dialog')
+  expect(await within(drawer).findByText(/Replaced by a newer question/)).toBeInTheDocument()
+  expect(within(drawer).getByText(/No longer asked/)).toBeInTheDocument()
+})
+
+test('after a page answer remounts, focus waits for the next loaded question’s form', async () => {
+  const user = userEvent.setup()
+  const client = clientFor(examineRead([lead(5), lead(6)]))
+  client.history.mockResolvedValue(
+    sessionHistory([question(2, 2, { id: Q.question(6) }), question(1, 1, { id: Q.question(5) })], {
+      attempts: [attemptHeader({ state: 'running', session_state: 'running' })],
+    }),
+  )
+  mount(client, { sessionPageJobId: Q.job })
+  const first = await waitFor(() => {
+    const card = document.querySelector<HTMLElement>(`[data-question-card="${Q.question(5)}"]`)
+    expect(card?.querySelector('form')).toBeTruthy()
+    return card!
+  })
+  const remounted = deferredRead()
+  client.read
+    .mockResolvedValueOnce(
+      examineRead([answered(lead(5), fullAnswer('Contents verified')), lead(6)], '9'),
+    )
+    .mockReturnValueOnce(remounted.promise)
+  await user.click(within(first).getByRole('radio', { name: /Contents verified/ }))
+  await user.click(within(first).getByRole('button', { name: /^Send/ }))
+
+  // The remount shows the cached read; the next question's form waits for its fresh read.
+  await waitFor(() => expect(client.read).toHaveBeenCalledTimes(3))
+  expect(screen.queryByRole('heading', { name: /^Answered/ })).not.toHaveFocus()
+  await act(async () => {
+    remounted.resolve(
+      examineRead([answered(lead(5), fullAnswer('Contents verified')), lead(6)], '9'),
+    )
+    await remounted.promise
+  })
+  await waitFor(
+    () =>
+      expect(document.querySelector(`[data-question-card="${Q.question(6)}"] input`)).toHaveFocus(),
+    { timeout: 5000 },
+  )
+})
+
+function deferredRead() {
+  let resolve: (value: ProcessingSnapshotDto) => void = () => {}
+
+  const promise = new Promise<ProcessingSnapshotDto>((settle) => {
+    resolve = settle
+  })
+  return { promise, resolve }
+}

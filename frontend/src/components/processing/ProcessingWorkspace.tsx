@@ -590,11 +590,29 @@ export function ProcessingWorkspace({
     return <ClosedQuestion question={question} {...closedLinks(jobs, question, batch.id)} />
   }
 
-  /** A closed question's card, for a drawer form that left: replaced, or no longer asked. */
-  function closedQuestionOutcome(questionId: string) {
-    const question = allQuestions.find((candidate) => candidate.id === questionId)
+  /** A loaded question card that will take a form once a fresh read pins its open question. */
+  function formAwaited(page: HTMLElement | null, after: string) {
+    const openCards = allQuestions.filter(
+      (question) =>
+        question.state === 'open' &&
+        question.id !== after &&
+        !confirmedAnswer(question.id) &&
+        page?.querySelector(`[data-question-card="${question.id}"]`),
+    )
+    const formed = openCards.some((question) =>
+      page?.querySelector(`[data-question-form="${question.id}"] :is(input, textarea)`),
+    )
 
-    return question && question.state === 'superseded' ? questionOutcome(question) : null
+    return openCards.length > 0 && !formed && waitingForRead
+  }
+
+  /** The session's closed questions, each saying why, unless a kept draft form says it already. */
+  function closedQuestions(job: ProcessingJobDto) {
+    return job.questions
+      .filter(
+        (question) => question.state === 'superseded' && !drafts.isDirty(`answer:${question.id}`),
+      )
+      .map((question) => <div key={`closed:${question.id}`}>{questionOutcome(question)}</div>)
   }
 
   /** Where focus goes once a step page's answer folds: the next open question, or "Answered". */
@@ -722,6 +740,10 @@ export function ProcessingWorkspace({
           question.state === 'open' &&
           !confirmedAnswer(question.id),
       )
+    // A loaded question card whose form waits for this mount's fresh read is waited for.
+    if (target.kind === 'page_form' && formAwaited(page, target.after)) {
+      return
+    }
     const element = focusTarget(page, stillOpen ? target : { kind: 'answered' })
     if (element) {
       element.focus()
@@ -1295,9 +1317,9 @@ export function ProcessingWorkspace({
                       readFailed={offline}
                       reportFor={(id) => drafts.forSource(`answer:${id}`)}
                       fallback={questionLink}
-                      closedOutcome={closedQuestionOutcome}
                     />
                   )}
+                  {answersInDrawer && closedQuestions(sessionJob)}
                   {answersInDrawer && answeredGroup([sessionJob])}
                   <SessionPanel
                     batchId={batch.id}

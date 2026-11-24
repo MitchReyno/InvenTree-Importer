@@ -64,7 +64,7 @@ export function ConversationRow({
   }
   if (details.kind === 'question' && answerForm) {
     return (
-      <Card>
+      <Card data-question-card={details.question_id}>
         <HistoryEntry entry={entry} context={context} />
         {answerForm(details.question_id)}
       </Card>

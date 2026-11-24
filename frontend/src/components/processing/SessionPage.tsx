@@ -14,7 +14,6 @@ import { startFreshReason } from '#/processing/start-fresh'
 import { SessionChatPanel } from './SessionChatPanel'
 import {
   newestInboxSeq,
-  retireArrivedSends,
   unreadPendingSends,
   usePendingSendKey,
   usePendingSends,
@@ -86,13 +85,6 @@ export function SessionPage(props: Props) {
   const questions = useQuestionsWithDrafts(held, props.isAnswerDirty)
   const storeKey = usePendingSendKey(batchId, jobId)
   const pending = usePendingSends(storeKey)
-  const loaded = query.data?.entries
-  // Syncs the pending sends with the history read: a saved message it now holds is retired.
-  useEffect(() => {
-    if (loaded) {
-      retireArrivedSends(storeKey, loaded)
-    }
-  }, [storeKey, loaded])
   // A definite "not found" wins over history read earlier, which may belong to another scope.
   if (isNotFound(query.error)) {
     return (

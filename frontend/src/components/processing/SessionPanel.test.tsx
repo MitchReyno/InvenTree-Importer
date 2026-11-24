@@ -343,8 +343,11 @@ test('two sends before a read both stay shown, and a held row never comes back a
   await waitFor(() =>
     expect(within(list).queryByRole('listitem', { name: /^Your message/ })).toBeNull(),
   )
-  // Once the rows roll off the newest page, they don't reappear as pending.
-  page = () => Promise.resolve(conversationPage())
+  // Once newer rows push them off the newest page, they don't reappear as pending.
+  const rolled = history([chat(11, 9, 'A later message'), status(5, 8, 'Still working')], {
+    attempts: conversationPage().session.attempts,
+  })
+  page = () => Promise.resolve(rolled)
   await act(async () => {
     await client.cache.refetchQueries()
   })

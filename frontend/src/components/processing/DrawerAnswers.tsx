@@ -36,8 +36,6 @@ type Props = {
   focusNext?: boolean
   /** The latest Processing read failed or is paused. */
   readFailed?: boolean
-  /** Why a question whose clean form left closed: replaced, or no longer asked. */
-  closedOutcome?: (questionId: string) => ReactNode
 }
 
 /** The pins after this read: open questions get forms, clean forms follow it or leave. */
@@ -87,7 +85,6 @@ export function DrawerAnswers(props: Props) {
     fallback,
     focusNext = false,
     readFailed = false,
-    closedOutcome,
   } = props
   const [pins, setPins] = useState<Readonly<Record<string, Pin>>>({})
   const container = useRef<HTMLDivElement>(null)
@@ -103,16 +100,8 @@ export function DrawerAnswers(props: Props) {
     }
   }, [focusNext])
   const current = nextPins(pins, props)
-  // A clean form whose question closed without an answer leaves its reason in its place.
-  const [closed, setClosed] = useState<readonly string[]>([])
   if (current !== pins) {
-    const closedNow = Object.keys(pins).filter(
-      (id) => !(id in current) && lookup(id)?.state === 'superseded' && !closed.includes(id),
-    )
     setPins(current)
-    if (closedNow.length) {
-      setClosed([...closed, ...closedNow])
-    }
   }
   const openIds = new Set(questions.map((question) => question.id))
   const kept = Object.keys(current).filter((id) => !openIds.has(id))
@@ -194,10 +183,6 @@ export function DrawerAnswers(props: Props) {
 
         return question ? <span key={id}>{fallback(question)}</span> : null
       })}
-      {closedOutcome &&
-        closed
-          .filter((id) => !(id in current))
-          .map((id) => <div key={`closed:${id}`}>{closedOutcome(id)}</div>)}
     </Answers>
   )
 }

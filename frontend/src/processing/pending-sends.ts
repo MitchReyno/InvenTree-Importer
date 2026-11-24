@@ -17,8 +17,9 @@ export type PendingSend = {
 
 /**
  * Sends outlive the composer for as long as the page is open. Each session's sends are kept by
- * delivery key, in the order sent, from before the request starts until a history read holds the
- * saved row or the operator discards an unconfirmed one.
+ * delivery key, in the order sent, from before the request starts; an unconfirmed one until the
+ * operator retries or discards it, and a saved one with its row's inbox sequence, so each surface
+ * can tell from its own read whether it holds the row yet.
  */
 const pendingSends = new Map<string, readonly PendingSend[]>()
 const listeners = new Set<() => void>()
@@ -31,7 +32,10 @@ function subscribe(listener: () => void) {
   }
 }
 
-function publish(storeKey: string, sends: readonly PendingSend[]) {
+function publish(storeKey: string, all: readonly PendingSend[]) {
+  const saved = all.filter((send) => send.status === 'saved')
+  const dropped = new Set(saved.slice(0, -MAX_SAVED_SENDS))
+  const sends = all.filter((send) => !dropped.has(send))
   if (sends.length) {
     pendingSends.set(storeKey, sends)
   } else {
@@ -40,11 +44,23 @@ function publish(storeKey: string, sends: readonly PendingSend[]) {
   listeners.forEach((listener) => listener())
 }
 
+function scopeKey(scope: ServerScope) {
+  return [scope.origin, scope.actorId, scope.targetId, scope.targetContextId].join('|')
+}
+
 /** One session's sends within one server scope, so another origin or account never sees them. */
 export function pendingSendKey(scope: ServerScope, batchId: string, jobId: string) {
-  return [scope.origin, scope.actorId, scope.targetId, scope.targetContextId, batchId, jobId].join(
-    '|',
-  )
+  return [scopeKey(scope), batchId, jobId].join('|')
+}
+
+/** Discards a server scope's sends when that scope ends, as its private cache is. */
+export function dropScopeSends(scope: ServerScope) {
+  const prefix = `${scopeKey(scope)}|`
+  const ended = [...pendingSends.keys()].filter((key) => key.startsWith(prefix))
+  ended.forEach((key) => pendingSends.delete(key))
+  if (ended.length) {
+    listeners.forEach((listener) => listener())
+  }
 }
 
 /** The current scope's key for a session's sends. */
@@ -97,40 +113,45 @@ export function newestInboxSeq(entries: readonly { id: string }[]) {
   return entries.reduce((newest, entry) => Math.max(newest, inboxSeq(entry.id)), 0)
 }
 
-/**
- * Whether a read holds the send's row: by its saved row's sequence, or, before the receipt
- * arrives, by the first newer chat row with the same text.
- */
-function arrived(send: PendingSend, entries: readonly HistoryRow[]) {
-  return entries.some((entry) => {
-    const seq = inboxSeq(entry.id)
-    if (send.seq !== undefined) {
-      return seq === send.seq
-    }
-    return (
-      seq > send.after &&
-      entry.who === 'operator' &&
-      entry.details.kind === 'chat' &&
-      entry.details.text === send.text
-    )
-  })
-}
+/** At most this many saved sends are kept per session; older ones are long in its history. */
+const MAX_SAVED_SENDS = 20
 
 /**
- * The messages to show at the end of the history, "Sending…" or "Saved", until a read holds them.
+ * The messages to show at the end of a history, "Sending…" or "Saved", that the read doesn't hold
+ * yet. A saved send shows while the read is older than its row: it holds neither that row nor any
+ * newer inbox row, so a row that later leaves the newest page never returns. Before its receipt,
+ * a send is matched to a newer chat row with its text, each row to one send in the order sent.
  */
 export function unreadPendingSends(sends: readonly PendingSend[], entries: readonly HistoryRow[]) {
-  return sends.filter((send) => send.status !== 'unconfirmed' && !arrived(send, entries))
-}
-
-/**
- * Retires saved sends a read now holds, so a row that later ages out of the newest page never
- * comes back as pending.
- */
-export function retireArrivedSends(storeKey: string, entries: readonly HistoryRow[]) {
-  const sends = pendingSends.get(storeKey) ?? NONE
-  const kept = sends.filter((send) => send.status !== 'saved' || !arrived(send, entries))
-  if (kept.length !== sends.length) {
-    publish(storeKey, kept)
+  const newest = newestInboxSeq(entries)
+  const claimed = new Set(sends.flatMap((send) => (send.seq === undefined ? [] : [send.seq])))
+  const shown: PendingSend[] = []
+  for (const send of sends) {
+    if (send.status === 'unconfirmed') {
+      continue
+    }
+    if (send.seq !== undefined) {
+      if (newest < send.seq) {
+        shown.push(send)
+      }
+      continue
+    }
+    const row = entries.find((entry) => {
+      const seq = inboxSeq(entry.id)
+      return (
+        seq > send.after &&
+        !claimed.has(seq) &&
+        entry.who === 'operator' &&
+        entry.details.kind === 'chat' &&
+        entry.details.text === send.text
+      )
+    })
+    if (row) {
+      claimed.add(inboxSeq(row.id))
+    } else {
+      shown.push(send)
+    }
   }
+
+  return shown
 }
