@@ -312,19 +312,19 @@
   - Provider token verification is out of scope here (12.1.3 only investigates it). Save confirms shape and storage, and failures show as the last-session line.
   - A guest image change needs the runner image refreshed: managed `pnpm dev` rebuilds it, and unmanaged mode only warns that it's stale and points to `pnpm vm:setup` (`tooling/dev.cjs:190–195,633–646`). The provider management containers run the credential entry point from that image (`personal-claude.sh:22–25`, `personal-codex.sh:20–24`), so they restart on it too. The deployment README covers both modes.
 
-- [ ] 12.1 Investigate and decide, recording each decision and its reason in `notes.md`:
-  - [ ] 12.1.1 The transport for the API-to-worker status request, and a new worker-to-guest path to each credential process's status-only endpoint (the relay has none today): how the endpoint authenticates the paired worker, how both providers are reached in one deployment, and how a timed-out call is abandoned and its guest work released.
-  - [ ] 12.1.2 That Codex `account/read` without refresh has no side effects.
-  - [ ] 12.1.3 Whether the Claude CLI in the guest can confirm a setup token cheaply without starting a session. If it can, propose it as a follow-up requirement; it is not part of this task.
-- [ ] 12.2 RED: tests for:
-  - [ ] 12.2.1 The status-only endpoint: Claude saved with and without `credential_meta`; Codex signed in, signing in (before any turn), and an expired login left untouched; a read overlapping an active turn; no secrets.
-  - [ ] 12.2.6 `credential_meta` through upgrade, rollback, a replace or remove on the older image, and re-upgrade, showing no stale save time.
-  - [ ] 12.2.2 Older, busy and timed-out guests reading as unknown.
-  - [ ] 12.2.3 The API-to-worker request and its timeout.
-  - [ ] 12.2.7 Each provider answering independently, one timing out while the other answers; direct requests from the browser-facing management listener and from other namespaces refused; the deployed two-provider topology read before any turn.
-  - [ ] 12.2.4 The route, with the last-session line (shown only for the provider's latest queued session in either mode, a VM subscription failure produced through the real session runner, when it used the subscription and its provider error is `authentication_failed`, `unauthorized` or HTTP 401, read from the scoped diagnostic projection; a tie with an API-key session hiding it; not for a missing token, an unreachable guest or unavailable credentials; hidden after a newer session that didn't fail sign-in), and an unreachable VM.
-  - [ ] 12.2.5 The contract.
-- [ ] 12.3 GREEN: implement the status-only endpoint, the `credential_meta` side table, the worker request, the route and the contract.
+- [x] 12.1 Investigate and decide, recording each decision and its reason in `notes.md`:
+  - [x] 12.1.1 The transport for the API-to-worker status request, and a new worker-to-guest path to each credential process's status-only endpoint (the relay has none today): how the endpoint authenticates the paired worker, how both providers are reached in one deployment, and how a timed-out call is abandoned and its guest work released.
+  - [x] 12.1.2 That Codex `account/read` without refresh has no side effects.
+  - [x] 12.1.3 Whether the Claude CLI in the guest can confirm a setup token cheaply without starting a session. If it can, propose it as a follow-up requirement; it is not part of this task.
+- [x] 12.2 RED: tests for:
+  - [x] 12.2.1 The status-only endpoint: Claude saved with and without `credential_meta`; Codex signed in, signing in (before any turn), and an expired login left untouched; a read overlapping an active turn; no secrets.
+  - [x] 12.2.6 `credential_meta` through upgrade, rollback, a replace or remove on the older image, and re-upgrade, showing no stale save time.
+  - [x] 12.2.2 Older, busy and timed-out guests reading as unknown.
+  - [x] 12.2.3 The API-to-worker request and its timeout.
+  - [x] 12.2.7 Each provider answering independently, one timing out while the other answers; direct requests from the browser-facing management listener and from other namespaces refused; the deployed two-provider topology read before any turn.
+  - [x] 12.2.4 The route, with the last-session line (shown only for the provider's latest queued session in either mode, a VM subscription failure produced through the real session runner, when it used the subscription and its provider error is `authentication_failed`, `unauthorized` or HTTP 401, read from the scoped diagnostic projection; a tie with an API-key session hiding it; not for a missing token, an unreachable guest or unavailable credentials; hidden after a newer session that didn't fail sign-in), and an unreachable VM.
+  - [x] 12.2.5 The contract.
+- [x] 12.3 GREEN: implement the status-only endpoint, the `credential_meta` side table, the worker request, the route and the contract.
 - [ ] 12.4 Update the deployment README and `intake-server/src/agents/ARCHITECTURE.md`. Run the tiers, and ask Mitch before the live VM check.
 
 ## 13. Provider cards, switches, model picker and sign-in dialogs
@@ -375,11 +375,11 @@
 - [x] PR-0: review both plans read-only (`codex exec -m gpt-6.2-sol -s read-only`; Mitch's standing rule: at most three rounds, with the last round's fixes noted on the PR; material issues left after round three are fixed and listed on the PR for Mitch), fix, publish, CI green, merge (#247).
 - [x] PR-0 follow-up: review the merged plan again (rounds 4–6, same rule), fix, publish, CI green, merge (#248).
 - [x] PR-A: implement tasks 1–3, 8 and 10, review the exact head, publish with captures and the demo, CI green, merge.
-- [ ] PR-B: implement task 4, review the exact head, publish with the demo, CI green, merge.
-- [ ] PR-C: implement task 5, review the exact head, publish with captures and the demo, CI green, merge.
-- [ ] PR-D: implement tasks 6 and 7, review the exact head, publish with captures and the demo, CI green, merge.
+- [x] PR-B: implement task 4, review the exact head, publish with the demo, CI green, merge.
+- [x] PR-C: implement task 5, review the exact head, publish with captures and the demo, CI green, merge.
+- [x] PR-D: implement tasks 6 and 7, review the exact head, publish with captures and the demo, CI green, merge.
 - [ ] PR-E: implement task 9, review the exact head, publish with the phone and desktop checks and the demo, CI green, merge.
-- [ ] PR-F: implement task 11, review the exact head, publish with the demo, CI green, merge.
+- [x] PR-F: implement task 11, review the exact head, publish with the demo, CI green, merge.
 - [ ] PR-G: implement task 12, review the exact head, publish, CI green, run the live VM check with Mitch's go-ahead, merge.
 - [ ] PR-H: implement task 13, review the exact head, publish with the demo, CI green, merge.
 - [ ] PR-I: implement task 14, review the exact head, publish with the audit, captures and the demo, CI green, merge.

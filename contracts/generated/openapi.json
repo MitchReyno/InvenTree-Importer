@@ -1406,6 +1406,36 @@
         ]
       }
     },
+    "/api/v1/agents/provider-status": {
+      "get": {
+        "x-intake-client": {
+          "timeoutMs": 10000,
+          "errorMode": "typed"
+        },
+        "responses": {
+          "200": {
+            "description": "ProviderStatus",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/agents/pause": {
       "put": {
         "x-intake-client": {
@@ -93230,6 +93260,339 @@
             "minimum": 0,
             "maximum": 100000,
             "type": "integer"
+          }
+        }
+      },
+      "ProviderStatus": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "claude",
+          "codex",
+          "read_at"
+        ],
+        "properties": {
+          "claude": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "state",
+                  "saved_at",
+                  "last_sign_in_failure"
+                ],
+                "properties": {
+                  "state": {
+                    "const": "saved",
+                    "type": "string"
+                  },
+                  "saved_at": {
+                    "anyOf": [
+                      {
+                        "maxLength": 40,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "last_sign_in_failure": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "attempt_id",
+                          "failure_id",
+                          "failed_at"
+                        ],
+                        "properties": {
+                          "attempt_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "failure_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "failed_at": {
+                            "maxLength": 40,
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "state",
+                  "last_sign_in_failure"
+                ],
+                "properties": {
+                  "state": {
+                    "const": "not_saved",
+                    "type": "string"
+                  },
+                  "last_sign_in_failure": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "attempt_id",
+                          "failure_id",
+                          "failed_at"
+                        ],
+                        "properties": {
+                          "attempt_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "failure_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "failed_at": {
+                            "maxLength": 40,
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "state",
+                  "reason",
+                  "last_sign_in_failure"
+                ],
+                "properties": {
+                  "state": {
+                    "const": "unknown",
+                    "type": "string"
+                  },
+                  "reason": {
+                    "anyOf": [
+                      {
+                        "const": "not_configured",
+                        "type": "string"
+                      },
+                      {
+                        "const": "worker_unavailable",
+                        "type": "string"
+                      },
+                      {
+                        "const": "vm_unreachable",
+                        "type": "string"
+                      },
+                      {
+                        "const": "service_unavailable",
+                        "type": "string"
+                      },
+                      {
+                        "const": "guest_outdated",
+                        "type": "string"
+                      },
+                      {
+                        "const": "busy",
+                        "type": "string"
+                      },
+                      {
+                        "const": "timeout",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "last_sign_in_failure": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "attempt_id",
+                          "failure_id",
+                          "failed_at"
+                        ],
+                        "properties": {
+                          "attempt_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "failure_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "failed_at": {
+                            "maxLength": 40,
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          "codex": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "state",
+                  "last_sign_in_failure"
+                ],
+                "properties": {
+                  "state": {
+                    "anyOf": [
+                      {
+                        "const": "signed_in",
+                        "type": "string"
+                      },
+                      {
+                        "const": "signing_in",
+                        "type": "string"
+                      },
+                      {
+                        "const": "signed_out",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "last_sign_in_failure": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "attempt_id",
+                          "failure_id",
+                          "failed_at"
+                        ],
+                        "properties": {
+                          "attempt_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "failure_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "failed_at": {
+                            "maxLength": 40,
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "state",
+                  "reason",
+                  "last_sign_in_failure"
+                ],
+                "properties": {
+                  "state": {
+                    "const": "unknown",
+                    "type": "string"
+                  },
+                  "reason": {
+                    "anyOf": [
+                      {
+                        "const": "not_configured",
+                        "type": "string"
+                      },
+                      {
+                        "const": "worker_unavailable",
+                        "type": "string"
+                      },
+                      {
+                        "const": "vm_unreachable",
+                        "type": "string"
+                      },
+                      {
+                        "const": "service_unavailable",
+                        "type": "string"
+                      },
+                      {
+                        "const": "guest_outdated",
+                        "type": "string"
+                      },
+                      {
+                        "const": "busy",
+                        "type": "string"
+                      },
+                      {
+                        "const": "timeout",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "last_sign_in_failure": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "attempt_id",
+                          "failure_id",
+                          "failed_at"
+                        ],
+                        "properties": {
+                          "attempt_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "failure_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "failed_at": {
+                            "maxLength": 40,
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          "read_at": {
+            "maxLength": 40,
+            "type": "string"
           }
         }
       },

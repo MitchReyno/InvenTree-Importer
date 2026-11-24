@@ -223,6 +223,26 @@ class OperatorKey(unittest.TestCase):
         self.assertFalse(self.key_file.exists())
         self.assertFalse(self.guest_key.exists())
 
+    def test_only_the_management_containers_receive_the_pairing_identity(self):
+        # The status-only endpoint authenticates as the paired guest; the egress services don't.
+        pairing = f"type=bind,src={self.guest}/guest,dst=/run/bench-pair,readonly"
+        for provider in ("claude", "codex"):
+            with self.subTest(provider):
+                self.docker_log.write_text("")
+                result = self.provision(provider)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                runs = [call for call in self.docker_log.read_text().splitlines()
+                        if call.startswith("run ")]
+                management = [call for call in runs if f"bench-{provider}-management" in call]
+                egress = [call for call in runs if f"bench-{provider}-egress" in call]
+                self.assertEqual(len(management), 1)
+                self.assertEqual(len(egress), 1)
+                self.assertIn(pairing, management[0])
+                self.assertNotIn("/run/bench-pair", egress[0])
+                self.assertNotIn(f"{self.guest}/guest,", egress[0])
+                # Nothing is published for it: only the management port is.
+                self.assertEqual(management[0].count(" -p "), 1)
+
     def test_a_container_without_mounts_is_not_removed(self):
         (self.containers / "bench-claude-egress").write_text(" ")
         result = self.provision("claude")
