@@ -341,3 +341,22 @@ test('a read that pauses reports the read unavailable without waiting', async ()
     onlineManager.setOnline(true)
   }
 })
+
+test('a cache write made while the replacement is published is not what the wait returns', async () => {
+  const { read, pending } = scriptedReads()
+  const { observer } = observe(read)
+  pending[0].resolve({ value: 'first' })
+  await vi.advanceTimersByTimeAsync(0)
+  // Another view writes its own receipt as soon as a read lands.
+  const unsubscribe = client.getQueryCache().subscribe((event) => {
+    if (event.type === 'updated' && event.action.type === 'success' && !event.action.manual) {
+      client.setQueryData(key, { value: 'written' })
+    }
+  })
+
+  const awaited = awaitedRead(observer)
+  await reconcile()
+  pending[2].resolve({ value: 'replacement' })
+  await expect(awaited).resolves.toEqual({ value: 'replacement' })
+  unsubscribe()
+})

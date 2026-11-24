@@ -53,12 +53,6 @@ async function fixtureNetwork() {
 }
 
 const OFFLINE_AT_MS = params.get('offline-at')
-if (readMode === 'offline' && OFFLINE_AT_MS !== null) {
-  setTimeout(() => {
-    offlineUntil = Date.now() + OFFLINE_MS
-    sendLiveUpdate?.()
-  }, Number(OFFLINE_AT_MS))
-}
 
 /** What happens to reads once an answer is accepted. */
 function afterAnswer() {
@@ -79,7 +73,15 @@ function LiveUpdateStandIn() {
         () => queryClient.invalidateQueries({ queryKey: serverQueryKey(scope) }),
       )
     }
+    const goOffline =
+      readMode === 'offline' && OFFLINE_AT_MS !== null
+        ? setTimeout(() => {
+            offlineUntil = Date.now() + OFFLINE_MS
+            sendLiveUpdate?.()
+          }, Number(OFFLINE_AT_MS))
+        : undefined
     return () => {
+      clearTimeout(goOffline)
       sendLiveUpdate = null
     }
   }, [queryClient])

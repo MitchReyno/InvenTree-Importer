@@ -388,3 +388,34 @@ test('the reload after an answer reads afresh rather than joining a read from be
   ).toBeInTheDocument()
   noReloadMessage()
 })
+
+test('a read that works at the revision shown clears the notice without remounting the page', async () => {
+  const user = userEvent.setup()
+  let failing = false
+  const reads: (() => Promise<CaptureSnapshotDto>)[] = [async () => saved]
+  const { processing: processingRead } = mount(async () => {
+    const next = reads.shift()
+    if (next) {
+      return next()
+    }
+    if (failing) {
+      throw new Error('server_unreachable')
+    }
+    return saved
+  })
+  expect(await screen.findByRole('heading', { name: 'Packet questions' })).toBeInTheDocument()
+  failing = true
+  await act(async () => {
+    await cache.invalidateQueries({ queryKey: serverQueryKey(fixtureScope, 'capture', batchId) })
+  })
+  expect(await screen.findByText(/Couldn’t load the latest values/)).toBeInTheDocument()
+  const processingReads = processingRead.read.mock.calls.length
+
+  failing = false
+  await user.click(screen.getByRole('button', { name: 'Try now' }))
+  await waitFor(() =>
+    expect(screen.queryByText(/Couldn’t load the latest values/)).not.toBeInTheDocument(),
+  )
+  // Processing kept its mount: no new read of its own.
+  expect(processingRead.read).toHaveBeenCalledTimes(processingReads)
+})

@@ -94,12 +94,13 @@ export function ManualWorkspace({
   const pollInterval = useRetainedPollInterval()
   const scope = useServerScope()
   const queryClient = useQueryClient()
-  const mediaQuery = useFreshRead({
+  const mediaFresh = useFreshRead({
     queryKey: serverQueryKey(scope, 'media', batch.id),
     queryFn: () => media!.snapshot(batch.id),
     enabled: stage === 'review' && media !== undefined,
     refetchInterval: pollInterval,
-  }).query
+  })
+  const mediaQuery = mediaFresh.query
   const restoredProcessing = useRestoredSnapshot('processing', batch.id)
   // Cached data is history: acceptance needs this mount's own read, settled at this revision.
   const processingFresh = useFreshRead({
@@ -378,7 +379,7 @@ export function ManualWorkspace({
         operatorReview={operatorReview}
         operatorReviewPending={operatorReviewPending}
         media={mediaQuery.data}
-        mediaUnavailable={mediaQuery.isError || mediaQuery.fetchStatus === 'paused'}
+        mediaUnavailable={mediaFresh.phase === 'failed'}
         mediaLoading={media !== undefined && mediaQuery.isPending}
         processing={processingFresh.data}
         processingCurrent={processingFresh.phase === 'current'}

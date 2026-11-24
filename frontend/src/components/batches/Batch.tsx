@@ -194,6 +194,11 @@ export function Batch({
   // This is accepted edit authority, not a mirror of the latest cache value.
   const [accepted, setAccepted] = useState<AcceptedBatch | null>(null)
   const batch = accepted?.batch ?? null
+  // The accepted revision, as a handler reads it after awaiting a read.
+  const shownRevision = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    shownRevision.current = batch?.revision
+  }, [batch?.revision])
   const [error, setError] = useState('')
   const [current, setCurrent] = useState<CaptureSnapshotDto | null>(null)
   const [busy, setBusy] = useState(false)
@@ -457,8 +462,9 @@ export function Batch({
     }
     try {
       const value = await readSavedValues(mountSignal(), { joinRunning: true })
-      // Drafts keep their pinned revision; their saves meet the usual conflict checks.
-      if (!dirtyNow.current) {
+      // Drafts keep their pinned revision; their saves meet the usual conflict checks. Values at
+      // the revision shown change nothing, so the workspaces aren't remounted for them.
+      if (!dirtyNow.current && value.revision !== shownRevision.current) {
         adoptSavedValues(value)
       }
     } catch {

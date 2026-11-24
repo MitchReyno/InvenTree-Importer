@@ -207,9 +207,10 @@ class ReplacementWait<T> {
         this.#replacementRunning = true
         return
       case 'success':
-        // A cache write is not a read.
+        // A cache write is not a read. The request's own data, not the cache's, which an observer
+        // may write over while this success is published.
         if (this.#replacementRunning && action.manual !== true) {
-          this.#finish(() => this.#options.resolve(query.state.data as T))
+          this.#finish(() => this.#options.resolve(action.data as T))
         }
         return
       case 'error':
