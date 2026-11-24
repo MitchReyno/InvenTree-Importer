@@ -58,7 +58,13 @@ export async function runFigureRenderConsumer(options: RenderConsumerOptions) {
   const listener = await options.pool.connect()
   let wake: (() => void) | undefined
   listener.on('notification', () => wake?.())
-  await listener.query(`LISTEN ${FIGURE_RENDER_CHANNEL}`)
+  try {
+    await listener.query(`LISTEN ${FIGURE_RENDER_CHANNEL}`)
+  } catch (error) {
+    // Not subscribed, so nothing needs undoing; the connection is discarded, not reused.
+    listener.release(true)
+    throw error
+  }
   let nextSweep = 0
   try {
     while (!options.signal.aborted) {

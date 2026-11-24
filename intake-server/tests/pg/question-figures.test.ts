@@ -807,9 +807,11 @@ test('a preview whose checkout or state read is slower than its wait answers in 
     await fetched(setup, setup.photo)
     const stop = consumer(setup, fakeRenderer())
     try {
-      // `gone`: the late read finds its render deleted, which would otherwise ask about removals.
-      for (const slow of ['checkout', 'read', 'gone'] as const) {
+      // `set`: setting the timeout uses up the wait. `gone`: the late read finds its render
+      // deleted, which would otherwise ask about removals.
+      for (const slow of ['checkout', 'set', 'read', 'gone'] as const) {
         let released = 0
+        let discarded = 0
         let checkedOut = 0
         let stateReadsDone = false
         const lateStatements: string[] = []
@@ -828,6 +830,9 @@ test('a preview whose checkout or state read is slower than its wait answers in 
                 const release = client.release.bind(client)
                 client.release = (error?: Error | boolean) => {
                   released += 1
+                  if (error) {
+                    discarded += 1
+                  }
                   release(error)
                 }
                 if (readsState) {
@@ -837,10 +842,16 @@ test('a preview whose checkout or state read is slower than its wait answers in 
                     if (stateReadsDone) {
                       lateStatements.push(statement)
                     }
+                    if (slow === 'set' && statement.startsWith('SET statement_timeout')) {
+                      const result = await query(...args)
+                      await new Promise((resolve) => setTimeout(resolve, 1_500))
+                      stateReadsDone = true
+                      return result
+                    }
                     const readsRenders = statement.includes(
                       'processing_figure_render WHERE id = ANY',
                     )
-                    if (readsRenders && slow !== 'checkout') {
+                    if (readsRenders && (slow === 'read' || slow === 'gone')) {
                       await new Promise((resolve) => setTimeout(resolve, 1_500))
                       if (slow === 'gone') {
                         await fixture.db.pool.query(
@@ -877,6 +888,8 @@ test('a preview whose checkout or state read is slower than its wait answers in 
         assert.ok(stateReadsDone, `${slow}: the slow step finished`)
         assert.deepEqual(lateStatements, [], `${slow}: no statement after the wait`)
         assert.equal(released, checkedOut, `${slow}: every connection returned`)
+        // A connection whose timeout was set and not reset in time is discarded, not reused.
+        assert.equal(discarded, slow === 'checkout' ? 0 : 1, `${slow}: discarded connections`)
       }
     } finally {
       await stop()
@@ -1298,6 +1311,48 @@ test('an upload decode waiting on the dispatcher runs right after the render hol
     assert.deepEqual(ran, ['render', 'upload', 'render', 'render'])
   })
 })
+
+// Bounded: a connection the consumer kept would otherwise hold the fixture's teardown.
+test(
+  'a render consumer that cannot subscribe fails and discards its connection',
+  { timeout: 60_000 },
+  async () => {
+    await withFigureSession(async (setup) => {
+      const releases: (Error | boolean | undefined)[] = []
+      const refusing = new Proxy(setup.media.pool, {
+        get(target, property) {
+          if (property === 'connect') {
+            return async () => {
+              const client = await target.connect()
+              const release = client.release.bind(client)
+              client.release = (error?: Error | boolean) => {
+                releases.push(error)
+                release(error)
+              }
+              ;(client as { query: unknown }).query = async () => {
+                throw new Error('listen_refused')
+              }
+              return client
+            }
+          }
+          const value: unknown = Reflect.get(target, property, target)
+          return typeof value === 'function' ? value.bind(target) : value
+        },
+      })
+      await assert.rejects(
+        runFigureRenderConsumer({
+          pool: refusing,
+          store: setup.store,
+          binding: setup.binding,
+          render: fakeRenderer(),
+          signal: new AbortController().signal,
+        }),
+        /listen_refused/,
+      )
+      assert.deepEqual(releases, [true])
+    })
+  },
+)
 
 test('render claims honour leases, recover an expired one, fail after three attempts and publish processing_changed', async () => {
   await withFigureSession(async (setup) => {

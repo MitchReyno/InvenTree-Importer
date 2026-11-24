@@ -1343,29 +1343,35 @@ async function previewState(context: SessionToolContext, preview: QueuedPreview,
   // A connection lost while checked out is reported here, not to the process.
   client.on('error', onError)
   try {
-    // Each statement gets only the time left; none starts once the wait is over, and setting
-    // the timeout may itself use up what was left.
-    const withinWait = async () => {
+    // Each read gets only the time left. Setting the timeout may itself use up what was left,
+    // so the clock is checked again and the read sent in the same step: none starts once the
+    // wait is over.
+    const withinWait = async <T>(read: () => Promise<T>): Promise<T | typeof LATE> => {
       const remaining = Math.ceil(deadline - Date.now())
       if (remaining <= 0) {
-        return false
+        return LATE
       }
       timed = true
       await client.query(`SET statement_timeout = ${remaining}`)
-      return Date.now() < deadline
+      if (Date.now() >= deadline) {
+        return LATE
+      }
+      return read()
     }
 
-    if (!(await withinWait())) {
+    const renders = await withinWait(() => previewRenders(client, preview.ids))
+    if (renders === LATE) {
       return LATE
     }
-    const renders = await previewRenders(client, preview.ids)
     if (!renders.some((render) => render.state === 'gone')) {
       return { renders, removed: false }
     }
-    if (!(await withinWait())) {
+    const removed = await withinWait(() =>
+      removedVersionIds(client, preview.batchId, preview.versions),
+    )
+    if (removed === LATE) {
       return LATE
     }
-    const removed = await removedVersionIds(client, preview.batchId, preview.versions)
     return { renders, removed: removed.size > 0 }
   } catch (error) {
     if ((error as { code?: string }).code === QUERY_CANCELED) {
