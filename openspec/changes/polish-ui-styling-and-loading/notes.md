@@ -1,6 +1,6 @@
 # Implementation notes
 
-Implementation of the UI polish and calm loading plan, delivered as PR-A to PR-J after the plan PRs (#247, #248). PR-A merged in #250, PR-B in #254, PR-C in #259, PR-D in #255, PR-E in #253, PR-F in #256 and PR-G in #264; PR-H is underway; PR-I and PR-J remain, with PR-G's live VM check (see the open items).
+Implementation of the UI polish and calm loading plan, delivered as PR-A to PR-J after the plan PRs (#247, #248). PR-A merged in #250, PR-B in #254, PR-C in #259, PR-D in #255, PR-E in #253, PR-F in #256, PR-G in #264, PR-H in #267 and the follow-up PR-G2 in #268; PR-I is underway and PR-J remains, with PR-G's live VM check and PR-H's real-VM Settings check (see the open items).
 
 ## Changes to the plan
 
@@ -131,3 +131,4 @@ Implementation of the UI polish and calm loading plan, delivered as PR-A to PR-J
 - **2026-11-24T16:02+11:00, task 12.4 (PR-G), delivery checklist:** PR-G merged in #264 before its live status-route check, at Mitch's choice. The check is pending his restart of `pnpm dev`, which refreshes the runner image and reprovisions the management containers; 12.4 and PR-G's delivery line stay unticked until it runs.
 - **2026-11-24T17:35+11:00, task 13 (PR-H):** a Codex start whose answer was lost is cleaned up by a status read that names whichever login is pending, which could be another tab's started at the same moment. Binding cleanup to the exact attempt needs a caller-supplied attempt ID in the guest's `start` action, a guest change outside PR-H; the follow-up PR-G2 (or a later guest change) could add it. The settle window (8 s) can shrink once the status route takes a refresh request (PR-G2).
 - **2026-11-24T17:35+11:00, task 13 (PR-H):** the plan's "Settings on the real VM showing the statuses with no key" check for PR-H is still to run with Mitch, after his `pnpm dev` restart; PR-H's work used the fixture page only.
+- **2026-11-25T02:13+11:00, delivery checklist (PR-I):** PR-H's delivery line is ticked: it merged in #267, and the line's own text (implement, review, publish with the demo, CI, merge) is met. Its plan row also lists "Settings on the real VM showing the statuses with no key", which the line doesn't name, so that check stays open here (the 2026-11-24T17:35 item above) rather than holding the line unticked. PR-G's line and task 12.4 stay unticked for its live check, and PR-E's for task 9.4.
