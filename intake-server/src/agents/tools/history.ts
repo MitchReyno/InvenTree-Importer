@@ -21,9 +21,9 @@ import { startFreshEligibility } from '#/processing/start-fresh-eligibility.ts'
 import { resolveHistoryEntries, type HistoryRow, type HistoryJob } from './history-entries.ts'
 
 /** Inbox rows sort as if their attempt were this, below every real attempt ID. */
-const INBOX_ORDER_ATTEMPT = '00000000-0000-0000-0000-000000000000'
-const INBOX_STREAM = 0
-const OUTBOX_STREAM = 1
+export const INBOX_ORDER_ATTEMPT = '00000000-0000-0000-0000-000000000000'
+export const INBOX_STREAM = 0
+export const OUTBOX_STREAM = 1
 const ENDED_STATES: readonly ProcessingStateDto[] = [
   'ready',
   'failed',
@@ -243,20 +243,59 @@ async function inboxCursor(client: PoolClient, jobId: string) {
   return BigInt(rows.rows[0]?.acked_seq ?? '0')
 }
 
+/** A stored inbox or outbox row as the history queries select it. */
+export interface StoredHistoryRow {
+  stream: number
+  attempt_id: string | null
+  attempt_number: string | null
+  seq: string
+  kind: string
+  payload: unknown
+  created_at: Date
+  item_id: string | null
+  actor_id: string | null
+  idempotency_key: string | null
+}
+
+/** Validates a stored row against its stream's contract. */
+export function storedHistoryRow(row: StoredHistoryRow, jobId: string): HistoryRow {
+  const createdAt = row.created_at.toISOString()
+  if (row.stream === OUTBOX_STREAM) {
+    const item = {
+      session_id: row.attempt_id!,
+      seq: row.seq,
+      kind: row.kind,
+      payload: row.payload,
+      created_at: createdAt,
+    }
+    validate('SessionOutboxItem', item)
+    return {
+      stream: 'outbox',
+      jobId,
+      item: item as SessionOutboxItemDto,
+      attemptNumber: Number(row.attempt_number),
+    }
+  }
+  const item = {
+    id: row.item_id!,
+    seq: row.seq,
+    kind: row.kind,
+    payload: row.payload,
+    created_at: createdAt,
+  }
+  validate('SessionInboxItem', item)
+  return {
+    stream: 'inbox',
+    jobId,
+    item: item as SessionInboxItemDto,
+    actorId: row.actor_id,
+    idempotencyKey: row.idempotency_key!,
+  }
+}
+
 /** One page of stored rows, newest first, from both streams in the history's total order. */
 async function historyRows(client: PoolClient, jobId: string, before?: HistoryPosition) {
-  const rows = await client.query<{
-    stream: number
-    attempt_id: string | null
-    attempt_number: string | null
-    seq: string
-    kind: string
-    payload: unknown
-    created_at: Date
-    item_id: string | null
-    actor_id: string | null
-    idempotency_key: string | null
-  }>(
+  const rows = await client.query<StoredHistoryRow>(
     `SELECT h.stream, h.attempt_id, h.attempt_number, h.seq::text, h.kind, h.payload,
             h.created_at, h.item_id, h.actor_id, h.idempotency_key
        FROM (
@@ -288,38 +327,7 @@ async function historyRows(client: PoolClient, jobId: string, before?: HistoryPo
       SESSION_HISTORY_PAGE_SIZE + 1,
     ],
   )
-  return rows.rows.map((row): HistoryRow => {
-    const createdAt = row.created_at.toISOString()
-    if (row.stream === OUTBOX_STREAM) {
-      const item = {
-        session_id: row.attempt_id!,
-        seq: row.seq,
-        kind: row.kind,
-        payload: row.payload,
-        created_at: createdAt,
-      }
-      validate('SessionOutboxItem', item)
-      return {
-        stream: 'outbox',
-        item: item as SessionOutboxItemDto,
-        attemptNumber: Number(row.attempt_number),
-      }
-    }
-    const item = {
-      id: row.item_id!,
-      seq: row.seq,
-      kind: row.kind,
-      payload: row.payload,
-      created_at: createdAt,
-    }
-    validate('SessionInboxItem', item)
-    return {
-      stream: 'inbox',
-      item: item as SessionInboxItemDto,
-      actorId: row.actor_id,
-      idempotencyKey: row.idempotency_key!,
-    }
-  })
+  return rows.rows.map((row) => storedHistoryRow(row, jobId))
 }
 
 function positionOf(row: HistoryRow): HistoryPosition {
@@ -363,7 +371,13 @@ export async function readSessionHistory(
     const ackedSeq = await inboxCursor(client, jobId)
     const rows = await historyRows(client, jobId, before)
     const page = rows.slice(0, SESSION_HISTORY_PAGE_SIZE)
-    const entries = await resolveHistoryEntries(client, { job, capture: snapshot, ackedSeq }, page)
+    const context = {
+      batchId: job.batchId,
+      jobs: new Map([[job.id, job]]),
+      capture: snapshot,
+      ackedSeq: new Map([[job.id, ackedSeq]]),
+    }
+    const entries = await resolveHistoryEntries(client, context, page)
     const oldest = page.at(-1)
     const history: SessionHistoryDto = {
       session: {
