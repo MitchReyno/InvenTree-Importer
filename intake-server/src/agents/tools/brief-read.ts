@@ -127,7 +127,7 @@ async function currentBrief(
       sealed.mediaContext,
     ),
   }
-  return assembleBrief(client, capture.snapshot, scope)
+  return assembleBrief(client, config, capture.snapshot, scope)
 }
 
 /**

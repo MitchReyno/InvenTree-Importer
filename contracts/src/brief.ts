@@ -82,6 +82,18 @@ export const BriefNoteEntry = object({
   created_at: Type.String({ minLength: 1, maxLength: 64 }),
 })
 
+/** The batch's or its order's saved note, from the batch settings, as the operator last saved it. */
+export const BriefSettingNoteEntry = object({
+  kind: Type.Literal('setting_note'),
+  ...human,
+  scope: Type.Union([Type.Literal('batch'), Type.Literal('order')]),
+  version: Revision,
+  text: Type.String({ minLength: 1, maxLength: 8192 }),
+  text_sha256: Digest,
+  actor_id: Id,
+  created_at: Type.String({ minLength: 1, maxLength: 64 }),
+})
+
 /** The operator's answer to a question, with each step's prompt and the value given. */
 export const BriefAnswerEntry = object({
   kind: Type.Literal('answer'),
@@ -202,8 +214,10 @@ export const BriefLotEntry = object({
       observation_id: Id,
       revision: Revision,
     }),
-    { maxItems: 1000 },
+    { maxItems: 100 },
   ),
+  /** Earlier reasons left out of `reexamine_reasons`, which lists the most recent. */
+  reexamine_reasons_omitted: Type.Integer({ minimum: 0 }),
   part_subject_id: Type.Union([Id, Type.Null()]),
   estimated_quantity: Type.Union([Quantity, Type.Null()]),
   quantity_basis: Type.Union([Type.String({ minLength: 1, maxLength: 512 }), Type.Null()]),
@@ -247,6 +261,7 @@ export const BriefEntry = Type.Union([
   BriefBatchEntry,
   BriefInstructionEntry,
   BriefNoteEntry,
+  BriefSettingNoteEntry,
   BriefAnswerEntry,
   BriefCorrectionEntry,
   BriefLotEditEntry,

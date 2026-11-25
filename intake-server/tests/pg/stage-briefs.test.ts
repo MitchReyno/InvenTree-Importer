@@ -100,7 +100,7 @@ async function packDigest(fixture: Fixture, stage: string) {
 async function currentBrief(fixture: Fixture, batchId: string, manifest: SessionInputDto) {
   return transaction(fixture.runner.pool, async (client) => {
     const capture = await captureInTransaction(client, fixture.config, batchId)
-    return assembleBrief(client, capture.snapshot, briefScope(manifest))
+    return assembleBrief(client, fixture.config, capture.snapshot, briefScope(manifest))
   })
 }
 
@@ -1412,5 +1412,101 @@ test('an operator’s exclusion is a human lot edit with its own id', async (t) 
       await allPages(session, crystal.id, { revision: sealed.brief.revision })
     ).flatMap((page) => page.entries)
     assert.equal(ofKind(sealedEntries, 'lot_edit').length, 0)
+  })
+})
+
+test('the batch and order notes from batch settings are human facts in the brief', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId } = batch
+  const { lot: led, row } = await successorOf(batch, 'led 0603 red', 'research')
+  const sealed = stageInput((await sealedInput(fixture, row.attempt_id)).manifest)
+  const settings = (notes: { batch: string | null; order: string | null }) => ({
+    kind: 'batch_settings',
+    title: 'Synthetic manual processing',
+    default_location: { mode: 'unset' },
+    intent: {
+      supplier: { absent: false, selection: { mode: 'unset' } },
+      order: { reference: { mode: 'auto' }, purchase_date: { mode: 'auto' } },
+      shared_tags: { manual: [], auto: false },
+    },
+    notes,
+    drafts: [],
+  })
+  await edit(fixture, batchId, settings({ batch: 'Use the blue reels', order: 'Order 4471' }))
+  await withClients(async (open) => {
+    const session = await open(batch.deps.toolUrl, await running(fixture, row.attempt_id))
+    const notes = async (first: Record<string, unknown>) =>
+      ofKind(
+        (await allPages(session, led.id, first)).flatMap((page) => page.entries),
+        'setting_note',
+      )
+    const saved = await notes({})
+    assert.deepEqual(
+      saved.map((note) => [note.scope, note.text, note.source]),
+      [
+        ['batch', 'Use the blue reels', 'human'],
+        ['order', 'Order 4471', 'human'],
+      ],
+    )
+    assert.deepEqual(await notes({ revision: sealed.brief.revision }), [])
+    // Removing a note leaves only the other.
+    await edit(fixture, batchId, settings({ batch: null, order: 'Order 4471' }))
+    assert.deepEqual(
+      (await notes({})).map((note) => note.scope),
+      ['order'],
+    )
+  })
+})
+
+test('a question its job has moved past reads as superseded in the brief', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, deps, batchId, leadAttempt } = batch
+  const { lot: led, row } = await successorOf(batch, 'led 0603 red', 'research')
+  assert.equal(
+    await runSessionTurn(deps, row.attempt_id, new AbortController().signal),
+    'waiting_input',
+  )
+  const lead = (await sealedInput(fixture, leadAttempt)).manifest
+  const stateOf = async () => {
+    const [question] = ofKind((await currentBrief(fixture, batchId, lead)).entries, 'question')
+    return question.state
+  }
+  assert.equal(await stateOf(), 'open')
+  // Research is started again: the question's attempt is no longer the job's, as the
+  // Processing read also shows.
+  await requeueResearch(fixture, batchId, led.id)
+  assert.equal(await stateOf(), 'superseded')
+  const processing = (await fixture.http(`/batches/${batchId}/processing`)).value as {
+    jobs: { questions: { state: string }[] }[]
+  }
+  assert.deepEqual(
+    processing.jobs.flatMap((job) => job.questions.map((question) => question.state)),
+    ['superseded'],
+  )
+})
+
+test('a lot flagged many times lists its latest reasons and counts the rest; pages still read', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId, leadAttempt } = batch
+  const led = await batch.lot('led 0603 red')
+  const observation = led.evidence_observation_ids![0]
+  const revision = (await snapshotOf(fixture, batchId)).revision
+  await fixture.db.pool.query('UPDATE capture_lot SET reexamine=true WHERE id=$1', [led.id])
+  await fixture.db.pool.query(
+    `INSERT INTO capture_lot_reexamine(id,batch_id,lot_id,revision,event,observation_id)
+     SELECT gen_random_uuid(),$1,$2,$3,'observation_edited',$4 FROM generate_series(1,1100)`,
+    [batchId, led.id, revision, observation],
+  )
+  const sealed = stageInput((await sealedInput(fixture, leadAttempt)).manifest)
+  await withClients(async (open) => {
+    const lead = await open(batch.deps.toolUrl, await running(fixture, leadAttempt))
+    const [lot] = ofKind(
+      (await allBatchPages(lead)).flatMap((page) => page.entries),
+      'lot',
+    ).filter((entry) => entry.lot_id === led.id)
+    assert.equal(lot.reexamine_reasons.length, 100)
+    assert.equal(lot.reexamine_reasons_omitted, 1000)
+    const sealedPage = await call(lead, 'read_batch', { revision: sealed.brief.revision })
+    assert.equal(sealedPage.ok, true, JSON.stringify(sealedPage))
   })
 })

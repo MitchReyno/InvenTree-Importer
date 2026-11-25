@@ -163,6 +163,36 @@ function currentJobState(job: SelectedJob, currency: InputCurrency): ProcessingS
   return currency.current ? job.state : 'superseded'
 }
 
+/**
+ * Whether an open question reads as superseded: its job's input is no longer current, or a later
+ * attempt replaced the one that asked it. The Processing read and the session brief share it.
+ */
+export function staleOpenQuestion(
+  question: { state: string; attemptId: string },
+  job: { state: ProcessingStateDto; attemptId: string },
+) {
+  return (
+    question.state === 'open' &&
+    (job.state === 'superseded' || question.attemptId !== job.attemptId)
+  )
+}
+
+/** Each job's state as the Processing read shows it, with its current attempt. */
+export async function effectiveJobStates(
+  client: PoolClient,
+  config: ProcessingConfig,
+  capture: CaptureSnapshotDto,
+) {
+  const jobs = await selectedJobs(client, capture.id)
+  const media = await readProcessingMediaScopes(client, config, capture, lotSubjects(jobs))
+  const states = new Map<string, { state: ProcessingStateDto; attemptId: string }>()
+  for (const job of jobs) {
+    const currency = await inputCurrency(client, config, job, capture, jobMedia(media, job))
+    states.set(job.id, { state: currentJobState(job, currency), attemptId: job.attemptId })
+  }
+  return states
+}
+
 async function proposalsForJob(
   client: PoolClient,
   config: ProcessingConfig,
@@ -276,16 +306,14 @@ async function questionsForJob(
   }
   const figureStates = await questionFigureStates(client, job.id)
   return questions.map((question) => {
-    const staleOpenQuestion =
-      question.state === 'open' &&
-      (currentState === 'superseded' || question.attemptId !== job.attemptId)
+    const stale = staleOpenQuestion(question, { state: currentState, attemptId: job.attemptId })
     return {
       id: question.id,
       job_id: question.jobId,
       attempt_id: question.attemptId,
       input_sha256: question.manifestDigest.toString('hex'),
       revision: question.revision.toString(),
-      state: staleOpenQuestion ? 'superseded' : question.state,
+      state: stale ? 'superseded' : question.state,
       ...questionContent(question, job.subjectId, batchSubjects, figureStates),
       ...(question.askedAt ? { asked_at: question.askedAt.toISOString() } : {}),
     }

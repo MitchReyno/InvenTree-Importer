@@ -25,6 +25,8 @@ import { currentInstructions } from '#/agents/instructions.ts'
 import { answerValueText, answeredValues, decodeStoredAnswer } from './answer-summary.ts'
 import { isSessionMessage, retainedQuestionSpec, retainedSessionQuestion } from './retained.ts'
 import { fail, sealed, unseal } from './model.ts'
+import type { ProcessingConfig } from './attempts.ts'
+import { effectiveJobStates, staleOpenQuestion } from './read.ts'
 
 /** A lot edit's id carries this many hex digits of its facts' digest: enough to tell states apart. */
 const LOT_EDIT_ID_HEX = 16
@@ -133,8 +135,16 @@ function storedQuestionView(
   }
 }
 
-/** The batch's questions, each in its stored version's shape, oldest first. */
-async function readQuestions(client: PoolClient, snapshot: CaptureSnapshotDto) {
+/**
+ * The batch's questions, each in its stored version's shape, oldest first, with the state the
+ * Processing read shows: an open question its job has moved past reads as superseded.
+ */
+async function readQuestions(
+  client: PoolClient,
+  config: ProcessingConfig,
+  snapshot: CaptureSnapshotDto,
+) {
+  const jobStates = await effectiveJobStates(client, config, snapshot)
   const rows = await client.query<{
     id: string
     job_id: string
@@ -175,7 +185,10 @@ async function readQuestions(client: PoolClient, snapshot: CaptureSnapshotDto) {
       specBytes: row.spec_bytes,
       specDigest: row.spec_digest,
     }
-    const state = row.replaced ? 'superseded' : row.state
+    const job = jobStates.get(row.job_id)
+    const stale =
+      job !== undefined && staleOpenQuestion({ state: row.state, attemptId: row.attempt_id }, job)
+    const state = row.replaced || stale ? 'superseded' : row.state
     if (!isSessionMessage(seal)) {
       const spec = retainedQuestionSpec(
         seal,
@@ -343,11 +356,12 @@ async function readIdentities(client: PoolClient, proposalIds: readonly string[]
 /** Reads the retained facts a brief needs, in the caller's transaction. */
 export async function readBriefFacts(
   client: PoolClient,
+  config: ProcessingConfig,
   snapshot: CaptureSnapshotDto,
   scope: BriefScope,
 ): Promise<BriefFacts> {
   const instructions = await currentInstructions(client, snapshot.id)
-  const questions = await readQuestions(client, snapshot)
+  const questions = await readQuestions(client, config, snapshot)
   const answers = await readAnswers(client, questions)
   const corrections = await readCorrections(client, snapshot.id)
   const unkeptCorrections = await readUnkeptCorrections(client, snapshot.id)
@@ -408,18 +422,37 @@ function noteEntries(
     group_id: null,
   }))
   const mediaNotes = [...groupNotes, ...evidenceNotes].filter((note) => note.text.trim().length > 0)
-  return [...captureNotes, ...contextNotes, ...mediaNotes].map((note) => ({
-    kind: 'note',
-    source: 'human',
-    note_id: note.id,
-    subject_id: note.subject_id,
-    evidence_id: note.evidence_id,
-    group_id: note.group_id,
-    text: note.text,
-    text_sha256: sha256(Buffer.from(note.text, 'utf8')).toString('hex'),
-    actor_id: note.actor_id,
-    created_at: note.created_at,
-  }))
+  const settingNotes: BriefEntryDto[] = (snapshot.setting_notes ?? []).flatMap((note) =>
+    note.text === null
+      ? []
+      : [
+          {
+            kind: 'setting_note',
+            source: 'human',
+            scope: note.scope,
+            version: note.version,
+            text: note.text,
+            text_sha256: sha256(Buffer.from(note.text, 'utf8')).toString('hex'),
+            actor_id: note.actor_id,
+            created_at: note.created_at,
+          },
+        ],
+  )
+  const ordinary: BriefEntryDto[] = [...captureNotes, ...contextNotes, ...mediaNotes].map(
+    (note) => ({
+      kind: 'note',
+      source: 'human',
+      note_id: note.id,
+      subject_id: note.subject_id,
+      evidence_id: note.evidence_id,
+      group_id: note.group_id,
+      text: note.text,
+      text_sha256: sha256(Buffer.from(note.text, 'utf8')).toString('hex'),
+      actor_id: note.actor_id,
+      created_at: note.created_at,
+    }),
+  )
+  return [...settingNotes, ...ordinary]
 }
 
 /**
@@ -576,6 +609,21 @@ function evidenceEntries(
   }))
 }
 
+/** A flagged lot lists at most this many reasons, the most recent, and counts the rest. */
+const REEXAMINE_REASONS_SHOWN = 100
+
+function reexamineReasons(reasons: readonly ReexamineReason[]) {
+  const shown = reasons.slice(-REEXAMINE_REASONS_SHOWN)
+  return {
+    reexamine_reasons: shown.map((reason) => ({
+      reason: reason.reason,
+      observation_id: reason.observationId,
+      revision: reason.revision,
+    })),
+    reexamine_reasons_omitted: reasons.length - shown.length,
+  }
+}
+
 function lotEntries(
   snapshot: CaptureSnapshotDto,
   reasons: readonly ReexamineReason[],
@@ -590,16 +638,7 @@ function lotEntries(
     retired: lot.retired === true,
     excluded: lot.excluded ?? null,
     reexamine: lot.reexamine === true,
-    reexamine_reasons:
-      lot.reexamine === true
-        ? reasons
-            .filter((reason) => reason.lotId === lot.id)
-            .map((reason) => ({
-              reason: reason.reason,
-              observation_id: reason.observationId,
-              revision: reason.revision,
-            }))
-        : [],
+    ...reexamineReasons(lot.reexamine === true ? reasons.filter((r) => r.lotId === lot.id) : []),
     part_subject_id: lot.part_subject_id,
     estimated_quantity: lot.estimated_quantity ?? null,
     quantity_basis: lot.quantity_basis ?? null,
@@ -728,8 +767,9 @@ export function projectBrief(
 /** Reads the facts and projects the brief, in the caller's transaction. */
 export async function assembleBrief(
   client: PoolClient,
+  config: ProcessingConfig,
   snapshot: CaptureSnapshotDto,
   scope: BriefScope,
 ): Promise<SessionBriefDto> {
-  return projectBrief(snapshot, scope, await readBriefFacts(client, snapshot, scope))
+  return projectBrief(snapshot, scope, await readBriefFacts(client, config, snapshot, scope))
 }

@@ -124872,6 +124872,65 @@
                           "required": [
                             "kind",
                             "source",
+                            "scope",
+                            "version",
+                            "text",
+                            "text_sha256",
+                            "actor_id",
+                            "created_at"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "setting_note",
+                              "type": "string"
+                            },
+                            "source": {
+                              "const": "human",
+                              "type": "string"
+                            },
+                            "scope": {
+                              "anyOf": [
+                                {
+                                  "const": "batch",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "order",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "version": {
+                              "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                              "format": "int64",
+                              "type": "string"
+                            },
+                            "text": {
+                              "minLength": 1,
+                              "maxLength": 8192,
+                              "type": "string"
+                            },
+                            "text_sha256": {
+                              "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "actor_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "created_at": {
+                              "minLength": 1,
+                              "maxLength": 64,
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "source",
                             "question_id",
                             "answer_id",
                             "subject_id",
@@ -125909,6 +125968,7 @@
                             "excluded",
                             "reexamine",
                             "reexamine_reasons",
+                            "reexamine_reasons_omitted",
                             "part_subject_id",
                             "estimated_quantity",
                             "quantity_basis",
@@ -125980,7 +126040,7 @@
                               "type": "boolean"
                             },
                             "reexamine_reasons": {
-                              "maxItems": 1000,
+                              "maxItems": 100,
                               "type": "array",
                               "items": {
                                 "additionalProperties": false,
@@ -126014,6 +126074,10 @@
                                   }
                                 }
                               }
+                            },
+                            "reexamine_reasons_omitted": {
+                              "minimum": 0,
+                              "type": "integer"
                             },
                             "part_subject_id": {
                               "anyOf": [
@@ -134511,6 +134575,65 @@
                   "required": [
                     "kind",
                     "source",
+                    "scope",
+                    "version",
+                    "text",
+                    "text_sha256",
+                    "actor_id",
+                    "created_at"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "setting_note",
+                      "type": "string"
+                    },
+                    "source": {
+                      "const": "human",
+                      "type": "string"
+                    },
+                    "scope": {
+                      "anyOf": [
+                        {
+                          "const": "batch",
+                          "type": "string"
+                        },
+                        {
+                          "const": "order",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "version": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    },
+                    "text": {
+                      "minLength": 1,
+                      "maxLength": 8192,
+                      "type": "string"
+                    },
+                    "text_sha256": {
+                      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "actor_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "minLength": 1,
+                      "maxLength": 64,
+                      "type": "string"
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "source",
                     "question_id",
                     "answer_id",
                     "subject_id",
@@ -135548,6 +135671,7 @@
                     "excluded",
                     "reexamine",
                     "reexamine_reasons",
+                    "reexamine_reasons_omitted",
                     "part_subject_id",
                     "estimated_quantity",
                     "quantity_basis",
@@ -135619,7 +135743,7 @@
                       "type": "boolean"
                     },
                     "reexamine_reasons": {
-                      "maxItems": 1000,
+                      "maxItems": 100,
                       "type": "array",
                       "items": {
                         "additionalProperties": false,
@@ -135653,6 +135777,10 @@
                           }
                         }
                       }
+                    },
+                    "reexamine_reasons_omitted": {
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "part_subject_id": {
                       "anyOf": [
@@ -140573,6 +140701,65 @@
                         "required": [
                           "kind",
                           "source",
+                          "scope",
+                          "version",
+                          "text",
+                          "text_sha256",
+                          "actor_id",
+                          "created_at"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "const": "setting_note",
+                            "type": "string"
+                          },
+                          "source": {
+                            "const": "human",
+                            "type": "string"
+                          },
+                          "scope": {
+                            "anyOf": [
+                              {
+                                "const": "batch",
+                                "type": "string"
+                              },
+                              {
+                                "const": "order",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "version": {
+                            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                            "format": "int64",
+                            "type": "string"
+                          },
+                          "text": {
+                            "minLength": 1,
+                            "maxLength": 8192,
+                            "type": "string"
+                          },
+                          "text_sha256": {
+                            "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "actor_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "minLength": 1,
+                            "maxLength": 64,
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "kind",
+                          "source",
                           "question_id",
                           "answer_id",
                           "subject_id",
@@ -141610,6 +141797,7 @@
                           "excluded",
                           "reexamine",
                           "reexamine_reasons",
+                          "reexamine_reasons_omitted",
                           "part_subject_id",
                           "estimated_quantity",
                           "quantity_basis",
@@ -141681,7 +141869,7 @@
                             "type": "boolean"
                           },
                           "reexamine_reasons": {
-                            "maxItems": 1000,
+                            "maxItems": 100,
                             "type": "array",
                             "items": {
                               "additionalProperties": false,
@@ -141715,6 +141903,10 @@
                                 }
                               }
                             }
+                          },
+                          "reexamine_reasons_omitted": {
+                            "minimum": 0,
+                            "type": "integer"
                           },
                           "part_subject_id": {
                             "anyOf": [
@@ -146508,6 +146700,65 @@
                   "required": [
                     "kind",
                     "source",
+                    "scope",
+                    "version",
+                    "text",
+                    "text_sha256",
+                    "actor_id",
+                    "created_at"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "setting_note",
+                      "type": "string"
+                    },
+                    "source": {
+                      "const": "human",
+                      "type": "string"
+                    },
+                    "scope": {
+                      "anyOf": [
+                        {
+                          "const": "batch",
+                          "type": "string"
+                        },
+                        {
+                          "const": "order",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "version": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    },
+                    "text": {
+                      "minLength": 1,
+                      "maxLength": 8192,
+                      "type": "string"
+                    },
+                    "text_sha256": {
+                      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "actor_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "minLength": 1,
+                      "maxLength": 64,
+                      "type": "string"
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "source",
                     "question_id",
                     "answer_id",
                     "subject_id",
@@ -147545,6 +147796,7 @@
                     "excluded",
                     "reexamine",
                     "reexamine_reasons",
+                    "reexamine_reasons_omitted",
                     "part_subject_id",
                     "estimated_quantity",
                     "quantity_basis",
@@ -147616,7 +147868,7 @@
                       "type": "boolean"
                     },
                     "reexamine_reasons": {
-                      "maxItems": 1000,
+                      "maxItems": 100,
                       "type": "array",
                       "items": {
                         "additionalProperties": false,
@@ -147650,6 +147902,10 @@
                           }
                         }
                       }
+                    },
+                    "reexamine_reasons_omitted": {
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "part_subject_id": {
                       "anyOf": [
@@ -152565,6 +152821,65 @@
                   "required": [
                     "kind",
                     "source",
+                    "scope",
+                    "version",
+                    "text",
+                    "text_sha256",
+                    "actor_id",
+                    "created_at"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "setting_note",
+                      "type": "string"
+                    },
+                    "source": {
+                      "const": "human",
+                      "type": "string"
+                    },
+                    "scope": {
+                      "anyOf": [
+                        {
+                          "const": "batch",
+                          "type": "string"
+                        },
+                        {
+                          "const": "order",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "version": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    },
+                    "text": {
+                      "minLength": 1,
+                      "maxLength": 8192,
+                      "type": "string"
+                    },
+                    "text_sha256": {
+                      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "actor_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "minLength": 1,
+                      "maxLength": 64,
+                      "type": "string"
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "source",
                     "question_id",
                     "answer_id",
                     "subject_id",
@@ -153602,6 +153917,7 @@
                     "excluded",
                     "reexamine",
                     "reexamine_reasons",
+                    "reexamine_reasons_omitted",
                     "part_subject_id",
                     "estimated_quantity",
                     "quantity_basis",
@@ -153673,7 +153989,7 @@
                       "type": "boolean"
                     },
                     "reexamine_reasons": {
-                      "maxItems": 1000,
+                      "maxItems": 100,
                       "type": "array",
                       "items": {
                         "additionalProperties": false,
@@ -153707,6 +154023,10 @@
                           }
                         }
                       }
+                    },
+                    "reexamine_reasons_omitted": {
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "part_subject_id": {
                       "anyOf": [
@@ -159220,6 +159540,65 @@
                                 "required": [
                                   "kind",
                                   "source",
+                                  "scope",
+                                  "version",
+                                  "text",
+                                  "text_sha256",
+                                  "actor_id",
+                                  "created_at"
+                                ],
+                                "properties": {
+                                  "kind": {
+                                    "const": "setting_note",
+                                    "type": "string"
+                                  },
+                                  "source": {
+                                    "const": "human",
+                                    "type": "string"
+                                  },
+                                  "scope": {
+                                    "anyOf": [
+                                      {
+                                        "const": "batch",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "order",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "version": {
+                                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                    "format": "int64",
+                                    "type": "string"
+                                  },
+                                  "text": {
+                                    "minLength": 1,
+                                    "maxLength": 8192,
+                                    "type": "string"
+                                  },
+                                  "text_sha256": {
+                                    "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "actor_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "created_at": {
+                                    "minLength": 1,
+                                    "maxLength": 64,
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "kind",
+                                  "source",
                                   "question_id",
                                   "answer_id",
                                   "subject_id",
@@ -160257,6 +160636,7 @@
                                   "excluded",
                                   "reexamine",
                                   "reexamine_reasons",
+                                  "reexamine_reasons_omitted",
                                   "part_subject_id",
                                   "estimated_quantity",
                                   "quantity_basis",
@@ -160328,7 +160708,7 @@
                                     "type": "boolean"
                                   },
                                   "reexamine_reasons": {
-                                    "maxItems": 1000,
+                                    "maxItems": 100,
                                     "type": "array",
                                     "items": {
                                       "additionalProperties": false,
@@ -160362,6 +160742,10 @@
                                         }
                                       }
                                     }
+                                  },
+                                  "reexamine_reasons_omitted": {
+                                    "minimum": 0,
+                                    "type": "integer"
                                   },
                                   "part_subject_id": {
                                     "anyOf": [
@@ -165816,6 +166200,65 @@
                                 "required": [
                                   "kind",
                                   "source",
+                                  "scope",
+                                  "version",
+                                  "text",
+                                  "text_sha256",
+                                  "actor_id",
+                                  "created_at"
+                                ],
+                                "properties": {
+                                  "kind": {
+                                    "const": "setting_note",
+                                    "type": "string"
+                                  },
+                                  "source": {
+                                    "const": "human",
+                                    "type": "string"
+                                  },
+                                  "scope": {
+                                    "anyOf": [
+                                      {
+                                        "const": "batch",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "order",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "version": {
+                                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                    "format": "int64",
+                                    "type": "string"
+                                  },
+                                  "text": {
+                                    "minLength": 1,
+                                    "maxLength": 8192,
+                                    "type": "string"
+                                  },
+                                  "text_sha256": {
+                                    "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "actor_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "created_at": {
+                                    "minLength": 1,
+                                    "maxLength": 64,
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "kind",
+                                  "source",
                                   "question_id",
                                   "answer_id",
                                   "subject_id",
@@ -166853,6 +167296,7 @@
                                   "excluded",
                                   "reexamine",
                                   "reexamine_reasons",
+                                  "reexamine_reasons_omitted",
                                   "part_subject_id",
                                   "estimated_quantity",
                                   "quantity_basis",
@@ -166924,7 +167368,7 @@
                                     "type": "boolean"
                                   },
                                   "reexamine_reasons": {
-                                    "maxItems": 1000,
+                                    "maxItems": 100,
                                     "type": "array",
                                     "items": {
                                       "additionalProperties": false,
@@ -166958,6 +167402,10 @@
                                         }
                                       }
                                     }
+                                  },
+                                  "reexamine_reasons_omitted": {
+                                    "minimum": 0,
+                                    "type": "integer"
                                   },
                                   "part_subject_id": {
                                     "anyOf": [

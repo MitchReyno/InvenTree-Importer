@@ -26354,6 +26354,18 @@ export interface components {
                     created_at: string;
                 } | {
                     /** @constant */
+                    kind: "setting_note";
+                    /** @constant */
+                    source: "human";
+                    scope: "batch" | "order";
+                    /** Format: int64 */
+                    version: string;
+                    text: string;
+                    text_sha256: string;
+                    actor_id: string;
+                    created_at: string;
+                } | {
+                    /** @constant */
                     kind: "answer";
                     /** @constant */
                     source: "human";
@@ -26530,6 +26542,7 @@ export interface components {
                         /** Format: int64 */
                         revision: string;
                     }[];
+                    reexamine_reasons_omitted: number;
                     part_subject_id: string | null;
                     estimated_quantity: string | null;
                     quantity_basis: string | null;
@@ -27886,6 +27899,18 @@ export interface components {
                 created_at: string;
             } | {
                 /** @constant */
+                kind: "setting_note";
+                /** @constant */
+                source: "human";
+                scope: "batch" | "order";
+                /** Format: int64 */
+                version: string;
+                text: string;
+                text_sha256: string;
+                actor_id: string;
+                created_at: string;
+            } | {
+                /** @constant */
                 kind: "answer";
                 /** @constant */
                 source: "human";
@@ -28062,6 +28087,7 @@ export interface components {
                     /** Format: int64 */
                     revision: string;
                 }[];
+                reexamine_reasons_omitted: number;
                 part_subject_id: string | null;
                 estimated_quantity: string | null;
                 quantity_basis: string | null;
@@ -28942,6 +28968,18 @@ export interface components {
                     created_at: string;
                 } | {
                     /** @constant */
+                    kind: "setting_note";
+                    /** @constant */
+                    source: "human";
+                    scope: "batch" | "order";
+                    /** Format: int64 */
+                    version: string;
+                    text: string;
+                    text_sha256: string;
+                    actor_id: string;
+                    created_at: string;
+                } | {
+                    /** @constant */
                     kind: "answer";
                     /** @constant */
                     source: "human";
@@ -29118,6 +29156,7 @@ export interface components {
                         /** Format: int64 */
                         revision: string;
                     }[];
+                    reexamine_reasons_omitted: number;
                     part_subject_id: string | null;
                     estimated_quantity: string | null;
                     quantity_basis: string | null;
@@ -29987,6 +30026,18 @@ export interface components {
                 created_at: string;
             } | {
                 /** @constant */
+                kind: "setting_note";
+                /** @constant */
+                source: "human";
+                scope: "batch" | "order";
+                /** Format: int64 */
+                version: string;
+                text: string;
+                text_sha256: string;
+                actor_id: string;
+                created_at: string;
+            } | {
+                /** @constant */
                 kind: "answer";
                 /** @constant */
                 source: "human";
@@ -30163,6 +30214,7 @@ export interface components {
                     /** Format: int64 */
                     revision: string;
                 }[];
+                reexamine_reasons_omitted: number;
                 part_subject_id: string | null;
                 estimated_quantity: string | null;
                 quantity_basis: string | null;
@@ -31040,6 +31092,18 @@ export interface components {
                 created_at: string;
             } | {
                 /** @constant */
+                kind: "setting_note";
+                /** @constant */
+                source: "human";
+                scope: "batch" | "order";
+                /** Format: int64 */
+                version: string;
+                text: string;
+                text_sha256: string;
+                actor_id: string;
+                created_at: string;
+            } | {
+                /** @constant */
                 kind: "answer";
                 /** @constant */
                 source: "human";
@@ -31216,6 +31280,7 @@ export interface components {
                     /** Format: int64 */
                     revision: string;
                 }[];
+                reexamine_reasons_omitted: number;
                 part_subject_id: string | null;
                 estimated_quantity: string | null;
                 quantity_basis: string | null;
@@ -32220,6 +32285,18 @@ export interface components {
                         created_at: string;
                     } | {
                         /** @constant */
+                        kind: "setting_note";
+                        /** @constant */
+                        source: "human";
+                        scope: "batch" | "order";
+                        /** Format: int64 */
+                        version: string;
+                        text: string;
+                        text_sha256: string;
+                        actor_id: string;
+                        created_at: string;
+                    } | {
+                        /** @constant */
                         kind: "answer";
                         /** @constant */
                         source: "human";
@@ -32396,6 +32473,7 @@ export interface components {
                             /** Format: int64 */
                             revision: string;
                         }[];
+                        reexamine_reasons_omitted: number;
                         part_subject_id: string | null;
                         estimated_quantity: string | null;
                         quantity_basis: string | null;
@@ -33390,6 +33468,18 @@ export interface components {
                         created_at: string;
                     } | {
                         /** @constant */
+                        kind: "setting_note";
+                        /** @constant */
+                        source: "human";
+                        scope: "batch" | "order";
+                        /** Format: int64 */
+                        version: string;
+                        text: string;
+                        text_sha256: string;
+                        actor_id: string;
+                        created_at: string;
+                    } | {
+                        /** @constant */
                         kind: "answer";
                         /** @constant */
                         source: "human";
@@ -33566,6 +33656,7 @@ export interface components {
                             /** Format: int64 */
                             revision: string;
                         }[];
+                        reexamine_reasons_omitted: number;
                         part_subject_id: string | null;
                         estimated_quantity: string | null;
                         quantity_basis: string | null;

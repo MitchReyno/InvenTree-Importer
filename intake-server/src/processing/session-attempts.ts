@@ -160,7 +160,7 @@ async function sealStageInput(
 ): Promise<SealedSessionInput> {
   const packs = requireStageInputs(config, profileId)
   const scope = briefScope(base)
-  const brief = await assembleBrief(client, snapshot, scope)
+  const brief = await assembleBrief(client, config, snapshot, scope)
   const pages = briefPages(brief)
   for (let inline = pages.length; inline >= 0; inline -= 1) {
     const manifest = sealed(
