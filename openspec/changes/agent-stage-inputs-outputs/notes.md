@@ -105,7 +105,8 @@ Mitch reviewed the draft base instructions, stage packs and guide sections and a
 - The Examine pack said to pass `base_revision` "on every write", but only `record_observation`, `propose_lot` and `regroup` take it (the strict `propose`, `ask` and `reply` contracts refuse it). The pack now names those three. This is a correction to the approved text, not a change of what it asks for.
 - The Research guide's vocabulary section said a record missing from the vocabulary was missing from the inventory. The vocabulary is only what the batch has looked up, so it now says to report such a gap as not in the batch's vocabulary, and to check the vocabulary's templates before naming a new one.
 - The Research pack's `config_gaps` line now says the same as the guide: a gap is what the batch's vocabulary doesn't hold, not what the inventory lacks.
-- The base's no-repeat rule now says a question covering the same lot and any of the same fields, as the spec's overlapping fields, not only the same fields.
+- The base's no-repeat rule now says a question covering the same subject and any of the same fields, as the spec says, not only the same lot and fields.
+- The Examine pack said a response with `suggested: true` changed nothing else. One `propose_lot` or `regroup` call can apply some changes and turn others into suggestions, so the pack now says to read the batch again before relying on its lots. The opening's unsealed lead instructions for earlier profiles keep the older sentence.
 - The base keeps the `/3` web lines for every stage, as approved; the Examine and Images packs limit their stages' web use. Until the web gates admit `/4` (PR-G2), its inputs seal web research off and its opening carries no web line.
 
 ### Guides are sealed as a whole

@@ -20,7 +20,7 @@ export const stagePacks: Partial<Record<SessionProfileId, Record<BriefStageDto, 
     images: 'e4cfa08e54a09b24d895529b36493784e55bff9865fe9b4ec3cfc5caad2b4580',
   },
   'shared-vm-agent/4': {
-    examine: '6c6265847a39b7baa2ffb686d0995c2343ccfeaa268666f7575c5fd6d3e5d018',
+    examine: '842d14fc6ce604087e8c5d897be5437814ffd76ebb68eaa7a47c77ed518680ce',
     research: '366198c468933bfe2f076124b9d36d5b79d0e4b3b57d4824f2f32caa012f0af3',
     images: '1266b1d819acb73ceddb251f18acd7886d94b61773f5ed54d6206e67e94b397b',
   },

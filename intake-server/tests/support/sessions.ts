@@ -4,11 +4,6 @@ import { processingSubjectScope, sealed } from '#/processing/model.ts'
 import { transaction } from '#/db/database.ts'
 import { resolveMediaInputs } from '#/media/inputs.ts'
 import { sessionInputV6, sessionLotInputManifest } from '#/processing/session-input.ts'
-
-/** A lot session's `/6` input, as the fixtures seal it. */
-function lotInputV6(...args: Parameters<typeof sessionLotInputManifest>) {
-  return sessionInputV6(sessionLotInputManifest(...args))
-}
 import type { CaptureBinding } from '#/capture/model.ts'
 
 type ProcessingFixture = Awaited<ReturnType<typeof processingFixture>>
@@ -45,12 +40,14 @@ export async function lotSession(
       capture.batch.id,
       processingSubjectScope(capture.batch, lot.id),
     )
-    const manifest = lotInputV6(
-      capture.batch,
-      lot.id,
-      stage,
-      { manifest: media.bytes.toString('utf8'), sha256: media.digest.toString('hex') },
-      profile,
+    const manifest = sessionInputV6(
+      sessionLotInputManifest(
+        capture.batch,
+        lot.id,
+        stage,
+        { manifest: media.bytes.toString('utf8'), sha256: media.digest.toString('hex') },
+        profile,
+      ),
     )
     const input = sealed(manifest)
     const command = sealed({ fixture: 'session-tools-command', attempt_id: ids.attempt })
@@ -179,12 +176,14 @@ export async function leadSession(
       capture.batch.id,
       processingSubjectScope(capture.batch, capture.packetA.id),
     )
-    const lot = lotInputV6(
-      capture.batch,
-      capture.packetA.id,
-      'research',
-      { manifest: media.bytes.toString('utf8'), sha256: media.digest.toString('hex') },
-      profile,
+    const lot = sessionInputV6(
+      sessionLotInputManifest(
+        capture.batch,
+        capture.packetA.id,
+        'research',
+        { manifest: media.bytes.toString('utf8'), sha256: media.digest.toString('hex') },
+        profile,
+      ),
     )
     const input = sealed({
       ...lot,
@@ -350,12 +349,14 @@ export async function nextSessionAttempt(
       capture.batch.id,
       processingSubjectScope(capture.batch, lot.id),
     )
-    const manifest = lotInputV6(
-      capture.batch,
-      lot.id,
-      'research',
-      { manifest: media.bytes.toString('utf8'), sha256: media.digest.toString('hex') },
-      profile,
+    const manifest = sessionInputV6(
+      sessionLotInputManifest(
+        capture.batch,
+        lot.id,
+        'research',
+        { manifest: media.bytes.toString('utf8'), sha256: media.digest.toString('hex') },
+        profile,
+      ),
     )
     const input = sealed(manifest)
     const command = sealed({ fixture: 'history-attempt', attempt_id: ids.attempt })

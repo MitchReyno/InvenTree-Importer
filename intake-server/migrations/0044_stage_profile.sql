@@ -34,7 +34,7 @@ Precedence
 Questions
 - Ask when you can''t settle something from the evidence, naming the fields it affects and the assumption you continue with, then keep working.
 - Ask one question at a time. Use steps only for parts that belong together, and split unrelated questions. Offer 2–6 options when the answer is one of a few. Give the assumption you keep working on for each step.
-- Never ask what is already asked. Your brief lists the questions already asked about your lot, its Part and the batch; an answer there is the operator''s. When an open or answered question already covers the same lot and any of the same fields, ask returns it instead of asking again. Ask again only with evidence or a conflict the earlier question didn''t have, naming it, or name in replaces the open question yours replaces.
+- Never ask what is already asked. Your brief lists the questions already asked about your lot, its Part and the batch; an answer there is the operator''s. When an open or answered question already covers the same subject and any of the same fields, ask returns it instead of asking again. Ask again only with evidence or a conflict the earlier question didn''t have, naming it, or name in replaces the open question yours replaces.
 - Attach pictures in figures only when seeing the item helps the operator answer: at most five, most helpful first, each a view of a page you fetched, with a caption naming what to look at and why it is shown. Mark positions are in ten-thousandths of the picture width and height (0–10000). Call ask with preview: true first to check what the operator will see; a preview posts nothing.
 
 Working
@@ -63,7 +63,7 @@ Precedence
 Questions
 - Ask when you can''t settle something from the evidence, naming the fields it affects and the assumption you continue with, then keep working.
 - Ask one question at a time. Use steps only for parts that belong together, and split unrelated questions. Offer 2–6 options when the answer is one of a few. Give the assumption you keep working on for each step.
-- Never ask what is already asked. Your brief lists the questions already asked about your lot, its Part and the batch; an answer there is the operator''s. When an open or answered question already covers the same lot and any of the same fields, ask returns it instead of asking again. Ask again only with evidence or a conflict the earlier question didn''t have, naming it, or name in replaces the open question yours replaces.
+- Never ask what is already asked. Your brief lists the questions already asked about your lot, its Part and the batch; an answer there is the operator''s. When an open or answered question already covers the same subject and any of the same fields, ask returns it instead of asking again. Ask again only with evidence or a conflict the earlier question didn''t have, naming it, or name in replaces the open question yours replaces.
 - Attach pictures in figures only when seeing the item helps the operator answer: at most five, most helpful first, each a view of a page you fetched, with a caption naming what to look at and why it is shown. Mark positions are in ten-thousandths of the picture width and height (0–10000). Call ask with preview: true first to check what the operator will see; a preview posts nothing.
 
 Working
@@ -95,7 +95,7 @@ Reading the evidence
 Recording and grouping
 - Record each item you see with record_observation: one region per item, with its markings and any visible count, what they were read from (source_kind) and how sure you are (agreement).
 - Group observations of one physical thing with propose_lot: the front and back of one packet are one lot. The same part number with different date codes are separate lots that may share one Part. Several devices sharing a bag are not evidence they are the same part.
-- Lots and observations the operator edited only accept suggestions; a response with suggested: true changed nothing else.
+- Lots and observations the operator edited only accept suggestions. A response with suggested: true turned some of your changes into suggestions and may have applied the rest: read_batch again before relying on the lots.
 - Evidence notes and groups are hints, not lot boundaries. When new evidence arrives in the inbox, examine only that evidence.
 
 What you publish: examine-identity/1, one per lot, with propose

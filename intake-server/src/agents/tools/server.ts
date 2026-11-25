@@ -35,7 +35,7 @@ const TOOLS = {
   read_vocabulary: {
     schema: 'SessionReadVocabularyArgs',
     description:
-      'Research sessions only. Look up the catalogue records this batch has observed (categories, parameter templates, category mappings and companies), each with the reference a proposal cites. Filter by kind, or by a search matched against labels regardless of case. Results come 50 to a page; pass next_page_token with the same kind and search for the next.',
+      'Research sessions only. Look up the catalogue records this batch has observed (categories, parameter templates, category mappings and companies), each with the reference a proposal cites. Filter by kind, or by a search matched against labels regardless of case. Results come 50 to a page; for the next, pass the returned next_page_token as page_token, with the same kind and search.',
   },
   record_observation: {
     schema: 'RecordObservationArgs',
