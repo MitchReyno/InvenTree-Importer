@@ -1,3 +1,4 @@
+import { barrier } from './support/test-barrier.ts'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -142,8 +143,8 @@ test('an unconfirmed Docker removal keeps the slot until the engine confirms abs
 test('disconnecting during a launch holds capacity through child exit and repeated drain', async () => {
   const root = await mkdtemp(join(tmpdir(), 'media-running-'))
   const socket = join(root, 'worker.sock')
-  const started = Promise.withResolvers<void>()
-  const exited = Promise.withResolvers<void>()
+  const started = barrier()
+  const exited = barrier()
   const server = createDecoderDispatcher(image, 1, async (_image, bytes) => {
     started.resolve()
     await exited.promise

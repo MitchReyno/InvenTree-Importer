@@ -88,7 +88,7 @@ async function run() {
   registerCapture(app, ordinary.pool, config)
   registerMediaRoutes(app, ordinary.pool, config, store)
   const stop = new AbortController()
-  let targetDown = false
+  let targetDown = profile === 'adverse'
   const target = httpServer((_req, res) =>
     res.writeHead(targetDown ? 503 : 200, { 'content-type': 'application/json' }).end('{}'),
   )
@@ -247,7 +247,9 @@ async function run() {
           const group = Promise.all([
             ...Array.from({ length: 4 }, () => timed(reads, captureRead, 'capture_transport')),
             timed(liveness, () => request('/api/v1/health'), 'liveness'),
-            status(),
+            status().catch(() => {
+              probeErrors.scoped_snapshot = (probeErrors.scoped_snapshot ?? 0) + 1
+            }),
             timed(
               ordinaryWait,
               async () => {
@@ -332,7 +334,6 @@ async function run() {
     }, 5)
     waiting.unref()
     const cpu = process.cpuUsage()
-    if (profile === 'adverse') targetDown = true
     for (let i = 0; i < 12; i++) {
       const at = performance.now()
       retained.push(await upload(captures.id, i + 1, inputs[i % 6]))
@@ -342,11 +343,11 @@ async function run() {
     let recoveryAt = 0,
       recoveredMs: number | undefined
     if (profile === 'adverse') {
-      await status.check()
+      assert.equal((await status.check()).target.state, 'unavailable')
       const held = await Promise.all(Array.from({ length: 3 }, () => ordinary.pool.connect()))
       try {
         await timed(liveness, () => request('/api/v1/health'), 'liveness')
-        await status()
+        assert.equal((await status()).target.state, 'unavailable')
         await delay(500)
       } finally {
         for (const c of held) c.release()

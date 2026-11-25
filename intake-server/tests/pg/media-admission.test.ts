@@ -1,3 +1,4 @@
+import { barrier } from '../support/test-barrier.ts'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
@@ -19,14 +20,6 @@ import { processMediaCommand } from '#/media/worker.ts'
 import { createDecoderDispatcher } from '#/media/decoder-dispatcher.ts'
 import { launchDecoder } from '#/media/docker-decoder.ts'
 import { isolatedDatabase, seedAuthority } from '../support/database.ts'
-
-function barrier() {
-  let resolve!: () => void
-  const promise = new Promise<void>((done) => {
-    resolve = done
-  })
-  return { promise, resolve }
-}
 
 const image = process.env.INTAKE_MEDIA_DECODER_IMAGE
 
