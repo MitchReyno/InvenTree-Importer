@@ -37,7 +37,7 @@ export async function acquireAgentSupervisor(
 ): Promise<PoolClient> {
   const owner = await lockAgentSupervisor(pool, config)
   try {
-    await requireFreeCapacity(pool, config, checks)
+    await requireFreeCapacity(owner, config, checks)
     return owner
   } catch (error) {
     owner.release(true)

@@ -9,6 +9,8 @@ import { lotSession } from '../support/sessions.ts'
 import { interruptRunningSessions, runSessionTurn } from '#/agents/session/session-runner.ts'
 import { recoverHeldCapacity } from '#/agents/held-capacity.ts'
 import { acquireAgentSupervisor, lockAgentSupervisor } from '#/agents/worker.ts'
+import type { PoolClient } from 'pg'
+import { randomUUID } from 'node:crypto'
 
 type Fixture = Awaited<ReturnType<typeof processingFixture>>
 type Child = 'none' | 'host' | 'vm' | null
@@ -46,6 +48,20 @@ async function sessionState(fixture: Fixture, attemptId: string) {
     [attemptId],
   )
   return rows.rows[0]?.session_state
+}
+
+/** Runs `check` on a held supervisor lock's own connection, as a worker does. */
+async function asSupervisor<T>(
+  fixture: Fixture,
+  check: (owner: PoolClient) => Promise<T>,
+  config = fixture.config,
+) {
+  const owner = await lockAgentSupervisor(fixture.runner.pool, config)
+  try {
+    return await check(owner)
+  } finally {
+    owner.release(true)
+  }
 }
 
 /** Captures the worker's log lines while `run` runs. */
@@ -126,6 +142,8 @@ test('a slot record exists only on a held slot, and a command only for a VM turn
   )
   await assert.rejects(heldSlot(fixture, 1, session.attempt, 'none', '{}'), pgError('23514'))
   await assert.rejects(heldSlot(fixture, 1, session.attempt, 'vm', null), pgError('23514'))
+  // A slot claimed before turns were recorded has no record, and can't carry a stray command.
+  await assert.rejects(heldSlot(fixture, 1, session.attempt, null, '{}'), pgError('23514'))
   await heldSlot(fixture, 1, session.attempt, 'vm', '{}')
   // A release that left the record behind is refused.
   await assert.rejects(
@@ -272,20 +290,24 @@ test('held capacity that cannot be confirmed keeps refusing, naming each attempt
     [host.attempt],
   )
   await heldSlot(fixture, 4, noBridge.attempt, 'vm', '{"command":"d"}')
-  const withoutBridge = await recoverHeldCapacity(fixture.runner.pool, fixture.config)
+  const withoutBridge = await asSupervisor(fixture, (owner) =>
+    recoverHeldCapacity(owner, fixture.config),
+  )
   assert.equal(
     withoutBridge.find((outcome) => outcome.attemptId === noBridge.attempt)?.reason,
     'vm_bridge_unavailable',
   )
   // A guest that never answers within the bound confirms nothing.
-  const timedOut = await recoverHeldCapacity(fixture.runner.pool, fixture.config, {
-    reapCheckMs: 50,
-    confirmVmReaped: (_command, signal) =>
-      new Promise((resolve, reject) => {
-        signal.addEventListener('abort', () => reject(signal.reason), { once: true })
-        void delay(5000).then(() => resolve(true))
-      }),
-  })
+  const timedOut = await asSupervisor(fixture, (owner) =>
+    recoverHeldCapacity(owner, fixture.config, {
+      reapCheckMs: 50,
+      confirmVmReaped: (_command, signal) =>
+        new Promise((resolve, reject) => {
+          signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+          void delay(5000).then(() => resolve(true))
+        }),
+    }),
+  )
   assert.ok(
     timedOut
       .filter((outcome) => outcome.attemptId === noBridge.attempt)
@@ -300,14 +322,16 @@ test('a slot that changes after its check is not released', async (t) => {
   const capture = await fixture.seedCapture()
   const session = await lotSession(fixture, capture, capture.packetA)
   await heldSlot(fixture, 0, session.attempt, 'vm', '{"command":"a"}')
-  const outcomes = await recoverHeldCapacity(fixture.runner.pool, fixture.config, {
-    confirmVmReaped: async () => {
-      await fixture.db.pool.query('UPDATE agent_slot SET turn=2 WHERE attempt_id=$1', [
-        session.attempt,
-      ])
-      return true
-    },
-  })
+  const outcomes = await asSupervisor(fixture, (owner) =>
+    recoverHeldCapacity(owner, fixture.config, {
+      confirmVmReaped: async () => {
+        await fixture.db.pool.query('UPDATE agent_slot SET turn=2 WHERE attempt_id=$1', [
+          session.attempt,
+        ])
+        return true
+      },
+    }),
+  )
   assert.deepEqual(outcomes, [
     { holds: 'slot', attemptId: session.attempt, released: false, reason: 'held_capacity_changed' },
   ])
@@ -336,5 +360,86 @@ test('a second worker is refused before it checks or releases anything', async (
     owner.release(true)
   }
   assert.equal(asked, 0)
+  assert.ok(await slotOf(fixture, session.attempt))
+})
+
+test('a driver record committed while the release waits keeps the slot', async (t) => {
+  const fixture = await processingFixture()
+  t.after(() => fixture.dispose())
+  const capture = await fixture.seedCapture()
+  const session = await lotSession(fixture, capture, capture.packetA)
+  await heldSlot(fixture, 0, session.attempt, 'vm', '{"command":"a"}')
+  const recorder = await fixture.db.pool.connect()
+  let committed: Promise<unknown> = Promise.resolve()
+  try {
+    const outcomes = await asSupervisor(fixture, (owner) =>
+      recoverHeldCapacity(owner, fixture.config, {
+        confirmVmReaped: async () => {
+          // A turn's record, written but not committed when the release runs, and committed after.
+          await recorder.query('BEGIN')
+          await recorder.query(
+            'UPDATE agent_slot SET vm_command=\'{"command":"b"}\' WHERE attempt_id=$1',
+            [session.attempt],
+          )
+          committed = delay(500).then(() => recorder.query('COMMIT'))
+          return true
+        },
+      }),
+    )
+    assert.deepEqual(outcomes, [
+      {
+        holds: 'slot',
+        attemptId: session.attempt,
+        released: false,
+        reason: 'held_capacity_changed',
+      },
+    ])
+  } finally {
+    await committed
+    recorder.release()
+  }
+  assert.equal((await slotOf(fixture, session.attempt))?.vm_command, '{"command":"b"}')
+})
+
+test('a worker that loses its supervisor lock mid-check releases nothing', async (t) => {
+  const fixture = await processingFixture()
+  t.after(() => fixture.dispose())
+  const capture = await fixture.seedCapture()
+  const session = await lotSession(fixture, capture, capture.packetA)
+  await heldSlot(fixture, 0, session.attempt, 'vm', '{"command":"a"}')
+  const owner = await lockAgentSupervisor(fixture.runner.pool, fixture.config)
+  owner.on('error', () => undefined)
+  try {
+    const backend = await owner.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')
+    await assert.rejects(
+      recoverHeldCapacity(owner, fixture.config, {
+        confirmVmReaped: async () => {
+          // The lock's connection ends while the worker's other connections stay up.
+          await fixture.db.pool.query('SELECT pg_terminate_backend($1)', [backend.rows[0].pid])
+          return true
+        },
+      }),
+    )
+  } finally {
+    owner.release(true)
+  }
+  assert.ok(await slotOf(fixture, session.attempt))
+})
+
+test('a slot held by another target context is left for its own worker', async (t) => {
+  const fixture = await processingFixture()
+  t.after(() => fixture.dispose())
+  const capture = await fixture.seedCapture()
+  const session = await lotSession(fixture, capture, capture.packetA)
+  await heldSlot(fixture, 0, session.attempt, 'none')
+  const otherContext = { ...fixture.config, targetContextId: randomUUID() }
+  const outcomes = await asSupervisor(
+    fixture,
+    (owner) => recoverHeldCapacity(owner, otherContext),
+    otherContext,
+  )
+  assert.deepEqual(outcomes, [
+    { holds: 'slot', attemptId: session.attempt, released: false, reason: 'held_by_other_scope' },
+  ])
   assert.ok(await slotOf(fixture, session.attempt))
 })

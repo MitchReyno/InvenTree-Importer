@@ -1,10 +1,10 @@
-import { and, eq, isNotNull } from 'drizzle-orm'
-import type { Pool } from 'pg'
-import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
+import { and, eq, isNotNull, sql } from 'drizzle-orm'
+import type { PoolClient } from 'pg'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
+import { commands } from '#/db/schema.ts'
 import type { ProcessingConfig } from '#/processing/attempts.ts'
-import { processingLanes } from '#/processing/schema.ts'
+import { processingAttempts, processingLanes } from '#/processing/schema.ts'
 import { agentSlots, type TurnChildKind } from './schema.ts'
-import { releaseSessionSlot } from './session/slots.ts'
 
 /** How long a starting worker waits for the guest's removal proof for one held VM turn. */
 export const STARTUP_REAP_CHECK_MS = 20_000
@@ -17,6 +17,8 @@ export type HeldCapacity =
       turn: bigint | null
       child: TurnChildKind | null
       vmCommand: string | null
+      /** Whether the attempt is in this worker's target and context, so it can interrupt it. */
+      inScope: boolean
     }
   | { holds: 'lane'; attemptId: string }
 
@@ -32,6 +34,7 @@ export type KeepReason =
   | 'vm_bridge_unavailable'
   | 'vm_reap_unconfirmed'
   | 'held_capacity_changed'
+  | 'held_by_other_scope'
 
 export type HeldCapacityVerdict =
   { release: true; reason: ReleaseReason } | { release: false; reason: KeepReason }
@@ -43,6 +46,10 @@ export type HeldCapacityVerdict =
 export function heldCapacityVerdict(held: HeldCapacity, proof?: VmReapProof): HeldCapacityVerdict {
   if (held.holds === 'lane') {
     return { release: false, reason: 'lane_child_unverifiable' }
+  }
+  // Releasing it would leave its session for a worker of another target or context to interrupt.
+  if (!held.inScope) {
+    return { release: false, reason: 'held_by_other_scope' }
   }
   switch (held.child) {
     case null:
@@ -65,6 +72,8 @@ export function heldCapacityVerdict(held: HeldCapacity, proof?: VmReapProof): He
 export interface HeldCapacityChecks {
   /** Asks the paired guest whether a recorded VM command's worker was removed. */
   confirmVmReaped?: (command: string, signal: AbortSignal) => Promise<boolean>
+  /** Ends every check early, for example when the worker loses its supervisor lock. */
+  signal?: AbortSignal
   /** Overrides `STARTUP_REAP_CHECK_MS`, for tests. */
   reapCheckMs?: number
 }
@@ -76,21 +85,28 @@ export interface HeldCapacityOutcome {
   reason: ReleaseReason | KeepReason
 }
 
-async function readHeldCapacity(pool: Pool, config: ProcessingConfig): Promise<HeldCapacity[]> {
+async function readHeldCapacity(
+  owner: PoolClient,
+  config: ProcessingConfig,
+): Promise<HeldCapacity[]> {
   const slots = await executeDatabaseQuery(
-    queryDatabase(pool)
+    queryDatabase(owner)
       .select({
         attemptId: agentSlots.attemptId,
         turn: agentSlots.turn,
         child: agentSlots.turnChild,
         vmCommand: agentSlots.vmCommand,
+        targetId: commands.targetId,
+        targetContextId: commands.targetContextId,
       })
       .from(agentSlots)
+      .leftJoin(processingAttempts, eq(processingAttempts.id, agentSlots.attemptId))
+      .leftJoin(commands, eq(commands.id, processingAttempts.commandId))
       .where(and(eq(agentSlots.actorId, config.actorId), isNotNull(agentSlots.attemptId)))
       .orderBy(agentSlots.slotIndex),
   )
   const lanes = await executeDatabaseQuery(
-    queryDatabase(pool)
+    queryDatabase(owner)
       .select({ attemptId: processingLanes.attemptId })
       .from(processingLanes)
       .where(
@@ -103,6 +119,7 @@ async function readHeldCapacity(pool: Pool, config: ProcessingConfig): Promise<H
     turn: slot.turn,
     child: slot.child,
     vmCommand: slot.vmCommand,
+    inScope: slot.targetId === config.targetId && slot.targetContextId === config.targetContextId,
   }))
   const heldLanes: HeldCapacity[] = lanes.map((lane) => ({
     holds: 'lane',
@@ -119,7 +136,8 @@ async function vmReapProof(held: HeldCapacity, checks: HeldCapacityChecks): Prom
   if (!checks.confirmVmReaped) {
     return 'unavailable'
   }
-  const signal = AbortSignal.timeout(checks.reapCheckMs ?? STARTUP_REAP_CHECK_MS)
+  const bound = AbortSignal.timeout(checks.reapCheckMs ?? STARTUP_REAP_CHECK_MS)
+  const signal = checks.signal ? AbortSignal.any([bound, checks.signal]) : bound
   try {
     return (await checks.confirmVmReaped(held.vmCommand, signal)) ? 'removed' : 'unconfirmed'
   } catch {
@@ -128,55 +146,44 @@ async function vmReapProof(held: HeldCapacity, checks: HeldCapacityChecks): Prom
 }
 
 /**
- * Releases a confirmed slot as settlement does, under the lock slot claims take, and only while
- * it still holds the turn the verdict was about.
+ * Releases a confirmed slot as settlement does, in one statement that matches the exact turn the
+ * verdict was about, so a record committed meanwhile (a driver's intent) keeps it. It runs on the
+ * supervisor lock's own connection: a worker that lost the lock can release nothing.
  */
 async function releaseConfirmedSlot(
-  pool: Pool,
+  owner: PoolClient,
   config: ProcessingConfig,
   held: Extract<HeldCapacity, { holds: 'slot' }>,
 ) {
-  return transaction(pool, async (client) => {
-    await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 7319))', [
-      `agent-slots:${config.actorId}`,
-    ])
-    const rows = await executeDatabaseQuery(
-      queryDatabase(client)
-        .select({
-          turn: agentSlots.turn,
-          child: agentSlots.turnChild,
-          vmCommand: agentSlots.vmCommand,
-        })
-        .from(agentSlots)
-        .where(
-          and(eq(agentSlots.actorId, config.actorId), eq(agentSlots.attemptId, held.attemptId)),
+  const released = await executeDatabaseQuery(
+    queryDatabase(owner)
+      .update(agentSlots)
+      .set({ attemptId: null, claimedAt: null, turn: null, turnChild: null, vmCommand: null })
+      .where(
+        and(
+          eq(agentSlots.actorId, config.actorId),
+          eq(agentSlots.attemptId, held.attemptId),
+          sql`${agentSlots.turn} IS NOT DISTINCT FROM ${held.turn}::bigint`,
+          sql`${agentSlots.turnChild} IS NOT DISTINCT FROM ${held.child}::text`,
+          sql`${agentSlots.vmCommand} IS NOT DISTINCT FROM ${held.vmCommand}::text`,
         ),
-    )
-    const current = rows[0]
-    const unchanged =
-      current !== undefined &&
-      current.turn === held.turn &&
-      current.child === held.child &&
-      current.vmCommand === held.vmCommand
-    if (!unchanged) {
-      return false
-    }
-    await releaseSessionSlot(client, held.attemptId)
-    return true
-  })
+      )
+      .returning({ slot: agentSlots.slotIndex }),
+  )
+  return released.length === 1
 }
 
 /**
  * Checks each slot and the lane still held for this actor, and releases the slots confirmed gone.
- * The caller holds the actor's supervisor lock, so no other worker runs these turns; their
- * sessions are left for `interruptRunningSessions`. Nothing is stopped or killed here.
+ * `owner` is the connection holding the actor's supervisor lock, so no other worker runs these
+ * turns; their sessions are left for `interruptRunningSessions`. Nothing is stopped or killed.
  */
 export async function recoverHeldCapacity(
-  pool: Pool,
+  owner: PoolClient,
   config: ProcessingConfig,
   checks: HeldCapacityChecks = {},
 ): Promise<HeldCapacityOutcome[]> {
-  const held = await readHeldCapacity(pool, config)
+  const held = await readHeldCapacity(owner, config)
   // Each VM turn is asked about at once, each within its own bound.
   const proofs = await Promise.all(held.map((item) => vmReapProof(item, checks)))
   const outcomes: HeldCapacityOutcome[] = []
@@ -185,7 +192,8 @@ export async function recoverHeldCapacity(
     let released = false
     let reason: HeldCapacityOutcome['reason'] = verdict.reason
     if (verdict.release && item.holds === 'slot') {
-      released = await releaseConfirmedSlot(pool, config, item)
+      checks.signal?.throwIfAborted()
+      released = await releaseConfirmedSlot(owner, config, item)
       if (!released) {
         reason = 'held_capacity_changed'
       }
@@ -212,11 +220,11 @@ export function reportHeldCapacity(outcomes: HeldCapacityOutcome[]) {
 
 /** Recovers what it can, logs every outcome, and refuses while anything stays held. */
 export async function requireFreeCapacity(
-  pool: Pool,
+  owner: PoolClient,
   config: ProcessingConfig,
   checks: HeldCapacityChecks = {},
 ) {
-  const outcomes = await recoverHeldCapacity(pool, config, checks)
+  const outcomes = await recoverHeldCapacity(owner, config, checks)
   reportHeldCapacity(outcomes)
   if (outcomes.some((outcome) => !outcome.released)) {
     throw new Error('agent_reap_confirmation_required')

@@ -24,7 +24,7 @@ After taking the per-actor supervisor lock, a starting agent worker SHALL check 
 
 - **GIVEN** a held slot whose turn dispatched a VM tool command, and a guest whose removal receipt matches that command
 - **WHEN** the session worker starts
-- **THEN** the slot is released, the session becomes `interrupted` with `agent_worker_interrupted`, and the worker serves queued work
+- **THEN** the slot is released, the session becomes `interrupted`, and the worker serves queued work. The turn keeps its first diagnostic: `agent_reap_pending` when the stopped worker recorded its unconfirmed reap, otherwise `agent_worker_interrupted`
 
 #### Scenario: Turn started nothing outside its worker
 
@@ -47,6 +47,18 @@ When a held slot or the lane cannot be confirmed, because its turn's child is un
 - **GIVEN** a held slot whose turn started a host process, or a held slot claimed before turns were recorded, or an occupied Processing lane
 - **WHEN** a worker starts
 - **THEN** that capacity stays held and the worker refuses with `agent_reap_confirmation_required`, naming the attempt and why it couldn't be confirmed, while any other slot it did confirm is released
+
+#### Scenario: Held by another target or context
+
+- **GIVEN** a held slot whose attempt belongs to another target or context of the same actor
+- **WHEN** a worker starts
+- **THEN** it keeps that slot for a worker of that scope, which can interrupt its session
+
+#### Scenario: Lock lost during the check
+
+- **GIVEN** a starting worker checking held slots
+- **WHEN** its supervisor lock's connection ends before a release
+- **THEN** no slot is released and the worker stops
 
 #### Scenario: Another worker holds the actor
 

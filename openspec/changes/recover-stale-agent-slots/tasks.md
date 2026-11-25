@@ -41,7 +41,7 @@
 
 - [x] 1.1 RED: PG tests that a claim records the turn with `none`, that `recordChild` records `vm` with its command, that settlement clears every column, and that the checks refuse a record on a free slot. They fail for the missing columns.
 - [x] 1.2 GREEN: migration, schema, slot helpers, driver callback, native and VM drivers. The tests pass.
-- [ ] 1.3 Schema catalogue and existing slot tests pass.
+- [x] 1.3 Schema catalogue and existing slot tests pass.
 
 ## 2. Startup check and release
 
@@ -54,7 +54,7 @@
 
 - [x] 2.1 RED: unit tests for every row of the decision table, and PG tests: `none` and confirmed `vm` slots released and then interrupted by `interruptRunningSessions`; `host`, unrecorded, unconfirmed `vm` and the lane kept with `agent_reap_confirmation_required`; a slot changed after the decision not released; a second worker still refused with `agent_supervisor_already_running`. They fail because no check exists.
 - [x] 2.2 GREEN: the decision, `recoverHeldCapacity`, the fence split, `confirmReaped`, both entrypoints and recover-only mode. The tests pass.
-- [ ] 2.3 Existing `tests/pg/agents.test.ts` fence tests still pass, updated where the fence's behaviour changed.
+- [x] 2.3 Existing `tests/pg/agents.test.ts` fence tests still pass, updated where the fence's behaviour changed.
 
 ## 3. Shutdown settles in-flight turns
 

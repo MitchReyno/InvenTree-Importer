@@ -14,6 +14,7 @@ import { nativeProfileId, nativeHandlerVersion } from './policy.ts'
 import { nativeAgentRunner } from './runner.ts'
 import { lockAgentSupervisor } from './worker.ts'
 import { heldCapacityChecked, requireFreeCapacity } from './held-capacity.ts'
+import { interruptRunningSessions } from './session/session-runner.ts'
 
 function localDatabaseUrl(value: string | undefined) {
   if (!value) {
@@ -53,11 +54,13 @@ async function main() {
       shutdown.abort()
     })
     // This worker has no VM bridge, so only a turn that started nothing outside it is released.
-    const recovered = await requireFreeCapacity(db.pool, config)
+    const recovered = await requireFreeCapacity(owner, config, { signal: shutdown.signal })
     if (process.env.INTAKE_AGENT_RECOVER_ONLY === '1') {
       process.stdout.write(heldCapacityChecked(recovered.length))
       return
     }
+    // A released slot's session is interrupted here too, as the session worker does at start.
+    await interruptRunningSessions(db.pool, config)
     const store = process.env.INTAKE_BLOB_ROOT
       ? await BlobStore.initialize(
           process.env.INTAKE_BLOB_ROOT,

@@ -9,4 +9,4 @@ ALTER TABLE agent_slot
   ADD CONSTRAINT agent_slot_turn_child_held
     CHECK (attempt_id IS NOT NULL OR (turn IS NULL AND turn_child IS NULL AND vm_command IS NULL)),
   ADD CONSTRAINT agent_slot_turn_child_recorded CHECK ((turn IS NULL) = (turn_child IS NULL)),
-  ADD CONSTRAINT agent_slot_vm_command CHECK ((vm_command IS NOT NULL) = (turn_child = 'vm'));
+  ADD CONSTRAINT agent_slot_vm_command CHECK ((vm_command IS NOT NULL) = (turn_child IS NOT DISTINCT FROM 'vm'));

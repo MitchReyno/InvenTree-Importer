@@ -12,6 +12,7 @@ const slot = (
   turn: child === null ? null : 3n,
   child,
   vmCommand: child === 'vm' ? '{"protocol":"x"}' : null,
+  inScope: true,
 })
 
 const cases: [
@@ -62,6 +63,12 @@ const cases: [
     slot(null),
     'removed',
     { release: false, reason: 'turn_child_unrecorded' },
+  ],
+  [
+    'a turn of another target or context',
+    { ...slot('none'), inScope: false },
+    undefined,
+    { release: false, reason: 'held_by_other_scope' },
   ],
   [
     'the Processing lane',

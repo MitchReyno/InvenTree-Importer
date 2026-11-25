@@ -188,6 +188,7 @@ A turn still running when the app stops normally settles once its removal is con
 | `vm_bridge_unavailable` | The worker has no VM bridge, so it cannot ask. |
 | `host_child_unverifiable` | A native host turn: its process group isn't recorded. |
 | `turn_child_unrecorded` | The slot was claimed by a build that recorded no turn. |
+| `held_by_other_scope` | The turn belongs to another target or context; its own app releases it. |
 | `lane_child_unverifiable` | The single-result lane is held; its holder records no child. |
 
 To run the same check without starting the app, stop `pnpm dev` and run:

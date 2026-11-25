@@ -428,6 +428,11 @@ export async function startSessionBridge(
       context.signal.throwIfAborted()
       // Committed before the guest can start anything, so a restart can ask about this command.
       await context.recordChild({ kind: 'vm', command: JSON.stringify(command) })
+      // A cancellation during the write already closed the connection: nothing was sent.
+      context.signal.throwIfAborted()
+      if (socket.destroyed) {
+        throw new Error('paired_guest_unavailable')
+      }
       dispatched = true
       await frames.send(command)
       for (;;) {
@@ -604,6 +609,10 @@ export async function startSessionBridge(
   return {
     driver,
     confirmReaped,
+    /** Ends every wait for a removal proof, leaving connections open; `close` does this too. */
+    endProofWaits() {
+      closing.abort()
+    },
     providerStatus,
     close() {
       closing.abort()

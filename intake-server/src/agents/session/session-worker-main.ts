@@ -48,6 +48,8 @@ import type { BridgeProviderStatuses } from '#/agents/shared-vm/coordinator.ts'
  * Inside the development launcher's 45 s stop grace, with room for the scheduler's own shutdown.
  */
 const SHUTDOWN_TURN_SETTLE_MS = 30_000
+/** Time an unconfirmed turn gets to record its pending reap once proof waits end. */
+const UNCONFIRMED_SETTLE_MS = 2_000
 
 /** The turns this worker is running, so shutdown can wait for them to settle. */
 function turnTracker() {
@@ -157,8 +159,12 @@ async function main() {
       })
     }
     // Held slots are checked through the bridge, so it starts first; nothing has run yet.
-    const capacityChecks: HeldCapacityChecks = { confirmVmReaped: bridge?.confirmReaped }
-    const recovered = await requireFreeCapacity(db.pool, config, capacityChecks)
+    const capacityChecks: HeldCapacityChecks = {
+      confirmVmReaped: bridge?.confirmReaped,
+      // Losing the lock ends the checks; the releases run on its connection and fail with it.
+      signal: shutdown.signal,
+    }
+    const recovered = await requireFreeCapacity(owner, config, capacityChecks)
     // Recover-only mode (`pnpm agents:reap`) stops here; the next start interrupts the sessions.
     if (process.env.INTAKE_AGENT_RECOVER_ONLY === '1') {
       process.stdout.write(heldCapacityChecked(recovered.length))
@@ -272,6 +278,9 @@ async function main() {
     // Stopped turns settle before anything they need closes: a VM turn's reap proof needs the
     // bridge, and its settlement the scheduler and the pool. Past the bound, a slot stays held.
     await turns.settle(SHUTDOWN_TURN_SETTLE_MS)
+    // Past the bound no proof counts: an unconfirmed turn settles keeping its slot for the next start.
+    bridge?.endProofWaits()
+    await turns.settle(UNCONFIRMED_SETTLE_MS)
     // First, so a stopping worker holds no connection it isn't using.
     await statusRequests?.close()
     await scheduler?.destroy()

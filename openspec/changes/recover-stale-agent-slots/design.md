@@ -33,7 +33,7 @@ Two defects combined (see the proposal's evidence):
 Fixes:
 
 - **Launcher order.** `shutdown()` signals only the application processes; the VM tunnel and relays are stopped after the application processes have exited. `stopInOrder` (`tooling/dev/process.cjs`) stops the two groups one after the other, each within the existing grace, and `finishOwnedRun` still forces every child down when a group outlives it. Reloads already keep the VM children.
-- **Worker wait.** The session worker tracks each turn its workflows run. On shutdown it aborts them as today, then waits up to `SHUTDOWN_TURN_SETTLE_MS` (30 s) for them to settle before closing anything. 30 s sits inside the launcher's 45 s stop grace with room for DBOS's own shutdown. A turn still unsettled after the wait keeps its slot and is left to the startup check. Closing the bridge also ends any wait for a removal proof, so an unconfirmed turn doesn't keep the process alive for the rest of the coordinator's 45 s.
+- **Worker wait.** The session worker tracks each turn its workflows run. On shutdown it aborts them as today, then waits up to `SHUTDOWN_TURN_SETTLE_MS` (30 s) for them to settle before closing anything. 30 s sits inside the launcher's 45 s stop grace with room for DBOS's own shutdown. A turn still unsettled after the wait keeps its slot and is left to the startup check: the worker then ends every wait for a removal proof (`endProofWaits` on the bridge; closing it does too), gives the turns 2 s to record their pending reap, and closes the rest. A proof arriving after the bound no longer counts.
 - **Deployment.** The packaged coordinator service gets `stop_grace_period: 60s`, and the deployment guide says to stop the coordinator before the relays.
 
 Rejected: lengthening only DBOS's `workflowCompletionTimeoutMS`. DBOS's timeout bounds its own wait, but the worker would still close the bridge and pool in the order it does now, and nothing would keep the relays up.
@@ -78,6 +78,7 @@ The decision is a pure function of the slot record and, for a VM record, the gue
 
 | Held capacity | Decision |
 | --- | --- |
+| Slot of an attempt in another target or context | Keep (`held_by_other_scope`): this worker couldn't interrupt its session. |
 | Slot, `turn_child='none'` | Release: nothing started outside a worker that no longer holds the lock (`no_child`). |
 | Slot, `turn_child='vm'`, guest answers `worker_removed` for the stored command | Release (`vm_worker_removed`). |
 | Slot, `turn_child='vm'`, no bridge in this worker | Keep (`vm_bridge_unavailable`). |
@@ -88,7 +89,7 @@ The decision is a pure function of the slot record and, for a VM record, the gue
 
 VM checks for different slots run at once, each with its own bound. The bridge gains `confirmReaped(command, signal)`, which picks an idle peer of the command's route that offers both the terminal probe and the reap proof, the same filter cancellation uses, and sends the existing `{inspectTerminal, requireReap: true}` probe. Only a `worker_removed` answer counts.
 
-A release takes the actor's slot-claim lock (`agent-slots:<actor>`, the lock `claimSessionSlot` takes), checks the slot still holds the same attempt and turn it decided on, and calls `releaseSessionSlot`. The session itself is left to `interruptRunningSessions`, which records `agent_worker_interrupted`, revokes the capability and publishes, exactly as after the manual release.
+A release is one `UPDATE` that clears the same columns `releaseSessionSlot` clears, matching the attempt, turn, record and command exactly (null-safe), so a driver record committed meanwhile keeps the slot. All of the check's reads and writes run on the supervisor lock's own connection, and the worker's lock-loss signal ends the guest checks: a worker that loses the lock can release nothing. The session itself is left to `interruptRunningSessions`, which records `agent_worker_interrupted` (unless the stopped worker already recorded `agent_reap_pending` for that turn, which is kept as its one diagnostic), revokes the capability and publishes. Both workers run it after the check.
 
 Rejected: stopping a live orphan at startup. Turn containers are named by relay run ID, not attempt, and the host has no engine access, so the worker could not target one safely. The design only confirms absence.
 

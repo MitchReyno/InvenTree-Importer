@@ -13,6 +13,9 @@ import { singleProvider } from '../support/agent-settings.ts'
 import { saveAgentSettings } from '#/agents/settings.ts'
 import { Frames, protocol } from '#/agents/shared-vm/frames.ts'
 import { pairing } from '#/agents/shared-vm/pair.ts'
+import { lotSession } from '../support/sessions.ts'
+import { runSessionTurn } from '#/agents/session/session-runner.ts'
+import { startSessionBridge } from '#/agents/shared-vm/coordinator.ts'
 
 type Fixture = Awaited<ReturnType<typeof processingFixture>>
 
@@ -204,6 +207,11 @@ test(
       session_state: 'interrupted',
     })
     assert.deepEqual(await failureCodes(fixture, attemptId), ['agent_worker_interrupted'])
+    const capability = await fixture.db.pool.query(
+      'SELECT 1 FROM agent_session WHERE attempt_id=$1 AND capability_sha256 IS NOT NULL',
+      [attemptId],
+    )
+    assert.equal(capability.rowCount, 0)
   },
 )
 
@@ -256,5 +264,69 @@ test(
     assert.ok(['agent_reap_pending', 'agent_worker_interrupted'].includes(codes[0]), codes[0])
     next.worker.kill('SIGTERM')
     assert.equal((await next.exited)[0], 0, next.output())
+  },
+)
+
+test(
+  'a turn cancelled while its VM command is being recorded sends nothing and frees its slot',
+  { timeout: 120_000 },
+  async (t) => {
+    const root = await mkdtemp('/tmp/stale-record-')
+    t.after(() => rm(root, { recursive: true, force: true }))
+    await pairedCertificates(root)
+    const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
+    t.after(() => fixture.dispose())
+    const capture = await fixture.seedCapture()
+    const { attempt } = await lotSession(fixture, capture, capture.packetA, {
+      state: 'queued',
+      profile: {
+        id: 'shared-vm-agent/3',
+        agent: { provider: 'claude', authentication: 'subscription', model: 'haiku' },
+        settingsRevision: '1',
+      },
+    })
+    const port = await freePort()
+    const bridge = await startSessionBridge(join(root, 'bench-coordinator'), port, {
+      protectedHosts: [],
+    })
+    t.after(() => bridge.close())
+    const guest = await guestPeer(t, root, port)
+    let received = false
+    void guest.frames.read().then(
+      () => {
+        received = true
+      },
+      () => undefined,
+    )
+    const control = new AbortController()
+    const turn = runSessionTurn(
+      {
+        pool: fixture.runner.pool,
+        config: fixture.config,
+        host: { stateRoot: root, env: {}, claudeExecutable: '/unused', codexExecutable: '/unused' },
+        toolUrl: 'http://127.0.0.1:1',
+        drivers: {
+          'shared-vm-agent/3': (sessionTurn, context) =>
+            bridge.driver(sessionTurn, {
+              ...context,
+              // The worker is stopped while the record is being written.
+              recordChild: async (child) => {
+                await context.recordChild!(child)
+                control.abort()
+                await delay(200)
+              },
+            }),
+        },
+      },
+      attempt,
+      control.signal,
+    )
+    // Before the fix this waited 45 s for a proof of a command that was never sent.
+    const started = Date.now()
+    assert.equal(await turn, 'interrupted')
+    assert.ok(Date.now() - started < 30_000)
+    await delay(500)
+    assert.equal(received, false)
+    assert.deepEqual(await heldSlot(fixture), [])
   },
 )
