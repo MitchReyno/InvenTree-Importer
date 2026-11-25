@@ -4,6 +4,7 @@ import {
   validate,
   type ProcessingStateDto,
   type SessionHistoryAttemptDto,
+  type SessionHistoryBriefDto,
   type SessionHistoryDto,
   type SessionInboxItemDto,
   type SessionOutboxItemDto,
@@ -19,7 +20,7 @@ import { webAccess } from '#/processing/session-policy.ts'
 import { latestSessionFailures } from '#/agents/failures.ts'
 import { startFreshEligibility } from '#/processing/start-fresh-eligibility.ts'
 import { resolveHistoryEntries, type HistoryRow, type HistoryJob } from './history-entries.ts'
-import { historyBriefs, type AttemptBrief } from './history-briefs.ts'
+import { attemptBrief, historyBriefRefs, type AttemptBrief } from './history-briefs.ts'
 
 /** Inbox rows sort as if their attempt were this, below every real attempt ID. */
 export const INBOX_ORDER_ATTEMPT = '00000000-0000-0000-0000-000000000000'
@@ -395,7 +396,7 @@ export async function readSessionHistory(
     const entries = await resolveHistoryEntries(client, context, page)
     const oldest = page.at(-1)
     const olderRemain = rows.length > SESSION_HISTORY_PAGE_SIZE
-    const briefs = await historyBriefs(client, job.batchId, attemptBriefs, {
+    const briefs = historyBriefRefs(attemptBriefs, {
       before: before?.at,
       oldest: olderRemain ? oldest?.item.created_at : undefined,
     })
@@ -416,5 +417,48 @@ export async function readSessionHistory(
     }
     validate('SessionHistory', history)
     return history
+  })
+}
+
+/**
+ * The brief a `/7` attempt of the job started from, scoped as the history is. An attempt of
+ * another job, or one whose input had no brief, is not found.
+ */
+export async function readSessionBrief(
+  pool: Pool,
+  config: ProcessingConfig,
+  batchId: string,
+  jobId: string,
+  attemptId: string,
+): Promise<SessionHistoryBriefDto> {
+  return transaction(pool, async (client) => {
+    await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
+    const job = await scopedSessionJob(client, config, batchId, jobId)
+    const rows = await client.query<{
+      input_id: string
+      queued_at: Date
+      manifest_bytes: Buffer
+      manifest_digest: Buffer
+    }>(
+      `SELECT i.id AS input_id, s.queued_at, i.manifest_bytes, i.manifest_digest
+         FROM public.processing_attempt a
+         JOIN public.agent_session s ON s.attempt_id=a.id
+         JOIN public.processing_input i ON i.id=a.input_id
+        WHERE a.id=$1 AND a.job_id=$2 AND s.session_lineage_id=$2`,
+      [attemptId, job.id],
+    )
+    const row = rows.rows[0] ?? fail('session_brief_not_found', 404)
+    const manifest = decodeJobInput(row.manifest_bytes, row.manifest_digest)
+    if (manifest.schema_version !== 'bench-intake-input/7') {
+      return fail('session_brief_not_found', 404)
+    }
+    const brief = await attemptBrief(client, job.batchId, {
+      attemptId,
+      inputId: row.input_id,
+      queuedAt: row.queued_at.toISOString(),
+      brief: manifest.brief,
+    })
+    validate('SessionHistoryBrief', brief)
+    return brief
   })
 }

@@ -75,6 +75,14 @@ export function processingClient(
         }),
       ),
 
+    /** The brief a `/7` attempt of the session started from. */
+    brief: (id: string, jobId: string, attemptId: string) =>
+      successfulData(
+        client.GET('/api/v1/batches/{id}/processing/{jobId}/attempts/{attemptId}/brief', {
+          params: { path: { id, jobId, attemptId } },
+        }),
+      ),
+
     replaceSession: (id: string, jobId: string, input: SessionReplacementDto, key: string) =>
       successfulData(
         client.POST('/api/v1/batches/{id}/processing/{jobId}/replacement', {

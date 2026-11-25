@@ -1,5 +1,9 @@
 import type { PoolClient } from 'pg'
-import type { SealedBriefDto, SessionHistoryBriefDto } from '@invimport/contracts'
+import type {
+  SealedBriefDto,
+  SessionHistoryBriefDto,
+  SessionHistoryBriefRefDto,
+} from '@invimport/contracts'
 import { sealedBriefPage } from '#/processing/brief-pages.ts'
 import { withoutRemovedMedia } from '#/processing/brief-removal.ts'
 
@@ -35,37 +39,44 @@ function onPage(queuedAt: string, span: PageSpan) {
 }
 
 /**
- * The briefs of the `/7` attempts queued within the page's span, newest first, each with every
- * page of the sealed brief, without what concerns evidence removed since, as a session is given
- * it. Earlier inputs had no brief and give none.
+ * Where the briefs of the `/7` attempts queued within the page's span sit, newest first. Only the
+ * place: a page never reads a brief's content, so its size and its reads don't grow with them.
  */
-export async function historyBriefs(
-  client: PoolClient,
-  batchId: string,
+export function historyBriefRefs(
   attempts: readonly AttemptBrief[],
   span: PageSpan,
-): Promise<SessionHistoryBriefDto[]> {
-  const shown = attempts.filter((attempt) => onPage(attempt.queuedAt, span))
-  const briefs: SessionHistoryBriefDto[] = []
-  for (const attempt of shown) {
-    const { brief } = attempt
-    const sealedEntries = []
-    for (const page of brief.pages) {
-      sealedEntries.push(...(await sealedBriefPage(client, attempt.inputId, brief, page.index)))
-    }
-    const entries = await withoutRemovedMedia(client, batchId, sealedEntries)
-    briefs.push({
-      attempt_id: attempt.attemptId,
-      at: attempt.queuedAt,
-      brief: {
-        schema_version: brief.schema_version,
-        stage: brief.stage,
-        lot_id: brief.lot_id,
-        revision: brief.revision,
-        sections: brief.sections,
-        entries,
-      },
-    })
+): SessionHistoryBriefRefDto[] {
+  return attempts
+    .filter((attempt) => onPage(attempt.queuedAt, span))
+    .map((attempt) => ({ attempt_id: attempt.attemptId, at: attempt.queuedAt }))
+}
+
+/**
+ * Every page of an attempt's sealed brief, from the manifest and the input's page store, without
+ * what concerns evidence removed since, as a session's read tools serve it, with its sealed
+ * sections.
+ */
+export async function attemptBrief(
+  client: PoolClient,
+  batchId: string,
+  attempt: AttemptBrief,
+): Promise<SessionHistoryBriefDto> {
+  const { brief } = attempt
+  const sealedEntries = []
+  for (const page of brief.pages) {
+    sealedEntries.push(...(await sealedBriefPage(client, attempt.inputId, brief, page.index)))
   }
-  return briefs
+  const entries = await withoutRemovedMedia(client, batchId, sealedEntries)
+  return {
+    attempt_id: attempt.attemptId,
+    at: attempt.queuedAt,
+    brief: {
+      schema_version: brief.schema_version,
+      stage: brief.stage,
+      lot_id: brief.lot_id,
+      revision: brief.revision,
+      sections: brief.sections,
+      entries,
+    },
+  }
 }

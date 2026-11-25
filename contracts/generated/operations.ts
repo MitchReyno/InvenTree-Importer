@@ -276,6 +276,14 @@ export const clientOperations = new Map<string, ClientOperation>([
     }
   ],
   [
+    "GET /api/v1/batches/{id}/processing/{jobId}/attempts/{attemptId}/brief",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "SessionHistoryBrief"
+    }
+  ],
+  [
     "GET /api/v1/batches/{id}/processing/{jobId}/history",
     {
       "timeoutMs": 10000,

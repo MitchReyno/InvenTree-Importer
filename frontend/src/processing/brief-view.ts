@@ -41,11 +41,14 @@ function titleOf(brief: SessionBriefDto) {
 export function briefView(brief: SessionBriefDto): BriefView {
   const { entries } = brief
   const corrections = ofKind(entries, 'correction')
+  const correctionsOf = new Map<string, Entry<'correction'>[]>()
+  for (const correction of corrections) {
+    const listed = correctionsOf.get(correction.observation_id) ?? []
+    correctionsOf.set(correction.observation_id, [...listed, correction])
+  }
   const observations = ofKind(entries, 'observation').map((entry) => ({
     observation: entry.observation,
-    corrections: corrections.filter(
-      (correction) => correction.observation_id === entry.observation.id,
-    ),
+    corrections: correctionsOf.get(entry.observation.id) ?? [],
   }))
   const listed = new Set(observations.map((row) => row.observation.id))
   const facts = entries.filter(
@@ -86,8 +89,7 @@ export function factCount(view: BriefView) {
 }
 
 /** The brief's one-line summary, naming only what it holds. */
-export function briefSummary(brief: SessionBriefDto) {
-  const view = briefView(brief)
+export function briefSummary(view: BriefView) {
   const facts = factCount(view)
   const parts = [
     view.observations.length > 0 ? plural(view.observations.length, 'observation') : null,
@@ -140,4 +142,14 @@ export function factKey(fact: BriefFact) {
     case 'lot_edit':
       return fact.edit_id
   }
+}
+
+type Region = Entry<'keep_out'>['region']
+
+/** Where on its page a region is, in the units it was recorded in. */
+export function regionWords(region: Region) {
+  if (region.kind === 'lines') {
+    return `lines ${region.from_line}–${region.to_line}`
+  }
+  return `${region.width}×${region.height} px at ${region.x}, ${region.y}`
 }

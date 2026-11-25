@@ -1,12 +1,11 @@
 import type {
   SessionHistoryAttemptDto,
-  SessionHistoryBriefDto,
+  SessionHistoryBriefRefDto,
   SessionHistoryDto,
   SessionHistoryEntryDto,
   SessionHistoryLinkDto,
 } from '@invimport/contracts'
 import type { EarlierAttempt } from '#/agents/session-list'
-import { briefSummary } from './brief-view'
 
 type Entry = SessionHistoryEntryDto
 
@@ -14,8 +13,8 @@ type Entry = SessionHistoryEntryDto
 export type HeldHistory = {
   session: SessionHistoryDto['session']
   entries: Entry[]
-  /** The briefs of `/7` attempts the held pages carried, newest first. */
-  briefs?: SessionHistoryBriefDto[]
+  /** Where the briefs of `/7` attempts the held pages carried sit, newest first. */
+  briefs?: SessionHistoryBriefRefDto[]
   before?: string
   /** The newest page's place in the history read order (`nextHistoryOrder`). */
   readOrder?: number
@@ -37,7 +36,7 @@ type EntryRow = Exclude<HistoryItem, { kind: 'elided' }>
 export type ConversationItem =
   | HistoryItem
   | { kind: 'attempt'; id: string; attempt: SessionHistoryAttemptDto }
-  | { kind: 'brief'; id: string; summary: string; brief: SessionHistoryBriefDto }
+  | { kind: 'brief'; id: string; summary: string; ref: SessionHistoryBriefRefDto }
 
 export type ConversationFilter = 'all' | 'messages' | 'inputs' | 'photos' | 'web'
 
@@ -48,8 +47,8 @@ function isStoredRow(entry: Entry) {
 
 /** Every brief of both lists once, the first list's copy first, newest first. */
 function joinBriefs(
-  first: readonly SessionHistoryBriefDto[] | undefined,
-  second: readonly SessionHistoryBriefDto[] | undefined,
+  first: readonly SessionHistoryBriefRefDto[] | undefined,
+  second: readonly SessionHistoryBriefRefDto[] | undefined,
 ) {
   const seen = new Set((first ?? []).map((item) => item.attempt_id))
   const briefs = [...(first ?? []), ...(second ?? []).filter((item) => !seen.has(item.attempt_id))]
@@ -337,12 +336,12 @@ function dividerItem(attempt: SessionHistoryAttemptDto): ConversationItem {
   return { kind: 'attempt', id: `attempt:${attempt.id}`, attempt }
 }
 
-function briefItem(brief: SessionHistoryBriefDto): ConversationItem {
+function briefItem(ref: SessionHistoryBriefRefDto): ConversationItem {
   return {
     kind: 'brief',
-    id: `brief:${brief.attempt_id}`,
-    summary: briefSummary(brief.brief),
-    brief,
+    id: `brief:${ref.attempt_id}`,
+    summary: 'The brief the attempt started from',
+    ref,
   }
 }
 

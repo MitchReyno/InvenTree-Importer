@@ -4,6 +4,7 @@ import {
   type BriefEntryDto,
   type SessionHistoryAttemptDto,
   type SessionHistoryBriefDto,
+  type SessionHistoryBriefRefDto,
   type SessionHistoryDto,
   type SessionHistoryEntryDto,
   type StartFreshEligibilityDto,
@@ -362,7 +363,7 @@ export function history(
     attempts?: SessionHistoryAttemptDto[]
     acked?: string
     startFresh?: StartFreshEligibilityDto
-    briefs?: SessionHistoryBriefDto[]
+    briefs?: SessionHistoryBriefRefDto[]
   } = {},
 ): SessionHistoryDto {
   // The read lists attempts newest first, as the server does.
@@ -517,7 +518,12 @@ export function researchBriefEntries(): BriefEntryDto[] {
   ]
 }
 
-/** One `/7` attempt's brief as the history read carries it. */
+/** Where a `/7` attempt's brief sits in a history page. */
+export function briefRef(attempt: string = H.attempt, minute = 1): SessionHistoryBriefRefDto {
+  return { attempt_id: attempt, at: at(minute) }
+}
+
+/** One `/7` attempt's brief as its read returns it. */
 export function historyBrief(
   entries: BriefEntryDto[] = researchBriefEntries(),
   { attempt = H.attempt, minute = 1 }: { attempt?: string; minute?: number } = {},

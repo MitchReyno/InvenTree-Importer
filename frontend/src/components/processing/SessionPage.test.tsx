@@ -19,6 +19,7 @@ import {
   H,
   at,
   attemptHeader,
+  briefRef,
   chat,
   history,
   historyBrief,
@@ -121,6 +122,7 @@ function client(pages: SessionHistoryDto | ((before?: string) => Promise<Session
       command_id: 'f5000000-0000-4000-8000-00000000000f',
     }),
     history,
+    brief: vi.fn().mockResolvedValue(historyBrief()),
     chat: vi.fn().mockResolvedValue({ item_id: H.inboxItem, seq: '9' }),
     replaceSession: vi.fn(),
   } satisfies ProcessingClient
@@ -152,13 +154,17 @@ const conversationOf = () => screen.getByRole('list', { name: 'Session conversat
 
 test('a /7 session opens on the brief it started from, collapsed, with your correction marked', async () => {
   const user = userEvent.setup()
-  mount(client(history([status(1, 5, 'Reading the brief')], { briefs: [historyBrief()] })))
+  const processing = client(history([status(1, 5, 'Reading the brief')], { briefs: [briefRef()] }))
+  mount(processing)
   const list = await screen.findByRole('list', { name: 'Session conversation' })
   const rows = [...list.children] as HTMLElement[]
 
-  // The first item after the attempt's divider, summarising what it holds.
+  // The first item after the attempt's divider, read on its own, summarising what it holds.
   expect(rows[0]).toHaveTextContent('Attempt 1')
-  const brief = within(rows[1]).getByRole('group', { name: /Started from Examine’s findings/ })
+  const brief = await within(rows[1]).findByRole('group', {
+    name: /Started from Examine’s findings/,
+  })
+  expect(processing.brief).toHaveBeenCalledWith(H.batch, H.job, H.attempt)
   const summary = brief.querySelector('summary')!
   expect(summary).toHaveTextContent(
     'Started from Examine’s findings · 2 observations · 3 of your facts · 1 question already asked',
@@ -204,11 +210,29 @@ test('a /7 session opens on the brief it started from, collapsed, with your corr
   ).toHaveTextContent('MCU close-up')
 })
 
+test('a brief that can’t be read says so in its place and leaves the conversation', async () => {
+  const user = userEvent.setup()
+  const processing = client(history([status(1, 5, 'Reading the brief')], { briefs: [briefRef()] }))
+  processing.brief.mockRejectedValueOnce(new Error('unavailable'))
+  mount(processing)
+  const list = await screen.findByRole('list', { name: 'Session conversation' })
+
+  const failed = await within(list).findByRole('alert')
+  expect(failed).toHaveTextContent('The brief this attempt started from couldn’t be loaded.')
+  expect(within(list).getByText('Reading the brief')).toBeVisible()
+  await user.click(within(failed).getByRole('button', { name: 'Try again' }))
+  expect(
+    await within(list).findByRole('group', { name: /Started from Examine’s findings/ }),
+  ).toBeInTheDocument()
+})
+
 test('a session from an earlier input, which had no brief, opens as before', async () => {
-  mount(client(history([status(1, 5, 'Reading the batch')])))
+  const processing = client(history([status(1, 5, 'Reading the batch')]))
+  mount(processing)
   const list = await screen.findByRole('list', { name: 'Session conversation' })
 
   expect(within(list).queryByText(/Started from/)).toBeNull()
+  expect(processing.brief).not.toHaveBeenCalled()
   expect(([...list.children] as HTMLElement[]).map((row) => row.textContent)).toEqual([
     expect.stringContaining('Attempt 1'),
     expect.stringContaining('Reading the batch'),

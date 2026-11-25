@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { BriefEntryDto } from '@invimport/contracts'
 import { briefObservation, H, historyBrief, researchBriefEntries } from '#/test/session-history'
-import { briefSummary, briefView, factCount, quantityWords, readingText } from './brief-view'
+import {
+  briefSummary,
+  briefView,
+  factCount,
+  quantityWords,
+  readingText,
+  regionWords,
+} from './brief-view'
 
 function correction(revision: string, before: string[], after: string[]): BriefEntryDto {
   return {
@@ -32,7 +39,7 @@ describe('a brief as the session page shows it', () => {
     expect(view.corrections).toEqual([])
     // Two corrections, the answer and the note.
     expect(factCount(view)).toBe(4)
-    expect(briefSummary(historyBrief(entries).brief)).toBe(
+    expect(briefSummary(briefView(historyBrief(entries).brief))).toBe(
       'Started from Examine’s findings · 2 observations · 4 of your facts · 1 question already asked',
     )
   })
@@ -61,7 +68,7 @@ describe('a brief as the session page shows it', () => {
     const view = briefView(historyBrief([instruction]).brief)
 
     expect(factCount(view)).toBe(1)
-    expect(briefSummary(historyBrief([instruction]).brief)).toBe(
+    expect(briefSummary(briefView(historyBrief([instruction]).brief))).toBe(
       'Started from Examine’s findings · 1 of your facts',
     )
   })
@@ -74,6 +81,25 @@ describe('a brief as the session page shows it', () => {
   it('names what an Examine lead started from, and leaves out what it doesn’t hold', () => {
     const lead = historyBrief([]).brief
 
-    expect(briefSummary({ ...lead, stage: 'examine', lot_id: null })).toBe('Started from the batch')
+    expect(briefSummary(briefView({ ...lead, stage: 'examine', lot_id: null }))).toBe(
+      'Started from the batch',
+    )
+  })
+})
+
+describe('where a region is', () => {
+  it('reads pixel regions by size and place, and line regions by their lines', () => {
+    expect(
+      regionWords({
+        kind: 'pixels',
+        x: 10,
+        y: 20,
+        width: 300,
+        height: 200,
+        source_width: 4000,
+        source_height: 3000,
+      }),
+    ).toBe('300×200 px at 10, 20')
+    expect(regionWords({ kind: 'lines', from_line: 3, to_line: 5 })).toBe('lines 3–5')
   })
 })

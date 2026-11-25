@@ -1,104 +1,64 @@
-import { useId } from 'react'
 import styled from 'styled-components'
-import type { BriefEntryDto, SessionHistoryBriefDto } from '@invimport/contracts'
-import { EventTime } from '#/components/ui'
-import { briefSummary, briefView } from '#/processing/brief-view'
-import { color, radius, space, typeVar } from '#/theme/generated/tokens'
-import { BriefAsked } from './BriefAsked'
-import { BriefFacts } from './BriefFacts'
-import { BriefIdentities } from './BriefIdentities'
-import { BriefObservations } from './BriefObservations'
-import { BriefStageLists } from './BriefStageLists'
-import { BriefHeading, BriefMuted, BriefRow, BriefRows, BriefSection } from './brief-styles'
-import { HistoryText, HistoryTime } from './history-row-styles'
+import { useQuery } from '@tanstack/react-query'
+import type { SessionHistoryBriefDto, SessionHistoryBriefRefDto } from '@invimport/contracts'
+import { Button } from '#/components/ui'
+import { useServerScope } from '#/context'
+import { serverQueryKey } from '#/queries/scope'
+import { color, radius, space } from '#/theme/generated/tokens'
+import { BriefDetails } from './BriefDetails'
+import type { HistoryContext } from './HistoryLink'
 
-type Evidence = Extract<BriefEntryDto, { kind: 'evidence' }>
-
-const EVIDENCE = 'Evidence it may read itself'
-
-/** A photo or document by its label and kind, with how many regions earlier stages read in it. */
-function evidenceText(entry: Evidence) {
-  const kind = entry.media_type === 'application/pdf' ? 'PDF' : 'photo'
-  const regions = entry.regions.length
-  const read = regions === 0 ? '' : ` · ${regions} ${regions === 1 ? 'region' : 'regions'} read`
-  return `${entry.label ?? `Unlabelled ${kind}`} (${kind})${read}`
-}
+export type BriefLoader = (
+  batchId: string,
+  jobId: string,
+  attemptId: string,
+) => Promise<SessionHistoryBriefDto>
 
 /**
- * The brief a `/7` attempt started from, as the first item after its divider: a collapsed
- * summary that opens to what Examine found, the operator's facts with their corrections marked
- * as theirs, the questions already asked and the evidence the session may read.
+ * The brief a `/7` attempt started from, as the first item after its divider. The history says
+ * where it sits; the brief is read on its own, once, since a sealed brief doesn't change, so a
+ * brief that can't be read leaves the rest of the conversation as it is.
  */
-export function BriefCard({ item }: { item: SessionHistoryBriefDto }) {
-  const summaryId = useId()
-  const { brief } = item
-  const view = briefView(brief)
+export function BriefCard({
+  reference,
+  context,
+  load,
+}: {
+  reference: SessionHistoryBriefRefDto
+  context: HistoryContext
+  load: BriefLoader
+}) {
+  const scope = useServerScope()
+  const { batchId, jobId } = context
+  const query = useQuery({
+    queryKey: serverQueryKey(scope, 'session-brief', batchId, jobId, reference.attempt_id),
+    queryFn: () => load(batchId, jobId, reference.attempt_id),
+    staleTime: Infinity,
+  })
 
-  const label = (versionId: string) =>
-    view.evidence.find((entry) => entry.version_id === versionId)?.label ?? 'A photo'
-
-  return (
-    <Card id={`brief:${item.attempt_id}`} aria-labelledby={summaryId}>
-      <summary id={summaryId}>
-        <HistoryText>{briefSummary(brief)}</HistoryText>
-        <HistoryTime>
-          <EventTime at={item.at} />
-        </HistoryTime>
-      </summary>
-      {view.batch && (
-        <BriefSection>
-          <BriefMuted>
-            Batch “{view.batch.title}” · public web pages{' '}
-            {view.batch.web.public_pages ? 'allowed' : 'off'}
-          </BriefMuted>
-        </BriefSection>
-      )}
-      <BriefIdentities view={view} />
-      <BriefObservations
-        rows={view.observations}
-        corrections={view.corrections}
-        evidenceLabel={label}
-      />
-      <BriefFacts view={view} lotId={brief.lot_id} />
-      <BriefStageLists view={view} />
-      <BriefAsked asked={view.asked} />
-      {view.evidence.length > 0 && (
-        <BriefSection>
-          <BriefHeading>{EVIDENCE}</BriefHeading>
-          <BriefRows aria-label={EVIDENCE}>
-            {view.evidence.map((entry) => (
-              <BriefRow key={entry.version_id}>
-                <span>{evidenceText(entry)}</span>
-              </BriefRow>
-            ))}
-          </BriefRows>
-        </BriefSection>
-      )}
-    </Card>
-  )
+  if (query.data) {
+    return <BriefDetails item={query.data} />
+  }
+  if (query.isError) {
+    return (
+      <Placeholder role="alert">
+        The brief this attempt started from couldn’t be loaded.{' '}
+        <Button size="sm" onClick={() => void query.refetch()}>
+          Try again
+        </Button>
+      </Placeholder>
+    )
+  }
+  return <Placeholder role="status">Loading the brief this attempt started from…</Placeholder>
 }
 
-const Card = styled.details`
-  min-width: 0;
-  border: 1px solid ${color.lineStrong};
+const Placeholder = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[2]} ${space[3]};
+  padding: ${space[3]} ${space[4]};
+  border: 1px dashed ${color.lineStrong};
   border-radius: ${radius.card};
-  background: ${color.surface};
-  overflow-wrap: anywhere;
-  > summary {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: ${space[1]} ${space[3]};
-    padding: ${space[3]} ${space[4]};
-    cursor: pointer;
-    font-weight: ${typeVar.bodyStrong.weight};
-  }
-  /* The flex summary drops the native marker, so the card draws its own. */
-  > summary::before {
-    content: '▸';
-    color: ${color.muted};
-  }
-  &[open] > summary::before {
-    content: '▾';
-  }
+  color: ${color.muted};
 `

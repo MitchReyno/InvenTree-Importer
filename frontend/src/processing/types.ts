@@ -10,6 +10,7 @@ import type {
   ProcessingStartDto,
   SessionInboxReceiptDto,
   SessionInboxSubmissionDto,
+  SessionHistoryBriefDto,
   SessionHistoryDto,
   SessionReplacementDto,
 } from '@invimport/contracts'
@@ -40,6 +41,8 @@ export interface ProcessingClient {
   batchActivity?(batchId: string, limit?: number): Promise<BatchActivityDto>
   /** Session profiles only: the newest page of a session's history, or the page before `before`. */
   history?(batchId: string, jobId: string, before?: string): Promise<SessionHistoryDto>
+  /** Session profiles only: the brief a `/7` attempt of a session started from. */
+  brief?(batchId: string, jobId: string, attemptId: string): Promise<SessionHistoryBriefDto>
   chat?(
     batchId: string,
     jobId: string,

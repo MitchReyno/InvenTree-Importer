@@ -1,4 +1,4 @@
-import type { BriefView } from '#/processing/brief-view'
+import { regionWords, type BriefView } from '#/processing/brief-view'
 import {
   BriefHeading,
   BriefMuted,
@@ -9,7 +9,13 @@ import {
 } from './brief-styles'
 
 /** The lead's lots and Parts, and for Images the items to keep out of frame. */
-export function BriefStageLists({ view }: { view: BriefView }) {
+export function BriefStageLists({
+  view,
+  evidenceLabel,
+}: {
+  view: BriefView
+  evidenceLabel: (versionId: string) => string
+}) {
   return (
     <>
       {view.lots.length > 0 && (
@@ -48,8 +54,14 @@ export function BriefStageLists({ view }: { view: BriefView }) {
             {view.keepOut.map((item) => (
               <BriefRow key={item.observation_id}>
                 <span>
-                  Page {item.page}: <Reading>{item.markings.join(' · ')}</Reading>
+                  {evidenceLabel(item.evidence_version_id)}, page {item.page}:{' '}
+                  {item.markings.length > 0 ? (
+                    <Reading>{item.markings.join(' · ')}</Reading>
+                  ) : (
+                    'an unmarked item'
+                  )}
                 </span>
+                <BriefMuted>{regionWords(item.region)}</BriefMuted>
               </BriefRow>
             ))}
           </BriefRows>

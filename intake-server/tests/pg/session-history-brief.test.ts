@@ -5,6 +5,7 @@ import type {
   BriefEntryDto,
   CaptureSnapshotDto,
   ProcessingInputV7Dto,
+  SessionHistoryBriefDto,
   SessionHistoryDto,
 } from '@invimport/contracts'
 import { formedBatch, type Fixture } from '../support/lot-pipeline.ts'
@@ -21,6 +22,15 @@ async function history(fixture: Fixture, batchId: string, jobId: string, before?
   const response = await fixture.http(`/batches/${batchId}/processing/${jobId}/history${query}`)
   assert.equal(response.status, 200, JSON.stringify(response.value))
   return response.value as SessionHistoryDto
+}
+
+/** The brief read for one attempt of a job. */
+async function readBrief(fixture: Fixture, batchId: string, jobId: string, attemptId: string) {
+  const response = await fixture.http(
+    `/batches/${batchId}/processing/${jobId}/attempts/${attemptId}/brief`,
+  )
+  assert.equal(response.status, 200, JSON.stringify(response.value))
+  return response.value as SessionHistoryBriefDto
 }
 
 /** Every entry of the brief an attempt's input sealed; these briefs fit their manifests. */
@@ -143,9 +153,16 @@ test('a /7 session’s history carries each attempt’s sealed brief at its queu
     page.briefs?.map((item) => item.attempt_id),
     [fresh, row.attempt_id],
   )
-  for (const item of page.briefs!) {
-    const header = page.session.attempts.find((attempt) => attempt.id === item.attempt_id)!
-    assert.equal(item.at, header.queued_at)
+  // The page says only where each brief sits; its content is a read of its own.
+  assert.deepEqual(Object.keys(page.briefs![0]).sort(), ['at', 'attempt_id'])
+  const read: SessionHistoryBriefDto[] = []
+  for (const ref of page.briefs!) {
+    const header = page.session.attempts.find((attempt) => attempt.id === ref.attempt_id)!
+    assert.equal(ref.at, header.queued_at)
+    const item = await readBrief(fixture, batchId, row.job_id, ref.attempt_id)
+    read.push(item)
+    assert.equal(item.attempt_id, ref.attempt_id)
+    assert.equal(item.at, ref.at)
     const sealed = await sealedEntries(fixture, item.attempt_id)
     assert.equal(item.brief.schema_version, 'bench-intake-brief/1')
     assert.equal(item.brief.stage, 'research')
@@ -156,7 +173,7 @@ test('a /7 session’s history carries each attempt’s sealed brief at its queu
   }
 
   // The first attempt started before either; the fresh one started from both, marked human.
-  const [first, second] = [page.briefs![1].brief.entries, page.briefs![0].brief.entries]
+  const [first, second] = [read[1].brief.entries, read[0].brief.entries]
   assert.equal(ofKind(first, 'correction').length, 0)
   assert.equal(ofKind(first, 'answer').length, 0)
   const [correction] = ofKind(second, 'correction')
@@ -176,9 +193,10 @@ test('a /7 session’s history carries each attempt’s sealed brief at its queu
   const lead = await history(fixture, batchId, batch.leadJob)
   assert.equal(lead.briefs?.length, 1)
   assert.equal(lead.briefs![0].attempt_id, batch.leadAttempt)
-  assert.equal(lead.briefs![0].brief.stage, 'examine')
+  const leadBrief = await readBrief(fixture, batchId, batch.leadJob, batch.leadAttempt)
+  assert.equal(leadBrief.brief.stage, 'examine')
   assert.deepEqual(
-    lead.briefs![0].brief.entries,
+    leadBrief.brief.entries,
     (await sealedEntries(fixture, batch.leadAttempt)).entries,
   )
 })
@@ -192,6 +210,12 @@ test('a history from an earlier input keeps its shape, with no briefs', async (t
   for (const jobId of [row.job_id, batch.leadJob]) {
     const page = await history(fixture, batchId, jobId)
     assert.deepEqual(Object.keys(page).sort(), ['entries', 'session'])
+    // An earlier input had no brief to read.
+    const attemptId = page.session.attempts[0].id
+    const none = await fixture.http(
+      `/batches/${batchId}/processing/${jobId}/attempts/${attemptId}/brief`,
+    )
+    assert.equal(none.status, 404)
   }
 })
 
@@ -271,7 +295,8 @@ test('a brief in the history leaves out evidence removed after it was sealed', a
   })
 
   const page = await history(fixture, batchId, row.job_id)
-  const shown = page.briefs![0].brief.entries
+  assert.equal(page.briefs![0].attempt_id, row.attempt_id)
+  const shown = (await readBrief(fixture, batchId, row.job_id, row.attempt_id)).brief.entries
   const text = JSON.stringify(shown)
   assert.deepEqual(
     ids.filter((id) => text.includes(id)),
@@ -373,11 +398,63 @@ test('a brief whose pages are in the page store comes whole', async (t) => {
   const expected = brief.pages.flatMap((page) => page.entries ?? storedEntries.get(page.index)!)
 
   const page = await history(fixture, batchId, rows.rows[0].job_id)
-  const shown = page.briefs!.find((item) => item.attempt_id === attemptId)!
+  assert.ok(page.briefs!.some((item) => item.attempt_id === attemptId))
+  const shown = await readBrief(fixture, batchId, rows.rows[0].job_id, attemptId)
   assert.equal(shown.brief.entries.length, expected.length)
   assert.deepEqual(shown.brief.entries, expected)
   assert.equal(
     ofKind(shown.brief.entries, 'note').filter((note) => note.text.length > 8000).length,
     8,
   )
+})
+
+test('a brief read is scoped to its job, and a broken brief fails only its own read', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId } = batch
+  const { row } = await successorOf(batch, 'led 0603 red', 'research')
+  const { row: images } = await successorOf(batch, 'led 0603 red', 'images')
+  // Another job's attempt, through this job, is not found.
+  const crossed = await fixture.http(
+    `/batches/${batchId}/processing/${row.job_id}/attempts/${images.attempt_id}/brief`,
+  )
+  assert.equal(crossed.status, 404)
+  assert.equal((crossed.value as { code?: string }).code, 'session_brief_not_found')
+
+  // A stored page gone from the page store refuses the brief, not the history.
+  const led = await batch.lot('led 0603 red')
+  for (let index = 0; index < 8; index += 1) {
+    const before = await snapshotOf(fixture, batchId)
+    const note = await fixture.http(`/batches/${batchId}/edits`, {
+      expected_revision: before.revision,
+      change: { kind: 'note', subject_id: null, text: `${index}:${'é'.repeat(8000)}` },
+    })
+    assert.equal(note.status, 200, JSON.stringify(note.value))
+  }
+  const started = await fixture.http(`/batches/${batchId}/processing`, {
+    schema_version: 'bench-intake-processing/1',
+    expected_capture_revision: (await snapshotOf(fixture, batchId)).revision,
+    subject_ids: [led.id],
+    stages: ['research'],
+  })
+  assert.equal(started.status, 202, JSON.stringify(started.value))
+  const attemptId = (started.value as { attempt_ids: string[] }).attempt_ids[0]
+  const client = await fixture.db.pool.connect()
+  try {
+    await client.query('ALTER TABLE processing_input_page DISABLE TRIGGER USER')
+    const removed = await client.query(
+      `DELETE FROM processing_input_page
+        WHERE input_id=(SELECT input_id FROM processing_attempt WHERE id=$1)`,
+      [attemptId],
+    )
+    assert.ok((removed.rowCount ?? 0) > 0)
+    await client.query('ALTER TABLE processing_input_page ENABLE TRIGGER USER')
+  } finally {
+    client.release()
+  }
+  const broken = await fixture.http(
+    `/batches/${batchId}/processing/${row.job_id}/attempts/${attemptId}/brief`,
+  )
+  assert.notEqual(broken.status, 200)
+  const page = await history(fixture, batchId, row.job_id)
+  assert.ok(page.briefs!.some((item) => item.attempt_id === attemptId))
 })

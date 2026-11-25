@@ -912,7 +912,7 @@ export function ProcessingWorkspace({
       batchId={batch.id}
       jobId={sessionPageJobId}
       step={view}
-      client={{ history: client.history, chat: client.chat }}
+      client={{ history: client.history, chat: client.chat, brief: client.brief }}
       loadFailure={client.failure}
       job={pageJob}
       subjectLabel={subjectLabel}

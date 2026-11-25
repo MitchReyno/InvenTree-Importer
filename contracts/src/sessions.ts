@@ -622,13 +622,17 @@ export const SessionHistoryMetadata = object({
 })
 export const SessionHistoryQuery = object({ before: Type.Optional(SessionHistoryCursor) })
 /**
- * The brief a `/7` attempt's input sealed, every page of it, without what concerns evidence
- * removed since. It sits in the history's order at the attempt's queue time, before its rows.
+ * Where a `/7` attempt's brief sits in the history: at the attempt's queue time, before every row
+ * at that time. Its content is a read of its own (`SessionHistoryBrief`).
  */
-export const SessionHistoryBrief = object({
+export const SessionHistoryBriefRef = object({
   attempt_id: Id,
   /** The attempt's queue time, as its header gives it. */
   at: IsoTime,
+})
+/** The brief a `/7` attempt's input sealed, every page of it, without evidence removed since. */
+export const SessionHistoryBrief = object({
+  ...SessionHistoryBriefRef.properties,
   brief: SessionBrief,
 })
 /** One page of a session's history, newest first, with its metadata from the same snapshot. */
@@ -636,10 +640,10 @@ export const SessionHistory = object({
   session: SessionHistoryMetadata,
   entries: Type.Array(SessionHistoryEntry, { maxItems: MAX_HISTORY_ENTRIES }),
   /**
-   * The briefs of the `/7` attempts queued within this page, newest first. Absent when there are
-   * none, as for every attempt from an earlier input, which had no brief.
+   * Where the briefs of the `/7` attempts queued within this page's span sit, newest first.
+   * Absent when there are none, as for every attempt from an earlier input, which had no brief.
    */
-  briefs: Type.Optional(Type.Array(SessionHistoryBrief, { minItems: 1 })),
+  briefs: Type.Optional(Type.Array(SessionHistoryBriefRef, { minItems: 1 })),
   /** Present when older rows exist. */
   before: Type.Optional(SessionHistoryCursor),
 })
@@ -681,6 +685,7 @@ export const sessionSchemas = {
   SessionLatestStatus,
   SessionHistory,
   SessionHistoryBrief,
+  SessionHistoryBriefRef,
   SessionHistoryCursor,
   SessionHistoryQuery,
   RegroupMove,
@@ -707,6 +712,7 @@ export const sessionSchemas = {
 export type SessionLatestStatusDto = Static<typeof SessionLatestStatus>
 export type SessionHistoryDto = Static<typeof SessionHistory>
 export type SessionHistoryBriefDto = Static<typeof SessionHistoryBrief>
+export type SessionHistoryBriefRefDto = Static<typeof SessionHistoryBriefRef>
 export type BatchActivityDto = Static<typeof BatchActivity>
 export type BatchActivityEntryDto = Static<typeof BatchActivityEntry>
 export type SessionHistoryEntryDto = Static<typeof SessionHistoryEntry>

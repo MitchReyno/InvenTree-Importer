@@ -5,7 +5,7 @@ import type { ConversationItem } from '#/processing/session-history'
 import { color, radius, space } from '#/theme/generated/tokens'
 import { AttemptDivider, type FreshAction } from './AttemptDivider'
 import { AnswerBubble } from './AnswerBubble'
-import { BriefCard } from './BriefCard'
+import { BriefCard, type BriefLoader } from './BriefCard'
 import { ChatBubble } from './ChatBubble'
 import { HistoryEntry } from './HistoryEntry'
 import type { HistoryContext } from './HistoryLink'
@@ -23,6 +23,8 @@ export type ConversationRowProps = {
   loadFailure?: FailureLoader
   /** Start fresh beside the current attempt's failure, where one is offered. */
   startFresh?: FreshAction
+  /** Reads a `/7` attempt's brief, on the session page; the drawer shows none. */
+  loadBrief?: BriefLoader
 }
 
 /**
@@ -35,6 +37,7 @@ export function ConversationRow({
   answerForm,
   loadFailure,
   startFresh,
+  loadBrief,
 }: ConversationRowProps) {
   if (item.kind === 'attempt') {
     return (
@@ -46,7 +49,7 @@ export function ConversationRow({
     )
   }
   if (item.kind === 'brief') {
-    return <BriefCard item={item.brief} />
+    return loadBrief ? <BriefCard reference={item.ref} context={context} load={loadBrief} /> : null
   }
   if (item.kind !== 'entry') {
     return <HistoryRow item={item} context={context} />
