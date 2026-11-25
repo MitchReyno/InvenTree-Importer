@@ -32,27 +32,13 @@ export interface RotatedWindow {
 }
 
 /**
- * How a window is resampled. Views and recipe `/2` crops sample at about 1:1 with `lbb` (locally
- * bounded bicubic), which lands closer to the scene than bicubic; nohalo was closer still but
- * twice as slow, too near the decoder's time limit on a 50 MP photo. Retained
- * `documentary-rotated-region/1` derivations keep the bicubic they were made with.
- */
-export type WindowInterpolator = 'lbb' | 'bicubic'
-
-const INTERPOLATORS = {
-  lbb: sharp.interpolators.locallyBoundedBicubic,
-  bicubic: sharp.interpolators.bicubic,
-} satisfies Record<WindowInterpolator, string>
-
-/**
- * Samples a turned window of the source into an upright raster of the output size, scaling each
- * axis to fit. Returns raw pixels with the source's channels.
+ * Samples a turned window of the source into an upright raster of the output size with bicubic
+ * interpolation, scaling each axis to fit. Returns raw pixels with the source's channels.
  */
 export async function sampleRotatedWindow(
   source: WindowSource,
   window: RotatedWindow,
   output: { width: number; height: number },
-  interpolator: WindowInterpolator,
 ): Promise<{ data: Buffer; info: OutputInfo }> {
   const horizontalScale = output.width / window.width
   const verticalScale = output.height / window.height
@@ -93,7 +79,7 @@ export async function sampleRotatedWindow(
       idy: -(window.centerY - 0.5),
       odx: (output.width - 1) / 2 + roundVipsBound(minimumX),
       ody: (output.height - 1) / 2 + roundVipsBound(minimumY),
-      interpolator: INTERPOLATORS[interpolator],
+      interpolator: sharp.interpolators.bicubic,
       background: '#ffffff',
     })
     .raw()
@@ -120,8 +106,6 @@ export async function decodeRotatedRegion(
     { input: source.bytes, width: source.width, height: source.height },
     region,
     output,
-    // Retained derivations of this recipe keep the bicubic they were made with.
-    'bicubic',
   )
   const bytes = await sharp(sampled.data, { raw: sampled.info })
     .png({ compressionLevel: 9, adaptiveFiltering: false, palette: false })

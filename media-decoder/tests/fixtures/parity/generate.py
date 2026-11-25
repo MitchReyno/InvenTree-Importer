@@ -70,12 +70,11 @@ def bench_photo() -> Image.Image:
     return Image.fromarray(np.clip(np.round(pixels), 0, 255).astype("uint8"))
 
 
-def run(arguments: list[str]) -> str:
+def run(arguments: list[str], allowed: tuple[int, ...] = (0,)) -> str:
     done = subprocess.run(
         [sys.executable, "-I", *arguments], capture_output=True, text=True
     )
-    # grid.py exits 1 for an off-centre box and 2 for one that clips the object.
-    if done.returncode not in (0, 1, 2):
+    if done.returncode not in allowed:
         raise SystemExit(f"{arguments[0]} failed: {done.stderr}")
     return done.stdout
 
@@ -251,7 +250,10 @@ def grid_fixtures(photo: Path) -> list[dict]:
     out = []
     for spec in GRIDS:
         target = HERE / ".grid.png"
-        printed = run([str(GRID), str(photo), str(target), *spec["arguments"]])
+        # grid.py exits 1 for an off-centre box and 2 for one that clips the object.
+        printed = run(
+            [str(GRID), str(photo), str(target), *spec["arguments"]], allowed=(0, 1, 2)
+        )
         target.unlink()
         lines = [
             line for line in printed.splitlines() if not line.endswith(".grid.png")

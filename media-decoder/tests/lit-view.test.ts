@@ -21,15 +21,16 @@ import {
 /**
  * Straightened crops are judged against ground truth: the scene rendered directly onto the crop's
  * grid. A crop must come within these bounds of it, and at least as close as crop.py's. Measured
- * with lbb: means of 0.31 and 0.72 levels, against crop.py's 1.13 and 1.44.
+ * with bicubic at 7° and -3.5°: means of 0.64 and 0.74 levels and far shares of 0.00% and 0.03%,
+ * against crop.py's means of 1.13 and 1.44.
  */
 const TRUTH_MEAN_LEVELS = 1
 const TRUTH_FAR_SHARE = 0.06
 /**
  * crop.py resamples with a different kernel, so against it a straightened crop only has to be
  * free of gross geometry errors; a crop closer to the truth than crop.py's mustn't fail here.
- * Measured with lbb: up to 1.8 levels and 10%; geometry shifted half a pixel on both axes
- * measures 4.7-7.1 levels and 24-32%.
+ * Measured with bicubic on the bench photo: 0.78 levels and 1.1% at 7°, 1.21 levels and 5.9% at
+ * -3.5°; geometry shifted half a pixel on both axes measures 4.7-7.1 levels and 24-32%.
  */
 const SCRIPT_SANITY_MEAN_LEVELS = 3
 const SCRIPT_SANITY_FAR_SHARE = 0.2
@@ -267,8 +268,7 @@ test("the guard holds the script's own gains back where they would turn saturate
   }
   for (let offset = 0; offset < before.data.length; offset += 3) {
     const colour = [before.data[offset], before.data[offset + 1], before.data[offset + 2]] as const
-    const brightest = Math.max(...colour)
-    if (spread([...colour]) < 48 || spread([...colour]) < brightest / 2) {
+    if (!isSaturatedColour(colour)) {
       continue
     }
     const adjusted = [after.data[offset], after.data[offset + 1], after.data[offset + 2]] as const
@@ -702,6 +702,26 @@ for (const light of [
   })
 }
 
+test('white balance protects no hue below the 16-level floor', async () => {
+  // RGB 10, 4, 0 is fully saturated but too dark for 8 bits to carry its hue.
+  const page = await solidPage(40, 8, (x) => (x < 6 ? [10, 4, 0] : [190, 130, 120]))
+  const rendered = await renderLitCrop(page, wholePage(page, { white_balance: true }))
+  assert.ok(rendered.state === 'rendered')
+  assert.equal(rendered.whiteBalance?.heldBack, false, 'white balance is not held back')
+  const output: Raster = {
+    width: rendered.image.info.width,
+    height: rendered.image.info.height,
+    data: rendered.image.data,
+  }
+  const pixel = pixelAt(output, 2, 4)
+  const turned = hue(...pixel)
+  const shift = turned === null ? 180 : hueShift(hue(10, 4, 0)!, turned)
+  assert.ok(
+    shift > MAX_BAND_HUE_SHIFT_DEGREES,
+    `10,4,0 -> ${pixel.join(',')} turned ${shift.toFixed(2)}°`,
+  )
+})
+
 test('the final check holds white balance back when gamma would otherwise erase a dark band', async () => {
   // At the floor, RGB 16, 0, 0 keeps its hue only if white balance leaves it enough spread for gamma.
   const page = await solidPage(40, 8, (x) => (x < 6 ? [16, 0, 0] : [190, 130, 120]))
@@ -722,4 +742,97 @@ test('the final check holds white balance back when gamma would otherwise erase 
     turned !== null && hueShift(0, turned) <= MAX_BAND_HUE_SHIFT_DEGREES,
     `16,0,0 -> ${band.join(',')}`,
   )
+})
+
+/** An independent Catmull-Rom (cubic, a = -0.5) sample of an RGB raster, edges repeated. */
+function catmullRom(image: Raster, x: number, y: number, channel: number) {
+  const weight = (offset: number) => {
+    const t = Math.abs(offset)
+    if (t < 1) {
+      return (1.5 * t - 2.5) * t * t + 1
+    }
+    if (t < 2) {
+      return ((-0.5 * t + 2.5) * t - 4) * t + 2
+    }
+    return 0
+  }
+  const left = Math.floor(x)
+  const top = Math.floor(y)
+  let value = 0
+  for (let j = -1; j <= 2; j++) {
+    for (let i = -1; i <= 2; i++) {
+      const sx = Math.min(image.width - 1, Math.max(0, left + i))
+      const sy = Math.min(image.height - 1, Math.max(0, top + j))
+      value +=
+        image.data[(sy * image.width + sx) * 3 + channel] *
+        weight(i - (x - left)) *
+        weight(j - (y - top))
+    }
+  }
+  return Math.min(255, Math.max(0, Math.round(value)))
+}
+
+test('straightening resamples with bicubic: it overshoots sharp edges, as Catmull-Rom does', async () => {
+  // Mid-grey stripes, so bicubic's overshoot past the two levels is visible; lbb, nohalo and
+  // bilinear all stay within them.
+  const page = await solidPage(64, 48, (x) =>
+    Math.floor(x / 3) % 2 === 0 ? [64, 64, 64] : [192, 192, 192],
+  )
+  const recipe = recipeForCrop(
+    { region: [8, 8, 56, 40], quarter_turns: 0, straighten: 7, wb: false },
+    page,
+  )
+  const ours = await rgbRaster((await derived(page, recipe)).bytes)
+  const source = await rgbRaster(page.bytes)
+  const [width, height] = [48, 32]
+  const theta = (7 * Math.PI) / 180
+  let largest = 0
+  let overshoot = 0
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      // The output pixel's centre, turned back onto the page about the region's centre.
+      const dx = x + 0.5 - width / 2
+      const dy = y + 0.5 - height / 2
+      const sourceX = 32 + Math.cos(theta) * dx + Math.sin(theta) * dy - 0.5
+      const sourceY = 24 - Math.sin(theta) * dx + Math.cos(theta) * dy - 0.5
+      const value = ours.data[(y * width + x) * 3]
+      largest = Math.max(largest, Math.abs(value - catmullRom(source, sourceX, sourceY, 0)))
+      if (value < 60 || value > 196) {
+        overshoot++
+      }
+    }
+  }
+  assert.ok(largest <= 2, `within 2 levels of Catmull-Rom, got ${largest}`)
+  assert.ok(overshoot > 20, `bicubic overshoots the stripes: ${overshoot} pixels`)
+})
+
+test('a documentary-rotated-region/1 derivation still resamples with bicubic', async () => {
+  const page = await solidPage(64, 48, (x) =>
+    Math.floor(x / 3) % 2 === 0 ? [64, 64, 64] : [192, 192, 192],
+  )
+  const result = await decode({
+    version: 'media-decode/1',
+    digest: page.digest,
+    bytes: page.bytes,
+    recipe: {
+      version: 'documentary-rotated-region/1',
+      source_version_id: '00000000-0000-4000-8000-000000000002',
+      source_digest: page.digest,
+      page: 1,
+      source_width: 64,
+      source_height: 48,
+      center_x_micro: '32000000',
+      center_y_micro: '24000000',
+      width_micro: '40000000',
+      height_micro: '24000000',
+      rotation_millidegrees: 7000,
+      output_width: 40,
+      output_height: 24,
+      aspect_ratio: null,
+    },
+  })
+  assert.equal(result.state, 'ready')
+  const output = await rgbRaster(result.pages[0].bytes)
+  const overshoot = [...output.data].filter((value) => value < 60 || value > 196).length
+  assert.ok(overshoot > 20, `bicubic overshoots the stripes: ${overshoot} values`)
 })
