@@ -105,10 +105,10 @@ With suggestions 3 and 4 also applied, Match's search core (PR-C1) would start i
 - **TDD approach:** PG tests for assembly of each section, the human marking, the asked-list scope, regions, budget summaries, the retained-input cap, the stage-instructions digest and sealed tool profile checked at claim, a retained `/6` synthetic input claiming with its original binding, read-tool scope and paging, an edit between queueing and the first page read, an edit between two current-view pages, an edit to a field held only in a page, a retained synthetic `/6` lead receiving new evidence without queueing `/7` successors, a legacy regroup superseding a previously run successor queued for a resume, Start before lead creation on both synthetic routes, a batch created with only an operator-entered lot keeping today's Start and Inventory step under a configuration that doesn't seal `/7` fail first.
 - **Verification:** contracts tests, and `pnpm db:intake test` and `test:process` (with the decoder and probe images).
 
-- [ ] 1.1 Read the code guidelines, the intake architecture and the doc's Part 1. Correcting an observation replaces its readings in place and sets `operator_edited` (`capture/evidence-observations.ts:968-985`), so `read_batch` projects only the current markings; the brief's corrections need the reading before and after, so task 1 retains it.
-- [ ] 1.2 RED: contract and PG tests for the brief, `/7`, `read_lot`, `read_batch` with full readings, and the stage-instructions claim check.
-- [ ] 1.3 GREEN: implement them, retaining the earlier reading, author and time when an observation is corrected. A correction made before this change shows its current reading marked as corrected, with the earlier reading not known. The before-and-after brief test drives a real observation correction.
-- [ ] 1.4 Add a process test with a fake session reading its brief. Update `intake-server/src/agents/ARCHITECTURE.md`, and run the tiers.
+- [x] 1.1 Read the code guidelines, the intake architecture and the doc's Part 1. Correcting an observation replaces its readings in place and sets `operator_edited` (`capture/evidence-observations.ts:968-985`), so `read_batch` projects only the current markings; the brief's corrections need the reading before and after, so task 1 retains it.
+- [x] 1.2 RED: contract and PG tests for the brief, `/7`, `read_lot`, `read_batch` with full readings, and the stage-instructions claim check.
+- [x] 1.3 GREEN: implement them, retaining the earlier reading, author and time when an observation is corrected. A correction made before this change shows its current reading marked as corrected, with the earlier reading not known. The before-and-after brief test drives a real observation correction.
+- [x] 1.4 Add a process test with a fake session reading its brief. Update `intake-server/src/agents/ARCHITECTURE.md`, and run the tiers.
 
 ## 2. Typed outputs, boundaries, revisions and no repeated questions
 

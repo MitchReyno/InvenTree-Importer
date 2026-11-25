@@ -12,6 +12,7 @@ import { reserveProcessingMedia, reservedMediaFor } from './media.ts'
 import { processingAttempts, processingJobs, processingProposalStale } from './schema.ts'
 import { SUCCESSOR_STAGES } from './supersede.ts'
 import { isSessionProfile } from './session-policy.ts'
+import { batchInputVersion, configuredInputVersion } from './stage-policy.ts'
 import { readAgentSettings } from '#/agents/settings.ts'
 import { resolveSelection } from '#/agents/resolve-selection.ts'
 
@@ -140,6 +141,16 @@ export async function onLeadIdentity(
   if (!toQueue.length) {
     return 'revised'
   }
+  // Successors follow the lead's sealed version, so a retained `/6` lead never queues `/7` ones.
+  // A `/7` lead under a configuration that doesn't seal `/7` can't queue its successors; the
+  // identity stands, as it does with no provider on. Checked before any settings read.
+  const inputVersion = await batchInputVersion(client, config, snapshot.id)
+  if (
+    inputVersion === 'bench-intake-input/7' &&
+    configuredInputVersion(config) !== 'bench-intake-input/7'
+  ) {
+    return 'waiting'
+  }
   // One read decides what to queue and is sealed into every successor, so a save landing
   // meanwhile can neither roll back this proposal nor split the successors across revisions.
   const settings = await settingsForSuccessors(client, config)
@@ -155,6 +166,7 @@ export async function onLeadIdentity(
     await queueJob(client, config, snapshot, lotId, stage, [], media, [proposalId], {
       lockSettings: false,
       settings,
+      inputVersion,
     })
   }
   return 'queued'
@@ -167,6 +179,30 @@ async function settingsForSuccessors(client: PoolClient, config: ProcessingConfi
     return undefined
   }
   return readAgentSettings(client, config)
+}
+
+/**
+ * The lot's stable identity: the lead's latest identity proposal about the lot relying on its
+ * current observation set (`reliedObservationSet`'s rule) that hasn't gone stale. None for a lot
+ * Examine hasn't identified.
+ */
+export async function stableIdentityOf(client: PoolClient, batchId: string, lotId: string) {
+  const rows = await client.query<{ id: string }>(
+    `SELECT p.id FROM public.processing_proposal p
+     JOIN public.processing_attempt a ON a.id=p.attempt_id
+     JOIN public.processing_job j ON j.id=a.job_id AND j.stage='examine' AND j.batch_id=$1
+     JOIN public.processing_message m ON m.id=p.message_id
+     JOIN public.capture_lot l ON l.id=$2
+     WHERE p.relies_on->'fields' ? 'identity'
+       AND convert_from(p.value_bytes,'UTF8')::jsonb->>'subject_id'=$2::text
+       AND p.relies_on->'sources' @> jsonb_build_array(jsonb_build_object(
+         'kind','observation_set','lot_id',$2::text,'version',l.observation_set_version::text))
+       AND NOT EXISTS (SELECT 1 FROM public.processing_proposal_stale s WHERE s.proposal_id=p.id)
+     ORDER BY a.number DESC, m.sequence DESC
+     LIMIT 1`,
+    [batchId, lotId],
+  )
+  return rows.rows.map((row) => row.id)
 }
 
 /** Claim-time check: every identity a successor was pinned to is still current. */

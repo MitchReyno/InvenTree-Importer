@@ -28,6 +28,7 @@ import {
   statusLine,
 } from './processing.ts'
 import { ContractValidationIssue } from './validation-issues.ts'
+import { SessionBriefPage } from './brief.ts'
 import {
   EvidenceReadings,
   EvidenceRegion,
@@ -116,6 +117,8 @@ export const SessionToolError = Type.Union(
       'preview_busy',
       /** The call's commit was not acknowledged, so its effect may or may not have happened. */
       'outcome_uncertain',
+      /** The brief revision asked for is no longer kept; read the current view again. */
+      'brief_revision_unavailable',
     ] as const
   ).map((code) => Type.Literal(code)),
 )
@@ -321,6 +324,8 @@ export const SessionToolResult = Type.Union([
     part_subject_id: Type.Optional(Id),
     /** read_batch: the lead session's view of its batch. */
     batch: Type.Optional(LeadBatchView),
+    /** read_lot, and read_batch for a `/7` session: one page of a brief. */
+    brief: Type.Optional(SessionBriefPage),
   }),
   object({
     ok: Type.Literal(false),

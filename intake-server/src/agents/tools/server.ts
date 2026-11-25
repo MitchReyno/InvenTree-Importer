@@ -10,7 +10,7 @@ import {
 import { schemas } from '@invimport/contracts'
 import type { ProcessingConfig } from '#/processing/attempts.ts'
 import type { BlobStore } from '#/media/blob-store.ts'
-import { resolveSessionCapability } from './capability.ts'
+import { resolveSessionCapability, type SessionPrincipal } from './capability.ts'
 import { sessionTools, type SessionToolOutput } from './handlers.ts'
 import { ASK_GUIDANCE } from './ask-guidance.ts'
 
@@ -21,6 +21,11 @@ const TOOLS = {
     schema: 'SessionReadBatchArgs',
     description:
       'Examine lead session only. Read the batch revision to pass as base_revision, with its lots, Parts and observations, including operator edits and suggestions.',
+  },
+  read_lot: {
+    schema: 'SessionReadLotArgs',
+    description:
+      'Read the brief of a lot this session serves, one page at a time. Pass page_token to continue a sequence, revision for the brief you started from, or neither for the current brief and its revision. A page whose newer is set comes from an older brief.',
   },
   record_observation: {
     schema: 'RecordObservationArgs',
@@ -66,7 +71,28 @@ const TOOLS = {
   },
 } as const satisfies Record<string, { schema: keyof typeof schemas; description: string }>
 
+/** A `/7` lead's read_batch pages its brief, so it has its own arguments. */
+const STAGE_READ_BATCH = {
+  schema: 'SessionReadBriefBatchArgs',
+  description:
+    'Examine lead session only. Read your brief one page at a time: the batch with its lots, Parts and observations with full readings, including operator edits and suggestions. Pass page_token to continue a sequence, revision for the brief you started from, or neither for the current brief. The returned revision is the brief’s; pass it as base_revision, and read the current brief again before writing when a page’s newer is set.',
+} as const satisfies { schema: keyof typeof schemas; description: string }
+
 const LEAD_ONLY = new Set(['read_batch', 'record_observation', 'propose_lot', 'regroup'])
+/** Tools only a `/7` Research or Images session has. */
+const STAGE_LOT_ONLY = new Set(['read_lot'])
+
+/** Whether a principal is offered a tool: its sealed input and stage decide. */
+function offered(name: string, principal: SessionPrincipal) {
+  const lead = (principal.stage as string) === 'examine'
+  if (LEAD_ONLY.has(name)) {
+    return lead
+  }
+  if (STAGE_LOT_ONLY.has(name)) {
+    return !lead && principal.manifest.schema_version === 'bench-intake-input/7'
+  }
+  return true
+}
 
 /**
  * Agents see the contract's own JSON Schema. Validation stays with the handler, so an invalid
@@ -144,15 +170,19 @@ export async function startSessionToolServer(options: SessionToolServerOptions) 
     }
     res.setHeader(evidenceFormatHeader, 'current')
     const server = new McpServer({ name: 'intake', version: '1' })
-    // Lot-forming tools exist only for the batch's Examine lead session; handlers check again.
-    const lead = (principal.stage as string) === 'examine'
+    // Lot-forming tools exist only for the batch's Examine lead session, and read_lot only for
+    // stage sessions; handlers check again.
     for (const [name, tool] of Object.entries(TOOLS)) {
-      if (!lead && LEAD_ONLY.has(name)) {
+      if (!offered(name, principal)) {
         continue
       }
+      const definition =
+        name === 'read_batch' && principal.manifest.schema_version === 'bench-intake-input/7'
+          ? STAGE_READ_BATCH
+          : tool
       server.registerTool(
         name,
-        { description: tool.description, inputSchema: contractSchema(tool.schema) },
+        { description: definition.description, inputSchema: contractSchema(definition.schema) },
         async (args: unknown) => {
           try {
             return toolResult(await tools[name as keyof typeof TOOLS](token, args))

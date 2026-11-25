@@ -78,6 +78,10 @@ async function main() {
     throw new Error('session_agent_configuration_required')
   }
   const vmBridge = vmBridgeConfiguration(process.env, config.profileId)
+  // The paired bridge's guest runs `/6` inputs only, so its route keeps today's pipeline.
+  if (vmBridge && config.stageInputs) {
+    throw new Error('session_agent_configuration_required')
+  }
   const schedulerUrl = schedulerDatabaseUrl(process.env.INTAKE_AGENT_SCHEDULER_DATABASE_URL)
   const host = nativeAgentHost(process.env)
   await privateDirectory(host.stateRoot)

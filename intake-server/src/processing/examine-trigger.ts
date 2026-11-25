@@ -15,6 +15,7 @@ import type { ProcessingConfig } from './attempts.ts'
 import { processingJobs } from './schema.ts'
 import { ProcessingError } from './model.ts'
 import { createSessionAttempt } from './session-attempts.ts'
+import { configuredInputVersion } from './stage-policy.ts'
 import { isSessionProfile, type SessionProfileId } from './session-policy.ts'
 import { instructNewSession } from '#/agents/instructions.ts'
 
@@ -191,7 +192,8 @@ export async function triggerExamine(
           '1',
           media,
           null,
-          { lockSettings: false, settings },
+          // A new lead seals the configuration's version; its batch then follows the lead's.
+          { lockSettings: false, settings, inputVersion: configuredInputVersion(config) },
         )
         await executeDatabaseQuery(
           queryDatabase(client).insert(processingJobs).values({

@@ -18,7 +18,7 @@ import { processingAttempts } from '#/processing/schema.ts'
 import { captureInTransaction } from '#/capture/repository.ts'
 import type { ProcessingConfig } from '#/processing/attempts.ts'
 import { fail, mediaProfileId } from '#/processing/model.ts'
-import { decodeJobInput } from '#/processing/session-input.ts'
+import { decodeJobInput, isSessionInput } from '#/processing/session-input.ts'
 import { startFreshEligibility } from '#/processing/start-fresh-eligibility.ts'
 import { latestStatuses } from '#/agents/tools/outbox.ts'
 import { runsOn, sealedWeb } from '#/agents/tools/history.ts'
@@ -447,10 +447,7 @@ function sessionRow(
   },
 ): AgentSessionDto {
   const manifest = decodeJobInput(row.manifest_bytes, row.manifest_digest)
-  if (
-    manifest.schema_version !== 'bench-intake-input/4' &&
-    manifest.schema_version !== 'bench-intake-input/6'
-  ) {
+  if (manifest.schema_version !== 'bench-intake-input/4' && !isSessionInput(manifest)) {
     fail('agent_session_binding_invalid', 503)
   }
   return {
@@ -478,10 +475,7 @@ function sessionRow(
     ...(facts.paused ? { paused: true as const } : {}),
     archived: row.archived,
     runs_on: runsOn(row.profile_id),
-    web:
-      manifest.schema_version === 'bench-intake-input/6'
-        ? sealedWeb(row.profile_id, manifest)
-        : null,
+    web: isSessionInput(manifest) ? sealedWeb(row.profile_id, manifest) : null,
     start_fresh: facts.eligibility,
     earlier_attempts: facts.earlier.attempts,
     earlier_attempt_count: facts.earlier.count,
