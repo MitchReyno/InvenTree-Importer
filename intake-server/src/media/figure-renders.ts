@@ -213,10 +213,12 @@ interface CandidateRow {
  * Claims the first claimable render in queue order that no other consumer holds; a request that
  * has used its attempts and lost its lease settles as failed instead. Removing or restoring a
  * photo holds its batch's media revision lock, so the claim takes that lock too and checks the
- * photo again under it: a photo removed before the claim is never rendered. Nothing here waits:
- * a render another consumer holds is skipped, and a batch being edited is passed over for the
- * next render in another batch. A render claimed before a removal may still finish; the sweep
- * returns it to the queue.
+ * photo again under it: a photo removed before the claim is never rendered. Choosing a candidate
+ * never waits: a render another consumer holds is skipped, a batch being edited is passed over
+ * for the next render in another batch, and a rejected candidate's locks are released before
+ * the next is tried. Settling an exhausted request as failed appends an event to the batch's
+ * stream, which can wait for another writer. A render claimed before a removal may still
+ * finish; the sweep returns it to the queue.
  */
 async function claimRender(pool: Pool, binding: CaptureBinding, now: Date): Promise<RenderClaim> {
   return transaction(pool, async (client) => {
@@ -224,6 +226,8 @@ async function claimRender(pool: Pool, binding: CaptureBinding, now: Date): Prom
     const busyBatches: string[] = []
     const removedRenders: string[] = []
     for (;;) {
+      // A rejected candidate is rolled back to here, releasing its row and batch locks.
+      await client.query('SAVEPOINT render_candidate')
       const next = await client.query<CandidateRow>(
         `SELECT r.id, r.batch_id, r.purpose, r.recipe_bytes, r.recipe_digest, r.marks_bytes,
            r.marks_digest, r.attempts
@@ -248,11 +252,13 @@ async function claimRender(pool: Pool, binding: CaptureBinding, now: Date): Prom
       const batchFree = await tryLockMediaRevision(client, candidate.batch_id)
       if (!batchFree) {
         busyBatches.push(candidate.batch_id)
+        await client.query('ROLLBACK TO SAVEPOINT render_candidate')
         continue
       }
       // A fresh read under the batch lock sees a removal that committed after the list was read.
       if (await renderPhotoRemoved(client, candidate.id)) {
         removedRenders.push(candidate.id)
+        await client.query('ROLLBACK TO SAVEPOINT render_candidate')
         continue
       }
       return leaseCandidate(client, binding, candidate, now)

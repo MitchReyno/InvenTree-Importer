@@ -7,7 +7,7 @@ import { createServer } from 'node:http'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import sharp from 'sharp'
-import type { PoolClient } from 'pg'
+import type { Pool, PoolClient } from 'pg'
 import { validate, type ProcessingQuestionFigureDto } from '@invimport/contracts'
 import { processingFixture } from '../support/processing.ts'
 import { lotSession } from '../support/sessions.ts'
@@ -1918,6 +1918,259 @@ test('a sweep skips a removed photo’s view another transaction holds, and requ
     }
     assert.deepEqual(await figureRender(setup, asked.id!, 1), ready)
     assert.equal((await sweepFigureRenders(media.pool, store, binding)).requeued, 1)
+  })
+})
+
+/** A whole-width strip of a 320 × 240 photo's page, offset by `x`, as a view recipe. */
+function stripRecipe(photo: { version: string; source: { sha256: string } }, x: number) {
+  return {
+    version: 'bench-intake-view/1' as const,
+    source_version_id: photo.version,
+    source_digest: photo.source.sha256,
+    page: 1,
+    page_width: 320,
+    page_height: 240,
+    view: {
+      region: { x, y: 0, width: 32, height: 24 },
+      quarter_turns: 0 as const,
+      straighten_millidegrees: 0,
+    },
+  }
+}
+
+async function enqueueOne(setup: Setup, batchId: string, request: FigureRenderRequest) {
+  const [id] = await transaction(setup.fixture.runner.pool, (client) =>
+    enqueueFigureRenders(client, batchId, [request]),
+  )
+  return id!
+}
+
+/** Waits until some backend is blocked by the backend `pid`, or fails after five seconds. */
+async function untilBlockedBy(setup: Setup, pid: number, what: string) {
+  for (let tries = 0; tries < 200; tries += 1) {
+    const blocked = await setup.fixture.db.pool.query(
+      'SELECT 1 FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))',
+      [pid],
+    )
+    if (blocked.rowCount) {
+      return
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25))
+  }
+  throw new Error(`${what} never waited`)
+}
+
+async function backendPid(client: PoolClient) {
+  const rows = await client.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')
+  return rows.rows[0]!.pid
+}
+
+test('a claim waiting to settle another batch’s exhausted render holds no lock on a candidate it passed over', async () => {
+  await withFigureSession(async (setup) => {
+    const { fixture, media, store, binding } = setup
+    const passedOver = await enqueueOne(setup, setup.batchId, {
+      recipe: stripRecipe(setup.photo, 0),
+    })
+    const other = await fixture.seedCapture()
+    const otherPhoto = await seedPages(fixture, store, other.batch.id, {
+      label: 'IMG_5002',
+      mediaType: 'image/png',
+      pages: [await patternedPage(320, 240, 8)],
+    })
+    const exhausted = await enqueueOne(setup, other.batch.id, {
+      recipe: stripRecipe(otherPhoto, 0),
+    })
+    await fixture.db.pool.query('UPDATE processing_figure_render SET attempts=$2 WHERE id=$1', [
+      exhausted,
+      MAX_RENDER_ATTEMPTS,
+    ])
+    const stream = await fixture.db.pool.query<{ stream_id: string }>(
+      'SELECT stream_id FROM capture_batch WHERE id=$1',
+      [other.batch.id],
+    )
+
+    const editing = await fixture.db.pool.connect()
+    const writer = await fixture.db.pool.connect()
+    let claiming: Promise<PromiseSettledResult<string>> | undefined
+    try {
+      await editing.query('BEGIN')
+      await editing.query(
+        "SELECT pg_advisory_xact_lock(hashtextextended('bench-media-batch/1:' || $1, 0))",
+        [setup.batchId],
+      )
+      await writer.query('BEGIN')
+      await writer.query('SELECT 1 FROM ui_stream WHERE id=$1 FOR UPDATE', [
+        stream.rows[0]!.stream_id,
+      ])
+      claiming = outcomeOf(renderFigureStep(media.pool, store, binding, fakeRenderer()))
+      await untilBlockedBy(setup, await backendPid(writer), 'the exhausted render’s settlement')
+
+      const probe = await fixture.db.pool.connect()
+      try {
+        await probe.query('BEGIN')
+        const locked = await probe.query(
+          'SELECT 1 FROM processing_figure_render WHERE id=$1 FOR UPDATE NOWAIT',
+          [passedOver],
+        )
+        assert.equal(locked.rowCount, 1)
+      } finally {
+        await probe.query('ROLLBACK').catch(() => undefined)
+        probe.release()
+      }
+    } finally {
+      await writer.query('ROLLBACK').catch(() => undefined)
+      writer.release()
+      await editing.query('ROLLBACK').catch(() => undefined)
+      editing.release()
+    }
+    assert.deepEqual(await claiming!, { status: 'fulfilled', value: 'failed' })
+  })
+})
+
+test('a sweep’s deletion waiting on a blob holds no batch lock, so a media edit commits meanwhile', async () => {
+  await withFigureSession(async (setup) => {
+    const { fixture, tools, token, lot, photoFigure, media, store, binding } = setup
+    await fetched(setup, setup.photo)
+    const asked = accepted(await tools.ask(token, figureQuestion(lot, [photoFigure()])))
+    const preview = await enqueueOne(setup, setup.batchId, {
+      recipe: stripRecipe(setup.photo, 4),
+      marks: [],
+    })
+    const renderer = fakeRenderer()
+    assert.equal(await renderFigureStep(media.pool, store, binding, renderer), 'rendered')
+    assert.equal(await renderFigureStep(media.pool, store, binding, renderer), 'rendered')
+    const previewDigest = await fixture.db.pool.query<{ digest: string }>(
+      "SELECT encode(preview_digest,'hex') AS digest FROM processing_figure_render WHERE id=$1",
+      [preview],
+    )
+    await mediaEditor(fixture.api.pool, fixture.config, setup.batchId).applied({
+      kind: 'remove',
+      evidence_ids: [setup.photo.evidence],
+    })
+
+    // A collection holds the removed photo's preview blob, which the deletion must lock.
+    const collector = await media.pool.connect()
+    let sweeping: Promise<PromiseSettledResult<unknown>> | undefined
+    try {
+      await collector.query('BEGIN')
+      await lockBlob(collector, previewDigest.rows[0]!.digest)
+      sweeping = outcomeOf(sweepFigureRenders(media.pool, store, binding))
+      await untilBlockedBy(setup, await backendPid(collector), 'the sweep’s deletion')
+      const edit = mediaEditor(fixture.api.pool, fixture.config, setup.batchId).applied({
+        kind: 'remove',
+        evidence_ids: [setup.document.evidence],
+      })
+      await Promise.race([
+        edit,
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('the edit waited for the sweep')), 5_000),
+        ),
+      ])
+      await collector.query('COMMIT')
+    } finally {
+      await collector.query('ROLLBACK').catch(() => undefined)
+      collector.release()
+    }
+    const swept = await sweeping!
+    assert.equal(swept.status, 'fulfilled')
+    assert.deepEqual(
+      (swept as PromiseFulfilledResult<{ deleted: number; requeued: number }>).value,
+      { deleted: 1, requeued: 1, collected: 0 },
+    )
+    assert.equal((await figureRender(setup, asked.id!, 1))!.state, 'queued')
+  })
+})
+
+/**
+ * The pool with each checked-out client paused once, after the claim's candidate query returns,
+ * until `gate` resolves; `reached` is called when it pauses.
+ */
+function pausedAfterCandidate(pool: Pool, gate: Promise<void>, reached: () => void): Pool {
+  return new Proxy(pool, {
+    get(target, property) {
+      if (property !== 'connect') {
+        const value = Reflect.get(target, property, target) as unknown
+        return typeof value === 'function' ? value.bind(target) : value
+      }
+      return async () => {
+        const client = await target.connect()
+        const query = client.query.bind(client)
+        const release = client.release.bind(client)
+        let paused = false
+        const pausing = async (...args: unknown[]) => {
+          const result = await (query as (...input: unknown[]) => Promise<unknown>)(...args)
+          const text = typeof args[0] === 'string' ? args[0] : ''
+          if (!paused && text.includes('NOT (r.batch_id = ANY')) {
+            paused = true
+            reached()
+            await gate
+          }
+          return result
+        }
+        client.query = pausing as typeof client.query
+        client.release = (error?: Error | boolean) => {
+          client.query = query
+          client.release = release
+          return release(error)
+        }
+        return client
+      }
+    },
+  })
+}
+
+test('a photo removed after the claim chose its render is not rendered, and the next render is taken', async () => {
+  await withFigureSession(async (setup) => {
+    const { fixture, media, store, binding } = setup
+    const removed = await enqueueOne(setup, setup.batchId, { recipe: stripRecipe(setup.photo, 0) })
+    const next = await enqueueOne(setup, setup.batchId, {
+      recipe: {
+        ...stripRecipe(setup.noticed, 0),
+        page_width: 240,
+        page_height: 180,
+      },
+    })
+    let reached!: () => void
+    const atCandidate = new Promise<void>((resolve) => {
+      reached = resolve
+    })
+    let open!: () => void
+    const gate = new Promise<void>((resolve) => {
+      open = resolve
+    })
+    const renderer = fakeRenderer()
+    const claiming = outcomeOf(
+      renderFigureStep(pausedAfterCandidate(media.pool, gate, reached), store, binding, renderer),
+    )
+    try {
+      await atCandidate
+      await mediaEditor(fixture.api.pool, fixture.config, setup.batchId).applied({
+        kind: 'remove',
+        evidence_ids: [setup.photo.evidence],
+      })
+    } finally {
+      open()
+    }
+    assert.deepEqual(await claiming, { status: 'fulfilled', value: 'rendered' })
+    assert.deepEqual(
+      renderer.calls.map((call) => call.recipe.source_version_id),
+      [setup.noticed.version],
+    )
+    const rows = await fixture.db.pool.query<{
+      id: string
+      state: string
+      attempts: number
+      lease: string | null
+    }>(
+      'SELECT id, state, attempts, lease_owner AS lease FROM processing_figure_render WHERE id = ANY($1)',
+      [[removed, next]],
+    )
+    const byId = new Map(rows.rows.map((row) => [row.id, row]))
+    assert.deepEqual(
+      [byId.get(removed)!.state, byId.get(removed)!.attempts, byId.get(removed)!.lease],
+      ['queued', 0, null],
+    )
+    assert.equal(byId.get(next)!.state, 'ready')
   })
 })
 
