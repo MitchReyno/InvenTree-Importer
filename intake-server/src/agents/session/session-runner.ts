@@ -34,7 +34,9 @@ import { issueSessionCapability, revokeSessionCapability } from '#/agents/tools/
 import {
   acknowledgeSessionInbox,
   deliverableInboxItem,
+  lockInboxBatch,
   pendingSessionInbox,
+  releaseInboxItems,
 } from '#/agents/tools/inbox.ts'
 import { ASK_GUIDANCE } from '#/agents/tools/ask-guidance.ts'
 import { syntheticTurn } from './synthetic-turn.ts'
@@ -328,6 +330,12 @@ export async function queueSessionResume(client: PoolClient, lineageId: string) 
   ) {
     return undefined
   }
+  // Kept so a wake withdrawn before its claim puts the session back as it was.
+  await client.query(
+    `INSERT INTO public.agent_session_resume(attempt_id,from_state) VALUES($1,$2)
+     ON CONFLICT (attempt_id) DO UPDATE SET from_state=EXCLUDED.from_state`,
+    [session.attemptId, session.state],
+  )
   await publish(client, session.batchId)
   return session.attemptId
 }
@@ -516,6 +524,25 @@ async function openQuestions(client: PoolClient, jobId: string) {
   return open.length > 0
 }
 
+/**
+ * The state a wake moved the session from, or for a turn's own requeue the one it would have
+ * settled in without the inbox.
+ */
+async function stateBeforeWake(
+  client: PoolClient,
+  attemptId: string,
+  jobId: string,
+): Promise<SessionStateDto> {
+  const kept = await client.query<{ from_state: SessionStateDto }>(
+    'SELECT from_state FROM public.agent_session_resume WHERE attempt_id=$1',
+    [attemptId],
+  )
+  if (kept.rows[0]) {
+    return kept.rows[0].from_state
+  }
+  return (await openQuestions(client, jobId)) ? 'waiting_input' : 'finished'
+}
+
 /** Whether every item above the lineage's cursor was withdrawn, and there is at least one. */
 async function withdrawnOnly(client: PoolClient, lineageId: string) {
   const rows = await client.query<{ withdrawn: boolean }>(
@@ -528,6 +555,11 @@ async function withdrawnOnly(client: PoolClient, lineageId: string) {
     [lineageId],
   )
   return rows.rows[0]?.withdrawn === true
+}
+
+/** A claim that put its session back without a turn, with the state it settled in. */
+function isIdleClaim(claimed: unknown): claimed is readonly ['idle', SessionStateDto] {
+  return Array.isArray(claimed)
 }
 
 /** Runs one provider turn for a queued session and settles its next state. */
@@ -683,13 +715,13 @@ export async function runSessionTurn(
       // A resume whose only pending items were withdrawn since it was queued has nothing to do:
       // the session goes back to the state its last turn left it in, without a turn.
       if (row.turnCount > 0n && (await withdrawnOnly(client, row.jobId))) {
-        const idle = (await openQuestions(client, row.jobId)) ? 'waiting_input' : 'finished'
+        const idle = await stateBeforeWake(client, attemptId, row.jobId)
         const settled = await setSessionState(client, attemptId, row.jobId, idle, ['queued'])
         await publish(client, row.batchId)
         if (settled === 'cancelled') {
           return 'cancelled' as const
         }
-        return idle === 'waiting_input' ? ('idle_waiting' as const) : ('idle_finished' as const)
+        return ['idle', idle] as const
       }
       // Without a free slot the session stays queued; the caller waits and tries again.
       if (!(await claimSessionSlot(client, config, attemptId))) {
@@ -733,11 +765,8 @@ export async function runSessionTurn(
   if (claimed === 'retired') {
     return 'failed' as const
   }
-  if (claimed === 'idle_waiting') {
-    return 'waiting_input' as const
-  }
-  if (claimed === 'idle_finished') {
-    return 'finished' as const
+  if (isIdleClaim(claimed)) {
+    return claimed[1]
   }
   if (claimed === 'archived' || claimed === 'paused' || claimed === 'waiting') {
     return 'queued' as const
@@ -791,20 +820,29 @@ export async function runSessionTurn(
         delivered = BigInt(cursor.rows[0]?.acked_seq ?? '0')
       }
       const after = delivered
-      const next = await executeDatabaseQuery(
-        queryDatabase(pool)
-          .select()
-          .from(agentSessionInbox)
-          .where(
-            and(
-              eq(agentSessionInbox.sessionLineageId, current.jobId),
-              sql`${agentSessionInbox.seq} > ${after.toString()}::bigint`,
-              deliverableInboxItem(),
-            ),
-          )
-          .orderBy(agentSessionInbox.seq)
-          .limit(1),
-      )
+      // Given under the batch's share lock, so an ungroup either withdraws it first or keeps it.
+      const next = await transaction(pool, async (client) => {
+        await lockInboxBatch(client, current.jobId)
+        const rows = await executeDatabaseQuery(
+          queryDatabase(client)
+            .select()
+            .from(agentSessionInbox)
+            .where(
+              and(
+                eq(agentSessionInbox.sessionLineageId, current.jobId),
+                sql`${agentSessionInbox.seq} > ${after.toString()}::bigint`,
+                deliverableInboxItem(),
+              ),
+            )
+            .orderBy(agentSessionInbox.seq)
+            .limit(1),
+        )
+        await releaseInboxItems(
+          client,
+          rows.map((row) => row.id),
+        )
+        return rows
+      })
       if (!next[0]) {
         return undefined
       }
@@ -928,6 +966,8 @@ export async function runSessionTurn(
       current.batchId,
     ])
     const locked = await lockProcessingAttempt(client, current.jobId, attemptId)
+    // A wake's earlier state no longer applies once a turn has run.
+    await client.query('DELETE FROM public.agent_session_resume WHERE attempt_id=$1', [attemptId])
     // A cancelled, superseded or replaced attempt leaves input pending for whatever replaces it.
     const live =
       locked.attempt.state === 'running' && locked.job.current_attempt_id === locked.attempt.id
@@ -1002,6 +1042,21 @@ export const syntheticSessionDriver: SessionDriver = async (turn, context) => {
   try {
     await syntheticTurn(turn, context, call)
   } finally {
-    await client.close()
+    await closeWithin(client, SYNTHETIC_CLOSE_MS)
   }
+}
+
+/** How long a synthetic turn waits for its MCP client to close before going on without it. */
+const SYNTHETIC_CLOSE_MS = 5_000
+
+/** Closes an MCP client, giving up after `ms`, so a slow tool server can't hold a turn open. */
+export async function closeWithin(client: Client, ms: number) {
+  let timer: NodeJS.Timeout | undefined
+  await Promise.race([
+    client.close().catch(() => undefined),
+    new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, ms)
+    }),
+  ])
+  clearTimeout(timer)
 }

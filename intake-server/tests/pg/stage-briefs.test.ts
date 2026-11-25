@@ -19,7 +19,7 @@ import { editMedia } from '#/media/edit.ts'
 import { grantMedia } from '#/media/grants.ts'
 import { startFreshEligibility } from '#/processing/start-fresh-eligibility.ts'
 import { issueSessionCapability, resolveSessionCapability } from '#/agents/tools/capability.ts'
-import { pendingSessionInbox, readSessionInbox } from '#/agents/tools/inbox.ts'
+import { lockInboxBatch, pendingSessionInbox, readSessionInbox } from '#/agents/tools/inbox.ts'
 import { deliverInstructions, deliverMissingInstructions } from '#/agents/instructions.ts'
 import { readBriefPage, retainBriefView, stagePrincipal } from '#/agents/tools/brief-read.ts'
 import { triggerExamine } from '#/processing/examine-trigger.ts'
@@ -35,11 +35,13 @@ import {
 import { MAX_PROCESSING_SNAPSHOT_BYTES } from '#/processing/limits.ts'
 import { replaceSession } from '#/processing/session-replacement.ts'
 import {
+  closeWithin,
   openingText,
   queueSessionResume,
   runSessionTurn,
   syntheticSessionDriver,
   type SessionDriver,
+  type SessionDriverContext,
 } from '#/agents/session/session-runner.ts'
 import { canonicalRecord } from '@invimport/contracts/json'
 
@@ -167,7 +169,7 @@ async function withClients(
       return client
     })
   } finally {
-    await Promise.all(clients.map((client) => client.close()))
+    await Promise.all(clients.map((client) => closeWithin(client, 5_000)))
   }
 }
 
@@ -1662,13 +1664,15 @@ async function historyInstructions(fixture: Fixture, batchId: string, jobId: str
 
 /** The instruction texts a session would be given now: pending, and not withdrawn. */
 async function pendingInstructions(fixture: Fixture, lineageId: string) {
-  return transaction(fixture.runner.pool, async (client) => {
-    const read = await readSessionInbox(client, lineageId, 0n)
-    return read.items
-      .filter((item) => item.kind === 'instruction')
-      .map((item) => (item.payload as { text: string }).text)
-      .sort()
-  })
+  // Read directly: `read_inbox` would give them, and given items are no longer withdrawn.
+  const rows = await fixture.db.pool.query<{ text: string }>(
+    `SELECT i.payload->>'text' AS text FROM agent_session_inbox i
+      WHERE i.session_lineage_id=$1 AND i.kind='instruction'
+        AND i.seq > coalesce((SELECT acked_seq FROM agent_session_cursor WHERE session_lineage_id=$1),0)
+        AND NOT EXISTS (SELECT 1 FROM agent_session_inbox_withdrawal w WHERE w.item_id=i.id)`,
+    [lineageId],
+  )
+  return rows.rows.map((row) => row.text).sort()
 }
 
 test('ungrouping withdraws a group’s unread instruction from /7 sessions and replacements skip it', async (t) => {
@@ -1730,6 +1734,34 @@ test('ungrouping withdraws a group’s unread instruction from /7 sessions and r
     ofKind(inlineEntries(replaced), 'instruction').map((entry) => entry.text),
     ['Count every reel'],
   )
+})
+
+test('an instruction given to a /7 session before the ungroup isn’t withdrawn, though not yet acknowledged', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId } = batch
+  const { row } = await successorOf(batch, 'led 0603 red', 'research')
+  const { ungroup } = await groupedInstructions(batch.fixture, batch.batchId)
+  // `read_inbox` returns both; the session acknowledges them only on its next read.
+  const given = await transaction(fixture.runner.pool, async (client) => {
+    await lockInboxBatch(client, row.job_id)
+    return (await readSessionInbox(client, row.job_id, 0n)).items
+  })
+  assert.deepEqual(
+    given
+      .filter((item) => item.kind === 'instruction')
+      .map((item) => (item.payload as { text: string }).text)
+      .sort(),
+    ['Count every reel', 'Keep the shelf together'],
+  )
+  await ungroup()
+  assert.deepEqual(await pendingInstructions(fixture, row.job_id), [
+    'Count every reel',
+    'Keep the shelf together',
+  ])
+  assert.deepEqual(await historyInstructions(fixture, batchId, row.job_id), [
+    'Count every reel',
+    'Keep the shelf together',
+  ])
 })
 
 test('a /6 session keeps a retired group’s instruction', async (t) => {
@@ -1819,9 +1851,13 @@ test('a /7 session keeps an instruction it read before the ungroup, and isn’t 
       queueSessionResume(client, row.job_id),
     )
     // Wait until the wake is blocked on the batch row, so the ordering is the one under test.
+    const holderPid = (await holder.query<{ pid: number }>('SELECT pg_backend_pid() AS pid'))
+      .rows[0].pid
     for (let tries = 0; ; tries++) {
       const blocked = await fixture.db.pool.query(
-        "SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock'",
+        `SELECT 1 FROM pg_stat_activity
+          WHERE datname=current_database() AND $1=ANY(pg_blocking_pids(pid))`,
+        [holderPid],
       )
       if (blocked.rowCount) {
         break
@@ -1832,6 +1868,7 @@ test('a /7 session keeps an instruction it read before the ungroup, and isn’t 
     await holder.query('COMMIT')
     assert.equal(await waking, undefined)
   } finally {
+    await holder.query('ROLLBACK').catch(() => undefined)
     holder.release()
   }
 
@@ -1855,6 +1892,108 @@ test('a /7 session keeps an instruction it read before the ungroup, and isn’t 
     'waiting_input',
   )
   assert.deepEqual(await turns(), { turn_count: before.turn_count, session_state: 'waiting_input' })
+
+  // An interrupted session woken for an item withdrawn before its claim stays interrupted.
+  await fixture.db.pool.query(
+    "UPDATE agent_session SET session_state='interrupted' WHERE attempt_id=$1",
+    [row.attempt_id],
+  )
+  const crate = await groupInstruction('Crate', 'Mind the crate')
+  assert.equal(
+    await transaction(fixture.runner.pool, (client) => queueSessionResume(client, row.job_id)),
+    row.attempt_id,
+  )
+  await media({ kind: 'ungroup', group_id: crate })
+  assert.equal(
+    await runSessionTurn(deps, row.attempt_id, new AbortController().signal),
+    'interrupted',
+  )
+  assert.deepEqual(await turns(), { turn_count: before.turn_count, session_state: 'interrupted' })
+  const attempt = await fixture.db.pool.query<{ state: string }>(
+    'SELECT state FROM processing_attempt WHERE id=$1',
+    [row.attempt_id],
+  )
+  assert.equal(attempt.rows[0].state, 'interrupted')
+})
+
+test('a turn’s settlement waits for an ungroup holding the batch and doesn’t requeue for its withdrawal', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, deps, batchId } = batch
+  const { row } = await successorOf(batch, 'led 0603 red', 'research')
+  await grantMedia(fixture.db.pool, fixture.api.name, 'api')
+  const revision = async () =>
+    (
+      await fixture.db.pool.query<{ revision: string }>(
+        'SELECT revision::text FROM media_batch WHERE batch_id=$1',
+        [batchId],
+      )
+    ).rows[0].revision
+  const grouped = (await editMedia(fixture.api.pool, fixture.config, batchId, randomUUID(), {
+    expected_revision: await revision(),
+    change: { kind: 'group', label: 'Shelf' },
+  })) as MediaSnapshotDto
+  const group = grouped.groups[0].id
+  const holder = await fixture.db.pool.connect()
+  let locked!: () => void
+  const holding = new Promise<void>((resolve) => {
+    locked = resolve
+  })
+  // As the turn ends, a group instruction arrives and an ungroup holding the batch withdraws it.
+  const racing = {
+    ...deps,
+    drivers: {
+      'synthetic-session/1': async (
+        turn: Parameters<SessionDriver>[0],
+        context: SessionDriverContext,
+      ) => {
+        await syntheticSessionDriver(turn, context)
+        await fixture.db.pool.query(
+          `INSERT INTO capture_instruction(id,batch_id,group_id,version,text,actor_id)
+           VALUES(gen_random_uuid(),$1,$2,1,'Keep the shelf together',$3)`,
+          [batchId, group, fixture.identity.actor],
+        )
+        await deliverInstructions(fixture.api.pool, fixture.config, batchId)
+        await holder.query('BEGIN')
+        await holder.query('SELECT 1 FROM capture_batch WHERE id=$1 FOR UPDATE', [batchId])
+        await holder.query(
+          `INSERT INTO agent_session_inbox_withdrawal(item_id)
+           SELECT id FROM agent_session_inbox WHERE session_lineage_id=$1 AND payload->>'group_id'=$2`,
+          [row.job_id, group],
+        )
+        locked()
+      },
+    },
+  }
+  // Released in the test, not an after hook: those run in order, the fixture's dispose first.
+  try {
+    const turn = runSessionTurn(racing, row.attempt_id, new AbortController().signal)
+    // Settlement must wait on the batch row; without that it would requeue for the item.
+    await holding
+    const holderPid = (await holder.query<{ pid: number }>('SELECT pg_backend_pid() AS pid'))
+      .rows[0].pid
+    for (let tries = 0; ; tries++) {
+      const blocked = await fixture.db.pool.query(
+        `SELECT 1 FROM pg_stat_activity
+          WHERE datname=current_database() AND $1=ANY(pg_blocking_pids(pid))`,
+        [holderPid],
+      )
+      if (blocked.rowCount) {
+        break
+      }
+      assert.ok(tries < 200, 'settlement never waited on the batch')
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    await holder.query('COMMIT')
+    assert.notEqual(await turn, 'queued')
+    const state = await fixture.db.pool.query<{ session_state: string }>(
+      'SELECT session_state FROM agent_session WHERE attempt_id=$1',
+      [row.attempt_id],
+    )
+    assert.notEqual(state.rows[0].session_state, 'queued')
+  } finally {
+    await holder.query('ROLLBACK').catch(() => undefined)
+    holder.release()
+  }
 })
 
 test('a sealed brief keeps a group’s instruction after the ungroup; its current view leaves it out', async (t) => {

@@ -13,7 +13,8 @@ export async function grantProcessing(pool: Pool, role: string, purpose: 'api' |
   await pool.query(`GRANT SELECT ON schema_migration,agent_settings,agent_provider_settings,agent_session,
     agent_session_outbox,agent_session_inbox,agent_session_cursor,agent_session_ack,agent_slot,agent_session_failure,processing_proposal_stale,
     agent_batch_pause,processing_question_replacement,processing_question_figure,processing_figure_render,
-    processing_stage_instructions,processing_input_page,processing_brief_view,agent_session_inbox_withdrawal TO ${role};`)
+    processing_stage_instructions,processing_input_page,processing_brief_view,agent_session_inbox_withdrawal,
+    agent_session_inbox_release,agent_session_resume TO ${role};`)
   if (purpose === 'api') {
     // Operators queue inbox items and mark proposals stale by correction; agents write the outbox.
     await pool.query(
@@ -36,6 +37,9 @@ export async function grantProcessing(pool: Pool, role: string, purpose: 'api' |
       -- Without actor_id the runner can write system notices only, never operator chat or answers.
       GRANT INSERT(id,session_lineage_id,seq,kind,payload,idempotency_key) ON agent_session_inbox TO ${role};
       GRANT INSERT, UPDATE(acked_seq,acked_at) ON agent_session_cursor TO ${role};
+      -- Group instructions given to a session, and the state each wake left.
+      GRANT INSERT ON agent_session_inbox_release TO ${role};
+      GRANT INSERT, UPDATE(from_state), DELETE ON agent_session_resume TO ${role};
       -- Each cursor advance is logged, and an ask may close the question it replaces.
       GRANT INSERT ON agent_session_ack,processing_question_replacement TO ${role};
       -- An ask stores its figures and their render requests; the media consumer renders them.
@@ -88,7 +92,8 @@ export async function grantAgentWriter(pool: Pool, role: string) {
       agent_session_inbox,agent_session_cursor,agent_session_ack,agent_slot,processing_proposal_stale,processing_profile,processing_input,
       processing_job,processing_attempt,processing_dependency,processing_lane,processing_message,processing_proposal,
       processing_question,processing_answer,processing_transition,agent_batch_pause,processing_question_replacement,
-      processing_question_figure,processing_figure_render,processing_stage_instructions,processing_input_page,agent_session_inbox_withdrawal TO ${role};
+      processing_question_figure,processing_figure_render,processing_stage_instructions,processing_input_page,agent_session_inbox_withdrawal,
+      agent_session_inbox_release TO ${role};
     GRANT INSERT ON processing_proposal,processing_proposal_stale,processing_message,agent_session_outbox,
       processing_question,processing_question_figure,processing_figure_render TO ${role};
     GRANT UPDATE(state,revision) ON processing_job TO ${role};

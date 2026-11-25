@@ -62,7 +62,7 @@ import { agentSessionOutbox, agentSessions } from '#/agents/schema.ts'
 import { appendSessionOutbox, lastStatusAt } from './outbox.ts'
 import sharp from 'sharp'
 import { regionCropCache } from '#/media/region-crops.ts'
-import { pendingSessionInbox, readSessionInbox, sessionInboxItem } from './inbox.ts'
+import { lockInboxBatch, pendingSessionInbox, readSessionInbox, sessionInboxItem } from './inbox.ts'
 import { stepRefusal, subjectRefusal } from './question-checks.ts'
 import { resolveFigures, type ResolvedFigure } from './figures.ts'
 import {
@@ -625,7 +625,7 @@ type LockedCapture = Awaited<ReturnType<typeof lockCaptureForInputSettlement>>
 async function withSession(
   context: SessionToolContext,
   token: string,
-  options: { capture: boolean; leadWriter?: boolean },
+  options: { capture: boolean; leadWriter?: boolean; batchShare?: boolean },
   work: (
     client: PoolClient,
     principal: SessionPrincipal,
@@ -648,6 +648,10 @@ async function withSession(
       const capture = options.capture
         ? await lockCaptureForInputSettlement(client, context.config, found.batchId)
         : undefined
+      // Before the job, as everywhere: orders a read against an ungroup's withdrawal.
+      if (options.batchShare && !capture) {
+        await lockInboxBatch(client, found.lineageId!)
+      }
       await requireRunningSession(client, token, found)
       if (capture?.snapshot.archived) {
         refuse('session_not_running', 'This session can no longer publish results.')
@@ -1754,20 +1758,25 @@ export function sessionTools(context: SessionToolContext) {
       }),
 
     read_inbox: (token: string, args: unknown) =>
-      withSession(context, token, { capture: false }, async (client, principal) => {
-        const { after_seq } = validated<{ after_seq: string }>('SessionReadInboxArgs', args)
-        const read = await readSessionInbox(client, principal.lineageId!, BigInt(after_seq))
-        // An open drawer or session page shows which inputs the session has read.
-        if (read.advanced) {
-          await appendEvent(
-            client,
-            await batchStream(client, principal.batchId),
-            'session_changed',
-            { batch_id: principal.batchId },
-          )
-        }
-        return ok(client, principal, { items: read.items })
-      }),
+      withSession(
+        context,
+        token,
+        { capture: false, batchShare: true },
+        async (client, principal) => {
+          const { after_seq } = validated<{ after_seq: string }>('SessionReadInboxArgs', args)
+          const read = await readSessionInbox(client, principal.lineageId!, BigInt(after_seq))
+          // An open drawer or session page shows which inputs the session has read.
+          if (read.advanced) {
+            await appendEvent(
+              client,
+              await batchStream(client, principal.batchId),
+              'session_changed',
+              { batch_id: principal.batchId },
+            )
+          }
+          return ok(client, principal, { items: read.items })
+        },
+      ),
 
     propose: (token: string, args: unknown) =>
       withSession(

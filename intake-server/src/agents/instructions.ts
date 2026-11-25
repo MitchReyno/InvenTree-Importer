@@ -216,6 +216,7 @@ export async function withdrawRetiredInstructions(client: PoolClient, lineageId:
      LEFT JOIN public.agent_session_cursor c ON c.session_lineage_id=i.session_lineage_id
      WHERE i.session_lineage_id=$1 AND i.kind='instruction' AND i.payload->>'group_id' IS NOT NULL
        AND i.seq > coalesce(c.acked_seq,0)
+       AND NOT EXISTS (SELECT 1 FROM public.agent_session_inbox_release r WHERE r.item_id=i.id)
        AND ${retiredGroupSql("(i.payload->>'group_id')::uuid")}
      ON CONFLICT (item_id) DO NOTHING`,
     [lineageId],
@@ -223,7 +224,7 @@ export async function withdrawRetiredInstructions(client: PoolClient, lineageId:
 }
 
 /**
- * Withdraws an ungrouped group's instruction items not yet read by `/7` sessions of the batch, in
+ * Withdraws an ungrouped group's instruction items not yet given to `/7` sessions of the batch, in
  * the ungroup's transaction. Read items stay as they were; earlier inputs keep theirs.
  */
 export async function withdrawGroupInstructions(
@@ -246,6 +247,7 @@ export async function withdrawGroupInstructions(
      LEFT JOIN public.agent_session_cursor c ON c.session_lineage_id=i.session_lineage_id
      WHERE i.kind='instruction' AND i.payload->>'group_id'=$2::text
        AND i.seq > coalesce(c.acked_seq,0)
+       AND NOT EXISTS (SELECT 1 FROM public.agent_session_inbox_release r WHERE r.item_id=i.id)
        AND ${stageLineageSql('i.session_lineage_id')}
      ON CONFLICT (item_id) DO NOTHING`,
     [batchId, groupId],

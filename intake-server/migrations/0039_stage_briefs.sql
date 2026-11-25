@@ -97,3 +97,19 @@ CREATE TABLE agent_session_inbox_withdrawal (
 );
 CREATE TRIGGER agent_session_inbox_withdrawal_immutable BEFORE UPDATE OR DELETE ON agent_session_inbox_withdrawal
   FOR EACH ROW EXECUTE FUNCTION reject_authority_change();
+
+-- A group's instruction item once given to its session (returned by `read_inbox` or handed to the
+-- provider), before the session acknowledges it. A given item is never withdrawn.
+CREATE TABLE agent_session_inbox_release (
+  item_id uuid PRIMARY KEY REFERENCES agent_session_inbox(id) ON DELETE RESTRICT,
+  released_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TRIGGER agent_session_inbox_release_immutable BEFORE UPDATE OR DELETE ON agent_session_inbox_release
+  FOR EACH ROW EXECUTE FUNCTION reject_authority_change();
+
+-- The state a wake moved a session from, so a wake whose items were all withdrawn before its claim
+-- puts the session back as it was.
+CREATE TABLE agent_session_resume (
+  attempt_id uuid PRIMARY KEY REFERENCES agent_session(attempt_id) ON DELETE CASCADE,
+  from_state text NOT NULL CHECK (from_state IN ('waiting_input','finished','interrupted'))
+);
