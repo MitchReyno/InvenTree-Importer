@@ -432,18 +432,18 @@ test('a region one pixel past a correctly identified page makes the whole previe
   assert.deepEqual(result, { state: 'malformed', toolchain: MEDIA_TOOLCHAIN })
 })
 
-test('crops whose full-resolution sizes together pass 104 MP exceed the limit; just under renders', async () => {
+test('crops whose full-resolution sizes together pass 104 MP exceed the limit; exactly 104 MP renders', async () => {
   // Each crop fits on its own; only their sum crosses the preview's aggregate budget.
   const [width, height] = [7000, 5000]
   const bytes = await sharp({ create: { width, height, channels: 3, background: '#808080' } })
     .png()
     .toBuffer()
-  const crop = (rows: number) => ({
-    label: `${rows} rows`,
+  const crop = (cropWidth: number, cropHeight: number) => ({
+    label: `${cropWidth}x${cropHeight}`,
     page: 0,
     recipe: {
       ...recipeForCrop(
-        { region: [0, 0, width, rows], quarter_turns: 0, straighten: 0, wb: false },
+        { region: [0, 0, cropWidth, cropHeight], quarter_turns: 0, straighten: 0, wb: false },
         { width, height, digest: 'c'.repeat(64) },
       ),
       source_version_id: '00000000-0000-4000-8000-000000000006',
@@ -454,10 +454,11 @@ test('crops whose full-resolution sizes together pass 104 MP exceed the limit; j
     pages: [{ ...sourceOf(crops[0].recipe), digest: sha(bytes), width, height, bytes }],
     crops,
   })
-  // 3 x 35 MP = 105 MP.
-  const over = await renderPreview(input([crop(height), crop(height), crop(height)]))
+  // 35 + 35 + 34 MP = exactly 104 MP.
+  const atBudget = [crop(width, height), crop(width, height), crop(6800, height)]
+  const exact = await renderPreview(input(atBudget))
+  assert.equal(exact.state, 'ready')
+  // One more pixel.
+  const over = await renderPreview(input([...atBudget, crop(1, 1)]))
   assert.deepEqual(over, { state: 'limit_exceeded', toolchain: MEDIA_TOOLCHAIN })
-  // 35 + 35 + 7000 x 4857 (34.0 MP) = 103.999 MP.
-  const under = await renderPreview(input([crop(height), crop(height), crop(4857)]))
-  assert.equal(under.state, 'ready')
 })
