@@ -177,6 +177,31 @@ test('a preview too tall for its width is over the limit', async () => {
   assert.deepEqual(result, { state: 'limit_exceeded', toolchain: MEDIA_TOOLCHAIN })
 })
 
+test('the line budget counts the lines drawn: 400 render, 401 are refused', async () => {
+  const grid = async (width: number) => {
+    const bytes = await sharp({
+      create: { width, height: 100, channels: 3, background: '#808080' },
+    })
+      .png()
+      .toBuffer()
+    return renderGrid({
+      version: 'media-grid/1',
+      digest: sha(bytes),
+      width,
+      height: 100,
+      bytes,
+      region: null,
+      preview_width: 800,
+      step: 2,
+      object: null,
+      boxes: [],
+    })
+  }
+  // Step 2 across 801 px draws lines at 2, 4 ... 800; across 803 px it adds one at 802.
+  assert.equal((await grid(801)).state, 'ready')
+  assert.deepEqual(await grid(803), { state: 'limit_exceeded', toolchain: MEDIA_TOOLCHAIN })
+})
+
 test('a region is clipped to the page, as the script does, and one wholly outside is malformed', async () => {
   const page = await benchPage()
   const result = await renderGrid({

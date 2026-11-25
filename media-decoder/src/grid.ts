@@ -76,6 +76,11 @@ function multiples(from: number, to: number, every: number) {
   return values
 }
 
+/** How many lines `multiples` draws between two coordinates, without listing them. */
+function lineCount(from: number, to: number, every: number) {
+  return Math.max(0, Math.ceil(to / every) - Math.floor(from / every) - 1)
+}
+
 /** The region clipped to the page, as grid.py clips it; an empty one is a mismatch. */
 function clippedRegion(input: GridInput): Corners {
   const requested = input.region
@@ -112,7 +117,9 @@ function gridPlan(input: GridInput): GridPlan {
   }
   const spanFactor = input.region ? 1 : OVERVIEW_SPAN_FACTOR
   const step = input.step ?? niceStep(Math.max(width, height) * spanFactor)
-  if (width / step > GRID_MAX_LINES || height / step > GRID_MAX_LINES) {
+  const verticalLines = lineCount(region.x0, region.x1, step)
+  const horizontalLines = lineCount(region.y0, region.y1, step)
+  if (verticalLines > GRID_MAX_LINES || horizontalLines > GRID_MAX_LINES) {
     throw new GridLimitError('grid_line_limit')
   }
   return { region, scale, previewWidth: input.preview_width, previewHeight, step }
