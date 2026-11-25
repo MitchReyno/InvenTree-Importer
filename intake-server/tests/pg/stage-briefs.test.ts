@@ -12,7 +12,8 @@ import type {
 import { formedBatch, photoWithNote, type Fixture } from '../support/lot-pipeline.ts'
 import { transaction } from '#/db/database.ts'
 import { captureInTransaction } from '#/capture/repository.ts'
-import { issueSessionCapability } from '#/agents/tools/capability.ts'
+import { issueSessionCapability, resolveSessionCapability } from '#/agents/tools/capability.ts'
+import { readBriefPage, retainBriefView, stagePrincipal } from '#/agents/tools/brief-read.ts'
 import { triggerExamine } from '#/processing/examine-trigger.ts'
 import { decodeSessionInput, briefScope } from '#/processing/session-input.ts'
 import { assembleBrief } from '#/processing/brief.ts'
@@ -1026,6 +1027,104 @@ test('without the switch, a /7 lead’s batch seals no new /7 input', async (t) 
   const { fixture, batchId } = batch
   const led = await batch.lot('led 0603 red')
   delete fixture.config.stageInputs
+  const started = await fixture.http(`/batches/${batchId}/processing`, {
+    schema_version: 'bench-intake-processing/1',
+    expected_capture_revision: (await snapshotOf(fixture, batchId)).revision,
+    subject_ids: [led.id],
+    stages: ['research'],
+  })
+  assert.equal(started.status, 422)
+  assert.equal((started.value as { code: string }).code, 'unsupported_processing_profile')
+})
+
+test('a continued view dropped by a read at once is kept again with the page it served', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId } = batch
+  const led = await batch.lot('led 0603 red')
+  await largeNotes(fixture, batchId)
+  const attemptId = await requeueResearch(fixture, batchId, led.id)
+  const token = await running(fixture, attemptId)
+  await withClients(async (open) => {
+    const session = await open(batch.deps.toolUrl, token)
+    const first = await call(session, 'read_lot', { lot_id: led.id })
+    assert.ok(first.brief!.next_page_token)
+    // The continuation reads the kept view in its snapshot; a read at once then drops it, as a
+    // full store's eviction would, before the continuation keeps what it read.
+    const read = await transaction(fixture.runner.pool, async (client) => {
+      const principal = (await resolveSessionCapability(client, token))!
+      return readBriefPage(client, fixture.config, stagePrincipal(principal), {
+        page_token: first.brief!.next_page_token!,
+      })
+    })
+    await fixture.db.pool.query('DELETE FROM processing_brief_view WHERE attempt_id=$1', [
+      attemptId,
+    ])
+    await retainBriefView(fixture.runner.pool, attemptId, read)
+    // The page's own token still names a kept view.
+    const third = await call(session, 'read_lot', {
+      lot_id: led.id,
+      page_token: read.page.next_page_token,
+    })
+    assert.equal(third.ok, true, JSON.stringify(third))
+    assert.equal(third.brief!.sha256, first.brief!.sha256)
+  })
+})
+
+test('a current brief past the page bound is refused while earlier views still page', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId } = batch
+  const { lot: led, row } = await successorOf(batch, 'led 0603 red', 'research')
+  const token = await running(fixture, row.attempt_id)
+  await withClients(async (open) => {
+    const session = await open(batch.deps.toolUrl, token)
+    const kept = await call(session, 'read_lot', { lot_id: led.id })
+    assert.equal(kept.ok, true)
+    // A hundred group instructions of 8,192 four-byte characters: each is its own entry and
+    // page, which is past the brief's 64 pages.
+    for (let index = 0; index < 100; index += 1) {
+      const group = `7c3e1d04-92ab-4f6e-b81d-${index.toString(16).padStart(12, '0')}`
+      await fixture.db.pool.query(
+        'INSERT INTO media_group(id,batch_id,label,actor_id) VALUES($1,$2,$3,$4)',
+        [group, batchId, `Group ${index}`, fixture.identity.actor],
+      )
+      await fixture.db.pool.query(
+        `INSERT INTO capture_instruction(id,batch_id,group_id,version,text,actor_id)
+         VALUES(gen_random_uuid(),$1,$2,1,$3,$4)`,
+        [batchId, group, '\u{1F4C4}'.repeat(8192), fixture.identity.actor],
+      )
+    }
+    const fresh = await call(session, 'read_lot', { lot_id: led.id })
+    assert.equal(fresh.error, 'brief_revision_unavailable')
+    const sealed = stageInput((await sealedInput(fixture, row.attempt_id)).manifest)
+    const sealedPage = await call(session, 'read_lot', {
+      lot_id: led.id,
+      revision: sealed.brief.revision,
+    })
+    assert.equal(sealedPage.ok, true, JSON.stringify(sealedPage))
+    assert.ok(sealedPage.brief!.newer)
+    const again = await call(session, 'read_lot', {
+      lot_id: led.id,
+      page_token: Buffer.from(
+        canonicalRecord({
+          attemptId: row.attempt_id,
+          view: 'current',
+          digest: kept.brief!.sha256,
+          page: 1,
+        }),
+      ).toString('base64url'),
+    })
+    assert.equal(again.ok, true, JSON.stringify(again))
+    assert.deepEqual(again.brief!.entries, kept.brief!.entries)
+    assert.ok(again.brief!.newer)
+  })
+})
+
+test('a profile that can’t run a /7 lead’s pipeline is refused before its provider settings', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId } = batch
+  const led = await batch.lot('led 0603 red')
+  delete fixture.config.stageInputs
+  fixture.config.profileId = 'native-agent/2'
   const started = await fixture.http(`/batches/${batchId}/processing`, {
     schema_version: 'bench-intake-processing/1',
     expected_capture_revision: (await snapshotOf(fixture, batchId)).revision,

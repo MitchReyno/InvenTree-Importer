@@ -89,6 +89,10 @@ export async function prepareSessionAttempt(
   if (!lead && (job.subject_id === null || !LOT_STAGES.includes(job.stage as Stage))) {
     fail('unsupported_processing_stage', 422)
   }
+  // Checked before provider settings: no saved setting makes an incompatible profile seal `/7`.
+  if (inputVersion === 'bench-intake-input/7') {
+    requireStageInputs(config, profileId)
+  }
   const descriptor = { manifest: media.manifest, sha256: media.manifestDigest }
   let profile: SessionInputProfile = { id: 'synthetic-session/1' }
   if (profileId !== 'synthetic-session/1') {
@@ -131,6 +135,18 @@ export async function prepareSessionAttempt(
 }
 
 /**
+ * The configured profile's stage packs. Only a configuration that seals `/7` may write one, even
+ * for a batch whose lead is `/7`: without it, the configured route can't run that pipeline.
+ */
+function requireStageInputs(config: ProcessingConfig, profileId: SessionProfileId) {
+  const packs = stagePacks[profileId]
+  if (!packs || configuredInputVersion(config) !== 'bench-intake-input/7') {
+    return fail('unsupported_processing_profile', 422)
+  }
+  return packs
+}
+
+/**
  * A `/7` input: the `/6` manifest with its stage pack's digest and the brief, assembled now from
  * retained state. As many brief pages as fit stay in the manifest under the retained-input cap;
  * the rest go to the input's page store.
@@ -142,12 +158,7 @@ async function sealStageInput(
   base: ProcessingInputV6Dto,
   profileId: SessionProfileId,
 ): Promise<SealedSessionInput> {
-  const packs = stagePacks[profileId]
-  // Only a configuration that seals `/7` may write one, even for a batch whose lead is `/7`:
-  // without it, the configured route can't run this batch's pipeline.
-  if (!packs || configuredInputVersion(config) !== 'bench-intake-input/7') {
-    fail('unsupported_processing_profile', 422)
-  }
+  const packs = requireStageInputs(config, profileId)
   const scope = briefScope(base)
   const brief = await assembleBrief(client, snapshot, scope)
   const pages = briefPages(brief)

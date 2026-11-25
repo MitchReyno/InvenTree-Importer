@@ -124526,7 +124526,6 @@
                             "batch_id",
                             "title",
                             "defaults",
-                            "instructions",
                             "web"
                           ],
                           "properties": {
@@ -124734,40 +124733,6 @@
                                 }
                               }
                             },
-                            "instructions": {
-                              "maxItems": 101,
-                              "type": "array",
-                              "items": {
-                                "additionalProperties": false,
-                                "type": "object",
-                                "required": [
-                                  "instruction_id",
-                                  "group_id",
-                                  "text"
-                                ],
-                                "properties": {
-                                  "instruction_id": {
-                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                                    "type": "string"
-                                  },
-                                  "group_id": {
-                                    "anyOf": [
-                                      {
-                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                                        "type": "string"
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ]
-                                  },
-                                  "text": {
-                                    "maxLength": 8192,
-                                    "type": "string"
-                                  }
-                                }
-                              }
-                            },
                             "web": {
                               "additionalProperties": false,
                               "type": "object",
@@ -124783,6 +124748,41 @@
                                   "type": "boolean"
                                 }
                               }
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "instruction_id",
+                            "group_id",
+                            "text"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "instruction",
+                              "type": "string"
+                            },
+                            "instruction_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "group_id": {
+                              "anyOf": [
+                                {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "text": {
+                              "maxLength": 8192,
+                              "type": "string"
                             }
                           }
                         },
@@ -134113,7 +134113,6 @@
                     "batch_id",
                     "title",
                     "defaults",
-                    "instructions",
                     "web"
                   ],
                   "properties": {
@@ -134321,40 +134320,6 @@
                         }
                       }
                     },
-                    "instructions": {
-                      "maxItems": 101,
-                      "type": "array",
-                      "items": {
-                        "additionalProperties": false,
-                        "type": "object",
-                        "required": [
-                          "instruction_id",
-                          "group_id",
-                          "text"
-                        ],
-                        "properties": {
-                          "instruction_id": {
-                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                            "type": "string"
-                          },
-                          "group_id": {
-                            "anyOf": [
-                              {
-                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "text": {
-                            "maxLength": 8192,
-                            "type": "string"
-                          }
-                        }
-                      }
-                    },
                     "web": {
                       "additionalProperties": false,
                       "type": "object",
@@ -134370,6 +134335,41 @@
                           "type": "boolean"
                         }
                       }
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "instruction_id",
+                    "group_id",
+                    "text"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "instruction",
+                      "type": "string"
+                    },
+                    "instruction_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "group_id": {
+                      "anyOf": [
+                        {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "text": {
+                      "maxLength": 8192,
+                      "type": "string"
                     }
                   }
                 },
@@ -140123,7 +140123,6 @@
                           "batch_id",
                           "title",
                           "defaults",
-                          "instructions",
                           "web"
                         ],
                         "properties": {
@@ -140331,40 +140330,6 @@
                               }
                             }
                           },
-                          "instructions": {
-                            "maxItems": 101,
-                            "type": "array",
-                            "items": {
-                              "additionalProperties": false,
-                              "type": "object",
-                              "required": [
-                                "instruction_id",
-                                "group_id",
-                                "text"
-                              ],
-                              "properties": {
-                                "instruction_id": {
-                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                                  "type": "string"
-                                },
-                                "group_id": {
-                                  "anyOf": [
-                                    {
-                                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                                      "type": "string"
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
-                                  ]
-                                },
-                                "text": {
-                                  "maxLength": 8192,
-                                  "type": "string"
-                                }
-                              }
-                            }
-                          },
                           "web": {
                             "additionalProperties": false,
                             "type": "object",
@@ -140380,6 +140345,41 @@
                                 "type": "boolean"
                               }
                             }
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "kind",
+                          "instruction_id",
+                          "group_id",
+                          "text"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "const": "instruction",
+                            "type": "string"
+                          },
+                          "instruction_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "group_id": {
+                            "anyOf": [
+                              {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "text": {
+                            "maxLength": 8192,
+                            "type": "string"
                           }
                         }
                       },
@@ -146006,7 +146006,6 @@
                     "batch_id",
                     "title",
                     "defaults",
-                    "instructions",
                     "web"
                   ],
                   "properties": {
@@ -146214,40 +146213,6 @@
                         }
                       }
                     },
-                    "instructions": {
-                      "maxItems": 101,
-                      "type": "array",
-                      "items": {
-                        "additionalProperties": false,
-                        "type": "object",
-                        "required": [
-                          "instruction_id",
-                          "group_id",
-                          "text"
-                        ],
-                        "properties": {
-                          "instruction_id": {
-                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                            "type": "string"
-                          },
-                          "group_id": {
-                            "anyOf": [
-                              {
-                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "text": {
-                            "maxLength": 8192,
-                            "type": "string"
-                          }
-                        }
-                      }
-                    },
                     "web": {
                       "additionalProperties": false,
                       "type": "object",
@@ -146263,6 +146228,41 @@
                           "type": "boolean"
                         }
                       }
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "instruction_id",
+                    "group_id",
+                    "text"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "instruction",
+                      "type": "string"
+                    },
+                    "instruction_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "group_id": {
+                      "anyOf": [
+                        {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "text": {
+                      "maxLength": 8192,
+                      "type": "string"
                     }
                   }
                 },
@@ -152011,7 +152011,6 @@
                     "batch_id",
                     "title",
                     "defaults",
-                    "instructions",
                     "web"
                   ],
                   "properties": {
@@ -152219,40 +152218,6 @@
                         }
                       }
                     },
-                    "instructions": {
-                      "maxItems": 101,
-                      "type": "array",
-                      "items": {
-                        "additionalProperties": false,
-                        "type": "object",
-                        "required": [
-                          "instruction_id",
-                          "group_id",
-                          "text"
-                        ],
-                        "properties": {
-                          "instruction_id": {
-                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                            "type": "string"
-                          },
-                          "group_id": {
-                            "anyOf": [
-                              {
-                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "text": {
-                            "maxLength": 8192,
-                            "type": "string"
-                          }
-                        }
-                      }
-                    },
                     "web": {
                       "additionalProperties": false,
                       "type": "object",
@@ -152268,6 +152233,41 @@
                           "type": "boolean"
                         }
                       }
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "instruction_id",
+                    "group_id",
+                    "text"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "instruction",
+                      "type": "string"
+                    },
+                    "instruction_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "group_id": {
+                      "anyOf": [
+                        {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "text": {
+                      "maxLength": 8192,
+                      "type": "string"
                     }
                   }
                 },
@@ -158614,7 +158614,6 @@
                                   "batch_id",
                                   "title",
                                   "defaults",
-                                  "instructions",
                                   "web"
                                 ],
                                 "properties": {
@@ -158822,40 +158821,6 @@
                                       }
                                     }
                                   },
-                                  "instructions": {
-                                    "maxItems": 101,
-                                    "type": "array",
-                                    "items": {
-                                      "additionalProperties": false,
-                                      "type": "object",
-                                      "required": [
-                                        "instruction_id",
-                                        "group_id",
-                                        "text"
-                                      ],
-                                      "properties": {
-                                        "instruction_id": {
-                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                                          "type": "string"
-                                        },
-                                        "group_id": {
-                                          "anyOf": [
-                                            {
-                                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                                              "type": "string"
-                                            },
-                                            {
-                                              "type": "null"
-                                            }
-                                          ]
-                                        },
-                                        "text": {
-                                          "maxLength": 8192,
-                                          "type": "string"
-                                        }
-                                      }
-                                    }
-                                  },
                                   "web": {
                                     "additionalProperties": false,
                                     "type": "object",
@@ -158871,6 +158836,41 @@
                                         "type": "boolean"
                                       }
                                     }
+                                  }
+                                }
+                              },
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "kind",
+                                  "instruction_id",
+                                  "group_id",
+                                  "text"
+                                ],
+                                "properties": {
+                                  "kind": {
+                                    "const": "instruction",
+                                    "type": "string"
+                                  },
+                                  "instruction_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "group_id": {
+                                    "anyOf": [
+                                      {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "text": {
+                                    "maxLength": 8192,
+                                    "type": "string"
                                   }
                                 }
                               },
@@ -165158,7 +165158,6 @@
                                   "batch_id",
                                   "title",
                                   "defaults",
-                                  "instructions",
                                   "web"
                                 ],
                                 "properties": {
@@ -165366,40 +165365,6 @@
                                       }
                                     }
                                   },
-                                  "instructions": {
-                                    "maxItems": 101,
-                                    "type": "array",
-                                    "items": {
-                                      "additionalProperties": false,
-                                      "type": "object",
-                                      "required": [
-                                        "instruction_id",
-                                        "group_id",
-                                        "text"
-                                      ],
-                                      "properties": {
-                                        "instruction_id": {
-                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                                          "type": "string"
-                                        },
-                                        "group_id": {
-                                          "anyOf": [
-                                            {
-                                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                                              "type": "string"
-                                            },
-                                            {
-                                              "type": "null"
-                                            }
-                                          ]
-                                        },
-                                        "text": {
-                                          "maxLength": 8192,
-                                          "type": "string"
-                                        }
-                                      }
-                                    }
-                                  },
                                   "web": {
                                     "additionalProperties": false,
                                     "type": "object",
@@ -165415,6 +165380,41 @@
                                         "type": "boolean"
                                       }
                                     }
+                                  }
+                                }
+                              },
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "kind",
+                                  "instruction_id",
+                                  "group_id",
+                                  "text"
+                                ],
+                                "properties": {
+                                  "kind": {
+                                    "const": "instruction",
+                                    "type": "string"
+                                  },
+                                  "instruction_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "group_id": {
+                                    "anyOf": [
+                                      {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "text": {
+                                    "maxLength": 8192,
+                                    "type": "string"
                                   }
                                 }
                               },

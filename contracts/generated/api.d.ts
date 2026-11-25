@@ -26329,15 +26329,16 @@ export interface components {
                             mode: "inherit";
                         };
                     };
-                    instructions: {
-                        instruction_id: string;
-                        group_id: string | null;
-                        text: string;
-                    }[];
                     web: {
                         public_pages: boolean;
                         prefer_datasheets: boolean;
                     };
+                } | {
+                    /** @constant */
+                    kind: "instruction";
+                    instruction_id: string;
+                    group_id: string | null;
+                    text: string;
                 } | {
                     /** @constant */
                     kind: "note";
@@ -27853,15 +27854,16 @@ export interface components {
                         mode: "inherit";
                     };
                 };
-                instructions: {
-                    instruction_id: string;
-                    group_id: string | null;
-                    text: string;
-                }[];
                 web: {
                     public_pages: boolean;
                     prefer_datasheets: boolean;
                 };
+            } | {
+                /** @constant */
+                kind: "instruction";
+                instruction_id: string;
+                group_id: string | null;
+                text: string;
             } | {
                 /** @constant */
                 kind: "note";
@@ -28901,15 +28903,16 @@ export interface components {
                             mode: "inherit";
                         };
                     };
-                    instructions: {
-                        instruction_id: string;
-                        group_id: string | null;
-                        text: string;
-                    }[];
                     web: {
                         public_pages: boolean;
                         prefer_datasheets: boolean;
                     };
+                } | {
+                    /** @constant */
+                    kind: "instruction";
+                    instruction_id: string;
+                    group_id: string | null;
+                    text: string;
                 } | {
                     /** @constant */
                     kind: "note";
@@ -29938,15 +29941,16 @@ export interface components {
                         mode: "inherit";
                     };
                 };
-                instructions: {
-                    instruction_id: string;
-                    group_id: string | null;
-                    text: string;
-                }[];
                 web: {
                     public_pages: boolean;
                     prefer_datasheets: boolean;
                 };
+            } | {
+                /** @constant */
+                kind: "instruction";
+                instruction_id: string;
+                group_id: string | null;
+                text: string;
             } | {
                 /** @constant */
                 kind: "note";
@@ -30983,15 +30987,16 @@ export interface components {
                         mode: "inherit";
                     };
                 };
-                instructions: {
-                    instruction_id: string;
-                    group_id: string | null;
-                    text: string;
-                }[];
                 web: {
                     public_pages: boolean;
                     prefer_datasheets: boolean;
                 };
+            } | {
+                /** @constant */
+                kind: "instruction";
+                instruction_id: string;
+                group_id: string | null;
+                text: string;
             } | {
                 /** @constant */
                 kind: "note";
@@ -32155,15 +32160,16 @@ export interface components {
                                 mode: "inherit";
                             };
                         };
-                        instructions: {
-                            instruction_id: string;
-                            group_id: string | null;
-                            text: string;
-                        }[];
                         web: {
                             public_pages: boolean;
                             prefer_datasheets: boolean;
                         };
+                    } | {
+                        /** @constant */
+                        kind: "instruction";
+                        instruction_id: string;
+                        group_id: string | null;
+                        text: string;
                     } | {
                         /** @constant */
                         kind: "note";
@@ -33317,15 +33323,16 @@ export interface components {
                                 mode: "inherit";
                             };
                         };
-                        instructions: {
-                            instruction_id: string;
-                            group_id: string | null;
-                            text: string;
-                        }[];
                         web: {
                             public_pages: boolean;
                             prefer_datasheets: boolean;
                         };
+                    } | {
+                        /** @constant */
+                        kind: "instruction";
+                        instruction_id: string;
+                        group_id: string | null;
+                        text: string;
                     } | {
                         /** @constant */
                         kind: "note";

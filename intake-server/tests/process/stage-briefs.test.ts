@@ -17,6 +17,8 @@ type Fixture = Awaited<ReturnType<typeof processingFixture>>
 const READY_SECONDS_AGO = 60
 /** How long a worker may take to reach a state the test waits for. */
 const WAIT_MS = 90_000
+/** How long a stopping worker may take to drain before it is killed. */
+const STOP_GRACE_MS = 15_000
 
 /** A photo whose note scripts what the synthetic lead sees in it. */
 async function notedPhoto(fixture: Fixture, batchId: string, label: string, note: string) {
@@ -48,8 +50,17 @@ async function workerRoot() {
 function ownedResources(t: { after: (fn: () => Promise<void>) => void }) {
   const releases: (() => Promise<void>)[] = []
   t.after(async () => {
+    // Every release is tried; their failures are reported together.
+    const failures: unknown[] = []
     for (const release of releases.reverse()) {
-      await release()
+      try {
+        await release()
+      } catch (error) {
+        failures.push(error)
+      }
+    }
+    if (failures.length) {
+      throw new AggregateError(failures, 'stage_briefs_cleanup_failed')
     }
   })
   return (release: () => Promise<void>) => releases.push(release)
@@ -88,7 +99,11 @@ async function startWorker(fixture: Fixture, root: string, stageInputs: boolean)
   let output = ''
   worker.stdout.on('data', (bytes: Buffer) => (output += bytes.toString()))
   worker.stderr.on('data', (bytes: Buffer) => (output += bytes.toString()))
-  const exited = new Promise<number | null>((resolve) => worker.once('exit', resolve))
+  // Settles on exit, or on a spawn failure, which emits `error` and no `exit`.
+  const exited = new Promise<void>((resolve) => {
+    worker.once('exit', () => resolve())
+    worker.once('error', () => resolve())
+  })
 
   const until = async <T>(read: () => Promise<T>, done: (value: T) => boolean, label: string) => {
     const deadline = Date.now() + WAIT_MS
@@ -101,9 +116,19 @@ async function startWorker(fixture: Fixture, root: string, stageInputs: boolean)
     return value
   }
 
+  // SIGTERM, then SIGKILL if the worker hasn't exited within the grace period; either way the
+  // child is reaped before this returns.
   const stop = async () => {
-    if (worker.exitCode === null) {
-      worker.kill('SIGTERM')
+    if (worker.exitCode !== null || worker.signalCode !== null) {
+      return
+    }
+    worker.kill('SIGTERM')
+    const graceful = await Promise.race([
+      exited.then(() => true),
+      delay(STOP_GRACE_MS).then(() => false),
+    ])
+    if (!graceful) {
+      worker.kill('SIGKILL')
       await exited
     }
   }

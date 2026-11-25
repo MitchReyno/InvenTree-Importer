@@ -583,13 +583,15 @@ export function projectBrief(
         batch_id: snapshot.id,
         title: snapshot.title,
         defaults: snapshot.defaults,
-        instructions: facts.instructions.map((instruction) => ({
-          instruction_id: instruction.id,
-          group_id: instruction.groupId,
-          text: instruction.text,
-        })),
         web: { ...scope.web },
       },
+      // Each instruction is its own entry, so many long ones page like any other entries.
+      ...facts.instructions.map((instruction): BriefEntryDto => ({
+        kind: 'instruction',
+        instruction_id: instruction.id,
+        group_id: instruction.groupId,
+        text: instruction.text,
+      })),
     ],
     human: [
       ...noteEntries(snapshot, scope, subjects),

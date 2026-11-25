@@ -18,7 +18,6 @@ import {
   briefViewKeepable,
   keepCurrentView,
   keptCurrentView,
-  touchCurrentView,
   pageToken,
   readPageToken,
   sealedBriefPage,
@@ -164,13 +163,18 @@ function startingCursor(
   }
 }
 
-/** A view's header, page count and one page's entries. */
-function pageOf(header: SessionBriefDto, cursor: BriefPageCursor) {
-  const pages = briefPages(header)
+/** A current view's header, page count and one page's entries, with the view itself. */
+function pageOf(view: SessionBriefDto, cursor: BriefPageCursor) {
+  const pages = briefPages(view)
   if (cursor.page > pages.length) {
     refuse('brief_revision_unavailable', UNAVAILABLE)
   }
-  return { header, pageCount: pages.length, entries: pages[cursor.page - 1].page.entries }
+  return {
+    header: view,
+    pageCount: pages.length,
+    entries: pages[cursor.page - 1].page.entries,
+    view,
+  }
 }
 
 /**
@@ -193,6 +197,7 @@ async function viewPage(
       header: sealed,
       pageCount: sealed.pages.length,
       entries: await sealedBriefPage(client, principal.inputId, sealed, cursor.page),
+      view: null,
     }
   }
   if (fresh) {
@@ -205,20 +210,19 @@ async function viewPage(
 }
 
 /**
- * A page read, and what it asks of the kept views: the current view it started, to keep, or the
- * digest of the kept view it continued, to count as read now.
+ * A page read, and the current view it read, which the caller keeps (or keeps again, counting
+ * it as read now) before the page's token is used. Null for a sealed page.
  */
 export interface BriefRead {
   page: SessionBriefPageDto
   keep: SessionBriefDto | null
-  touch: string | null
 }
 
 /**
  * One page of a `/7` session's brief, read in the caller's snapshot. A page token continues the
  * view it came from, even after an edit; each page says whether the current brief differs from
- * it. A read that starts a current view returns it to keep (`keepBriefView`) before the page's
- * token is used.
+ * it. A current-view read returns its view to keep (`retainBriefView`) before the page's token
+ * is used.
  */
 export async function readBriefPage(
   client: PoolClient,
@@ -233,7 +237,13 @@ export async function readBriefPage(
     if (fresh && !briefViewKeepable(current)) {
       refuse('brief_revision_unavailable', UNAVAILABLE)
     }
-    const { header, pageCount, entries } = await viewPage(client, principal, cursor, current, fresh)
+    const { header, pageCount, entries, view } = await viewPage(
+      client,
+      principal,
+      cursor,
+      current,
+      fresh,
+    )
     return {
       page: {
         view: cursor.view,
@@ -249,8 +259,7 @@ export async function readBriefPage(
           cursor.page < pageCount ? pageToken({ ...cursor, page: cursor.page + 1 }) : null,
         newer: briefDigest(current) === cursor.digest ? null : { revision: current.revision },
       },
-      keep: fresh ? current : null,
-      touch: cursor.view === 'current' && !fresh ? cursor.digest : null,
+      keep: view,
     }
   } catch (error) {
     // A view past the page bound can't be paged; the session reads again later.
@@ -262,12 +271,14 @@ export async function readBriefPage(
 }
 
 /**
- * Keeps a view a read started, or counts a continued one as read now, in its own transaction
- * serialized per attempt, so reads at once can't break the bound or fail on each other's insert,
- * and the views kept are the ones read most recently.
+ * Keeps the current view a read used, in its own transaction serialized per attempt: a view a
+ * read started is added, and a continued one is kept again with its read time renewed, even if a
+ * read at once had dropped it meanwhile. Reads at once can't break the bound or fail on each
+ * other's insert, and the views kept are the ones read most recently.
  */
 export async function retainBriefView(pool: Pool, attemptId: string, read: BriefRead) {
-  if (!read.keep && !read.touch) {
+  const view = read.keep
+  if (!view) {
     return
   }
   await transaction(pool, async (client) => {
@@ -275,11 +286,6 @@ export async function retainBriefView(pool: Pool, attemptId: string, read: Brief
       "SELECT pg_advisory_xact_lock(hashtext('processing_brief_view'), hashtext($1))",
       [attemptId],
     )
-    if (read.keep) {
-      await keepCurrentView(client, attemptId, read.keep)
-    }
-    if (read.touch) {
-      await touchCurrentView(client, attemptId, read.touch)
-    }
+    await keepCurrentView(client, attemptId, view)
   })
 }

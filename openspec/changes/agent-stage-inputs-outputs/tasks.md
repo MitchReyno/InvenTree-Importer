@@ -108,7 +108,7 @@ With suggestions 3 and 4 also applied, Match's search core (PR-C1) would start i
 - [x] 1.1 Read the code guidelines, the intake architecture and the doc's Part 1. Correcting an observation replaces its readings in place and sets `operator_edited` (`capture/evidence-observations.ts:968-985`), so `read_batch` projects only the current markings; the brief's corrections need the reading before and after, so task 1 retains it.
 - [x] 1.2 RED: contract and PG tests for the brief, `/7`, `read_lot`, `read_batch` with full readings, and the stage-instructions claim check.
 - [x] 1.3 GREEN: implement them, retaining the earlier reading, author and time when an observation is corrected. A correction made before this change shows its current reading marked as corrected, with the earlier reading not known. The before-and-after brief test drives a real observation correction.
-- [ ] 1.4 Add a process test with a fake session reading its brief. Update `intake-server/src/agents/ARCHITECTURE.md`, and run the tiers.
+- [x] 1.4 Add a process test with a fake session reading its brief. Update `intake-server/src/agents/ARCHITECTURE.md`, and run the tiers.
 
 ## 2. Typed outputs, boundaries, revisions and no repeated questions
 

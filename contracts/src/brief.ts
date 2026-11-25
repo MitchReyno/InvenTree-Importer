@@ -48,17 +48,21 @@ const human = { source: Type.Literal('human') }
 const shortText = Type.String({ minLength: 1, maxLength: 2048 })
 const longText = Type.String({ minLength: 1, maxLength: 8192 })
 
-/** The batch, its saved instructions (the batch's and each group's latest) and its web policy. */
+/** The batch, its defaults and its web policy. */
 export const BriefBatchEntry = object({
   kind: Type.Literal('batch'),
   batch_id: Id,
   title: Type.String({ minLength: 1, maxLength: 256 }),
   defaults: CaptureDefaults,
-  instructions: Type.Array(
-    object({ instruction_id: Id, group_id: Type.Union([Id, Type.Null()]), text: note }),
-    { maxItems: 101 },
-  ),
   web: object({ public_pages: Type.Boolean(), prefer_datasheets: Type.Boolean() }),
+})
+
+/** One saved instruction: the batch's latest, or an evidence group's latest when it names one. */
+export const BriefInstructionEntry = object({
+  kind: Type.Literal('instruction'),
+  instruction_id: Id,
+  group_id: Type.Union([Id, Type.Null()]),
+  text: note,
 })
 
 /** A note the operator wrote, with the subject it is about (null for the whole batch). */
@@ -222,6 +226,7 @@ export const BriefKeepOutEntry = object({
 
 export const BriefEntry = Type.Union([
   BriefBatchEntry,
+  BriefInstructionEntry,
   BriefNoteEntry,
   BriefAnswerEntry,
   BriefCorrectionEntry,
