@@ -12,6 +12,20 @@ function withColour(name, theme, value) {
   return copy
 }
 
+// Behind the whole window, Settings nav text sits on a word backing or a fill, never on a part.
+const SETTINGS_NAV_STATES = [
+  { state: 'idle link and heading', text: 'fg', ground: 'masthead-ground' },
+  { state: 'idle sublink and back link', text: 'muted', ground: 'masthead-ground' },
+  { state: 'hovered link or sublink', text: 'fg', ground: 'surface-2' },
+  { state: 'hovered back link', text: 'muted', ground: 'surface-2' },
+  { state: 'current section', text: 'fg', ground: 'accent-weak' },
+  { state: 'current subsection', text: 'fg', ground: 'surface-2' },
+]
+
+function colour(name, theme) {
+  return tokens.color.tokens.find((token) => token.name === name).value[theme]
+}
+
 describe('contrast check', () => {
   it('computes WCAG ratios', () => {
     expect(contrastRatio('#000000', '#ffffff')).toBeCloseTo(21, 1)
@@ -45,5 +59,17 @@ describe('contrast check', () => {
       expect.objectContaining({ theme: 'dark', text: 'muted', ground: 'surface', minimum: 4.5 }),
     )
     expect(failures.every((failure) => failure.theme === 'dark')).toBe(true)
+  })
+
+  it('keeps every Settings nav state at 4.5:1 in both themes', () => {
+    for (const theme of tokens.color.themes.map((entry) => entry.id)) {
+      for (const { state, text, ground } of SETTINGS_NAV_STATES) {
+        const ratio = contrastRatio(colour(text, theme), colour(ground, theme))
+
+        expect(ratio, `${state}, ${theme}`).toBeGreaterThanOrEqual(4.5)
+        // The lint check keeps the pair at that level as the tokens change.
+        expect(PAIRS).toContainEqual({ text, ground, minimum: 4.5 })
+      }
+    }
   })
 })

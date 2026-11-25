@@ -441,9 +441,9 @@
   - the contrast table in the PR description.
 - **Risks and decisions:** the parts move behind the column, so the captures are of the running dev app, not a fixture.
 
-- [ ] 17.1 Read the guidelines, `frontend/ARCHITECTURE.md`'s masthead field section and the board with its contrast table.
-- [ ] 17.2 RED: the style-sheet test for the idle, hover and current states on the whole-window field and in the bar, and the token contrast test for every state in both themes.
-- [ ] 17.3 GREEN: implement the transparent nav, the word backing, the list rule and the unchanged states.
+- [x] 17.1 Read the guidelines, `frontend/ARCHITECTURE.md`'s masthead field section and the board with its contrast table.
+- [x] 17.2 RED: the style-sheet test for the idle, hover and current states on the whole-window field and in the bar, and the token contrast test for every state in both themes.
+- [x] 17.3 GREEN: implement the transparent nav, the word backing, the list rule and the unchanged states.
 - [ ] 17.4 Capture both themes and styles, put the contrast table in the PR description, and run the frontend checks.
 
 ## Delivery evidence and lifecycle follow-up

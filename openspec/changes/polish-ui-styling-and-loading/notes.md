@@ -19,6 +19,8 @@ Implementation of the UI polish and calm loading plan, delivered as PR-A to PR-K
 
 - **2026-11-25T21:58+11:00, task 16 (PR-K):** `Settings`, not `AgentsSection`, calls `useSubsectionInView` and passes the subsection to the nav and its route to `replaceSubsection`, because `Settings` renders both the nav and the section; `AgentsSection` only receives `routeFromScroll` to skip its scroll-and-focus Effect. `useHashRoute` couldn't follow a replaced entry, so the Settings fixture now uses `useNavigationGuard` for its route, as the app does.
 
+- **2026-11-25T22:05+11:00, task 17 (PR-K):** the nav heading gets the same word span as the links rather than `onField`, as the task's scope ("a text span per link and heading") and the board draw it; `onField`'s negative start margin would have replaced the heading's own indent. The back link's arrow sits inside its backing with the words, so the icon keeps its contrast too. The contrast test (`scripts/check-contrast.test.mjs`) passed from the start: every state's text and ground was already a documented pair; it now also requires those pairs to stay in the lint check.
+
 ## Unexpected challenges
 
 - **2026-11-24T02:56+11:00, task 9 (PR-E):** The Capture fixtures' media clients refuse uploads on purpose, so the drop and paste checks and the demo used a throwaway copy of `GroupedCaptureProof` with a slowed in-memory upload, not committed. Headless browsers have no file manager or clipboard files, so drops and pastes were dispatched with a real `DataTransfer` of files. The installed Playwright has no matching WebKit build, so desktop Safari was not checked.
@@ -29,6 +31,8 @@ Implementation of the UI polish and calm loading plan, delivered as PR-A to PR-K
 - **2026-11-24T10:00+11:00, task 5 (PR-C):** moving Capture's media read onto `useFreshRead` changed test timing enough to expose a focus leak: a delete dialog closed because its workspace unmounted still ran `returnFocus`, which focused a same-id group region on the next page. `MediaWorkspace` now moves no focus once it has unmounted.
 
 - **2026-11-24T16:34+11:00, task 12 (PR-G, fixed in the follow-up PR-G2):** the first live read on the real VM reported Claude correctly but Codex `unknown`/`timeout` on every one of five reads, each taking 1.1–1.4 s. The guest's share of the API's 2 s is 1.5 s, less 0.5 s kept for cleanup, and a Codex read had to spawn a fresh `codex app-server`, initialize and run `account/read` in that second. Measured on the real VM with Mitch's approval, one such read took 1498 ms cold and 1872 ms for a second read (`signed_in`, VM idle, 2 CPUs, load 0.45), so it can never fit, and it is slower under load. PR-G's tests used a fake account RPC that answered at once.
+
+- **2026-11-25T22:05+11:00, task 17 (PR-K):** the Settings fixture has no masthead scene, so its whole-window captures show the dotted ground with stand-in part outlines placed behind the nav by the capture script, not the electronics; captures of the running app follow after merge. `screenshots:frontend` reports 24–57 px changed at the model pickers' bottom corners on the Settings fixture at 1440 px on the unchanged base as well, so that difference isn't this change's.
 
 ## Decisions made during implementation
 

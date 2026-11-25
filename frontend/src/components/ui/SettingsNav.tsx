@@ -1,6 +1,6 @@
 import { Fragment } from 'react'
 import styled, { css } from 'styled-components'
-import { groundBehindOnField } from './field'
+import { onWholeWindow } from './field'
 import { color, icon, radius, size, space, type, typeVar } from '#/theme/generated/tokens'
 import { AiMark } from './AiMark'
 import { BackIcon } from './icons'
@@ -44,14 +44,20 @@ export function SettingsNav({
   return (
     <Nav aria-label="Settings">
       <Back href={back.href}>
-        <BackIcon />
-        Back to {back.label}
+        <Words>
+          <BackIcon />
+          Back to {back.label}
+        </Words>
       </Back>
-      <Heading as={headingLevel}>Settings</Heading>
+      <Heading as={headingLevel}>
+        <Words>Settings</Words>
+      </Heading>
       {sections.map((section) => (
         <Fragment key={section.id}>
           <Section href={section.href} aria-current={section.id === current ? 'page' : undefined}>
-            {section.agent ? <AiMark size="sm">{section.label}</AiMark> : section.label}
+            <Words>
+              {section.agent ? <AiMark size="sm">{section.label}</AiMark> : section.label}
+            </Words>
           </Section>
           {section.id === current && section.subsections && (
             <Subsections role="group" aria-label={`${section.label} sections`}>
@@ -61,7 +67,7 @@ export function SettingsNav({
                   href={subsection.href}
                   aria-current={subsection.id === currentSubsection ? 'location' : undefined}
                 >
-                  {subsection.label}
+                  <Words>{subsection.label}</Words>
                 </Subsection>
               ))}
             </Subsections>
@@ -77,7 +83,29 @@ const Nav = styled.nav`
   flex-direction: column;
   gap: ${space[1]};
   min-width: 0;
-  ${groundBehindOnField}
+`
+
+/**
+ * A link's or heading's words. Behind the whole window the nav has no background, so parts
+ * show around the links; only the words get a snug patch of ground, which a link's own fill
+ * replaces on hover and for the current page. The negative margin keeps the words in place.
+ */
+const Words = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: ${space[4]};
+  ${onWholeWindow} & {
+    background-color: ${color.mastheadGround};
+    /* literal-allowed: the backing hugs the words, tighter than any spacing token */
+    padding: 1px 5px;
+    /* literal-allowed: cancels the backing's padding so the words stay where they were */
+    margin: -1px -5px;
+    border-radius: ${radius.sm};
+  }
+  ${onWholeWindow} a:hover > &,
+  ${onWholeWindow} a[aria-current] > & {
+    background-color: transparent;
+  }
 `
 
 const link = css`
@@ -133,6 +161,11 @@ const Subsections = styled.div`
   margin: 0 0 ${space[3]} ${space[9]};
   padding-left: ${space[4]};
   border-left: 1px solid ${color.line};
+  /* Behind the whole window the rule is drawn as a line, so it shows between backed words. */
+  ${onWholeWindow} & {
+    border-left-color: transparent;
+    background: linear-gradient(${color.line}, ${color.line}) 0 0 / 1px 100% no-repeat;
+  }
 `
 
 const Subsection = styled.a`
