@@ -227,9 +227,10 @@ export function useModelCatalog(
     authentication: Authentication,
     { late = false }: { late?: boolean } = {},
   ) {
-    // A late answer to a closed dialog repeats the newest change rather than replacing it.
-    const known = changesNow().latest[provider]
-    if (!late || known === undefined) {
+    // A late answer to a closed dialog only backs up the newest change: its acknowledgement
+    // settles that change, and its refusal leaves the newest change's own outcome as it is.
+    const repeats = late && changesNow().latest[provider] !== undefined
+    if (!repeats) {
       changeVersion += 1
       const next = changeVersion
       updateChanges((changes) => ({ ...changes, latest: { ...changes.latest, [provider]: next } }))
@@ -245,7 +246,11 @@ export function useModelCatalog(
       acknowledged = false
     }
     // Only the newest change records its outcome; an older one answering late changes nothing.
-    if (!newest()) {
+    if (!newest() || (repeats && !acknowledged)) {
+      return
+    }
+    if (repeats) {
+      settle(provider, version)
       return
     }
     updateChanges((changes) => {

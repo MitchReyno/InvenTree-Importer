@@ -310,3 +310,24 @@ test('a late answer to a closed dialog never lets a newer refused change go unma
   await advance(0)
   expect(result.current.viewsFor().claude.state).toBe('stale_sign_in')
 })
+
+test('a late answer refused after the newest change recovered leaves the new list as it is', async () => {
+  const client = source(modelCatalog())
+  const { result } = mount(client)
+  await advance(0)
+  const late = deferred<Awaited<ReturnType<typeof client.refreshModelCatalog>>>()
+  const saved = result.current.signInChanged('claude', 'subscription')
+  client.refreshModelCatalog.mockReturnValueOnce(late.promise)
+  const lateAnswer = result.current.signInChanged('claude', 'subscription', { late: true })
+  await act(() => saved)
+  // The newest change was acknowledged and the list read under it has landed.
+  client.modelCatalog.mockResolvedValue(modelCatalog())
+  await advance(1_100)
+  expect(result.current.viewsFor().claude.state).toBe('current')
+  // The late answer is refused while the server can't be reached at all.
+  client.refreshModelCatalog.mockRejectedValue(new Error('offline'))
+  late.reject(new Error('offline'))
+  await act(() => lateAnswer)
+  await advance(1_100)
+  expect(result.current.viewsFor().claude.state).toBe('current')
+})
