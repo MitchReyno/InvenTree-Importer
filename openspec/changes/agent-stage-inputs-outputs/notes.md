@@ -73,7 +73,7 @@ A sealed brief keeps its bytes, but nothing of evidence removed since reaches th
 
 ## Task 5 (PR-E1) status
 
-In progress. Task 5 (PR-E1) adds recipe `/2` and the decoder operations behind `inspect_region`, `preview_images` and `match_logo`; nothing outside tests calls them yet. Task 1 (PR-A) is recorded above.
+Merged in #274. Task 5 (PR-E1) adds recipe `/2` and the decoder operations behind `inspect_region`, `preview_images` and `match_logo`; nothing outside tests calls them yet. Task 1 (PR-A) is recorded above.
 
 ## Changes to the plan
 
