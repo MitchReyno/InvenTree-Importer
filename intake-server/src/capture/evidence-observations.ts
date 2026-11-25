@@ -1033,8 +1033,11 @@ async function markSameItem(
         .where(inArray(captureEvidenceObservations.id, ids)),
     )
 
+  // Every observation whose mark changes, with its mark before and after.
+  const marked: { id: string; before: string | null; after: string | null }[] = []
   if (!target) {
     await edited([row.id], null)
+    marked.push({ id: row.id, before: row.sameItemAs, after: null })
   } else {
     if (!row.lotId || row.lotId !== target.lotId) {
       fail('same_item_different_lots', 409)
@@ -1053,14 +1056,56 @@ async function markSameItem(
           ),
       )
       await edited([row.id, ...followers.map((follower) => follower.id)], root)
+      marked.push({ id: row.id, before: row.sameItemAs, after: root })
+      for (const follower of followers) {
+        marked.push({ id: follower.id, before: row.id, after: root })
+      }
     }
     await edited([target.id])
   }
+  await sameItemChanged(client, batchId, marked, target?.id, revision)
   if (row.lotId) {
     await markLotEdited(client, row.lotId, revision)
     // The lot's count changed, so the lead session re-estimates it counting the item once.
     await setReexamine(client, row.lotId, true)
     await recordReexamine(client, batchId, row.lotId, revision, 'same_item_changed', row.id)
+  }
+}
+
+/**
+ * A same-item mark set or cleared changes what the observations it touches say, so what relied on
+ * them, including the observation the others are now marked the same as, is stale as for a
+ * correction, each told with the mark before and after.
+ */
+async function sameItemChanged(
+  client: PoolClient,
+  batchId: string,
+  marked: readonly { id: string; before: string | null; after: string | null }[],
+  targetId: string | undefined,
+  revision: bigint,
+) {
+  const changed = marked.filter((mark) => mark.before !== mark.after)
+  if (!changed.length) {
+    return
+  }
+  // Loaded on use: Processing depends on capture, so capture must not import it eagerly.
+  const { observationCorrected } = await import('#/processing/currentness.ts')
+  for (const mark of changed) {
+    await observationCorrected(client, {
+      batchId,
+      observationId: mark.id,
+      sameItem: { observationId: mark.id, before: mark.before, after: mark.after },
+      revision: revision.toString(),
+    })
+  }
+  if (targetId) {
+    const first = changed[0]
+    await observationCorrected(client, {
+      batchId,
+      observationId: targetId,
+      sameItem: { observationId: first.id, before: first.before, after: first.after },
+      revision: revision.toString(),
+    })
   }
 }
 

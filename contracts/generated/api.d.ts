@@ -37922,6 +37922,12 @@ export interface components {
                 count_to: number | null;
             } | {
                 /** @constant */
+                kind: "same_item";
+                observation_id: string;
+                same_as_from: string | null;
+                same_as_to: string | null;
+            } | {
+                /** @constant */
                 kind: "observation";
                 observation_id: string;
                 lot_from: string | null;
@@ -38082,6 +38088,12 @@ export interface components {
             observation_id: string;
             count_from: number | null;
             count_to: number | null;
+        } | {
+            /** @constant */
+            kind: "same_item";
+            observation_id: string;
+            same_as_from: string | null;
+            same_as_to: string | null;
         } | {
             /** @constant */
             kind: "observation";
@@ -38331,6 +38343,12 @@ export interface components {
                         observation_id: string;
                         count_from: number | null;
                         count_to: number | null;
+                    } | {
+                        /** @constant */
+                        kind: "same_item";
+                        observation_id: string;
+                        same_as_from: string | null;
+                        same_as_to: string | null;
                     } | {
                         /** @constant */
                         kind: "observation";
@@ -40592,6 +40610,12 @@ export interface components {
                     observation_id: string;
                     count_from: number | null;
                     count_to: number | null;
+                } | {
+                    /** @constant */
+                    kind: "same_item";
+                    observation_id: string;
+                    same_as_from: string | null;
+                    same_as_to: string | null;
                 } | {
                     /** @constant */
                     kind: "observation";

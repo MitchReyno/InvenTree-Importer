@@ -966,12 +966,37 @@ test('a publishing /7 ask returns a question already asked unless it brings some
   const ledQuestion = syntheticQuestion(ledResearch.lot.id)
   const open = await result(session.ask(ledSession, ledQuestion))
   assert.equal((await result(session.ask(ledSession, ledQuestion))).id, open.id)
-  // Another overlapping question, which would cover the replacing ask, doesn't swallow it.
+  // Another overlapping question, which would cover the replacing ask, doesn't swallow it. Its
+  // figure of evidence the open question didn't show is new evidence, so it is stored.
   const ledImages = await stageJob(batch, 'led 0603 red', 'images')
   const ledImager = await running(fixture, ledImages.attemptId)
-  const overlapping = await result(
-    session.ask(ledImager, { ...ledQuestion, new_evidence: newEvidence }),
+  const fetched = await result(
+    session.fetch_evidence(ledImager, {
+      evidence_id: evidence.rows[0].evidence_id,
+      version_id: version.evidence_version_id,
+    }),
   )
+  await recordPhotoRelease(fixture.runner.pool, ledImages.attemptId, String(fetched.view_seq))
+  const reelFigure = [
+    {
+      source: {
+        kind: 'evidence_page',
+        evidence_id: evidence.rows[0].evidence_id,
+        version_id: version.evidence_version_id,
+        page: 1,
+      },
+      view: {
+        region: { x: 0, y: 0, width: 384, height: 256 },
+        quarter_turns: 0,
+        straighten_millidegrees: 0,
+      },
+      caption: 'The reel',
+      why: 'Count from it.',
+    },
+  ]
+  const overlapping = await result(session.ask(ledImager, { ...ledQuestion, figures: reelFigure }))
+  assert.equal(overlapping.ok, true, JSON.stringify(overlapping))
+  assert.equal(overlapping.existing_question, undefined)
   assert.notEqual(overlapping.id, open.id)
   const replacing = await result(session.ask(ledSession, { ...ledQuestion, replaces: open.id }))
   assert.equal(replacing.ok, true, JSON.stringify(replacing))
@@ -984,13 +1009,6 @@ test('a publishing /7 ask returns a question already asked unless it brings some
 
   // A preview beside the open question follows the preview rules: it queues its renders and
   // stores nothing, rather than returning the open question.
-  const fetched = await result(
-    session.fetch_evidence(ledImager, {
-      evidence_id: evidence.rows[0].evidence_id,
-      version_id: version.evidence_version_id,
-    }),
-  )
-  await recordPhotoRelease(fixture.runner.pool, ledImages.attemptId, String(fetched.view_seq))
   const before = await questionCount()
   const preview = await result(
     session.ask(ledImager, {
@@ -1026,6 +1044,9 @@ test('a publishing /7 ask returns a question already asked unless it brings some
   assert.equal(await questionCount(), before)
   const published = await result(session.ask(ledImager, ledQuestion))
   assert.equal(published.id, replacing.id)
+  // A figure of evidence an earlier question already showed brings nothing new.
+  const sameFigure = await result(session.ask(ledImager, { ...ledQuestion, figures: reelFigure }))
+  assert.equal(sameFigure.existing_question?.question.question_id, overlapping.id)
 })
 
 test('an earlier session’s ask is never checked for repeats', async (t) => {
@@ -1932,4 +1953,45 @@ test('a count-only correction stales what relied on the observation; Start fresh
     },
   )) as { attempt_ids: string[] }
   assert.deepEqual((await inputOf(fixture, receipt.attempt_ids[0])).manifest.match, gapsMatch)
+})
+
+test('marking observations as the same item stales what relied on them', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, deps, batchId, leadJob, leadAttempt } = batch
+  // A later photo of the same reel joins the LED lot, so it has two observations.
+  await photoWithNote(fixture, batchId, 'Reel', 'LED 0603 red')
+  await triggerExamine(fixture.writer.pool, fixture.config, { quietMs: 0 })
+  await transaction(fixture.runner.pool, (client) => queueSessionResume(client, leadJob))
+  assert.equal(await runSessionTurn(deps, leadAttempt, new AbortController().signal), 'finished')
+  const led = await batch.lot('led 0603 red')
+  const [first, second] = led.evidence_observation_ids!
+  assert.ok(first && second)
+  const pinned = (
+    await inputOf(fixture, (await stageJob(batch, 'led 0603 red', 'research')).attemptId)
+  ).manifest.pinned_proposal_ids
+  assert.equal(
+    await transaction(fixture.runner.pool, (client) => pinnedIdentityCurrent(client, pinned)),
+    true,
+  )
+  await edit(fixture, batchId, {
+    kind: 'observation_same_item',
+    observation_id: second,
+    same_as: first,
+  })
+  // The identity relied on both observations as separate items, so its successors can't start.
+  assert.equal(
+    await transaction(fixture.runner.pool, (client) => pinnedIdentityCurrent(client, pinned)),
+    false,
+  )
+  const told = (await revisions(fixture, leadJob)).flatMap((item) => item.changes ?? [])
+  assert.ok(
+    told.some(
+      (change) =>
+        change.kind === 'same_item' &&
+        change.observation_id === second &&
+        change.same_as_from === null &&
+        change.same_as_to === first,
+    ),
+    JSON.stringify(told),
+  )
 })

@@ -2233,12 +2233,20 @@ export function sessionTools(context: SessionToolContext) {
             await requireNamedEvidence(client, principal, basis)
           }
           if (basis && ask.replaces === undefined) {
+            // A figure of evidence the earlier question didn't show is new evidence too.
+            const shown = figures.map((item) => ({
+              evidence_id: item.figure.source.evidence_id,
+              version_id: item.recipe.source_version_id,
+            }))
             const existing = await coveringQuestion(
               client,
               context.config,
               capture!.snapshot,
               ask,
-              basis,
+              {
+                ...basis,
+                evidence: [...basis.evidence, ...shown],
+              },
             )
             if (existing) {
               return ok(client, principal, {

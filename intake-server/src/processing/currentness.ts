@@ -802,6 +802,8 @@ export async function observationCorrected(
     region?: { before: EvidenceRegionDto; after: EvidenceRegionDto }
     /** How many items it shows before and after, when that changed. */
     count?: { before: number | null; after: number | null }
+    /** A same-item mark set or cleared, on this observation or on one now marked the same as it. */
+    sameItem?: { observationId: string; before: string | null; after: string | null }
     revision: string
     /** The operator's correction, or the Examine session revising its own observation. */
     origin?: RevisionContext['origin']
@@ -873,6 +875,16 @@ export async function observationCorrected(
             observation_id: input.observationId,
             region_from: input.region.before,
             region_to: input.region.after,
+          },
+        ]
+      : []),
+    ...(input.sameItem
+      ? [
+          {
+            kind: 'same_item' as const,
+            observation_id: input.sameItem.observationId,
+            same_as_from: input.sameItem.before,
+            same_as_to: input.sameItem.after,
           },
         ]
       : []),

@@ -190,6 +190,10 @@ function answeredChanges(
   const quantityOf = (snapshot: CaptureSnapshotDto) =>
     quantityText(snapshot.lots.find((lot) => lot.id === subjectId)?.quantity)
 
+  // A number equal to the quantity Capture held changes nothing there.
+  if (quantityOf(before) === quantityOf(after)) {
+    return [answer]
+  }
   return [
     answer,
     {
