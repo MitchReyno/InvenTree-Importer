@@ -50,7 +50,7 @@
 | PR-F | Outputs into records and approval, and validation before approval | 6 | Everything that reaches InvenTree, reviewed together | PR-C, PR-D, PR-E2 | `interactive-app` ← `feat/agent-stage-inputs-outputs-records`; `feat(agent-stage-inputs-outputs): confirmed agent output reaches records and approval` | Intake tiers including execution tests, frontend checks; review; CI |
 | PR-I | Multi-lot Research and Images sessions | 9 | One session model change with its settings, claim, routing and UI | PR-D, PR-E2; BI-019 PR-E and PR-G | `interactive-app` ← `feat/agent-stage-inputs-outputs-lot-groups`; `feat(agent-stage-inputs-outputs): run research and images sessions over several lots` | Contracts tests, intake tiers, frontend checks; demo video; review; CI |
 | PR-G1 | The profile scaffold, instruction packs and guides, behind the test-only switch | 7 | Lets the long pack and guide work start early; nothing selects the profile yet | PR-A | `interactive-app` ← `feat/agent-stage-inputs-outputs-profile-scaffold`; `feat(agent-stage-inputs-outputs): add the stage profile, packs and guides` | Profile and guide tests, intake tiers; Mitch's review of the wording; review; CI |
-| PR-G2 | Activation, cutover and the live requalification | 11 | The behaviour change and its live proof together | All other PRs; BI-019 PR-F (the popover's Match row); Mitch's go-ahead for the live run | `interactive-app` ← `feat/agent-stage-inputs-outputs-activation`; `feat(agent-stage-inputs-outputs): switch on the stage profile` | Admission tests, intake tiers, frontend checks; demo video; live evidence on the PR; review; CI |
+| PR-G2 | Activation, cutover and the live requalification | 11 | The behaviour change and its live proof together | All other PRs; BI-019 PR-F (the popover's Match row); BI-023 PR-F (step instructions in multi-lot groups); Mitch's go-ahead for the live run | `interactive-app` ← `feat/agent-stage-inputs-outputs-activation`; `feat(agent-stage-inputs-outputs): switch on the stage profile` | Admission tests, intake tiers, frontend checks; demo video; live evidence on the PR; review; CI |
 | PR-H | The brief on the session page | 8 | UI over PR-A, after the page exists | PR-A; BI-019 PR-E | `interactive-app` ← `feat/agent-stage-inputs-outputs-brief-page`; `feat(agent-stage-inputs-outputs): show the brief a session started from` | Intake tiers; frontend checks; demo video; review; CI |
 
 ## Parallel work
@@ -59,6 +59,8 @@ How the PR map above lets work run at the same time. A PR can start once every P
 
 **External gates** (BI-019): BI-019 PR-B (#251), PR-D1 (#257), PR-E (#263) and PR-F (#258) have merged, so they no longer hold anything back. Still open: PR-I waits for BI-019 PR-G, and since 2026-11-24 PR-E1 waits for BI-019 PR-K (question pictures), which introduces the view recipe and decoder operation that recipe `/2` extends; PR-K itself follows BI-019 PR-J, a chain BI-019 PR-J → PR-K → this change's PR-E1.
 
+**External gate** (BI-023): PR-G2 waits for BI-023 PR-F, which keeps each multi-lot group's step instructions consistent before `/7` is switched on. BI-023 PR-F itself needs this change's PR-I.
+
 | Wave | Can run in parallel | Waits for |
 | --- | --- | --- |
 | 1 | PR-A (and drafting the pack wording for PR-G1) | PR-0 (merged); can start now |
@@ -66,9 +68,9 @@ How the PR map above lets work run at the same time. A PR can start once every P
 | 3 | PR-C · PR-E2 | PR-B (both); PR-E1 (PR-E2) |
 | 4 | PR-D | PR-C (PR-E2 may still be in progress) |
 | 5 | PR-F · PR-I | PR-C, PR-D and PR-E2 (PR-F); PR-D, PR-E2, BI-019 PR-E and PR-G (PR-I) |
-| 6 | PR-G2 | everything else; BI-019 PR-F; Mitch's go-ahead for the live run |
+| 6 | PR-G2 | everything else; BI-019 PR-F; BI-023 PR-F; Mitch's go-ahead for the live run |
 
-- **Critical path:** PR-A → PR-B → PR-C → PR-D → PR-F → PR-G2 and PR-A → PR-B → PR-C → PR-D → PR-I → PR-G2, six PRs in sequence each; the BI-019 gates and actual PR durations decide which is longer. PR-E1, PR-E2, PR-G1 and PR-H have slack, though PR-E1 now waits for BI-019 PR-J and PR-K: if they land late, BI-019 PR-K → PR-E1 → PR-E2 → PR-F → PR-G2 can become the longer path.
+- **Critical path:** PR-A → PR-B → PR-C → PR-D → PR-F → PR-G2 and PR-A → PR-B → PR-C → PR-D → PR-I → PR-G2, six PRs in sequence each; the BI-019 gates and actual PR durations decide which is longer. PR-E1, PR-E2, PR-G1 and PR-H have slack, though PR-E1 now waits for BI-019 PR-J and PR-K: if they land late, BI-019 PR-K → PR-E1 → PR-E2 → PR-F → PR-G2 can become the longer path. BI-023 PR-F sits between PR-I and PR-G2, so PR-A → PR-B → PR-C → PR-D → PR-I → BI-023 PR-F → PR-G2 is seven PRs.
 - **Most parallel moment:** wave 2 lists four PRs; waves 3 and 5 list two each. Waves are a guide, not a limit: PR-E1 starts whenever BI-019 PR-K merges, independently of PR-A, so four PRs can be in progress at once. PR-H can run alongside anything from wave 2 on.
 - **Conflicts to expect between parallel PRs:** PR-C and PR-E2 both add session tools to `agents/tools/server.ts` and `handlers.ts` and both add migrations, so whichever merges second rebases and renumbers its migration. PR-F and PR-I both touch the Processing read and session rows.
 
