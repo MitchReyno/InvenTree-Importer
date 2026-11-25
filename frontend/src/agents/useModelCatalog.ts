@@ -69,24 +69,25 @@ function markedStale(
 type Authentication = AgentSelectionDto['authentication']
 
 /**
- * A provider's invalidation attempts, numbered as they are sent. The server marks the list when
- * it acknowledges one, after every sign-in change made before it was sent; so the list must stay
- * marked here while a refused attempt is newer than every acknowledged one.
+ * A provider's sign-in changes and the invalidations that cover them. Changes are numbered as
+ * they are made; an invalidation the server acknowledges covers every change made before it was
+ * sent, since the server marks the list then. The list stays marked here while a change is newer
+ * than every covered one; a refusal covers nothing and adds nothing.
  */
-type Attempts = { acknowledged: number; refused: number; authentication: Authentication }
+type Changes = { latest: number; covered: number; authentication: Authentication }
 
-type InvalidationAttempts = Partial<Record<AgentProviderId, Attempts>>
+type SignInChanges = Partial<Record<AgentProviderId, Changes>>
 
-const NONE: InvalidationAttempts = {}
+const NONE: SignInChanges = {}
 
 const PROVIDERS = ['claude', 'codex'] as const satisfies readonly AgentProviderId[]
 
-/** Numbers invalidation attempts across every view of the catalogue in this tab. */
-let attemptCount = 0
+/** Numbers sign-in changes across every view of the catalogue in this tab. */
+let changeCount = 0
 
-/** Whether a provider's list must stay marked: a refused attempt no acknowledgement covers. */
-function unacknowledged(attempts: Attempts | undefined): attempts is Attempts {
-  return attempts !== undefined && attempts.refused > attempts.acknowledged
+/** Whether a provider's list must stay marked: a change no acknowledged invalidation covers. */
+function uncovered(changes: Changes | undefined): changes is Changes {
+  return changes !== undefined && changes.latest > changes.covered
 }
 
 /** Each provider's current authentication, so a list read for another one is never trusted. */
@@ -105,10 +106,10 @@ export function useModelCatalog(
   const scope = useServerScope()
   const queryClient = useQueryClient()
   const queryKey = serverQueryKey(scope, 'model-catalog')
-  const attemptsKey = serverQueryKey(scope, 'model-catalog', 'invalidations')
+  const changesKey = serverQueryKey(scope, 'model-catalog', 'sign-in-changes')
   // Kept beside the read rather than in this view, so another view and a remount honour it too.
   useQuery({
-    queryKey: attemptsKey,
+    queryKey: changesKey,
     queryFn: () => NONE,
     enabled: false,
     initialData: NONE,
@@ -116,85 +117,79 @@ export function useModelCatalog(
     gcTime: Infinity,
   })
 
-  function attemptsNow() {
-    return queryClient.getQueryData<InvalidationAttempts>(attemptsKey) ?? NONE
+  function changesNow() {
+    return queryClient.getQueryData<SignInChanges>(changesKey) ?? NONE
   }
 
-  /** Records an attempt's outcome; a newer outcome of either kind is never replaced. */
-  function record(
+  function updateChanges(
     provider: AgentProviderId,
     authentication: Authentication,
-    outcome: { acknowledged: number } | { refused: number },
+    update: (changes: Changes) => Changes,
   ) {
-    queryClient.setQueryData<InvalidationAttempts>(attemptsKey, (all = NONE) => {
-      const known = all[provider] ?? { acknowledged: 0, refused: 0, authentication }
-      const next =
-        'acknowledged' in outcome
-          ? { ...known, acknowledged: Math.max(known.acknowledged, outcome.acknowledged) }
-          : { ...known, refused: Math.max(known.refused, outcome.refused), authentication }
-      return { ...all, [provider]: next }
+    queryClient.setQueryData<SignInChanges>(changesKey, (all = NONE) => {
+      const known = all[provider] ?? { latest: 0, covered: 0, authentication }
+      return { ...all, [provider]: update(known) }
     })
   }
 
-  /** Sends one invalidation attempt and records how it went. */
-  async function attempt(provider: AgentProviderId, authentication: Authentication) {
-    attemptCount += 1
-    const sent = attemptCount
+  /**
+   * Sends an invalidation covering every change made so far. An acknowledgement covers them; a
+   * refusal leaves them for the next attempt.
+   */
+  async function invalidate(provider: AgentProviderId, authentication: Authentication) {
+    const covers = changesNow()[provider]?.latest ?? 0
     try {
       await client!.refreshModelCatalog!({ provider, authentication, invalidate: true })
-      record(provider, authentication, { acknowledged: sent })
     } catch {
-      record(provider, authentication, { refused: sent })
+      return
     }
+    updateChanges(provider, authentication, (changes) => ({
+      ...changes,
+      covered: Math.max(changes.covered, covers),
+    }))
   }
 
   /**
-   * Sends an invalidation again for each provider whose list is still marked here. A view that
-   * can't send one leaves it for one that can.
+   * Sends an invalidation again for each provider whose list is still marked here, unless the
+   * read was cancelled meanwhile. A view that can't send one leaves it for one that can.
    */
-  async function sendPending() {
+  async function sendPending(signal: AbortSignal) {
     if (!client?.refreshModelCatalog) {
       return
     }
     for (const provider of PROVIDERS) {
-      const waiting = attemptsNow()[provider]
-      if (unacknowledged(waiting)) {
-        await attempt(provider, waiting.authentication)
+      const waiting = changesNow()[provider]
+      if (signal.aborted) {
+        return
+      }
+      if (uncovered(waiting)) {
+        await invalidate(provider, waiting.authentication)
       }
     }
   }
 
   /**
-   * A read of the list. A provider with a refused attempt no acknowledgement covers stays marked
-   * as from an earlier sign-in, as does one that had such an attempt when this read was sent,
-   * since the answer may predate the server's mark. A read sent after a refused attempt that
-   * finds the server has marked the list itself covers that attempt. A cancelled read is unused.
+   * A read of the list. A provider with a change no acknowledged invalidation covers stays marked
+   * as from an earlier sign-in, as does one that had such a change when this read was sent, since
+   * the answer may predate the server's mark. A cancelled read sends nothing more and is unused.
    */
   async function readCatalog({ signal }: { signal: AbortSignal }) {
-    await sendPending()
-    const sentWith = attemptsNow()
+    await sendPending(signal)
+    if (signal.aborted) {
+      throw new Error('model_catalog_read_cancelled')
+    }
+    const sentWith = changesNow()
     const answered = await client!.modelCatalog()
     if (signal.aborted) {
       throw new Error('model_catalog_read_cancelled')
     }
-    for (const provider of PROVIDERS) {
-      const waiting = sentWith[provider]
-      const listed = answered[provider]
-      const markedByServer =
-        unacknowledged(waiting) &&
-        listed.authentication === waiting.authentication &&
-        listed.state === 'stale_sign_in'
-      if (markedByServer) {
-        record(provider, waiting.authentication, { acknowledged: waiting.refused })
-      }
-    }
     let catalog = answered
     for (const provider of PROVIDERS) {
-      const waiting = attemptsNow()[provider]
+      const waiting = changesNow()[provider]
       const waited = sentWith[provider]
-      if (unacknowledged(waiting)) {
+      if (uncovered(waiting)) {
         catalog = markedStale(catalog, provider, waiting.authentication)
-      } else if (unacknowledged(waited) && answered[provider].state !== 'stale_sign_in') {
+      } else if (uncovered(waited)) {
         catalog = markedStale(catalog, provider, waited.authentication)
       }
     }
@@ -224,14 +219,21 @@ export function useModelCatalog(
 
   /**
    * A sign-in change the VM confirmed, or may have made, for the provider's `authentication`.
-   * Its invalidation is sent, and whatever the answer this view marks that list as from an
-   * earlier sign-in before the read it starts, so it never shows the old list as current. A
-   * refused attempt keeps the list marked, and is sent again before each read, until a newer
-   * attempt is acknowledged or a read finds the server has marked the list itself.
+   * It is numbered and its invalidation sent; whatever the answer, this view marks that list as
+   * from an earlier sign-in before the read it starts, so it never shows the old list as current.
+   * Until an acknowledged invalidation sent after it covers it, the list stays marked and one is
+   * sent again before each read.
    */
   async function signInChanged(provider: AgentProviderId, authentication: Authentication) {
+    changeCount += 1
+    const change = changeCount
+    updateChanges(provider, authentication, (changes) => ({
+      ...changes,
+      latest: Math.max(changes.latest, change),
+      authentication,
+    }))
     if (client?.refreshModelCatalog) {
-      await attempt(provider, authentication)
+      await invalidate(provider, authentication)
     }
     // A read sent before the change may still answer with the old list as current.
     await queryClient.cancelQueries({ queryKey })

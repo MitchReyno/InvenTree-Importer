@@ -85,7 +85,8 @@ test('an older sign-in confirmation still marking the list never shows over a ne
   view.rerender(settings('agents'))
   await screen.findByRole('group', { name: 'Codex' })
   fireEvent.click(screen.getByRole('button', { name: 'Disconnected' }))
-  await waitFor(() => expect(refreshModelCatalog).toHaveBeenCalledTimes(2))
+  // Both changes have sent their invalidation; a read may resend one too.
+  await waitFor(() => expect(refreshModelCatalog.mock.calls.length).toBeGreaterThanOrEqual(2))
   await act(async () =>
     first.resolve({ provider: 'codex', authentication: 'subscription', stale_sign_in: true }),
   )
