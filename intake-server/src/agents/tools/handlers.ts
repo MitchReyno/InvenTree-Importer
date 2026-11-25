@@ -1462,9 +1462,27 @@ function askOf(
     ])
   }
   return {
-    ask,
+    ask: conflict === undefined ? ask : withConflictShown(ask, conflict),
     basis: { evidence: newEvidence ?? [], conflict: conflict ?? null },
   }
+}
+
+/** A question's reason holds at most this many characters (`ProcessingQuestionSpec`). */
+const QUESTION_REASON_MAX_CHARACTERS = 2048
+
+/**
+ * The conflict that lets a question be asked again is shown to the operator with it: it closes
+ * the question's reason. Too long to fit there, the ask is refused as correctable.
+ */
+function withConflictShown(ask: SessionAskArgsV2Dto, conflict: string): SessionAskArgsV2Dto {
+  const reason = `${ask.reason}\nConflict: ${conflict}`
+  if ([...reason].length > QUESTION_REASON_MAX_CHARACTERS) {
+    const why = 'The reason and the conflict together are too long; shorten one.'
+    throw new ToolRefusal('validation_failed', why, [
+      { path: '/conflict', rule: 'maxLength', reason: why },
+    ])
+  }
+  return { ...ask, reason }
 }
 
 /** Evidence an ask names as new must be evidence this session may fetch, not deleted. */

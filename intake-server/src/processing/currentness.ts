@@ -136,7 +136,8 @@ export async function notifyRevision(
   if (!facts) {
     return
   }
-  const reason = notice.reason.slice(0, 2048)
+  // Cut by code point, as the contract counts, so no surrogate pair is split.
+  const reason = [...notice.reason].slice(0, 2048).join('')
   if (facts.inputVersion !== 'bench-intake-input/7') {
     await append(client, facts, lineageId, idempotencyKey, 'revision', {
       fields: [...notice.fields],
@@ -594,9 +595,9 @@ export async function cascadeAll(
 ) {
   let level = ids
   const all: string[] = []
-  // Real chains are a few levels (identity, then Research or Images, then what cites them);
-  // the bound only guards against a pathological one.
-  for (let depth = 0; level.length && depth < 8; depth += 1) {
+  // Each level stales only proposals not yet stale, so the walk ends, cycles included, and
+  // reaches everything built on them however deep.
+  while (level.length) {
     level = await cascadeStale(client, level, reason, context, collect)
     all.push(...level)
   }
@@ -794,12 +795,16 @@ export async function observationCorrected(
     before: EvidenceReadingsDto
     after: EvidenceReadingsDto
     revision: string
+    /** The operator's correction, or the Examine session revising its own observation. */
+    origin?: RevisionContext['origin']
   },
 ) {
   if (!(await processingVisible(client))) {
     return { stale: [] as string[], notified: [] as string[] }
   }
-  const context: RevisionContext = { origin: { by: 'operator' }, briefRevision: input.revision }
+  const origin = input.origin ?? { by: 'operator' as const }
+  const reason: StaleReason = origin.by === 'operator' ? 'operator_correction' : 'source_superseded'
+  const context: RevisionContext = { origin, briefRevision: input.revision }
   const relying = await client.query<{ id: string; lineage: string }>(
     `SELECT p.id, j.id AS lineage FROM public.processing_proposal p
      JOIN public.processing_attempt a ON a.id=p.attempt_id
@@ -820,15 +825,13 @@ export async function observationCorrected(
   if (ids.length) {
     await client.query(
       `INSERT INTO public.processing_proposal_stale(proposal_id,reason)
-       SELECT unnest($1::uuid[]),'operator_correction' ON CONFLICT DO NOTHING`,
-      [ids],
+       SELECT unnest($1::uuid[]),$2 ON CONFLICT DO NOTHING`,
+      [ids, reason],
     )
   }
   // Everything built on them is stale too; each session is told once, below, with all of it.
   const relied = byLineage(relying.rows)
-  const cascaded = ids.length
-    ? await cascadeAll(client, ids, 'operator_correction', context, relied)
-    : []
+  const cascaded = ids.length ? await cascadeAll(client, ids, reason, context, relied) : []
   await addPinned(client, input.batchId, [...ids, ...cascaded], relied)
   const lot = await client.query<{ lot_id: string }>(
     `SELECT lot_id FROM public.capture_lot_evidence_observation
@@ -863,20 +866,23 @@ export async function observationCorrected(
       `reading:${input.observationId}:${input.revision}:${lineage}`,
       {
         fields: ['markings', 'identity'],
-        reason:
-          lineage === lead
-            ? 'The operator corrected an observation’s reading; look at its lot again.'
-            : 'The operator corrected a reading this lot relies on; revise what relied on it.',
-        changes: [
-          reading,
-          ...(await staleChanges(client, relied.get(lineage)!, 'operator_correction')),
-        ],
+        reason: correctionReason(origin, lineage === lead),
+        changes: [reading, ...(await staleChanges(client, relied.get(lineage)!, reason))],
       },
       context,
     )
     notified.push(lineage)
   }
   return { stale: ids, notified }
+}
+
+function correctionReason(origin: RevisionContext['origin'], lead: boolean) {
+  if (origin.by === 'session') {
+    return 'Examine revised an observation’s reading; revise what relied on its earlier reading.'
+  }
+  return lead
+    ? 'The operator corrected an observation’s reading; look at its lot again.'
+    : 'The operator corrected a reading this lot relies on; revise what relied on it.'
 }
 
 /**

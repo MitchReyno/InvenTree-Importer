@@ -479,6 +479,17 @@ export async function recordObservation(
           })
           .where(eq(captureEvidenceObservations.id, row.id)),
       )
+      // What relied on the observation at its earlier revision rests on what Examine revised.
+      validate('EvidenceReadings', row.readings)
+      const { observationCorrected } = await import('#/processing/currentness.ts')
+      await observationCorrected(client, {
+        batchId: writer.batchId,
+        observationId: row.id,
+        before: row.readings as EvidenceReadingsDto,
+        after: args.readings,
+        revision: next.toString(),
+        origin: { by: 'session', attemptId: writer.sessionId },
+      })
     }
   } else {
     await executeDatabaseQuery(

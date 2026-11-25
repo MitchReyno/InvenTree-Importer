@@ -670,7 +670,8 @@ test('each revision sender names its changes, who made them and the brief revisi
       proposal: {
         schema_version: 'examine-identity/1',
         subject_id: led.lot.id,
-        summary: 'Red 0603 LEDs.',
+        // Long enough that its release notice is cut where a surrogate pair would split.
+        summary: `${'a'.repeat(2011)}💡`,
         sources: [note],
         relies_on: {
           fields: ['markings', 'identity'],
@@ -940,6 +941,15 @@ test('a publishing /7 ask returns a question already asked unless it brings some
   )
   assert.equal(withConflict.existing_question, undefined)
   assert.equal(await questionCount(), asked + 2)
+  // The conflict that let it be asked again is shown to the operator with the question.
+  const shownTo = await fixture.db.pool.query<{ spec: { reason: string } }>(
+    "SELECT convert_from(spec_bytes,'UTF8')::jsonb AS spec FROM processing_question WHERE id=$1",
+    [withConflict.id],
+  )
+  assert.ok(
+    shownTo.rows[0].spec.reason.endsWith('\nConflict: Label count against the reel weight'),
+    shownTo.rows[0].spec.reason,
+  )
   // Evidence the session may not fetch is refused.
   const unknown = await result(
     session.ask(imager, {
@@ -1679,8 +1689,30 @@ test('a /7 identity can’t rely on one it retires, and what relied on the retir
   // Nor on what was built on the one it retires: the earlier identity and the successors pinned
   // to it stay as they were.
   const successorsBefore = await batch.successors(led.id)
+  // However long the chain: nine proposals each relying on the one before.
+  let link = String(dependent.id)
+  for (let hop = 0; hop < 9; hop += 1) {
+    const next = await result(
+      session.propose(lead, {
+        proposal: {
+          schema_version: 'examine-identity/1',
+          subject_id: crystal.id,
+          summary: `Link ${hop}.`,
+          sources: [note],
+          relies_on: {
+            fields: ['markings'],
+            sources: [note, { kind: 'proposal', proposal_id: link }],
+          },
+          markings: [{ observation_id: crystal.evidence_observation_ids![0], text: ['16 MHz'] }],
+          candidates: [],
+        },
+      }),
+    )
+    assert.equal(next.ok, true, JSON.stringify(next))
+    link = String(next.id)
+  }
   const onChain = await result(
-    session.propose(lead, ledIdentity([{ kind: 'proposal', proposal_id: dependent.id }])),
+    session.propose(lead, ledIdentity([{ kind: 'proposal', proposal_id: link }])),
   )
   assert.deepEqual(
     (onChain.issues ?? []).map((issue) => issue.path),
@@ -1713,4 +1745,40 @@ test('a /7 identity can’t rely on one it retires, and what relied on the retir
     JSON.stringify(told.changes),
   )
   assert.ok(batchId)
+})
+
+test('Examine revising its own observation stales what relied on the earlier revision', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId, leadAttempt } = batch
+  const session = tools(batch)
+  const crystal = await batch.lot('16 mhz crystal')
+  const [identityId] = (
+    await inputOf(fixture, (await stageJob(batch, '16 mhz crystal', 'research')).attemptId)
+  ).manifest.pinned_proposal_ids
+  const observation = (await snapshotOf(fixture, batchId)).evidence_observations!.find(
+    (item) => item.id === crystal.evidence_observation_ids![0],
+  )!
+  const revised = await result(
+    session.record_observation(await running(fixture, leadAttempt), {
+      base_revision: (await snapshotOf(fixture, batchId)).revision,
+      observation_id: observation.id,
+      evidence_version_id: observation.evidence_version_id,
+      page: observation.page,
+      region: observation.region,
+      readings: { markings: ['16.000 MHz'] },
+    }),
+  )
+  assert.equal(revised.ok, true, JSON.stringify(revised))
+  const stale = await fixture.db.pool.query<{ reason: string }>(
+    'SELECT reason FROM processing_proposal_stale WHERE proposal_id=$1',
+    [identityId],
+  )
+  assert.equal(stale.rows[0]?.reason, 'source_superseded')
+  // Start finds no stable identity to seal into a successor.
+  assert.deepEqual(
+    await transaction(fixture.runner.pool, (client) =>
+      stableIdentityOf(client, batchId, crystal.id),
+    ),
+    [],
+  )
 })
