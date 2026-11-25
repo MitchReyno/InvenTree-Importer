@@ -36,7 +36,7 @@ type Props = {
   batchId: string
   jobId: string
   step: ProcessingStep
-  client: Required<Pick<ProcessingClient, 'history' | 'chat'>>
+  client: Required<Pick<ProcessingClient, 'history' | 'chat'>> & Pick<ProcessingClient, 'brief'>
   loadFailure?: FailureLoader
   /** The job as the batch's Processing read has it; absent until read or once it has left. */
   job: ProcessingJobDto | undefined
@@ -161,6 +161,7 @@ export function SessionPage(props: Props) {
             context={context}
             answerForm={props.answerForm}
             loadFailure={props.loadFailure}
+            loadBrief={client.brief}
             startFresh={{
               attemptId: session.current_attempt_id,
               run: props.startFresh,

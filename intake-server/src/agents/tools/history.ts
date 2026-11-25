@@ -4,6 +4,7 @@ import {
   validate,
   type ProcessingStateDto,
   type SessionHistoryAttemptDto,
+  type SessionHistoryBriefDto,
   type SessionHistoryDto,
   type SessionInboxItemDto,
   type SessionOutboxItemDto,
@@ -19,6 +20,7 @@ import { webAccess } from '#/processing/session-policy.ts'
 import { latestSessionFailures } from '#/agents/failures.ts'
 import { startFreshEligibility } from '#/processing/start-fresh-eligibility.ts'
 import { resolveHistoryEntries, type HistoryRow, type HistoryJob } from './history-entries.ts'
+import { attemptBrief, historyBriefRefs, type AttemptBrief } from './history-briefs.ts'
 
 /** Inbox rows sort as if their attempt were this, below every real attempt ID. */
 export const INBOX_ORDER_ATTEMPT = '00000000-0000-0000-0000-000000000000'
@@ -124,11 +126,11 @@ export function runsOn(profileId: string): SessionHistoryAttemptDto['runs_on'] {
 }
 
 /**
- * Every attempt's header, newest first. An attempt's span runs from its queue time; its end is
- * its latest transition, by retained order, while that is into its current terminal state, since
- * a turn's `finished_at` is not an attempt's end and idle cancellation or supersession writes none.
- * Every read returns them all, so no older page loses its headers; a lineage grows only by a
- * restart, retry or Start fresh.
+ * Every attempt's header, newest first, and the brief of each `/7` attempt. An attempt's span runs
+ * from its queue time; its end is its latest transition, by retained order, while that is into its
+ * current terminal state, since a turn's `finished_at` is not an attempt's end and idle
+ * cancellation or supersession writes none. Every read returns every header, so no older page
+ * loses its headers; a lineage grows only by a restart, retry or Start fresh.
  */
 async function historyAttempts(client: PoolClient, job: HistoryJob) {
   const rows = await client.query<{
@@ -140,6 +142,7 @@ async function historyAttempts(client: PoolClient, job: HistoryJob) {
     queued_at: Date
     actual_model: string | null
     sent_effort: string | null
+    input_id: string
     manifest_bytes: Buffer
     manifest_digest: Buffer
     last_state: ProcessingStateDto | null
@@ -148,7 +151,7 @@ async function historyAttempts(client: PoolClient, job: HistoryJob) {
     last_activity_at: Date | null
   }>(
     `SELECT a.id, a.number::text, a.state, a.profile_id, s.session_state, s.queued_at,
-            s.actual_model, s.sent_effort, i.manifest_bytes, i.manifest_digest,
+            s.actual_model, s.sent_effort, i.id AS input_id, i.manifest_bytes, i.manifest_digest,
             latest.state AS last_state, latest.created_at AS last_state_at,
             (SELECT t.state FROM public.processing_transition t
               WHERE t.attempt_id=a.id AND t.state<>'superseded'
@@ -173,10 +176,19 @@ async function historyAttempts(client: PoolClient, job: HistoryJob) {
   )
   // Start fresh supersedes a failed or interrupted attempt, so its state before that counts.
   const settledOfNumber = new Map(rows.rows.map((row) => [row.number, row.settled_state]))
-  return rows.rows.map((row): SessionHistoryAttemptDto => {
+  const briefs: AttemptBrief[] = []
+  const headers = rows.rows.map((row): SessionHistoryAttemptDto => {
     const manifest = decodeJobInput(row.manifest_bytes, row.manifest_digest)
     if (!isSessionInput(manifest)) {
       return fail('agent_session_binding_invalid', 503)
+    }
+    if (manifest.schema_version === 'bench-intake-input/7') {
+      briefs.push({
+        attemptId: row.id,
+        inputId: row.input_id,
+        queuedAt: row.queued_at.toISOString(),
+        brief: manifest.brief,
+      })
     }
     const number = Number(row.number)
     const previous = settledOfNumber.get((BigInt(row.number) - 1n).toString()) ?? undefined
@@ -198,6 +210,7 @@ async function historyAttempts(client: PoolClient, job: HistoryJob) {
       ...(failure ? { failure } : {}),
     }
   })
+  return { headers, briefs }
 }
 
 /** The web setting sealed in an attempt's input; null when its profile has no web access. */
@@ -369,7 +382,7 @@ export async function readSessionHistory(
     await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
     const job = await scopedSessionJob(client, config, batchId, jobId)
     const { snapshot } = await captureInTransaction(client, config, batchId)
-    const attempts = await historyAttempts(client, job)
+    const { headers: attempts, briefs: attemptBriefs } = await historyAttempts(client, job)
     const eligibility = await startFreshEligibility(client, config, [job.id], {
       captures: new Map([[batchId, snapshot]]),
     })
@@ -384,6 +397,11 @@ export async function readSessionHistory(
     }
     const entries = await resolveHistoryEntries(client, context, page)
     const oldest = page.at(-1)
+    const olderRemain = rows.length > SESSION_HISTORY_PAGE_SIZE
+    const briefs = historyBriefRefs(attemptBriefs, {
+      before: before?.at,
+      oldest: olderRemain ? oldest?.item.created_at : undefined,
+    })
     const history: SessionHistoryDto = {
       session: {
         job_id: job.id,
@@ -396,11 +414,53 @@ export async function readSessionHistory(
         start_fresh: eligibility.get(job.id)!,
       },
       entries,
-      ...(rows.length > SESSION_HISTORY_PAGE_SIZE && oldest
-        ? { before: encodeHistoryCursor(positionOf(oldest)) }
-        : {}),
+      ...(briefs.length > 0 ? { briefs } : {}),
+      ...(olderRemain && oldest ? { before: encodeHistoryCursor(positionOf(oldest)) } : {}),
     }
     validate('SessionHistory', history)
     return history
+  })
+}
+
+/**
+ * The brief a `/7` attempt of the job started from, scoped as the history is. An attempt of
+ * another job, or one whose input had no brief, is not found.
+ */
+export async function readSessionBrief(
+  pool: Pool,
+  config: ProcessingConfig,
+  batchId: string,
+  jobId: string,
+  attemptId: string,
+): Promise<SessionHistoryBriefDto> {
+  return transaction(pool, async (client) => {
+    await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
+    const job = await scopedSessionJob(client, config, batchId, jobId)
+    const rows = await client.query<{
+      input_id: string
+      queued_at: Date
+      manifest_bytes: Buffer
+      manifest_digest: Buffer
+    }>(
+      `SELECT i.id AS input_id, s.queued_at, i.manifest_bytes, i.manifest_digest
+         FROM public.processing_attempt a
+         JOIN public.agent_session s ON s.attempt_id=a.id
+         JOIN public.processing_input i ON i.id=a.input_id
+        WHERE a.id=$1 AND a.job_id=$2 AND s.session_lineage_id=$2`,
+      [attemptId, job.id],
+    )
+    const row = rows.rows[0] ?? fail('session_brief_not_found', 404)
+    const manifest = decodeJobInput(row.manifest_bytes, row.manifest_digest)
+    if (manifest.schema_version !== 'bench-intake-input/7') {
+      return fail('session_brief_not_found', 404)
+    }
+    const brief = await attemptBrief(client, job.batchId, {
+      attemptId,
+      inputId: row.input_id,
+      queuedAt: row.queued_at.toISOString(),
+      brief: manifest.brief,
+    })
+    validate('SessionHistoryBrief', brief)
+    return brief
   })
 }

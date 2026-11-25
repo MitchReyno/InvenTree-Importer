@@ -348,6 +348,9 @@ async function main() {
           ],
         },
       },
+      '/api/v1/batches/{id}/processing/{jobId}/attempts/{attemptId}/brief': {
+        get: get('SessionHistoryBrief', CAPTURE_TIMEOUT_MS),
+      },
       '/api/v1/batches/{id}/processing/{jobId}/history': {
         get: {
           ...get('SessionHistory', CAPTURE_TIMEOUT_MS),

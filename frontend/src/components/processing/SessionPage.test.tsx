@@ -19,8 +19,10 @@ import {
   H,
   at,
   attemptHeader,
+  briefRef,
   chat,
   history,
+  historyBrief,
   input,
   observation,
   photoView,
@@ -120,6 +122,7 @@ function client(pages: SessionHistoryDto | ((before?: string) => Promise<Session
       command_id: 'f5000000-0000-4000-8000-00000000000f',
     }),
     history,
+    brief: vi.fn().mockResolvedValue(historyBrief()),
     chat: vi.fn().mockResolvedValue({ item_id: H.inboxItem, seq: '9' }),
     replaceSession: vi.fn(),
   } satisfies ProcessingClient
@@ -148,6 +151,95 @@ function mount(processing: ProcessingClient, cache = createServerQueryClient()) 
 }
 
 const conversationOf = () => screen.getByRole('list', { name: 'Session conversation' })
+
+test('a /7 session opens on the brief it started from, collapsed, with your correction marked', async () => {
+  const user = userEvent.setup()
+  const processing = client(history([status(1, 5, 'Reading the brief')], { briefs: [briefRef()] }))
+  mount(processing)
+  const list = await screen.findByRole('list', { name: 'Session conversation' })
+  const rows = [...list.children] as HTMLElement[]
+
+  // The first item after the attempt's divider, summarised from its sealed counts.
+  expect(rows[0]).toHaveTextContent('Attempt 1')
+  const brief = within(rows[1]).getByRole('group', { name: /^Brief at start/ })
+  const summary = brief.querySelector('summary')!
+  expect(summary).toHaveTextContent(
+    'Brief at start · Examine’s findings · 2 observations · 3 of your facts · 1 question already asked',
+  )
+  expect(rows[1].dataset.rail).toBeUndefined()
+  // Collapsed, and not read until opened.
+  expect(brief).not.toHaveAttribute('open')
+  expect(processing.brief).not.toHaveBeenCalled()
+
+  await user.click(summary)
+  expect(brief).toHaveAttribute('open')
+  expect(processing.brief).toHaveBeenCalledWith(H.batch, H.job, H.attempt)
+  await within(brief).findByRole('heading', { name: 'Observations' })
+  for (const heading of [
+    'Examine’s identity',
+    'Observations',
+    'Your facts',
+    'Already asked',
+    'Evidence it may read itself',
+  ]) {
+    expect(within(brief).getByRole('heading', { name: heading })).toBeVisible()
+  }
+  const identity = within(brief).getByRole('list', { name: 'Examine’s identity' })
+  expect(within(identity).getByText('ATmega328P-AU')).toBeVisible()
+  // The correction, under the reading it changed: the earlier reading struck through, the one
+  // it became, marked as yours.
+  const observations = within(brief).getByRole('list', { name: 'Observations' })
+  const corrections = within(observations).getByRole('list', { name: 'Your corrections' })
+  const earlier = within(corrections).getByText('ATMEGA328P 2338')
+  expect(earlier.tagName).toBe('DEL')
+  expect(corrections).toHaveTextContent(
+    'Previous reading: ATMEGA328P 2338 → Corrected to: ATMEGA328P 2348',
+  )
+  expect(within(corrections).getByText(/Your correction/)).toBeVisible()
+  expect(corrections.closest('li')).toHaveTextContent('MCU close-up, page 1 · 1 visible')
+  // Your facts: the answer and the note, each marked as yours.
+  const facts = within(brief).getByRole('list', { name: 'Your facts' })
+  expect(facts).toHaveTextContent('Which ATmega328P variant is this? → ATmega328P-AU')
+  expect(facts).toHaveTextContent('Mouser order 3381-22 plus a loose bench bag')
+  const asked = within(brief).getByRole('list', { name: 'Already asked' })
+  expect(asked).toHaveTextContent('Which ATmega328P variant is this?')
+  expect(asked).toHaveTextContent('Answered')
+  expect(
+    within(brief).getByRole('list', { name: 'Evidence it may read itself' }),
+  ).toHaveTextContent('MCU close-up')
+})
+
+test('a brief that can’t be read says so inside it and leaves the conversation', async () => {
+  const user = userEvent.setup()
+  const processing = client(history([status(1, 5, 'Reading the brief')], { briefs: [briefRef()] }))
+  processing.brief.mockRejectedValueOnce(new Error('unavailable'))
+  mount(processing)
+  const list = await screen.findByRole('list', { name: 'Session conversation' })
+  const brief = within(list).getByRole('group', { name: /^Brief at start/ })
+  await user.click(brief.querySelector('summary')!)
+
+  const failed = await within(brief).findByRole('alert')
+  expect(failed).toHaveTextContent('The brief this attempt started from couldn’t be read.')
+  expect(within(list).getByText('Reading the brief')).toBeVisible()
+  // Retrying from the keyboard moves focus to the brief once it is read.
+  within(failed).getByRole('button', { name: 'Try again' }).focus()
+  await user.keyboard('{Enter}')
+  await within(brief).findByRole('heading', { name: 'Observations' })
+  expect(brief.querySelector('summary')).toHaveFocus()
+})
+
+test('a session from an earlier input, which had no brief, opens as before', async () => {
+  const processing = client(history([status(1, 5, 'Reading the batch')]))
+  mount(processing)
+  const list = await screen.findByRole('list', { name: 'Session conversation' })
+
+  expect(within(list).queryByText(/Started from/)).toBeNull()
+  expect(processing.brief).not.toHaveBeenCalled()
+  expect(([...list.children] as HTMLElement[]).map((row) => row.textContent)).toEqual([
+    expect.stringContaining('Attempt 1'),
+    expect.stringContaining('Reading the batch'),
+  ])
+})
 
 test('one conversation in time order, with a divider for each attempt', async () => {
   const first = attemptHeader({
