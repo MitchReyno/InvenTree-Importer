@@ -313,6 +313,14 @@ test('research configuration refuses unqualified profiles and malformed or exces
       /unsupported_processing_profile/,
     )
   }
+  // The stage profile is reachable only through tests until it is switched on, with or without
+  // the test-only switch.
+  for (const env of [
+    { INTAKE_PROCESSING_PROFILE: 'shared-vm-agent/4' },
+    { INTAKE_PROCESSING_PROFILE: 'shared-vm-agent/4', INTAKE_TEST_STAGE_INPUTS: 'local' },
+  ]) {
+    assert.throws(() => processingConfig(development, env), /unsupported_processing_profile/)
+  }
   for (const sourceList of [
     'null',
     '{}',

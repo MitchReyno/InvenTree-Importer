@@ -42,13 +42,16 @@ export interface Successor {
 /**
  * A batch whose lead session has formed lots, with the tool server and runner wired up. With
  * `stageInputs`, the test-only switch is on from the start, so the lead and its successors seal
- * `/7`.
+ * `/7`. A `shared-vm-agent/4` batch runs its sessions with the synthetic driver.
  */
 export async function formedBatch(
   t: { after: (fn: () => Promise<void>) => void },
-  { stageInputs = false }: { stageInputs?: boolean } = {},
+  {
+    stageInputs = false,
+    profileId = 'synthetic-session/1',
+  }: { stageInputs?: boolean; profileId?: 'synthetic-session/1' | 'shared-vm-agent/4' } = {},
 ) {
-  const fixture = await processingFixture({ profileId: 'synthetic-session/1' })
+  const fixture = await processingFixture({ profileId })
   if (stageInputs) {
     fixture.config.stageInputs = 'local'
   }
@@ -69,7 +72,7 @@ export async function formedBatch(
     config: fixture.config,
     host: { codexExecutable: 'unused', claudeExecutable: 'unused', stateRoot, env: {} },
     toolUrl: server.url,
-    drivers: { 'synthetic-session/1': syntheticSessionDriver },
+    drivers: { [profileId]: syntheticSessionDriver },
   }
   // Room for the lead session and both lots' successors at once; queue order is tested elsewhere.
   const settings = await fixture.http('/agent-settings')

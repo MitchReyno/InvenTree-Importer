@@ -85,6 +85,21 @@ A sealed brief keeps its bytes, but nothing of evidence removed since reaches th
 
 - The canvas's "collapsed after the first visit" (open on the first) isn't built; it needs a decision on remembering visits per viewer.
 
+## Task 7 (PR-G1): the stage profile, packs and guides
+
+### Mitch's decisions on the wording (2026-11-26)
+
+Mitch reviewed the draft base instructions, stage packs and guide sections and approved them, with these choices:
+
+1. **The opening under `/4`.** The packs carry the lead's instructions, the ask guidance and the catalogue guidance, so a `shared-vm-agent/4` opening leaves those three out and keeps the brief, status-line, inbox, description-style and web lines. `synthetic-session/1`'s opening is unchanged.
+2. **Web search for Examine.** Allowed only to read an unfamiliar logo or marking, never to work out what the part is. Images researches nothing.
+3. **Ask guidance** is sealed in the base. The `ask` tool's description keeps its unsealed copy, so a later wording change reaches `/4` sessions only through a new profile.
+4. **Tags aren't Examine's.** Examine reports NOS signals, the seal and a visible NSN, never tags; tags are derived by rule in Records.
+5. **Quantity.** Examine never claims a count. "Counted from the photo" is the estimate's basis, not an exact quantity.
+6. **The vocabulary is the batch's.** It is the batch's retained catalogue observations (at most 100 read observations), not the whole InvenTree catalogue. Full-catalogue reads are an open item below.
+7. **The Research guide has nine sections**, each under about 1.8 KB: modes, nsn-and-data-books, datasheets, identity-and-specifications, naming-and-notes, vocabulary-and-gaps, logos, logo-look-alikes and same-part.
+8. **The brief's vocabulary section** is filled in this PR, from the same lookup `read_vocabulary` uses.
+
 ## Task 5 (PR-E1) status
 
 Merged in #274. Task 5 (PR-E1) adds recipe `/2` and the decoder operations behind `inspect_region`, `preview_images` and `match_logo`; nothing outside tests calls them yet. Task 1 (PR-A) is recorded above.
