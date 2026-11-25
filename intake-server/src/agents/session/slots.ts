@@ -12,13 +12,14 @@ import {
   sql,
 } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
-import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
+import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
 import { commands } from '#/db/schema.ts'
 import { captureBatches } from '#/capture/schema.ts'
 import type { ProcessingConfig } from '#/processing/attempts.ts'
 import { processingAttempts, processingJobs, processingLanes } from '#/processing/schema.ts'
 import { agentBatchPauses, agentSessions, agentSettings, agentSlots } from '#/agents/schema.ts'
 import { DEFAULT_SESSION_CONCURRENCY } from '#/agents/settings.ts'
+import { requireSupervisorFence, type SupervisorFence } from '#/agents/supervisor-fence.ts'
 
 export const MAX_SESSION_SLOTS = 8
 
@@ -202,22 +203,27 @@ export type TurnChild = { kind: 'host' } | { kind: 'vm'; command: string }
 
 /**
  * Commits what a turn is about to start, before it starts it. A turn whose slot no longer holds
- * it refuses, so nothing is started that a restart could not find.
+ * it refuses, and so does a worker that lost its supervisor lock, so nothing is started that a
+ * restart could not find.
  */
 export async function recordTurnChild(
   pool: Pool,
   attemptId: string,
   turn: bigint,
   child: TurnChild,
+  fence: SupervisorFence | undefined,
 ) {
-  const recorded = await executeDatabaseQuery(
-    queryDatabase(pool)
-      .update(agentSlots)
-      .set({ turnChild: child.kind, vmCommand: child.kind === 'vm' ? child.command : null })
-      .where(and(eq(agentSlots.attemptId, attemptId), eq(agentSlots.turn, turn)))
-      .returning({ slot: agentSlots.slotIndex }),
-  )
-  if (!recorded.length) {
-    throw new Error('turn_child_unrecorded')
-  }
+  await transaction(pool, async (client) => {
+    await requireSupervisorFence(client, fence, 'ownership')
+    const recorded = await executeDatabaseQuery(
+      queryDatabase(client)
+        .update(agentSlots)
+        .set({ turnChild: child.kind, vmCommand: child.kind === 'vm' ? child.command : null })
+        .where(and(eq(agentSlots.attemptId, attemptId), eq(agentSlots.turn, turn)))
+        .returning({ slot: agentSlots.slotIndex }),
+    )
+    if (!recorded.length) {
+      throw new Error('turn_child_unrecorded')
+    }
+  })
 }

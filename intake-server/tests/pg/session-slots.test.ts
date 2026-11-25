@@ -144,7 +144,7 @@ test('a /1 lane holder counts as one slot, and an occupied slot blocks a new sup
     for (const session of [a, b, c]) {
       await release(fixture, session.attempt)
     }
-    const owner = await acquireAgentSupervisor(fixture.runner.pool, fixture.config)
+    const { owner } = await acquireAgentSupervisor(fixture.runner.pool, fixture.config)
     owner.release(true)
   } finally {
     await fixture.dispose()

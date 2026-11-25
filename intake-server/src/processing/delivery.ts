@@ -17,6 +17,7 @@ import {
 import type { ProcessingConfig } from './attempts.ts'
 import { fail } from './model.ts'
 import { ResearchReapPendingError } from '#/research/errors.ts'
+import type { SupervisorFence } from '#/agents/supervisor-fence.ts'
 
 /** Scheduler delivery is payload-bound; account/attempt authority is checked again by the worker. */
 export async function dispatchProcessingCommands(
@@ -85,6 +86,7 @@ export async function executeProcessingCommand(
   workflowId: string,
   payload: unknown,
   runner: RestrictedResearchRunner,
+  fence?: SupervisorFence,
 ) {
   if (!runnerQualificationMatches(runner.profileId, runner.qualification)) {
     fail('unsupported_runner_profile', 422)
@@ -97,6 +99,7 @@ export async function executeProcessingCommand(
     workflowId,
     payload,
     actualHandlerVersion,
+    fence,
   )
   if (!command) {
     // Recovery never replays an already claimed native session or substitutes a newer attempt.

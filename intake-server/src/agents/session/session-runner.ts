@@ -31,6 +31,11 @@ import { decodeMediaInputs } from '#/media/inputs.ts'
 import { agentBatchPauses, agentSessionInbox, agentSessions, agentSlots } from '#/agents/schema.ts'
 import { agentEnvironment, privateDirectory, type NativeAgentHost } from '#/agents/environment.ts'
 import { recordSessionProgress } from './sessions.ts'
+import {
+  requireSupervisorFence,
+  SupervisorLockLostError,
+  type SupervisorFence,
+} from '#/agents/supervisor-fence.ts'
 import { issueSessionCapability, revokeSessionCapability } from '#/agents/tools/capability.ts'
 import {
   acknowledgeSessionInbox,
@@ -133,10 +138,59 @@ export interface SessionRunnerDeps {
   drivers?: Partial<Record<SessionInputDto['profile_id'], SessionDriver>>
   /** Overrides the per-turn deadline, for tests. */
   turnDeadlineMs?: number
+  /** The worker's supervisor fence; every worker passes it, tests without a supervisor omit it. */
+  fence?: SupervisorFence
+  /** Overrides `SETTLEMENT_FENCE_RETRY_MS`, for tests. */
+  settlementFenceRetryMs?: number
 }
 
 /** A turn longer than this is stopped and reaped; the session fails rather than resuming a stall. */
 export const SESSION_TURN_DEADLINE_MS = 15 * 60 * 1000
+
+/**
+ * How long a settlement the fence refused is retried: longer than a replacement's barrier
+ * (`SUPERVISOR_FENCE_WAIT_MS`), so one that then refuses to start has let the lock go within it,
+ * and inside the worker's 30 s shutdown wait.
+ */
+export const SETTLEMENT_FENCE_RETRY_MS = 20_000
+const SETTLEMENT_FENCE_RETRY_INTERVAL_MS = 500
+
+/**
+ * Retries a settlement while the fence refuses it; a refusal comes before it changed anything.
+ * The bound uses a monotonic clock and no retry starts past it. The first refusal is logged,
+ * with the attempt only.
+ */
+async function retryFenceRefusal<T>(
+  write: () => Promise<T>,
+  attemptId: string,
+  boundMs: number,
+): Promise<T> {
+  const until = performance.now() + boundMs
+  let reported = false
+  for (;;) {
+    try {
+      return await write()
+    } catch (error) {
+      const retryable = error instanceof SupervisorLockLostError && performance.now() < until
+      if (!retryable) {
+        throw error
+      }
+    }
+    if (!reported) {
+      reported = true
+      process.stderr.write(
+        `${JSON.stringify({ event: 'settlement_fence_refused', attempt_id: attemptId })}\n`,
+      )
+    }
+    const remaining = until - performance.now()
+    await new Promise((resolve) =>
+      setTimeout(resolve, Math.max(0, Math.min(SETTLEMENT_FENCE_RETRY_INTERVAL_MS, remaining))),
+    )
+    if (performance.now() >= until) {
+      throw new SupervisorLockLostError()
+    }
+  }
+}
 
 /**
  * Same lock order as the tool handlers (job, attempt, then session row). With `expected`, the
@@ -194,7 +248,11 @@ async function publish(client: PoolClient, batchId: string) {
 }
 
 /** A worker start never continues a turn that was in flight; those sessions wait for a resume. */
-export async function interruptRunningSessions(pool: Pool, config: ProcessingConfig) {
+export async function interruptRunningSessions(
+  pool: Pool,
+  config: ProcessingConfig,
+  fence?: SupervisorFence,
+) {
   // Only this worker's account: another actor's worker may be running its own sessions.
   const running = await executeDatabaseQuery(
     queryDatabase(pool)
@@ -227,11 +285,43 @@ export async function interruptRunningSessions(pool: Pool, config: ProcessingCon
   // One transaction each, so a stream lock is only ever taken last.
   for (const session of running) {
     // The fence refused to start while any slot was held, so these slots are already clear.
-    if (await transaction(pool, (client) => interruptSession(client, session))) {
+    if (await transaction(pool, (client) => interruptLeftRunning(client, session, fence))) {
       interrupted.push(session.attemptId)
     }
   }
   return interrupted
+}
+
+/**
+ * Interrupts a session the start sweep found running without a slot, only while this worker
+ * still holds its lock and the session is still in that turn without a slot: otherwise a
+ * replacement may have claimed it since.
+ */
+async function interruptLeftRunning(
+  client: PoolClient,
+  session: InterruptedSession,
+  fence: SupervisorFence | undefined,
+) {
+  await requireSupervisorFence(client, fence, 'ownership')
+  await lockProcessingAttempt(client, session.jobId, session.attemptId)
+  const now = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ turnCount: agentSessions.turnCount })
+      .from(agentSessions)
+      .where(eq(agentSessions.attemptId, session.attemptId))
+      .for('update'),
+  )
+  const slot = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ slot: agentSlots.slotIndex })
+      .from(agentSlots)
+      .where(eq(agentSlots.attemptId, session.attemptId)),
+  )
+  const sameTurnWithoutSlot = now[0]?.turnCount === session.turnCount && !slot.length
+  if (!sameTurnWithoutSlot) {
+    return false
+  }
+  return interruptSession(client, session)
 }
 
 export interface InterruptedSession {
@@ -622,6 +712,8 @@ export async function runSessionTurn(
 
   const claim = () =>
     transaction(pool, async (client) => {
+      // First, before any row lock: a worker that lost its lock claims nothing.
+      await requireSupervisorFence(client, deps.fence, 'ownership')
       const rows = await executeDatabaseQuery(
         queryDatabase(client)
           .select({
@@ -955,7 +1047,8 @@ export async function runSessionTurn(
     const cwd = await privateDirectory(join(host.stateRoot, 'sessions', current.jobId))
     const turnNumber = current.turnCount + 1n
 
-    const recordChild = (child: TurnChild) => recordTurnChild(pool, attemptId, turnNumber, child)
+    const recordChild = (child: TurnChild) =>
+      recordTurnChild(pool, attemptId, turnNumber, child, deps.fence)
 
     const driver = deps.drivers?.[current.manifest.profile_id] ?? builtInDriver(host, current)
     await driver(turn, {
@@ -1024,64 +1117,73 @@ export async function runSessionTurn(
   turnControl.abort()
   await watching
 
-  return transaction(pool, async (client) => {
-    // The batch first, as an ungroup takes it, so a withdrawal it commits is seen below and a
-    // withdrawn item doesn't requeue the session. Then job and attempt, as everywhere.
-    await client.query('SELECT 1 FROM public.capture_batch WHERE id=$1 FOR SHARE', [
-      current.batchId,
-    ])
-    const locked = await lockProcessingAttempt(client, current.jobId, attemptId)
-    // A worker that lost its lock may settle after a replacement recovered this turn and started
-    // the next one; that turn's state, capability and slot are not this settlement's to change.
-    const sessionNow = await executeDatabaseQuery(
-      queryDatabase(client)
-        .select({ turnCount: agentSessions.turnCount, state: agentSessions.sessionState })
-        .from(agentSessions)
-        .where(eq(agentSessions.attemptId, attemptId))
-        .for('update'),
-    )
-    const settledTurn = current.turnCount + 1n
-    // Nor is a slot a startup check already released for this turn.
-    const ownSlot = await executeDatabaseQuery(
-      queryDatabase(client)
-        .select({ slot: agentSlots.slotIndex })
-        .from(agentSlots)
-        .where(and(eq(agentSlots.attemptId, attemptId), eq(agentSlots.turn, settledTurn))),
-    )
-    if (sessionNow[0]?.turnCount !== settledTurn || !ownSlot.length) {
-      return sessionNow[0]?.state ?? next
-    }
-    // A wake's earlier state no longer applies once a turn has run.
-    await client.query('DELETE FROM public.agent_session_resume WHERE attempt_id=$1', [attemptId])
-    // A cancelled, superseded or replaced attempt leaves input pending for whatever replaces it.
-    const live =
-      locked.attempt.state === 'running' && locked.job.current_attempt_id === locked.attempt.id
-    if (next === 'finished' && accepted > 0n && live) {
-      await acknowledgeSessionInbox(client, current.jobId, accepted)
-    }
-    if (next === 'finished') {
-      if ((await pendingSessionInbox(client, current.jobId)) > 0) {
-        next = 'queued'
-      } else if (await openQuestions(client, current.jobId)) {
-        next = 'waiting_input'
+  const settle = () =>
+    transaction(pool, async (client) => {
+      // A worker that lost its lock settles only while no replacement holds it.
+      await requireSupervisorFence(client, deps.fence, 'settlement')
+      // The batch first, as an ungroup takes it, so a withdrawal it commits is seen below and a
+      // withdrawn item doesn't requeue the session. Then job and attempt, as everywhere.
+      await client.query('SELECT 1 FROM public.capture_batch WHERE id=$1 FOR SHARE', [
+        current.batchId,
+      ])
+      const locked = await lockProcessingAttempt(client, current.jobId, attemptId)
+      // A worker that lost its lock may settle after a replacement recovered this turn and started
+      // the next one; that turn's state, capability and slot are not this settlement's to change.
+      const sessionNow = await executeDatabaseQuery(
+        queryDatabase(client)
+          .select({ turnCount: agentSessions.turnCount, state: agentSessions.sessionState })
+          .from(agentSessions)
+          .where(eq(agentSessions.attemptId, attemptId))
+          .for('update'),
+      )
+      const settledTurn = current.turnCount + 1n
+      // Nor is a slot a startup check already released for this turn.
+      const ownSlot = await executeDatabaseQuery(
+        queryDatabase(client)
+          .select({ slot: agentSlots.slotIndex })
+          .from(agentSlots)
+          .where(and(eq(agentSlots.attemptId, attemptId), eq(agentSlots.turn, settledTurn))),
+      )
+      if (sessionNow[0]?.turnCount !== settledTurn || !ownSlot.length) {
+        return sessionNow[0]?.state ?? next
       }
-    }
-    // Job and attempt first, then the session row, as the tool handlers lock them.
-    const settled = (await setSessionState(client, attemptId, current.jobId, next)) || next
-    if (diagnostic) {
-      await retainSessionFailure(client, diagnostic)
-    }
-    await revokeSessionCapability(client, attemptId)
-    await releaseSessionSlot(client, attemptId)
-    await executeDatabaseQuery(
-      queryDatabase(client)
-        .update(agentSessions)
-        .set({ progress: 'settled', finishedAt: new Date() })
-        .where(eq(agentSessions.attemptId, attemptId)),
-    )
-    await publish(client, current.batchId)
-    return settled
-  })
+      // A wake's earlier state no longer applies once a turn has run.
+      await client.query('DELETE FROM public.agent_session_resume WHERE attempt_id=$1', [attemptId])
+      // A cancelled, superseded or replaced attempt leaves input pending for whatever replaces it.
+      const live =
+        locked.attempt.state === 'running' && locked.job.current_attempt_id === locked.attempt.id
+      if (next === 'finished' && accepted > 0n && live) {
+        await acknowledgeSessionInbox(client, current.jobId, accepted)
+      }
+      if (next === 'finished') {
+        if ((await pendingSessionInbox(client, current.jobId)) > 0) {
+          next = 'queued'
+        } else if (await openQuestions(client, current.jobId)) {
+          next = 'waiting_input'
+        }
+      }
+      // Job and attempt first, then the session row, as the tool handlers lock them.
+      const settled = (await setSessionState(client, attemptId, current.jobId, next)) || next
+      if (diagnostic) {
+        await retainSessionFailure(client, diagnostic)
+      }
+      await revokeSessionCapability(client, attemptId)
+      await releaseSessionSlot(client, attemptId)
+      await executeDatabaseQuery(
+        queryDatabase(client)
+          .update(agentSessions)
+          .set({ progress: 'settled', finishedAt: new Date() })
+          .where(eq(agentSessions.attemptId, attemptId)),
+      )
+      await publish(client, current.batchId)
+      return settled
+    })
+
+  return retryFenceRefusal(
+    settle,
+    attemptId,
+    deps.settlementFenceRetryMs ?? SETTLEMENT_FENCE_RETRY_MS,
+  )
 }
 
 /** The host's own provider driver; it starts host processes, so it records that first. */

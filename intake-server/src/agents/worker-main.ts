@@ -47,7 +47,8 @@ async function main() {
     if (!(await compatibleSchema(db.pool))) {
       throw new Error('database_version_quarantined')
     }
-    owner = await lockAgentSupervisor(db.pool, config)
+    const lock = await lockAgentSupervisor(db.pool, config)
+    owner = lock.owner
     owner.on('error', () => {
       ownerLost = true
       shutdown.abort()
@@ -83,7 +84,15 @@ async function main() {
           throw new Error('agent_worker_stopping')
         }
         return DBOS.runStep(
-          () => executeProcessingCommand(db.pool, config, DBOS.workflowID!, payload, runner),
+          () =>
+            executeProcessingCommand(
+              db.pool,
+              config,
+              DBOS.workflowID!,
+              payload,
+              runner,
+              lock.fence,
+            ),
           { name: 'originalNativeAgent', retriesAllowed: false },
         )
       },
@@ -130,6 +139,7 @@ main().catch((error: unknown) => {
     'local_agent_database_required',
     'database_version_quarantined',
     'agent_supervisor_lock_lost',
+    'agent_supervisor_writes_in_flight',
   ]
   let code =
     error instanceof Error && safeCodes.includes(error.message)

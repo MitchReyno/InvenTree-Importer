@@ -153,6 +153,16 @@ Agents in the shared VM get provider web search (Claude WebSearch, Codex web sea
 - Prerequisites: None.
 - OpenSpec: [recover-stale-agent-slots](../openspec/changes/recover-stale-agent-slots/)
 
+#### BI-025 — Fence held capacity writes against supervisor lock loss
+
+A worker that lost its supervisor lock could still commit a slot claim, a turn child record or a `/1` lane claim already in flight on a pooled connection after a replacement had taken the lock and checked held capacity. Each of those writes, and a turn's settlement, now checks inside its own transaction that its worker still holds the lock (settlement: that no other worker does). A new supervisor waits, within 10 s, for such writes already past their check before it checks held capacity.
+
+- Change: `fence-held-capacity-writes`
+- Status: In progress
+- Size: S — a fence module, a check at the start of four transactions and a barrier in the lock; no migration.
+- Prerequisites: [BI-024](#bi-024--recover-stale-agent-slots) (merged in #281).
+- OpenSpec: [fence-held-capacity-writes](../openspec/changes/fence-held-capacity-writes/)
+
 #### BI-018 — Bound agent evidence images and record provider errors
 
 Agent sessions could be sent evidence images a provider refuses: lot sessions got the original upload unchanged and Examine region crops were unscaled, so a 6144 × 8160 photo broke Claude's pixel limits. A failed turn kept only `agent_turn_failed`, so the operator couldn't tell why. Every `fetch_evidence` image is now bounded to 2,576 px from the decoded preview (the older single-result native prompt still sends originals). A failed turn records the provider's own error kind when the provider gives one, and a VM turn the specific code behind its failure, whenever the guest's final frame reaches the host.

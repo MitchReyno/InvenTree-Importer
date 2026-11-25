@@ -152,7 +152,8 @@ async function main() {
     if (!(await compatibleSchema(db.pool))) {
       throw new Error('database_version_quarantined')
     }
-    owner = await lockAgentSupervisor(db.pool, config)
+    const lock = await lockAgentSupervisor(db.pool, config)
+    owner = lock.owner
     owner.on('error', () => {
       ownerLost = true
       shutdown.abort()
@@ -190,7 +191,7 @@ async function main() {
     // The scheduler takes over recovered work, so it must accept a connection first.
     await schedulerReachable(schedulerUrl)
     // This process now owns the actor, so no other worker can be running these turns.
-    await interruptRunningSessions(db.pool, config)
+    await interruptRunningSessions(db.pool, config, lock.fence)
     const store = process.env.INTAKE_BLOB_ROOT
       ? await BlobStore.initialize(
           process.env.INTAKE_BLOB_ROOT,
@@ -210,6 +211,7 @@ async function main() {
       config,
       host,
       toolUrl: tools.url,
+      fence: lock.fence,
       drivers: {
         'synthetic-session/1':
           config.profileId === 'synthetic-session/1' && bridge
@@ -329,6 +331,7 @@ main().catch((error: unknown) => {
     'local_agent_database_required',
     'database_version_quarantined',
     'agent_supervisor_lock_lost',
+    'agent_supervisor_writes_in_flight',
   ]
   let code =
     error instanceof Error && safeCodes.includes(error.message)

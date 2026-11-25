@@ -207,6 +207,8 @@ Keep the previous image pair and its manifest until the replacement has complete
 
 To roll out a build with a migration, drain and stop every process of the old build (API, coordinator and any other worker) before applying it. Stop the coordinator while its relays are still running, so its turns can settle, and stop the relays once it has exited. Then apply the migration and start the matching build.
 
+Stop the agent workers of the old build before starting new ones even when no migration ships, and never run two builds' workers for one actor. A starting worker waits for a lost worker's claims and settlements still in flight only when those writes check the supervisor lock, which builds before this one don't (`intake-server/src/agents/supervisor-fence.ts`).
+
 ### Lost turn acknowledgement
 
 If the bridge disconnects after dispatch, a compatible coordinator has a 15-second window to ask another paired peer on the same route for the recorded outcome. The peer reads the journal entry for the same lineage, attempt, turn and command digest. A complete match lets the coordinator settle the original session without invoking the provider again.
