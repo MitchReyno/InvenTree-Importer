@@ -1,4 +1,4 @@
-import type { AgentSettingsDto } from '@invimport/contracts'
+import type { BatchActivityDto, AgentSettingsDto } from '@invimport/contracts'
 import type { SessionListRead } from '#/agents/session-list'
 import type {
   SessionFailureDto,
@@ -36,6 +36,8 @@ export interface ProcessingClient {
     input: SessionReplacementDto,
     key: string,
   ): Promise<ProcessingReceiptDto>
+  /** Session profiles only: the newest recorded actions across the batch's sessions. */
+  batchActivity?(batchId: string, limit?: number): Promise<BatchActivityDto>
   /** Session profiles only: the newest page of a session's history, or the page before `before`. */
   history?(batchId: string, jobId: string, before?: string): Promise<SessionHistoryDto>
   chat?(

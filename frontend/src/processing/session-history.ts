@@ -4,6 +4,7 @@ import type {
   SessionHistoryEntryDto,
   SessionHistoryLinkDto,
 } from '@invimport/contracts'
+import type { EarlierAttempt } from '#/agents/session-list'
 
 type Entry = SessionHistoryEntryDto
 
@@ -385,4 +386,18 @@ export function railMarks(items: readonly ConversationItem[], working: boolean):
     }
     return { action, line, now: working && index === last }
   })
+}
+
+/** The attempts before the current one, newest first, from the history's metadata. */
+export function earlierAttemptsOf(session: SessionHistoryDto['session']): EarlierAttempt[] {
+  return session.attempts
+    .filter((attempt) => attempt.id !== session.current_attempt_id)
+    .map((attempt) => ({
+      id: attempt.id,
+      number: attempt.number,
+      state: attempt.state,
+      sessionState: attempt.session_state,
+      at: attempt.ended?.at ?? attempt.queued_at,
+      failure: attempt.failure,
+    }))
 }

@@ -47,7 +47,7 @@ function mount(
 }
 
 function send(text: string) {
-  fireEvent.change(screen.getByLabelText('Message this session'), { target: { value: text } })
+  fireEvent.change(screen.getByLabelText('Message Research'), { target: { value: text } })
   fireEvent.click(screen.getByRole('button', { name: 'Send' }))
 }
 
@@ -94,10 +94,8 @@ test('the drawer reads only the newest page and folds photo views and web reads 
   expect(within(list).getByText('On it.')).toBeInTheDocument()
   expect(screen.queryByRole('log')).toBeNull()
   expect(screen.getByText('Older entries are on the full session page.')).toBeInTheDocument()
-  expect(screen.getByRole('link', { name: 'Open full session' })).toHaveAttribute(
-    'href',
-    `#${H.batch}/processing/research/sessions/${H.job}`,
-  )
+  // "Open full session" sits in the drawer's header, above the panel (`SessionDrawerTop`).
+  expect(screen.queryByRole('link', { name: 'Open full session' })).not.toBeInTheDocument()
 })
 
 test('a failed current attempt shows its failure summary from the history metadata', async () => {
@@ -450,6 +448,6 @@ test('a send that fails after its scope ended does not come back when the scope 
   await screen.findByRole('list', { name: 'Session history' })
   expect(screen.queryByRole('alert')).toBeNull()
   expect(screen.queryByText(/Sent before leaving/)).toBeNull()
-  fireEvent.change(screen.getByLabelText('Message this session'), { target: { value: 'Again' } })
+  fireEvent.change(screen.getByLabelText('Message Research'), { target: { value: 'Again' } })
   expect(screen.getByRole('button', { name: 'Send' })).not.toBeDisabled()
 })

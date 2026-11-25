@@ -18,6 +18,8 @@ type Props = {
   status?: 'loading' | 'failed'
   /** Called when the list first opens, so a reader can load it then. */
   onOpen?: () => void
+  /** "2 earlier failed", after a line that already names the current attempt. */
+  brief?: boolean
 }
 
 /** Whether an attempt failed rather than ending some other way, such as a cancel. */
@@ -38,14 +40,20 @@ function attemptText(attempt: EarlierAttempt) {
 }
 
 /** "2 earlier attempts failed ▸", folding each earlier attempt's time and cause under a session. */
-export function EarlierAttempts({ count, attempts, status, onOpen }: Props) {
+export function EarlierAttempts({ count, attempts, status, onOpen, brief = false }: Props) {
   if (count === 0) {
     return null
   }
   const complete = attempts !== undefined && attempts.length === count
-  const label = complete
-    ? earlierAttemptsLabel(count, attempts.every(failed))
-    : `${count} earlier attempt${count === 1 ? '' : 's'}`
+  const allFailed = complete && attempts.every(failed)
+  let label: string
+  if (brief) {
+    label = complete ? `${count} earlier ${allFailed ? 'failed' : 'ended'}` : `${count} earlier`
+  } else {
+    label = complete
+      ? earlierAttemptsLabel(count, allFailed)
+      : `${count} earlier attempt${count === 1 ? '' : 's'}`
+  }
 
   return (
     <Fold

@@ -12,8 +12,6 @@ import {
   Count,
   ProgressSegments,
   type ProgressStep,
-  StatusTimeline,
-  type TimelineEntry,
   HelpButton,
 } from '#/components/ui'
 import { PauseButton } from '#/components/agents/PauseButton'
@@ -34,8 +32,8 @@ type Props = {
   sessionRecovery?: (session: SourceSession) => RowRecovery
   /** The batch instruction field, owned by the workspace that saves it. */
   instructions: ReactNode
-  /** Agents' newest status lines across the batch, oldest first. */
-  activity: TimelineEntry[]
+  /** The recent activity card's content. */
+  activity: ReactNode
   /** Starting work by hand, folded into the progress card. */
   queue?: ReactNode
   /** The batch attention read the header counts from; absent while it loads or has failed. */
@@ -174,11 +172,7 @@ export function ProcessingOverview({
 
         <Card aria-label="Recent activity">
           <CardTitle>Recent activity</CardTitle>
-          {activity.length === 0 ? (
-            <Muted>No agent activity yet.</Muted>
-          ) : (
-            <StatusTimeline label="Recent activity" entries={activity} />
-          )}
+          {activity}
         </Card>
       </Main>
 

@@ -18,6 +18,7 @@ import { Link, ReadState, Small, VisuallyHidden } from '#/components/ui'
 import { space } from '#/theme/generated/tokens'
 import { startFreshReason } from '#/processing/start-fresh'
 import { SessionChatPanel } from './SessionChatPanel'
+import { STEP_LABEL } from './ProcessingParts'
 import { SessionSkeleton } from './SessionSkeleton'
 import { SessionConversation } from './SessionConversation'
 
@@ -99,13 +100,13 @@ export function SessionPanel({
               pending={shownPending}
             />
           )}
-          <Link href={fullSession}>Open full session</Link>
         </History>
       </section>
       <SessionChatPanel
         storeKey={storeKey}
         batchId={batchId}
         jobId={job.id}
+        label={`Message ${STEP_LABEL[step] ?? 'Processing'}`}
         state={sessionState}
         newestInboxSeq={newestInboxSeq(entries)}
         send={(text, key) => client.chat(batchId, job.id, { idempotency_key: key, text }, key)}
