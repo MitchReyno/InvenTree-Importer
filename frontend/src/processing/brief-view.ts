@@ -6,10 +6,10 @@ type Observation = Entry<'observation'>['observation']
 /** The operator's facts the brief carries apart from corrections, which sit with their reading. */
 export type BriefFact = Entry<'answer' | 'note' | 'setting_note' | 'lot_edit'>
 
-/** An observation as the session was given it, with the operator's correction to it, if any. */
+/** An observation as the session was given it, with the operator's corrections to it, in the brief's order. */
 export type BriefObservationRow = {
   observation: Observation
-  correction: Entry<'correction'> | null
+  corrections: Entry<'correction'>[]
 }
 
 /** A brief's entries grouped the way the session page shows them. */
@@ -41,10 +41,11 @@ function titleOf(brief: SessionBriefDto) {
 export function briefView(brief: SessionBriefDto): BriefView {
   const { entries } = brief
   const corrections = ofKind(entries, 'correction')
-  const correctionOf = new Map(corrections.map((entry) => [entry.observation_id, entry]))
   const observations = ofKind(entries, 'observation').map((entry) => ({
     observation: entry.observation,
-    correction: correctionOf.get(entry.observation.id) ?? null,
+    corrections: corrections.filter(
+      (correction) => correction.observation_id === entry.observation.id,
+    ),
   }))
   const listed = new Set(observations.map((row) => row.observation.id))
   const facts = entries.filter(
@@ -77,7 +78,7 @@ function plural(count: number, one: string, many = `${one}s`) {
 
 /** How many of the operator's facts the brief holds: every correction, answer, note and edit. */
 export function factCount(view: BriefView) {
-  const corrections = view.observations.filter((row) => row.correction !== null).length
+  const corrections = view.observations.reduce((sum, row) => sum + row.corrections.length, 0)
   return view.facts.length + corrections + view.corrections.length
 }
 
@@ -93,7 +94,23 @@ export function briefSummary(brief: SessionBriefDto) {
   return [view.title, ...parts.filter((part) => part !== null)].join(' · ')
 }
 
-/** A reading as one line: its transcribed text, or its markings. */
+/** A reading as one line: its markings, then its transcribed text where it has one. */
 export function readingText(readings: Observation['readings']) {
-  return readings.text ?? readings.markings.join(' · ')
+  const parts =
+    readings.text === undefined ? readings.markings : [...readings.markings, readings.text]
+  return parts.join(' · ')
+}
+
+/** Each fact's own identity, so a list keeps its rows across reads. */
+export function factKey(fact: BriefFact) {
+  switch (fact.kind) {
+    case 'answer':
+      return `answer:${fact.answer_id}`
+    case 'note':
+      return `note:${fact.note_id}`
+    case 'setting_note':
+      return `setting_note:${fact.scope}:${fact.version}`
+    case 'lot_edit':
+      return fact.edit_id
+  }
 }

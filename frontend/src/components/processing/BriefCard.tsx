@@ -1,37 +1,20 @@
 import { useId } from 'react'
 import styled from 'styled-components'
 import type { BriefEntryDto, SessionHistoryBriefDto } from '@invimport/contracts'
-import { EventTime, Pill } from '#/components/ui'
-import { briefSummary, briefView, type BriefView } from '#/processing/brief-view'
+import { EventTime } from '#/components/ui'
+import { briefSummary, briefView } from '#/processing/brief-view'
 import { color, radius, space, typeVar } from '#/theme/generated/tokens'
+import { BriefAsked } from './BriefAsked'
 import { BriefFacts } from './BriefFacts'
+import { BriefIdentities } from './BriefIdentities'
 import { BriefObservations } from './BriefObservations'
-import {
-  BriefHeading,
-  BriefMuted,
-  BriefRow,
-  BriefRows,
-  BriefSection,
-  Reading,
-} from './brief-styles'
+import { BriefStageLists } from './BriefStageLists'
+import { BriefHeading, BriefMuted, BriefRow, BriefRows, BriefSection } from './brief-styles'
 import { HistoryText, HistoryTime } from './history-row-styles'
 
-type Question = Extract<BriefEntryDto, { kind: 'question' }>
 type Evidence = Extract<BriefEntryDto, { kind: 'evidence' }>
 
-const ASKED = 'Already asked · not asked again'
 const EVIDENCE = 'Evidence it may read itself'
-
-function QuestionState({ state }: { state: Question['state'] }) {
-  switch (state) {
-    case 'answered':
-      return <Pill status="complete">Answered</Pill>
-    case 'open':
-      return <Pill status="needs-answer">Open</Pill>
-    case 'superseded':
-      return <Pill tone="neutral">Superseded</Pill>
-  }
-}
 
 /** A photo or document by its label and kind, with how many regions earlier stages read in it. */
 function evidenceText(entry: Evidence) {
@@ -39,79 +22,6 @@ function evidenceText(entry: Evidence) {
   const regions = entry.regions.length
   const read = regions === 0 ? '' : ` · ${regions} ${regions === 1 ? 'region' : 'regions'} read`
   return `${entry.label ?? `Unlabelled ${kind}`} (${kind})${read}`
-}
-
-/** Examine's identities the session was pinned to, as Examine published them. */
-function Identities({ view }: { view: BriefView }) {
-  if (view.identities.length === 0) {
-    return null
-  }
-  return (
-    <BriefSection>
-      <BriefHeading>Examine’s identity</BriefHeading>
-      <BriefRows aria-label="Examine’s identity">
-        {view.identities.map((entry) => (
-          <BriefRow key={entry.proposal_id}>
-            <span>
-              <b>{entry.proposal.summary}</b>
-              {entry.stale && <BriefMuted> · stale</BriefMuted>}
-            </span>
-          </BriefRow>
-        ))}
-      </BriefRows>
-    </BriefSection>
-  )
-}
-
-/** The lead's lots and Parts, and for Images the items to keep out of frame. */
-function StageLists({ view }: { view: BriefView }) {
-  return (
-    <>
-      {view.lots.length > 0 && (
-        <BriefSection>
-          <BriefHeading>Lots</BriefHeading>
-          <BriefRows aria-label="Lots">
-            {view.lots.map((lot) => (
-              <BriefRow key={lot.lot_id}>
-                <span>
-                  {lot.label}
-                  {lot.estimated_quantity !== null && ` · about ${lot.estimated_quantity}`}
-                  {lot.excluded && ' · left out of the batch'}
-                </span>
-                {lot.reexamine && <BriefMuted>to look at again</BriefMuted>}
-              </BriefRow>
-            ))}
-          </BriefRows>
-        </BriefSection>
-      )}
-      {view.parts.length > 0 && (
-        <BriefSection>
-          <BriefHeading>Parts</BriefHeading>
-          <BriefRows aria-label="Parts">
-            {view.parts.map((part) => (
-              <BriefRow key={part.part_subject_id}>
-                <span>{part.label}</span>
-              </BriefRow>
-            ))}
-          </BriefRows>
-        </BriefSection>
-      )}
-      {view.keepOut.length > 0 && (
-        <BriefSection>
-          <BriefHeading>Keep out of frame</BriefHeading>
-          <BriefRows aria-label="Keep out of frame">
-            {view.keepOut.map((item) => (
-              <BriefRow key={item.observation_id}>
-                <span>
-                  Page {item.page}: <Reading>{item.markings.join(' · ')}</Reading>
-                </span>
-              </BriefRow>
-            ))}
-          </BriefRows>
-        </BriefSection>
-      )}
-    </>
-  )
 }
 
 /**
@@ -143,32 +53,15 @@ export function BriefCard({ item }: { item: SessionHistoryBriefDto }) {
           </BriefMuted>
         </BriefSection>
       )}
-      <Identities view={view} />
+      <BriefIdentities view={view} />
       <BriefObservations
         rows={view.observations}
         corrections={view.corrections}
         evidenceLabel={label}
       />
       <BriefFacts view={view} lotId={brief.lot_id} />
-      <StageLists view={view} />
-      {view.asked.length > 0 && (
-        <BriefSection>
-          <BriefHeading>{ASKED}</BriefHeading>
-          <BriefRows aria-label={ASKED}>
-            {view.asked.map((question) => (
-              <BriefRow key={question.question_id}>
-                <span>
-                  {question.title}
-                  {question.fields.length > 0 && (
-                    <BriefMuted> · {question.fields.join(', ')}</BriefMuted>
-                  )}
-                </span>
-                <QuestionState state={question.state} />
-              </BriefRow>
-            ))}
-          </BriefRows>
-        </BriefSection>
-      )}
+      <BriefStageLists view={view} />
+      <BriefAsked asked={view.asked} />
       {view.evidence.length > 0 && (
         <BriefSection>
           <BriefHeading>{EVIDENCE}</BriefHeading>
@@ -194,9 +87,18 @@ const Card = styled.details`
   > summary {
     display: flex;
     flex-wrap: wrap;
+    align-items: baseline;
     gap: ${space[1]} ${space[3]};
     padding: ${space[3]} ${space[4]};
     cursor: pointer;
     font-weight: ${typeVar.bodyStrong.weight};
+  }
+  /* The flex summary drops the native marker, so the card draws its own. */
+  > summary::before {
+    content: '▸';
+    color: ${color.muted};
+  }
+  &[open] > summary::before {
+    content: '▾';
   }
 `

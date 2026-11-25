@@ -287,7 +287,7 @@ With suggestions 3 and 4 also applied, Match's search core (PR-C1) would start i
 
 - **PR delivery:** PR-H.
 - **Outcome:** the brief as the first, collapsible item of a session's conversation, with corrections marked.
-- **Scope:** the history read's `brief` entry, and the session page in `frontend/src/components/processing/`.
+- **Scope:** the history read's briefs (`briefs`, beside its entries; see notes.md), and the session page in `frontend/src/components/processing/`.
 - **TDD approach:** read and component tests fail first, including a `/7` history response with the sealed brief and an earlier-version response keeping its existing shape.
 - **Verification:** intake tiers (`pnpm db:intake test`), frontend checks, and a demo video.
 

@@ -181,12 +181,15 @@ test('a /7 session opens on the brief it started from, collapsed, with your corr
   }
   const identity = within(brief).getByRole('list', { name: 'Examine’s identity' })
   expect(within(identity).getByText('ATmega328P-AU')).toBeVisible()
-  // The correction: the earlier reading struck through, the new one, marked as yours.
-  const earlier = within(brief).getByText('ATMEGA328P 2338')
+  // The correction, under the reading it changed: the earlier reading struck through, the one
+  // it became, marked as yours.
+  const observations = within(brief).getByRole('list', { name: 'Observations' })
+  const corrections = within(observations).getByRole('list', { name: 'Your corrections' })
+  const earlier = within(corrections).getByText('ATMEGA328P 2338')
   expect(earlier.tagName).toBe('DEL')
-  const corrected = earlier.closest('li')!
-  expect(corrected).toHaveTextContent('ATMEGA328P 2348')
-  expect(within(corrected).getByText(/Your correction/)).toBeVisible()
+  expect(corrections).toHaveTextContent('ATMEGA328P 2338 → ATMEGA328P 2348')
+  expect(within(corrections).getByText(/Your correction/)).toBeVisible()
+  expect(corrections.closest('li')).toHaveTextContent('MCU close-up, page 1 · 1 visible')
   // Your facts: the answer and the note, each marked as yours.
   const facts = within(brief).getByRole('list', { name: 'Your facts' })
   expect(facts).toHaveTextContent('Which ATmega328P variant is this? → ATmega328P-AU')

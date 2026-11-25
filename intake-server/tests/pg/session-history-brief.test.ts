@@ -280,3 +280,104 @@ test('a brief in the history leaves out evidence removed after it was sealed', a
   // What doesn't concern the removed photo is still there.
   assert.equal(ofKind(shown, 'batch').length, 1)
 })
+
+test('a brief sorts before a row at its queue time, so it goes to the older page at a tie', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId } = batch
+  const { row } = await successorOf(batch, 'led 0603 red', 'research')
+  const queued = await fixture.db.pool.query<{ queued_at: Date }>(
+    'SELECT queued_at FROM agent_session WHERE attempt_id=$1',
+    [row.attempt_id],
+  )
+  const queuedAt = queued.rows[0].queued_at
+  // The newest page's oldest row is at the attempt's queue time exactly; older rows follow.
+  await fixture.db.pool.query(
+    `INSERT INTO agent_session_inbox(id,session_lineage_id,seq,kind,payload,idempotency_key,actor_id,created_at)
+     SELECT gen_random_uuid(), $1,
+            (SELECT coalesce(max(seq), 0) FROM agent_session_inbox WHERE session_lineage_id=$1) + n,
+            'chat', jsonb_build_object('text', 'Message ' || n),
+            'chat:' || n, $2, $3::timestamptz - (11 - n) * interval '1 second'
+       FROM generate_series(1, 10) n`,
+    [row.job_id, fixture.identity.actor, queuedAt],
+  )
+  await fixture.db.pool.query(
+    `INSERT INTO agent_session_outbox(session_id,seq,kind,payload,created_at)
+     SELECT $1, (SELECT coalesce(max(seq), 0) FROM agent_session_outbox WHERE session_id=$1) + n,
+            'status', jsonb_build_object('text', 'Line ' || n),
+            $2::timestamptz + (n - 1) * interval '1 second'
+       FROM generate_series(1, 200) n`,
+    [row.attempt_id, queuedAt],
+  )
+
+  const newest = await history(fixture, batchId, row.job_id)
+  assert.ok(newest.before)
+  assert.equal(newest.entries.at(-1)!.at, queuedAt.toISOString())
+  const older = await history(fixture, batchId, row.job_id, newest.before)
+  assert.equal(older.before, undefined)
+  assert.deepEqual(
+    [newest, older].map((page) => page.briefs?.map((item) => item.attempt_id) ?? []),
+    [[], [row.attempt_id]],
+  )
+})
+
+test('a brief whose pages are in the page store comes whole', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId } = batch
+  const led = await batch.lot('led 0603 red')
+  for (let index = 0; index < 8; index += 1) {
+    const before = await snapshotOf(fixture, batchId)
+    const note = await fixture.http(`/batches/${batchId}/edits`, {
+      expected_revision: before.revision,
+      change: { kind: 'note', subject_id: null, text: `${index}:${'é'.repeat(8000)}` },
+    })
+    assert.equal(note.status, 200, JSON.stringify(note.value))
+  }
+  const started = await fixture.http(`/batches/${batchId}/processing`, {
+    schema_version: 'bench-intake-processing/1',
+    expected_capture_revision: (await snapshotOf(fixture, batchId)).revision,
+    subject_ids: [led.id],
+    stages: ['research'],
+  })
+  assert.equal(started.status, 202, JSON.stringify(started.value))
+  const attemptId = (started.value as { attempt_ids: string[] }).attempt_ids[0]
+
+  const rows = await fixture.db.pool.query<{
+    input_id: string
+    manifest_bytes: Buffer
+    manifest_digest: Buffer
+    job_id: string
+  }>(
+    `SELECT i.id AS input_id,i.manifest_bytes,i.manifest_digest,a.job_id FROM processing_attempt a
+     JOIN processing_input i ON i.id=a.input_id WHERE a.id=$1`,
+    [attemptId],
+  )
+  const { brief } = decodeSessionInput(
+    rows.rows[0].manifest_bytes,
+    rows.rows[0].manifest_digest,
+  ) as ProcessingInputV7Dto
+  assert.ok(
+    brief.pages.some((page) => !page.entries),
+    'some pages are only in the page store',
+  )
+  // The expected entries, read from the manifest and the stored pages' own bytes.
+  const stored = await fixture.db.pool.query<{ page_index: number; page_bytes: Buffer }>(
+    'SELECT page_index,page_bytes FROM processing_input_page WHERE input_id=$1',
+    [rows.rows[0].input_id],
+  )
+  const storedEntries = new Map(
+    stored.rows.map((page) => [
+      page.page_index,
+      (JSON.parse(page.page_bytes.toString('utf8')) as { entries: BriefEntryDto[] }).entries,
+    ]),
+  )
+  const expected = brief.pages.flatMap((page) => page.entries ?? storedEntries.get(page.index)!)
+
+  const page = await history(fixture, batchId, rows.rows[0].job_id)
+  const shown = page.briefs!.find((item) => item.attempt_id === attemptId)!
+  assert.equal(shown.brief.entries.length, expected.length)
+  assert.deepEqual(shown.brief.entries, expected)
+  assert.equal(
+    ofKind(shown.brief.entries, 'note').filter((note) => note.text.length > 8000).length,
+    8,
+  )
+})
