@@ -95,8 +95,14 @@ function patchMean(image: Raster, x: number, y: number, radius: number) {
   return sums.map((sum) => sum / count)
 }
 
-function spread(colour: number[]) {
+function spread(colour: readonly number[]) {
   return Math.max(...colour) - Math.min(...colour)
+}
+
+/** Saturated, as the hue guard judges it: HSV saturation of ½ or more, at or above the 8-bit hue floor. */
+function isSaturatedColour(colour: readonly number[]) {
+  const brightest = Math.max(...colour)
+  return brightest >= 16 && spread(colour) >= 16 && spread(colour) >= brightest / 2
 }
 
 async function solidPage(
@@ -336,7 +342,7 @@ for (const light of [
       for (let x = 0; x < page.width; x++) {
         const original = pixelAt(before, x, y)
         const adjusted = pixelAt(after, x, y)
-        const saturated = spread(original) >= 48 && spread(original) >= Math.max(...original) / 2
+        const saturated = isSaturatedColour(original)
         if (!saturated) {
           continue
         }
@@ -484,7 +490,7 @@ function largestSaturatedShift(before: Raster, after: Raster) {
   for (let offset = 0; offset < before.data.length; offset += 3) {
     const source = [before.data[offset], before.data[offset + 1], before.data[offset + 2]] as const
     const brightest = Math.max(...source)
-    if (spread([...source]) < 48 || spread([...source]) < brightest / 2) {
+    if (!isSaturatedColour([...source]) || brightest === 0) {
       continue
     }
     const output = [after.data[offset], after.data[offset + 1], after.data[offset + 2]] as const
@@ -640,3 +646,30 @@ test('below the hue floor a pixel is not protected: gamma may darken it to grey,
     assert.ok(spread(output) < 12, `${output.join(',')} keeps no protected spread`)
   }
 })
+
+for (const light of [
+  {},
+  { gamma_thousandths: 500 },
+  { contrast_clip_permille: 20, sharpen: true },
+]) {
+  test(`white balance ${JSON.stringify(light)} holds a dark fully saturated band within 5°`, async () => {
+    // A red-cast background pulls the gains to their bounds; the dark band's spread is under 48.
+    const page = await solidPage(40, 8, (x) => (x < 6 ? [47, 20, 0] : [190, 130, 120]))
+    const recipe = wholePage(page, { white_balance: true, ...light })
+    const result = await decode({
+      version: 'media-decode/1',
+      digest: page.digest,
+      bytes: page.bytes,
+      recipe,
+    })
+    assert.equal(result.state, 'ready')
+    const output = await rgbRaster(result.pages[0].bytes)
+    const band = pixelAt(output, 2, 4)
+    const turned = hue(...band)
+    const shift = turned === null ? 180 : hueShift(hue(47, 20, 0)!, turned)
+    assert.ok(
+      shift <= MAX_BAND_HUE_SHIFT_DEGREES,
+      `47,20,0 -> ${band.join(',')} turned ${shift.toFixed(2)}°`,
+    )
+  })
+}

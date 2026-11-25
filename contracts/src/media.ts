@@ -232,8 +232,8 @@ export const LOGO_MATCH_MAX_CANDIDATES = 30
 /**
  * Light adjustments on a lit view, applied after the geometry in this order. White balance scales
  * each channel by a bounded grey-world gain; the others scale a pixel's channels together to a new
- * luminance. A saturated pixel (HSV saturation of at least ½, channels at least 48 levels apart)
- * turns at most 5° in all. The luminance steps turn a pixel whose brightest channel and channel
+ * luminance. A saturated pixel (HSV saturation of at least ½, brightest channel and channel spread
+ * both at least 16 levels) turns at most 5° in all. The luminance steps turn a pixel whose brightest channel and channel
  * spread are both at least 16 levels at most 2.5°; below that, rounding can turn or erase a hue.
  */
 export const MediaViewLight = object({

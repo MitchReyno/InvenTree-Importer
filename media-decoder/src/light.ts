@@ -22,12 +22,11 @@ const PROTECTED_MIN_OUTPUT_SPREAD = 12
 const PROTECTED_MIN_BRIGHTEST = 16
 const PROTECTED_MIN_SPREAD = 16
 /**
- * The guard watches saturated pixels only: HSV saturation of at least one half, and channels at
- * least 48 levels apart. Near-neutral pixels are what white balance is meant to turn, and below
- * that spread one level of rounding turns a hue by several degrees.
+ * The guard watches saturated pixels: HSV saturation of at least one half, at or above the same
+ * 8-bit hue floor as luminance adjustments. Near-neutral pixels are what white balance is meant to
+ * turn, and below the floor one level of rounding turns a hue by 4° or more.
  */
 const SATURATED_MIN_SATURATION = 0.5
-const SATURATED_MIN_CHROMA = 48
 /** The guard tries the gains, then 7/8, 6/8 … 1/8 of the way from 1 to them, then refuses. */
 const HOLD_BACK_STEPS = 8
 /** The script's unsharp mask (radius 2, 80%, threshold 3), applied to luminance. */
@@ -110,7 +109,11 @@ function gainLut(gain: number): Lut {
 }
 
 function isSaturated(brightest: number, chroma: number) {
-  return chroma >= SATURATED_MIN_CHROMA && chroma >= SATURATED_MIN_SATURATION * brightest
+  return (
+    brightest >= PROTECTED_MIN_BRIGHTEST &&
+    chroma >= PROTECTED_MIN_SPREAD &&
+    chroma >= SATURATED_MIN_SATURATION * brightest
+  )
 }
 
 /** Every distinct saturated colour in the image, packed 0xRRGGBB. */
@@ -176,13 +179,16 @@ function applyLuts(image: RawRgb, luts: [Lut, Lut, Lut]): RawRgb {
  * 1 that turns no saturated colour more than `maxShift` degrees; refused when even the smallest
  * step would.
  */
+type Balanced = { state: 'balanced'; image: RawRgb; outcome: WhiteBalanceOutcome; step: number }
+
 function balanceWhite(
   image: RawRgb,
   maxShift: number,
-): { state: 'balanced'; image: RawRgb; outcome: WhiteBalanceOutcome } | { state: 'refused' } {
+  firstStep: number = HOLD_BACK_STEPS,
+): Balanced | { state: 'refused' } {
   const bounded = greyWorldGains(image)
   const colours = saturatedColours(image)
-  for (let step = HOLD_BACK_STEPS; step >= 1; step--) {
+  for (let step = firstStep; step >= 1; step--) {
     const share = step / HOLD_BACK_STEPS
     // The full step keeps the bounded gains exactly, so where the ±15% bound and the guard leave
     // crop.py's gains alone, its pixels match the script's.
@@ -196,6 +202,7 @@ function balanceWhite(
           gains: { red: gains[0], green: gains[1], blue: gains[2] },
           heldBack: step < HOLD_BACK_STEPS,
         },
+        step,
       }
     }
   }
@@ -356,26 +363,55 @@ function scaleKeepingHue(
   target[high] = scaledHigh
 }
 
-/** Recipe `/2`'s light step, in the contract's order: white balance, contrast, gamma, sharpening. */
+/** Whether no saturated source pixel turns more than the hue budget in the output. */
+function keepsSaturatedHues(source: RawRgb, output: RawRgb) {
+  for (let offset = 0; offset < source.data.length; offset += 3) {
+    const red = source.data[offset]
+    const green = source.data[offset + 1]
+    const blue = source.data[offset + 2]
+    const brightest = Math.max(red, green, blue)
+    if (!isSaturated(brightest, brightest - Math.min(red, green, blue))) {
+      continue
+    }
+    const before = packedHue(red, green, blue)!
+    const after = packedHue(output.data[offset], output.data[offset + 1], output.data[offset + 2])
+    if (after === null || hueDistance(before, after) > HUE_BUDGET_DEGREES) {
+      return false
+    }
+  }
+  return true
+}
+
+/**
+ * Recipe `/2`'s light step, in the contract's order: white balance, contrast, gamma, sharpening.
+ * When luminance adjustments follow white balance, the result is checked against the source, and
+ * white balance is held back a further eighth while any saturated pixel turns more than 5°.
+ */
 export async function applyLight(image: RawRgb, light: MediaViewLightDto): Promise<LightResult> {
-  let current = image
-  let whiteBalance: WhiteBalanceOutcome | null = null
   // Gamma 1000 is the identity curve, so it adjusts nothing and takes none of the hue budget.
   const adjustsGamma = light.gamma_thousandths !== null && light.gamma_thousandths !== 1000
   const adjustsLuminance = light.contrast_clip_permille !== null || adjustsGamma || light.sharpen
-  if (light.white_balance) {
-    const budget = adjustsLuminance
-      ? HUE_BUDGET_DEGREES - LUMINANCE_ROUNDING_DEGREES
-      : HUE_BUDGET_DEGREES
-    const balanced = balanceWhite(current, budget)
+  if (!light.white_balance) {
+    const output = adjustsLuminance ? await adjustLuminance(image, light) : image
+    return { state: 'lit', image: output, whiteBalance: null }
+  }
+  const budget = adjustsLuminance
+    ? HUE_BUDGET_DEGREES - LUMINANCE_ROUNDING_DEGREES
+    : HUE_BUDGET_DEGREES
+  let firstStep = HOLD_BACK_STEPS
+  while (firstStep >= 1) {
+    const balanced = balanceWhite(image, budget, firstStep)
     if (balanced.state === 'refused') {
-      return { state: 'refused', reason: 'white_balance_hue_guard' }
+      break
     }
-    current = balanced.image
-    whiteBalance = balanced.outcome
+    if (!adjustsLuminance) {
+      return { state: 'lit', image: balanced.image, whiteBalance: balanced.outcome }
+    }
+    const output = await adjustLuminance(balanced.image, light)
+    if (keepsSaturatedHues(image, output)) {
+      return { state: 'lit', image: output, whiteBalance: balanced.outcome }
+    }
+    firstStep = balanced.step - 1
   }
-  if (adjustsLuminance) {
-    current = await adjustLuminance(current, light)
-  }
-  return { state: 'lit', image: current, whiteBalance }
+  return { state: 'refused', reason: 'white_balance_hue_guard' }
 }

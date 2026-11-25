@@ -210,6 +210,7 @@ test('candidates carry their maker and the sheet shows the query and each candid
 
   // Every occupied tile shows a mark, a yellow title and, for a candidate, its maker in light grey,
   // and each candidate's mark is its own ranked logo rather than another's.
+  assert.equal(result.candidates.length, 7, 'every requested candidate is returned')
   const sheetRaster = await sheetPixels(result.sheet.bytes)
   for (let tile = 0; tile <= result.candidates.length; tile++) {
     assert.ok(countIn(sheetRaster, tile, [5, 100], isMarkInk) > 30, `tile ${tile} shows a mark`)
