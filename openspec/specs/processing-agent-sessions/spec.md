@@ -508,7 +508,7 @@ Tool-capable VM sessions SHALL support `INTAKE_VM_EVIDENCE_DELIVERY` with values
 
 - **GIVEN** a tool-capable Claude or Codex VM session configured for file delivery or with an unset or empty setting
 - **WHEN** an authorized image fetch succeeds
-- **THEN** the guest applies the digest rules in [Guest-staged evidence matches the delivered image](../../../../specs/shared-vm-execution/spec.md#requirement-guest-staged-evidence-matches-the-delivered-image) and saves the delivered bytes in an owner-only temporary file and returns its path, source and rendition metadata, and instructions to open it with the provider's image/file tool, with no inline image bytes.
+- **THEN** the guest applies the digest rules in [Guest-staged evidence matches the delivered image](../shared-vm-execution/spec.md#requirement-guest-staged-evidence-matches-the-delivered-image) and saves the delivered bytes in an owner-only temporary file and returns its path, source and rendition metadata, and instructions to open it with the provider's image/file tool, with no inline image bytes.
 - **AND** the file is removed when the turn ends, and the response instructs the agent to fetch again on later turns and cite source metadata rather than the temporary path.
 
 #### Scenario: Inline compatibility
