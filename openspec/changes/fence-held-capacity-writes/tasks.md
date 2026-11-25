@@ -38,8 +38,8 @@
 - Verification: unit tests for `fencePermits`; existing PG fence tests.
 - Risks: `backend_start` hidden from the runtime role would refuse every write; the PG tests run as the runner role.
 
-- [ ] 1.1 RED: unit tests for `fencePermits` (this holder, another holder, same PID with another start, no holder; ownership and settlement). They fail because the module doesn't exist.
-- [ ] 1.2 GREEN: the module, the lock result and its callers. Unit and existing `tests/pg/held-capacity.test.ts`, `tests/pg/agents.test.ts` and `tests/pg/session-slots.test.ts` pass.
+- [x] 1.1 RED: unit tests for `fencePermits` (this holder, another holder, same PID with another start, no holder; ownership and settlement). They fail because the module doesn't exist.
+- [x] 1.2 GREEN: the module, the lock result and its callers. Unit and existing `tests/pg/held-capacity.test.ts`, `tests/pg/agents.test.ts` and `tests/pg/session-slots.test.ts` pass.
 
 ## 2. Fence the session claim, turn child record and lane claim
 

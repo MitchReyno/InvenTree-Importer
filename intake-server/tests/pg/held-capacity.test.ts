@@ -8,7 +8,11 @@ import { processingFixture } from '../support/processing.ts'
 import { lotSession } from '../support/sessions.ts'
 import { interruptRunningSessions, runSessionTurn } from '#/agents/session/session-runner.ts'
 import { recoverHeldCapacity } from '#/agents/held-capacity.ts'
-import { acquireAgentSupervisor, lockAgentSupervisor } from '#/agents/worker.ts'
+import {
+  acquireAgentSupervisor,
+  lockAgentSupervisor,
+  type SupervisorLock,
+} from '#/agents/worker.ts'
 import type { PoolClient } from 'pg'
 import { randomUUID } from 'node:crypto'
 
@@ -56,7 +60,7 @@ async function asSupervisor<T>(
   check: (owner: PoolClient) => Promise<T>,
   config = fixture.config,
 ) {
-  const owner = await lockAgentSupervisor(fixture.runner.pool, config)
+  const { owner } = await lockAgentSupervisor(fixture.runner.pool, config)
   try {
     return await check(owner)
   } finally {
@@ -174,7 +178,7 @@ test('a starting worker releases slots whose turn is confirmed gone, then interr
   )
   assert.ok(!(result instanceof Error), String(result))
   // Released now: the fixture's pool waits for its checked-out connections when disposed.
-  ;(result as { release: (destroy: boolean) => void }).release(true)
+  ;(result as SupervisorLock).owner.release(true)
   assert.deepEqual(asked, ['{"command":"b"}'])
   assert.equal(await slotOf(fixture, inProcess.attempt), undefined)
   assert.equal(await slotOf(fixture, vm.attempt), undefined)
@@ -345,7 +349,7 @@ test('a second worker is refused before it checks or releases anything', async (
   const capture = await fixture.seedCapture()
   const session = await lotSession(fixture, capture, capture.packetA)
   await heldSlot(fixture, 0, session.attempt, 'vm', '{"command":"a"}')
-  const owner = await lockAgentSupervisor(fixture.runner.pool, fixture.config)
+  const { owner } = await lockAgentSupervisor(fixture.runner.pool, fixture.config)
   let asked = 0
   try {
     await assert.rejects(
@@ -408,7 +412,7 @@ test('a worker that loses its supervisor lock mid-check releases nothing', async
   const capture = await fixture.seedCapture()
   const session = await lotSession(fixture, capture, capture.packetA)
   await heldSlot(fixture, 0, session.attempt, 'vm', '{"command":"a"}')
-  const owner = await lockAgentSupervisor(fixture.runner.pool, fixture.config)
+  const { owner } = await lockAgentSupervisor(fixture.runner.pool, fixture.config)
   owner.on('error', () => undefined)
   try {
     const backend = await owner.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')

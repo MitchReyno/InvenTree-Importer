@@ -162,7 +162,7 @@ test('native settings bind at queue time, conflict safely, survive completion an
 test('a second native supervisor cannot acquire the actor lock even with no queued work', async () => {
   const fixture = await processingFixture({ profileId: nativeProfileId })
   try {
-    const owner = await acquireAgentSupervisor(fixture.runner.pool, fixture.config)
+    const { owner } = await acquireAgentSupervisor(fixture.runner.pool, fixture.config)
     try {
       await assert.rejects(acquireAgentSupervisor(fixture.runner.pool, fixture.config), {
         message: 'agent_supervisor_already_running',
@@ -171,7 +171,7 @@ test('a second native supervisor cannot acquire the actor lock even with no queu
       owner.release(true)
     }
     const replacement = await acquireAgentSupervisor(fixture.runner.pool, fixture.config)
-    replacement.release(true)
+    replacement.owner.release(true)
   } finally {
     await fixture.dispose()
   }

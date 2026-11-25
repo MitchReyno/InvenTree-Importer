@@ -152,7 +152,8 @@ async function main() {
     if (!(await compatibleSchema(db.pool))) {
       throw new Error('database_version_quarantined')
     }
-    owner = await lockAgentSupervisor(db.pool, config)
+    const lock = await lockAgentSupervisor(db.pool, config)
+    owner = lock.owner
     owner.on('error', () => {
       ownerLost = true
       shutdown.abort()
