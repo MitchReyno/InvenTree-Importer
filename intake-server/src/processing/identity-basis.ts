@@ -14,17 +14,22 @@ const membersOf = (lot: string) => `COALESCE((
   WHERE m.lot_id=${lot} AND m.status='active' AND o.status='active'
     AND NOT ${versionRemovedSql('v')}), '[]'::jsonb)`
 
-/** Keeps the lot as a stable `/7` identity saw it, for the claim and Review gate to compare. */
+/**
+ * Keeps the lots a `/7` identity rests on as it saw them, its own and each whose observation set
+ * it cites, for the claim and Review gate to compare.
+ */
 export async function recordIdentityBasis(
   client: PoolClient,
   batchId: string,
   lotId: string,
   proposalId: string,
+  citedLots: readonly string[],
 ) {
   await client.query(
     `INSERT INTO public.processing_identity_basis(proposal_id,batch_id,lot_id,members)
-     VALUES ($2,$3,$1,${membersOf('$1')})`,
-    [lotId, proposalId, batchId],
+     SELECT $2,$3,$1,jsonb_object_agg(lots.id::text, ${membersOf('lots.id')})
+     FROM (SELECT DISTINCT unnest(array_append($4::uuid[], $1::uuid)) AS id) lots`,
+    [lotId, proposalId, batchId, [...citedLots]],
   )
 }
 
@@ -63,7 +68,8 @@ async function failing(client: PoolClient, scope: Scope, withStale: boolean) {
      WHERE ($3::boolean AND r.id=r.root
             AND EXISTS (SELECT 1 FROM public.processing_proposal_stale s WHERE s.proposal_id=r.id))
         OR (b.proposal_id IS NOT NULL AND (
-          b.members IS DISTINCT FROM ${membersOf('b.lot_id')}
+          EXISTS (SELECT 1 FROM jsonb_each(b.members) kept(lot, members)
+                  WHERE kept.members IS DISTINCT FROM ${membersOf('kept.lot::uuid')})
           OR EXISTS (
             SELECT 1 FROM jsonb_array_elements(p.relies_on->'sources') src
             LEFT JOIN public.capture_evidence_observation o

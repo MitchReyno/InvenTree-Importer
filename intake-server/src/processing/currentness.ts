@@ -711,12 +711,20 @@ export async function evidenceRemoved(
     [input.batchId, [...input.evidenceIds]],
   )
   const { versions, observations, notes } = cited.rows[0]
+  // The lots whose members lose their evidence, so whose observation sets Capture shows changed.
+  const memberLots = await client.query<{ lot_id: string }>(
+    `SELECT DISTINCT lot_id::text FROM public.capture_lot_evidence_observation
+     WHERE evidence_observation_id::text = ANY($1::text[]) AND status='active'`,
+    [observations],
+  )
+  const lotsOf = [...new Set([...input.lotIds, ...memberLots.rows.map((row) => row.lot_id)])]
   // A session proposal cites in its value (every value's sources, and a research/1 datasheet's
   // retained version, as `proposalCitations` lists them) and relies through `relies_on`; any of
   // them counts.
   const affected = await client.query<{ id: string; lineage: string }>(
     `SELECT p.id, j.id AS lineage FROM public.processing_proposal p
      JOIN public.processing_attempt a ON a.id=p.attempt_id
+     JOIN public.processing_input i ON i.id=a.input_id
      JOIN public.processing_job j ON j.id=a.job_id
      WHERE j.batch_id=$1 AND p.relies_on IS NOT NULL
        AND NOT EXISTS (SELECT 1 FROM public.processing_proposal_stale s WHERE s.proposal_id=p.id)
@@ -741,10 +749,15 @@ export async function evidenceRemoved(
        -- A stable identity kept its lot as it was; removing a member's evidence changes that lot.
        OR EXISTS (
          SELECT 1 FROM public.processing_identity_basis b
-         CROSS JOIN LATERAL jsonb_array_elements(b.members) member
-         WHERE b.proposal_id=p.id AND member->>'id' = ANY($3::text[])))
+         CROSS JOIN LATERAL jsonb_each(b.members) kept
+         CROSS JOIN LATERAL jsonb_array_elements(kept.value) member
+         WHERE b.proposal_id=p.id AND member->>'id' = ANY($3::text[]))
+       -- A /7 proposal citing the observation set of a lot whose member's evidence went.
+       OR (convert_from(i.manifest_bytes,'UTF8')::jsonb->>'schema_version'='bench-intake-input/7'
+           AND EXISTS (SELECT 1 FROM jsonb_array_elements(p.relies_on->'sources') src
+                       WHERE src->>'kind'='observation_set' AND src->>'lot_id' = ANY($5::text[]))))
      ORDER BY p.id`,
-    [input.batchId, versions, observations, notes],
+    [input.batchId, versions, observations, notes, lotsOf],
   )
   const ids = affected.rows.map((row) => row.id)
   if (ids.length) {
@@ -811,8 +824,8 @@ export async function observationCorrected(
     region?: { before: EvidenceRegionDto; after: EvidenceRegionDto }
     /** How many items it shows before and after, when that changed. */
     count?: { before: number | null; after: number | null }
-    /** A same-item mark set or cleared, on this observation or on one now marked the same as it. */
-    sameItem?: { observationId: string; before: string | null; after: string | null }
+    /** Same-item marks one edit set or cleared, this observation's first. */
+    sameItem?: readonly { observationId: string; before: string | null; after: string | null }[]
     /** The lot it joined, when it had none before. */
     joined?: string
     /** Other observations the change also alters, such as a same-item group's roots. */
@@ -896,16 +909,12 @@ export async function observationCorrected(
           },
         ]
       : []),
-    ...(input.sameItem
-      ? [
-          {
-            kind: 'same_item' as const,
-            observation_id: input.sameItem.observationId,
-            same_as_from: input.sameItem.before,
-            same_as_to: input.sameItem.after,
-          },
-        ]
-      : []),
+    ...(input.sameItem ?? []).map((mark) => ({
+      kind: 'same_item' as const,
+      observation_id: mark.observationId,
+      same_as_from: mark.before,
+      same_as_to: mark.after,
+    })),
     ...(input.joined
       ? [
           {

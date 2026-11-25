@@ -17,6 +17,7 @@ import { editMedia } from '#/media/edit.ts'
 import { grantMedia } from '#/media/grants.ts'
 import { decodeSessionInput } from '#/processing/session-input.ts'
 import { proposalCurrentnessFacts } from '#/processing/read.ts'
+import { operatorRepository } from '#/operator-review/repository.ts'
 import { evidenceNotes } from '#/capture/context-input.ts'
 import { sha256 } from '#/db/authority.ts'
 import { triggerExamine } from '#/processing/examine-trigger.ts'
@@ -2779,5 +2780,121 @@ test('a /7 identity saying what the item is must cite its lot’s set, whatever 
   assert.deepEqual(
     (await inputOf(fixture, research.attemptId)).manifest.pinned_proposal_ids,
     pinned,
+  )
+})
+
+test('a Review bulk edit of a lot’s quantity tells what relied on it, and its preview doesn’t', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId, leadAttempt, leadJob } = batch
+  const session = tools(batch)
+  const crystal = await batch.lot('16 mhz crystal')
+  const { note } = citations((await inputOf(fixture, leadAttempt)).manifest)
+  const counted = await result(
+    session.propose(await running(fixture, leadAttempt), {
+      proposal: {
+        schema_version: 'examine-identity/1',
+        subject_id: crystal.id,
+        summary: 'A crystal, counted from the label.',
+        sources: [note],
+        relies_on: { fields: ['quantity'], sources: [note] },
+        markings: [{ observation_id: crystal.evidence_observation_ids![0], text: ['16 MHz'] }],
+        candidates: [],
+      },
+    }),
+  )
+  assert.equal(counted.ok, true, JSON.stringify(counted))
+  const bulk = async (preview: boolean) => {
+    const current = await snapshotOf(fixture, batchId)
+    // This fixture's API role has no Review grants; the database owner stands in for it.
+    await operatorRepository(fixture.db.pool, fixture.config).bulkEdit(batchId, randomUUID(), {
+      expected_revision: current.revision,
+      preview,
+      lot_ids: [crystal.id],
+      change: { quantity: { mode: 'set', value: '12' } },
+    })
+  }
+  const staleOf = async () =>
+    (
+      await fixture.db.pool.query<{ reason: string }>(
+        'SELECT reason FROM processing_proposal_stale WHERE proposal_id=$1',
+        [counted.id],
+      )
+    ).rows[0]?.reason
+  await bulk(true)
+  assert.equal(await staleOf(), undefined)
+  await bulk(false)
+  assert.equal(await staleOf(), 'operator_correction')
+  const told = (await revisions(fixture, leadJob)).flatMap((item) => item.changes ?? [])
+  assert.ok(
+    told.some(
+      (change) =>
+        change.kind === 'field' &&
+        change.subject_id === crystal.id &&
+        change.field === 'quantity' &&
+        change.to === '12',
+    ),
+    JSON.stringify(told),
+  )
+})
+
+test('removing a member’s photo stales an identity citing that lot’s set from another lot', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, deps, batchId, leadJob, leadAttempt } = batch
+  // The LED lot gets a second observation on a photo of its own.
+  await photoWithNote(fixture, batchId, 'Reel', 'LED 0603 red')
+  await triggerExamine(fixture.writer.pool, fixture.config, { quietMs: 0 })
+  await transaction(fixture.runner.pool, (client) => queueSessionResume(client, leadJob))
+  assert.equal(await runSessionTurn(deps, leadAttempt, new AbortController().signal), 'finished')
+  const led = await batch.lot('led 0603 red')
+  const crystal = await batch.lot('16 mhz crystal')
+  const second = led.evidence_observation_ids![1]
+  const session = tools(batch)
+  const { note } = citations((await inputOf(fixture, leadAttempt)).manifest)
+  const beside = await result(
+    session.propose(await running(fixture, leadAttempt), {
+      proposal: {
+        schema_version: 'examine-identity/1',
+        subject_id: crystal.id,
+        summary: 'A crystal, beside the LED reel.',
+        sources: [note],
+        relies_on: {
+          fields: ['markings', 'identity'],
+          sources: [
+            note,
+            {
+              kind: 'observation_set',
+              lot_id: crystal.id,
+              version: crystal.observation_set_version,
+            },
+            { kind: 'observation_set', lot_id: led.id, version: led.observation_set_version },
+          ],
+        },
+        markings: [{ observation_id: crystal.evidence_observation_ids![0], text: ['16 MHz'] }],
+        candidates: [],
+      },
+    }),
+  )
+  assert.equal(beside.ok, true, JSON.stringify(beside))
+  const research = await stageJob(batch, '16 mhz crystal', 'research')
+  const reelVersion = (await snapshotOf(fixture, batchId)).evidence_observations!.find(
+    (item) => item.id === second,
+  )!.evidence_version_id
+  await grantMedia(fixture.db.pool, fixture.api.name, 'api')
+  const media = await fixture.db.pool.query<{ revision: string; evidence_id: string }>(
+    `SELECT b.revision::text, v.evidence_id FROM media_batch b
+     JOIN media_version v ON v.batch_id=b.batch_id WHERE b.batch_id=$1 AND v.id=$2`,
+    [batchId, reelVersion],
+  )
+  await editMedia(fixture.api.pool, fixture.config, batchId, randomUUID(), {
+    expected_revision: media.rows[0].revision,
+    change: { kind: 'remove', evidence_ids: [media.rows[0].evidence_id] },
+  })
+  const facts = await transaction(fixture.runner.pool, (client) =>
+    proposalCurrentnessFacts(client, batchId, [String(beside.id)]),
+  )
+  assert.notEqual(facts.get(String(beside.id))?.stale, null)
+  assert.equal(
+    await runSessionTurn(deps, research.attemptId, new AbortController().signal),
+    'cancelled',
   )
 })

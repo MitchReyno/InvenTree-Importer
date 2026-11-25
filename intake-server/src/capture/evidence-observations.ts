@@ -1102,8 +1102,8 @@ async function sameItemChanged(
   }
   // Loaded on use: Processing depends on capture, so capture must not import it eagerly.
   const { observationCorrected } = await import('#/processing/currentness.ts')
-  // The groups' roots, before and after, count their items differently now too; what relied on
-  // them is told with the first mark's notice, not one of its own.
+  // The groups' roots, before and after, count their items differently now too. One notice
+  // per session names every mark the edit changed.
   const markedIds = new Set(changed.map((mark) => mark.id))
   const roots = [
     ...new Set(
@@ -1113,15 +1113,18 @@ async function sameItemChanged(
         .filter((root): root is string => root !== null && !markedIds.has(root)),
     ),
   ]
-  for (const [index, mark] of changed.entries()) {
-    await observationCorrected(client, {
-      batchId,
+  const [first, ...rest] = changed
+  await observationCorrected(client, {
+    batchId,
+    observationId: first.id,
+    sameItem: changed.map((mark) => ({
       observationId: mark.id,
-      sameItem: { observationId: mark.id, before: mark.before, after: mark.after },
-      ...(index === 0 ? { alsoAlters: roots } : {}),
-      revision: revision.toString(),
-    })
-  }
+      before: mark.before,
+      after: mark.after,
+    })),
+    alsoAlters: [...rest.map((mark) => mark.id), ...roots],
+    revision: revision.toString(),
+  })
 }
 
 /**

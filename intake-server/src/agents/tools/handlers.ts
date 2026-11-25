@@ -2243,7 +2243,15 @@ export function sessionTools(context: SessionToolContext) {
             proposal.schema_version === 'examine-identity/1' &&
             principal.manifest.schema_version === 'bench-intake-input/7'
           ) {
-            await recordIdentityBasis(client, principal.batchId, proposal.subject_id, id)
+            await recordIdentityBasis(
+              client,
+              principal.batchId,
+              proposal.subject_id,
+              id,
+              proposal.relies_on.sources.flatMap((source) =>
+                source.kind === 'observation_set' ? [source.lot_id] : [],
+              ),
+            )
           }
           // A stable identity from the lead session starts the lot's Research and Images. It
           // takes the media and job locks, so it runs before the estimate publishes to the stream.
