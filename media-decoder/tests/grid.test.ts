@@ -120,8 +120,12 @@ test('grid labels are in page pixels, whatever the preview scale', async () => {
     result.x_labels,
     [160, 170, 180, 190, 200, 210, 220, 230, 240, 250, 260, 270, 280, 290, 300, 310, 320],
   )
-  // y 170 would sit under the 'lopsided' box's name at the same corner, so it is left out.
-  assert.deepEqual(result.y_labels, [180, 190, 200, 210, 220, 230])
+  assert.deepEqual(result.y_labels, [170, 180, 190, 200, 210, 220, 230])
+  // The 'lopsided' name would cover 'even's, so it moves to another corner of its box.
+  assert.deepEqual(
+    result.boxes.map((item) => item.drawn_label),
+    ['even', 'lopsided', 'clipping'],
+  )
 
   const image = await rgbRaster(result.image.bytes)
   assert.deepEqual([image.width, image.height], [900, 400])
@@ -406,4 +410,79 @@ test('x labels fit a preview only just taller than their chips', async () => {
   assert.deepEqual([image.width, image.height], [200, 17])
   assert.deepEqual(result.x_labels, [500, 1000, 1500])
   assert.equal(chipRuns(image, 0, 17).filter((run) => run.ink === 'red').length, 3)
+})
+
+test('label spacing is measured on the labels drawn, not the undrawn region end', async () => {
+  const page = await greyPage(10_000, 200)
+  // The region ends at 10000, a five-digit number no label shows; every label is four digits.
+  const { result } = await gridOf(page, { x: 9800, y: 0, width: 200, height: 200 }, 225, 40)
+  assert.deepEqual(result.x_labels, [9840, 9880, 9920, 9960])
+})
+
+test('two boxes sharing a top-left corner both get a visible name', async () => {
+  const page = await greyPage(400, 400)
+  const result = await renderGrid({
+    version: 'media-grid/1',
+    digest: page.digest,
+    width: page.width,
+    height: page.height,
+    bytes: page.bytes,
+    region: { x: 0, y: 0, width: 400, height: 400 },
+    preview_width: 400,
+    step: 200,
+    object: null,
+    boxes: [
+      { name: 'outer', box: { x: 50, y: 50, width: 200, height: 200 } },
+      { name: 'inner', box: { x: 50, y: 50, width: 120, height: 90 } },
+    ],
+  })
+  assert.ok(result.state === 'ready')
+  assert.deepEqual(
+    result.boxes.map((item) => item.drawn_label),
+    ['outer', 'inner'],
+  )
+  const image = await rgbRaster(result.image.bytes)
+  // The two box colours' ink: green for the first name, orange for the second.
+  let green = 0
+  let orange = 0
+  for (let offset = 0; offset < image.data.length; offset += 3) {
+    const [red, greenChannel, blue] = image.data.subarray(offset, offset + 3)
+    const chipNeighbour = offset >= 3 && image.data[offset - 3] === 255
+    if (!chipNeighbour) {
+      continue
+    }
+    if (greenChannel > 150 && red < 90 && blue < 90) {
+      green++
+    } else if (red > 200 && greenChannel > 100 && greenChannel < 180 && blue < 80) {
+      orange++
+    }
+  }
+  assert.ok(green > 5, 'the first name is visible')
+  assert.ok(orange > 5, 'the second name is visible')
+})
+
+test('a box whose name fits nowhere is keyed by its number', async () => {
+  const page = await greyPage(400, 400)
+  const result = await renderGrid({
+    version: 'media-grid/1',
+    digest: page.digest,
+    width: page.width,
+    height: page.height,
+    bytes: page.bytes,
+    // A 240 × 24 preview: the second long name collides with the first in every place it fits.
+    region: { x: 0, y: 0, width: 120, height: 12 },
+    preview_width: 240,
+    step: 100,
+    object: null,
+    boxes: [
+      { name: 'the first proposed crop box', box: { x: 0, y: 0, width: 120, height: 12 } },
+      { name: 'the second proposed crop box', box: { x: 0, y: 0, width: 120, height: 12 } },
+    ],
+  })
+  assert.ok(result.state === 'ready')
+  assert.deepEqual([result.image.width, result.image.height], [240, 24])
+  assert.deepEqual(
+    result.boxes.map((item) => item.drawn_label),
+    ['the first proposed crop box', '2'],
+  )
 })

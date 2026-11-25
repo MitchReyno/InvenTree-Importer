@@ -206,6 +206,7 @@ test('decoder output headers for the image tool operations', () => {
     boxes: [
       {
         name: 'box1',
+        drawn_label: '1',
         box: { x: 0, y: 0, width: 10, height: 10 },
         aspect: 1,
         margins: { left: -1, right: 2, top: 3, bottom: 4 },

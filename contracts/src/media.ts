@@ -233,7 +233,8 @@ export const LOGO_MATCH_MAX_CANDIDATES = 30
  * Light adjustments on a lit view, applied after the geometry in this order. White balance scales
  * each channel by a bounded grey-world gain; the others scale a pixel's channels together to a new
  * luminance. A saturated pixel (HSV saturation of at least ½, channels at least 48 levels apart)
- * turns at most 5° in all; rounding can turn or erase the hue of a dimmer or greyer one.
+ * turns at most 5° in all. The luminance steps turn a pixel whose brightest channel and channel
+ * spread are both at least 16 levels at most 2.5°; below that, rounding can turn or erase a hue.
  */
 export const MediaViewLight = object({
   white_balance: Type.Boolean(),
@@ -624,6 +625,8 @@ const MediaGridOutputHeader = Type.Union([
     boxes: Type.Array(
       object({
         name: outputLabel,
+        /** The name, or the box's number when the name didn't fit; null when neither was drawn. */
+        drawn_label: Type.Union([outputLabel, Type.Null()]),
         box: outputRegion,
         aspect: Type.Number({ exclusiveMinimum: 0 }),
         margins: Type.Union([

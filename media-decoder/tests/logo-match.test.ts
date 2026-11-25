@@ -107,6 +107,38 @@ test('candidates carry their maker and the sheet shows the query and each candid
   assert.equal(sheet.format, 'png')
   assert.deepEqual([sheet.width, sheet.height], [columns * cellWidth, rows * cellHeight])
   assert.deepEqual([result.sheet.width, result.sheet.height], [sheet.width, sheet.height])
+
+  // The query tile and the first candidate's each show a light-on-dark mark over their black
+  // tile, and a yellow title below it.
+  const pixels = await sharp(result.sheet.bytes).removeAlpha().raw().toBuffer()
+  const count = (
+    tile: number,
+    rows: [number, number],
+    matches: (red: number, green: number, blue: number) => boolean,
+  ) => {
+    let found = 0
+    const left = (tile % columns) * cellWidth
+    const top = Math.floor(tile / columns) * cellHeight
+    for (let y = top + rows[0]; y < top + rows[1]; y++) {
+      for (let x = left + 4; x < left + cellWidth - 4; x++) {
+        const offset = (y * columns * cellWidth + x) * 3
+        if (matches(pixels[offset], pixels[offset + 1], pixels[offset + 2])) {
+          found++
+        }
+      }
+    }
+    return found
+  }
+  const markInk = (red: number, green: number, blue: number) =>
+    red > 150 && green > 150 && blue > 150
+  const titleInk = (red: number, green: number, blue: number) =>
+    red > 200 && green > 150 && blue < 80
+  for (const tile of [0, 1]) {
+    assert.ok(count(tile, [5, 100], markInk) > 100, `tile ${tile} shows a mark`)
+    assert.ok(count(tile, [100, 118], titleInk) > 20, `tile ${tile} has its title`)
+  }
+  // The query's mark, an enlarged and blurred Motorola logo, differs from the reference's own.
+  assert.notEqual(count(0, [5, 100], markInk), count(1, [5, 100], markInk))
 })
 
 test('a blank region has no candidates', async () => {
@@ -148,22 +180,22 @@ test('a reference matched against itself scores at most 1, within the output con
   })
 })
 
-test('an elongated crop is matched within a bounded working size', async () => {
-  const bytes = await sharp({
-    create: { width: 35_000, height: 2, channels: 3, background: '#202020' },
-  })
-    .composite([
-      {
-        input: Buffer.from([230, 230, 230]),
-        raw: { width: 1, height: 1, channels: 3 },
-        tile: true,
-        left: 0,
-        top: 0,
-        gravity: 'northwest',
-      },
-    ])
+test('an elongated mark is matched within a bounded working size', async () => {
+  // Twenty bright and dark stripes across 9 million × 2 pixels, inside the decoder's pixel limits.
+  // Squared up at full size, its bounds would need 8 × 10^13 bytes; the query bound shrinks it to
+  // 1024 px first.
+  const width = 9_000_000
+  const stripe = width / 20
+  const raw = Buffer.alloc(width * 2 * 3)
+  for (let x = 0; x < width; x++) {
+    const level = Math.floor(x / stripe) % 2 === 0 ? 230 : 30
+    raw.fill(level, x * 3, x * 3 + 3)
+    raw.fill(level, (width + x) * 3, (width + x) * 3 + 3)
+  }
+  const bytes = await sharp(raw, { raw: { width, height: 2, channels: 3 } })
     .png()
     .toBuffer()
   const result = await matchLogo(await logoInput(bytes))
-  assert.equal(result.state, 'ready')
+  assert.ok(result.state === 'ready', `state ${result.state}`)
+  assert.equal(result.candidates.length, 5, 'the stripes have a shape to compare')
 })

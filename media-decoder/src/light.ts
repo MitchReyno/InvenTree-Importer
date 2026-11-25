@@ -9,11 +9,18 @@ const WHITE_BALANCE_MAX_GAIN_CHANGE = 0.15
 const HUE_BUDGET_DEGREES = 5
 /**
  * Luminance adjustments scale a pixel's channels together, so only rounding turns its hue: at most
- * 30° divided by the output's channel spread. A saturated pixel keeps a spread of at least 12
+ * 30° divided by the output's channel spread. A protected pixel keeps a spread of at least 12
  * levels, so 2.5°, and white balance followed by them gets the rest of the budget.
  */
 const LUMINANCE_ROUNDING_DEGREES = 2.5
-const SATURATED_MIN_OUTPUT_CHROMA = 12
+const PROTECTED_MIN_OUTPUT_SPREAD = 12
+/**
+ * Luminance adjustments protect a pixel whose hue is meaningful in 8 bits: brightest channel and
+ * channel spread both at least 16 levels. Below that, one level of rounding already moves its hue
+ * by 4° or more, so it isn't protected and darkening may turn or erase its hue.
+ */
+const PROTECTED_MIN_BRIGHTEST = 16
+const PROTECTED_MIN_SPREAD = 16
 /**
  * The guard watches saturated pixels only: HSV saturation of at least one half, and channels at
  * least 48 levels apart. Near-neutral pixels are what white balance is meant to turn, and below
@@ -269,30 +276,12 @@ async function sharpenPlanes(image: RawRgb, tone: (level: number) => number) {
   return { toned, blurred }
 }
 
-/** Which pixels were saturated before any light adjustment, one byte per pixel. */
-function saturatedPixels(image: RawRgb): Uint8Array {
-  const marks = new Uint8Array(image.data.length / 3)
-  for (let index = 0; index < marks.length; index++) {
-    const offset = index * 3
-    const red = image.data[offset]
-    const green = image.data[offset + 1]
-    const blue = image.data[offset + 2]
-    const brightest = Math.max(red, green, blue)
-    marks[index] = isSaturated(brightest, brightest - Math.min(red, green, blue)) ? 1 : 0
-  }
-  return marks
-}
-
 /**
  * Contrast, gamma and sharpening on luminance only: each pixel's channels are scaled together to
- * its new luminance, held back where a channel would clip. A pixel that was saturated before the
- * light step keeps an output spread of 12 levels, so rounding turns its hue at most 2.5°.
+ * its new luminance, held back where a channel would clip. A protected pixel keeps an output spread
+ * of 12 levels, so rounding turns its hue at most 2.5°.
  */
-async function adjustLuminance(
-  image: RawRgb,
-  light: MediaViewLightDto,
-  protectedPixels: Uint8Array,
-): Promise<RawRgb> {
+async function adjustLuminance(image: RawRgb, light: MediaViewLightDto): Promise<RawRgb> {
   const tone = toneCurve(image, light)
   const planes = light.sharpen ? await sharpenPlanes(image, tone) : null
   const data = Buffer.alloc(image.data.length)
@@ -314,7 +303,9 @@ async function adjustLuminance(
       data.fill(Math.round(after), offset, offset + 3)
       continue
     }
-    const minimumSpread = protectedPixels[index] === 1 ? SATURATED_MIN_OUTPUT_CHROMA : 0
+    const spread = brightest - Math.min(red, green, blue)
+    const isProtected = brightest >= PROTECTED_MIN_BRIGHTEST && spread >= PROTECTED_MIN_SPREAD
+    const minimumSpread = isProtected ? PROTECTED_MIN_OUTPUT_SPREAD : 0
     scaleKeepingHue(image.data, data, offset, after / before, minimumSpread)
   }
   return { data, info: image.info }
@@ -372,8 +363,6 @@ export async function applyLight(image: RawRgb, light: MediaViewLightDto): Promi
   // Gamma 1000 is the identity curve, so it adjusts nothing and takes none of the hue budget.
   const adjustsGamma = light.gamma_thousandths !== null && light.gamma_thousandths !== 1000
   const adjustsLuminance = light.contrast_clip_permille !== null || adjustsGamma || light.sharpen
-  // Saturation is judged on the source, so white balance can't take a pixel out of protection.
-  const protectedPixels = adjustsLuminance ? saturatedPixels(image) : null
   if (light.white_balance) {
     const budget = adjustsLuminance
       ? HUE_BUDGET_DEGREES - LUMINANCE_ROUNDING_DEGREES
@@ -385,8 +374,8 @@ export async function applyLight(image: RawRgb, light: MediaViewLightDto): Promi
     current = balanced.image
     whiteBalance = balanced.outcome
   }
-  if (protectedPixels) {
-    current = await adjustLuminance(current, light, protectedPixels)
+  if (adjustsLuminance) {
+    current = await adjustLuminance(current, light)
   }
   return { state: 'lit', image: current, whiteBalance }
 }

@@ -580,3 +580,63 @@ test('gamma 1000 is the identity: it changes no pixel and takes none of the hue 
   const neutralPage = await derived(original, neutral)
   assert.ok(plainPage.bytes.equals(neutralPage.bytes))
 })
+
+/** A brightest channel and a channel spread of at least 16 levels each make a hue meaningful in 8 bits. */
+const LUMINANCE_FLOOR_LEVELS = 16
+
+for (const light of [
+  { gamma_thousandths: 500 },
+  { gamma_thousandths: 1800 },
+  { contrast_clip_permille: 50, gamma_thousandths: 500, sharpen: true },
+]) {
+  test(`luminance ${JSON.stringify(light)} holds every pixel at or above the hue floor within 5°`, async () => {
+    // At the floor and just above it, under the guard's 48-level cutoff; then a ramp of dim colours.
+    const colours = [
+      [47, 5, 0],
+      [16, 0, 0],
+      [16, 16, 0],
+      [40, 24, 24],
+      [0, 20, 36],
+      [30, 14, 2],
+    ]
+    const page = await solidPage(48, 8, (x) => colours[x % colours.length])
+    const rendered = await renderLitCrop(page, wholePage(page, light))
+    assert.ok(rendered.state === 'rendered')
+    const before = await rgbRaster(page.bytes)
+    const after: Raster = {
+      width: rendered.image.info.width,
+      height: rendered.image.info.height,
+      data: rendered.image.data,
+    }
+    for (let x = 0; x < page.width; x++) {
+      const source = pixelAt(before, x, 4)
+      const output = pixelAt(after, x, 4)
+      const turned = hue(...output)
+      const shift = turned === null ? 180 : hueShift(hue(...source)!, turned)
+      assert.ok(
+        shift <= MAX_BAND_HUE_SHIFT_DEGREES,
+        `${source.join(',')} -> ${output.join(',')} turned ${shift.toFixed(2)}°`,
+      )
+    }
+  })
+}
+
+test('below the hue floor a pixel is not protected: gamma may darken it to grey, never brighten it', async () => {
+  const below = [
+    [15, 2, 0],
+    [40, 30, 26],
+  ]
+  for (const colour of below) {
+    const brightest = Math.max(...colour)
+    assert.ok(brightest < LUMINANCE_FLOOR_LEVELS || spread(colour) < LUMINANCE_FLOOR_LEVELS)
+  }
+  const page = await solidPage(2, 1, (x) => below[x])
+  const rendered = await renderLitCrop(page, wholePage(page, { gamma_thousandths: 500 }))
+  assert.ok(rendered.state === 'rendered')
+  const after: Raster = { width: 2, height: 1, data: rendered.image.data }
+  for (const [index, colour] of below.entries()) {
+    const output = pixelAt(after, index, 0)
+    assert.ok(Math.max(...output) < Math.max(...colour), `${output.join(',')} is darkened`)
+    assert.ok(spread(output) < 12, `${output.join(',')} keeps no protected spread`)
+  }
+})

@@ -187,10 +187,13 @@ function drawChip(context: SKRSContext2D, label: PlacedLabel) {
  * The label interval: grid.py's (every line when lines are 45 px apart, else every other), widened
  * to a further multiple of the step until labels `room` px across are at least that far apart.
  */
-function labelStep(plan: GridPlan, room: number) {
+function labelStep(plan: GridPlan, roomFor: (labelInterval: number) => number) {
   const scriptMultiple = plan.step * plan.scale >= LABEL_EVERY_LINE_MIN_PX ? 1 : 2
   const candidates = LABEL_LINE_MULTIPLES.filter((multiple) => multiple >= scriptMultiple)
-  const fitting = candidates.find((multiple) => plan.step * multiple * plan.scale >= room)
+  const fitting = candidates.find((multiple) => {
+    const interval = plan.step * multiple
+    return interval * plan.scale >= roomFor(interval)
+  })
   return plan.step * (fitting ?? candidates.at(-1)!)
 }
 
@@ -230,16 +233,21 @@ function drawLines(context: SKRSContext2D, plan: GridPlan) {
 function layoutLabels(
   context: SKRSContext2D,
   plan: GridPlan,
-  boxNames: PlacedLabel[],
+  placedChips: PlacedLabel[],
 ): { chips: PlacedLabel[]; xLabels: number[]; yLabels: number[] } {
   const { region, scale, previewWidth, previewHeight } = plan
-  const chips = [...boxNames]
+  const chips = [...placedChips]
 
   const fitsFreely = (label: PlacedLabel) =>
     fitsPreview(label.bounds, plan) && chips.every((other) => !overlaps(label.bounds, other.bounds))
 
-  const widest = context.measureText(String(region.x1)).width
-  const xStep = labelStep(plan, widest + 2 * CHIP_PAD_X + LABEL_GAP_PX)
+  // Room for the widest label that interval would draw, measured on the labels themselves.
+  const xStep = labelStep(plan, (interval) => {
+    const widths = multiples(region.x0, region.x1, interval).map(
+      (x) => context.measureText(String(x)).width,
+    )
+    return Math.max(0, ...widths) + 2 * CHIP_PAD_X + LABEL_GAP_PX
+  })
   // The x label row sits 3 px down, or as far down as a short preview allows.
   const rowTop = Math.max(
     CHIP_PAD_Y,
@@ -260,7 +268,7 @@ function layoutLabels(
     }
   }
 
-  const yStep = labelStep(plan, LABEL_FONT_PX + 2 * CHIP_PAD_Y + LABEL_GAP_PX)
+  const yStep = labelStep(plan, () => LABEL_FONT_PX + 2 * CHIP_PAD_Y + LABEL_GAP_PX)
   const yLabels: number[] = []
   for (const y of multiples(region.y0, region.y1, yStep)) {
     const line = previewPixel(y, region.y0, scale, previewHeight)
@@ -291,14 +299,8 @@ function drawObject(context: SKRSContext2D, plan: GridPlan, object: Corners) {
   context.setLineDash([])
 }
 
-/** A proposed box with its centre crosshair; returns its name's label, drawn with the others. */
-function drawBox(
-  context: SKRSContext2D,
-  plan: GridPlan,
-  box: Corners,
-  name: string,
-  colour: string,
-) {
+/** A proposed box's outline and centre crosshair; returns the outline in preview pixels. */
+function drawBox(context: SKRSContext2D, plan: GridPlan, box: Corners, colour: string) {
   const { region, scale } = plan
   const left = (box.x0 - region.x0) * scale
   const top = (box.y0 - region.y0) * scale
@@ -316,7 +318,57 @@ function drawBox(
   context.moveTo(centreX, centreY - 12)
   context.lineTo(centreX, centreY + 12)
   context.stroke()
-  return placed(context, left + 4, top + 4, name, colour)
+  return { left, top, right, bottom }
+}
+
+/** Where a box's name may go, in order: its inner corners, then just outside its top and bottom. */
+function namePositions(box: Chip, textWidth: number) {
+  const inset = 4
+  const nameHeight = LABEL_FONT_PX
+  return [
+    { x: box.left + inset, y: box.top + inset },
+    { x: box.right - inset - textWidth, y: box.top + inset },
+    { x: box.left + inset, y: box.bottom - inset - nameHeight },
+    { x: box.right - inset - textWidth, y: box.bottom - inset - nameHeight },
+    { x: box.left, y: box.top - inset - nameHeight },
+    { x: box.left, y: box.bottom + inset },
+  ]
+}
+
+/**
+ * Each box's name, placed where it fits the preview and covers no earlier name; failing that, its
+ * number in the request (a key) in the same places; failing that, nothing. Returns the placed
+ * chips and, per box, the text drawn.
+ */
+function placeBoxNames(
+  context: SKRSContext2D,
+  plan: GridPlan,
+  boxes: { outline: Chip; name: string; colour: string }[],
+) {
+  const chips: PlacedLabel[] = []
+  const drawn: (string | null)[] = []
+  for (const [index, box] of boxes.entries()) {
+    let chosen: PlacedLabel | null = null
+    for (const text of [box.name, String(index + 1)]) {
+      const width = context.measureText(text).width
+      for (const position of namePositions(box.outline, width)) {
+        const label = placed(context, position.x, position.y, text, box.colour)
+        const free = chips.every((other) => !overlaps(label.bounds, other.bounds))
+        if (fitsPreview(label.bounds, plan) && free) {
+          chosen = label
+          break
+        }
+      }
+      if (chosen) {
+        break
+      }
+    }
+    if (chosen) {
+      chips.push(chosen)
+    }
+    drawn.push(chosen ? chosen.text : null)
+  }
+  return { chips, drawn }
 }
 
 /** A box's size and its margins to the object, flagged as grid.py flags them. */
@@ -388,21 +440,19 @@ async function drawGrid(input: GridInput, plan: GridPlan) {
   if (object) {
     drawObject(context, plan, object)
   }
-  const boxNames = input.boxes.map((item, index) =>
-    drawBox(
-      context,
-      plan,
-      corners(item.box),
-      item.name,
-      COLOURS.boxes[index % COLOURS.boxes.length],
-    ),
-  )
-  // Every label goes on last, over the lines and outlines, laid out so none covers another.
-  const layout = layoutLabels(context, plan, boxNames)
+  const boxes = input.boxes.map((item, index) => {
+    const colour = COLOURS.boxes[index % COLOURS.boxes.length]
+    const outline = drawBox(context, plan, corners(item.box), colour)
+    return { outline, name: item.name, colour }
+  })
+  // Labels go on last, over the lines and outlines. Box names are placed first, each clear of the
+  // others, then the axis labels clear of them all, so no drawn label covers another.
+  const names = placeBoxNames(context, plan, boxes)
+  const layout = layoutLabels(context, plan, names.chips)
   for (const label of layout.chips) {
     drawChip(context, label)
   }
-  const labels = { xLabels: layout.xLabels, yLabels: layout.yLabels }
+  const labels = { xLabels: layout.xLabels, yLabels: layout.yLabels, boxNames: names.drawn }
   const bytes = await canvas.encode('png')
   if (bytes.length > MEDIA_LIMITS.outputBytes) {
     throw new GridLimitError('grid_output_limit')
@@ -437,8 +487,9 @@ export async function renderGrid(input: GridInput): Promise<GridResult> {
       step: plan.step,
       x_labels: drawn.labels.xLabels,
       y_labels: drawn.labels.yLabels,
-      boxes: input.boxes.map((item) => ({
+      boxes: input.boxes.map((item, index) => ({
         name: item.name,
+        drawn_label: drawn.labels.boxNames[index],
         box: item.box,
         ...measure(corners(item.box), object),
       })),
