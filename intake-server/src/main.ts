@@ -90,8 +90,8 @@ function bindReadOnlyTarget(
     read: (operation: ReadOperation) => transport.read(binding, operation),
     list: (operation: ListOperation, timeoutMs: number) =>
       transport.list(binding, operation, timeoutMs),
-    probe: () => transport.probe(binding),
-    serverVersion: () => transport.serverVersion(binding),
+    probe: (signal: AbortSignal) => transport.probe(binding, signal),
+    serverVersion: (signal: AbortSignal) => transport.serverVersion(binding, signal),
     attachments: {
       metadata: (pk: string) => transport.readPartAttachmentMetadata(binding, pk),
       file: (input: { pk: string; partPk: string; path: string }) =>
@@ -102,13 +102,17 @@ function bindReadOnlyTarget(
 
 async function main() {
   const config = devConfig(process.env)
-  const db = process.env.INTAKE_DATABASE_URL ? database(process.env.INTAKE_DATABASE_URL) : undefined
+  // Reserve the fourth connection in the existing web role budget for status fences.
+  const db = process.env.INTAKE_DATABASE_URL
+    ? database(process.env.INTAKE_DATABASE_URL, 3)
+    : undefined
+  let healthDb: ReturnType<typeof database> | undefined
   let closed = false
 
   const closeDatabase = async () => {
     if (!closed) {
       closed = true
-      await db?.close()
+      await Promise.all([db?.close(), healthDb?.close()])
     }
   }
 
@@ -169,14 +173,22 @@ async function main() {
       const headerConfig = { ...manualConfig, ...processing }
       registerProcessing(server, db.pool, processing, lockCaptureForEdit)
       registerAgents(server, db.pool, processing)
+      healthDb = database(process.env.INTAKE_DATABASE_URL!, 1)
       const connection = scopedConnectionStatus(
-        db.pool,
+        healthDb.pool,
         config,
         runtime.readOrigin,
         targetReads?.probe,
         targetReads?.serverVersion,
         readTarget?.holder,
+        (outcome, elapsedMs) => {
+          process.stdout.write(
+            JSON.stringify({ event: 'target_health', outcome, elapsedMs }) + '\n',
+          )
+        },
       )
+      server.addHook('onReady', async () => connection.start())
+      server.addHook('preClose', async () => connection.stop())
       registerHeader(server, config, connection, (batchId) =>
         headerWork(db.pool, headerConfig, batchId),
       )

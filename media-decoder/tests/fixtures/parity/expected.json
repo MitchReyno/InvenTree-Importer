@@ -1,0 +1,386 @@
+{
+  "photo": "bench-photo.png",
+  "crops": [
+    {
+      "guard_holds_back": false,
+      "name": "plain",
+      "region": [
+        60,
+        40,
+        300,
+        220
+      ],
+      "quarter_turns": 0,
+      "straighten": 0,
+      "wb": false,
+      "output": "crop-plain.png",
+      "gains": null
+    },
+    {
+      "guard_holds_back": false,
+      "name": "turned-90",
+      "region": [
+        150,
+        160,
+        330,
+        240
+      ],
+      "quarter_turns": 1,
+      "straighten": 0,
+      "wb": false,
+      "output": "crop-turned-90.png",
+      "gains": null
+    },
+    {
+      "guard_holds_back": false,
+      "name": "turned-180",
+      "region": [
+        290,
+        50,
+        430,
+        150
+      ],
+      "quarter_turns": 2,
+      "straighten": 0,
+      "wb": false,
+      "output": "crop-turned-180.png",
+      "gains": null
+    },
+    {
+      "guard_holds_back": false,
+      "name": "turned-270",
+      "region": [
+        20,
+        30,
+        160,
+        340
+      ],
+      "quarter_turns": 3,
+      "straighten": 0,
+      "wb": false,
+      "output": "crop-turned-270.png",
+      "gains": null
+    },
+    {
+      "guard_holds_back": false,
+      "name": "tall",
+      "region": [
+        0,
+        0,
+        300,
+        360
+      ],
+      "quarter_turns": 0,
+      "straighten": 0,
+      "wb": false,
+      "output": "crop-tall.png",
+      "gains": null
+    },
+    {
+      "guard_holds_back": false,
+      "name": "straight-7",
+      "region": [
+        140,
+        150,
+        340,
+        250
+      ],
+      "quarter_turns": 0,
+      "straighten": 7,
+      "wb": false,
+      "output": "crop-straight-7.png",
+      "gains": null
+    },
+    {
+      "guard_holds_back": false,
+      "name": "straight-neg-3.5",
+      "region": [
+        280,
+        40,
+        440,
+        160
+      ],
+      "quarter_turns": 1,
+      "straighten": -3.5,
+      "wb": false,
+      "output": "crop-straight-neg-3.5.png",
+      "gains": null
+    },
+    {
+      "guard_holds_back": false,
+      "name": "wb-card",
+      "region": [
+        20,
+        230,
+        200,
+        345
+      ],
+      "quarter_turns": 0,
+      "straighten": 0,
+      "wb": true,
+      "output": "crop-wb-card.png",
+      "gains": [
+        0.93,
+        0.98,
+        1.1
+      ]
+    },
+    {
+      "guard_holds_back": false,
+      "name": "wb-turned",
+      "region": [
+        20,
+        20,
+        180,
+        170
+      ],
+      "quarter_turns": 1,
+      "straighten": 0,
+      "wb": true,
+      "output": "crop-wb-turned.png",
+      "gains": [
+        1.04,
+        1.03,
+        0.94
+      ]
+    },
+    {
+      "guard_holds_back": true,
+      "name": "wb-bands",
+      "region": [
+        10,
+        20,
+        470,
+        350
+      ],
+      "quarter_turns": 1,
+      "straighten": 0,
+      "wb": true,
+      "output": "crop-wb-bands.png",
+      "gains": [
+        0.94,
+        0.98,
+        1.1
+      ]
+    }
+  ],
+  "grids": [
+    {
+      "name": "whole",
+      "arguments": [],
+      "printed": [
+        "source 480x360, region 0,0-480,360, preview scale 2.083, grid every 50px"
+      ]
+    },
+    {
+      "name": "zoom",
+      "arguments": [
+        "--region",
+        "150",
+        "160",
+        "330",
+        "240",
+        "--width",
+        "900",
+        "--object",
+        "170",
+        "182",
+        "310",
+        "218",
+        "--box",
+        "160",
+        "172",
+        "320",
+        "228",
+        "even",
+        "--box",
+        "150",
+        "170",
+        "300",
+        "230",
+        "lopsided",
+        "--box",
+        "180",
+        "175",
+        "320",
+        "225",
+        "clipping"
+      ],
+      "printed": [
+        "source 480x360, region 150,160-330,240, preview scale 5.000, grid every 10px",
+        "even: 160,172-320,228  160x56  aspect 2.86  margins L10 R10 T10 B10",
+        "lopsided: 150,170-300,230  150x60  aspect 2.50  margins L20 R-10 T12 B12  CLIPS THE OBJECT",
+        "clipping: 180,175-320,225  140x50  aspect 2.80  margins L-10 R10 T7 B7  CLIPS THE OBJECT"
+      ]
+    },
+    {
+      "name": "stepped",
+      "arguments": [
+        "--region",
+        "0",
+        "0",
+        "480",
+        "360",
+        "--width",
+        "640",
+        "--step",
+        "40",
+        "--box",
+        "300",
+        "60",
+        "420",
+        "140"
+      ],
+      "printed": [
+        "source 480x360, region 0,0-480,360, preview scale 1.333, grid every 40px",
+        "box1: 300,60-420,140  120x80  aspect 1.50"
+      ]
+    }
+  ],
+  "logos": [
+    {
+      "id": "motorola1",
+      "degradation": "etched",
+      "query": "logo-motorola1-etched.png",
+      "top": [
+        "motorola1",
+        "pulse",
+        "micronix",
+        "aha1",
+        "atmel"
+      ]
+    },
+    {
+      "id": "fairchild1",
+      "degradation": "printed",
+      "query": "logo-fairchild1-printed.png",
+      "top": [
+        "fairchild1",
+        "semtech",
+        "idt1",
+        "trident",
+        "summit"
+      ]
+    },
+    {
+      "id": "harris1",
+      "degradation": "noisy",
+      "query": "logo-harris1-noisy.png",
+      "top": [
+        "harris1",
+        "harris2",
+        "analog2",
+        "sanyo1",
+        "analog1"
+      ]
+    },
+    {
+      "id": "lattice1",
+      "degradation": "tilted",
+      "query": "logo-lattice1-tilted.png",
+      "top": [
+        "lattice1",
+        "semicoa",
+        "cologne",
+        "dallas2",
+        "diotec"
+      ]
+    },
+    {
+      "id": "signetics",
+      "degradation": "etched",
+      "query": "logo-signetics-etched.png",
+      "top": [
+        "signetics",
+        "stanford",
+        "quality",
+        "semicoa",
+        "philips"
+      ]
+    },
+    {
+      "id": "micrel",
+      "degradation": "printed",
+      "query": "logo-micrel-printed.png",
+      "top": [
+        "micrel",
+        "hfo",
+        "gi2",
+        "myson",
+        "mediavision1"
+      ]
+    },
+    {
+      "id": "siliconix",
+      "degradation": "noisy",
+      "query": "logo-siliconix-noisy.png",
+      "top": [
+        "siliconix",
+        "hp",
+        "pulse",
+        "ghz",
+        "alpha_semi"
+      ]
+    },
+    {
+      "id": "dallas2",
+      "degradation": "tilted",
+      "query": "logo-dallas2-tilted.png",
+      "top": [
+        "dallas2",
+        "jetkey",
+        "dallas1",
+        "semicoa",
+        "bothhand"
+      ]
+    },
+    {
+      "id": "ns2",
+      "degradation": "printed",
+      "query": "logo-ns2-printed.png",
+      "top": [
+        "ns2",
+        "ti2",
+        "omnirel",
+        "siliconians",
+        "att"
+      ]
+    },
+    {
+      "id": "allegro1",
+      "degradation": "etched",
+      "query": "logo-allegro1-etched.png",
+      "top": [
+        "allegro1",
+        "rectron",
+        "myson",
+        "s3_3",
+        "diamondtech"
+      ]
+    }
+  ],
+  "montage": {
+    "output": "montage-script.png",
+    "whole_photo_first": true,
+    "crops": [
+      "plain",
+      "tall",
+      "turned-270"
+    ]
+  },
+  "source": "truth-source.png",
+  "truths": [
+    {
+      "crop": "straight-7",
+      "degrees": -7.0,
+      "truth": "truth-straight-7.png",
+      "script": "truth-crop-straight-7.png"
+    },
+    {
+      "crop": "straight-neg-3.5",
+      "degrees": -86.5,
+      "truth": "truth-straight-neg-3.5.png",
+      "script": "truth-crop-straight-neg-3.5.png"
+    }
+  ]
+}

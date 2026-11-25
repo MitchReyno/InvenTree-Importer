@@ -23,6 +23,8 @@ import {
   processingClient,
 } from '@invimport/contracts/client'
 import { ServerStateProvider } from './components/query/ServerStateProvider'
+import { IntakeConnectionProvider } from '#/context'
+import { IntakeConnectionLabel } from './components/masthead/IntakeConnectionLabel'
 import { LiveUpdates } from './components/operations/LiveUpdates'
 import { PageDebugPanel } from './components/operations/PageDebugPanel'
 import { RefreshSignal } from './components/operations/RefreshSignal'
@@ -163,8 +165,7 @@ export default function App() {
   if (bootstrapUnavailable && !bootstrap) {
     content = (
       <div role="alert">
-        Application unavailable. Check the local API and retry.{' '}
-        <Button onClick={() => location.reload()}>Retry connection</Button>
+        <IntakeConnectionLabel />. <Button onClick={refreshBootstrap}>Retry connection</Button>
       </div>
     )
   } else if (!bootstrap) {
@@ -242,71 +243,77 @@ export default function App() {
               showStatus={false}
               refreshBootstrap={refreshBootstrap}
             >
-              <HeaderObservationsProvider
-                client={header && scope ? header : null}
-                batchId={currentBatch}
+              <IntakeConnectionProvider
+                bootstrapFailed={bootstrapUnavailable}
+                refreshBootstrap={refreshBootstrap}
               >
-                <AppMasthead
-                  route={route}
-                  status={
-                    header && scope ? (
-                      <HeaderStatus
-                        client={header}
-                        batchId={currentBatch}
-                        bootstrapUnavailable={bootstrapUnavailable}
-                      />
-                    ) : (
-                      <SetupStatus>
-                        {bootstrap ? 'Local setup required' : 'Connecting to application…'}
-                      </SetupStatus>
-                    )
-                  }
-                />
-                <CompactStatusContext.Provider
-                  value={
-                    header && scope ? (
-                      <HeaderStatus
-                        client={header}
-                        batchId={currentBatch}
-                        bootstrapUnavailable={bootstrapUnavailable}
-                        variant="condensed"
-                      />
-                    ) : null
-                  }
+                <HeaderObservationsProvider
+                  client={header && scope ? header : null}
+                  batchId={currentBatch}
                 >
-                  <Main>
-                    <RefreshSignal>
-                      {((bootstrapUnavailable && bootstrap) || navigationBlocked) && (
-                        <PageContent $width={width}>
-                          {bootstrapUnavailable && bootstrap && (
-                            <div role="alert">
-                              <Banner tone="warn">
-                                Application connection unavailable. Showing the last development
-                                context; retained views report their own freshness. Unsaved input is
-                                preserved.
-                              </Banner>
-                            </div>
-                          )}
-                          {navigationBlocked && (
-                            <div role="alert">
-                              <Banner tone="warn">
-                                Your unsaved input is preserved. Save this form or discard its
-                                unsaved input before navigating, then choose the destination again.
-                              </Banner>
-                            </div>
-                          )}
-                        </PageContent>
-                      )}
-                      {batchPage ? content : <PageContent $width={width}>{content}</PageContent>}
-                      {manual && debug && (
-                        <PageContent $width={width}>
-                          <PageDebugPanel route={route ?? ''} batchId={currentBatch} />
-                        </PageContent>
-                      )}
-                    </RefreshSignal>
-                  </Main>
-                </CompactStatusContext.Provider>
-              </HeaderObservationsProvider>
+                  <AppMasthead
+                    route={route}
+                    status={
+                      header && scope ? (
+                        <HeaderStatus
+                          client={header}
+                          batchId={currentBatch}
+                          bootstrapUnavailable={bootstrapUnavailable}
+                        />
+                      ) : (
+                        <SetupStatus>
+                          {bootstrap ? 'Local setup required' : <IntakeConnectionLabel />}
+                        </SetupStatus>
+                      )
+                    }
+                  />
+                  <CompactStatusContext.Provider
+                    value={
+                      header && scope ? (
+                        <HeaderStatus
+                          client={header}
+                          batchId={currentBatch}
+                          bootstrapUnavailable={bootstrapUnavailable}
+                          variant="condensed"
+                        />
+                      ) : null
+                    }
+                  >
+                    <Main>
+                      <RefreshSignal>
+                        {((bootstrapUnavailable && bootstrap) || navigationBlocked) && (
+                          <PageContent $width={width}>
+                            {bootstrapUnavailable && bootstrap && (
+                              <div role="alert">
+                                <Banner tone="warn">
+                                  Application connection unavailable. Showing the last development
+                                  context; retained views report their own freshness. Unsaved input
+                                  is preserved.
+                                </Banner>
+                              </div>
+                            )}
+                            {navigationBlocked && (
+                              <div role="alert">
+                                <Banner tone="warn">
+                                  Your unsaved input is preserved. Save this form or discard its
+                                  unsaved input before navigating, then choose the destination
+                                  again.
+                                </Banner>
+                              </div>
+                            )}
+                          </PageContent>
+                        )}
+                        {batchPage ? content : <PageContent $width={width}>{content}</PageContent>}
+                        {manual && debug && (
+                          <PageContent $width={width}>
+                            <PageDebugPanel route={route ?? ''} batchId={currentBatch} />
+                          </PageContent>
+                        )}
+                      </RefreshSignal>
+                    </Main>
+                  </CompactStatusContext.Provider>
+                </HeaderObservationsProvider>
+              </IntakeConnectionProvider>
             </LiveUpdates>
           </ApiClientsProvider>
         </ConfirmationProvider>

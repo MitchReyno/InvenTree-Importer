@@ -72,7 +72,7 @@ test('probe deadline resolves an unavailable observation without disclosing tran
     () => new Promise<Response>(() => {}),
   )
   const result = read()
-  t.mock.timers.tick(3000)
+  t.mock.timers.tick(10000)
   const observed = await result
   assert.equal(observed.target.state, 'unavailable')
   assert.equal(observed.target.failure_code, 'timeout')
@@ -265,7 +265,7 @@ test('an unavailable target reports no version, and a hung version read ends at 
     () => new Promise<Response>(() => {}),
   )()
   await Promise.resolve()
-  t.mock.timers.tick(3000)
+  t.mock.timers.tick(10000)
   const observed = await pending
   assert.equal(observed.target.state, 'reachable')
   assert.equal(observed.target.version, null)
@@ -363,4 +363,83 @@ test('the forced-check window runs from when a slow check finished', async () =>
   clock += 2000
   await status.check()
   assert.equal(calls, 1, 'two seconds after it finished, no new probe')
+})
+
+test('a valid protected health response after nine seconds establishes reachability', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const read = connectionStatus(
+    binding,
+    'https://inventory.example.invalid/',
+    () =>
+      new Promise<Response>((resolve) => {
+        setTimeout(() => resolve(Response.json({})), 9000)
+      }),
+  )
+  const pending = read()
+  t.mock.timers.tick(9000)
+  assert.equal((await pending).target.state, 'reachable')
+})
+
+test('only the active credential health reads receive the extended transport deadline', async (t) => {
+  const { inventoryTransport } = await import('#/inventory/transport.ts')
+  const milliseconds: number[] = []
+  t.mock.method(AbortSignal, 'timeout', (delay: number) => {
+    milliseconds.push(delay)
+    return new AbortController().signal
+  })
+  const target = { targetId: binding.targetId, contextId: binding.targetContextId }
+  const adapter = inventoryTransport(
+    {
+      ...target,
+      kind: 'protected-read-only',
+      origin: 'https://inventory.example.invalid',
+      protectedOrigins: ['https://inventory.example.invalid'],
+      credential: 'synthetic',
+    },
+    async () => Response.json({}),
+  )
+  await adapter.probe(target)
+  await adapter.serverVersion(target)
+  await adapter.verifyCandidate(target)
+  await adapter.read(target, { kind: 'get_part', pk: '1' })
+  assert.deepEqual(milliseconds, [10_000, 10_000, 5000, 5000])
+})
+
+test('successful root contact keeps the protected read failure cause', async () => {
+  const read = connectionStatus(
+    binding,
+    'https://inventory.example.invalid/',
+    async () => {
+      throw new DOMException('slow protected read', 'TimeoutError')
+    },
+    Date.now,
+    async () => Response.json({}),
+  )
+  const observed = await read()
+  assert.equal(observed.target.root_responded, true)
+  assert.equal(observed.target.failure_code, 'timeout')
+})
+
+test('an error page, redirect or malformed API root cannot establish InvenTree contact', async () => {
+  for (const root of [
+    new Response('bad gateway', { status: 502 }),
+    Response.json({}, { status: 404 }),
+    Response.redirect('https://inventory.example.invalid/login'),
+    new Response('<html>login</html>', { headers: { 'content-type': 'text/html' } }),
+    new Response('<html>login</html>', { headers: { 'content-type': 'application/json' } }),
+    Response.json([]),
+  ]) {
+    const read = connectionStatus(
+      binding,
+      'https://inventory.example.invalid',
+      async () => {
+        throw new DOMException('slow protected read', 'TimeoutError')
+      },
+      Date.now,
+      async () => root,
+    )
+    const { target } = await read()
+    assert.equal(target.root_responded, false)
+    assert.equal(target.failure_code, 'timeout')
+  }
 })

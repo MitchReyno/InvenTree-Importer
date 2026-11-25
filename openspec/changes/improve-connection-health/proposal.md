@@ -34,6 +34,7 @@ None.
 ### Modified capabilities
 
 - `header-connection-status` — both connection states, independent schedules, priority, freshness, recovery and diagnostics.
+- `inventory-target-protection` — allow ten seconds on the two health reads with the active credential.
 - `capture-media` — bounded parallel decoding of independent retained images under interactive load.
 
 ## Impact and dependencies

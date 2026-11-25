@@ -4,7 +4,7 @@ export const clientOperations = new Map<string, ClientOperation>([
   [
     "GET /api/v1/health",
     {
-      "timeoutMs": 5000,
+      "timeoutMs": 10000,
       "errorMode": "setup",
       "responseSchema": "Health"
     }
@@ -136,7 +136,7 @@ export const clientOperations = new Map<string, ClientOperation>([
   [
     "POST /api/v1/connection-status/check",
     {
-      "timeoutMs": 10000,
+      "timeoutMs": 20000,
       "errorMode": "typed",
       "responseSchema": "ConnectionStatus"
     }

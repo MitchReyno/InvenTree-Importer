@@ -21,10 +21,10 @@ export async function executeDatabaseQuery<T>(query: PromiseLike<T>): Promise<T>
 }
 
 /** Explicit database only; no default connection, secret discovery or import-time work. */
-export function database(connectionString: string) {
+export function database(connectionString: string, maxConnections = 4) {
   const pool = new Pool({
     connectionString,
-    max: 4,
+    max: maxConnections,
     connectionTimeoutMillis: 3000,
     idleTimeoutMillis: 5000,
     statement_timeout: 5000,

@@ -3,11 +3,15 @@ import {
   expectedRenditionSizes,
   renditionDimensions,
   requireMediaRecipeBounds,
+  viewLayout,
+  type MediaLitViewRecipeDto,
 } from '@invimport/contracts/media'
+import { renderLitCrop } from './lit-crop.ts'
 import sharp from 'sharp'
 import { createCanvas } from '@napi-rs/canvas'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
+import zlib from 'node:zlib'
 import {
   checkedInput,
   MEDIA_LIMITS,
@@ -183,6 +187,105 @@ export function pngHeaderMatches(bytes: Buffer, width: number, height: number) {
   )
 }
 
+/** Bit depths each IHDR colour type allows. */
+const PNG_BIT_DEPTHS = new Map([
+  [0, [1, 2, 4, 8, 16]],
+  [2, [8, 16]],
+  [3, [1, 2, 4, 8]],
+  [4, [8, 16]],
+  [6, [8, 16]],
+])
+const PNG_CHUNK_NAME = /^[A-Za-z]{4}$/
+const PNG_CRITICAL_CHUNKS = new Set(['IHDR', 'PLTE', 'IDAT', 'IEND'])
+
+/** Whether an IHDR's 13 bytes name a valid colour type, bit depth and methods. */
+function pngHeaderValid(data: Buffer) {
+  const depths = PNG_BIT_DEPTHS.get(data[9])
+  return (
+    data.length === 13 &&
+    depths !== undefined &&
+    depths.includes(data[8]) &&
+    data[10] === 0 &&
+    data[11] === 0 &&
+    data[12] <= 1
+  )
+}
+
+/** Whether a PLTE fits its header: 1-256 RGB entries, none for greyscale, within an indexed depth. */
+function pngPaletteValid(data: Buffer, header: Buffer) {
+  const [bitDepth, colourType] = [header[8], header[9]]
+  const entries = data.length / 3
+  const entriesValid = Number.isInteger(entries) && entries >= 1 && entries <= 256
+  const indexedFits = colourType !== 3 || entries <= 2 ** bitDepth
+  return entriesValid && colourType !== 0 && colourType !== 4 && indexedFits
+}
+
+/**
+ * Whether a PNG's critical chunks are whole and in order: four-letter chunk names, each length
+ * fitting and its CRC matching; a valid 13-byte IHDR first; at most one PLTE, valid for the header
+ * and before the data, and required for indexed colour; one run of IDAT; no other critical chunk;
+ * and an empty IEND ending the bytes. Ancillary chunks' placement and the compressed stream aren't
+ * checked: a damaged stream with intact CRCs fails later as a library error.
+ */
+export function pngChunksIntact(bytes: Buffer) {
+  if (!bytes.subarray(0, 8).equals(PNG_SIGNATURE)) {
+    return false
+  }
+  let header: Buffer | null = null
+  let palette = false
+  let data: 'before' | 'open' | 'closed' = 'before'
+  let offset = 8
+  while (offset + 12 <= bytes.length) {
+    const length = bytes.readUInt32BE(offset)
+    const end = offset + 12 + length
+    if (end > bytes.length) {
+      return false
+    }
+    const typeAndData = bytes.subarray(offset + 4, offset + 8 + length)
+    if (zlib.crc32(typeAndData) !== bytes.readUInt32BE(offset + 8 + length)) {
+      return false
+    }
+    const type = typeAndData.subarray(0, 4).toString('latin1')
+    const chunk = typeAndData.subarray(4)
+    if (!PNG_CHUNK_NAME.test(type)) {
+      return false
+    }
+    if (header === null) {
+      if (type !== 'IHDR' || !pngHeaderValid(chunk)) {
+        return false
+      }
+      header = chunk
+    } else if (type === 'IEND') {
+      const paletteSatisfied = palette || header[9] !== 3
+      return length === 0 && end === bytes.length && data !== 'before' && paletteSatisfied
+    } else if (type === 'IDAT') {
+      if (data === 'closed') {
+        return false
+      }
+      data = 'open'
+    } else {
+      if (data === 'open') {
+        data = 'closed'
+      }
+      const critical = type[0] === type[0].toUpperCase()
+      if (critical && !PNG_CRITICAL_CHUNKS.has(type)) {
+        return false
+      }
+      if (type === 'IHDR') {
+        return false
+      }
+      if (type === 'PLTE') {
+        if (palette || data !== 'before' || !pngPaletteValid(chunk, header)) {
+          return false
+        }
+        palette = true
+      }
+    }
+    offset = end
+  }
+  return false
+}
+
 /**
  * Renditions of a retained page PNG for the backfill. Only bytes that are a single PNG of exactly
  * the recorded dimensions are rendered; anything else is `malformed`, a positive mismatch.
@@ -210,6 +313,33 @@ export async function renderRetained(
   return { state: 'ready', toolchain: MEDIA_TOOLCHAIN, renditions: await renditions(page) }
 }
 
+/**
+ * A recipe `/2` crop of a decoded page as a lossless PNG at full resolution. A recipe that doesn't
+ * fit the page, or whose white balance the hue guard refuses, is `malformed`.
+ */
+async function deriveLitCrop(
+  source: DecodedPage,
+  recipe: MediaLitViewRecipeDto,
+): Promise<DecodedPage> {
+  try {
+    viewLayout(recipe, 'full')
+  } catch {
+    throw new MalformedMediaError('view_region_outside_page')
+  }
+  const crop = await renderLitCrop(source, recipe)
+  if (crop.state === 'refused') {
+    throw new MalformedMediaError(crop.reason)
+  }
+  const { width, height } = crop.image.info
+  const bytes = await sharp(crop.image.data, { raw: crop.image.info })
+    .png({ compressionLevel: 9, adaptiveFiltering: false, palette: false })
+    .toBuffer()
+  if (bytes.length > MEDIA_LIMITS.outputBytes) {
+    throw new LimitError('output_limit')
+  }
+  return { page: 1, width, height, bytes }
+}
+
 /** Called only inside the bounded decoder image; never from an HTTP route. */
 export async function decode(input: DecodeInput): Promise<DecodedMedia> {
   checkedInput(input)
@@ -224,6 +354,18 @@ export async function decode(input: DecodeInput): Promise<DecodedMedia> {
       throw new MalformedMediaError('truncated_jpeg')
     }
     let pages = isPdf ? await pdfPages(input.bytes) : [await raster(input.bytes)]
+    if (input.recipe?.version === 'bench-intake-view/2') {
+      const recipe = input.recipe
+      const source = pages.find((page) => page.page === recipe.page)
+      if (!source || source.width !== recipe.page_width || source.height !== recipe.page_height) {
+        throw new MalformedMediaError('lit_recipe_page_mismatch')
+      }
+      return {
+        state: 'ready',
+        toolchain: MEDIA_TOOLCHAIN,
+        pages: await rendered([await deriveLitCrop(source, recipe)]),
+      }
+    }
     if (input.recipe) {
       const recipe = input.recipe
       const source = pages.find((page) => page.page === recipe.page)

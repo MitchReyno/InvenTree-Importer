@@ -47,6 +47,7 @@ export const ConnectionStatus = Type.Object(
         state: choice(['unconfigured', 'unknown', 'reachable', 'unavailable']),
         freshness: choice(['unobserved', 'fresh', 'stale']),
         observed_at: Type.Union([Type.String({ maxLength: 40 }), Type.Null()]),
+        root_responded: Type.Optional(Type.Boolean()),
         failure_code: Type.Union([
           choice([
             'invalid_configuration',

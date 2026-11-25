@@ -11,6 +11,7 @@ import { serverQueryKey } from '#/queries/scope'
 import { createServerQueryClient } from '#/queries/client'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { eventTimeText } from '#/components/ui'
+import { IntakeConnectionProvider } from '#/context'
 import { HeaderStatus } from './HeaderStatus'
 import type { HeaderClient } from '#/header/types'
 import { HeaderObservationsProvider, UpdateHealthContext } from '#/context'
@@ -1436,3 +1437,88 @@ test('before the work is first read, the phone pill shows a skeleton rather than
   expect(trigger.querySelector('[data-short]')).toBeNull()
   expect(trigger.querySelector('[data-reading]')).not.toBeNull()
 })
+
+test('polling updates the badge within five seconds of a successful recovery without focus or socket events', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  const api = client()
+  const snapshot = connection()
+  api.connection = vi.fn(async () => snapshot)
+  try {
+    render(<HeaderStatus client={api} />)
+    await screen.findByText('InvenTree unreachable')
+    const recovered = connection()
+    recovered.target.state = 'reachable'
+    recovered.target.failure_code = null
+    api.connection = vi.fn(async () => recovered)
+    await act(async () => vi.advanceTimersByTimeAsync(4500))
+    expect(await screen.findByText('inventory.example.test')).toBeVisible()
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+test.each(['poll', 'manual', 'late manual'])(
+  'short outage recovery accepts a newer target observation from a %s check',
+  async (source) => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const api = client()
+    const before = connection()
+    const read = vi.fn(async () => undefined)
+
+    const restoreBootstrap = () => undefined
+
+    api.connection = vi.fn(async () => before)
+    api.checkConnection = vi.fn(async () => before)
+    const view = render(
+      <IntakeConnectionProvider
+        read={read}
+        refreshBootstrap={restoreBootstrap}
+        bootstrapFailed={false}
+      >
+        <HeaderStatus client={api} />
+      </IntakeConnectionProvider>,
+    )
+    try {
+      await screen.findByText('InvenTree unreachable')
+      let resolveOlder!: (value: ConnectionStatusDto) => void
+      if (source === 'late manual') {
+        vi.mocked(api.checkConnection).mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              resolveOlder = resolve
+            }),
+        )
+        fireEvent.click(screen.getByRole('button', { name: 'Connection status' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Check connection now' }))
+        await screen.findByRole('button', { name: 'Checking…' })
+      }
+      read.mockRejectedValueOnce(new Error('intake offline'))
+      await act(async () => vi.advanceTimersByTimeAsync(10_100))
+      await screen.findAllByText('No connection to Intake')
+      await act(async () => vi.advanceTimersByTimeAsync(4500))
+      await screen.findAllByText('Reading connection…')
+      expect(screen.queryByText('InvenTree unreachable')).toBeNull()
+      const after = connection()
+      after.target.state = 'reachable'
+      after.target.failure_code = null
+      api.checkConnection = vi.fn(async () => after)
+      if (source === 'manual') {
+        fireEvent.click(screen.getByRole('button', { name: 'Connection status' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Check connection now' }))
+      } else {
+        await act(async () => vi.advanceTimersByTimeAsync(4100))
+      }
+      expect((await screen.findAllByText('inventory.example.test'))[0]).toBeVisible()
+      if (source === 'late manual') {
+        await act(async () => {
+          resolveOlder(before)
+        })
+        expect(screen.queryByText('InvenTree unreachable')).toBeNull()
+        expect(screen.getAllByText('inventory.example.test')[0]).toBeVisible()
+      }
+    } finally {
+      view.unmount()
+      vi.useRealTimers()
+    }
+  },
+)

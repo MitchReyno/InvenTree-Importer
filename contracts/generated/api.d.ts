@@ -7270,6 +7270,7 @@ export interface components {
                 state: "unconfigured" | "unknown" | "reachable" | "unavailable";
                 freshness: "unobserved" | "fresh" | "stale";
                 observed_at: string | null;
+                root_responded?: boolean;
                 failure_code: ("invalid_configuration" | "timeout" | "http_error" | "redirect_refused" | "unexpected_response" | "unavailable" | "unauthorized") | null;
                 navigation_url: string | null;
                 label: string | null;

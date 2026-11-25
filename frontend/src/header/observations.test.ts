@@ -52,7 +52,7 @@ describe('targetStatus', () => {
       'bad',
       'Offline',
     ],
-    ['API unavailable', target({}), true, 'InvenTree unreachable', 'bad', 'Offline'],
+    ['API unavailable', target({}), true, 'Intake service degraded', 'warn', 'Degraded'],
     [
       'unconfigured',
       target({ state: 'unconfigured' }),

@@ -51,6 +51,7 @@ export const LIST_MAX_PAGE_SIZE = 100
 export const LIST_MAX_OFFSET = 10000
 export const LIST_SEARCH_MAX_CHARACTERS = 100
 export const LIST_MAX_TIMEOUT_MS = 5000
+export const CONNECTION_PROBE_TIMEOUT_MS = 10_000
 const LIST_PATHS = {
   list_locations: { path: '/api/stock/location/', filters: [] },
   list_supplier_companies: { path: '/api/company/', filters: [['is_supplier', 'true']] },
@@ -249,13 +250,16 @@ export function inventoryTransport(
     body?: string | Uint8Array<ArrayBuffer>,
     headers: Record<string, string> = {},
     timeoutMs = 5000,
+    signal?: AbortSignal,
   ): Promise<Response> {
     const token = currentCredential()
     const response = await send(new URL(path, destination), {
       method,
       body,
       redirect: 'manual',
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: signal
+        ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)])
+        : AbortSignal.timeout(timeoutMs),
       headers: {
         authorization: `Token ${token}`,
         'content-type': 'application/json',
@@ -292,14 +296,25 @@ export function inventoryTransport(
   }
 
   return Object.freeze({
-    async probe(binding: TargetBinding) {
+    async verifyCandidate(binding: TargetBinding) {
       assertBinding(binding)
-      return request('/api/part/?limit=1', 'GET', undefined, {}, 3000)
+      return request('/api/part/?limit=1', 'GET')
+    },
+    async probe(binding: TargetBinding, signal?: AbortSignal) {
+      assertBinding(binding)
+      return request(
+        '/api/part/?limit=1',
+        'GET',
+        undefined,
+        {},
+        CONNECTION_PROBE_TIMEOUT_MS,
+        signal,
+      )
     },
     /** The API root names the server's version; it is read beside, never instead of, the probe. */
-    async serverVersion(binding: TargetBinding) {
+    async serverVersion(binding: TargetBinding, signal?: AbortSignal) {
       assertBinding(binding)
-      return request('/api/', 'GET', undefined, {}, 3000)
+      return request('/api/', 'GET', undefined, {}, CONNECTION_PROBE_TIMEOUT_MS, signal)
     },
     async read(binding: TargetBinding, operation: ReadOperation) {
       assertBinding(binding)

@@ -104,8 +104,22 @@ export interface ViewLayout {
   thumbHeight: number
 }
 
+/**
+ * A question view stops at `VIEW_MAX_LONG_EDGE` and enlarges a small region; a derived crop, and the
+ * preview of one, renders at the region's full resolution.
+ */
+export type ViewSize = 'view' | 'full'
+
+function viewScale(longEdge: number) {
+  if (longEdge > VIEW_MAX_LONG_EDGE) {
+    return VIEW_MAX_LONG_EDGE / longEdge
+  }
+  return Math.min(VIEW_MAX_ZOOM, Math.max(1, VIEW_MIN_LONG_EDGE / longEdge))
+}
+
 export function viewLayout(
   recipe: Pick<MediaViewRecipeDto, 'page_width' | 'page_height' | 'view'>,
+  size: ViewSize = 'view',
 ): ViewLayout {
   const { region, quarter_turns: quarterTurns, straighten_millidegrees: angle } = recipe.view
   if (
@@ -129,11 +143,7 @@ export function viewLayout(
   const turned = quarterTurns % 2 === 1
   const shownWidth = turned ? windowHeight : windowWidth
   const shownHeight = turned ? windowWidth : windowHeight
-  const longEdge = Math.max(shownWidth, shownHeight)
-  const scale =
-    longEdge > VIEW_MAX_LONG_EDGE
-      ? VIEW_MAX_LONG_EDGE / longEdge
-      : Math.min(VIEW_MAX_ZOOM, Math.max(1, VIEW_MIN_LONG_EDGE / longEdge))
+  const scale = size === 'full' ? 1 : viewScale(Math.max(shownWidth, shownHeight))
   const width = Math.max(1, Math.round(shownWidth * scale))
   const height = Math.max(1, Math.round(shownHeight * scale))
   const thumbScale = Math.min(1, VIEW_THUMB_LONG_EDGE / Math.max(width, height))
