@@ -60,3 +60,31 @@ CREATE INDEX capture_evidence_observation_correction_batch
 CREATE TRIGGER capture_evidence_observation_correction_immutable
   BEFORE UPDATE OR DELETE ON capture_evidence_observation_correction
   FOR EACH ROW EXECUTE FUNCTION reject_authority_change();
+
+-- Why a lot is flagged to look at again: each operator edit that sets the flag, and each time
+-- the lead looks again (which clears it). A brief lists the reasons since the last look.
+CREATE TABLE capture_lot_reexamine (
+  id uuid PRIMARY KEY,
+  batch_id uuid NOT NULL,
+  lot_id uuid NOT NULL REFERENCES capture_lot(id) ON DELETE RESTRICT,
+  revision bigint NOT NULL CHECK (revision > 0),
+  event text NOT NULL CHECK (event IN ('observation_edited','same_item_changed','looked_again')),
+  observation_id uuid,
+  recorded_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  CHECK ((event = 'looked_again') = (observation_id IS NULL))
+);
+CREATE INDEX capture_lot_reexamine_batch ON capture_lot_reexamine(batch_id, lot_id, recorded_at);
+CREATE TRIGGER capture_lot_reexamine_immutable BEFORE UPDATE OR DELETE ON capture_lot_reexamine
+  FOR EACH ROW EXECUTE FUNCTION reject_authority_change();
+
+-- Agent observations the operator had edited before corrections kept the earlier reading. Only
+-- these show a current reading whose earlier one is not known; later edits keep theirs.
+CREATE TABLE capture_evidence_observation_unkept_correction (
+  observation_id uuid PRIMARY KEY REFERENCES capture_evidence_observation(id) ON DELETE RESTRICT
+);
+INSERT INTO capture_evidence_observation_unkept_correction(observation_id)
+SELECT id FROM capture_evidence_observation
+WHERE origin = 'agent' AND operator_edited AND status = 'active';
+CREATE TRIGGER capture_evidence_observation_unkept_correction_immutable
+  BEFORE UPDATE OR DELETE ON capture_evidence_observation_unkept_correction
+  FOR EACH ROW EXECUTE FUNCTION reject_authority_change();

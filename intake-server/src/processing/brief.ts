@@ -24,7 +24,10 @@ import { captureContextNotes } from '#/capture/context-input.ts'
 import { currentInstructions } from '#/agents/instructions.ts'
 import { answerValueText, answeredValues, decodeStoredAnswer } from './answer-summary.ts'
 import { isSessionMessage, retainedQuestionSpec, retainedSessionQuestion } from './retained.ts'
-import { fail, unseal } from './model.ts'
+import { fail, sealed, unseal } from './model.ts'
+
+/** A lot edit's id carries this many hex digits of its facts' digest: enough to tell states apart. */
+const LOT_EDIT_ID_HEX = 16
 
 /** The fields each stage works on; a question is in its brief when it names one of them. */
 const STAGE_FIELDS: Record<BriefStageDto, readonly ProcessingFieldDto[]> = {
@@ -86,12 +89,23 @@ interface StoredIdentity {
   stale: boolean
 }
 
+interface ReexamineReason {
+  lotId: string
+  reason: 'observation_edited' | 'same_item_changed'
+  observationId: string
+  revision: string
+}
+
 /** Retained facts a brief draws on besides the capture snapshot, read in the caller's transaction. */
 export interface BriefFacts {
   instructions: { id: string; groupId: string | null; text: string }[]
   questions: StoredQuestion[]
   answers: Map<string, StoredAnswer>
   corrections: StoredCorrection[]
+  /** Agent observations edited before earlier readings were kept. */
+  unkeptCorrections: Set<string>
+  /** Why each lot is flagged, since the lead last looked at it. */
+  reexamineReasons: ReexamineReason[]
   labels: Map<string, string>
   identities: StoredIdentity[]
 }
@@ -256,6 +270,41 @@ async function readCorrections(client: PoolClient, batchId: string) {
   })
 }
 
+/** Agent observations the operator edited before corrections kept the earlier reading. */
+async function readUnkeptCorrections(client: PoolClient, batchId: string) {
+  const rows = await client.query<{ observation_id: string }>(
+    `SELECT u.observation_id FROM public.capture_evidence_observation_unkept_correction u
+     JOIN public.capture_evidence_observation o ON o.id=u.observation_id
+     WHERE o.batch_id=$1`,
+    [batchId],
+  )
+  return new Set(rows.rows.map((row) => row.observation_id))
+}
+
+/** Each lot's flagging edits since the lead last looked at it, oldest first. */
+async function readReexamineReasons(client: PoolClient, batchId: string) {
+  const rows = await client.query<{
+    lot_id: string
+    event: ReexamineReason['reason']
+    observation_id: string
+    revision: string
+  }>(
+    `SELECT r.lot_id,r.event,r.observation_id,r.revision::text AS revision
+     FROM public.capture_lot_reexamine r
+     WHERE r.batch_id=$1 AND r.event<>'looked_again'
+       AND NOT EXISTS (SELECT 1 FROM public.capture_lot_reexamine l
+         WHERE l.lot_id=r.lot_id AND l.event='looked_again' AND l.recorded_at>=r.recorded_at)
+     ORDER BY r.recorded_at,r.id`,
+    [batchId],
+  )
+  return rows.rows.map((row) => ({
+    lotId: row.lot_id,
+    reason: row.event,
+    observationId: row.observation_id,
+    revision: row.revision,
+  }))
+}
+
 /** The labels of the evidence the session may fetch. */
 async function readLabels(client: PoolClient, batchId: string, evidenceIds: readonly string[]) {
   if (!evidenceIds.length) {
@@ -301,6 +350,8 @@ export async function readBriefFacts(
   const questions = await readQuestions(client, snapshot)
   const answers = await readAnswers(client, questions)
   const corrections = await readCorrections(client, snapshot.id)
+  const unkeptCorrections = await readUnkeptCorrections(client, snapshot.id)
+  const reexamineReasons = await readReexamineReasons(client, snapshot.id)
   const labels = await readLabels(
     client,
     snapshot.id,
@@ -308,7 +359,16 @@ export async function readBriefFacts(
   )
   const identities =
     scope.stage === 'research' ? await readIdentities(client, scope.pinnedProposalIds) : []
-  return { instructions, questions, answers, corrections, labels, identities }
+  return {
+    instructions,
+    questions,
+    answers,
+    corrections,
+    unkeptCorrections,
+    reexamineReasons,
+    labels,
+    identities,
+  }
 }
 
 /** The subjects a brief's human facts and questions are about, besides the whole batch. */
@@ -365,11 +425,13 @@ function noteEntries(
 /**
  * Corrections of the observations in scope. A kept correction shows the reading before and after;
  * an agent observation the operator edited before readings were kept shows its current reading,
- * marked as corrected with the earlier reading not known.
+ * marked as corrected with the earlier reading not known. A later edit that kept no reading (a
+ * move, a same-item mark, a region or count) is not a reading correction.
  */
 function correctionEntries(
   observations: readonly CaptureEvidenceObservationDto[],
   corrections: readonly StoredCorrection[],
+  unkept: ReadonlySet<string>,
 ): BriefEntryDto[] {
   const byId = new Map(observations.map((observation) => [observation.id, observation]))
   const kept = corrections.filter((correction) => byId.has(correction.observationId))
@@ -388,10 +450,7 @@ function correctionEntries(
   }))
   for (const observation of observations) {
     const earlierUnknown =
-      observation.origin === 'agent' &&
-      observation.operator_edited &&
-      observation.status === 'active' &&
-      !withKept.has(observation.id)
+      unkept.has(observation.id) && observation.status === 'active' && !withKept.has(observation.id)
     if (earlierUnknown) {
       entries.push({
         kind: 'correction',
@@ -410,24 +469,31 @@ function correctionEntries(
   return entries
 }
 
-/** Lots the operator made or edited, as they stand now. */
+/**
+ * Lots the operator made, edited or left out of the batch, as they stand now. Each state has its
+ * own id, derived from what it says, so an exclusion (which advances no lot revision) gets one.
+ */
 function lotEditEntries(
   snapshot: CaptureSnapshotDto,
   subjects: ReadonlySet<string> | null,
 ): BriefEntryDto[] {
   return snapshot.lots
-    .filter((lot) => (lot.origin !== 'agent' || lot.operator_edited) && inScope(subjects, lot.id))
-    .map((lot) => ({
-      kind: 'lot_edit',
-      source: 'human',
-      edit_id: `lot:${lot.id}@${lot.revision}`,
-      lot_id: lot.id,
-      lot_revision: lot.revision,
-      label: lot.label,
-      quantity: lot.quantity,
-      part_subject_id: lot.part_subject_id,
-      excluded: lot.excluded ?? null,
-    }))
+    .filter((lot) => {
+      const human = lot.origin !== 'agent' || lot.operator_edited || lot.excluded !== undefined
+      return human && inScope(subjects, lot.id)
+    })
+    .map((lot) => {
+      const facts = {
+        lot_id: lot.id,
+        lot_revision: lot.revision,
+        label: lot.label,
+        quantity: lot.quantity,
+        part_subject_id: lot.part_subject_id,
+        excluded: lot.excluded ?? null,
+      }
+      const digest = sealed(facts).digest.toString('hex').slice(0, LOT_EDIT_ID_HEX)
+      return { kind: 'lot_edit', source: 'human', edit_id: `lot:${lot.id}:${digest}`, ...facts }
+    })
 }
 
 function answerEntries(
@@ -512,7 +578,7 @@ function evidenceEntries(
 
 function lotEntries(
   snapshot: CaptureSnapshotDto,
-  corrections: readonly BriefEntryDto[],
+  reasons: readonly ReexamineReason[],
 ): BriefEntryDto[] {
   const observations = snapshot.evidence_observations ?? []
   return snapshot.lots.map((lot) => ({
@@ -524,13 +590,16 @@ function lotEntries(
     retired: lot.retired === true,
     excluded: lot.excluded ?? null,
     reexamine: lot.reexamine === true,
-    corrected_observation_ids: [
-      ...new Set(
-        corrections.flatMap((entry) =>
-          entry.kind === 'correction' && entry.lot_id === lot.id ? [entry.observation_id] : [],
-        ),
-      ),
-    ],
+    reexamine_reasons:
+      lot.reexamine === true
+        ? reasons
+            .filter((reason) => reason.lotId === lot.id)
+            .map((reason) => ({
+              reason: reason.reason,
+              observation_id: reason.observationId,
+              revision: reason.revision,
+            }))
+        : [],
     part_subject_id: lot.part_subject_id,
     estimated_quantity: lot.estimated_quantity ?? null,
     quantity_basis: lot.quantity_basis ?? null,
@@ -587,7 +656,11 @@ export function projectBrief(
       ? allObservations
       : allObservations.filter((observation) => lotObservationIds.has(observation.id))
   const questions = facts.questions.filter((question) => inScope(subjects, question.subjectId))
-  const corrections = correctionEntries(scopedObservations, facts.corrections)
+  const corrections = correctionEntries(
+    scopedObservations,
+    facts.corrections,
+    facts.unkeptCorrections,
+  )
   const sections: Record<BriefSectionNameDto, BriefEntryDto[]> = {
     batch: [
       {
@@ -616,7 +689,7 @@ export function projectBrief(
     // Match state arrives with the Match step; the section exists, empty, until then.
     match: [],
     observations: scopedObservations.map((observation) => ({ kind: 'observation', observation })),
-    lots: scope.stage === 'examine' ? lotEntries(snapshot, corrections) : [],
+    lots: scope.stage === 'examine' ? lotEntries(snapshot, facts.reexamineReasons) : [],
     parts:
       scope.stage === 'examine'
         ? snapshot.parts.map((part) => ({

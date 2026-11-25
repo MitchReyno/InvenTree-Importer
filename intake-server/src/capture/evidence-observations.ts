@@ -537,11 +537,12 @@ export async function proposeLot(
   if (conflicts.length) {
     return { ok: false, error: 'stale', revision: locked.revision, conflicts }
   }
+  const next = BigInt(locked.nextRevision)
   // Proposing for a lot is the lead session looking at it again.
   if (args.lot_id) {
     await setReexamine(client, args.lot_id, false)
+    await recordReexamine(client, writer.batchId, args.lot_id, next, 'looked_again', null)
   }
-  const next = BigInt(locked.nextRevision)
   const db = queryDatabase(client)
   const subjects = locked.subjects.map((s) => ({ id: s.id, kind: s.kind }))
   let lotId = args.lot_id
@@ -792,6 +793,25 @@ async function setReexamine(client: PoolClient, lotId: string, reexamine: boolea
   )
 }
 
+/**
+ * Keeps why a lot is flagged to look at again (an operator's observation edit or same-item mark)
+ * and when the lead looks again, so a brief can say what the flag is about.
+ */
+async function recordReexamine(
+  client: PoolClient,
+  batchId: string,
+  lotId: string,
+  revision: bigint,
+  event: 'observation_edited' | 'same_item_changed' | 'looked_again',
+  observationId: string | null,
+) {
+  await client.query(
+    `INSERT INTO public.capture_lot_reexamine(id,batch_id,lot_id,revision,event,observation_id)
+     VALUES ($1,$2,$3,$4,$5,$6)`,
+    [randomUUID(), batchId, lotId, revision.toString(), event, observationId],
+  )
+}
+
 export async function markLotEdited(client: PoolClient, lotId: string, revision: bigint) {
   await executeDatabaseQuery(
     queryDatabase(client)
@@ -950,6 +970,7 @@ async function markSameItem(
     await markLotEdited(client, row.lotId, revision)
     // The lot's count changed, so the lead session re-estimates it counting the item once.
     await setReexamine(client, row.lotId, true)
+    await recordReexamine(client, batchId, row.lotId, revision, 'same_item_changed', row.id)
   }
 }
 
@@ -1096,6 +1117,7 @@ async function applyOneObservationEdit(
         await markLotEdited(client, from, revision)
         // The lot used the reading the operator corrected, so the lead session looks again.
         await setReexamine(client, from, true)
+        await recordReexamine(client, batchId, from, revision, 'observation_edited', id)
       }
     } else {
       await executeDatabaseQuery(

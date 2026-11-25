@@ -26524,7 +26524,12 @@ export interface components {
                         at: string;
                     } | null;
                     reexamine: boolean;
-                    corrected_observation_ids: string[];
+                    reexamine_reasons: {
+                        reason: "observation_edited" | "same_item_changed";
+                        observation_id: string;
+                        /** Format: int64 */
+                        revision: string;
+                    }[];
                     part_subject_id: string | null;
                     estimated_quantity: string | null;
                     quantity_basis: string | null;
@@ -28051,7 +28056,12 @@ export interface components {
                     at: string;
                 } | null;
                 reexamine: boolean;
-                corrected_observation_ids: string[];
+                reexamine_reasons: {
+                    reason: "observation_edited" | "same_item_changed";
+                    observation_id: string;
+                    /** Format: int64 */
+                    revision: string;
+                }[];
                 part_subject_id: string | null;
                 estimated_quantity: string | null;
                 quantity_basis: string | null;
@@ -29102,7 +29112,12 @@ export interface components {
                         at: string;
                     } | null;
                     reexamine: boolean;
-                    corrected_observation_ids: string[];
+                    reexamine_reasons: {
+                        reason: "observation_edited" | "same_item_changed";
+                        observation_id: string;
+                        /** Format: int64 */
+                        revision: string;
+                    }[];
                     part_subject_id: string | null;
                     estimated_quantity: string | null;
                     quantity_basis: string | null;
@@ -30142,7 +30157,12 @@ export interface components {
                     at: string;
                 } | null;
                 reexamine: boolean;
-                corrected_observation_ids: string[];
+                reexamine_reasons: {
+                    reason: "observation_edited" | "same_item_changed";
+                    observation_id: string;
+                    /** Format: int64 */
+                    revision: string;
+                }[];
                 part_subject_id: string | null;
                 estimated_quantity: string | null;
                 quantity_basis: string | null;
@@ -31190,7 +31210,12 @@ export interface components {
                     at: string;
                 } | null;
                 reexamine: boolean;
-                corrected_observation_ids: string[];
+                reexamine_reasons: {
+                    reason: "observation_edited" | "same_item_changed";
+                    observation_id: string;
+                    /** Format: int64 */
+                    revision: string;
+                }[];
                 part_subject_id: string | null;
                 estimated_quantity: string | null;
                 quantity_basis: string | null;
@@ -32365,7 +32390,12 @@ export interface components {
                             at: string;
                         } | null;
                         reexamine: boolean;
-                        corrected_observation_ids: string[];
+                        reexamine_reasons: {
+                            reason: "observation_edited" | "same_item_changed";
+                            observation_id: string;
+                            /** Format: int64 */
+                            revision: string;
+                        }[];
                         part_subject_id: string | null;
                         estimated_quantity: string | null;
                         quantity_basis: string | null;
@@ -33530,7 +33560,12 @@ export interface components {
                             at: string;
                         } | null;
                         reexamine: boolean;
-                        corrected_observation_ids: string[];
+                        reexamine_reasons: {
+                            reason: "observation_edited" | "same_item_changed";
+                            observation_id: string;
+                            /** Format: int64 */
+                            revision: string;
+                        }[];
                         part_subject_id: string | null;
                         estimated_quantity: string | null;
                         quantity_basis: string | null;

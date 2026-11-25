@@ -125908,7 +125908,7 @@
                             "retired",
                             "excluded",
                             "reexamine",
-                            "corrected_observation_ids",
+                            "reexamine_reasons",
                             "part_subject_id",
                             "estimated_quantity",
                             "quantity_basis",
@@ -125979,12 +125979,40 @@
                             "reexamine": {
                               "type": "boolean"
                             },
-                            "corrected_observation_ids": {
-                              "maxItems": 100,
+                            "reexamine_reasons": {
+                              "maxItems": 1000,
                               "type": "array",
                               "items": {
-                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                                "type": "string"
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "reason",
+                                  "observation_id",
+                                  "revision"
+                                ],
+                                "properties": {
+                                  "reason": {
+                                    "anyOf": [
+                                      {
+                                        "const": "observation_edited",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "same_item_changed",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "observation_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "revision": {
+                                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                    "format": "int64",
+                                    "type": "string"
+                                  }
+                                }
                               }
                             },
                             "part_subject_id": {
@@ -135519,7 +135547,7 @@
                     "retired",
                     "excluded",
                     "reexamine",
-                    "corrected_observation_ids",
+                    "reexamine_reasons",
                     "part_subject_id",
                     "estimated_quantity",
                     "quantity_basis",
@@ -135590,12 +135618,40 @@
                     "reexamine": {
                       "type": "boolean"
                     },
-                    "corrected_observation_ids": {
-                      "maxItems": 100,
+                    "reexamine_reasons": {
+                      "maxItems": 1000,
                       "type": "array",
                       "items": {
-                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                        "type": "string"
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "reason",
+                          "observation_id",
+                          "revision"
+                        ],
+                        "properties": {
+                          "reason": {
+                            "anyOf": [
+                              {
+                                "const": "observation_edited",
+                                "type": "string"
+                              },
+                              {
+                                "const": "same_item_changed",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "observation_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "revision": {
+                            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                            "format": "int64",
+                            "type": "string"
+                          }
+                        }
                       }
                     },
                     "part_subject_id": {
@@ -141553,7 +141609,7 @@
                           "retired",
                           "excluded",
                           "reexamine",
-                          "corrected_observation_ids",
+                          "reexamine_reasons",
                           "part_subject_id",
                           "estimated_quantity",
                           "quantity_basis",
@@ -141624,12 +141680,40 @@
                           "reexamine": {
                             "type": "boolean"
                           },
-                          "corrected_observation_ids": {
-                            "maxItems": 100,
+                          "reexamine_reasons": {
+                            "maxItems": 1000,
                             "type": "array",
                             "items": {
-                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                              "type": "string"
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "reason",
+                                "observation_id",
+                                "revision"
+                              ],
+                              "properties": {
+                                "reason": {
+                                  "anyOf": [
+                                    {
+                                      "const": "observation_edited",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "same_item_changed",
+                                      "type": "string"
+                                    }
+                                  ]
+                                },
+                                "observation_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "revision": {
+                                  "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                  "format": "int64",
+                                  "type": "string"
+                                }
+                              }
                             }
                           },
                           "part_subject_id": {
@@ -147460,7 +147544,7 @@
                     "retired",
                     "excluded",
                     "reexamine",
-                    "corrected_observation_ids",
+                    "reexamine_reasons",
                     "part_subject_id",
                     "estimated_quantity",
                     "quantity_basis",
@@ -147531,12 +147615,40 @@
                     "reexamine": {
                       "type": "boolean"
                     },
-                    "corrected_observation_ids": {
-                      "maxItems": 100,
+                    "reexamine_reasons": {
+                      "maxItems": 1000,
                       "type": "array",
                       "items": {
-                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                        "type": "string"
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "reason",
+                          "observation_id",
+                          "revision"
+                        ],
+                        "properties": {
+                          "reason": {
+                            "anyOf": [
+                              {
+                                "const": "observation_edited",
+                                "type": "string"
+                              },
+                              {
+                                "const": "same_item_changed",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "observation_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "revision": {
+                            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                            "format": "int64",
+                            "type": "string"
+                          }
+                        }
                       }
                     },
                     "part_subject_id": {
@@ -153489,7 +153601,7 @@
                     "retired",
                     "excluded",
                     "reexamine",
-                    "corrected_observation_ids",
+                    "reexamine_reasons",
                     "part_subject_id",
                     "estimated_quantity",
                     "quantity_basis",
@@ -153560,12 +153672,40 @@
                     "reexamine": {
                       "type": "boolean"
                     },
-                    "corrected_observation_ids": {
-                      "maxItems": 100,
+                    "reexamine_reasons": {
+                      "maxItems": 1000,
                       "type": "array",
                       "items": {
-                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                        "type": "string"
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "reason",
+                          "observation_id",
+                          "revision"
+                        ],
+                        "properties": {
+                          "reason": {
+                            "anyOf": [
+                              {
+                                "const": "observation_edited",
+                                "type": "string"
+                              },
+                              {
+                                "const": "same_item_changed",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "observation_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "revision": {
+                            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                            "format": "int64",
+                            "type": "string"
+                          }
+                        }
                       }
                     },
                     "part_subject_id": {
@@ -160116,7 +160256,7 @@
                                   "retired",
                                   "excluded",
                                   "reexamine",
-                                  "corrected_observation_ids",
+                                  "reexamine_reasons",
                                   "part_subject_id",
                                   "estimated_quantity",
                                   "quantity_basis",
@@ -160187,12 +160327,40 @@
                                   "reexamine": {
                                     "type": "boolean"
                                   },
-                                  "corrected_observation_ids": {
-                                    "maxItems": 100,
+                                  "reexamine_reasons": {
+                                    "maxItems": 1000,
                                     "type": "array",
                                     "items": {
-                                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                                      "type": "string"
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "reason",
+                                        "observation_id",
+                                        "revision"
+                                      ],
+                                      "properties": {
+                                        "reason": {
+                                          "anyOf": [
+                                            {
+                                              "const": "observation_edited",
+                                              "type": "string"
+                                            },
+                                            {
+                                              "const": "same_item_changed",
+                                              "type": "string"
+                                            }
+                                          ]
+                                        },
+                                        "observation_id": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                          "type": "string"
+                                        },
+                                        "revision": {
+                                          "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                          "format": "int64",
+                                          "type": "string"
+                                        }
+                                      }
                                     }
                                   },
                                   "part_subject_id": {
@@ -166684,7 +166852,7 @@
                                   "retired",
                                   "excluded",
                                   "reexamine",
-                                  "corrected_observation_ids",
+                                  "reexamine_reasons",
                                   "part_subject_id",
                                   "estimated_quantity",
                                   "quantity_basis",
@@ -166755,12 +166923,40 @@
                                   "reexamine": {
                                     "type": "boolean"
                                   },
-                                  "corrected_observation_ids": {
-                                    "maxItems": 100,
+                                  "reexamine_reasons": {
+                                    "maxItems": 1000,
                                     "type": "array",
                                     "items": {
-                                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                                      "type": "string"
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "reason",
+                                        "observation_id",
+                                        "revision"
+                                      ],
+                                      "properties": {
+                                        "reason": {
+                                          "anyOf": [
+                                            {
+                                              "const": "observation_edited",
+                                              "type": "string"
+                                            },
+                                            {
+                                              "const": "same_item_changed",
+                                              "type": "string"
+                                            }
+                                          ]
+                                        },
+                                        "observation_id": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                          "type": "string"
+                                        },
+                                        "revision": {
+                                          "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                          "format": "int64",
+                                          "type": "string"
+                                        }
+                                      }
                                     }
                                   },
                                   "part_subject_id": {

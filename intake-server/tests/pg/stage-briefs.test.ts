@@ -373,10 +373,15 @@ test('a correction keeps the reading before and after; an earlier one shows only
     region: ledObservation.region,
     readings: { markings: ['LED 0603 RED', 'R'] },
   })
-  // A correction made before readings were kept: the row says edited, with no kept reading.
+  // A correction made before readings were kept: migration 0039 lists the observations the
+  // operator had edited then, and none of them has a kept reading.
   const crystalObservation = crystal.evidence_observation_ids![0]
   await fixture.db.pool.query(
     'UPDATE capture_evidence_observation SET operator_edited=true WHERE id=$1',
+    [crystalObservation],
+  )
+  await fixture.db.pool.query(
+    'INSERT INTO capture_evidence_observation_unkept_correction(observation_id) VALUES($1)',
     [crystalObservation],
   )
 
@@ -398,10 +403,16 @@ test('a correction keeps the reading before and after; an earlier one shows only
   assert.equal(earlier.earlier_known, false)
   assert.equal(earlier.before, null)
   assert.equal(earlier.actor_id, null)
-  // The lead's lot entry says which of its readings were corrected.
+  // The lead's lot entry says why the lot is flagged.
   const [ledLot] = ofKind(brief.entries, 'lot').filter((entry) => entry.lot_id === led.id)
   assert.equal(ledLot.reexamine, true)
-  assert.deepEqual(ledLot.corrected_observation_ids, [ledObservation.id])
+  assert.deepEqual(ledLot.reexamine_reasons, [
+    {
+      reason: 'observation_edited',
+      observation_id: ledObservation.id,
+      revision: corrected.revision,
+    },
+  ])
   // An unchanged reading keeps nothing.
   await edit(fixture, batchId, {
     kind: 'observation',
@@ -529,6 +540,21 @@ async function requeueResearch(fixture: Fixture, batchId: string, lotId: string)
   })
   assert.equal(started.status, 202, JSON.stringify(started.value))
   return (started.value as { attempt_ids: string[] }).attempt_ids[0]
+}
+
+/** Every page of a `/7` lead's current brief, through read_batch. */
+async function allBatchPages(session: Client): Promise<SessionBriefPageDto[]> {
+  const pages: SessionBriefPageDto[] = []
+  let args: Record<string, unknown> = {}
+  for (;;) {
+    const read = await call(session, 'read_batch', args)
+    assert.equal(read.ok, true, JSON.stringify(read))
+    pages.push(read.brief!)
+    if (!read.brief!.next_page_token) {
+      return pages
+    }
+    args = { page_token: read.brief!.next_page_token }
+  }
 }
 
 async function allPages(
@@ -1308,5 +1334,83 @@ test('a /7 lead under a configuration that can’t seal /7 keeps its identity an
   assert.deepEqual(eligibility.get(research.job_id), {
     allowed: false,
     reason: 'unsupported_processing_profile',
+  })
+})
+
+test('a same-item mark flags its lot with that reason and is not a reading correction', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, deps, batchId, leadJob, leadAttempt } = batch
+  // A later photo of the same reel joins the LED lot, so it has two observations.
+  await photoWithNote(fixture, batchId, 'Reel', 'LED 0603 red')
+  await triggerExamine(fixture.writer.pool, fixture.config, { quietMs: 0 })
+  await transaction(fixture.runner.pool, (client) => queueSessionResume(client, leadJob))
+  assert.equal(await runSessionTurn(deps, leadAttempt, new AbortController().signal), 'finished')
+  const led = await batch.lot('led 0603 red')
+  const [first, second] = led.evidence_observation_ids!
+  assert.ok(first && second)
+  const marked = await edit(fixture, batchId, {
+    kind: 'observation_same_item',
+    observation_id: second,
+    same_as: first,
+  })
+  const cleared = await edit(fixture, batchId, {
+    kind: 'observation_same_item',
+    observation_id: second,
+    same_as: null,
+  })
+  await withClients(async (open) => {
+    const lead = await open(deps.toolUrl, await running(fixture, leadAttempt))
+    const pages = await allBatchPages(lead)
+    const entries = pages.flatMap((page) => page.entries)
+    const [lot] = ofKind(entries, 'lot').filter((entry) => entry.lot_id === led.id)
+    assert.equal(lot.reexamine, true)
+    assert.deepEqual(
+      lot.reexamine_reasons.map((reason) => [reason.reason, reason.revision]),
+      [
+        ['same_item_changed', marked.revision],
+        ['same_item_changed', cleared.revision],
+      ],
+    )
+    // Neither observation's reading changed, so neither reads as a correction.
+    const corrected = ofKind(entries, 'correction').map((entry) => entry.observation_id)
+    assert.equal(corrected.includes(first), false)
+    assert.equal(corrected.includes(second), false)
+  })
+})
+
+test('an operator’s exclusion is a human lot edit with its own id', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId } = batch
+  const { lot: crystal, row } = await successorOf(batch, '16 mhz crystal', 'research')
+  const sealed = stageInput((await sealedInput(fixture, row.attempt_id)).manifest)
+  assert.equal(ofKind(inlineEntries(sealed), 'lot_edit').length, 0)
+  await edit(fixture, batchId, { kind: 'lot_exclusion', lot_id: crystal.id, reason: 'Not ours' })
+  await withClients(async (open) => {
+    const session = await open(batch.deps.toolUrl, await running(fixture, row.attempt_id))
+    const excluded = ofKind(
+      (await allPages(session, crystal.id, {})).flatMap((page) => page.entries),
+      'lot_edit',
+    )
+    assert.equal(excluded.length, 1)
+    assert.equal(excluded[0].excluded!.reason, 'Not ours')
+    // Clearing the exclusion of an otherwise untouched agent lot leaves no human edit; setting
+    // it again gives a new state, so a new id.
+    await edit(fixture, batchId, { kind: 'lot_exclusion', lot_id: crystal.id, reason: null })
+    const cleared = ofKind(
+      (await allPages(session, crystal.id, {})).flatMap((page) => page.entries),
+      'lot_edit',
+    )
+    assert.equal(cleared.length, 0)
+    await edit(fixture, batchId, { kind: 'lot_exclusion', lot_id: crystal.id, reason: 'Not ours' })
+    const again = ofKind(
+      (await allPages(session, crystal.id, {})).flatMap((page) => page.entries),
+      'lot_edit',
+    )
+    assert.notEqual(again[0].edit_id, excluded[0].edit_id)
+    // The sealed view is unchanged.
+    const sealedEntries = (
+      await allPages(session, crystal.id, { revision: sealed.brief.revision })
+    ).flatMap((page) => page.entries)
+    assert.equal(ofKind(sealedEntries, 'lot_edit').length, 0)
   })
 })

@@ -122,7 +122,10 @@ export const BriefCorrectionEntry = object({
 export const BriefLotEditEntry = object({
   kind: Type.Literal('lot_edit'),
   ...human,
-  /** Identifies this state of the lot: `lot:<lot_id>@<lot_revision>`. */
+  /**
+   * Identifies this state of the lot, `lot:<lot_id>:<digest>`, from its facts below: an entry
+   * with the same id says the same thing, and any change gives a new id.
+   */
   edit_id: Type.String({ minLength: 1, maxLength: 128 }),
   lot_id: Id,
   lot_revision: Revision,
@@ -188,8 +191,19 @@ export const BriefLotEntry = object({
   retired: Type.Boolean(),
   excluded: Type.Union([LotExclusion, Type.Null()]),
   reexamine: Type.Boolean(),
-  /** The lot's observations whose readings the operator corrected. */
-  corrected_observation_ids: Type.Array(Id, { maxItems: 100 }),
+  /**
+   * Why the lot is flagged, from the operator's edits since the lead last looked at it: an
+   * observation edited, or a same-item mark set or cleared. Empty for a flag set before reasons
+   * were kept.
+   */
+  reexamine_reasons: Type.Array(
+    object({
+      reason: Type.Union([Type.Literal('observation_edited'), Type.Literal('same_item_changed')]),
+      observation_id: Id,
+      revision: Revision,
+    }),
+    { maxItems: 1000 },
+  ),
   part_subject_id: Type.Union([Id, Type.Null()]),
   estimated_quantity: Type.Union([Quantity, Type.Null()]),
   quantity_basis: Type.Union([Type.String({ minLength: 1, maxLength: 512 }), Type.Null()]),
