@@ -128,7 +128,7 @@ async function syntheticBriefRead(
 }
 
 type Call = (name: string, args: Record<string, unknown>) => Promise<SyntheticResult>
-type LotInput = Extract<ProcessingInputV7Dto, { match: unknown }>
+type LotInput = Extract<ProcessingInputV7Dto, { subject_id: string }>
 
 /**
  * The lot's first photo as a citation: fetched, so the driver hands its image over and releases
@@ -181,7 +181,9 @@ async function publishStageOutput(
     ],
   }
   const base = { subject_id: lot.subject_id, sources, relies_on }
-  if (lot.match.mode.mode === 'identify') {
+  // A lot input sealed before Match state works in full mode.
+  const mode = lot.match?.mode.mode ?? 'full'
+  if (mode === 'identify') {
     await call('propose', {
       proposal: {
         schema_version: 'research-identity/1',
@@ -194,7 +196,7 @@ async function publishStageOutput(
     return
   }
   const values =
-    lot.match.mode.mode === 'full'
+    mode === 'full'
       ? {
           category: {
             choice: 'proposed_new',

@@ -42,8 +42,11 @@ export const ProcessingInputV7 = Type.Union([
     subject_id: Id,
     subject: ProcessingInputV2.properties.subject,
     linked_part: ProcessingInputV2.properties.linked_part,
-    /** The Match outcome the lot was queued under and the stage's mode. */
-    match: SealedMatch,
+    /**
+     * The Match outcome the lot was queued under and the stage's mode. Every lot input sealed
+     * since typed outputs has it; one sealed before reads as full mode with no outcome.
+     */
+    match: Type.Optional(SealedMatch),
   }),
 ])
 

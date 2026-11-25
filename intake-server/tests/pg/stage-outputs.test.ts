@@ -31,7 +31,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 
 type Batch = Awaited<ReturnType<typeof formedBatch>>
 type Result = Omit<StageToolResult, 'images'>
-type LotInput = Extract<ProcessingInputV7Dto, { match: unknown }>
+type LotInput = Extract<ProcessingInputV7Dto, { subject_id: string }>
 
 /** The session tools in this process, as a worker hosts them; a new one is a restarted worker. */
 function tools(batch: Batch) {
@@ -1171,6 +1171,48 @@ test('the synthetic /7 drivers hand over, release and cite the photo, and publis
     questions.rows.map((row) => row.job_id),
     [research.jobId],
   )
+})
+
+test('deleting the photo an identity’s markings were read from stales it and refuses it again', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId, leadAttempt } = batch
+  const crystal = await batch.lot('16 mhz crystal')
+  const session = tools(batch)
+  const lead = await running(fixture, leadAttempt)
+  const { note } = citations((await inputOf(fixture, leadAttempt)).manifest)
+  // Cited and relied on by its note only; only its markings name the photo's observation.
+  const identity = {
+    proposal: {
+      schema_version: 'examine-identity/1',
+      subject_id: crystal.id,
+      summary: 'A crystal.',
+      sources: [note],
+      relies_on: { fields: ['markings'], sources: [note] },
+      markings: [{ observation_id: crystal.evidence_observation_ids![0], text: ['16 MHz'] }],
+      candidates: [],
+    },
+  }
+  const published = await result(session.propose(lead, identity))
+  assert.equal(published.ok, true, JSON.stringify(published))
+  await grantMedia(fixture.db.pool, fixture.api.name, 'api')
+  const media = await fixture.db.pool.query<{ revision: string; evidence_id: string }>(
+    `SELECT b.revision::text, v.evidence_id FROM media_batch b
+     JOIN capture_evidence_observation o ON o.batch_id=b.batch_id
+     JOIN media_version v ON v.id=o.evidence_version_id
+     WHERE b.batch_id=$1 AND o.id=$2`,
+    [batchId, crystal.evidence_observation_ids![0]],
+  )
+  await editMedia(fixture.api.pool, fixture.config, batchId, randomUUID(), {
+    expected_revision: media.rows[0].revision,
+    change: { kind: 'remove', evidence_ids: [media.rows[0].evidence_id] },
+  })
+  const stale = await fixture.db.pool.query<{ reason: string }>(
+    'SELECT reason FROM processing_proposal_stale WHERE proposal_id=$1',
+    [published.id],
+  )
+  assert.equal(stale.rows[0]?.reason, 'evidence_removed')
+  const again = await result(session.propose(await running(fixture, leadAttempt), identity))
+  assert.equal(again.ok, false)
 })
 
 test('a revision too long for the inbox names what changed and points to the brief', async (t) => {

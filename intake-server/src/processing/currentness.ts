@@ -731,6 +731,10 @@ export async function evidenceRemoved(
            UNION ALL
            -- research/1 names a retained datasheet PDF outside any sources list.
            SELECT jsonb_path_query(convert_from(p.value_bytes,'UTF8')::jsonb, 'lax $.datasheet.version')
+           UNION ALL
+           -- examine-identity/1's markings rest on their observations.
+           SELECT jsonb_build_object('kind','evidence_observation','evidence_observation_id',m)
+           FROM jsonb_path_query(convert_from(p.value_bytes,'UTF8')::jsonb, 'lax $.markings[*].observation_id') AS m
          ) cited
          WHERE (cited.source->>'kind'='media_version'
                 AND cited.source->>'version_id' = ANY($2::text[]))

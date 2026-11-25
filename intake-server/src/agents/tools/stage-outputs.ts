@@ -156,7 +156,8 @@ export function stageOutputRefusal(
   if (!STAGE_KINDS[stage].includes(proposal.schema_version)) {
     return wrongKind(stage, proposal)
   }
-  if (stage === 'research' && 'match' in manifest) {
+  // A lot input sealed before Match state was sealed works in full mode.
+  if (stage === 'research' && 'match' in manifest && manifest.match) {
     return researchModeRefusal(manifest.match.mode, proposal)
   }
   return null

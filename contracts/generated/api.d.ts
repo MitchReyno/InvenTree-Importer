@@ -37841,6 +37841,11 @@ export interface components {
                 revision: string;
             } | {
                 /** @constant */
+                kind: "answer_in_brief";
+                question_id: string;
+                answer_id: string;
+            } | {
+                /** @constant */
                 kind: "observation";
                 observation_id: string;
                 lot_from: string | null;
@@ -37882,6 +37887,10 @@ export interface components {
             brief_revision: string;
             /** @constant */
             values_in_brief?: true;
+            part?: {
+                index: number;
+                count: number;
+            };
         };
         RevisionChange: {
             /** @constant */
@@ -37916,6 +37925,11 @@ export interface components {
             observation_id: string;
             /** Format: int64 */
             revision: string;
+        } | {
+            /** @constant */
+            kind: "answer_in_brief";
+            question_id: string;
+            answer_id: string;
         } | {
             /** @constant */
             kind: "observation";
@@ -38086,6 +38100,11 @@ export interface components {
                         revision: string;
                     } | {
                         /** @constant */
+                        kind: "answer_in_brief";
+                        question_id: string;
+                        answer_id: string;
+                    } | {
+                        /** @constant */
                         kind: "observation";
                         observation_id: string;
                         lot_from: string | null;
@@ -38127,6 +38146,10 @@ export interface components {
                     brief_revision: string;
                     /** @constant */
                     values_in_brief?: true;
+                    part?: {
+                        index: number;
+                        count: number;
+                    };
                 };
             })[];
             pages?: {
@@ -40263,6 +40286,11 @@ export interface components {
                     revision: string;
                 } | {
                     /** @constant */
+                    kind: "answer_in_brief";
+                    question_id: string;
+                    answer_id: string;
+                } | {
+                    /** @constant */
                     kind: "observation";
                     observation_id: string;
                     lot_from: string | null;
@@ -40304,6 +40332,10 @@ export interface components {
                 brief_revision: string;
                 /** @constant */
                 values_in_brief?: true;
+                part?: {
+                    index: number;
+                    count: number;
+                };
             };
         };
         SessionInboxSubmission: {
@@ -51434,7 +51466,7 @@ export interface components {
                     };
                 };
             } | null;
-            match: {
+            match?: {
                 outcome: {
                     /** Format: int64 */
                     revision: string;

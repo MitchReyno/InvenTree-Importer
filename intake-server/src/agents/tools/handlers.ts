@@ -1232,6 +1232,18 @@ async function requireCurrentReliance(
   }
 }
 
+/** Examine's markings rest on their observations, as a relied-on observation does. */
+function markedObservations(proposal: RetainedSessionProposalDto) {
+  if (proposal.schema_version !== 'examine-identity/1') {
+    return []
+  }
+  return proposal.markings.map((marking) => ({
+    kind: 'evidence_observation' as const,
+    evidence_observation_id: marking.observation_id,
+    revision: '1',
+  }))
+}
+
 /**
  * Examine's markings are of its lot: each names an active observation of the lot it is about,
  * so a correction to one of them reaches the identity.
@@ -2045,6 +2057,7 @@ export function sessionTools(context: SessionToolContext) {
           await refuseRemovedSources(client, principal.batchId, [
             ...proposalCitations(proposal),
             ...proposal.relies_on.sources,
+            ...markedObservations(proposal),
           ])
           const estimate = leadEstimate(principal, proposal)
           if (estimate && !onWriter) {

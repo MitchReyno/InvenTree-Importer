@@ -191929,7 +191929,7 @@
                       "anyOf": [
                         {
                           "minLength": 1,
-                          "maxLength": 512,
+                          "maxLength": 8300,
                           "type": "string"
                         },
                         {
@@ -191941,7 +191941,7 @@
                       "anyOf": [
                         {
                           "minLength": 1,
-                          "maxLength": 512,
+                          "maxLength": 8300,
                           "type": "string"
                         },
                         {
@@ -192120,6 +192120,29 @@
                     "revision": {
                       "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
                       "format": "int64",
+                      "type": "string"
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "question_id",
+                    "answer_id"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "answer_in_brief",
+                      "type": "string"
+                    },
+                    "question_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "answer_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                       "type": "string"
                     }
                   }
@@ -192379,6 +192402,26 @@
           "values_in_brief": {
             "const": true,
             "type": "boolean"
+          },
+          "part": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "index",
+              "count"
+            ],
+            "properties": {
+              "index": {
+                "minimum": 1,
+                "maximum": 1000,
+                "type": "integer"
+              },
+              "count": {
+                "minimum": 2,
+                "maximum": 1000,
+                "type": "integer"
+              }
+            }
           }
         }
       },
@@ -192442,7 +192485,7 @@
                 "anyOf": [
                   {
                     "minLength": 1,
-                    "maxLength": 512,
+                    "maxLength": 8300,
                     "type": "string"
                   },
                   {
@@ -192454,7 +192497,7 @@
                 "anyOf": [
                   {
                     "minLength": 1,
-                    "maxLength": 512,
+                    "maxLength": 8300,
                     "type": "string"
                   },
                   {
@@ -192633,6 +192676,29 @@
               "revision": {
                 "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
                 "format": "int64",
+                "type": "string"
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "kind",
+              "question_id",
+              "answer_id"
+            ],
+            "properties": {
+              "kind": {
+                "const": "answer_in_brief",
+                "type": "string"
+              },
+              "question_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "answer_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                 "type": "string"
               }
             }
@@ -193522,7 +193588,7 @@
                                             "anyOf": [
                                               {
                                                 "minLength": 1,
-                                                "maxLength": 512,
+                                                "maxLength": 8300,
                                                 "type": "string"
                                               },
                                               {
@@ -193534,7 +193600,7 @@
                                             "anyOf": [
                                               {
                                                 "minLength": 1,
-                                                "maxLength": 512,
+                                                "maxLength": 8300,
                                                 "type": "string"
                                               },
                                               {
@@ -193713,6 +193779,29 @@
                                           "revision": {
                                             "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
                                             "format": "int64",
+                                            "type": "string"
+                                          }
+                                        }
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "type": "object",
+                                        "required": [
+                                          "kind",
+                                          "question_id",
+                                          "answer_id"
+                                        ],
+                                        "properties": {
+                                          "kind": {
+                                            "const": "answer_in_brief",
+                                            "type": "string"
+                                          },
+                                          "question_id": {
+                                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                            "type": "string"
+                                          },
+                                          "answer_id": {
+                                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                                             "type": "string"
                                           }
                                         }
@@ -193972,6 +194061,26 @@
                                 "values_in_brief": {
                                   "const": true,
                                   "type": "boolean"
+                                },
+                                "part": {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "index",
+                                    "count"
+                                  ],
+                                  "properties": {
+                                    "index": {
+                                      "minimum": 1,
+                                      "maximum": 1000,
+                                      "type": "integer"
+                                    },
+                                    "count": {
+                                      "minimum": 2,
+                                      "maximum": 1000,
+                                      "type": "integer"
+                                    }
+                                  }
                                 }
                               }
                             }
@@ -206248,7 +206357,7 @@
                                   "anyOf": [
                                     {
                                       "minLength": 1,
-                                      "maxLength": 512,
+                                      "maxLength": 8300,
                                       "type": "string"
                                     },
                                     {
@@ -206260,7 +206369,7 @@
                                   "anyOf": [
                                     {
                                       "minLength": 1,
-                                      "maxLength": 512,
+                                      "maxLength": 8300,
                                       "type": "string"
                                     },
                                     {
@@ -206439,6 +206548,29 @@
                                 "revision": {
                                   "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
                                   "format": "int64",
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "question_id",
+                                "answer_id"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "answer_in_brief",
+                                  "type": "string"
+                                },
+                                "question_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "answer_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                                   "type": "string"
                                 }
                               }
@@ -206698,6 +206830,26 @@
                       "values_in_brief": {
                         "const": true,
                         "type": "boolean"
+                      },
+                      "part": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "index",
+                          "count"
+                        ],
+                        "properties": {
+                          "index": {
+                            "minimum": 1,
+                            "maximum": 1000,
+                            "type": "integer"
+                          },
+                          "count": {
+                            "minimum": 2,
+                            "maximum": 1000,
+                            "type": "integer"
+                          }
+                        }
                       }
                     }
                   }
@@ -259820,8 +259972,7 @@
               "stage",
               "subject_id",
               "subject",
-              "linked_part",
-              "match"
+              "linked_part"
             ],
             "properties": {
               "schema_version": {

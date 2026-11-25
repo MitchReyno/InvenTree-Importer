@@ -99,8 +99,9 @@ test('input /7 seals the stage pack digest, the stage tool profile and the brief
     linked_part: null,
     brief: { ...sealedBrief, stage: 'examine', lot_id: null },
   })
-  // A lot's input seals the Match outcome it was queued under and its stage's mode.
-  assert.throws(() => validate('ProcessingInputV7', withoutMatch))
+  // A lot's input seals the Match outcome it was queued under and its stage's mode; one sealed
+  // before that still reads.
+  validate('ProcessingInputV7', withoutMatch)
   const { stage_instructions_sha256: _pack, ...withoutPack } = input
   assert.throws(() => validate('ProcessingInputV7', withoutPack))
   const { brief: _brief, ...withoutBrief } = input
