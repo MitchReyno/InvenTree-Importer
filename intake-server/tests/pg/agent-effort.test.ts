@@ -1,4 +1,4 @@
-import { test } from 'node:test'
+import { test, type TestContext } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
@@ -249,69 +249,66 @@ test('a native-agent/1 attempt seals its model with no effort, and its input ref
  * Runs one turn of a queued `native-agent/2` session through the real driver and the fake CLI
  * in `mode`, and returns the session row's recorded effort.
  */
-async function runSealedTurn(agent: AgentSelectionDto, mode = 'normal') {
+async function runSealedTurn(t: TestContext, agent: AgentSelectionDto, mode = 'normal') {
   const fixture = await processingFixture({ profileId: 'native-agent/2' })
+  t.after(() => fixture.dispose())
   const stateRoot = await mkdtemp(join(tmpdir(), 'agent-effort-'))
+  t.after(() => rm(stateRoot, { recursive: true, force: true }))
   const server = await startSessionToolServer({
     pool: fixture.runner.pool,
     config: fixture.config,
     statusIntervalMs: 0,
   })
-  try {
-    const executable = join(stateRoot, 'provider.cjs')
-    const source = await readFile(new URL('../fixtures/session-agent.cjs', import.meta.url), 'utf8')
-    await writeFile(executable, '#!/usr/bin/env node\n' + source)
-    await chmod(executable, 0o755)
-    const capture = await fixture.seedCapture()
-    const session = await lotSession(fixture, capture, capture.packetA, {
-      state: 'queued',
-      profile: { id: 'native-agent/2', agent, settingsRevision: '1' },
-    })
-    const cwd = join(stateRoot, 'sessions', session.job)
-    await mkdir(cwd, { recursive: true, mode: 0o700 })
-    const log = join(stateRoot, 'events')
-    await writeFile(join(cwd, 'fake-session.json'), JSON.stringify({ mode, log }))
-    const outcome = await runSessionTurn(
-      {
-        pool: fixture.runner.pool,
-        config: fixture.config,
-        host: {
-          codexExecutable: executable,
-          claudeExecutable: executable,
-          stateRoot,
-          env: { PATH: process.env.PATH, OPENAI_API_KEY: 'test-key' },
-        },
-        toolUrl: server.url,
+  t.after(() => server.close())
+  const executable = join(stateRoot, 'provider.cjs')
+  const source = await readFile(new URL('../fixtures/session-agent.cjs', import.meta.url), 'utf8')
+  await writeFile(executable, '#!/usr/bin/env node\n' + source)
+  await chmod(executable, 0o755)
+  const capture = await fixture.seedCapture()
+  const session = await lotSession(fixture, capture, capture.packetA, {
+    state: 'queued',
+    profile: { id: 'native-agent/2', agent, settingsRevision: '1' },
+  })
+  const cwd = join(stateRoot, 'sessions', session.job)
+  await mkdir(cwd, { recursive: true, mode: 0o700 })
+  const log = join(stateRoot, 'events')
+  await writeFile(join(cwd, 'fake-session.json'), JSON.stringify({ mode, log }))
+  const outcome = await runSessionTurn(
+    {
+      pool: fixture.runner.pool,
+      config: fixture.config,
+      host: {
+        codexExecutable: executable,
+        claudeExecutable: executable,
+        stateRoot,
+        env: { PATH: process.env.PATH, OPENAI_API_KEY: 'test-key' },
       },
-      session.attempt,
-      AbortSignal.timeout(30_000),
-    )
-    const row = await fixture.db.pool.query<{
-      sent_effort: string | null
-      actual_model: string | null
-    }>('SELECT sent_effort,actual_model FROM agent_session WHERE attempt_id=$1', [session.attempt])
-    const history = (
-      await fixture.http(`/batches/${capture.batch.id}/processing/${session.job}/history`)
-    ).value as SessionHistoryDto
-    const events = (await readFile(log, 'utf8').catch(() => ''))
-      .split('\n')
-      .filter(Boolean)
-      .map((line) => JSON.parse(line) as Record<string, unknown>)
-    return {
-      outcome,
-      sentEffort: row.rows[0].sent_effort,
-      read: history.session.attempts.find((attempt) => attempt.id === session.attempt),
-      events,
-    }
-  } finally {
-    await server.close()
-    await fixture.dispose()
-    await rm(stateRoot, { recursive: true, force: true })
+      toolUrl: server.url,
+    },
+    session.attempt,
+    AbortSignal.timeout(30_000),
+  )
+  const row = await fixture.db.pool.query<{
+    sent_effort: string | null
+    actual_model: string | null
+  }>('SELECT sent_effort,actual_model FROM agent_session WHERE attempt_id=$1', [session.attempt])
+  const history = (
+    await fixture.http(`/batches/${capture.batch.id}/processing/${session.job}/history`)
+  ).value as SessionHistoryDto
+  const events = (await readFile(log, 'utf8').catch(() => ''))
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as Record<string, unknown>)
+  return {
+    outcome,
+    sentEffort: row.rows[0].sent_effort,
+    read: history.session.attempts.find((attempt) => attempt.id === session.attempt),
+    events,
   }
 }
 
-test('a session records the effort its turn passed to the CLI, and its read shows it', async () => {
-  const run = await runSealedTurn({
+test('a session records the effort its turn passed to the CLI, and its read shows it', async (t) => {
+  const run = await runSealedTurn(t, {
     provider: 'claude',
     authentication: 'subscription',
     model: 'claude-opus-5-5',
@@ -324,8 +321,8 @@ test('a session records the effort its turn passed to the CLI, and its read show
   assert.equal(run.read?.selection?.effort, 'high')
 })
 
-test('a session on Default records no effort', async () => {
-  const run = await runSealedTurn({
+test('a session on Default records no effort', async (t) => {
+  const run = await runSealedTurn(t, {
     provider: 'codex',
     authentication: 'api_key',
     model: 'gpt-6.2-sol',
@@ -335,61 +332,59 @@ test('a session on Default records no effort', async () => {
   assert.equal(run.read && 'sent_effort' in run.read, false)
 })
 
-test('a synthetic attempt queued under saved efforts seals no selection, runs, and records no effort', async () => {
+test('a synthetic attempt queued under saved efforts seals no selection, runs, and records no effort', async (t) => {
   const fixture = await processingFixture({ profileId: 'synthetic-session/1' })
+  t.after(() => fixture.dispose())
   const stateRoot = await mkdtemp(join(tmpdir(), 'agent-effort-'))
+  t.after(() => rm(stateRoot, { recursive: true, force: true }))
   const server = await startSessionToolServer({
     pool: fixture.runner.pool,
     config: fixture.config,
     statusIntervalMs: 0,
   })
-  try {
-    await saveAgentSettings(fixture.api.pool, fixture.config, withEfforts('0'))
-    const capture = await fixture.seedCapture()
-    const attempt = await queueLotAttempt(
-      fixture,
-      capture,
-      capture.packetA.id,
-      'research',
-      'synthetic-session/1',
-    )
-    assert.equal((await sealedInput(fixture, attempt.inputId)).agent, null)
-    const outcome = await runSessionTurn(
-      {
-        pool: fixture.runner.pool,
-        config: fixture.config,
-        host: { codexExecutable: 'unused', claudeExecutable: 'unused', stateRoot, env: {} },
-        toolUrl: server.url,
-        drivers: { 'synthetic-session/1': syntheticSessionDriver },
-      },
-      attempt.attemptId,
-      AbortSignal.timeout(30_000),
-    )
-    assert.notEqual(outcome, 'failed')
-    const row = await fixture.db.pool.query<{ sent_effort: string | null; actual_model: string }>(
-      'SELECT sent_effort,actual_model FROM agent_session WHERE attempt_id=$1',
-      [attempt.attemptId],
-    )
-    assert.deepEqual(row.rows[0], { sent_effort: null, actual_model: 'synthetic' })
-    const job = await fixture.db.pool.query<{ job_id: string }>(
-      'SELECT job_id FROM processing_attempt WHERE id=$1',
-      [attempt.attemptId],
-    )
-    const history = (
-      await fixture.http(`/batches/${capture.batch.id}/processing/${job.rows[0].job_id}/history`)
-    ).value as SessionHistoryDto
-    const read = history.session.attempts.find((item) => item.id === attempt.attemptId)
-    assert.equal(read?.selection, null)
-    assert.equal(read && 'sent_effort' in read, false)
-  } finally {
-    await server.close()
-    await fixture.dispose()
-    await rm(stateRoot, { recursive: true, force: true })
-  }
+  t.after(() => server.close())
+  await saveAgentSettings(fixture.api.pool, fixture.config, withEfforts('0'))
+  const capture = await fixture.seedCapture()
+  const attempt = await queueLotAttempt(
+    fixture,
+    capture,
+    capture.packetA.id,
+    'research',
+    'synthetic-session/1',
+  )
+  assert.equal((await sealedInput(fixture, attempt.inputId)).agent, null)
+  const outcome = await runSessionTurn(
+    {
+      pool: fixture.runner.pool,
+      config: fixture.config,
+      host: { codexExecutable: 'unused', claudeExecutable: 'unused', stateRoot, env: {} },
+      toolUrl: server.url,
+      drivers: { 'synthetic-session/1': syntheticSessionDriver },
+    },
+    attempt.attemptId,
+    AbortSignal.timeout(30_000),
+  )
+  assert.notEqual(outcome, 'failed')
+  const row = await fixture.db.pool.query<{ sent_effort: string | null; actual_model: string }>(
+    'SELECT sent_effort,actual_model FROM agent_session WHERE attempt_id=$1',
+    [attempt.attemptId],
+  )
+  assert.deepEqual(row.rows[0], { sent_effort: null, actual_model: 'synthetic' })
+  const job = await fixture.db.pool.query<{ job_id: string }>(
+    'SELECT job_id FROM processing_attempt WHERE id=$1',
+    [attempt.attemptId],
+  )
+  const history = (
+    await fixture.http(`/batches/${capture.batch.id}/processing/${job.rows[0].job_id}/history`)
+  ).value as SessionHistoryDto
+  const read = history.session.attempts.find((item) => item.id === attempt.attemptId)
+  assert.equal(read?.selection, null)
+  assert.equal(read && 'sent_effort' in read, false)
 })
 
-test("an effort the model refuses is recorded as sent, and the provider's refusal fails the turn", async () => {
+test("an effort the model refuses is recorded as sent, and the provider's refusal fails the turn", async (t) => {
   const run = await runSealedTurn(
+    t,
     { provider: 'codex', authentication: 'api_key', model: 'gpt-6.2-sol', effort: 'ultra' },
     'refuse-effort',
   )
@@ -398,9 +393,10 @@ test("an effort the model refuses is recorded as sent, and the provider's refusa
   assert.equal(run.sentEffort, 'ultra')
 })
 
-test('a Codex turn that fails between its start and turn/start records no effort', async () => {
+test('a Codex turn that fails between its start and turn/start records no effort', async (t) => {
   // The CLI names a model the session record refuses, so recording the start fails.
   const run = await runSealedTurn(
+    t,
     { provider: 'codex', authentication: 'api_key', model: 'gpt-6.2-sol', effort: 'high' },
     'invalid-model',
   )

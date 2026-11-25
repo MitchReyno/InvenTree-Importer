@@ -8,6 +8,7 @@ import { join } from 'node:path'
 import type { SessionInputDto } from '@invimport/contracts'
 import { Frames } from '#/agents/shared-vm/frames.ts'
 import { isolatedToolTurnAt } from '#/agents/shared-vm/tool-client.ts'
+import type { SessionDriverContext } from '#/agents/session/session-runner.ts'
 
 /** Relays one turn from a fake tool worker that sends `requests`, and returns what reached the coordinator. */
 async function relay(requests: Record<string, unknown>[]) {
@@ -28,13 +29,17 @@ async function relay(requests: Record<string, unknown>[]) {
   await once(worker, 'listening')
   const forwarded: Record<string, unknown>[] = []
   try {
+    // The relay forwards the manifest unread apart from its provider, so this stand-in names only
+    // that; a full sealed input would add nothing the relay checks.
+    const manifest = { agent: { provider: 'claude' } } as unknown as SessionInputDto
+    const context: SessionDriverContext = {
+      manifest,
+      cwd: root,
+      signal: AbortSignal.timeout(5000),
+      identity: { attemptId: 'a', turn: '1', lineage: 'l' },
+    }
     await isolatedToolTurnAt(socketPath)(
-      {
-        manifest: { agent: { provider: 'claude' } } as unknown as SessionInputDto,
-        cwd: root,
-        signal: AbortSignal.timeout(5000),
-        identity: { attemptId: 'a', turn: '1', lineage: 'l' },
-      } as Parameters<ReturnType<typeof isolatedToolTurnAt>>[0],
+      context,
       { text: 'Opening', instructions: 'Rules', tools: [] },
       async (operation) => {
         forwarded.push(operation)

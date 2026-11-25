@@ -57,7 +57,7 @@
   - [x] 1.2.2 `resolveSelection`: a step's own model with its effort; a step on Default with the provider's default effort; a step whose provider is off falling back to the default provider's pair;
   - [x] 1.2.3 PG: a save with efforts through the receipts; an attempt queued after it seals the pair; an attempt queued before it keeps the old one; a `/1` attempt seals no effort.
 - [x] 1.3 GREEN: the contract, the migration, validation, resolution and sealing.
-- [ ] 1.4 Regenerate the OpenAPI contract, run the contracts tests and the intake unit and PG tiers.
+- [x] 1.4 Regenerate the OpenAPI contract, run the contracts tests and the intake unit and PG tiers.
 
 ## 2. Sessions pass the sealed effort
 
@@ -73,7 +73,7 @@
 - [x] 2.1 Proof of fit, offline: `claude --help` from `@anthropic-ai/claude-code` 2.1.319 lists `--effort` with its levels, and `codex app-server generate-json-schema` from `@openai/codex` 0.166.0 has `effort` on `TurnStartParams`. Record the result in the PR description; stop and ask Mitch if either is missing.
 - [x] 2.2 RED: adapter tests for Claude fresh and resumed turns with and without an effort, and Codex `turn/start` after `thread/start` and after `thread/resume`, with `turn/steer` carrying none; a PG test that the session row records the effort once dispatched, none for Default or a synthetic attempt, and none when the turn fails before dispatch (Codex failing between `onStarted` and `turn/start`).
 - [x] 2.3 GREEN: pass the effort in both adapters, and record `sent_effort` on the session row.
-- [ ] 2.4 A process-tier test of a guest turn sealed with an effort reaching the fake CLI, with the guest's dispatch report recorded through the coordinator. Update `agents/ARCHITECTURE.md`. Run the intake tiers.
+- [x] 2.4 A process-tier test of a guest turn sealed with an effort reaching the fake CLI, with the guest's dispatch report recorded through the coordinator. Update `agents/ARCHITECTURE.md`. Run the intake tiers.
 
 ## 3. The model catalogue: read, stored and served
 
