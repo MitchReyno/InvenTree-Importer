@@ -4,18 +4,18 @@ import type {
   ProcessingInputV7Dto,
   SessionReadGuideArgsDto,
   SessionReadVocabularyArgsDto,
-  VocabularyKindDto,
 } from '@invimport/contracts'
-import { VOCABULARY_KINDS } from '@invimport/contracts'
+import { VOCABULARY_PAGE_MAX_ENTRIES } from '@invimport/contracts'
 import { canonicalRecord, strictJson } from '@invimport/contracts/json'
 import { sha256 } from '#/db/authority.ts'
 import { captureInTransaction } from '#/capture/repository.ts'
 import type { ProcessingConfig } from '#/processing/attempts.ts'
+import { stageGuides } from '#/processing/stage-policy.ts'
 import { catalogueVocabulary } from '#/processing/vocabulary.ts'
 import { ToolRefusal } from './refusal.ts'
 
 /** Vocabulary entries per page; a batch holds at most 100 read observations, so most fit one. */
-export const VOCABULARY_PAGE_SIZE = 50
+export const VOCABULARY_PAGE_SIZE = VOCABULARY_PAGE_MAX_ENTRIES
 
 interface GuideRow {
   section: string
@@ -24,17 +24,36 @@ interface GuideRow {
   text_digest: Buffer
 }
 
-/** A `/7` stage's guide, in order, each section checked against its stored digest. */
+function hex(value: string) {
+  return sha256(Buffer.from(value, 'utf8')).toString('hex')
+}
+
+/** The digest a guide's ordered sections give, as `stageGuides` records it. */
+function guideDigest(rows: readonly GuideRow[]) {
+  const listed = rows.map((row) => ({
+    section: row.section,
+    title: row.title,
+    text_sha256: row.text_digest.toString('hex'),
+  }))
+  return hex(canonicalRecord(listed))
+}
+
+/**
+ * A `/7` stage's guide, in order. Each section must match its stored digest, and the whole guide
+ * the digest its profile was sealed with, so no section can be added, dropped or reordered later.
+ */
 async function stageGuide(client: PoolClient, manifest: ProcessingInputV7Dto) {
   const rows = await client.query<GuideRow>(
     `SELECT section,title,text_bytes,text_digest FROM public.processing_stage_guide
      WHERE profile_id=$1 AND stage=$2 ORDER BY position`,
     [manifest.profile_id, manifest.stage],
   )
-  for (const row of rows.rows) {
-    if (!sha256(row.text_bytes).equals(row.text_digest)) {
-      throw new Error('stage_guide_invalid')
-    }
+  // A `/7` input is never sealed for Inventory; its type is wider than its schema.
+  const stage = manifest.stage === 'inventory' ? undefined : manifest.stage
+  const sealed = stage && stageGuides[manifest.profile_id]?.[stage]
+  const sectionsIntact = rows.rows.every((row) => sha256(row.text_bytes).equals(row.text_digest))
+  if (!sealed || !sectionsIntact || guideDigest(rows.rows) !== sealed) {
+    throw new Error('stage_guide_invalid')
   }
   return rows.rows
 }
@@ -66,15 +85,31 @@ export async function readGuide(
   }
 }
 
-/** What a vocabulary page token continues: the same kind and search, from an offset. */
+/**
+ * What a vocabulary page token continues: digests of the call's kind and search and of the list
+ * it paged, and the offset. Digests keep the token short whatever the search.
+ */
 interface VocabularyCursor {
-  kind: VocabularyKindDto | null
-  search: string | null
+  filter: string
+  list: string
   offset: number
+}
+
+function filterDigest(input: SessionReadVocabularyArgsDto) {
+  return hex(canonicalRecord({ kind: input.kind ?? null, search: input.search ?? null }))
+}
+
+/** The list a page belongs to, by the observations it holds in order. */
+function listDigest(entries: readonly BriefVocabularyEntryDto[]) {
+  return hex(canonicalRecord(entries.map((entry) => entry.reference.observation_id)))
 }
 
 function vocabularyToken(cursor: VocabularyCursor) {
   return Buffer.from(canonicalRecord(cursor), 'utf8').toString('base64url')
+}
+
+function isDigest(field: unknown) {
+  return typeof field === 'string' && /^[0-9a-f]{64}$/.test(field)
 }
 
 function decodeVocabularyToken(token: string): VocabularyCursor | null {
@@ -88,25 +123,22 @@ function decodeVocabularyToken(token: string): VocabularyCursor | null {
     return null
   }
   const cursor = value as Record<string, unknown>
-  const kindShaped =
-    cursor.kind === null || (VOCABULARY_KINDS as readonly unknown[]).includes(cursor.kind)
-  const searchShaped = cursor.search === null || typeof cursor.search === 'string'
   const offsetShaped = Number.isSafeInteger(cursor.offset) && (cursor.offset as number) > 0
-  const shaped = Object.keys(cursor).length === 3 && kindShaped && searchShaped && offsetShaped
+  const shaped =
+    Object.keys(cursor).length === 3 &&
+    isDigest(cursor.filter) &&
+    isDigest(cursor.list) &&
+    offsetShaped
   return shaped ? (cursor as unknown as VocabularyCursor) : null
 }
 
-/** The page a token continues, refused unless it names the same kind and search as the call. */
-function startingOffset(input: SessionReadVocabularyArgsDto) {
+/** The token a call continues, refused unless it came with the same kind and search. */
+function continuedCursor(input: SessionReadVocabularyArgsDto) {
   if (input.page_token === undefined) {
-    return 0
+    return null
   }
   const cursor = decodeVocabularyToken(input.page_token)
-  const sameRequest =
-    cursor !== null &&
-    cursor.kind === (input.kind ?? null) &&
-    cursor.search === (input.search ?? null)
-  if (!sameRequest) {
+  if (!cursor || cursor.filter !== filterDigest(input)) {
     throw new ToolRefusal(
       'validation_failed',
       'That page token continues another lookup. Pass the same kind and search it came with.',
@@ -119,7 +151,7 @@ function startingOffset(input: SessionReadVocabularyArgsDto) {
       ],
     )
   }
-  return cursor.offset
+  return cursor
 }
 
 function matches(entry: BriefVocabularyEntryDto, input: SessionReadVocabularyArgsDto) {
@@ -134,7 +166,9 @@ function matches(entry: BriefVocabularyEntryDto, input: SessionReadVocabularyArg
 
 /**
  * `read_vocabulary`: the batch's catalogue records as they stand now, optionally of one kind and
- * whose labels contain a search regardless of case, `VOCABULARY_PAGE_SIZE` to a page.
+ * whose labels contain a search regardless of case, `VOCABULARY_PAGE_SIZE` to a page. A token
+ * continues only the list it came from: once the matching records change, it is refused as
+ * stale and the session reads again from the first page.
  */
 export async function readVocabulary(
   client: PoolClient,
@@ -142,25 +176,28 @@ export async function readVocabulary(
   batchId: string,
   input: SessionReadVocabularyArgsDto,
 ) {
-  const offset = startingOffset(input)
+  const cursor = continuedCursor(input)
   const capture = await captureInTransaction(client, config, batchId)
   const found = catalogueVocabulary(capture.snapshot.observations, config.targetContextId).filter(
     (entry) => matches(entry, input),
   )
+  const list = listDigest(found)
+  if (cursor && cursor.list !== list) {
+    throw new ToolRefusal(
+      'stale',
+      'The vocabulary changed since that page. Read it again without page_token.',
+    )
+  }
+  const offset = cursor?.offset ?? 0
   const entries = found.slice(offset, offset + VOCABULARY_PAGE_SIZE)
   const next = offset + VOCABULARY_PAGE_SIZE
+  const more = next < found.length
   return {
     vocabulary: {
       entries,
       total: found.length,
-      ...(next < found.length
-        ? {
-            next_page_token: vocabularyToken({
-              kind: input.kind ?? null,
-              search: input.search ?? null,
-              offset: next,
-            }),
-          }
+      ...(more
+        ? { next_page_token: vocabularyToken({ filter: filterDigest(input), list, offset: next }) }
         : {}),
     },
   }

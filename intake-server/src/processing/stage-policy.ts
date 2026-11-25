@@ -26,6 +26,25 @@ export const stagePacks: Partial<Record<SessionProfileId, Record<BriefStageDto, 
   },
 }
 
+/**
+ * Each stage guide's digest by profile, as migration `0043` stores it: the SHA-256 of the
+ * canonical ordered list of its sections' names, titles and text digests. `read_guide` serves a
+ * guide only while its stored sections still give this digest, so a section added, removed or
+ * reordered after the profile was sealed is refused, not served.
+ */
+export const stageGuides: Partial<Record<SessionProfileId, Record<BriefStageDto, string>>> = {
+  'synthetic-session/1': {
+    examine: 'cfdeafe362dee7b4ee6cedaaf8388fa05e370a90a67fa241433ff9439561b5dd',
+    research: '3ed23a67403d9b721b0e35d172f0ff1dd32aca65043c9837c03edd42cff34862',
+    images: '20d21ee40894dadd277cfad8b5abdb350bc00c03edbc6d78bc3e3f578774fe1d',
+  },
+  'shared-vm-agent/4': {
+    examine: '5415ca40d3bc45efa9c7a6dc20b69ce6de0be0bda30298f4eb3ba0175e2ea87e',
+    research: '7cf6726a143ff395aef761314abfb8258eb6a0bf138fb6da4ae85f159e9137e4',
+    images: 'b41231f10a0f1b358d27f26746a46ce6aab0ee37a466c0ce8e82ced8446d6031',
+  },
+}
+
 /** Profiles that run only the `/7` pipeline; they never seal a `/6` input. */
 export function stageOnlyProfile(profileId: string) {
   return profileId === 'shared-vm-agent/4'

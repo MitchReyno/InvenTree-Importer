@@ -384,10 +384,16 @@ export const SessionReadLotArgs = object({ lot_id: Id, ...briefRead })
 /** `read_batch` for a `/7` Examine lead, which pages its brief; earlier leads take no arguments. */
 export const SessionReadBriefBatchArgs = object({ ...briefRead })
 
+/** A stage guide section's name, as the guide table stores it. */
+export const GUIDE_SECTION_NAME = Type.String({ pattern: '^[a-z][a-z0-9-]{0,47}$' })
+
 /** `read_guide`: a section of the stage's guide by name, or none to list the sections. */
 export const SessionReadGuideArgs = object({
-  section: Type.Optional(Type.String({ pattern: '^[a-z][a-z0-9-]{0,47}$' })),
+  section: Type.Optional(GUIDE_SECTION_NAME),
 })
+
+/** The most entries one `read_vocabulary` page returns. */
+export const VOCABULARY_PAGE_MAX_ENTRIES = 50
 
 /** The longest `read_vocabulary` search, matched against labels regardless of case. */
 export const VOCABULARY_SEARCH_MAX_CHARACTERS = 100

@@ -49,7 +49,13 @@ export async function formedBatch(
   {
     stageInputs = false,
     profileId = 'synthetic-session/1',
-  }: { stageInputs?: boolean; profileId?: 'synthetic-session/1' | 'shared-vm-agent/4' } = {},
+    beforeExamine,
+  }: {
+    stageInputs?: boolean
+    profileId?: 'synthetic-session/1' | 'shared-vm-agent/4'
+    /** Runs after the batch is created and before its lead seals, such as to observe records. */
+    beforeExamine?: (fixture: Fixture, batchId: string) => Promise<void>
+  } = {},
 ) {
   const fixture = await processingFixture({ profileId })
   if (stageInputs) {
@@ -88,6 +94,7 @@ export async function formedBatch(
   const capture = await fixture.seedCapture()
   const batchId = capture.batch.id
   await photoWithNote(fixture, batchId, 'Tray', '16 MHz crystal; LED 0603 red ×500')
+  await beforeExamine?.(fixture, batchId)
   await triggerExamine(fixture.writer.pool, fixture.config, { quietMs: 0 })
   const lead = await fixture.db.pool.query<{ id: string; current_attempt_id: string }>(
     "SELECT id,current_attempt_id FROM processing_job WHERE batch_id=$1 AND stage='examine'",

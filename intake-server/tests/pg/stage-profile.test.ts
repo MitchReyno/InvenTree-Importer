@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHash, randomUUID } from 'node:crypto'
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
+import { validate } from '@invimport/contracts'
 import type { BriefEntryDto, ProcessingInputV7Dto, SessionInputDto } from '@invimport/contracts'
 import { canonicalRecord } from '@invimport/contracts/json'
 import { formedBatch, photoWithNote, type Fixture } from '../support/lot-pipeline.ts'
@@ -158,8 +159,10 @@ async function withClients(
   }
 }
 
+/** A tool's structured result, checked against the tool result contract as it arrived. */
 async function call(client: Client, name: string, args: Record<string, unknown>) {
   const result = await client.callTool({ name, arguments: args })
+  validate('SessionToolResult', result.structuredContent)
   return result.structuredContent as unknown as ToolResult
 }
 
@@ -393,6 +396,14 @@ test('a /4 opening leaves the sealed rules to its packs; synthetic /7 keeps them
   for (const line of kept) {
     assert.ok(stageOpening.includes(line), line)
   }
+  // No /4 opening names a publishing tool: the Images pack publishes with propose_images.
+  for (const stageName of ['research', 'images'] as const) {
+    const { row } = await successorOf(stage, 'led 0603 red', stageName)
+    const lot = (await sealedInput(stage.fixture, row.attempt_id)).manifest
+    const opening = openingText(lot, 0, false, row.attempt_id)
+    assert.equal(opening.includes('publish proposals with propose'), false, stageName)
+    assert.ok(opening.includes('Your brief is in brief'), stageName)
+  }
   const syntheticLead = (await sealedInput(synthetic.fixture, synthetic.leadAttempt)).manifest
   const syntheticOpening = openingText(syntheticLead, 0, false, synthetic.leadAttempt)
   for (const rule of [...sealedRules, ...kept]) {
@@ -444,6 +455,19 @@ test('read_guide serves the stage’s sealed sections, the same for every sessio
     assert.equal(crop.ok, false)
     assert.equal(crop.error, 'validation_failed')
     assert.equal((await call(imager, 'read_guide', { section: 'framing' })).ok, true)
+
+    // A section added after the profile was sealed stops the guide being served at all.
+    await fixture.db.pool.query(
+      `INSERT INTO processing_stage_guide(profile_id,stage,section,position,title,text_bytes,text_digest)
+       VALUES('shared-vm-agent/4','examine','extra',8,'Extra',convert_to('Added later.','UTF8'),
+         sha256(convert_to('Added later.','UTF8')))`,
+    )
+    for (const args of [{}, { section: 'extra' }, { section: 'logos' }]) {
+      const refused = await call(lead, 'read_guide', args)
+      assert.equal(refused.ok, false)
+      assert.equal(refused.error, 'tool_failed')
+    }
+    assert.equal((await call(researcher, 'read_guide', { section: 'logos' })).ok, true)
   })
 })
 
@@ -544,36 +568,79 @@ test('read_vocabulary lists the batch’s catalogue records by kind and name, in
     })
     assert.equal(mismatched.ok, false)
     assert.equal(mismatched.error, 'validation_failed')
+
+    // A record that sorts before the page boundary, added between pages, makes the token stale
+    // rather than repeat or skip an entry.
+    await observe(fixture, batchId, [
+      { model: 'category', pk: '99', label: 'Category 00a', mapping: { kind: 'category' } },
+    ])
+    const stale = await call(researcher, 'read_vocabulary', { kind: 'category', page_token: token })
+    assert.equal(stale.ok, false)
+    assert.equal(stale.error, 'stale')
+
+    // The longest search, in four-byte characters, still gives a token the tool accepts.
+    const search = '\u{1F50C}'.repeat(100)
+    await observe(
+      fixture,
+      batchId,
+      Array.from({ length: 51 }, (_, index) => ({
+        model: 'company',
+        pk: String(500 + index),
+        label: `${search} ${index}`,
+        mapping: { kind: 'company', manufacturer: false, supplier: true },
+      })),
+    )
+    const plugs = await call(researcher, 'read_vocabulary', { search })
+    assert.equal(plugs.vocabulary!.total, 51)
+    const rest = await call(researcher, 'read_vocabulary', {
+      search,
+      page_token: plugs.vocabulary!.next_page_token!,
+    })
+    assert.equal(rest.ok, true)
+    assert.equal(rest.vocabulary!.entries.length, 1)
   })
 })
 
-test('a Research brief carries the vocabulary; Examine and Images briefs have no such section', async (t) => {
-  const batch = await formedBatch(t, { stageInputs: true, profileId: 'shared-vm-agent/4' })
+test('a Research brief seals the vocabulary; Examine and Images briefs have no such section', async (t) => {
+  const batch = await formedBatch(t, {
+    stageInputs: true,
+    profileId: 'shared-vm-agent/4',
+    beforeExamine: async (fixture, batchId) => {
+      await observe(fixture, batchId, CATALOGUE)
+    },
+  })
   const { fixture, batchId, leadAttempt } = batch
-  await observe(fixture, batchId, CATALOGUE)
-  const brief = async (attemptId: string) => {
-    const { manifest } = await sealedInput(fixture, attemptId)
-    return transaction(fixture.runner.pool, async (client) => {
-      const capture = await captureInTransaction(client, fixture.config, batchId)
-      return assembleBrief(client, fixture.config, capture.snapshot, briefScope(manifest))
-    })
+  const sealedEntries = async (attemptId: string) => {
+    const manifest = stageInput((await sealedInput(fixture, attemptId)).manifest)
+    return manifest.brief.pages.flatMap((page) => page.entries ?? [])
   }
+  const labels = (entries: readonly BriefEntryDto[]) =>
+    entries
+      .filter((entry) => entry.kind === 'vocabulary')
+      .map((entry) => (entry as { label: string }).label)
+      .sort()
   const { row: research } = await successorOf(batch, 'led 0603 red', 'research')
   const { row: images } = await successorOf(batch, 'led 0603 red', 'images')
-  const researchBrief = await brief(research.attempt_id)
-  const vocabulary = researchBrief.entries.filter((entry) => entry.kind === 'vocabulary')
-  assert.equal(researchBrief.sections.find((section) => section.name === 'vocabulary')!.count, 4)
-  assert.deepEqual(vocabulary.map((entry) => (entry as { label: string }).label).sort(), [
+  const sealed = stageInput((await sealedInput(fixture, research.attempt_id)).manifest)
+  assert.equal(sealed.brief.sections.find((section) => section.name === 'vocabulary')!.count, 4)
+  assert.deepEqual(labels(await sealedEntries(research.attempt_id)), [
     'Diodes',
     'Diodes Incorporated',
     'Diodes: Forward Voltage',
     'Forward Voltage',
   ])
   for (const attemptId of [leadAttempt, images.attempt_id]) {
-    const other = await brief(attemptId)
-    assert.equal(
-      other.entries.some((entry) => entry.kind === 'vocabulary'),
-      false,
-    )
+    assert.deepEqual(labels(await sealedEntries(attemptId)), [])
   }
+
+  // A record observed after sealing reaches the current view, not the sealed brief.
+  await observe(fixture, batchId, [
+    { model: 'category', pk: '13', label: 'Rectifiers', mapping: { kind: 'category' } },
+  ])
+  const current = await transaction(fixture.runner.pool, async (client) => {
+    const capture = await captureInTransaction(client, fixture.config, batchId)
+    return assembleBrief(client, fixture.config, capture.snapshot, briefScope(sealed))
+  })
+  assert.ok(labels(current.entries).includes('Rectifiers'))
+  assert.equal(labels(await sealedEntries(research.attempt_id)).includes('Rectifiers'), false)
 })

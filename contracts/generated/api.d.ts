@@ -30942,6 +30942,52 @@ export interface components {
                     revision: string;
                 } | null;
             };
+            sections?: {
+                section: string;
+                title: string;
+            }[];
+            section?: {
+                section: string;
+                title: string;
+                text: string;
+            };
+            vocabulary?: {
+                entries: {
+                    /** @constant */
+                    kind: "vocabulary";
+                    reference: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "category" | "parameter_template" | "category_parameter" | "company";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    label: string;
+                    mapping?: {
+                        /** @constant */
+                        kind: "category";
+                    } | {
+                        /** @constant */
+                        kind: "parameter_template";
+                        model_type: "part.part" | null;
+                        enabled: boolean;
+                    } | {
+                        /** @constant */
+                        kind: "category_parameter";
+                        /** Format: int64 */
+                        category_id: string;
+                        /** Format: int64 */
+                        template_id: string;
+                    } | {
+                        /** @constant */
+                        kind: "company";
+                        manufacturer: boolean;
+                        supplier: boolean;
+                    };
+                }[];
+                total: number;
+                next_page_token?: string;
+            };
         } | {
             /** @constant */
             ok: false;

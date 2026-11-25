@@ -28,7 +28,16 @@ import {
   statusLine,
 } from './processing.ts'
 import { ContractValidationIssue } from './validation-issues.ts'
-import { BriefSections, BriefStage, SessionBrief, SessionBriefPage } from './brief.ts'
+import {
+  BriefPageToken,
+  BriefSections,
+  BriefStage,
+  BriefVocabularyEntry,
+  GUIDE_SECTION_NAME,
+  SessionBrief,
+  SessionBriefPage,
+  VOCABULARY_PAGE_MAX_ENTRIES,
+} from './brief.ts'
 import {
   EvidenceReadings,
   EvidenceRegion,
@@ -256,6 +265,8 @@ export const SessionInboxItem = Type.Union([
   }),
 ])
 /** Every response carries the pending inbox count, so agents notice input without polling. */
+const guideTitle = Type.String({ minLength: 1, maxLength: 200 })
+
 export const SessionToolResult = Type.Union([
   object({
     ok: Type.Literal(true),
@@ -326,6 +337,26 @@ export const SessionToolResult = Type.Union([
     batch: Type.Optional(LeadBatchView),
     /** read_lot, and read_batch for a `/7` session: one page of a brief. */
     brief: Type.Optional(SessionBriefPage),
+    /** read_guide with no section: the stage guide's sections, in order. */
+    sections: Type.Optional(
+      Type.Array(object({ section: GUIDE_SECTION_NAME, title: guideTitle }), { maxItems: 32 }),
+    ),
+    /** read_guide for one section: its text. */
+    section: Type.Optional(
+      object({
+        section: GUIDE_SECTION_NAME,
+        title: guideTitle,
+        text: Type.String({ minLength: 1, maxLength: 8192 }),
+      }),
+    ),
+    /** read_vocabulary: one page of the batch's catalogue vocabulary. */
+    vocabulary: Type.Optional(
+      object({
+        entries: Type.Array(BriefVocabularyEntry, { maxItems: VOCABULARY_PAGE_MAX_ENTRIES }),
+        total: Type.Integer({ minimum: 0, maximum: 100000 }),
+        next_page_token: Type.Optional(BriefPageToken),
+      }),
+    ),
   }),
   object({
     ok: Type.Literal(false),

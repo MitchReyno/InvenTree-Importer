@@ -568,18 +568,24 @@ function stageOpeningText(manifest: ProcessingInputV7Dto, pending: number, attem
   })
 }
 
+/**
+ * A `/7` opening's guidance. Under a profile whose packs carry the rules (which tools publish, the
+ * lead's work, asking and the catalogue), only the brief, description-style, web, status-line and
+ * inbox lines remain.
+ */
 function stageInstructions(manifest: ProcessingInputV7Dto) {
-  const sealedRules = packCarriesRules(manifest)
-  const lead = manifest.stage === 'examine' && !sealedRules
-  return (
-    (lead ? `${LEAD_INSTRUCTIONS} ` : '') +
+  const sessionLines =
     `${BRIEF_GUIDANCE} ` +
     (manifest.part_description_style ? `${STYLE_GUIDANCE} ` : '') +
-    webGuidance(manifest) +
+    webGuidance(manifest)
+  if (packCarriesRules(manifest)) {
+    return `${sessionLines}${STATUS_GUIDANCE} ${INBOX_GUIDANCE}`
+  }
+  return (
+    (manifest.stage === 'examine' ? `${LEAD_INSTRUCTIONS} ` : '') +
+    sessionLines +
     'Report steps with status, publish proposals with propose, ask questions with ask and keep working. ' +
-    (sealedRules
-      ? `${STATUS_GUIDANCE} ${INBOX_GUIDANCE}`
-      : `${ASK_GUIDANCE} ${INBOX_GUIDANCE} ${CATALOGUE_GUIDANCE}`)
+    `${ASK_GUIDANCE} ${INBOX_GUIDANCE} ${CATALOGUE_GUIDANCE}`
   )
 }
 

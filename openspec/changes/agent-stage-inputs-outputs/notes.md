@@ -93,17 +93,21 @@ Mitch reviewed the draft base instructions, stage packs and guide sections and a
 
 1. **The opening under `/4`.** The packs carry the lead's instructions, the ask guidance and the catalogue guidance, so a `shared-vm-agent/4` opening leaves those three out and keeps the brief, status-line, inbox, description-style and web lines. `synthetic-session/1`'s opening is unchanged.
 2. **Web search for Examine.** Allowed only to read an unfamiliar logo or marking, never to work out what the part is. Images researches nothing.
-3. **Ask guidance** is sealed in the base. The `ask` tool's description keeps its unsealed copy, so a later wording change reaches `/4` sessions only through a new profile.
+3. **Ask guidance** is sealed in the base. The `ask` tool's description keeps its unsealed copy, which isn't version-bound: only the base's copy changes with a new profile.
 4. **Tags aren't Examine's.** Examine reports NOS signals, the seal and a visible NSN, never tags; tags are derived by rule in Records.
 5. **Quantity.** Examine never claims a count. "Counted from the photo" is the estimate's basis, not an exact quantity.
 6. **The vocabulary is the batch's.** It is the batch's retained catalogue observations (at most 100 read observations), not the whole InvenTree catalogue. Full-catalogue reads are an open item below.
 7. **The Research guide has nine sections**, each under about 1.8 KB: modes, nsn-and-data-books, datasheets, identity-and-specifications, naming-and-notes, vocabulary-and-gaps, logos, logo-look-alikes and same-part.
 8. **The brief's vocabulary section** is filled in this PR, from the same lookup `read_vocabulary` uses.
 
+### Guides are sealed as a whole
+
+The guide table's rows can't be changed or deleted, but a row could still be added for a profile. So `processing/stage-policy.ts` records each stage guide's digest (`stageGuides`): the SHA-256 of the canonical ordered list of its sections' names, titles and text digests. `read_guide` serves a guide only while its stored sections give that digest; otherwise the call fails (`tool_failed`) rather than serve a section the profile wasn't sealed with.
+
 ### `read_vocabulary`'s lookup interface
 
 - **Both a filter and paging.** `read_vocabulary({ kind?, search?, page_token? })`. `kind` is category, parameter_template, category_parameter or company; `search` (1–100 characters) keeps entries whose label contains it, regardless of case. Results come 50 to a page (`VOCABULARY_PAGE_SIZE`), ordered by kind, label and observation, with the total and a `next_page_token` while more remain.
-- **Tokens** are the cursor (kind, search, offset) as canonical JSON in base64url. A token continues only the kind and search it came with; any other call with it is a correctable `validation_failed`. Tokens aren't bound to the attempt: the read is of the session's own batch and writes nothing.
+- **Tokens** are the cursor as canonical JSON in base64url: a digest of the kind and search, a digest of the matching list (its observations in order) and the offset. Digests keep a token within the 512-character token bound whatever the search. A token continues only the kind and search it came with; any other call with it is a correctable `validation_failed`. When the matching records change between pages, the token is refused as `stale` and the session reads again from the first page, so no entry is repeated or skipped. Tokens aren't bound to the attempt: the read is of the session's own batch and writes nothing.
 - **Current, not sealed.** The brief's vocabulary section is the list as sealed; `read_vocabulary` reads it again from the batch now, through the capture snapshot, with the same projection (`processing/vocabulary.ts`). Observations from an earlier target context are left out, since a proposal can't cite them.
 
 ### How `/4` is reached before activation
