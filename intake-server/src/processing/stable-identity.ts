@@ -320,6 +320,31 @@ async function retireEarlierIdentities(
   return ids
 }
 
+/**
+ * Every current proposal of the batch that rests on the identities given, at any depth through
+ * `proposal` sources, the identities included: what retiring them makes stale.
+ */
+export async function builtOn(client: PoolClient, batchId: string, ids: readonly string[]) {
+  if (!ids.length) {
+    return []
+  }
+  const rows = await client.query<{ id: string }>(
+    `WITH RECURSIVE built(id, depth) AS (
+       SELECT unnest($2::uuid[]), 0
+       UNION
+       SELECT p.id, b.depth + 1 FROM built b
+       JOIN public.processing_proposal p
+         ON p.relies_on->'sources' @> jsonb_build_array(jsonb_build_object('kind','proposal','proposal_id',b.id::text))
+       JOIN public.processing_attempt a ON a.id=p.attempt_id AND a.batch_id=$1
+       WHERE b.depth < 8
+         AND NOT EXISTS (SELECT 1 FROM public.processing_proposal_stale s WHERE s.proposal_id=p.id)
+     )
+     SELECT DISTINCT id FROM built`,
+    [batchId, [...ids]],
+  )
+  return rows.rows.map((row) => row.id)
+}
+
 /** The lot's current identities from the lead, other than `proposalId`, which a new one retires. */
 export async function earlierIdentities(
   client: PoolClient,

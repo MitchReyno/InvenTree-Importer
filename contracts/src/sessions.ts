@@ -93,7 +93,9 @@ export const SessionStageAskArgs = object({
     }),
   ),
   /** The conflict the question settles, such as a reading against a datasheet. */
-  conflict: Type.Optional(Type.String({ minLength: 1, maxLength: 512 })),
+  conflict: Type.Optional(
+    Type.String({ minLength: 1, maxLength: 512, pattern: '[^\\s\\p{C}\\p{Z}\\p{M}]' }),
+  ),
 })
 export const SessionReplyArgs = object({ inbox_item_id: Id, text: message })
 /** Passing a cursor acknowledges every inbox item up to it. */
@@ -353,8 +355,8 @@ export const SessionRevisionV2 = object({
   brief_revision: Revision,
   /**
    * Set when the values were too long to carry: each change still names what changed, but a
-   * field's `from` and `to` are null and a correction is `reading_in_brief`. The brief at
-   * `brief_revision` holds them.
+   * correction is `reading_in_brief` and an answer `answer_in_brief`, whose values the brief
+   * holds; field changes stay inline.
    */
   values_in_brief: Type.Optional(Type.Literal(true)),
   /** One of several items one revision is split into when its changes don't fit one, in order. */

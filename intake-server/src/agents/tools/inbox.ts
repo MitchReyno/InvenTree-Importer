@@ -228,7 +228,8 @@ export async function releaseInboxItems(client: PoolClient, itemIds: readonly st
 
 /**
  * An item's payload as it is given now. A `/7` revision naming a reading of an observation whose
- * evidence the operator has since removed names that evidence's removal instead, as the brief
+ * evidence the operator has since removed (inline or left to the brief) names that evidence's
+ * removal instead, as the brief
  * leaves the reading out; the stored item, and the history, keep what was recorded.
  */
 export async function deliverablePayload(client: PoolClient, kind: string, payload: unknown) {
@@ -236,9 +237,14 @@ export async function deliverablePayload(client: PoolClient, kind: string, paylo
   if (kind !== 'revision' || revision.schema_version !== 'bench-intake-revision/2') {
     return payload
   }
-  const read = revision.changes!.flatMap((change) =>
-    change.kind === 'reading' ? [change.observation_id] : [],
-  )
+
+  const readingOf = (change: RevisionChangeDto) =>
+    change.kind === 'reading' || change.kind === 'reading_in_brief' ? change.observation_id : null
+
+  const read = revision.changes!.flatMap((change) => {
+    const observationId = readingOf(change)
+    return observationId ? [observationId] : []
+  })
   if (!read.length) {
     return payload
   }
@@ -254,7 +260,8 @@ export async function deliverablePayload(client: PoolClient, kind: string, paylo
   const evidenceOf = new Map(removed.rows.map((row) => [row.id, row.evidence_id]))
   const told = new Set<string>()
   const changes = revision.changes!.flatMap((change): RevisionChangeDto[] => {
-    const evidenceId = change.kind === 'reading' ? evidenceOf.get(change.observation_id) : undefined
+    const observationId = readingOf(change)
+    const evidenceId = observationId ? evidenceOf.get(observationId) : undefined
     if (evidenceId === undefined) {
       return [change]
     }

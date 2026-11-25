@@ -40658,6 +40658,19 @@ export interface components {
             quantity_basis?: string;
             separation_reason?: string;
         };
+        ProposeLotStageArgs: {
+            /** Format: int64 */
+            base_revision: string;
+            lot_id?: string;
+            label?: string;
+            observation_ids: string[];
+            part?: {
+                part_subject_id: string;
+            } | {
+                label: string;
+            };
+            separation_reason?: string;
+        };
         RegroupArgs: {
             /** Format: int64 */
             base_revision: string;
@@ -52029,6 +52042,7 @@ export type EvidenceReadings = components['schemas']['EvidenceReadings']
 export type CaptureEvidenceObservation = components['schemas']['CaptureEvidenceObservation']
 export type RecordObservationArgs = components['schemas']['RecordObservationArgs']
 export type ProposeLotArgs = components['schemas']['ProposeLotArgs']
+export type ProposeLotStageArgs = components['schemas']['ProposeLotStageArgs']
 export type RegroupArgs = components['schemas']['RegroupArgs']
 export type LotFormingConflict = components['schemas']['LotFormingConflict']
 export type LeadBatchView = components['schemas']['LeadBatchView']

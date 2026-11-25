@@ -80,6 +80,11 @@ const STAGE_READ_BATCH = {
 
 /** A `/7` session publishes its stage's typed output and asks with a duplicate check. */
 const STAGE_TOOLS = {
+  propose_lot: {
+    schema: 'ProposeLotStageArgs',
+    description:
+      'Examine lead session only. Form a draft lot from observations of the same physical thing, or extend one of your lots. Give its quantity estimate, with its basis, in the lot’s examine-identity/1, not here; never add up the same items twice. When it looks like another lot, say in separation_reason why it is kept apart.',
+  },
   propose: {
     schema: 'SessionStageProposeArgs',
     description:
@@ -119,7 +124,7 @@ function toolDefinition(
   if (name === 'read_batch') {
     return STAGE_READ_BATCH
   }
-  if (name === 'propose' || name === 'ask') {
+  if (name === 'propose' || name === 'ask' || name === 'propose_lot') {
     return STAGE_TOOLS[name]
   }
   return tool

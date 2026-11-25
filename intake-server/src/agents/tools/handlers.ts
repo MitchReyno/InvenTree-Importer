@@ -31,7 +31,7 @@ import {
   queryDatabase,
   transaction,
 } from '#/db/database.ts'
-import { earlierIdentities, onLeadIdentity } from '#/processing/stable-identity.ts'
+import { builtOn, earlierIdentities, onLeadIdentity } from '#/processing/stable-identity.ts'
 import { appendEvent } from '#/db/authority.ts'
 import { captureBatches } from '#/capture/schema.ts'
 import { lockCaptureForAgentWrite, lockCaptureForInputSettlement } from '#/capture/repository.ts'
@@ -966,8 +966,8 @@ function publishedProposal(principal: SessionPrincipal, args: unknown): Retained
 }
 
 /**
- * A `/7` identity retires the lot's earlier ones, so it can't rely on one of them: it would be
- * current while resting on an identity it made stale.
+ * A `/7` identity retires the lot's earlier ones, so it can't rely on one of them, or on anything
+ * built on one: it would be current, and queue successors, while resting on what it made stale.
  */
 async function refuseRelyingOnRetired(
   client: PoolClient,
@@ -982,8 +982,13 @@ async function refuseRelyingOnRetired(
   if (!identity) {
     return
   }
+  // What retiring the lot's earlier identities would make stale, at any depth.
   const earlier = new Set(
-    await earlierIdentities(client, principal.batchId, proposal.subject_id, proposalId),
+    await builtOn(
+      client,
+      principal.batchId,
+      await earlierIdentities(client, principal.batchId, proposal.subject_id, proposalId),
+    ),
   )
   const index = proposal.relies_on.sources.findIndex(
     (source) => source.kind === 'proposal' && earlier.has(source.proposal_id),

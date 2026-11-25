@@ -190,9 +190,9 @@ function jsonbBytes(value: object) {
 
 /**
  * A revision whose values would pass the inbox's bound points to the brief instead (Mitch's
- * decision): each change still names what changed, without the values before and after. They
- * stay in every later brief: a correction's by its observation and revision, an answer's by its
- * question.
+ * decision): each change still names what changed, and the long values, a correction's readings
+ * and an answer's steps, are left to the brief, where they stay: a correction's by its observation
+ * and revision, an answer's by its question. Field changes stay inline.
  */
 function valuesLeftOut(
   changes: readonly RevisionChangeDto[],
@@ -213,9 +213,8 @@ function valuesLeftOut(
         answer_id: change.answer_id,
       }
     }
-    if (change.kind === 'field') {
-      return { ...change, from: null, to: null }
-    }
+    // A field change carries only a short Capture value, such as a quantity, which no brief
+    // keeps as it was before; it stays inline.
     return change
   })
 }

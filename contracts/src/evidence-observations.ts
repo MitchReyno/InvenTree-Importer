@@ -93,6 +93,14 @@ export const ProposeLotArgs = object({
   separation_reason: Type.Optional(SeparationReason),
 })
 
+/** `propose_lot` in a `/7` session: the estimate is the lot's `examine-identity/1`'s instead. */
+const {
+  estimated_quantity: _estimate,
+  quantity_basis: _basis,
+  ...stageLotArgs
+} = ProposeLotArgs.properties
+export const ProposeLotStageArgs = object(stageLotArgs)
+
 /** Moves observations between AI lots. */
 export const RegroupArgs = object({
   ...baseRevision,
@@ -166,6 +174,7 @@ export const evidenceObservationSchemas = {
   CaptureEvidenceObservation,
   RecordObservationArgs,
   ProposeLotArgs,
+  ProposeLotStageArgs,
   RegroupArgs,
   LotFormingConflict,
   LeadBatchView,

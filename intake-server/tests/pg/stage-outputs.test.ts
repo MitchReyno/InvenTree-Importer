@@ -1257,6 +1257,23 @@ test('a revision too long for the inbox names what changed and points to the bri
   })
   assert.deepEqual(toLead.source, { kind: 'operator', actor_id: fixture.config.actorId })
   assert.equal(toLead.brief_revision, corrected.revision)
+
+  // Removed before the lead reads it, the correction is given as the evidence's removal.
+  await grantMedia(fixture.db.pool, fixture.api.name, 'api')
+  const media = await fixture.db.pool.query<{ revision: string; evidence_id: string }>(
+    `SELECT b.revision::text, v.evidence_id FROM media_batch b
+     JOIN media_version v ON v.batch_id=b.batch_id WHERE b.batch_id=$1 AND v.id=$2`,
+    [batchId, observation.evidence_version_id],
+  )
+  await editMedia(fixture.api.pool, fixture.config, batchId, randomUUID(), {
+    expected_revision: media.rows[0].revision,
+    change: { kind: 'remove', evidence_ids: [media.rows[0].evidence_id] },
+  })
+  const read = await result(
+    tools(batch).read_inbox(await running(fixture, batch.leadAttempt), { after_seq: '0' }),
+  )
+  const given = JSON.stringify(read.items)
+  assert.ok(!given.includes('reading_in_brief'), given)
 })
 
 test('an answer too long to carry names the answer, which a later brief still holds', async (t) => {
@@ -1376,7 +1393,45 @@ test('a revision with more changes than one item holds arrives whole, in ordered
       { origin: { by: 'operator' }, briefRevision: '9' },
     ),
   )
-  const parts = await revisions(fixture, research.jobId)
+  // An answer left to the brief keeps its short field change inline, with both values.
+  await transaction(fixture.runner.pool, (client) =>
+    notifyRevision(
+      client,
+      research.jobId,
+      'long-answer',
+      {
+        fields: ['quantity', 'identity'],
+        reason: 'A question was answered.',
+        changes: [
+          {
+            kind: 'answer',
+            question_id: randomUUID(),
+            answer_id: randomUUID(),
+            steps: [1, 2, 3, 4].map((step) => ({
+              step_id: `s${step}`,
+              value: { kind: 'text' as const, text: '𝄞'.repeat(2048) },
+            })),
+          },
+          { kind: 'field', subject_id: research.lot.id, field: 'quantity', from: '7', to: '12' },
+        ],
+      },
+      { origin: { by: 'operator' }, briefRevision: '9' },
+    ),
+  )
+  const offloaded = (await revisions(fixture, research.jobId)).at(-1)!
+  assert.equal(offloaded.values_in_brief, true)
+  assert.deepEqual(
+    offloaded.changes.map((change) => change.kind),
+    ['answer_in_brief', 'field'],
+  )
+  assert.deepEqual(offloaded.changes[1], {
+    kind: 'field',
+    subject_id: research.lot.id,
+    field: 'quantity',
+    from: '7',
+    to: '12',
+  })
+  const parts = (await revisions(fixture, research.jobId)).filter((item) => item.part)
   assert.deepEqual(
     parts.map((part) => part.part),
     [
@@ -1417,6 +1472,8 @@ test('a /7 ask may replace only its own open question, and its conflict must be 
     (replacing.issues ?? []).map((issue) => issue.path),
     ['/replaces'],
   )
+  const blank = await result(session.ask(fresh, { ...question, conflict: ' ' }))
+  assert.equal(blank.error, 'validation_failed')
   const unstorable = await result(
     session.ask(fresh, { ...question, conflict: 'label\u0000weight' }),
   )
@@ -1619,6 +1676,25 @@ test('a /7 identity can’t rely on one it retires, and what relied on the retir
     }),
   )
   assert.equal(dependent.ok, true, JSON.stringify(dependent))
+  // Nor on what was built on the one it retires: the earlier identity and the successors pinned
+  // to it stay as they were.
+  const successorsBefore = await batch.successors(led.id)
+  const onChain = await result(
+    session.propose(lead, ledIdentity([{ kind: 'proposal', proposal_id: dependent.id }])),
+  )
+  assert.deepEqual(
+    (onChain.issues ?? []).map((issue) => issue.path),
+    ['/proposal/relies_on/sources/2'],
+  )
+  const untouched = await fixture.db.pool.query(
+    'SELECT 1 FROM processing_proposal_stale WHERE proposal_id = ANY($1::uuid[])',
+    [[earlier, dependent.id]],
+  )
+  assert.equal(untouched.rowCount, 0)
+  assert.deepEqual(
+    (await batch.successors(led.id)).map((row) => row.attempt_id),
+    successorsBefore.map((row) => row.attempt_id),
+  )
   const republished = await result(session.propose(lead, ledIdentity([])))
   assert.equal(republished.ok, true, JSON.stringify(republished))
   const stale = await fixture.db.pool.query<{ proposal_id: string; reason: string }>(
