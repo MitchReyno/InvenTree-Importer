@@ -261,9 +261,8 @@ async function publishDecoded(
 export type MediaCommandOutcome = 'decoded' | 'deferred' | 'busy' | 'idle'
 
 /**
- * Explicit one-command worker. A claimed interrupted command is never automatically replayed. A
- * decode that found the dispatcher busy for its whole wait ran nothing, so it is deferred, not
- * interrupted, and a later run takes it again; its version reads queued meanwhile.
+ * Reserve a slot before claiming. An explicit busy refusal after the claim defers the command.
+ * An ambiguous interruption retains its terminal outcome.
  */
 export async function runMediaCommand(
   pool: Pool,
