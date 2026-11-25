@@ -317,6 +317,7 @@ export async function answerSessionQuestion(
     key: `answer:${questionId}`,
     except: job.id,
     changes: answeredChanges(ask, input, subjectId, before.snapshot, after.snapshot),
+    answer: { questionId, answerId },
     context: { origin: { by: 'operator' }, briefRevision: snapshot.revision },
   })
   await capture.publish()

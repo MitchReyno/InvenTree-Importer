@@ -1232,6 +1232,36 @@ async function requireCurrentReliance(
   }
 }
 
+/**
+ * Examine's markings are of its lot: each names an active observation of the lot it is about,
+ * so a correction to one of them reaches the identity.
+ */
+async function requireOwnMarkings(
+  client: PoolClient,
+  batchId: string,
+  proposal: RetainedSessionProposalDto,
+) {
+  if (proposal.schema_version !== 'examine-identity/1') {
+    return
+  }
+  const named = proposal.markings.map((marking) => marking.observation_id)
+  const members = await client.query<{ id: string }>(
+    `SELECT evidence_observation_id AS id FROM public.capture_lot_evidence_observation
+     WHERE batch_id=$1 AND lot_id=$2 AND status='active' AND evidence_observation_id = ANY($3::uuid[])`,
+    [batchId, proposal.subject_id, named],
+  )
+  const active = new Set(members.rows.map((row) => row.id))
+  const index = named.findIndex((id) => !active.has(id))
+  if (index >= 0) {
+    const reason = 'Name an active observation of this lot.'
+    throw new ToolRefusal(
+      'validation_failed',
+      `A marking names an observation outside the lot. ${reason}`,
+      [{ path: `/proposal/markings/${index}/observation_id`, rule: 'not_allowed', reason }],
+    )
+  }
+}
+
 /** The Processing snapshot reads at most this many proposals and questions per attempt. */
 /** Half the snapshot budget, leaving room for JSON framing and the rest of the snapshot. */
 const SESSION_RESULT_BUDGET_BYTES = MAX_PROCESSING_SNAPSHOT_BYTES / 2
@@ -2011,6 +2041,7 @@ export function sessionTools(context: SessionToolContext) {
           }
           await requireDeliveredSources(client, context, principal, proposal)
           await requireCurrentReliance(client, principal, proposal)
+          await requireOwnMarkings(client, principal.batchId, proposal)
           await refuseRemovedSources(client, principal.batchId, [
             ...proposalCitations(proposal),
             ...proposal.relies_on.sources,

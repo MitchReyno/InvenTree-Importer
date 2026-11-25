@@ -170,6 +170,11 @@ export async function onLeadIdentity(
   if (stageInput && configuredInputVersion(config) !== 'bench-intake-input/7') {
     return 'waiting'
   }
+  // Under `/7` the new identity replaces the lot's earlier ones: they can't be the stable
+  // identity again, whatever happens to this one.
+  const retired = stageInput
+    ? await retireEarlierIdentities(client, snapshot.id, lotId, proposalId)
+    : []
   // One read decides what to queue and is sealed into every successor, so a save landing
   // meanwhile can neither roll back this proposal nor split the successors across revisions.
   const settings = await settingsForSuccessors(client, config)
@@ -189,7 +194,7 @@ export async function onLeadIdentity(
         releasedJob,
         proposalId,
         proposal.summary,
-        published,
+        [published, ...(await staleChanges(client, retired, 'source_superseded'))],
         revisedBy,
       )
     }
@@ -214,7 +219,8 @@ async function releaseSuccessor(
   jobId: string,
   proposalId: string,
   summary: string,
-  published: RevisionChangeDto,
+  /** The new identity, and the earlier ones it retired. */
+  identity: readonly RevisionChangeDto[],
   context: RevisionContext,
 ) {
   const stale = await executeDatabaseQuery(
@@ -250,10 +256,42 @@ async function releaseSuccessor(
     {
       fields: ['identity'],
       reason: `Examine revised the lot's identity: ${summary} What this session published for the lot rests on the earlier identity, so it starts again from the new one.`,
-      changes: [published, ...(await staleChanges(client, ids, 'source_superseded'))],
+      changes: [...identity, ...(await staleChanges(client, ids, 'source_superseded'))],
     },
     context,
   )
+}
+
+/**
+ * The lot's other identities from the lead that are still current, made stale
+ * (`source_superseded`) by the one just published. Returns their ids.
+ */
+async function retireEarlierIdentities(
+  client: PoolClient,
+  batchId: string,
+  lotId: string,
+  proposalId: string,
+) {
+  const earlier = await client.query<{ id: string }>(
+    `SELECT p.id FROM public.processing_proposal p
+     JOIN public.processing_attempt a ON a.id=p.attempt_id
+     JOIN public.processing_job j ON j.id=a.job_id AND j.stage='examine' AND j.batch_id=$1
+     WHERE p.id<>$3 AND p.relies_on->'fields' ? 'identity'
+       AND convert_from(p.value_bytes,'UTF8')::jsonb->>'subject_id'=$2::text
+       AND NOT EXISTS (SELECT 1 FROM public.processing_proposal_stale s WHERE s.proposal_id=p.id)
+     ORDER BY p.id`,
+    [batchId, lotId, proposalId],
+  )
+  const ids = earlier.rows.map((row) => row.id)
+  if (ids.length) {
+    await executeDatabaseQuery(
+      queryDatabase(client)
+        .insert(processingProposalStale)
+        .values(ids.map((id) => ({ proposalId: id, reason: 'source_superseded' as const })))
+        .onConflictDoNothing(),
+    )
+  }
+  return ids
 }
 
 /** The attempt that published a proposal. */

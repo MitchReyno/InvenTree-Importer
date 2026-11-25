@@ -30,9 +30,11 @@ export interface RevisionNotice {
   fields: readonly ProcessingFieldDto[]
   reason: string
   changes: readonly RevisionChangeDto[]
+  /** The answer behind a revision, named when its values don't fit and are left to the brief. */
+  answer?: { questionId: string; answerId: string }
 }
 
-/** A `revision/2` names at most this many changes; the reason still covers the rest. */
+/** A `revision/2` item names at most this many changes; a revision with more is split. */
 const MAX_REVISION_CHANGES = 100
 
 interface LineageFacts {
@@ -144,50 +146,62 @@ export async function notifyRevision(
     })
     return
   }
-  const payload = {
-    schema_version: 'bench-intake-revision/2',
+  const base = {
+    schema_version: 'bench-intake-revision/2' as const,
     fields: [...notice.fields],
     reason,
-    changes: notice.changes.slice(0, MAX_REVISION_CHANGES),
     source: await revisionSource(client, facts, context.origin),
     brief_revision: context.briefRevision,
   }
-  await append(
-    client,
-    facts,
-    lineageId,
-    idempotencyKey,
-    'revision',
-    await withinInboxLimit(client, payload, context.briefRevision),
-  )
+  let changes = [...notice.changes]
+  const valuesInBrief = jsonbBytes({ ...base, changes }) > MAX_REVISION_PAYLOAD_BYTES
+  if (valuesInBrief) {
+    changes = valuesLeftOut(changes, context.briefRevision, notice.answer)
+  }
+  const head = { ...base, ...(valuesInBrief ? { values_in_brief: true as const } : {}) }
+  const parts = inParts(head, changes)
+  for (const [index, part] of parts.entries()) {
+    const split = parts.length > 1
+    await append(
+      client,
+      facts,
+      lineageId,
+      split ? `${idempotencyKey}:part${index + 1}` : idempotencyKey,
+      'revision',
+      {
+        ...head,
+        changes: part,
+        ...(split ? { part: { index: index + 1, count: parts.length } } : {}),
+      },
+    )
+  }
 }
 
 /** The inbox keeps a revision of at most this many bytes, as PostgreSQL stores it (`0030`). */
 const MAX_REVISION_PAYLOAD_BYTES = 32_768
 
-async function storedBytes(client: PoolClient, payload: object) {
-  const measured = await client.query<{ bytes: number }>(
-    'SELECT octet_length($1::jsonb::text)::int AS bytes',
-    [JSON.stringify(payload)],
-  )
-  return measured.rows[0].bytes
+/**
+ * At least the bytes PostgreSQL stores for a value as jsonb text: its JSON, with the space jsonb
+ * adds after every separator counted for every colon and comma, inside strings too.
+ */
+function jsonbBytes(value: object) {
+  const json = JSON.stringify(value)
+  const separators = json.match(/[:,]/g)?.length ?? 0
+  return Buffer.byteLength(json, 'utf8') + separators
 }
 
 /**
  * A revision whose values would pass the inbox's bound points to the brief instead (Mitch's
- * decision): each change still names what changed, without the values before and after, which
- * the session reads from its brief at the revision's brief revision.
+ * decision): each change still names what changed, without the values before and after. They
+ * stay in every later brief: a correction's by its observation and revision, an answer's by its
+ * question.
  */
-async function withinInboxLimit<T extends { changes: readonly RevisionChangeDto[] }>(
-  client: PoolClient,
-  payload: T,
-  /** A correction is visible from its own revision, the one the revision names. */
+function valuesLeftOut(
+  changes: readonly RevisionChangeDto[],
   correctedAt: string,
-): Promise<T> {
-  if ((await storedBytes(client, payload)) <= MAX_REVISION_PAYLOAD_BYTES) {
-    return payload
-  }
-  const changes = payload.changes.map((change): RevisionChangeDto => {
+  answer: RevisionNotice['answer'],
+): RevisionChangeDto[] {
+  const named = changes.map((change): RevisionChangeDto => {
     if (change.kind === 'reading') {
       return {
         kind: 'reading_in_brief',
@@ -200,7 +214,39 @@ async function withinInboxLimit<T extends { changes: readonly RevisionChangeDto[
     }
     return change
   })
-  return { ...payload, changes, values_in_brief: true }
+  if (!answer) {
+    return named
+  }
+  return [
+    { kind: 'answer_in_brief', question_id: answer.questionId, answer_id: answer.answerId },
+    ...named,
+  ]
+}
+
+/**
+ * The changes in order, in as few items as fit the inbox: at most `MAX_REVISION_CHANGES` each,
+ * and within its byte bound. Nothing is left out; a session reads the parts in sequence.
+ */
+function inParts(head: object, changes: readonly RevisionChangeDto[]) {
+  const parts: RevisionChangeDto[][] = []
+  let part: RevisionChangeDto[] = []
+  // The part field and a key's suffix fit in this allowance.
+  const room = MAX_REVISION_PAYLOAD_BYTES - 128
+  for (const change of changes) {
+    const candidate = [...part, change]
+    const full =
+      candidate.length > MAX_REVISION_CHANGES || jsonbBytes({ ...head, changes: candidate }) > room
+    if (full && part.length) {
+      parts.push(part)
+      part = [change]
+    } else {
+      part = candidate
+    }
+  }
+  if (part.length) {
+    parts.push(part)
+  }
+  return parts
 }
 
 /** Each proposal's published kind; a runner proposal of `/1` names none. */
@@ -233,9 +279,9 @@ export async function staleChanges(
   }))
 }
 
-/** Text a field change carries: at most 512 code points. */
+/** Text a field change carries, within the contract's bound: an answer of four full steps fits. */
 export function changeText(text: string) {
-  return [...text].slice(0, 512).join('')
+  return [...text].slice(0, 8_300).join('')
 }
 
 /**
@@ -322,6 +368,8 @@ export async function fieldsSuperseded(
     /** The fields' previous and new values, as a `/7` session is told them. */
     changes: readonly RevisionChangeDto[]
     context: RevisionContext
+    /** The answer that changed the fields, if one did. */
+    answer?: RevisionNotice['answer']
   },
 ) {
   if (!(await processingVisible(client))) {
@@ -373,6 +421,7 @@ export async function fieldsSuperseded(
           ...input.changes,
           ...(await staleChanges(client, relied.get(lineage)!, input.reason)),
         ],
+        answer: input.answer,
       },
       input.context,
     )
@@ -766,8 +815,11 @@ export async function observationCorrected(
      JOIN public.processing_job j ON j.id=a.job_id
      WHERE j.batch_id=$1
        AND convert_from(i.manifest_bytes,'UTF8')::jsonb->>'schema_version'='bench-intake-input/7'
-       AND p.relies_on->'sources' @> jsonb_build_array(jsonb_build_object(
-         'kind','evidence_observation','evidence_observation_id',$2::text))
+       AND (p.relies_on->'sources' @> jsonb_build_array(jsonb_build_object(
+              'kind','evidence_observation','evidence_observation_id',$2::text))
+            -- Examine's markings of the observation, verbatim, rest on its reading too.
+            OR jsonb_path_exists(convert_from(p.value_bytes,'UTF8')::jsonb,
+              '$.markings[*] ? (@.observation_id == $id)', jsonb_build_object('id', $2::text)))
        AND NOT EXISTS (SELECT 1 FROM public.processing_proposal_stale s WHERE s.proposal_id=p.id)
      ORDER BY p.id`,
     [input.batchId, input.observationId],

@@ -22,6 +22,7 @@ import { triggerExamine } from '#/processing/examine-trigger.ts'
 import { recordPhotoRelease } from '#/agents/tools/photo-release.ts'
 import { pendingSessionInbox } from '#/agents/tools/inbox.ts'
 import { notifyRevision } from '#/processing/currentness.ts'
+import { stableIdentityOf } from '#/processing/stable-identity.ts'
 import { sessionTools, type SessionToolOutput } from '#/agents/tools/handlers.ts'
 import { queueSessionResume, runSessionTurn } from '#/agents/session/session-runner.ts'
 import { lockBlob } from '#/media/blob-store.ts'
@@ -212,6 +213,17 @@ test('a /7 stage publishes only its own kind, and Research only what its mode al
   assert.equal(generic.error, 'validation_failed')
   const accepted = await result(session.propose(researcher, { proposal: full }))
   assert.equal(accepted.ok, true, JSON.stringify(accepted))
+  // Examine's markings name observations of the lot it is about.
+  const led = await batch.lot('led 0603 red')
+  const elsewhere = await result(
+    session.propose(lead, {
+      proposal: {
+        ...identity,
+        markings: [{ observation_id: led.evidence_observation_ids![0], text: ['LED'] }],
+      },
+    }),
+  )
+  assert.deepEqual(paths(elsewhere), ['/proposal/markings/0/observation_id'])
 
   // Identify mode: only the identity amendment.
   const identifyMatch: SealedMatchDto = {
@@ -602,13 +614,16 @@ test('each revision sender names its changes, who made them and the brief revisi
   )
   assert.equal(asked.ok, true, JSON.stringify(asked))
   const { digest } = await inputOf(fixture, research.attemptId)
+  // Longer than a short field: an answer that fits the inbox arrives whole.
+  const printed = `16.000 MHz ${'ECS-160-20-4X '.repeat(42)}`.trim()
+  assert.ok([...printed].length > 512)
   const answered = await fixture.http(`/batches/${batchId}/questions/${asked.id}/answers`, {
     schema_version: 'bench-intake-answer/2',
     expected_question_revision: '1',
     expected_capture_revision: (await snapshotOf(fixture, batchId)).revision,
     attempt_id: research.attemptId,
     input_sha256: digest,
-    steps: [{ step_id: 'freq', value: { kind: 'text', text: '16.000 MHz' } }],
+    steps: [{ step_id: 'freq', value: { kind: 'text', text: printed } }],
   })
   assert.equal(answered.status, 200, JSON.stringify(answered.value))
   const answerRevision = (answered.value as { capture_revision: string }).capture_revision
@@ -620,7 +635,7 @@ test('each revision sender names its changes, who made them and the brief revisi
       field: 'identity',
       // The answer adds what the operator said; the asker's assumption was never the field's value.
       from: null,
-      to: '16.000 MHz',
+      to: printed,
     },
     {
       kind: 'proposal',
@@ -678,12 +693,20 @@ test('each revision sender names its changes, who made them and the brief revisi
   )
   assert.equal(identity.ok, true, JSON.stringify(identity))
   const republished = (await revisions(fixture, led.jobId)).at(-1)!
+  const [earlierIdentity] = ledInput.pinned_proposal_ids
   assert.deepEqual(republished.changes, [
     {
       kind: 'proposal',
       proposal_id: identity.id,
       proposal_kind: 'examine-identity/1',
       state: 'published',
+    },
+    {
+      kind: 'proposal',
+      proposal_id: earlierIdentity,
+      proposal_kind: 'examine-identity/1',
+      state: 'stale',
+      reason: 'source_superseded',
     },
     {
       kind: 'proposal',
@@ -719,6 +742,16 @@ test('each revision sender names its changes, who made them and the brief revisi
     }),
   )
   assert.equal(onNew.ok, true, JSON.stringify(onNew))
+  // The identity it replaced is retired, so it is never the lot's stable identity again, even
+  // once the new one goes stale too.
+  const stableNow = () =>
+    transaction(fixture.runner.pool, (client) => stableIdentityOf(client, batchId, led.lot.id))
+  assert.deepEqual(await stableNow(), [identity.id])
+  await fixture.db.pool.query(
+    "INSERT INTO processing_proposal_stale(proposal_id,reason) VALUES($1,'answer_received')",
+    [identity.id],
+  )
+  assert.deepEqual(await stableNow(), [])
   assert.deepEqual(republished.source, {
     kind: 'session',
     stage: 'examine',
@@ -1168,44 +1201,55 @@ test('a revision too long for the inbox names what changed and points to the bri
   })
   assert.deepEqual(toLead.source, { kind: 'operator', actor_id: fixture.config.actorId })
   assert.equal(toLead.brief_revision, corrected.revision)
+})
 
-  // An answer's long values, with many stale proposals, are left out the same way.
-  const [identityId] = (await inputOf(fixture, research.attemptId)).manifest.pinned_proposal_ids
-  const words = '\u0001'.repeat(512)
-  await transaction(fixture.runner.pool, (client) =>
-    notifyRevision(
-      client,
-      research.jobId,
-      'long-answer',
-      {
-        fields: ['markings', 'identity', 'research', 'images'],
-        reason: 'A question was answered: what is printed?',
-        changes: [
-          ...(['markings', 'identity', 'research', 'images'] as const).map((field) => ({
-            kind: 'field' as const,
-            subject_id: research.lot.id,
-            field,
-            from: words,
-            to: words,
-          })),
-          ...Array.from({ length: 60 }, () => ({
-            kind: 'proposal' as const,
-            proposal_id: identityId,
-            proposal_kind: 'examine-identity/1',
-            state: 'stale' as const,
-            reason: 'answer_received' as const,
-          })),
-        ],
-      },
-      { origin: { by: 'operator' }, briefRevision: corrected.revision },
-    ),
+test('an answer too long to carry names the answer, which a later brief still holds', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId } = batch
+  const research = await stageJob(batch, '16 mhz crystal', 'research')
+  const images = await stageJob(batch, '16 mhz crystal', 'images')
+  const researcher = await running(fixture, research.attemptId)
+  const session = tools(batch)
+  const asked = await result(
+    session.ask(researcher, {
+      schema_version: 'bench-intake-question/2',
+      subject_id: research.lot.id,
+      reason: 'The label is hard to read.',
+      fields: ['markings', 'identity', 'research', 'images'],
+      steps: [
+        {
+          id: 'label',
+          prompt: 'What does the label say?',
+          assumption: 'Using the reading.',
+          answer: { kind: 'text' },
+        },
+      ],
+    }),
   )
-  const answer = (await revisions(fixture, research.jobId)).at(-1)!
-  assert.equal(answer.values_in_brief, true)
+  assert.equal(asked.ok, true, JSON.stringify(asked))
+  const words = '𝄞'.repeat(2048)
+  const { digest } = await inputOf(fixture, research.attemptId)
+  const answered = await fixture.http(`/batches/${batchId}/questions/${asked.id}/answers`, {
+    schema_version: 'bench-intake-answer/2',
+    expected_question_revision: '1',
+    expected_capture_revision: (await snapshotOf(fixture, batchId)).revision,
+    attempt_id: research.attemptId,
+    input_sha256: digest,
+    steps: [{ step_id: 'label', value: { kind: 'text', text: words } }],
+  })
+  assert.equal(answered.status, 200, JSON.stringify(answered.value))
+  const receipt = answered.value as { answer_id: string; capture_revision: string }
+  const toImages = (await revisions(fixture, images.jobId)).at(-1)!
+  assert.equal(toImages.values_in_brief, true)
+  assert.deepEqual(toImages.changes[0], {
+    kind: 'answer_in_brief',
+    question_id: asked.id,
+    answer_id: receipt.answer_id,
+  })
   assert.deepEqual(
-    answer.changes
-      .slice(0, 4)
-      .map((change) => change.kind === 'field' && [change.field, change.from, change.to]),
+    toImages.changes
+      .filter((change) => change.kind === 'field')
+      .map((change) => [change.field, change.from, change.to]),
     [
       ['markings', null, null],
       ['identity', null, null],
@@ -1213,7 +1257,67 @@ test('a revision too long for the inbox names what changed and points to the bri
       ['images', null, null],
     ],
   )
-  assert.equal(answer.changes.length, 64)
+  assert.equal(toImages.brief_revision, receipt.capture_revision)
+  // After another edit the session's current brief still holds the whole answer.
+  await edit(fixture, batchId, { kind: 'lot', id: research.lot.id, label: 'Crystal, relabelled' })
+  const brief = await result(
+    session.read_lot(await running(fixture, images.attemptId), { lot_id: research.lot.id }),
+  )
+  const entries = [...(brief.brief?.entries ?? [])]
+  let token = brief.brief?.next_page_token
+  while (token) {
+    const page = await result(
+      session.read_lot(await running(fixture, images.attemptId), {
+        lot_id: research.lot.id,
+        page_token: token,
+      }),
+    )
+    entries.push(...(page.brief?.entries ?? []))
+    token = page.brief?.next_page_token
+  }
+  const answer = entries.find(
+    (entry) => entry.kind === 'answer' && entry.answer_id === receipt.answer_id,
+  )
+  assert.ok(answer && answer.kind === 'answer')
+  assert.equal(answer.steps[0].value, words)
+})
+
+test('a revision with more changes than one item holds arrives whole, in ordered parts', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture } = batch
+  const research = await stageJob(batch, '16 mhz crystal', 'research')
+  const ids = Array.from({ length: 150 }, () => randomUUID())
+  await transaction(fixture.runner.pool, (client) =>
+    notifyRevision(
+      client,
+      research.jobId,
+      'bulk',
+      {
+        fields: ['identity'],
+        reason: 'The operator deleted evidence this lot used.',
+        changes: ids.map((id) => ({
+          kind: 'evidence' as const,
+          evidence_id: id,
+          removed: true as const,
+        })),
+      },
+      { origin: { by: 'operator' }, briefRevision: '9' },
+    ),
+  )
+  const parts = await revisions(fixture, research.jobId)
+  assert.deepEqual(
+    parts.map((part) => part.part),
+    [
+      { index: 1, count: 2 },
+      { index: 2, count: 2 },
+    ],
+  )
+  assert.deepEqual(
+    parts.flatMap((part) =>
+      part.changes.map((change) => change.kind === 'evidence' && change.evidence_id),
+    ),
+    ids,
+  )
 })
 
 test('a /7 ask may replace only its own open question, and its conflict must be storable', async (t) => {

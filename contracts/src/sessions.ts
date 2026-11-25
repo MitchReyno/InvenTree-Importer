@@ -259,7 +259,8 @@ export const SessionAnswerPayload = Type.Union([
   }),
 ])
 const inboxBase = { id: Id, seq: Revision, created_at: timestamp }
-const revisionText = Type.String({ minLength: 1, maxLength: 512 })
+/** Room for an answer of four steps of 2,048 characters each, joined. */
+const revisionText = Type.String({ minLength: 1, maxLength: 8_300 })
 /** One change a `/7` revision names, with its previous and new value. */
 export const RevisionChange = Type.Union([
   /** A lot or Part field the operator or an answer changed. */
@@ -290,6 +291,8 @@ export const RevisionChange = Type.Union([
     observation_id: Id,
     revision: Revision,
   }),
+  /** An answer whose values are too long to carry here: the brief's answer entry holds them. */
+  object({ kind: Type.Literal('answer_in_brief'), question_id: Id, answer_id: Id }),
   /** An observation joined or left a lot. */
   object({
     kind: Type.Literal('observation'),
@@ -336,6 +339,13 @@ export const SessionRevisionV2 = object({
    * `brief_revision` holds them.
    */
   values_in_brief: Type.Optional(Type.Literal(true)),
+  /** One of several items one revision is split into when its changes don't fit one, in order. */
+  part: Type.Optional(
+    object({
+      index: Type.Integer({ minimum: 1, maximum: 1000 }),
+      count: Type.Integer({ minimum: 2, maximum: 1000 }),
+    }),
+  ),
 })
 export const SessionInboxItem = Type.Union([
   object({ ...inboxBase, kind: Type.Literal('answer'), payload: SessionAnswerPayload }),
