@@ -124,10 +124,15 @@ export async function requireSupervisorFence(
   if (!fence) {
     return
   }
-  await client.query('SELECT pg_advisory_xact_lock_shared(hashtextextended($1, $2))', [
-    supervisorFenceName(fence.actorId),
-    SUPERVISOR_FENCE_SEED,
-  ])
+  // Never waits: the fence is unavailable only while a new supervisor's barrier is queued, and
+  // that supervisor already holds the lock, so the write would be refused anyway.
+  const shared = await client.query<{ taken: boolean }>(
+    'SELECT pg_try_advisory_xact_lock_shared(hashtextextended($1, $2)) AS taken',
+    [supervisorFenceName(fence.actorId), SUPERVISOR_FENCE_SEED],
+  )
+  if (!shared.rows[0]?.taken) {
+    throw new SupervisorLockLostError()
+  }
   const holder = await readSupervisorHolder(client, fence.actorId)
   if (!fencePermits(fence, holder, write)) {
     throw new SupervisorLockLostError()

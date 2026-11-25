@@ -33,7 +33,7 @@ A check inside the write's transaction alone is not enough: a transaction can pa
 
 **In each fenced transaction, first** (`requireSupervisorFence`, `agents/supervisor-fence.ts`):
 
-1. `pg_advisory_xact_lock_shared` on the fence key. Fenced transactions share it, so they never wait for each other.
+1. `pg_try_advisory_xact_lock_shared` on the fence key. Fenced transactions share it, so they never wait for each other. It never waits either: it is unavailable only while a new supervisor's barrier is queued, and that supervisor already holds the lock, so the write is refused (`SupervisorLockLostError`) as it would be after the barrier. Waiting there instead would run into the pools' 5 s statement timeout, an error settlement could not tell from a real failure.
 2. Read the supervisor lock's current holder from `pg_locks` (advisory, granted, this database, the key's `classid`/`objid`, `objsubid = 1`), joined to `pg_stat_activity` for its backend start time.
 3. Decide (`fencePermits`, a pure function) and refuse with `agent_supervisor_lock_lost` when the write isn't permitted. The transaction rolls back.
 
@@ -68,9 +68,9 @@ Rejected:
 
 Settlement ends ownership. When the lock is lost and no replacement has it yet, a stopping worker's turns still settle once their drivers confirm the reap, as `recover-stale-agent-slots` intends; otherwise every slot of a lost connection would wait for the next start, and a `host` turn's slot could never be released by it. A replacement that takes the lock afterwards waits at the barrier for any settlement in flight and then sees the slot free.
 
-When another worker holds the lock, settlement is refused. That worker passed its check, so it either released the slot (the existing turn and slot guard already makes settlement change nothing) or saw no slot; refusing keeps a lost worker from changing anything under a running supervisor.
+When another worker holds the lock, settlement is refused. That worker is waiting at its barrier, checking held capacity or running. Once it runs it has passed its check, so it either released the slot (the existing turn and slot guard already makes settlement change nothing) or saw no slot. While it is still at the barrier or checking, it may yet refuse to start, for example on this worker's `host` slot. Refusing keeps a lost worker from changing anything under another supervisor.
 
-A refusal comes before any write, so settlement retries it every 500 ms for up to 20 s (`SETTLEMENT_FENCE_RETRY_MS`, inside the session worker's 30 s shutdown wait). A replacement that took the lock and then refused to start, for example on this worker's own `host` slot, releases it within that time, and the retried settlement then releases the slot instead of leaving a record no start can confirm. Past the bound the settlement gives up and the slot keeps its record. The retry matches the typed `SupervisorLockLostError`, not a message.
+A refusal comes before any write, so settlement retries it every 500 ms for up to 20 s (`SETTLEMENT_FENCE_RETRY_MS`, inside the session worker's 30 s shutdown wait), logging `settlement_fence_refused` with the attempt on the first refusal. A replacement that took the lock and then refused to start, for example on this worker's own `host` slot, releases it within that time, and the retried settlement then releases the slot instead of leaving a record no start can confirm. Past the bound the settlement gives up and the slot keeps its record. The retry matches the typed `SupervisorLockLostError`, not a message.
 
 Claims, records and the lane claim require this worker to hold the lock, because they start work outside the worker.
 
@@ -107,8 +107,10 @@ Rejected: putting the fence on `ProcessingConfig`. The config is a static scope 
 | PG: A's claim transaction passes the fence, A loses its lock, B's acquire waits until A commits, then B's check releases the claimed slot | Barrier ordering. Fails today: B's check finishes first and the slot stays held. |
 | PG: a fenced transaction held open past a short bound makes B refuse with `agent_supervisor_writes_in_flight` and leaves the lock free | Bounded barrier. |
 | PG: A settles after losing its lock: refused while B holds the lock, committed while no one does, and committed on retry once B releases the lock | Settlement rule and retry. |
-| PG: the production claim blocks on a row lock after its fence; A loses its lock; B's barrier waits on that claim; B's check then sees the committed claim | Barrier ordering through the real claim transaction. |
+| PG: the production claim blocks on the claims' `agent-slots` advisory lock after its fence; A loses its lock; B's barrier waits on that claim; B's check then sees the committed claim | Barrier ordering through the real claim transaction. |
 | PG: a barrier blocked for longer than the pool's 5 s statement timeout still succeeds | The barrier's own timeouts. |
+| PG: a settlement refused while the replacement's barrier is queued past 5 s, after which the replacement refuses to start on the `host` slot, still settles and releases the slot | Non-blocking fence and settlement retry through the real startup check. |
+| PG: the new supervisor's connection ends while it waits at the barrier; it refuses with `agent_supervisor_lock_lost` | Lock loss during startup is handled. |
 | PG: A's interruption sweep after B took the lock is refused | Sweep fence. |
 | Existing `tests/held-capacity.test.ts`, `tests/pg/held-capacity.test.ts`, `tests/pg/agents.test.ts`, `tests/pg/session-slots.test.ts`, `tests/process/stale-slots.test.ts` and the session process tests | No change to the check, claims and worker start. |
 

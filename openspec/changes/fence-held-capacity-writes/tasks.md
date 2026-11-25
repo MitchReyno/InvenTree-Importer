@@ -79,6 +79,7 @@
 - [x] 4.1 RED: PG test: A's turn settles after A lost its lock while B holds it; the settlement must change nothing. It fails today because settlement releases the slot. Plus the case with no holder, which settles as before.
 - [x] 4.2 GREEN: the fenced settlement. Both tests pass, and `tests/pg/held-capacity.test.ts` still passes.
 - [x] 4.3 RED then GREEN: a settlement refused while a replacement held the lock commits once the replacement lets it go, within `SETTLEMENT_FENCE_RETRY_MS` (it stayed refused before).
+- [x] 4.4 RED then GREEN: a settlement refused while the replacement's barrier stays queued past 5 s, followed by that replacement refusing to start on the `host` slot, still releases the slot (it failed with a statement timeout); and a new supervisor whose connection ends at the barrier refuses with `agent_supervisor_lock_lost` (it raised an unhandled connection error).
 
 ## 5. Docs, notes and review
 

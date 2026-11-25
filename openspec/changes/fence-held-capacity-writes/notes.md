@@ -6,6 +6,8 @@ Delivered in one PR (PR-A): the supervisor fence, fenced claims, turn child reco
 
 - **2026-11-25T19:21+1100, tasks 2–4 (PR-A):** Review round 1 extended the plan: the startup interruption sweep is fenced too (design D3, a lost worker could otherwise interrupt a session a replacement had claimed); a refused settlement is retried for up to 20 s, so a replacement that refused to start on this worker's `host` slot doesn't strand it (D2); and the barrier raises its own statement timeout, since the pools' 5 s one would otherwise end the 30 s wait (D1). The spec gained scenarios for the sweep and the retry, and states the check, not the commit, as the authority point.
 
+- **2026-11-25T19:33+1100, tasks 1–4 (PR-A):** Review round 2: the fence's shared lock no longer waits (a settlement queued behind a replacement's barrier hit the pools' 5 s statement timeout and lost its retry), a settlement's first refusal is logged as `settlement_fence_refused`, and the lock connection gets its error listener at checkout so a connection lost at the barrier refuses with `agent_supervisor_lock_lost` instead of an unhandled error. Design D1 and D2 updated.
+
 ## Unexpected challenges
 
 - **2026-11-25T19:02+1100, task 2:** The first RED runs hung instead of failing: a failed assertion left a supervisor connection checked out, and the fixture's dispose waits for every checked-out connection. The race tests now run their cleanups newest first, before the fixture is disposed, and release a lock that started when it shouldn't have.

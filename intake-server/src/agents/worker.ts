@@ -31,6 +31,12 @@ export async function lockAgentSupervisor(
   options: SupervisorLockOptions = {},
 ): Promise<SupervisorLock> {
   const owner = await pool.connect()
+  // From checkout: the pool drops its idle listener, and losing the connection during the barrier
+  // must end as a refusal here rather than an unhandled error. It stays for the worker's life.
+  let lost = false
+  owner.on('error', () => {
+    lost = true
+  })
   try {
     const lock = await owner.query<{ acquired: boolean }>(
       'SELECT pg_try_advisory_lock(hashtextextended($1, $2)) AS acquired',
@@ -45,6 +51,9 @@ export async function lockAgentSupervisor(
     return { owner, fence }
   } catch (error) {
     owner.release(true)
+    if (lost) {
+      throw new Error('agent_supervisor_lock_lost', { cause: error })
+    }
     throw error
   }
 }

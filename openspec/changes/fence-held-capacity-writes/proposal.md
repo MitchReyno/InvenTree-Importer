@@ -40,7 +40,7 @@ Non-goals:
 
 - No schema change or migration. The fence reads PostgreSQL's own lock table.
 - The media and research workers' lane claims stay unfenced: they hold no supervisor lock, and the `/1` worker is the only lane claimer the startup check fences.
-- Releases are not fenced. Releasing a lane or slot ends ownership; a startup check keeps the lane anyway, and a settlement that no longer owns its slot already changes nothing.
+- The `/1` lane release and `interruptProcessing` are not fenced: they end ownership, and a startup check keeps the lane anyway. Session settlement, which releases a slot, is fenced (it must not change anything under another supervisor).
 - The startup check, its decision table and the claim serialization are unchanged.
 
 ## Reuse and dependency assessment

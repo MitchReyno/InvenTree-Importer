@@ -154,9 +154,17 @@ export const SESSION_TURN_DEADLINE_MS = 15 * 60 * 1000
 export const SETTLEMENT_FENCE_RETRY_MS = 20_000
 const SETTLEMENT_FENCE_RETRY_INTERVAL_MS = 500
 
-/** Retries a write while the fence refuses it; a refusal comes before the write changed anything. */
-async function retryFenceRefusal<T>(write: () => Promise<T>, boundMs: number): Promise<T> {
+/**
+ * Retries a settlement while the fence refuses it; a refusal comes before it changed anything.
+ * The first refusal is logged, with the attempt only.
+ */
+async function retryFenceRefusal<T>(
+  write: () => Promise<T>,
+  attemptId: string,
+  boundMs: number,
+): Promise<T> {
   const until = Date.now() + boundMs
+  let reported = false
   for (;;) {
     try {
       return await write()
@@ -165,6 +173,12 @@ async function retryFenceRefusal<T>(write: () => Promise<T>, boundMs: number): P
       if (!retryable) {
         throw error
       }
+    }
+    if (!reported) {
+      reported = true
+      process.stderr.write(
+        `${JSON.stringify({ event: 'settlement_fence_refused', attempt_id: attemptId })}\n`,
+      )
     }
     await new Promise((resolve) => setTimeout(resolve, SETTLEMENT_FENCE_RETRY_INTERVAL_MS))
   }
@@ -1157,7 +1171,11 @@ export async function runSessionTurn(
       return settled
     })
 
-  return retryFenceRefusal(settle, deps.settlementFenceRetryMs ?? SETTLEMENT_FENCE_RETRY_MS)
+  return retryFenceRefusal(
+    settle,
+    attemptId,
+    deps.settlementFenceRetryMs ?? SETTLEMENT_FENCE_RETRY_MS,
+  )
 }
 
 /** The host's own provider driver; it starts host processes, so it records that first. */

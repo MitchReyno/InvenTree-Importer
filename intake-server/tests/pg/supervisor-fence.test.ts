@@ -13,6 +13,7 @@ import { singleProvider } from '../support/agent-settings.ts'
 import {
   interruptRunningSessions,
   runSessionTurn,
+  type SessionDriver,
   type SessionRunnerDeps,
 } from '#/agents/session/session-runner.ts'
 import { recordTurnChild } from '#/agents/session/slots.ts'
@@ -90,7 +91,7 @@ async function heldNoneSlot(fixture: Fixture, index: number, attemptId: string) 
 async function sessionDeps(
   fixture: Fixture,
   lock: SupervisorLock,
-  driver: () => Promise<void>,
+  driver: SessionDriver,
 ): Promise<SessionRunnerDeps> {
   const root = await mkdtemp(join(tmpdir(), 'supervisor-fence-'))
   return {
@@ -109,6 +110,18 @@ async function waitForRow(fixture: Fixture, query: string, boundMs = 4000) {
   while (Date.now() < until) {
     const rows = await fixture.db.pool.query(query)
     if (rows.rowCount) {
+      return true
+    }
+    await delay(25)
+  }
+  return false
+}
+
+/** Resolves once `condition` holds, or false after `boundMs`. */
+async function waitFor(condition: () => boolean, boundMs = 4000) {
+  const until = Date.now() + boundMs
+  while (Date.now() < until) {
+    if (condition()) {
       return true
     }
     await delay(25)
@@ -416,7 +429,7 @@ test('a worker that lost its lock still settles while no worker holds it', async
   assert.equal(await slotOf(fixture, session.attempt), undefined)
 })
 
-test('a refused settlement settles once a replacement that refused to start lets the lock go', async (t) => {
+test('a settlement refused behind a replacement that then refuses to start still releases its slot', async (t) => {
   const { fixture, defer } = await fenceFixture(t)
   const capture = await fixture.seedCapture()
   const session = await lotSession(fixture, capture, capture.packetA, { state: 'queued' })
@@ -426,24 +439,82 @@ test('a refused settlement settles once a replacement that refused to start lets
   let proceed!: () => void
   const ended = new Promise<void>((resolve) => (proceed = resolve))
   const deps = {
-    ...(await sessionDeps(fixture, old, async () => {
+    ...(await sessionDeps(fixture, old, async (_turn, context) => {
+      // A host child the old worker confirmed gone; no start can confirm it from the record.
+      await context.recordChild!({ kind: 'host' })
       reached()
       await ended
     })),
-    settlementFenceRetryMs: 10_000,
+    settlementFenceRetryMs: 15_000,
   }
   defer(() => rm(deps.host.stateRoot, { recursive: true, force: true }))
+  const lines: string[] = []
+  const write = process.stderr.write.bind(process.stderr)
+  process.stderr.write = ((chunk: string | Uint8Array) => {
+    lines.push(chunk.toString())
+    return true
+  }) as typeof process.stderr.write
+  defer(() => {
+    process.stderr.write = write
+  })
   const turn = runSessionTurn(deps, session.attempt, new AbortController().signal)
   await running
+  // Another of the old worker's writes is still in flight, so the replacement's barrier queues.
+  const inFlight = await fixture.runner.pool.connect()
+  defer(() => inFlight.release())
+  await inFlight.query('BEGIN')
+  await requireSupervisorFence(inFlight, old.fence, 'ownership')
   await loseLock(fixture, old)
-  const replacement = await lockAgentSupervisor(fixture.runner.pool, fixture.config)
+  const replacement = acquireAgentSupervisor(fixture.runner.pool, fixture.config).then(
+    (lock) => {
+      lock.owner.release(true)
+      return lock
+    },
+    (error: unknown) => error,
+  )
+  assert.ok(await waitForRow(fixture, ADVISORY_WAITER), 'the barrier never queued')
   proceed()
-  // The replacement refuses to start and lets the lock go while the settlement is retried.
-  await delay(1000)
-  replacement.owner.release(true)
+  const refusedEvent = await waitFor(() =>
+    lines.some((line) => line.includes('"settlement_fence_refused"')),
+  )
+  // Longer than the old pool's 5 s statement timeout with the barrier still queued.
+  await delay(5500)
+  await inFlight.query('COMMIT')
+  const started = await replacement
 
+  assert.ok(refusedEvent, 'the settlement was never refused')
+  assert.ok(started instanceof Error)
+  assert.equal(started.message, 'agent_reap_confirmation_required')
   assert.equal(await turn, 'finished')
   assert.equal(await slotOf(fixture, session.attempt), undefined)
+})
+
+test('a new supervisor whose connection ends at the barrier refuses with lock loss', async (t) => {
+  const { fixture, defer } = await fenceFixture(t)
+  const old = await lockAgentSupervisor(fixture.runner.pool, fixture.config)
+  const inFlight = await fixture.runner.pool.connect()
+  defer(() => inFlight.release())
+  await inFlight.query('BEGIN')
+  await requireSupervisorFence(inFlight, old.fence, 'ownership')
+  await loseLock(fixture, old)
+  const replacement = lockAgentSupervisor(fixture.runner.pool, fixture.config).then(
+    (lock) => {
+      lock.owner.release(true)
+      return lock
+    },
+    (error: unknown) => error,
+  )
+  assert.ok(await waitForRow(fixture, ADVISORY_WAITER), 'the barrier never queued')
+  await fixture.db.pool.query(
+    `SELECT pg_terminate_backend(pid, 5000)
+       FROM pg_locks
+      WHERE locktype = 'advisory' AND NOT granted`,
+  )
+  const outcome = await replacement
+  await inFlight.query('ROLLBACK')
+
+  assert.ok(outcome instanceof Error, 'the new supervisor started')
+  assert.equal(outcome.message, 'agent_supervisor_lock_lost')
 })
 
 test('a worker that lost its lock interrupts nothing after a replacement took it', async (t) => {
