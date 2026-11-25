@@ -263,7 +263,15 @@ test('a declared page that is not its PNG is malformed even when no crop uses it
   // One CRC byte flipped on an otherwise whole page.
   const badCrc = Buffer.from(valid)
   badCrc[badCrc.length - 13] ^= 0xff
+  const truecolourWith = (paletteBytes: Buffer) =>
+    pngFrom([...beforeData, pngChunk('PLTE', paletteBytes), firstData, secondData, end])
+  // A truecolour page may carry a suggested palette of whole RGB entries.
+  assert.equal((await renderPreview(withPage(truecolourWith(Buffer.alloc(6))))).state, 'ready')
   const cases = [
+    truecolourWith(Buffer.alloc(4)),
+    truecolourWith(Buffer.alloc(0)),
+    truecolourWith(Buffer.alloc(3 * 257)),
+    pngFrom(paletteChunks.filter((chunk) => chunk.type !== 'PLTE')),
     badCrc,
     paletteAfterData,
     pngFrom([...beforeData, pngChunk('a123', Buffer.alloc(0)), firstData, secondData, end]),

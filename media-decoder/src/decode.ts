@@ -187,18 +187,53 @@ export function pngHeaderMatches(bytes: Buffer, width: number, height: number) {
   )
 }
 
+/** Bit depths each IHDR colour type allows. */
+const PNG_BIT_DEPTHS = new Map([
+  [0, [1, 2, 4, 8, 16]],
+  [2, [8, 16]],
+  [3, [1, 2, 4, 8]],
+  [4, [8, 16]],
+  [6, [8, 16]],
+])
+const PNG_CHUNK_NAME = /^[A-Za-z]{4}$/
+const PNG_CRITICAL_CHUNKS = new Set(['IHDR', 'PLTE', 'IDAT', 'IEND'])
+
+/** Whether an IHDR's 13 bytes name a valid colour type, bit depth and methods. */
+function pngHeaderValid(data: Buffer) {
+  const depths = PNG_BIT_DEPTHS.get(data[9])
+  return (
+    data.length === 13 &&
+    depths !== undefined &&
+    depths.includes(data[8]) &&
+    data[10] === 0 &&
+    data[11] === 0 &&
+    data[12] <= 1
+  )
+}
+
+/** Whether a PLTE fits its header: 1-256 RGB entries, none for greyscale, within an indexed depth. */
+function pngPaletteValid(data: Buffer, header: Buffer) {
+  const [bitDepth, colourType] = [header[8], header[9]]
+  const entries = data.length / 3
+  const entriesValid = Number.isInteger(entries) && entries >= 1 && entries <= 256
+  const indexedFits = colourType !== 3 || entries <= 2 ** bitDepth
+  return entriesValid && colourType !== 0 && colourType !== 4 && indexedFits
+}
+
 /**
- * Whether a PNG's chunks are whole and in order: four-letter names, IHDR first (13 bytes), at most
- * one PLTE before the data, one run of IDAT chunks, no other critical chunk, and an empty IEND
- * ending the bytes, each chunk's length fitting and its CRC matching. A truncated, spliced or
- * reordered file fails; a damaged compressed stream with intact CRCs, or a misplaced ancillary
- * chunk, doesn't.
+ * Whether a PNG's critical chunks are whole and in order: four-letter chunk names, each length
+ * fitting and its CRC matching; a valid 13-byte IHDR first; at most one PLTE, valid for the header
+ * and before the data, and required for indexed colour; one run of IDAT; no other critical chunk;
+ * and an empty IEND ending the bytes. Ancillary chunks' placement and the compressed stream aren't
+ * checked: a damaged stream with intact CRCs fails later as a library error.
  */
 export function pngChunksIntact(bytes: Buffer) {
   if (!bytes.subarray(0, 8).equals(PNG_SIGNATURE)) {
     return false
   }
-  const types: string[] = []
+  let header: Buffer | null = null
+  let palette = false
+  let data: 'before' | 'open' | 'closed' = 'before'
   let offset = 8
   while (offset + 12 <= bytes.length) {
     const length = bytes.readUInt32BE(offset)
@@ -211,41 +246,44 @@ export function pngChunksIntact(bytes: Buffer) {
       return false
     }
     const type = typeAndData.subarray(0, 4).toString('latin1')
+    const chunk = typeAndData.subarray(4)
     if (!PNG_CHUNK_NAME.test(type)) {
       return false
     }
-    if (type === 'IEND') {
-      return length === 0 && end === bytes.length && pngChunkOrder(types, bytes.readUInt32BE(8))
+    if (header === null) {
+      if (type !== 'IHDR' || !pngHeaderValid(chunk)) {
+        return false
+      }
+      header = chunk
+    } else if (type === 'IEND') {
+      const paletteSatisfied = palette || header[9] !== 3
+      return length === 0 && end === bytes.length && data !== 'before' && paletteSatisfied
+    } else if (type === 'IDAT') {
+      if (data === 'closed') {
+        return false
+      }
+      data = 'open'
+    } else {
+      if (data === 'open') {
+        data = 'closed'
+      }
+      const critical = type[0] === type[0].toUpperCase()
+      if (critical && !PNG_CRITICAL_CHUNKS.has(type)) {
+        return false
+      }
+      if (type === 'IHDR') {
+        return false
+      }
+      if (type === 'PLTE') {
+        if (palette || data !== 'before' || !pngPaletteValid(chunk, header)) {
+          return false
+        }
+        palette = true
+      }
     }
-    types.push(type)
     offset = end
   }
   return false
-}
-
-const PNG_CHUNK_NAME = /^[A-Za-z]{4}$/
-/** A chunk whose name starts with a capital letter is critical; these are the only ones a PNG may hold. */
-const PNG_CRITICAL_CHUNKS = new Set(['IHDR', 'PLTE', 'IDAT', 'IEND'])
-
-/** IHDR of 13 bytes first and once, at most one PLTE before the data, and one run of IDAT. */
-function pngChunkOrder(types: string[], headerLength: number) {
-  const firstData = types.indexOf('IDAT')
-  const lastData = types.lastIndexOf('IDAT')
-  const dataRun = types.slice(firstData, lastData + 1)
-  const palettes = types.filter((type) => type === 'PLTE').length
-  const criticalKnown = types.every(
-    (type) => type[0] !== type[0].toUpperCase() || PNG_CRITICAL_CHUNKS.has(type),
-  )
-  return (
-    types[0] === 'IHDR' &&
-    headerLength === 13 &&
-    types.lastIndexOf('IHDR') === 0 &&
-    firstData > 0 &&
-    dataRun.every((type) => type === 'IDAT') &&
-    palettes <= 1 &&
-    (palettes === 0 || types.indexOf('PLTE') < firstData) &&
-    criticalKnown
-  )
 }
 
 /**
