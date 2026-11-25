@@ -2,6 +2,7 @@ import { startSessionBridge } from '#/agents/shared-vm/coordinator.ts'
 import { bridgeProtectedHosts } from '#/agents/shared-vm/protected-hosts.ts'
 import { join } from 'node:path'
 import { DBOS, DBOSClient } from '@dbos-inc/dbos-sdk'
+import type { PoolClient } from 'pg'
 import { setTimeout as delay } from 'node:timers/promises'
 import { database } from '#/db/database.ts'
 import { devConfig, processingConfig } from '#/config.ts'
@@ -18,7 +19,12 @@ import {
 } from '#/processing/session-policy.ts'
 import { nativeAgentHost, privateDirectory } from '#/agents/environment.ts'
 import { triggerExamine } from '#/processing/examine-trigger.ts'
-import { acquireAgentSupervisor } from '#/agents/worker.ts'
+import { lockAgentSupervisor } from '#/agents/worker.ts'
+import {
+  heldCapacityChecked,
+  requireFreeCapacity,
+  type HeldCapacityChecks,
+} from '#/agents/held-capacity.ts'
 import { evidenceImageMode } from '#/agents/tools/handlers.ts'
 import { startSessionToolServer } from '#/agents/tools/server.ts'
 import {
@@ -36,6 +42,38 @@ import { deliverMissingInstructions } from '#/agents/instructions.ts'
 import { localDatabaseUrl, schedulerDatabaseUrl, schedulerReachable } from './database-urls.ts'
 import { serveProviderStatusRequests } from '#/agents/provider-status-channel.ts'
 import type { BridgeProviderStatuses } from '#/agents/shared-vm/coordinator.ts'
+
+/**
+ * How long a stopping worker waits for its turns to settle, so a confirmed reap releases its slot.
+ * Inside the development launcher's 45 s stop grace, with room for the scheduler's own shutdown.
+ */
+const SHUTDOWN_TURN_SETTLE_MS = 30_000
+
+/** The turns this worker is running, so shutdown can wait for them to settle. */
+function turnTracker() {
+  const turns = new Set<Promise<unknown>>()
+  return {
+    track<T>(turn: Promise<T>) {
+      turns.add(turn)
+
+      const forget = () => {
+        turns.delete(turn)
+      }
+
+      turn.then(forget, forget)
+      return turn
+    },
+
+    /** Waits for every running turn to settle, for at most `boundMs`. */
+    async settle(boundMs: number) {
+      const bound = new AbortController()
+      const settledTurns = Promise.allSettled([...turns])
+      const expiry = delay(boundMs, undefined, { signal: bound.signal }).catch(() => undefined)
+      await Promise.race([settledTurns, expiry])
+      bound.abort()
+    },
+  }
+}
 
 /** A worker without the VM bridge has no provider status to read. */
 async function statusNotConfigured(): Promise<BridgeProviderStatuses> {
@@ -86,7 +124,7 @@ async function main() {
   const writer = process.env.INTAKE_AGENT_WRITER_DATABASE_URL
     ? database(localDatabaseUrl(process.env.INTAKE_AGENT_WRITER_DATABASE_URL))
     : undefined
-  let owner: Awaited<ReturnType<typeof acquireAgentSupervisor>> | undefined
+  let owner: PoolClient | undefined
   let scheduler: DBOSClient | undefined
   const evidenceImage = evidenceImageMode(process.env.INTAKE_VM_EVIDENCE_IMAGE)
   let tools: Awaited<ReturnType<typeof startSessionToolServer>> | undefined
@@ -95,12 +133,13 @@ async function main() {
   let launched = false
   const shutdown = new AbortController()
   const examineSkipped = new Map<string, string>()
+  const turns = turnTracker()
   let ownerLost = false
   try {
     if (!(await compatibleSchema(db.pool))) {
       throw new Error('database_version_quarantined')
     }
-    owner = await acquireAgentSupervisor(db.pool, config)
+    owner = await lockAgentSupervisor(db.pool, config)
     owner.on('error', () => {
       ownerLost = true
       shutdown.abort()
@@ -116,6 +155,14 @@ async function main() {
           tools.confirmEvidence(job, version, delivered)
         },
       })
+    }
+    // Held slots are checked through the bridge, so it starts first; nothing has run yet.
+    const capacityChecks: HeldCapacityChecks = { confirmVmReaped: bridge?.confirmReaped }
+    const recovered = await requireFreeCapacity(db.pool, config, capacityChecks)
+    // Recover-only mode (`pnpm agents:reap`) stops here; the next start interrupts the sessions.
+    if (process.env.INTAKE_AGENT_RECOVER_ONLY === '1') {
+      process.stdout.write(heldCapacityChecked(recovered.length))
+      return
     }
     // From the worker's own pool: its role's connection limit leaves no room for another.
     statusRequests = serveProviderStatusRequests(
@@ -171,7 +218,8 @@ async function main() {
           throw new Error('agent_worker_stopping')
         }
         return DBOS.runStep(
-          () => executeSessionCommand(deps, DBOS.workflowID!, payload, shutdown.signal),
+          () =>
+            turns.track(executeSessionCommand(deps, DBOS.workflowID!, payload, shutdown.signal)),
           { name: 'sessionTurn', retriesAllowed: false },
         )
       },
@@ -183,7 +231,7 @@ async function main() {
         if (typeof attemptId !== 'string' || shutdown.signal.aborted) {
           throw new Error('agent_worker_stopping')
         }
-        return DBOS.runStep(() => runSessionTurn(deps, attemptId, shutdown.signal), {
+        return DBOS.runStep(() => turns.track(runSessionTurn(deps, attemptId, shutdown.signal)), {
           name: 'sessionResumeTurn',
           retriesAllowed: false,
         })
@@ -221,6 +269,9 @@ async function main() {
     }
   } finally {
     shutdown.abort()
+    // Stopped turns settle before anything they need closes: a VM turn's reap proof needs the
+    // bridge, and its settlement the scheduler and the pool. Past the bound, a slot stays held.
+    await turns.settle(SHUTDOWN_TURN_SETTLE_MS)
     // First, so a stopping worker holds no connection it isn't using.
     await statusRequests?.close()
     await scheduler?.destroy()

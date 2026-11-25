@@ -39,8 +39,8 @@
 - Verification: PG tests in `tests/pg/session-slots.test.ts`; schema catalogue test.
 - Risks: a driver that starts a child without recording it would read as `none`; only the native and VM drivers start children.
 
-- [ ] 1.1 RED: PG tests that a claim records the turn with `none`, that `recordChild` records `vm` with its command, that settlement clears every column, and that the checks refuse a record on a free slot. They fail for the missing columns.
-- [ ] 1.2 GREEN: migration, schema, slot helpers, driver callback, native and VM drivers. The tests pass.
+- [x] 1.1 RED: PG tests that a claim records the turn with `none`, that `recordChild` records `vm` with its command, that settlement clears every column, and that the checks refuse a record on a free slot. They fail for the missing columns.
+- [x] 1.2 GREEN: migration, schema, slot helpers, driver callback, native and VM drivers. The tests pass.
 - [ ] 1.3 Schema catalogue and existing slot tests pass.
 
 ## 2. Startup check and release
@@ -52,8 +52,8 @@
 - Verification: unit tests for the decision; PG tests for release and refusal against real tables and the runner role.
 - Risks: releasing a slot that changed after the decision; covered by the compare under the slot-claim lock.
 
-- [ ] 2.1 RED: unit tests for every row of the decision table, and PG tests: `none` and confirmed `vm` slots released and then interrupted by `interruptRunningSessions`; `host`, unrecorded, unconfirmed `vm` and the lane kept with `agent_reap_confirmation_required`; a slot changed after the decision not released; a second worker still refused with `agent_supervisor_already_running`. They fail because no check exists.
-- [ ] 2.2 GREEN: the decision, `recoverHeldCapacity`, the fence split, `confirmReaped`, both entrypoints and recover-only mode. The tests pass.
+- [x] 2.1 RED: unit tests for every row of the decision table, and PG tests: `none` and confirmed `vm` slots released and then interrupted by `interruptRunningSessions`; `host`, unrecorded, unconfirmed `vm` and the lane kept with `agent_reap_confirmation_required`; a slot changed after the decision not released; a second worker still refused with `agent_supervisor_already_running`. They fail because no check exists.
+- [x] 2.2 GREEN: the decision, `recoverHeldCapacity`, the fence split, `confirmReaped`, both entrypoints and recover-only mode. The tests pass.
 - [ ] 2.3 Existing `tests/pg/agents.test.ts` fence tests still pass, updated where the fence's behaviour changed.
 
 ## 3. Shutdown settles in-flight turns
@@ -65,8 +65,8 @@
 - Verification: the process test in task 5 that answers the removal probe after 12 s, past DBOS's 10 s.
 - Risks: a slow shutdown; bounded by the wait and the launcher's grace.
 
-- [ ] 3.1 RED: the task 5 shutdown test fails on the base worker (the slot stays held).
-- [ ] 3.2 GREEN: track and wait for turns. The test passes.
+- [x] 3.1 RED: the task 5 shutdown test fails on the base worker (the slot stays held).
+- [x] 3.2 GREEN: track and wait for turns. The test passes.
 
 ## 4. Launcher stop order and `pnpm agents:reap`
 
@@ -77,8 +77,8 @@
 - Verification: `tooling/tests/dev-supervisor.test.cjs` for the phases and forced stop; `pnpm test:dev`.
 - Risks: `pnpm agents:reap` end to end needs the real VM and is not run here.
 
-- [ ] 4.1 RED: a tooling test that the first phase has exited before the second phase is signalled, and that a phase over its grace forces every child down. It fails on the single-phase stop.
-- [ ] 4.2 GREEN: phased stop in the launcher, `--reap-agents`, the script, help text and compose grace. `pnpm test:dev` passes.
+- [x] 4.1 RED: a tooling test that the first phase has exited before the second phase is signalled, and that a phase over its grace forces every child down. It fails on the single-phase stop.
+- [x] 4.2 GREEN: phased stop in the launcher, `--reap-agents`, the script, help text and compose grace. `pnpm test:dev` passes.
 
 ## 5. Process-tier qualification
 
@@ -88,7 +88,7 @@
 - Prerequisites: Tasks 1–3.
 - Verification: `pnpm db:intake test:process` with the decoder and probe images built.
 
-- [ ] 5.1 Both process cases pass; (a) fails on the base worker.
+- [x] 5.1 Both process cases pass; (a) fails on the base worker.
 
 ## 6. Docs, notes and review
 

@@ -86,6 +86,18 @@ async function stop(children, graceMs = 45000) {
   }
 }
 
+/**
+ * Stops each group only once the one before it has exited, each within its own grace. A group
+ * that outlives its grace throws, as `stop` does, so the caller can force everything down.
+ */
+async function stopInOrder(groups, stopGroup = stop) {
+  for (const group of groups) {
+    if (group.length > 0) {
+      await stopGroup(group)
+    }
+  }
+}
+
 /** A ready sibling that exits must invalidate the entire in-progress startup. */
 function startupGroup(signal) {
   const failure = new AbortController()
@@ -115,4 +127,4 @@ function failureCode(error) {
   return /^[a-z][a-z0-9_-]*$/.test(message) ? message : 'development_startup_failed'
 }
 
-module.exports = { launch, stop, startupGroup, failureCode }
+module.exports = { launch, stop, stopInOrder, startupGroup, failureCode }

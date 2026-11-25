@@ -1,8 +1,12 @@
 import type { Pool, PoolClient } from 'pg'
 import type { ProcessingConfig } from '#/processing/attempts.ts'
+import { requireFreeCapacity, type HeldCapacityChecks } from './held-capacity.ts'
 
-/** A second supervisor cannot claim this actor. Unknown old children keep the physical lane blocked. */
-export async function acquireAgentSupervisor(
+/**
+ * Takes the actor's supervisor lock, so a second supervisor cannot claim this actor. The returned
+ * connection holds it; destroying that connection releases only this lock.
+ */
+export async function lockAgentSupervisor(
   pool: Pool,
   config: ProcessingConfig,
 ): Promise<PoolClient> {
@@ -15,21 +19,27 @@ export async function acquireAgentSupervisor(
     if (!lock.rows[0]?.acquired) {
       throw new Error('agent_supervisor_already_running')
     }
-    const lane = await owner.query(
-      'SELECT attempt_id FROM public.processing_lane WHERE actor_id=$1 AND attempt_id IS NOT NULL',
-      [config.actorId],
-    )
-    const slots = await owner.query(
-      'SELECT attempt_id FROM public.agent_slot WHERE actor_id=$1 AND attempt_id IS NOT NULL',
-      [config.actorId],
-    )
-    // A session child may outlive its worker, so an occupied slot needs the same confirmation.
-    if (lane.rowCount || slots.rowCount) {
-      throw new Error('agent_reap_confirmation_required')
-    }
     return owner
   } catch (error) {
-    // Destroying this connection releases only its own advisory lock.
+    owner.release(true)
+    throw error
+  }
+}
+
+/**
+ * The lock, then the held-capacity check: a session child may outlive its worker, so a held
+ * slot or lane is released only once its turn is confirmed gone, and otherwise refuses.
+ */
+export async function acquireAgentSupervisor(
+  pool: Pool,
+  config: ProcessingConfig,
+  checks: HeldCapacityChecks = {},
+): Promise<PoolClient> {
+  const owner = await lockAgentSupervisor(pool, config)
+  try {
+    await requireFreeCapacity(pool, config, checks)
+    return owner
+  } catch (error) {
     owner.release(true)
     throw error
   }

@@ -31,7 +31,13 @@ import { issueSessionCapability, revokeSessionCapability } from '#/agents/tools/
 import { acknowledgeSessionInbox, pendingSessionInbox } from '#/agents/tools/inbox.ts'
 import { ASK_GUIDANCE } from '#/agents/tools/ask-guidance.ts'
 import { syntheticTurn } from './synthetic-turn.ts'
-import { claimSessionSlot, releaseSessionSlot } from './slots.ts'
+import {
+  claimSessionSlot,
+  recordSlotTurn,
+  recordTurnChild,
+  releaseSessionSlot,
+  type TurnChild,
+} from './slots.ts'
 import {
   runClaudeSession,
   runCodexSession,
@@ -88,6 +94,11 @@ export interface SessionDriverContext {
   manifest: ProcessingInputV6Dto
   cwd: string
   signal: AbortSignal
+  /**
+   * Commits what the turn is about to start outside its worker, before starting it, so a restart
+   * can confirm it gone. The runner provides it; a guest-side context has none.
+   */
+  recordChild?: (child: TurnChild) => Promise<void>
 }
 export type SessionDriver = (turn: SessionTurn, context: SessionDriverContext) => Promise<void>
 
@@ -563,6 +574,7 @@ export async function runSessionTurn(
       if (state !== 'running') {
         throw new Error('session_not_queued')
       }
+      await recordSlotTurn(client, attemptId, row.turnCount + 1n)
       const capability = await issueSessionCapability(client, attemptId)
       await publish(client, row.batchId)
       return {
@@ -694,18 +706,17 @@ export async function runSessionTurn(
   let next: SessionStateDto
   try {
     const cwd = await privateDirectory(join(host.stateRoot, 'sessions', current.jobId))
-    const driver =
-      deps.drivers?.[current.manifest.profile_id] ??
-      (current.manifest.profile_id === 'native-agent/2' && current.manifest.agent
-        ? nativeDriver(host, current.manifest.agent)
-        : (() => {
-            throw new NativeSessionError('agent_input_invalid')
-          })())
+    const turnNumber = current.turnCount + 1n
+
+    const recordChild = (child: TurnChild) => recordTurnChild(pool, attemptId, turnNumber, child)
+
+    const driver = deps.drivers?.[current.manifest.profile_id] ?? builtInDriver(host, current)
     await driver(turn, {
       manifest: current.manifest,
       cwd,
       signal: turnControl.signal,
-      identity: { attemptId, turn: (current.turnCount + 1n).toString(), lineage: current.jobId },
+      identity: { attemptId, turn: turnNumber.toString(), lineage: current.jobId },
+      recordChild,
     })
     next = 'finished'
   } catch (error) {
@@ -810,6 +821,22 @@ export async function runSessionTurn(
     await publish(client, current.batchId)
     return settled
   })
+}
+
+/** The host's own provider driver; it starts host processes, so it records that first. */
+function builtInDriver(
+  host: NativeAgentHost,
+  current: { manifest: ProcessingInputV6Dto },
+): SessionDriver {
+  const selection = current.manifest.agent
+  if (current.manifest.profile_id !== 'native-agent/2' || !selection) {
+    throw new NativeSessionError('agent_input_invalid')
+  }
+  const native = nativeDriver(host, selection)
+  return async (turn, context) => {
+    await context.recordChild?.({ kind: 'host' })
+    return native(turn, context)
+  }
 }
 
 export function nativeDriver(

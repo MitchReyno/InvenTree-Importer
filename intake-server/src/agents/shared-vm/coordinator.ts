@@ -321,6 +321,8 @@ export async function startSessionBridge(
   }
 
   const transports = new Set<Socket>()
+  // Closing the bridge ends every wait for a peer, so a stopping worker isn't held by one.
+  const closing = new AbortController()
   server.maxConnections = 16
   server.on('connection', (socket) => {
     transports.add(socket)
@@ -329,28 +331,57 @@ export async function startSessionBridge(
   server.listen(port, '127.0.0.1')
   await once(server, 'listening')
 
+  /** An idle turn connection of the manifest's route; `probe` and `reap` ask for those proofs. */
+  function idlePeer(manifest: Record<string, unknown>, probe = false, reap = false) {
+    const route = guestRoute(manifest)
+    return [...idle].find(
+      ([socket]) =>
+        (!probe || probePeers.has(socket)) &&
+        (!reap || reapPeers.has(socket)) &&
+        subscriptions.get(socket) === route.subscription &&
+        rich.has(socket) === route.toolWorker,
+    )
+  }
+
+  /**
+   * Whether the guest confirms the worker of an earlier turn removed, for the exact command that
+   * turn sent (as recorded on its slot). Only `worker_removed` confirms; anything else, an
+   * unreadable command or no peer before `signal` ends, does not.
+   */
+  async function confirmReaped(commandText: string, signal: AbortSignal) {
+    let command: unknown
+    try {
+      command = JSON.parse(commandText)
+    } catch {
+      return false
+    }
+    if (!isRecord(command) || !isRecord(command.manifest)) {
+      return false
+    }
+    const manifest = command.manifest
+    const proof = await probeTerminal(
+      () => idlePeer(manifest, true, true),
+      idle,
+      command,
+      AbortSignal.any([signal, closing.signal]),
+      true,
+    )
+    return proof === 'worker_removed'
+  }
+
   const driver: SessionDriver = async (turn, context) => {
-    const toolWorker = context.manifest.profile_id === 'shared-vm-agent/3'
+    const toolWorker = guestRoute(context.manifest).toolWorker
     if (toolWorker && !options) {
       throw new Error('protected_hosts_required')
     }
+    if (!context.recordChild) {
+      throw new Error('turn_child_recorder_required')
+    }
     // The tool relay starts its provider tunnel, worker and paired supervisor on a cold VM.
     const deadline = Date.now() + (toolWorker ? 45_000 : 15_000)
-    const subscription =
-      (context.manifest.profile_id === 'shared-vm-agent/1' ||
-        context.manifest.profile_id === 'shared-vm-agent/3') &&
-      context.manifest.agent?.authentication === 'subscription'
-        ? context.manifest.agent.provider
-        : undefined
+    const subscription = guestRoute(context.manifest).subscription
 
-    const available = (probe = false, reap = false) =>
-      [...idle].find(
-        ([socket]) =>
-          (!probe || probePeers.has(socket)) &&
-          (!reap || reapPeers.has(socket)) &&
-          subscriptions.get(socket) === subscription &&
-          rich.has(socket) === toolWorker,
-      )
+    const available = (probe = false, reap = false) => idlePeer(context.manifest, probe, reap)
 
     let connection = available()
     while (!connection && Date.now() < deadline) {
@@ -395,6 +426,8 @@ export async function startSessionBridge(
         )
       }
       context.signal.throwIfAborted()
+      // Committed before the guest can start anything, so a restart can ask about this command.
+      await context.recordChild({ kind: 'vm', command: JSON.stringify(command) })
       dispatched = true
       await frames.send(command)
       for (;;) {
@@ -537,7 +570,7 @@ export async function startSessionBridge(
             () => available(true, true),
             idle,
             command,
-            AbortSignal.timeout(45_000),
+            AbortSignal.any([AbortSignal.timeout(45_000), closing.signal]),
             true,
           )
           if (proof === 'worker_removed') {
@@ -570,14 +603,30 @@ export async function startSessionBridge(
 
   return {
     driver,
+    confirmReaped,
     providerStatus,
     close() {
+      closing.abort()
       for (const socket of transports) {
         socket.destroy()
       }
       server.close()
     },
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** The guest route a manifest needs: a tool worker for `/3`, and its subscription relay if any. */
+function guestRoute(manifest: { profile_id?: unknown; agent?: unknown }) {
+  const profile = manifest.profile_id
+  const agent = isRecord(manifest.agent) ? manifest.agent : undefined
+  const vmProfile = profile === 'shared-vm-agent/1' || profile === 'shared-vm-agent/3'
+  const subscription =
+    vmProfile && agent?.authentication === 'subscription' ? agent.provider : undefined
+  return { toolWorker: profile === 'shared-vm-agent/3', subscription }
 }
 
 /** `receivedAt` dates a guest's answer; Codex's comes from a check `age_ms` before it. */
