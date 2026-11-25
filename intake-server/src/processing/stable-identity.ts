@@ -9,6 +9,7 @@ import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { captureLots } from '#/capture/schema.ts'
 import { agentSessions } from '#/agents/schema.ts'
 import { cascadeAll, notifyRevision, staleChanges, type RevisionContext } from './currentness.ts'
+import { brokenIdentities, recordIdentityBasis } from './identity-basis.ts'
 import { prepareMediaTransaction } from '#/media/transaction.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { checkJobCapacity, queueJob } from './jobs.ts'
@@ -52,7 +53,7 @@ export { lotRegrouped } from './regroup.ts'
 async function markStale(
   client: PoolClient,
   proposalIds: readonly string[],
-  reason: 'lot_regrouped',
+  reason: 'lot_regrouped' | 'source_superseded',
 ) {
   if (!proposalIds.length) {
     return
@@ -104,6 +105,10 @@ export async function onLeadIdentity(
   // Successors follow the lead's sealed version, so a retained `/6` lead never queues `/7` ones.
   const inputVersion = await batchInputVersion(client, config, snapshot.id)
   const stageInput = inputVersion === 'bench-intake-input/7'
+  // The lot as this identity sees it, for the claim and Review gate.
+  if (stageInput) {
+    await recordIdentityBasis(client, snapshot.id, lotId, proposalId)
+  }
   const toQueue: (typeof SUCCESSOR_STAGES)[number][] = []
   /** `/7` successors that have run: their work rests on the old identity, so they start again. */
   const released = new Map<(typeof SUCCESSOR_STAGES)[number], string>()
@@ -418,7 +423,47 @@ export async function pinnedIdentityCurrent(client: PoolClient, pinned: readonly
       .from(processingProposalStale)
       .where(inArray(processingProposalStale.proposalId, [...pinned])),
   )
-  return stale.length === 0
+  if (stale.length) {
+    return false
+  }
+  return (await staleBrokenIdentities(client, pinned)) === 0
+}
+
+/**
+ * The backstop behind every stale-row write: a pinned identity whose basis no longer holds is
+ * made stale here, with what was built on it, and the session that published it is told to
+ * publish the lot's identity again. Returns how many it found.
+ */
+async function staleBrokenIdentities(client: PoolClient, pinned: readonly string[]) {
+  const broken = [...(await brokenIdentities(client, { proposalIds: pinned }))].sort()
+  if (!broken.length) {
+    return 0
+  }
+  await markStale(client, broken, 'source_superseded')
+  const owners = await client.query<{ id: string; lineage: string; revision: string }>(
+    `SELECT p.id, a.job_id AS lineage, b.revision::text AS revision
+     FROM public.processing_proposal p JOIN public.processing_attempt a ON a.id=p.attempt_id
+     JOIN public.processing_job j ON j.id=a.job_id JOIN public.capture_batch b ON b.id=j.batch_id
+     WHERE p.id = ANY($1::uuid[]) ORDER BY p.id`,
+    [broken],
+  )
+  for (const owner of owners.rows) {
+    const context: RevisionContext = { origin: { by: 'operator' }, briefRevision: owner.revision }
+    await cascadeAll(client, [owner.id], 'source_superseded', context)
+    await notifyRevision(
+      client,
+      owner.lineage,
+      `basis:${owner.id}`,
+      {
+        fields: ['identity'],
+        reason:
+          'Capture changed what this identity rested on since it was published; read the lot again and publish its identity.',
+        changes: await staleChanges(client, [owner.id], 'source_superseded'),
+      },
+      context,
+    )
+  }
+  return broken.length
 }
 
 /** Inventory's gate: the lot's Research and Images each have a current (not stale) proposal. */

@@ -16,6 +16,7 @@ import { transaction } from '#/db/database.ts'
 import { editMedia } from '#/media/edit.ts'
 import { grantMedia } from '#/media/grants.ts'
 import { decodeSessionInput } from '#/processing/session-input.ts'
+import { proposalCurrentnessFacts } from '#/processing/read.ts'
 import { evidenceNotes } from '#/capture/context-input.ts'
 import { sha256 } from '#/db/authority.ts'
 import { triggerExamine } from '#/processing/examine-trigger.ts'
@@ -2353,5 +2354,46 @@ test('an unassigned observation joining a lot stales what relied on it', async (
       pinnedIdentityCurrent(client, [String(onLoose.id)]),
     ),
     false,
+  )
+})
+
+test('an edit no stale write covers is caught when Review is read and when a successor is claimed', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId, leadJob } = batch
+  const crystal = await batch.lot('16 mhz crystal')
+  const research = await stageJob(batch, '16 mhz crystal', 'research')
+  const pinned = (await inputOf(fixture, research.attemptId)).manifest.pinned_proposal_ids
+  const [identityId] = pinned
+  const currentness = () =>
+    transaction(fixture.runner.pool, (client) =>
+      proposalCurrentnessFacts(client, batchId, [identityId]),
+    )
+  assert.equal((await currentness()).get(identityId)?.stale, null)
+  // A count changed by a path that writes no stale row: here, straight in the database.
+  await fixture.db.pool.query(
+    `UPDATE capture_evidence_observation SET visible_count=7, revision=revision+1 WHERE id=$1`,
+    [crystal.evidence_observation_ids![0]],
+  )
+  // Review reads the identity as stale before anything writes it so.
+  assert.equal((await currentness()).get(identityId)?.stale, 'source_superseded')
+  const rowsBefore = await fixture.db.pool.query(
+    'SELECT 1 FROM processing_proposal_stale WHERE proposal_id=$1',
+    [identityId],
+  )
+  assert.equal(rowsBefore.rowCount, 0)
+  // The claim doesn't start Research from it; the identity is stale and the lead is told.
+  assert.equal(
+    await runSessionTurn(batch.deps, research.attemptId, new AbortController().signal),
+    'cancelled',
+  )
+  const stale = await fixture.db.pool.query<{ reason: string }>(
+    'SELECT reason FROM processing_proposal_stale WHERE proposal_id=$1',
+    [identityId],
+  )
+  assert.equal(stale.rows[0]?.reason, 'source_superseded')
+  const told = (await revisions(fixture, leadJob)).flatMap((item) => item.changes ?? [])
+  assert.ok(
+    told.some((change) => change.kind === 'proposal' && change.proposal_id === identityId),
+    JSON.stringify(told),
   )
 })

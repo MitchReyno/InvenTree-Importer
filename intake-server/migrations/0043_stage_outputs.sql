@@ -20,3 +20,16 @@ CREATE TABLE processing_question_basis (
 );
 CREATE TRIGGER processing_question_basis_immutable BEFORE UPDATE OR DELETE ON processing_question_basis
   FOR EACH ROW EXECUTE FUNCTION reject_authority_change();
+
+-- The lot as a stable `/7` Examine identity saw it when published: each active member's revision
+-- and same-item mark. A successor's claim and the Processing read compare it, with the identity's
+-- cited observations and observation sets, against Capture now.
+CREATE TABLE processing_identity_basis (
+  proposal_id uuid PRIMARY KEY REFERENCES processing_proposal(id) ON DELETE RESTRICT,
+  batch_id uuid NOT NULL,
+  lot_id uuid NOT NULL,
+  members jsonb NOT NULL CHECK (jsonb_typeof(members)='array' AND jsonb_array_length(members) <= 1000)
+);
+CREATE INDEX processing_identity_basis_batch ON processing_identity_basis(batch_id);
+CREATE TRIGGER processing_identity_basis_immutable BEFORE UPDATE OR DELETE ON processing_identity_basis
+  FOR EACH ROW EXECUTE FUNCTION reject_authority_change();

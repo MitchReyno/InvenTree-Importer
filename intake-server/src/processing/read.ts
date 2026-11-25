@@ -56,6 +56,7 @@ import { pausedAmong } from '#/agents/pause.ts'
 import { answeredQuestionFacts } from './answered-questions.ts'
 import { budgetAnswers } from './answer-summary.ts'
 import { questionFigureStates, type FigureStates } from './question-figures.ts'
+import { brokenIdentities } from './identity-basis.ts'
 import {
   currentJobState,
   inputCurrency,
@@ -595,10 +596,15 @@ export async function proposalCurrentnessFacts(
        AND ($2::uuid[] IS NULL OR p.id = ANY($2::uuid[]))`,
     [batchId, proposalIds ? [...proposalIds] : null],
   )
+  // An identity whose basis no longer holds reads as stale, whether or not a stale row says so.
+  const broken = await brokenIdentities(client, { batchId, proposalIds })
   return new Map<string, ProposalCurrentnessFacts>(
     rows.rows.map((row) => [
       row.id,
-      { stale: row.stale, provisionalQuestionIds: row.provisional_question_ids },
+      {
+        stale: row.stale ?? (broken.has(row.id) ? 'source_superseded' : null),
+        provisionalQuestionIds: row.provisional_question_ids,
+      },
     ]),
   )
 }
