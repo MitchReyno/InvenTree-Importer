@@ -2,7 +2,7 @@
 
 This is the technical and design reference for Bench Intake's processing agents: what each agent receives, what it produces, how one agent's output reaches the next, and how operator input and new evidence re-steer them.
 
-[Current behaviour](#part-1-current-behaviour) describes the code at `9db1921e` on `interactive-app` (2026-11-23), as read from the source. [Target design](#part-2-target-design) is a proposal, planned in the OpenSpec change `agent-stage-inputs-outputs` (BI-022). Nothing in Part 2 is implemented yet.
+[Current behaviour](#part-1-current-behaviour) describes the code at `9db1921e` on `interactive-app` (2026-11-23), as read from the source. [Target design](#part-2-target-design) is a proposal, planned in the OpenSpec change `agent-stage-inputs-outputs` (BI-022). Part 2 is being built in that change's PRs: so far the sealed briefs of input `/7` and the read tools (task 1), reachable only through a test-only switch; no configuration seals `/7` yet.
 
 Paths are relative to the repository root. Line references are to `9db1921e` and will drift.
 
@@ -214,6 +214,10 @@ stateDiagram-v2
 | `failed` | `failed` | No |
 | `waiting_for_login` | `waiting_for_login` | No |
 | `waiting_for_capacity` | `waiting_for_capacity` | No |
+
+A held slot records its turn and what the turn started outside the worker: `none` at the claim, then `host` or `vm` with the exact command before either is started (`agent_slot.turn_child`, migration `0040`). A stopping worker waits up to 30 s for its turns to settle, so a VM turn whose removal the guest confirms releases its slot as usual. A slot still held at the next start is released only when its record shows nothing was started, or the guest confirms removal for the recorded command; the session then becomes `interrupted`. Anything else keeps the slot and the worker refuses with `agent_reap_confirmation_required` (`intake-server/src/agents/held-capacity.ts`).
+
+Claims, child records, the `/1` lane claim and settlement each check, in their own transaction, that their worker still holds the actor's supervisor lock (settlement: that no other worker does), and a new worker waits for such writes already in flight before it checks held capacity, so a worker that lost its lock commits none of them after a replacement's check (`intake-server/src/agents/supervisor-fence.ts`).
 
 A full lane leaves a claimed session `queued` (`session-runner.ts:543-545`); the runner doesn't set `waiting_for_capacity` for it. A new inbox item resumes `waiting_input`, `finished` and `interrupted` sessions (`session-runner.ts:83`; `intake-server/src/agents/session/session-execution.ts:112-145`). A running session receives it in its turn.
 

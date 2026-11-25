@@ -1,5 +1,5 @@
 import { rename, writeFile } from 'node:fs/promises'
-import type { ProcessingInputV6Dto } from '@invimport/contracts'
+import type { SessionInputDto } from '@invimport/contracts'
 import { MAX_PROTECTED_HOSTS, protectedEntry } from './protected-hosts.ts'
 
 /** Mounted read-write for the supervisor and read-only for the turn's egress proxy. */
@@ -31,7 +31,7 @@ function validProtectedHosts(value: unknown): value is string[] {
  * Public pages need both a profile with web access and a sealed setting that turns them on;
  * an attempt sealed without web settings runs with them off.
  */
-export function turnPolicy(manifest: ProcessingInputV6Dto, protectedHosts: unknown): TurnPolicy {
+export function turnPolicy(manifest: SessionInputDto, protectedHosts: unknown): TurnPolicy {
   if (!validProtectedHosts(protectedHosts)) {
     throw new Error('invalid_turn')
   }

@@ -2,7 +2,7 @@
 
 ## Plan context
 
-- **Plan:** the [proposal](proposal.md) and [design](design.md), with deltas in `specs/` for `ui-design-system`, `processing-workspace`, `processing-stage-pipeline`, `processing-agent-sessions`, `agents-overview` `header-workflow-status` and `shared-vm-execution`.
+- **Plan:** the [proposal](proposal.md) and [design](design.md), with deltas in `specs/` for `ui-design-system`, `processing-workspace`, `processing-stage-pipeline`, `processing-agent-sessions`, `agents-overview`, `header-workflow-status`, `shared-vm-execution` and `capture-media`.
 - **Reuse:** rebuild `Dialog.tsx` on `@radix-ui/react-dialog`, from the Radix family the frontend already uses for popovers, extend the existing contracts and form stack, and use native `<details>` for expandable entries. Radix Dialog is the only new dependency.
 - **Change name:** `improve-agent-interaction`. Branches are `feat/improve-agent-interaction-<suffix>`, and subjects are `type(improve-agent-interaction): …`.
 - **Items:** BI-019, plus BI-015's answer-options item, which this change takes over.
@@ -32,6 +32,7 @@
 | 12. Configurable VM evidence delivery | Intake server and deployment tooling | 5 (merged) | processing-agent-sessions "Configurable VM evidence delivery" |
 | 13. Answered questions fold away | Contracts, migration, intake server and frontend | 4 and 7 (merged) | processing-workspace "Answered questions fold away", "An answer form says why it can't send", "Answer a question step by step" (focus); processing-agent-sessions "Answered questions report their answer and delivery" |
 | 14. Question pictures | Contracts, media decoder, migration, intake server and frontend | 13 | processing-agent-sessions "Questions carry pictures", "Agents preview their pictures"; processing-workspace "Questions show the agent's pictures", "A larger view of a question picture" |
+| 15. Restored photos' pictures and busy-decoder decodes | Migration and intake server | 14 (merged) | processing-workspace "Questions show the agent's pictures" ("Picture source restored"); capture-media "Media decodes wait for a busy decoder" |
 
 ## PR delivery map
 
@@ -51,6 +52,7 @@ Every implementation bundle targets `interactive-app` once its listed prerequisi
 | PR-I | Configurable inline or file evidence delivery, launch wiring and regressions | 12 | One transport behavior across its configuration and guest boundaries | PR-D1 merged; independent of the remaining UI work | `interactive-app` ← `feat/improve-agent-interaction-evidence-delivery`; `feat(improve-agent-interaction): configure VM evidence delivery` | Development, deployment and intake checks; independent review before publication; CI |
 | PR-J | An answered question folds to its Answered line with its delivery state, in the drawer, the step page and the session page; named reasons replace `stale`; the answer summary and acknowledgement log in the Processing read; the drawer's messages and answers in time order | 13 | The bug fix and the card it needs, with the read that feeds it; one review of the answer surfaces | PR-B and PR-E merged (both are); independent of `polish-ui-styling-and-loading` task 15, which fixes the cancelled reload | `interactive-app` ← `feat/improve-agent-interaction-answered-questions`; `fix(improve-agent-interaction): show an answered question as answered` | Contracts tests, intake unit and PG tiers, frontend checks; demo video; rollout steps in the PR body; review; CI |
 | PR-K | Pictures on agent questions: the shared view recipe and decoder operation, figure validation, render requests and the figure route, `ask` previews, the card layouts and the larger view | 14 | One feature end to end; the shared renderer lands with its first consumer | PR-J merged (the same card); BI-022's PR-E1 waits for this PR | `interactive-app` ← `feat/improve-agent-interaction-question-pictures`; `feat(improve-agent-interaction): agent questions carry pictures` | Contracts and decoder tests, intake unit, PG and process tiers with the decoder and probe images, frontend checks; demo video; rollout steps and forward-only note in the PR body; review; CI |
+| PR-L | A restored photo's question pictures render again, and an upload or crop decode that only found the decoder busy is deferred and taken again instead of ending `interrupted` | 15 | Both are PR-K's open items in the media worker and render queue; one small server PR | PR-K merged | `interactive-app` ← `fix/improve-agent-interaction-figure-gaps`; `fix(improve-agent-interaction): restored photos' pictures and busy-decoder decodes` | Intake unit, PG and process tiers with the decoder and probe images; rollout steps (migration and media grants) and forward-only note in the PR body; review; CI |
 
 ## Parallel work
 
@@ -63,6 +65,7 @@ How the PR map above lets work run at the same time. A PR can start once every P
 | 3 | PR-E | PR-B and PR-D2 |
 | 4 | PR-G · PR-J | PR-E (both); PR-F or polish for the shared components (PR-G) |
 | 5 | PR-H · PR-K | PR-D2, PR-E and PR-G, with PR-F or polish (PR-H); PR-J (PR-K) |
+| 6 | PR-L | PR-K; runs beside PR-H, which it shares no file with |
 
 - **Critical path:** PR-B → PR-D2 → PR-E → PR-G → PR-H, five PRs in sequence; PR-B → PR-D2 → PR-E → PR-J → PR-K is the same length. PR-A, PR-B, PR-D1, PR-D2, PR-E, PR-F and PR-I have merged, so PR-G and PR-J can run now. PR-A has slack; PR-F can start after PR-0 but holds PR-G unless polish lands first. PR-D1 runs beside PR-B; PR-D2 starts once the later of the two merges.
 - **Most parallel moment:** wave 1, four PRs. PR-I can also proceed independently after PR-D1; the remaining UI bundles follow their dependency chain.
@@ -407,7 +410,7 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 
 ## Delivery evidence and lifecycle follow-up
 
-- [ ] PR-0: review the plan read-only (`codex exec -m gpt-6.2-sol -s read-only`, round by round), fix findings, publish, CI green, merge.
+- [x] PR-0: review the plan read-only (`codex exec -m gpt-6.2-sol -s read-only`, round by round), fix findings, publish, CI green, merge. Merged as #243 at `a61cbb45`.
 - [x] PR-A: implement task 1, review the exact head, publish with the demo, CI green, merge. Merged as #252 at `17c3d509`.
 - [x] PR-B: implement tasks 2, 3 and 4, review the exact head, publish with the demo, CI green, merge. Merged as #251 at `54477ac3`.
 - [x] PR-D1: implement task 5, review the exact head, publish, CI green, merge. Merged as #257 at `4fcdbd54`.
@@ -415,12 +418,13 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - [x] PR-E: implement task 7, review the exact head, publish with the demo, CI green, merge. Merged as #263 at `49a87cd0`.
 - [x] PR-F: implement tasks 8 and 9, review the exact head, publish with the demo, CI green, merge. Merged as #258 at `d09984bc`.
 - [x] PR-G: implement task 10, review the exact head, publish with the demo, CI green, merge. Merged as #266 at `75eb9a65`.
-- [ ] PR-H: implement task 11, review the exact head, publish with the demo, CI green, merge.
+- [x] PR-H: implement task 11, review the exact head, publish with the demo, CI green, merge. Merged as #276 at `67eed1d7`.
 - [x] PR-I: implement task 12, review the exact head, publish, CI green, merge. Merged as #262 at `b383ca91`.
 - [x] PR-J: implement task 13, review the exact head, publish with the demo, CI green, merge. Merged as #269 at `80260c93`.
 - [x] PR-K: implement task 14, review the exact head, publish with the demo, CI green, merge. Merged as #272 at `4a2a3c85`.
-- [ ] Update BI-019's status as PRs merge. It is Done only after PR-A, PR-B, PR-D1, PR-D2, PR-E, PR-F, PR-G, PR-H, PR-I, PR-J and PR-K merge and its acceptance is evidenced.
-- [ ] Mark the design log entries D37 (PR-A), D38 (PR-B), D39 and D41 (PR-E) and D42 (PR-F) Built, with their PRs (D40's page layout was replaced by D41).
+- [x] PR-L: implement task 15, review the exact head, publish, CI green, merge. Merged as #284 at `2a556339`.
+- [x] Update BI-019's status as PRs merge. It is Done only after PR-A, PR-B, PR-D1, PR-D2, PR-E, PR-F, PR-G, PR-H, PR-I, PR-J, PR-K and PR-L merge and its acceptance is evidenced.
+- [x] Mark the design log entries D37 (PR-A), D38 (PR-B), D39 and D41 (PR-E) and D42 (PR-F) Built, with their PRs (D40's page layout was replaced by D41).
 - [ ] Before archiving, run `pnpm openspec:overlap --change improve-agent-interaction`, sync the specs, and record final open items in `notes.md`.
 
 
@@ -529,3 +533,30 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - [x] 14.4 RED: frontend tests for each layout, the thumbnail strip's arrow keys, marks as an overlay, "Photo removed" and "Preparing picture…", the dialog (zoom, Fit, Whole photo, previous and next, the marks switch, the listed marks, Open in Capture and Add a photo), and pictures in the expanded Answered line.
 - [x] 14.5 GREEN: implement the contract, the operation, the render queue, the route, the handler, the guidance and the UI. Teach the fake CLI and the synthetic session an ask with a figure.
 - [x] 14.6 Update `media-decoder/README.md`, `intake-server/ARCHITECTURE.md`'s retained media section, `intake-server/src/agents/ARCHITECTURE.md` and `frontend/ARCHITECTURE.md`. Run the checks, and record the demo video for the PR description.
+
+## 15. Restored photos' pictures and busy-decoder decodes
+
+- **PR delivery:** PR-L.
+- **Outcome:**
+  - a question picture whose photo was removed, swept and then restored renders again from the original, reading "Preparing picture…" until it is ready;
+  - an upload or crop decode whose dispatcher answered busy for its whole wait is deferred and taken again by the next worker run, reading `queued` meanwhile, instead of ending `interrupted` for good.
+- **Scope and approach:**
+  - `media/figure-renders.ts`: the sweep returns a removed version's question-referenced view to the queue (releasing its blobs) instead of deleting it, and the claim skips a request whose version is removed; both decide under the batch's media revision lock, tried with `tryLockMediaRevision` (`media/commands.ts`) rather than waited for, and the requeue also tries each blob lock with `tryLockBlob` (`media/blob-store.ts`), rolling its batch back when one is taken;
+  - migration `0041` adds `media_decode_deferral`; `media/worker.ts` records a busy-only decode there and claims a deferred command again; `media/grants.ts` gives the media role SELECT, INSERT and DELETE on it; `media/worker-main.ts` says when it deferred;
+  - `media/decoder-runner.ts` lets a decode take the dispatcher's busy wait, so tests can shorten it;
+  - no change to `media-decoder/src` or `contracts/src/media.ts`, which PR #274 changes.
+- **Prerequisites:** task 14 (merged).
+- **Acceptance:** processing-workspace "Questions show the agent's pictures" ("Picture source restored"); capture-media "Media decodes wait for a busy decoder", all scenarios.
+- **TDD approach:** the PG tests reproducing both gaps fail on trunk first.
+- **Verification:** `pnpm db:intake test` and `test:process` with the decoder and probe images; intake typecheck, lint and fast tests.
+- **Risks and decisions:**
+  - A view the PR-K sweep already deleted has no recipe left; its figure keeps reading as failed.
+  - The deferral has no attempt limit: a busy reply proves nothing ran, so a deferred decode waits for a free decoder rather than failing.
+  - No demo video: the change is server behavior, and the card states it uses already exist.
+
+- [x] 15.1 Read the shared and intake-server code guidelines, the intake-server architecture and its retained media section, and PR-K's notes on both gaps.
+- [x] 15.2 RED: PG tests:
+  - [x] 15.2.1 A question picture whose photo is removed, swept and restored reads `preparing`, then renders and is served again; a removed photo's queued view is not rendered while it is removed; previews and unreferenced views of a removed version are still deleted.
+  - [x] 15.2.2 An upload decode whose dispatcher answers busy throughout reads `queued` with no result, and the next worker run decodes it `ready`; a decode whose dispatcher fails after being busy still ends `interrupted`; two workers never take the same deferred command.
+- [x] 15.3 GREEN: the sweep and claim changes, migration `0041`, the deferral claim and the media grant.
+- [x] 15.4 Update `intake-server/ARCHITECTURE.md`'s retained media and question figure sections and the deployment runbook's rollout steps. Run the checks.

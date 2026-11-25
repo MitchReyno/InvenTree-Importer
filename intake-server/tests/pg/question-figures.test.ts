@@ -7,7 +7,7 @@ import { createServer } from 'node:http'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import sharp from 'sharp'
-import type { PoolClient } from 'pg'
+import type { Pool, PoolClient } from 'pg'
 import { validate, type ProcessingQuestionFigureDto } from '@invimport/contracts'
 import { processingFixture } from '../support/processing.ts'
 import { lotSession } from '../support/sessions.ts'
@@ -47,7 +47,9 @@ import {
   renderFigureStep,
   sweepFigureRenders,
   collectReleasedBlob,
+  type FigureRenderRequest,
   type RenderView,
+  type SweepOutcome,
 } from '#/media/figure-renders.ts'
 import { runFigureRenderConsumer } from '#/media/figure-render-consumer.ts'
 import { TurnEvidenceReleases } from '#/agents/shared-vm/evidence-release.ts'
@@ -1531,7 +1533,7 @@ test('render claims honour leases, recover an expired one, fail after three atte
   })
 })
 
-test('the sweep deletes old previews, unreferenced views and a removed version’s renders, then collects their blobs', async () => {
+test('the sweep deletes old previews and unreferenced views, queues a removed version’s question views again, and collects their blobs', async () => {
   await withFigureSession(async (setup) => {
     const { fixture, tools, token, lot, photoFigure, pageTwoFigure, media, store, binding } = setup
     await fetched(setup, setup.photo)
@@ -1593,7 +1595,17 @@ test('the sweep deletes old previews, unreferenced views and a removed version�
       evidence_ids: [setup.document.evidence],
     })
     const first = await sweepFigureRenders(media.pool, store, binding)
-    assert.deepEqual(first, { deleted: 1, collected: 0 })
+    assert.deepEqual(first, { deleted: 0, requeued: 1, collected: 0 })
+    assert.deepEqual(
+      await figureRender(setup, asked.id!, 2),
+      { id: removedView.id, state: 'queued', attempts: 0, view: null, thumb: null },
+      'a question still shows it, so it waits for the photo to come back',
+    )
+    assert.deepEqual(
+      await sweepFigureRenders(media.pool, store, binding),
+      { deleted: 0, requeued: 0, collected: 0 },
+      'a view already back in the queue is left alone',
+    )
     const releaseRows = async () =>
       (
         await fixture.db.pool.query<{ digest: string }>(
@@ -1614,22 +1626,680 @@ test('the sweep deletes old previews, unreferenced views and a removed version�
     const later = () => new Date(Date.now() + 25 * 60 * 60 * 1000)
     const second = await sweepFigureRenders(media.pool, store, binding, later)
     const releasedDigests = new Set(released.flatMap((row) => row.digests))
-    assert.deepEqual(second, { deleted: 2, collected: releasedDigests.size })
+    assert.deepEqual(second, { deleted: 2, requeued: 0, collected: releasedDigests.size })
     assert.deepEqual(await releaseRows(), [])
     for (const sha of releasedDigests) {
       await assert.rejects(stat(blobPath(sha)), { code: 'ENOENT' })
     }
     const remaining = await fixture.db.pool.query<{ id: string }>(
-      'SELECT id FROM processing_figure_render',
+      'SELECT id FROM processing_figure_render ORDER BY id',
     )
     assert.deepEqual(
       remaining.rows.map((row) => row.id),
-      [kept.id],
+      [kept.id, removedView.id].sort(),
     )
     assert.ok((await stat(blobPath(kept.view!))).isFile())
     assert.ok((await stat(blobPath(kept.thumb!))).isFile())
   })
 })
+
+test('a restored photo’s question picture renders again after the sweep cleared it', async () => {
+  await withFigureSession(async (setup) => {
+    const { fixture, tools, token, lot, photoFigure, media, store, binding } = setup
+    await fetched(setup, setup.photo)
+    const asked = accepted(await tools.ask(token, figureQuestion(lot, [photoFigure()])))
+    const questionId = asked.id!
+    const renderer = fakeRenderer()
+    assert.equal(await renderFigureStep(media.pool, store, binding, renderer), 'rendered')
+    const first = (await figureRender(setup, questionId, 1))!
+    const editor = mediaEditor(fixture.api.pool, fixture.config, setup.batchId)
+    const figureState = async () => {
+      const read = await fixture.http(`/batches/${setup.batchId}/processing`)
+      assert.equal(read.status, 200)
+      const figures = findById(read.value, questionId)?.figures as ProcessingQuestionFigureDto[]
+      return figures[0]!.state
+    }
+    const route = `${fixture.config.origin}/api/v1/batches/${setup.batchId}/processing/sessions/${setup.session.job}/questions/${questionId}/figures/1/view`
+    const served = async () => {
+      const response = await fetch(route, { headers: { origin: fixture.config.origin } })
+      return { status: response.status, bytes: Buffer.from(await response.arrayBuffer()) }
+    }
+
+    await editor.applied({ kind: 'remove', evidence_ids: [setup.photo.evidence] })
+    assert.deepEqual(await sweepFigureRenders(media.pool, store, binding), {
+      deleted: 0,
+      requeued: 1,
+      collected: 0,
+    })
+    assert.equal(await figureState(), 'removed')
+    assert.equal(
+      await renderFigureStep(media.pool, store, binding, renderer),
+      'idle',
+      'nothing renders a removed photo',
+    )
+    assert.equal(renderer.calls.length, 1)
+
+    await editor.applied({ kind: 'restore', evidence_ids: [setup.photo.evidence] })
+    assert.equal(await figureState(), 'preparing')
+    const waiting = await served()
+    assert.equal(waiting.status, 409)
+    assert.match(waiting.bytes.toString('utf8'), /figure_preparing/)
+
+    assert.equal(await renderFigureStep(media.pool, store, binding, renderer), 'rendered')
+    assert.equal(await figureState(), 'ready')
+    const again = (await figureRender(setup, questionId, 1))!
+    assert.deepEqual([again.id, again.state, again.attempts], [first.id, 'ready', 1])
+    const view = await served()
+    assert.equal(view.status, 200)
+    assert.equal(digest(view.bytes), again.view)
+
+    // The blob released while the photo was removed is referenced again, so a sweep a day
+    // later clears its release and keeps the file the restored picture serves.
+    const later = () => new Date(Date.now() + 25 * 60 * 60 * 1000)
+    const old = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
+    for (const sha of [again.view!, again.thumb!]) {
+      await utimes(join(setup.root, 'blobs', 'objects', sha.slice(0, 2), sha), old, old)
+    }
+    assert.deepEqual(await sweepFigureRenders(media.pool, store, binding, later), {
+      deleted: 0,
+      requeued: 0,
+      collected: 0,
+    })
+    assert.equal((await served()).status, 200)
+  })
+})
+
+test('a sweep skips a batch whose photo is being restored, so the restored photo keeps its picture', async () => {
+  await withFigureSession(async (setup) => {
+    const { fixture, tools, token, lot, photoFigure, media, store, binding } = setup
+    await fetched(setup, setup.photo)
+    const asked = accepted(await tools.ask(token, figureQuestion(lot, [photoFigure()])))
+    assert.equal(await renderFigureStep(media.pool, store, binding, fakeRenderer()), 'rendered')
+    const ready = (await figureRender(setup, asked.id!, 1))!
+    await mediaEditor(fixture.api.pool, fixture.config, setup.batchId).applied({
+      kind: 'remove',
+      evidence_ids: [setup.photo.evidence],
+    })
+
+    const swept = await whileBatchEdited(setup, false, () =>
+      sweepFigureRenders(media.pool, store, binding),
+    )
+    assert.deepEqual(swept, { deleted: 0, requeued: 0, collected: 0 }, 'not waited for')
+    assert.deepEqual(await figureRender(setup, asked.id!, 1), ready)
+    assert.deepEqual(await sweepFigureRenders(media.pool, store, binding), {
+      deleted: 0,
+      requeued: 0,
+      collected: 0,
+    })
+    assert.deepEqual(await figureRender(setup, asked.id!, 1), ready)
+  })
+})
+
+test('a render is not claimed while its photo’s removal holds the batch, nor once it commits', async () => {
+  await withFigureSession(async (setup) => {
+    const { tools, token, lot, photoFigure, media, store, binding } = setup
+    await fetched(setup, setup.photo)
+    const asked = accepted(await tools.ask(token, figureQuestion(lot, [photoFigure()])))
+    const renderer = fakeRenderer()
+
+    const during = await whileBatchEdited(setup, true, () =>
+      renderFigureStep(media.pool, store, binding, renderer),
+    )
+    assert.equal(during, 'idle', 'the batch being edited is skipped, not waited for')
+    assert.equal(await renderFigureStep(media.pool, store, binding, renderer), 'idle')
+    assert.equal(renderer.calls.length, 0)
+    const waitingView = (await figureRender(setup, asked.id!, 1))!
+    assert.deepEqual([waitingView.state, waitingView.attempts], ['queued', 0])
+  })
+})
+
+test('a consumer claims the next render while another consumer holds the first in the queue', async () => {
+  await withFigureSession(async (setup) => {
+    const { fixture, tools, token, lot, photoFigure, media, store, binding } = setup
+    await fetched(setup, setup.photo)
+    const asked = accepted(
+      await tools.ask(
+        token,
+        figureQuestion(lot, [
+          photoFigure(),
+          photoFigure({ region: { x: 0, y: 0, width: 100, height: 80 } }),
+        ]),
+      ),
+    )
+    const holding = await fixture.db.pool.connect()
+    let held: string
+    try {
+      await holding.query('BEGIN')
+      // The render a claim would take first, in the claim's own order.
+      const first = await holding.query<{ id: string }>(
+        `SELECT id FROM processing_figure_render WHERE state='queued'
+         ORDER BY (purpose='preview') DESC, created_at, id LIMIT 1 FOR UPDATE`,
+      )
+      held = first.rows[0]!.id
+      assert.equal(await renderFigureStep(media.pool, store, binding, fakeRenderer()), 'rendered')
+    } finally {
+      await holding.query('ROLLBACK').catch(() => undefined)
+      holding.release()
+    }
+    const views = [
+      (await figureRender(setup, asked.id!, 1))!,
+      (await figureRender(setup, asked.id!, 2))!,
+    ]
+    assert.deepEqual(views.map((view) => [view.id === held, view.state]).sort(), [
+      [false, 'ready'],
+      [true, 'queued'],
+    ])
+  })
+})
+test('a batch being edited holds up no other batch’s renders, however many it has queued', async () => {
+  await withFigureSession(async (setup) => {
+    const { fixture, media, store, binding } = setup
+    const photoRecipe = (batch: { version: string; source: { sha256: string } }, x: number) => ({
+      version: 'bench-intake-view/1' as const,
+      source_version_id: batch.version,
+      source_digest: batch.source.sha256,
+      page: 1,
+      page_width: 320,
+      page_height: 240,
+      view: {
+        region: { x, y: 0, width: 32, height: 24 },
+        quarter_turns: 0 as const,
+        straighten_millidegrees: 0,
+      },
+    })
+    // More queued renders in the edited batch than any fixed window of candidates would hold.
+    await transaction(fixture.runner.pool, (client) =>
+      enqueueFigureRenders(
+        client,
+        setup.batchId,
+        Array.from({ length: 12 }, (_, x) => ({ recipe: photoRecipe(setup.photo, x) })),
+      ),
+    )
+    const other = await fixture.seedCapture()
+    const otherPhoto = await seedPages(fixture, store, other.batch.id, {
+      label: 'IMG_5000',
+      mediaType: 'image/png',
+      pages: [await patternedPage(320, 240, 6)],
+    })
+    await transaction(fixture.runner.pool, (client) =>
+      enqueueFigureRenders(client, other.batch.id, [{ recipe: photoRecipe(otherPhoto, 0) }]),
+    )
+
+    const editing = await fixture.db.pool.connect()
+    try {
+      await editing.query('BEGIN')
+      await editing.query(
+        "SELECT pg_advisory_xact_lock(hashtextextended('bench-media-batch/1:' || $1, 0))",
+        [setup.batchId],
+      )
+      assert.equal(await renderFigureStep(media.pool, store, binding, fakeRenderer()), 'rendered')
+    } finally {
+      await editing.query('ROLLBACK').catch(() => undefined)
+      editing.release()
+    }
+    const states = await fixture.db.pool.query<{ batch_id: string; state: string }>(
+      'SELECT batch_id, state FROM processing_figure_render ORDER BY batch_id, state',
+    )
+    const ready = states.rows.filter((row) => row.state === 'ready')
+    assert.deepEqual(
+      ready.map((row) => row.batch_id),
+      [other.batch.id],
+    )
+  })
+})
+
+test('the claim keeps the queue’s order across batches: an older preview elsewhere goes before a newer one', async () => {
+  await withFigureSession(async (setup) => {
+    const { fixture, media, store, binding } = setup
+    const recipe = (batch: { version: string; source: { sha256: string } }, x: number) => ({
+      version: 'bench-intake-view/1' as const,
+      source_version_id: batch.version,
+      source_digest: batch.source.sha256,
+      page: 1,
+      page_width: 320,
+      page_height: 240,
+      view: {
+        region: { x, y: 0, width: 32, height: 24 },
+        quarter_turns: 0 as const,
+        straighten_millidegrees: 0,
+      },
+    })
+    const other = await fixture.seedCapture()
+    const otherPhoto = await seedPages(fixture, store, other.batch.id, {
+      label: 'IMG_5001',
+      mediaType: 'image/png',
+      pages: [await patternedPage(320, 240, 7)],
+    })
+    // An old view and, later, a newer preview in this batch; between them a preview elsewhere.
+    const enqueue = (batchId: string, request: FigureRenderRequest) =>
+      transaction(fixture.runner.pool, (client) => enqueueFigureRenders(client, batchId, [request]))
+    await enqueue(setup.batchId, { recipe: recipe(setup.photo, 0) })
+    const [olderPreview] = await enqueue(other.batch.id, {
+      recipe: recipe(otherPhoto, 1),
+      marks: [],
+    })
+    await enqueue(setup.batchId, { recipe: recipe(setup.photo, 2), marks: [] })
+
+    assert.equal(await renderFigureStep(media.pool, store, binding, fakeRenderer()), 'rendered')
+    const ready = await fixture.db.pool.query<{ id: string }>(
+      "SELECT id FROM processing_figure_render WHERE state='ready'",
+    )
+    assert.deepEqual(
+      ready.rows.map((row) => row.id),
+      [olderPreview],
+    )
+  })
+})
+
+test('a sweep skips a removed photo’s view another transaction holds, and requeues it once free', async () => {
+  await withFigureSession(async (setup) => {
+    const { fixture, tools, token, lot, photoFigure, media, store, binding } = setup
+    await fetched(setup, setup.photo)
+    const asked = accepted(await tools.ask(token, figureQuestion(lot, [photoFigure()])))
+    assert.equal(await renderFigureStep(media.pool, store, binding, fakeRenderer()), 'rendered')
+    const ready = (await figureRender(setup, asked.id!, 1))!
+    await mediaEditor(fixture.api.pool, fixture.config, setup.batchId).applied({
+      kind: 'remove',
+      evidence_ids: [setup.photo.evidence],
+    })
+    const holding = await fixture.db.pool.connect()
+    try {
+      await holding.query('BEGIN')
+      await holding.query('SELECT 1 FROM processing_figure_render WHERE id=$1 FOR UPDATE', [
+        ready.id,
+      ])
+      assert.deepEqual(await sweepFigureRenders(media.pool, store, binding), {
+        deleted: 0,
+        requeued: 0,
+        collected: 0,
+      })
+    } finally {
+      await holding.query('ROLLBACK').catch(() => undefined)
+      holding.release()
+    }
+    assert.deepEqual(await figureRender(setup, asked.id!, 1), ready)
+    assert.equal((await sweepFigureRenders(media.pool, store, binding)).requeued, 1)
+  })
+})
+
+/** A whole-width strip of a 320 × 240 photo's page, offset by `x`, as a view recipe. */
+function stripRecipe(photo: { version: string; source: { sha256: string } }, x: number) {
+  return {
+    version: 'bench-intake-view/1' as const,
+    source_version_id: photo.version,
+    source_digest: photo.source.sha256,
+    page: 1,
+    page_width: 320,
+    page_height: 240,
+    view: {
+      region: { x, y: 0, width: 32, height: 24 },
+      quarter_turns: 0 as const,
+      straighten_millidegrees: 0,
+    },
+  }
+}
+
+async function enqueueOne(setup: Setup, batchId: string, request: FigureRenderRequest) {
+  const [id] = await transaction(setup.fixture.runner.pool, (client) =>
+    enqueueFigureRenders(client, batchId, [request]),
+  )
+  return id!
+}
+
+/** Waits until some backend is blocked by the backend `pid`, or fails after five seconds. */
+async function untilBlockedBy(setup: Setup, pid: number, what: string) {
+  for (let tries = 0; tries < 200; tries += 1) {
+    const blocked = await setup.fixture.db.pool.query(
+      'SELECT 1 FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))',
+      [pid],
+    )
+    if (blocked.rowCount) {
+      return
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25))
+  }
+  throw new Error(`${what} never waited`)
+}
+
+async function backendPid(client: PoolClient) {
+  const rows = await client.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')
+  return rows.rows[0]!.pid
+}
+
+/** Resolves with `value` after `ms`, with a cancel that clears the timer. */
+function timeout<T>(ms: number, value: T) {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const done = new Promise<T>((resolve) => {
+    timer = setTimeout(() => resolve(value), ms)
+  })
+  return { done, cancel: () => clearTimeout(timer) }
+}
+
+/**
+ * A pool whose checked-out clients pause once, after the claim's candidate query returns, until
+ * `open` is called. `paused` resolves with the chosen render's ID. Each client's own methods are
+ * restored before it goes back to the pool.
+ */
+function pausedAfterCandidate(pool: Pool) {
+  let reached!: (renderId: string) => void
+  const paused = new Promise<string>((resolve) => {
+    reached = resolve
+  })
+  let open!: () => void
+  const gate = new Promise<void>((resolve) => {
+    open = resolve
+  })
+  const proxy = new Proxy(pool, {
+    get(target, property) {
+      if (property !== 'connect') {
+        const value = Reflect.get(target, property, target) as unknown
+        return typeof value === 'function' ? value.bind(target) : value
+      }
+      return async () => {
+        const client = await target.connect()
+        const query = client.query.bind(client)
+        const release = client.release.bind(client)
+        let pausedOnce = false
+        const pausing = async (...args: unknown[]) => {
+          const result = (await (query as (...input: unknown[]) => Promise<unknown>)(...args)) as {
+            rows?: { id?: string }[]
+          }
+          const text = typeof args[0] === 'string' ? args[0] : ''
+          if (!pausedOnce && text.includes('NOT (r.batch_id = ANY')) {
+            pausedOnce = true
+            reached(result.rows?.[0]?.id ?? '')
+            await gate
+          }
+          return result
+        }
+        client.query = pausing as typeof client.query
+        client.release = (error?: Error | boolean) => {
+          client.query = query
+          client.release = release
+          return release(error)
+        }
+        return client
+      }
+    },
+  })
+  return { pool: proxy, paused, open }
+}
+
+/** Waits for the claim to pause, failing if it finishes first or takes longer than ten seconds. */
+async function untilPaused(
+  claim: { paused: Promise<string> },
+  claiming: Promise<PromiseSettledResult<string>>,
+) {
+  const deadline = timeout(10_000, 'deadline' as const)
+  try {
+    return await Promise.race([
+      claim.paused,
+      claiming.then(() => 'finished' as const),
+      deadline.done,
+    ])
+  } finally {
+    deadline.cancel()
+  }
+}
+
+/** Two batches: this one's photo render first in the queue, then another batch's render. */
+async function twoBatchRenders(setup: Setup, otherAttempts: number) {
+  const { fixture, store } = setup
+  const first = await enqueueOne(setup, setup.batchId, { recipe: stripRecipe(setup.photo, 0) })
+  const other = await fixture.seedCapture()
+  const otherPhoto = await seedPages(fixture, store, other.batch.id, {
+    label: 'IMG_5002',
+    mediaType: 'image/png',
+    pages: [await patternedPage(320, 240, 8)],
+  })
+  const second = await enqueueOne(setup, other.batch.id, { recipe: stripRecipe(otherPhoto, 0) })
+  await fixture.db.pool.query('UPDATE processing_figure_render SET attempts=$2 WHERE id=$1', [
+    second,
+    otherAttempts,
+  ])
+  const stream = await fixture.db.pool.query<{ stream_id: string }>(
+    'SELECT stream_id FROM capture_batch WHERE id=$1',
+    [other.batch.id],
+  )
+  return { first, second, otherStream: stream.rows[0]!.stream_id }
+}
+
+/** Whether another transaction can take the render row and its batch's lock without waiting. */
+async function lockableNow(setup: Setup, renderId: string) {
+  const probe = await setup.fixture.db.pool.connect()
+  try {
+    await probe.query('BEGIN')
+    await probe.query('SELECT 1 FROM processing_figure_render WHERE id=$1 FOR UPDATE NOWAIT', [
+      renderId,
+    ])
+    const batch = await probe.query<{ locked: boolean }>(
+      `SELECT pg_try_advisory_xact_lock(hashtextextended('bench-media-batch/1:' || $1, 0)) AS locked`,
+      [setup.batchId],
+    )
+    return batch.rows[0]!.locked
+  } finally {
+    await probe.query('ROLLBACK').catch(() => undefined)
+    probe.release()
+  }
+}
+
+test('a claim waiting to settle another batch’s exhausted render holds no lock on a busy batch’s render it passed over', async () => {
+  await withFigureSession(async (setup) => {
+    const { fixture, media, store, binding } = setup
+    const { first, otherStream } = await twoBatchRenders(setup, MAX_RENDER_ATTEMPTS)
+    const editing = await fixture.db.pool.connect()
+    const writer = await fixture.db.pool.connect()
+    let claiming: Promise<PromiseSettledResult<string>> | undefined
+    let rowFree = false
+    try {
+      await editing.query('BEGIN')
+      await editing.query(
+        "SELECT pg_advisory_xact_lock(hashtextextended('bench-media-batch/1:' || $1, 0))",
+        [setup.batchId],
+      )
+      await writer.query('BEGIN')
+      await writer.query('SELECT 1 FROM ui_stream WHERE id=$1 FOR UPDATE', [otherStream])
+      claiming = outcomeOf(renderFigureStep(media.pool, store, binding, fakeRenderer()))
+      await untilBlockedBy(setup, await backendPid(writer), 'the exhausted render’s settlement')
+      const probe = await fixture.db.pool.connect()
+      try {
+        await probe.query('BEGIN')
+        const locked = await probe.query(
+          'SELECT 1 FROM processing_figure_render WHERE id=$1 FOR UPDATE NOWAIT',
+          [first],
+        )
+        rowFree = locked.rowCount === 1
+      } finally {
+        await probe.query('ROLLBACK').catch(() => undefined)
+        probe.release()
+      }
+    } finally {
+      await writer.query('ROLLBACK').catch(() => undefined)
+      writer.release()
+      await editing.query('ROLLBACK').catch(() => undefined)
+      editing.release()
+      await claiming
+    }
+    assert.ok(rowFree)
+    assert.deepEqual(await claiming, { status: 'fulfilled', value: 'failed' })
+  })
+})
+
+test('a claim that rejected a render whose photo was just removed holds neither its row nor its batch while it waits elsewhere', async () => {
+  await withFigureSession(async (setup) => {
+    const { fixture, media, store, binding } = setup
+    const { first, otherStream } = await twoBatchRenders(setup, MAX_RENDER_ATTEMPTS)
+    const writer = await fixture.db.pool.connect()
+    const claim = pausedAfterCandidate(media.pool)
+    let claiming: Promise<PromiseSettledResult<string>> | undefined
+    let paused: string | undefined
+    let batchFree: boolean | undefined
+    try {
+      await writer.query('BEGIN')
+      await writer.query('SELECT 1 FROM ui_stream WHERE id=$1 FOR UPDATE', [otherStream])
+      claiming = outcomeOf(renderFigureStep(claim.pool, store, binding, fakeRenderer()))
+      paused = await untilPaused(claim, claiming)
+      assert.equal(paused, first, 'the claim paused on the removed photo’s render')
+      await mediaEditor(fixture.api.pool, fixture.config, setup.batchId).applied({
+        kind: 'remove',
+        evidence_ids: [setup.photo.evidence],
+      })
+      claim.open()
+      await untilBlockedBy(setup, await backendPid(writer), 'the exhausted render’s settlement')
+      batchFree = await lockableNow(setup, first)
+    } finally {
+      claim.open()
+      await writer.query('ROLLBACK').catch(() => undefined)
+      writer.release()
+      await claiming
+    }
+    assert.equal(batchFree, true)
+    assert.deepEqual(await claiming, { status: 'fulfilled', value: 'failed' })
+  })
+})
+
+test('a sweep’s deletion waiting on a blob holds no batch lock, so a media edit commits meanwhile', async () => {
+  await withFigureSession(async (setup) => {
+    const { fixture, tools, token, lot, photoFigure, media, store, binding } = setup
+    await fetched(setup, setup.photo)
+    const asked = accepted(await tools.ask(token, figureQuestion(lot, [photoFigure()])))
+    const preview = await enqueueOne(setup, setup.batchId, {
+      recipe: stripRecipe(setup.photo, 4),
+      marks: [],
+    })
+    const renderer = fakeRenderer()
+    assert.equal(await renderFigureStep(media.pool, store, binding, renderer), 'rendered')
+    assert.equal(await renderFigureStep(media.pool, store, binding, renderer), 'rendered')
+    const previewDigest = await fixture.db.pool.query<{ digest: string }>(
+      "SELECT encode(preview_digest,'hex') AS digest FROM processing_figure_render WHERE id=$1",
+      [preview],
+    )
+    await mediaEditor(fixture.api.pool, fixture.config, setup.batchId).applied({
+      kind: 'remove',
+      evidence_ids: [setup.photo.evidence],
+    })
+
+    // A collection holds the removed photo's preview blob, which the deletion must lock.
+    const collector = await media.pool.connect()
+    let sweeping: Promise<PromiseSettledResult<SweepOutcome>> | undefined
+    let editing: Promise<PromiseSettledResult<unknown>> | undefined
+    let deadline: ReturnType<typeof timeout<'deadline'>> | undefined
+    let edited: PromiseSettledResult<unknown> | 'deadline' | undefined
+    try {
+      await collector.query('BEGIN')
+      await lockBlob(collector, previewDigest.rows[0]!.digest)
+      sweeping = outcomeOf(sweepFigureRenders(media.pool, store, binding))
+      await untilBlockedBy(setup, await backendPid(collector), 'the sweep’s deletion')
+      deadline = timeout(5_000, 'deadline' as const)
+      editing = outcomeOf(
+        mediaEditor(fixture.api.pool, fixture.config, setup.batchId).applied({
+          kind: 'remove',
+          evidence_ids: [setup.document.evidence],
+        }),
+      )
+      edited = await Promise.race([editing, deadline.done])
+      await collector.query('COMMIT')
+    } finally {
+      deadline?.cancel()
+      await collector.query('ROLLBACK').catch(() => undefined)
+      collector.release()
+      await editing
+      await sweeping
+    }
+    assert.notEqual(edited, 'deadline', 'the edit waited for the sweep')
+    assert.equal((edited as PromiseSettledResult<unknown>).status, 'fulfilled')
+    assert.deepEqual(await sweeping, {
+      status: 'fulfilled',
+      value: { deleted: 1, requeued: 1, collected: 0 },
+    })
+    assert.equal((await figureRender(setup, asked.id!, 1))!.state, 'queued')
+  })
+})
+
+test('a photo removed after the claim chose its render is not rendered, and the next render is taken', async () => {
+  await withFigureSession(async (setup) => {
+    const { fixture, media, store, binding } = setup
+    const removed = await enqueueOne(setup, setup.batchId, { recipe: stripRecipe(setup.photo, 0) })
+    const next = await enqueueOne(setup, setup.batchId, {
+      recipe: {
+        ...stripRecipe(setup.noticed, 0),
+        page_width: 240,
+        page_height: 180,
+      },
+    })
+    const claim = pausedAfterCandidate(media.pool)
+    const renderer = fakeRenderer()
+    let claiming: Promise<PromiseSettledResult<string>> | undefined
+    let paused: string | undefined
+    try {
+      claiming = outcomeOf(renderFigureStep(claim.pool, store, binding, renderer))
+      paused = await untilPaused(claim, claiming)
+      assert.equal(paused, removed, 'the claim paused on the removed photo’s render')
+      await mediaEditor(fixture.api.pool, fixture.config, setup.batchId).applied({
+        kind: 'remove',
+        evidence_ids: [setup.photo.evidence],
+      })
+    } finally {
+      claim.open()
+      await claiming
+    }
+    assert.deepEqual(await claiming, { status: 'fulfilled', value: 'rendered' })
+    assert.deepEqual(
+      renderer.calls.map((call) => call.recipe.source_version_id),
+      [setup.noticed.version],
+    )
+    const rows = await fixture.db.pool.query<{
+      id: string
+      state: string
+      attempts: number
+      lease: string | null
+    }>(
+      'SELECT id, state, attempts, lease_owner AS lease FROM processing_figure_render WHERE id = ANY($1)',
+      [[removed, next]],
+    )
+    const byId = new Map(rows.rows.map((row) => [row.id, row]))
+    assert.deepEqual(
+      [byId.get(removed)!.state, byId.get(removed)!.attempts, byId.get(removed)!.lease],
+      ['queued', 0, null],
+    )
+    assert.equal(byId.get(next)!.state, 'ready')
+  })
+})
+
+/**
+ * Runs `work` while another transaction holds the batch's media revision lock, as a remove or
+ * restore edit does, with its removal row written but not yet committed; then commits it.
+ */
+async function whileBatchEdited<T>(
+  setup: Setup,
+  removed: boolean,
+  work: () => Promise<T>,
+): Promise<T> {
+  const editing = await setup.fixture.db.pool.connect()
+  let committed = false
+  try {
+    await editing.query('BEGIN')
+    await editing.query(
+      "SELECT pg_advisory_xact_lock(hashtextextended('bench-media-batch/1:' || $1, 0))",
+      [setup.batchId],
+    )
+    await editing.query(
+      `INSERT INTO media_evidence_removal(id, batch_id, evidence_id, revision, actor_id, removed)
+       SELECT $1, $2, $3, coalesce(max(revision), 0) + 1000, $4, $5 FROM media_evidence_removal
+       WHERE batch_id=$2 AND evidence_id=$3`,
+      [randomUUID(), setup.batchId, setup.photo.evidence, setup.fixture.config.actorId, removed],
+    )
+    const result = await work()
+    await editing.query('COMMIT')
+    committed = true
+    return result
+  } finally {
+    if (!committed) {
+      await editing.query('ROLLBACK').catch(() => undefined)
+    }
+    editing.release()
+  }
+}
 
 function findById(value: unknown, id: string): Record<string, unknown> | undefined {
   if (!value || typeof value !== 'object') {
@@ -1647,7 +2317,7 @@ function findById(value: unknown, id: string): Record<string, unknown> | undefin
   return undefined
 }
 
-test('a blob released while a collection holds its lock stays recorded for the next collection', async () => {
+test('a requeue meeting a collection’s blob lock is left for the next sweep, which records the release', async () => {
   await withFigureSession(async (setup) => {
     const { fixture, tools, token, lot, pageTwoFigure, media, store, binding } = setup
     await fetched(setup, setup.document, 2)
@@ -1671,16 +2341,12 @@ test('a blob released while a collection holds its lock stays recorded for the n
 
     // A collection has locked the blob and seen the render still referencing it.
     const collector = await media.pool.connect()
-    let sweeping: Promise<unknown> | undefined
     try {
       await collector.query('BEGIN')
       await lockBlob(collector, view)
-      let settled = false
-      sweeping = sweepFigureRenders(media.pool, store, binding).finally(() => {
-        settled = true
-      })
-      await new Promise((resolve) => setTimeout(resolve, 300))
-      assert.equal(settled, false, 'the release waits for the collection’s lock')
+      const deferred = await sweepFigureRenders(media.pool, store, binding)
+      assert.equal(deferred.requeued, 0, 'the requeue does not wait for the collection’s lock')
+      assert.equal((await figureRender(setup, asked.id!, 1))!.view, view)
       await collector.query('DELETE FROM public.processing_figure_blob_release WHERE digest=$1', [
         Buffer.from(view, 'hex'),
       ])
@@ -1688,7 +2354,7 @@ test('a blob released while a collection holds its lock stays recorded for the n
     } finally {
       collector.release()
     }
-    await sweeping
+    assert.equal((await sweepFigureRenders(media.pool, store, binding)).requeued, 1)
 
     const recorded = () =>
       fixture.db.pool.query('SELECT 1 FROM processing_figure_blob_release WHERE digest=$1', [
@@ -1760,7 +2426,7 @@ test('collection acts only on the release it selected, and clears one whose file
   })
 })
 
-test('a render settling while the sweep deletes it and a ready render of the same bytes both finish', async () => {
+test('a sweep meeting a settling render leaves its batch for later, holds up no edit, and requeues both once settled', async () => {
   await withFigureSession(async (setup) => {
     const { fixture, tools, token, lot, photoFigure, media, store, binding } = setup
     await fetched(setup, setup.photo)
@@ -1811,7 +2477,6 @@ test('a render settling while the sweep deletes it and a ready render of the sam
     let sweep: Promise<PromiseSettledResult<SweepResult>> | undefined
     let settled: PromiseSettledResult<string>
     let swept: PromiseSettledResult<SweepResult> | undefined
-    let waiting = false
     try {
       await Promise.race([
         atPublish,
@@ -1821,30 +2486,42 @@ test('a render settling while the sweep deletes it and a ready render of the sam
         kind: 'remove',
         evidence_ids: [setup.photo.evidence],
       })
+      // The settling render holds its row and the shared blobs' locks, so the sweep skips the
+      // one and rolls the batch back at the other, without waiting for either.
       sweep = outcomeOf(sweepFigureRenders(media.pool, store, binding))
-      for (let tries = 0; !waiting && tries < 200; tries += 1) {
-        await new Promise((resolve) => setTimeout(resolve, 20))
-        const blocked = await fixture.db.pool.query(
-          `SELECT 1 FROM pg_stat_activity
-           WHERE wait_event_type='Lock' AND query LIKE 'DELETE FROM public.processing_figure_render%'`,
-        )
-        waiting = (blocked.rowCount ?? 0) > 0
-      }
+      swept = await sweep
+      // The sweep holds the batch's media revision lock no longer, so an edit commits at once.
+      await mediaEditor(fixture.api.pool, fixture.config, setup.batchId).applied({
+        kind: 'remove',
+        evidence_ids: [setup.document.evidence],
+      })
     } finally {
       // Released whatever happened, and both operations settle before the fixture is torn down.
       open()
       settled = await settlement
       swept = await sweep
     }
-    assert.ok(waiting, 'the sweep waited on the settling render')
     assert.ok(swept, 'the sweep started')
     assert.ok(settled.status === 'fulfilled', String((settled as PromiseRejectedResult).reason))
     assert.ok(swept.status === 'fulfilled', String((swept as PromiseRejectedResult).reason))
-
     assert.equal(settled.value, 'rendered')
-    assert.equal(swept.value.deleted, 2)
-    const left = await fixture.db.pool.query('SELECT 1 FROM processing_figure_render')
-    assert.equal(left.rowCount, 0)
+    assert.deepEqual([swept.value.deleted, swept.value.requeued], [0, 0])
+    const kept = await fixture.db.pool.query('SELECT 1 FROM processing_figure_blob_release')
+    assert.equal(kept.rowCount, 0, 'the rolled-back batch released nothing')
+
+    const later = await sweepFigureRenders(media.pool, store, binding)
+    assert.deepEqual([later.deleted, later.requeued], [0, 2])
+    const left = await fixture.db.pool.query<{ state: string; view: Buffer | null }>(
+      'SELECT state, view_digest AS view FROM processing_figure_render',
+    )
+    assert.deepEqual(
+      left.rows.map((row) => [row.state, row.view]),
+      [
+        ['queued', null],
+        ['queued', null],
+      ],
+      'both wait for the photo to come back',
+    )
     assert.equal(outputs.size, 2, 'one view and one thumbnail, shared by both renders')
     const shared = [...outputs].sort()
     const released = await fixture.db.pool.query<{ digest: string }>(
@@ -1969,8 +2646,8 @@ test('the read shows each figure’s state, and the figure route serves it withi
       { statusCode: 404 },
     )
 
-    // A view the sweep deleted, as for a photo removed and then restored, isn't made again: the
-    // read and the route both say it couldn't be made.
+    // A view whose request is gone keeps no recipe to render from: the read and the route both
+    // say it couldn't be made.
     await fixture.db.pool.query('DELETE FROM processing_figure_render WHERE id=$1', [ready.id])
     const reread = await fixture.http(`/batches/${setup.batchId}/processing`)
     const after = findById(reread.value, questionId)?.figures as ProcessingQuestionFigureDto[]

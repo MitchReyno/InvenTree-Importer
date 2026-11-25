@@ -11,6 +11,7 @@ import { fail, mediaProfileId, type Stage } from './model.ts'
 import { processingJobColumns, requireLotJob } from './state.ts'
 import type { LockedMediaInputs } from '#/media/locked-inputs.ts'
 import { isSessionProfile } from './session-policy.ts'
+import type { SessionInputVersion } from './stage-policy.ts'
 import { instructNewSession } from '#/agents/instructions.ts'
 
 export { supersedeJobAttempts } from './supersede.ts'
@@ -28,10 +29,13 @@ export async function queueJob(
   {
     lockSettings = true,
     settings,
+    inputVersion,
   }: {
     lockSettings?: boolean
     /** Settings already read in this transaction, so several attempts seal the same read. */
     settings?: AgentSettingsDto
+    /** A session attempt's input version: the batch's lead's, or the configuration's. */
+    inputVersion?: SessionInputVersion
   } = {},
 ) {
   const jobs = await executeDatabaseQuery(
@@ -79,7 +83,7 @@ export async function queueJob(
     parentInputId,
     null,
     pinnedProposalIds,
-    { lockSettings, settings },
+    { lockSettings, settings, inputVersion },
   )
   if (priorJob) {
     await executeDatabaseQuery(

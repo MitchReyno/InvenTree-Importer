@@ -3,7 +3,14 @@ import { mediaRuntimeConfig } from './runtime-config.ts'
 import { database } from '#/db/database.ts'
 import { id } from '#/execution/plan.ts'
 import { BlobStore } from './blob-store.ts'
-import { processMediaCommand } from './worker.ts'
+import { runMediaCommand, type MediaCommandOutcome } from './worker.ts'
+
+const OUTCOME_MESSAGES: Record<MediaCommandOutcome, string> = {
+  decoded: 'One retained media command processed.\n',
+  busy: 'No command acquired. The decoder is busy.\n',
+  deferred: 'The decoder stayed busy, so one media command was deferred; run the worker again.\n',
+  idle: 'No eligible unclaimed media command.\n',
+}
 
 /** Explicit one-command local worker. No inventory/provider credentials or .env discovery. */
 async function main() {
@@ -21,17 +28,13 @@ async function main() {
   const db = database(databaseUrl)
   try {
     const store = await BlobStore.initialize(blobRoot, await readMediaStoreIdentity(db.pool))
-    const processed = await processMediaCommand(
+    const outcome = await runMediaCommand(
       db.pool,
       store,
       { actorId, targetId, targetContextId },
       image,
     )
-    process.stdout.write(
-      processed
-        ? 'One retained media command processed.\n'
-        : 'No command acquired. The queue is empty or the decoder is busy.\n',
-    )
+    process.stdout.write(OUTCOME_MESSAGES[outcome])
   } finally {
     await db.close()
   }

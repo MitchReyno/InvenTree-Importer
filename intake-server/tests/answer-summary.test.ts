@@ -1,6 +1,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { MAX_ANSWER_SUMMARY_BYTES, type ProcessingQuestionDto } from '@invimport/contracts'
+import {
+  MAX_ANSWER_SUMMARY_BYTES,
+  questionView,
+  type ProcessingQuestionDto,
+} from '@invimport/contracts'
 import {
   answerMemberBytes,
   answeredValues,
@@ -51,7 +55,7 @@ const answerBase = {
 }
 
 test('each step reads as the Answered line shows it: a label, "Something else", a number, text', () => {
-  const values = answeredValues(stepped, {
+  const values = answeredValues(questionView(stepped), {
     ...answerBase,
     schema_version: 'bench-intake-answer/2',
     steps: [
@@ -75,14 +79,18 @@ test('each step reads as the Answered line shows it: a label, "Something else", 
       ['where', 'Where?', 'Drawer R4', false],
     ],
   )
-  const other = answeredValues(stepped, {
+  const other = answeredValues(questionView(stepped), {
     ...answerBase,
     schema_version: 'bench-intake-answer/2',
     steps: [{ step_id: 'same', value: { kind: 'choice', other: 'A close variant' } }],
   })
   assert.equal(other[0].value.kind, 'choice')
   const runner = answeredValues(
-    { ...base, spec: { kind: 'quantity', prompt: 'How many in Packet A?', reason: 'Torn.' } },
+    questionView({
+      ...base,
+      subject_id: id(4),
+      spec: { kind: 'quantity', prompt: 'How many in Packet A?', reason: 'Torn.' },
+    }),
     {
       ...answerBase,
       schema_version: 'bench-intake-answer/1',

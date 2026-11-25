@@ -6,7 +6,6 @@ import {
   MAX_ANSWER_SUMMARY_BYTES,
   validate,
   validationIssues,
-  type ValidationIssue,
   type ProcessingMediaSourceDto,
   type ProposeLotArgsDto,
   type RecordObservationArgsDto,
@@ -17,6 +16,8 @@ import {
   type WebPageSourceDto,
   type ProcessingRelianceDto,
   type SessionAskArgsV2Dto,
+  type SessionReadBriefBatchArgsDto,
+  type SessionReadLotArgsDto,
   type SessionToolErrorDto,
   type SessionToolResultDto,
   webPageUrlAccepted,
@@ -40,7 +41,7 @@ import {
   type LotFormingResult,
 } from '#/capture/evidence-observations.ts'
 import type { ProcessingConfig } from '#/processing/attempts.ts'
-import { sealed } from '#/processing/model.ts'
+import { ProcessingError, sealed } from '#/processing/model.ts'
 import { MAX_JOB_RESULTS, MAX_PROCESSING_SNAPSHOT_BYTES } from '#/processing/limits.ts'
 import { catalogueSources, deliveredSourceCheck } from '#/processing/provenance.ts'
 import { storableText } from '#/db/storable-text.ts'
@@ -55,11 +56,13 @@ import { decodeMediaInputs } from '#/media/inputs.ts'
 import type { BlobStore } from '#/media/blob-store.ts'
 import { sha256 } from '#/db/authority.ts'
 import { capabilityDigest, resolveSessionCapability, type SessionPrincipal } from './capability.ts'
+import { refuse, ToolRefusal } from './refusal.ts'
+import { readBriefPage, retainBriefView, stagePrincipal, type BriefRead } from './brief-read.ts'
 import { agentSessionOutbox, agentSessions } from '#/agents/schema.ts'
 import { appendSessionOutbox, lastStatusAt } from './outbox.ts'
 import sharp from 'sharp'
 import { regionCropCache } from '#/media/region-crops.ts'
-import { pendingSessionInbox, readSessionInbox, sessionInboxItem } from './inbox.ts'
+import { lockInboxBatch, pendingSessionInbox, readSessionInbox, sessionInboxItem } from './inbox.ts'
 import { stepRefusal, subjectRefusal } from './question-checks.ts'
 import { resolveFigures, type ResolvedFigure } from './figures.ts'
 import {
@@ -577,20 +580,6 @@ export interface SessionToolOutput {
   images?: { mediaType: string; base64: string }[]
 }
 
-class ToolRefusal extends Error {
-  constructor(
-    readonly code: SessionToolErrorDto,
-    message: string,
-    readonly issues?: ValidationIssue[],
-  ) {
-    super(message)
-  }
-}
-
-const refuse = (code: SessionToolErrorDto, message: string): never => {
-  throw new ToolRefusal(code, message)
-}
-
 function validated<T>(name: Parameters<typeof validate>[0], value: unknown): T {
   const issues = validationIssues(name, value)
   if (issues.length) {
@@ -636,7 +625,7 @@ type LockedCapture = Awaited<ReturnType<typeof lockCaptureForInputSettlement>>
 async function withSession(
   context: SessionToolContext,
   token: string,
-  options: { capture: boolean; leadWriter?: boolean },
+  options: { capture: boolean; leadWriter?: boolean; batchShare?: boolean },
   work: (
     client: PoolClient,
     principal: SessionPrincipal,
@@ -659,6 +648,10 @@ async function withSession(
       const capture = options.capture
         ? await lockCaptureForInputSettlement(client, context.config, found.batchId)
         : undefined
+      // Before the job, as everywhere: orders a read against an ungroup's withdrawal.
+      if (options.batchShare && !capture) {
+        await lockInboxBatch(client, found.lineageId!)
+      }
       await requireRunningSession(client, token, found)
       if (capture?.snapshot.archived) {
         refuse('session_not_running', 'This session can no longer publish results.')
@@ -716,6 +709,72 @@ async function refusalOutput(
       pending_inbox: pending,
       ...(error.issues ? { issues: error.issues } : {}),
     },
+  }
+}
+
+/**
+ * Queues a stable identity's successors. A successor input over capacity (its brief past the
+ * page bounds) is refused with its cause, and the whole proposal rolls back with it.
+ */
+async function queueSuccessors(queue: () => Promise<unknown>) {
+  try {
+    await queue()
+  } catch (error) {
+    if (error instanceof ProcessingError && error.code === 'processing_input_capacity') {
+      refuse(
+        'capacity_reached',
+        'The lot’s Research and Images inputs would be over capacity, so this proposal was not published. Tell the operator.',
+      )
+    }
+    throw error
+  }
+}
+
+/** Whether a capability names a running `/7` session, which reads a brief. */
+async function hasBrief(context: SessionToolContext, token: string) {
+  const found = await resolveSessionCapability(context.pool, token)
+  return found?.manifest.schema_version === 'bench-intake-input/7'
+}
+
+/**
+ * A brief read in one repeatable-read snapshot, so a current view never mixes two revisions. It
+ * takes no row locks, which a repeatable-read transaction could fail on, and writes nothing; it
+ * checks that the capability names a running session whose attempt is running and current. A
+ * read that starts a current view keeps it afterwards, in its own transaction.
+ */
+async function withBriefRead(
+  context: SessionToolContext,
+  token: string,
+  work: (
+    client: PoolClient,
+    principal: SessionPrincipal,
+  ) => Promise<{ result: SessionToolOutput['result']; read: BriefRead }>,
+): Promise<SessionToolOutput> {
+  try {
+    const read = await transaction(context.pool, async (client) => {
+      await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ')
+      const found =
+        (await resolveSessionCapability(client, token)) ??
+        refuse('capability_refused', 'This session capability is not valid.')
+      const current = await client.query(
+        `SELECT 1 FROM public.processing_job j
+         JOIN public.processing_attempt a ON a.id=j.current_attempt_id
+         WHERE a.id=$1 AND a.state='running'`,
+        [found.attemptId],
+      )
+      if (!current.rowCount) {
+        refuse('capability_refused', 'This session capability is not valid.')
+      }
+      return { ...(await work(client, found)), attemptId: found.attemptId }
+    })
+    // Kept after the snapshot commits, so the page's token names a view that is kept.
+    await retainBriefView(context.pool, read.attemptId, read.read)
+    return { result: read.result }
+  } catch (error) {
+    if (!(error instanceof ToolRefusal)) {
+      throw error
+    }
+    return refusalOutput(context, token, error)
   }
 }
 
@@ -1546,13 +1605,48 @@ export function sessionTools(context: SessionToolContext) {
   }
 
   return {
-    read_batch: (token: string, args: unknown) =>
-      withSession(context, token, { capture: false }, async (client, principal) => {
+    read_batch: async (token: string, args: unknown) => {
+      // A `/7` lead reads its brief, which carries the batch with full readings.
+      if (await hasBrief(context, token)) {
+        return withBriefRead(context, token, async (client, principal) => {
+          const input = validated<SessionReadBriefBatchArgsDto>('SessionReadBriefBatchArgs', args)
+          const stage = stagePrincipal(principal)
+          if (stage.manifest.stage !== 'examine') {
+            refuse('tool_not_allowed', 'Only the batch Examine lead session reads the whole batch.')
+          }
+          const read = await readBriefPage(client, context.config, stage, input)
+          return {
+            result: await ok(client, principal, { revision: read.page.revision, brief: read.page }),
+            read,
+          }
+        })
+      }
+      return withSession(context, token, { capture: false }, async (client, principal) => {
         validated('SessionReadBatchArgs', args)
         if ((principal.stage as string) !== 'examine') {
           refuse('tool_not_allowed', 'Only the batch Examine lead session reads the whole batch.')
         }
         return ok(client, principal, { batch: await leadBatchView(client, principal.batchId) })
+      })
+    },
+
+    read_lot: (token: string, args: unknown) =>
+      withBriefRead(context, token, async (client, principal) => {
+        const input = validated<SessionReadLotArgsDto>('SessionReadLotArgs', args)
+        const stage = stagePrincipal(principal)
+        if (stage.manifest.stage === 'examine') {
+          refuse('tool_not_allowed', 'The Examine lead session reads its brief with read_batch.')
+        }
+        // A session reads only the lots it serves.
+        if (input.lot_id !== principal.subjectId) {
+          refuse('tool_not_allowed', 'This session does not serve that lot.')
+        }
+        const { lot_id: _lotId, ...request } = input
+        const read = await readBriefPage(client, context.config, stage, request)
+        return {
+          result: await ok(client, principal, { revision: read.page.revision, brief: read.page }),
+          read,
+        }
       }),
 
     record_observation: (token: string, args: unknown) =>
@@ -1664,20 +1758,25 @@ export function sessionTools(context: SessionToolContext) {
       }),
 
     read_inbox: (token: string, args: unknown) =>
-      withSession(context, token, { capture: false }, async (client, principal) => {
-        const { after_seq } = validated<{ after_seq: string }>('SessionReadInboxArgs', args)
-        const read = await readSessionInbox(client, principal.lineageId!, BigInt(after_seq))
-        // An open drawer or session page shows which inputs the session has read.
-        if (read.advanced) {
-          await appendEvent(
-            client,
-            await batchStream(client, principal.batchId),
-            'session_changed',
-            { batch_id: principal.batchId },
-          )
-        }
-        return ok(client, principal, { items: read.items })
-      }),
+      withSession(
+        context,
+        token,
+        { capture: false, batchShare: true },
+        async (client, principal) => {
+          const { after_seq } = validated<{ after_seq: string }>('SessionReadInboxArgs', args)
+          const read = await readSessionInbox(client, principal.lineageId!, BigInt(after_seq))
+          // An open drawer or session page shows which inputs the session has read.
+          if (read.advanced) {
+            await appendEvent(
+              client,
+              await batchStream(client, principal.batchId),
+              'session_changed',
+              { batch_id: principal.batchId },
+            )
+          }
+          return ok(client, principal, { items: read.items })
+        },
+      ),
 
     propose: (token: string, args: unknown) =>
       withSession(
@@ -1731,7 +1830,9 @@ export function sessionTools(context: SessionToolContext) {
           })
           // A stable identity from the lead session starts the lot's Research and Images.
           if (writer && principal.subjectId === null) {
-            await onLeadIdentity(client, context.config, capture!.snapshot, proposal, id)
+            await queueSuccessors(() =>
+              onLeadIdentity(client, context.config, capture!.snapshot, proposal, id),
+            )
           }
           await appendEvent(client, streamId, 'processing_changed', { batch_id: principal.batchId })
           return ok(client, principal, { id })

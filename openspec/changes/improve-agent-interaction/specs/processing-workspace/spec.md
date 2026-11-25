@@ -347,6 +347,18 @@ A question with pictures SHALL show them in the agent's order with each caption 
 - **WHEN** it is shown
 - **THEN** that picture reads "Photo removed", the others show, and the question can still be answered.
 
+#### Scenario: Picture source restored
+
+- **GIVEN** a question whose picture's photo was removed from Capture long enough for its rendered picture to be cleared
+- **WHEN** the operator restores the photo
+- **THEN** that picture reads "Preparing picture…" and then shows again, rendered from the original, without the agent asking again.
+
+#### Scenario: Picture cleared before restores kept it
+
+- **GIVEN** a picture whose render request was deleted while its photo was removed, before the sweep kept such requests for a restore
+- **WHEN** its photo is restored and the question is shown
+- **THEN** that picture reads "Picture couldn't be made", since no recipe is left to render it from, and the question can still be answered.
+
 ### Requirement: A larger view of a question picture
 
 Clicking a question picture SHALL open a dialog with a large view, zoom, Fit and Whole photo, previous and next with the thumbnails, a "Show the agent's marks" switch, why the agent shows it, its marks listed in words, the source photo with its region and lot, Open in Capture and Add a photo.

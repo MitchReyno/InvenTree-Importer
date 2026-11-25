@@ -1,9 +1,14 @@
 import {
+  STAGE_TOOL_PROFILE,
   validate,
   type AgentSelectionDto,
   type CaptureSnapshotDto,
   type ProcessingInputV6Dto,
+  type ProcessingInputV7Dto,
+  type SealedBriefDto,
+  type SessionInputDto,
 } from '@invimport/contracts'
+import type { BriefScope } from './brief.ts'
 import { automationIntentNotes } from '#/capture/context-input.ts'
 import { decodeMediaInputs } from '#/media/inputs.ts'
 import {
@@ -75,19 +80,83 @@ export function sessionLotInputManifest(
   return manifest as ProcessingInputV6Dto
 }
 
-export function decodeSessionInput(bytes: Buffer, digest: Buffer): ProcessingInputV6Dto {
-  const value = unseal(bytes, digest)
-  validate('ProcessingInputV6', value)
-  return value as ProcessingInputV6Dto
+/** Whether a decoded input is a session's (`/6` or `/7`) rather than an earlier runner's. */
+export function isSessionInput(input: { schema_version: string }): input is SessionInputDto {
+  return (
+    input.schema_version === 'bench-intake-input/6' ||
+    input.schema_version === 'bench-intake-input/7'
+  )
 }
 
-/** Earlier inputs decode as before; only `/6` takes the session path. */
-export function decodeJobInput(bytes: Buffer, digest: Buffer) {
+/** A session's sealed input, `/6` or `/7`; the shape check matches the version it names. */
+export function decodeSessionInput(bytes: Buffer, digest: Buffer): SessionInputDto {
   const value = unseal(bytes, digest) as { schema_version?: unknown }
-  if (value.schema_version === 'bench-intake-input/6') {
+  validate(
+    value.schema_version === 'bench-intake-input/7' ? 'ProcessingInputV7' : 'ProcessingInputV6',
+    value,
+  )
+  return value as SessionInputDto
+}
+
+/** Earlier inputs decode as before; `/6` and `/7` take the session path. */
+export function decodeJobInput(bytes: Buffer, digest: Buffer) {
+  const value = unseal(bytes, digest) as { schema_version: string }
+  if (isSessionInput(value)) {
     return decodeSessionInput(bytes, digest)
   }
   return decodeProcessingInput(bytes, digest)
+}
+
+/** A `/7` input: the `/6` fields, the stage pack's digest and the sealed brief. */
+export function stageInputManifest(
+  base: ProcessingInputV6Dto,
+  stagePackDigest: string,
+  brief: SealedBriefDto,
+): ProcessingInputV7Dto {
+  const manifest = {
+    ...base,
+    schema_version: 'bench-intake-input/7',
+    tool_profile_version: STAGE_TOOL_PROFILE,
+    stage_instructions_sha256: stagePackDigest,
+    brief,
+  }
+  validate('ProcessingInputV7', manifest)
+  return manifest as ProcessingInputV7Dto
+}
+
+/**
+ * What a session's brief draws on from its input: the versions it may fetch (originals only for
+ * the Examine lead), the media notes, its pinned identities and its web policy.
+ */
+export function briefScope(
+  input: Pick<
+    ProcessingInputV6Dto,
+    'stage' | 'subject_id' | 'media' | 'pinned_proposal_ids' | 'web'
+  >,
+): BriefScope {
+  const media = decodeMediaInputs(
+    Buffer.from(input.media.manifest, 'utf8'),
+    Buffer.from(input.media.sha256, 'hex'),
+  )
+  const lead = input.stage === 'examine'
+  if (input.stage === 'inventory') {
+    fail('unsupported_processing_stage', 422)
+  }
+  return {
+    stage: input.stage === 'examine' ? 'examine' : input.stage,
+    lotId: input.subject_id,
+    versions: media.versions
+      .filter((version) => !lead || version.kind === 'original')
+      .map((version) => ({
+        evidenceId: version.evidenceId,
+        versionId: version.versionId,
+        digest: version.digest,
+        mediaType: version.mediaType,
+      })),
+    mediaContext: media.context,
+    pinnedProposalIds: input.pinned_proposal_ids,
+    web: input.web ?? { public_pages: false, prefer_datasheets: false },
+  }
 }
 
 /**

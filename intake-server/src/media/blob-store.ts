@@ -55,6 +55,15 @@ export async function lockBlob(client: PoolClient, digest: string) {
   )
 }
 
+/** Takes the blob's lock only if it is free now; see `lockBlob`. */
+export async function tryLockBlob(client: PoolClient, digest: string) {
+  const rows = await client.query<{ locked: boolean }>(
+    'SELECT pg_try_advisory_xact_lock($1::bigint) AS locked',
+    [digestLockKey(digest).toString()],
+  )
+  return rows.rows[0]?.locked === true
+}
+
 async function syncDirectory(path: string) {
   const directory = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW)
   try {

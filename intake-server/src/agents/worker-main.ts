@@ -1,4 +1,5 @@
 import { DBOS, DBOSClient } from '@dbos-inc/dbos-sdk'
+import type { PoolClient } from 'pg'
 import { setTimeout as delay } from 'node:timers/promises'
 import { database } from '#/db/database.ts'
 import { devConfig, processingConfig } from '#/config.ts'
@@ -11,7 +12,8 @@ import { processingApplication } from '#/processing/queue.ts'
 import { nativeAgentHost, privateDirectory } from './environment.ts'
 import { nativeProfileId, nativeHandlerVersion } from './policy.ts'
 import { nativeAgentRunner } from './runner.ts'
-import { acquireAgentSupervisor } from './worker.ts'
+import { lockAgentSupervisor } from './worker.ts'
+import { heldCapacityChecked, requireFreeCapacity } from './held-capacity.ts'
 
 function localDatabaseUrl(value: string | undefined) {
   if (!value) {
@@ -36,7 +38,7 @@ async function main() {
   const host = nativeAgentHost(process.env)
   await privateDirectory(host.stateRoot)
   const db = database(localDatabaseUrl(process.env.INTAKE_AGENT_DATABASE_URL))
-  let owner: Awaited<ReturnType<typeof acquireAgentSupervisor>> | undefined
+  let owner: PoolClient | undefined
   let scheduler: DBOSClient | undefined
   let launched = false
   const shutdown = new AbortController()
@@ -45,11 +47,20 @@ async function main() {
     if (!(await compatibleSchema(db.pool))) {
       throw new Error('database_version_quarantined')
     }
-    owner = await acquireAgentSupervisor(db.pool, config)
+    const lock = await lockAgentSupervisor(db.pool, config)
+    owner = lock.owner
     owner.on('error', () => {
       ownerLost = true
       shutdown.abort()
     })
+    // This worker has no VM bridge, so only a turn that started nothing outside it is released.
+    const recovered = await requireFreeCapacity(owner, config, {
+      signal: shutdown.signal,
+    })
+    if (process.env.INTAKE_AGENT_RECOVER_ONLY === '1') {
+      process.stdout.write(heldCapacityChecked(recovered.length))
+      return
+    }
     const store = process.env.INTAKE_BLOB_ROOT
       ? await BlobStore.initialize(
           process.env.INTAKE_BLOB_ROOT,
@@ -73,7 +84,15 @@ async function main() {
           throw new Error('agent_worker_stopping')
         }
         return DBOS.runStep(
-          () => executeProcessingCommand(db.pool, config, DBOS.workflowID!, payload, runner),
+          () =>
+            executeProcessingCommand(
+              db.pool,
+              config,
+              DBOS.workflowID!,
+              payload,
+              runner,
+              lock.fence,
+            ),
           { name: 'originalNativeAgent', retriesAllowed: false },
         )
       },
@@ -87,7 +106,7 @@ async function main() {
       systemDatabasePoolSize: 1,
     })
     for (const signal of ['SIGINT', 'SIGTERM'] as const) {
-      process.once(signal, () => shutdown.abort())
+      process.on(signal, () => shutdown.abort())
     }
     process.stdout.write(
       'Bench Intake native agent supervisor ready. No inference starts until a queued command is claimed.\n',
@@ -120,6 +139,7 @@ main().catch((error: unknown) => {
     'local_agent_database_required',
     'database_version_quarantined',
     'agent_supervisor_lock_lost',
+    'agent_supervisor_writes_in_flight',
   ]
   let code =
     error instanceof Error && safeCodes.includes(error.message)

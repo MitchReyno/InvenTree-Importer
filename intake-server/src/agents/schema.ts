@@ -18,6 +18,9 @@ import type {
   SessionStateDto,
 } from '@invimport/contracts'
 
+/** What a held slot's turn may have started outside its worker; see migration 0039. */
+export type TurnChildKind = 'none' | 'host' | 'vm'
+
 type AgentStageSelectionsDto = AgentSettingsDto['stage_selections']
 
 const bytea = customType<{ data: Buffer }>({ dataType: () => 'bytea' })
@@ -149,6 +152,11 @@ export const agentSlots = pgTable(
     slotIndex: smallint('slot_index').notNull(),
     attemptId: uuid('attempt_id'),
     claimedAt: timestamp('claimed_at', { withTimezone: true }),
+    /** The turn holding the slot, and what it may have started outside its worker. */
+    turn: bigint('turn', { mode: 'bigint' }),
+    turnChild: text('turn_child').$type<TurnChildKind>(),
+    /** For a VM turn, the exact command sent to the guest. */
+    vmCommand: text('vm_command'),
   },
   (table) => [primaryKey({ columns: [table.actorId, table.slotIndex] })],
 )

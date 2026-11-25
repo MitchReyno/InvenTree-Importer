@@ -1,6 +1,7 @@
 import { processingProfiles } from './policy.ts'
 import { createSessionAttempt } from './session-attempts.ts'
 import { isSessionProfile } from './session-policy.ts'
+import type { SessionInputVersion } from './stage-policy.ts'
 import type { AgentSettingsDto, ProcessingInputDto } from '@invimport/contracts'
 import { readAgentSettings } from '#/agents/settings.ts'
 import { resolveSelection } from '#/agents/resolve-selection.ts'
@@ -31,6 +32,11 @@ export interface ProcessingConfig extends CaptureBinding {
   /** Separate private runner-channel root, never a target/provider credential or DTO. */
   channelSecret: string
   profileId?: SelectedProcessingProfile
+  /**
+   * Test-only: `local` seals `/7` for new `synthetic-session/1` leads and lead-less batches, as
+   * the local synthetic driver serves them. Nothing in configuration sets it.
+   */
+  stageInputs?: 'local'
   approvedSourceUrls?: readonly string[]
   sourceProtectedOrigins?: readonly string[]
 }
@@ -63,10 +69,13 @@ export async function createAttempt(
   {
     lockSettings = true,
     settings,
+    inputVersion,
   }: {
     lockSettings?: boolean
     /** Settings already read in this transaction, so several attempts seal the same read. */
     settings?: AgentSettingsDto
+    /** A session attempt's input version: the batch's lead's, or the configuration's. */
+    inputVersion?: SessionInputVersion
   } = {},
 ) {
   const selectedProfile = config.profileId ?? mediaProfileId
@@ -83,7 +92,7 @@ export async function createAttempt(
       number,
       media,
       parentId,
-      { pinnedProposalIds, lockSettings, settings },
+      { pinnedProposalIds, lockSettings, settings, inputVersion },
     )
   }
   const attemptId = randomUUID()

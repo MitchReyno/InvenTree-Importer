@@ -113,9 +113,10 @@ function resealedText(value: unknown) {
   }
 }
 
-export function unseal(bytes: Buffer, digest: Buffer): unknown {
+/** `maxBytes` raises the parser's default bound for a retained document known to be larger. */
+export function unseal(bytes: Buffer, digest: Buffer, maxBytes?: number): unknown {
   verifyBytes(bytes, digest)
-  const value: unknown = strictJson(bytes.toString('utf8'))
+  const value: unknown = strictJson(bytes.toString('utf8'), maxBytes)
   if (resealedText(value) !== bytes.toString('utf8')) {
     fail('noncanonical_retained_input')
   }
