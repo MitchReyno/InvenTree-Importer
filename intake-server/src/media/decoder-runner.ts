@@ -17,10 +17,14 @@ import {
 } from '@invimport/media-decoder/protocol'
 
 /** Requires an operator-built immutable image, never a browser-selected image/command. */
-export async function decodeIsolated(image: string, input: DecodeInput): Promise<DecodedMedia> {
+export async function decodeIsolated(
+  image: string,
+  input: DecodeInput,
+  dispatch: DispatchOptions = {},
+): Promise<DecodedMedia> {
   checkedInput(input)
   const header = { version: input.version, digest: input.digest, recipe: input.recipe ?? null }
-  return parseDecoderOutput(await runIsolated(image, header, input.bytes))
+  return parseDecoderOutput(await runIsolated(image, header, input.bytes, dispatch))
 }
 
 /** Renditions of one retained page PNG, rendered in the same bounded container. */

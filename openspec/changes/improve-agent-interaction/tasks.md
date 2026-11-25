@@ -555,8 +555,8 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
   - No demo video: the change is server behavior, and the card states it uses already exist.
 
 - [x] 15.1 Read the shared and intake-server code guidelines, the intake-server architecture and its retained media section, and PR-K's notes on both gaps.
-- [ ] 15.2 RED: PG tests:
-  - [ ] 15.2.1 A question picture whose photo is removed, swept and restored reads `preparing`, then renders and is served again; a removed photo's queued view is not rendered while it is removed; previews and unreferenced views of a removed version are still deleted.
-  - [ ] 15.2.2 An upload decode whose dispatcher answers busy throughout reads `queued` with no result, and the next worker run decodes it `ready`; a decode whose dispatcher fails after being busy still ends `interrupted`; two workers never take the same deferred command.
-- [ ] 15.3 GREEN: the sweep and claim changes, migration `0039`, the deferral claim and the media grant.
+- [x] 15.2 RED: PG tests:
+  - [x] 15.2.1 A question picture whose photo is removed, swept and restored reads `preparing`, then renders and is served again; a removed photo's queued view is not rendered while it is removed; previews and unreferenced views of a removed version are still deleted.
+  - [x] 15.2.2 An upload decode whose dispatcher answers busy throughout reads `queued` with no result, and the next worker run decodes it `ready`; a decode whose dispatcher fails after being busy still ends `interrupted`; two workers never take the same deferred command.
+- [x] 15.3 GREEN: the sweep and claim changes, migration `0039`, the deferral claim and the media grant.
 - [ ] 15.4 Update `intake-server/ARCHITECTURE.md`'s retained media and question figure sections and the deployment runbook's rollout steps. Run the checks.

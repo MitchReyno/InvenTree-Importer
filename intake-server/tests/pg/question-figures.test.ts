@@ -1531,7 +1531,7 @@ test('render claims honour leases, recover an expired one, fail after three atte
   })
 })
 
-test('the sweep deletes old previews, unreferenced views and a removed version’s renders, then collects their blobs', async () => {
+test('the sweep deletes old previews and unreferenced views, queues a removed version’s question views again, and collects their blobs', async () => {
   await withFigureSession(async (setup) => {
     const { fixture, tools, token, lot, photoFigure, pageTwoFigure, media, store, binding } = setup
     await fetched(setup, setup.photo)
@@ -1593,7 +1593,17 @@ test('the sweep deletes old previews, unreferenced views and a removed version�
       evidence_ids: [setup.document.evidence],
     })
     const first = await sweepFigureRenders(media.pool, store, binding)
-    assert.deepEqual(first, { deleted: 1, collected: 0 })
+    assert.deepEqual(first, { deleted: 0, requeued: 1, collected: 0 })
+    assert.deepEqual(
+      await figureRender(setup, asked.id!, 2),
+      { id: removedView.id, state: 'queued', attempts: 0, view: null, thumb: null },
+      'a question still shows it, so it waits for the photo to come back',
+    )
+    assert.deepEqual(
+      await sweepFigureRenders(media.pool, store, binding),
+      { deleted: 0, requeued: 0, collected: 0 },
+      'a view already back in the queue is left alone',
+    )
     const releaseRows = async () =>
       (
         await fixture.db.pool.query<{ digest: string }>(
@@ -1614,20 +1624,86 @@ test('the sweep deletes old previews, unreferenced views and a removed version�
     const later = () => new Date(Date.now() + 25 * 60 * 60 * 1000)
     const second = await sweepFigureRenders(media.pool, store, binding, later)
     const releasedDigests = new Set(released.flatMap((row) => row.digests))
-    assert.deepEqual(second, { deleted: 2, collected: releasedDigests.size })
+    assert.deepEqual(second, { deleted: 2, requeued: 0, collected: releasedDigests.size })
     assert.deepEqual(await releaseRows(), [])
     for (const sha of releasedDigests) {
       await assert.rejects(stat(blobPath(sha)), { code: 'ENOENT' })
     }
     const remaining = await fixture.db.pool.query<{ id: string }>(
-      'SELECT id FROM processing_figure_render',
+      'SELECT id FROM processing_figure_render ORDER BY id',
     )
     assert.deepEqual(
       remaining.rows.map((row) => row.id),
-      [kept.id],
+      [kept.id, removedView.id].sort(),
     )
     assert.ok((await stat(blobPath(kept.view!))).isFile())
     assert.ok((await stat(blobPath(kept.thumb!))).isFile())
+  })
+})
+
+test('a restored photo’s question picture renders again after the sweep cleared it', async () => {
+  await withFigureSession(async (setup) => {
+    const { fixture, tools, token, lot, photoFigure, media, store, binding } = setup
+    await fetched(setup, setup.photo)
+    const asked = accepted(await tools.ask(token, figureQuestion(lot, [photoFigure()])))
+    const questionId = asked.id!
+    const renderer = fakeRenderer()
+    assert.equal(await renderFigureStep(media.pool, store, binding, renderer), 'rendered')
+    const first = (await figureRender(setup, questionId, 1))!
+    const editor = mediaEditor(fixture.api.pool, fixture.config, setup.batchId)
+    const figureState = async () => {
+      const read = await fixture.http(`/batches/${setup.batchId}/processing`)
+      assert.equal(read.status, 200)
+      const figures = findById(read.value, questionId)?.figures as ProcessingQuestionFigureDto[]
+      return figures[0]!.state
+    }
+    const route = `${fixture.config.origin}/api/v1/batches/${setup.batchId}/processing/sessions/${setup.session.job}/questions/${questionId}/figures/1/view`
+    const served = async () => {
+      const response = await fetch(route, { headers: { origin: fixture.config.origin } })
+      return { status: response.status, bytes: Buffer.from(await response.arrayBuffer()) }
+    }
+
+    await editor.applied({ kind: 'remove', evidence_ids: [setup.photo.evidence] })
+    assert.deepEqual(await sweepFigureRenders(media.pool, store, binding), {
+      deleted: 0,
+      requeued: 1,
+      collected: 0,
+    })
+    assert.equal(await figureState(), 'removed')
+    assert.equal(
+      await renderFigureStep(media.pool, store, binding, renderer),
+      'idle',
+      'nothing renders a removed photo',
+    )
+    assert.equal(renderer.calls.length, 1)
+
+    await editor.applied({ kind: 'restore', evidence_ids: [setup.photo.evidence] })
+    assert.equal(await figureState(), 'preparing')
+    const waiting = await served()
+    assert.equal(waiting.status, 409)
+    assert.match(waiting.bytes.toString('utf8'), /figure_preparing/)
+
+    assert.equal(await renderFigureStep(media.pool, store, binding, renderer), 'rendered')
+    assert.equal(await figureState(), 'ready')
+    const again = (await figureRender(setup, questionId, 1))!
+    assert.deepEqual([again.id, again.state, again.attempts], [first.id, 'ready', 1])
+    const view = await served()
+    assert.equal(view.status, 200)
+    assert.equal(digest(view.bytes), again.view)
+
+    // The blob released while the photo was removed is referenced again, so a sweep a day
+    // later clears its release and keeps the file the restored picture serves.
+    const later = () => new Date(Date.now() + 25 * 60 * 60 * 1000)
+    const old = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
+    for (const sha of [again.view!, again.thumb!]) {
+      await utimes(join(setup.root, 'blobs', 'objects', sha.slice(0, 2), sha), old, old)
+    }
+    assert.deepEqual(await sweepFigureRenders(media.pool, store, binding, later), {
+      deleted: 0,
+      requeued: 0,
+      collected: 0,
+    })
+    assert.equal((await served()).status, 200)
   })
 })
 
@@ -1969,8 +2045,8 @@ test('the read shows each figure’s state, and the figure route serves it withi
       { statusCode: 404 },
     )
 
-    // A view the sweep deleted, as for a photo removed and then restored, isn't made again: the
-    // read and the route both say it couldn't be made.
+    // A view whose request is gone keeps no recipe to render from: the read and the route both
+    // say it couldn't be made.
     await fixture.db.pool.query('DELETE FROM processing_figure_render WHERE id=$1', [ready.id])
     const reread = await fixture.http(`/batches/${setup.batchId}/processing`)
     const after = findById(reread.value, questionId)?.figures as ProcessingQuestionFigureDto[]

@@ -188,8 +188,9 @@ export interface ViewRenderInput {
 export type RenderView = (input: ViewRenderInput) => Promise<RenderedView>
 
 /**
- * Claims the oldest queued render in the consumer's scope whose lease is free or expired; a
- * request that has used its attempts and lost its lease settles as failed instead.
+ * Claims the oldest queued render in the consumer's scope whose lease is free or expired and whose
+ * photo isn't removed; a request that has used its attempts and lost its lease settles as failed
+ * instead.
  */
 type RenderClaim = { kind: 'claimed'; render: ClaimedRender } | { kind: 'exhausted' } | null
 
@@ -210,8 +211,10 @@ async function claimRender(pool: Pool, binding: CaptureBinding, now: Date): Prom
          r.marks_digest, r.attempts
        FROM public.processing_figure_render r
        JOIN public.capture_batch b ON b.id=r.batch_id
+       JOIN public.media_version v ON v.batch_id=r.batch_id AND v.id=r.version_id
        WHERE r.state='queued' AND b.actor_id=$1 AND b.target_id=$2 AND b.target_context_id=$3
          AND (r.lease_expires_at IS NULL OR r.lease_expires_at<=$4)
+         AND NOT ${versionRemovedSql('v')}
        ORDER BY (r.purpose='preview') DESC, r.created_at, r.id
        LIMIT 1
        FOR UPDATE OF r SKIP LOCKED`,
@@ -480,13 +483,53 @@ async function releaseBlobs(client: PoolClient, digests: (Buffer | string | null
 
 export interface SweepOutcome {
   deleted: number
+  /** Removed photos' question views returned to the queue for when the photo is restored. */
+  requeued: number
   collected: number
 }
 
+/** SQL true when a stored question shows the view render aliased `r`. */
+const VIEW_REFERENCED = `EXISTS (
+  SELECT 1 FROM public.processing_question_figure f WHERE f.recipe_digest=r.recipe_digest)`
+
 /**
- * Deletes preview renders older than a day, view renders no question references, and every
- * render of a removed version, releasing their blobs; then collects released blobs that are a
- * day old and that nothing else references.
+ * Returns each view a question shows of a removed photo to the queue, with no outputs, lease or
+ * spent attempts, and gives back its blobs. The claim skips it while the photo is removed, so it
+ * renders again only once the photo is restored. A view already waiting so is left alone.
+ */
+async function requeueRemovedViews(client: PoolClient, binding: CaptureBinding) {
+  const views = await client.query<{
+    id: string
+    view_digest: Buffer | null
+    thumb_digest: Buffer | null
+  }>(
+    `SELECT r.id, r.view_digest, r.thumb_digest
+     FROM public.processing_figure_render r
+     JOIN public.capture_batch b ON b.id=r.batch_id
+     JOIN public.media_version v ON v.batch_id=r.batch_id AND v.id=r.version_id
+     WHERE b.actor_id=$1 AND b.target_id=$2 AND b.target_context_id=$3
+       AND r.purpose='view' AND ${VIEW_REFERENCED} AND ${versionRemovedSql('v')}
+       AND (r.state<>'queued' OR r.attempts>0 OR r.lease_owner IS NOT NULL)
+     FOR UPDATE OF r`,
+    [binding.actorId, binding.targetId, binding.targetContextId],
+  )
+  if (!views.rowCount) {
+    return views.rows
+  }
+  await client.query(
+    `UPDATE public.processing_figure_render
+     SET state='queued', attempts=0, lease_owner=NULL, lease_expires_at=NULL, settled_at=NULL,
+       view_digest=NULL, view_width=NULL, view_height=NULL, thumb_digest=NULL
+     WHERE id = ANY($1::uuid[])`,
+    [views.rows.map((view) => view.id)],
+  )
+  return views.rows
+}
+
+/**
+ * Deletes preview renders older than a day, view renders no question references, and a removed
+ * version's previews, and returns a removed version's question views to the queue, releasing
+ * their blobs; then collects released blobs that are a day old and that nothing else references.
  */
 export async function sweepFigureRenders(
   pool: Pool,
@@ -495,8 +538,9 @@ export async function sweepFigureRenders(
   clock: () => Date = () => new Date(),
 ): Promise<SweepOutcome> {
   const now = clock()
-  const deleted = await transaction(pool, async (client) => {
+  const swept = await transaction(pool, async (client) => {
     await prepareMediaTransaction(client)
+    const requeued = await requeueRemovedViews(client, binding)
     const removed = await client.query<{
       view_digest: Buffer | null
       thumb_digest: Buffer | null
@@ -507,11 +551,10 @@ export async function sweepFigureRenders(
        WHERE b.id=r.batch_id AND b.actor_id=$1 AND b.target_id=$2 AND b.target_context_id=$3
          AND (
            (r.purpose='preview' AND r.requested_at < $4)
-           OR (r.purpose='view' AND r.created_at < $4 AND NOT EXISTS (
-             SELECT 1 FROM public.processing_question_figure f WHERE f.recipe_digest=r.recipe_digest))
-           OR EXISTS (
+           OR (r.purpose='view' AND r.created_at < $4 AND NOT ${VIEW_REFERENCED})
+           OR ((r.purpose='preview' OR NOT ${VIEW_REFERENCED}) AND EXISTS (
              SELECT 1 FROM public.media_version v
-             WHERE v.batch_id=r.batch_id AND v.id=r.version_id AND ${versionRemovedSql('v')})
+             WHERE v.batch_id=r.batch_id AND v.id=r.version_id AND ${versionRemovedSql('v')}))
          )
        RETURNING r.view_digest, r.thumb_digest, r.preview_digest`,
       [
@@ -521,11 +564,11 @@ export async function sweepFigureRenders(
         new Date(now.getTime() - PREVIEW_RETENTION_MS),
       ],
     )
-    await releaseBlobs(
-      client,
-      removed.rows.flatMap((row) => [row.view_digest, row.thumb_digest, row.preview_digest]),
-    )
-    return removed.rowCount ?? 0
+    await releaseBlobs(client, [
+      ...removed.rows.flatMap((row) => [row.view_digest, row.thumb_digest, row.preview_digest]),
+      ...requeued.flatMap((row) => [row.view_digest, row.thumb_digest]),
+    ])
+    return { deleted: removed.rowCount ?? 0, requeued: requeued.length }
   })
   const due = await pool.query<ReleasedBlob>(
     `SELECT encode(digest,'hex') AS digest, released_at::text AS released
@@ -539,7 +582,7 @@ export async function sweepFigureRenders(
       collected += 1
     }
   }
-  return { deleted, collected }
+  return { ...swept, collected }
 }
 
 export interface ReleasedBlob {

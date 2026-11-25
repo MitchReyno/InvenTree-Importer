@@ -237,7 +237,7 @@ export function mediaContent(pool: Pool, binding: CaptureBinding, store: BlobSto
         if (found!.state === 'queued') {
           fail('figure_preparing', 409)
         }
-        // A view the sweep deleted, as for a photo removed and later restored, isn't made again.
+        // A view whose request is gone keeps no recipe to render from, so it is not made again.
         if (found!.state === 'failed' || found!.state === null) {
           fail('figure_render_failed', 409)
         }

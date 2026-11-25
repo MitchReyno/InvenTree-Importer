@@ -11,7 +11,7 @@ export type FigureStates = Map<string, Map<number, FigureState>>
 
 /**
  * How each of a job's question figures can be shown now: removed when its photo was removed from
- * Capture, otherwise as its view render stands. A render the sweep has gone reads as failed.
+ * Capture, otherwise as its view render stands. A view whose render is gone reads as failed.
  */
 export async function questionFigureStates(
   client: PoolClient,
