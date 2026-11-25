@@ -1038,6 +1038,8 @@ test('an observation waiting on the row lock compares with the generation commit
       'rev-x',
       time.now(),
     )
+    // Handled from the start, so a rejection while the test polls isn't unhandled; awaited below.
+    observing.catch(() => undefined)
     let blocked = false
     for (let i = 0; i < 150 && !blocked; i++) {
       const waiting = await fixture.api.pool.query<{ n: number }>(
@@ -1059,10 +1061,14 @@ test('an observation waiting on the row lock compares with the generation commit
     // rev-x is what the committed row says, so seeing it again is no sign-in change.
     assert.equal(await observing, false)
   } finally {
-    if (!committed) {
-      await competitor.query('ROLLBACK').catch(() => undefined)
-    }
-    competitor.release()
+    // A client whose rollback failed may still hold the lock, so it is discarded.
+    const released =
+      committed ||
+      (await competitor.query('ROLLBACK').then(
+        () => true,
+        () => false,
+      ))
+    competitor.release(!released)
     await observing?.catch(() => undefined)
   }
   const row = await claudeRow(fixture)
@@ -1075,18 +1081,14 @@ test('overlapping admissions of one new CLI version write one refresh request', 
   t.after(() => fixture.dispose())
   await claudeOnly(fixture)
   const { reader } = fakeReader('rev-a')
-  // Counts the worker's reads of the rows: a report that decides for itself reads them first.
+  // Counts every query the worker sends; once its round is done it sends none of its own, and a
+  // report that decides for itself starts by reading the rows.
   let rowReads = 0
   const pool = new Proxy(fixture.runner.pool, {
     get(target, property, receiver) {
       if (property === 'query') {
         return (text: unknown, ...rest: unknown[]) => {
-          if (
-            typeof text === 'string' &&
-            text.trimStart().startsWith('SELECT provider, authentication')
-          ) {
-            rowReads++
-          }
+          rowReads++
           return (target.query as (...args: unknown[]) => unknown).call(target, text, ...rest)
         }
       }
@@ -1112,6 +1114,14 @@ test('overlapping admissions of one new CLI version write one refresh request', 
   const holder = await fixture.db.pool.connect()
   let committed = false
   const reports: Promise<void>[] = []
+
+  /** Starts a report, handled at once so a rejection while the test polls isn't unhandled. */
+  const report = () => {
+    const reported = catalog.cliVersionReported('claude', 'subscription', '2.1.320')
+    reported.catch(() => undefined)
+    reports.push(reported)
+  }
+
   try {
     await holder.query('BEGIN')
     await holder.query(`SELECT 1 FROM agent_model_catalog WHERE provider='claude' FOR UPDATE`)
@@ -1125,7 +1135,7 @@ test('overlapping admissions of one new CLI version write one refresh request', 
         )
       ).rows[0].n
     // The first report's write is held at the row lock before the others arrive.
-    reports.push(catalog.cliVersionReported('claude', 'subscription', '2.1.320'))
+    report()
     for (let i = 0; i < 150 && (await blockedWrites()) === 0; i++) {
       await new Promise((resolve) => setTimeout(resolve, 20))
     }
@@ -1133,17 +1143,20 @@ test('overlapping admissions of one new CLI version write one refresh request', 
     // A report starts reading the rows as it is called, so a follower that decided for itself,
     // rather than joining the request in flight, shows here at once.
     const readsBefore = rowReads
-    reports.push(catalog.cliVersionReported('claude', 'subscription', '2.1.320'))
-    reports.push(catalog.cliVersionReported('claude', 'subscription', '2.1.320'))
+    report()
+    report()
     assert.equal(rowReads, readsBefore)
     await holder.query('COMMIT')
     committed = true
     await Promise.all(reports)
   } finally {
-    if (!committed) {
-      await holder.query('ROLLBACK').catch(() => undefined)
-    }
-    holder.release()
+    const released =
+      committed ||
+      (await holder.query('ROLLBACK').then(
+        () => true,
+        () => false,
+      ))
+    holder.release(!released)
     await Promise.allSettled(reports)
   }
   assert.equal(BigInt(await seq()) - before, 1n)
