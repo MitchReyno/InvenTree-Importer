@@ -99916,6 +99916,18 @@
               }
             ]
           },
+          "authentication": {
+            "anyOf": [
+              {
+                "const": "api_key",
+                "type": "string"
+              },
+              {
+                "const": "subscription",
+                "type": "string"
+              }
+            ]
+          },
           "invalidate": {
             "type": "boolean"
           }

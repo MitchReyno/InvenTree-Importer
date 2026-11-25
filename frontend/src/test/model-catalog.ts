@@ -3,6 +3,7 @@ import {
   type AgentCatalogModelDto,
   type AgentModelCatalogDto,
   type AgentProviderCatalogDto,
+  type AgentSettingsDto,
 } from '@invimport/contracts'
 
 const CLAUDE_LEVELS = ['low', 'medium', 'high', 'xhigh', 'max']
@@ -105,10 +106,16 @@ export function modelCatalog(fields: Partial<AgentModelCatalogDto> = {}): AgentM
   }
 }
 
-/** Both providers' built-in lists, as a server with no read stored answers. */
-export function builtinModelCatalog(): AgentModelCatalogDto {
+/** Both providers' built-in lists for their saved sign-in methods, as a server with no read stored answers. */
+export function builtinModelCatalog(
+  settings?: Pick<AgentSettingsDto, 'providers'>,
+): AgentModelCatalogDto {
   return {
-    claude: builtinCatalog([...BUILT_IN_MODEL_CATALOG.claude]),
-    codex: builtinCatalog([...BUILT_IN_MODEL_CATALOG.codex]),
+    claude: builtinCatalog([...BUILT_IN_MODEL_CATALOG.claude], {
+      authentication: settings?.providers.claude.authentication ?? 'subscription',
+    }),
+    codex: builtinCatalog([...BUILT_IN_MODEL_CATALOG.codex], {
+      authentication: settings?.providers.codex.authentication ?? 'subscription',
+    }),
   }
 }

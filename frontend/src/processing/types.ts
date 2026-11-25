@@ -1,4 +1,10 @@
-import type { BatchActivityDto, AgentModelCatalogDto, AgentSettingsDto } from '@invimport/contracts'
+import type {
+  AgentModelCatalogDto,
+  AgentModelCatalogRefreshDto,
+  AgentModelCatalogRefreshReceiptDto,
+  AgentSettingsDto,
+  BatchActivityDto,
+} from '@invimport/contracts'
 import type { SessionListRead } from '#/agents/session-list'
 import type {
   SessionFailureDto,
@@ -63,4 +69,8 @@ export type AgentsRead = {
   deliverInstructions?: (batchId: string) => Promise<{ sessions: number; woken: number }>
   /** Each provider's model list, for a step header's warning; absent where this setup has none. */
   modelCatalog?: () => Promise<AgentModelCatalogDto>
+  /** Asks for a read; Processing resends a sign-in change Settings couldn't get acknowledged. */
+  refreshModelCatalog?: (
+    input: AgentModelCatalogRefreshDto,
+  ) => Promise<AgentModelCatalogRefreshReceiptDto>
 }

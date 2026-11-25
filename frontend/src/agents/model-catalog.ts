@@ -73,18 +73,27 @@ export function catalogViews(
   current: boolean,
   authentication?: Record<AgentProviderId, AgentProviderCatalogDto['authentication']>,
 ): CatalogViews {
-  const sameSignIn = (provider: AgentProviderId) =>
-    authentication === undefined || catalog?.[provider].authentication === authentication[provider]
-
-  return {
-    claude: providerView('claude', catalog?.claude, current && sameSignIn('claude')),
-    codex: providerView('codex', catalog?.codex, current && sameSignIn('codex')),
+  const view = (provider: AgentProviderId) => {
+    const read = catalog?.[provider]
+    const otherSignIn =
+      read !== undefined &&
+      authentication !== undefined &&
+      read.authentication !== authentication[provider]
+    // A list for another sign-in method offers nothing until the saved one's is read.
+    return otherSignIn ? awaiting(provider) : providerView(provider, read, current)
   }
+
+  return { claude: view('claude'), codex: view('codex') }
+}
+
+/** A provider whose list for its sign-in method hasn't been read yet: the first read's state. */
+function awaiting(provider: AgentProviderId): ProviderCatalogView {
+  return { ...unavailable(provider), state: 'reading', waiting: true }
 }
 
 /**
- * One provider's view. `current` is false when the read failed, couldn't be sent or answered for
- * another authentication than the one saved, so the list raises no warning and decides nothing.
+ * One provider's view. `current` is false when the browser's read failed or couldn't be sent, so
+ * the list raises no warning and decides nothing.
  */
 function providerView(
   provider: AgentProviderId,

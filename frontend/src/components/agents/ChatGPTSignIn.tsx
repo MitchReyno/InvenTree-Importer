@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Button } from '#/components/ui'
 import { ChatGPTSignInDialog } from './ChatGPTSignInDialog'
 
@@ -17,16 +17,27 @@ export function ChatGPTSignIn({ onConfirmed, onChanged }: Props) {
   // Which opening of the dialog is shown, so a late confirmation closes only its own.
   const [opening, setOpening] = useState<number | null>(null)
   const [openings, setOpenings] = useState(0)
+  // Account changes reported from the dialog; a newer one keeps it open over an older confirmation.
+  const changes = useRef(0)
 
   function open() {
     setOpenings(openings + 1)
     setOpening(openings + 1)
   }
 
+  function changed() {
+    changes.current += 1
+    onChanged()
+  }
+
   function confirmed(of: number) {
-    void Promise.resolve(onConfirmed()).finally(() =>
-      setOpening((shown) => (shown === of ? null : shown)),
-    )
+    changes.current += 1
+    const mine = changes.current
+    void Promise.resolve(onConfirmed()).finally(() => {
+      if (changes.current === mine) {
+        setOpening((shown) => (shown === of ? null : shown))
+      }
+    })
   }
 
   return (
@@ -35,7 +46,7 @@ export function ChatGPTSignIn({ onConfirmed, onChanged }: Props) {
       {opening !== null && (
         <ChatGPTSignInDialog
           key={opening}
-          onChanged={onChanged}
+          onChanged={changed}
           onConfirmed={() => confirmed(opening)}
           onClose={() => setOpening(null)}
         />

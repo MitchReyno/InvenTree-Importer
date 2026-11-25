@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import type { AgentSettingsDto } from '@invimport/contracts'
+import type { AgentProviderId, AgentSettingsDto } from '@invimport/contracts'
 import type { agentsClient } from '@invimport/contracts/client'
 import { serverQueryKey } from '#/queries/scope'
 import { useFreshRead } from '#/queries/useFreshRead'
@@ -70,6 +70,8 @@ export function AgentsSection({
   const providerStatus = useProviderStatus(client)
   // Shared with Processing; a sign-in change marks it stale before the dialog confirms.
   const catalog = useModelCatalog(client)
+  // Sign-in changes per provider, so only the newest one's confirmation is shown.
+  const signInChanges = useRef({ claude: 0, codex: 0 })
   const queryClient = useQueryClient()
   // Says whether this profile's sessions have web access; until it answers, the form stays usable.
   const readiness = useReadiness(true)
@@ -138,6 +140,27 @@ export function AgentsSection({
     scrollToSubsection(subsection)
     focused.current = subsection
   }, [subsection, ready, routeFromScroll, beforeScroll])
+
+  /**
+   * A sign-in change the VM confirmed: the provider's subscription list is marked as from an
+   * earlier sign-in first, then the card shows the change. A newer change made meanwhile wins, so
+   * an older continuation never publishes over it; a late answer to a closed dialog never
+   * displaces a newer one.
+   */
+  async function afterSignInChange(
+    provider: AgentProviderId,
+    { late = false }: { late?: boolean },
+    publish: () => void,
+  ) {
+    if (!late) {
+      signInChanges.current[provider] += 1
+    }
+    const mine = signInChanges.current[provider]
+    await catalog.signInChanged(provider, 'subscription')
+    if (signInChanges.current[provider] === mine) {
+      publish()
+    }
+  }
 
   /** Reads a confirmed save changes: Start fresh's eligibility, and which list each sign-in has. */
   function readAfterSave() {
@@ -242,22 +265,23 @@ export function AgentsSection({
           credentials={{
             claude: (
               <PersonalClaudeCredential
-                onChanged={async (configured, late) => {
-                  await catalog.signInChanged('claude')
-                  providerStatus.signInChanged('claude', claudeState(configured), { late })
-                }}
+                onChanged={(configured, late) =>
+                  afterSignInChange('claude', { late }, () =>
+                    providerStatus.signInChanged('claude', claudeState(configured), { late }),
+                  )
+                }
               />
             ),
             codex: (
               <ChatGPTSignIn
-                onConfirmed={async () => {
-                  await catalog.signInChanged('codex')
-                  providerStatus.signInChanged('codex', 'signed_in')
-                }}
-                onChanged={() => {
-                  void catalog.signInChanged('codex')
-                  providerStatus.signInChanged('codex')
-                }}
+                onConfirmed={() =>
+                  afterSignInChange('codex', {}, () =>
+                    providerStatus.signInChanged('codex', 'signed_in'),
+                  )
+                }
+                onChanged={() =>
+                  void afterSignInChange('codex', {}, () => providerStatus.signInChanged('codex'))
+                }
               />
             ),
           }}

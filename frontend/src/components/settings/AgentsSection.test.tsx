@@ -63,7 +63,7 @@ const initial: AgentSettingsDto = agentSettings('7', {
 })
 
 function client() {
-  return {
+  const api = {
     settings: vi.fn(async () => initial),
     saveSettings: vi.fn(
       async ({
@@ -89,8 +89,13 @@ function client() {
     providerStatus: vi.fn<(options?: { refresh?: boolean }) => Promise<ProviderStatusDto>>(
       async () => providerStatus(),
     ),
-    modelCatalog: vi.fn(async () => builtinModelCatalog()),
+    // The server answers each provider's list for its saved sign-in method.
+    modelCatalog: vi.fn(async () => {
+      const saved = api.saveSettings.mock.results.at(-1) ?? api.settings.mock.results.at(-1)
+      return builtinModelCatalog(await (saved?.value ?? initial))
+    }),
   }
+  return api
 }
 
 /** The read-only status: a saved Claude token and Codex signed out, unless a test says otherwise. */
@@ -811,7 +816,8 @@ test('each provider card saves its switch, sign-in and default model as they cha
   fireEvent.click(within(codex).getByRole('button', { name: 'API key' }))
   expect(within(codex).getByText('OPENAI_API_KEY')).toBeVisible()
   expect(screen.queryByLabelText('API key')).not.toBeInTheDocument()
-  pick(screen.getByRole('combobox', { name: 'Research' }), 'GPT-6.1-Sol gpt-6.1-sol')
+  // Codex's API-key list isn't read until the switch saves, so the ID is typed.
+  pick(screen.getByRole('combobox', { name: 'Research' }), 'Use “gpt-6.1-sol” with Codex', 'gpt-6.1-sol')
   await autosaved(() =>
     expect(api.saveSettings).toHaveBeenCalledWith(
       agentSettingsUpdate(

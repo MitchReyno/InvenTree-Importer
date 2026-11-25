@@ -247,7 +247,9 @@ export function ProcessingWorkspace({
   })
   const agentStep = isAgentStage(view) ? view : undefined
   // A step page warns when its model is no longer offered, from the same list Settings shows.
-  const catalogSource = agents?.modelCatalog ? { modelCatalog: agents.modelCatalog } : undefined
+  const catalogSource = agents?.modelCatalog
+    ? { modelCatalog: agents.modelCatalog, refreshModelCatalog: agents.refreshModelCatalog }
+    : undefined
   const catalog = useModelCatalog(catalogSource, { enabled: agentStep !== undefined })
   const agentSettings = useFreshRead({
     queryKey: serverQueryKey(scope, 'agent-settings'),

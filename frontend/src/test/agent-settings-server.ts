@@ -91,7 +91,8 @@ export function agentSettingsServer(initial: AgentSettingsDto) {
     pause: vi.fn(),
     pauseAll: vi.fn(async (paused: boolean) => ({ paused, batch_ids: [] })),
     deliverInstructions: vi.fn(),
-    modelCatalog: vi.fn(async () => builtinModelCatalog()),
+    // The server answers each provider's list for its saved sign-in method.
+    modelCatalog: vi.fn(async () => builtinModelCatalog(saved)),
   }
 
   return {

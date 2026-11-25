@@ -50,22 +50,38 @@ function readInterval(query: Query<CatalogRead>) {
 
 /**
  * The provider's list as from an earlier sign-in until a read under the new one lands, or as
- * reading when there was none to mark.
+ * reading when there was none to mark. Only a list for the sign-in method that changed is marked.
  */
-function markedStale(catalog: AgentModelCatalogDto, provider: AgentProviderId) {
+function markedStale(
+  catalog: AgentModelCatalogDto,
+  provider: AgentProviderId,
+  authentication: Authentication,
+) {
   const listed = catalog[provider]
+  if (listed.authentication !== authentication) {
+    return catalog
+  }
   const state = listed.builtin ? 'reading' : 'stale_sign_in'
 
   return { ...catalog, [provider]: { ...listed, state } }
 }
 
-/** Providers whose sign-in changed but whose invalidation the server hasn't acknowledged yet. */
-type Unacknowledged = readonly AgentProviderId[]
+type Authentication = AgentSelectionDto['authentication']
 
-const NONE: Unacknowledged = []
+/** A sign-in change whose invalidation the server hasn't acknowledged yet; `version` orders them. */
+type Unacknowledged = { version: number; authentication: Authentication }
+
+type PendingChanges = Partial<Record<AgentProviderId, Unacknowledged>>
+
+const NONE: PendingChanges = {}
+
+const PROVIDERS = ['claude', 'codex'] as const satisfies readonly AgentProviderId[]
+
+/** Orders sign-in changes across every view of the catalogue in this tab. */
+let changeVersion = 0
 
 /** Each provider's current authentication, so a list read for another one is never trusted. */
-export type CatalogAuthentication = Record<AgentProviderId, AgentSelectionDto['authentication']>
+export type CatalogAuthentication = Record<AgentProviderId, Authentication>
 
 /**
  * Each provider's model list, shared by Settings › Agents and Processing. It is read each second
@@ -91,16 +107,38 @@ export function useModelCatalog(
     gcTime: Infinity,
   })
 
-  function setPending(update: (pending: Unacknowledged) => Unacknowledged) {
-    queryClient.setQueryData<Unacknowledged>(pendingKey, (pending = NONE) => update(pending))
+  function pendingNow() {
+    return queryClient.getQueryData<PendingChanges>(pendingKey) ?? NONE
   }
 
-  /** Sends each unacknowledged invalidation again; an acknowledged one is the server's to mark. */
-  async function sendPending() {
-    for (const provider of queryClient.getQueryData<Unacknowledged>(pendingKey) ?? NONE) {
+  /** Forgets a provider's change, unless a newer one has replaced it meanwhile. */
+  function settle(provider: AgentProviderId, version: number) {
+    queryClient.setQueryData<PendingChanges>(pendingKey, (pending = NONE) => {
+      if (pending[provider]?.version !== version) {
+        return pending
+      }
+      const { [provider]: _settled, ...rest } = pending
+      return rest
+    })
+  }
+
+  /**
+   * Sends each unacknowledged invalidation again. Only an answer settles one: a view that can't
+   * send it leaves it for one that can.
+   */
+  async function sendPending(signal: AbortSignal) {
+    const send = client?.refreshModelCatalog
+    if (!send) {
+      return
+    }
+    for (const provider of PROVIDERS) {
+      const change = pendingNow()[provider]
+      if (!change || signal.aborted) {
+        continue
+      }
       try {
-        await client?.refreshModelCatalog?.({ provider, invalidate: true })
-        setPending((pending) => pending.filter((item) => item !== provider))
+        await send({ provider, authentication: change.authentication, invalidate: true })
+        settle(provider, change.version)
       } catch {
         // Still unacknowledged: the list stays marked, and the next read sends it again.
       }
@@ -109,16 +147,32 @@ export function useModelCatalog(
 
   /**
    * A read of the list. A provider whose invalidation is still unacknowledged stays marked as
-   * from an earlier sign-in until the server marks it so itself or acknowledges the request.
+   * from an earlier sign-in until the server acknowledges it, or a read sent after it finds the
+   * server has marked that list itself. A cancelled read changes nothing.
    */
-  async function readCatalog() {
-    await sendPending()
+  async function readCatalog({ signal }: { signal: AbortSignal }) {
+    await sendPending(signal)
+    const sentAfter = pendingNow()
     const answered = await client!.modelCatalog()
-    const pending = (queryClient.getQueryData<Unacknowledged>(pendingKey) ?? NONE).filter(
-      (provider) => answered[provider].state !== 'stale_sign_in',
-    )
-    setPending(() => pending)
-    const catalog = pending.reduce(markedStale, answered)
+    if (signal.aborted) {
+      throw new Error('model_catalog_read_cancelled')
+    }
+    for (const provider of PROVIDERS) {
+      const change = sentAfter[provider]
+      const listed = answered[provider]
+      const markedByServer =
+        listed.authentication === change?.authentication && listed.state === 'stale_sign_in'
+      if (change && markedByServer) {
+        settle(provider, change.version)
+      }
+    }
+    let catalog = answered
+    for (const provider of PROVIDERS) {
+      const change = pendingNow()[provider]
+      if (change) {
+        catalog = markedStale(catalog, provider, change.authentication)
+      }
+    }
 
     return withSchedule(catalog, queryClient.getQueryData<CatalogRead>(queryKey))
   }
@@ -144,16 +198,26 @@ export function useModelCatalog(
   }
 
   /**
-   * A confirmed sign-in change: once the server has marked the list as from an earlier sign-in,
-   * this view marks it too, before the read it starts, so it never shows the old list as current.
-   * A refused request keeps the list marked here, and is sent again with each read, until the
-   * server acknowledges it or marks the list itself.
+   * A confirmed change to the provider's `authentication` sign-in: once the server has marked
+   * that list as from an earlier sign-in, this view marks it too, before the read it starts, so it
+   * never shows the old list as current. A refused request keeps the list marked here, and is sent
+   * again before each read, until the server acknowledges it or marks the list itself.
    */
-  async function signInChanged(provider: AgentProviderId) {
+  async function signInChanged(provider: AgentProviderId, authentication: Authentication) {
+    changeVersion += 1
+    const version = changeVersion
     try {
-      await client?.refreshModelCatalog?.({ provider, invalidate: true })
+      await client?.refreshModelCatalog?.({ provider, authentication, invalidate: true })
+      // Acknowledged: it replaces an older change still waiting, never a newer one.
+      const waiting = pendingNow()[provider]
+      if (waiting && waiting.version < version) {
+        settle(provider, waiting.version)
+      }
     } catch {
-      setPending((pending) => (pending.includes(provider) ? pending : [...pending, provider]))
+      queryClient.setQueryData<PendingChanges>(pendingKey, (pending = NONE) => ({
+        ...pending,
+        [provider]: { version, authentication },
+      }))
     }
     // A read sent before the change may still answer with the old list as current.
     await queryClient.cancelQueries({ queryKey })
@@ -161,7 +225,7 @@ export function useModelCatalog(
       queryKey,
       (read) =>
         read && {
-          catalog: markedStale(read.catalog, provider),
+          catalog: markedStale(read.catalog, provider, authentication),
           settlingSince: read.settlingSince ?? Date.now(),
         },
     )
@@ -169,7 +233,7 @@ export function useModelCatalog(
   }
 
   return {
-    /** Each provider's list; one read for another authentication than `authentication` names never warns. */
+    /** Each provider's list; one answered for another sign-in method than `authentication` waits. */
     viewsFor: (authentication?: CatalogAuthentication) =>
       catalogViews(query.data?.catalog, current, authentication),
     refresh,

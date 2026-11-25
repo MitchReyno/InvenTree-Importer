@@ -110,7 +110,7 @@ test('a sign-in change marks the list stale once the server acknowledges it, bef
   client.refreshModelCatalog.mockReturnValue(ack.promise)
   client.modelCatalog.mockReturnValue(held.promise)
   let settled = false
-  const changing = result.current.signInChanged('claude').then(() => {
+  const changing = result.current.signInChanged('claude', 'subscription').then(() => {
     settled = true
   })
   await advance(0)
@@ -120,7 +120,11 @@ test('a sign-in change marks the list stale once the server acknowledges it, bef
   await advance(0)
   await act(() => changing)
   expect(settled).toBe(true)
-  expect(client.refreshModelCatalog).toHaveBeenCalledWith({ provider: 'claude', invalidate: true })
+  expect(client.refreshModelCatalog).toHaveBeenCalledWith({
+    provider: 'claude',
+    authentication: 'subscription',
+    invalidate: true,
+  })
   // The read it started is still held, and the view already shows the list as stale.
   expect(client.modelCatalog).toHaveBeenCalledTimes(2)
   expect(result.current.viewsFor().claude.state).toBe('stale_sign_in')
@@ -160,7 +164,7 @@ test('a refused invalidation keeps the list marked and is sent again until the s
   await advance(0)
   client.refreshModelCatalog.mockRejectedValueOnce(new Error('offline'))
   client.refreshModelCatalog.mockRejectedValueOnce(new Error('offline'))
-  await act(() => result.current.signInChanged('claude'))
+  await act(() => result.current.signInChanged('claude', 'subscription'))
   await advance(0)
   // The server still answers the old list as current; this view keeps it marked.
   expect(result.current.viewsFor().claude.state).toBe('stale_sign_in')
@@ -169,20 +173,79 @@ test('a refused invalidation keeps the list marked and is sent again until the s
   expect(client.refreshModelCatalog).toHaveBeenCalledTimes(3)
   expect(client.refreshModelCatalog).toHaveBeenLastCalledWith({
     provider: 'claude',
+    authentication: 'subscription',
     invalidate: true,
   })
   // Acknowledged now: the server's own state governs again.
   expect(result.current.viewsFor().claude.state).toBe('current')
 })
 
-test('a list read for another sign-in method raises no warning', async () => {
+test('a list read for another sign-in method offers nothing until the saved one’s is read', async () => {
   const client = source(modelCatalog())
   const { result } = mount(client)
   await advance(0)
   expect(
     result.current.viewsFor({ claude: 'subscription', codex: 'subscription' }).claude.warns,
   ).toBe(true)
-  expect(result.current.viewsFor({ claude: 'api_key', codex: 'subscription' }).claude.warns).toBe(
-    false,
+  expect(
+    result.current.viewsFor({ claude: 'api_key', codex: 'subscription' }).claude,
+  ).toMatchObject({ waiting: true, warns: false })
+})
+
+test('a view that can’t send a refused invalidation leaves it, and the list marked, for one that can', async () => {
+  const cache = createServerQueryClient()
+
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <ServerStateProvider scope={fixtureScope} client={cache}>
+      {children}
+    </ServerStateProvider>
   )
+
+  const settings = source(modelCatalog())
+  settings.refreshModelCatalog.mockRejectedValue(new Error('offline'))
+  const view = renderHook(({ client }: { client: ModelCatalogSource }) => useModelCatalog(client), {
+    wrapper,
+    initialProps: { client: settings as ModelCatalogSource },
+  })
+  await advance(0)
+  await act(() => view.result.current.signInChanged('claude', 'subscription'))
+  // Processing reads the same list without the refresh request.
+  view.rerender({ client: { modelCatalog: async () => modelCatalog() } })
+  await act(() => cache.refetchQueries())
+  await advance(1_100)
+  expect(view.result.current.viewsFor().claude.state).toBe('stale_sign_in')
+})
+
+test('a read sent before a refused change never settles it, even if it says the list is stale', async () => {
+  const client = source(modelCatalog())
+  const { result } = mount(client)
+  await advance(0)
+  const held = deferred<AgentModelCatalogDto>()
+  client.modelCatalog.mockReturnValueOnce(held.promise)
+  void result.current.refresh('codex')
+  await advance(0)
+  client.refreshModelCatalog.mockRejectedValue(new Error('offline'))
+  await act(() => result.current.signInChanged('claude', 'subscription'))
+  // The earlier read answers late, under the sign-in before this change.
+  held.resolve(stale)
+  await advance(0)
+  client.modelCatalog.mockResolvedValue(modelCatalog())
+  await advance(1_100)
+  expect(result.current.viewsFor().claude.state).toBe('stale_sign_in')
+})
+
+test('a change to the subscription leaves an API key’s list as it is', async () => {
+  const client = source(
+    modelCatalog({ claude: providerCatalog(CLAUDE_MODELS, { authentication: 'api_key' }) }),
+  )
+  const { result } = mount(client)
+  await advance(0)
+  client.modelCatalog.mockReturnValue(new Promise(() => {}))
+  await act(() => result.current.signInChanged('claude', 'subscription'))
+  expect(client.refreshModelCatalog).toHaveBeenCalledWith({
+    provider: 'claude',
+    authentication: 'subscription',
+    invalidate: true,
+  })
+  expect(result.current.viewsFor().claude.state).toBe('current')
 })

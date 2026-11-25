@@ -355,7 +355,11 @@ test('the token dialog confirms only once the list is marked stale, and the card
   fireEvent.change(screen.getByLabelText('Subscription token'), { target: { value: TOKEN } })
   fireEvent.click(await screen.findByRole('button', { name: 'Replace token' }))
   await waitFor(() =>
-    expect(api.refreshModelCatalog).toHaveBeenCalledWith({ provider: 'claude', invalidate: true }),
+    expect(api.refreshModelCatalog).toHaveBeenCalledWith({
+      provider: 'claude',
+      authentication: 'subscription',
+      invalidate: true,
+    }),
   )
   // The dialog waits for the server to mark the list.
   expect(screen.getByRole('dialog')).toBeVisible()

@@ -114,16 +114,19 @@ export async function readModelCatalog(
 }
 
 /**
- * Requests a read of the provider's current authentication. `invalidate`, which the sign-in
- * dialogs send once a change is confirmed, marks the stored list stale in the same statement.
+ * Requests a read of the provider's list for `authentication`, else its saved authentication.
+ * `invalidate`, which the sign-in dialogs send once a change is confirmed, marks the stored list
+ * stale in the same statement; a dialog names the sign-in method it changed, which may not be the
+ * saved one, so switching back to it later never shows the old sign-in's list as current.
  */
 export async function refreshModelCatalog(
   pool: Pool,
   config: ProcessingConfig,
   request: AgentModelCatalogRefreshDto,
 ): Promise<AgentModelCatalogRefreshReceiptDto> {
-  const settings = await readAgentSettings(pool, config)
-  const authentication = settings.providers[request.provider].authentication
+  const authentication =
+    request.authentication ??
+    (await readAgentSettings(pool, config)).providers[request.provider].authentication
   const stale = await requestCatalogRefresh(
     pool,
     config,
