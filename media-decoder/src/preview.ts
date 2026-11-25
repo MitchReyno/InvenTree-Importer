@@ -59,7 +59,10 @@ function checkConsistentPages(pages: PreviewPage[]) {
 /** Each crop's page and full-resolution layout, or a mismatch when a recipe doesn't fit its page. */
 async function checkedLayouts(input: PreviewInput): Promise<ViewLayout[]> {
   checkConsistentPages(input.pages)
-  const checkedPages = new Set<number>()
+  // Every declared page must be its retained PNG, whether or not a crop uses it.
+  for (const page of input.pages) {
+    await checkPagePng(page)
+  }
   const layouts: ViewLayout[] = []
   let totalPixels = 0
   for (const crop of input.crops) {
@@ -76,10 +79,6 @@ async function checkedLayouts(input: PreviewInput): Promise<ViewLayout[]> {
       recipe.page_height === page.height
     if (!samePage) {
       throw new PreviewMismatchError('preview_page_mismatch')
-    }
-    if (!checkedPages.has(crop.page)) {
-      await checkPagePng(page)
-      checkedPages.add(crop.page)
     }
     let layout: ViewLayout
     try {

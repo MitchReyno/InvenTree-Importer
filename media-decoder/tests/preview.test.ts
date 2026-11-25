@@ -147,19 +147,52 @@ test('the montage depicts each crop exactly as it renders for derivation', async
 
 test('each crop is labelled with its name and size under its cell', async () => {
   const bench = await benchPage()
-  const result = await renderPreview(
-    previewInput(bench, [{ label: 'label', page: 0, recipe: recipe(bench, [0, 0, 120, 120]) }]),
-  )
-  assert.equal(result.state, 'ready')
   const { cell: size, labelHeight } = MONTAGE_GEOMETRY
-  const strip = await rgbRaster(
-    await sharp(result.montage.bytes)
+  const strip = async (label: string, side: number) => {
+    const result = await renderPreview(
+      previewInput(bench, [{ label, page: 0, recipe: recipe(bench, [0, 0, side, side]) }]),
+    )
+    assert.equal(result.state, 'ready')
+    return sharp(result.montage.bytes)
       .extract({ left: 0, top: size, width: size, height: labelHeight })
-      .png()
-      .toBuffer(),
-  )
-  const dark = [...strip.data].filter((value) => value < 128).length
+      .raw()
+      .toBuffer()
+  }
+  const labelled = await strip('label', 120)
+  const dark = [...labelled].filter((value) => value < 128).length
   assert.ok(dark > 50, 'the label strip has text')
+  assert.ok(!labelled.equals(await strip('other', 120)), 'the strip shows the name')
+  assert.ok(!labelled.equals(await strip('label', 130)), 'the strip shows the size')
+})
+
+test('a declared page that is not its PNG is malformed even when no crop uses it', async () => {
+  const bench = await benchPage()
+  const unused = Buffer.from('not a PNG')
+  const withPage = (bytes: Buffer) => {
+    const input = previewInput(bench, [
+      { label: 'photo', page: 0, recipe: recipe(bench, [0, 0, 100, 100]) },
+    ])
+    input.pages.push({
+      source_version_id: '00000000-0000-4000-8000-000000000008',
+      source_digest: 'e'.repeat(64),
+      page: 1,
+      digest: sha(bytes),
+      width: 50,
+      height: 40,
+      bytes,
+    })
+    return input
+  }
+  const valid = await sharp({
+    create: { width: 50, height: 40, channels: 3, background: '#2050c0' },
+  })
+    .png()
+    .toBuffer()
+  assert.equal((await renderPreview(withPage(valid))).state, 'ready')
+  assert.deepEqual(await renderPreview(withPage(unused)), {
+    state: 'malformed',
+    toolchain: MEDIA_TOOLCHAIN,
+  })
 })
 
 test('a crop at the page edge reports the corner guard', async () => {
