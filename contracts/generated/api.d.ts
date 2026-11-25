@@ -37882,6 +37882,40 @@ export interface components {
                 answer_id: string;
             } | {
                 /** @constant */
+                kind: "region";
+                observation_id: string;
+                region_from: {
+                    /** @constant */
+                    kind: "pixels";
+                    x: number;
+                    y: number;
+                    width: number;
+                    height: number;
+                    source_width: number;
+                    source_height: number;
+                } | {
+                    /** @constant */
+                    kind: "lines";
+                    from_line: number;
+                    to_line: number;
+                };
+                region_to: {
+                    /** @constant */
+                    kind: "pixels";
+                    x: number;
+                    y: number;
+                    width: number;
+                    height: number;
+                    source_width: number;
+                    source_height: number;
+                } | {
+                    /** @constant */
+                    kind: "lines";
+                    from_line: number;
+                    to_line: number;
+                };
+            } | {
+                /** @constant */
                 kind: "observation";
                 observation_id: string;
                 lot_from: string | null;
@@ -38002,6 +38036,40 @@ export interface components {
             kind: "answer_in_brief";
             question_id: string;
             answer_id: string;
+        } | {
+            /** @constant */
+            kind: "region";
+            observation_id: string;
+            region_from: {
+                /** @constant */
+                kind: "pixels";
+                x: number;
+                y: number;
+                width: number;
+                height: number;
+                source_width: number;
+                source_height: number;
+            } | {
+                /** @constant */
+                kind: "lines";
+                from_line: number;
+                to_line: number;
+            };
+            region_to: {
+                /** @constant */
+                kind: "pixels";
+                x: number;
+                y: number;
+                width: number;
+                height: number;
+                source_width: number;
+                source_height: number;
+            } | {
+                /** @constant */
+                kind: "lines";
+                from_line: number;
+                to_line: number;
+            };
         } | {
             /** @constant */
             kind: "observation";
@@ -38211,6 +38279,40 @@ export interface components {
                         kind: "answer_in_brief";
                         question_id: string;
                         answer_id: string;
+                    } | {
+                        /** @constant */
+                        kind: "region";
+                        observation_id: string;
+                        region_from: {
+                            /** @constant */
+                            kind: "pixels";
+                            x: number;
+                            y: number;
+                            width: number;
+                            height: number;
+                            source_width: number;
+                            source_height: number;
+                        } | {
+                            /** @constant */
+                            kind: "lines";
+                            from_line: number;
+                            to_line: number;
+                        };
+                        region_to: {
+                            /** @constant */
+                            kind: "pixels";
+                            x: number;
+                            y: number;
+                            width: number;
+                            height: number;
+                            source_width: number;
+                            source_height: number;
+                        } | {
+                            /** @constant */
+                            kind: "lines";
+                            from_line: number;
+                            to_line: number;
+                        };
                     } | {
                         /** @constant */
                         kind: "observation";
@@ -38452,8 +38554,7 @@ export interface components {
                 } | {
                     /** @constant */
                     kind: "correction";
-                    /** @constant */
-                    source: "human";
+                    source: "human" | "agent";
                     observation_id: string;
                     lot_id: string | null;
                     before: {
@@ -40435,6 +40536,40 @@ export interface components {
                     answer_id: string;
                 } | {
                     /** @constant */
+                    kind: "region";
+                    observation_id: string;
+                    region_from: {
+                        /** @constant */
+                        kind: "pixels";
+                        x: number;
+                        y: number;
+                        width: number;
+                        height: number;
+                        source_width: number;
+                        source_height: number;
+                    } | {
+                        /** @constant */
+                        kind: "lines";
+                        from_line: number;
+                        to_line: number;
+                    };
+                    region_to: {
+                        /** @constant */
+                        kind: "pixels";
+                        x: number;
+                        y: number;
+                        width: number;
+                        height: number;
+                        source_width: number;
+                        source_height: number;
+                    } | {
+                        /** @constant */
+                        kind: "lines";
+                        from_line: number;
+                        to_line: number;
+                    };
+                } | {
+                    /** @constant */
                     kind: "observation";
                     observation_id: string;
                     lot_from: string | null;
@@ -40848,8 +40983,7 @@ export interface components {
             } | {
                 /** @constant */
                 kind: "correction";
-                /** @constant */
-                source: "human";
+                source: "human" | "agent";
                 observation_id: string;
                 lot_id: string | null;
                 before: {
@@ -42582,8 +42716,7 @@ export interface components {
                 } | {
                     /** @constant */
                     kind: "correction";
-                    /** @constant */
-                    source: "human";
+                    source: "human" | "agent";
                     observation_id: string;
                     lot_id: string | null;
                     before: {
@@ -44305,8 +44438,7 @@ export interface components {
             } | {
                 /** @constant */
                 kind: "correction";
-                /** @constant */
-                source: "human";
+                source: "human" | "agent";
                 observation_id: string;
                 lot_id: string | null;
                 before: {
@@ -46036,8 +46168,7 @@ export interface components {
             } | {
                 /** @constant */
                 kind: "correction";
-                /** @constant */
-                source: "human";
+                source: "human" | "agent";
                 observation_id: string;
                 lot_id: string | null;
                 before: {
@@ -47894,8 +48025,7 @@ export interface components {
                     } | {
                         /** @constant */
                         kind: "correction";
-                        /** @constant */
-                        source: "human";
+                        source: "human" | "agent";
                         observation_id: string;
                         lot_id: string | null;
                         before: {
@@ -49742,8 +49872,7 @@ export interface components {
                     } | {
                         /** @constant */
                         kind: "correction";
-                        /** @constant */
-                        source: "human";
+                        source: "human" | "agent";
                         observation_id: string;
                         lot_id: string | null;
                         before: {

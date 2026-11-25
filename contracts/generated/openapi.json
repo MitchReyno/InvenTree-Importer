@@ -192360,6 +192360,182 @@
                   "required": [
                     "kind",
                     "observation_id",
+                    "region_from",
+                    "region_to"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "region",
+                      "type": "string"
+                    },
+                    "observation_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "region_from": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "x",
+                            "y",
+                            "width",
+                            "height",
+                            "source_width",
+                            "source_height"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "pixels",
+                              "type": "string"
+                            },
+                            "x": {
+                              "minimum": 0,
+                              "maximum": 24000000,
+                              "type": "integer"
+                            },
+                            "y": {
+                              "minimum": 0,
+                              "maximum": 24000000,
+                              "type": "integer"
+                            },
+                            "width": {
+                              "minimum": 1,
+                              "maximum": 24000000,
+                              "type": "integer"
+                            },
+                            "height": {
+                              "minimum": 1,
+                              "maximum": 24000000,
+                              "type": "integer"
+                            },
+                            "source_width": {
+                              "minimum": 1,
+                              "maximum": 24000000,
+                              "type": "integer"
+                            },
+                            "source_height": {
+                              "minimum": 1,
+                              "maximum": 24000000,
+                              "type": "integer"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "from_line",
+                            "to_line"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "lines",
+                              "type": "string"
+                            },
+                            "from_line": {
+                              "minimum": 1,
+                              "maximum": 100000,
+                              "type": "integer"
+                            },
+                            "to_line": {
+                              "minimum": 1,
+                              "maximum": 100000,
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    "region_to": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "x",
+                            "y",
+                            "width",
+                            "height",
+                            "source_width",
+                            "source_height"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "pixels",
+                              "type": "string"
+                            },
+                            "x": {
+                              "minimum": 0,
+                              "maximum": 24000000,
+                              "type": "integer"
+                            },
+                            "y": {
+                              "minimum": 0,
+                              "maximum": 24000000,
+                              "type": "integer"
+                            },
+                            "width": {
+                              "minimum": 1,
+                              "maximum": 24000000,
+                              "type": "integer"
+                            },
+                            "height": {
+                              "minimum": 1,
+                              "maximum": 24000000,
+                              "type": "integer"
+                            },
+                            "source_width": {
+                              "minimum": 1,
+                              "maximum": 24000000,
+                              "type": "integer"
+                            },
+                            "source_height": {
+                              "minimum": 1,
+                              "maximum": 24000000,
+                              "type": "integer"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "from_line",
+                            "to_line"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "lines",
+                              "type": "string"
+                            },
+                            "from_line": {
+                              "minimum": 1,
+                              "maximum": 100000,
+                              "type": "integer"
+                            },
+                            "to_line": {
+                              "minimum": 1,
+                              "maximum": 100000,
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "observation_id",
                     "lot_from",
                     "lot_to"
                   ],
@@ -193113,6 +193289,182 @@
               "answer_id": {
                 "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                 "type": "string"
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "kind",
+              "observation_id",
+              "region_from",
+              "region_to"
+            ],
+            "properties": {
+              "kind": {
+                "const": "region",
+                "type": "string"
+              },
+              "observation_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "region_from": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "x",
+                      "y",
+                      "width",
+                      "height",
+                      "source_width",
+                      "source_height"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "const": "pixels",
+                        "type": "string"
+                      },
+                      "x": {
+                        "minimum": 0,
+                        "maximum": 24000000,
+                        "type": "integer"
+                      },
+                      "y": {
+                        "minimum": 0,
+                        "maximum": 24000000,
+                        "type": "integer"
+                      },
+                      "width": {
+                        "minimum": 1,
+                        "maximum": 24000000,
+                        "type": "integer"
+                      },
+                      "height": {
+                        "minimum": 1,
+                        "maximum": 24000000,
+                        "type": "integer"
+                      },
+                      "source_width": {
+                        "minimum": 1,
+                        "maximum": 24000000,
+                        "type": "integer"
+                      },
+                      "source_height": {
+                        "minimum": 1,
+                        "maximum": 24000000,
+                        "type": "integer"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "from_line",
+                      "to_line"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "const": "lines",
+                        "type": "string"
+                      },
+                      "from_line": {
+                        "minimum": 1,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "to_line": {
+                        "minimum": 1,
+                        "maximum": 100000,
+                        "type": "integer"
+                      }
+                    }
+                  }
+                ]
+              },
+              "region_to": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "x",
+                      "y",
+                      "width",
+                      "height",
+                      "source_width",
+                      "source_height"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "const": "pixels",
+                        "type": "string"
+                      },
+                      "x": {
+                        "minimum": 0,
+                        "maximum": 24000000,
+                        "type": "integer"
+                      },
+                      "y": {
+                        "minimum": 0,
+                        "maximum": 24000000,
+                        "type": "integer"
+                      },
+                      "width": {
+                        "minimum": 1,
+                        "maximum": 24000000,
+                        "type": "integer"
+                      },
+                      "height": {
+                        "minimum": 1,
+                        "maximum": 24000000,
+                        "type": "integer"
+                      },
+                      "source_width": {
+                        "minimum": 1,
+                        "maximum": 24000000,
+                        "type": "integer"
+                      },
+                      "source_height": {
+                        "minimum": 1,
+                        "maximum": 24000000,
+                        "type": "integer"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "from_line",
+                      "to_line"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "const": "lines",
+                        "type": "string"
+                      },
+                      "from_line": {
+                        "minimum": 1,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "to_line": {
+                        "minimum": 1,
+                        "maximum": 100000,
+                        "type": "integer"
+                      }
+                    }
+                  }
+                ]
               }
             }
           },
@@ -194422,6 +194774,182 @@
                                           "answer_id": {
                                             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                                             "type": "string"
+                                          }
+                                        }
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "type": "object",
+                                        "required": [
+                                          "kind",
+                                          "observation_id",
+                                          "region_from",
+                                          "region_to"
+                                        ],
+                                        "properties": {
+                                          "kind": {
+                                            "const": "region",
+                                            "type": "string"
+                                          },
+                                          "observation_id": {
+                                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                            "type": "string"
+                                          },
+                                          "region_from": {
+                                            "anyOf": [
+                                              {
+                                                "additionalProperties": false,
+                                                "type": "object",
+                                                "required": [
+                                                  "kind",
+                                                  "x",
+                                                  "y",
+                                                  "width",
+                                                  "height",
+                                                  "source_width",
+                                                  "source_height"
+                                                ],
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "pixels",
+                                                    "type": "string"
+                                                  },
+                                                  "x": {
+                                                    "minimum": 0,
+                                                    "maximum": 24000000,
+                                                    "type": "integer"
+                                                  },
+                                                  "y": {
+                                                    "minimum": 0,
+                                                    "maximum": 24000000,
+                                                    "type": "integer"
+                                                  },
+                                                  "width": {
+                                                    "minimum": 1,
+                                                    "maximum": 24000000,
+                                                    "type": "integer"
+                                                  },
+                                                  "height": {
+                                                    "minimum": 1,
+                                                    "maximum": 24000000,
+                                                    "type": "integer"
+                                                  },
+                                                  "source_width": {
+                                                    "minimum": 1,
+                                                    "maximum": 24000000,
+                                                    "type": "integer"
+                                                  },
+                                                  "source_height": {
+                                                    "minimum": 1,
+                                                    "maximum": 24000000,
+                                                    "type": "integer"
+                                                  }
+                                                }
+                                              },
+                                              {
+                                                "additionalProperties": false,
+                                                "type": "object",
+                                                "required": [
+                                                  "kind",
+                                                  "from_line",
+                                                  "to_line"
+                                                ],
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "lines",
+                                                    "type": "string"
+                                                  },
+                                                  "from_line": {
+                                                    "minimum": 1,
+                                                    "maximum": 100000,
+                                                    "type": "integer"
+                                                  },
+                                                  "to_line": {
+                                                    "minimum": 1,
+                                                    "maximum": 100000,
+                                                    "type": "integer"
+                                                  }
+                                                }
+                                              }
+                                            ]
+                                          },
+                                          "region_to": {
+                                            "anyOf": [
+                                              {
+                                                "additionalProperties": false,
+                                                "type": "object",
+                                                "required": [
+                                                  "kind",
+                                                  "x",
+                                                  "y",
+                                                  "width",
+                                                  "height",
+                                                  "source_width",
+                                                  "source_height"
+                                                ],
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "pixels",
+                                                    "type": "string"
+                                                  },
+                                                  "x": {
+                                                    "minimum": 0,
+                                                    "maximum": 24000000,
+                                                    "type": "integer"
+                                                  },
+                                                  "y": {
+                                                    "minimum": 0,
+                                                    "maximum": 24000000,
+                                                    "type": "integer"
+                                                  },
+                                                  "width": {
+                                                    "minimum": 1,
+                                                    "maximum": 24000000,
+                                                    "type": "integer"
+                                                  },
+                                                  "height": {
+                                                    "minimum": 1,
+                                                    "maximum": 24000000,
+                                                    "type": "integer"
+                                                  },
+                                                  "source_width": {
+                                                    "minimum": 1,
+                                                    "maximum": 24000000,
+                                                    "type": "integer"
+                                                  },
+                                                  "source_height": {
+                                                    "minimum": 1,
+                                                    "maximum": 24000000,
+                                                    "type": "integer"
+                                                  }
+                                                }
+                                              },
+                                              {
+                                                "additionalProperties": false,
+                                                "type": "object",
+                                                "required": [
+                                                  "kind",
+                                                  "from_line",
+                                                  "to_line"
+                                                ],
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "lines",
+                                                    "type": "string"
+                                                  },
+                                                  "from_line": {
+                                                    "minimum": 1,
+                                                    "maximum": 100000,
+                                                    "type": "integer"
+                                                  },
+                                                  "to_line": {
+                                                    "minimum": 1,
+                                                    "maximum": 100000,
+                                                    "type": "integer"
+                                                  }
+                                                }
+                                              }
+                                            ]
                                           }
                                         }
                                       },
@@ -195853,8 +196381,16 @@
                               "type": "string"
                             },
                             "source": {
-                              "const": "human",
-                              "type": "string"
+                              "anyOf": [
+                                {
+                                  "const": "human",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "agent",
+                                  "type": "string"
+                                }
+                              ]
                             },
                             "observation_id": {
                               "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
@@ -207406,6 +207942,182 @@
                               "required": [
                                 "kind",
                                 "observation_id",
+                                "region_from",
+                                "region_to"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "region",
+                                  "type": "string"
+                                },
+                                "observation_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "region_from": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "kind",
+                                        "x",
+                                        "y",
+                                        "width",
+                                        "height",
+                                        "source_width",
+                                        "source_height"
+                                      ],
+                                      "properties": {
+                                        "kind": {
+                                          "const": "pixels",
+                                          "type": "string"
+                                        },
+                                        "x": {
+                                          "minimum": 0,
+                                          "maximum": 24000000,
+                                          "type": "integer"
+                                        },
+                                        "y": {
+                                          "minimum": 0,
+                                          "maximum": 24000000,
+                                          "type": "integer"
+                                        },
+                                        "width": {
+                                          "minimum": 1,
+                                          "maximum": 24000000,
+                                          "type": "integer"
+                                        },
+                                        "height": {
+                                          "minimum": 1,
+                                          "maximum": 24000000,
+                                          "type": "integer"
+                                        },
+                                        "source_width": {
+                                          "minimum": 1,
+                                          "maximum": 24000000,
+                                          "type": "integer"
+                                        },
+                                        "source_height": {
+                                          "minimum": 1,
+                                          "maximum": 24000000,
+                                          "type": "integer"
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "kind",
+                                        "from_line",
+                                        "to_line"
+                                      ],
+                                      "properties": {
+                                        "kind": {
+                                          "const": "lines",
+                                          "type": "string"
+                                        },
+                                        "from_line": {
+                                          "minimum": 1,
+                                          "maximum": 100000,
+                                          "type": "integer"
+                                        },
+                                        "to_line": {
+                                          "minimum": 1,
+                                          "maximum": 100000,
+                                          "type": "integer"
+                                        }
+                                      }
+                                    }
+                                  ]
+                                },
+                                "region_to": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "kind",
+                                        "x",
+                                        "y",
+                                        "width",
+                                        "height",
+                                        "source_width",
+                                        "source_height"
+                                      ],
+                                      "properties": {
+                                        "kind": {
+                                          "const": "pixels",
+                                          "type": "string"
+                                        },
+                                        "x": {
+                                          "minimum": 0,
+                                          "maximum": 24000000,
+                                          "type": "integer"
+                                        },
+                                        "y": {
+                                          "minimum": 0,
+                                          "maximum": 24000000,
+                                          "type": "integer"
+                                        },
+                                        "width": {
+                                          "minimum": 1,
+                                          "maximum": 24000000,
+                                          "type": "integer"
+                                        },
+                                        "height": {
+                                          "minimum": 1,
+                                          "maximum": 24000000,
+                                          "type": "integer"
+                                        },
+                                        "source_width": {
+                                          "minimum": 1,
+                                          "maximum": 24000000,
+                                          "type": "integer"
+                                        },
+                                        "source_height": {
+                                          "minimum": 1,
+                                          "maximum": 24000000,
+                                          "type": "integer"
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "kind",
+                                        "from_line",
+                                        "to_line"
+                                      ],
+                                      "properties": {
+                                        "kind": {
+                                          "const": "lines",
+                                          "type": "string"
+                                        },
+                                        "from_line": {
+                                          "minimum": 1,
+                                          "maximum": 100000,
+                                          "type": "integer"
+                                        },
+                                        "to_line": {
+                                          "minimum": 1,
+                                          "maximum": 100000,
+                                          "type": "integer"
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "observation_id",
                                 "lot_from",
                                 "lot_to"
                               ],
@@ -210683,8 +211395,16 @@
                       "type": "string"
                     },
                     "source": {
-                      "const": "human",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "const": "human",
+                          "type": "string"
+                        },
+                        {
+                          "const": "agent",
+                          "type": "string"
+                        }
+                      ]
                     },
                     "observation_id": {
                       "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
@@ -220753,8 +221473,16 @@
                             "type": "string"
                           },
                           "source": {
-                            "const": "human",
-                            "type": "string"
+                            "anyOf": [
+                              {
+                                "const": "human",
+                                "type": "string"
+                              },
+                              {
+                                "const": "agent",
+                                "type": "string"
+                              }
+                            ]
                           },
                           "observation_id": {
                             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
@@ -230696,8 +231424,16 @@
                       "type": "string"
                     },
                     "source": {
-                      "const": "human",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "const": "human",
+                          "type": "string"
+                        },
+                        {
+                          "const": "agent",
+                          "type": "string"
+                        }
+                      ]
                     },
                     "observation_id": {
                       "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
@@ -240761,8 +241497,16 @@
                       "type": "string"
                     },
                     "source": {
-                      "const": "human",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "const": "human",
+                          "type": "string"
+                        },
+                        {
+                          "const": "agent",
+                          "type": "string"
+                        }
+                      ]
                     },
                     "observation_id": {
                       "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
@@ -251424,8 +252168,16 @@
                                     "type": "string"
                                   },
                                   "source": {
-                                    "const": "human",
-                                    "type": "string"
+                                    "anyOf": [
+                                      {
+                                        "const": "human",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "agent",
+                                        "type": "string"
+                                      }
+                                    ]
                                   },
                                   "observation_id": {
                                     "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
@@ -262028,8 +262780,16 @@
                                     "type": "string"
                                   },
                                   "source": {
-                                    "const": "human",
-                                    "type": "string"
+                                    "anyOf": [
+                                      {
+                                        "const": "human",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "agent",
+                                        "type": "string"
+                                      }
+                                    ]
                                   },
                                   "observation_id": {
                                     "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",

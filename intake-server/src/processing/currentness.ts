@@ -1,6 +1,7 @@
 import type { PoolClient } from 'pg'
 import type {
   EvidenceReadingsDto,
+  EvidenceRegionDto,
   ProcessingFieldDto,
   RevisionChangeDto,
   RevisionSourceDto,
@@ -392,11 +393,14 @@ export async function fieldsSuperseded(
        SELECT unnest($1::uuid[]),$2 ON CONFLICT DO NOTHING`,
       [ids, input.reason],
     )
-    // Deeper results relying on these are stale too, and their sessions are told.
-    await cascadeAll(client, ids, input.reason, input.context)
   }
+  // Deeper results relying on these are stale too. Every session relying on any of them, pinned
+  // ones included at any depth, is told once below with the change that caused it.
   const relied = byLineage(affected.rows)
-  await addPinned(client, input.batchId, ids, relied)
+  const cascaded = ids.length
+    ? await cascadeAll(client, ids, input.reason, input.context, relied)
+    : []
+  await addPinned(client, input.batchId, [...ids, ...cascaded], relied)
   relied.delete(input.except ?? '')
   const lineages = [...relied.keys()].sort()
   for (const lineage of lineages) {
@@ -792,8 +796,10 @@ export async function observationCorrected(
   input: {
     batchId: string
     observationId: string
-    before: EvidenceReadingsDto
-    after: EvidenceReadingsDto
+    /** The reading before and after, when it changed. */
+    reading?: { before: EvidenceReadingsDto; after: EvidenceReadingsDto }
+    /** The region on its page before and after, when it moved. */
+    region?: { before: EvidenceRegionDto; after: EvidenceRegionDto }
     revision: string
     /** The operator's correction, or the Examine session revising its own observation. */
     origin?: RevisionContext['origin']
@@ -847,12 +853,28 @@ export async function observationCorrected(
   if (lead) {
     relied.set(lead, relied.get(lead) ?? [])
   }
-  const reading: RevisionChangeDto = {
-    kind: 'reading',
-    observation_id: input.observationId,
-    reading_from: input.before,
-    reading_to: input.after,
-  }
+  const corrected: RevisionChangeDto[] = [
+    ...(input.reading
+      ? [
+          {
+            kind: 'reading' as const,
+            observation_id: input.observationId,
+            reading_from: input.reading.before,
+            reading_to: input.reading.after,
+          },
+        ]
+      : []),
+    ...(input.region
+      ? [
+          {
+            kind: 'region' as const,
+            observation_id: input.observationId,
+            region_from: input.region.before,
+            region_to: input.region.after,
+          },
+        ]
+      : []),
+  ]
   const notified: string[] = []
   for (const lineage of [...relied.keys()].sort()) {
     // Only `/7` sessions are told of a corrected reading; earlier ones keep today's notices.
@@ -867,7 +889,7 @@ export async function observationCorrected(
       {
         fields: ['markings', 'identity'],
         reason: correctionReason(origin, lineage === lead),
-        changes: [reading, ...(await staleChanges(client, relied.get(lineage)!, reason))],
+        changes: [...corrected, ...(await staleChanges(client, relied.get(lineage)!, reason))],
       },
       context,
     )

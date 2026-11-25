@@ -91,6 +91,8 @@ interface StoredCorrection {
   after: EvidenceReadingsDto
   actorId: string
   correctedAt: string
+  /** Examine revising its own observation, rather than the operator correcting it. */
+  byAgent: boolean
 }
 
 interface StoredIdentity {
@@ -271,9 +273,10 @@ async function readCorrections(client: PoolClient, batchId: string) {
     after_readings: EvidenceReadingsDto
     actor_id: string
     created_at: Date
+    by_agent: boolean
   }>(
     `SELECT c.observation_id,c.revision::text AS revision,c.before_readings,c.after_readings,
-       r.actor_id,r.created_at
+       r.actor_id,r.created_at,r.agent_session_id IS NOT NULL AS by_agent
      FROM public.capture_evidence_observation_correction c
      JOIN public.capture_revision r ON r.batch_id=c.batch_id AND r.revision=c.revision
      WHERE c.batch_id=$1
@@ -290,6 +293,7 @@ async function readCorrections(client: PoolClient, batchId: string) {
       after: row.after_readings,
       actorId: row.actor_id,
       correctedAt: row.created_at.toISOString(),
+      byAgent: row.by_agent,
     }
   })
 }
@@ -486,7 +490,7 @@ function correctionEntries(
   const withKept = new Set(kept.map((correction) => correction.observationId))
   const entries: BriefEntryDto[] = kept.map((correction) => ({
     kind: 'correction',
-    source: 'human',
+    source: correction.byAgent ? 'agent' : 'human',
     observation_id: correction.observationId,
     lot_id: byId.get(correction.observationId)!.lot_id,
     before: correction.before,

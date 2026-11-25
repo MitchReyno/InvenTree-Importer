@@ -313,6 +313,13 @@ export const RevisionChange = Type.Union([
   }),
   /** An answer whose values are too long to carry here: the brief's answer entry holds them. */
   object({ kind: Type.Literal('answer_in_brief'), question_id: Id, answer_id: Id }),
+  /** An observation's region on its page, before and after it was moved there. */
+  object({
+    kind: Type.Literal('region'),
+    observation_id: Id,
+    region_from: EvidenceRegion,
+    region_to: EvidenceRegion,
+  }),
   /** An observation joined or left a lot. */
   object({
     kind: Type.Literal('observation'),

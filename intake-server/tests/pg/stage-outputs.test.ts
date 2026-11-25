@@ -22,7 +22,7 @@ import { triggerExamine } from '#/processing/examine-trigger.ts'
 import { recordPhotoRelease } from '#/agents/tools/photo-release.ts'
 import { pendingSessionInbox } from '#/agents/tools/inbox.ts'
 import { notifyRevision } from '#/processing/currentness.ts'
-import { stableIdentityOf } from '#/processing/stable-identity.ts'
+import { pinnedIdentityCurrent, stableIdentityOf } from '#/processing/stable-identity.ts'
 import { sessionTools, type SessionToolOutput } from '#/agents/tools/handlers.ts'
 import { queueSessionResume, runSessionTurn } from '#/agents/session/session-runner.ts'
 import { lockBlob } from '#/media/blob-store.ts'
@@ -1758,14 +1758,19 @@ test('Examine revising its own observation stales what relied on the earlier rev
   const observation = (await snapshotOf(fixture, batchId)).evidence_observations!.find(
     (item) => item.id === crystal.evidence_observation_ids![0],
   )!
+  const long = {
+    markings: Array.from({ length: 32 }, (_, index) => `${index % 10}${'𝄞'.repeat(255)}`),
+  }
+  const lead = await running(fixture, leadAttempt)
   const revised = await result(
-    session.record_observation(await running(fixture, leadAttempt), {
+    session.record_observation(lead, {
       base_revision: (await snapshotOf(fixture, batchId)).revision,
       observation_id: observation.id,
       evidence_version_id: observation.evidence_version_id,
       page: observation.page,
       region: observation.region,
-      readings: { markings: ['16.000 MHz'] },
+      // Long enough that its revision leaves the readings to the brief.
+      readings: long,
     }),
   )
   assert.equal(revised.ok, true, JSON.stringify(revised))
@@ -1780,5 +1785,68 @@ test('Examine revising its own observation stales what relied on the earlier rev
       stableIdentityOf(client, batchId, crystal.id),
     ),
     [],
+  )
+  // The brief keeps the reading before and after, as Examine's own correction.
+  const brief = await result(session.read_batch(lead, {}))
+  const entries = [...(brief.brief?.entries ?? [])]
+  let token = brief.brief?.next_page_token
+  while (token) {
+    const page = await result(session.read_batch(lead, { page_token: token }))
+    entries.push(...(page.brief?.entries ?? []))
+    token = page.brief?.next_page_token
+  }
+  const kept = entries.find(
+    (entry) => entry.kind === 'correction' && entry.observation_id === observation.id,
+  )
+  assert.ok(kept && kept.kind === 'correction')
+  assert.equal(kept.source, 'agent')
+  assert.deepEqual(kept.before, observation.readings)
+  assert.deepEqual(kept.after, long)
+})
+
+test('an operator moving a crop on its photo stales what relied on it, as a correction does', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId, leadJob } = batch
+  const crystal = await batch.lot('16 mhz crystal')
+  const research = await stageJob(batch, '16 mhz crystal', 'research')
+  const [identityId] = (await inputOf(fixture, research.attemptId)).manifest.pinned_proposal_ids
+  const observation = (await snapshotOf(fixture, batchId)).evidence_observations!.find(
+    (item) => item.id === crystal.evidence_observation_ids![0],
+  )!
+  assert.equal(observation.region.kind, 'pixels')
+  // One pixel narrower, within the page.
+  const moved = {
+    ...observation.region,
+    width: observation.region.kind === 'pixels' ? observation.region.width - 1 : 1,
+  }
+  await edit(fixture, batchId, {
+    kind: 'observation',
+    observation_id: observation.id,
+    evidence_version_id: observation.evidence_version_id,
+    page: observation.page,
+    region: moved,
+  })
+  const stale = await fixture.db.pool.query<{ reason: string }>(
+    'SELECT reason FROM processing_proposal_stale WHERE proposal_id=$1',
+    [identityId],
+  )
+  assert.equal(stale.rows[0]?.reason, 'operator_correction')
+  const toLead = (await revisions(fixture, leadJob)).at(-1)!
+  assert.deepEqual(toLead.changes[0], {
+    kind: 'region',
+    observation_id: observation.id,
+    region_from: observation.region,
+    region_to: moved,
+  })
+  // Neither Start nor a queued successor's claim takes the stale identity.
+  assert.deepEqual(
+    await transaction(fixture.runner.pool, (client) =>
+      stableIdentityOf(client, batchId, crystal.id),
+    ),
+    [],
+  )
+  assert.equal(
+    await transaction(fixture.runner.pool, (client) => pinnedIdentityCurrent(client, [identityId])),
+    false,
   )
 })

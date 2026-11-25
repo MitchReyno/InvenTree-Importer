@@ -114,12 +114,13 @@ export const BriefAnswerEntry = object({
 })
 
 /**
- * The operator corrected an observation's reading. `before` is the reading it replaced, or null
- * when the correction was made before earlier readings were kept (`earlier_known` false).
+ * An observation's reading was corrected: by the operator, or (`source: agent`) by the Examine
+ * session revising its own observation. `before` is the reading it replaced, or null when the
+ * correction was made before earlier readings were kept (`earlier_known` false).
  */
 export const BriefCorrectionEntry = object({
   kind: Type.Literal('correction'),
-  ...human,
+  source: Type.Union([Type.Literal('human'), Type.Literal('agent')]),
   observation_id: Id,
   lot_id: Type.Union([Id, Type.Null()]),
   before: Type.Union([EvidenceReadings, Type.Null()]),

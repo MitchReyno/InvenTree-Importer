@@ -139,6 +139,7 @@ interface LockedObservation {
   sameItemAs: string | null
   /** The stored reading, as recorded; a correction keeps it as the reading before. */
   readings: Record<string, unknown>
+  region: Record<string, unknown>
   lotId: string | null
 }
 
@@ -158,6 +159,7 @@ async function lockObservations(client: PoolClient, batchId: string, ids: readon
         evidenceVersionId: captureEvidenceObservations.evidenceVersionId,
         sameItemAs: captureEvidenceObservations.sameItemAs,
         readings: captureEvidenceObservations.readings,
+        region: captureEvidenceObservations.region,
       })
       .from(captureEvidenceObservations)
       .where(
@@ -479,17 +481,17 @@ export async function recordObservation(
           })
           .where(eq(captureEvidenceObservations.id, row.id)),
       )
-      // What relied on the observation at its earlier revision rests on what Examine revised.
-      validate('EvidenceReadings', row.readings)
-      const { observationCorrected } = await import('#/processing/currentness.ts')
-      await observationCorrected(client, {
-        batchId: writer.batchId,
-        observationId: row.id,
-        before: row.readings as EvidenceReadingsDto,
-        after: args.readings,
-        revision: next.toString(),
-        origin: { by: 'session', attemptId: writer.sessionId },
-      })
+      // What relied on the observation at its earlier revision rests on what Examine revised; the
+      // brief keeps the reading before, as Examine's own correction.
+      await retainCorrection(
+        client,
+        writer.batchId,
+        row.id,
+        { readings: row.readings, region: row.region },
+        { readings: args.readings, region: args.region },
+        next,
+        { by: 'session', attemptId: writer.sessionId },
+      )
     }
   } else {
     await executeDatabaseQuery(
@@ -1138,30 +1140,59 @@ async function retainCorrection(
   client: PoolClient,
   batchId: string,
   observationId: string,
-  before: Record<string, unknown>,
-  after: Record<string, unknown>,
+  before: { readings: Record<string, unknown>; region: Record<string, unknown> },
+  after: { readings: Record<string, unknown>; region: Record<string, unknown> },
   revision: bigint,
+  /** The operator, unless the Examine session revised its own observation. */
+  origin: { by: 'operator' } | { by: 'session'; attemptId: string } = { by: 'operator' },
 ) {
-  if (canonicalRecord(before) === canonicalRecord(after)) {
+  const readingChanged = canonicalRecord(before.readings) !== canonicalRecord(after.readings)
+  const regionChanged = canonicalRecord(before.region) !== canonicalRecord(after.region)
+  if (!readingChanged && !regionChanged) {
     return
   }
-  await client.query(
-    `INSERT INTO public.capture_evidence_observation_correction
-       (batch_id,observation_id,revision,before_readings,after_readings)
-     VALUES ($1,$2,$3,$4,$5)`,
-    [batchId, observationId, revision.toString(), JSON.stringify(before), JSON.stringify(after)],
-  )
-  // The stored reading is jsonb; sessions are told it in its contract's shape.
-  validate('EvidenceReadings', before)
-  validate('EvidenceReadings', after)
+  if (readingChanged) {
+    await client.query(
+      `INSERT INTO public.capture_evidence_observation_correction
+         (batch_id,observation_id,revision,before_readings,after_readings)
+       VALUES ($1,$2,$3,$4,$5)`,
+      [
+        batchId,
+        observationId,
+        revision.toString(),
+        JSON.stringify(before.readings),
+        JSON.stringify(after.readings),
+      ],
+    )
+  }
+  // The stored values are jsonb; sessions are told them in their contracts' shapes.
+  validate('EvidenceReadings', before.readings)
+  validate('EvidenceReadings', after.readings)
+  validate('EvidenceRegion', before.region)
+  validate('EvidenceRegion', after.region)
   // Loaded on use: Processing depends on capture, so capture must not import it eagerly.
   const { observationCorrected } = await import('#/processing/currentness.ts')
   await observationCorrected(client, {
     batchId,
     observationId,
-    before: before as EvidenceReadingsDto,
-    after: after as EvidenceReadingsDto,
+    ...(readingChanged
+      ? {
+          reading: {
+            before: before.readings as EvidenceReadingsDto,
+            after: after.readings as EvidenceReadingsDto,
+          },
+        }
+      : {}),
+    ...(regionChanged
+      ? {
+          region: {
+            before: before.region as EvidenceRegionDto,
+            after: after.region as EvidenceRegionDto,
+          },
+        }
+      : {}),
     revision: revision.toString(),
+    origin,
   })
 }
 
@@ -1196,9 +1227,14 @@ async function applyOneObservationEdit(
       }
       id = row.id
       from = row.lotId
-      if (change.readings) {
-        await retainCorrection(client, batchId, row.id, row.readings, change.readings, revision)
-      }
+      await retainCorrection(
+        client,
+        batchId,
+        row.id,
+        { readings: row.readings, region: row.region },
+        { readings: change.readings ?? row.readings, region: change.region },
+        revision,
+      )
       await executeDatabaseQuery(
         db
           .update(captureEvidenceObservations)
@@ -1313,8 +1349,8 @@ async function applyOneObservationEdit(
       client,
       batchId,
       target.id,
-      target.readings,
-      suggestion.readings,
+      { readings: target.readings, region: target.region },
+      { readings: suggestion.readings, region: suggestion.region },
       revision,
     )
     await executeDatabaseQuery(
