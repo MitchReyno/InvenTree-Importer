@@ -36,8 +36,8 @@ const SCRIPT_SANITY_MEAN_LEVELS = 3
 const SCRIPT_SANITY_FAR_SHARE = 0.2
 /** The renderer's hue guard holds white balance to this; resistor bands must stay within it. */
 const MAX_BAND_HUE_SHIFT_DEGREES = 5
-/** Luminance adjustments keep every saturated pixel's hue within the same 5° the guard allows. */
-const LUMINANCE_HUE_TOLERANCE_DEGREES = 5
+/** Luminance adjustments alone turn a pixel at or above the hue floor at most 2.5°. */
+const LUMINANCE_HUE_TOLERANCE_DEGREES = 2.5
 
 const BANDS = {
   brown: [120, 60, 30],
@@ -377,7 +377,9 @@ for (const light of [
         if (adjusted.some((value, channel) => value !== original[channel])) {
           changed++
         }
-        const shift = hueShift(hue(...original)!, hue(...adjusted)!)
+        const turned = hue(...adjusted)
+        assert.ok(turned !== null, `${x},${y} kept a hue: ${adjusted.join(',')}`)
+        const shift = hueShift(hue(...original)!, turned)
         assert.ok(shift <= LUMINANCE_HUE_TOLERANCE_DEGREES, `${x},${y} moved ${shift.toFixed(2)}°`)
       }
     }
@@ -623,7 +625,7 @@ for (const light of [
   { gamma_thousandths: 1800 },
   { contrast_clip_permille: 50, gamma_thousandths: 500, sharpen: true },
 ]) {
-  test(`luminance ${JSON.stringify(light)} holds every pixel at or above the hue floor within 5°`, async () => {
+  test(`luminance ${JSON.stringify(light)} holds every pixel at or above the hue floor within 2.5°`, async () => {
     // Colours at the 16-level luminance floor and just above it, then a ramp of dim colours.
     const colours = [
       [47, 5, 0],
@@ -648,7 +650,7 @@ for (const light of [
       const turned = hue(...output)
       const shift = turned === null ? 180 : hueShift(hue(...source)!, turned)
       assert.ok(
-        shift <= MAX_BAND_HUE_SHIFT_DEGREES,
+        shift <= LUMINANCE_HUE_TOLERANCE_DEGREES,
         `${source.join(',')} -> ${output.join(',')} turned ${shift.toFixed(2)}°`,
       )
     }

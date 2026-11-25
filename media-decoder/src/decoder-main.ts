@@ -10,10 +10,13 @@ import { renderView } from './view.ts'
 
 const MAX_HEADER_BYTES = 8192
 
-/** The header as UTF-8, refused rather than repaired when its bytes aren't valid UTF-8. */
+/**
+ * The header as UTF-8, refused rather than repaired when its bytes aren't valid UTF-8. A byte
+ * order mark is kept, so the strict parser refuses it as before.
+ */
 function headerText(bytes: Buffer) {
   try {
-    return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+    return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes)
   } catch {
     throw new Error('invalid_decoder_header')
   }

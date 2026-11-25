@@ -5,11 +5,14 @@ import { fileURLToPath } from 'node:url'
 import {
   assertMediaGridOutputHeader,
   assertMediaLogoMatchOutputHeader,
+  assertMediaOutputHeader,
   assertMediaPreviewOutputHeader,
+  assertMediaViewOutputHeader,
 } from '@invimport/contracts/media'
 import sharp from 'sharp'
 import { decode } from '../src/decode.ts'
 import { MONTAGE_GEOMETRY } from '../src/preview.ts'
+import { renderView } from '../src/view.ts'
 import { fixtureBytes, NO_LIGHT, parityFixtures, recipeForCrop, sha } from './support/parity.ts'
 
 const DECODER_MAIN = fileURLToPath(new URL('../src/decoder-main.ts', import.meta.url))
@@ -224,4 +227,102 @@ test('a header that is not valid UTF-8 is refused, not repaired', async () => {
   assert.notEqual(refused.code, 0)
   assert.match(refused.errors, /invalid_decoder_header/)
   assert.equal(refused.output.length, 0)
+})
+
+test('a header starting with a byte order mark is refused', async () => {
+  const { page } = await benchPage()
+  const header = {
+    version: 'media-grid/1',
+    digest: sha(page.bytes),
+    width: page.width,
+    height: page.height,
+    region: null,
+    preview_width: 400,
+    step: null,
+    object: null,
+    boxes: [],
+  }
+  const marked = Buffer.concat([
+    Buffer.from([0xef, 0xbb, 0xbf]),
+    Buffer.from(JSON.stringify(header) + '\n'),
+    page.bytes,
+  ])
+  const refused = await spawnDecoder(marked)
+  assert.notEqual(refused.code, 0)
+  assert.equal(refused.output.length, 0)
+})
+
+/** Recipe /2 on the bench resistor: a quarter turn, -3.5° and every light adjustment. */
+async function litRecipe() {
+  const fixtures = await parityFixtures()
+  const original = await fixtureBytes(fixtures.photo)
+  const decoded = await decode({
+    version: 'media-decode/1',
+    digest: sha(original),
+    bytes: original,
+  })
+  assert.equal(decoded.state, 'ready')
+  const page = decoded.pages[0]
+  const recipe = {
+    ...recipeForCrop(
+      { region: [150, 160, 330, 240], quarter_turns: 1, straighten: -3.5, wb: false },
+      { width: page.width, height: page.height, digest: sha(original) },
+    ),
+    light: {
+      white_balance: true,
+      contrast_clip_permille: 20,
+      gamma_thousandths: 1200,
+      sharpen: true,
+    },
+  }
+  return { original, page, recipe }
+}
+
+test('the entry point derives a recipe /2 crop through media-decode/1', async () => {
+  const { original, recipe } = await litRecipe()
+  const expected = await decode({
+    version: 'media-decode/1',
+    digest: sha(original),
+    bytes: original,
+    recipe,
+  })
+  assert.equal(expected.state, 'ready')
+  const { header, body } = await runDecoder(
+    { version: 'media-decode/1', digest: sha(original), recipe },
+    original,
+  )
+  assertMediaOutputHeader(header)
+  assert.equal(header.state, 'ready')
+  assert.ok('pages' in header)
+  assert.equal(header.pages.length, 1)
+  const [described] = header.pages
+  assert.deepEqual(
+    [described.width, described.height],
+    [expected.pages[0].width, expected.pages[0].height],
+  )
+  assert.equal(described.digest, sha(expected.pages[0].bytes))
+  assert.ok(body.subarray(0, described.byte_size).equals(expected.pages[0].bytes))
+})
+
+test('the entry point renders a recipe /2 view through media-view/1, with no preview', async () => {
+  const { page, recipe } = await litRecipe()
+  const input = {
+    version: 'media-view/1' as const,
+    digest: sha(page.bytes),
+    width: page.width,
+    height: page.height,
+    recipe,
+    marks: null,
+  }
+  const expected = await renderView({ ...input, bytes: page.bytes })
+  assert.ok(expected.state === 'ready')
+  const { header, body } = await runDecoder(input, page.bytes)
+  assertMediaViewOutputHeader(header)
+  assert.ok(header.state === 'ready')
+  assert.equal(header.preview, null)
+  assert.equal(header.view.digest, sha(expected.view.bytes))
+  assert.equal(header.thumb.digest, sha(expected.thumb.bytes))
+  assert.equal(body.length, header.view.byte_size + header.thumb.byte_size)
+  assert.ok(body.subarray(0, header.view.byte_size).equals(expected.view.bytes))
+  assert.ok(body.subarray(header.view.byte_size).equals(expected.thumb.bytes))
 })
