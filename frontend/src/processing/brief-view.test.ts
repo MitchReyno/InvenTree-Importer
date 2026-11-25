@@ -1,14 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { BriefEntryDto } from '@invimport/contracts'
-import { briefObservation, H, historyBrief, researchBriefEntries } from '#/test/session-history'
 import {
-  briefSummary,
-  briefView,
-  factCount,
-  quantityWords,
-  readingText,
-  regionWords,
-} from './brief-view'
+  briefObservation,
+  briefRef,
+  H,
+  historyBrief,
+  researchBriefEntries,
+} from '#/test/session-history'
+import { briefRefSummary, briefView, quantityWords, readingText, regionWords } from './brief-view'
 
 function correction(revision: string, before: string[], after: string[]): BriefEntryDto {
   return {
@@ -26,7 +25,7 @@ function correction(revision: string, before: string[], after: string[]): BriefE
 }
 
 describe('a brief as the session page shows it', () => {
-  it('keeps every correction with the observation it changed, and counts each as your fact', () => {
+  it('keeps every correction with the observation it changed', () => {
     const entries = [
       ...researchBriefEntries().filter((entry) => entry.kind !== 'correction'),
       correction('6', ['ATMEGA328P 2338'], ['ATMEGA328P 2340']),
@@ -37,11 +36,6 @@ describe('a brief as the session page shows it', () => {
 
     expect(corrected.corrections.map((entry) => entry.revision)).toEqual(['6', '7'])
     expect(view.corrections).toEqual([])
-    // Two corrections, the answer and the note.
-    expect(factCount(view)).toBe(4)
-    expect(briefSummary(briefView(historyBrief(entries).brief))).toBe(
-      'Started from Examine’s findings · 2 observations · 4 of your facts · 1 question already asked',
-    )
   })
 
   it('lists a correction to an observation the brief doesn’t carry on its own', () => {
@@ -58,32 +52,23 @@ describe('a brief as the session page shows it', () => {
     expect(readingText({ markings: [], text: '123' })).toBe('read as “123”')
   })
 
-  it('counts saved instructions among your facts', () => {
-    const instruction: BriefEntryDto = {
-      kind: 'instruction',
-      instruction_id: H.instruction,
-      group_id: null,
-      text: 'Prefer the maker’s datasheet',
-    }
-    const view = briefView(historyBrief([instruction]).brief)
-
-    expect(factCount(view)).toBe(1)
-    expect(briefSummary(briefView(historyBrief([instruction]).brief))).toBe(
-      'Started from Examine’s findings · 1 of your facts',
-    )
-  })
-
   it('says what quantity a lot edit left', () => {
     expect(quantityWords({ mode: 'set', value: '480' })).toBe('quantity 480')
     expect(quantityWords({ mode: 'inherit' })).toBe('quantity from the batch')
   })
 
-  it('names what an Examine lead started from, and leaves out what it doesn’t hold', () => {
-    const lead = historyBrief([]).brief
-
-    expect(briefSummary(briefView({ ...lead, stage: 'examine', lot_id: null }))).toBe(
-      'Started from the batch',
+  it('summarises the brief at the start from its sealed counts, leaving out what it doesn’t hold', () => {
+    expect(briefRefSummary(briefRef())).toBe(
+      'Brief at start · Examine’s findings · 2 observations · 3 of your facts · 1 question already asked',
     )
+    const lead = briefRef()
+    expect(
+      briefRefSummary({
+        ...lead,
+        stage: 'examine',
+        sections: lead.sections.map((section) => ({ ...section, count: 0 })),
+      }),
+    ).toBe('Brief at start · the batch')
   })
 })
 

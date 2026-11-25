@@ -4,7 +4,7 @@ import { BriefHeading, BriefMuted, BriefRow, BriefRows, BriefSection } from './b
 
 type Question = Extract<BriefEntryDto, { kind: 'question' }>
 
-const HEADING = 'Already asked · not asked again'
+const HEADING = 'Already asked'
 
 /** How each question's state reads, with the design system's status for it. */
 const STATE = {

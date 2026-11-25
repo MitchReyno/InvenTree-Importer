@@ -1,15 +1,11 @@
-import styled from 'styled-components'
 import type { BriefEntryDto, SessionHistoryBriefDto } from '@invimport/contracts'
-import { EventTime } from '#/components/ui'
-import { briefSummary, briefSummaryId, briefView } from '#/processing/brief-view'
-import { color, radius, space, typeVar } from '#/theme/generated/tokens'
+import { briefView } from '#/processing/brief-view'
 import { BriefAsked } from './BriefAsked'
 import { BriefFacts } from './BriefFacts'
 import { BriefIdentities } from './BriefIdentities'
 import { BriefObservations } from './BriefObservations'
 import { BriefStageLists } from './BriefStageLists'
 import { BriefHeading, BriefMuted, BriefRow, BriefRows, BriefSection } from './brief-styles'
-import { HistoryText, HistoryTime } from './history-row-styles'
 
 type Evidence = Extract<BriefEntryDto, { kind: 'evidence' }>
 
@@ -24,12 +20,10 @@ function evidenceText(entry: Evidence) {
 }
 
 /**
- * The brief a `/7` attempt started from, read: a collapsed
- * summary that opens to what Examine found, the operator's facts with their corrections marked
- * as theirs, the questions already asked and the evidence the session may read.
+ * What an opened brief shows: what Examine found, the operator's facts with their corrections
+ * marked as theirs, the questions already asked and the evidence the session may read.
  */
-export function BriefDetails({ item }: { item: SessionHistoryBriefDto }) {
-  const summaryId = briefSummaryId(item.attempt_id)
+export function BriefContent({ item }: { item: SessionHistoryBriefDto }) {
   const { brief } = item
   const view = briefView(brief)
 
@@ -37,13 +31,7 @@ export function BriefDetails({ item }: { item: SessionHistoryBriefDto }) {
     view.evidence.find((entry) => entry.version_id === versionId)?.label ?? 'A photo'
 
   return (
-    <Card id={`brief:${item.attempt_id}`} aria-labelledby={summaryId}>
-      <summary id={summaryId}>
-        <HistoryText>{briefSummary(view)}</HistoryText>
-        <HistoryTime>
-          <EventTime at={item.at} />
-        </HistoryTime>
-      </summary>
+    <>
       {view.batch && (
         <BriefSection>
           <BriefMuted>
@@ -73,31 +61,6 @@ export function BriefDetails({ item }: { item: SessionHistoryBriefDto }) {
           </BriefRows>
         </BriefSection>
       )}
-    </Card>
+    </>
   )
 }
-
-const Card = styled.details`
-  min-width: 0;
-  border: 1px solid ${color.lineStrong};
-  border-radius: ${radius.card};
-  background: ${color.surface};
-  overflow-wrap: anywhere;
-  > summary {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: ${space[1]} ${space[3]};
-    padding: ${space[3]} ${space[4]};
-    cursor: pointer;
-    font-weight: ${typeVar.bodyStrong.weight};
-  }
-  /* The flex summary drops the native marker, so the card draws its own. */
-  > summary::before {
-    content: '▸';
-    color: ${color.muted};
-  }
-  &[open] > summary::before {
-    content: '▾';
-  }
-`

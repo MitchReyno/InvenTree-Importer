@@ -153,13 +153,17 @@ test('a /7 session’s history carries each attempt’s sealed brief at its queu
     page.briefs?.map((item) => item.attempt_id),
     [fresh, row.attempt_id],
   )
-  // The page says only where each brief sits; its content is a read of its own.
-  assert.deepEqual(Object.keys(page.briefs![0]).sort(), ['at', 'attempt_id'])
+  // The page says where each brief sits, with its stage and sealed counts; its entries are a
+  // read of their own.
+  assert.deepEqual(Object.keys(page.briefs![0]).sort(), ['at', 'attempt_id', 'sections', 'stage'])
   const read: SessionHistoryBriefDto[] = []
   for (const ref of page.briefs!) {
     const header = page.session.attempts.find((attempt) => attempt.id === ref.attempt_id)!
     assert.equal(ref.at, header.queued_at)
     const item = await readBrief(fixture, batchId, row.job_id, ref.attempt_id)
+    const sealedRef = await sealedEntries(fixture, ref.attempt_id)
+    assert.equal(ref.stage, 'research')
+    assert.deepEqual(ref.sections, sealedRef.brief.sections)
     read.push(item)
     assert.equal(item.attempt_id, ref.attempt_id)
     assert.equal(item.at, ref.at)
@@ -454,7 +458,10 @@ test('a brief read is scoped to its job, and a broken brief fails only its own r
   const broken = await fixture.http(
     `/batches/${batchId}/processing/${row.job_id}/attempts/${attemptId}/brief`,
   )
-  assert.notEqual(broken.status, 200)
+  assert.deepEqual(
+    [broken.status, (broken.value as { code?: string }).code],
+    [409, 'processing_input_page_missing'],
+  )
   const page = await history(fixture, batchId, row.job_id)
   assert.ok(page.briefs!.some((item) => item.attempt_id === attemptId))
 })

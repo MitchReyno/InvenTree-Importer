@@ -28,7 +28,7 @@ import {
   statusLine,
 } from './processing.ts'
 import { ContractValidationIssue } from './validation-issues.ts'
-import { SessionBrief, SessionBriefPage } from './brief.ts'
+import { BriefSections, BriefStage, SessionBrief, SessionBriefPage } from './brief.ts'
 import {
   EvidenceReadings,
   EvidenceRegion,
@@ -623,16 +623,21 @@ export const SessionHistoryMetadata = object({
 export const SessionHistoryQuery = object({ before: Type.Optional(SessionHistoryCursor) })
 /**
  * Where a `/7` attempt's brief sits in the history: at the attempt's queue time, before every row
- * at that time. Its content is a read of its own (`SessionHistoryBrief`).
+ * at that time, with its stage and its sections' counts as sealed. Its entries are a read of their
+ * own (`SessionHistoryBrief`).
  */
 export const SessionHistoryBriefRef = object({
   attempt_id: Id,
   /** The attempt's queue time, as its header gives it. */
   at: IsoTime,
+  stage: BriefStage,
+  /** As sealed: entries since removed with their evidence still count. */
+  sections: BriefSections,
 })
 /** The brief a `/7` attempt's input sealed, every page of it, without evidence removed since. */
 export const SessionHistoryBrief = object({
-  ...SessionHistoryBriefRef.properties,
+  attempt_id: Id,
+  at: IsoTime,
   brief: SessionBrief,
 })
 /** One page of a session's history, newest first, with its metadata from the same snapshot. */

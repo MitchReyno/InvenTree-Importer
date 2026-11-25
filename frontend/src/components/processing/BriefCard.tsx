@@ -1,14 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useRef, useState, type SyntheticEvent } from 'react'
 import styled from 'styled-components'
 import { useQuery } from '@tanstack/react-query'
 import type { SessionHistoryBriefDto, SessionHistoryBriefRefDto } from '@invimport/contracts'
-import { Button, Small } from '#/components/ui'
+import { EventTime } from '#/components/ui'
 import { useServerScope } from '#/context'
-import { briefSummaryId } from '#/processing/brief-view'
-import { serverQueryKey } from '#/queries/scope'
-import { color, radius, space } from '#/theme/generated/tokens'
-import { BriefDetails } from './BriefDetails'
+import { briefRefSummary, briefSummaryId } from '#/processing/brief-view'
+import { serverQueryKey, type ServerScope } from '#/queries/scope'
+import { color, radius, space, typeVar } from '#/theme/generated/tokens'
+import { BriefBody } from './BriefBody'
 import type { HistoryContext } from './HistoryLink'
+import { HistoryText, HistoryTime } from './history-row-styles'
 
 export type BriefLoader = (
   batchId: string,
@@ -17,9 +18,18 @@ export type BriefLoader = (
 ) => Promise<SessionHistoryBriefDto>
 
 /**
- * The brief a `/7` attempt started from, as the first item after its divider. The history says
- * where it sits; the brief is read on its own when the card mounts, and not on the history's
- * polls, so a brief that can't be read leaves the rest of the conversation as it is.
+ * Keyed by the server scope, as private reads are, but outside its prefix, so live updates
+ * neither cancel nor re-read a brief; a scope change still clears it with the whole cache.
+ */
+function briefQueryKey(scope: ServerScope, batchId: string, jobId: string, attemptId: string) {
+  const [, ...identity] = serverQueryKey(scope)
+  return ['session-brief', ...identity, batchId, jobId, attemptId] as const
+}
+
+/**
+ * The brief a `/7` attempt started from, as the first item after its divider. Collapsed, it
+ * summarises the brief from the counts it was sealed with, which the history page carries;
+ * its entries are read only when the operator opens it, and read again each time they do.
  */
 export function BriefCard({
   reference,
@@ -32,61 +42,73 @@ export function BriefCard({
 }) {
   const scope = useServerScope()
   const { batchId, jobId } = context
+  const summaryId = briefSummaryId(reference.attempt_id)
+  const [open, setOpen] = useState(false)
+  // Set while the operator's retry is in flight, so its button stays where their focus is.
+  const [retrying, setRetrying] = useState(false)
+  const retryButton = useRef<HTMLButtonElement>(null)
   const query = useQuery({
-    queryKey: serverQueryKey(scope, 'session-brief', batchId, jobId, reference.attempt_id),
+    queryKey: briefQueryKey(scope, batchId, jobId, reference.attempt_id),
     queryFn: () => load(batchId, jobId, reference.attempt_id),
-    staleTime: Infinity,
+    enabled: open,
   })
 
-  // Set by the operator's retry: the button they used goes away once the brief is read.
-  const [focusOnRead, setFocusOnRead] = useState(false)
-  const read = query.data !== undefined
-  // Moves DOM focus to the brief's summary once a retried read has rendered it.
-  useEffect(() => {
-    if (!focusOnRead || !read) {
-      return
+  function toggled(event: SyntheticEvent<HTMLDetailsElement>) {
+    setOpen(event.currentTarget.open)
+  }
+
+  async function retry() {
+    setRetrying(true)
+    const result = await query.refetch()
+    // The button goes once the brief is read; focus follows only if the operator is still on it.
+    const stillOnRetry = document.activeElement === retryButton.current
+    setRetrying(false)
+    if (result.data && stillOnRetry) {
+      document.getElementById(summaryId)?.focus()
     }
-    document.getElementById(briefSummaryId(reference.attempt_id))?.focus()
-    setFocusOnRead(false)
-  }, [focusOnRead, read, reference.attempt_id])
-
-  function retry() {
-    setFocusOnRead(true)
-    void query.refetch()
   }
 
-  if (query.data) {
-    return (
-      <>
-        {query.isRefetchError && (
-          <Small role="status">
-            Couldn’t read this brief again; showing the copy read earlier.
-          </Small>
-        )}
-        <BriefDetails item={query.data} />
-      </>
-    )
-  }
-  if (query.isError) {
-    return (
-      <Placeholder role="alert">
-        The brief this attempt started from couldn’t be loaded.{' '}
-        <Button size="sm" onClick={retry}>
-          Try again
-        </Button>
-      </Placeholder>
-    )
-  }
-  return <Placeholder role="status">Loading the brief this attempt started from…</Placeholder>
+  return (
+    <Card id={`brief:${reference.attempt_id}`} aria-labelledby={summaryId} onToggle={toggled}>
+      <summary id={summaryId}>
+        <HistoryText>{briefRefSummary(reference)}</HistoryText>
+        <HistoryTime>
+          <EventTime at={reference.at} />
+        </HistoryTime>
+      </summary>
+      {open && (
+        <BriefBody
+          query={query}
+          retrying={retrying}
+          retry={() => void retry()}
+          retryButton={retryButton}
+        />
+      )}
+    </Card>
+  )
 }
 
-const Placeholder = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: ${space[2]} ${space[3]};
-  padding: ${space[3]} ${space[4]};
-  border: 1px dashed ${color.lineStrong};
+const Card = styled.details`
+  min-width: 0;
+  border: 1px solid ${color.lineStrong};
   border-radius: ${radius.card};
-  color: ${color.muted};
+  background: ${color.surface};
+  overflow-wrap: anywhere;
+  > summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: ${space[1]} ${space[3]};
+    padding: ${space[3]} ${space[4]};
+    cursor: pointer;
+    font-weight: ${typeVar.bodyStrong.weight};
+  }
+  /* The flex summary drops the native marker, so the card draws its own. */
+  > summary::before {
+    content: '▸';
+    color: ${color.muted};
+  }
+  &[open] > summary::before {
+    content: '▾';
+  }
 `

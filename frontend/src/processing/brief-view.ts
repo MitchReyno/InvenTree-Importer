@@ -1,4 +1,8 @@
-import type { BriefEntryDto, SessionBriefDto } from '@invimport/contracts'
+import type {
+  BriefEntryDto,
+  SessionBriefDto,
+  SessionHistoryBriefRefDto,
+} from '@invimport/contracts'
 
 type Entry<K extends BriefEntryDto['kind']> = Extract<BriefEntryDto, { kind: K }>
 type Observation = Entry<'observation'>['observation']
@@ -14,7 +18,6 @@ export type BriefObservationRow = {
 
 /** A brief's entries grouped the way the session page shows them. */
 export type BriefView = {
-  title: string
   batch: Entry<'batch'> | null
   identities: Entry<'identity'>[]
   observations: BriefObservationRow[]
@@ -31,11 +34,6 @@ export type BriefView = {
 
 function ofKind<K extends BriefEntryDto['kind']>(entries: readonly BriefEntryDto[], kind: K) {
   return entries.filter((entry): entry is Entry<K> => entry.kind === kind)
-}
-
-/** Examine starts from the batch; Research and Images from what Examine found. */
-function titleOf(brief: SessionBriefDto) {
-  return brief.stage === 'examine' ? 'Started from the batch' : 'Started from Examine’s findings'
 }
 
 export function briefView(brief: SessionBriefDto): BriefView {
@@ -60,7 +58,6 @@ export function briefView(brief: SessionBriefDto): BriefView {
   )
 
   return {
-    title: titleOf(brief),
     batch: ofKind(entries, 'batch')[0] ?? null,
     identities: ofKind(entries, 'identity'),
     observations,
@@ -80,23 +77,23 @@ function plural(count: number, one: string, many = `${one}s`) {
 }
 
 /**
- * How many of the operator's facts the brief holds: every correction, answer, note, edit and
- * saved instruction, as "Your facts" and the observations list them.
+ * The collapsed line of a brief: what the session started from, with the counts its brief was
+ * sealed with. They describe the brief at the start, not the batch now.
  */
-export function factCount(view: BriefView) {
-  const corrections = view.observations.reduce((sum, row) => sum + row.corrections.length, 0)
-  return view.facts.length + view.instructions.length + corrections + view.corrections.length
-}
+export function briefRefSummary(ref: SessionHistoryBriefRefDto) {
+  const count = (name: SessionHistoryBriefRefDto['sections'][number]['name']) =>
+    ref.sections.find((section) => section.name === name)?.count ?? 0
 
-/** The brief's one-line summary, naming only what it holds. */
-export function briefSummary(view: BriefView) {
-  const facts = factCount(view)
+  const observations = count('observations')
+  const facts = count('human')
+  const asked = count('asked')
   const parts = [
-    view.observations.length > 0 ? plural(view.observations.length, 'observation') : null,
+    observations > 0 ? plural(observations, 'observation') : null,
     facts > 0 ? `${facts} of your facts` : null,
-    view.asked.length > 0 ? `${plural(view.asked.length, 'question')} already asked` : null,
+    asked > 0 ? `${plural(asked, 'question')} already asked` : null,
   ]
-  return [view.title, ...parts.filter((part) => part !== null)].join(' · ')
+  const from = ref.stage === 'examine' ? 'the batch' : 'Examine’s findings'
+  return ['Brief at start', from, ...parts.filter((part) => part !== null)].join(' · ')
 }
 
 /**

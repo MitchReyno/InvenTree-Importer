@@ -126501,7 +126501,9 @@
               "type": "object",
               "required": [
                 "attempt_id",
-                "at"
+                "at",
+                "stage",
+                "sections"
               ],
               "properties": {
                 "attempt_id": {
@@ -126512,6 +126514,90 @@
                   "maxLength": 40,
                   "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
                   "type": "string"
+                },
+                "stage": {
+                  "anyOf": [
+                    {
+                      "const": "examine",
+                      "type": "string"
+                    },
+                    {
+                      "const": "research",
+                      "type": "string"
+                    },
+                    {
+                      "const": "images",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "sections": {
+                  "minItems": 1,
+                  "maxItems": 8,
+                  "type": "array",
+                  "items": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "count"
+                    ],
+                    "properties": {
+                      "name": {
+                        "anyOf": [
+                          {
+                            "const": "batch",
+                            "type": "string"
+                          },
+                          {
+                            "const": "human",
+                            "type": "string"
+                          },
+                          {
+                            "const": "asked",
+                            "type": "string"
+                          },
+                          {
+                            "const": "evidence",
+                            "type": "string"
+                          },
+                          {
+                            "const": "match",
+                            "type": "string"
+                          },
+                          {
+                            "const": "observations",
+                            "type": "string"
+                          },
+                          {
+                            "const": "lots",
+                            "type": "string"
+                          },
+                          {
+                            "const": "parts",
+                            "type": "string"
+                          },
+                          {
+                            "const": "identity",
+                            "type": "string"
+                          },
+                          {
+                            "const": "vocabulary",
+                            "type": "string"
+                          },
+                          {
+                            "const": "keep_out",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "count": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -132643,7 +132729,9 @@
         "type": "object",
         "required": [
           "attempt_id",
-          "at"
+          "at",
+          "stage",
+          "sections"
         ],
         "properties": {
           "attempt_id": {
@@ -132654,6 +132742,90 @@
             "maxLength": 40,
             "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
             "type": "string"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "const": "examine",
+                "type": "string"
+              },
+              {
+                "const": "research",
+                "type": "string"
+              },
+              {
+                "const": "images",
+                "type": "string"
+              }
+            ]
+          },
+          "sections": {
+            "minItems": 1,
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "name",
+                "count"
+              ],
+              "properties": {
+                "name": {
+                  "anyOf": [
+                    {
+                      "const": "batch",
+                      "type": "string"
+                    },
+                    {
+                      "const": "human",
+                      "type": "string"
+                    },
+                    {
+                      "const": "asked",
+                      "type": "string"
+                    },
+                    {
+                      "const": "evidence",
+                      "type": "string"
+                    },
+                    {
+                      "const": "match",
+                      "type": "string"
+                    },
+                    {
+                      "const": "observations",
+                      "type": "string"
+                    },
+                    {
+                      "const": "lots",
+                      "type": "string"
+                    },
+                    {
+                      "const": "parts",
+                      "type": "string"
+                    },
+                    {
+                      "const": "identity",
+                      "type": "string"
+                    },
+                    {
+                      "const": "vocabulary",
+                      "type": "string"
+                    },
+                    {
+                      "const": "keep_out",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "count": {
+                  "minimum": 0,
+                  "maximum": 100000,
+                  "type": "integer"
+                }
+              }
+            }
           }
         }
       },

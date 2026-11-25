@@ -26689,6 +26689,11 @@ export interface components {
             briefs?: {
                 attempt_id: string;
                 at: string;
+                stage: "examine" | "research" | "images";
+                sections: {
+                    name: "batch" | "human" | "asked" | "evidence" | "match" | "observations" | "lots" | "parts" | "identity" | "vocabulary" | "keep_out";
+                    count: number;
+                }[];
             }[];
             before?: string;
         };
@@ -27763,6 +27768,11 @@ export interface components {
         SessionHistoryBriefRef: {
             attempt_id: string;
             at: string;
+            stage: "examine" | "research" | "images";
+            sections: {
+                name: "batch" | "human" | "asked" | "evidence" | "match" | "observations" | "lots" | "parts" | "identity" | "vocabulary" | "keep_out";
+                count: number;
+            }[];
         };
         SessionHistoryCursor: string;
         SessionHistoryQuery: {

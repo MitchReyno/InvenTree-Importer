@@ -159,28 +159,27 @@ test('a /7 session opens on the brief it started from, collapsed, with your corr
   const list = await screen.findByRole('list', { name: 'Session conversation' })
   const rows = [...list.children] as HTMLElement[]
 
-  // The first item after the attempt's divider, read on its own, summarising what it holds.
+  // The first item after the attempt's divider, summarised from its sealed counts.
   expect(rows[0]).toHaveTextContent('Attempt 1')
-  const brief = await within(rows[1]).findByRole('group', {
-    name: /Started from Examine’s findings/,
-  })
-  expect(processing.brief).toHaveBeenCalledWith(H.batch, H.job, H.attempt)
+  const brief = within(rows[1]).getByRole('group', { name: /^Brief at start/ })
   const summary = brief.querySelector('summary')!
   expect(summary).toHaveTextContent(
-    'Started from Examine’s findings · 2 observations · 3 of your facts · 1 question already asked',
+    'Brief at start · Examine’s findings · 2 observations · 3 of your facts · 1 question already asked',
   )
   expect(rows[1].dataset.rail).toBeUndefined()
-  // Collapsed until opened: the earlier reading isn't shown yet.
+  // Collapsed, and not read until opened.
   expect(brief).not.toHaveAttribute('open')
-  expect(within(brief).getByText('ATMEGA328P 2338')).not.toBeVisible()
+  expect(processing.brief).not.toHaveBeenCalled()
 
   await user.click(summary)
   expect(brief).toHaveAttribute('open')
+  expect(processing.brief).toHaveBeenCalledWith(H.batch, H.job, H.attempt)
+  await within(brief).findByRole('heading', { name: 'Observations' })
   for (const heading of [
     'Examine’s identity',
     'Observations',
     'Your facts',
-    'Already asked · not asked again',
+    'Already asked',
     'Evidence it may read itself',
   ]) {
     expect(within(brief).getByRole('heading', { name: heading })).toBeVisible()
@@ -202,7 +201,7 @@ test('a /7 session opens on the brief it started from, collapsed, with your corr
   const facts = within(brief).getByRole('list', { name: 'Your facts' })
   expect(facts).toHaveTextContent('Which ATmega328P variant is this? → ATmega328P-AU')
   expect(facts).toHaveTextContent('Mouser order 3381-22 plus a loose bench bag')
-  const asked = within(brief).getByRole('list', { name: 'Already asked · not asked again' })
+  const asked = within(brief).getByRole('list', { name: 'Already asked' })
   expect(asked).toHaveTextContent('Which ATmega328P variant is this?')
   expect(asked).toHaveTextContent('Answered')
   expect(
@@ -210,21 +209,23 @@ test('a /7 session opens on the brief it started from, collapsed, with your corr
   ).toHaveTextContent('MCU close-up')
 })
 
-test('a brief that can’t be read says so in its place and leaves the conversation', async () => {
+test('a brief that can’t be read says so inside it and leaves the conversation', async () => {
   const user = userEvent.setup()
   const processing = client(history([status(1, 5, 'Reading the brief')], { briefs: [briefRef()] }))
   processing.brief.mockRejectedValueOnce(new Error('unavailable'))
   mount(processing)
   const list = await screen.findByRole('list', { name: 'Session conversation' })
+  const brief = within(list).getByRole('group', { name: /^Brief at start/ })
+  await user.click(brief.querySelector('summary')!)
 
-  const failed = await within(list).findByRole('alert')
-  expect(failed).toHaveTextContent('The brief this attempt started from couldn’t be loaded.')
+  const failed = await within(brief).findByRole('alert')
+  expect(failed).toHaveTextContent('The brief this attempt started from couldn’t be read.')
   expect(within(list).getByText('Reading the brief')).toBeVisible()
   // Retrying from the keyboard moves focus to the brief once it is read.
   within(failed).getByRole('button', { name: 'Try again' }).focus()
   await user.keyboard('{Enter}')
-  const brief = await within(list).findByRole('group', { name: /Started from Examine’s findings/ })
-  await waitFor(() => expect(brief.querySelector('summary')).toHaveFocus())
+  await within(brief).findByRole('heading', { name: 'Observations' })
+  expect(brief.querySelector('summary')).toHaveFocus()
 })
 
 test('a session from an earlier input, which had no brief, opens as before', async () => {

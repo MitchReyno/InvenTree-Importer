@@ -1,10 +1,13 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
+import type { SessionHistoryBriefDto } from '@invimport/contracts'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { createServerQueryClient } from '#/queries/client'
-import type { ServerScope } from '#/queries/scope'
+import { serverQueryKey, type ServerScope } from '#/queries/scope'
+import { deferred } from '#/test/deferred'
 import { H, briefRef, historyBrief } from '#/test/session-history'
-import { BriefCard } from './BriefCard'
+import { BriefCard, type BriefLoader } from './BriefCard'
 
 const scope: ServerScope = {
   origin: 'http://127.0.0.1:4310',
@@ -14,26 +17,66 @@ const scope: ServerScope = {
 }
 const context = { batchId: H.batch, jobId: H.job, step: 'research' as const }
 
-test('a brief read again on a later visit keeps the copy it has, and says the read failed', async () => {
-  const load = vi.fn().mockResolvedValueOnce(historyBrief()).mockRejectedValue(new Error('down'))
+function mount(load: BriefLoader) {
   const cache = createServerQueryClient()
-
-  const card = (shown: boolean) => (
+  render(
     <ServerStateProvider scope={scope} client={cache}>
-      {shown && <BriefCard reference={briefRef()} context={context} load={load} />}
-    </ServerStateProvider>
+      <BriefCard reference={briefRef()} context={context} load={load} />
+    </ServerStateProvider>,
   )
+  const card = screen.getByRole('group', { name: /^Brief at start/ })
+  const summary = card.querySelector('summary')!
 
-  const { rerender } = render(card(true))
-  await screen.findByRole('group', { name: /Started from Examine’s findings/ })
+  return { cache, card, summary }
+}
 
-  rerender(card(false))
-  rerender(card(true))
+test('live updates neither cancel nor read an opened brief again', async () => {
+  const user = userEvent.setup()
+  const load = vi.fn<BriefLoader>().mockResolvedValue(historyBrief())
+  const { cache, card, summary } = mount(load)
+  await user.click(summary)
+  await within(card).findByRole('heading', { name: 'Observations' })
+
+  await act(() => cache.invalidateQueries({ queryKey: serverQueryKey(scope) }))
+  expect(load).toHaveBeenCalledTimes(1)
+})
+
+test('opening it again reads it again, keeping the copy it has if that read fails', async () => {
+  const user = userEvent.setup()
+  const load = vi
+    .fn<BriefLoader>()
+    .mockResolvedValueOnce(historyBrief())
+    .mockRejectedValue(new Error('down'))
+  const { card, summary } = mount(load)
+  await user.click(summary)
+  await within(card).findByRole('heading', { name: 'Observations' })
+  await user.click(summary)
+  await user.click(summary)
+
   expect(
-    await screen.findByText('Couldn’t read this brief again; showing the copy read earlier.'),
+    await within(card).findByText('Couldn’t read this brief again; showing the copy read earlier.'),
   ).toBeVisible()
-  expect(screen.getByRole('group', { name: /Started from Examine’s findings/ })).toBeInTheDocument()
+  expect(within(card).getByRole('heading', { name: 'Observations' })).toBeVisible()
   expect(load).toHaveBeenCalledTimes(2)
-  // A background read never moves focus.
-  expect(document.activeElement).toBe(document.body)
+})
+
+test('a slow retry keeps its button, and focus stays where the operator moved it', async () => {
+  const user = userEvent.setup()
+  const slow = deferred<SessionHistoryBriefDto>()
+  const load = vi
+    .fn<BriefLoader>()
+    .mockRejectedValueOnce(new Error('down'))
+    .mockReturnValueOnce(slow.promise)
+  const { card, summary } = mount(load)
+  await user.click(summary)
+  const retry = await within(card).findByRole('button', { name: 'Try again' })
+
+  retry.focus()
+  await user.keyboard('{Enter}')
+  expect(within(card).getByRole('button', { name: 'Trying again…' })).toHaveFocus()
+  // The operator moves on before the read lands; it doesn't pull focus back.
+  summary.focus()
+  await act(async () => slow.resolve(historyBrief()))
+  await within(card).findByRole('heading', { name: 'Observations' })
+  expect(summary).toHaveFocus()
 })

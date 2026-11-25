@@ -1,10 +1,9 @@
 import { screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
 import type { BriefEntryDto } from '@invimport/contracts'
 import { render } from '#/test/render'
 import { H, historyBrief } from '#/test/session-history'
-import { BriefDetails } from './BriefDetails'
+import { BriefContent } from './BriefContent'
 
 const SECOND_VERSION = '64000000-0000-4000-8000-000000000006'
 
@@ -40,17 +39,15 @@ function keepOut(observation: string, version: string, markings: string[]): Brie
   }
 }
 
-test('an Images brief names the source and region of each item to keep out of frame', async () => {
-  const user = userEvent.setup()
+test('an Images brief names the source and region of each item to keep out of frame', () => {
   const item = historyBrief([
     evidence(H.version, 'Tray'),
     evidence(SECOND_VERSION, 'Reel label'),
     keepOut(H.observation, H.version, ['16 MHz']),
     keepOut(H.observation2, SECOND_VERSION, []),
   ])
-  render(<BriefDetails item={{ ...item, brief: { ...item.brief, stage: 'images' } }} />)
+  render(<BriefContent item={{ ...item, brief: { ...item.brief, stage: 'images' } }} />)
 
-  await user.click(screen.getByText(/Started from Examine’s findings/))
   const rows = within(screen.getByRole('list', { name: 'Keep out of frame' })).getAllByRole(
     'listitem',
   )
@@ -60,8 +57,7 @@ test('an Images brief names the source and region of each item to keep out of fr
   ])
 })
 
-test('a lot edit shows the quantity the operator left', async () => {
-  const user = userEvent.setup()
+test('a lot edit shows the quantity the operator left', () => {
   const edit: BriefEntryDto = {
     kind: 'lot_edit',
     source: 'human',
@@ -73,9 +69,8 @@ test('a lot edit shows the quantity the operator left', async () => {
     part_subject_id: null,
     excluded: null,
   }
-  render(<BriefDetails item={historyBrief([edit])} />)
+  render(<BriefContent item={historyBrief([edit])} />)
 
-  await user.click(screen.getByText(/1 of your facts/))
   expect(screen.getByRole('list', { name: 'Your facts' })).toHaveTextContent(
     'Lot edit ATmega328P · quantity 480',
   )

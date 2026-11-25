@@ -39,8 +39,9 @@ function onPage(queuedAt: string, span: PageSpan) {
 }
 
 /**
- * Where the briefs of the `/7` attempts queued within the page's span sit, newest first. Only the
- * place: a page never reads a brief's content, so its size and its reads don't grow with them.
+ * Where the briefs of the `/7` attempts queued within the page's span sit, newest first, with
+ * each one's stage and sealed section counts from the manifest the page already decodes. A page
+ * fetches no stored brief page and returns no entries.
  */
 export function historyBriefRefs(
   attempts: readonly AttemptBrief[],
@@ -48,7 +49,12 @@ export function historyBriefRefs(
 ): SessionHistoryBriefRefDto[] {
   return attempts
     .filter((attempt) => onPage(attempt.queuedAt, span))
-    .map((attempt) => ({ attempt_id: attempt.attemptId, at: attempt.queuedAt }))
+    .map((attempt) => ({
+      attempt_id: attempt.attemptId,
+      at: attempt.queuedAt,
+      stage: attempt.brief.stage,
+      sections: attempt.brief.sections,
+    }))
 }
 
 /**

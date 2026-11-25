@@ -520,7 +520,8 @@ export function researchBriefEntries(): BriefEntryDto[] {
 
 /** Where a `/7` attempt's brief sits in a history page. */
 export function briefRef(attempt: string = H.attempt, minute = 1): SessionHistoryBriefRefDto {
-  return { attempt_id: attempt, at: at(minute) }
+  const { brief } = historyBrief()
+  return { attempt_id: attempt, at: at(minute), stage: brief.stage, sections: brief.sections }
 }
 
 /** One `/7` attempt's brief as its read returns it. */
