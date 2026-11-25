@@ -420,17 +420,21 @@ export async function pinnedIdentityCurrent(client: PoolClient, pinned: readonly
 }
 
 /**
- * A successor's first claim: as `pinnedIdentityCurrent`, and the backstop behind every stale-row
- * write. A broken basis found here is made stale, with what was built on it, and the session that
- * published it is told, once, whichever claim finds it first.
+ * A successor's claim: as `pinnedIdentityCurrent`, and the backstop behind every stale-row write.
+ * A broken basis found here is made stale, with what was built on it, and the session that
+ * published it is told, once, whichever claim finds it first; `repaired` says this one did, so
+ * the caller publishes.
  */
-export async function claimPinnedIdentity(client: PoolClient, pinned: readonly string[]) {
+export async function claimPinnedIdentity(
+  client: PoolClient,
+  pinned: readonly string[],
+): Promise<{ current: boolean; repaired: boolean }> {
   if (await pinnedIdentityCurrent(client, pinned)) {
-    return true
+    return { current: true, repaired: false }
   }
   const broken = await brokenBases(client, pinned)
   if (!broken.length) {
-    return false
+    return { current: false, repaired: false }
   }
   // One repair per batch at a time, so claims staling related identities never wait on each other.
   await client.query(
@@ -446,7 +450,7 @@ export async function claimPinnedIdentity(client: PoolClient, pinned: readonly s
   )
   const fresh = written.rows.map((row) => row.id)
   if (!fresh.length) {
-    return false
+    return { current: false, repaired: false }
   }
   const owners = await client.query<{ id: string; lineage: string; revision: string }>(
     `SELECT p.id, a.job_id AS lineage, b.revision::text AS revision
@@ -471,7 +475,7 @@ export async function claimPinnedIdentity(client: PoolClient, pinned: readonly s
       context,
     )
   }
-  return false
+  return { current: false, repaired: true }
 }
 
 /** Inventory's gate: the lot's Research and Images each have a current (not stale) proposal. */

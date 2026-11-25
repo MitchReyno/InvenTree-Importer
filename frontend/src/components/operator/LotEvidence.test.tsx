@@ -80,3 +80,33 @@ test('a ready job from a cached or older Processing read is history, not accepta
   )
   expect(screen.getByRole('button', { name: /Use estimated quantity 40/ })).toBeEnabled()
 })
+
+test('a stale candidate is shown as stale and can’t be taken', () => {
+  const job = processing.jobs[0]
+  const current = job.proposals[0]
+  const stale = {
+    ...current,
+    id: '60000000-0000-4000-8000-000000000008',
+    value: { ...current.value, summary: 'Stale estimate' },
+    currentness: { state: 'stale', reason: 'source_superseded' },
+  }
+  const both = {
+    ...processing,
+    jobs: [{ ...job, proposals: [{ ...current, currentness: { state: 'current' } }, stale] }],
+  } as unknown as ProcessingSnapshotDto
+  render(
+    <BatchCommandsProvider value={batchCommands({ edit: vi.fn() })}>
+      <LotEvidence
+        batch={batch}
+        lot={lot}
+        part={undefined}
+        processing={both}
+        processingCurrent
+        editDisabled={false}
+      />
+    </BatchCommandsProvider>,
+  )
+  expect(screen.getAllByText('Stale')).toHaveLength(1)
+  // Only the current candidate offers its estimate.
+  expect(screen.getAllByRole('button', { name: /Use estimated quantity 40/ })).toHaveLength(1)
+})

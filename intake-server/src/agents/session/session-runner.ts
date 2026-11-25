@@ -849,7 +849,7 @@ export async function runSessionTurn(
       // resumes; a `/7` one is checked again below.
       if (
         row.turnCount === 0n &&
-        !(await claimPinnedIdentity(client, manifest.pinned_proposal_ids))
+        !(await claimPinnedIdentity(client, manifest.pinned_proposal_ids)).current
       ) {
         await supersedeJobAttempts(client, row.jobId)
         await setSessionState(client, attemptId, row.jobId, 'cancelled', ['queued'])
@@ -861,10 +861,16 @@ export async function runSessionTurn(
       if (
         row.turnCount > 0n &&
         manifest.schema_version === 'bench-intake-input/7' &&
-        (manifest.stage === 'research' || manifest.stage === 'images') &&
-        !(await claimPinnedIdentity(client, manifest.pinned_proposal_ids))
+        (manifest.stage === 'research' || manifest.stage === 'images')
       ) {
-        return 'waiting' as const
+        const pin = await claimPinnedIdentity(client, manifest.pinned_proposal_ids)
+        if (!pin.current) {
+          // The repair staled the identity and told the lead; views hear of it once.
+          if (pin.repaired) {
+            await publish(client, row.batchId)
+          }
+          return 'waiting' as const
+        }
       }
       // Inventory waits, queued and without a slot, until the lot's Research and Images are current.
       if (

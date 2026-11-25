@@ -2586,12 +2586,29 @@ test('a /7 successor that has run waits, rather than resumes, once its identity 
       )
     ).rows[0].turns
   const before = await turns()
-  // It stays queued, without a turn, until the lead's next identity releases it.
+  const events = async () =>
+    (
+      await fixture.db.pool.query<{ count: string }>(
+        `SELECT count(*)::text FROM ui_event e JOIN capture_batch b ON b.stream_id=e.stream_id
+         WHERE b.id=$1`,
+        [batch.batchId],
+      )
+    ).rows[0].count
+  const eventsBefore = Number(await events())
+  // It stays queued, without a turn, until the lead's next identity releases it; the repair is
+  // published once, and refusing again publishes nothing.
   assert.equal(
     await runSessionTurn(batch.deps, research.attemptId, new AbortController().signal),
     'queued',
   )
   assert.equal(await turns(), before)
+  const eventsAfter = Number(await events())
+  assert.ok(eventsAfter > eventsBefore)
+  assert.equal(
+    await runSessionTurn(batch.deps, research.attemptId, new AbortController().signal),
+    'queued',
+  )
+  assert.equal(Number(await events()), eventsAfter)
   const [identityId] = (await inputOf(fixture, research.attemptId)).manifest.pinned_proposal_ids
   const stale = await fixture.db.pool.query(
     'SELECT 1 FROM processing_proposal_stale WHERE proposal_id=$1',
@@ -2665,5 +2682,52 @@ test('an identity built on one that isn’t stable still rests on that lot as it
   assert.equal(
     await runSessionTurn(batch.deps, research.attemptId, new AbortController().signal),
     'cancelled',
+  )
+})
+
+test('a worker without the writer can’t publish a stable /7 identity', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, leadAttempt } = batch
+  const led = await batch.lot('led 0603 red')
+  const research = await stageJob(batch, 'led 0603 red', 'research')
+  const pinned = (await inputOf(fixture, research.attemptId)).manifest.pinned_proposal_ids
+  const runnerOnly = sessionTools({
+    pool: fixture.runner.pool,
+    config: fixture.config,
+    store: batch.store,
+    statusIntervalMs: 0,
+    imageBudget: new Map(),
+    deliveredMedia: new Map(),
+    figurePreviewWaitMs: 0,
+  })
+  const { note } = citations((await inputOf(fixture, leadAttempt)).manifest)
+  const republished = await result(
+    runnerOnly.propose(await running(fixture, leadAttempt), {
+      proposal: {
+        schema_version: 'examine-identity/1',
+        subject_id: led.id,
+        summary: 'Red 0603 LEDs, another candidate.',
+        sources: [note],
+        relies_on: {
+          fields: ['markings', 'identity'],
+          sources: [
+            note,
+            { kind: 'observation_set', lot_id: led.id, version: led.observation_set_version },
+          ],
+        },
+        markings: [{ observation_id: led.evidence_observation_ids![0], text: ['LED 0603 red'] }],
+        candidates: [],
+      },
+    }),
+  )
+  assert.equal(republished.error, 'tool_not_allowed', JSON.stringify(republished))
+  // The identity Research is queued on stays the lot's, and nothing new was stored.
+  assert.deepEqual(
+    (await inputOf(fixture, research.attemptId)).manifest.pinned_proposal_ids,
+    pinned,
+  )
+  assert.equal(
+    await transaction(fixture.runner.pool, (client) => pinnedIdentityCurrent(client, pinned)),
+    true,
   )
 })

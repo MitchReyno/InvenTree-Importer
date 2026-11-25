@@ -2182,6 +2182,17 @@ export function sessionTools(context: SessionToolContext) {
           if (estimate && !onWriter) {
             refuse('tool_not_allowed', 'This worker cannot write the lot’s estimate.')
           }
+          // A stable `/7` identity retires the lot's earlier ones and releases their successors in
+          // its own transaction, which needs the writer; without it, it isn't stored at all.
+          if (
+            !onWriter &&
+            principal.subjectId === null &&
+            principal.manifest.schema_version === 'bench-intake-input/7' &&
+            proposal.schema_version === 'examine-identity/1' &&
+            reliedObservationSet(proposal) !== null
+          ) {
+            refuse('tool_not_allowed', 'This worker cannot publish the lot’s identity.')
+          }
           const envelope = await sealSessionEnvelope(client, principal, 'proposal', proposal)
           await requireRoom(client, principal, 'proposals', sealed(proposal).bytes.length)
           const { messageId, streamId } = await retainSessionMessage(
