@@ -167,7 +167,7 @@ async function main() {
     openapi: '3.1.0',
     info: { title: 'Bench Intake foundation', version: 'bench-intake-app/1' },
     paths: {
-      '/api/v1/health': { get: get('Health', SETUP_TIMEOUT_MS, 'setup') },
+      '/api/v1/health': { get: get('Health', 10000, 'setup') },
       '/api/v1/readiness': { get: get('Readiness', SETUP_TIMEOUT_MS, 'setup') },
       '/api/v1/bootstrap': {
         get: get('Bootstrap', SETUP_TIMEOUT_MS, 'setup'),
@@ -251,7 +251,7 @@ async function main() {
       '/api/v1/connection-status': { get: get('ConnectionStatus', CAPTURE_TIMEOUT_MS) },
       '/api/v1/connection-status/check': {
         post: {
-          'x-intake-client': { timeoutMs: CAPTURE_TIMEOUT_MS, errorMode: 'typed' },
+          'x-intake-client': { timeoutMs: 20000, errorMode: 'typed' },
           responses: commandResponses('ConnectionStatus'),
         },
       },

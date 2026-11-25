@@ -21,19 +21,20 @@ T1 establishes server observations. T2 consumes them. T3 delivers media admissio
 
 ## T1. Supply timely, scoped server observations
 
-- [ ] Baseline the liveness route, scoped status read, 3-second remote cutoff, 30-second cache, client budgets and socket ticks. Capture synthetic latency, pool wait and current failure classifications.
-- [ ] RED: demonstrate a 9-second protected success labelled offline, no autonomous check without a client, a delayed heartbeat with occupied API pool, and stale results across a credential/context rotation.
-- [ ] GREEN: implement the scheduled target checks, coalesced manual check, cancellation, short recovery cadence, budgeted health pool, schema-compatible snapshots and separate root/auth outcomes. Decouple socket heartbeat from projection without weakening scope closure. Introduce reason and elapsed-time observations.
-- [ ] Verify with fake clocks, generated-client checks, actual sockets, saturated PostgreSQL pool and target stub. Cover startup, shutdown, fresh-cache checks, refused token, redirects, root failure, target timeout and local DB failure. Update Intake architecture and endpoint docs.
+- [x] Baseline the liveness route, scoped status read, 3-second remote cutoff, 30-second cache, client budgets and socket ticks. Capture synthetic latency, pool wait and current failure classifications.
+- [x] RED: reproduce a 9-second protected success labelled offline with the original deadline.
+- [ ] Historical RED evidence remains partial for autonomous checks, heartbeat delay under pool pressure and credential/context rotation. Post-change verification covers these cases.
+- [x] GREEN: implement the scheduled target checks, coalesced manual check, cancellation, short recovery cadence, budgeted health pool, schema-compatible snapshots and separate root/auth outcomes. Decouple socket heartbeat from projection without weakening scope closure. Introduce reason and elapsed-time observations.
+- [x] Verify with fake clocks, generated-client checks, actual sockets, saturated PostgreSQL pool and target stub. Cover startup, shutdown, fresh-cache checks, refused token, redirects, root failure, target timeout and local DB failure. Update Intake architecture and endpoint docs.
 
 ## T2. Present and recover both connections
 
-- [ ] Baseline focus/file picker refresh, mount, offline and stale behavior. RED: make a local-only failure produce the existing erroneous inventory warning in a regression; cover both health legs and debug modes.
-- [ ] GREEN: implement the shared browser liveness owner, gated probe coalescing and recovery state table across desktop, phone and Settings. Preserve edit safety, drafts, last-check times, focus and navigation.
-- [ ] Exercise nine/ten-second boundaries, delayed response after recovery, sleep/resume, polling-only and stale target results. Verify desktop and phone accessibility including Escape, announcements, 360/390px and 200% zoom. Check old/new client behavior and update frontend architecture.
+- [x] Baseline focus/file picker refresh, mount, offline and stale behavior. RED: make a local-only failure produce the existing erroneous inventory warning in a regression; cover both health legs and debug modes.
+- [x] GREEN: implement the shared browser liveness owner, gated probe coalescing and recovery state table across desktop, phone and Settings. Preserve edit safety, drafts, last-check times, focus and navigation.
+- [x] Exercise nine/ten-second boundaries, delayed response after recovery, sleep/resume, polling-only and stale target results. Verify desktop and phone accessibility including Escape, announcements, 360/390px and 200% zoom. Check old/new client behavior and update frontend architecture.
 - [ ] Run project contract checks, frontend typecheck/lint/tests/build and pnpm test. Attach failing-hop demonstrations and measured load evidence, review exact head, address findings and obtain selected green CI before authorized merge to interactive-app.
 
-- [ ] Exercise a cold-start outage through the generated health client, a nine-second liveness response, automatic bootstrap retry, and a recovered target displayed within five seconds of publication with the socket disabled.
+- [x] Exercise a cold-start outage through the generated health client, a nine-second liveness response, automatic bootstrap retry, and a recovered target displayed within five seconds of publication with the socket disabled.
 
 ## T3. Admit independent decodes within shared limits
 

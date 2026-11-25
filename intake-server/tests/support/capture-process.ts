@@ -104,7 +104,8 @@ export async function captureProcess(port: number, options: CaptureProcessOption
     child.stderr?.on('data', (b) => {
       logs += b.toString()
     })
-    for (let i = 0; i < 100; i++) {
+    const startupDeadline = Date.now() + 30_000
+    while (Date.now() < startupDeadline) {
       if (child.exitCode !== null) {
         throw new Error(`capture_child_failed:${logs}`)
       }

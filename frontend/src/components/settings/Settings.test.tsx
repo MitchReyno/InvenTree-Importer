@@ -237,7 +237,7 @@ test('the API token row never shows a stale or failed read as current', async ()
 
   header.connection.mockRejectedValueOnce(new Error('offline'))
   renderSettings('inventree')
-  await screen.findByText('InvenTree unreachable')
+  expect(await screen.findAllByText('Intake service degraded')).not.toHaveLength(0)
   expect(
     within(screen.getByRole('group', { name: 'API token' })).getByText('Unavailable'),
   ).toBeVisible()

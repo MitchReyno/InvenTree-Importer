@@ -1,4 +1,5 @@
 import { test } from 'node:test'
+import type { ConnectionStatusDto } from '@invimport/contracts'
 import assert from 'node:assert/strict'
 import { createServer } from '#/api/server.ts'
 import { devConfig } from '#/config.ts'
@@ -183,6 +184,45 @@ test('Check connection now forces the reader through a CSRF-protected command', 
     assert.equal(checked.statusCode, 200)
     assert.equal(checked.json().target.failure_code, 'unauthorized')
     assert.deepEqual(counts, { read: 0, check: 1 })
+  } finally {
+    await app.close()
+  }
+})
+
+test('root reachability is negotiated for clients with closed schemas', async () => {
+  const app = createServer(config)
+  const target: ConnectionStatusDto['target'] = {
+    state: 'unavailable',
+    freshness: 'fresh',
+    failure_code: 'timeout',
+    observed_at: new Date().toISOString(),
+    root_responded: true,
+    navigation_url: null,
+    label: null,
+  }
+  const read = reader(async () => ({
+    actor_id: config.actorId,
+    target_id: config.targetId,
+    target_context_id: config.targetContextId,
+    target,
+  }))
+  registerHeader(app, config, read, async () => {
+    throw new Error('unused')
+  })
+  try {
+    for (const format of [undefined, '2']) {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/connection-status',
+        headers: {
+          host: '127.0.0.1:4333',
+          ...(format ? { 'x-intake-health-format': format } : {}),
+        },
+      })
+      const observed = response.json().target
+      assert.equal(observed.root_responded, format === '2' ? true : undefined)
+      assert.equal(observed.failure_code, 'timeout')
+    }
   } finally {
     await app.close()
   }
