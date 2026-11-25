@@ -596,7 +596,7 @@ for (const light of [
   { contrast_clip_permille: 50, gamma_thousandths: 500, sharpen: true },
 ]) {
   test(`luminance ${JSON.stringify(light)} holds every pixel at or above the hue floor within 5°`, async () => {
-    // At the floor and just above it, under the guard's 48-level cutoff; then a ramp of dim colours.
+    // Colours at the 16-level luminance floor and just above it, then a ramp of dim colours.
     const colours = [
       [47, 5, 0],
       [16, 0, 0],
@@ -673,3 +673,25 @@ for (const light of [
     )
   })
 }
+
+test('the final check holds white balance back when gamma would otherwise erase a dark band', async () => {
+  // At the floor, RGB 16, 0, 0 keeps its hue only if white balance leaves it enough spread for gamma.
+  const page = await solidPage(40, 8, (x) => (x < 6 ? [16, 0, 0] : [190, 130, 120]))
+  const rendered = await renderLitCrop(
+    page,
+    wholePage(page, { white_balance: true, gamma_thousandths: 500 }),
+  )
+  assert.ok(rendered.state === 'rendered')
+  assert.ok(rendered.whiteBalance?.heldBack, 'white balance is held back')
+  const output: Raster = {
+    width: rendered.image.info.width,
+    height: rendered.image.info.height,
+    data: rendered.image.data,
+  }
+  const band = pixelAt(output, 2, 4)
+  const turned = hue(...band)
+  assert.ok(
+    turned !== null && hueShift(0, turned) <= MAX_BAND_HUE_SHIFT_DEGREES,
+    `16,0,0 -> ${band.join(',')}`,
+  )
+})
