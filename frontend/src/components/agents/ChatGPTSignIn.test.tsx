@@ -103,6 +103,27 @@ it('closes by itself once a poll confirms the account', async () => {
   expect(send).toHaveBeenCalledTimes(4)
 })
 
+it('stays open with Disconnect held until the confirmed account is recorded', async () => {
+  let recorded: () => void = () => {}
+
+  onConfirmed.mockImplementation(
+    () =>
+      new Promise<void>((resolve) => {
+        recorded = resolve
+      }) as unknown as void,
+  )
+  await startSignIn()
+  send
+    .mockResolvedValueOnce(challenge())
+    .mockResolvedValueOnce(Response.json({ state: 'connected' }))
+  await wait(6000)
+  expect(onConfirmed).toHaveBeenCalledTimes(1)
+  expect(screen.getByText('Signed in to ChatGPT. Updating the model list…')).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Disconnect ChatGPT' })).toBeDisabled()
+  await act(async () => recorded())
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
 it('an account already signed in is shown, not closed', async () => {
   send.mockResolvedValueOnce(Response.json({ state: 'connected' }))
   openDialog()

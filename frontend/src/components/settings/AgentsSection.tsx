@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { AgentProviderId, AgentSettingsDto } from '@invimport/contracts'
 import type { agentsClient } from '@invimport/contracts/client'
 import { serverQueryKey } from '#/queries/scope'
@@ -30,6 +30,13 @@ import { createSaveQueue } from './agents/save-queue'
 import type { SettingsPage } from './agents/useSettingsSave'
 import { sessionListKey } from '#/agents/session-list'
 import { invalidateStartFreshReads } from '#/processing/start-fresh'
+
+/** Each provider's newest sign-in change, numbered across visits so an older one never matches. */
+type SignInOrder = Partial<Record<AgentProviderId, number>>
+
+const NO_SIGN_IN_CHANGES: SignInOrder = {}
+
+let signInChangeCount = 0
 
 /** Every session, for the list's totals; no page or filter narrows them. */
 const ALL_SESSIONS = { filter: 'all' } as const
@@ -70,8 +77,16 @@ export function AgentsSection({
   const providerStatus = useProviderStatus(client)
   // Shared with Processing; a sign-in change marks it stale before the dialog confirms.
   const catalog = useModelCatalog(client)
-  // Sign-in changes per provider, so only the newest one's confirmation is shown.
-  const signInChanges = useRef({ claude: 0, codex: 0 })
+  // Each provider's newest sign-in change, kept with the status read so it outlives this visit.
+  const signInOrderKey = serverQueryKey(scope, 'provider-status', 'sign-in-order')
+  useQuery({
+    queryKey: signInOrderKey,
+    queryFn: () => NO_SIGN_IN_CHANGES,
+    enabled: false,
+    initialData: NO_SIGN_IN_CHANGES,
+    staleTime: Infinity,
+    gcTime: Infinity,
+  })
   const queryClient = useQueryClient()
   // Says whether this profile's sessions have web access; until it answers, the form stays usable.
   const readiness = useReadiness(true)
@@ -152,12 +167,19 @@ export function AgentsSection({
     { late = false }: { late?: boolean },
     publish: () => void,
   ) {
+    const newest = () => queryClient.getQueryData<SignInOrder>(signInOrderKey)?.[provider]
+
     if (!late) {
-      signInChanges.current[provider] += 1
+      signInChangeCount += 1
+      const change = signInChangeCount
+      queryClient.setQueryData<SignInOrder>(signInOrderKey, (order = NO_SIGN_IN_CHANGES) => ({
+        ...order,
+        [provider]: change,
+      }))
     }
-    const mine = signInChanges.current[provider]
+    const mine = newest()
     await catalog.signInChanged(provider, 'subscription')
-    if (signInChanges.current[provider] === mine) {
+    if (newest() === mine) {
       publish()
     }
   }

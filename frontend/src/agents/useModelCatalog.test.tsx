@@ -42,10 +42,9 @@ function mount(client: ModelCatalogSource) {
     </ServerStateProvider>
   )
 
-  return renderHook(() => useModelCatalog(client), { wrapper })
+  return { cache, ...renderHook(() => useModelCatalog(client), { wrapper }) }
 }
 
-/** Moves the clock on, then lets the reads it started answer and render. */
 async function advance(ms: number) {
   await act(() => vi.advanceTimersByTimeAsync(ms))
   for (let turn = 0; turn < 3; turn++) {
@@ -247,5 +246,53 @@ test('a change to the subscription leaves an API key’s list as it is', async (
     authentication: 'subscription',
     invalidate: true,
   })
+  expect(result.current.viewsFor().claude.state).toBe('current')
+})
+
+test('an acknowledgement that answers a cancelled read settles nothing', async () => {
+  const client = source(modelCatalog())
+  const { result, cache } = mount(client)
+  await advance(0)
+  const ack = deferred<Awaited<ReturnType<typeof client.refreshModelCatalog>>>()
+  client.refreshModelCatalog
+    .mockRejectedValueOnce(new Error('offline'))
+    .mockReturnValueOnce(ack.promise)
+  await act(() => result.current.signInChanged('claude', 'subscription'))
+  // The read that follows resends the change; it is cancelled before the server answers.
+  await advance(0)
+  expect(client.refreshModelCatalog).toHaveBeenCalledTimes(2)
+  await act(() => cache.cancelQueries())
+  ack.resolve({ provider: 'claude', authentication: 'subscription', stale_sign_in: true })
+  // The next read's resend is refused, and the server still answers the old list as current.
+  client.refreshModelCatalog.mockRejectedValue(new Error('offline'))
+  client.modelCatalog.mockResolvedValue(modelCatalog())
+  await act(() => cache.refetchQueries())
+  await advance(0)
+  expect(result.current.viewsFor().claude.state).toBe('stale_sign_in')
+})
+
+test('an older change answering late never replaces or brings back a newer one', async () => {
+  const client = source(modelCatalog())
+  const { result } = mount(client)
+  await advance(0)
+  const older = deferred<Awaited<ReturnType<typeof client.refreshModelCatalog>>>()
+  client.refreshModelCatalog.mockReturnValueOnce(older.promise)
+  const first = result.current.signInChanged('claude', 'subscription')
+  client.refreshModelCatalog.mockRejectedValueOnce(new Error('offline'))
+  await act(() => result.current.signInChanged('claude', 'subscription'))
+  // The newer change is acknowledged when it is resent, and the server has read the new list.
+  client.refreshModelCatalog.mockResolvedValue({
+    provider: 'claude',
+    authentication: 'subscription',
+    stale_sign_in: true,
+  })
+  client.modelCatalog.mockResolvedValue(modelCatalog())
+  await advance(1_100)
+  expect(result.current.viewsFor().claude.state).toBe('current')
+  // The older change's refusal arrives last, while the server can't be reached.
+  client.refreshModelCatalog.mockRejectedValue(new Error('offline'))
+  older.reject(new Error('offline'))
+  await act(() => first)
+  await advance(1_100)
   expect(result.current.viewsFor().claude.state).toBe('current')
 })

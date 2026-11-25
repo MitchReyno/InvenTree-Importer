@@ -71,9 +71,16 @@ type Authentication = AgentSelectionDto['authentication']
 /** A sign-in change whose invalidation the server hasn't acknowledged yet; `version` orders them. */
 type Unacknowledged = { version: number; authentication: Authentication }
 
-type PendingChanges = Partial<Record<AgentProviderId, Unacknowledged>>
+/**
+ * Each provider's newest sign-in change, which alone may mark its list or wait for an
+ * acknowledgement, and the one still waiting for one.
+ */
+type SignInChanges = {
+  latest: Partial<Record<AgentProviderId, number>>
+  pending: Partial<Record<AgentProviderId, Unacknowledged>>
+}
 
-const NONE: PendingChanges = {}
+const NONE: SignInChanges = { latest: {}, pending: {} }
 
 const PROVIDERS = ['claude', 'codex'] as const satisfies readonly AgentProviderId[]
 
@@ -107,18 +114,26 @@ export function useModelCatalog(
     gcTime: Infinity,
   })
 
-  function pendingNow() {
-    return queryClient.getQueryData<PendingChanges>(pendingKey) ?? NONE
+  function changesNow() {
+    return queryClient.getQueryData<SignInChanges>(pendingKey) ?? NONE
   }
 
-  /** Forgets a provider's change, unless a newer one has replaced it meanwhile. */
+  function pendingNow() {
+    return changesNow().pending
+  }
+
+  function updateChanges(update: (changes: SignInChanges) => SignInChanges) {
+    queryClient.setQueryData<SignInChanges>(pendingKey, (changes = NONE) => update(changes))
+  }
+
+  /** Forgets a provider's waiting change if it is `version`; a newer one stays. */
   function settle(provider: AgentProviderId, version: number) {
-    queryClient.setQueryData<PendingChanges>(pendingKey, (pending = NONE) => {
-      if (pending[provider]?.version !== version) {
-        return pending
+    updateChanges((changes) => {
+      if (changes.pending[provider]?.version !== version) {
+        return changes
       }
-      const { [provider]: _settled, ...rest } = pending
-      return rest
+      const { [provider]: _settled, ...rest } = changes.pending
+      return { ...changes, pending: rest }
     })
   }
 
@@ -138,7 +153,10 @@ export function useModelCatalog(
       }
       try {
         await send({ provider, authentication: change.authentication, invalidate: true })
-        settle(provider, change.version)
+        // A read cancelled meanwhile changes nothing; the next read sends it again.
+        if (!signal.aborted) {
+          settle(provider, change.version)
+        }
       } catch {
         // Still unacknowledged: the list stays marked, and the next read sends it again.
       }
@@ -206,19 +224,25 @@ export function useModelCatalog(
   async function signInChanged(provider: AgentProviderId, authentication: Authentication) {
     changeVersion += 1
     const version = changeVersion
+    updateChanges((changes) => ({ ...changes, latest: { ...changes.latest, [provider]: version } }))
+
+    const newest = () => changesNow().latest[provider] === version
+
+    let acknowledged = true
     try {
       await client?.refreshModelCatalog?.({ provider, authentication, invalidate: true })
-      // Acknowledged: it replaces an older change still waiting, never a newer one.
-      const waiting = pendingNow()[provider]
-      if (waiting && waiting.version < version) {
-        settle(provider, waiting.version)
-      }
     } catch {
-      queryClient.setQueryData<PendingChanges>(pendingKey, (pending = NONE) => ({
-        ...pending,
-        [provider]: { version, authentication },
-      }))
+      acknowledged = false
     }
+    // Only the newest change records its outcome; an older one answering late changes nothing.
+    if (!newest()) {
+      return
+    }
+    updateChanges((changes) => {
+      const { [provider]: _older, ...others } = changes.pending
+      const pending = acknowledged ? others : { ...others, [provider]: { version, authentication } }
+      return { ...changes, pending }
+    })
     // A read sent before the change may still answer with the old list as current.
     await queryClient.cancelQueries({ queryKey })
     queryClient.setQueryData<CatalogRead>(

@@ -817,7 +817,11 @@ test('each provider card saves its switch, sign-in and default model as they cha
   expect(within(codex).getByText('OPENAI_API_KEY')).toBeVisible()
   expect(screen.queryByLabelText('API key')).not.toBeInTheDocument()
   // Codex's API-key list isn't read until the switch saves, so the ID is typed.
-  pick(screen.getByRole('combobox', { name: 'Research' }), 'Use “gpt-6.1-sol” with Codex', 'gpt-6.1-sol')
+  pick(
+    screen.getByRole('combobox', { name: 'Research' }),
+    'Use “gpt-6.1-sol” with Codex',
+    'gpt-6.1-sol',
+  )
   await autosaved(() =>
     expect(api.saveSettings).toHaveBeenCalledWith(
       agentSettingsUpdate(

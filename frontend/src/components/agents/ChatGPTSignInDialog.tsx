@@ -10,20 +10,23 @@ type Props = {
   /** The sign-in may have changed; the card reads its status again. */
   onChanged: () => void
   onClose: () => void
+  /** The confirmed account is being recorded; nothing can change it until that settles. */
+  settling?: boolean
 }
 
 /** The ChatGPT sign-in dialog: the management key, then the device sign-in. */
-export function ChatGPTSignInDialog({ onConfirmed, onChanged, onClose }: Props) {
-  const { busy, blocked, shown, shownMessage, request, editKey } = useChatGPTSignIn({
-    onConfirmed,
-    onChanged,
-  })
+export function ChatGPTSignInDialog({ onConfirmed, onChanged, onClose, settling = false }: Props) {
+  const signIn = useChatGPTSignIn({ onConfirmed, onChanged })
+  const { busy, shown, shownMessage, request, editKey } = signIn
+  const blocked = signIn.blocked || settling
 
   function account() {
     if (shown?.state === 'connected') {
       return (
         <>
-          <p role="status">Signed in to ChatGPT</p>
+          <p role="status">
+            {settling ? 'Signed in to ChatGPT. Updating the model list…' : 'Signed in to ChatGPT'}
+          </p>
           <Button disabled={blocked} onClick={() => void request('disconnect')}>
             Disconnect ChatGPT
           </Button>
@@ -81,6 +84,7 @@ export function ChatGPTSignInDialog({ onConfirmed, onChanged, onClose }: Props) 
           type="password"
           autoComplete="off"
           help="Held only while this dialog is open."
+          disabled={settling}
           onChange={(event) => editKey(event.target.value)}
         />
         {account()}

@@ -66,17 +66,24 @@ test('an older sign-in confirmation still marking the list never shows over a ne
     modelCatalog: vi.fn(async () => modelCatalog()),
     refreshModelCatalog,
   }
-  render(
+
+  const settings = (section: 'agents' | 'inventree') => (
     <Settings
-      section="agents"
+      section={section}
       returnTo={undefined}
       agents={api as unknown as ReturnType<typeof agentsClient>}
       onDirtyChange={vi.fn()}
       replaceSubsection={vi.fn()}
-    />,
+    />
   )
+
+  const view = render(settings('agents'))
   await screen.findByRole('group', { name: 'Codex' })
   fireEvent.click(screen.getByRole('button', { name: 'Account confirmed' }))
+  // Leaving Settings › Agents and coming back keeps the order of the changes.
+  view.rerender(settings('inventree'))
+  view.rerender(settings('agents'))
+  await screen.findByRole('group', { name: 'Codex' })
   fireEvent.click(screen.getByRole('button', { name: 'Disconnected' }))
   await waitFor(() => expect(refreshModelCatalog).toHaveBeenCalledTimes(2))
   await act(async () =>

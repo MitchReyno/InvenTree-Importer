@@ -7,16 +7,16 @@ import { ChatGPTSignIn } from './ChatGPTSignIn'
 vi.mock('./ChatGPTSignInDialog', () => ({
   ChatGPTSignInDialog: ({
     onConfirmed,
-    onChanged,
     onClose,
+    settling,
   }: {
     onConfirmed: () => void
-    onChanged: () => void
     onClose: () => void
+    settling: boolean
   }) => (
     <div role="dialog" aria-label="ChatGPT sign-in">
       <button onClick={onConfirmed}>Account confirmed</button>
-      <button onClick={onChanged}>Disconnect</button>
+      <button disabled={settling}>Disconnect</button>
       <button onClick={onClose}>Close</button>
     </div>
   ),
@@ -39,14 +39,12 @@ test('the dialog closes once a confirmation settles, but a late one never closes
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })
 
-test('a newer change made in the dialog keeps it open over an older confirmation', async () => {
+test('while a confirmation settles the dialog holds its account controls, then closes', async () => {
   const held = deferred<void>()
-  const onChanged = vi.fn()
-  render(<ChatGPTSignIn onConfirmed={() => held.promise} onChanged={onChanged} />)
+  render(<ChatGPTSignIn onConfirmed={() => held.promise} onChanged={vi.fn()} />)
   fireEvent.click(screen.getByRole('button', { name: 'Sign in to ChatGPT…' }))
   fireEvent.click(screen.getByRole('button', { name: 'Account confirmed' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Disconnect' }))
-  expect(onChanged).toHaveBeenCalledTimes(1)
+  expect(screen.getByRole('button', { name: 'Disconnect' })).toBeDisabled()
   await act(async () => held.resolve())
-  expect(screen.getByRole('dialog', { name: 'ChatGPT sign-in' })).toBeVisible()
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })
