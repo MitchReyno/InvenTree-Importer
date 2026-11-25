@@ -1791,6 +1791,120 @@ test('a /7 session keeps an instruction it read before the ungroup, and isn’t 
   assert.equal(resumed, undefined)
   // The instruction it read stays in its history; the withdrawn one isn't there.
   assert.deepEqual(await historyInstructions(fixture, batchId, row.job_id), ['Count every reel'])
+
+  const groupInstruction = async (label: string, text: string) => {
+    const made = await media({ kind: 'group', label })
+    const id = made.groups.find((item) => item.label === label)!.id
+    await fixture.db.pool.query(
+      `INSERT INTO capture_instruction(id,batch_id,group_id,version,text,actor_id)
+       VALUES(gen_random_uuid(),$1,$2,1,$3,$4)`,
+      [batchId, id, text, fixture.identity.actor],
+    )
+    await deliverInstructions(fixture.api.pool, fixture.config, batchId)
+    return id
+  }
+
+  // A wake racing an ungroup that holds the batch waits for it, then sees the withdrawal.
+  const bin = await groupInstruction('Bin', 'Keep the bin apart')
+  const holder = await fixture.db.pool.connect()
+  try {
+    await holder.query('BEGIN')
+    await holder.query('SELECT 1 FROM capture_batch WHERE id=$1 FOR UPDATE', [batchId])
+    await holder.query(
+      `INSERT INTO agent_session_inbox_withdrawal(item_id)
+       SELECT id FROM agent_session_inbox WHERE session_lineage_id=$1 AND payload->>'group_id'=$2`,
+      [row.job_id, bin],
+    )
+    const waking = transaction(fixture.runner.pool, (client) =>
+      queueSessionResume(client, row.job_id),
+    )
+    // Wait until the wake is blocked on the batch row, so the ordering is the one under test.
+    for (let tries = 0; ; tries++) {
+      const blocked = await fixture.db.pool.query(
+        "SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock'",
+      )
+      if (blocked.rowCount) {
+        break
+      }
+      assert.ok(tries < 100, 'the wake never waited on the batch')
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    await holder.query('COMMIT')
+    assert.equal(await waking, undefined)
+  } finally {
+    holder.release()
+  }
+
+  // Queued for an item withdrawn before its claim, the session goes back to waiting, no turn run.
+  const drawer = await groupInstruction('Drawer', 'Check the drawer')
+  const queued = await transaction(fixture.runner.pool, (client) =>
+    queueSessionResume(client, row.job_id),
+  )
+  assert.equal(queued, row.attempt_id)
+  const turns = async () =>
+    (
+      await fixture.db.pool.query<{ turn_count: string; session_state: string }>(
+        'SELECT turn_count::text, session_state FROM agent_session WHERE attempt_id=$1',
+        [row.attempt_id],
+      )
+    ).rows[0]
+  const before = await turns()
+  await media({ kind: 'ungroup', group_id: drawer })
+  assert.equal(
+    await runSessionTurn(deps, row.attempt_id, new AbortController().signal),
+    'waiting_input',
+  )
+  assert.deepEqual(await turns(), { turn_count: before.turn_count, session_state: 'waiting_input' })
+})
+
+test('a sealed brief keeps a group’s instruction after the ungroup; its current view leaves it out', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId } = batch
+  const { row } = await successorOf(batch, 'led 0603 red', 'research')
+  const { ungroup } = await groupedInstructions(batch.fixture, batch.batchId)
+  // A replacement seals a brief holding both instructions.
+  await fixture.db.pool.query("UPDATE processing_attempt SET state='failed' WHERE id=$1", [
+    row.attempt_id,
+  ])
+  await fixture.db.pool.query(
+    "UPDATE agent_session SET session_state='failed' WHERE attempt_id=$1",
+    [row.attempt_id],
+  )
+  const job = await fixture.db.pool.query<{ revision: string }>(
+    'SELECT revision::text FROM processing_job WHERE id=$1',
+    [row.job_id],
+  )
+  const receipt = (await replaceSession(
+    fixture.api.pool,
+    fixture.config,
+    batchId,
+    row.job_id,
+    'sealed',
+    {
+      expected_capture_revision: (await snapshotOf(fixture, batchId)).revision,
+      expected_revision: job.rows[0].revision,
+      attempt_id: row.attempt_id,
+    },
+  )) as { attempt_ids: string[] }
+  const sealed = (await sealedInput(fixture, receipt.attempt_ids[0])).manifest
+  const texts = (entries: readonly BriefEntryDto[]) =>
+    ofKind(entries, 'instruction')
+      .map((entry) => entry.text)
+      .sort()
+  assert.deepEqual(texts(inlineEntries(stageInput(sealed))), [
+    'Count every reel',
+    'Keep the shelf together',
+  ])
+  await ungroup()
+  // The sealed brief is unchanged; the current view reflects the ungroup.
+  const after = (await sealedInput(fixture, receipt.attempt_ids[0])).manifest
+  assert.deepEqual(texts(inlineEntries(stageInput(after))), [
+    'Count every reel',
+    'Keep the shelf together',
+  ])
+  assert.deepEqual(texts((await currentBrief(fixture, batchId, sealed)).entries), [
+    'Count every reel',
+  ])
 })
 
 test('a lineage’s first /7 attempt doesn’t inherit a /6 attempt’s pending retired-group instruction', async (t) => {

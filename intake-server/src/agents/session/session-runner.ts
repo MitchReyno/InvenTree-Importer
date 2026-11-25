@@ -500,6 +500,31 @@ async function sealedStagePack(client: PoolClient, manifest: SessionInputDto) {
   return pack.instruction_bytes.toString('utf8')
 }
 
+async function openQuestions(client: PoolClient, jobId: string) {
+  const open = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ id: processingQuestions.id })
+      .from(processingQuestions)
+      .where(and(eq(processingQuestions.jobId, jobId), eq(processingQuestions.state, 'open')))
+      .limit(1),
+  )
+  return open.length > 0
+}
+
+/** Whether every item above the lineage's cursor was withdrawn, and there is at least one. */
+async function withdrawnOnly(client: PoolClient, lineageId: string) {
+  const rows = await client.query<{ withdrawn: boolean }>(
+    `SELECT count(*) > 0 AND bool_and(w.item_id IS NOT NULL) AS withdrawn
+       FROM public.agent_session_inbox i
+       LEFT JOIN public.agent_session_inbox_withdrawal w ON w.item_id=i.id
+      WHERE i.session_lineage_id=$1
+        AND i.seq > coalesce((SELECT c.acked_seq FROM public.agent_session_cursor c
+                               WHERE c.session_lineage_id=$1),0)`,
+    [lineageId],
+  )
+  return rows.rows[0]?.withdrawn === true
+}
+
 /** Runs one provider turn for a queued session and settles its next state. */
 export async function runSessionTurn(
   deps: SessionRunnerDeps,
@@ -650,6 +675,17 @@ export async function runSessionTurn(
       ) {
         return 'waiting' as const
       }
+      // A resume whose only pending items were withdrawn since it was queued has nothing to do:
+      // the session goes back to the state its last turn left it in, without a turn.
+      if (row.turnCount > 0n && (await withdrawnOnly(client, row.jobId))) {
+        const idle = (await openQuestions(client, row.jobId)) ? 'waiting_input' : 'finished'
+        const settled = await setSessionState(client, attemptId, row.jobId, idle, ['queued'])
+        await publish(client, row.batchId)
+        if (settled === 'cancelled') {
+          return 'cancelled' as const
+        }
+        return idle === 'waiting_input' ? ('idle_waiting' as const) : ('idle_finished' as const)
+      }
       // Without a free slot the session stays queued; the caller waits and tries again.
       if (!(await claimSessionSlot(client, config, attemptId))) {
         return undefined
@@ -691,6 +727,12 @@ export async function runSessionTurn(
   }
   if (claimed === 'retired') {
     return 'failed' as const
+  }
+  if (claimed === 'idle_waiting') {
+    return 'waiting_input' as const
+  }
+  if (claimed === 'idle_finished') {
+    return 'finished' as const
   }
   if (claimed === 'archived' || claimed === 'paused' || claimed === 'waiting') {
     return 'queued' as const
@@ -875,7 +917,11 @@ export async function runSessionTurn(
   await watching
 
   return transaction(pool, async (client) => {
-    // Job and attempt first, as everywhere, before the cursor and the session row.
+    // The batch first, as an ungroup takes it, so a withdrawal it commits is seen below and a
+    // withdrawn item doesn't requeue the session. Then job and attempt, as everywhere.
+    await client.query('SELECT 1 FROM public.capture_batch WHERE id=$1 FOR SHARE', [
+      current.batchId,
+    ])
     const locked = await lockProcessingAttempt(client, current.jobId, attemptId)
     // A cancelled, superseded or replaced attempt leaves input pending for whatever replaces it.
     const live =
@@ -884,21 +930,9 @@ export async function runSessionTurn(
       await acknowledgeSessionInbox(client, current.jobId, accepted)
     }
     if (next === 'finished') {
-      const pending = await pendingSessionInbox(client, current.jobId)
-      const open = await executeDatabaseQuery(
-        queryDatabase(client)
-          .select({ id: processingQuestions.id })
-          .from(processingQuestions)
-          .where(
-            and(
-              eq(processingQuestions.jobId, current.jobId),
-              eq(processingQuestions.state, 'open'),
-            ),
-          ),
-      )
-      if (pending > 0) {
+      if ((await pendingSessionInbox(client, current.jobId)) > 0) {
         next = 'queued'
-      } else if (open.length) {
+      } else if (await openQuestions(client, current.jobId)) {
         next = 'waiting_input'
       }
     }

@@ -329,4 +329,3 @@ For sessions whose input is `/7`, the batch's saved instructions SHALL reach the
 - **GIVEN** a `/7` session that has not yet read an instruction for an evidence group, and a `/6` session of another batch in the same position
 - **WHEN** the operator ungroups each group
 - **THEN** the `/7` session is never given the instruction, isn't woken for it and doesn't show it in its history, while instructions it already read stay there, and the `/6` session still receives it.
-
