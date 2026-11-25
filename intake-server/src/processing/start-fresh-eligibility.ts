@@ -15,7 +15,7 @@ import { readProcessingMediaScopes, type ProcessingMediaAvailability } from './m
 import { ProcessingError, type Stage } from './model.ts'
 import { isSessionProfile, type SessionProfileId } from './session-policy.ts'
 import { prepareSessionAttempt } from './session-attempts.ts'
-import { batchInputVersion } from './stage-policy.ts'
+import { batchInputVersion, configuredInputVersion } from './stage-policy.ts'
 import { decodeSessionInput } from './session-input.ts'
 import { pinnedIdentityCurrent, successorsCurrent } from './stable-identity.ts'
 
@@ -175,6 +175,18 @@ export async function startFreshEligibility(
   const batchIds = [...new Set(replaceable.map((job) => job.batch_id))]
   for (const batchId of batchIds) {
     const batchJobs = replaceable.filter((job) => job.batch_id === batchId)
+    // A `/7` batch under a configuration that can't seal `/7` is refused before any settings
+    // read: no saved setting changes that.
+    const inputVersion = await batchInputVersion(client, config, batchId)
+    if (
+      inputVersion === 'bench-intake-input/7' &&
+      configuredInputVersion(config) !== 'bench-intake-input/7'
+    ) {
+      for (const job of batchJobs) {
+        eligibility.set(job.id, refused('unsupported_processing_profile'))
+      }
+      continue
+    }
     const inputs = await batchInputs(client, config, batchId, batchJobs, context)
     for (const job of batchJobs) {
       if (profileId !== 'synthetic-session/1' && settings === undefined) {

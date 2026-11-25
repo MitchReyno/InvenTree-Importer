@@ -67,7 +67,12 @@ function ownedResources(t: { after: (fn: () => Promise<void>) => void }) {
 }
 
 /** A session worker child for the fixture's actor; `stop` sends SIGTERM and waits for its exit. */
-async function startWorker(fixture: Fixture, root: string, stageInputs: boolean) {
+async function startWorker(
+  fixture: Fixture,
+  root: string,
+  stageInputs: boolean,
+  extraEnv: Record<string, string> = {},
+) {
   const stateRoot = join(root, 'state')
   const worker = spawn(
     process.execPath,
@@ -92,6 +97,7 @@ async function startWorker(fixture: Fixture, root: string, stageInputs: boolean)
         INTAKE_PROCESSING_CHANNEL_SECRET: fixture.config.channelSecret,
         INTAKE_PROCESSING_PROFILE: 'synthetic-session/1',
         ...(stageInputs ? { INTAKE_TEST_STAGE_INPUTS: 'local' } : {}),
+        ...extraEnv,
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     },
@@ -127,13 +133,28 @@ async function startWorker(fixture: Fixture, root: string, stageInputs: boolean)
       exited.then(() => true),
       delay(STOP_GRACE_MS).then(() => false),
     ])
-    if (!graceful) {
-      worker.kill('SIGKILL')
-      await exited
+    if (graceful) {
+      return
+    }
+    worker.kill('SIGKILL')
+    const reaped = await Promise.race([
+      exited.then(() => true),
+      delay(STOP_GRACE_MS).then(() => false),
+    ])
+    // An unreaped child isn't safe to tear its database down under; say so instead.
+    if (!reaped) {
+      throw new Error(`worker_not_reaped:${worker.pid}`)
     }
   }
 
-  return { until, stop }
+  /** The worker's exit, within `WAIT_MS`, with everything it wrote. */
+  const exit = async () => {
+    const ended = await Promise.race([exited.then(() => true), delay(WAIT_MS).then(() => false)])
+    assert.ok(ended, `the worker exits: ${output}`)
+    return { code: worker.exitCode, output }
+  }
+
+  return { until, stop, exit }
 }
 
 /** Each Research and Images job of a lot, by its label, with its sealed input version. */
@@ -260,5 +281,44 @@ test(
         ['research', 'bench-intake-input/6'],
       ],
     )
+  },
+)
+
+test(
+  'a worker paired to the VM bridge refuses the switch before it touches any session',
+  { timeout: 120000 },
+  async (t) => {
+    const own = ownedResources(t)
+    const fixture = await processingFixture({ profileId: 'synthetic-session/1' })
+    own(() => fixture.dispose())
+    const capture = await fixture.seedCapture()
+    await notedPhoto(fixture, capture.batch.id, 'Tray', '16 MHz crystal')
+    const root = await workerRoot()
+    own(() => rm(root, { recursive: true, force: true }))
+    // The pairing names a bridge the worker would start; the switch is refused first.
+    const worker = await startWorker(fixture, root, true, {
+      INTAKE_VM_PAIR: join(root, 'pair'),
+      INTAKE_VM_PORT: '45999',
+    })
+    own(() => worker.stop())
+    const { code, output } = await worker.exit()
+    assert.equal(code, 1)
+    assert.match(output, /session_agent_configuration_required/)
+    // Nothing was recovered, queued or started for the batch.
+    const jobs = await fixture.db.pool.query('SELECT 1 FROM processing_job WHERE batch_id=$1', [
+      capture.batch.id,
+    ])
+    assert.equal(jobs.rowCount, 0)
+
+    // The control: the same pairing without the switch gets past that check to the bridge,
+    // which this unpaired fixture can't start, so it stops for another reason.
+    const control = await startWorker(fixture, root, false, {
+      INTAKE_VM_PAIR: join(root, 'pair'),
+      INTAKE_VM_PORT: '45999',
+    })
+    own(() => control.stop())
+    const unpaired = await control.exit()
+    assert.equal(unpaired.code, 1)
+    assert.doesNotMatch(unpaired.output, /session_agent_configuration_required/)
   },
 )

@@ -26346,6 +26346,8 @@ export interface components {
                     source: "human";
                     note_id: string;
                     subject_id: string | null;
+                    evidence_id: string | null;
+                    group_id: string | null;
                     text: string;
                     text_sha256: string;
                     actor_id: string;
@@ -27871,6 +27873,8 @@ export interface components {
                 source: "human";
                 note_id: string;
                 subject_id: string | null;
+                evidence_id: string | null;
+                group_id: string | null;
                 text: string;
                 text_sha256: string;
                 actor_id: string;
@@ -28920,6 +28924,8 @@ export interface components {
                     source: "human";
                     note_id: string;
                     subject_id: string | null;
+                    evidence_id: string | null;
+                    group_id: string | null;
                     text: string;
                     text_sha256: string;
                     actor_id: string;
@@ -29958,6 +29964,8 @@ export interface components {
                 source: "human";
                 note_id: string;
                 subject_id: string | null;
+                evidence_id: string | null;
+                group_id: string | null;
                 text: string;
                 text_sha256: string;
                 actor_id: string;
@@ -31004,6 +31012,8 @@ export interface components {
                 source: "human";
                 note_id: string;
                 subject_id: string | null;
+                evidence_id: string | null;
+                group_id: string | null;
                 text: string;
                 text_sha256: string;
                 actor_id: string;
@@ -32177,6 +32187,8 @@ export interface components {
                         source: "human";
                         note_id: string;
                         subject_id: string | null;
+                        evidence_id: string | null;
+                        group_id: string | null;
                         text: string;
                         text_sha256: string;
                         actor_id: string;
@@ -33340,6 +33352,8 @@ export interface components {
                         source: "human";
                         note_id: string;
                         subject_id: string | null;
+                        evidence_id: string | null;
+                        group_id: string | null;
                         text: string;
                         text_sha256: string;
                         actor_id: string;

@@ -12,6 +12,8 @@ import type {
 import { formedBatch, photoWithNote, type Fixture } from '../support/lot-pipeline.ts'
 import { transaction } from '#/db/database.ts'
 import { captureInTransaction } from '#/capture/repository.ts'
+import { readBatchMediaInputResult } from '#/media/inputs.ts'
+import { startFreshEligibility } from '#/processing/start-fresh-eligibility.ts'
 import { issueSessionCapability, resolveSessionCapability } from '#/agents/tools/capability.ts'
 import { readBriefPage, retainBriefView, stagePrincipal } from '#/agents/tools/brief-read.ts'
 import { triggerExamine } from '#/processing/examine-trigger.ts'
@@ -223,6 +225,10 @@ test('under the switch the lead and its successors seal briefs with their stages
   assert.deepEqual(identities[0].proposal.relies_on.fields, ['identity'])
   const [note] = ofKind(entries, 'note').filter((entry) => entry.text.includes('16 MHz'))
   assert.equal(note.source, 'human')
+  // An evidence note says which photo it is about.
+  const [tray] = ofKind(entries, 'evidence')
+  assert.equal(note.evidence_id, tray.evidence_id)
+  assert.equal(note.subject_id, null)
   const own = ofKind(entries, 'observation').map((entry) => entry.observation.id)
   assert.deepEqual(own, led.evidence_observation_ids)
   // The photo lists the regions both lots were read from, each with its lot.
@@ -911,6 +917,8 @@ test('a kept current view larger than the default JSON bound reads back', async 
     source: 'human',
     note_id: `7c3e1d04-92ab-4f6e-b81d-${index.toString(16).padStart(12, '0')}`,
     subject_id: null,
+    evidence_id: null,
+    group_id: null,
     text: 'n'.repeat(8000),
     text_sha256: 'a'.repeat(64),
     actor_id: fixture.identity.actor,
@@ -1133,4 +1141,102 @@ test('a profile that can’t run a /7 lead’s pipeline is refused before its pr
   })
   assert.equal(started.status, 422)
   assert.equal((started.value as { code: string }).code, 'unsupported_processing_profile')
+})
+
+test('each evidence note keeps the photo it is about in the current view', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId, leadAttempt } = batch
+  const bag = await photoWithNote(fixture, batchId, 'Bag', 'Counted 24 in the bag')
+  const brief = await transaction(fixture.runner.pool, async (client) => {
+    const capture = await captureInTransaction(client, fixture.config, batchId)
+    const manifest = (await sealedInput(fixture, leadAttempt)).manifest
+    const media = await readBatchMediaInputResult(client, fixture.config, batchId)
+    assert.equal(media.kind, 'ready')
+    return assembleBrief(client, capture.snapshot, {
+      ...briefScope(manifest),
+      mediaContext: media.kind === 'ready' ? media.inputs.context : undefined,
+    })
+  })
+  const notes = ofKind(brief.entries, 'note')
+  const counted = notes.find((note) => note.text === 'Counted 24 in the bag')!
+  assert.equal(counted.evidence_id, bag.evidence)
+  assert.equal(counted.group_id, null)
+  assert.equal(counted.subject_id, null)
+  const tray = notes.find((note) => note.text.includes('16 MHz'))!
+  assert.ok(tray.evidence_id)
+  assert.notEqual(tray.evidence_id, counted.evidence_id)
+})
+
+test('long group instructions are entries of their own, and all of them page', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId } = batch
+  const { lot: led, row } = await successorOf(batch, 'led 0603 red', 'research')
+  // Eight instructions of 8,192 four-byte characters: together past one entry's 192 KiB.
+  const groups: string[] = []
+  for (let index = 0; index < 8; index += 1) {
+    const group = `7c3e1d04-92ab-4f6e-b81d-${(0x100 + index).toString(16).padStart(12, '0')}`
+    groups.push(group)
+    await fixture.db.pool.query(
+      'INSERT INTO media_group(id,batch_id,label,actor_id) VALUES($1,$2,$3,$4)',
+      [group, batchId, `Group ${index}`, fixture.identity.actor],
+    )
+    await fixture.db.pool.query(
+      `INSERT INTO capture_instruction(id,batch_id,group_id,version,text,actor_id)
+       VALUES(gen_random_uuid(),$1,$2,1,$3,$4)`,
+      [batchId, group, `${index}${'\u{1F4C4}'.repeat(8191)}`, fixture.identity.actor],
+    )
+  }
+  await withClients(async (open) => {
+    const session = await open(batch.deps.toolUrl, await running(fixture, row.attempt_id))
+    const pages = await allPages(session, led.id, {})
+    const instructions = ofKind(
+      pages.flatMap((page) => page.entries),
+      'instruction',
+    )
+    assert.deepEqual(instructions.map((entry) => entry.group_id).sort(), [...groups].sort())
+    for (const entry of instructions) {
+      const index = groups.indexOf(entry.group_id!)
+      assert.equal(entry.text, `${index}${'\u{1F4C4}'.repeat(8191)}`)
+    }
+  })
+})
+
+test('a /7 lead under a configuration that can’t seal /7 keeps its identity and queues nothing', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, leadAttempt } = batch
+  const led = await batch.lot('led 0603 red')
+  const before = await batch.successors(led.id)
+  const [identity] = await batch.identities(led.id)
+  delete fixture.config.stageInputs
+  fixture.config.profileId = 'native-agent/2'
+  // The lead publishes its identity again: it stands, and no successor is replaced.
+  const value = await fixture.db.pool.query<{ value: Record<string, unknown> }>(
+    "SELECT convert_from(value_bytes,'UTF8')::jsonb AS value FROM processing_proposal WHERE id=$1",
+    [identity.id],
+  )
+  await withClients(async (open) => {
+    const lead = await open(batch.deps.toolUrl, await running(fixture, leadAttempt))
+    const published = await call(lead, 'propose', { proposal: value.rows[0].value })
+    assert.equal(published.ok, true, JSON.stringify(published))
+  })
+  assert.deepEqual(
+    (await batch.successors(led.id)).map((row) => row.attempt_id),
+    before.map((row) => row.attempt_id),
+  )
+  // Start fresh on a stopped successor reads as refused, without a provider settings read.
+  const research = before.find((row) => row.stage === 'research')!
+  await fixture.db.pool.query("UPDATE processing_attempt SET state='failed' WHERE id=$1", [
+    research.attempt_id,
+  ])
+  await fixture.db.pool.query(
+    "UPDATE agent_session SET session_state='failed' WHERE attempt_id=$1",
+    [research.attempt_id],
+  )
+  const eligibility = await transaction(fixture.api.pool, (client) =>
+    startFreshEligibility(client, fixture.config, [research.job_id]),
+  )
+  assert.deepEqual(eligibility.get(research.job_id), {
+    allowed: false,
+    reason: 'unsupported_processing_profile',
+  })
 })

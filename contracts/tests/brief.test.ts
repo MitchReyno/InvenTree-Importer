@@ -10,6 +10,8 @@ const note = {
   source: 'human',
   note_id: id(1),
   subject_id: null,
+  evidence_id: id(6),
+  group_id: null,
   text: 'Reel of 5000.',
   text_sha256: digest('a'),
   actor_id: id(2),

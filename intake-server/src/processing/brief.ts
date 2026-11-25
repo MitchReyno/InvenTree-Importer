@@ -330,19 +330,31 @@ function noteEntries(
   scope: BriefScope,
   subjects: ReadonlySet<string> | null,
 ): BriefEntryDto[] {
-  const captureNotes = snapshot.notes.filter((note) => inScope(subjects, note.subject_id))
-  const contextNotes = scope.lotId ? captureContextNotes(snapshot, scope.lotId) : []
-  const mediaNotes = [
-    ...(scope.mediaContext?.groups.flatMap((group) => (group.note ? [group.note] : [])) ?? []),
-    ...(scope.mediaContext?.evidenceNotes.map((item) => item.note) ?? []),
-  ]
-    .filter((note) => note.text.trim().length > 0)
-    .map((note) => ({ ...note, subject_id: null }))
+  const unscoped = { evidence_id: null, group_id: null }
+  const captureNotes = snapshot.notes
+    .filter((note) => inScope(subjects, note.subject_id))
+    .map((note) => ({ ...note, ...unscoped }))
+  const contextNotes = (scope.lotId ? captureContextNotes(snapshot, scope.lotId) : []).map(
+    (note) => ({ ...note, ...unscoped }),
+  )
+  // Group and evidence notes keep what they are about.
+  const groupNotes = (scope.mediaContext?.groups ?? []).flatMap((group) =>
+    group.note ? [{ ...group.note, subject_id: null, evidence_id: null, group_id: group.id }] : [],
+  )
+  const evidenceNotes = (scope.mediaContext?.evidenceNotes ?? []).map((item) => ({
+    ...item.note,
+    subject_id: null,
+    evidence_id: item.evidenceId,
+    group_id: null,
+  }))
+  const mediaNotes = [...groupNotes, ...evidenceNotes].filter((note) => note.text.trim().length > 0)
   return [...captureNotes, ...contextNotes, ...mediaNotes].map((note) => ({
     kind: 'note',
     source: 'human',
     note_id: note.id,
     subject_id: note.subject_id,
+    evidence_id: note.evidence_id,
+    group_id: note.group_id,
     text: note.text,
     text_sha256: sha256(Buffer.from(note.text, 'utf8')).toString('hex'),
     actor_id: note.actor_id,

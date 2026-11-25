@@ -65,12 +65,17 @@ export const BriefInstructionEntry = object({
   text: note,
 })
 
-/** A note the operator wrote, with the subject it is about (null for the whole batch). */
+/**
+ * A note the operator wrote, with what it is about: a subject, an evidence item or an evidence
+ * group, or (all of them null) the whole batch.
+ */
 export const BriefNoteEntry = object({
   kind: Type.Literal('note'),
   ...human,
   note_id: Id,
   subject_id: Type.Union([Id, Type.Null()]),
+  evidence_id: Type.Union([Id, Type.Null()]),
+  group_id: Type.Union([Id, Type.Null()]),
   text: note,
   text_sha256: Digest,
   actor_id: Id,

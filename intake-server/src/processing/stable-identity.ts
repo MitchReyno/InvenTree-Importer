@@ -141,6 +141,16 @@ export async function onLeadIdentity(
   if (!toQueue.length) {
     return 'revised'
   }
+  // Successors follow the lead's sealed version, so a retained `/6` lead never queues `/7` ones.
+  // A `/7` lead under a configuration that doesn't seal `/7` can't queue its successors; the
+  // identity stands, as it does with no provider on. Checked before any settings read.
+  const inputVersion = await batchInputVersion(client, config, snapshot.id)
+  if (
+    inputVersion === 'bench-intake-input/7' &&
+    configuredInputVersion(config) !== 'bench-intake-input/7'
+  ) {
+    return 'waiting'
+  }
   // One read decides what to queue and is sealed into every successor, so a save landing
   // meanwhile can neither roll back this proposal nor split the successors across revisions.
   const settings = await settingsForSuccessors(client, config)
@@ -149,16 +159,6 @@ export async function onLeadIdentity(
     : [...toQueue]
   if (!queueable.length) {
     // With no provider on, the identity proposal still stands; its successors aren't queued.
-    return 'waiting'
-  }
-  // Successors follow the lead's sealed version, so a retained `/6` lead never queues `/7` ones.
-  const inputVersion = await batchInputVersion(client, config, snapshot.id)
-  // A `/7` lead under a configuration that doesn't seal `/7` can't queue its successors; the
-  // identity stands, as it does with no provider on.
-  if (
-    inputVersion === 'bench-intake-input/7' &&
-    configuredInputVersion(config) !== 'bench-intake-input/7'
-  ) {
     return 'waiting'
   }
   await checkJobCapacity(client, snapshot.id, [lotId], [...queueable])
