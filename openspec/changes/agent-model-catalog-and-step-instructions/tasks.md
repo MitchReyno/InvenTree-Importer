@@ -184,7 +184,7 @@
 - **Risks and decisions:** this task integrates with code BI-022 writes; follow its merged shape and record departures in `notes.md`. Ask BI-022's implementing session to hold its PR-G2 activation for this task once PR-I merges.
 
 - [ ] 7.1 Read BI-022's merged multi-lot claim and its design, and confirm where a queued lot's record is written.
-- [ ] 7.2 RED: the A, edit, B, claim regression; two lots queued with the same text grouping as before; a lot queued before this task (no captured text) grouping only with lots that have none, and getting the text current at its claim.
+- [ ] 7.2 RED: the A, edit, B, claim regression; two lots queued with the same text grouping as before; a lot queued before this task (no captured text) grouping only with lots that have none and sealed with no step text, as a retained input is.
 - [ ] 7.3 GREEN: capture the text at queue time and filter groups by it.
 - [ ] 7.4 Update `agents/ARCHITECTURE.md` and run the intake tiers.
 
