@@ -44,6 +44,12 @@ Departures from the plan, surprises and decisions the design left open, recorded
 - Only a configuration that seals `/7` writes one, checked before any provider setting is read (at Start, replacement, the Start-fresh check and stable-identity queueing), since no setting can make another configuration seal it. Under any other configuration a batch with a `/7` lead gets no new `/7` input: its lead's stable identity stands and queues nothing (as with no provider on), and Start, replacement and the Start-fresh check refuse as `unsupported_processing_profile`.
 - A batch with a `/7` lead under a configured profile that can't run it (no stage packs, or no sessions at all) is refused at Start, replacement and the Start-fresh check as `unsupported_processing_profile` (422), an existing Start-fresh refusal, rather than sealing a `/6` attempt or a legacy stage for it.
 
+### Retired groups' instructions (Mitch's decision, 2026-11-25)
+
+Mitch decided that `/7` sessions don't get a retired (ungrouped) evidence group's instructions. The brief leaves them out, and the instruction relay (`instructNewSession`, `deliverInstructions`, `deliverMissingInstructions`) skips them for `/7` lineages. Ungrouping a group withdraws its instruction items that a `/7` session hasn't read yet: they stay in the append-only inbox, recorded in `agent_session_inbox_withdrawal`, and every reader of pending items skips them, so they are never delivered and wake nothing. Items already read stay in the history. Earlier inputs keep today's relay, which gives every group's latest instruction.
+
+The trade-off: an instruction that still applies after ungrouping must be given again, on the new group or as a lot or batch note. The requirement is the delta's "Stage sessions get only live groups' instructions".
+
 ### Contract validators compile on first use
 
 `@invimport/contracts` compiled every schema when it was imported. The brief's schemas added about 1.2 s to that, which made the API's first start miss the 5 s health deadline in `tests/pg/media-startup-authority.test.ts`. Validators now compile on first use and are kept; importing the contracts takes about 0.2 s instead of about 2.8 s. A contracts test compiles every schema, so a schema the strict compiler refuses still fails a test.

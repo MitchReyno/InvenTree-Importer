@@ -31,7 +31,11 @@ import { agentBatchPauses, agentSessionInbox, agentSessions } from '#/agents/sch
 import { agentEnvironment, privateDirectory, type NativeAgentHost } from '#/agents/environment.ts'
 import { recordSessionProgress } from './sessions.ts'
 import { issueSessionCapability, revokeSessionCapability } from '#/agents/tools/capability.ts'
-import { acknowledgeSessionInbox, pendingSessionInbox } from '#/agents/tools/inbox.ts'
+import {
+  acknowledgeSessionInbox,
+  deliverableInboxItem,
+  pendingSessionInbox,
+} from '#/agents/tools/inbox.ts'
 import { ASK_GUIDANCE } from '#/agents/tools/ask-guidance.ts'
 import { syntheticTurn } from './synthetic-turn.ts'
 import { claimSessionSlot, releaseSessionSlot } from './slots.ts'
@@ -742,6 +746,7 @@ export async function runSessionTurn(
             and(
               eq(agentSessionInbox.sessionLineageId, current.jobId),
               sql`${agentSessionInbox.seq} > ${after.toString()}::bigint`,
+              deliverableInboxItem(),
             ),
           )
           .orderBy(agentSessionInbox.seq)

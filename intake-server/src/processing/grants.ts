@@ -13,11 +13,13 @@ export async function grantProcessing(pool: Pool, role: string, purpose: 'api' |
   await pool.query(`GRANT SELECT ON schema_migration,agent_settings,agent_provider_settings,agent_session,
     agent_session_outbox,agent_session_inbox,agent_session_cursor,agent_session_ack,agent_slot,agent_session_failure,processing_proposal_stale,
     agent_batch_pause,processing_question_replacement,processing_question_figure,processing_figure_render,
-    processing_stage_instructions,processing_input_page,processing_brief_view TO ${role};`)
+    processing_stage_instructions,processing_input_page,processing_brief_view,agent_session_inbox_withdrawal TO ${role};`)
   if (purpose === 'api') {
     // Operators queue inbox items and mark proposals stale by correction; agents write the outbox.
     await pool.query(
       `GRANT INSERT ON agent_settings,agent_provider_settings,agent_session,agent_session_inbox,processing_proposal_stale TO ${role};
+      -- Ungrouping withdraws a group's pending instruction items from stage sessions.
+      GRANT INSERT ON agent_session_inbox_withdrawal TO ${role};
       GRANT INSERT, DELETE ON agent_batch_pause TO ${role};
       GRANT UPDATE(revision,provider,authentication,model,session_concurrency,default_provider,
         stage_selections,new_batch_instructions,part_description_style,auto_tags_default,
@@ -86,7 +88,7 @@ export async function grantAgentWriter(pool: Pool, role: string) {
       agent_session_inbox,agent_session_cursor,agent_session_ack,agent_slot,processing_proposal_stale,processing_profile,processing_input,
       processing_job,processing_attempt,processing_dependency,processing_lane,processing_message,processing_proposal,
       processing_question,processing_answer,processing_transition,agent_batch_pause,processing_question_replacement,
-      processing_question_figure,processing_figure_render,processing_stage_instructions,processing_input_page TO ${role};
+      processing_question_figure,processing_figure_render,processing_stage_instructions,processing_input_page,agent_session_inbox_withdrawal TO ${role};
     GRANT INSERT ON processing_proposal,processing_proposal_stale,processing_message,agent_session_outbox,
       processing_question,processing_question_figure,processing_figure_render TO ${role};
     GRANT UPDATE(state,revision) ON processing_job TO ${role};

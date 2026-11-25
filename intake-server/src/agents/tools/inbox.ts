@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { and, asc, count, desc, eq, gt } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gt, sql } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
 import {
   validate,
@@ -189,6 +189,14 @@ async function ackedSeq(client: PoolClient, lineageId: string) {
   return rows[0]?.ackedSeq ?? 0n
 }
 
+/**
+ * Holds for an inbox item that may still be given to its session: one not withdrawn (a retired
+ * group's instruction a stage session hadn't read). Every reader of pending items applies it.
+ */
+export function deliverableInboxItem() {
+  return sql`NOT EXISTS (SELECT 1 FROM public.agent_session_inbox_withdrawal w WHERE w.item_id = ${agentSessionInbox.id})`
+}
+
 /** Items after the acknowledged cursor; they stay pending until a later cursor passes them. */
 export async function pendingSessionInbox(client: PoolClient, lineageId: string) {
   const rows = await executeDatabaseQuery(
@@ -199,6 +207,7 @@ export async function pendingSessionInbox(client: PoolClient, lineageId: string)
         and(
           eq(agentSessionInbox.sessionLineageId, lineageId),
           gt(agentSessionInbox.seq, await ackedSeq(client, lineageId)),
+          deliverableInboxItem(),
         ),
       ),
   )
@@ -267,7 +276,11 @@ export async function readSessionInbox(client: PoolClient, lineageId: string, af
       .select()
       .from(agentSessionInbox)
       .where(
-        and(eq(agentSessionInbox.sessionLineageId, lineageId), gt(agentSessionInbox.seq, acked)),
+        and(
+          eq(agentSessionInbox.sessionLineageId, lineageId),
+          gt(agentSessionInbox.seq, acked),
+          deliverableInboxItem(),
+        ),
       )
       .orderBy(asc(agentSessionInbox.seq))
       .limit(INBOX_READ_LIMIT),

@@ -88,3 +88,12 @@ WHERE origin = 'agent' AND operator_edited AND status = 'active';
 CREATE TRIGGER capture_evidence_observation_unkept_correction_immutable
   BEFORE UPDATE OR DELETE ON capture_evidence_observation_unkept_correction
   FOR EACH ROW EXECUTE FUNCTION reject_authority_change();
+
+-- Instruction items a `/7` session will not be given: a group's instruction still pending when the
+-- operator ungroups it. The item stays (the inbox is append-only); delivery skips it.
+CREATE TABLE agent_session_inbox_withdrawal (
+  item_id uuid PRIMARY KEY REFERENCES agent_session_inbox(id) ON DELETE RESTRICT,
+  withdrawn_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TRIGGER agent_session_inbox_withdrawal_immutable BEFORE UPDATE OR DELETE ON agent_session_inbox_withdrawal
+  FOR EACH ROW EXECUTE FUNCTION reject_authority_change();
