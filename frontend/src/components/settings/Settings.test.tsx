@@ -127,6 +127,7 @@ function settingsElement(
           returnTo={returnTo}
           agents={client}
           onDirtyChange={vi.fn()}
+          replaceSubsection={vi.fn()}
         />
       </CachedBatch>
     </HeaderObservationsProvider>
@@ -327,6 +328,7 @@ test('a typed token holds the navigation guard until it is saved or cancelled', 
           returnTo={undefined}
           agents={agents()}
           onDirtyChange={dirty}
+          replaceSubsection={vi.fn()}
         />
       </CachedBatch>
     </HeaderObservationsProvider>,
@@ -670,7 +672,15 @@ test('the masthead and theme choices change independently', async () => {
 })
 
 test('without an agents client the Agents section says so and the other sections still work', () => {
-  render(<Settings section="agents" returnTo={undefined} agents={null} onDirtyChange={vi.fn()} />)
+  render(
+    <Settings
+      section="agents"
+      returnTo={undefined}
+      agents={null}
+      onDirtyChange={vi.fn()}
+      replaceSubsection={vi.fn()}
+    />,
+  )
 
   expect(screen.getByText(/Agent settings are unavailable/)).toBeVisible()
   expect(screen.getByRole('link', { name: 'Appearance' })).toHaveAttribute(

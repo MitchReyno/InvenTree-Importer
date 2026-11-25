@@ -7,6 +7,8 @@ import { mastheadStyleController } from '/src/theme/masthead-style.ts';
 import { mastheadMotionController } from '/src/theme/masthead-motion.ts';
 import { trackDialogOpeners } from '/src/components/ui/dialog-opener.ts';
 import { SettingsProof } from '/src/components/settings/fixtures/SettingsProof.tsx';
+// The page opens Settings › Agents; an empty fragment names it, as the app's route does.
+if (!location.hash) history.replaceState(null, '', '#settings');
 themeController();
 mastheadStyleController();
 mastheadMotionController();

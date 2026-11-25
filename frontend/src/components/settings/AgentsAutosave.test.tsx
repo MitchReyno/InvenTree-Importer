@@ -32,6 +32,7 @@ async function renderAgents(initial: AgentSettingsDto = agentSettings('7', claud
       onDirtyChange={(dirty, beforeLeave) => {
         reports.push({ dirty, beforeLeave })
       }}
+      replaceSubsection={vi.fn()}
     />,
   )
   await screen.findByRole('group', { name: 'Claude' })

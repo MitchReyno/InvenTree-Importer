@@ -21,6 +21,7 @@ import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { ApiClientsProvider, BatchCommandsProvider } from './context'
 import { batchCommands } from './test/batch-commands'
 import { agentSettings } from '#/test/agent-settings'
+import { stubSubsectionLayout } from '#/test/subsection-layout'
 
 /** The revision behind a "<label>: Saved" status; the number is kept off the visible text. */
 function savedRevision(label: string) {
@@ -1342,6 +1343,89 @@ test('with unsaved agent settings, the Agents sub-nav still moves within the pag
   expect(await screen.findByText(/Your unsaved input is preserved/)).toBeVisible()
   expect(location.hash).toBe('#settings/agents/models')
 })
+
+test('after scrolling the Agents subsections, Back leaves Settings in one step', async () => {
+  const layout = stubSubsectionLayout()
+  try {
+    history.replaceState(null, '', '#agents')
+    agentSettingsServer()
+    render(<App />)
+    await screen.findByRole('link', { name: 'Agent settings' })
+    await act(async () => {
+      location.hash = '#settings/agents/providers'
+    })
+    await screen.findByRole('group', { name: /^Claude$/ })
+    layout.endScroll()
+
+    layout.scrollPage(1200)
+    layout.scrollPage(2400)
+    expect(location.hash).toBe('#settings/agents/instructions')
+    expect(history.state).toEqual({ settingsReturnTo: 'agents' })
+
+    await act(async () => {
+      history.back()
+      await new Promise((done) => setTimeout(done, 50))
+    })
+    expect(location.hash).toBe('#agents')
+    expect(await screen.findByRole('link', { name: 'Agent settings' })).toBeVisible()
+  } finally {
+    layout.restore()
+  }
+})
+
+test('with an unsaved draft, a refused Back keeps the subsection scrolled to', async () => {
+  const layout = stubSubsectionLayout()
+  try {
+    history.replaceState(null, '', '#agents')
+    agentSettingsServer()
+    render(<App />)
+    await screen.findByRole('link', { name: 'Agent settings' })
+    await act(async () => {
+      location.hash = '#settings/agents/providers'
+    })
+    fireEvent.change(
+      await screen.findByRole('textbox', { name: 'Instructions for every new batch' }),
+      { target: { value: 'Mine' } },
+    )
+    layout.endScroll()
+
+    layout.scrollPage(1200)
+    expect(location.hash).toBe('#settings/agents/models')
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    layout.scrollIntoView.mockClear()
+
+    await act(async () => {
+      history.back()
+      await new Promise((done) => setTimeout(done, 50))
+    })
+    expect(await screen.findByText(/Your unsaved input is preserved/)).toBeVisible()
+    expect(location.hash).toBe('#settings/agents/models')
+    // The refused Back leaves the page and focus where they were.
+    expect(layout.scrollIntoView).not.toHaveBeenCalled()
+    expect(document.activeElement).toBe(document.body)
+    expect(screen.getByRole('textbox', { name: 'Instructions for every new batch' })).toHaveValue(
+      'Mine',
+    )
+  } finally {
+    layout.restore()
+  }
+})
+
+/** Agent settings and sessions for the Settings › Agents page; empty reads elsewhere. */
+function agentSettingsServer() {
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+    const path = new URL(String(input)).pathname
+    if (path.endsWith('/agent-settings')) {
+      return response(
+        agentSettings('7', { provider: 'claude', authentication: 'subscription', model: 'sonnet' }),
+      )
+    }
+    if (path.endsWith('/agent-sessions')) {
+      return response(sessionList())
+    }
+    return headerRead(path) ?? navigationFallback(path)
+  })
+}
 
 test('a refused browser Back from unsaved settings keeps the return route for a reload', async () => {
   history.replaceState(null, '', '#agents')
