@@ -1,13 +1,12 @@
 import {
   ANSWER_SUMMARY_TEXT_MAX_CHARACTERS,
   MAX_ANSWER_SUMMARY_BYTES,
-  questionView,
   validate,
   type AnswerDeliveryDto,
   type AnswerEffectDto,
   type ProcessingAnswerDto,
   type ProcessingAnswerSummaryDto,
-  type ProcessingQuestionDto,
+  type QuestionView,
   type ProcessingQuestionValueDto,
   type SessionAnswerStepValueDto,
 } from '@invimport/contracts'
@@ -48,16 +47,18 @@ interface AnsweredValue {
   value: DeliveredAnswerValue
 }
 
-/** Each step's answer against its question; a `/1` or runner answer is one value. */
+/**
+ * Each step's answer against its question's view; a `/1` or runner answer is one value, prompted
+ * by the question's title (a `/1` question's prompt).
+ */
 export function answeredValues(
-  question: ProcessingQuestionDto,
+  question: QuestionView,
   input: ProcessingAnswerDto,
 ): AnsweredValue[] {
   if (input.schema_version === 'bench-intake-answer/1') {
-    const prompt = 'spec' in question ? question.spec.prompt : questionView(question).title
-    return [{ stepId: null, prompt, value: input.value }]
+    return [{ stepId: null, prompt: question.title, value: input.value }]
   }
-  const steps = questionView(question).steps
+  const steps = question.steps
   return input.steps.map((answered) => {
     const step = steps.find((candidate) => candidate.id === answered.step_id)
     const value = answered.value

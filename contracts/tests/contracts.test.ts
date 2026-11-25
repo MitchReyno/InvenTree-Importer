@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { canonical, strictJson } from '../src/json.ts'
-import { validate } from '../src/index.ts'
+import { schemas, validate, validationIssues } from '../src/index.ts'
 
 test('strict JSON rejects duplicate escaped keys, unsafe numbers, nonfinite, trailing syntax and prototype keys', () => {
   for (const input of [
@@ -53,4 +53,11 @@ test('canonical encoding sorts keys, preserves human text and arrays; rejects nu
   assert.equal(canonical({ z: 'é', a: ['2', '1'] }), '{"a":["2","1"],"z":"é"}')
   assert.throws(() => canonical({ quantity: 1 }))
   assert.notEqual(canonical({ note: 'é' }), canonical({ note: 'é' }))
+})
+
+test('every contract schema compiles under the strict validator', () => {
+  // Validators compile on first use; this compiles each one, as importing the contracts once did.
+  for (const name of Object.keys(schemas) as (keyof typeof schemas)[]) {
+    assert.doesNotThrow(() => validationIssues(name, null), name)
+  }
 })

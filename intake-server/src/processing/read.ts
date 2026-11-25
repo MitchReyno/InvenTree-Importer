@@ -14,19 +14,12 @@ import {
   type ProcessingSnapshotDto,
   type ProcessingStateDto,
   type ProcessingActivityDto,
-  type ProcessingBlockerDto,
 } from '@invimport/contracts'
 import { commands } from '#/db/schema.ts'
 import { captureInTransaction } from '#/capture/repository.ts'
 import type { ProcessingConfig } from './attempts.ts'
-import { loadProcessingAuthority, processingInputIsCurrent } from './authority.ts'
-import { processingDependencyStatus } from './dependencies.ts'
-import {
-  readProcessingMediaScopes,
-  processingMediaFor,
-  type ProcessingMediaAvailability,
-} from './media.ts'
-import { fail, mediaProfileId } from './model.ts'
+import { readProcessingMediaScopes } from './media.ts'
+import { fail } from './model.ts'
 import {
   MAX_JOB_RESULTS,
   MAX_JOBS_PER_BATCH,
@@ -42,7 +35,7 @@ import {
   retainedSessionQuestion,
   type RetainedQuestionSeal,
 } from './retained.ts'
-import { decodeJobInput } from './session-input.ts'
+import { decodeJobInput, isSessionInput } from './session-input.ts'
 import { agentSessions } from '#/agents/schema.ts'
 import { mediaVersions } from '#/media/schema.ts'
 import { startFreshEligibility } from './start-fresh-eligibility.ts'
@@ -63,105 +56,17 @@ import { pausedAmong } from '#/agents/pause.ts'
 import { answeredQuestionFacts } from './answered-questions.ts'
 import { budgetAnswers } from './answer-summary.ts'
 import { questionFigureStates, type FigureStates } from './question-figures.ts'
-
-const jobColumns = {
-  id: processingJobs.id,
-  batchId: processingJobs.batchId,
-  subjectId: processingJobs.subjectId,
-  stage: processingJobs.stage,
-  revision: processingJobs.revision,
-  state: processingJobs.state,
-  currentAttemptId: processingJobs.currentAttemptId,
-  attemptId: processingAttempts.id,
-  attemptState: processingAttempts.state,
-  commandId: processingAttempts.commandId,
-  attemptNumber: processingAttempts.number,
-  inputBytes: processingInputs.manifestBytes,
-  inputDigest: processingInputs.manifestDigest,
-}
-
-async function selectedJobs(client: PoolClient, batchId: string) {
-  return executeDatabaseQuery(
-    queryDatabase(client)
-      .select(jobColumns)
-      .from(processingJobs)
-      .innerJoin(
-        processingAttempts,
-        and(
-          eq(processingAttempts.id, processingJobs.currentAttemptId),
-          eq(processingAttempts.jobId, processingJobs.id),
-        ),
-      )
-      .innerJoin(processingInputs, eq(processingInputs.id, processingAttempts.inputId))
-      .where(eq(processingJobs.batchId, batchId))
-      .orderBy(processingJobs.subjectId, processingJobs.stage),
-  )
-}
-
-type SelectedJob = Awaited<ReturnType<typeof selectedJobs>>[number]
-
-interface InputCurrency {
-  current: boolean
-  blockedCode?: ProcessingBlockerDto
-}
-
-/** The Examine lead job's media is the whole batch, pinned by its own manifest. */
-const BATCH_SCOPED = { available: true as const, batchScoped: true as const }
-type JobMedia = ProcessingMediaAvailability | typeof BATCH_SCOPED
-
-const lotSubjects = (jobs: readonly SelectedJob[]) =>
-  jobs.flatMap((job) => (job.subjectId === null ? [] : [job.subjectId]))
-
-function jobMedia(
-  scopes: ReadonlyMap<string, ProcessingMediaAvailability>,
-  job: SelectedJob,
-): JobMedia {
-  return job.subjectId === null ? BATCH_SCOPED : processingMediaFor(scopes, job.subjectId)
-}
-
-async function inputCurrency(
-  client: PoolClient,
-  config: ProcessingConfig,
-  job: SelectedJob,
-  capture: CaptureSnapshotDto,
-  media: JobMedia,
-): Promise<InputCurrency> {
-  const input = decodeJobInput(job.inputBytes, job.inputDigest)
-  if (input.schema_version === 'bench-intake-input/6') {
-    // Per-proposal currentness replaces whole-input sealing for sessions (design D5).
-    if (!media.available) {
-      return { current: false, blockedCode: media.blockedCode }
-    }
-    const current = job.currentAttemptId === job.attemptId && !capture.archived
-    const incompatibleQueued =
-      job.attemptState === 'queued' &&
-      input.profile_id !== String(config.profileId ?? mediaProfileId)
-    return incompatibleQueued ? { current, blockedCode: 'worker_version_conflict' } : { current }
-  }
-  if ('batchScoped' in media) {
-    fail('unsupported_processing_stage')
-  }
-  const authority = await loadProcessingAuthority(client, config, job.attemptId)
-  const manifest = authority.manifest
-  const dependencies = await processingDependencyStatus(client, config, authority)
-  if (!media.available) {
-    return { current: false, blockedCode: media.blockedCode }
-  }
-  const current =
-    job.currentAttemptId === job.attemptId &&
-    !capture.archived &&
-    dependencies.current &&
-    (job.attemptState === 'queued' || dependencies.ready) &&
-    processingInputIsCurrent(manifest, capture, media.inputs, config.approvedSourceUrls)
-  const selectedProfile = config.profileId ?? mediaProfileId
-  const incompatibleQueued =
-    job.attemptState === 'queued' && manifest.profile_id !== selectedProfile
-  return incompatibleQueued ? { current, blockedCode: 'worker_version_conflict' } : { current }
-}
-
-function currentJobState(job: SelectedJob, currency: InputCurrency): ProcessingStateDto {
-  return currency.current ? job.state : 'superseded'
-}
+import {
+  currentJobState,
+  inputCurrency,
+  jobColumns,
+  jobMedia,
+  lotSubjects,
+  selectedJobs,
+  staleOpenQuestion,
+  type InputCurrency,
+  type SelectedJob,
+} from './job-state.ts'
 
 async function proposalsForJob(
   client: PoolClient,
@@ -196,7 +101,7 @@ async function proposalsForJob(
   let batchVersions: Parameters<typeof retainedSessionProposal>[4] | undefined
   for (const proposal of proposals) {
     if (isSessionMessage(proposal)) {
-      if (manifest.schema_version !== 'bench-intake-input/6') {
+      if (!isSessionInput(manifest)) {
         fail('retained_proposal_binding_invalid')
       }
       // The propose tool checked delivery; a citation still names a real version of this batch.
@@ -222,7 +127,7 @@ async function proposalsForJob(
       projected.push({ id: proposal.id, message_id: proposal.messageId, value })
       continue
     }
-    if (manifest.schema_version === 'bench-intake-input/6') {
+    if (isSessionInput(manifest)) {
       fail('retained_proposal_binding_invalid')
     }
     const value = retainedProposalValue(
@@ -276,16 +181,14 @@ async function questionsForJob(
   }
   const figureStates = await questionFigureStates(client, job.id)
   return questions.map((question) => {
-    const staleOpenQuestion =
-      question.state === 'open' &&
-      (currentState === 'superseded' || question.attemptId !== job.attemptId)
+    const stale = staleOpenQuestion(question, { state: currentState, attemptId: job.attemptId })
     return {
       id: question.id,
       job_id: question.jobId,
       attempt_id: question.attemptId,
       input_sha256: question.manifestDigest.toString('hex'),
       revision: question.revision.toString(),
-      state: staleOpenQuestion ? 'superseded' : question.state,
+      state: stale ? 'superseded' : question.state,
       ...questionContent(question, job.subjectId, batchSubjects, figureStates),
       ...(question.askedAt ? { asked_at: question.askedAt.toISOString() } : {}),
     }

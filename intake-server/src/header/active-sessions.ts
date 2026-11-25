@@ -11,7 +11,7 @@ import {
   processingLanes,
 } from '#/processing/schema.ts'
 import { fail } from '#/processing/model.ts'
-import { decodeJobInput } from '#/processing/session-input.ts'
+import { decodeJobInput, isSessionInput } from '#/processing/session-input.ts'
 import { latestStatuses } from '#/agents/tools/outbox.ts'
 import type { ProcessingConfig } from '#/processing/attempts.ts'
 
@@ -72,10 +72,7 @@ export async function activeHeaderSessions(
   const sessions: HeaderWorkDto['active_sessions'] = []
   for (const row of rows.slice(0, 50)) {
     const input = decodeJobInput(row.bytes, row.digest)
-    if (
-      input.schema_version !== 'bench-intake-input/4' &&
-      input.schema_version !== 'bench-intake-input/6'
-    ) {
+    if (input.schema_version !== 'bench-intake-input/4' && !isSessionInput(input)) {
       fail('agent_session_binding_invalid', 503)
     }
     sessions.push({

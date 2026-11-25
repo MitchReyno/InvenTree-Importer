@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { ProcessingInputV6Dto } from '@invimport/contracts'
+import type { SessionInputDto } from '@invimport/contracts'
 import { decodeMediaInputs } from '#/media/inputs.ts'
 import { sha256 } from '#/db/authority.ts'
 
@@ -32,6 +32,48 @@ export function scriptedItems(text: string): Item[] {
 
 const keyOf = (marking: string) => marking.toLowerCase().replace(/\s+/g, ' ')
 
+interface BatchLots {
+  revision?: string
+  lots: { id: string; observation_set_version: string }[]
+}
+
+/**
+ * The batch's revision and lots: from read_batch's view for `/6`, or by paging its brief for
+ * `/7`, whose lot entries carry the same versions.
+ */
+async function readBatchLots(call: Call, manifest: SessionInputDto): Promise<BatchLots> {
+  if (manifest.schema_version !== 'bench-intake-input/7') {
+    const view = (await call('read_batch', {})).batch as BatchLots | undefined
+    return { revision: view?.revision, lots: view?.lots ?? [] }
+  }
+  const lots: BatchLots['lots'] = []
+  let revision: string | undefined
+  let args: Record<string, unknown> = {}
+  for (;;) {
+    const read = await call('read_batch', args)
+    const brief = read.brief as
+      | {
+          revision: string
+          entries: { kind: string; lot_id?: string; observation_set_version?: string }[]
+          next_page_token: string | null
+        }
+      | undefined
+    if (!brief) {
+      return { revision, lots }
+    }
+    revision ??= brief.revision
+    for (const entry of brief.entries) {
+      if (entry.kind === 'lot' && entry.lot_id && entry.observation_set_version) {
+        lots.push({ id: entry.lot_id, observation_set_version: entry.observation_set_version })
+      }
+    }
+    if (!brief.next_page_token) {
+      return { revision, lots }
+    }
+    args = { page_token: brief.next_page_token }
+  }
+}
+
 /**
  * The deterministic Examine lead session for `synthetic-session/1`. It cannot see images, so
  * each photo's operator note (or the text after its label's colon) scripts what it holds. It
@@ -41,7 +83,7 @@ const keyOf = (marking: string) => marking.toLowerCase().replace(/\s+/g, ' ')
  */
 export async function syntheticLeadTurn(
   call: Call,
-  manifest: ProcessingInputV6Dto,
+  manifest: SessionInputDto,
   cwd: string,
   inbox: { id: string; seq: string; kind: string; payload?: Record<string, unknown> }[],
 ) {
@@ -54,10 +96,8 @@ export async function syntheticLeadTurn(
       return { revision: manifest.capture_revision, lots: {} }
     })
   // The batch as it is now: other writers may have moved it on since the last turn.
-  const view = await call('read_batch', {})
-  memory.revision = String(
-    (view.batch as { revision?: string } | undefined)?.revision ?? memory.revision,
-  )
+  const view = await readBatchLots(call, manifest)
+  memory.revision = String(view.revision ?? memory.revision)
   const media = decodeMediaInputs(
     Buffer.from(manifest.media.manifest, 'utf8'),
     Buffer.from(manifest.media.sha256, 'hex'),
@@ -168,9 +208,7 @@ export async function syntheticLeadTurn(
   const note =
     evidence.map((item) => noteOf.get(item.evidenceId)).find(Boolean) ?? [...noteOf.values()][0]
   if (note && formedNew.length) {
-    const after = await call('read_batch', {})
-    const lots = ((after.batch as { lots?: { id: string; observation_set_version: string }[] })
-      ?.lots ?? []) as { id: string; observation_set_version: string }[]
+    const { lots } = await readBatchLots(call, manifest)
     const source = {
       kind: 'note',
       note_id: note.id,

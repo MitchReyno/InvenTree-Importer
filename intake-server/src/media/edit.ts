@@ -1,3 +1,4 @@
+import { withdrawGroupInstructions } from '#/agents/instructions.ts'
 import { activeMediaGroups, retainGroupHistory, retainEvidenceNote } from './context.ts'
 import { requireMediaRecipeBounds, MediaEvidence, MediaSnapshot } from '@invimport/contracts/media'
 import { and, asc, count, desc, eq } from 'drizzle-orm'
@@ -338,6 +339,10 @@ export async function editMedia(
               change.kind === 'rename_group' ? change.label : group.label,
               change.kind === 'ungroup',
             )
+            // A retired group's instruction no longer applies to stage sessions.
+            if (change.kind === 'ungroup') {
+              await withdrawGroupInstructions(client, batchId, group.id)
+            }
             break
           }
           case 'move_many':

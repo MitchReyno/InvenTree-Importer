@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import type { PoolClient } from 'pg'
-import type { AgentSettingsDto, CaptureSnapshotDto } from '@invimport/contracts'
+import type {
+  AgentSettingsDto,
+  CaptureSnapshotDto,
+  ProcessingInputV6Dto,
+} from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { commands, outbox } from '#/db/schema.ts'
 import { agentSessions } from '#/agents/schema.ts'
@@ -11,7 +15,13 @@ import { channelToken, processingChannelConfigured, type ProcessingConfig } from
 import { MAX_PROCESSING_SNAPSHOT_BYTES } from './limits.ts'
 import { fail, sealed, type Stage } from './model.ts'
 import { processingAttempts, processingInputs } from './schema.ts'
+import { assembleBrief } from './brief.ts'
+import { withdrawRetiredInstructions } from '#/agents/instructions.ts'
+import { briefPages, sealBrief, storeInputPages, type SealedBriefPage } from './brief-pages.ts'
+import { configuredInputVersion, stagePacks, type SessionInputVersion } from './stage-policy.ts'
 import {
+  briefScope,
+  stageInputManifest,
   sessionLeadInputManifest,
   sessionLotInputManifest,
   type SessionInputProfile,
@@ -36,12 +46,21 @@ interface SessionAttemptOptions {
   pinnedProposalIds?: readonly string[]
   /** The input `prepareSessionAttempt` already sealed, so a caller can check before writing. */
   prepared?: SealedSessionInput
+  /** The version the batch's pipeline follows (`batchInputVersion`); `/6` when omitted. */
+  inputVersion?: SessionInputVersion
+  /** The caller supersedes the job's attempts after sealing, so the brief shows that state. */
+  superseding?: boolean
 }
 
-/** A sealed `/6` input: its canonical bytes and their digest. */
+/**
+ * A sealed session input: its canonical bytes and their digest, and for `/7` the brief pages
+ * kept outside the manifest, which are written with it.
+ */
 export interface SealedSessionInput {
   bytes: Buffer
   digest: Buffer
+  pages: readonly SealedBriefPage[]
+  version: SessionInputVersion
 }
 
 type SessionJob = { id: string; subject_id: string | null; stage: Stage | 'examine' }
@@ -58,8 +77,14 @@ export async function prepareSessionAttempt(
   snapshot: CaptureSnapshotDto,
   job: SessionJob,
   media: { manifest: string; manifestDigest: string },
-  { lockSettings = true, pinnedProposalIds = [], settings: given }: SessionAttemptOptions = {},
-) {
+  {
+    lockSettings = true,
+    pinnedProposalIds = [],
+    settings: given,
+    inputVersion = 'bench-intake-input/6',
+    superseding = false,
+  }: SessionAttemptOptions = {},
+): Promise<SealedSessionInput> {
   // `shared-vm-agent/2` is retired: no new attempt is sealed for it.
   if (profileId === 'shared-vm-agent/2') {
     fail('agent_profile_retired', 409)
@@ -68,6 +93,10 @@ export async function prepareSessionAttempt(
   // Reading and identifying are replaced by the batch-level Examine session.
   if (!lead && (job.subject_id === null || !LOT_STAGES.includes(job.stage as Stage))) {
     fail('unsupported_processing_stage', 422)
+  }
+  // Checked before provider settings: no saved setting makes an incompatible profile seal `/7`.
+  if (inputVersion === 'bench-intake-input/7') {
+    requireStageInputs(config, profileId)
   }
   const descriptor = { manifest: media.manifest, sha256: media.manifestDigest }
   let profile: SessionInputProfile = { id: 'synthetic-session/1' }
@@ -86,18 +115,27 @@ export async function prepareSessionAttempt(
       web: webAccess(profileId) === 'available' ? { ...settings.web } : WEB_OFF,
     }
   }
-  const manifest = sealed(
-    lead
-      ? sessionLeadInputManifest(snapshot, descriptor, profile)
-      : sessionLotInputManifest(
+  const base = lead
+    ? sessionLeadInputManifest(snapshot, descriptor, profile)
+    : sessionLotInputManifest(
+        snapshot,
+        job.subject_id!,
+        job.stage as SessionLotStage,
+        descriptor,
+        profile,
+        pinnedProposalIds,
+      )
+  const manifest =
+    inputVersion === 'bench-intake-input/7'
+      ? await sealStageInput(
+          client,
+          config,
           snapshot,
-          job.subject_id!,
-          job.stage as SessionLotStage,
-          descriptor,
-          profile,
-          pinnedProposalIds,
-        ),
-  )
+          base,
+          profileId,
+          superseding ? job.id : undefined,
+        )
+      : { ...sealed(base), pages: [], version: 'bench-intake-input/6' as const }
   if (manifest.bytes.length > MAX_PROCESSING_SNAPSHOT_BYTES) {
     fail('processing_input_capacity', 422)
   }
@@ -106,6 +144,46 @@ export async function prepareSessionAttempt(
     fail('processing_channel_unconfigured', 503)
   }
   return manifest
+}
+
+/**
+ * The configured profile's stage packs. Only a configuration that seals `/7` may write one, even
+ * for a batch whose lead is `/7`: without it, the configured route can't run that pipeline.
+ */
+function requireStageInputs(config: ProcessingConfig, profileId: SessionProfileId) {
+  const packs = stagePacks[profileId]
+  if (!packs || configuredInputVersion(config) !== 'bench-intake-input/7') {
+    return fail('unsupported_processing_profile', 422)
+  }
+  return packs
+}
+
+/**
+ * A `/7` input: the `/6` manifest with its stage pack's digest and the brief, assembled now from
+ * retained state. As many brief pages as fit stay in the manifest under the retained-input cap;
+ * the rest go to the input's page store.
+ */
+async function sealStageInput(
+  client: PoolClient,
+  config: ProcessingConfig,
+  snapshot: CaptureSnapshotDto,
+  base: ProcessingInputV6Dto,
+  profileId: SessionProfileId,
+  supersedingJobId: string | undefined,
+): Promise<SealedSessionInput> {
+  const packs = requireStageInputs(config, profileId)
+  const scope = { ...briefScope(base), supersedingJobId }
+  const brief = await assembleBrief(client, config, snapshot, scope)
+  const pages = briefPages(brief)
+  for (let inline = pages.length; inline >= 0; inline -= 1) {
+    const manifest = sealed(
+      stageInputManifest(base, packs[scope.stage], sealBrief(brief, pages, inline)),
+    )
+    if (manifest.bytes.length <= MAX_PROCESSING_SNAPSHOT_BYTES) {
+      return { ...manifest, pages: pages.slice(inline), version: 'bench-intake-input/7' }
+    }
+  }
+  return fail('processing_input_capacity', 422)
 }
 
 /**
@@ -140,6 +218,7 @@ export async function createSessionAttempt(
       manifestDigest: manifest.digest,
     }),
   )
+  await storeInputPages(client, inputId, manifest.pages)
   const payload = sealed({
     schema_version: 'bench-intake-processing-command/5',
     job_id: job.id,
@@ -185,5 +264,9 @@ export async function createSessionAttempt(
       .values({ attemptId, sessionState: 'queued', sessionLineageId: job.id }),
   )
   await executeDatabaseQuery(db.insert(outbox).values({ commandId }))
+  // A `/7` attempt isn't given what an earlier attempt left pending for a group since retired.
+  if (manifest.version === 'bench-intake-input/7') {
+    await withdrawRetiredInstructions(client, job.id)
+  }
   return { attemptId, inputId, commandId }
 }

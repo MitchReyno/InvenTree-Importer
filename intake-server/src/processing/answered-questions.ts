@@ -1,5 +1,5 @@
 import type { PoolClient } from 'pg'
-import type { AnswerDeliveryDto, ProcessingJobDto } from '@invimport/contracts'
+import { questionView, type AnswerDeliveryDto, type ProcessingJobDto } from '@invimport/contracts'
 import type { ProcessingConfig } from './attempts.ts'
 import {
   answerEffects,
@@ -99,7 +99,7 @@ export async function answeredQuestionFacts(
       if (question.state !== 'answered' || !stored) {
         continue
       }
-      const values = answeredValues(question, decodeStoredAnswer(stored.value_bytes))
+      const values = answeredValues(questionView(question), decodeStoredAnswer(stored.value_bytes))
       const delivery = deliveries.get(question.id)
       const input = {
         answerId: stored.id,

@@ -118,7 +118,8 @@ export const ProcessingInputV5 = object({
   ...ProcessingInputV2.properties,
   schema_version: Type.Literal('bench-intake-input/5'),
 })
-const inputV6Shared = {
+/** The fields every session input shares; `/7` adds to them (`stage-input.ts`). */
+export const inputV6Shared = {
   schema_version: Type.Literal('bench-intake-input/6'),
   batch_id: Id,
   source_id: Id,
@@ -179,7 +180,8 @@ const inputV6Profiles = [
     settings_revision: Type.Null(),
   },
 ]
-const inputV6Scopes = [
+/** The lead's and a lot session's scope fields, as `/6` seals them. */
+export const inputV6Scopes = [
   {
     stage: Type.Literal('examine'),
     subject_id: Type.Null(),
