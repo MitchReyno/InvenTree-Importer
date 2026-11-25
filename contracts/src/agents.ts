@@ -12,10 +12,16 @@ import {
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
 
-import { AgentSelection } from './agent-selection.ts'
+import { AgentEffort, AgentSelection } from './agent-selection.ts'
 import { SessionHistoryAttempt, SessionLatestStatus, SessionState } from './sessions.ts'
 import type { AgentSelectionDto } from './agent-selection.ts'
-export { AgentSelection, type AgentSelectionDto } from './agent-selection.ts'
+export {
+  AgentEffort,
+  AgentSelection,
+  OneTurnAgentSelection,
+  type AgentEffortDto,
+  type AgentSelectionDto,
+} from './agent-selection.ts'
 /** How many sessions may run provider turns at once; waiting sessions hold no slot. */
 export const SessionConcurrency = Type.Integer({ minimum: 1, maximum: 8 })
 export type AgentProviderId = AgentSelectionDto['provider']
@@ -36,11 +42,15 @@ const providerFields = {
   authentication: AgentSelection.properties.authentication,
   /** May be empty while the provider is off. */
   default_model: modelText,
+  /** The effort sent with the default model; absent is Default, which sends none. */
+  default_effort: Type.Optional(AgentEffort),
 }
 export const AgentProviderSettings = object(providerFields)
 export const AgentStageSelection = object({
   provider: AgentSelection.properties.provider,
   model: modelText,
+  /** The effort sent with this step's model; absent is Default, which sends none. */
+  effort: Type.Optional(AgentEffort),
 })
 /** A step that is absent uses the default provider and its default model. */
 export const AgentStageSelections = object({
@@ -312,6 +322,7 @@ export const NativeAgentResult = object({
 export type NativeAgentResultDto = Static<typeof NativeAgentResult>
 export const agentSchemas = {
   NativeAgentResult,
+  AgentEffort,
   AgentSelection,
   AgentSettings,
   AgentSettingsUpdate,

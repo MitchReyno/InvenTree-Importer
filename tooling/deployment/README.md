@@ -157,6 +157,8 @@ The read never changes sign-in state: it opens the Claude store read-only, and r
 
 A runner image that changes the guest needs the image refreshed, and the provider scripts run again so the management containers restart on it with the pairing mount. Managed `pnpm dev` rebuilds the image and reprovisions the containers; with `INTAKE_VM_MANAGED=false` it only warns that the image is stale, so run `pnpm vm:setup`. For another installation, load the new image and rerun `personal-claude.sh` and `personal-codex.sh`, then restart the subscription relays. Until then the status reads as unknown (`guest_outdated` or `service_unavailable`), and credential management keeps working.
 
+An attempt sealed with an effort (the agent settings save one per step and per provider) needs a runner image from a build with migration `0042`: an older guest refuses its manifest, and the turn fails before the CLI starts. Apply the migration and refresh the API and coordinator roles' grants before starting the new build's API and session worker. Attempts on Default carry no effort and run on either image.
+
 ### Shared VM sessions with native tools
 
 Select `INTAKE_PROCESSING_PROFILE=shared-vm-agent/3` on both the API and coordinator. Run the current migrations and use matching app and personal runner images. The profile ID is sealed when a job is queued. A `shared-vm-agent/3` coordinator fails any retained `shared-vm-agent/2` attempt with `agent_profile_retired`, keeping its history; run that step again. The tool worker currently supports the two personal subscription routes.

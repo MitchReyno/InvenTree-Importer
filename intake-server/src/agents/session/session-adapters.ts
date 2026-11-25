@@ -2,7 +2,7 @@ import { NativeSessionError, providerError } from '#/agents/failure-model.ts'
 import { randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { AgentSelectionDto } from '@invimport/contracts'
+import type { AgentEffortDto, AgentSelectionDto } from '@invimport/contracts'
 import { AgentChild, DEFAULT_LIMITS, record, TOOL_SESSION_LIMITS } from '#/agents/child.ts'
 import type { NativeAgentHost } from '#/agents/environment.ts'
 import { admitClaudeSession } from './claude-session-admission.ts'
@@ -36,6 +36,12 @@ export interface SessionTurn {
   /** Called for each item the CLI accepted into the running turn. */
   onDelivered: (seq: bigint) => void
   onStarted: (started: { providerSessionId: string; actualModel: string }) => Promise<void>
+  /**
+   * Called once the sealed effort has reached the CLI with this turn: for Claude when the
+   * opening is written to a process started with `--effort`, for Codex when a `turn/start`
+   * carrying it is written. Never called for a turn on Default.
+   */
+  onEffortSent: (effort: AgentEffortDto) => Promise<void>
 }
 
 export class SessionResumeUnavailable extends NativeSessionError {
@@ -146,6 +152,7 @@ export async function runClaudeSession(
     [`mcp__${SESSION_MCP_SERVER}__*`, ...builtins].join(','),
     '--model',
     selection.model,
+    ...(selection.effort === undefined ? [] : ['--effort', selection.effort]),
     '--system-prompt',
     turn.instructions,
     ...(turn.resume ? ['--resume', turn.resume] : ['--session-id', sessionId]),
@@ -187,6 +194,9 @@ export async function runClaudeSession(
   try {
     await admitClaudeSession(child, turn.tools, turnSignal)
     await child.send(userMessage(turn.text))
+    if (selection.effort !== undefined) {
+      await turn.onEffortSent(selection.effort)
+    }
     let finished = false
     while (true) {
       signal.throwIfAborted()
@@ -372,12 +382,15 @@ export async function runCodexSession(
   const pending = new Map<number, (message: Record<string, unknown>) => void>()
   const notifications: Record<string, unknown>[] = []
 
-  const send = async (method: string, params: unknown) => {
+  /** Writes a request; `replied` settles when the reader routes its reply. */
+  const write = async (method: string, params: unknown) => {
     const id = ++sequence
-    const reply = new Promise<Record<string, unknown>>((resolve) => pending.set(id, resolve))
+    const replied = new Promise<Record<string, unknown>>((resolve) => pending.set(id, resolve))
     await child.send({ id, method, params })
-    return reply
+    return { replied }
   }
+
+  const send = async (method: string, params: unknown) => (await write(method, params)).replied
 
   /** The single reader: routes responses to their requests and keeps notifications in order. */
   const pump = async () => {
@@ -405,22 +418,25 @@ export async function runCodexSession(
     return true
   }
 
-  const request = async (method: string, params: unknown) => {
-    const reply = send(method, params)
-    let result: Record<string, unknown> | undefined
-    void reply.then((value) => (result = value))
-    while (!result) {
+  /** Reads until the reply to a written request arrives, and returns its result. */
+  const result = async (replied: Promise<Record<string, unknown>>) => {
+    let reply: Record<string, unknown> | undefined
+    void replied.then((value) => (reply = value))
+    while (!reply) {
       signal.throwIfAborted()
       if (!(await pump())) {
         throw new NativeSessionError('agent_protocol_invalid')
       }
       await Promise.resolve()
     }
-    if ('error' in result) {
+    if ('error' in reply) {
       throw new NativeSessionError('agent_request_refused')
     }
-    return record(result.result)
+    return record(reply.result)
   }
+
+  const request = async (method: string, params: unknown) =>
+    result((await write(method, params)).replied)
 
   let stopDelivery: (() => Promise<void>) | undefined
   try {
@@ -493,10 +509,17 @@ export async function runCodexSession(
     }
     await rememberAdmission(cwd, selection, threadId)
     await turn.onStarted({ providerSessionId: threadId, actualModel: thread.model })
-    const started = await request('turn/start', {
+    // Sent on every turn, a resumed thread's included: the CLI otherwise keeps the thread's last
+    // override or the user's configured default.
+    const turnStart = await write('turn/start', {
       threadId,
       input: [{ type: 'text', text: turn.text, text_elements: [] }],
+      ...(selection.effort === undefined ? {} : { effort: selection.effort }),
     })
+    if (selection.effort !== undefined) {
+      await turn.onEffortSent(selection.effort)
+    }
+    const started = await result(turnStart.replied)
     const turnId = record(started.turn).id
     if (typeof turnId !== 'string') {
       throw new NativeSessionError('agent_protocol_invalid')

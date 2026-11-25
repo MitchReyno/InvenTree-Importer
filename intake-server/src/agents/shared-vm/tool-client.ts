@@ -36,6 +36,7 @@ export const isolatedToolTurn: typeof nativeTurn = async (context, opening, requ
             'mcp',
             'nextDelivery',
             'provider',
+            'sentEffort',
             'progress',
             'version',
             'delivered',

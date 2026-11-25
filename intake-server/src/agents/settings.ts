@@ -61,6 +61,13 @@ type ProviderRow = {
   enabled: boolean
   authentication: AgentProviderSettingsDto['authentication']
   default_model: string
+  default_effort: string | null
+}
+
+/** A provider row as the settings read it: Default (a null effort) leaves the field out. */
+function providerSettings({ default_effort, ...row }: Omit<ProviderRow, 'provider'>) {
+  const settings: AgentProviderSettingsDto = row
+  return default_effort === null ? settings : { ...settings, default_effort }
 }
 
 export async function readAgentSettings(
@@ -88,7 +95,8 @@ export async function readAgentSettings(
         providers: sql<ProviderRow[]>`(
           SELECT coalesce(json_agg(json_build_object(
             'provider', p.provider, 'enabled', p.enabled,
-            'authentication', p.authentication, 'default_model', p.default_model)), '[]'::json)
+            'authentication', p.authentication, 'default_model', p.default_model,
+            'default_effort', p.default_effort)), '[]'::json)
           FROM agent_provider_settings p
           WHERE p.actor_id = agent_settings.actor_id
             AND p.target_id = agent_settings.target_id
@@ -103,7 +111,7 @@ export async function readAgentSettings(
   const { row, providers: providerRows } = rows[0]
   const providers = { claude: providerOff('claude'), codex: providerOff('codex') }
   for (const { provider, ...settings } of providerRows) {
-    providers[provider] = settings
+    providers[provider] = providerSettings(settings)
   }
   return {
     revision: row.revision.toString(),
@@ -379,6 +387,7 @@ async function writeSettings(
       enabled: input.providers[provider].enabled,
       authentication: input.providers[provider].authentication,
       defaultModel: input.providers[provider].default_model,
+      defaultEffort: input.providers[provider].default_effort ?? null,
     }
     await executeDatabaseQuery(
       db

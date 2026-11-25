@@ -473,6 +473,16 @@ export async function startSessionBridge(
           await frames.send({ ok: true })
           continue
         }
+        if ('sentEffort' in msg) {
+          // The guest may report only the effort this turn's input sealed.
+          const sealed = context.manifest.agent?.effort
+          if (sealed === undefined || msg.sentEffort !== sealed) {
+            throw new Error('invalid_sent_effort')
+          }
+          await turn.onEffortSent(sealed)
+          await frames.send({ ok: true })
+          continue
+        }
         if ('releaseId' in msg) {
           if (!toolWorker || !options?.confirmEvidence) {
             throw new Error('unexpected_evidence_release')

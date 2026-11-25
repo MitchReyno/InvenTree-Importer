@@ -51,12 +51,12 @@
 - **Verification:** contracts tests; intake unit and PG tiers.
 - **Risks and decisions:** none beyond the design.
 
-- [ ] 1.1 Read the shared and intake-server code guidelines, `intake-server/ARCHITECTURE.md`, `agents/ARCHITECTURE.md` and the settings save path.
-- [ ] 1.2 RED:
-  - [ ] 1.2.1 contract tests: `AgentSelection` with and without `effort`; an effort failing the shape is refused; settings with step and provider efforts round-trip;
-  - [ ] 1.2.2 `resolveSelection`: a step's own model with its effort; a step on Default with the provider's default effort; a step whose provider is off falling back to the default provider's pair;
-  - [ ] 1.2.3 PG: a save with efforts through the receipts; an attempt queued after it seals the pair; an attempt queued before it keeps the old one; a `/1` attempt seals no effort.
-- [ ] 1.3 GREEN: the contract, the migration, validation, resolution and sealing.
+- [x] 1.1 Read the shared and intake-server code guidelines, `intake-server/ARCHITECTURE.md`, `agents/ARCHITECTURE.md` and the settings save path.
+- [x] 1.2 RED:
+  - [x] 1.2.1 contract tests: `AgentSelection` with and without `effort`; an effort failing the shape is refused; settings with step and provider efforts round-trip;
+  - [x] 1.2.2 `resolveSelection`: a step's own model with its effort; a step on Default with the provider's default effort; a step whose provider is off falling back to the default provider's pair;
+  - [x] 1.2.3 PG: a save with efforts through the receipts; an attempt queued after it seals the pair; an attempt queued before it keeps the old one; a `/1` attempt seals no effort.
+- [x] 1.3 GREEN: the contract, the migration, validation, resolution and sealing.
 - [ ] 1.4 Regenerate the OpenAPI contract, run the contracts tests and the intake unit and PG tiers.
 
 ## 2. Sessions pass the sealed effort
@@ -70,9 +70,9 @@
 - **Verification:** intake unit tier; the process tier for a guest turn with an effort; the pinned-version proof in the PR description.
 - **Risks and decisions:** if the pinned versions don't accept the flag or field, stop at 2.1 and ask Mitch.
 
-- [ ] 2.1 Proof of fit, offline: `claude --help` from `@anthropic-ai/claude-code` 2.1.319 lists `--effort` with its levels, and `codex app-server generate-json-schema` from `@openai/codex` 0.166.0 has `effort` on `TurnStartParams`. Record the result in the PR description; stop and ask Mitch if either is missing.
-- [ ] 2.2 RED: adapter tests for Claude fresh and resumed turns with and without an effort, and Codex `turn/start` after `thread/start` and after `thread/resume`, with `turn/steer` carrying none; a PG test that the session row records the effort once dispatched, none for Default or a synthetic attempt, and none when the turn fails before dispatch (Codex failing between `onStarted` and `turn/start`).
-- [ ] 2.3 GREEN: pass the effort in both adapters, and record `sent_effort` on the session row.
+- [x] 2.1 Proof of fit, offline: `claude --help` from `@anthropic-ai/claude-code` 2.1.319 lists `--effort` with its levels, and `codex app-server generate-json-schema` from `@openai/codex` 0.166.0 has `effort` on `TurnStartParams`. Record the result in the PR description; stop and ask Mitch if either is missing.
+- [x] 2.2 RED: adapter tests for Claude fresh and resumed turns with and without an effort, and Codex `turn/start` after `thread/start` and after `thread/resume`, with `turn/steer` carrying none; a PG test that the session row records the effort once dispatched, none for Default or a synthetic attempt, and none when the turn fails before dispatch (Codex failing between `onStarted` and `turn/start`).
+- [x] 2.3 GREEN: pass the effort in both adapters, and record `sent_effort` on the session row.
 - [ ] 2.4 A process-tier test of a guest turn sealed with an effort reaching the fake CLI, with the guest's dispatch report recorded through the coordinator. Update `agents/ARCHITECTURE.md`. Run the intake tiers.
 
 ## 3. The model catalogue: read, stored and served
@@ -190,7 +190,7 @@
 
 ## Delivery evidence and lifecycle follow-up
 
-- [ ] PR-0: review the plan read-only (`codex exec -m gpt-6.2-sol -s read-only`), fix, publish, CI green, merge.
+- [x] PR-0: review the plan read-only (`codex exec -m gpt-6.2-sol -s read-only`), fix, publish, CI green, merge. Merged as #278 at `2dd1206d`.
 - [ ] PR-A: implement tasks 1 and 2, review the exact head, publish with the pinned-version proof, CI green, merge.
 - [ ] PR-B: implement task 3, review the exact head, publish, CI green, merge.
 - [ ] PR-C: implement task 4, review the exact head, publish with the captures and the demo, CI green, merge.

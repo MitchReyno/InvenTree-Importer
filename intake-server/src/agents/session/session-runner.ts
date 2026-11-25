@@ -30,7 +30,7 @@ import { evidenceNotes } from '#/capture/context-input.ts'
 import { decodeMediaInputs } from '#/media/inputs.ts'
 import { agentBatchPauses, agentSessionInbox, agentSessions, agentSlots } from '#/agents/schema.ts'
 import { agentEnvironment, privateDirectory, type NativeAgentHost } from '#/agents/environment.ts'
-import { recordSessionProgress } from './sessions.ts'
+import { recordSentEffort, recordSessionProgress } from './sessions.ts'
 import {
   requireSupervisorFence,
   SupervisorLockLostError,
@@ -1022,6 +1022,7 @@ export async function runSessionTurn(
         progress: 'responding',
       })
     },
+    onEffortSent: (effort) => recordSentEffort(pool, config, attemptId, effort),
   }
 
   // One controller per turn: worker shutdown, the attempt leaving `running` or the deadline
