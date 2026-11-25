@@ -143,6 +143,16 @@ Agents in the shared VM get provider web search (Claude WebSearch, Codex web sea
 
 ### High
 
+#### BI-024 — Recover stale agent slots
+
+`pnpm dev` refused to start with `agent_reap_confirmation_required` after a stop mid-turn left a VM turn's slot held, although nothing of the turn was still running. A stopping worker now waits for its turns' reap proofs, and the launcher keeps the relays up until the app has stopped. A starting worker checks each held slot itself and releases only those whose turn is confirmed gone, and `pnpm agents:reap` runs the same check without the app.
+
+- Change: `recover-stale-agent-slots`
+- Status: In progress
+- Size: M — a migration recording each held slot's turn child, the startup check, the shutdown wait, launcher stop order and an operator command.
+- Prerequisites: None.
+- OpenSpec: [recover-stale-agent-slots](../openspec/changes/recover-stale-agent-slots/)
+
 #### BI-018 — Bound agent evidence images and record provider errors
 
 Agent sessions could be sent evidence images a provider refuses: lot sessions got the original upload unchanged and Examine region crops were unscaled, so a 6144 × 8160 photo broke Claude's pixel limits. A failed turn kept only `agent_turn_failed`, so the operator couldn't tell why. Every `fetch_evidence` image is now bounded to 2,576 px from the decoded preview (the older single-result native prompt still sends originals). A failed turn records the provider's own error kind when the provider gives one, and a VM turn the specific code behind its failure, whenever the guest's final frame reaches the host.

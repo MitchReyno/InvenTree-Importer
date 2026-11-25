@@ -215,6 +215,8 @@ stateDiagram-v2
 | `waiting_for_login` | `waiting_for_login` | No |
 | `waiting_for_capacity` | `waiting_for_capacity` | No |
 
+A held slot records its turn and what the turn started outside the worker: `none` at the claim, then `host` or `vm` with the exact command before either is started (`agent_slot.turn_child`, migration `0040`). A stopping worker waits up to 30 s for its turns to settle, so a VM turn whose removal the guest confirms releases its slot as usual. A slot still held at the next start is released only when its record shows nothing was started, or the guest confirms removal for the recorded command; the session then becomes `interrupted`. Anything else keeps the slot and the worker refuses with `agent_reap_confirmation_required` (`intake-server/src/agents/held-capacity.ts`).
+
 A full lane leaves a claimed session `queued` (`session-runner.ts:543-545`); the runner doesn't set `waiting_for_capacity` for it. A new inbox item resumes `waiting_input`, `finished` and `interrupted` sessions (`session-runner.ts:83`; `intake-server/src/agents/session/session-execution.ts:112-145`). A running session receives it in its turn.
 
 ## 1.7 Event mapping
