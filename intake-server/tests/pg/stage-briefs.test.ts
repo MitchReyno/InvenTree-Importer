@@ -31,6 +31,7 @@ import {
   briefDigest,
   keepCurrentView,
   keptCurrentView,
+  pageToken,
 } from '#/processing/brief-pages.ts'
 import { MAX_PROCESSING_SNAPSHOT_BYTES } from '#/processing/limits.ts'
 import { replaceSession } from '#/processing/session-replacement.ts'
@@ -2125,16 +2126,40 @@ test('a lineage’s first /7 attempt doesn’t inherit a /6 attempt’s pending 
   ])
 })
 
-test('evidence removed after sealing reaches neither the opening nor a sealed page', async (t) => {
+test('evidence removed after sealing reaches neither the opening, a sealed page nor a kept view', async (t) => {
   const batch = await formedBatch(t, { stageInputs: true })
   const { fixture, deps, batchId } = batch
   const { lot, row } = await successorOf(batch, 'led 0603 red', 'research')
   const sealed = stageInput((await sealedInput(fixture, row.attempt_id)).manifest)
-  const shown = ofKind(inlineEntries(sealed), 'evidence')[0]
+  const entries = inlineEntries(sealed)
+  const shown = ofKind(entries, 'evidence')[0]
   assert.ok(shown, 'the sealed brief lists the lot’s evidence')
-  const mentions = (text: string) =>
-    text.includes(shown.evidence_id) || text.includes(shown.version_id)
-  assert.ok(mentions(JSON.stringify(inlineEntries(sealed))))
+  // Every id of the item a session could see: the item, its versions, notes and observations.
+  const versions = ofKind(entries, 'evidence')
+    .filter((entry) => entry.evidence_id === shown.evidence_id)
+    .map((entry) => entry.version_id)
+  const observations = ofKind(entries, 'observation')
+    .filter((entry) => versions.includes(entry.observation.evidence_version_id))
+    .map((entry) => entry.observation.id)
+  const notes = ofKind(entries, 'note')
+    .filter((entry) => entry.evidence_id === shown.evidence_id)
+    .map((entry) => entry.note_id)
+  const ids = [shown.evidence_id, ...versions, ...observations, ...notes]
+  assert.ok(observations.length > 0, 'the sealed brief has observations on it')
+  const mentions = (value: unknown) => {
+    const text = JSON.stringify(value)
+    return ids.filter((id) => text.includes(id))
+  }
+  assert.deepEqual(mentions(entries).sort(), [...ids].sort())
+
+  // A current view read before the removal, kept for the attempt.
+  let kept = ''
+  await withClients(async (open) => {
+    const session = await open(deps.toolUrl, await running(fixture, row.attempt_id))
+    const read = await call(session, 'read_lot', { lot_id: lot.id })
+    assert.equal(read.ok, true, JSON.stringify(read))
+    kept = read.brief!.sha256
+  })
 
   await grantMedia(fixture.db.pool, fixture.api.name, 'api')
   const revision = await fixture.db.pool.query<{ revision: string }>(
@@ -2155,14 +2180,21 @@ test('evidence removed after sealing reaches neither the opening nor a sealed pa
     row.attempt_id,
   )
   assert.ok(opening.includes('"brief"'))
-  assert.equal(mentions(opening), false)
+  assert.deepEqual(mentions(opening), [])
 
-  // So do the sealed brief's pages, read by revision.
+  // So do the sealed brief's pages, read by revision, and the view kept before the removal.
   const token = await running(fixture, row.attempt_id)
   await withClients(async (open) => {
     const session = await open(deps.toolUrl, token)
     const pages = await allPages(session, lot.id, { revision: sealed.brief.revision })
     assert.ok(pages.every((page) => page.view === 'sealed'))
-    assert.equal(mentions(JSON.stringify(pages.flatMap((page) => page.entries))), false)
+    assert.deepEqual(mentions(pages.flatMap((page) => page.entries)), [])
+    const again = await call(session, 'read_lot', {
+      lot_id: lot.id,
+      page_token: pageToken({ attemptId: row.attempt_id, view: 'current', digest: kept, page: 1 }),
+    })
+    assert.equal(again.ok, true, JSON.stringify(again))
+    assert.equal(again.brief!.sha256, kept)
+    assert.deepEqual(mentions(again.brief!.entries), [])
   })
 })
