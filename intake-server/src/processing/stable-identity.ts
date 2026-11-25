@@ -1,5 +1,5 @@
 import type { PoolClient } from 'pg'
-import { and, eq, inArray, notExists } from 'drizzle-orm'
+import { and, eq, notExists } from 'drizzle-orm'
 import type {
   CaptureSnapshotDto,
   RetainedSessionProposalDto,
@@ -9,7 +9,7 @@ import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { captureLots } from '#/capture/schema.ts'
 import { agentSessions } from '#/agents/schema.ts'
 import { cascadeAll, notifyRevision, staleChanges, type RevisionContext } from './currentness.ts'
-import { brokenIdentities, recordIdentityBasis } from './identity-basis.ts'
+import { brokenBases, notCurrent, recordIdentityBasis } from './identity-basis.ts'
 import { prepareMediaTransaction } from '#/media/transaction.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { checkJobCapacity, queueJob } from './jobs.ts'
@@ -53,7 +53,7 @@ export { lotRegrouped } from './regroup.ts'
 async function markStale(
   client: PoolClient,
   proposalIds: readonly string[],
-  reason: 'lot_regrouped' | 'source_superseded',
+  reason: 'lot_regrouped',
 ) {
   if (!proposalIds.length) {
     return
@@ -412,43 +412,48 @@ export async function stableIdentityOf(client: PoolClient, batchId: string, lotI
   return rows.rows.map((row) => row.id)
 }
 
-/** Claim-time check: every identity a successor was pinned to is still current. */
+/**
+ * Whether the identities a successor is pinned to are still current: none of them, nor anything
+ * they rest on, is stale or on a broken basis. A read only, for preflights and replacement.
+ */
 export async function pinnedIdentityCurrent(client: PoolClient, pinned: readonly string[]) {
   if (!pinned.length) {
     return true
   }
-  const stale = await executeDatabaseQuery(
-    queryDatabase(client)
-      .select({ id: processingProposalStale.proposalId })
-      .from(processingProposalStale)
-      .where(inArray(processingProposalStale.proposalId, [...pinned])),
-  )
-  if (stale.length) {
-    return false
-  }
-  return (await staleBrokenIdentities(client, pinned)) === 0
+  return (await notCurrent(client, pinned)).size === 0
 }
 
 /**
- * The backstop behind every stale-row write: a pinned identity whose basis no longer holds is
- * made stale here, with what was built on it, and the session that published it is told to
- * publish the lot's identity again. Returns how many it found.
+ * A successor's first claim: as `pinnedIdentityCurrent`, and the backstop behind every stale-row
+ * write. A broken basis found here is made stale, with what was built on it, and the session that
+ * published it is told, once, whichever claim finds it first.
  */
-async function staleBrokenIdentities(client: PoolClient, pinned: readonly string[]) {
-  const broken = [...(await brokenIdentities(client, { proposalIds: pinned }))].sort()
-  if (!broken.length) {
-    return 0
+export async function claimPinnedIdentity(client: PoolClient, pinned: readonly string[]) {
+  if (await pinnedIdentityCurrent(client, pinned)) {
+    return true
   }
-  await markStale(client, broken, 'source_superseded')
+  const broken = await brokenBases(client, pinned)
+  if (!broken.length) {
+    return false
+  }
+  const written = await client.query<{ id: string }>(
+    `INSERT INTO public.processing_proposal_stale(proposal_id,reason)
+     SELECT unnest($1::uuid[]),'source_superseded' ON CONFLICT DO NOTHING RETURNING proposal_id AS id`,
+    [broken],
+  )
+  const fresh = written.rows.map((row) => row.id)
+  if (!fresh.length) {
+    return false
+  }
   const owners = await client.query<{ id: string; lineage: string; revision: string }>(
     `SELECT p.id, a.job_id AS lineage, b.revision::text AS revision
      FROM public.processing_proposal p JOIN public.processing_attempt a ON a.id=p.attempt_id
      JOIN public.processing_job j ON j.id=a.job_id JOIN public.capture_batch b ON b.id=j.batch_id
      WHERE p.id = ANY($1::uuid[]) ORDER BY p.id`,
-    [broken],
+    [fresh],
   )
   for (const owner of owners.rows) {
-    const context: RevisionContext = { origin: { by: 'operator' }, briefRevision: owner.revision }
+    const context: RevisionContext = { origin: { by: 'app' }, briefRevision: owner.revision }
     await cascadeAll(client, [owner.id], 'source_superseded', context)
     await notifyRevision(
       client,
@@ -457,13 +462,13 @@ async function staleBrokenIdentities(client: PoolClient, pinned: readonly string
       {
         fields: ['identity'],
         reason:
-          'Capture changed what this identity rested on since it was published; read the lot again and publish its identity.',
+          'Capture no longer matches what this identity rested on when it was published; read the lot again and publish its identity.',
         changes: await staleChanges(client, [owner.id], 'source_superseded'),
       },
       context,
     )
   }
-  return broken.length
+  return false
 }
 
 /** Inventory's gate: the lot's Research and Images each have a current (not stale) proposal. */

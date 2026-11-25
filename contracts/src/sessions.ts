@@ -367,6 +367,8 @@ export const RevisionSource = Type.Union([
   object({ kind: Type.Literal('operator'), actor_id: Id }),
   object({ kind: Type.Literal('session'), stage: BriefStage, attempt_id: Id }),
   object({ kind: Type.Literal('match') }),
+  /** The app found Capture no longer matches what an identity rested on, not who changed it. */
+  object({ kind: Type.Literal('app') }),
 ])
 /** What a `/7` session is told when something it relies on changes. */
 export const SessionRevisionV2 = object({

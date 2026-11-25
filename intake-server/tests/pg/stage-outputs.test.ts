@@ -2364,10 +2364,14 @@ test('an edit no stale write covers is caught when Review is read and when a suc
   const research = await stageJob(batch, '16 mhz crystal', 'research')
   const pinned = (await inputOf(fixture, research.attemptId)).manifest.pinned_proposal_ids
   const [identityId] = pinned
+  // Both are reads only, as the read-only Processing read and Start fresh preflight need.
+  const readOnly = <T>(read: (client: PoolClient) => Promise<T>) =>
+    transaction(fixture.runner.pool, async (client) => {
+      await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
+      return read(client)
+    })
   const currentness = () =>
-    transaction(fixture.runner.pool, (client) =>
-      proposalCurrentnessFacts(client, batchId, [identityId]),
-    )
+    readOnly((client) => proposalCurrentnessFacts(client, batchId, [identityId]))
   assert.equal((await currentness()).get(identityId)?.stale, null)
   // A count changed by a path that writes no stale row: here, straight in the database.
   await fixture.db.pool.query(
@@ -2381,6 +2385,7 @@ test('an edit no stale write covers is caught when Review is read and when a suc
     [identityId],
   )
   assert.equal(rowsBefore.rowCount, 0)
+  assert.equal(await readOnly((client) => pinnedIdentityCurrent(client, pinned)), false)
   // The claim doesn't start Research from it; the identity is stale and the lead is told.
   assert.equal(
     await runSessionTurn(batch.deps, research.attemptId, new AbortController().signal),
@@ -2396,4 +2401,77 @@ test('an edit no stale write covers is caught when Review is read and when a suc
     told.some((change) => change.kind === 'proposal' && change.proposal_id === identityId),
     JSON.stringify(told),
   )
+  // Images, claimed after, doesn't start either, and the lead is told once.
+  const images = await stageJob(batch, '16 mhz crystal', 'images')
+  assert.equal(
+    await runSessionTurn(batch.deps, images.attemptId, new AbortController().signal),
+    'cancelled',
+  )
+  const notices = await fixture.db.pool.query<{ payload: SessionRevisionV2Dto }>(
+    'SELECT payload FROM agent_session_inbox WHERE session_lineage_id=$1 AND idempotency_key=$2',
+    [leadJob, `basis:${identityId}`],
+  )
+  assert.equal(notices.rowCount, 1)
+  // Who made the change isn't known, so the app is named as finding it.
+  assert.deepEqual(notices.rows[0].payload.source, { kind: 'app' })
+})
+
+test('a successor pinned to an identity resting on a broken one doesn’t start', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId, leadAttempt } = batch
+  const session = tools(batch)
+  const led = await batch.lot('led 0603 red')
+  const crystal = await batch.lot('16 mhz crystal')
+  const [ledIdentity] = (
+    await inputOf(fixture, (await stageJob(batch, 'led 0603 red', 'research')).attemptId)
+  ).manifest.pinned_proposal_ids
+  const lead = await running(fixture, leadAttempt)
+  const { note } = citations((await inputOf(fixture, leadAttempt)).manifest)
+  // The crystal's identity rests on the LED's.
+  const onLed = await result(
+    session.propose(lead, {
+      proposal: {
+        schema_version: 'examine-identity/1',
+        subject_id: crystal.id,
+        summary: 'A crystal, beside the LEDs.',
+        sources: [note],
+        relies_on: {
+          fields: ['markings', 'identity'],
+          sources: [
+            note,
+            {
+              kind: 'observation_set',
+              lot_id: crystal.id,
+              version: crystal.observation_set_version,
+            },
+            { kind: 'proposal', proposal_id: ledIdentity },
+          ],
+        },
+        markings: [{ observation_id: crystal.evidence_observation_ids![0], text: ['16 MHz'] }],
+        candidates: [],
+      },
+    }),
+  )
+  assert.equal(onLed.ok, true, JSON.stringify(onLed))
+  const research = await stageJob(batch, '16 mhz crystal', 'research')
+  assert.deepEqual((await inputOf(fixture, research.attemptId)).manifest.pinned_proposal_ids, [
+    onLed.id,
+  ])
+  // An LED member's count changes by a path that writes no stale row.
+  await fixture.db.pool.query(
+    `UPDATE capture_evidence_observation SET visible_count=9, revision=revision+1 WHERE id=$1`,
+    [led.evidence_observation_ids![0]],
+  )
+  const facts = await transaction(fixture.runner.pool, (client) =>
+    proposalCurrentnessFacts(client, batchId, [String(onLed.id)]),
+  )
+  assert.equal(facts.get(String(onLed.id))?.stale, 'source_superseded')
+  // Publishing on the crystal's identity is refused, and its Research doesn't start.
+  const researcher = await running(fixture, research.attemptId)
+  const refused = await result(
+    session.propose(researcher, {
+      proposal: researchOutput(crystal.id, (await inputOf(fixture, research.attemptId)).manifest),
+    }),
+  )
+  assert.equal(refused.error, 'stale', JSON.stringify(refused))
 })

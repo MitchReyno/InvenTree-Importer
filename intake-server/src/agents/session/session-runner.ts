@@ -1,7 +1,7 @@
 import { NativeSessionError, sessionFailure } from '#/agents/failure-model.ts'
 import { retainSessionFailure } from '#/agents/failures.ts'
 import type { SessionFailureDto } from '@invimport/contracts'
-import { pinnedIdentityCurrent, successorsCurrent } from '#/processing/stable-identity.ts'
+import { claimPinnedIdentity, successorsCurrent } from '#/processing/stable-identity.ts'
 import { supersedeJobAttempts } from '#/processing/jobs.ts'
 import { join } from 'node:path'
 import { and, eq, inArray, notExists, or, sql } from 'drizzle-orm'
@@ -846,7 +846,7 @@ export async function runSessionTurn(
       // run, a revised identity reaches it as an inbox item instead, so a resume is never stopped.
       if (
         row.turnCount === 0n &&
-        !(await pinnedIdentityCurrent(client, manifest.pinned_proposal_ids))
+        !(await claimPinnedIdentity(client, manifest.pinned_proposal_ids))
       ) {
         await supersedeJobAttempts(client, row.jobId)
         await setSessionState(client, attemptId, row.jobId, 'cancelled', ['queued'])

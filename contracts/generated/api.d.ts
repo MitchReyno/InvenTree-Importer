@@ -37998,6 +37998,9 @@ export interface components {
             } | {
                 /** @constant */
                 kind: "match";
+            } | {
+                /** @constant */
+                kind: "app";
             };
             /** Format: int64 */
             brief_revision: string;
@@ -38421,6 +38424,9 @@ export interface components {
                     } | {
                         /** @constant */
                         kind: "match";
+                    } | {
+                        /** @constant */
+                        kind: "app";
                     };
                     /** Format: int64 */
                     brief_revision: string;
@@ -40688,6 +40694,9 @@ export interface components {
                 } | {
                     /** @constant */
                     kind: "match";
+                } | {
+                    /** @constant */
+                    kind: "app";
                 };
                 /** Format: int64 */
                 brief_revision: string;

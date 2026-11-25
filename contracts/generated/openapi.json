@@ -192996,6 +192996,19 @@
                     "type": "string"
                   }
                 }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "app",
+                    "type": "string"
+                  }
+                }
               }
             ]
           },
@@ -195588,6 +195601,19 @@
                                       "properties": {
                                         "kind": {
                                           "const": "match",
+                                          "type": "string"
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "kind"
+                                      ],
+                                      "properties": {
+                                        "kind": {
+                                          "const": "app",
                                           "type": "string"
                                         }
                                       }
@@ -208833,6 +208859,19 @@
                             "properties": {
                               "kind": {
                                 "const": "match",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "kind"
+                            ],
+                            "properties": {
+                              "kind": {
+                                "const": "app",
                                 "type": "string"
                               }
                             }

@@ -31,6 +31,7 @@ import {
   queryDatabase,
   transaction,
 } from '#/db/database.ts'
+import { notCurrent } from '#/processing/identity-basis.ts'
 import {
   builtOn,
   earlierIdentities,
@@ -1275,11 +1276,8 @@ async function requireCurrentReliance(
       sets.push({ lot: source.lot_id, version: source.version })
     }
   }
-  const stale = await client.query(
-    'SELECT 1 FROM public.processing_proposal_stale WHERE proposal_id = ANY($1::uuid[]) LIMIT 1',
-    [proposals],
-  )
-  if (stale.rowCount) {
+  // Stale, or resting on an identity whose lot no longer matches Capture, at any depth.
+  if (proposals.length && (await notCurrent(client, proposals)).size) {
     refuse('stale', 'A relied-on proposal is no longer current; read your brief again and revise.')
   }
   // A suggestion isn't Capture's yet and may be dismissed, so only an active observation is current.
