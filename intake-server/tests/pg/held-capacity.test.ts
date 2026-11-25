@@ -195,8 +195,9 @@ test('a starting worker releases slots whose turn is confirmed gone, then interr
       },
     ],
   )
+  // Each released session was interrupted with its release; the start's sweep has none left.
   const interrupted = await interruptRunningSessions(fixture.runner.pool, fixture.config)
-  assert.deepEqual(interrupted.sort(), [inProcess.attempt, vm.attempt].sort())
+  assert.deepEqual(interrupted, [])
   for (const session of [inProcess, vm]) {
     assert.equal(await sessionState(fixture, session.attempt), 'interrupted')
     const failure = await fixture.db.pool.query<{ code: string }>(
@@ -456,7 +457,7 @@ test('a slot held by another target context is left for its own worker', async (
   assert.ok(await slotOf(fixture, session.attempt))
 })
 
-test('a normal start interrupts each released session even when another slot keeps it from starting', async (t) => {
+test('a start interrupts each released session even when another slot keeps it from starting', async (t) => {
   const fixture = await processingFixture()
   t.after(() => fixture.dispose())
   const capture = await fixture.seedCapture()
@@ -468,9 +469,7 @@ test('a normal start interrupts each released session even when another slot kee
     "UPDATE agent_session SET capability_sha256=decode(repeat('ab',32),'hex') WHERE attempt_id=ANY($1::uuid[])",
     [[gone.attempt, host.attempt]],
   )
-  const { result } = await logged(() =>
-    acquireAgentSupervisor(fixture.runner.pool, fixture.config, { interruptReleased: true }),
-  )
+  const { result } = await logged(() => acquireAgentSupervisor(fixture.runner.pool, fixture.config))
   assert.ok(result instanceof Error && result.message === 'agent_reap_confirmation_required')
   assert.equal(await slotOf(fixture, gone.attempt), undefined)
   assert.equal(await sessionState(fixture, gone.attempt), 'interrupted')
@@ -526,4 +525,14 @@ test('a settlement from a worker that lost the actor leaves the next turn alone'
     [session.attempt],
   )
   assert.equal(capability.rowCount, 1)
+})
+
+test('the start sweep leaves a session that still holds a slot', async (t) => {
+  const fixture = await processingFixture()
+  t.after(() => fixture.dispose())
+  const capture = await fixture.seedCapture()
+  const session = await lotSession(fixture, capture, capture.packetA)
+  await heldSlot(fixture, 0, session.attempt, 'host')
+  assert.deepEqual(await interruptRunningSessions(fixture.runner.pool, fixture.config), [])
+  assert.equal(await sessionState(fixture, session.attempt), 'running')
 })

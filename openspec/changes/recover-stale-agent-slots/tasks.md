@@ -50,7 +50,7 @@
 - Scope and approach: a recovery module beside `session/slots.ts` with the pure decision and `recoverHeldCapacity`; `agents/worker.ts` split into the lock and the check; `confirmReaped` on the bridge; both worker entrypoints check after the lock (the session worker after starting its bridge); recover-only mode (`INTAKE_AGENT_RECOVER_ONLY=1`) in both.
 - Prerequisites: Task 1.
 - Verification: unit tests for the decision; PG tests for release and refusal against real tables and the runner role.
-- Risks: releasing a slot that changed after the decision; covered by the compare under the slot-claim lock.
+- Risks: releasing a slot that changed after the decision; covered by the exact conditional release on the supervisor lock's connection.
 
 - [x] 2.1 RED: unit tests for every row of the decision table, and PG tests: `none` and confirmed `vm` slots released and then interrupted by `interruptRunningSessions`; `host`, unrecorded, unconfirmed `vm` and the lane kept with `agent_reap_confirmation_required`; a slot changed after the decision not released; a second worker still refused with `agent_supervisor_already_running`. They fail because no check exists.
 - [x] 2.2 GREEN: the decision, `recoverHeldCapacity`, the fence split, `confirmReaped`, both entrypoints and recover-only mode. The tests pass.
@@ -97,8 +97,8 @@
 - Scope and approach: `intake-server/src/agents/ARCHITECTURE.md` (supervision, slots, worker), `docs/agent-sessions.md`, `docs/development.md` (`pnpm agents:reap`), `tooling/deployment/README.md` (stop order, coordinator grace, interrupted-turn recovery); BI-024 in the index; `notes.md`.
 - Prerequisites: Tasks 1–5.
 
-- [ ] 6.1 Docs updated and checked against the code.
-- [ ] 6.2 Checks: `pnpm -s typecheck`, `pnpm -s lint:readability`, `pnpm -s lint:unused`, `pnpm format:check`, fast intake tests, `pnpm test:dev`, PG and process tiers, `openspec validate recover-stale-agent-slots --strict`.
+- [x] 6.1 Docs updated and checked against the code.
+- [x] 6.2 Checks: `pnpm -s typecheck`, `pnpm -s lint:readability`, `pnpm -s lint:unused`, `pnpm format:check`, fast intake tests, `pnpm test:dev`, PG and process tiers, `openspec validate recover-stale-agent-slots --strict`.
 - [ ] 6.3 Three read-only review rounds on the exact head, findings fixed between rounds.
 - [ ] 6.4 PR opened against `interactive-app`.
 - [ ] 6.5 CI green and merged.

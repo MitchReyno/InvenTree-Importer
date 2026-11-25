@@ -75,7 +75,7 @@ None.
 
 - `intake-server`: migration `0039`, `agents/worker.ts`, a new recovery module, `session/slots.ts`, `session/session-runner.ts`, `session/session-worker-main.ts`, `worker-main.ts`, `shared-vm/coordinator.ts`, schema and catalogue tests.
 - Root tooling: `tooling/dev.cjs`, `tooling/dev/session.cjs` or `process.cjs`, root `package.json` script, deployment compose file and README.
-- Exact-schema compatibility: every worker and API build refuses a database with a migration it doesn't know, so this build and its migration go out together, as every migration does. Another branch (`feat/agent-stage-inputs-outputs-briefs`) also numbers its migration `0039`; whichever merges second renumbers.
+- Exact-schema compatibility: the API and both agent workers refuse, when they start, a database whose migrations differ from theirs, so this build and its migration go out together, as every migration does. Another branch (`feat/agent-stage-inputs-outputs-briefs`) also numbers its migration `0039`; whichever merges second renumbers.
 - No external prerequisites.
 
 ## Open decisions and assumptions

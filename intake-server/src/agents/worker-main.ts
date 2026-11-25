@@ -55,7 +55,6 @@ async function main() {
     // This worker has no VM bridge, so only a turn that started nothing outside it is released.
     const recovered = await requireFreeCapacity(owner, config, {
       signal: shutdown.signal,
-      interruptReleased: process.env.INTAKE_AGENT_RECOVER_ONLY !== '1',
     })
     if (process.env.INTAKE_AGENT_RECOVER_ONLY === '1') {
       process.stdout.write(heldCapacityChecked(recovered.length))

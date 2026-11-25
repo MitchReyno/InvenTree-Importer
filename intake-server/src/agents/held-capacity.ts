@@ -75,11 +75,6 @@ export interface HeldCapacityChecks {
   confirmVmReaped?: (command: string, signal: AbortSignal) => Promise<boolean>
   /** Ends every check early, for example when the worker loses its supervisor lock. */
   signal?: AbortSignal
-  /**
-   * Interrupts each released slot's session in the release's transaction, as a normal start
-   * does; the check-only mode leaves that to the next start.
-   */
-  interruptReleased?: boolean
   /** Overrides `STARTUP_REAP_CHECK_MS`, for tests. */
   reapCheckMs?: number
 }
@@ -161,14 +156,11 @@ async function releaseConfirmedSlot(
   owner: PoolClient,
   config: ProcessingConfig,
   held: Extract<HeldCapacity, { holds: 'slot' }>,
-  interruptReleased: boolean,
 ) {
   await owner.query('BEGIN')
   try {
     // Job, attempt and session before the slot, the order settlement takes them in.
-    if (interruptReleased) {
-      await interruptHeldSession(owner, held.attemptId)
-    }
+    await interruptHeldSession(owner, held.attemptId)
     const released = await executeDatabaseQuery(
       queryDatabase(owner)
         .update(agentSlots)
@@ -238,7 +230,7 @@ export async function recoverHeldCapacity(
     let reason: HeldCapacityOutcome['reason'] = verdict.reason
     if (verdict.release && item.holds === 'slot') {
       checks.signal?.throwIfAborted()
-      released = await releaseConfirmedSlot(owner, config, item, checks.interruptReleased ?? false)
+      released = await releaseConfirmedSlot(owner, config, item)
       if (!released) {
         reason = 'held_capacity_changed'
       }

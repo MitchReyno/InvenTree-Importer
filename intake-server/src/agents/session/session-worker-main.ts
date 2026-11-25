@@ -51,6 +51,13 @@ const SHUTDOWN_TURN_SETTLE_MS = 30_000
 /** Time an unconfirmed turn gets to record its pending reap once proof waits end. */
 const UNCONFIRMED_SETTLE_MS = 2_000
 
+/** Refuses a turn once shutdown has begun, so none starts after shutdown's wait. */
+async function stoppingCheck(signal: AbortSignal) {
+  if (signal.aborted) {
+    throw new Error('agent_worker_stopping')
+  }
+}
+
 /** The turns this worker is running, so shutdown can wait for them to settle. */
 function turnTracker() {
   const turns = new Set<Promise<unknown>>()
@@ -163,11 +170,9 @@ async function main() {
       confirmVmReaped: bridge?.confirmReaped,
       // Losing the lock ends the checks; the releases run on its connection and fail with it.
       signal: shutdown.signal,
-      // A normal start interrupts each released session with its release; check-only doesn't.
-      interruptReleased: process.env.INTAKE_AGENT_RECOVER_ONLY !== '1',
     }
     const recovered = await requireFreeCapacity(owner, config, capacityChecks)
-    // Recover-only mode (`pnpm agents:reap`) stops here; the next start interrupts the sessions.
+    // Recover-only mode (`pnpm agents:reap`) stops here, its released sessions already interrupted.
     if (process.env.INTAKE_AGENT_RECOVER_ONLY === '1') {
       process.stdout.write(heldCapacityChecked(recovered.length))
       return
@@ -226,8 +231,13 @@ async function main() {
           throw new Error('agent_worker_stopping')
         }
         return DBOS.runStep(
+          // Checked again inside the step: shutdown may have started while the step was set up.
           () =>
-            turns.track(executeSessionCommand(deps, DBOS.workflowID!, payload, shutdown.signal)),
+            turns.track(
+              stoppingCheck(shutdown.signal).then(() =>
+                executeSessionCommand(deps, DBOS.workflowID!, payload, shutdown.signal),
+              ),
+            ),
           { name: 'sessionTurn', retriesAllowed: false },
         )
       },
@@ -239,10 +249,18 @@ async function main() {
         if (typeof attemptId !== 'string' || shutdown.signal.aborted) {
           throw new Error('agent_worker_stopping')
         }
-        return DBOS.runStep(() => turns.track(runSessionTurn(deps, attemptId, shutdown.signal)), {
-          name: 'sessionResumeTurn',
-          retriesAllowed: false,
-        })
+        return DBOS.runStep(
+          () =>
+            turns.track(
+              stoppingCheck(shutdown.signal).then(() =>
+                runSessionTurn(deps, attemptId, shutdown.signal),
+              ),
+            ),
+          {
+            name: 'sessionResumeTurn',
+            retriesAllowed: false,
+          },
+        )
       },
       { name: SESSION_RESUME_WORKFLOW },
     )

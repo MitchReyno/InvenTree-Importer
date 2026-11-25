@@ -105,6 +105,16 @@ async function guestPeer(t: TestContext, root: string, port: number) {
   }
 }
 
+/**
+ * The probe names the turn's command in the same bytes the turn sent, as the guest digests both
+ * (`commandDigest` over `JSON.stringify`), and asks for the removal proof.
+ */
+function assertSameCommand(probe: Record<string, unknown>, command: Record<string, unknown>) {
+  assert.deepEqual(Object.keys(probe), ['inspectTerminal', 'requireReap'])
+  assert.equal(probe.requireReap, true)
+  assert.equal(JSON.stringify(probe.inspectTerminal), JSON.stringify(command))
+}
+
 async function until<T>(read: () => Promise<T>, done: (value: T) => boolean, label: string) {
   const deadline = Date.now() + 90_000
   let value = await read()
@@ -195,7 +205,7 @@ test(
     first.worker.kill('SIGTERM')
     // The relay's next connection carries the removal check for the exact command.
     const prober = await guestPeer(t, root, port)
-    assert.deepEqual(await prober.frames.read(), { inspectTerminal: command, requireReap: true })
+    assertSameCommand(await prober.frames.read(), command)
     // Longer than the scheduler's own 10 s shutdown wait.
     await delay(12_000)
     await prober.frames.send({ terminalOutcome: 'worker_removed' })
@@ -224,7 +234,7 @@ test(
     // The relay reconnects and gets the probe, but the guest answers only after the 30 s bound
     // (and before the bridge would close without one). A late proof must not count.
     const late = await guestPeer(t, root, port)
-    assert.deepEqual(await late.frames.read(), { inspectTerminal: command, requireReap: true })
+    assertSameCommand(await late.frames.read(), command)
     await delay(30_500)
     await late.frames.send({ terminalOutcome: 'worker_removed' }).catch(() => undefined)
     const [code] = await first.exited
@@ -237,7 +247,7 @@ test(
     // `pnpm agents:reap`'s mode: the check alone, through a guest that confirms the removal.
     const check = startWorker(t, fixture, root, port, { INTAKE_AGENT_RECOVER_ONLY: '1' })
     const prober = await guestPeer(t, root, port)
-    assert.deepEqual(await prober.frames.read(), { inspectTerminal: command, requireReap: true })
+    assertSameCommand(await prober.frames.read(), command)
     await prober.frames.send({ terminalOutcome: 'worker_removed' })
     const [checked] = await check.exited
     assert.equal(checked, 0, check.output())
@@ -249,8 +259,8 @@ test(
     )
     assert.match(check.output(), /"event":"held_capacity_checked","released":1/)
     assert.deepEqual(await heldSlot(fixture), [])
-    // The check alone leaves the session for the next start to interrupt.
-    assert.equal((await session(fixture)).session_state, 'running')
+    // The check interrupts the session it released, in the release's transaction.
+    assert.equal((await session(fixture)).session_state, 'interrupted')
 
     const next = startWorker(t, fixture, root, port)
     await until(

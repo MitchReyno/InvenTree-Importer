@@ -4,7 +4,7 @@ import type { SessionFailureDto } from '@invimport/contracts'
 import { pinnedIdentityCurrent, successorsCurrent } from '#/processing/stable-identity.ts'
 import { supersedeJobAttempts } from '#/processing/jobs.ts'
 import { join } from 'node:path'
-import { and, eq, inArray, or, sql } from 'drizzle-orm'
+import { and, eq, inArray, notExists, or, sql } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
 import type { ProcessingInputV6Dto, SessionStateDto } from '@invimport/contracts'
@@ -24,7 +24,7 @@ import { decodeSessionInput } from '#/processing/session-input.ts'
 import { webAccess } from '#/processing/session-policy.ts'
 import { evidenceNotes } from '#/capture/context-input.ts'
 import { decodeMediaInputs } from '#/media/inputs.ts'
-import { agentBatchPauses, agentSessionInbox, agentSessions } from '#/agents/schema.ts'
+import { agentBatchPauses, agentSessionInbox, agentSessions, agentSlots } from '#/agents/schema.ts'
 import { agentEnvironment, privateDirectory, type NativeAgentHost } from '#/agents/environment.ts'
 import { recordSessionProgress } from './sessions.ts'
 import { issueSessionCapability, revokeSessionCapability } from '#/agents/tools/capability.ts'
@@ -191,6 +191,13 @@ export async function interruptRunningSessions(pool: Pool, config: ProcessingCon
           eq(commands.targetId, config.targetId),
           eq(commands.targetContextId, config.targetContextId),
           inArray(agentSessions.sessionState, ['running', 'cancelling']),
+          // A session still holding a slot is not this sweep's: its turn may still be running.
+          notExists(
+            queryDatabase(pool)
+              .select({ slot: agentSlots.slotIndex })
+              .from(agentSlots)
+              .where(eq(agentSlots.attemptId, agentSessions.attemptId)),
+          ),
         ),
       ),
   )
@@ -587,11 +594,25 @@ export async function runSessionTurn(
       if (state !== 'running') {
         throw new Error('session_not_queued')
       }
-      await recordSlotTurn(client, attemptId, row.turnCount + 1n)
+      // The turn this claim committed, read under the session row's lock: a duplicate workflow
+      // may have run and requeued the session since `row` was read.
+      const claimedRows = await executeDatabaseQuery(
+        queryDatabase(client)
+          .select({
+            turnCount: agentSessions.turnCount,
+            providerSessionId: agentSessions.nativeSessionId,
+          })
+          .from(agentSessions)
+          .where(eq(agentSessions.attemptId, attemptId)),
+      )
+      const claimedTurn = claimedRows[0].turnCount
+      await recordSlotTurn(client, attemptId, claimedTurn)
       const capability = await issueSessionCapability(client, attemptId)
       await publish(client, row.batchId)
       return {
         ...row,
+        turnCount: claimedTurn - 1n,
+        providerSessionId: claimedRows[0].providerSessionId,
         manifest,
         capability,
         pending: await pendingSessionInbox(client, row.jobId),
@@ -803,7 +824,14 @@ export async function runSessionTurn(
         .for('update'),
     )
     const settledTurn = current.turnCount + 1n
-    if (sessionNow[0]?.turnCount !== settledTurn) {
+    // Nor is a slot a startup check already released for this turn.
+    const ownSlot = await executeDatabaseQuery(
+      queryDatabase(client)
+        .select({ slot: agentSlots.slotIndex })
+        .from(agentSlots)
+        .where(and(eq(agentSlots.attemptId, attemptId), eq(agentSlots.turn, settledTurn))),
+    )
+    if (sessionNow[0]?.turnCount !== settledTurn || !ownSlot.length) {
       return sessionNow[0]?.state ?? next
     }
     // A cancelled, superseded or replaced attempt leaves input pending for whatever replaces it.
