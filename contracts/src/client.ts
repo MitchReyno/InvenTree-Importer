@@ -271,9 +271,17 @@ export function recordsClient(baseUrl: string, csrfToken: string, transport: typ
 export function headerClient(baseUrl: string, csrfToken: string, transport: typeof fetch = fetch) {
   const client = typedClient(baseUrl, transport, csrfToken)
   return {
-    connection: () => successfulData(client.GET('/api/v1/connection-status')),
+    connection: () =>
+      successfulData(
+        client.GET('/api/v1/connection-status', { headers: { 'x-intake-health-format': '2' } }),
+      ),
     /** Probes now; a check in flight or one in the last 5 seconds returns the latest result. */
-    checkConnection: () => successfulData(client.POST('/api/v1/connection-status/check')),
+    checkConnection: () =>
+      successfulData(
+        client.POST('/api/v1/connection-status/check', {
+          headers: { 'x-intake-health-format': '2' },
+        }),
+      ),
 
     /** Checks the token against InvenTree, then saves it for every later read. */
     replaceInventoryCredential: (input: InventoryCredentialReplaceDto) =>

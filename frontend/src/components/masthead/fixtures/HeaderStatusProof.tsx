@@ -9,6 +9,7 @@ import { GlobalStyle } from '#/components/GlobalStyle'
 import { HeaderStatus } from '#/components/masthead/HeaderStatus'
 import { Masthead } from '#/components/masthead/Masthead'
 import type { HeaderClient } from '#/header/types'
+import { IntakeConnectionProvider } from '#/context'
 import { ApiClientsProvider, UpdateHealthContext } from '#/context'
 
 const scope = {
@@ -153,10 +154,17 @@ type Scenario =
   | 'stages'
   | 'attention'
 
+const keepBootstrap = () => undefined
+
 export function HeaderStatusProof() {
   const [cache] = useState(batchReads)
   const paused = useRef(true)
   const scenario = useRef<Scenario>('cancelled')
+  const [readHealth] = useState(() => async () => {
+    if (scenario.current === 'offline') {
+      throw new Error('fixture_intake_offline')
+    }
+  })
   const [selected, setSelected] = useState<Scenario>('cancelled')
   const [tab, setTab] = useState('Capture')
   const client: HeaderClient = {
@@ -327,12 +335,14 @@ export function HeaderStatusProof() {
           status={
             <UpdateHealthContext.Provider
               value={{
-                state: 'live',
+                state: selected === 'offline' ? 'polling' : 'live',
                 observedAt: Date.now() - (selected === 'transport-stale' ? 61_000 : 0),
                 truncated: false,
               }}
             >
-              <HeaderStatus client={client} batchId={batchId} />
+              <IntakeConnectionProvider read={readHealth} refreshBootstrap={keepBootstrap} bootstrapFailed={false}>
+                <HeaderStatus client={client} batchId={batchId} />
+              </IntakeConnectionProvider>
             </UpdateHealthContext.Provider>
           }
         />

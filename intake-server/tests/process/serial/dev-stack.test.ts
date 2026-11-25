@@ -1,3 +1,4 @@
+import { until } from '../../support/manual-process.ts'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { spawn, type ChildProcess } from 'node:child_process'
@@ -106,7 +107,10 @@ test(
     try {
       await start()
       assert.equal((await fetch(origin)).status, 200)
-      const connection = await request('/connection-status')
+      const connection = await until(
+        () => request('/connection-status'),
+        (result) => result.value.target?.freshness === 'fresh',
+      )
       assert.equal(connection.status, 200)
       assert.equal(connection.value.target.state, 'reachable', JSON.stringify(connection.value))
       const created = await request('/batches', {

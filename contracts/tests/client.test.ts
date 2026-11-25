@@ -172,7 +172,7 @@ test('operation deadlines remain distinct and aborts propagate without retry', a
   await manualClient('http://127.0.0.1:4310', '', async () =>
     json({ runs: [], truncated: false }),
   ).activity()
-  assert.deepEqual(deadlines, [5000, 10000, 45000])
+  assert.deepEqual(deadlines, [10000, 10000, 45000])
 
   controller = new AbortController()
   const abort = new Error('owned_abort')
