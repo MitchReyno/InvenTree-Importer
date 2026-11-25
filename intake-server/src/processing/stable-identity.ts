@@ -9,7 +9,7 @@ import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { captureLots } from '#/capture/schema.ts'
 import { agentSessions } from '#/agents/schema.ts'
 import { cascadeAll, notifyRevision, staleChanges, type RevisionContext } from './currentness.ts'
-import { brokenBases, notCurrent, recordIdentityBasis } from './identity-basis.ts'
+import { brokenBases, notCurrent } from './identity-basis.ts'
 import { prepareMediaTransaction } from '#/media/transaction.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { checkJobCapacity, queueJob } from './jobs.ts'
@@ -105,10 +105,6 @@ export async function onLeadIdentity(
   // Successors follow the lead's sealed version, so a retained `/6` lead never queues `/7` ones.
   const inputVersion = await batchInputVersion(client, config, snapshot.id)
   const stageInput = inputVersion === 'bench-intake-input/7'
-  // The lot as this identity sees it, for the claim and Review gate.
-  if (stageInput) {
-    await recordIdentityBasis(client, snapshot.id, lotId, proposalId)
-  }
   const toQueue: (typeof SUCCESSOR_STAGES)[number][] = []
   /** `/7` successors that have run: their work rests on the old identity, so they start again. */
   const released = new Map<(typeof SUCCESSOR_STAGES)[number], string>()

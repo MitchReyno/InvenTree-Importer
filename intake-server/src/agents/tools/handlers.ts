@@ -31,7 +31,7 @@ import {
   queryDatabase,
   transaction,
 } from '#/db/database.ts'
-import { notCurrent } from '#/processing/identity-basis.ts'
+import { notCurrent, recordIdentityBasis } from '#/processing/identity-basis.ts'
 import {
   builtOn,
   earlierIdentities,
@@ -2206,6 +2206,14 @@ export function sessionTools(context: SessionToolContext) {
             kind: 'proposal',
             payload: { proposal_id: id },
           })
+          // Every `/7` identity keeps its lot as it saw it, stable or not, for the claim and Review
+          // gate to compare: an identity built on it rests on that lot too.
+          if (
+            proposal.schema_version === 'examine-identity/1' &&
+            principal.manifest.schema_version === 'bench-intake-input/7'
+          ) {
+            await recordIdentityBasis(client, principal.batchId, proposal.subject_id, id)
+          }
           // A stable identity from the lead session starts the lot's Research and Images. It
           // takes the media and job locks, so it runs before the estimate publishes to the stream.
           if (onWriter && principal.subjectId === null) {

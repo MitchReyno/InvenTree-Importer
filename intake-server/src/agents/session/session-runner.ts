@@ -845,7 +845,8 @@ export async function runSessionTurn(
         throw new Error('session_not_queued')
       }
       // A successor starts only while the identity it was pinned to is still current. Once it has
-      // run, a revised identity reaches it as an inbox item instead, so a resume is never stopped.
+      // run, an earlier input's successor gets a revised identity as an inbox item and always
+      // resumes; a `/7` one is checked again below.
       if (
         row.turnCount === 0n &&
         !(await claimPinnedIdentity(client, manifest.pinned_proposal_ids))

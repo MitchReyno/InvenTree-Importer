@@ -21,7 +21,11 @@ import { evidenceNotes } from '#/capture/context-input.ts'
 import { sha256 } from '#/db/authority.ts'
 import { triggerExamine } from '#/processing/examine-trigger.ts'
 import { recordPhotoRelease } from '#/agents/tools/photo-release.ts'
-import { deliverablePayload, pendingSessionInbox } from '#/agents/tools/inbox.ts'
+import {
+  deliverablePayload,
+  pendingSessionInbox,
+  submitSessionInbox,
+} from '#/agents/tools/inbox.ts'
 import { notifyRevision } from '#/processing/currentness.ts'
 import { pinnedIdentityCurrent, stableIdentityOf } from '#/processing/stable-identity.ts'
 import { sessionTools, type SessionToolOutput } from '#/agents/tools/handlers.ts'
@@ -2557,21 +2561,109 @@ test('a /7 successor that has run waits, rather than resumes, once its identity 
   const research = await stageJob(batch, '16 mhz crystal', 'research')
   assert.equal(
     await runSessionTurn(batch.deps, research.attemptId, new AbortController().signal),
-    'finished',
+    // The synthetic Research asks about the count and waits for the answer.
+    'waiting_input',
   )
   await fixture.db.pool.query(
     `UPDATE capture_evidence_observation SET visible_count=7, revision=revision+1 WHERE id=$1`,
     [crystal.evidence_observation_ids![0]],
   )
+  // Operator chat wakes it.
+  await submitSessionInbox(fixture.api.pool, {
+    binding: fixture.config,
+    lineageId: research.jobId,
+    actorId: fixture.config.actorId,
+    idempotencyKey: 'chat-after-count',
+    kind: 'chat',
+    payload: { text: 'Count them again.' },
+  })
   await transaction(fixture.runner.pool, (client) => queueSessionResume(client, research.jobId))
+  const turns = async () =>
+    (
+      await fixture.db.pool.query<{ turns: string }>(
+        'SELECT turn_count::text AS turns FROM agent_session WHERE attempt_id=$1',
+        [research.attemptId],
+      )
+    ).rows[0].turns
+  const before = await turns()
+  // It stays queued, without a turn, until the lead's next identity releases it.
   assert.equal(
     await runSessionTurn(batch.deps, research.attemptId, new AbortController().signal),
-    'waiting',
+    'queued',
   )
+  assert.equal(await turns(), before)
   const [identityId] = (await inputOf(fixture, research.attemptId)).manifest.pinned_proposal_ids
   const stale = await fixture.db.pool.query(
     'SELECT 1 FROM processing_proposal_stale WHERE proposal_id=$1',
     [identityId],
   )
   assert.equal(stale.rowCount, 1)
+})
+
+test('an identity built on one that isn’t stable still rests on that lot as it was', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId, leadAttempt } = batch
+  const session = tools(batch)
+  const led = await batch.lot('led 0603 red')
+  const crystal = await batch.lot('16 mhz crystal')
+  const lead = await running(fixture, leadAttempt)
+  const { note } = citations((await inputOf(fixture, leadAttempt)).manifest)
+  // The LED's markings, resting on a note only: not stable, so it queues nothing.
+  const markingsOnly = await result(
+    session.propose(lead, {
+      proposal: {
+        schema_version: 'examine-identity/1',
+        subject_id: led.id,
+        summary: 'Red 0603 LEDs, by their markings.',
+        sources: [note],
+        relies_on: { fields: ['markings'], sources: [note] },
+        markings: [{ observation_id: led.evidence_observation_ids![0], text: ['LED 0603 red'] }],
+        candidates: [],
+      },
+    }),
+  )
+  assert.equal(markingsOnly.ok, true, JSON.stringify(markingsOnly))
+  const onIt = await result(
+    session.propose(lead, {
+      proposal: {
+        schema_version: 'examine-identity/1',
+        subject_id: crystal.id,
+        summary: 'A crystal, beside the LEDs.',
+        sources: [note],
+        relies_on: {
+          fields: ['markings', 'identity'],
+          sources: [
+            note,
+            {
+              kind: 'observation_set',
+              lot_id: crystal.id,
+              version: crystal.observation_set_version,
+            },
+            { kind: 'proposal', proposal_id: String(markingsOnly.id) },
+          ],
+        },
+        markings: [{ observation_id: crystal.evidence_observation_ids![0], text: ['16 MHz'] }],
+        candidates: [],
+      },
+    }),
+  )
+  assert.equal(onIt.ok, true, JSON.stringify(onIt))
+  // The marked observation leaves the LED lot.
+  await edit(fixture, batchId, {
+    kind: 'observation_move',
+    observation_id: led.evidence_observation_ids![0],
+    lot_id: null,
+  })
+  const facts = await transaction(fixture.runner.pool, (client) =>
+    proposalCurrentnessFacts(client, batchId, [String(onIt.id)]),
+  )
+  assert.notEqual(facts.get(String(onIt.id))?.stale, null)
+  const research = await stageJob(batch, '16 mhz crystal', 'research')
+  assert.deepEqual((await inputOf(fixture, research.attemptId)).manifest.pinned_proposal_ids, [
+    onIt.id,
+  ])
+  assert.equal(
+    await runSessionTurn(batch.deps, research.attemptId, new AbortController().signal),
+    'cancelled',
+  )
 })
