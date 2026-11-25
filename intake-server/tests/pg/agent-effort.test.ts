@@ -246,20 +246,45 @@ test('a native-agent/1 attempt seals its model with no effort, and its input ref
 })
 
 /**
+ * Registers one teardown that releases what the test acquires, newest first. Every step runs
+ * even if an earlier one fails; the failures are reported together.
+ */
+function teardown(t: TestContext) {
+  const steps: (() => Promise<unknown>)[] = []
+  t.after(async () => {
+    const failures: unknown[] = []
+    for (const step of steps.reverse()) {
+      try {
+        await step()
+      } catch (error) {
+        failures.push(error)
+      }
+    }
+    if (failures.length) {
+      throw new AggregateError(failures, 'teardown_failed')
+    }
+  })
+  return (step: () => Promise<unknown>) => {
+    steps.push(step)
+  }
+}
+
+/**
  * Runs one turn of a queued `native-agent/2` session through the real driver and the fake CLI
  * in `mode`, and returns the session row's recorded effort.
  */
 async function runSealedTurn(t: TestContext, agent: AgentSelectionDto, mode = 'normal') {
+  const release = teardown(t)
   const fixture = await processingFixture({ profileId: 'native-agent/2' })
-  t.after(() => fixture.dispose())
+  release(() => fixture.dispose())
   const stateRoot = await mkdtemp(join(tmpdir(), 'agent-effort-'))
-  t.after(() => rm(stateRoot, { recursive: true, force: true }))
+  release(() => rm(stateRoot, { recursive: true, force: true }))
   const server = await startSessionToolServer({
     pool: fixture.runner.pool,
     config: fixture.config,
     statusIntervalMs: 0,
   })
-  t.after(() => server.close())
+  release(() => server.close())
   const executable = join(stateRoot, 'provider.cjs')
   const source = await readFile(new URL('../fixtures/session-agent.cjs', import.meta.url), 'utf8')
   await writeFile(executable, '#!/usr/bin/env node\n' + source)
@@ -333,16 +358,17 @@ test('a session on Default records no effort', async (t) => {
 })
 
 test('a synthetic attempt queued under saved efforts seals no selection, runs, and records no effort', async (t) => {
+  const release = teardown(t)
   const fixture = await processingFixture({ profileId: 'synthetic-session/1' })
-  t.after(() => fixture.dispose())
+  release(() => fixture.dispose())
   const stateRoot = await mkdtemp(join(tmpdir(), 'agent-effort-'))
-  t.after(() => rm(stateRoot, { recursive: true, force: true }))
+  release(() => rm(stateRoot, { recursive: true, force: true }))
   const server = await startSessionToolServer({
     pool: fixture.runner.pool,
     config: fixture.config,
     statusIntervalMs: 0,
   })
-  t.after(() => server.close())
+  release(() => server.close())
   await saveAgentSettings(fixture.api.pool, fixture.config, withEfforts('0'))
   const capture = await fixture.seedCapture()
   const attempt = await queueLotAttempt(
