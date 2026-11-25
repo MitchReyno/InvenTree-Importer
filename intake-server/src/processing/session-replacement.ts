@@ -119,7 +119,8 @@ export async function replaceSession(
           capture.snapshot,
           { id: jobId, ...job },
           media,
-          { pinnedProposalIds: pinned, inputVersion },
+          // Sealed before the prior attempt is superseded below, as the brief shows it.
+          { pinnedProposalIds: pinned, inputVersion, superseding: true },
         )
         await supersedeJobAttempts(client, jobId)
         const attempt = await createSessionAttempt(

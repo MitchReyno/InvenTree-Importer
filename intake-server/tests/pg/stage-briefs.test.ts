@@ -1510,3 +1510,66 @@ test('a lot flagged many times lists its latest reasons and counts the rest; pag
     assert.equal(sealedPage.ok, true, JSON.stringify(sealedPage))
   })
 })
+
+test('a replacement seals its brief with the questions it supersedes as superseded', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId } = batch
+  const { lot: led, row } = await successorOf(batch, 'led 0603 red', 'research')
+  // Research asks an identity question, then fails.
+  await withClients(async (open) => {
+    const session = await open(batch.deps.toolUrl, await running(fixture, row.attempt_id))
+    const asked = await call(session, 'ask', {
+      schema_version: 'bench-intake-question/2',
+      subject_id: led.id,
+      reason: 'The maker’s mark is worn.',
+      fields: ['identity'],
+      steps: [
+        {
+          id: 'maker',
+          prompt: 'Who made it?',
+          assumption: 'Treating it as Kingbright.',
+          answer: { kind: 'text' },
+        },
+      ],
+    })
+    assert.equal(asked.ok, true, JSON.stringify(asked))
+  })
+  await fixture.db.pool.query("UPDATE processing_attempt SET state='failed' WHERE id=$1", [
+    row.attempt_id,
+  ])
+  await fixture.db.pool.query(
+    "UPDATE agent_session SET session_state='failed' WHERE attempt_id=$1",
+    [row.attempt_id],
+  )
+  const job = await fixture.db.pool.query<{ revision: string }>(
+    'SELECT revision::text FROM processing_job WHERE id=$1',
+    [row.job_id],
+  )
+  const receipt = (await replaceSession(
+    fixture.api.pool,
+    fixture.config,
+    batchId,
+    row.job_id,
+    'r',
+    {
+      expected_capture_revision: (await snapshotOf(fixture, batchId)).revision,
+      expected_revision: job.rows[0].revision,
+      attempt_id: row.attempt_id,
+    },
+  )) as { attempt_ids: string[] }
+  const replaced = stageInput((await sealedInput(fixture, receipt.attempt_ids[0])).manifest)
+  const [question] = ofKind(
+    replaced.brief.pages.flatMap((page) => page.entries ?? []),
+    'question',
+  )
+  assert.equal(question.title, 'Who made it?')
+  assert.equal(question.state, 'superseded')
+  const processing = (await fixture.http(`/batches/${batchId}/processing`)).value as {
+    jobs: { id: string; questions: { state: string }[] }[]
+  }
+  const research = processing.jobs.find((item) => item.id === row.job_id)!
+  assert.deepEqual(
+    research.questions.map((item) => item.state),
+    ['superseded'],
+  )
+})

@@ -47,6 +47,8 @@ interface SessionAttemptOptions {
   prepared?: SealedSessionInput
   /** The version the batch's pipeline follows (`batchInputVersion`); `/6` when omitted. */
   inputVersion?: SessionInputVersion
+  /** The caller supersedes the job's attempts after sealing, so the brief shows that state. */
+  superseding?: boolean
 }
 
 /**
@@ -78,6 +80,7 @@ export async function prepareSessionAttempt(
     pinnedProposalIds = [],
     settings: given,
     inputVersion = 'bench-intake-input/6',
+    superseding = false,
   }: SessionAttemptOptions = {},
 ): Promise<SealedSessionInput> {
   // `shared-vm-agent/2` is retired: no new attempt is sealed for it.
@@ -122,7 +125,14 @@ export async function prepareSessionAttempt(
       )
   const manifest =
     inputVersion === 'bench-intake-input/7'
-      ? await sealStageInput(client, config, snapshot, base, profileId)
+      ? await sealStageInput(
+          client,
+          config,
+          snapshot,
+          base,
+          profileId,
+          superseding ? job.id : undefined,
+        )
       : { ...sealed(base), pages: [] }
   if (manifest.bytes.length > MAX_PROCESSING_SNAPSHOT_BYTES) {
     fail('processing_input_capacity', 422)
@@ -157,9 +167,10 @@ async function sealStageInput(
   snapshot: CaptureSnapshotDto,
   base: ProcessingInputV6Dto,
   profileId: SessionProfileId,
+  supersedingJobId: string | undefined,
 ): Promise<SealedSessionInput> {
   const packs = requireStageInputs(config, profileId)
-  const scope = briefScope(base)
+  const scope = { ...briefScope(base), supersedingJobId }
   const brief = await assembleBrief(client, config, snapshot, scope)
   const pages = briefPages(brief)
   for (let inline = pages.length; inline >= 0; inline -= 1) {

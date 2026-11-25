@@ -263,7 +263,7 @@ async function jobEligibility(
         manifest: media.inputs.bytes.toString('utf8'),
         manifestDigest: media.inputs.digest.toString('hex'),
       },
-      { settings, pinnedProposalIds: pinned, inputVersion },
+      { settings, pinnedProposalIds: pinned, inputVersion, superseding: true },
     )
   } catch (error) {
     if (error instanceof ProcessingError && REFUSALS.has(error.code)) {

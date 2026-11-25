@@ -57,6 +57,11 @@ export interface BriefScope {
   /** The identity proposals a Research session was pinned to. */
   pinnedProposalIds: readonly string[]
   web: { public_pages: boolean; prefer_datasheets: boolean }
+  /**
+   * A job whose attempts the caller supersedes in the same transaction after sealing, as a
+   * replacement does: its open questions are sealed as the supersession leaves them.
+   */
+  supersedingJobId?: string
 }
 
 interface StoredQuestion {
@@ -143,6 +148,7 @@ async function readQuestions(
   client: PoolClient,
   config: ProcessingConfig,
   snapshot: CaptureSnapshotDto,
+  supersedingJobId: string | undefined,
 ) {
   const jobStates = await effectiveJobStates(client, config, snapshot)
   const rows = await client.query<{
@@ -186,8 +192,10 @@ async function readQuestions(
       specDigest: row.spec_digest,
     }
     const job = jobStates.get(row.job_id)
+    const superseding = row.state === 'open' && row.job_id === supersedingJobId
     const stale =
-      job !== undefined && staleOpenQuestion({ state: row.state, attemptId: row.attempt_id }, job)
+      superseding ||
+      (job !== undefined && staleOpenQuestion({ state: row.state, attemptId: row.attempt_id }, job))
     const state = row.replaced || stale ? 'superseded' : row.state
     if (!isSessionMessage(seal)) {
       const spec = retainedQuestionSpec(
@@ -361,7 +369,7 @@ export async function readBriefFacts(
   scope: BriefScope,
 ): Promise<BriefFacts> {
   const instructions = await currentInstructions(client, snapshot.id)
-  const questions = await readQuestions(client, config, snapshot)
+  const questions = await readQuestions(client, config, snapshot, scope.supersedingJobId)
   const answers = await readAnswers(client, questions)
   const corrections = await readCorrections(client, snapshot.id)
   const unkeptCorrections = await readUnkeptCorrections(client, snapshot.id)
