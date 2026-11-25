@@ -10,7 +10,11 @@ import { validate, type ProcessingReceiptDto } from '@invimport/contracts'
 import { processingFixture } from '../support/processing.ts'
 import { lotSession } from '../support/sessions.ts'
 import { singleProvider } from '../support/agent-settings.ts'
-import { runSessionTurn, type SessionRunnerDeps } from '#/agents/session/session-runner.ts'
+import {
+  interruptRunningSessions,
+  runSessionTurn,
+  type SessionRunnerDeps,
+} from '#/agents/session/session-runner.ts'
 import { recordTurnChild } from '#/agents/session/slots.ts'
 import { requireSupervisorFence } from '#/agents/supervisor-fence.ts'
 import {
@@ -99,20 +103,34 @@ async function sessionDeps(
   }
 }
 
-/** Resolves once some connection is waiting for an advisory lock, within `boundMs`. */
-async function advisoryWaiter(fixture: Fixture, boundMs = 5000) {
+/** Resolves once `query` returns a row, or false after `boundMs`. */
+async function waitForRow(fixture: Fixture, query: string, boundMs = 4000) {
   const until = Date.now() + boundMs
   while (Date.now() < until) {
-    const waiting = await fixture.db.pool.query(
-      "SELECT 1 FROM pg_locks WHERE locktype='advisory' AND NOT granted",
-    )
-    if (waiting.rowCount) {
+    const rows = await fixture.db.pool.query(query)
+    if (rows.rowCount) {
       return true
     }
     await delay(25)
   }
   return false
 }
+
+const ADVISORY_WAITER = "SELECT 1 FROM pg_locks WHERE locktype='advisory' AND NOT granted"
+
+/** A connection waiting for an advisory lock, blocked by another that waits for one too. */
+const BARRIER_BEHIND_CLAIM = `
+  SELECT 1
+    FROM pg_locks barrier
+   WHERE barrier.locktype = 'advisory'
+     AND NOT barrier.granted
+     AND EXISTS (
+       SELECT 1
+         FROM pg_locks claim
+        WHERE claim.locktype = 'advisory'
+          AND NOT claim.granted
+          AND claim.pid = ANY(pg_blocking_pids(barrier.pid))
+     )`
 
 test('a worker that lost its lock claims no slot, and the lock holder still does', async (t) => {
   const { fixture, defer } = await fenceFixture(t)
@@ -254,20 +272,27 @@ test('a /1 worker that lost its lock claims no lane', async (t) => {
   assert.ok(claimed)
 })
 
-test('a new supervisor waits for a claim already past its fence, then checks it', async (t) => {
+test('a new supervisor waits for a claim past its fence, then checks the claimed slot', async (t) => {
   const { fixture, defer } = await fenceFixture(t)
   const capture = await fixture.seedCapture()
-  const session = await lotSession(fixture, capture, capture.packetA)
+  const session = await lotSession(fixture, capture, capture.packetA, { state: 'queued' })
   const old = await lockAgentSupervisor(fixture.runner.pool, fixture.config)
-  const claim = await fixture.runner.pool.connect()
-  defer(() => claim.release())
-  await claim.query('BEGIN')
-  await requireSupervisorFence(claim, old.fence, 'ownership')
-  await claim.query(
-    `INSERT INTO agent_slot(actor_id,slot_index,attempt_id,claimed_at,turn,turn_child)
-     VALUES($1,0,$2,now(),1,'none')`,
-    [fixture.identity.actor, session.attempt],
+  // Holds the claims' serialization lock, so the real claim stops after its fence.
+  const blocker = await fixture.db.pool.connect()
+  defer(() => blocker.release())
+  await blocker.query('BEGIN')
+  await blocker.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 7319))', [
+    `agent-slots:${fixture.identity.actor}`,
+  ])
+  const deps = {
+    ...(await sessionDeps(fixture, old, async () => undefined)),
+    settlementFenceRetryMs: 0,
+  }
+  defer(() => rm(deps.host.stateRoot, { recursive: true, force: true }))
+  const turn = runSessionTurn(deps, session.attempt, new AbortController().signal).catch(
+    (error: unknown) => error,
   )
+  assert.ok(await waitForRow(fixture, ADVISORY_WAITER), 'the claim never waited')
   await loseLock(fixture, old)
 
   let checked = false
@@ -276,16 +301,41 @@ test('a new supervisor waits for a claim already past its fence, then checks it'
   ).finally(() => {
     checked = true
   })
-  const waited = await advisoryWaiter(fixture)
-  const checkedBeforeCommit = checked
-  await claim.query('COMMIT')
+  const barrierWaited = await waitForRow(fixture, BARRIER_BEHIND_CLAIM)
+  const checkedBeforeClaim = checked
+  await blocker.query('COMMIT')
   const lock = await replacement
   lock.owner.release(true)
+  await turn
 
-  assert.equal(checkedBeforeCommit, false)
-  assert.ok(waited)
+  assert.ok(barrierWaited, "the replacement's barrier never waited for the claim")
+  assert.equal(checkedBeforeClaim, false)
+  // Only the replacement's check releases a slot and interrupts its session.
   assert.equal(await slotOf(fixture, session.attempt), undefined)
   assert.equal(await sessionState(fixture, session.attempt), 'interrupted')
+})
+
+test("a new supervisor's barrier outlasts the pool's statement timeout", async (t) => {
+  const { fixture, defer } = await fenceFixture(t)
+  const old = await lockAgentSupervisor(fixture.runner.pool, fixture.config)
+  const open = await fixture.runner.pool.connect()
+  defer(() => open.release())
+  await open.query('BEGIN')
+  await requireSupervisorFence(open, old.fence, 'ownership')
+  await loseLock(fixture, old)
+
+  const replacement = lockAgentSupervisor(fixture.runner.pool, fixture.config).then(
+    (lock) => {
+      lock.owner.release(true)
+      return lock
+    },
+    (error: unknown) => error,
+  )
+  // Longer than the worker pools' 5 s statement timeout, shorter than the barrier's bound.
+  await delay(6500)
+  await open.query('COMMIT')
+  const outcome = await replacement
+  assert.ok(!(outcome instanceof Error), String(outcome))
 })
 
 test('a new supervisor refuses when a fenced write stays open past the bound', async (t) => {
@@ -322,10 +372,13 @@ test('a worker that lost its lock settles nothing while another worker holds it'
   const running = new Promise<void>((resolve) => (reached = resolve))
   let proceed!: () => void
   const ended = new Promise<void>((resolve) => (proceed = resolve))
-  const deps = await sessionDeps(fixture, old, async () => {
-    reached()
-    await ended
-  })
+  const deps = {
+    ...(await sessionDeps(fixture, old, async () => {
+      reached()
+      await ended
+    })),
+    settlementFenceRetryMs: 1000,
+  }
   defer(() => rm(deps.host.stateRoot, { recursive: true, force: true }))
   const turn = runSessionTurn(deps, session.attempt, new AbortController().signal)
   await running
@@ -361,4 +414,53 @@ test('a worker that lost its lock still settles while no worker holds it', async
 
   assert.equal(await turn, 'finished')
   assert.equal(await slotOf(fixture, session.attempt), undefined)
+})
+
+test('a refused settlement settles once a replacement that refused to start lets the lock go', async (t) => {
+  const { fixture, defer } = await fenceFixture(t)
+  const capture = await fixture.seedCapture()
+  const session = await lotSession(fixture, capture, capture.packetA, { state: 'queued' })
+  const old = await lockAgentSupervisor(fixture.runner.pool, fixture.config)
+  let reached!: () => void
+  const running = new Promise<void>((resolve) => (reached = resolve))
+  let proceed!: () => void
+  const ended = new Promise<void>((resolve) => (proceed = resolve))
+  const deps = {
+    ...(await sessionDeps(fixture, old, async () => {
+      reached()
+      await ended
+    })),
+    settlementFenceRetryMs: 10_000,
+  }
+  defer(() => rm(deps.host.stateRoot, { recursive: true, force: true }))
+  const turn = runSessionTurn(deps, session.attempt, new AbortController().signal)
+  await running
+  await loseLock(fixture, old)
+  const replacement = await lockAgentSupervisor(fixture.runner.pool, fixture.config)
+  proceed()
+  // The replacement refuses to start and lets the lock go while the settlement is retried.
+  await delay(1000)
+  replacement.owner.release(true)
+
+  assert.equal(await turn, 'finished')
+  assert.equal(await slotOf(fixture, session.attempt), undefined)
+})
+
+test('a worker that lost its lock interrupts nothing after a replacement took it', async (t) => {
+  const { fixture, defer } = await fenceFixture(t)
+  const capture = await fixture.seedCapture()
+  const session = await lotSession(fixture, capture, capture.packetA)
+  const old = await lockAgentSupervisor(fixture.runner.pool, fixture.config)
+  await loseLock(fixture, old)
+  const replacement = await lockAgentSupervisor(fixture.runner.pool, fixture.config)
+  defer(() => replacement.owner.release(true))
+
+  await assert.rejects(interruptRunningSessions(fixture.runner.pool, fixture.config, old.fence), {
+    message: 'agent_supervisor_lock_lost',
+  })
+  assert.equal(await sessionState(fixture, session.attempt), 'running')
+  assert.deepEqual(
+    await interruptRunningSessions(fixture.runner.pool, fixture.config, replacement.fence),
+    [session.attempt],
+  )
 })

@@ -95,14 +95,14 @@ Everything else is kept, and the worker refuses with `agent_reap_confirmation_re
 
 ### Fenced writes
 
-A worker's claims, records and settlements run on pooled connections, not on the supervisor lock's, so each checks the lock itself (`supervisor-fence.ts`). Taking the lock reads the lock connection's backend PID and start time into the worker's fence (`lockAgentSupervisor` in `worker.ts`). The session claim transaction, `recordTurnChild`, the settlement transaction and the `/1` lane claim (`claimProcessingCommand`) each start with `requireSupervisorFence`, which takes a shared advisory lock on `agent-supervisor-fence:<actor>` and reads the supervisor lock's holder from `pg_locks`:
+A worker's claims, records and settlements run on pooled connections, not on the supervisor lock's, so each checks the lock itself (`supervisor-fence.ts`). Taking the lock reads the lock connection's backend PID and start time into the worker's fence (`lockAgentSupervisor` in `worker.ts`). The session claim transaction, `recordTurnChild`, the settlement transaction, each interruption of the start sweep (`interruptRunningSessions`) and the `/1` lane claim (`claimProcessingCommand`) each start with `requireSupervisorFence`, which takes a shared advisory lock on `agent-supervisor-fence:<actor>` and reads the supervisor lock's holder from `pg_locks`:
 
-- A claim, a child record or a lane claim needs this worker's connection to hold the lock.
+- A claim, a child record, an interruption or a lane claim needs this worker's connection to hold the lock. The sweep's interruption also requires the session to be in the turn it read and still to hold no slot.
 - A settlement needs no other worker to hold it, so a worker that lost its connection still settles turns whose child it confirmed gone until a replacement starts.
 
-Otherwise the transaction fails with `agent_supervisor_lock_lost` and changes nothing.
+Otherwise the transaction fails with `agent_supervisor_lock_lost` (`SupervisorLockLostError`) before writing anything. A refused settlement is retried every 500 ms for up to 20 s (`SETTLEMENT_FENCE_RETRY_MS`), so a replacement that refused to start and let the lock go doesn't leave the slot for the next start.
 
-Before its held-capacity check, a new supervisor takes the fence lock exclusively for a moment (`awaitFencedWrites`), which waits for every fenced transaction already past its check. A fenced write therefore either commits before the check reads, or starts after the new holder took the lock and is refused. The wait is bounded by 30 s (`SUPERVISOR_FENCE_WAIT_MS`), after which the worker refuses with `agent_supervisor_writes_in_flight`. The media and research workers hold no supervisor lock and pass no fence.
+Before its held-capacity check, a new supervisor takes the fence lock exclusively for a moment (`awaitFencedWrites`), which waits for every fenced transaction already past its check. A fenced write therefore either commits before the check reads, or starts after the new holder took the lock and is refused. The wait is bounded by 30 s (`SUPERVISOR_FENCE_WAIT_MS`, with the transaction's statement timeout raised above it), after which the worker refuses with `agent_supervisor_writes_in_flight`. The media and research workers hold no supervisor lock and pass no fence. The fence is only as good as every writer taking it: an older build's worker doesn't, so builds are never mixed for one actor.
 
 ## Stage briefs (`bench-intake-input/7`)
 

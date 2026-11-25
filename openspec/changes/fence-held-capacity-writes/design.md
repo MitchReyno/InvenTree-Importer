@@ -37,7 +37,7 @@ A check inside the write's transaction alone is not enough: a transaction can pa
 2. Read the supervisor lock's current holder from `pg_locks` (advisory, granted, this database, the key's `classid`/`objid`, `objsubid = 1`), joined to `pg_stat_activity` for its backend start time.
 3. Decide (`fencePermits`, a pure function) and refuse with `agent_supervisor_lock_lost` when the write isn't permitted. The transaction rolls back.
 
-**In a new supervisor, after taking the lock and before its check** (`awaitFencedWrites`): a short transaction on the lock's connection that takes `pg_advisory_xact_lock` (exclusive) on the fence key under `lock_timeout` 30 s (`SUPERVISOR_FENCE_WAIT_MS`), then commits. It waits for every fenced transaction already holding the shared lock to end. A fenced transaction that asks for the shared lock afterwards finds the new holder in `pg_locks` and is refused. Past the bound the start refuses with `agent_supervisor_writes_in_flight`.
+**In a new supervisor, after taking the lock and before its check** (`awaitFencedWrites`): a short transaction on the lock's connection that takes `pg_advisory_xact_lock` (exclusive) on the fence key under `lock_timeout` 30 s (`SUPERVISOR_FENCE_WAIT_MS`), then commits. The worker pools' 5 s `statement_timeout` would end the wait first, so the transaction raises its own `statement_timeout` above the lock timeout. It waits for every fenced transaction already holding the shared lock to end. A fenced transaction that asks for the shared lock afterwards finds the new holder in `pg_locks` and is refused. Past the bound the start refuses with `agent_supervisor_writes_in_flight`.
 
 Ordering, for a write W of old worker A and replacement B:
 
@@ -56,6 +56,7 @@ W takes shared fence after B took the lock    ->  W sees B as holder         -> 
 | `recordTurnChild` (now its own transaction) | `host` or `vm` record, before the child starts | This worker holds the lock |
 | `claimProcessingCommand` with a fence | `/1` lane claim | This worker holds the lock |
 | Settlement in `runSessionTurn` | Session state, capability revocation, slot release | No other worker holds the lock |
+| Each interruption of `interruptRunningSessions` | A running session left without a slot becomes `interrupted` | This worker holds the lock |
 
 Rejected:
 
@@ -69,9 +70,15 @@ Settlement ends ownership. When the lock is lost and no replacement has it yet, 
 
 When another worker holds the lock, settlement is refused. That worker passed its check, so it either released the slot (the existing turn and slot guard already makes settlement change nothing) or saw no slot; refusing keeps a lost worker from changing anything under a running supervisor.
 
+A refusal comes before any write, so settlement retries it every 500 ms for up to 20 s (`SETTLEMENT_FENCE_RETRY_MS`, inside the session worker's 30 s shutdown wait). A replacement that took the lock and then refused to start, for example on this worker's own `host` slot, releases it within that time, and the retried settlement then releases the slot instead of leaving a record no start can confirm. Past the bound the settlement gives up and the slot keeps its record. The retry matches the typed `SupervisorLockLostError`, not a message.
+
 Claims, records and the lane claim require this worker to hold the lock, because they start work outside the worker.
 
-### D3. The fence is passed explicitly
+### D3. The startup interruption sweep is fenced too
+
+`interruptRunningSessions` reads running sessions without a slot, then interrupts each in its own transaction. If the worker lost its lock between them, a replacement could interrupt, requeue and claim one of those sessions, and the old sweep would then interrupt the replacement's turn. Each interruption transaction therefore starts with the ownership fence, then locks the job, attempt and session rows in the usual order and interrupts only while the session's turn count is the one it read and it still holds no slot.
+
+### D4. The fence is passed explicitly
 
 - `lockAgentSupervisor` and `acquireAgentSupervisor` return `{ owner, fence }`. Both workers keep `owner` as before.
 - `SessionRunnerDeps.fence` carries it into the claim, `recordChild` and settlement. It is optional so tests that run turns without a supervisor keep working; the session worker always passes it.
@@ -87,7 +94,7 @@ Rejected: putting the fence on `ProcessingConfig`. The config is a static scope 
 - **Bounded wait.** The barrier waits at most 30 s. A start refused with `agent_supervisor_writes_in_flight` releases its lock; restarting the worker retries.
 - **Cost.** One shared advisory lock and one `pg_locks` read per fenced transaction. Claims retry every `SLOT_WAIT_MS` while waiting for a slot, so the read repeats at that rate.
 - **Logs.** `agent_supervisor_writes_in_flight` joins the safe stop codes of both workers.
-- **Compatibility.** No schema change. An older worker has no barrier; mixing builds for one actor is already prevented by the exact-schema check of the build it ships with, and the lock still admits one worker at a time.
+- **Compatibility.** No schema change, so the exact-schema check does not separate this build from the previous one. An older worker's writes take no fence, so a new worker's barrier can't wait for them: stop every old worker of an actor before starting this build, as the deployment guide says for any rollout. The lock still admits one worker at a time.
 
 ## Verification strategy
 
@@ -99,14 +106,17 @@ Rejected: putting the fence on `ProcessingConfig`. The config is a static scope 
 | PG: A loses its lock, B acquires with the lane free; A's `/1` claim is refused and the lane stays free | Lane fence. Fails today: the lane is claimed after B's check. |
 | PG: A's claim transaction passes the fence, A loses its lock, B's acquire waits until A commits, then B's check releases the claimed slot | Barrier ordering. Fails today: B's check finishes first and the slot stays held. |
 | PG: a fenced transaction held open past a short bound makes B refuse with `agent_supervisor_writes_in_flight` and leaves the lock free | Bounded barrier. |
-| PG: A settles after losing its lock: refused while B holds the lock, committed while no one does | Settlement rule. |
+| PG: A settles after losing its lock: refused while B holds the lock, committed while no one does, and committed on retry once B releases the lock | Settlement rule and retry. |
+| PG: the production claim blocks on a row lock after its fence; A loses its lock; B's barrier waits on that claim; B's check then sees the committed claim | Barrier ordering through the real claim transaction. |
+| PG: a barrier blocked for longer than the pool's 5 s statement timeout still succeeds | The barrier's own timeouts. |
+| PG: A's interruption sweep after B took the lock is refused | Sweep fence. |
 | Existing `tests/held-capacity.test.ts`, `tests/pg/held-capacity.test.ts`, `tests/pg/agents.test.ts`, `tests/pg/session-slots.test.ts`, `tests/process/stale-slots.test.ts` and the session process tests | No change to the check, claims and worker start. |
 
 Limits: the tests drive two supervisors' connections in one process against real PostgreSQL. A real network partition, where the server keeps the old session alive until TCP times out, is not simulated: until then the old worker still holds the lock and its writes are legitimately permitted.
 
 ## Migration, rollout and recovery
 
-- No migration. Deploy as an ordinary build; stopping every worker of an actor before starting the new build is already the documented order.
+- No migration. Stop every worker of the previous build before starting this one (`tooling/deployment/README.md`); an old worker's writes are not fenced.
 - Rollback: the previous build, with the race back.
 - A start refused with `agent_supervisor_writes_in_flight` means a transaction of a lost worker stayed open for 30 s. Find it in `pg_stat_activity`; restarting the worker once it ends is enough.
 

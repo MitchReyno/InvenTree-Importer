@@ -191,7 +191,7 @@ async function main() {
     // The scheduler takes over recovered work, so it must accept a connection first.
     await schedulerReachable(schedulerUrl)
     // This process now owns the actor, so no other worker can be running these turns.
-    await interruptRunningSessions(db.pool, config)
+    await interruptRunningSessions(db.pool, config, lock.fence)
     const store = process.env.INTAKE_BLOB_ROOT
       ? await BlobStore.initialize(
           process.env.INTAKE_BLOB_ROOT,

@@ -8,7 +8,7 @@
 - a turn child record that lands during the replacement's check, so the conditional release finds the record changed and the replacement refuses to start, while the old worker goes on to start the child it recorded;
 - a lane claim after the replacement found the lane free, so the old worker starts a native child under the new supervisor.
 
-The outcome: every write that establishes or extends ownership of held capacity, and every settlement write that depends on still owning a slot, takes effect only while its writer still holds the supervisor lock. Once a replacement has the lock and has run its check, no such write from the old worker commits.
+The outcome: every write that establishes or extends ownership of held capacity is checked, in its own transaction before it writes, to come from the worker holding the supervisor lock, and a settlement to come from a worker while no other worker holds the lock. A replacement waits for writes already past that check before it reads held capacity, so no such write from the old worker commits after the replacement's check.
 
 ## Change identity and linked items
 
@@ -33,7 +33,7 @@ In scope:
 
 - A fence check, run inside the same transaction as each of these writes, that refuses with `agent_supervisor_lock_lost` unless the writer's own supervisor connection still holds the actor's lock.
 - A barrier on a new supervisor, after it takes the lock and before its check, that waits (bounded) for fenced transactions already past their check to finish. A transaction already past its check commits before the replacement's check reads, and any later one is refused.
-- Session claims, turn child records, settlement and the `/1` worker's lane claim pass the worker's fence.
+- Session claims, turn child records, settlement, the startup interruption sweep and the `/1` worker's lane claim pass the worker's fence.
 - Tests reproducing each race in PostgreSQL, and docs (`intake-server/src/agents/ARCHITECTURE.md`, `docs/agent-sessions.md`).
 
 Non-goals:

@@ -17,7 +17,7 @@
 
 | Task | Type | Prerequisites | Acceptance |
 | --- | --- | --- | --- |
-| 1. Supervisor fence identity and decision | Behavior | None | Design D1, D3; "Held capacity writes need the supervisor lock" |
+| 1. Supervisor fence identity and decision | Behavior | None | Design D1, D4; "Held capacity writes need the supervisor lock" |
 | 2. Fence the session claim, turn child record and lane claim | Behavior | 1 | Scenarios: claim after loss, record during the check, lane claim after loss, writes of the lock holder |
 | 3. Barrier before the startup check | Behavior | 1 | "A new supervisor waits for fenced writes in flight" |
 | 4. Fence settlement | Behavior | 1 | Scenarios: settlement after another worker took the lock, settlement while no worker holds it |
@@ -33,7 +33,7 @@
 
 - PR delivery: PR-A.
 - Outcome: a worker that takes the supervisor lock knows its lock connection's identity, and a fenced transaction can tell whether its write is permitted.
-- Scope and approach: new `agents/supervisor-fence.ts` with `SupervisorFence`, `readSupervisorFence`, `fencePermits` and `requireSupervisorFence`; `lockAgentSupervisor` and `acquireAgentSupervisor` return `{ owner, fence }`; both worker entrypoints and the existing tests use the new result (design D1, D3).
+- Scope and approach: new `agents/supervisor-fence.ts` with `SupervisorFence`, `readSupervisorFence`, `fencePermits` and `requireSupervisorFence`; `lockAgentSupervisor` and `acquireAgentSupervisor` return `{ owner, fence }`; both worker entrypoints and the existing tests use the new result (design D1, D4).
 - Prerequisites: None.
 - Verification: unit tests for `fencePermits`; existing PG fence tests.
 - Risks: `backend_start` hidden from the runtime role would refuse every write; the PG tests run as the runner role.
@@ -45,13 +45,14 @@
 
 - PR delivery: PR-A.
 - Outcome: a worker that lost its lock claims no slot, records no child and claims no lane.
-- Scope and approach: `SessionRunnerDeps.fence`; the fence first in `runSessionTurn`'s claim transaction; `recordTurnChild` in its own fenced transaction; `claimProcessingCommand` and `executeProcessingCommand` take an optional fence, which `worker-main.ts` passes; `session-worker-main.ts` passes its fence into the deps.
+- Scope and approach: `SessionRunnerDeps.fence`; the fence first in `runSessionTurn`'s claim transaction and in each `interruptRunningSessions` transaction; `recordTurnChild` in its own fenced transaction; `claimProcessingCommand` and `executeProcessingCommand` take an optional fence, which `worker-main.ts` passes; `session-worker-main.ts` passes its fence into the deps.
 - Prerequisites: Task 1.
 - Verification: PG race tests in `tests/pg/supervisor-fence.test.ts`.
 - Risks: a missed call site stays unfenced; the session worker and `/1` worker are the only production callers.
 
 - [x] 2.1 RED: PG tests with two supervisors' connections: A loses its lock and B acquires, then A's session claim, A's VM record during B's check, and A's `/1` lane claim. Each commits on today's write paths (the claim's driver runs, B refuses with `held_capacity_changed`, the lane is claimed).
 - [x] 2.2 GREEN: the fenced claim, record and lane claim. The race tests pass, with each write refused as `agent_supervisor_lock_lost` and nothing changed, and the lock holder's writes still commit.
+- [x] 2.3 RED then GREEN: the startup interruption sweep after a replacement took the lock is refused (design D3); it interrupted the session before.
 
 ## 3. Barrier before the startup check
 
@@ -64,18 +65,20 @@
 
 - [x] 3.1 RED: PG test: A's claim transaction passes the fence and claims, A loses its lock, B acquires; B's check must decide the claimed slot. It fails today because B's check finishes before A commits. Plus a test that a transaction open past a short bound refuses B with `agent_supervisor_writes_in_flight`.
 - [x] 3.2 GREEN: the barrier and its bound. Both tests pass.
+- [x] 3.3 RED then GREEN: a barrier blocked past the pools' 5 s statement timeout still succeeds (it failed with a statement timeout), and the in-flight test drives the real claim transaction, blocked after its fence.
 
 ## 4. Fence settlement
 
 - PR delivery: PR-A.
 - Outcome: a worker that lost its lock settles a turn only while no other worker holds the lock (design D2).
-- Scope and approach: the fence first in `runSessionTurn`'s settlement transaction, permitted when this worker or nobody holds the lock.
+- Scope and approach: the fence first in `runSessionTurn`'s settlement transaction, permitted when this worker or nobody holds the lock, and a bounded retry of a refused settlement.
 - Prerequisites: Task 1.
 - Verification: PG tests for both cases.
 - Risks: a lost worker's settlement refused under a replacement leaves the slot for the next start; that start already decides it from the record.
 
 - [x] 4.1 RED: PG test: A's turn settles after A lost its lock while B holds it; the settlement must change nothing. It fails today because settlement releases the slot. Plus the case with no holder, which settles as before.
 - [x] 4.2 GREEN: the fenced settlement. Both tests pass, and `tests/pg/held-capacity.test.ts` still passes.
+- [x] 4.3 RED then GREEN: a settlement refused while a replacement held the lock commits once the replacement lets it go, within `SETTLEMENT_FENCE_RETRY_MS` (it stayed refused before).
 
 ## 5. Docs, notes and review
 

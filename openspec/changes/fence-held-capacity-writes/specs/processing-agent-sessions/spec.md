@@ -2,7 +2,7 @@
 
 ### Requirement: Held capacity writes need the supervisor lock
 
-An agent worker SHALL commit a slot claim, a turn child record or a `/1` lane claim only while its own supervisor connection holds the actor's supervisor lock, and a turn's settlement only while no other worker holds it, checked in the same transaction as the write. Otherwise the write SHALL be refused with `agent_supervisor_lock_lost`, changing nothing. Claims SHALL stay serialized per actor.
+Before it writes, in the same transaction, a slot claim, a turn child record, a `/1` lane claim or the startup interruption of a running session SHALL check that its worker's own supervisor connection holds the actor's supervisor lock, and a turn's settlement SHALL check that no other worker holds it. A write that fails its check SHALL be refused with `agent_supervisor_lock_lost`, changing nothing. Claims SHALL stay serialized per actor.
 
 #### Scenario: Claim after the lock is lost
 
@@ -26,7 +26,19 @@ An agent worker SHALL commit a slot claim, a turn child record or a `/1` lane cl
 
 - **GIVEN** a worker whose supervisor connection has ended, and a replacement worker that holds the lock
 - **WHEN** the old worker settles a turn
-- **THEN** the settlement is refused and changes nothing, and the slot keeps its record for a start to check
+- **THEN** the settlement is refused and changes nothing, and is retried within a 20 s bound; while the replacement still holds the lock the slot keeps its record for a start to check
+
+#### Scenario: Settlement after a replacement refused to start
+
+- **GIVEN** a worker whose supervisor connection has ended, whose settlement was refused while a replacement held the lock
+- **WHEN** the replacement refuses to start and releases the lock within the retry bound
+- **THEN** the retried settlement commits and releases the slot
+
+#### Scenario: Startup interruption after the lock is lost
+
+- **GIVEN** a worker whose supervisor connection ends while it interrupts sessions left running, and a replacement that took the lock
+- **WHEN** the old worker interrupts its next session
+- **THEN** the interruption is refused with `agent_supervisor_lock_lost` and the session keeps the state the replacement gave it
 
 #### Scenario: Settlement while no worker holds the lock
 

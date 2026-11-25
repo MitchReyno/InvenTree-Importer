@@ -7,6 +7,17 @@ const SUPERVISOR_FENCE_SEED = 7320
 /** How long a new supervisor waits for a lost worker's fenced writes before refusing to start. */
 export const SUPERVISOR_FENCE_WAIT_MS = 30_000
 
+/** The barrier's statement timeout outlasts its lock timeout, so a long wait ends as the latter. */
+const BARRIER_STATEMENT_MARGIN_MS = 5_000
+
+/** A fenced write refused before it wrote anything, so it is safe to retry. */
+export class SupervisorLockLostError extends Error {
+  constructor() {
+    super('agent_supervisor_lock_lost')
+    this.name = 'SupervisorLockLostError'
+  }
+}
+
 export function supervisorLockName(actorId: string) {
   return `agent-supervisor:${actorId}`
 }
@@ -119,7 +130,7 @@ export async function requireSupervisorFence(
   ])
   const holder = await readSupervisorHolder(client, fence.actorId)
   if (!fencePermits(fence, holder, write)) {
-    throw new Error('agent_supervisor_lock_lost')
+    throw new SupervisorLockLostError()
   }
 }
 
@@ -145,6 +156,10 @@ export async function awaitFencedWrites(
 ) {
   await owner.query('BEGIN')
   try {
+    // The pool's own statement timeout is shorter than the wait.
+    await owner.query("SELECT set_config('statement_timeout', $1, true)", [
+      `${waitMs + BARRIER_STATEMENT_MARGIN_MS}ms`,
+    ])
     await owner.query("SELECT set_config('lock_timeout', $1, true)", [`${waitMs}ms`])
     await owner.query('SELECT pg_advisory_xact_lock(hashtextextended($1, $2))', [
       supervisorFenceName(actorId),
