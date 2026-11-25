@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import zlib from 'node:zlib'
 import sharp from 'sharp'
 import { MEDIA_TOOLCHAIN, type MediaLitViewRecipeDto } from '@invimport/contracts/media'
 import { decode } from '../src/decode.ts'
@@ -165,6 +166,42 @@ test('each crop is labelled with its name and size under its cell', async () => 
   assert.ok(!labelled.equals(await strip('label', 130)), 'the strip shows the size')
 })
 
+interface PngChunk {
+  type: string
+  data: Buffer
+}
+
+function pngChunks(png: Buffer): PngChunk[] {
+  const chunks: PngChunk[] = []
+  let offset = 8
+  while (offset < png.length) {
+    const length = png.readUInt32BE(offset)
+    chunks.push({
+      type: png.subarray(offset + 4, offset + 8).toString('latin1'),
+      data: png.subarray(offset + 8, offset + 8 + length),
+    })
+    offset += 12 + length
+  }
+  return chunks
+}
+
+function pngChunk(type: string, data: Buffer): PngChunk {
+  return { type, data }
+}
+
+/** A PNG of these chunks, each with a correct length and CRC. */
+function pngFrom(chunks: PngChunk[]) {
+  const encoded = chunks.map(({ type, data }) => {
+    const length = Buffer.alloc(4)
+    length.writeUInt32BE(data.length)
+    const typeAndData = Buffer.concat([Buffer.from(type, 'latin1'), data])
+    const crc = Buffer.alloc(4)
+    crc.writeUInt32BE(zlib.crc32(typeAndData))
+    return Buffer.concat([length, typeAndData, crc])
+  })
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), ...encoded])
+}
+
 test('a declared page that is not its PNG is malformed even when no crop uses it', async () => {
   const bench = await benchPage()
   const unused = Buffer.from('not a PNG')
@@ -191,7 +228,28 @@ test('a declared page that is not its PNG is malformed even when no crop uses it
   assert.equal((await renderPreview(withPage(valid))).state, 'ready')
   // Cut through the image data chunk, leaving a header that still names 50 x 40.
   const truncated = valid.subarray(0, valid.length - 20)
-  for (const bytes of [unused, truncated]) {
+  const chunks = pngChunks(valid)
+  const [header] = chunks
+  const end = chunks.at(-1)!
+  const beforeData = chunks.filter((chunk) => chunk.type !== 'IDAT' && chunk.type !== 'IEND')
+  const imageData = Buffer.concat(
+    chunks.filter((chunk) => chunk.type === 'IDAT').map((chunk) => chunk.data),
+  )
+  const half = Math.floor(imageData.length / 2)
+  const [firstData, secondData] = [
+    pngChunk('IDAT', imageData.subarray(0, half)),
+    pngChunk('IDAT', imageData.subarray(half)),
+  ]
+  // Image data split over two chunks is still a whole PNG.
+  const split = pngFrom([...beforeData, firstData, secondData, end])
+  assert.equal((await renderPreview(withPage(split))).state, 'ready')
+  const cases = [
+    pngFrom([...chunks.slice(0, -1), pngChunk('IEND', Buffer.from('x'))]),
+    pngFrom([...chunks.slice(0, -1), header, end]),
+    pngFrom([...beforeData, end]),
+    pngFrom([...beforeData, firstData, pngChunk('tEXt', Buffer.from('a\0b')), secondData, end]),
+  ]
+  for (const bytes of [unused, truncated, ...cases]) {
     assert.deepEqual(await renderPreview(withPage(bytes)), {
       state: 'malformed',
       toolchain: MEDIA_TOOLCHAIN,

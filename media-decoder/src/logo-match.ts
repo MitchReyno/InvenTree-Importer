@@ -315,7 +315,6 @@ interface Ranked {
   score: number
 }
 
-/** The reference set ranked against the query's shapes in both polarities, best first. */
 /** The query, shrunk to `QUERY_MAX_LONG_EDGE_PX` on its long edge when larger. */
 async function boundedQuery(query: RawRgb): Promise<RawRgb> {
   const { width, height } = query.info
@@ -335,6 +334,7 @@ async function boundedQuery(query: RawRgb): Promise<RawRgb> {
   return { data, info: { width: info.width, height: info.height, channels: 3 } }
 }
 
+/** The reference set ranked against the query's shapes in both polarities, best first. */
 async function rank(query: RawRgb, top: number): Promise<Ranked[]> {
   const { masks, width, height } = await polarityMasks(await boundedQuery(query))
   const shapes: Shape[] = []

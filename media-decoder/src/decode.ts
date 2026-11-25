@@ -188,13 +188,15 @@ export function pngHeaderMatches(bytes: Buffer, width: number, height: number) {
 }
 
 /**
- * Whether a PNG's chunks are whole: each chunk's length fits, its CRC matches, and IEND ends the
- * bytes. A truncated or spliced file fails; a damaged compressed stream with intact CRCs doesn't.
+ * Whether a PNG's chunks are whole and in order: IHDR first (13 bytes), one run of IDAT chunks,
+ * an empty IEND ending the bytes, each chunk's length fitting and its CRC matching. A truncated,
+ * spliced or reordered file fails; a damaged compressed stream with intact CRCs doesn't.
  */
 export function pngChunksIntact(bytes: Buffer) {
   if (!bytes.subarray(0, 8).equals(PNG_SIGNATURE)) {
     return false
   }
+  const types: string[] = []
   let offset = 8
   while (offset + 12 <= bytes.length) {
     const length = bytes.readUInt32BE(offset)
@@ -206,12 +208,28 @@ export function pngChunksIntact(bytes: Buffer) {
     if (zlib.crc32(typeAndData) !== bytes.readUInt32BE(offset + 8 + length)) {
       return false
     }
-    if (typeAndData.subarray(0, 4).toString('latin1') === 'IEND') {
-      return end === bytes.length
+    const type = typeAndData.subarray(0, 4).toString('latin1')
+    if (type === 'IEND') {
+      return length === 0 && end === bytes.length && pngChunkOrder(types, bytes.readUInt32BE(8))
     }
+    types.push(type)
     offset = end
   }
   return false
+}
+
+/** IHDR of 13 bytes first and only once, and the IDAT chunks present and consecutive. */
+function pngChunkOrder(types: string[], headerLength: number) {
+  const firstData = types.indexOf('IDAT')
+  const lastData = types.lastIndexOf('IDAT')
+  const dataRun = types.slice(firstData, lastData + 1)
+  return (
+    types[0] === 'IHDR' &&
+    headerLength === 13 &&
+    types.lastIndexOf('IHDR') === 0 &&
+    firstData > 0 &&
+    dataRun.every((type) => type === 'IDAT')
+  )
 }
 
 /**
