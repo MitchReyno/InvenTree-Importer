@@ -423,6 +423,15 @@ test('a brief read is scoped to its job, and a broken brief fails only its own r
   )
   assert.equal(crossed.status, 404)
   assert.equal((crossed.value as { code?: string }).code, 'session_brief_not_found')
+  // Through another batch, the job itself isn't found; the right batch is the control.
+  const elsewhere = await fixture.http(
+    `/batches/${randomUUID()}/processing/${row.job_id}/attempts/${row.attempt_id}/brief`,
+  )
+  assert.deepEqual(
+    [elsewhere.status, (elsewhere.value as { code?: string }).code],
+    [404, 'session_not_found'],
+  )
+  await readBrief(fixture, batchId, row.job_id, row.attempt_id)
 
   // A stored page gone from the page store refuses the brief, not the history.
   const led = await batch.lot('led 0603 red')

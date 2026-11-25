@@ -6,7 +6,7 @@ import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { createServerQueryClient } from '#/queries/client'
 import { serverQueryKey, type ServerScope } from '#/queries/scope'
 import { deferred } from '#/test/deferred'
-import { H, briefRef, historyBrief } from '#/test/session-history'
+import { H, briefRef, historyBrief, researchBriefEntries } from '#/test/session-history'
 import { BriefCard, type BriefLoader } from './BriefCard'
 
 const scope: ServerScope = {
@@ -93,4 +93,32 @@ test('a slow retry keeps its button, and focus stays where the operator moved it
   await act(async () => slow.resolve(historyBrief()))
   await within(card).findByRole('heading', { name: 'Observations' })
   expect(elsewhere).toHaveFocus()
+})
+
+test('a read from an earlier opening, still in flight, never shows in a later one', async () => {
+  const user = userEvent.setup()
+  const first = deferred<SessionHistoryBriefDto>()
+  const second = deferred<SessionHistoryBriefDto>()
+  const load = vi
+    .fn<BriefLoader>()
+    .mockReturnValueOnce(first.promise)
+    .mockReturnValueOnce(second.promise)
+  const { card, summary } = mount(load)
+  await user.click(summary)
+  await user.click(summary)
+  await user.click(summary)
+
+  // The first opening's read lands late, with an observation since removed; it isn't shown.
+  await act(async () => first.resolve(historyBrief()))
+  expect(within(card).getByRole('status')).toHaveTextContent('Reading the brief…')
+  expect(within(card).queryByRole('heading', { name: 'Observations' })).toBeNull()
+  const withoutPhoto = historyBrief(
+    researchBriefEntries().filter(
+      (entry) => entry.kind !== 'observation' && entry.kind !== 'correction',
+    ),
+  )
+  await act(async () => second.resolve(withoutPhoto))
+  await within(card).findByRole('heading', { name: 'Your facts' })
+  expect(within(card).queryByRole('heading', { name: 'Observations' })).toBeNull()
+  expect(load).toHaveBeenCalledTimes(2)
 })

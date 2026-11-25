@@ -21,9 +21,15 @@ export type BriefLoader = (
  * Keyed by the server scope, as private reads are, but outside its prefix, so live updates
  * neither cancel nor re-read a brief; a scope change still clears it with the whole cache.
  */
-function briefQueryKey(scope: ServerScope, batchId: string, jobId: string, attemptId: string) {
+function briefQueryKey(
+  scope: ServerScope,
+  batchId: string,
+  jobId: string,
+  attemptId: string,
+  opening: number,
+) {
   const [, ...identity] = serverQueryKey(scope)
-  return ['session-brief', ...identity, batchId, jobId, attemptId] as const
+  return ['session-brief', ...identity, batchId, jobId, attemptId, opening] as const
 }
 
 /**
@@ -46,14 +52,14 @@ export function BriefCard({
   const { batchId, jobId } = context
   const summaryId = briefSummaryId(reference.attempt_id)
   const [open, setOpen] = useState(false)
-  // When the card was last opened: only a copy read since then is shown, so evidence removed
-  // while it was closed never shows from an earlier read.
-  const [openedAt, setOpenedAt] = useState(0)
+  // Each opening reads under a key of its own, so a read from an earlier opening, settled or
+  // still in flight, never shows: evidence removed while it was closed can't come back from it.
+  const [opening, setOpening] = useState(0)
   // Set while the operator's retry is in flight, so its button stays where their focus is.
   const [retrying, setRetrying] = useState(false)
   const retryButton = useRef<HTMLButtonElement>(null)
   const query = useQuery({
-    queryKey: briefQueryKey(scope, batchId, jobId, reference.attempt_id),
+    queryKey: briefQueryKey(scope, batchId, jobId, reference.attempt_id, opening),
     queryFn: () => load(batchId, jobId, reference.attempt_id),
     enabled: open,
   })
@@ -61,7 +67,7 @@ export function BriefCard({
   function toggled(event: SyntheticEvent<HTMLDetailsElement>) {
     const opened = event.currentTarget.open
     if (opened) {
-      setOpenedAt(Date.now())
+      setOpening((count) => count + 1)
     }
     setOpen(opened)
   }
@@ -77,8 +83,6 @@ export function BriefCard({
     }
   }
 
-  const readSinceOpened = query.data !== undefined && query.dataUpdatedAt >= openedAt
-
   return (
     <Card id={`brief:${reference.attempt_id}`} aria-labelledby={summaryId} onToggle={toggled}>
       <summary id={summaryId}>
@@ -89,7 +93,7 @@ export function BriefCard({
       </summary>
       {open && (
         <BriefBody
-          brief={readSinceOpened ? query.data : undefined}
+          brief={query.data}
           failed={query.isError}
           retrying={retrying}
           retry={() => void retry()}

@@ -13,7 +13,7 @@ export function BriefBody({
   retry,
   retryButton,
 }: {
-  /** The brief as read since the card was opened; never a copy from an earlier opening. */
+  /** The brief as this opening of the card read it. */
   brief: SessionHistoryBriefDto | undefined
   failed: boolean
   /** The operator's retry is in flight; its button stays so their focus isn't lost. */
