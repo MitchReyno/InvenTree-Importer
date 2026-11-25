@@ -9,6 +9,8 @@ export type ActivityHeadline = {
   rest?: string
   joiner?: string
   link?: SessionHistoryLinkDto
+  /** Words after the link, such as "and 2 other lots". */
+  after?: string
   /** A second place to see it, such as an observation's spot on the map. */
   also?: SessionHistoryLinkDto
 }
@@ -46,21 +48,33 @@ function observations(count: number) {
   return `${count} ${count === 1 ? 'observation' : 'observations'}`
 }
 
-/** The entry's link to one lot, or its gone link when that lot no longer leads anywhere. */
-function lotLink(entry: Entry, lotId: string | null) {
-  return (
-    entry.links.find((link) => link.kind === 'lot' && link.lot_id === lotId) ??
-    linkTo(entry, 'lot', 'lot')
+/** A destination lot's link, or plain words when that lot no longer leads anywhere. */
+function destinationLink(entry: Entry, lotId: string | null): SessionHistoryLinkDto {
+  const link = entry.links.find(
+    (candidate) => candidate.kind === 'lot' && candidate.lot_id === lotId,
   )
+  return link ?? { kind: 'gone', target: 'lot', label: 'a lot no longer in Review' }
+}
+
+/** "to Packet B", or "to Packet B and 2 other lots", for moves of one outcome. */
+function destinations(entry: Entry, moves: readonly Move[]) {
+  const lots = [...new Set(moves.map((move) => move.to_lot_id))]
+  const others = lots.length - 1
+  return {
+    joiner: 'to',
+    link: destinationLink(entry, lots[0] ?? null),
+    after: others > 0 ? `and ${others} other ${others === 1 ? 'lot' : 'lots'}` : undefined,
+  }
 }
 
 /** Says whether the regroup moved, only suggested or left its observations, by its outcomes. */
 function regroupHeadline(entry: Entry, details: RegroupDetails, stepLabel: string) {
   if (!details.moves) {
+    // Recorded before moves were kept: the lots it named are where observations went.
     return {
       lead: `${stepLabel} regrouped observations`,
       joiner: 'into',
-      link: lotLink(entry, details.lot_ids[0] ?? null),
+      link: destinationLink(entry, details.lot_ids[0] ?? null),
     }
   }
 
@@ -68,25 +82,29 @@ function regroupHeadline(entry: Entry, details: RegroupDetails, stepLabel: strin
 
   const applied = of('applied')
   const suggested = of('suggested')
+  const unchanged = of('unchanged')
   if (applied.length) {
+    const moved = destinations(entry, applied)
+    const alsoSuggested = suggested.length
+      ? `and suggested moving ${observations(suggested.length)}`
+      : undefined
+    const after = [moved.after, alsoSuggested].filter(Boolean).join(', ')
     return {
       lead: `${stepLabel} moved ${observations(applied.length)}`,
-      joiner: 'to',
-      link: lotLink(entry, applied[0].to_lot_id),
+      ...moved,
+      after: after || undefined,
     }
   }
   if (suggested.length) {
     return {
       lead: `${stepLabel} suggested moving ${observations(suggested.length)}`,
-      joiner: 'to',
-      link: lotLink(entry, suggested[0].to_lot_id),
+      ...destinations(entry, suggested),
     }
   }
-  const unchanged = of('unchanged')
   return {
     lead: `${stepLabel} left ${observations(unchanged.length)} in place`,
     joiner: 'in',
-    link: lotLink(entry, unchanged[0]?.to_lot_id ?? null),
+    link: destinationLink(entry, unchanged[0]?.to_lot_id ?? null),
   }
 }
 

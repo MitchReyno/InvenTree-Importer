@@ -26,6 +26,19 @@ function modelWords(attempt: Attempt) {
   return modelName(attempt.actual_model ?? attempt.selection.model)
 }
 
+/** Words for states the shared work states would misname in a session's own header. */
+const OWN_WORDS: Partial<Record<string, string>> = {
+  cancelled: 'Cancelled',
+  cancelling: 'Cancelling',
+  superseded: 'Replaced',
+}
+
+/** The pill for the attempt shown: its work state, in the session's own words where they differ. */
+function attemptPill(attempt: Attempt) {
+  const own = attempt.session_state === 'cancelling' ? 'cancelling' : attempt.state
+  return { state: workState(own), label: OWN_WORDS[own] }
+}
+
 function sameDay(a: string, b: string) {
   return new Date(a).toDateString() === new Date(b).toDateString()
 }
@@ -54,7 +67,7 @@ export function SessionDrawerHeader({
   return (
     <Header aria-label="Session details">
       <Facts>
-        <StatePill state={workState(current.state)} />
+        <StatePill {...attemptPill(current)} />
         <span>
           {modelWords(current)} · {RUNS_ON[current.runs_on]} · {webWords(current)} ·{' '}
           <EventTime at={first.queued_at} />

@@ -21,7 +21,6 @@ import { SessionChatPanel } from './SessionChatPanel'
 import { STEP_LABEL } from './ProcessingParts'
 import { SessionSkeleton } from './SessionSkeleton'
 import { SessionConversation } from './SessionConversation'
-import { SessionDrawerHeader } from './SessionDrawerHeader'
 
 interface Props {
   batchId: string
@@ -69,7 +68,6 @@ export function SessionPanel({
   const failed = current && (current.failure || FAILED_SESSION_STATES.has(sessionState))
   return (
     <>
-      <SessionDrawerHeader session={session} fullSession={fullSession} />
       {(history.isRefetchError || history.fetchStatus === 'paused') && (
         <Small role="status">Session history could not be refreshed; showing the last copy.</Small>
       )}

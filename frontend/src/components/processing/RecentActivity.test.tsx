@@ -144,6 +144,53 @@ describe('recent activity', () => {
     expect(within(row).getByRole('link', { name: 'Packet B' })).toBeVisible()
   })
 
+  it('names each destination of a regroup, mixed outcomes, and a destination no longer in Review', () => {
+    const lot = (n: number, label: string) => ({
+      kind: 'lot' as const,
+      lot_id: `20000000-0000-4000-8000-00000000000${n}`,
+      label,
+    })
+
+    const [b, c] = [lot(7, 'Packet B'), lot(8, 'Packet C')]
+
+    const move = (to: string, outcome: 'applied' | 'suggested', n: number) => ({
+      observation_id: `70000000-0000-4000-8000-00000000000${n}`,
+      from_lot_id: H.lot,
+      to_lot_id: to,
+      outcome,
+    })
+
+    const regroup = (moves: ReturnType<typeof move>[], links: Entry['links']) =>
+      agent(6, 16, { kind: 'regroup', lot_ids: [b.lot_id, c.lot_id], moves }, { links })
+
+    const list = show([
+      item(regroup([move(b.lot_id, 'applied', 1), move(c.lot_id, 'applied', 2)], [lotLink, b, c]), {
+        stage: 'examine',
+        subject_id: null,
+      }),
+      item(
+        regroup([move(b.lot_id, 'applied', 3), move(c.lot_id, 'suggested', 4)], [lotLink, b, c]),
+        { stage: 'examine', subject_id: null },
+      ),
+      // Packet B was retired since: its link is gone, and the source lot is not named instead.
+      item(
+        regroup(
+          [move(b.lot_id, 'applied', 5)],
+          [lotLink, { kind: 'gone', target: 'lot', label: 'Lot retired' }],
+        ),
+        { stage: 'examine', subject_id: null },
+      ),
+    ])
+    const rows = within(list).getAllByRole('listitem')
+
+    expect(rows[0]).toHaveTextContent('Examine moved 2 observations to Packet B and 1 other lot')
+    expect(rows[1]).toHaveTextContent(
+      'Examine moved 1 observation to Packet B and suggested moving 1 observation',
+    )
+    expect(rows[2]).toHaveTextContent('Examine moved 1 observation to a lot no longer in Review')
+    expect(within(rows[2]).queryByRole('link', { name: 'GE S2CN1 diodes' })).toBeNull()
+  })
+
   it('keeps an observation’s place on the map, and leads a whole-batch answer to its question', () => {
     const observed = observation(1, 5)
     const answered = input(

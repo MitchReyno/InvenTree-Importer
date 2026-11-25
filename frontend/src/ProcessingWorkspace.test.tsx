@@ -639,10 +639,10 @@ test('the Inventory drawer answers its open question through the question path',
   })
   expect(form).toHaveTextContent('Is Packet A already in InvenTree?')
   expect(within(drawer).getByRole('textbox', { name: 'Message Inventory' })).toBeVisible()
-  // No Agents read lists this session; the header comes from its own history.
-  expect(within(drawer).getByRole('region', { name: 'Session details' })).toHaveTextContent(
-    'Claude Opus 5.5 · agent VM · web on',
-  )
+  // No Agents read lists this session; the header comes from its own history, above the question.
+  const header = within(drawer).getByRole('region', { name: 'Session details' })
+  expect(header).toHaveTextContent('Claude Opus 5.5 · agent VM · web on')
+  expect(header.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
   await user.type(
     within(form).getByRole('textbox', { name: 'Clarification' }),

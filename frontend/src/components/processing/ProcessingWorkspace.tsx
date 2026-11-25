@@ -53,6 +53,7 @@ import { AnsweredQuestion } from './AnsweredQuestion'
 import { ClosedQuestion } from './ClosedQuestion'
 import { ProcessingJobCard } from './ProcessingJobCard'
 import { SessionPanel } from './SessionPanel'
+import { SessionDrawerTop } from './SessionDrawerTop'
 import { RecentActivity } from './RecentActivity'
 import { useBatchActivity } from '#/processing/useBatchActivity'
 import { JobEarlierAttempts } from './JobEarlierAttempts'
@@ -1309,6 +1310,7 @@ export function ProcessingWorkspace({
                     }
                   }}
                 >
+                  <SessionDrawerTop batchId={batch.id} job={sessionJob} read={client.history} />
                   {closeBlocked && (
                     <div role="alert">
                       <Banner

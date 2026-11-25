@@ -63,6 +63,7 @@ export function RecentActivity({ batchId, entries, failed = false }: Props) {
                       <ActivitySubject link={headline.link} item={item} batchId={batchId} />
                     </>
                   )}
+                  {headline.after && ` ${headline.after}`}
                   {headline.also && (
                     <>
                       {' · '}

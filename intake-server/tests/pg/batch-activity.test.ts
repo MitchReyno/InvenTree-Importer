@@ -3,7 +3,13 @@ import assert from 'node:assert/strict'
 import { createHash, randomUUID } from 'node:crypto'
 import { validate, type BatchActivityDto, type SessionHistoryDto } from '@invimport/contracts'
 import { processingFixture } from '../support/processing.ts'
-import { leadSession, lotSession, oneStepAsk, seedPhoto } from '../support/sessions.ts'
+import {
+  leadSession,
+  lotSession,
+  nextSessionAttempt,
+  oneStepAsk,
+  seedPhoto,
+} from '../support/sessions.ts'
 import { transaction } from '#/db/database.ts'
 import { issueSessionCapability } from '#/agents/tools/capability.ts'
 import { sessionTools } from '#/agents/tools/handlers.ts'
@@ -162,11 +168,12 @@ test('the batch activity read returns the newest actions across jobs, with each 
   })
 })
 
-test('a job whose current attempt has no status line yet has no agent note', async () => {
+test('after a fresh attempt, the earlier attempt’s action stays with no agent note', async () => {
   await withFixture(async (fixture, capture) => {
     const call = tools(fixture)
     const research = await lotSession(fixture, capture, capture.packetA)
     const token = await issue(fixture, research.attempt)
+    await call('status', token, { text: 'Reading the label' })
     await call(
       'ask',
       token,
@@ -179,10 +186,19 @@ test('a job whose current attempt has no status line yet has no agent note', asy
         assumption: 'Treating them as one reel.',
       }),
     )
+    const before = await readActivity(fixture, capture.batch.id)
+    assert.equal(before.entries[0].agent_note?.text, 'Reading the label')
 
-    const activity = await readActivity(fixture, capture.batch.id)
-    assert.equal(activity.entries.length, 1)
-    assert.equal(activity.entries[0].agent_note, null)
+    // The fresh attempt has no status line yet; the first attempt's line is not carried over.
+    await nextSessionAttempt(fixture, capture, research, capture.packetA, 2, {
+      id: 'synthetic-session/1',
+    })
+    const after = await readActivity(fixture, capture.batch.id)
+    assert.deepEqual(
+      after.entries.map((item) => item.entry.details.kind),
+      ['question'],
+    )
+    assert.equal(after.entries[0].agent_note, null)
   })
 })
 
