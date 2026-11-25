@@ -49,10 +49,10 @@ export async function localSlots(directory = hostDirectory) {
 }
 
 /** The owner outlives a killed claimant and retires after its final client releases capacity. */
-async function electOwner(directory: string, image: string) {
+async function electOwner(directory: string) {
   const child = fork(
     fileURLToPath(new URL('./local-dispatcher-main.ts', import.meta.url)),
-    [directory, image],
+    [directory],
     {
       execArgv: ['--import', 'tsx'],
       cwd: fileURLToPath(new URL('../../', import.meta.url)),
@@ -98,14 +98,10 @@ export async function reserveLocalDecoder(
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code
       if (code === 'ENOENT' || code === 'ECONNREFUSED') {
-        await electOwner(directory, image)
-      } else if (
-        !(error instanceof Error && error.message === 'decoder_reservation_refused') &&
-        code !== 'ECONNRESET'
-      ) {
+        await electOwner(directory)
+      } else if (code !== 'ECONNRESET') {
         throw error
       }
-      // An idle owner pinned to a different image retires before this caller may elect one.
       await delay(40)
     }
   } while (performance.now() < deadline)

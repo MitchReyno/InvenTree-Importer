@@ -9,8 +9,8 @@ import { retireOwnerDecoders } from './decoder-cleanup.ts'
 import { localSlots } from './local-launcher.ts'
 
 async function main() {
-  const [directory, image] = process.argv.slice(2)
-  if (!directory || !/^sha256:[a-f0-9]{64}$/.test(image ?? '') || !process.send) {
+  const [directory] = process.argv.slice(2)
+  if (!directory || !process.send) {
     throw new Error('local_owner_configuration_required')
   }
   // SQLite supplies a kernel-released POSIX writer lock. No inventory or job state is stored here.
@@ -40,8 +40,10 @@ async function main() {
       await retireOwnerDecoders(owner)
       await rm(path)
     }
-    const server = createDecoderDispatcher(image, await localSlots(directory), (pinned, packet) =>
-      launchDecoder(pinned, packet, undefined, owner),
+    const server = createDecoderDispatcher(
+      undefined,
+      await localSlots(directory),
+      (pinned, packet) => launchDecoder(pinned, packet, undefined, owner),
     )
     server.listen(path)
     await once(server, 'listening')
@@ -51,7 +53,7 @@ async function main() {
     for (const signal of ['SIGTERM', 'SIGINT'] as const) {
       process.once(signal, () => stop.abort())
     }
-    // Allow the electing caller time to connect. Requests rejected for another image do not extend ownership.
+    // Allow the electing caller time to connect.
     const untilIdle = setInterval(() => {
       if (server.idleFor(900)) {
         stop.abort()

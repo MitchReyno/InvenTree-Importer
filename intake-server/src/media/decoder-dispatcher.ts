@@ -35,12 +35,13 @@ async function decode(
 
 /** A reservation occupies one slot from offer to expiry, disconnect, or completion of its one request. */
 export function createDecoderDispatcher(
-  image: string,
+  image: string | undefined,
   capacity: 1 | 2,
   launch: (image: string, packet: Buffer) => Promise<Buffer>,
 ) {
   type Lease = {
     token: string
+    image: string
     maintenance: boolean
     state: 'reserved' | 'active' | 'running' | 'delivered'
     expiry?: NodeJS.Timeout
@@ -77,11 +78,20 @@ export function createDecoderDispatcher(
           res.writeHead(status, { connection: 'close' }).end()
         }
 
-        if (req.method !== 'POST' || req.headers['x-decoder-image'] !== image) {
+        const requested = req.headers['x-decoder-image']
+        if (
+          req.method !== 'POST' ||
+          typeof requested !== 'string' ||
+          !/^sha256:[0-9a-f]{64}$/.test(requested) ||
+          (image && image !== requested)
+        ) {
           return refuse(403)
         }
         const length = Number(req.headers['content-length'])
         const lease = leases.get(socket)
+        if (lease && lease.image !== requested) {
+          return refuse(403)
+        }
         const full = inUse() >= capacity
         if (req.url === '/reserve') {
           if (length !== 0 || req.headers['transfer-encoding'] || lease) {
@@ -99,7 +109,12 @@ export function createDecoderDispatcher(
           ) {
             return refuse(503)
           }
-          const next: Lease = { token: randomUUID(), maintenance, state: 'reserved' }
+          const next: Lease = {
+            token: randomUUID(),
+            image: requested,
+            maintenance,
+            state: 'reserved',
+          }
           next.expiry = setTimeout(() => socket.destroy(), 10000)
           leases.set(socket, next)
           socket.once('close', () => {
@@ -133,6 +148,9 @@ export function createDecoderDispatcher(
         if (token !== lease?.token || (lease && lease.state !== 'active')) {
           return refuse(403)
         }
+        if (!lease && !image) {
+          return refuse(403)
+        }
         if (!lease && (full || draining)) {
           return refuse(503)
         }
@@ -143,7 +161,7 @@ export function createDecoderDispatcher(
           legacyRunning++
         }
         try {
-          await decode(req, res, length, (packet) => launch(image, packet))
+          await decode(req, res, length, (packet) => launch(requested, packet))
         } catch {
           if (!res.headersSent) {
             res.writeHead(502)

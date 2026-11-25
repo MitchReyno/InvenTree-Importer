@@ -190,3 +190,25 @@ test('a replacement fences an already-created decoder before its delayed start c
   assert.equal(created, false)
   assert.deepEqual(calls[1], ['rm', '--force', id])
 })
+
+test('worktrees with distinct pinned images share the local owner and both make progress', async () => {
+  const { reserveLocalDecoder } = await import('#/media/local-launcher.ts')
+  const directory = await mkdtemp(join(tmpdir(), 'media-worktrees-'))
+  const other = 'sha256:' + 'b'.repeat(64)
+  try {
+    for (const selected of [image, other, image, other]) {
+      const offer = await reserveLocalDecoder(selected, 'decode', directory)
+      assert.ok(offer)
+      try {
+        assert.equal(
+          await reserveLocalDecoder(selected === image ? other : image, 'decode', directory),
+          null,
+        )
+      } finally {
+        offer.release()
+      }
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})

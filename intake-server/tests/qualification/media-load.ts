@@ -115,19 +115,29 @@ async function run() {
   let metricFailure: unknown
   let active = 0
   let peakActive = 0
+  const baselineRoot = process.env.INTAKE_BENCH_BASELINE_ROOT
+  const previousRunner: typeof import('#/media/docker-decoder.ts') | undefined =
+    profile === 'original' && baselineRoot
+      ? await import(
+          pathToFileURL(join(baselineRoot, 'intake-server/src/media/decoder-runner.ts')).href
+        )
+      : undefined
   const dispatcher = createDecoderDispatcher(image!, slots, async (pinned, packet) => {
     active++
     peakActive = Math.max(active, peakActive)
     const start = performance.now()
     const id = randomUUID()
     const monitor = new AbortController()
-    resourceTasks.push(
-      resources.observe('bench-media-' + id, monitor.signal).catch((error) => {
-        metricFailure = error
-      }),
-    )
+    if (!previousRunner)
+      resourceTasks.push(
+        resources.observe('bench-media-' + id, monitor.signal).catch((error) => {
+          metricFailure = error
+        }),
+      )
     try {
-      return await launchDecoder(pinned, packet, id)
+      return previousRunner
+        ? await previousRunner.launchDecoder(pinned, packet)
+        : await launchDecoder(pinned, packet, id)
     } finally {
       monitor.abort()
       active--
@@ -375,7 +385,7 @@ async function run() {
     if (workerFailure) throw workerFailure
     await Promise.all(resourceTasks)
     if (metricFailure) throw metricFailure
-    assert.ok(resources.result().engineSamples)
+    if (!previousRunner) assert.ok(resources.result().engineSamples)
     const rows = await db.pool.query(
       `SELECT c.version_id, encode(v.blob_digest,'hex') AS original,encode(p.blob_digest,'hex') AS preview,
       p.width,p.height,t.publication_ms,extract(epoch FROM (h.created_at-c.created_at))*1000 AS queue_ms,extract(epoch FROM (r.created_at-h.created_at))*1000 AS prepare_ms
