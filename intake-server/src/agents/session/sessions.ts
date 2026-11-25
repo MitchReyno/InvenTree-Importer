@@ -1,7 +1,9 @@
 import type { Pool, PoolClient } from 'pg'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import {
   MAX_EARLIER_ATTEMPTS,
+  validate,
+  type AgentEffortDto,
   type AgentSessionDto,
   type AgentSessionEarlierAttemptDto,
   type AgentSessionFilter,
@@ -479,6 +481,41 @@ function sessionRow(
     start_fresh: facts.eligibility,
     earlier_attempts: facts.earlier.attempts,
     earlier_attempt_count: facts.earlier.count,
+  }
+}
+
+/**
+ * Records the effort a turn passed to the CLI. Every turn of an attempt sends the effort its
+ * input sealed, so a later turn writes the same value.
+ */
+export async function recordSentEffort(
+  pool: Pool,
+  binding: ProcessingConfig,
+  attemptId: string,
+  effort: AgentEffortDto,
+) {
+  validate('AgentEffort', effort)
+  const inScope = queryDatabase(pool)
+    .select({ id: processingAttempts.id })
+    .from(processingAttempts)
+    .innerJoin(commands, eq(commands.id, processingAttempts.commandId))
+    .where(
+      and(
+        eq(processingAttempts.id, attemptId),
+        eq(commands.actorId, binding.actorId),
+        eq(commands.targetId, binding.targetId),
+        eq(commands.targetContextId, binding.targetContextId),
+      ),
+    )
+  const updated = await executeDatabaseQuery(
+    queryDatabase(pool)
+      .update(agentSessions)
+      .set({ sentEffort: effort })
+      .where(inArray(agentSessions.attemptId, inScope))
+      .returning({ attemptId: agentSessions.attemptId }),
+  )
+  if (!updated.length) {
+    fail('attempt_not_found', 404)
   }
 }
 

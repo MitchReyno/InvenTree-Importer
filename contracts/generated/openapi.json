@@ -19641,6 +19641,10 @@
                           "maxLength": 128,
                           "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
                           "type": "string"
+                        },
+                        "effort": {
+                          "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
+                          "type": "string"
                         }
                       }
                     },
@@ -27643,6 +27647,10 @@
                     "maxLength": 128,
                     "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
                     "type": "string"
+                  },
+                  "effort": {
+                    "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
+                    "type": "string"
                   }
                 }
               },
@@ -28207,6 +28215,10 @@
                     "minLength": 1,
                     "maxLength": 128,
                     "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "effort": {
+                    "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
                     "type": "string"
                   }
                 }
@@ -29978,6 +29990,10 @@
                     "maxLength": 128,
                     "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
                     "type": "string"
+                  },
+                  "effort": {
+                    "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
+                    "type": "string"
                   }
                 }
               },
@@ -30542,6 +30558,10 @@
                     "minLength": 1,
                     "maxLength": 128,
                     "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "effort": {
+                    "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
                     "type": "string"
                   }
                 }
@@ -32313,6 +32333,10 @@
                     "maxLength": 128,
                     "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
                     "type": "string"
+                  },
+                  "effort": {
+                    "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
+                    "type": "string"
                   }
                 }
               },
@@ -32877,6 +32901,10 @@
                     "minLength": 1,
                     "maxLength": 128,
                     "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "effort": {
+                    "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
                     "type": "string"
                   }
                 }
@@ -34648,6 +34676,10 @@
                     "maxLength": 128,
                     "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
                     "type": "string"
+                  },
+                  "effort": {
+                    "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
+                    "type": "string"
                   }
                 }
               },
@@ -35212,6 +35244,10 @@
                     "minLength": 1,
                     "maxLength": 128,
                     "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "effort": {
+                    "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
                     "type": "string"
                   }
                 }
@@ -127251,6 +127287,10 @@
           }
         }
       },
+      "AgentEffort": {
+        "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
+        "type": "string"
+      },
       "AgentSelection": {
         "additionalProperties": false,
         "type": "object",
@@ -127288,6 +127328,10 @@
             "minLength": 1,
             "maxLength": 128,
             "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
+            "type": "string"
+          },
+          "effort": {
+            "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
             "type": "string"
           }
         }
@@ -127346,6 +127390,10 @@
                   },
                   "default_model": {
                     "type": "string"
+                  },
+                  "default_effort": {
+                    "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
+                    "type": "string"
                   }
                 }
               },
@@ -127374,6 +127422,10 @@
                     ]
                   },
                   "default_model": {
+                    "type": "string"
+                  },
+                  "default_effort": {
+                    "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
                     "type": "string"
                   }
                 }
@@ -127425,6 +127477,10 @@
                   },
                   "model": {
                     "type": "string"
+                  },
+                  "effort": {
+                    "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
+                    "type": "string"
                   }
                 }
               },
@@ -127449,6 +127505,10 @@
                     ]
                   },
                   "model": {
+                    "type": "string"
+                  },
+                  "effort": {
+                    "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
                     "type": "string"
                   }
                 }
@@ -127475,6 +127535,10 @@
                   },
                   "model": {
                     "type": "string"
+                  },
+                  "effort": {
+                    "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
+                    "type": "string"
                   }
                 }
               },
@@ -127499,6 +127563,10 @@
                     ]
                   },
                   "model": {
+                    "type": "string"
+                  },
+                  "effort": {
+                    "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
                     "type": "string"
                   }
                 }
@@ -127598,6 +127666,10 @@
                   },
                   "default_model": {
                     "type": "string"
+                  },
+                  "default_effort": {
+                    "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
+                    "type": "string"
                   }
                 }
               },
@@ -127626,6 +127698,10 @@
                     ]
                   },
                   "default_model": {
+                    "type": "string"
+                  },
+                  "default_effort": {
+                    "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
                     "type": "string"
                   }
                 }
@@ -127677,6 +127753,10 @@
                   },
                   "model": {
                     "type": "string"
+                  },
+                  "effort": {
+                    "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
+                    "type": "string"
                   }
                 }
               },
@@ -127701,6 +127781,10 @@
                     ]
                   },
                   "model": {
+                    "type": "string"
+                  },
+                  "effort": {
+                    "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
                     "type": "string"
                   }
                 }
@@ -127727,6 +127811,10 @@
                   },
                   "model": {
                     "type": "string"
+                  },
+                  "effort": {
+                    "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
+                    "type": "string"
                   }
                 }
               },
@@ -127751,6 +127839,10 @@
                     ]
                   },
                   "model": {
+                    "type": "string"
+                  },
+                  "effort": {
+                    "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
                     "type": "string"
                   }
                 }
@@ -127871,6 +127963,10 @@
                       },
                       "default_model": {
                         "type": "string"
+                      },
+                      "default_effort": {
+                        "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
+                        "type": "string"
                       }
                     }
                   },
@@ -127899,6 +127995,10 @@
                         ]
                       },
                       "default_model": {
+                        "type": "string"
+                      },
+                      "default_effort": {
+                        "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
                         "type": "string"
                       }
                     }
@@ -127950,6 +128050,10 @@
                       },
                       "model": {
                         "type": "string"
+                      },
+                      "effort": {
+                        "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
+                        "type": "string"
                       }
                     }
                   },
@@ -127974,6 +128078,10 @@
                         ]
                       },
                       "model": {
+                        "type": "string"
+                      },
+                      "effort": {
+                        "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
                         "type": "string"
                       }
                     }
@@ -128000,6 +128108,10 @@
                       },
                       "model": {
                         "type": "string"
+                      },
+                      "effort": {
+                        "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
+                        "type": "string"
                       }
                     }
                   },
@@ -128024,6 +128136,10 @@
                         ]
                       },
                       "model": {
+                        "type": "string"
+                      },
+                      "effort": {
+                        "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
                         "type": "string"
                       }
                     }
@@ -128116,6 +128232,10 @@
           },
           "default_model": {
             "type": "string"
+          },
+          "default_effort": {
+            "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
+            "type": "string"
           }
         }
       },
@@ -128140,6 +128260,10 @@
             ]
           },
           "model": {
+            "type": "string"
+          },
+          "effort": {
+            "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
             "type": "string"
           }
         }
@@ -128333,6 +128457,10 @@
                           "minLength": 1,
                           "maxLength": 128,
                           "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "effort": {
+                          "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
                           "type": "string"
                         }
                       }
@@ -152064,6 +152192,10 @@
                               "maxLength": 128,
                               "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
                               "type": "string"
+                            },
+                            "effort": {
+                              "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
+                              "type": "string"
                             }
                           }
                         },
@@ -152082,6 +152214,10 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "sent_effort": {
+                      "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
+                      "type": "string"
                     },
                     "web": {
                       "anyOf": [

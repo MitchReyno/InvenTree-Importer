@@ -1,7 +1,7 @@
 import { SessionFailureSummary } from './session-failures.ts'
 import { Type, type Static, type TProperties } from '@sinclair/typebox'
 import { CursorSequence, Digest, Id, IsoTime, Quantity, Revision } from './scalars.ts'
-import { AgentSelection } from './agent-selection.ts'
+import { AgentEffort, AgentSelection } from './agent-selection.ts'
 import { CaptureQuantity } from './capture.ts'
 import {
   ProcessingFields,
@@ -776,6 +776,8 @@ export const SessionHistoryAttempt = object({
   /** Null for the deterministic synthetic profile. */
   selection: Type.Union([AgentSelection, Type.Null()]),
   actual_model: Type.Union([Type.String({ maxLength: 128 }), Type.Null()]),
+  /** The sealed effort, once a turn passed it to the CLI; absent while none has been sent. */
+  sent_effort: Type.Optional(AgentEffort),
   /** The web setting sealed in the attempt's input; null when its profile has no web access. */
   web: Type.Union([
     object({ public_pages: Type.Boolean(), prefer_datasheets: Type.Boolean() }),

@@ -75,6 +75,8 @@ export const agentProviderSettings = pgTable(
     enabled: boolean().notNull(),
     authentication: text().$type<AgentSelectionDto['authentication']>().notNull(),
     defaultModel: text('default_model').notNull(),
+    /** Null is Default: the CLI's own default applies and nothing is sent. */
+    defaultEffort: text('default_effort'),
   },
   (table) => [
     primaryKey({
@@ -89,6 +91,8 @@ export const agentSessions = pgTable('agent_session', {
   finishedAt: timestamp('finished_at', { withTimezone: true }),
   nativeSessionId: text('native_session_id'),
   actualModel: text('actual_model'),
+  /** The sealed effort, once a turn has passed it to the CLI. */
+  sentEffort: text('sent_effort'),
   progress: text()
     .$type<'queued' | 'starting' | 'responding' | 'settled'>()
     .notNull()

@@ -377,6 +377,14 @@ export function decodeProposal(bytes: Buffer, digest: Buffer): ProcessingProposa
   return value as ProcessingProposalDto
 }
 
+/** The one-turn runner sends no effort, so its `/4` input never seals one. */
+function oneTurnSelection({
+  effort: _effort,
+  ...selection
+}: AgentSelectionDto): ProcessingInputV4Dto['agent'] {
+  return selection
+}
+
 export function nativeInputManifest(
   snapshot: CaptureSnapshotDto,
   subjectId: string,
@@ -398,7 +406,7 @@ export function nativeInputManifest(
     instruction_version: 'native-agent/1',
     instruction_sha256: nativeInstructionDigest,
     tool_profile_version: 'native-no-tools/1',
-    agent: settings.selection,
+    agent: oneTurnSelection(settings.selection),
     settings_revision: settings.revision,
   }
 }

@@ -2,7 +2,7 @@
 
 ## Plan context
 
-[Proposal and reuse assessment](proposal.md) · [Design and qualification protocol](design.md) · [Connection scenarios](specs/header-connection-status/spec.md) · [Media scenarios](specs/capture-media/spec.md). Canonical name: `improve-connection-health`. [BI-002](../../../docs/PLANNED_FUNCTIONALITY.md#bi-002--status-signalling-uplift) supplies the existing status capabilities.
+[Proposal and reuse assessment](proposal.md) · [Design and qualification protocol](design.md) · [Connection scenarios](specs/header-connection-status/spec.md) · [Media scenarios](specs/capture-media/spec.md). Canonical name: `improve-connection-health`. [BI-002](../../../../docs/PLANNED_FUNCTIONALITY.md#bi-002--status-signalling-uplift) supplies the existing status capabilities.
 
 ## Completion and commit ordering
 
@@ -51,4 +51,4 @@ T1 establishes server observations. T2 consumes them. T3 delivers media admissio
 - [x] Run the design's reproducible one-versus-two-slot workload. Use measured comparison in place of a test-first cycle for tuning. Record environment and resource ceilings before each series. Separate upload time, queue delay, decode and publication time.
 - [x] Verify coverage and exact output for all retained versions, interactive p95, local heartbeat p95, target timeouts and recovery times. Include a saturated and a recovering run. Document the qualified profile or retain one slot when evidence is insufficient.
 - [x] Verify startup, rolling upgrade, drain and downgrade in a disposable deployment, and run pnpm test plus affected deployment and frontend checks. Record benchmark distributions, resource peaks and limits on the PR.
-- [ ] Merge the independently reviewed implementation into interactive-app after selected green CI and operator approval.
+- [x] Merge the independently reviewed implementation into interactive-app after selected green CI and operator approval.
