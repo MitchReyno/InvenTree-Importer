@@ -37916,6 +37916,12 @@ export interface components {
                 };
             } | {
                 /** @constant */
+                kind: "count";
+                observation_id: string;
+                count_from: number | null;
+                count_to: number | null;
+            } | {
+                /** @constant */
                 kind: "observation";
                 observation_id: string;
                 lot_from: string | null;
@@ -38070,6 +38076,12 @@ export interface components {
                 from_line: number;
                 to_line: number;
             };
+        } | {
+            /** @constant */
+            kind: "count";
+            observation_id: string;
+            count_from: number | null;
+            count_to: number | null;
         } | {
             /** @constant */
             kind: "observation";
@@ -38313,6 +38325,12 @@ export interface components {
                             from_line: number;
                             to_line: number;
                         };
+                    } | {
+                        /** @constant */
+                        kind: "count";
+                        observation_id: string;
+                        count_from: number | null;
+                        count_to: number | null;
                     } | {
                         /** @constant */
                         kind: "observation";
@@ -40568,6 +40586,12 @@ export interface components {
                         from_line: number;
                         to_line: number;
                     };
+                } | {
+                    /** @constant */
+                    kind: "count";
+                    observation_id: string;
+                    count_from: number | null;
+                    count_to: number | null;
                 } | {
                     /** @constant */
                     kind: "observation";

@@ -140,6 +140,7 @@ interface LockedObservation {
   /** The stored reading, as recorded; a correction keeps it as the reading before. */
   readings: Record<string, unknown>
   region: Record<string, unknown>
+  visibleCount: number | null
   lotId: string | null
 }
 
@@ -160,6 +161,7 @@ async function lockObservations(client: PoolClient, batchId: string, ids: readon
         sameItemAs: captureEvidenceObservations.sameItemAs,
         readings: captureEvidenceObservations.readings,
         region: captureEvidenceObservations.region,
+        visibleCount: captureEvidenceObservations.visibleCount,
       })
       .from(captureEvidenceObservations)
       .where(
@@ -487,8 +489,8 @@ export async function recordObservation(
         client,
         writer.batchId,
         row.id,
-        { readings: row.readings, region: row.region },
-        { readings: args.readings, region: args.region },
+        { readings: row.readings, region: row.region, count: row.visibleCount },
+        { readings: args.readings, region: args.region, count: args.visible_count ?? null },
         next,
         { by: 'session', attemptId: writer.sessionId },
       )
@@ -1136,19 +1138,27 @@ export async function currentLotItemCount(client: PoolClient, batchId: string, l
  * before and after it. The author and time are the capture revision's. An unchanged reading
  * keeps nothing.
  */
+/** What an observation says: its reading, its region on the page and how many items it shows. */
+interface ObservationFacts {
+  readings: Record<string, unknown>
+  region: Record<string, unknown>
+  count: number | null
+}
+
 async function retainCorrection(
   client: PoolClient,
   batchId: string,
   observationId: string,
-  before: { readings: Record<string, unknown>; region: Record<string, unknown> },
-  after: { readings: Record<string, unknown>; region: Record<string, unknown> },
+  before: ObservationFacts,
+  after: ObservationFacts,
   revision: bigint,
   /** The operator, unless the Examine session revised its own observation. */
   origin: { by: 'operator' } | { by: 'session'; attemptId: string } = { by: 'operator' },
 ) {
   const readingChanged = canonicalRecord(before.readings) !== canonicalRecord(after.readings)
   const regionChanged = canonicalRecord(before.region) !== canonicalRecord(after.region)
-  if (!readingChanged && !regionChanged) {
+  const countChanged = before.count !== after.count
+  if (!readingChanged && !regionChanged && !countChanged) {
     return
   }
   if (readingChanged) {
@@ -1191,6 +1201,7 @@ async function retainCorrection(
           },
         }
       : {}),
+    ...(countChanged ? { count: { before: before.count, after: after.count } } : {}),
     revision: revision.toString(),
     origin,
   })
@@ -1231,8 +1242,12 @@ async function applyOneObservationEdit(
         client,
         batchId,
         row.id,
-        { readings: row.readings, region: row.region },
-        { readings: change.readings ?? row.readings, region: change.region },
+        { readings: row.readings, region: row.region, count: row.visibleCount },
+        {
+          readings: change.readings ?? row.readings,
+          region: change.region,
+          count: change.visible_count !== undefined ? change.visible_count : row.visibleCount,
+        },
         revision,
       )
       await executeDatabaseQuery(
@@ -1349,8 +1364,8 @@ async function applyOneObservationEdit(
       client,
       batchId,
       target.id,
-      { readings: target.readings, region: target.region },
-      { readings: suggestion.readings, region: suggestion.region },
+      { readings: target.readings, region: target.region, count: target.visibleCount },
+      { readings: suggestion.readings, region: suggestion.region, count: suggestion.visibleCount },
       revision,
     )
     await executeDatabaseQuery(

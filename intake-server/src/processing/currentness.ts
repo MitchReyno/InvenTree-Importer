@@ -800,6 +800,8 @@ export async function observationCorrected(
     reading?: { before: EvidenceReadingsDto; after: EvidenceReadingsDto }
     /** The region on its page before and after, when it moved. */
     region?: { before: EvidenceRegionDto; after: EvidenceRegionDto }
+    /** How many items it shows before and after, when that changed. */
+    count?: { before: number | null; after: number | null }
     revision: string
     /** The operator's correction, or the Examine session revising its own observation. */
     origin?: RevisionContext['origin']
@@ -871,6 +873,16 @@ export async function observationCorrected(
             observation_id: input.observationId,
             region_from: input.region.before,
             region_to: input.region.after,
+          },
+        ]
+      : []),
+    ...(input.count
+      ? [
+          {
+            kind: 'count' as const,
+            observation_id: input.observationId,
+            count_from: input.count.before,
+            count_to: input.count.after,
           },
         ]
       : []),

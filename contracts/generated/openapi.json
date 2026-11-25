@@ -192536,6 +192536,50 @@
                   "required": [
                     "kind",
                     "observation_id",
+                    "count_from",
+                    "count_to"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "count",
+                      "type": "string"
+                    },
+                    "observation_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "count_from": {
+                      "anyOf": [
+                        {
+                          "minimum": 0,
+                          "maximum": 1000000,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "count_to": {
+                      "anyOf": [
+                        {
+                          "minimum": 0,
+                          "maximum": 1000000,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "observation_id",
                     "lot_from",
                     "lot_to"
                   ],
@@ -193463,6 +193507,50 @@
                         "type": "integer"
                       }
                     }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "kind",
+              "observation_id",
+              "count_from",
+              "count_to"
+            ],
+            "properties": {
+              "kind": {
+                "const": "count",
+                "type": "string"
+              },
+              "observation_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "count_from": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "maximum": 1000000,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "count_to": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "maximum": 1000000,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
                   }
                 ]
               }
@@ -194948,6 +195036,50 @@
                                                     "type": "integer"
                                                   }
                                                 }
+                                              }
+                                            ]
+                                          }
+                                        }
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "type": "object",
+                                        "required": [
+                                          "kind",
+                                          "observation_id",
+                                          "count_from",
+                                          "count_to"
+                                        ],
+                                        "properties": {
+                                          "kind": {
+                                            "const": "count",
+                                            "type": "string"
+                                          },
+                                          "observation_id": {
+                                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                            "type": "string"
+                                          },
+                                          "count_from": {
+                                            "anyOf": [
+                                              {
+                                                "minimum": 0,
+                                                "maximum": 1000000,
+                                                "type": "integer"
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          },
+                                          "count_to": {
+                                            "anyOf": [
+                                              {
+                                                "minimum": 0,
+                                                "maximum": 1000000,
+                                                "type": "integer"
+                                              },
+                                              {
+                                                "type": "null"
                                               }
                                             ]
                                           }
@@ -208107,6 +208239,50 @@
                                           "type": "integer"
                                         }
                                       }
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "observation_id",
+                                "count_from",
+                                "count_to"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "count",
+                                  "type": "string"
+                                },
+                                "observation_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "count_from": {
+                                  "anyOf": [
+                                    {
+                                      "minimum": 0,
+                                      "maximum": 1000000,
+                                      "type": "integer"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "count_to": {
+                                  "anyOf": [
+                                    {
+                                      "minimum": 0,
+                                      "maximum": 1000000,
+                                      "type": "integer"
+                                    },
+                                    {
+                                      "type": "null"
                                     }
                                   ]
                                 }

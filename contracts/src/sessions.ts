@@ -320,6 +320,13 @@ export const RevisionChange = Type.Union([
     region_from: EvidenceRegion,
     region_to: EvidenceRegion,
   }),
+  /** How many items an observation's region shows, before and after; null when not counted. */
+  object({
+    kind: Type.Literal('count'),
+    observation_id: Id,
+    count_from: Type.Union([Type.Integer({ minimum: 0, maximum: 1000000 }), Type.Null()]),
+    count_to: Type.Union([Type.Integer({ minimum: 0, maximum: 1000000 }), Type.Null()]),
+  }),
   /** An observation joined or left a lot. */
   object({
     kind: Type.Literal('observation'),

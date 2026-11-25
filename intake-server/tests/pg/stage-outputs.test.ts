@@ -26,6 +26,7 @@ import { pinnedIdentityCurrent, stableIdentityOf } from '#/processing/stable-ide
 import { sessionTools, type SessionToolOutput } from '#/agents/tools/handlers.ts'
 import { queueSessionResume, runSessionTurn } from '#/agents/session/session-runner.ts'
 import { lockBlob } from '#/media/blob-store.ts'
+import { replaceSession } from '#/processing/session-replacement.ts'
 import type { PoolClient } from 'pg'
 import { setTimeout as delay } from 'node:timers/promises'
 
@@ -1849,4 +1850,86 @@ test('an operator moving a crop on its photo stales what relied on it, as a corr
     await transaction(fixture.runner.pool, (client) => pinnedIdentityCurrent(client, [identityId])),
     false,
   )
+  // Deleted before Research reads it, the crop's move is given as the evidence's removal.
+  await grantMedia(fixture.db.pool, fixture.api.name, 'api')
+  const media = await fixture.db.pool.query<{ revision: string; evidence_id: string }>(
+    `SELECT b.revision::text, v.evidence_id FROM media_batch b
+     JOIN media_version v ON v.batch_id=b.batch_id WHERE b.batch_id=$1 AND v.id=$2`,
+    [batchId, observation.evidence_version_id],
+  )
+  await editMedia(fixture.api.pool, fixture.config, batchId, randomUUID(), {
+    expected_revision: media.rows[0].revision,
+    change: { kind: 'remove', evidence_ids: [media.rows[0].evidence_id] },
+  })
+  const read = await result(
+    tools(batch).read_inbox(await running(fixture, research.attemptId), { after_seq: '0' }),
+  )
+  assert.ok(!JSON.stringify(read.items).includes('"kind":"region"'), JSON.stringify(read.items))
+})
+
+test('a count-only correction stales what relied on the observation; Start fresh keeps a sealed mode', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId, leadJob } = batch
+  const crystal = await batch.lot('16 mhz crystal')
+  const research = await stageJob(batch, '16 mhz crystal', 'research')
+  const { manifest } = await inputOf(fixture, research.attemptId)
+  const [identityId] = manifest.pinned_proposal_ids
+  const observation = (await snapshotOf(fixture, batchId)).evidence_observations!.find(
+    (item) => item.id === crystal.evidence_observation_ids![0],
+  )!
+  await edit(fixture, batchId, {
+    kind: 'observation',
+    observation_id: observation.id,
+    evidence_version_id: observation.evidence_version_id,
+    page: observation.page,
+    region: observation.region,
+    visible_count: (observation.visible_count ?? 0) + 10,
+  })
+  const toLead = (await revisions(fixture, leadJob)).at(-1)!
+  assert.deepEqual(toLead.changes[0], {
+    kind: 'count',
+    observation_id: observation.id,
+    count_from: observation.visible_count,
+    count_to: (observation.visible_count ?? 0) + 10,
+  })
+  assert.equal(
+    await transaction(fixture.runner.pool, (client) => pinnedIdentityCurrent(client, [identityId])),
+    false,
+  )
+
+  // Start fresh on a gaps-mode attempt keeps its sealed Match state.
+  const gapsMatch: SealedMatchDto = {
+    outcome: { revision: '5', basis: { kind: 'decision', decision: 'fill_gaps' } },
+    mode: { stage: 'research', mode: 'gaps', fields: ['datasheet'] },
+  }
+  const led = await batch.lot('led 0603 red')
+  const ledResearch = await stageJob(batch, 'led 0603 red', 'research')
+  const ledPins = (await inputOf(fixture, ledResearch.attemptId)).manifest.pinned_proposal_ids
+  const gapsAttempt = await requeueLot(fixture, batchId, led.id, 'research', gapsMatch, [
+    ...ledPins,
+  ])
+  await fixture.db.pool.query("UPDATE processing_attempt SET state='failed' WHERE id=$1", [
+    gapsAttempt,
+  ])
+  await fixture.db.pool.query(
+    "UPDATE agent_session SET session_state='failed' WHERE attempt_id=$1",
+    [gapsAttempt],
+  )
+  const job = await fixture.db.pool.query<{ revision: string }>(
+    'SELECT revision::text FROM processing_job WHERE id=$1',
+    [ledResearch.jobId],
+  )
+  const receipt = (await replaceSession(
+    fixture.api.pool,
+    fixture.config,
+    batchId,
+    ledResearch.jobId,
+    randomUUID(),
+    {
+      expected_capture_revision: (await snapshotOf(fixture, batchId)).revision,
+      expected_revision: job.rows[0].revision,
+      attempt_id: gapsAttempt,
+    },
+  )) as { attempt_ids: string[] }
+  assert.deepEqual((await inputOf(fixture, receipt.attempt_ids[0])).manifest.match, gapsMatch)
 })

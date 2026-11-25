@@ -61,6 +61,15 @@ export function pinnedProposals(input: { manifest_bytes: Buffer; manifest_digest
   return decodeSessionInput(input.manifest_bytes, input.manifest_digest).pinned_proposal_ids
 }
 
+/**
+ * The Match outcome and mode the current attempt's `/7` lot input sealed, which a replacement
+ * keeps, so Start fresh can't widen what the lot's stage may publish. None for other inputs.
+ */
+export function sealedMatch(input: { manifest_bytes: Buffer; manifest_digest: Buffer }) {
+  const manifest = decodeSessionInput(input.manifest_bytes, input.manifest_digest)
+  return 'match' in manifest ? manifest.match : undefined
+}
+
 interface CurrentJob {
   id: string
   batch_id: string

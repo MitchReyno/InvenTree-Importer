@@ -238,8 +238,11 @@ export async function deliverablePayload(client: PoolClient, kind: string, paylo
     return payload
   }
 
+  // Every change that says what an observation shows: its reading, its crop or its count.
+  const shownBy = new Set(['reading', 'reading_in_brief', 'region', 'count'])
+
   const readingOf = (change: RevisionChangeDto) =>
-    change.kind === 'reading' || change.kind === 'reading_in_brief' ? change.observation_id : null
+    shownBy.has(change.kind) && 'observation_id' in change ? change.observation_id : null
 
   const read = revision.changes!.flatMap((change) => {
     const observationId = readingOf(change)
