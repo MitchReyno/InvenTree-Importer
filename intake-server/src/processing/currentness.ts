@@ -815,6 +815,8 @@ export async function observationCorrected(
     sameItem?: { observationId: string; before: string | null; after: string | null }
     /** The lot it joined, when it had none before. */
     joined?: string
+    /** Other observations the change also alters, such as a same-item group's roots. */
+    alsoAlters?: readonly string[]
     revision: string
     /** The operator's correction, or the Examine session revising its own observation. */
     origin?: RevisionContext['origin']
@@ -833,14 +835,15 @@ export async function observationCorrected(
      JOIN public.processing_job j ON j.id=a.job_id
      WHERE j.batch_id=$1
        AND convert_from(i.manifest_bytes,'UTF8')::jsonb->>'schema_version'='bench-intake-input/7'
-       AND (p.relies_on->'sources' @> jsonb_build_array(jsonb_build_object(
-              'kind','evidence_observation','evidence_observation_id',$2::text))
+       AND EXISTS (SELECT 1 FROM unnest($2::text[]) AS altered(id)
+         WHERE p.relies_on->'sources' @> jsonb_build_array(jsonb_build_object(
+                 'kind','evidence_observation','evidence_observation_id',altered.id))
             -- Examine's markings of the observation, verbatim, rest on its reading too.
             OR jsonb_path_exists(convert_from(p.value_bytes,'UTF8')::jsonb,
-              '$.markings[*] ? (@.observation_id == $id)', jsonb_build_object('id', $2::text)))
+              '$.markings[*] ? (@.observation_id == $id)', jsonb_build_object('id', altered.id)))
        AND NOT EXISTS (SELECT 1 FROM public.processing_proposal_stale s WHERE s.proposal_id=p.id)
      ORDER BY p.id`,
-    [input.batchId, input.observationId],
+    [input.batchId, [input.observationId, ...(input.alsoAlters ?? [])]],
   )
   const ids = relying.rows.map((row) => row.id)
   // A join is news only to what relied on the observation unassigned; the lot's set tells the rest.

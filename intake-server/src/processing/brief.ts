@@ -1,4 +1,5 @@
 import type { PoolClient } from 'pg'
+import { notCurrent } from './identity-basis.ts'
 import {
   BRIEF_SHARED_SECTIONS,
   BRIEF_STAGE_SECTIONS,
@@ -361,10 +362,16 @@ async function readIdentities(client: PoolClient, proposalIds: readonly string[]
      FROM public.processing_proposal p WHERE p.id=ANY($1::uuid[]) ORDER BY p.id`,
     [[...proposalIds]],
   )
+  // Stale too when it rests on an identity whose lot no longer matches Capture.
+  const failing = await notCurrent(client, proposalIds)
   return rows.rows.map((row): StoredIdentity => {
     const value = unseal(row.value_bytes, row.value_digest)
     validate('RetainedSessionProposal', value)
-    return { proposalId: row.id, proposal: value as RetainedSessionProposalDto, stale: row.stale }
+    return {
+      proposalId: row.id,
+      proposal: value as RetainedSessionProposalDto,
+      stale: row.stale || failing.has(row.id),
+    }
   })
 }
 

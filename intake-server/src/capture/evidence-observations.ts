@@ -1102,29 +1102,23 @@ async function sameItemChanged(
   }
   // Loaded on use: Processing depends on capture, so capture must not import it eagerly.
   const { observationCorrected } = await import('#/processing/currentness.ts')
-  for (const mark of changed) {
+  // The groups' roots, before and after, count their items differently now too; what relied on
+  // them is told with the first mark's notice, not one of its own.
+  const markedIds = new Set(changed.map((mark) => mark.id))
+  const roots = [
+    ...new Set(
+      changed
+        .flatMap((mark) => [mark.before, mark.after])
+        .concat(targetId ?? null)
+        .filter((root): root is string => root !== null && !markedIds.has(root)),
+    ),
+  ]
+  for (const [index, mark] of changed.entries()) {
     await observationCorrected(client, {
       batchId,
       observationId: mark.id,
       sameItem: { observationId: mark.id, before: mark.before, after: mark.after },
-      revision: revision.toString(),
-    })
-  }
-  // The groups' roots, before and after, count their items differently now too.
-  const markedIds = new Set(changed.map((mark) => mark.id))
-  const roots = new Map<string, (typeof changed)[number]>()
-  for (const mark of changed) {
-    for (const root of [mark.before, mark.after, targetId ?? null]) {
-      if (root !== null && !markedIds.has(root) && !roots.has(root)) {
-        roots.set(root, mark)
-      }
-    }
-  }
-  for (const [root, mark] of roots) {
-    await observationCorrected(client, {
-      batchId,
-      observationId: root,
-      sameItem: { observationId: mark.id, before: mark.before, after: mark.after },
+      ...(index === 0 ? { alsoAlters: roots } : {}),
       revision: revision.toString(),
     })
   }

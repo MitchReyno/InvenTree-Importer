@@ -34,7 +34,8 @@ type Scope =
 /**
  * For each proposal in scope, which of the proposals it rests on, itself included and at any
  * depth through `proposal` sources, fail: their kept lot no longer matches Capture, or an
- * observation or observation set they cite moved on, or, with `withStale`, they have a stale row.
+ * observation or observation set they cite moved on, or, with `withStale`, the proposal itself
+ * has a stale row.
  * A read only; nothing is written.
  */
 async function failing(client: PoolClient, scope: Scope, withStale: boolean) {
@@ -57,7 +58,10 @@ async function failing(client: PoolClient, scope: Scope, withStale: boolean) {
      SELECT r.root, r.id FROM rests r
      LEFT JOIN public.processing_identity_basis b ON b.proposal_id=r.id
      LEFT JOIN public.processing_proposal p ON p.id=r.id
-     WHERE ($3::boolean AND EXISTS (SELECT 1 FROM public.processing_proposal_stale s WHERE s.proposal_id=r.id))
+     -- A stale row counts on the named proposal itself: further down, the stale write's own
+     -- cascade decides, as for earlier inputs. A broken basis counts at any depth.
+     WHERE ($3::boolean AND r.id=r.root
+            AND EXISTS (SELECT 1 FROM public.processing_proposal_stale s WHERE s.proposal_id=r.id))
         OR (b.proposal_id IS NOT NULL AND (
           b.members IS DISTINCT FROM ${membersOf('b.lot_id')}
           OR EXISTS (

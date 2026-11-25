@@ -853,6 +853,16 @@ export async function runSessionTurn(
         await publish(client, row.batchId)
         return 'cancelled' as const
       }
+      // A `/7` successor that has run resumes only while its identity is current; otherwise it
+      // waits, queued and without a slot, until the lead's next identity releases it.
+      if (
+        row.turnCount > 0n &&
+        manifest.schema_version === 'bench-intake-input/7' &&
+        (manifest.stage === 'research' || manifest.stage === 'images') &&
+        !(await claimPinnedIdentity(client, manifest.pinned_proposal_ids))
+      ) {
+        return 'waiting' as const
+      }
       // Inventory waits, queued and without a slot, until the lot's Research and Images are current.
       if (
         manifest.stage === 'inventory' &&

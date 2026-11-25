@@ -2011,14 +2011,16 @@ test('marking observations as the same item stales what relied on them', async (
     false,
   )
   const told = (await revisions(fixture, leadJob)).flatMap((item) => item.changes ?? [])
-  assert.ok(
-    told.some(
+  // Told once, though the mark alters both observations.
+  assert.equal(
+    told.filter(
       (change) =>
         change.kind === 'same_item' &&
         change.observation_id === second &&
         change.same_as_from === null &&
         change.same_as_to === first,
-    ),
+    ).length,
+    1,
     JSON.stringify(told),
   )
   // An identity resting on the group's root counts its items once; clearing the mark makes it
@@ -2546,4 +2548,30 @@ test('removing a photo of a member no identity cites still stales the identity o
     await runSessionTurn(deps, research.attemptId, new AbortController().signal),
     'cancelled',
   )
+})
+
+test('a /7 successor that has run waits, rather than resumes, once its identity no longer matches Capture', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture } = batch
+  const crystal = await batch.lot('16 mhz crystal')
+  const research = await stageJob(batch, '16 mhz crystal', 'research')
+  assert.equal(
+    await runSessionTurn(batch.deps, research.attemptId, new AbortController().signal),
+    'finished',
+  )
+  await fixture.db.pool.query(
+    `UPDATE capture_evidence_observation SET visible_count=7, revision=revision+1 WHERE id=$1`,
+    [crystal.evidence_observation_ids![0]],
+  )
+  await transaction(fixture.runner.pool, (client) => queueSessionResume(client, research.jobId))
+  assert.equal(
+    await runSessionTurn(batch.deps, research.attemptId, new AbortController().signal),
+    'waiting',
+  )
+  const [identityId] = (await inputOf(fixture, research.attemptId)).manifest.pinned_proposal_ids
+  const stale = await fixture.db.pool.query(
+    'SELECT 1 FROM processing_proposal_stale WHERE proposal_id=$1',
+    [identityId],
+  )
+  assert.equal(stale.rowCount, 1)
 })
