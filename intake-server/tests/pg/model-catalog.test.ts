@@ -1022,6 +1022,8 @@ test('an observation waiting on the row lock compares with the generation commit
   const key = { provider: 'claude', authentication: 'subscription' } as const
   await observeCatalogGeneration(fixture.runner.pool, fixture.config, key, 'rev-a', time.now())
   const competitor = await fixture.db.pool.connect()
+  let committed = false
+  let observing: Promise<boolean> | undefined
   try {
     await competitor.query('BEGIN')
     // Locks the row without changing it, so only a row lock can make the observer wait.
@@ -1029,7 +1031,7 @@ test('an observation waiting on the row lock compares with the generation commit
     const competitorPid = (
       await competitor.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')
     ).rows[0].pid
-    const observing = observeCatalogGeneration(
+    observing = observeCatalogGeneration(
       fixture.runner.pool,
       fixture.config,
       key,
@@ -1053,10 +1055,15 @@ test('an observation waiting on the row lock compares with the generation commit
         WHERE provider='claude'`,
     )
     await competitor.query('COMMIT')
+    committed = true
     // rev-x is what the committed row says, so seeing it again is no sign-in change.
     assert.equal(await observing, false)
   } finally {
+    if (!committed) {
+      await competitor.query('ROLLBACK').catch(() => undefined)
+    }
     competitor.release()
+    await observing?.catch(() => undefined)
   }
   const row = await claudeRow(fixture)
   assert.equal(row?.latestGeneration, 'rev-x')
@@ -1068,7 +1075,31 @@ test('overlapping admissions of one new CLI version write one refresh request', 
   t.after(() => fixture.dispose())
   await claudeOnly(fixture)
   const { reader } = fakeReader('rev-a')
-  const catalog = worker(fixture, () => reader)
+  // Counts the worker's reads of the rows: a report that decides for itself reads them first.
+  let rowReads = 0
+  const pool = new Proxy(fixture.runner.pool, {
+    get(target, property, receiver) {
+      if (property === 'query') {
+        return (text: unknown, ...rest: unknown[]) => {
+          if (
+            typeof text === 'string' &&
+            text.trimStart().startsWith('SELECT provider, authentication')
+          ) {
+            rowReads++
+          }
+          return (target.query as (...args: unknown[]) => unknown).call(target, text, ...rest)
+        }
+      }
+      return Reflect.get(target, property, receiver) as unknown
+    },
+  })
+  const catalog = modelCatalogWorker({
+    pool,
+    scope: fixture.config,
+    reader: () => reader,
+    now: clock().now,
+    providers: async () => [{ provider: 'claude', authentication: 'subscription', enabled: true }],
+  })
   t.after(() => catalog.close())
   await round(catalog)
   const seq = async () =>
@@ -1079,6 +1110,8 @@ test('overlapping admissions of one new CLI version write one refresh request', 
     ).rows[0].refresh_seq
   const before = BigInt(await seq())
   const holder = await fixture.db.pool.connect()
+  let committed = false
+  const reports: Promise<void>[] = []
   try {
     await holder.query('BEGIN')
     await holder.query(`SELECT 1 FROM agent_model_catalog WHERE provider='claude' FOR UPDATE`)
@@ -1092,25 +1125,26 @@ test('overlapping admissions of one new CLI version write one refresh request', 
         )
       ).rows[0].n
     // The first report's write is held at the row lock before the others arrive.
-    const first = catalog.cliVersionReported('claude', 'subscription', '2.1.320')
+    reports.push(catalog.cliVersionReported('claude', 'subscription', '2.1.320'))
     for (let i = 0; i < 150 && (await blockedWrites()) === 0; i++) {
       await new Promise((resolve) => setTimeout(resolve, 20))
     }
     assert.equal(await blockedWrites(), 1)
-    const followers = [1, 2].map(() =>
-      catalog.cliVersionReported('claude', 'subscription', '2.1.320'),
-    )
-    // Without coalescing each follower would reach its own write and wait on the lock too.
-    let most = 1
-    for (let i = 0; i < 50; i++) {
-      most = Math.max(most, await blockedWrites())
-      await new Promise((resolve) => setTimeout(resolve, 20))
-    }
-    assert.equal(most, 1)
+    // A report starts reading the rows as it is called, so a follower that decided for itself,
+    // rather than joining the request in flight, shows here at once.
+    const readsBefore = rowReads
+    reports.push(catalog.cliVersionReported('claude', 'subscription', '2.1.320'))
+    reports.push(catalog.cliVersionReported('claude', 'subscription', '2.1.320'))
+    assert.equal(rowReads, readsBefore)
     await holder.query('COMMIT')
-    await Promise.all([first, ...followers])
+    committed = true
+    await Promise.all(reports)
   } finally {
+    if (!committed) {
+      await holder.query('ROLLBACK').catch(() => undefined)
+    }
     holder.release()
+    await Promise.allSettled(reports)
   }
   assert.equal(BigInt(await seq()) - before, 1n)
 })
