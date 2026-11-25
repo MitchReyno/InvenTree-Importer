@@ -219,6 +219,8 @@ Implementation of BI-019's agent interaction work, delivered PR by PR as the tas
 
 - **2026-11-25T18:30+11:00, task 15 (PR-L), migration renumbered:** trunk took `0039` with #275's `0039_stage_briefs.sql` before PR-L merged, so PR-L's migration is now `0040_media_decode_deferral.sql`; earlier entries here name it `0039`. `agent-model-catalog-and-step-instructions`' proposal is back to trunk's text, which gives `0039` to #275 and is accurate again. Merged trunk at `9bf99640`.
 
+- **2026-11-25T18:55+11:00, task 15 (PR-L), migration renumbered again:** trunk then took `0040` with #281's `0040_agent_slot_turn_child.sql`, so PR-L's migration is now `0041_media_decode_deferral.sql`. Merged trunk at `23c09a53`.
+
 ## Open items
 
 - PR-A follow-up from the merge review: check a popover opened inside a modal near the viewport's edges in a real browser. Its placement and its use inside a modal are tested in jsdom only.
