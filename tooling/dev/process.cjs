@@ -12,6 +12,7 @@ function launch(name, command, args, { group = false, ...options }, ready) {
   let text = ''
   let error
   let closed = false
+  let asked = false
   const exited = new Promise((resolve) => {
     child.once('error', () => {
       error = new Error(`${name}_unavailable`)
@@ -32,10 +33,19 @@ function launch(name, command, args, { group = false, ...options }, ready) {
     child,
     group,
     exited,
-    /** A group is signalled until its output closes, even after the leader has exited. */
+    /**
+     * A group is signalled until its output closes, even after the leader has exited. SIGTERM is
+     * sent once: a second could end a child still draining after it handled the first.
+     */
     terminate(signal = 'SIGTERM') {
       if (closed || !child.pid) {
         return
+      }
+      if (signal === 'SIGTERM') {
+        if (asked) {
+          return
+        }
+        asked = true
       }
       try {
         if (group) {
@@ -86,6 +96,18 @@ async function stop(children, graceMs = 45000) {
   }
 }
 
+/**
+ * Stops each group only once the one before it has exited, each within its own grace. A group
+ * that outlives its grace throws, as `stop` does, so the caller can force everything down.
+ */
+async function stopInOrder(groups, stopGroup = stop) {
+  for (const group of groups) {
+    if (group.length > 0) {
+      await stopGroup(group)
+    }
+  }
+}
+
 /** A ready sibling that exits must invalidate the entire in-progress startup. */
 function startupGroup(signal) {
   const failure = new AbortController()
@@ -115,4 +137,4 @@ function failureCode(error) {
   return /^[a-z][a-z0-9_-]*$/.test(message) ? message : 'development_startup_failed'
 }
 
-module.exports = { launch, stop, startupGroup, failureCode }
+module.exports = { launch, stop, stopInOrder, startupGroup, failureCode }

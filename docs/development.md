@@ -119,7 +119,7 @@ Then it starts:
 
 They keep running through source reloads. If one of them exits, for example because the VM was stopped elsewhere, the app stops with `<name> stopped; stopping the app.` Lima's own messages appear with a `[limactl]` prefix, so a slow or failed boot shows its progress and cause.
 
-When the app stops, it stops these three and then the VM, but only if this run booted it and `INTAKE_VM_KEEP_RUNNING` is not `true`. A VM that was already running is left running, because something else may be using it. If the stop fails, the app says so, names the `limactl stop` command to run and exits with status 1.
+When the app stops, it stops the app processes first and waits for them to exit, then these three, and then the VM, but only if this run booted it and `INTAKE_VM_KEEP_RUNNING` is not `true`. The relays outlast the agent worker because a stopping worker confirms each running VM turn was removed through a relay's next connection, waiting up to 30 s for it. A VM that was already running is left running, because something else may be using it. If the stop fails, the app says so, names the `limactl stop` command to run and exits with status 1.
 
 From when the app begins stopping its processes until a VM this run booted has stopped, the next Ctrl-C is held with a message, and the one after quits at once. A VM stop already under way still finishes. Quitting before it starts, or killing the run outright, leaves the VM running; the next run then finds it running and leaves it running, so stop it with `limactl stop` when you are done.
 
@@ -177,6 +177,27 @@ An exclusive `supervisor.lock` prevents two supervisors from owning one namespac
 Closing the terminal delivers SIGHUP. The supervisor also stops if its parent process exits, which covers a terminal that drops the session without a signal the supervisor can catch. App processes run in their own sessions, so the supervisor stops them itself.
 
 A hard kill can still leave the lock behind. The next `pnpm dev` takes it over when the recorded supervisor is gone: it stops orphaned app processes whose identity still matches `running.json`, then removes the lock. A lock whose supervisor is still running is left in place, and startup refuses with `development_supervisor_lock_exists_inspect_owned_state`.
+
+### Agent slots a stopped run left held
+
+A turn still running when the app stops normally settles once its removal is confirmed, which frees its agent slot. If that confirmation doesn't come in time, or the run was killed, the slot stays held. The next start checks each held slot and releases those whose turn is confirmed gone, logging `held_capacity_released`, so the app starts normally. A slot it can't confirm stays held and startup stops with `agent_reap_confirmation_required`, after one `agent_reap_unconfirmed` line per attempt with its reason:
+
+| Reason | Meaning |
+| --- | --- |
+| `vm_reap_unconfirmed` | The VM guest gave no removal proof for the turn's command within 20 s. Check the VM and its relays are up, then try again. |
+| `vm_bridge_unavailable` | The worker has no VM bridge, so it cannot ask. |
+| `host_child_unverifiable` | A native host turn: its process group isn't recorded. |
+| `turn_child_unrecorded` | The slot was claimed by a build that recorded no turn. |
+| `held_by_other_scope` | The turn belongs to another target or context; its own app releases it. |
+| `lane_child_unverifiable` | The single-result lane is held; its holder records no child. |
+
+To run the same check without starting the app, stop `pnpm dev` and run:
+
+```bash
+pnpm agents:reap
+```
+
+It prepares the database and VM side as `pnpm dev` does, starts only the agent worker in its check mode, prints each released and kept slot, and stops what it started. It exits with status 0 when nothing stays held and 1 with `agent_reap_confirmation_required` otherwise. It never stops a process to free a slot. For a slot it can't confirm, inspect the attempt's session and, for a VM turn, the guest's journal and `.reaped` receipt for that attempt before releasing it by hand.
 
 A partial first setup without `app.json` fails closed; inspect its retained `initializing` marker and database before recovery. Do not delete retained data to bypass a failure.
 

@@ -18,7 +18,7 @@ const {
   startupSummary,
   DevelopmentSettingsError,
 } = require('./dev/settings.cjs')
-const { launch, stop, startupGroup, failureCode } = require('./dev/process.cjs')
+const { launch, stop, stopInOrder, startupGroup, failureCode } = require('./dev/process.cjs')
 const { developmentEnvironment } = require('./dev/environment.cjs')
 const {
   agentChildEnvironment,
@@ -54,6 +54,18 @@ const vmEnv = hostToolEnv()
 const FRONT_DOOR = new Set(['ui', 'tailnet', 'tailscale-serve'])
 // The VM tunnel does not use the app services, and the relays reconnect to the restarted worker.
 const KEPT_THROUGH_RELOAD = new Set([...FRONT_DOOR, ...VM_CHILD_NAMES])
+
+function isVmChild(item) {
+  return VM_CHILD_NAMES.includes(item.name)
+}
+
+/**
+ * The app first, then the VM tunnel and relays: a stopping agent worker confirms its VM turns
+ * were reaped through a relay's next connection, which a stopped relay never makes.
+ */
+function stopOwned(items) {
+  return stopInOrder([items.filter((item) => !isVmChild(item)), items.filter(isVmChild)], stop)
+}
 
 async function freePort(requested = 0) {
   const server = netServer()
@@ -156,7 +168,7 @@ for (const stream of [process.stdout, process.stderr]) {
 async function main() {
   if (process.argv.includes('--help')) {
     process.stdout.write(
-      'pnpm dev — retained local app on http://127.0.0.1:4330; Ctrl-C or closing the terminal stops app processes and keeps data/PostgreSQL. --tailscale also serves it over HTTPS on your tailnet. See docs/development.md.\n',
+      'pnpm dev — retained local app on http://127.0.0.1:4330; Ctrl-C or closing the terminal stops app processes and keeps data/PostgreSQL. --tailscale also serves it over HTTPS on your tailnet. --reap-agents (pnpm agents:reap) only checks agent slots a stopped run left held, releasing those confirmed gone. See docs/development.md.\n',
     )
     return
   }
@@ -164,6 +176,7 @@ async function main() {
   if (major !== 24) {
     throw new Error('pinned_node_24_required')
   }
+  const reapAgents = process.argv.includes('--reap-agents')
   const settings = await developmentEnvironment(repository)
   // The same state directory rule as the database identity; it holds the default VM pairing.
   const { stateDirectory: developmentStateDirectory } = await import(
@@ -233,7 +246,8 @@ async function main() {
     closing = true
     preparing.abort()
     startup.abort()
-    for (const item of children) {
+    // The VM side stops once the app has exited (`stopOwned`).
+    for (const item of children.filter((child) => !isVmChild(child))) {
       item.terminate()
     }
     resolveStop()
@@ -348,7 +362,8 @@ async function main() {
     const decoderRoots = [join(repository, 'media-decoder/src'), join(repository, 'contracts/src')]
     let decoderDigest = (await Promise.all(decoderRoots.map(snapshot))).join(':')
     let image = settings.INTAKE_MEDIA_DECODER_IMAGE
-    if (!image) {
+    // The reap check starts no media child, so it needs no decoder image.
+    if (!image && !reapAgents) {
       const file = join(root, `decoder-${randomUUID()}.txt`)
       await run(
         process.execPath,
@@ -359,7 +374,7 @@ async function main() {
       )
       image = (await readFile(file, 'utf8')).trim()
     }
-    if (!/^sha256:[a-f0-9]{64}$/.test(image)) {
+    if (!reapAgents && !/^sha256:[a-f0-9]{64}$/.test(image)) {
       throw new Error('immutable_decoder_required')
     }
     const apiPort = await freePort()
@@ -383,6 +398,43 @@ async function main() {
       if (!writerUrl) {
         throw new Error('agent_writer_required')
       }
+    }
+    if (reapAgents) {
+      if (!worker) {
+        throw new Error('agent_worker_not_configured')
+      }
+      const agentEnv = agentChildEnvironment({
+        resolved,
+        settings,
+        profile,
+        root,
+        state,
+        writerUrl,
+        publicOrigin,
+        tailnet,
+        targetEnv: apiTargetEnv(target, state, readKey, { readOnly: resolved.readOnly }),
+      })
+      const checker = launch(
+        'agents',
+        process.execPath,
+        applicationArgs(worker.entry),
+        {
+          cwd: intake,
+          env: supervisedEnv(env, scope, { ...agentEnv, INTAKE_AGENT_RECOVER_ONLY: '1' }),
+        },
+        () => false,
+      )
+      children.push(checker)
+      const { code } = await checker.exited
+      if (code !== 0) {
+        process.exitCode = 1
+      }
+      process.stdout.write(
+        code === 0
+          ? 'Agent slots checked: nothing is left held.\n'
+          : 'Agent slots checked: some stay held; see the lines above.\n',
+      )
+      return
     }
 
     let starting = false
@@ -610,7 +662,7 @@ async function main() {
     try {
       await restart
       intentional = true
-      await finishOwnedRun(children, stop)
+      await finishOwnedRun(children, stopOwned)
     } finally {
       try {
         const vmStopped = resolved.vm ? await finishVm(resolved.vm, vmBooted, { env: vmEnv }) : true
