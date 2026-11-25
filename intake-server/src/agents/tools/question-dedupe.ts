@@ -101,6 +101,17 @@ export async function coveringQuestion(
   }
 }
 
+/** The lot a question of the batch is about; null when it is about the batch or not found. */
+export async function questionSubject(
+  client: PoolClient,
+  config: ProcessingConfig,
+  snapshot: CaptureSnapshotDto,
+  questionId: string,
+) {
+  const questions = await readQuestions(client, config, snapshot, undefined)
+  return questions.find((question) => question.id === questionId)?.subjectId ?? null
+}
+
 /** Keeps what a stored `/7` question rests on, for the next ask to compare against. */
 export async function storeQuestionBasis(
   client: PoolClient,

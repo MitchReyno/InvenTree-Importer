@@ -804,6 +804,8 @@ export async function observationCorrected(
     count?: { before: number | null; after: number | null }
     /** A same-item mark set or cleared, on this observation or on one now marked the same as it. */
     sameItem?: { observationId: string; before: string | null; after: string | null }
+    /** The lot it joined, when it had none before. */
+    joined?: string
     revision: string
     /** The operator's correction, or the Examine session revising its own observation. */
     origin?: RevisionContext['origin']
@@ -885,6 +887,16 @@ export async function observationCorrected(
             observation_id: input.sameItem.observationId,
             same_as_from: input.sameItem.before,
             same_as_to: input.sameItem.after,
+          },
+        ]
+      : []),
+    ...(input.joined
+      ? [
+          {
+            kind: 'observation' as const,
+            observation_id: input.observationId,
+            lot_from: null,
+            lot_to: input.joined,
           },
         ]
       : []),

@@ -1514,6 +1514,20 @@ test('a /7 ask may replace only its own open question, and its conflict must be 
     (unstorable.issues ?? []).map((issue) => issue.path),
     ['/conflict'],
   )
+  // The lead asks about two lots; a question about one can't replace the other's.
+  const lead = await running(fixture, batch.leadAttempt)
+  const led = await batch.lot('led 0603 red')
+  const aboutCrystal = await result(session.ask(lead, syntheticQuestion(research.lot.id)))
+  assert.equal(aboutCrystal.ok, true, JSON.stringify(aboutCrystal))
+  const acrossLots = await result(
+    session.ask(lead, { ...syntheticQuestion(led.id), replaces: aboutCrystal.id }),
+  )
+  assert.equal(acrossLots.error, 'validation_failed', JSON.stringify(acrossLots))
+  assert.match(String(acrossLots.message), /another lot/)
+  const sameLot = await result(
+    session.ask(lead, { ...syntheticQuestion(research.lot.id), replaces: aboutCrystal.id }),
+  )
+  assert.equal(sameLot.ok, true, JSON.stringify(sameLot))
 })
 
 test('a quantity answered in words reaches relying sessions as the answer, with no quantity change', async (t) => {
@@ -2110,4 +2124,79 @@ test('a /7 proposal can’t rely on a suggested observation, which may be dismis
   )
   assert.equal(relying.ok, false)
   assert.equal(relying.error, 'stale', JSON.stringify(relying))
+})
+
+test('an unassigned observation joining a lot stales what relied on it', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId, leadAttempt } = batch
+  const session = tools(batch)
+  const led = await batch.lot('led 0603 red')
+  const crystal = await batch.lot('16 mhz crystal')
+  const known = new Set(
+    (await snapshotOf(fixture, batchId)).evidence_observations!.map((o) => o.id),
+  )
+  const sample = (await snapshotOf(fixture, batchId)).evidence_observations!.find(
+    (item) => item.id === led.evidence_observation_ids![0],
+  )!
+  // The operator records an observation of the photo that belongs to no lot.
+  await edit(fixture, batchId, {
+    kind: 'observation',
+    evidence_version_id: sample.evidence_version_id,
+    page: sample.page,
+    region: sample.region,
+    readings: { markings: ['LED 0603 red'] },
+  })
+  const loose = (await snapshotOf(fixture, batchId)).evidence_observations!.find(
+    (item) => !known.has(item.id),
+  )!
+  const revision = await fixture.db.pool.query<{ revision: string }>(
+    'SELECT revision::text FROM capture_evidence_observation WHERE id=$1',
+    [loose.id],
+  )
+  const current = (await snapshotOf(fixture, batchId)).lots.find((lot) => lot.id === led.id)!
+  const lead = await running(fixture, leadAttempt)
+  const { note } = citations((await inputOf(fixture, leadAttempt)).manifest)
+  const published = await result(
+    session.propose(lead, {
+      proposal: {
+        schema_version: 'examine-identity/1',
+        subject_id: led.id,
+        summary: 'Red 0603 LEDs, one more read loose.',
+        sources: [note],
+        relies_on: {
+          fields: ['markings', 'identity'],
+          sources: [
+            note,
+            { kind: 'observation_set', lot_id: led.id, version: current.observation_set_version },
+            {
+              kind: 'evidence_observation',
+              evidence_observation_id: loose.id,
+              revision: revision.rows[0].revision,
+            },
+          ],
+        },
+        markings: [{ observation_id: led.evidence_observation_ids![0], text: ['LED 0603 red'] }],
+        candidates: [],
+      },
+    }),
+  )
+  assert.equal(published.ok, true, JSON.stringify(published))
+  const pinned = (
+    await inputOf(fixture, (await stageJob(batch, 'led 0603 red', 'research')).attemptId)
+  ).manifest.pinned_proposal_ids
+  assert.deepEqual(pinned, [published.id])
+  assert.equal(
+    await transaction(fixture.runner.pool, (client) => pinnedIdentityCurrent(client, pinned)),
+    true,
+  )
+  await edit(fixture, batchId, {
+    kind: 'observation_move',
+    observation_id: loose.id,
+    lot_id: crystal.id,
+  })
+  // The LED's queued successors can't start on an identity resting on the observation as it was.
+  assert.equal(
+    await transaction(fixture.runner.pool, (client) => pinnedIdentityCurrent(client, pinned)),
+    false,
+  )
 })

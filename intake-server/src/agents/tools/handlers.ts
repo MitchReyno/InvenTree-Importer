@@ -67,7 +67,12 @@ import { sha256 } from '#/db/authority.ts'
 import { capabilityDigest, resolveSessionCapability, type SessionPrincipal } from './capability.ts'
 import { refuse, ToolRefusal } from './refusal.ts'
 import { stageOutputRefusal } from './stage-outputs.ts'
-import { coveringQuestion, storeQuestionBasis, type QuestionBasis } from './question-dedupe.ts'
+import {
+  coveringQuestion,
+  questionSubject,
+  storeQuestionBasis,
+  type QuestionBasis,
+} from './question-dedupe.ts'
 import { releasedPages } from './photo-release.ts'
 import { readBriefPage, retainBriefView, stagePrincipal, type BriefRead } from './brief-read.ts'
 import { agentSessionOutbox, agentSessions } from '#/agents/schema.ts'
@@ -1432,6 +1437,8 @@ async function requireReplaceable(
   client: PoolClient,
   principal: SessionPrincipal,
   questionId: string,
+  /** The `/7` lot the replacing ask is about, and what the replaced one was about. */
+  subjects?: { asked: string | null; replaced: string | null },
 ) {
   const rows = await client.query<{ state: string; replaced: boolean; attempt_id: string }>(
     `SELECT q.state, q.attempt_id, EXISTS (
@@ -1453,6 +1460,8 @@ async function requireReplaceable(
     reason = 'That question was already replaced.'
   } else if (stageInput && (found.state !== 'open' || found.attempt_id !== principal.attemptId)) {
     reason = 'That question is no longer open; ask without replaces.'
+  } else if (stageInput && subjects && subjects.asked !== subjects.replaced) {
+    reason = 'That question is about another lot; replace only a question about this one.'
   }
   if (reason) {
     throw new ToolRefusal('validation_failed', reason, [
@@ -2241,7 +2250,22 @@ export function sessionTools(context: SessionToolContext) {
             throw new ToolRefusal('validation_failed', stepProblem.message, [stepProblem.issue])
           }
           if (ask.replaces !== undefined) {
-            await requireReplaceable(client, principal, ask.replaces)
+            await requireReplaceable(
+              client,
+              principal,
+              ask.replaces,
+              basis
+                ? {
+                    asked: ask.subject_id ?? principal.subjectId,
+                    replaced: await questionSubject(
+                      client,
+                      context.config,
+                      capture!.snapshot,
+                      ask.replaces,
+                    ),
+                  }
+                : undefined,
+            )
           }
           const figures = ask.figures
             ? await requireFigures(client, principal, ask.figures, context)

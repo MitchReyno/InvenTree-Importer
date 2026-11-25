@@ -946,6 +946,17 @@ async function moveByOperator(
   }
   if (to) {
     await requireLiveLot(client, batchId, to)
+    if (!from) {
+      // Joining a lot advances the observation's revision, so what relied on it unassigned is
+      // stale, as leaving one is through the lot it left.
+      const { observationCorrected } = await import('#/processing/currentness.ts')
+      await observationCorrected(client, {
+        batchId,
+        observationId,
+        joined: to,
+        revision: revision.toString(),
+      })
+    }
     await executeDatabaseQuery(
       db
         .insert(captureLotEvidenceObservations)
