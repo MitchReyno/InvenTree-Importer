@@ -293,7 +293,7 @@ With suggestions 3 and 4 also applied, Match's search core (PR-C1) would start i
 
 - [x] 8.1 RED: write the history-read and component tests.
 - [x] 8.2 GREEN: implement them.
-- [ ] 8.3 Run the checks, and record the demo video.
+- [x] 8.3 Run the checks, and record the demo video.
 
 ## 9. Multi-lot Research and Images sessions
 
