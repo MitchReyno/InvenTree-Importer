@@ -1,4 +1,4 @@
-import { Fragment } from 'react'
+import { Fragment, type MouseEvent } from 'react'
 import styled, { css } from 'styled-components'
 import { onWholeWindow } from './field'
 import { color, icon, radius, size, space, type, typeVar } from '#/theme/generated/tokens'
@@ -31,6 +31,8 @@ type SettingsNavProps = {
   currentSubsection?: string
   /** The heading's level; the page's own `h1` usually names the section beside the nav. */
   headingLevel?: 'h1' | 'h2'
+  /** A subsection link was clicked or activated from the keyboard. */
+  onSubsectionClick?: (id: string, event: MouseEvent<HTMLAnchorElement>) => void
 }
 
 /** The Settings page's section list, after a link back to where the person came from. */
@@ -40,6 +42,7 @@ export function SettingsNav({
   current,
   currentSubsection,
   headingLevel = 'h2',
+  onSubsectionClick,
 }: SettingsNavProps) {
   return (
     <Nav aria-label="Settings">
@@ -66,6 +69,7 @@ export function SettingsNav({
                   key={subsection.id}
                   href={subsection.href}
                   aria-current={subsection.id === currentSubsection ? 'location' : undefined}
+                  onClick={(event) => onSubsectionClick?.(subsection.id, event)}
                 >
                   <Words>{subsection.label}</Words>
                 </Subsection>

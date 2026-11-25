@@ -1,4 +1,6 @@
 import { act, screen, within } from '@testing-library/react'
+import { StrictMode } from 'react'
+import type { AgentSettingsDto } from '@invimport/contracts'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import type { agentsClient } from '@invimport/contracts/client'
@@ -9,7 +11,7 @@ import { stubPhoneViewport } from '#/test/viewport'
 import { settingsSection, settingsSubsection } from '#/navigation/app-route'
 import { useNavigationGuard } from '#/navigation/useNavigationGuard'
 import { Settings } from '../Settings'
-import { PAGE_HEIGHT, WINDOW_HEIGHT, stubSubsectionLayout } from '#/test/subsection-layout'
+import { PAGE_END, stubSubsectionLayout } from '#/test/subsection-layout'
 
 // Agents reads whether sessions have web access; these tests don't depend on it.
 vi.mock('#/debug/useReadiness', () => ({ useReadiness: () => ({ data: { web: 'available' } }) }))
@@ -77,6 +79,7 @@ beforeEach(() => {
 
 afterEach(() => {
   layout.restore()
+  vi.unstubAllGlobals()
 })
 
 test('scrolling marks the subsection whose heading passed the reading line, replacing the address', async () => {
@@ -109,7 +112,7 @@ test('before any heading passes the line the first subsection is current, and at
   expect(currentLink()).toBe('Providers')
 
   // Web research never reaches the line; the end of the page marks it.
-  layout.scrollPage(PAGE_HEIGHT - WINDOW_HEIGHT)
+  layout.scrollPage(PAGE_END)
   expect(currentLink()).toBe('Web research')
   expect(location.hash).toBe('#settings/agents/research')
 })
@@ -173,4 +176,83 @@ test('while the nav is stacked above the content, scrolling leaves the route’s
   } finally {
     restore()
   }
+})
+
+test('activating the subsection already scrolled to scrolls to and focuses its heading', async () => {
+  const user = userEvent.setup()
+  await openAt('settings/agents/providers')
+  layout.scrollPage(1200)
+  const entries = history.length
+  layout.scrollIntoView.mockClear()
+
+  const models = screen.getByRole('link', { name: 'Provider and model per step' })
+  models.focus()
+  await user.keyboard('{Enter}')
+
+  expect(layout.scrollIntoView).toHaveBeenCalledTimes(1)
+  expect(
+    screen.getByRole('heading', { level: 3, name: 'Provider and model per step' }),
+  ).toHaveFocus()
+  expect(location.hash).toBe('#settings/agents/models')
+  expect(history.length).toBe(entries)
+})
+
+test('a reading taken before a navigation the guard hasn’t accepted yet doesn’t replace it', async () => {
+  await openAt('settings/agents/providers')
+
+  act(() => {
+    layout.scrollWithoutFrame(1200)
+    // The browser has moved on; its hashchange hasn't been handled yet.
+    history.pushState(null, '', '#settings/inventree')
+  })
+  layout.flushFrames()
+
+  expect(location.hash).toBe('#settings/inventree')
+})
+
+test('the scroll back to a linked subsection after a slow read doesn’t count as reading', async () => {
+  let answer: (value: AgentSettingsDto) => void = () => undefined
+
+  vi.mocked(client.settings).mockImplementation(
+    () => new Promise<AgentSettingsDto>((resolve) => (answer = resolve)),
+  )
+  history.replaceState({ settingsReturnTo: 'agents' }, '', '#settings/agents/tags')
+  render(<GuardedSettings />)
+  // The read outlasts the pause that opening the page started.
+  await act(async () => new Promise((done) => setTimeout(done, 200)))
+  // Near the end of the page, scrolling to Tag suggestions reaches the end.
+  layout.scrollIntoView.mockImplementation(() => layout.scrollWithoutFrame(PAGE_END))
+
+  await act(async () =>
+    answer(
+      agentSettings('7', { provider: 'claude', authentication: 'subscription', model: 'sonnet' }),
+    ),
+  )
+  await screen.findByRole('group', { name: /^Claude$/ })
+  layout.flushFrames()
+
+  expect(layout.scrollIntoView).toHaveBeenCalled()
+  expect(currentLink()).toBe('Tag suggestions')
+  expect(location.hash).toBe('#settings/agents/tags')
+})
+
+test('under StrictMode the scroll is followed once, and leaving drops a pending reading', async () => {
+  history.replaceState({ settingsReturnTo: 'agents' }, '', '#settings/agents/providers')
+  const view = render(
+    <StrictMode>
+      <GuardedSettings />
+    </StrictMode>,
+  )
+  await screen.findByRole('group', { name: /^Claude$/ })
+  layout.endScroll()
+
+  layout.scrollPage(1200)
+  expect(currentLink()).toBe('Provider and model per step')
+  expect(location.hash).toBe('#settings/agents/models')
+
+  act(() => layout.scrollWithoutFrame(2400))
+  view.unmount()
+  layout.flushFrames()
+
+  expect(location.hash).toBe('#settings/agents/models')
 })

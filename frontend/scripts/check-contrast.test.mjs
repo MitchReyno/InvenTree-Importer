@@ -13,6 +13,7 @@ function withColour(name, theme, value) {
 }
 
 // Behind the whole window, Settings nav text sits on a word backing or a fill, never on a part.
+// `SettingsNav.test.tsx` checks that each state renders with this text colour and ground.
 const SETTINGS_NAV_STATES = [
   { state: 'idle link and heading', text: 'fg', ground: 'masthead-ground' },
   { state: 'idle sublink and back link', text: 'muted', ground: 'masthead-ground' },

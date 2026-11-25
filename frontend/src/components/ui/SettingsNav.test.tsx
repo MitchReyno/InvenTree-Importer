@@ -151,10 +151,10 @@ describe('behind the whole window', () => {
   test('the nav has no background and idle links back only their words', () => {
     const { nav, link } = renderAgentsOpen()
 
-    expect(getComputedStyle(nav).backgroundColor).not.toContain('masthead-ground')
+    expect(getComputedStyle(nav).backgroundColor).toBe(NO_BACKGROUND)
     for (const name of ['Back to Batches', 'InvenTree', 'Sessions']) {
       const idle = link(name)
-      expect(getComputedStyle(idle).backgroundColor).not.toContain('masthead-ground')
+      expect(getComputedStyle(idle).backgroundColor).toBe(NO_BACKGROUND)
       const backing = getComputedStyle(words(idle))
       expect(backing.backgroundColor).toContain('masthead-ground')
       expect([backing.paddingTop, backing.paddingRight]).toEqual(['1px', '5px'])
@@ -179,6 +179,28 @@ describe('behind the whole window', () => {
       const fills = hoverRules(link(name)).map((rule) => rule.style.cssText)
       expect(fills.join(' ')).toContain('background: var(--surface-2)')
     }
+  })
+
+  // The text and ground of each state, as `scripts/check-contrast.test.mjs` measures them.
+  test('each state keeps the text colour its contrast pair names', () => {
+    const { link } = renderAgentsOpen()
+
+    expect(declared(link('InvenTree'))).toContain('color: var(--fg)')
+    for (const name of ['Back to Batches', 'Sessions']) {
+      expect(declared(link(name))).toContain('color: var(--muted)')
+    }
+    const sublinkHover = hoverRules(link('Sessions')).map((rule) => rule.style.cssText)
+    expect(sublinkHover.join(' ')).toContain('color: var(--fg)')
+    const currentSubsection = [...document.styleSheets]
+      .flatMap((sheet) => [...sheet.cssRules])
+      .filter(
+        (rule): rule is CSSStyleRule =>
+          rule instanceof CSSStyleRule &&
+          rule.selectorText.includes("[aria-current='location']") &&
+          link('Providers').matches(rule.selectorText),
+      )
+      .map((rule) => rule.style.cssText)
+    expect(currentSubsection.join(' ')).toContain('color: var(--fg)')
   })
 
   test('the subsection rule is a drawn line, so it shows between backed words', () => {

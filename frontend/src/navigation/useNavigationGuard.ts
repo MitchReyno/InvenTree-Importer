@@ -192,7 +192,9 @@ export function useNavigationGuard() {
    */
   const replaceSubsection = useCallback((next: string) => {
     const current = accepted.current.route
-    if (next === current || !withinAgentsPage(current, next)) {
+    // A navigation the browser has made but the guard hasn't accepted yet wins over the scroll.
+    const navigating = location.hash.slice(1) !== current
+    if (navigating || next === current || !withinAgentsPage(current, next)) {
       return
     }
     history.replaceState(history.state, '', `#${next}`)

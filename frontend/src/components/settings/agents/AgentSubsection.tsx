@@ -28,6 +28,13 @@ export function subsectionHeadingId(id: AgentSubsectionId) {
   return `agents-${id}`
 }
 
+/** Scrolls a subsection's heading to the top of the window and focuses it. */
+export function scrollToSubsection(id: AgentSubsectionId) {
+  const heading = document.getElementById(subsectionHeadingId(id))
+  heading?.scrollIntoView?.({ block: 'start' })
+  heading?.focus()
+}
+
 /** One Settings › Agents subsection: its heading renders at once, before the settings load. */
 export function AgentSubsection({ id, lead, status, children }: AgentSubsectionProps) {
   const headingId = subsectionHeadingId(id)

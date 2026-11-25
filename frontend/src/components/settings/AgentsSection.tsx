@@ -14,7 +14,7 @@ import { useProviderStatus } from '#/components/agents/useProviderStatus'
 import { newestRevision } from './newest-revision'
 import { SettingsSection } from './SettingsSection'
 import { SettingsSkeleton } from './SettingsSkeleton'
-import { AgentSubsection, subsectionHeadingId } from './agents/AgentSubsection'
+import { AgentSubsection, scrollToSubsection } from './agents/AgentSubsection'
 import { DescriptionsCard } from './agents/DescriptionsCard'
 import { SlotMeter } from './agents/SlotMeter'
 import { WebResearchForm } from './agents/WebResearchForm'
@@ -49,6 +49,8 @@ type Props = {
   subsection?: AgentSubsectionId
   /** Whether the route was written by scrolling, so the page is already at that subsection. */
   routeFromScroll?: boolean
+  /** Called just before the page scrolls itself to the route's subsection. */
+  beforeScroll?: () => void
 }
 
 /**
@@ -60,6 +62,7 @@ export function AgentsSection({
   onDirtyChange,
   subsection,
   routeFromScroll = false,
+  beforeScroll,
 }: Props) {
   const scope = useServerScope()
   const poll = useRetainedPollInterval()
@@ -128,11 +131,10 @@ export function AgentsSection({
     if (focused.current === subsection && !lost) {
       return
     }
-    const heading = document.getElementById(subsectionHeadingId(subsection))
-    heading?.scrollIntoView?.({ block: 'start' })
-    heading?.focus()
+    beforeScroll?.()
+    scrollToSubsection(subsection)
     focused.current = subsection
-  }, [subsection, ready, routeFromScroll])
+  }, [subsection, ready, routeFromScroll, beforeScroll])
 
   /**
    * Publishes confirmed settings and answers with what is current. A read that was already

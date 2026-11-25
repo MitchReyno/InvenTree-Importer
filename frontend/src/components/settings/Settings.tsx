@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, type MouseEvent } from 'react'
 import styled from 'styled-components'
 import type { agentsClient } from '@invimport/contracts/client'
 import { Banner, SettingsNav, media, useMediaQuery, type SettingsSection } from '#/components/ui'
@@ -16,6 +16,7 @@ import { AppearanceSection } from './AppearanceSection'
 import { BatchDefaultsSection } from './BatchDefaultsSection'
 import { DeveloperSection } from './DeveloperSection'
 import { InvenTreeSection } from './InvenTreeSection'
+import { scrollToSubsection } from './agents/AgentSubsection'
 import { useSubsectionInView } from './agents/useSubsectionInView'
 
 type Props = {
@@ -74,7 +75,7 @@ export function Settings({
   const { title } = useCachedBatchReads(routeBatchId(returnTo))
   // Stacked, the nav isn't in view while the content scrolls, so the route alone decides.
   const stacked = useMediaQuery(media.stacked)
-  const inView = useSubsectionInView(
+  const { inView, pause } = useSubsectionInView(
     AGENT_SUBSECTIONS,
     section === 'agents' && agents !== null && !stacked,
   )
@@ -87,6 +88,17 @@ export function Settings({
     }
   }, [inView, subsection, replaceSubsection])
 
+  /** A link to the subsection the address already names changes no hash, so it scrolls here. */
+  function handleSubsectionClick(id: string, event: MouseEvent<HTMLAnchorElement>) {
+    const modified =
+      event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
+    if (section !== 'agents' || id !== subsection || modified) {
+      return
+    }
+    pause()
+    scrollToSubsection(subsection)
+  }
+
   return (
     <Layout>
       <NavColumn>
@@ -96,6 +108,7 @@ export function Settings({
           current={section}
           currentSubsection={currentSubsection}
           headingLevel="h1"
+          onSubsectionClick={handleSubsectionClick}
         />
       </NavColumn>
       <Content>
@@ -103,6 +116,7 @@ export function Settings({
           section={section}
           subsection={subsection}
           routeFromScroll={routeFromScroll}
+          beforeScroll={pause}
           agents={agents}
           onDirtyChange={onDirtyChange}
         />
@@ -115,9 +129,10 @@ function SectionContent({
   section,
   subsection,
   routeFromScroll,
+  beforeScroll,
   agents,
   onDirtyChange,
-}: Omit<Props, 'returnTo' | 'replaceSubsection'>) {
+}: Omit<Props, 'returnTo' | 'replaceSubsection'> & { beforeScroll: () => void }) {
   switch (section) {
     case 'agents':
       return agents ? (
@@ -126,6 +141,7 @@ function SectionContent({
           onDirtyChange={onDirtyChange}
           subsection={subsection}
           routeFromScroll={routeFromScroll}
+          beforeScroll={beforeScroll}
         />
       ) : (
         <div role="status">
