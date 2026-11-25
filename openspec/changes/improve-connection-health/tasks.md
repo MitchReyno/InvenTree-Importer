@@ -37,11 +37,15 @@ T1 establishes server observations. T2 consumes them. T3 delivers media admissio
 
 ## T3. Admit independent decodes within shared limits
 
+- [ ] Exercise the last-slot race with a competing figure worker and one-shot photo client. Assert against the claim table that a photo denied admission stays eligible. Apply the same check to the direct development launcher before selecting a shared admission implementation.
+
 - [ ] Baseline dev media loop, one-shot host entry point, deployed dispatcher, per-kind admission and worker completion transactions. RED: two retained versions cannot overlap today; exercise contention with figures, backfill and simultaneous one-shot clients.
 - [ ] GREEN: reserve before claim in dev and host modes, implement one or two bounded slots, supervised draining, bounded input/output memory, fair maintenance and deterministic shutdown. Keep browser uploads ordered, claims durable and the one-command CLI usable.
 - [ ] Use PostgreSQL and the pinned isolated decoder to check duplicate bytes, concurrent completions in one batch, conditional publication, interrupted ownership, resource exhaustion, old one-slot behavior, refused unauthorised requests and capacity reclamation. Update media launch and deployment documentation.
 
 ## T4. Qualify mixed-load operation and select host defaults
+
+- [ ] Compare the original four-ordinary pool and the three-ordinary, one-health allocation at one decoder slot. Record pool waits, queue depth, ordinary-read p95 and role headroom separately from the decoder-slot comparison.
 
 - [ ] Run the design's reproducible one-versus-two-slot workload. Use measured comparison in place of a test-first cycle for tuning. Record environment and resource ceilings before each series. Separate upload time, queue delay, decode and publication time.
 - [ ] Verify coverage and exact output for all retained versions, interactive p95, local heartbeat p95, target timeouts and recovery times. Include a saturated and a recovering run. Document the qualified profile or retain one slot when evidence is insufficient.
