@@ -1,4 +1,5 @@
 import { isSessionProfile } from './session-policy.ts'
+import { batchInputVersion } from './stage-policy.ts'
 import type { Pool, PoolClient } from 'pg'
 import { and, eq, sql } from 'drizzle-orm'
 import {
@@ -14,7 +15,7 @@ import { prepareMediaTransaction } from '#/media/transaction.ts'
 import { reserveProcessingMedia, reservedMediaFor } from './media.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { checkJobCapacity, queueJob, supersedeJobAttempts } from './jobs.ts'
-import { successorsCurrent } from './stable-identity.ts'
+import { stableIdentityOf, successorsCurrent } from './stable-identity.ts'
 import { fail, stageOrder } from './model.ts'
 import { commandScope, lockLane } from './scope.ts'
 import { canCancelProcessingAttempt, lockProcessingAttempt, processingJobColumns } from './state.ts'
@@ -36,6 +37,8 @@ async function lockedSnapshot(
 }
 
 const SESSION_START_STAGES: readonly string[] = ['research', 'images', 'inventory']
+/** A `/7` batch has no Inventory session; its lots' target comes from Match. */
+const STAGE_INPUT_START_STAGES: readonly string[] = ['research', 'images']
 
 export async function startProcessing(
   pool: Pool,
@@ -77,9 +80,16 @@ export async function startProcessing(
         // Session profiles queue Research and Images as independent per-lot sessions. Reading and
         // identifying become the Examine lead session, and Inventory waits for a stable identity.
         const sessions = config.profileId !== undefined && isSessionProfile(config.profileId)
+        // The batch follows its lead's sealed version, or the configuration's without a lead. A
+        // profile without sessions can't run a `/7` lead's pipeline.
+        const inputVersion = await batchInputVersion(client, config, batchId)
+        if (!sessions && inputVersion === 'bench-intake-input/7') {
+          fail('unsupported_processing_profile', 422)
+        }
+        const startStages =
+          inputVersion === 'bench-intake-input/7' ? STAGE_INPUT_START_STAGES : SESSION_START_STAGES
         const stages = stageOrder.filter(
-          (stage) =>
-            input.stages.includes(stage) && (!sessions || SESSION_START_STAGES.includes(stage)),
+          (stage) => input.stages.includes(stage) && (!sessions || startStages.includes(stage)),
         )
         if (!stages.length) {
           fail('unsupported_processing_stage', 422)
@@ -95,6 +105,12 @@ export async function startProcessing(
         await checkJobCapacity(client, batchId, input.subject_ids, stages)
         for (const subjectId of [...input.subject_ids].sort()) {
           let dependencies: string[] = []
+          // A `/7` successor starts from the lot's stable identity, as stable-identity queueing
+          // pins it; a lot Examine hasn't identified has none.
+          const pinned =
+            sessions && inputVersion === 'bench-intake-input/7'
+              ? await stableIdentityOf(client, batchId, subjectId)
+              : []
           for (const stage of stages) {
             const attempt = await queueJob(
               client,
@@ -104,6 +120,8 @@ export async function startProcessing(
               stage,
               dependencies,
               reservedMediaFor(media, subjectId),
+              pinned,
+              { inputVersion: sessions ? inputVersion : undefined },
             )
             jobIds.push(attempt.jobId)
             attemptIds.push(attempt.attemptId)

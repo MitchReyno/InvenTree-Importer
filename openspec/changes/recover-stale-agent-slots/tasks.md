@@ -34,7 +34,7 @@
 
 - PR delivery: PR-A.
 - Outcome: every slot this build claims says which turn holds it and what that turn started outside the worker, so a restarted worker can check it.
-- Scope and approach: migration `0039_agent_slot_turn_child.sql` and `agents/schema.ts`; `session/slots.ts` records the turn at claim and clears it on release; `SessionDriverContext.recordChild` in `session-runner.ts`; the native driver records `host` and `shared-vm/coordinator.ts` records `vm` with the exact command before it sends it (design D2).
+- Scope and approach: migration `0040_agent_slot_turn_child.sql` and `agents/schema.ts`; `session/slots.ts` records the turn at claim and clears it on release; `SessionDriverContext.recordChild` in `session-runner.ts`; the native driver records `host` and `shared-vm/coordinator.ts` records `vm` with the exact command before it sends it (design D2).
 - Prerequisites: None.
 - Verification: PG tests in `tests/pg/session-slots.test.ts`; schema catalogue test.
 - Risks: a driver that starts a child without recording it would read as `none`; only the native and VM drivers start children.

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { and, asc, count, desc, eq, gt } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gt, sql } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
 import {
   validate,
@@ -189,6 +189,40 @@ async function ackedSeq(client: PoolClient, lineageId: string) {
   return rows[0]?.ackedSeq ?? 0n
 }
 
+/**
+ * Holds for an inbox item that may still be given to its session: one not withdrawn (a retired
+ * group's instruction a stage session hadn't read). Every reader of pending items applies it.
+ */
+export function deliverableInboxItem() {
+  return sql`NOT EXISTS (SELECT 1 FROM public.agent_session_inbox_withdrawal w WHERE w.item_id = ${agentSessionInbox.id})`
+}
+
+/**
+ * Takes the batch's share lock, as an ungroup that withdraws items holds it, so an item is either
+ * withdrawn before it is given or given before any withdrawal.
+ */
+export async function lockInboxBatch(client: PoolClient, lineageId: string) {
+  await client.query(
+    `SELECT 1 FROM public.capture_batch b JOIN public.processing_job j ON j.batch_id=b.id
+      WHERE j.id=$1 FOR SHARE OF b`,
+    [lineageId],
+  )
+}
+
+/** Records group instruction items as given to their session, so an ungroup can't withdraw them. */
+export async function releaseInboxItems(client: PoolClient, itemIds: readonly string[]) {
+  if (!itemIds.length) {
+    return
+  }
+  await client.query(
+    `INSERT INTO public.agent_session_inbox_release(item_id)
+     SELECT i.id FROM public.agent_session_inbox i
+      WHERE i.id = ANY($1::uuid[]) AND i.kind='instruction' AND i.payload->>'group_id' IS NOT NULL
+     ON CONFLICT (item_id) DO NOTHING`,
+    [itemIds],
+  )
+}
+
 /** Items after the acknowledged cursor; they stay pending until a later cursor passes them. */
 export async function pendingSessionInbox(client: PoolClient, lineageId: string) {
   const rows = await executeDatabaseQuery(
@@ -199,6 +233,7 @@ export async function pendingSessionInbox(client: PoolClient, lineageId: string)
         and(
           eq(agentSessionInbox.sessionLineageId, lineageId),
           gt(agentSessionInbox.seq, await ackedSeq(client, lineageId)),
+          deliverableInboxItem(),
         ),
       ),
   )
@@ -257,6 +292,7 @@ export async function acknowledgeSessionInbox(client: PoolClient, lineageId: str
 /**
  * Acknowledges up to `afterSeq`, then returns the next unacknowledged items with their stable
  * IDs, so a lost response redelivers, and whether the cursor moved, so open readers can be told.
+ * The caller holds the batch's share lock (`lockInboxBatch`), as the items returned are given.
  */
 export async function readSessionInbox(client: PoolClient, lineageId: string, afterSeq: bigint) {
   const db = queryDatabase(client)
@@ -267,10 +303,18 @@ export async function readSessionInbox(client: PoolClient, lineageId: string, af
       .select()
       .from(agentSessionInbox)
       .where(
-        and(eq(agentSessionInbox.sessionLineageId, lineageId), gt(agentSessionInbox.seq, acked)),
+        and(
+          eq(agentSessionInbox.sessionLineageId, lineageId),
+          gt(agentSessionInbox.seq, acked),
+          deliverableInboxItem(),
+        ),
       )
       .orderBy(asc(agentSessionInbox.seq))
       .limit(INBOX_READ_LIMIT),
+  )
+  await releaseInboxItems(
+    client,
+    rows.map((row) => row.id),
   )
   const items = rows.map(
     (row) =>

@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import type {
   AgentSettingsDto,
   AgentSettingsUpdateDto,
-  ProcessingInputV6Dto,
+  SessionInputDto,
 } from '@invimport/contracts'
 import { processingFixture } from '../support/processing.ts'
 import { seedPhoto } from '../support/sessions.ts'
@@ -93,7 +93,7 @@ async function queueLotAttempt(
   })
 }
 
-async function sealedInput(fixture: Fixture, inputId: string): Promise<ProcessingInputV6Dto> {
+async function sealedInput(fixture: Fixture, inputId: string): Promise<SessionInputDto> {
   const row = await fixture.db.pool.query<{ manifest_bytes: Buffer; manifest_digest: Buffer }>(
     'SELECT manifest_bytes,manifest_digest FROM processing_input WHERE id=$1',
     [inputId],

@@ -55,6 +55,7 @@ export async function resolveSessionCapability(pool: Pool | PoolClient, token: s
         stage: processingJobs.stage,
         profileId: processingAttempts.profileId,
         commandId: processingAttempts.commandId,
+        inputId: processingAttempts.inputId,
         inputBytes: processingInputs.manifestBytes,
         inputDigest: processingInputs.manifestDigest,
       })

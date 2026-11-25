@@ -40,7 +40,7 @@ Rejected: lengthening only DBOS's `workflowCompletionTimeoutMS`. DBOS's timeout 
 
 ### D2. Record what each held slot's turn started, on the slot row
 
-Migration `0039_agent_slot_turn_child.sql` adds to `agent_slot`:
+Migration `0040_agent_slot_turn_child.sql` adds to `agent_slot`:
 
 | Column | Meaning |
 | --- | --- |
@@ -135,7 +135,7 @@ Limits: the fake guest speaks the real paired protocol over TLS but is not the V
 
 ## Migration, rollout and recovery
 
-- Migration `0039` only adds nullable columns and checks; existing held rows keep null records and stay refused until released by settlement or by hand.
+- Migration `0040` only adds nullable columns and checks; existing held rows keep null records and stay refused until released by settlement or by hand.
 - Rollout: deploy the build with its migration, as for any migration. The guest is unchanged.
 - Rollback: an older build refuses the migrated database (exact-schema compatibility), which needs the usual backup restore, as for any migration.
 - If a slot is still refused after the startup check, the log names the attempt and the reason. Inspect the guest's journal and receipt for that attempt; the manual release remains `releaseSessionSlot`'s update.

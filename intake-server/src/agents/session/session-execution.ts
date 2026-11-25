@@ -1,4 +1,5 @@
 import { and, asc, eq, gt, inArray, notExists, notInArray, sql } from 'drizzle-orm'
+import { deliverableInboxItem } from '#/agents/tools/inbox.ts'
 import type { DBOSClient } from '@dbos-inc/dbos-sdk'
 import type { Pool } from 'pg'
 import { validate, type ProcessingCommandV5Dto } from '@invimport/contracts'
@@ -132,6 +133,8 @@ export async function wakePendingSessions(
             agentSessionInbox.seq,
             sql`COALESCE((SELECT ${agentSessionCursors.ackedSeq} FROM ${agentSessionCursors} WHERE ${agentSessionCursors.sessionLineageId} = ${agentSessions.sessionLineageId}), 0)`,
           ),
+          // A withdrawn item wakes nothing.
+          deliverableInboxItem(),
         ),
       )
       .orderBy(asc(agentSessions.sessionLineageId))

@@ -14,7 +14,7 @@ import { captureInTransaction } from '#/capture/repository.ts'
 import type { ProcessingConfig } from '#/processing/attempts.ts'
 import { fail } from '#/processing/model.ts'
 import { HAS_SESSION_HISTORY } from '#/processing/session-history-job.ts'
-import { decodeJobInput } from '#/processing/session-input.ts'
+import { decodeJobInput, isSessionInput } from '#/processing/session-input.ts'
 import { webAccess } from '#/processing/session-policy.ts'
 import { latestSessionFailures } from '#/agents/failures.ts'
 import { startFreshEligibility } from '#/processing/start-fresh-eligibility.ts'
@@ -174,7 +174,7 @@ async function historyAttempts(client: PoolClient, job: HistoryJob) {
   const settledOfNumber = new Map(rows.rows.map((row) => [row.number, row.settled_state]))
   return rows.rows.map((row): SessionHistoryAttemptDto => {
     const manifest = decodeJobInput(row.manifest_bytes, row.manifest_digest)
-    if (manifest.schema_version !== 'bench-intake-input/6') {
+    if (!isSessionInput(manifest)) {
       return fail('agent_session_binding_invalid', 503)
     }
     const number = Number(row.number)
@@ -312,6 +312,9 @@ async function historyRows(client: PoolClient, jobId: string, before?: HistoryPo
                 i.payload, i.created_at, i.id, i.actor_id, i.idempotency_key
            FROM public.agent_session_inbox i
           WHERE i.session_lineage_id=$1
+            -- A withdrawn item not given to any attempt was never part of the conversation.
+            AND (NOT EXISTS (SELECT 1 FROM public.agent_session_inbox_withdrawal w WHERE w.item_id=i.id)
+              OR EXISTS (SELECT 1 FROM public.agent_session_inbox_release r WHERE r.item_id=i.id))
        ) h
       WHERE $2::timestamptz IS NULL
          OR (h.created_at, h.stream, h.order_attempt, h.seq)

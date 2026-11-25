@@ -39,9 +39,19 @@ export interface Successor {
   input_digest: Buffer
 }
 
-/** A batch whose lead session has formed lots, with the tool server and runner wired up. */
-export async function formedBatch(t: { after: (fn: () => Promise<void>) => void }) {
+/**
+ * A batch whose lead session has formed lots, with the tool server and runner wired up. With
+ * `stageInputs`, the test-only switch is on from the start, so the lead and its successors seal
+ * `/7`.
+ */
+export async function formedBatch(
+  t: { after: (fn: () => Promise<void>) => void },
+  { stageInputs = false }: { stageInputs?: boolean } = {},
+) {
   const fixture = await processingFixture({ profileId: 'synthetic-session/1' })
+  if (stageInputs) {
+    fixture.config.stageInputs = 'local'
+  }
   const stateRoot = await mkdtemp(join(tmpdir(), 'stable-identity-'))
   const server = await startSessionToolServer({
     pool: fixture.runner.pool,

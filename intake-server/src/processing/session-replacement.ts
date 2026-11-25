@@ -10,6 +10,7 @@ import { reserveProcessingMedia, reservedMediaFor } from './media.ts'
 import { commandScope, lockLane } from './scope.ts'
 import { fail } from './model.ts'
 import { isSessionProfile } from './session-policy.ts'
+import { batchInputVersion } from './stage-policy.ts'
 import { createSessionAttempt, prepareSessionAttempt } from './session-attempts.ts'
 import { pinnedIdentityCurrent, successorsCurrent } from './stable-identity.ts'
 import { supersedeJobAttempts } from './supersede.ts'
@@ -108,6 +109,8 @@ export async function replaceSession(
         if (!(await pinnedIdentityCurrent(client, pinned))) {
           fail('identity_waiting', 409)
         }
+        // The replacement follows the batch's lead's sealed version, not the configuration.
+        const inputVersion = await batchInputVersion(client, config, batchId)
         // Every refusal comes before the first write, so a refused replacement supersedes nothing.
         const prepared = await prepareSessionAttempt(
           client,
@@ -116,7 +119,8 @@ export async function replaceSession(
           capture.snapshot,
           { id: jobId, ...job },
           media,
-          { pinnedProposalIds: pinned },
+          // Sealed before the prior attempt is superseded below, as the brief shows it.
+          { pinnedProposalIds: pinned, inputVersion, superseding: true },
         )
         await supersedeJobAttempts(client, jobId)
         const attempt = await createSessionAttempt(
@@ -128,7 +132,7 @@ export async function replaceSession(
           (BigInt(prior.number) + 1n).toString(),
           media,
           prior.input_id,
-          { pinnedProposalIds: pinned, prepared },
+          { pinnedProposalIds: pinned, prepared, inputVersion },
         )
         await client.query(
           "UPDATE processing_job SET current_attempt_id=$2,state='queued',revision=revision+1 WHERE id=$1",

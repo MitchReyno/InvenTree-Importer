@@ -10,7 +10,7 @@ import type { PoolClient } from 'pg'
 import {
   validate,
   webPageUrlAccepted,
-  type ProcessingInputV6Dto,
+  type SessionInputDto,
   type SessionProposalDto,
   type SessionAskArgsDto,
   type SessionAskArgsV2Dto,
@@ -140,7 +140,7 @@ export function isSessionMessage(seal: Pick<MessageSeal, 'envelopeBytes' | 'enve
 export function retainedSessionProposal(
   seal: MessageSeal & { valueBytes: Buffer; valueDigest: Buffer },
   subjectId: string | null,
-  manifest: ProcessingInputV6Dto,
+  manifest: SessionInputDto,
   /** For the lead job (no subject): the batch's lots a proposal may be about. */
   batchLots: ReadonlySet<string> = new Set(),
   /** Batch versions a session may have been delivered after opening, through an evidence notice. */
