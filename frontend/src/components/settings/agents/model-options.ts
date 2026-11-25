@@ -175,10 +175,8 @@ function providerGroup({ view, query, chosen, olderOpen, now }: GroupInput) {
       options.push(...older.map((model) => modelOption(provider, model)))
     }
   }
-  if (options.length === 0) {
-    return []
-  }
 
+  // How the list stands, and Try again, stay in view whatever the search matches.
   return [...stateNotes(view, now), ...options]
 }
 
@@ -188,7 +186,10 @@ function listedAnywhere(
   providers: readonly AgentProviderId[],
   catalogs: CatalogViews,
 ) {
-  return providers.some((provider) => findModel(catalogs[provider], query))
+  // While a first read runs its group lists none of the built-in models, so none counts.
+  return providers.some(
+    (provider) => !catalogs[provider].waiting && findModel(catalogs[provider], query),
+  )
 }
 
 /** The exact-ID options for a typed query, when it names no model this picker lists. */

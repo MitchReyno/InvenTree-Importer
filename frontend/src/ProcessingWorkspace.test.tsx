@@ -2325,7 +2325,10 @@ test('a confirmed answer whose read fails says it was saved, as the only banner,
   expect(screen.queryByText(/Processing status unavailable/)).not.toBeInTheDocument()
 })
 
-function mountStep(view: 'images' | 'research', catalog: AgentModelCatalogDto) {
+function mountStep(
+  view: 'images' | 'research',
+  catalog: AgentModelCatalogDto | (() => Promise<AgentModelCatalogDto>),
+) {
   const saved = agentSettings(
     '1',
     { provider: 'claude', authentication: 'subscription', model: 'claude-opus-5-5' },
@@ -2338,7 +2341,7 @@ function mountStep(view: 'images' | 'research', catalog: AgentModelCatalogDto) {
           agents: {
             sessions: vi.fn(async () => sessionList()),
             settings: vi.fn(async () => saved),
-            modelCatalog: vi.fn(async () => catalog),
+            modelCatalog: typeof catalog === 'function' ? catalog : vi.fn(async () => catalog),
           },
         }}
       >
@@ -2377,4 +2380,24 @@ test('no pill while the list is the built-in one, has never been read or is from
     expect(screen.queryByRole('link', { name: /Not offered/ })).not.toBeInTheDocument()
     cleanup()
   }
+})
+
+test('a step page drops the pill while the list is from an earlier sign-in, and shows it again when the new list lands', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  onTestFinished(() => {
+    vi.useRealTimers()
+  })
+  const stale = providerCatalog(CLAUDE_MODELS, { state: 'stale_sign_in' })
+  const read = vi.fn(async () => modelCatalog({ claude: stale }))
+  mountStep('images', read)
+  await screen.findByRole('heading', { name: 'Images' })
+  await waitFor(() => expect(read).toHaveBeenCalled())
+  expect(screen.queryByRole('link', { name: /Not offered/ })).not.toBeInTheDocument()
+  // A failed reread keeps it marked.
+  read.mockResolvedValue(modelCatalog({ claude: { ...stale, failure: 'timeout' } }))
+  await act(() => vi.advanceTimersByTimeAsync(1_100))
+  expect(screen.queryByRole('link', { name: /Not offered/ })).not.toBeInTheDocument()
+  read.mockResolvedValue(modelCatalog())
+  await act(() => vi.advanceTimersByTimeAsync(1_100))
+  expect(await screen.findByRole('link', { name: /Not offered: Opus 4\.6/ })).toBeVisible()
 })

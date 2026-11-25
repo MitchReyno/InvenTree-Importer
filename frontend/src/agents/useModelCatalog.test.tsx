@@ -70,18 +70,18 @@ test('a view that opened on a current list learns of a stale one, and its recove
   const client = source(modelCatalog())
   const { result } = mount(client)
   await advance(0)
-  expect(result.current.views.claude.warns).toBe(true)
+  expect(result.current.viewsFor().claude.warns).toBe(true)
   client.modelCatalog.mockResolvedValue(stale)
   await advance(59_000)
   expect(client.modelCatalog).toHaveBeenCalledTimes(1)
   await advance(1_100)
   expect(client.modelCatalog).toHaveBeenCalledTimes(2)
-  expect(result.current.views.claude.state).toBe('stale_sign_in')
-  expect(result.current.views.claude.warns).toBe(false)
+  expect(result.current.viewsFor().claude.state).toBe('stale_sign_in')
+  expect(result.current.viewsFor().claude.warns).toBe(false)
   client.modelCatalog.mockResolvedValue(modelCatalog())
   await advance(1_000)
-  expect(result.current.views.claude.state).toBe('current')
-  expect(result.current.views.claude.warns).toBe(true)
+  expect(result.current.viewsFor().claude.state).toBe('current')
+  expect(result.current.viewsFor().claude.warns).toBe(true)
 })
 
 test('focus reads the list before the minute is up, and a hidden tab reads it once shown again', async () => {
@@ -115,7 +115,7 @@ test('a sign-in change marks the list stale once the server acknowledges it, bef
   })
   await advance(0)
   expect(settled).toBe(false)
-  expect(result.current.views.claude.state).toBe('current')
+  expect(result.current.viewsFor().claude.state).toBe('current')
   ack.resolve({ provider: 'claude', authentication: 'subscription', stale_sign_in: true })
   await advance(0)
   await act(() => changing)
@@ -123,11 +123,11 @@ test('a sign-in change marks the list stale once the server acknowledges it, bef
   expect(client.refreshModelCatalog).toHaveBeenCalledWith({ provider: 'claude', invalidate: true })
   // The read it started is still held, and the view already shows the list as stale.
   expect(client.modelCatalog).toHaveBeenCalledTimes(2)
-  expect(result.current.views.claude.state).toBe('stale_sign_in')
-  expect(result.current.views.claude.warns).toBe(false)
+  expect(result.current.viewsFor().claude.state).toBe('stale_sign_in')
+  expect(result.current.viewsFor().claude.warns).toBe(false)
   held.resolve(stale)
   await advance(0)
-  expect(result.current.views.claude.state).toBe('stale_sign_in')
+  expect(result.current.viewsFor().claude.state).toBe('stale_sign_in')
 })
 
 test('Check again asks for a read and reads the list again', async () => {
@@ -139,7 +139,7 @@ test('Check again asks for a read and reads the list again', async () => {
   expect(client.refreshModelCatalog).toHaveBeenCalledExactlyOnceWith({ provider: 'claude' })
   expect(client.modelCatalog).toHaveBeenCalledTimes(2)
   await advance(0)
-  expect(result.current.views.claude.state).toBe('reading')
+  expect(result.current.viewsFor().claude.state).toBe('reading')
 })
 
 test('a list that couldn’t be read raises no warning, from the last read or the built-in list', async () => {
@@ -147,9 +147,42 @@ test('a list that couldn’t be read raises no warning, from the last read or th
   client.modelCatalog.mockRejectedValue(new Error('offline'))
   const { result } = mount(client)
   await advance(0)
-  expect(result.current.views.claude).toMatchObject({
+  expect(result.current.viewsFor().claude).toMatchObject({
     state: 'unavailable',
     builtin: true,
     warns: false,
   })
+})
+
+test('a refused invalidation keeps the list marked and is sent again until the server takes it', async () => {
+  const client = source(modelCatalog())
+  const { result } = mount(client)
+  await advance(0)
+  client.refreshModelCatalog.mockRejectedValueOnce(new Error('offline'))
+  client.refreshModelCatalog.mockRejectedValueOnce(new Error('offline'))
+  await act(() => result.current.signInChanged('claude'))
+  await advance(0)
+  // The server still answers the old list as current; this view keeps it marked.
+  expect(result.current.viewsFor().claude.state).toBe('stale_sign_in')
+  expect(result.current.viewsFor().claude.warns).toBe(false)
+  await advance(1_100)
+  expect(client.refreshModelCatalog).toHaveBeenCalledTimes(3)
+  expect(client.refreshModelCatalog).toHaveBeenLastCalledWith({
+    provider: 'claude',
+    invalidate: true,
+  })
+  // Acknowledged now: the server's own state governs again.
+  expect(result.current.viewsFor().claude.state).toBe('current')
+})
+
+test('a list read for another sign-in method raises no warning', async () => {
+  const client = source(modelCatalog())
+  const { result } = mount(client)
+  await advance(0)
+  expect(
+    result.current.viewsFor({ claude: 'subscription', codex: 'subscription' }).claude.warns,
+  ).toBe(true)
+  expect(result.current.viewsFor({ claude: 'api_key', codex: 'subscription' }).claude.warns).toBe(
+    false,
+  )
 })

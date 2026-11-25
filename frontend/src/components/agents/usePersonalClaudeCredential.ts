@@ -221,7 +221,10 @@ export function usePersonalClaudeCredential({ onChanged, onClose }: Options) {
       changing.current = false
       // Confirmed once the change's effects are recorded, such as the model list marked stale.
       await onChanged(next.configured)
-      onClose()
+      // A dialog closed or rekeyed meanwhile has moved on; this confirmation doesn't close it.
+      if (mine === generation.current) {
+        onClose()
+      }
     } catch (error) {
       if (mine !== generation.current) {
         void notify.current(undefined, true)

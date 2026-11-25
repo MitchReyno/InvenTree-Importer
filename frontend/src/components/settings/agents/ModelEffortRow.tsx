@@ -77,6 +77,10 @@ export function ModelEffortRow({
       onChange(null)
       return
     }
+    // Picking the model already chosen changes nothing, its effort included.
+    if (value && choice.provider === value.provider && choice.model === value.model) {
+      return
+    }
     const effort = value?.effort
     const target = catalogs[choice.provider]
     if (effort !== undefined && effortDropped(target, choice.model, effort)) {

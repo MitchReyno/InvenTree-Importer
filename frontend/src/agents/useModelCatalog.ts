@@ -4,6 +4,7 @@ import type {
   AgentModelCatalogRefreshDto,
   AgentModelCatalogRefreshReceiptDto,
   AgentProviderId,
+  AgentSelectionDto,
 } from '@invimport/contracts'
 import { useServerScope } from '#/context'
 import { serverQueryKey } from '#/queries/scope'
@@ -51,13 +52,20 @@ function readInterval(query: Query<CatalogRead>) {
  * The provider's list as from an earlier sign-in until a read under the new one lands, or as
  * reading when there was none to mark.
  */
-function markedStale(read: CatalogRead, provider: AgentProviderId): CatalogRead {
-  const listed = read.catalog[provider]
+function markedStale(catalog: AgentModelCatalogDto, provider: AgentProviderId) {
+  const listed = catalog[provider]
   const state = listed.builtin ? 'reading' : 'stale_sign_in'
-  const catalog = { ...read.catalog, [provider]: { ...listed, state } }
 
-  return { catalog, settlingSince: read.settlingSince ?? Date.now() }
+  return { ...catalog, [provider]: { ...listed, state } }
 }
+
+/** Providers whose sign-in changed but whose invalidation the server hasn't acknowledged yet. */
+type Unacknowledged = readonly AgentProviderId[]
+
+const NONE: Unacknowledged = []
+
+/** Each provider's current authentication, so a list read for another one is never trusted. */
+export type CatalogAuthentication = Record<AgentProviderId, AgentSelectionDto['authentication']>
 
 /**
  * Each provider's model list, shared by Settings › Agents and Processing. It is read each second
@@ -72,12 +80,52 @@ export function useModelCatalog(
   const scope = useServerScope()
   const queryClient = useQueryClient()
   const queryKey = serverQueryKey(scope, 'model-catalog')
+  const pendingKey = serverQueryKey(scope, 'model-catalog', 'unacknowledged')
+  // Kept beside the read rather than in this view, so another view and a remount honour it too.
+  useQuery({
+    queryKey: pendingKey,
+    queryFn: () => NONE,
+    enabled: false,
+    initialData: NONE,
+    staleTime: Infinity,
+    gcTime: Infinity,
+  })
+
+  function setPending(update: (pending: Unacknowledged) => Unacknowledged) {
+    queryClient.setQueryData<Unacknowledged>(pendingKey, (pending = NONE) => update(pending))
+  }
+
+  /** Sends each unacknowledged invalidation again; an acknowledged one is the server's to mark. */
+  async function sendPending() {
+    for (const provider of queryClient.getQueryData<Unacknowledged>(pendingKey) ?? NONE) {
+      try {
+        await client?.refreshModelCatalog?.({ provider, invalidate: true })
+        setPending((pending) => pending.filter((item) => item !== provider))
+      } catch {
+        // Still unacknowledged: the list stays marked, and the next read sends it again.
+      }
+    }
+  }
+
+  /**
+   * A read of the list. A provider whose invalidation is still unacknowledged stays marked as
+   * from an earlier sign-in until the server marks it so itself or acknowledges the request.
+   */
+  async function readCatalog() {
+    await sendPending()
+    const answered = await client!.modelCatalog()
+    const pending = (queryClient.getQueryData<Unacknowledged>(pendingKey) ?? NONE).filter(
+      (provider) => answered[provider].state !== 'stale_sign_in',
+    )
+    setPending(() => pending)
+    const catalog = pending.reduce(markedStale, answered)
+
+    return withSchedule(catalog, queryClient.getQueryData<CatalogRead>(queryKey))
+  }
+
   const query = useQuery({
     queryKey,
-    queryFn: async () => {
-      const catalog = await client!.modelCatalog()
-      return withSchedule(catalog, queryClient.getQueryData<CatalogRead>(queryKey))
-    },
+    queryFn: readCatalog,
     enabled: enabled && client !== undefined,
     refetchInterval: readInterval,
     // The app turns focus reads off; this list is read on focus so a change made elsewhere shows.
@@ -98,22 +146,32 @@ export function useModelCatalog(
   /**
    * A confirmed sign-in change: once the server has marked the list as from an earlier sign-in,
    * this view marks it too, before the read it starts, so it never shows the old list as current.
-   * A refused request leaves the server's own sign-in check to mark it within a minute.
+   * A refused request keeps the list marked here, and is sent again with each read, until the
+   * server acknowledges it or marks the list itself.
    */
   async function signInChanged(provider: AgentProviderId) {
     try {
       await client?.refreshModelCatalog?.({ provider, invalidate: true })
     } catch {
-      // The guest's sign-in generation, polled each minute, marks the list stale all the same.
+      setPending((pending) => (pending.includes(provider) ? pending : [...pending, provider]))
     }
     // A read sent before the change may still answer with the old list as current.
     await queryClient.cancelQueries({ queryKey })
-    queryClient.setQueryData<CatalogRead>(queryKey, (read) => read && markedStale(read, provider))
+    queryClient.setQueryData<CatalogRead>(
+      queryKey,
+      (read) =>
+        read && {
+          catalog: markedStale(read.catalog, provider),
+          settlingSince: read.settlingSince ?? Date.now(),
+        },
+    )
     void queryClient.invalidateQueries({ queryKey })
   }
 
   return {
-    views: catalogViews(query.data?.catalog, current),
+    /** Each provider's list; one read for another authentication than `authentication` names never warns. */
+    viewsFor: (authentication?: CatalogAuthentication) =>
+      catalogViews(query.data?.catalog, current, authentication),
     refresh,
     signInChanged,
   }

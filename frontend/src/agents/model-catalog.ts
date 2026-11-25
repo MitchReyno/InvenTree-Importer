@@ -71,13 +71,21 @@ function unavailable(provider: AgentProviderId): ProviderCatalogView {
 export function catalogViews(
   catalog: AgentModelCatalogDto | undefined,
   current: boolean,
+  authentication?: Record<AgentProviderId, AgentProviderCatalogDto['authentication']>,
 ): CatalogViews {
+  const sameSignIn = (provider: AgentProviderId) =>
+    authentication === undefined || catalog?.[provider].authentication === authentication[provider]
+
   return {
-    claude: providerView('claude', catalog?.claude, current),
-    codex: providerView('codex', catalog?.codex, current),
+    claude: providerView('claude', catalog?.claude, current && sameSignIn('claude')),
+    codex: providerView('codex', catalog?.codex, current && sameSignIn('codex')),
   }
 }
 
+/**
+ * One provider's view. `current` is false when the read failed, couldn't be sent or answered for
+ * another authentication than the one saved, so the list raises no warning and decides nothing.
+ */
 function providerView(
   provider: AgentProviderId,
   read: AgentProviderCatalogDto | undefined,
@@ -142,15 +150,15 @@ export function effortNotAccepted(
 }
 
 /**
- * Whether picking `id` drops `effort`: the model is in a list read from the provider and doesn't
- * accept it. A model the list doesn't know, or the built-in list's, keeps it.
+ * Whether picking `id` drops `effort`: the model is in a list read under the current sign-in and
+ * doesn't accept it. A model the list doesn't know, or a list that can't say, keeps it.
  */
 export function effortDropped(
   view: ProviderCatalogView,
   id: string,
   effort: AgentEffortDto | undefined,
 ) {
-  if (effort === undefined || view.builtin) {
+  if (effort === undefined || !view.warns) {
     return false
   }
   const model = findModel(view, id)

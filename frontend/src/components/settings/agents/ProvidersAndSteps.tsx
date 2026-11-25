@@ -74,6 +74,11 @@ export function ProvidersAndSteps({
     onProviderKept: (provider, reason) => setRefused({ provider, reason }),
   })
   const values = form.watch()
+  // Each list must be for the sign-in the cards show, or it decides nothing.
+  const catalogs = catalog.viewsFor({
+    claude: values.providers.claude.authentication,
+    codex: values.providers.codex.authentication,
+  })
 
   function setEnabled(provider: AgentProviderId, enabled: boolean) {
     const current = form.getValues()
@@ -136,7 +141,7 @@ export function ProvidersAndSteps({
               onEnabledChange={(enabled) => setEnabled(provider, enabled)}
               onAutoEdit={() => markEdited('auto')}
               credential={credentials[provider]}
-              catalogs={catalog.views}
+              catalogs={catalogs}
               onRetry={(listed) => void catalog.refresh(listed)}
             />
           ))}
@@ -175,7 +180,7 @@ export function ProvidersAndSteps({
           >
             <StepModels
               reset={reset}
-              catalogs={catalog.views}
+              catalogs={catalogs}
               onRetry={(provider) => void catalog.refresh(provider)}
               onAutoEdit={() => markEdited('auto')}
             />

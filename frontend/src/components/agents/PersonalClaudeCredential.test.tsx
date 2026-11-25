@@ -239,3 +239,28 @@ it('a stale save stays reported when the reread fails, with Save still disabled'
   ])
   expect(save()).toBeDisabled()
 })
+
+it('a confirmation still settling when the dialog is closed never closes it once reopened', async () => {
+  send
+    .mockResolvedValueOnce(Response.json({ configured: false, revision: 'one' }))
+    .mockResolvedValueOnce(Response.json({ configured: true, revision: 'two' }))
+
+  let settle: () => void = () => {}
+
+  onChanged.mockImplementation(
+    () =>
+      new Promise<void>((resolve) => {
+        settle = resolve
+      }) as unknown as void,
+  )
+  openDialog()
+  await enterKey()
+  fireEvent.change(screen.getByLabelText('Subscription token'), { target: { value: TOKEN } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save token' }))
+  await act(() => vi.advanceTimersByTimeAsync(0))
+  expect(onChanged).toHaveBeenCalledWith(true)
+  fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Subscription token…' }))
+  await act(async () => settle())
+  expect(screen.getByRole('dialog', { name: 'Claude subscription token' })).toBeVisible()
+})

@@ -367,3 +367,38 @@ test('the token dialog confirms only once the list is marked stale, and the card
   ).toBeVisible()
   held.resolve(modelCatalog())
 })
+
+test('picking the model already chosen changes nothing, its effort included', async () => {
+  const api = client(
+    settings({
+      stage_selections: {
+        images: { provider: 'claude', model: 'claude-sonnet-4-6', effort: 'xhigh' },
+      },
+    }),
+  )
+  await renderAgents(api)
+  fireEvent.change(screen.getByRole('combobox', { name: 'Images' }), {
+    target: { value: 'claude-sonnet-4-6' },
+  })
+  fireEvent.click(screen.getByRole('option', { name: 'Older models (1)' }))
+  fireEvent.click(screen.getByRole('option', { name: 'Sonnet 4.6 claude-sonnet-4-6' }))
+  expect(screen.getByRole('combobox', { name: 'Images effort' })).toHaveValue('xhigh')
+  await act(() => new Promise((resolve) => setTimeout(resolve, 900)))
+  expect(api.saveSettings).not.toHaveBeenCalled()
+})
+
+test('a list from an earlier sign-in never resets the effort of a model picked from it', async () => {
+  const stale = modelCatalog({
+    claude: providerCatalog(CLAUDE_MODELS, { state: 'stale_sign_in', read_at: READ_0912 }),
+  })
+  const api = client(settings(), stale)
+  await renderAgents(api)
+  pick(screen.getByRole('combobox', { name: 'Images' }), 'Haiku 5.5 claude-haiku-5-5', 'haiku 5')
+  expect(screen.queryByText(/Effort set to Default/)).not.toBeInTheDocument()
+  await autosaved(() => expect(api.saveSettings).toHaveBeenCalledTimes(1))
+  expect(api.saveSettings.mock.calls[0][0].stage_selections.images).toEqual({
+    provider: 'claude',
+    model: 'claude-haiku-5-5',
+    effort: 'max',
+  })
+})

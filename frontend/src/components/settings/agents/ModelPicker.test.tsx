@@ -258,3 +258,33 @@ test('Codex’s listed models need no catalogue of Claude’s to be picked', asy
   await user.click(input)
   expect(optionNames()).toEqual(CODEX_MODELS.map((model) => `${model.name} ${model.id}`))
 })
+
+test('while the first read runs, a typed ID of the hidden built-in list is still offered', async () => {
+  const user = userEvent.setup()
+  const catalog = modelCatalog({
+    codex: builtinCatalog([...BUILT_IN_MODEL_CATALOG.codex], { state: 'reading' }),
+  })
+  const { input } = picker(
+    {
+      providers: ['codex'],
+      fallback: undefined,
+      value: { provider: 'codex', model: 'gpt-6.2-sol' },
+    },
+    catalog,
+  )
+  await user.type(input, 'gpt-6.1-sol')
+  expect(screen.getByRole('option', { name: 'Use “gpt-6.1-sol” with Codex' })).toBeVisible()
+})
+
+test('a search that matches nothing keeps the failed read’s note and Try again', async () => {
+  const user = userEvent.setup()
+  const catalog = modelCatalog({
+    claude: providerCatalog(CLAUDE_MODELS, { state: 'failed', read_at: YESTERDAY_1640 }),
+  })
+  const { input } = picker(claudeOnly, catalog)
+  await user.type(input, 'claude-next-9')
+  expect(screen.getByRole('option', { name: 'Try again' })).toBeVisible()
+  expect(
+    screen.getByRole('option', { name: /^Couldn’t read Claude’s models just now/ }),
+  ).toBeVisible()
+})

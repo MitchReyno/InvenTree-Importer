@@ -272,9 +272,16 @@ export function ProcessingWorkspace({
     agentStep && liveRead(agentSettings) && agentSettings.data
       ? stepModel(agentSettings.data, agentStep)
       : null
+  const runsOn =
+    runsModel && agentSettings.data
+      ? catalog.viewsFor({
+          claude: agentSettings.data.providers.claude.authentication,
+          codex: agentSettings.data.providers.codex.authentication,
+        })[runsModel.provider]
+      : undefined
   const modelGone =
-    runsModel && notOffered(catalog.views[runsModel.provider], runsModel.model)
-      ? modelName(catalog.views[runsModel.provider], runsModel.model)
+    runsModel && runsOn && notOffered(runsOn, runsModel.model)
+      ? modelName(runsOn, runsModel.model)
       : null
   // The batch's own read says whether it is paused; a change shows once it is read again. Pause
   // and Resume send no revision, so they wait for a read started after the last live hint.

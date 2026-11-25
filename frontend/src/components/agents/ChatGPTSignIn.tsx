@@ -14,18 +14,30 @@ type Props = {
 
 /** "Sign in to ChatGPT…" on the Codex card, and the dialog it opens. */
 export function ChatGPTSignIn({ onConfirmed, onChanged }: Props) {
-  const [open, setOpen] = useState(false)
+  // Which opening of the dialog is shown, so a late confirmation closes only its own.
+  const [opening, setOpening] = useState<number | null>(null)
+  const [openings, setOpenings] = useState(0)
+
+  function open() {
+    setOpenings(openings + 1)
+    setOpening(openings + 1)
+  }
+
+  function confirmed(of: number) {
+    void Promise.resolve(onConfirmed()).finally(() =>
+      setOpening((shown) => (shown === of ? null : shown)),
+    )
+  }
 
   return (
     <>
-      <Button onClick={() => setOpen(true)}>Sign in to ChatGPT…</Button>
-      {open && (
+      <Button onClick={open}>Sign in to ChatGPT…</Button>
+      {opening !== null && (
         <ChatGPTSignInDialog
+          key={opening}
           onChanged={onChanged}
-          onConfirmed={() => {
-            void Promise.resolve(onConfirmed()).finally(() => setOpen(false))
-          }}
-          onClose={() => setOpen(false)}
+          onConfirmed={() => confirmed(opening)}
+          onClose={() => setOpening(null)}
         />
       )}
     </>

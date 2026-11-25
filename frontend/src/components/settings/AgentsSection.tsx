@@ -139,6 +139,15 @@ export function AgentsSection({
     focused.current = subsection
   }, [subsection, ready, routeFromScroll, beforeScroll])
 
+  /** Reads a confirmed save changes: Start fresh's eligibility, and which list each sign-in has. */
+  function readAfterSave() {
+    invalidateStartFreshReads(queryClient, scope)
+    void queryClient.invalidateQueries({
+      queryKey: serverQueryKey(scope, 'model-catalog'),
+      exact: true,
+    })
+  }
+
   /**
    * Publishes confirmed settings and answers with what is current. A read that was already
    * running, or a reload older than a save confirmed meanwhile, never replaces newer settings.
@@ -146,7 +155,7 @@ export function AgentsSection({
   function adoptLoaded(confirmed: AgentSettingsDto, source: 'save' | 'reload') {
     if (source === 'save') {
       localSaves.current.add(confirmed.revision)
-      invalidateStartFreshReads(queryClient, scope)
+      readAfterSave()
     }
     const latest = newestRevision(
       confirmed,
@@ -188,7 +197,7 @@ export function AgentsSection({
         adopt: adoptLoaded,
         ownSave: (revision) => {
           localSaves.current.add(revision)
-          invalidateStartFreshReads(queryClient, scope)
+          readAfterSave()
         },
         localSaves: localSaves.current,
         reportDirty: reportDirty.report,
