@@ -312,8 +312,9 @@ async function historyRows(client: PoolClient, jobId: string, before?: HistoryPo
                 i.payload, i.created_at, i.id, i.actor_id, i.idempotency_key
            FROM public.agent_session_inbox i
           WHERE i.session_lineage_id=$1
-            -- A withdrawn item was never given to the session, so it isn't in its history.
-            AND NOT EXISTS (SELECT 1 FROM public.agent_session_inbox_withdrawal w WHERE w.item_id=i.id)
+            -- A withdrawn item not given to any attempt was never part of the conversation.
+            AND (NOT EXISTS (SELECT 1 FROM public.agent_session_inbox_withdrawal w WHERE w.item_id=i.id)
+              OR EXISTS (SELECT 1 FROM public.agent_session_inbox_release r WHERE r.item_id=i.id))
        ) h
       WHERE $2::timestamptz IS NULL
          OR (h.created_at, h.stream, h.order_attempt, h.seq)

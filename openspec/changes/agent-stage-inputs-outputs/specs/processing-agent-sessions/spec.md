@@ -320,12 +320,12 @@ For sessions whose input is `/7`, the batch's saved instructions SHALL reach the
 
 #### Scenario: Earlier attempt's pending instruction
 
-- **GIVEN** a `/6` Research session with an unread instruction for a group the operator has since ungrouped
+- **GIVEN** an earlier attempt (of either input) with an unacknowledged instruction for a group the operator has since ungrouped
 - **WHEN** a `/7` attempt is queued on the same lineage
-- **THEN** that instruction is withdrawn and never given to the `/7` session.
+- **THEN** that instruction is withdrawn and never given to the `/7` session, and stays in the history if the earlier attempt was given it.
 
 #### Scenario: Pending instruction withdrawn
 
 - **GIVEN** a `/7` session that has not yet read an instruction for an evidence group, and a `/6` session of another batch in the same position
 - **WHEN** the operator ungroups each group
-- **THEN** the `/7` session is never given the instruction, isn't woken for it and doesn't show it in its history, while instructions it already read stay there, and the `/6` session still receives it.
+- **THEN** the `/7` session is never given the instruction, isn't woken for it and doesn't show it in its history, while instructions it was already given stay there, and the `/6` session still receives it.

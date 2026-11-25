@@ -1764,6 +1764,45 @@ test('an instruction given to a /7 session before the ungroup isn’t withdrawn,
   ])
 })
 
+test('a replacement isn’t given a retired group’s instruction its predecessor was given but never acknowledged', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId } = batch
+  const { row } = await successorOf(batch, 'led 0603 red', 'research')
+  const { ungroup } = await groupedInstructions(batch.fixture, batch.batchId)
+  await transaction(fixture.runner.pool, async (client) => {
+    await lockInboxBatch(client, row.job_id)
+    await readSessionInbox(client, row.job_id, 0n)
+  })
+  await ungroup()
+  await fixture.db.pool.query("UPDATE processing_attempt SET state='failed' WHERE id=$1", [
+    row.attempt_id,
+  ])
+  await fixture.db.pool.query(
+    "UPDATE agent_session SET session_state='failed' WHERE attempt_id=$1",
+    [row.attempt_id],
+  )
+  const job = await fixture.db.pool.query<{ revision: string }>(
+    'SELECT revision::text FROM processing_job WHERE id=$1',
+    [row.job_id],
+  )
+  await replaceSession(fixture.api.pool, fixture.config, batchId, row.job_id, 'given', {
+    expected_capture_revision: (await snapshotOf(fixture, batchId)).revision,
+    expected_revision: job.rows[0].revision,
+    attempt_id: row.attempt_id,
+  })
+  // The new conversation gets only the batch's instruction (the old copy and the relayed one).
+  assert.deepEqual(await pendingInstructions(fixture, row.job_id), [
+    'Count every reel',
+    'Count every reel',
+  ])
+  // The earlier attempt was given the group's instruction, so the history keeps it.
+  assert.deepEqual(await historyInstructions(fixture, batchId, row.job_id), [
+    'Count every reel',
+    'Count every reel',
+    'Keep the shelf together',
+  ])
+})
+
 test('a /6 session keeps a retired group’s instruction', async (t) => {
   const batch = await formedBatch(t)
   const { fixture } = batch

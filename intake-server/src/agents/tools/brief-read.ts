@@ -10,6 +10,7 @@ import { captureInTransaction } from '#/capture/repository.ts'
 import type { MediaInputContextDto } from '@invimport/contracts/media'
 import { readBatchMediaInputResult, readMediaInputScopeResults } from '#/media/inputs.ts'
 import { removedVersionIds } from '#/media/removal.ts'
+import { activeMediaGroups } from '#/media/context.ts'
 import type { ProcessingConfig } from '#/processing/attempts.ts'
 import { assembleBrief, type BriefVersion } from '#/processing/brief.ts'
 import {
@@ -86,8 +87,9 @@ async function currentVersions(client: PoolClient, principal: StagePrincipal) {
 }
 
 /**
- * The group and evidence notes of the session's media scope now; the sealed ones when the scope
- * can't be read (its media isn't ready, or is over the input limits).
+ * The group and evidence notes of the session's media scope now. When the scope can't be read
+ * (its media isn't ready, or is over the input limits), the sealed ones that still apply: of
+ * evidence with a version not removed, and of groups not retired.
  */
 async function currentMediaContext(
   client: PoolClient,
@@ -95,7 +97,8 @@ async function currentMediaContext(
   principal: StagePrincipal,
   snapshot: CaptureSnapshotDto,
   sealed: MediaInputContextDto | undefined,
-) {
+  versions: readonly BriefVersion[],
+): Promise<MediaInputContextDto | undefined> {
   const lotId = principal.manifest.subject_id
   const result =
     lotId === null
@@ -105,7 +108,32 @@ async function currentMediaContext(
             processingSubjectScope(snapshot, lotId),
           ])
         )[0]
-  return result.kind === 'ready' ? result.inputs.context : sealed
+  if (result.kind === 'ready') {
+    return result.inputs.context
+  }
+  if (!sealed) {
+    return undefined
+  }
+  const live = await activeMediaGroups(client, principal.batchId)
+  return sealedContextNow(
+    sealed,
+    versions.map((version) => version.evidenceId),
+    live.map((group) => group.id),
+  )
+}
+
+/** The sealed media notes that still apply: of evidence still current, and of groups not retired. */
+export function sealedContextNow(
+  sealed: MediaInputContextDto,
+  evidenceIds: readonly string[],
+  groupIds: readonly string[],
+): MediaInputContextDto {
+  const evidence = new Set(evidenceIds)
+  const groups = new Set(groupIds)
+  return {
+    groups: sealed.groups.filter((group) => groups.has(group.id)),
+    evidenceNotes: sealed.evidenceNotes.filter((item) => evidence.has(item.evidenceId)),
+  }
 }
 
 /** The session's brief as it would be sealed now, from current capture and retained state. */
@@ -116,15 +144,17 @@ async function currentBrief(
 ): Promise<SessionBriefDto> {
   const capture = await captureInTransaction(client, config, principal.batchId)
   const sealed = briefScope(principal.manifest)
+  const versions = await currentVersions(client, principal)
   const scope = {
     ...sealed,
-    versions: await currentVersions(client, principal),
+    versions,
     mediaContext: await currentMediaContext(
       client,
       config,
       principal,
       capture.snapshot,
       sealed.mediaContext,
+      versions,
     ),
   }
   return assembleBrief(client, config, capture.snapshot, scope)

@@ -205,9 +205,10 @@ async function instructionsFor(
 }
 
 /**
- * Withdraws a lineage's unread instruction items of groups already retired, when it first queues
- * a `/7` attempt: its earlier attempts' inbox carries over, and items an earlier input was given
- * stay pending for the new one otherwise.
+ * Withdraws a lineage's unacknowledged instruction items of groups already retired, whenever it
+ * queues a `/7` attempt: the new conversation inherits the lineage's inbox, so an item an earlier
+ * attempt was given (or an earlier input kept) would reach it otherwise. A given item stays in
+ * the history.
  */
 export async function withdrawRetiredInstructions(client: PoolClient, lineageId: string) {
   await client.query(
@@ -216,7 +217,6 @@ export async function withdrawRetiredInstructions(client: PoolClient, lineageId:
      LEFT JOIN public.agent_session_cursor c ON c.session_lineage_id=i.session_lineage_id
      WHERE i.session_lineage_id=$1 AND i.kind='instruction' AND i.payload->>'group_id' IS NOT NULL
        AND i.seq > coalesce(c.acked_seq,0)
-       AND NOT EXISTS (SELECT 1 FROM public.agent_session_inbox_release r WHERE r.item_id=i.id)
        AND ${retiredGroupSql("(i.payload->>'group_id')::uuid")}
      ON CONFLICT (item_id) DO NOTHING`,
     [lineageId],
