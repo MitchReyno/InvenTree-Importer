@@ -87,3 +87,21 @@ An active browser SHALL observe Intake every ten seconds with HTTP fallback. Int
 - **GIVEN** the API root responds but the protected read refuses the configured token
 - **WHEN** the result is published
 - **THEN** the UI reports the refusal, and neither a successful root reply nor the heartbeat grants access.
+
+#### Scenario: Proxy answers the root during an inventory outage
+
+- **GIVEN** the protected read times out
+- **WHEN** the root returns a gateway error, a redirect, or a body that is not a valid JSON object
+- **THEN** the root supplies no evidence of InvenTree contact and the UI reports the target as unreachable.
+
+#### Scenario: Foreground confirmation during an active liveness check
+
+- **GIVEN** a previously connected tab resumes with its last successful Intake observation over ten seconds old
+- **WHEN** a liveness check is pending and several confirmation requests arrive
+- **THEN** the tab shows Checking while contact is uncertain and schedules one coalesced follow-up within the applicable retry cadence, with at most one HTTP liveness request in flight.
+
+#### Scenario: Manual check while the recovered target is still unknown
+
+- **GIVEN** Intake has recovered and the browser has captured a scoped server observation as its recovery baseline
+- **WHEN** an operator check returns a newer server observation or confirms the target is unconfigured
+- **THEN** the header shows that result immediately. A cached result at or before the baseline keeps the gate closed, and a reply from an earlier recovery cannot replace the new result.
