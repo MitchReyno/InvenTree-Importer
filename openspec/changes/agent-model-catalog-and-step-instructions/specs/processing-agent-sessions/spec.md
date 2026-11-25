@@ -28,6 +28,12 @@ Each attempt of a step SHALL seal that step's saved instructions in its input wh
 - **WHEN** its brief is sealed
 - **THEN** the brief's operator-sourced material holds the text as "operator guidance for this step", outside the stage instruction pack and its digest.
 
+#### Scenario: Lots queued on either side of an edit
+
+- **GIVEN** a Research lot queued while Research's instructions were A, then B saved, then a second Research lot queued
+- **WHEN** a multi-lot Research session claims queued lots
+- **THEN** the two lots are never in one session, and each session's guidance is the text its lots were queued with.
+
 #### Scenario: Retained inputs
 
 - **GIVEN** an attempt sealed before this change, with no step instructions field
@@ -36,7 +42,7 @@ Each attempt of a step SHALL seal that step's saved instructions in its input wh
 
 ### Requirement: Sessions run at the sealed effort
 
-Each attempt SHALL seal the effort resolved for its step with its model: the step's own effort with its own model, or the provider's default effort when the step uses the provider's default model. With an effort, a Claude turn SHALL pass `--effort <level>` and a Codex turn SHALL send it as `effort` on each `turn/start`. With none, nothing SHALL be sent. A later save SHALL NOT change a sealed attempt.
+An attempt whose input seals a provider selection SHALL seal its step's effort with its model: the step's own pair, or the provider's default pair when the step uses the provider's default model. With an effort, a Claude turn SHALL pass `--effort <level>` and a Codex turn SHALL send it as `effort` on each `turn/start`. With none, nothing SHALL be sent. A later save SHALL NOT change a sealed attempt. Inputs that seal no selection SHALL carry no effort.
 
 #### Scenario: Claude at High
 
@@ -55,6 +61,12 @@ Each attempt SHALL seal the effort resolved for its step with its model: the ste
 - **GIVEN** Images on Default and the Codex card's default model and effort set to GPT-6.2-Sol at Medium, with Codex the default provider
 - **WHEN** an Images attempt is sealed
 - **THEN** its sealed selection is Codex GPT-6.2-Sol at Medium.
+
+#### Scenario: No selection sealed
+
+- **GIVEN** a `synthetic-session/1` attempt, whose input seals no provider selection
+- **WHEN** it is sealed and runs
+- **THEN** it carries and sends no effort.
 
 #### Scenario: Unaccepted effort is still sent
 

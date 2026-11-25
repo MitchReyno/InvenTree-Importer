@@ -125,7 +125,7 @@ Each step in Settings › Agents gets optional instructions of up to 1,000 chara
 
 - Change: `agent-model-catalog-and-step-instructions`
 - Status: Planned — plan in review; no implementation PR has started.
-- Size: L — settings and sealed-input fields, effort passed by both session adapters, a model catalogue read in the guest with its own connection, table, schedule and API, the pickers and their states, and the step instruction editor, in four PRs after the plan plus a live check.
+- Size: L — settings and sealed-input fields, effort passed by both session adapters, a model catalogue read in the guest with its own connection, table, schedule and API, the pickers and their states, and the step instruction editor, in five PRs after the plan plus a live check; the multi-lot part waits for BI-022 PR-I.
 - Prerequisites: [BI-022](#bi-022--agent-stage-inputs-and-outputs) (`agent-stage-inputs-outputs`) PR-A (#275, sealed briefs), before the step instructions PR only. The live catalogue read and effort sessions need Mitch's go-ahead.
 - OpenSpec: [agent-model-catalog-and-step-instructions](../openspec/changes/agent-model-catalog-and-step-instructions/)
 

@@ -80,9 +80,9 @@ Before a provider's first read lands, or the first read after a sign-in change, 
 
 #### Scenario: After a sign-in change
 
-- **GIVEN** Claude's list read under one token, and the operator saves a new token
-- **WHEN** a Claude picker opens before a read under the new token lands
-- **THEN** it says "Reading Claude's models…" over the earlier list with its time, shows no "Not offered" warning, and a read started under the old token is never shown as current.
+- **GIVEN** Claude's list read under one token, and a new token saved, whether or not the browser that saved it asks for a new list
+- **WHEN** a Claude picker opens before a read under the new token lands, or after that read failed
+- **THEN** it marks the earlier list as from an earlier sign-in with its time, shows no "Not offered" or "Not accepted" warning, and a read started under the old token is never shown as current.
 
 #### Scenario: Never read
 
