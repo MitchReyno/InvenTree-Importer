@@ -5,6 +5,8 @@ import { CodexAccount } from './codex-login.ts'
 import { providerProxy } from './provider-proxy.ts'
 import { claudeStatusReader, codexStatusReader, startStatusService } from './credential-status.ts'
 import { STATUS_SOCKET } from './provider-status.ts'
+import { codexCatalogReader, startCatalogService } from './credential-catalog.ts'
+import { CATALOG_SOCKET } from './model-catalog.ts'
 
 process.umask(0o077)
 const key = readFileSync('/run/operator/key', 'utf8').trim()
@@ -26,3 +28,8 @@ await startStatusService(
   '/run/bench-pair',
   STATUS_SOCKET,
 )
+// Codex reads its models under the account lock this process owns; Claude's catalogue runs in a
+// container of its own (`catalog-main.ts`).
+if (account) {
+  await startCatalogService('codex', codexCatalogReader(account), '/run/bench-pair', CATALOG_SOCKET)
+}

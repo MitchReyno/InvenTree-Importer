@@ -1,6 +1,6 @@
 import { NativeSessionError, sessionFailure } from '#/agents/failure-model.ts'
 import { retainSessionFailure } from '#/agents/failures.ts'
-import type { SessionFailureDto } from '@invimport/contracts'
+import type { AgentSelectionDto, SessionFailureDto } from '@invimport/contracts'
 import { pinnedIdentityCurrent, successorsCurrent } from '#/processing/stable-identity.ts'
 import { supersedeJobAttempts } from '#/processing/jobs.ts'
 import { join } from 'node:path'
@@ -142,6 +142,8 @@ export interface SessionRunnerDeps {
   fence?: SupervisorFence
   /** Overrides `SETTLEMENT_FENCE_RETRY_MS`, for tests. */
   settlementFenceRetryMs?: number
+  /** Told the CLI version a turn's admission reported, so a new version's models are read. */
+  onCliVersion?: (selection: AgentSelectionDto, version: string) => void
 }
 
 /** A turn longer than this is stopped and reaped; the session fails rather than resuming a stall. */
@@ -957,6 +959,10 @@ export async function runSessionTurn(
   const turn: SessionTurn = {
     onCliVersion: (version) => {
       cliVersion = version
+      const selection = current.manifest.agent
+      if (selection) {
+        deps.onCliVersion?.(selection, version)
+      }
     },
     // A `/7` session's system prompt is the profile's instructions followed by its stage pack.
     instructions:

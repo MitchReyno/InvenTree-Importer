@@ -21,6 +21,14 @@ import {
   type GuestProviderStatus,
   type StatusProvider,
 } from './provider-status.ts'
+import {
+  CATALOG_FRAME_BYTES,
+  CATALOG_GENERATION_MS,
+  CATALOG_PROTOCOL,
+  CATALOG_READ_MS,
+  guestCatalogAnswer,
+  type GuestCatalogAnswer,
+} from './model-catalog.ts'
 
 export interface SessionBridgeOptions {
   /** Hosts each tool turn's egress proxy refuses; see `bridgeProtectedHosts`. */
@@ -39,11 +47,31 @@ export interface StatusTiming {
   peerWaitMs: number
 }
 
+/** How long a catalogue read and a generation-only read may take, and the wait for a peer. */
+export interface CatalogTiming {
+  readMs: number
+  generationMs: number
+  peerWaitMs: number
+}
+
+const CATALOG_TIMING: CatalogTiming = {
+  readMs: CATALOG_READ_MS,
+  // The guest's own bound on a generation read, with room for the answer to arrive.
+  generationMs: CATALOG_GENERATION_MS + 1000,
+  peerWaitMs: 500,
+}
+
+/** What a catalogue request got: the guest's answer, or why there was none. */
+export type BridgeCatalogAnswer = GuestCatalogAnswer
+
 /** Turn connections the bridge holds, as many as the most sessions that can run at once. */
 const MAX_TURN_PEERS = 8
 /** Status connections per provider, apart from turns: its relay's, with room for a reconnect. */
 const MAX_STATUS_PEERS_PER_PROVIDER = 2
 const MAX_STATUS_PEERS = 2 * MAX_STATUS_PEERS_PER_PROVIDER
+/** Catalogue connections per provider, apart from turns and status, on the same terms. */
+const MAX_CATALOG_PEERS_PER_PROVIDER = 2
+const MAX_CATALOG_PEERS = 2 * MAX_CATALOG_PEERS_PER_PROVIDER
 
 /** Time a guest's answer needs to arrive once its read has ended. */
 const GUEST_ANSWER_MARGIN_MS = 100
@@ -96,6 +124,7 @@ export async function startSessionBridge(
   port: number,
   options?: SessionBridgeOptions,
   statusTiming: StatusTiming = STATUS_TIMING,
+  catalogTiming: CatalogTiming = CATALOG_TIMING,
 ) {
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new Error('invalid_bridge_port')
@@ -112,6 +141,10 @@ export async function startSessionBridge(
   const statusPeers = { claude: new Map<TLSSocket, Frames>(), codex: new Map<TLSSocket, Frames>() }
   // Whether each provider's latest turn guest greeted with the status capability.
   const statusCapable = new Map<StatusProvider, boolean>()
+  const catalogSockets = new Set<TLSSocket>()
+  const catalogPeers = { claude: new Map<TLSSocket, Frames>(), codex: new Map<TLSSocket, Frames>() }
+  // Whether each provider's latest turn guest greeted with the model catalogue capability.
+  const catalogCapable = new Map<StatusProvider, boolean>()
   const server = createServer(
     { ...(await pairing(directory)), requestCert: true },
     settled(
@@ -119,7 +152,7 @@ export async function startSessionBridge(
         if (
           !socket.authorized ||
           checkServerIdentity('bench-guest', socket.getPeerCertificate()) ||
-          connected.size >= MAX_TURN_PEERS + MAX_STATUS_PEERS
+          connected.size >= MAX_TURN_PEERS + MAX_STATUS_PEERS + MAX_CATALOG_PEERS
         ) {
           socket.destroy()
           return
@@ -132,6 +165,9 @@ export async function startSessionBridge(
           idle.delete(socket)
           statusPeers.claude.delete(socket)
           statusPeers.codex.delete(socket)
+          catalogSockets.delete(socket)
+          catalogPeers.claude.delete(socket)
+          catalogPeers.codex.delete(socket)
         })
         socket.on('error', () => socket.destroy())
         socket.setTimeout(60_000, () => socket.destroy())
@@ -140,6 +176,10 @@ export async function startSessionBridge(
           const greeting = await frames.read()
           if (greeting.ready === STATUS_PROTOCOL) {
             admitStatusPeer(socket, frames, greeting)
+            return
+          }
+          if (greeting.ready === CATALOG_PROTOCOL) {
+            admitCatalogPeer(socket, frames, greeting)
             return
           }
           // Status connections have their own allowance, so they never take a turn's place.
@@ -160,10 +200,12 @@ export async function startSessionBridge(
           if (greeting.claudeSubscription === true) {
             subscriptions.set(socket, 'claude')
             statusCapable.set('claude', greeting.providerStatus === true)
+            catalogCapable.set('claude', greeting.modelCatalog === true)
           }
           if (greeting.codexSubscription === true) {
             subscriptions.set(socket, 'codex')
             statusCapable.set('codex', greeting.providerStatus === true)
+            catalogCapable.set('codex', greeting.modelCatalog === true)
           }
           if (greeting.builtinTools === true) {
             // An older tool-worker supervisor would ignore protected_hosts and the sealed web
@@ -205,6 +247,112 @@ export async function startSessionBridge(
     statusProvider.set(socket, provider)
     socket.setTimeout(0)
     statusPeers[provider].set(socket, frames)
+  }
+
+  /** A catalogue connection carries reads only, under its own allowance per provider. */
+  function admitCatalogPeer(socket: TLSSocket, frames: Frames, greeting: Record<string, unknown>) {
+    const provider = greeting.provider
+    if ((provider !== 'claude' && provider !== 'codex') || Object.keys(greeting).length !== 2) {
+      throw new Error('runner_protocol_mismatch')
+    }
+    if (catalogPeers[provider].size + catalogBorrowed[provider] >= MAX_CATALOG_PEERS_PER_PROVIDER) {
+      throw new Error('runner_capacity')
+    }
+    catalogSockets.add(socket)
+    socket.setTimeout(0)
+    catalogPeers[provider].set(socket, frames)
+  }
+
+  // Catalogue connections a request has taken and not yet returned or destroyed, per provider.
+  const catalogBorrowed = { claude: 0, codex: 0 }
+
+  function absentCatalog(provider: StatusProvider): BridgeCatalogAnswer {
+    if (connected.size === 0) {
+      return { kind: 'failure', failure: 'vm_unreachable' }
+    }
+    if (catalogCapable.get(provider) === false) {
+      return { kind: 'failure', failure: 'guest_outdated' }
+    }
+    return { kind: 'failure', failure: 'unavailable' }
+  }
+
+  /** An idle catalogue connection, waited for as `statusPeer` waits for a status one. */
+  async function catalogPeer(provider: StatusProvider, signal: AbortSignal, endsAt: number) {
+    const shortWaitUntil = Date.now() + catalogTiming.peerWaitMs
+    for (;;) {
+      const peer = catalogPeers[provider].entries().next()
+      if (!peer.done) {
+        catalogPeers[provider].delete(peer.value[0])
+        catalogBorrowed[provider]++
+        return peer.value
+      }
+      const until = catalogBorrowed[provider] > 0 ? endsAt - GUEST_ANSWER_MARGIN_MS : shortWaitUntil
+      if (Date.now() >= until || signal.aborted) {
+        return undefined
+      }
+      await delay(25, undefined, { signal }).catch(() => {})
+    }
+  }
+
+  /**
+   * Asks the guest for a provider's model list (`read`), or only its current sign-in generation,
+   * which starts no CLI. A read that runs out closes its connection, which stops the guest's
+   * reader; the guest answers `timeout` itself once it has reaped one.
+   */
+  async function modelCatalog(
+    provider: StatusProvider,
+    kind: 'read' | 'generation',
+    signal?: AbortSignal,
+  ): Promise<BridgeCatalogAnswer> {
+    const budgetMs = kind === 'read' ? catalogTiming.readMs : catalogTiming.generationMs
+    const deadline = AbortSignal.timeout(budgetMs)
+    const stopped = AbortSignal.any([deadline, closing.signal, ...(signal ? [signal] : [])])
+    const endsAt = Date.now() + budgetMs
+    if (stopped.aborted) {
+      return { kind: 'failure', failure: 'timeout' }
+    }
+    const peer = await catalogPeer(provider, stopped, endsAt)
+    if (!peer) {
+      return stopped.aborted ? { kind: 'failure', failure: 'timeout' } : absentCatalog(provider)
+    }
+    const [socket, frames] = peer
+    // A signal that ended while the peer was taken never fires its listener, so nothing is sent.
+    if (stopped.aborted) {
+      catalogPeers[provider].set(socket, frames)
+      catalogBorrowed[provider]--
+      return { kind: 'failure', failure: 'timeout' }
+    }
+
+    const abandon = () => socket.destroy()
+
+    stopped.addEventListener('abort', abandon, { once: true })
+    try {
+      const withinMs = Math.max(0, endsAt - Date.now() - GUEST_ANSWER_MARGIN_MS)
+      const request =
+        kind === 'read' ? { catalog: 'read', within_ms: withinMs } : { catalog: 'generation' }
+      await frames.send(request, CATALOG_FRAME_BYTES)
+      const frame = await frames.read(CATALOG_FRAME_BYTES).catch((error: unknown) => {
+        // An oversized or unparsable frame; a lost connection is unavailable instead.
+        if (error instanceof SyntaxError || (error as Error).message === 'invalid_runner_frame') {
+          return undefined
+        }
+        throw error
+      })
+      stopped.throwIfAborted()
+      const answer = frame ? catalogAnswer(frame, kind) : undefined
+      if (!answer) {
+        socket.destroy()
+        return { kind: 'failure', failure: 'malformed' }
+      }
+      catalogPeers[provider].set(socket, frames)
+      return answer
+    } catch {
+      socket.destroy()
+      return { kind: 'failure', failure: stopped.aborted ? 'timeout' : 'unavailable' }
+    } finally {
+      stopped.removeEventListener('abort', abandon)
+      catalogBorrowed[provider]--
+    }
   }
 
   function absentReason(provider: StatusProvider): BridgeStatusUnknownReason {
@@ -624,6 +772,7 @@ export async function startSessionBridge(
       closing.abort()
     },
     providerStatus,
+    modelCatalog,
     close() {
       closing.abort()
       for (const socket of transports) {
@@ -632,6 +781,20 @@ export async function startSessionBridge(
       server.close()
     },
   }
+}
+
+/** The guest's answer to a catalogue request of `kind`, or undefined for any other shape. */
+function catalogAnswer(frame: Record<string, unknown>, kind: 'read' | 'generation') {
+  let answer: BridgeCatalogAnswer
+  try {
+    answer = guestCatalogAnswer(frame)
+  } catch {
+    return undefined
+  }
+  if (answer.kind !== 'failure' && answer.kind !== kind) {
+    return undefined
+  }
+  return answer
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
