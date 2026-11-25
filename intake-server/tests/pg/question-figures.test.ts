@@ -1707,6 +1707,64 @@ test('a restored photo’s question picture renders again after the sweep cleare
   })
 })
 
+test('a photo restored while the sweep waits for its batch keeps its picture', async () => {
+  await withFigureSession(async (setup) => {
+    const { fixture, tools, token, lot, photoFigure, media, store, binding } = setup
+    await fetched(setup, setup.photo)
+    const asked = accepted(await tools.ask(token, figureQuestion(lot, [photoFigure()])))
+    assert.equal(await renderFigureStep(media.pool, store, binding, fakeRenderer()), 'rendered')
+    const ready = (await figureRender(setup, asked.id!, 1))!
+    await mediaEditor(fixture.api.pool, fixture.config, setup.batchId).applied({
+      kind: 'remove',
+      evidence_ids: [setup.photo.evidence],
+    })
+
+    // A restore holding the batch's media revision lock, as the restore edit does, and not yet
+    // committed when the sweep starts.
+    const restoring = await fixture.db.pool.connect()
+    let sweeping: Promise<PromiseSettledResult<unknown>> | undefined
+    let committed = false
+    try {
+      await restoring.query('BEGIN')
+      await restoring.query(
+        "SELECT pg_advisory_xact_lock(hashtextextended('bench-media-batch/1:' || $1, 0))",
+        [setup.batchId],
+      )
+      await restoring.query(
+        `INSERT INTO media_evidence_removal(id, batch_id, evidence_id, revision, actor_id, removed)
+         SELECT $1, $2, $3, max(revision) + 1, $4, false FROM media_evidence_removal
+         WHERE batch_id=$2 AND evidence_id=$3`,
+        [randomUUID(), setup.batchId, setup.photo.evidence, fixture.config.actorId],
+      )
+      sweeping = outcomeOf(sweepFigureRenders(media.pool, store, binding))
+      let waiting = false
+      for (let tries = 0; !waiting && tries < 200; tries += 1) {
+        const locks = await fixture.db.pool.query(
+          "SELECT 1 FROM pg_locks WHERE locktype='advisory' AND NOT granted",
+        )
+        waiting = (locks.rowCount ?? 0) > 0
+        if (!waiting) {
+          await new Promise((resolve) => setTimeout(resolve, 25))
+        }
+      }
+      assert.ok(waiting, 'the sweep waits for the restore')
+      await restoring.query('COMMIT')
+      committed = true
+    } finally {
+      if (!committed) {
+        await restoring.query('ROLLBACK').catch(() => undefined)
+      }
+      restoring.release()
+    }
+    const swept = await sweeping!
+    assert.deepEqual(swept, {
+      status: 'fulfilled',
+      value: { deleted: 0, requeued: 0, collected: 0 },
+    })
+    assert.deepEqual(await figureRender(setup, asked.id!, 1), ready)
+  })
+})
+
 function findById(value: unknown, id: string): Record<string, unknown> | undefined {
   if (!value || typeof value !== 'object') {
     return undefined
@@ -1836,7 +1894,7 @@ test('collection acts only on the release it selected, and clears one whose file
   })
 })
 
-test('a render settling while the sweep deletes it and a ready render of the same bytes both finish', async () => {
+test('a render settling while the sweep requeues it and a ready render of the same bytes both finish', async () => {
   await withFigureSession(async (setup) => {
     const { fixture, tools, token, lot, photoFigure, media, store, binding } = setup
     await fetched(setup, setup.photo)
@@ -1902,7 +1960,8 @@ test('a render settling while the sweep deletes it and a ready render of the sam
         await new Promise((resolve) => setTimeout(resolve, 20))
         const blocked = await fixture.db.pool.query(
           `SELECT 1 FROM pg_stat_activity
-           WHERE wait_event_type='Lock' AND query LIKE 'DELETE FROM public.processing_figure_render%'`,
+           WHERE wait_event_type='Lock'
+             AND query LIKE 'SELECT r.id, r.view_digest, r.thumb_digest FROM public.processing_figure_render%'`,
         )
         waiting = (blocked.rowCount ?? 0) > 0
       }
@@ -1918,9 +1977,18 @@ test('a render settling while the sweep deletes it and a ready render of the sam
     assert.ok(swept.status === 'fulfilled', String((swept as PromiseRejectedResult).reason))
 
     assert.equal(settled.value, 'rendered')
-    assert.equal(swept.value.deleted, 2)
-    const left = await fixture.db.pool.query('SELECT 1 FROM processing_figure_render')
-    assert.equal(left.rowCount, 0)
+    assert.deepEqual([swept.value.deleted, swept.value.requeued], [0, 2])
+    const left = await fixture.db.pool.query<{ state: string; view: Buffer | null }>(
+      'SELECT state, view_digest AS view FROM processing_figure_render',
+    )
+    assert.deepEqual(
+      left.rows.map((row) => [row.state, row.view]),
+      [
+        ['queued', null],
+        ['queued', null],
+      ],
+      'both wait for the photo to come back',
+    )
     assert.equal(outputs.size, 2, 'one view and one thumbnail, shared by both renders')
     const shared = [...outputs].sort()
     const released = await fixture.db.pool.query<{ digest: string }>(

@@ -15,6 +15,7 @@ import { sealed } from '#/processing/model.ts'
 import { BlobStore, lockBlob, MIN_GC_AGE_MS } from './blob-store.ts'
 import { blobReferenced, retainBlob } from './blob-reference.ts'
 import { prepareMediaTransaction } from './transaction.ts'
+import { lockMediaRevision } from './commands.ts'
 import { versionRemovedSql } from './removal.ts'
 import { DecoderDispatcherBusyError } from './dispatcher-client.ts'
 
@@ -492,26 +493,40 @@ export interface SweepOutcome {
 const VIEW_REFERENCED = `EXISTS (
   SELECT 1 FROM public.processing_question_figure f WHERE f.recipe_digest=r.recipe_digest)`
 
+/** Views a question shows of a removed photo that still hold outputs, a lease or spent attempts. */
+const REQUEUE_CANDIDATES = `FROM public.processing_figure_render r
+     JOIN public.capture_batch b ON b.id=r.batch_id
+     JOIN public.media_version v ON v.batch_id=r.batch_id AND v.id=r.version_id
+     WHERE b.actor_id=$1 AND b.target_id=$2 AND b.target_context_id=$3
+       AND r.purpose='view' AND ${VIEW_REFERENCED} AND ${versionRemovedSql('v')}
+       AND (r.state<>'queued' OR r.attempts>0 OR r.lease_owner IS NOT NULL)`
+
 /**
  * Returns each view a question shows of a removed photo to the queue, with no outputs, lease or
  * spent attempts, and gives back its blobs. The claim skips it while the photo is removed, so it
  * renders again only once the photo is restored. A view already waiting so is left alone.
+ *
+ * Restore takes the batch's media revision lock, so the views are chosen again under that lock,
+ * in batch order: a photo restored while the sweep waited keeps its picture.
  */
 async function requeueRemovedViews(client: PoolClient, binding: CaptureBinding) {
+  const scope = [binding.actorId, binding.targetId, binding.targetContextId]
+  const batches = await client.query<{ batch_id: string }>(
+    `SELECT DISTINCT r.batch_id ${REQUEUE_CANDIDATES} ORDER BY r.batch_id`,
+    scope,
+  )
+  for (const batch of batches.rows) {
+    await lockMediaRevision(client, batch.batch_id)
+  }
   const views = await client.query<{
     id: string
     view_digest: Buffer | null
     thumb_digest: Buffer | null
   }>(
-    `SELECT r.id, r.view_digest, r.thumb_digest
-     FROM public.processing_figure_render r
-     JOIN public.capture_batch b ON b.id=r.batch_id
-     JOIN public.media_version v ON v.batch_id=r.batch_id AND v.id=r.version_id
-     WHERE b.actor_id=$1 AND b.target_id=$2 AND b.target_context_id=$3
-       AND r.purpose='view' AND ${VIEW_REFERENCED} AND ${versionRemovedSql('v')}
-       AND (r.state<>'queued' OR r.attempts>0 OR r.lease_owner IS NOT NULL)
+    `SELECT r.id, r.view_digest, r.thumb_digest ${REQUEUE_CANDIDATES}
+       AND r.batch_id = ANY($4::uuid[])
      FOR UPDATE OF r`,
-    [binding.actorId, binding.targetId, binding.targetContextId],
+    [...scope, batches.rows.map((batch) => batch.batch_id)],
   )
   if (!views.rowCount) {
     return views.rows
