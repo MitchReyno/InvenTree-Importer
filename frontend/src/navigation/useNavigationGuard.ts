@@ -33,6 +33,8 @@ export function useNavigationGuard() {
   const [settingsReturn, setSettingsReturn] = useState(() => storedSettingsReturnFor(route))
   const accepted = useRef({ route, settingsReturn })
   const [navigationBlocked, setNavigationBlocked] = useState(false)
+  // Whether the accepted route was written by scrolling, so its page is already in place.
+  const [routeFromScroll, setRouteFromScroll] = useState(false)
   const dirty = useRef(false)
   const protectedUrl = useRef<string | null>(null)
   // Saves what can be saved before leaving, answering whether nothing is left unsaved.
@@ -116,8 +118,13 @@ export function useNavigationGuard() {
       if (returnTo !== undefined && stored === undefined) {
         storeSettingsReturn(returnTo)
       }
+      // The same route again (the restored entry after a refused Back) keeps how it was written.
+      const moved = next !== accepted.current.route
       accepted.current = { route: next, settingsReturn: returnTo }
       setRoute(next)
+      if (moved) {
+        setRouteFromScroll(false)
+      }
       setSettingsReturn(returnTo)
     }
 
@@ -181,5 +188,38 @@ export function useNavigationGuard() {
       document.removeEventListener('click', guardLink, true)
     }
   }, [])
-  return { route, settingsReturn, navigationBlocked, onDirtyChange }
+
+  /**
+   * Replaces the current Settings › Agents entry with the subsection scrolled to. No history
+   * entry is added, and the entry keeps its state (the Settings return route); a later Back or
+   * link is judged against this subsection, which an unsaved draft now protects.
+   */
+  const replaceSubsection = useCallback((next: string) => {
+    const current = accepted.current.route
+    // A navigation the browser has made but the guard hasn't accepted yet wins over the scroll.
+    const navigating = location.hash.slice(1) !== current
+    if (navigating || next === current || !withinAgentsPage(current, next)) {
+      return
+    }
+    history.replaceState(history.state, '', `#${next}`)
+    if (dirty.current) {
+      protectedUrl.current = location.href
+    }
+    accepted.current = { ...accepted.current, route: next }
+    setRoute(next)
+    setRouteFromScroll(true)
+  }, [])
+
+  /** The operator opened the subsection the route already names, so it no longer comes from scrolling. */
+  const reopenSubsection = useCallback(() => setRouteFromScroll(false), [])
+
+  return {
+    route,
+    routeFromScroll,
+    settingsReturn,
+    navigationBlocked,
+    onDirtyChange,
+    replaceSubsection,
+    reopenSubsection,
+  }
 }

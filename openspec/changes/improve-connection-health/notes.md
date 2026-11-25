@@ -15,6 +15,9 @@ The user approved a third capability delta for the two fixed active-credential h
 - **2026-11-25T16:34+11:00, T1:** Reserve one of the existing four API connections for health fences to support existing four-connection roles. Candidate-token checks keep the ordinary five-second deadline. New clients negotiate the root observation so clients with the original closed response schema still validate replies.
 - **2026-11-25T16:34+11:00, T2:** Compare server-generated observation timestamps across recovery so browser clock skew and the manual-check throttle cannot revive an old badge.
 
+- T3 keeps pre-claim admission in the trusted dispatcher. Direct development uses a separately owned local process so the loss of a one-shot client does not kill another client’s decoder. Backfill recovery and read-only candidate selection precede admission; the durable claim follows activation.
+- T4 qualification covers the Apple Silicon Mac at the user's direction. Raspberry Pi deployments keep one slot. The Mac budget for the matched run is two one-CPU, 1 GiB decoder containers and 1 GiB of benchmark process RSS. Interactive and integrity gates still apply before selecting two.
+
 ## Open items
 
-Implementation and qualification are tracked in tasks.md.
+The qualified MacBookPro18,3 configuration uses two slots. Raspberry Pi 5 and unqualified installations retain one. Per-host configuration and rollout are documented in the deployment guide. The remaining approval and merge are tracked in tasks.md.

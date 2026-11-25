@@ -209,12 +209,7 @@ test('media claim skips a locked command and locks only its chosen command, not 
     await blocker.query('SAVEPOINT second_command')
     await blocker.query('SELECT id FROM media_decode_command WHERE id=$1 FOR UPDATE', [commands[1]])
     assert.equal(
-      await processMediaCommand(
-        fixture.db.pool,
-        store,
-        fixture.config,
-        'unused-image-no-blob-present',
-      ),
+      await processMediaCommand(fixture.db.pool, store, fixture.config, `sha256:${'0'.repeat(64)}`),
       false,
     )
     await blocker.query('ROLLBACK TO SAVEPOINT second_command')
@@ -224,7 +219,7 @@ test('media claim skips a locked command and locks only its chosen command, not 
       fixture.db.pool,
       store,
       fixture.config,
-      'unused-image-no-blob-present',
+      `sha256:${'0'.repeat(64)}`,
     )
     void processing.catch(() => undefined)
     const deadline = Date.now() + 3000

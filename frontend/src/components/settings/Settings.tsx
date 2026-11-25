@@ -1,8 +1,10 @@
+import { useEffect, type MouseEvent } from 'react'
 import styled from 'styled-components'
 import type { agentsClient } from '@invimport/contracts/client'
-import { Banner, SettingsNav, media, type SettingsSection } from '#/components/ui'
+import { Banner, SettingsNav, media, useMediaQuery, type SettingsSection } from '#/components/ui'
 import { space } from '#/theme/generated/tokens'
 import {
+  AGENT_SUBSECTIONS,
   routeBatchId,
   type AgentSubsectionId,
   type SettingsSectionId,
@@ -14,11 +16,19 @@ import { AppearanceSection } from './AppearanceSection'
 import { BatchDefaultsSection } from './BatchDefaultsSection'
 import { DeveloperSection } from './DeveloperSection'
 import { InvenTreeSection } from './InvenTreeSection'
+import { scrollToSubsection } from './agents/AgentSubsection'
+import { useSubsectionInView } from './agents/useSubsectionInView'
 
 type Props = {
   section: SettingsSectionId
   /** The Agents subsection the route points at, if any. */
   subsection?: AgentSubsectionId
+  /** Whether that route was written by scrolling, so the page is already there. */
+  routeFromScroll?: boolean
+  /** Replaces the current history entry's route with the Agents subsection scrolled to. */
+  replaceSubsection: (route: string) => void
+  /** The operator opened the subsection the route already names; it no longer comes from scrolling. */
+  onSubsectionReopened?: () => void
   /** The route Settings was opened from; none for a direct load. */
   returnTo: string | undefined
   /** Absent where this setup has no agent settings. */
@@ -54,9 +64,44 @@ const SECTIONS: SettingsSection[] = [
 ]
 
 /** The Settings page: a back link and section nav beside the open section. */
-export function Settings({ section, subsection, returnTo, agents, onDirtyChange }: Props) {
+export function Settings({
+  section,
+  subsection,
+  routeFromScroll = false,
+  replaceSubsection,
+  onSubsectionReopened,
+  returnTo,
+  agents,
+  onDirtyChange,
+}: Props) {
   // The batch screen's own read names the batch; Settings never reads it again.
   const { title } = useCachedBatchReads(routeBatchId(returnTo))
+  // Stacked, the nav isn't in view while the content scrolls, so the route alone decides.
+  const stacked = useMediaQuery(media.stacked)
+  const { inView, pause } = useSubsectionInView(
+    AGENT_SUBSECTIONS,
+    section === 'agents' && agents !== null && !stacked,
+  )
+  const currentSubsection = inView ?? subsection
+
+  // Syncs the address with the subsection scrolled to, replacing the entry rather than adding one.
+  useEffect(() => {
+    if (inView && inView !== subsection) {
+      replaceSubsection(`settings/agents/${inView}`)
+    }
+  }, [inView, subsection, replaceSubsection])
+
+  /** A link to the subsection the address already names changes no hash, so it scrolls here. */
+  function handleSubsectionClick(id: string, event: MouseEvent<HTMLAnchorElement>) {
+    const modified =
+      event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
+    if (section !== 'agents' || id !== subsection || modified) {
+      return
+    }
+    pause()
+    onSubsectionReopened?.()
+    scrollToSubsection(subsection)
+  }
 
   return (
     <Layout>
@@ -65,14 +110,17 @@ export function Settings({ section, subsection, returnTo, agents, onDirtyChange 
           back={settingsBack(returnTo, title)}
           sections={SECTIONS}
           current={section}
-          currentSubsection={subsection}
+          currentSubsection={currentSubsection}
           headingLevel="h1"
+          onSubsectionClick={handleSubsectionClick}
         />
       </NavColumn>
       <Content>
         <SectionContent
           section={section}
           subsection={subsection}
+          routeFromScroll={routeFromScroll}
+          beforeScroll={pause}
           agents={agents}
           onDirtyChange={onDirtyChange}
         />
@@ -81,11 +129,26 @@ export function Settings({ section, subsection, returnTo, agents, onDirtyChange 
   )
 }
 
-function SectionContent({ section, subsection, agents, onDirtyChange }: Omit<Props, 'returnTo'>) {
+function SectionContent({
+  section,
+  subsection,
+  routeFromScroll,
+  beforeScroll,
+  agents,
+  onDirtyChange,
+}: Omit<Props, 'returnTo' | 'replaceSubsection' | 'onSubsectionReopened'> & {
+  beforeScroll: () => void
+}) {
   switch (section) {
     case 'agents':
       return agents ? (
-        <AgentsSection client={agents} onDirtyChange={onDirtyChange} subsection={subsection} />
+        <AgentsSection
+          client={agents}
+          onDirtyChange={onDirtyChange}
+          subsection={subsection}
+          routeFromScroll={routeFromScroll}
+          beforeScroll={beforeScroll}
+        />
       ) : (
         <div role="status">
           <Banner tone="info">Agent settings are unavailable for this setup.</Banner>
@@ -124,4 +187,8 @@ const NavColumn = styled.div`
 const Content = styled.div`
   flex: 999 1 560px;
   min-width: 0;
+  /* Stacked, the content takes its own row, so the nav sits above it wherever scrolling stops following. */
+  ${media.stacked} {
+    flex-basis: 100%;
+  }
 `

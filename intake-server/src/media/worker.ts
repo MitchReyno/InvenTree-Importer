@@ -1,3 +1,4 @@
+import { withDecoderAdmission } from './decoder-admission.ts'
 import { prepareMediaTransaction } from './transaction.ts'
 import { randomUUID } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
@@ -257,12 +258,11 @@ async function publishDecoded(
   })
 }
 
-export type MediaCommandOutcome = 'decoded' | 'deferred' | 'idle'
+export type MediaCommandOutcome = 'decoded' | 'deferred' | 'busy' | 'idle'
 
 /**
- * Explicit one-command worker. A claimed interrupted command is never automatically replayed. A
- * decode that found the dispatcher busy for its whole wait ran nothing, so it is deferred, not
- * interrupted, and a later run takes it again; its version reads queued meanwhile.
+ * Reserve a slot before claiming. An explicit busy refusal after the claim defers the command.
+ * An ambiguous interruption retains its terminal outcome.
  */
 export async function runMediaCommand(
   pool: Pool,
@@ -270,6 +270,18 @@ export async function runMediaCommand(
   binding: CaptureBinding,
   image: string,
   dispatch: DispatchOptions = {},
+): Promise<MediaCommandOutcome> {
+  return withDecoderAdmission<MediaCommandOutcome>(image, 'decode', 'busy', () =>
+    processAdmittedCommand(pool, store, binding, image, dispatch),
+  )
+}
+
+async function processAdmittedCommand(
+  pool: Pool,
+  store: BlobStore,
+  binding: CaptureBinding,
+  image: string,
+  dispatch: DispatchOptions,
 ): Promise<MediaCommandOutcome> {
   const command = await claimCommand(pool, binding)
   if (!command) {
@@ -309,5 +321,5 @@ export async function processMediaCommand(
   dispatch: DispatchOptions = {},
 ) {
   const outcome = await runMediaCommand(pool, store, binding, image, dispatch)
-  return outcome !== 'idle'
+  return outcome === 'decoded' || outcome === 'deferred'
 }

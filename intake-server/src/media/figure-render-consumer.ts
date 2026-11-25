@@ -1,3 +1,4 @@
+import { withDecoderAdmission } from './decoder-admission.ts'
 import { setTimeout as delay } from 'node:timers/promises'
 import type { Pool } from 'pg'
 import type { CaptureBinding } from '#/capture/model.ts'
@@ -41,6 +42,7 @@ export interface RenderConsumerOptions {
   store: BlobStore
   binding: CaptureBinding
   render: RenderView
+  image?: string
   signal: AbortSignal
   pollMs?: number
   /** The pause after each render, so a decode waiting for the dispatcher gets its turn. */
@@ -82,12 +84,13 @@ export async function runFigureRenderConsumer(options: RenderConsumerOptions) {
         await sweepFigureRenders(options.pool, options.store, options.binding)
         nextSweep = Date.now() + (options.sweepIntervalMs ?? RENDER_SWEEP_INTERVAL_MS)
       }
-      const outcome = await renderFigureStep(
-        options.pool,
-        options.store,
-        options.binding,
-        options.render,
-      )
+
+      const step = () =>
+        renderFigureStep(options.pool, options.store, options.binding, options.render)
+
+      const outcome = options.image
+        ? await withDecoderAdmission(options.image, 'figure', 'idle' as const, step)
+        : await step()
       options.onOutcome?.(outcome)
       if (outcome !== 'idle') {
         await delay(options.yieldMs ?? RENDER_YIELD_MS, undefined, {
