@@ -225,9 +225,10 @@ async function claimRender(pool: Pool, binding: CaptureBinding, now: Date): Prom
     await prepareMediaTransaction(client)
     const busyBatches: string[] = []
     const removedRenders: string[] = []
+    // A rejected candidate is rolled back to here, releasing its row and batch locks; the one
+    // savepoint serves every candidate.
+    await client.query('SAVEPOINT render_candidate')
     for (;;) {
-      // A rejected candidate is rolled back to here, releasing its row and batch locks.
-      await client.query('SAVEPOINT render_candidate')
       const next = await client.query<CandidateRow>(
         `SELECT r.id, r.batch_id, r.purpose, r.recipe_bytes, r.recipe_digest, r.marks_bytes,
            r.marks_digest, r.attempts
