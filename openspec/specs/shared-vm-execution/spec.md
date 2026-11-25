@@ -299,7 +299,7 @@ The guest SHALL NOT run a long-lived document reader or provide `bench-web`. A t
 
 ### Requirement: Guest-staged evidence matches the delivered image
 
-The guest SHALL stage the image a fetch_evidence delivery carries, and record that image's own SHA-256, size and dimensions with it. A staged image whose bytes don't match the delivery's stated digest SHALL be refused before the provider sees it. The cited source reference SHALL remain the original version. A reply from an older host, without a delivered digest, SHALL still be staged under the earlier rule.
+The guest SHALL stage the image a fetch_evidence delivery carries, and record that image's own SHA-256, size and dimensions with it. A staged image whose bytes don't match the delivery's stated digest SHALL be refused before the provider sees it. The cited source reference SHALL remain the original version. On a compatible bridge, the guest SHALL stage a legacy-format reply under the earlier digest rules.
 
 #### Scenario: Script crops a bounded delivery
 
@@ -334,3 +334,27 @@ A guest turn that ends with a provider error SHALL send the provider's error kin
 - **GIVEN** a turn whose connection was lost and whose outcome is read back from the guest journal
 - **WHEN** the host settles it
 - **THEN** it settles with the journaled outcome and no provider error, as before.
+
+### Requirement: Tool workers negotiate evidence release confirmation
+
+Before dispatching a tool-capable VM turn, the coordinator and guest SHALL negotiate support for confirming release of evidence to the provider. Either peer SHALL refuse dispatch if its counterpart lacks support. Both delivery modes SHALL grant new citation authority only after a matching confirmation on the active turn channel.
+
+#### Scenario: Mixed bridge versions
+
+- **GIVEN** one peer lacks support for release confirmation
+- **WHEN** the other peer negotiates a tool-capable VM turn
+- **THEN** the provider turn does not start, for either inline or file delivery.
+
+#### Scenario: A compatible bridge carries legacy-format evidence
+
+- **GIVEN** both peers negotiated release confirmation
+- **WHEN** the producing coordinator explicitly identifies its response format as legacy and the guest receives a legacy preview without a rendition digest
+- **THEN** it stages the preview under the earlier digest rules and confirms only after writing the provider-facing response.
+
+
+#### Scenario: Missing rendition metadata cannot downgrade a current image
+
+- **GIVEN** the coordinator producing a current-format image labels the private delivery envelope as current using its producer version
+- **WHEN** the rendition metadata is missing or malformed, even if page metadata is present
+- **THEN** the guest refuses the delivery before exposing the image or confirming release.
+- **AND** an image envelope with a missing or unknown format label is refused.

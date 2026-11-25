@@ -229,7 +229,7 @@ Make working with agents smoother. Clicking the dimmed page beside the session d
 - Status: Done — plan merged in #243; PR-A to PR-L merged in #252, #251, #257, #260, #263, #258, #266, #276, #262, #269, #272 and #284, each with its acceptance evidence on the PR. Pictures that PR-K's sweep deleted before #284 stay "Picture couldn't be made".
 - Size: XL — a versioned question and answer contract and answer path, a resolved and paged session history, recorded photo views and web sources, a reworked answer form, a new session page, per-stage activity counts and bar states, answered-question delivery and question pictures rendered by the media decoder, in twelve PRs after the plan.
 - Prerequisites: None. Takes over BI-015's answer options; coordinate session-runner prompt edits with BI-017.
-- OpenSpec: [improve-agent-interaction](../openspec/changes/improve-agent-interaction/)
+- OpenSpec: [improve-agent-interaction](../openspec/changes/archive/2026-11-25-improve-agent-interaction/)
 
 #### BI-020 — UI polish and calm loading
 
