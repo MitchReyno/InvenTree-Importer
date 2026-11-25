@@ -1,4 +1,5 @@
 import type { AgentSessionQueryDto, AgentSettingsUpdateDto } from './agents.ts'
+import type { AgentModelCatalogRefreshDto } from './agent-model-catalog.ts'
 import { successfulData } from './client-policy.ts'
 import { typedClient } from './client-runtime.ts'
 
@@ -42,6 +43,11 @@ export function agentsClient(baseUrl: string, csrfToken: string, transport: type
           params: { query: options.refresh ? { refresh: 'true' } : {} },
         }),
       ),
+    /** Each provider's model list for its current authentication, or the built-in list. */
+    modelCatalog: () => successfulData(client.GET('/api/v1/agents/models')),
+    /** Asks for a read; `invalidate` also marks the list as from an earlier sign-in. */
+    refreshModelCatalog: (input: AgentModelCatalogRefreshDto) =>
+      successfulData(client.POST('/api/v1/agents/models/refresh', { body: input })),
     /** Pauses or resumes every batch's agent sessions at once. */
     pauseAll: (paused: boolean) =>
       successfulData(client.PUT('/api/v1/agents/pause', { body: { paused } })),

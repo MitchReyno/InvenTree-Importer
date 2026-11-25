@@ -1,17 +1,31 @@
-import { mkdir, mkdtemp, readdir, rename, rm, stat } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { AgentChild, record } from '#/agents/child.ts'
 import { CODEX_CONFIG } from '#/agents/codex.ts'
 import { requireCodexSessionVersion } from '#/agents/session/session-admission.ts'
 import { ResearchReapPendingError } from '#/research/errors.ts'
+import { codexVersion, listCodexModels } from '#/agents/model-catalog/cli-readers.ts'
+import { CatalogReadError } from '#/agents/model-catalog/normalise.ts'
+import type { GuestCatalogRead } from './model-catalog.ts'
 
 type Device = { loginId: string; verificationUrl: string; userCode: string }
 type Login = { rpc: AccountRpc; device: Device; home: string; expires: number }
 
 const unavailable = () => new Error('codex_account_unavailable')
 
-type AccountRpc = Pick<LoginRpc, 'request' | 'initialize' | 'connected' | 'close' | 'completion'>
+type AccountRpc = Pick<LoginRpc, 'request' | 'connected' | 'close' | 'completion'> & {
+  initialize(): Promise<unknown>
+}
+
+/**
+ * A persisted, non-secret identifier of the current sign-in, replaced whenever a sign-in is
+ * promoted or logged out here, so a model list read under one sign-in is never taken for another.
+ */
+const SIGN_IN_GENERATION_FILE = 'sign-in-generation'
+/** Read when no sign-in change has been recorded since this file was introduced. */
+const UNRECORDED_GENERATION = 'unrecorded'
+
 class LoginRpc {
   private sequence = 0
   completion?: Record<string, unknown>
@@ -51,6 +65,7 @@ class LoginRpc {
     )
   }
 
+  /** Returns the app-server's user agent, which names its version. */
   async initialize() {
     const result = await this.request('initialize', {
       clientInfo: { name: 'bench_intake', version: '1' },
@@ -58,6 +73,7 @@ class LoginRpc {
     })
     requireCodexSessionVersion(result.userAgent)
     await this.child.send({ method: 'initialized' })
+    return result.userAgent
   }
 
   async request(method: string, params: unknown) {
@@ -178,6 +194,8 @@ export class CodexAccount {
   /** When the last check ended, whatever its outcome: freshness counts from here. */
   private lastCheckEndedAt?: number
   private check?: StatusCheck
+  /** A model catalogue read in progress; a sign-in change stops it first, like a check. */
+  private catalogRead?: StatusCheck
   /** A check whose process wasn't confirmed gone; no further check starts beside it. */
   private reapUnconfirmed = false
   /** Bumped by each sign-in change, so a check that started before it is never reported. */
@@ -218,6 +236,7 @@ export class CodexAccount {
         // waited for; only its process's reap is awaited. If that reap isn't confirmed, the
         // process may still hold the lock, and the exclusive `flock -n` of a sign-in refuses.
         await this.stopCheck()
+        await this.stopCatalogRead()
       }
       return await this.perform(action, loginId)
     } finally {
@@ -386,6 +405,105 @@ export class CodexAccount {
     }
   }
 
+  /** The current sign-in generation, from the file a sign-in change writes. */
+  async signInGeneration(): Promise<string> {
+    try {
+      const text = (await readFile(join(this.root, SIGN_IN_GENERATION_FILE), 'utf8')).trim()
+      return text || UNRECORDED_GENERATION
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return UNRECORDED_GENERATION
+      }
+      throw error
+    }
+  }
+
+  /** Written while the exclusive account lock is held, so no read under the shared lock sees half. */
+  private async recordSignInChange() {
+    const path = join(this.root, SIGN_IN_GENERATION_FILE)
+    const staged = path + '.' + randomUUID()
+    await writeFile(staged, randomUUID(), { mode: 0o600 })
+    await rename(staged, path)
+  }
+
+  /**
+   * Reads the account's model list with app-server `model/list`, under the shared lock turns
+   * take, together with the sign-in generation read while that lock is held. Refused while a
+   * sign-in change runs; a change that starts meanwhile stops it.
+   */
+  async readModels(signal: AbortSignal): Promise<GuestCatalogRead> {
+    if (this.busy || this.pending || this.catalogRead) {
+      throw new CatalogReadError('unavailable')
+    }
+    if (!(await exists(join(this.root, 'account')))) {
+      throw new CatalogReadError('signed_out')
+    }
+    const stop = new AbortController()
+
+    const abort = () => stop.abort()
+
+    signal.addEventListener('abort', abort, { once: true })
+    const done = this.listModels(AbortSignal.any([signal, stop.signal]))
+    const read: StatusCheck = {
+      stop,
+      done: done.then(
+        () => undefined,
+        () => undefined,
+      ),
+    }
+    this.catalogRead = read
+    try {
+      return await done
+    } finally {
+      signal.removeEventListener('abort', abort)
+      if (this.catalogRead === read) {
+        this.catalogRead = undefined
+      }
+    }
+  }
+
+  private async listModels(signal: AbortSignal): Promise<GuestCatalogRead> {
+    const abandoned = new Promise<never>((_resolve, reject) => {
+      if (signal.aborted) {
+        reject(new CatalogReadError('timeout'))
+      }
+      signal.addEventListener('abort', () => reject(new CatalogReadError('timeout')), {
+        once: true,
+      })
+    })
+    abandoned.catch(() => {})
+    const rpc = this.rpc(this.root, join(this.root, 'account'), false)
+    try {
+      const userAgent = await Promise.race([rpc.initialize(), abandoned]).catch(() => {
+        throw signal.aborted ? new CatalogReadError('timeout') : new CatalogReadError('unavailable')
+      })
+      // The shared lock is held while the app-server runs, so this is the sign-in it reads.
+      const generation = await this.signInGeneration()
+      const pages = await Promise.race([listCodexModels(rpc), abandoned]).catch(
+        (error: unknown) => {
+          if (error instanceof CatalogReadError) {
+            throw error
+          }
+          throw signal.aborted
+            ? new CatalogReadError('timeout')
+            : new CatalogReadError('unavailable')
+        },
+      )
+      return { generation, cliVersion: codexVersion(userAgent), raw: pages }
+    } finally {
+      // Returns only once the account process is reaped; throws when that isn't confirmed.
+      await rpc.close()
+    }
+  }
+
+  private async stopCatalogRead() {
+    const read = this.catalogRead
+    if (read) {
+      read.stop.abort()
+      await read.done
+    }
+  }
+
   private async perform(action: unknown, loginId: unknown) {
     const active = join(this.root, 'account')
     if (this.pending) {
@@ -426,6 +544,7 @@ export class CodexAccount {
         }
         // Promote only the matching completed attempt, while its exclusive lock is held.
         await rename(login.home, active)
+        await this.recordSignInChange()
         this.lastStatusLogin = login.device.loginId
         await this.abandon()
         return { state: 'connected' }
@@ -456,6 +575,7 @@ export class CodexAccount {
           return { state: connected ? 'connected' : 'disconnected' }
         }
         await rename(active, join(this.root, 'signed-out-' + randomUUID()))
+        await this.recordSignInChange()
       } finally {
         await rpc.close()
       }

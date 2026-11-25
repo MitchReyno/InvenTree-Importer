@@ -1,0 +1,239 @@
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { test } from 'node:test'
+import {
+  CatalogReadError,
+  checkedCatalog,
+  claudeApiModels,
+  claudeCliModels,
+  codexModels,
+  openAiModelIds,
+} from '#/agents/model-catalog/normalise.ts'
+
+function fixture(name: string) {
+  return JSON.parse(
+    readFileSync(new URL(`./fixtures/model-catalog/${name}`, import.meta.url), 'utf8'),
+  ) as Record<string, unknown>
+}
+
+const claudeLive = fixture('claude-initialize-2.1.319.json')
+const claudeOffline = fixture('claude-initialize-offline-2.1.319.json')
+const codexLive = fixture('codex-model-list-0.166.0.json')
+
+function refusedAs(run: () => unknown, code: string) {
+  assert.throws(run, (error) => error instanceof CatalogReadError && error.code === code)
+}
+
+test('Claude Code 2.1.319: aliases fold into the exact models, 4.x sit in Older', () => {
+  const models = claudeCliModels(claudeLive.models)
+  // 14 entries, of which `default` and the four short aliases name models listed once.
+  assert.equal(models.length, 13)
+  const byId = new Map(models.map((model) => [model.id, model]))
+  assert.equal(new Set(models.map((model) => model.id)).size, 13)
+  // The exact entry's name wins over the alias's "Default (recommended)".
+  assert.equal(byId.get('claude-fable-5-2')?.name, 'Fable 5.2')
+  assert.equal(byId.get('claude-fable-5-2')?.default, true)
+  assert.equal(models.filter((model) => model.default).length, 1)
+  // An alias with no exact entry keeps its own versioned name.
+  assert.equal(byId.get('claude-opus-5-5')?.name, 'Opus 5.5')
+  assert.equal(byId.get('claude-sonnet-5-5')?.name, 'Sonnet 5.5')
+  assert.deepEqual(byId.get('claude-sonnet-4-6')?.efforts, ['low', 'medium', 'high', 'max'])
+  assert.equal(byId.get('claude-sonnet-4-6')?.older, true)
+  // Haiku 4.5 takes no effort.
+  assert.deepEqual(byId.get('claude-haiku-4-5-20251001')?.efforts, [])
+  assert.equal(byId.get('claude-haiku-4-5-20251001')?.older, true)
+  assert.equal(byId.get('claude-sonnet-5')?.older, false)
+  for (const model of models) {
+    assert.equal(model.default_effort, null)
+    assert.equal(model.usable, null)
+  }
+  assert.deepEqual(
+    models.filter((model) => model.older).map((model) => model.id),
+    [
+      'claude-haiku-4-5-20251001',
+      'claude-opus-4-8',
+      'claude-opus-4-7',
+      'claude-opus-4-6',
+      'claude-sonnet-4-6',
+    ],
+  )
+})
+
+test('a reply with no network lists the aliases resolved to their models', () => {
+  const models = claudeCliModels(claudeOffline.models)
+  assert.deepEqual(
+    models.map((model) => model.id),
+    ['claude-sonnet-5-5', 'claude-fable-5-1', 'claude-opus-5-5', 'claude-haiku-5-5'],
+  )
+  assert.equal(models[0].default, true)
+})
+
+test('IDs the model ID check refuses fold into their resolved model or are left out', () => {
+  const entry = (value: string, resolvedModel: string | undefined, displayName: string) => ({
+    value,
+    resolvedModel,
+    displayName,
+    supportsEffort: true,
+    supportedEffortLevels: ['low', 'high'],
+  })
+  const models = claudeCliModels([
+    entry('opus[1m]', 'claude-opus-5-5', 'Opus (1M)'),
+    entry('claude-opus-5-5', 'claude-opus-5-5', 'Opus 5.5'),
+    entry('sonnet[1m]', 'claude-sonnet-5-5[1m]', 'Sonnet (1M)'),
+    entry('weird[1m]', undefined, 'Weird'),
+  ])
+  assert.deepEqual(
+    models.map((model) => [model.id, model.name]),
+    [['claude-opus-5-5', 'Opus 5.5']],
+  )
+})
+
+test('only 4.x models all sit in Older, and a newer major makes the rest older', () => {
+  const entry = (id: string) => ({ value: id, resolvedModel: id, displayName: id })
+  assert.ok(
+    claudeCliModels([entry('claude-opus-4-8'), entry('claude-sonnet-4-6')]).every(
+      (model) => model.older,
+    ),
+  )
+  const mixed = claudeCliModels([entry('claude-opus-7'), entry('claude-opus-6-1')])
+  assert.deepEqual(
+    mixed.map((model) => model.older),
+    [false, true],
+  )
+})
+
+test('malformed Claude replies are refused', () => {
+  refusedAs(() => claudeCliModels(undefined), 'malformed')
+  refusedAs(() => claudeCliModels([{ value: 'x' }]), 'malformed')
+  refusedAs(
+    () =>
+      claudeCliModels([
+        {
+          value: 'opus',
+          resolvedModel: 'claude-opus-5-5',
+          displayName: 'Opus',
+          supportsEffort: true,
+          supportedEffortLevels: ['HIGH'],
+        },
+      ]),
+    'malformed',
+  )
+  refusedAs(
+    () =>
+      claudeCliModels([
+        { value: 'claude-x-5', resolvedModel: 'claude-x-5', displayName: 'n'.repeat(81) },
+      ]),
+    'malformed',
+  )
+})
+
+test('Codex 0.166.0: hidden models are left out, the default and its effort kept', () => {
+  const hidden = { ...(codexLive.data as Record<string, unknown>[])[1], hidden: true }
+  const data = [...(codexLive.data as unknown[])]
+  data[1] = hidden
+  const models = codexModels([{ data, nextCursor: null }])
+  assert.equal(models.length, 9)
+  assert.ok(!models.some((model) => model.id === 'gpt-6.2-astra'))
+  const sol = models[0]
+  assert.deepEqual(sol, {
+    id: 'gpt-6.2-sol',
+    name: 'GPT-6.2-Sol',
+    older: false,
+    default: true,
+    efforts: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'],
+    default_effort: 'low',
+    usable: null,
+  })
+  assert.deepEqual(models.find((model) => model.id === 'gpt-6-luna')?.efforts, [
+    'low',
+    'medium',
+    'high',
+    'xhigh',
+    'max',
+  ])
+  assert.ok(models.every((model) => !model.older))
+})
+
+test('Codex pages are joined in order', () => {
+  const data = codexLive.data as unknown[]
+  const models = codexModels([
+    { data: data.slice(0, 4), nextCursor: 'next' },
+    { data: data.slice(4), nextCursor: null },
+  ])
+  assert.equal(models.length, 10)
+  assert.equal(models[4].id, 'gpt-6-astra')
+})
+
+test('with an API key, each Codex model says whether the key may use it', () => {
+  const usable = openAiModelIds({
+    object: 'list',
+    data: [
+      { id: 'gpt-6.2-sol', object: 'model' },
+      { id: 'gpt-6-luna', object: 'model' },
+    ],
+  })
+  const models = codexModels([codexLive], usable)
+  assert.equal(models.find((model) => model.id === 'gpt-6.2-sol')?.usable, true)
+  assert.equal(models.find((model) => model.id === 'gpt-6-luna')?.usable, true)
+  assert.equal(models.find((model) => model.id === 'gpt-6.1-terra')?.usable, false)
+  refusedAs(() => openAiModelIds({ data: 'x' }), 'malformed')
+})
+
+test("Anthropic's models API names and efforts", () => {
+  const models = claudeApiModels([
+    {
+      data: [
+        {
+          id: 'claude-opus-5-5',
+          display_name: 'Claude Opus 5.5',
+          capabilities: {
+            effort: {
+              supported: true,
+              low: { supported: true },
+              medium: { supported: true },
+              xhigh: { supported: false },
+              max: { supported: true },
+            },
+          },
+        },
+        {
+          id: 'claude-haiku-4-5-20251001',
+          display_name: 'Claude Haiku 4.5',
+          capabilities: { effort: { supported: false } },
+        },
+      ],
+      has_more: false,
+    },
+  ])
+  assert.deepEqual(
+    models.map((model) => [model.id, model.name, model.efforts, model.older]),
+    [
+      ['claude-opus-5-5', 'Opus 5.5', ['low', 'medium', 'max'], false],
+      ['claude-haiku-4-5-20251001', 'Haiku 4.5', [], true],
+    ],
+  )
+  refusedAs(() => claudeApiModels([{ data: [{ id: 5 }] }]), 'malformed')
+})
+
+test('a list over the row limit or the model count is refused', () => {
+  const many = Array.from({ length: 201 }, (_unused, index) => ({
+    id: `gpt-${index}`,
+    model: `gpt-${index}`,
+    displayName: `GPT ${index}`,
+    hidden: false,
+    isDefault: false,
+    defaultReasoningEffort: 'low',
+    supportedReasoningEfforts: [{ reasoningEffort: 'low' }],
+  }))
+  refusedAs(() => codexModels([{ data: many, nextCursor: null }]), 'malformed')
+  const long = Array.from({ length: 200 }, (_unused, index) => ({
+    id: `m${index}-${'x'.repeat(120)}`,
+    name: 'n'.repeat(80),
+    older: false,
+    default: false,
+    efforts: Array.from({ length: 12 }, () => 'a'.repeat(32)),
+    default_effort: null,
+    usable: null,
+  }))
+  refusedAs(() => checkedCatalog(long), 'malformed')
+})

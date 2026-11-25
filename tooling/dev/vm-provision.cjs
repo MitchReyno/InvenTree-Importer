@@ -47,8 +47,9 @@ const GUEST_SERVICES = {
  */
 const SERVICE_MOUNTS = {
   'bench-claude-egress': ['egress'],
-  // `guest`: the pairing identity that authenticates the status-only endpoint.
-  'bench-claude-management': ['claude-store', 'guest', 'operator'],
+  // `guest`: the pairing identity that authenticates the status and model catalogue endpoints;
+  // `egress`: the Anthropic-only route a catalogue read takes, as a turn's does.
+  'bench-claude-management': ['claude-store', 'egress', 'guest', 'operator'],
   'bench-codex-egress': ['codex-egress'],
   'bench-codex-management': ['codex-egress', 'codex-state', 'guest', 'operator'],
 }

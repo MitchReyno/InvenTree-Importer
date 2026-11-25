@@ -107,15 +107,17 @@ const tools = process.env.INTAKE_VM_BUILTIN_TOOLS === '1'
 if (tools && !(codex || subscription)) throw new Error('tool_worker_requires_selected_provider')
 const toolScript = tools ? readFileSync(new URL('./tool-turn.sh', import.meta.url), 'utf8') : ''
 
-// A subscription relay also carries its provider's status connection. The credential service is
-// the TLS client on it (see intake-server/src/agents/shared-vm/provider-status.ts, which also
-// names the socket); this end only moves bytes.
+// A subscription relay also carries its provider's status connection and its model catalogue
+// connection. The credential service is the TLS client on each (see
+// intake-server/src/agents/shared-vm/provider-status.ts and model-catalog.ts, which also name the
+// sockets); this end only moves bytes.
 const statusContainer = codex
   ? 'bench-codex-management'
   : subscription
     ? 'bench-claude-management'
     : undefined
 const statusSocket = '/tmp/bench-status/status.sock'
+const catalogSocket = '/tmp/bench-status/catalog.sock'
 const statusPump = `
   // Before the socket opens, it ends by itself when the relay closes its input or in 10 s.
   const starting = setTimeout(() => process.exit(1), 10000)
@@ -144,7 +146,7 @@ function waitFor(ms, value, signal) {
 }
 
 /** Starts the pump in the management container; resolves once it reports its socket open. */
-async function openStatusPeer() {
+async function openStatusPeer(socketPath) {
   const peer = spawn(
     'limactl',
     [
@@ -159,7 +161,7 @@ async function openStatusPeer() {
       'node',
       '-e',
       statusPump,
-      statusSocket,
+      socketPath,
     ],
     { stdio: ['pipe', 'pipe', 'pipe'] },
   )
@@ -187,9 +189,9 @@ async function openStatusPeer() {
   return { peer, exited }
 }
 
-/** Carries one status connection until either end closes; false when it couldn't be opened. */
-async function carryStatusOnce() {
-  const opened = await openStatusPeer()
+/** Carries one connection until either end closes; false when it couldn't be opened. */
+async function carryStatusOnce(socketPath) {
+  const opened = await openStatusPeer(socketPath)
   if (!opened) {
     return false
   }
@@ -223,12 +225,12 @@ async function carryStatusOnce() {
   return true
 }
 
-/** Keeps one status connection from the credential service to the coordinator. */
-async function carryStatus() {
+/** Keeps one connection from the credential service's socket to the coordinator. */
+async function carryStatus(socketPath) {
   let retryMs = 500
   while (!stopping.signal.aborted) {
-    // A status failure never ends the relay: turns keep running while it retries.
-    const carried = await carryStatusOnce().catch(() => false)
+    // A status or catalogue failure never ends the relay: turns keep running while it retries.
+    const carried = await carryStatusOnce(socketPath).catch(() => false)
     if (carried) {
       retryMs = 500
     } else {
@@ -237,7 +239,13 @@ async function carryStatus() {
     await waitFor(retryMs, undefined, stopping.signal)
   }
 }
-const status = statusContainer ? carryStatus().catch(() => {}) : undefined
+// Each on its own connection, so a catalogue read of many seconds never holds a status read.
+const status = statusContainer
+  ? Promise.all([
+      carryStatus(statusSocket).catch(() => {}),
+      carryStatus(catalogSocket).catch(() => {}),
+    ])
+  : undefined
 for (;;) {
   let socket
   try {

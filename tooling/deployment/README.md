@@ -159,6 +159,12 @@ A runner image that changes the guest needs the image refreshed, and the provide
 
 An attempt sealed with an effort (the agent settings save one per step and per provider) needs a runner image from a build with migration `0042`: an older guest refuses its manifest, and the turn fails before the CLI starts. Apply the migration and refresh the API and coordinator roles' grants before starting the new build's API and session worker. Attempts on Default carry no effort and run on either image.
 
+### Model lists from the guest
+
+The session worker reads each signed-in provider's model list in the guest, without a turn, and serves it at `GET /api/v1/agents/models`. Each management container serves the read on a private catalogue socket beside its status socket, and the subscription relay carries a second connection for it, so a read of several seconds never holds a status read. Claude's read starts the pinned Claude CLI in the management container and sends only its `initialize` request, with the saved token and the Anthropic-only egress a turn uses: offline, the pinned 2.1.319 answers only its built-in aliases, so the full list needs that egress. The provider script therefore mounts the Claude egress directory read-only into `bench-claude-management` and gives it a 64 MiB `/tmp`, 768 MiB and 128 processes for that CLI. Codex's read runs app-server `model/list` under the shared account lock turns take. Neither read sends a user message or starts a paid turn. The guest's API-key routes have no key, so those modes keep the built-in list.
+
+Refresh the runner image and rerun both provider scripts after updating the intake server; managed `pnpm dev` does both. Until then a provider's read fails as `guest_outdated` (an older image) or `unavailable` (containers not yet restarted on the new one), and Settings shows the last stored or built-in list.
+
 ### Shared VM sessions with native tools
 
 Select `INTAKE_PROCESSING_PROFILE=shared-vm-agent/3` on both the API and coordinator. Run the current migrations and use matching app and personal runner images. The profile ID is sealed when a job is queued. A `shared-vm-agent/3` coordinator fails any retained `shared-vm-agent/2` attempt with `agent_profile_retired`, keeping its history; run that step again. The tool worker currently supports the two personal subscription routes.

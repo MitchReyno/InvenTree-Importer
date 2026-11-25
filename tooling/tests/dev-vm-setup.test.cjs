@@ -24,7 +24,7 @@ const SERVICES = {
 const MANAGEMENT = new Set(['bench-claude-management', 'bench-codex-management'])
 const MOUNTS = {
   'bench-claude-egress': ['egress'],
-  'bench-claude-management': ['claude-store', 'guest', 'operator'],
+  'bench-claude-management': ['claude-store', 'egress', 'guest', 'operator'],
   'bench-codex-egress': ['codex-egress'],
   'bench-codex-management': ['codex-egress', 'codex-state', 'guest', 'operator'],
 }
