@@ -267,7 +267,51 @@ test('a declared page that is not its PNG is malformed even when no crop uses it
     pngFrom([...beforeData, pngChunk('PLTE', paletteBytes), firstData, secondData, end])
   // A truecolour page may carry a suggested palette of whole RGB entries.
   assert.equal((await renderPreview(withPage(truecolourWith(Buffer.alloc(6))))).state, 'ready')
+  const headerWith = (field: number, value: number) => {
+    const data = Buffer.from(header.data)
+    data[field] = value
+    return pngFrom([pngChunk('IHDR', data), ...chunks.slice(1)])
+  }
+  // A greyscale page may carry no palette at all.
+  const grey = await sharp({
+    create: { width: 50, height: 40, channels: 3, background: '#808080' },
+  })
+    .toColourspace('b-w')
+    .png()
+    .toBuffer()
+  const greyChunks = pngChunks(grey)
+  assert.equal(greyChunks[0].data[9], 0, 'greyscale colour type')
+  assert.equal((await renderPreview(withPage(grey))).state, 'ready')
+  const greyWithPalette = pngFrom([
+    greyChunks[0],
+    pngChunk('PLTE', Buffer.alloc(6)),
+    ...greyChunks.slice(1),
+  ])
+  // A 1-bit indexed page may hold at most two palette entries.
+  const indexed = (entries: number) => {
+    const ihdr = Buffer.alloc(13)
+    ihdr.writeUInt32BE(50, 0)
+    ihdr.writeUInt32BE(40, 4)
+    ihdr.set([1, 3, 0, 0, 0], 8)
+    // Each row: filter type 0, then 50 one-bit indices in 7 bytes.
+    const rows = Buffer.alloc(40 * 8)
+    return pngFrom([
+      pngChunk('IHDR', ihdr),
+      pngChunk('PLTE', Buffer.alloc(entries * 3, 0x80)),
+      pngChunk('IDAT', zlib.deflateSync(rows)),
+      pngChunk('IEND', Buffer.alloc(0)),
+    ])
+  }
+  assert.equal((await renderPreview(withPage(indexed(2)))).state, 'ready')
+  const tooManyEntries = indexed(3)
   const cases = [
+    headerWith(9, 5),
+    headerWith(8, 7),
+    headerWith(10, 1),
+    headerWith(11, 1),
+    headerWith(12, 2),
+    greyWithPalette,
+    tooManyEntries,
     truecolourWith(Buffer.alloc(4)),
     truecolourWith(Buffer.alloc(0)),
     truecolourWith(Buffer.alloc(3 * 257)),
