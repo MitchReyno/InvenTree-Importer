@@ -188,10 +188,10 @@ With suggestions 3 and 4 also applied, Match's search core (PR-C1) would start i
 - **Verification:** decoder tests and contracts tests.
 - **Risks and decisions:** the light-adjustment bounds are open; record the chosen bounds in `notes.md`. Recipe `/2` has no marks; marks belong only to BI-019's question figures.
 
-- [ ] 5.1 Read the guidelines, the decoder README, the skills' scripts and BI-019's view recipe and `render_view`. Generate parity fixtures from the scripts.
-- [ ] 5.2 RED: write the parity tests.
-- [ ] 5.3 GREEN: implement the ports and recipe `/2`.
-- [ ] 5.4 Run the decoder and contracts tests.
+- [x] 5.1 Read the guidelines, the decoder README, the skills' scripts and BI-019's view recipe and `render_view`. Generate parity fixtures from the scripts.
+- [x] 5.2 RED: write the parity tests.
+- [x] 5.3 GREEN: implement the ports and recipe `/2`.
+- [x] 5.4 Run the decoder and contracts tests.
 
 ## 10. Image tools and the Images review
 

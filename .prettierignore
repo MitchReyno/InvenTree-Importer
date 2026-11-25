@@ -19,6 +19,8 @@
 **/vectors/**
 **/fixtures/**
 **/migrations/**
+# The decoder's bundled logo set keeps the chip-logo-identification skill's bytes.
+media-decoder/src/chip-logos/**
 docs/**
 spikes/**
 openspec/changes/**/spikes/**

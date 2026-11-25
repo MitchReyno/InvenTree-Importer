@@ -213,6 +213,64 @@ export function assertMediaViewMarks(value: unknown): asserts value is MediaView
 export type MediaViewRecipeDto = Static<typeof MediaViewRecipe>
 export type MediaViewMarkDto = Static<typeof MediaViewMark>
 
+/** Autocontrast clips at most 5% of the luminance histogram at each end, in tenths of a percent. */
+export const VIEW_CONTRAST_MAX_CLIP_PERMILLE = 50
+/** Gamma lifts (above 1000) or darkens (below 1000) the midtones, in thousandths. */
+export const VIEW_GAMMA_MIN_THOUSANDTHS = 500
+export const VIEW_GAMMA_MAX_THOUSANDTHS = 2000
+
+/** A preview renders at most this many crops, from at most this many pages. */
+export const PREVIEW_MAX_CROPS = 8
+export const PREVIEW_MAX_PAGES = 4
+/** A crop's, box's or grid's label is short; it is drawn on the montage or the grid. */
+export const DECODER_LABEL_MAX_CHARACTERS = 40
+export const GRID_MIN_PREVIEW_WIDTH = 200
+export const GRID_MAX_PREVIEW_WIDTH = 2000
+export const GRID_MAX_BOXES = 8
+export const LOGO_MATCH_MAX_CANDIDATES = 30
+
+/**
+ * Light adjustments on a lit view, applied after the geometry in this order. White balance scales
+ * each channel by a bounded grey-world gain; the others scale a pixel's channels together to a new
+ * luminance. A saturated pixel (HSV saturation of at least ½, brightest channel and channel spread
+ * both at least 16 levels) turns at most 5° in all. The luminance steps turn a pixel whose brightest channel and channel
+ * spread are both at least 16 levels at most 2.5°; below that, rounding can turn or erase a hue.
+ */
+export const MediaViewLight = object({
+  white_balance: Type.Boolean(),
+  contrast_clip_permille: Type.Union([
+    Type.Integer({ minimum: 0, maximum: VIEW_CONTRAST_MAX_CLIP_PERMILLE }),
+    Type.Null(),
+  ]),
+  gamma_thousandths: Type.Union([
+    Type.Integer({ minimum: VIEW_GAMMA_MIN_THOUSANDTHS, maximum: VIEW_GAMMA_MAX_THOUSANDTHS }),
+    Type.Null(),
+  ]),
+  sharpen: Type.Boolean(),
+})
+/**
+ * Recipe `/2`: the shared view recipe with light adjustments. It never carries marks. A derived
+ * crop renders it at the region's full resolution.
+ */
+export const MediaLitViewRecipe = object({
+  version: Type.Literal('bench-intake-view/2'),
+  source_version_id: Id,
+  source_digest: Digest,
+  page: Type.Integer({ minimum: 1, maximum: 30 }),
+  page_width: dimension,
+  page_height: dimension,
+  view: MediaViewGeometry,
+  light: MediaViewLight,
+})
+export type MediaViewLightDto = Static<typeof MediaViewLight>
+export type MediaLitViewRecipeDto = Static<typeof MediaLitViewRecipe>
+
+export function assertMediaLitViewRecipe(value: unknown): asserts value is MediaLitViewRecipeDto {
+  if (!Value.Check(MediaLitViewRecipe, value)) {
+    throw new Error('invalid_view_recipe')
+  }
+}
+
 export const MediaDecodeState = Type.Union(
   ['queued', 'ready', 'unsupported', 'encrypted', 'malformed', 'limit_exceeded', 'interrupted'].map(
     (state) => Type.Literal(state),
@@ -496,6 +554,143 @@ export function assertMediaViewOutputHeader(
   }
 }
 
+const failedDecoderOperation = object({
+  state: Type.Union([Type.Literal('malformed'), Type.Literal('limit_exceeded')]),
+  toolchain: Type.Literal(MEDIA_TOOLCHAIN),
+})
+const outputLabel = Type.String({ minLength: 1, maxLength: DECODER_LABEL_MAX_CHARACTERS })
+const outputRegion = object({ x: pixel, y: pixel, width: dimension, height: dimension })
+
+/**
+ * One previewed crop: its size and what the renderer changed, or why it refused the recipe. A
+ * `corner_guard` crop was shrunk so straightening shows no blank corners; `white_balance_held_back`
+ * means the gains were scaled towards 1 to keep saturated hues.
+ */
+const PreviewCropOutput = Type.Union([
+  object({
+    state: Type.Literal('rendered'),
+    label: outputLabel,
+    width: dimension,
+    height: dimension,
+    flags: Type.Array(
+      Type.Union([Type.Literal('corner_guard'), Type.Literal('white_balance_held_back')]),
+      { maxItems: 2, uniqueItems: true },
+    ),
+    white_balance_gains: Type.Union([
+      object({ red: Type.Number(), green: Type.Number(), blue: Type.Number() }),
+      Type.Null(),
+    ]),
+  }),
+  object({
+    state: Type.Literal('refused'),
+    label: outputLabel,
+    reason: Type.Literal('white_balance_hue_guard'),
+  }),
+])
+/** The montage PNG follows the header. */
+const MediaPreviewOutputHeader = Type.Union([
+  object({
+    state: Type.Literal('ready'),
+    toolchain: Type.Literal(MEDIA_TOOLCHAIN),
+    montage: MediaViewOutputImage,
+    crops: Type.Array(PreviewCropOutput, { minItems: 1, maxItems: PREVIEW_MAX_CROPS }),
+  }),
+  failedDecoderOperation,
+])
+export type MediaPreviewOutputHeaderDto = Static<typeof MediaPreviewOutputHeader>
+
+export function assertMediaPreviewOutputHeader(
+  value: unknown,
+): asserts value is MediaPreviewOutputHeaderDto {
+  if (!Value.Check(MediaPreviewOutputHeader, value)) {
+    throw new Error('invalid_decoder_output')
+  }
+}
+
+/**
+ * A grid overlay: its scale (preview pixels per page pixel), the grid step and the labelled lines,
+ * all in page pixels, and each box's size, aspect and margins to the object when one was given.
+ * The grid PNG follows the header.
+ */
+const MediaGridOutputHeader = Type.Union([
+  object({
+    state: Type.Literal('ready'),
+    toolchain: Type.Literal(MEDIA_TOOLCHAIN),
+    image: MediaViewOutputImage,
+    region: outputRegion,
+    scale: Type.Number({ exclusiveMinimum: 0 }),
+    step: Type.Integer({ minimum: 1 }),
+    x_labels: Type.Array(pixel, { maxItems: 400 }),
+    y_labels: Type.Array(pixel, { maxItems: 400 }),
+    boxes: Type.Array(
+      object({
+        name: outputLabel,
+        /** The name, or the box's number when the name didn't fit; null when neither was drawn. */
+        drawn_label: Type.Union([outputLabel, Type.Null()]),
+        box: outputRegion,
+        aspect: Type.Number({ exclusiveMinimum: 0 }),
+        margins: Type.Union([
+          object({
+            left: Type.Integer(),
+            right: Type.Integer(),
+            top: Type.Integer(),
+            bottom: Type.Integer(),
+          }),
+          Type.Null(),
+        ]),
+        clips: Type.Boolean(),
+        off_centre: Type.Array(Type.Union([Type.Literal('x'), Type.Literal('y')]), {
+          maxItems: 2,
+          uniqueItems: true,
+        }),
+      }),
+      { maxItems: GRID_MAX_BOXES },
+    ),
+  }),
+  failedDecoderOperation,
+])
+export type MediaGridOutputHeaderDto = Static<typeof MediaGridOutputHeader>
+
+export function assertMediaGridOutputHeader(
+  value: unknown,
+): asserts value is MediaGridOutputHeaderDto {
+  if (!Value.Check(MediaGridOutputHeader, value)) {
+    throw new Error('invalid_decoder_output')
+  }
+}
+
+/**
+ * The logo set ranked against a view, best first. A view with no mark to compare has no
+ * candidates. The candidate sheet PNG follows the header.
+ */
+const MediaLogoMatchOutputHeader = Type.Union([
+  object({
+    state: Type.Literal('ready'),
+    toolchain: Type.Literal(MEDIA_TOOLCHAIN),
+    sheet: MediaViewOutputImage,
+    candidates: Type.Array(
+      object({
+        id: Type.String({ minLength: 1, maxLength: 64 }),
+        manufacturer: Type.String({ minLength: 1, maxLength: 200 }),
+        family: Type.String({ minLength: 1, maxLength: 32 }),
+        page: Type.String({ minLength: 1, maxLength: 64 }),
+        score: Type.Number({ minimum: -1, maximum: 1 }),
+      }),
+      { maxItems: LOGO_MATCH_MAX_CANDIDATES },
+    ),
+  }),
+  failedDecoderOperation,
+])
+export type MediaLogoMatchOutputHeaderDto = Static<typeof MediaLogoMatchOutputHeader>
+
+export function assertMediaLogoMatchOutputHeader(
+  value: unknown,
+): asserts value is MediaLogoMatchOutputHeaderDto {
+  if (!Value.Check(MediaLogoMatchOutputHeader, value)) {
+    throw new Error('invalid_decoder_output')
+  }
+}
+
 export type MediaOutputPageDto = Static<typeof MediaOutputPage>
 export type MediaOutputRenditionDto = Static<typeof MediaOutputRendition>
 export type MediaOutputHeaderDto = Static<typeof MediaOutputHeader>
@@ -606,15 +801,36 @@ export {
   regionTrigonometry,
   viewLayout,
   type ViewLayout,
+  type ViewSize,
   rotatedMediaRegion,
   requireMediaRecipeBounds,
 } from './media-geometry.ts'
 
+const decoderLabel = Type.String({ minLength: 1, maxLength: DECODER_LABEL_MAX_CHARACTERS })
+const pageRegion = object({ x: pixel, y: pixel, width: dimension, height: dimension })
+/** A page preview PNG and the evidence page it was decoded from, which each recipe must name. */
+const PreviewPage = object({
+  source_version_id: Id,
+  source_digest: Digest,
+  page: Type.Integer({ minimum: 1, maximum: 30 }),
+  digest: Digest,
+  width: dimension,
+  height: dimension,
+  byte_size: Type.Integer({ minimum: 1, maximum: MEDIA_PREVIEW_MAX_BYTES }),
+})
+const PreviewCrop = object({
+  label: decoderLabel,
+  /** Index into `pages`. */
+  page: Type.Integer({ minimum: 0, maximum: PREVIEW_MAX_PAGES - 1 }),
+  recipe: MediaLitViewRecipe,
+})
+
 const MediaDecoderInputHeader = Type.Union([
+  /** An original decoded into pages; with a recipe, into the one derived crop it describes. */
   object({
     version: Type.Literal('media-decode/1'),
     digest: Digest,
-    recipe: Type.Union([MediaRecipe, Type.Null()]),
+    recipe: Type.Union([MediaRecipe, MediaLitViewRecipe, Type.Null()]),
   }),
   /** One retained page PNG, rendered into its renditions only. */
   object({
@@ -631,6 +847,53 @@ const MediaDecoderInputHeader = Type.Union([
     height: dimension,
     recipe: MediaViewRecipe,
     marks: Type.Union([MediaViewMarks, Type.Null()]),
+  }),
+  /** A view of a lit recipe `/2`, lit at full resolution and then sized; it never has marks. */
+  object({
+    version: Type.Literal('media-view/1'),
+    digest: Digest,
+    width: dimension,
+    height: dimension,
+    recipe: MediaLitViewRecipe,
+    marks: Type.Null(),
+  }),
+  /**
+   * `preview_images`: retained page PNGs, sent one after another in this order, and lit recipes on
+   * them, each rendered as its derived crop would be, then laid out on one labelled montage.
+   */
+  object({
+    version: Type.Literal('media-preview/1'),
+    pages: Type.Array(PreviewPage, { minItems: 1, maxItems: PREVIEW_MAX_PAGES }),
+    crops: Type.Array(PreviewCrop, { minItems: 1, maxItems: PREVIEW_MAX_CROPS }),
+  }),
+  /**
+   * `inspect_region`: a labelled grid in page pixels over one retained page PNG, or a region of it,
+   * with proposed boxes measured against the object's bounds. A null step picks one.
+   */
+  object({
+    version: Type.Literal('media-grid/1'),
+    digest: Digest,
+    width: dimension,
+    height: dimension,
+    region: Type.Union([pageRegion, Type.Null()]),
+    preview_width: Type.Integer({
+      minimum: GRID_MIN_PREVIEW_WIDTH,
+      maximum: GRID_MAX_PREVIEW_WIDTH,
+    }),
+    step: Type.Union([Type.Integer({ minimum: 1, maximum: 100_000 }), Type.Null()]),
+    object: Type.Union([pageRegion, Type.Null()]),
+    boxes: Type.Array(object({ name: decoderLabel, box: pageRegion }), {
+      maxItems: GRID_MAX_BOXES,
+    }),
+  }),
+  /** `match_logo`: the bundled logo set ranked against a view of one retained page PNG. */
+  object({
+    version: Type.Literal('media-logo-match/1'),
+    digest: Digest,
+    width: dimension,
+    height: dimension,
+    view: MediaViewGeometry,
+    top: Type.Integer({ minimum: 1, maximum: LOGO_MATCH_MAX_CANDIDATES }),
   }),
 ])
 type MediaDecoderInputHeaderDto = Static<typeof MediaDecoderInputHeader>
