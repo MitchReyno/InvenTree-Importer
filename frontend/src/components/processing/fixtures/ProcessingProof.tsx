@@ -641,9 +641,7 @@ export function ProcessingProof() {
     ...(sessions
       ? {
           batchActivity: fixtureActivity(history, async () =>
-            snapshot(sessions)
-              .jobs.filter((job) => job.session_state)
-              .map((job) => job.id),
+            snapshot(sessions).jobs.filter((job) => job.session_state),
           ),
         }
       : {}),

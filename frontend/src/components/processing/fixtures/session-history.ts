@@ -1,5 +1,6 @@
 import type {
   BatchActivityDto,
+  ProcessingJobDto,
   SessionHistoryAttemptDto,
   SessionHistoryDto,
   SessionHistoryEntryDto,
@@ -390,29 +391,27 @@ export function fixtureHistory(ids: Ids, examineAnswer: () => Entry | undefined 
 const ACTIONS = new Set(['observation', 'lot', 'regroup', 'proposal', 'question', 'answer'])
 
 /**
- * Processing's recent activity across every session job of the fixture, built from their
- * histories the way the server builds it: newest actions first, at most six, each job's latest
- * status line as the agent's note.
+ * Processing's recent activity across every session job of the fixture, built the way the server
+ * builds it: each job's recorded actions from its history, newest first and at most six, with the
+ * job's stage, subject and latest status line from the job itself.
  */
 export function fixtureActivity(
   read: ReturnType<typeof fixtureHistory>,
-  sessionJobIds: () => Promise<readonly string[]>,
+  sessionJobs: () => Promise<readonly ProcessingJobDto[]>,
 ) {
   return async (batchId: string): Promise<BatchActivityDto> => {
-    const histories = await Promise.all(
-      (await sessionJobIds()).map((jobId) => read(batchId, jobId)),
-    )
-    const entries = histories.flatMap((history) => {
-      const latest = history.entries.find((entry) => entry.details.kind === 'status')
-      const note = latest ? { text: latest.summary, at: latest.at } : null
+    const jobs = await sessionJobs()
+    const histories = await Promise.all(jobs.map((job) => read(batchId, job.id)))
+    const entries = histories.flatMap((history, index) => {
+      const job = jobs[index]
       return history.entries
         .filter((entry) => ACTIONS.has(entry.details.kind))
         .map((entry) => ({
-          job_id: history.session.job_id,
-          stage: history.session.stage,
-          subject_id: history.session.subject_id,
+          job_id: job.id,
+          stage: job.stage,
+          subject_id: job.subject_id,
           entry,
-          agent_note: note,
+          agent_note: job.latest_status ?? null,
         }))
     })
     entries.sort((a, b) => b.entry.at.localeCompare(a.entry.at))
