@@ -246,12 +246,11 @@ test('a native-agent/1 attempt seals its model with no effort, and its input ref
 })
 
 /**
- * Runs one turn of a queued `native-agent/2` session (or a synthetic one) through the real
- * driver and the fake CLI in `mode`, and returns the session row's recorded effort.
+ * Runs one turn of a queued `native-agent/2` session through the real driver and the fake CLI
+ * in `mode`, and returns the session row's recorded effort.
  */
-async function runSealedTurn(agent: AgentSelectionDto | null, mode = 'normal') {
-  const profileId = agent ? 'native-agent/2' : 'synthetic-session/1'
-  const fixture = await processingFixture({ profileId })
+async function runSealedTurn(agent: AgentSelectionDto, mode = 'normal') {
+  const fixture = await processingFixture({ profileId: 'native-agent/2' })
   const stateRoot = await mkdtemp(join(tmpdir(), 'agent-effort-'))
   const server = await startSessionToolServer({
     pool: fixture.runner.pool,
@@ -266,9 +265,7 @@ async function runSealedTurn(agent: AgentSelectionDto | null, mode = 'normal') {
     const capture = await fixture.seedCapture()
     const session = await lotSession(fixture, capture, capture.packetA, {
       state: 'queued',
-      profile: agent
-        ? { id: 'native-agent/2', agent, settingsRevision: '1' }
-        : { id: 'synthetic-session/1' },
+      profile: { id: 'native-agent/2', agent, settingsRevision: '1' },
     })
     const cwd = join(stateRoot, 'sessions', session.job)
     await mkdir(cwd, { recursive: true, mode: 0o700 })
@@ -285,7 +282,6 @@ async function runSealedTurn(agent: AgentSelectionDto | null, mode = 'normal') {
           env: { PATH: process.env.PATH, OPENAI_API_KEY: 'test-key' },
         },
         toolUrl: server.url,
-        drivers: { 'synthetic-session/1': syntheticSessionDriver },
       },
       session.attempt,
       AbortSignal.timeout(30_000),
@@ -304,7 +300,6 @@ async function runSealedTurn(agent: AgentSelectionDto | null, mode = 'normal') {
     return {
       outcome,
       sentEffort: row.rows[0].sent_effort,
-      actualModel: row.rows[0].actual_model,
       read: history.session.attempts.find((attempt) => attempt.id === session.attempt),
       events,
     }
@@ -340,8 +335,14 @@ test('a session on Default records no effort', async () => {
   assert.equal(run.read && 'sent_effort' in run.read, false)
 })
 
-test('a synthetic attempt seals no selection, so no effort, whatever the settings say', async () => {
+test('a synthetic attempt queued under saved efforts seals no selection, runs, and records no effort', async () => {
   const fixture = await processingFixture({ profileId: 'synthetic-session/1' })
+  const stateRoot = await mkdtemp(join(tmpdir(), 'agent-effort-'))
+  const server = await startSessionToolServer({
+    pool: fixture.runner.pool,
+    config: fixture.config,
+    statusIntervalMs: 0,
+  })
   try {
     await saveAgentSettings(fixture.api.pool, fixture.config, withEfforts('0'))
     const capture = await fixture.seedCapture()
@@ -352,19 +353,39 @@ test('a synthetic attempt seals no selection, so no effort, whatever the setting
       'research',
       'synthetic-session/1',
     )
-    const input = await sealedInput(fixture, attempt.inputId)
-    assert.equal(input.agent, null)
+    assert.equal((await sealedInput(fixture, attempt.inputId)).agent, null)
+    const outcome = await runSessionTurn(
+      {
+        pool: fixture.runner.pool,
+        config: fixture.config,
+        host: { codexExecutable: 'unused', claudeExecutable: 'unused', stateRoot, env: {} },
+        toolUrl: server.url,
+        drivers: { 'synthetic-session/1': syntheticSessionDriver },
+      },
+      attempt.attemptId,
+      AbortSignal.timeout(30_000),
+    )
+    assert.notEqual(outcome, 'failed')
+    const row = await fixture.db.pool.query<{ sent_effort: string | null; actual_model: string }>(
+      'SELECT sent_effort,actual_model FROM agent_session WHERE attempt_id=$1',
+      [attempt.attemptId],
+    )
+    assert.deepEqual(row.rows[0], { sent_effort: null, actual_model: 'synthetic' })
+    const job = await fixture.db.pool.query<{ job_id: string }>(
+      'SELECT job_id FROM processing_attempt WHERE id=$1',
+      [attempt.attemptId],
+    )
+    const history = (
+      await fixture.http(`/batches/${capture.batch.id}/processing/${job.rows[0].job_id}/history`)
+    ).value as SessionHistoryDto
+    const read = history.session.attempts.find((item) => item.id === attempt.attemptId)
+    assert.equal(read?.selection, null)
+    assert.equal(read && 'sent_effort' in read, false)
   } finally {
+    await server.close()
     await fixture.dispose()
+    await rm(stateRoot, { recursive: true, force: true })
   }
-})
-
-test('a synthetic session runs its turn and records no effort', async () => {
-  const run = await runSealedTurn(null)
-  assert.notEqual(run.outcome, 'failed')
-  assert.equal(run.actualModel, 'synthetic', 'the turn started')
-  assert.equal(run.sentEffort, null)
-  assert.equal(run.read && 'sent_effort' in run.read, false)
 })
 
 test("an effort the model refuses is recorded as sent, and the provider's refusal fails the turn", async () => {
