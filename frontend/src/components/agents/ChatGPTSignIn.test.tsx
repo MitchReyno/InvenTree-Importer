@@ -6,6 +6,7 @@ import { render } from '#/test/render'
 import { ChatGPTSignIn } from './ChatGPTSignIn'
 import { KEY_PAUSE_MS } from './usePersonalClaudeCredential'
 import { resetRunnerQueue } from './useChatGPTSignIn'
+import { deferred } from '#/test/deferred'
 
 let send: Mock<typeof fetch>
 let onConfirmed: Mock<() => void>
@@ -103,24 +104,25 @@ it('closes by itself once a poll confirms the account', async () => {
   expect(send).toHaveBeenCalledTimes(4)
 })
 
-it('stays open with Disconnect held until the confirmed account is recorded', async () => {
-  let recorded: () => void = () => {}
-
-  onConfirmed.mockImplementation(
-    () =>
-      new Promise<void>((resolve) => {
-        recorded = resolve
-      }) as unknown as void,
-  )
-  await startSignIn()
+it('stays open with its key and Disconnect held until the confirmed account is recorded', async () => {
+  const recording = deferred<void>()
+  const confirmed = vi.fn(() => recording.promise)
+  send.mockResolvedValueOnce(signedOut()).mockResolvedValueOnce(challenge())
+  render(<ChatGPTSignIn onConfirmed={confirmed} onChanged={onChanged} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Sign in to ChatGPT…' }))
+  await enterKey()
+  fireEvent.click(await screen.findByRole('button', { name: 'Sign in with ChatGPT' }))
+  expect(await screen.findByText('TEST-CODE')).toBeVisible()
   send
     .mockResolvedValueOnce(challenge())
     .mockResolvedValueOnce(Response.json({ state: 'connected' }))
   await wait(6000)
-  expect(onConfirmed).toHaveBeenCalledTimes(1)
+  expect(confirmed).toHaveBeenCalledTimes(1)
   expect(screen.getByText('Signed in to ChatGPT. Updating the model list…')).toBeVisible()
+  // Nothing can change the account, or end its sign-in, until it is recorded.
   expect(screen.getByRole('button', { name: 'Disconnect ChatGPT' })).toBeDisabled()
-  await act(async () => recorded())
+  expect(screen.getByLabelText('Codex runner management key')).toBeDisabled()
+  await act(async () => recording.resolve())
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })
 

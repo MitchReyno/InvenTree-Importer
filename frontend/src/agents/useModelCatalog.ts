@@ -219,12 +219,22 @@ export function useModelCatalog(
    * A confirmed change to the provider's `authentication` sign-in: once the server has marked
    * that list as from an earlier sign-in, this view marks it too, before the read it starts, so it
    * never shows the old list as current. A refused request keeps the list marked here, and is sent
-   * again before each read, until the server acknowledges it or marks the list itself.
+   * again before each read, until the server acknowledges it or marks the list itself. `late`
+   * marks an answer to a dialog already closed, which counts as the newest change, not a new one.
    */
-  async function signInChanged(provider: AgentProviderId, authentication: Authentication) {
-    changeVersion += 1
-    const version = changeVersion
-    updateChanges((changes) => ({ ...changes, latest: { ...changes.latest, [provider]: version } }))
+  async function signInChanged(
+    provider: AgentProviderId,
+    authentication: Authentication,
+    { late = false }: { late?: boolean } = {},
+  ) {
+    // A late answer to a closed dialog repeats the newest change rather than replacing it.
+    const known = changesNow().latest[provider]
+    if (!late || known === undefined) {
+      changeVersion += 1
+      const next = changeVersion
+      updateChanges((changes) => ({ ...changes, latest: { ...changes.latest, [provider]: next } }))
+    }
+    const version = changesNow().latest[provider] ?? changeVersion
 
     const newest = () => changesNow().latest[provider] === version
 

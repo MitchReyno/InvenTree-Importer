@@ -33,9 +33,7 @@ function source(first: AgentModelCatalogDto) {
   } satisfies ModelCatalogSource
 }
 
-function mount(client: ModelCatalogSource) {
-  const cache = createServerQueryClient()
-
+function mount(client: ModelCatalogSource, cache = createServerQueryClient()) {
   const wrapper = ({ children }: { children: ReactNode }) => (
     <ServerStateProvider scope={fixtureScope} client={cache}>
       {children}
@@ -295,4 +293,20 @@ test('an older change answering late never replaces or brings back a newer one',
   await act(() => first)
   await advance(1_100)
   expect(result.current.viewsFor().claude.state).toBe('current')
+})
+
+test('a late answer to a closed dialog never lets a newer refused change go unmarked', async () => {
+  const client = source(modelCatalog())
+  const { result } = mount(client)
+  await advance(0)
+  const newer = deferred<Awaited<ReturnType<typeof client.refreshModelCatalog>>>()
+  const late = deferred<Awaited<ReturnType<typeof client.refreshModelCatalog>>>()
+  client.refreshModelCatalog.mockReturnValueOnce(newer.promise).mockReturnValueOnce(late.promise)
+  client.modelCatalog.mockReturnValue(new Promise(() => {}))
+  const saved = result.current.signInChanged('claude', 'subscription')
+  void result.current.signInChanged('claude', 'subscription', { late: true })
+  newer.reject(new Error('offline'))
+  await act(() => saved)
+  await advance(0)
+  expect(result.current.viewsFor().claude.state).toBe('stale_sign_in')
 })

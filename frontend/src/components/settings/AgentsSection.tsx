@@ -178,7 +178,7 @@ export function AgentsSection({
       }))
     }
     const mine = newest()
-    await catalog.signInChanged(provider, 'subscription')
+    await catalog.signInChanged(provider, 'subscription', { late })
     if (newest() === mine) {
       publish()
     }
