@@ -6,7 +6,7 @@ In progress. Task 5 (PR-E1) adds recipe `/2` and the decoder operations behind `
 
 ### Task 5 (PR-E1)
 
-- **2026-11-25T11:05+11:00, task 5 (PR-E1):** the design said the montage is a `sharp` composite and the 6.9 MB logo set is bundled. The montage takes `sharp` thumbnails onto a canvas, since its labels need the canvas's bundled font, and the bundle is the set's index and logos (222,134 bytes of files); its grid pages are for reading by eye and stay with the skill. The design is updated to match.
+- **2026-11-25T11:05+11:00, task 5 (PR-E1):** the design said the montage is a `sharp` composite and the 6.9 MB logo set is bundled. The montage takes `sharp` thumbnails onto a canvas, since its labels are drawn with canvas text in the decoder's bundled font (LiberationSans from `pdfjs-dist`), and the bundle is the set's index and logos (222,134 bytes of files); its grid pages are for reading by eye and stay with the skill. The design is updated to match.
 
 - **2026-11-25T09:39+11:00, task 5 (PR-E1):** the contract schemas for recipe `/2` and the new decoder headers were written with their contract tests rather than before them; the decoder's parity tests were written first and failed first.
 

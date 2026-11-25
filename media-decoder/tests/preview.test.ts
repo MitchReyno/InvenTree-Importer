@@ -431,3 +431,33 @@ test('a region one pixel past a correctly identified page makes the whole previe
   )
   assert.deepEqual(result, { state: 'malformed', toolchain: MEDIA_TOOLCHAIN })
 })
+
+test('crops whose full-resolution sizes together pass 104 MP exceed the limit; just under renders', async () => {
+  // Each crop fits on its own; only their sum crosses the preview's aggregate budget.
+  const [width, height] = [7000, 5000]
+  const bytes = await sharp({ create: { width, height, channels: 3, background: '#808080' } })
+    .png()
+    .toBuffer()
+  const crop = (rows: number) => ({
+    label: `${rows} rows`,
+    page: 0,
+    recipe: {
+      ...recipeForCrop(
+        { region: [0, 0, width, rows], quarter_turns: 0, straighten: 0, wb: false },
+        { width, height, digest: 'c'.repeat(64) },
+      ),
+      source_version_id: '00000000-0000-4000-8000-000000000006',
+    },
+  })
+  const input = (crops: PreviewInput['crops']): PreviewInput => ({
+    version: 'media-preview/1',
+    pages: [{ ...sourceOf(crops[0].recipe), digest: sha(bytes), width, height, bytes }],
+    crops,
+  })
+  // 3 x 35 MP = 105 MP.
+  const over = await renderPreview(input([crop(height), crop(height), crop(height)]))
+  assert.deepEqual(over, { state: 'limit_exceeded', toolchain: MEDIA_TOOLCHAIN })
+  // 35 + 35 + 7000 x 4857 (34.0 MP) = 103.999 MP.
+  const under = await renderPreview(input([crop(height), crop(height), crop(4857)]))
+  assert.equal(under.state, 'ready')
+})

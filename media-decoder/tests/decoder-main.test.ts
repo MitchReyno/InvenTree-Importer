@@ -8,6 +8,7 @@ import {
   assertMediaOutputHeader,
   assertMediaPreviewOutputHeader,
   assertMediaViewOutputHeader,
+  MEDIA_PREVIEW_MAX_BYTES,
 } from '@invimport/contracts/media'
 import sharp from 'sharp'
 import { decode } from '../src/decode.ts'
@@ -302,6 +303,18 @@ test('the entry point derives a recipe /2 crop through media-decode/1', async ()
   )
   assert.equal(described.digest, sha(expected.pages[0].bytes))
   assert.ok(body.subarray(0, described.byte_size).equals(expected.pages[0].bytes))
+  // The crop's renditions follow it in header order, and the last one ends the body.
+  const wantedRenditions = expected.pages[0].renditions
+  assert.equal(described.renditions.length, wantedRenditions.length)
+  let offset = described.byte_size
+  for (const [index, rendition] of described.renditions.entries()) {
+    const wanted: { size: string; bytes: Buffer } = wantedRenditions[index]
+    const end: number = offset + rendition.byte_size
+    assert.equal(rendition.size, wanted.size)
+    assert.ok(body.subarray(offset, end).equals(wanted.bytes))
+    offset = end
+  }
+  assert.equal(offset, body.length)
 })
 
 test('the entry point renders a recipe /2 view through media-view/1, with no preview', async () => {
@@ -325,4 +338,14 @@ test('the entry point renders a recipe /2 view through media-view/1, with no pre
   assert.equal(body.length, header.view.byte_size + header.thumb.byte_size)
   assert.ok(body.subarray(0, header.view.byte_size).equals(expected.view.bytes))
   assert.ok(body.subarray(header.view.byte_size).equals(expected.thumb.bytes))
+})
+
+test('the input frame admits 64 MiB plus 8 KiB, newline included, and refuses one byte more', async () => {
+  const allowance = MEDIA_PREVIEW_MAX_BYTES + 8192
+  const atLimit = await spawnDecoder(Buffer.alloc(allowance, 0x20))
+  assert.notEqual(atLimit.code, 0)
+  assert.doesNotMatch(atLimit.errors, /decoder_input_limit/)
+  const over = await spawnDecoder(Buffer.alloc(allowance + 1, 0x20))
+  assert.notEqual(over.code, 0)
+  assert.match(over.errors, /decoder_input_limit/)
 })
