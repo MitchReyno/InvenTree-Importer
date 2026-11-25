@@ -213,6 +213,8 @@ Implementation of BI-019's agent interaction work, delivered PR by PR as the tas
 
 - **2026-11-25T16:46+11:00, task 15 (PR-L), review round 8 fix:** the deletion-wait test's five-second deadline now starts once the sweep is seen blocked, just before the edit, so its setup can't use up the time the edit is given.
 
+- **2026-11-25T17:37+11:00, task 15 (PR-L), final checks at `4750881a`:** review round 9 found nothing blocking. Full PG tier 481/483; the two failures, a child-start and a checkpoint timeout in `capture-process` and `media-startup-authority`, passed 2/2 when rerun alone at concurrency 1. Process tier 130 pass, 7 skipped, 0 fail. Serial 7/8: `dev-stack` timed out waiting for the application to restart after its source edit, alone at concurrency 1 as well. The same test fails at the same step on trunk `67eed1d7` in a separate worktree (the processing child didn't report ready within the reload window), and passed once on this branch in the same comparison, so it is a pre-existing reload-timing flake, not this change. Intake fast tests 186, 24 and 446, all passing. The design gained a locking note and the task scope names the two try-lock helpers.
+
 ## Open items
 
 - PR-A follow-up from the merge review: check a popover opened inside a modal near the viewport's edges in a real browser. Its placement and its use inside a modal are tested in jsdom only.
@@ -224,6 +226,7 @@ Implementation of BI-019's agent interaction work, delivered PR by PR as the tas
 - PR-K follow-ups:
   - Closed by PR-L (task 15): a restored photo's question views render again, except views PR-K's sweep had already deleted, which keep no recipe and still read as failed.
   - Closed by PR-L (task 15): a decode that found the dispatcher busy for its whole wait is deferred and taken again by the next worker run.
+  - `tests/process/serial/dev-stack.test.ts` intermittently times out waiting for the application to restart after its source edit, on trunk as well as on PR-L.
   - The figure sweep's deletions still wait for a settling render's row and blob locks, as under PR-K, though they hold no batch lock. A settlement slower than the media role's 5 s statement timeout fails that sweep, which stops the consumer until its supervisor restarts it.
 - Follow-ups from PR-D2:
   - A page with one proposal decodes every proposal of its attempt to find each web page's first citation, and resolves notes and currentness for all of them. Fine for today's sessions; a long single attempt would want the first citations found in SQL and details resolved for the page's proposals only.

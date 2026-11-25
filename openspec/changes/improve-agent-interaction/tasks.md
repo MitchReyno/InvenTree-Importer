@@ -541,7 +541,7 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
   - a question picture whose photo was removed, swept and then restored renders again from the original, reading "Preparing picture…" until it is ready;
   - an upload or crop decode whose dispatcher answered busy for its whole wait is deferred and taken again by the next worker run, reading `queued` meanwhile, instead of ending `interrupted` for good.
 - **Scope and approach:**
-  - `media/figure-renders.ts`: the sweep returns a removed version's question-referenced view to the queue (releasing its blobs) instead of deleting it, and the claim skips a request whose version is removed;
+  - `media/figure-renders.ts`: the sweep returns a removed version's question-referenced view to the queue (releasing its blobs) instead of deleting it, and the claim skips a request whose version is removed; both decide under the batch's media revision lock without waiting for it, through `tryLockMediaRevision` (`media/commands.ts`) and `tryLockBlob` (`media/blob-store.ts`);
   - migration `0039` adds `media_decode_deferral`; `media/worker.ts` records a busy-only decode there and claims a deferred command again; `media/grants.ts` gives the media role SELECT, INSERT and DELETE on it; `media/worker-main.ts` says when it deferred;
   - `media/decoder-runner.ts` lets a decode take the dispatcher's busy wait, so tests can shorten it;
   - no change to `media-decoder/src` or `contracts/src/media.ts`, which PR #274 changes.
@@ -559,4 +559,4 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
   - [x] 15.2.1 A question picture whose photo is removed, swept and restored reads `preparing`, then renders and is served again; a removed photo's queued view is not rendered while it is removed; previews and unreferenced views of a removed version are still deleted.
   - [x] 15.2.2 An upload decode whose dispatcher answers busy throughout reads `queued` with no result, and the next worker run decodes it `ready`; a decode whose dispatcher fails after being busy still ends `interrupted`; two workers never take the same deferred command.
 - [x] 15.3 GREEN: the sweep and claim changes, migration `0039`, the deferral claim and the media grant.
-- [ ] 15.4 Update `intake-server/ARCHITECTURE.md`'s retained media and question figure sections and the deployment runbook's rollout steps. Run the checks.
+- [x] 15.4 Update `intake-server/ARCHITECTURE.md`'s retained media and question figure sections and the deployment runbook's rollout steps. Run the checks.

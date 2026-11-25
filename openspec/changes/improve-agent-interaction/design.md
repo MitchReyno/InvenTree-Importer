@@ -394,6 +394,7 @@ PR-K left two gaps in the media worker and the render queue, recorded in `notes.
 
 - **Decision:** the sweep doesn't delete a removed version's view render that a stored question references. It releases the view's and thumbnail's blobs as before and returns the request to the queue, with no outputs, lease, settlement or spent attempts. The claim skips a request whose version is removed, so nothing renders a removed photo. Once the photo is restored, the consumer claims the request on its next poll; the figure reads `preparing` (the route's `figure_preparing`) and then `ready`.
 - Previews and unreferenced views of a removed version are still deleted. The media role already holds UPDATE on the columns the reset writes, so this needs no grant or migration.
+- **Locking:** removing and restoring a photo hold its batch's media revision lock, so the claim and the requeue decide under that lock. Both try it rather than wait (`pg_try_advisory_xact_lock`), skip renders another transaction holds, and leave a busy batch for the next poll or sweep. The requeue runs a batch per transaction after the deletions, which keep PR-K's transaction and take no batch lock.
 - **Limit:** a view that PR-K's sweep already deleted keeps no recipe to render from, so that figure still reads as failed.
 - **Rejected:** queuing on restore (a new insert grant for the API role and recipe rebuilding in the restore edit); requeuing from the figure read (a read that writes, under the API role); keeping a removed photo's rendered blobs (the design deletes them).
 
