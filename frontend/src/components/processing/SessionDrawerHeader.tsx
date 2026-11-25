@@ -47,7 +47,9 @@ export function SessionDrawerHeader({
     session.attempts.find((attempt) => attempt.id === session.current_attempt_id) ??
     ordered[ordered.length - 1]
   const end = current.ended?.at
-  const earlier = earlierAttemptsOf(session)
+  // The attempts before the one shown; after a switch to a profile without sessions the shown
+  // attempt is the newest retained one, which the job's current attempt doesn't name.
+  const earlier = earlierAttemptsOf(session).filter((attempt) => attempt.number < current.number)
 
   return (
     <Header aria-label="Session details">

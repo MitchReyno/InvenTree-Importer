@@ -1,12 +1,15 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { validate, type BatchActivityDto } from '@invimport/contracts'
+import { createHash, randomUUID } from 'node:crypto'
+import { validate, type BatchActivityDto, type SessionHistoryDto } from '@invimport/contracts'
 import { processingFixture } from '../support/processing.ts'
 import { leadSession, lotSession, oneStepAsk, seedPhoto } from '../support/sessions.ts'
 import { transaction } from '#/db/database.ts'
 import { issueSessionCapability } from '#/agents/tools/capability.ts'
 import { sessionTools } from '#/agents/tools/handlers.ts'
 import { submitSessionInbox } from '#/agents/tools/inbox.ts'
+import { readBatchActivity } from '#/agents/tools/activity.ts'
+import { sealed } from '#/processing/model.ts'
 
 type Fixture = Awaited<ReturnType<typeof processingFixture>>
 type Capture = Awaited<ReturnType<Fixture['seedCapture']>>
@@ -183,15 +186,135 @@ test('a job whose current attempt has no status line yet has no agent note', asy
   })
 })
 
+function noteSource(
+  manifest: { notes: { id: string; subject_id: string | null; text: string }[] },
+  lotId: string,
+) {
+  const note = manifest.notes.find((item) => item.subject_id === lotId)!
+  return {
+    kind: 'note' as const,
+    note_id: note.id,
+    text_sha256: createHash('sha256').update(note.text, 'utf8').digest('hex'),
+  }
+}
+
+async function readHistory(fixture: Fixture, batchId: string, jobId: string) {
+  const read = await fixture.http(`/batches/${batchId}/processing/${jobId}/history`)
+  assert.equal(read.status, 200, JSON.stringify(read.value))
+  return read.value as SessionHistoryDto
+}
+
+test('proposals and answers of several jobs resolve as each job’s own history resolves them', async () => {
+  await withFixture(async (fixture, capture) => {
+    const batchId = capture.batch.id
+    const call = tools(fixture)
+    const sessions = []
+    for (const lot of [capture.packetA, capture.packetB]) {
+      const session = await lotSession(fixture, capture, lot)
+      const token = await issue(fixture, session.attempt)
+      const source = noteSource(session.manifest, lot.id)
+      await call('propose', token, {
+        proposal: {
+          schema_version: 'bench-intake-proposal/6',
+          subject_id: lot.id,
+          summary: `Identity of ${lot.label}`,
+          sources: [source],
+          relies_on: { fields: ['identity'], sources: [source] },
+        },
+      })
+      const asked = await call(
+        'ask',
+        token,
+        oneStepAsk({
+          kind: 'quantity',
+          subject_id: lot.id,
+          prompt: `How many are in ${lot.label}?`,
+          reason: 'The label is folded.',
+          fields: ['quantity'],
+          assumption: 'About 20.',
+        }),
+      )
+      sessions.push({ session, token, lot, questionId: asked.id! })
+    }
+    for (const { session, questionId } of sessions) {
+      const batch = (await fixture.http(`/batches/${batchId}`)).value as { revision: string }
+      const answered = await fixture.http(`/batches/${batchId}/questions/${questionId}/answers`, {
+        schema_version: 'bench-intake-answer/2',
+        expected_question_revision: '1',
+        expected_capture_revision: batch.revision,
+        attempt_id: session.attempt,
+        input_sha256: sealed(session.manifest).digest.toString('hex'),
+        steps: [{ step_id: 'answer', value: { kind: 'number', value: '21', basis: 'counted' } }],
+      })
+      assert.equal(answered.status, 200, JSON.stringify(answered.value))
+    }
+    // Only Packet A's session reads its inbox, so the two cursors differ. Reading after a
+    // sequence acknowledges everything up to it.
+    const read = (await call('read_inbox', sessions[0].token, { after_seq: '0' })) as {
+      items?: { seq: string }[]
+    }
+    const last = read.items?.at(-1)?.seq
+    assert.ok(last, 'Packet A has an inbox item to read')
+    await call('read_inbox', sessions[0].token, { after_seq: last })
+
+    const activity = await readActivity(fixture, batchId, 20)
+    for (const { session, lot } of sessions) {
+      const own = activity.entries.filter((item) => item.job_id === session.job)
+      const proposed = own.find((item) => item.entry.details.kind === 'proposal')!
+      assert.ok(
+        proposed.entry.links.some((link) => link.kind === 'lot' && link.lot_id === lot.id),
+        `the proposal links ${lot.label}`,
+      )
+      const history = await readHistory(fixture, batchId, session.job)
+      for (const item of own) {
+        const same = history.entries.find((entry) => entry.id === item.entry.id)
+        assert.deepEqual(item.entry, same, `${item.entry.id} matches its job's history`)
+      }
+    }
+    const answers = activity.entries.filter((item) => item.entry.details.kind === 'answer')
+    const readOf = (jobId: string) => {
+      const entry = answers.find((item) => item.job_id === jobId)!.entry
+      return 'read' in entry ? entry.read : undefined
+    }
+    assert.equal(readOf(sessions[0].session.job), true)
+    assert.equal(readOf(sessions[1].session.job), false)
+  })
+})
+
 test('a batch of another account is not found, and a limit outside 1–20 is refused', async () => {
   await withFixture(async (fixture, capture) => {
-    const missing = await fixture.http(
-      '/batches/00000000-0000-4000-8000-000000000000/processing/activity',
+    const call = tools(fixture)
+    const research = await lotSession(fixture, capture, capture.packetA)
+    const token = await issue(fixture, research.attempt)
+    await call('status', token, { text: 'Reading the label' })
+    await call(
+      'ask',
+      token,
+      oneStepAsk({
+        kind: 'clarification',
+        subject_id: capture.packetA.id,
+        prompt: 'Is this one reel?',
+        reason: 'Two date codes are visible.',
+        fields: ['identity'],
+        assumption: 'Treating them as one reel.',
+      }),
     )
-    assert.equal(missing.status, 404)
+    // The owner reads it; the same batch under another actor, target or context is not found.
+    const owned = await readBatchActivity(fixture.api.pool, fixture.config, capture.batch.id)
+    assert.equal(owned.entries.length, 1)
+    for (const field of ['actorId', 'targetId', 'targetContextId'] as const) {
+      await assert.rejects(
+        readBatchActivity(
+          fixture.api.pool,
+          { ...fixture.config, [field]: randomUUID() },
+          capture.batch.id,
+        ),
+        { code: 'not_found' },
+      )
+    }
     const tooMany = await fixture.http(`/batches/${capture.batch.id}/processing/activity?limit=21`)
     assert.equal(tooMany.status, 400)
-    const empty = await readActivity(fixture, capture.batch.id)
+    const empty = await readActivity(fixture, (await fixture.seedCapture()).batch.id)
     assert.deepEqual(empty.entries, [])
   })
 })

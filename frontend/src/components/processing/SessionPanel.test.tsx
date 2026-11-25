@@ -507,3 +507,30 @@ test('a first attempt shows no retry line, and a session on this computer says s
   expect(header).toHaveTextContent('Claude Opus 5.5 · this computer · no web')
   expect(header).not.toHaveTextContent('Attempt')
 })
+
+test('after a switch to a profile without sessions, the header counts only attempts before the one shown', async () => {
+  const attempts = [
+    attemptHeader({
+      id: '00000000-0000-4000-8000-0000000000b1',
+      number: 1,
+      state: 'failed',
+      session_state: 'failed',
+      ended: { at: at(4), source: 'transition' },
+    }),
+    attemptHeader({
+      number: 2,
+      state: 'superseded',
+      session_state: 'finished',
+      queued_at: at(5),
+      started_because: 'after_failure',
+    }),
+  ]
+  const page = history([], { attempts })
+  // The job's current attempt has no session, so the history names an attempt it doesn't list.
+  page.session.current_attempt_id = '00000000-0000-4000-8000-0000000000b3'
+  mount(() => Promise.resolve(page))
+
+  const header = await screen.findByRole('region', { name: 'Session details' })
+  expect(header).toHaveTextContent('Attempt 2 ·')
+  expect(within(header).getByText('1 earlier failed')).toBeVisible()
+})

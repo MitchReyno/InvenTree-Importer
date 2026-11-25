@@ -964,7 +964,7 @@ export function ProcessingWorkspace({
     <RecentActivity
       batchId={batch.id}
       entries={client.batchActivity ? activityRead.data?.entries : []}
-      failed={activityRead.isError}
+      failed={activityRead.isError || activityRead.fetchStatus === 'paused'}
     />
   )
   const queue = snapshot && (

@@ -112,6 +112,94 @@ describe('recent activity', () => {
     )
   })
 
+  it('says a regroup only suggested its moves, linking the lot they would go to', () => {
+    const lotB = {
+      kind: 'lot' as const,
+      lot_id: '20000000-0000-4000-8000-0000000000b2',
+      label: 'Packet B',
+    }
+    const regrouped = agent(
+      6,
+      16,
+      {
+        kind: 'regroup',
+        lot_ids: [lotB.lot_id],
+        moves: [
+          {
+            observation_id: H.observation,
+            from_lot_id: H.lot,
+            to_lot_id: lotB.lot_id,
+            outcome: 'suggested',
+          },
+        ],
+      },
+      { links: [lotLink, lotB] },
+    )
+    const row = within(show([item(regrouped, { stage: 'examine', subject_id: null })])).getByRole(
+      'listitem',
+    )
+
+    expect(row).toHaveTextContent('Examine suggested moving 1 observation to Packet B')
+    expect(row).not.toHaveTextContent('regrouped')
+    expect(within(row).getByRole('link', { name: 'Packet B' })).toBeVisible()
+  })
+
+  it('keeps an observation’s place on the map, and leads a whole-batch answer to its question', () => {
+    const observed = observation(1, 5)
+    const answered = input(
+      4,
+      12,
+      {
+        kind: 'answer',
+        answer: {
+          question_id: H.question,
+          answer_id: H.inboxItem,
+          value: { kind: 'clarification', text: 'One reel' },
+        },
+        effects: [],
+      },
+      {
+        summary: 'You answered: One reel',
+        links: [{ kind: 'question', question_id: H.question, label: 'Is this one reel?' }],
+      },
+    )
+    const list = show([
+      item(answered, { stage: 'examine', subject_id: null }),
+      item(
+        {
+          ...observed,
+          links: [
+            {
+              kind: 'capture_evidence',
+              evidence_id: H.evidence,
+              version_id: H.version,
+              page: 1,
+              label: 'Bench bag spill',
+            },
+            { kind: 'map', observation_id: H.observation },
+          ],
+        },
+        { stage: 'examine', subject_id: null },
+      ),
+    ])
+    const [answerRow, observationRow] = within(list).getAllByRole('listitem')
+
+    expect(within(answerRow).getByRole('link', { name: 'Is this one reel?' })).toBeVisible()
+    expect(within(observationRow).getByRole('link', { name: 'Show on the map' })).toBeVisible()
+  })
+
+  it('keeps the last copy after a failed refresh, and says so', () => {
+    const [proposed] = proposal(3, 10, { lotLink })
+    render(<RecentActivity batchId={H.batch} entries={[item(proposed)]} failed />)
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Recent activity couldn’t be refreshed; showing the last copy.',
+    )
+    expect(screen.getByRole('list', { name: 'Recent activity' })).toHaveTextContent(
+      'Research proposed an identity',
+    )
+  })
+
   it('says when there is no activity yet, while it loads, and when it can’t be read', () => {
     const { rerender } = render(<RecentActivity batchId={H.batch} entries={[]} />)
     expect(screen.getByText('No agent activity yet.')).toBeVisible()
