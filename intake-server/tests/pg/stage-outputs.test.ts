@@ -20,7 +20,7 @@ import { evidenceNotes } from '#/capture/context-input.ts'
 import { sha256 } from '#/db/authority.ts'
 import { triggerExamine } from '#/processing/examine-trigger.ts'
 import { recordPhotoRelease } from '#/agents/tools/photo-release.ts'
-import { pendingSessionInbox } from '#/agents/tools/inbox.ts'
+import { deliverablePayload, pendingSessionInbox } from '#/agents/tools/inbox.ts'
 import { notifyRevision } from '#/processing/currentness.ts'
 import { pinnedIdentityCurrent, stableIdentityOf } from '#/processing/stable-identity.ts'
 import { sessionTools, type SessionToolOutput } from '#/agents/tools/handlers.ts'
@@ -1682,6 +1682,18 @@ test('a /7 identity can’t rely on one it retires, and what relied on the retir
       candidates: [],
     },
   })
+  // An identity that doesn't cite its lot's observation set couldn't replace the one the LED's
+  // successors are queued on, so it is refused and they stay as they were.
+  const queuedBefore = await batch.successors(led.id)
+  const { proposal } = ledIdentity([])
+  const unset = await result(
+    session.propose(lead, {
+      proposal: { ...proposal, relies_on: { ...proposal.relies_on, sources: [note] } },
+    }),
+  )
+  assert.equal(unset.error, 'validation_failed', JSON.stringify(unset))
+  assert.match(String(unset.message), /observation set/)
+  assert.deepEqual(await batch.successors(led.id), queuedBefore)
   const onItself = await result(
     session.propose(lead, ledIdentity([{ kind: 'proposal', proposal_id: earlier }])),
   )
@@ -1993,6 +2005,48 @@ test('marking observations as the same item stales what relied on them', async (
         change.same_as_to === first,
     ),
     JSON.stringify(told),
+  )
+  // Marked the other way and then the reel's photo removed, the mark isn't given with the
+  // observation it points at; the removal is.
+  await edit(fixture, batchId, {
+    kind: 'observation_same_item',
+    observation_id: second,
+    same_as: null,
+  })
+  await edit(fixture, batchId, {
+    kind: 'observation_same_item',
+    observation_id: first,
+    same_as: second,
+  })
+  const reelVersion = (await snapshotOf(fixture, batchId)).evidence_observations!.find(
+    (item) => item.id === second,
+  )!.evidence_version_id
+  await grantMedia(fixture.db.pool, fixture.api.name, 'api')
+  const media = await fixture.db.pool.query<{ revision: string; evidence_id: string }>(
+    `SELECT b.revision::text, v.evidence_id FROM media_batch b
+     JOIN media_version v ON v.batch_id=b.batch_id WHERE b.batch_id=$1 AND v.id=$2`,
+    [batchId, reelVersion],
+  )
+  await editMedia(fixture.api.pool, fixture.config, batchId, randomUUID(), {
+    expected_revision: media.rows[0].revision,
+    change: { kind: 'remove', evidence_ids: [media.rows[0].evidence_id] },
+  })
+  const given = await transaction(fixture.runner.pool, async (client) =>
+    Promise.all(
+      (await revisions(fixture, leadJob)).map((item) =>
+        deliverablePayload(client, 'revision', item),
+      ),
+    ),
+  )
+  const changes = (given as SessionRevisionV2Dto[]).flatMap((item) => item.changes)
+  assert.ok(
+    !changes.some((change) => change.kind === 'same_item' && change.same_as_to === second),
+    JSON.stringify(changes),
+  )
+  assert.ok(
+    changes.some(
+      (change) => change.kind === 'evidence' && change.evidence_id === media.rows[0].evidence_id,
+    ),
   )
 })
 

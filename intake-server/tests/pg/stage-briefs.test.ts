@@ -1056,6 +1056,11 @@ test('Start pins the lot’s own identity, not another lot’s that cites its ob
           fields: ['identity'],
           sources: [
             ...value.rows[0].value.sources,
+            {
+              kind: 'observation_set',
+              lot_id: crystal.id,
+              version: crystal.observation_set_version,
+            },
             { kind: 'observation_set', lot_id: led.id, version: led.observation_set_version },
           ],
         },

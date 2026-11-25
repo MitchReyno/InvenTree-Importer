@@ -31,7 +31,12 @@ import {
   queryDatabase,
   transaction,
 } from '#/db/database.ts'
-import { builtOn, earlierIdentities, onLeadIdentity } from '#/processing/stable-identity.ts'
+import {
+  builtOn,
+  earlierIdentities,
+  onLeadIdentity,
+  reliedObservationSet,
+} from '#/processing/stable-identity.ts'
 import { appendEvent } from '#/db/authority.ts'
 import { captureBatches } from '#/capture/schema.ts'
 import { lockCaptureForAgentWrite, lockCaptureForInputSettlement } from '#/capture/repository.ts'
@@ -1299,6 +1304,27 @@ async function requireCurrentReliance(
   }
 }
 
+/**
+ * A `/7` Examine identity of a lot rests on that lot's observation set: without it, the identity
+ * couldn't replace the one its successors were queued on.
+ */
+function requireOwnObservationSet(
+  principal: SessionPrincipal,
+  proposal: RetainedSessionProposalDto,
+) {
+  if (
+    principal.manifest.schema_version === 'bench-intake-input/7' &&
+    proposal.schema_version === 'examine-identity/1' &&
+    proposal.relies_on.fields.includes('identity') &&
+    reliedObservationSet(proposal) === null
+  ) {
+    refuse(
+      'validation_failed',
+      'An identity relies on its lot’s observation set; read your brief again and cite its current observation set.',
+    )
+  }
+}
+
 /** Examine's markings rest on their observations, as a relied-on observation does. */
 function markedObservations(proposal: RetainedSessionProposalDto) {
   if (proposal.schema_version !== 'examine-identity/1') {
@@ -2139,6 +2165,7 @@ export function sessionTools(context: SessionToolContext) {
           await requireDeliveredSources(client, context, principal, proposal)
           await requireCurrentReliance(client, principal, proposal)
           await requireOwnMarkings(client, principal.batchId, proposal)
+          requireOwnObservationSet(principal, proposal)
           await refuseRemovedSources(client, principal.batchId, [
             ...proposalCitations(proposal),
             ...proposal.relies_on.sources,

@@ -227,10 +227,9 @@ export async function releaseInboxItems(client: PoolClient, itemIds: readonly st
 }
 
 /**
- * An item's payload as it is given now. A `/7` revision naming a reading of an observation whose
- * evidence the operator has since removed (inline or left to the brief) names that evidence's
- * removal instead, as the brief
- * leaves the reading out; the stored item, and the history, keep what was recorded.
+ * An item's payload as it is given now. A `/7` revision naming what an observation shows (its
+ * reading, inline or left to the brief, crop, count or same-item mark) when the operator has since
+ * removed its evidence names that evidence's removal instead, as the brief leaves it out; the stored item, and the history, keep what was recorded.
  */
 export async function deliverablePayload(client: PoolClient, kind: string, payload: unknown) {
   const revision = payload as Partial<SessionRevisionV2Dto>
@@ -238,16 +237,20 @@ export async function deliverablePayload(client: PoolClient, kind: string, paylo
     return payload
   }
 
-  // Every change that says what an observation shows: its reading, its crop or its count.
+  // Every change that says what an observation shows: its reading, its crop, its count or the
+  // observation it shows the same item as.
   const shownBy = new Set(['reading', 'reading_in_brief', 'region', 'count'])
 
-  const readingOf = (change: RevisionChangeDto) =>
-    shownBy.has(change.kind) && 'observation_id' in change ? change.observation_id : null
+  const observationsOf = (change: RevisionChangeDto): string[] => {
+    if (change.kind === 'same_item') {
+      return [change.observation_id, change.same_as_from, change.same_as_to].filter(
+        (id): id is string => id !== null,
+      )
+    }
+    return shownBy.has(change.kind) && 'observation_id' in change ? [change.observation_id] : []
+  }
 
-  const read = revision.changes!.flatMap((change) => {
-    const observationId = readingOf(change)
-    return observationId ? [observationId] : []
-  })
+  const read = revision.changes!.flatMap(observationsOf)
   if (!read.length) {
     return payload
   }
@@ -263,16 +266,19 @@ export async function deliverablePayload(client: PoolClient, kind: string, paylo
   const evidenceOf = new Map(removed.rows.map((row) => [row.id, row.evidence_id]))
   const told = new Set<string>()
   const changes = revision.changes!.flatMap((change): RevisionChangeDto[] => {
-    const observationId = readingOf(change)
-    const evidenceId = observationId ? evidenceOf.get(observationId) : undefined
-    if (evidenceId === undefined) {
+    const gone = observationsOf(change).flatMap((id) => {
+      const evidenceId = evidenceOf.get(id)
+      return evidenceId === undefined ? [] : [evidenceId]
+    })
+    if (!gone.length) {
       return [change]
     }
-    if (told.has(evidenceId)) {
-      return []
-    }
-    told.add(evidenceId)
-    return [{ kind: 'evidence', evidence_id: evidenceId, removed: true }]
+    return [...new Set(gone)]
+      .filter((evidenceId) => !told.has(evidenceId))
+      .map((evidenceId) => {
+        told.add(evidenceId)
+        return { kind: 'evidence' as const, evidence_id: evidenceId, removed: true as const }
+      })
   })
   return { ...revision, changes }
 }
