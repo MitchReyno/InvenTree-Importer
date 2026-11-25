@@ -5,6 +5,7 @@ import type { ConversationItem } from '#/processing/session-history'
 import { color, radius, space } from '#/theme/generated/tokens'
 import { AttemptDivider, type FreshAction } from './AttemptDivider'
 import { AnswerBubble } from './AnswerBubble'
+import { BriefCard } from './BriefCard'
 import { ChatBubble } from './ChatBubble'
 import { HistoryEntry } from './HistoryEntry'
 import type { HistoryContext } from './HistoryLink'
@@ -24,7 +25,10 @@ export type ConversationRowProps = {
   startFresh?: FreshAction
 }
 
-/** One row of a session's history: a divider, a chat bubble, a question card or a history row. */
+/**
+ * One row of a session's history: a divider, the brief an attempt started from, a chat bubble, a
+ * question card or a history row.
+ */
 export function ConversationRow({
   item,
   context,
@@ -40,6 +44,9 @@ export function ConversationRow({
         startFresh={startFresh?.attemptId === item.attempt.id ? startFresh : undefined}
       />
     )
+  }
+  if (item.kind === 'brief') {
+    return <BriefCard item={item.brief} />
   }
   if (item.kind !== 'entry') {
     return <HistoryRow item={item} context={context} />

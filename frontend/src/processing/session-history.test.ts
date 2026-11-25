@@ -15,6 +15,7 @@ import {
   chat,
   H,
   history,
+  historyBrief,
   input,
   observation,
   photoView,
@@ -286,5 +287,96 @@ describe('the session page', () => {
       { action: true, line: null, now: true },
     ])
     expect(railMarks(items, false).some((mark) => mark.now)).toBe(false)
+  })
+})
+
+describe('the brief a session started from', () => {
+  const first = attemptHeader({ state: 'failed', session_state: 'failed' })
+  const second = attemptHeader({ id: H.attempt2, number: 2, queued_at: at(10) })
+
+  const label = (item: ReturnType<typeof conversation>[number]) => {
+    if (item.kind === 'attempt') {
+      return `Attempt ${item.attempt.number}`
+    }
+    return item.kind === 'brief' ? `Brief ${item.brief.attempt_id}` : item.summary
+  }
+
+  it('is the first item after its attempt’s divider, before rows at the same time', () => {
+    const entries = [
+      status(1, 10, 'Reading the brief', { attempt: 2, id: `outbox:${H.attempt2}:1` }),
+      chat(1, 10, 'Look again'),
+      status(1, 2, 'Started'),
+    ]
+    const page = history(entries, {
+      attempts: [first, second],
+      briefs: [
+        historyBrief(undefined, { attempt: H.attempt2, minute: 10 }),
+        historyBrief(undefined, { attempt: H.attempt, minute: 1 }),
+      ],
+    })
+
+    expect(conversation(mergeNewestPage(undefined, page)).map(label)).toEqual([
+      'Attempt 1',
+      `Brief ${H.attempt}`,
+      'Started',
+      'Attempt 2',
+      `Brief ${H.attempt2}`,
+      'Look again',
+      'Reading the brief',
+    ])
+  })
+
+  it('shows only under All, and has no place on the action rail', () => {
+    const held = mergeNewestPage(
+      undefined,
+      history([status(1, 2, 'Started')], { briefs: [historyBrief()] }),
+    )
+    const [, brief] = conversation(held)
+
+    expect(brief.kind).toBe('brief')
+    expect(shownUnder(brief, 'all')).toBe(true)
+    for (const filter of ['messages', 'inputs', 'photos', 'web'] as const) {
+      expect(shownUnder(brief, filter)).toBe(false)
+    }
+    expect(railMarks(conversation(held), false)[1].action).toBe(false)
+  })
+
+  it('stays held across a refresh and Load older, from whichever page carried it', () => {
+    const newest = history([status(3, 12, 'Later', { attempt: 2, id: `outbox:${H.attempt2}:3` })], {
+      attempts: [first, second],
+      briefs: [historyBrief(undefined, { attempt: H.attempt2, minute: 10 })],
+      before: 'c1',
+    })
+    const older = history([status(1, 2, 'Started')], {
+      attempts: [first, second],
+      briefs: [historyBrief(undefined, { attempt: H.attempt, minute: 1 })],
+    })
+    const loaded = appendOlderPage(mergeNewestPage(undefined, newest), older, 'c1')
+    expect(loaded.briefs?.map((item) => item.attempt_id)).toEqual([H.attempt2, H.attempt])
+
+    // A refresh sharing the held rows keeps the older page's brief with its entries.
+    const refreshed = mergeNewestPage(loaded, {
+      ...newest,
+      entries: [
+        status(4, 13, 'Newest', { attempt: 2, id: `outbox:${H.attempt2}:4` }),
+        ...newest.entries,
+      ],
+    })
+    expect(refreshed.briefs?.map((item) => item.attempt_id)).toEqual([H.attempt2, H.attempt])
+    // One sharing none drops the held entries and the briefs that came with them.
+    const unrelated = mergeNewestPage(
+      loaded,
+      history([status(9, 20, 'Elsewhere', { attempt: 2, id: `outbox:${H.attempt2}:9` })], {
+        attempts: [first, second],
+        before: 'c9',
+      }),
+    )
+    expect(unrelated.briefs).toBeUndefined()
+  })
+
+  it('is absent for an earlier input, which had no brief', () => {
+    const held = mergeNewestPage(undefined, history([status(1, 2, 'Started')]))
+
+    expect(conversation(held).map((item) => item.kind)).toEqual(['attempt', 'entry'])
   })
 })

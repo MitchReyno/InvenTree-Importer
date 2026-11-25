@@ -1,10 +1,12 @@
 import type {
   SessionHistoryAttemptDto,
+  SessionHistoryBriefDto,
   SessionHistoryDto,
   SessionHistoryEntryDto,
   SessionHistoryLinkDto,
 } from '@invimport/contracts'
 import type { EarlierAttempt } from '#/agents/session-list'
+import { briefSummary } from './brief-view'
 
 type Entry = SessionHistoryEntryDto
 
@@ -12,6 +14,8 @@ type Entry = SessionHistoryEntryDto
 export type HeldHistory = {
   session: SessionHistoryDto['session']
   entries: Entry[]
+  /** The briefs of `/7` attempts the held pages carried, newest first. */
+  briefs?: SessionHistoryBriefDto[]
   before?: string
   /** The newest page's place in the history read order (`nextHistoryOrder`). */
   readOrder?: number
@@ -26,9 +30,14 @@ export type HistoryItem =
 /** An entry or a group: every row except the drawer's folded line. */
 type EntryRow = Exclude<HistoryItem, { kind: 'elided' }>
 
-/** A row of the session page's conversation: the history's rows plus a divider per attempt. */
+/**
+ * A row of the session page's conversation: the history's rows plus a divider per attempt, and
+ * after a `/7` attempt's divider the brief it started from.
+ */
 export type ConversationItem =
-  HistoryItem | { kind: 'attempt'; id: string; attempt: SessionHistoryAttemptDto }
+  | HistoryItem
+  | { kind: 'attempt'; id: string; attempt: SessionHistoryAttemptDto }
+  | { kind: 'brief'; id: string; summary: string; brief: SessionHistoryBriefDto }
 
 export type ConversationFilter = 'all' | 'messages' | 'inputs' | 'photos' | 'web'
 
@@ -37,10 +46,22 @@ function isStoredRow(entry: Entry) {
   return entry.details.kind !== 'web_read'
 }
 
+/** Every brief of both lists once, the first list's copy first, newest first. */
+function joinBriefs(
+  first: readonly SessionHistoryBriefDto[] | undefined,
+  second: readonly SessionHistoryBriefDto[] | undefined,
+) {
+  const seen = new Set((first ?? []).map((item) => item.attempt_id))
+  const briefs = [...(first ?? []), ...(second ?? []).filter((item) => !seen.has(item.attempt_id))]
+  briefs.sort((a, b) => b.at.localeCompare(a.at))
+  return briefs.length > 0 ? { briefs } : {}
+}
+
 /**
  * Replaces the held newest page with a fresh read of it. Held entries older than the new page
- * stay, so one new entry never pushes another out of view; when the new page shares no stored
- * row with the held entries, they are dropped so no gap is left, and Load older continues from it.
+ * stay, with the briefs held pages carried, so one new entry never pushes another out of view;
+ * when the new page shares no stored row with the held entries, they are dropped so no gap is
+ * left, and Load older continues from it.
  */
 export function mergeNewestPage(
   held: HeldHistory | undefined,
@@ -49,6 +70,7 @@ export function mergeNewestPage(
   const fresh: HeldHistory = {
     session: page.session,
     entries: page.entries,
+    ...joinBriefs(page.briefs, undefined),
     ...(page.before ? { before: page.before } : {}),
   }
   if (!held || !page.before) {
@@ -67,6 +89,7 @@ export function mergeNewestPage(
   return {
     session: page.session,
     entries: [...page.entries, ...olderHeld],
+    ...joinBriefs(page.briefs, held.briefs),
     ...(held.before ? { before: held.before } : {}),
   }
 }
@@ -89,6 +112,7 @@ export function appendOlderPage(
   return {
     session: held.session,
     entries: [...held.entries, ...older],
+    ...joinBriefs(held.briefs, page.briefs),
     ...(page.before ? { before: page.before } : {}),
     // An older page changes nothing about when the newest was read.
     ...(held.readOrder !== undefined ? { readOrder: held.readOrder } : {}),
@@ -247,10 +271,13 @@ export function filterCount(entries: readonly Entry[], filter: ConversationFilte
   return filter === 'all' ? entries.length : entries.filter(FILTERS[filter]).length
 }
 
-/** Whether a conversation row shows under a filter; attempt dividers always show. */
+/** Whether a conversation row shows under a filter; attempt dividers always show, briefs only under All. */
 export function shownUnder(item: ConversationItem, filter: ConversationFilter) {
   if (filter === 'all' || item.kind === 'attempt' || item.kind === 'elided') {
     return true
+  }
+  if (item.kind === 'brief') {
+    return false
   }
   const entries = item.kind === 'group' ? item.entries : [item.entry]
   return entries.some(FILTERS[filter])
@@ -258,11 +285,19 @@ export function shownUnder(item: ConversationItem, filter: ConversationFilter) {
 
 /**
  * The session page's conversation, oldest first: grouped actions, chat, questions and inputs,
- * with a divider where each attempt was queued. Entries are grouped only between dividers, so an
- * attempt's actions never sit above its own divider. While older entries remain to load, an
- * attempt gets its divider only when it was queued within the loaded entries or owns one of them.
+ * with a divider where each attempt was queued, and a `/7` attempt's brief straight after it.
+ * Entries are grouped only between dividers, so an attempt's actions never sit above its own
+ * divider. While older entries remain to load, an attempt gets its divider only when it was
+ * queued within the loaded entries or owns one of them.
  */
 export function conversation(held: HeldHistory): ConversationItem[] {
+  const briefOf = new Map((held.briefs ?? []).map((item) => [item.attempt_id, item]))
+
+  const divider = (attempt: SessionHistoryAttemptDto) => {
+    const brief = briefOf.get(attempt.id)
+    return brief ? [dividerItem(attempt), briefItem(brief)] : [dividerItem(attempt)]
+  }
+
   const oldestFirst = [...held.entries].reverse()
   const oldestLoaded = oldestFirst[0]?.at
   const owning = new Set(
@@ -281,14 +316,14 @@ export function conversation(held: HeldHistory): ConversationItem[] {
       segment = []
     }
     while (next < dividers.length && dividers[next].queued_at <= entry.at) {
-      items.push(dividerItem(dividers[next]))
+      items.push(...divider(dividers[next]))
       next += 1
     }
     segment.push(entry)
   }
   items.push(...groupEntries(segment))
   for (; next < dividers.length; next += 1) {
-    items.push(dividerItem(dividers[next]))
+    items.push(...divider(dividers[next]))
   }
   return items
 }
@@ -300,6 +335,15 @@ export function attemptsOldestFirst(attempts: readonly SessionHistoryAttemptDto[
 
 function dividerItem(attempt: SessionHistoryAttemptDto): ConversationItem {
   return { kind: 'attempt', id: `attempt:${attempt.id}`, attempt }
+}
+
+function briefItem(brief: SessionHistoryBriefDto): ConversationItem {
+  return {
+    kind: 'brief',
+    id: `brief:${brief.attempt_id}`,
+    summary: briefSummary(brief.brief),
+    brief,
+  }
 }
 
 /** Each photo the loaded entries show the agent was sent, with how many views it had. */
@@ -366,7 +410,7 @@ function isAction(item: ConversationItem) {
   if (item.kind === 'elided' || item.kind === 'group') {
     return item.kind === 'elided' || item.entries[0].who === 'agent'
   }
-  if (item.kind === 'attempt') {
+  if (item.kind === 'attempt' || item.kind === 'brief') {
     return false
   }
   return item.entry.who === 'agent' && !isChat(item.entry)

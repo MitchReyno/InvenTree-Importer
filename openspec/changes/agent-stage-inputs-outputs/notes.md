@@ -71,6 +71,18 @@ A sealed brief keeps its bytes, but nothing of evidence removed since reaches th
 - `ProcessingInputV7` lives in `contracts/src/stage-input.ts`, so the brief can carry a `SessionProposal` without a module cycle between `processing.ts` and `brief.ts`. `SessionInput` (the `/6` or `/7` union) is a type only. Registering it as a schema would put both versions in the generated OpenAPI document again; `decodeSessionInput` validates against the version the bytes name.
 - `answeredValues` now takes the question's view (`questionView`), so the brief can read answers to questions it decodes from their stored bytes. A `/1` answer's prompt is the view's title, which for a `/1` question is its prompt, as before.
 
+## Task 8 (PR-H): the brief on the session page
+
+- **Where the brief travels.** The history read gives each `/7` attempt's sealed brief as `briefs` beside the page's entries, not as a history entry: a brief is the attempt's input, not an inbox or outbox row, and an entry would have reached every reader of history entries (the drawer, the batch activity read) and the page's 200-row count. A brief sorts before every row at its attempt's queue time and comes on the page whose span holds that time, so it arrives with the rows around it as Load older reaches them. Earlier inputs had no brief, so their responses keep their shape: no `briefs` key.
+- **What it carries.** Every page of the sealed brief, from the manifest and `processing_input_page`, without what concerns evidence removed since (`withoutRemovedMedia`), as a session's read tools serve it. `sections` keeps the sealed counts, as the read tools do, so after a removal a count can exceed the entries shown; the page counts what it shows from the entries. The whole brief comes on each read of the page that carries it, including polls of the newest page; a brief is bounded at 64 pages, and a page-level bound on briefs was not added.
+- **The drawer leaves it out.** The spec names the session page; the drawer keeps its history as before.
+- **Collapsed every time.** The canvas board (D43, "Lot session hand-off") notes the brief opening on the first visit and collapsing after it; the spec's scenario has the operator expanding it to see the correction. The page always shows it collapsed: remembering visits would be new per-viewer state that neither the spec nor the tasks ask for. Open item below.
+- **Examine's brief.** The canvas draws Research's brief. An Examine lead's brief reads "Started from the batch", with its lots and Parts; an Images brief adds the items to keep out of frame. The empty Match and vocabulary sections show nothing until their data arrives.
+
+### Open items
+
+- The canvas's "collapsed after the first visit" (open on the first) isn't built; it needs a decision on remembering visits per viewer.
+
 ## Task 5 (PR-E1) status
 
 Merged in #274. Task 5 (PR-E1) adds recipe `/2` and the decoder operations behind `inspect_region`, `preview_images` and `match_logo`; nothing outside tests calls them yet. Task 1 (PR-A) is recorded above.

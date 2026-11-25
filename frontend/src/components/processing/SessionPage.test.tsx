@@ -21,6 +21,7 @@ import {
   attemptHeader,
   chat,
   history,
+  historyBrief,
   input,
   observation,
   photoView,
@@ -148,6 +149,66 @@ function mount(processing: ProcessingClient, cache = createServerQueryClient()) 
 }
 
 const conversationOf = () => screen.getByRole('list', { name: 'Session conversation' })
+
+test('a /7 session opens on the brief it started from, collapsed, with your correction marked', async () => {
+  const user = userEvent.setup()
+  mount(client(history([status(1, 5, 'Reading the brief')], { briefs: [historyBrief()] })))
+  const list = await screen.findByRole('list', { name: 'Session conversation' })
+  const rows = [...list.children] as HTMLElement[]
+
+  // The first item after the attempt's divider, summarising what it holds.
+  expect(rows[0]).toHaveTextContent('Attempt 1')
+  const brief = within(rows[1]).getByRole('group', { name: /Started from Examine’s findings/ })
+  const summary = brief.querySelector('summary')!
+  expect(summary).toHaveTextContent(
+    'Started from Examine’s findings · 2 observations · 3 of your facts · 1 question already asked',
+  )
+  expect(rows[1].dataset.rail).toBeUndefined()
+  // Collapsed until opened: the earlier reading isn't shown yet.
+  expect(brief).not.toHaveAttribute('open')
+  expect(within(brief).getByText('ATMEGA328P 2338')).not.toBeVisible()
+
+  await user.click(summary)
+  expect(brief).toHaveAttribute('open')
+  for (const heading of [
+    'Examine’s identity',
+    'Observations',
+    'Your facts',
+    'Already asked · not asked again',
+    'Evidence it may read itself',
+  ]) {
+    expect(within(brief).getByRole('heading', { name: heading })).toBeVisible()
+  }
+  const identity = within(brief).getByRole('list', { name: 'Examine’s identity' })
+  expect(within(identity).getByText('ATmega328P-AU')).toBeVisible()
+  // The correction: the earlier reading struck through, the new one, marked as yours.
+  const earlier = within(brief).getByText('ATMEGA328P 2338')
+  expect(earlier.tagName).toBe('DEL')
+  const corrected = earlier.closest('li')!
+  expect(corrected).toHaveTextContent('ATMEGA328P 2348')
+  expect(within(corrected).getByText(/Your correction/)).toBeVisible()
+  // Your facts: the answer and the note, each marked as yours.
+  const facts = within(brief).getByRole('list', { name: 'Your facts' })
+  expect(facts).toHaveTextContent('Which ATmega328P variant is this? → ATmega328P-AU')
+  expect(facts).toHaveTextContent('Mouser order 3381-22 plus a loose bench bag')
+  const asked = within(brief).getByRole('list', { name: 'Already asked · not asked again' })
+  expect(asked).toHaveTextContent('Which ATmega328P variant is this?')
+  expect(asked).toHaveTextContent('Answered')
+  expect(
+    within(brief).getByRole('list', { name: 'Evidence it may read itself' }),
+  ).toHaveTextContent('MCU close-up')
+})
+
+test('a session from an earlier input, which had no brief, opens as before', async () => {
+  mount(client(history([status(1, 5, 'Reading the batch')])))
+  const list = await screen.findByRole('list', { name: 'Session conversation' })
+
+  expect(within(list).queryByText(/Started from/)).toBeNull()
+  expect(([...list.children] as HTMLElement[]).map((row) => row.textContent)).toEqual([
+    expect.stringContaining('Attempt 1'),
+    expect.stringContaining('Reading the batch'),
+  ])
+})
 
 test('one conversation in time order, with a divider for each attempt', async () => {
   const first = attemptHeader({

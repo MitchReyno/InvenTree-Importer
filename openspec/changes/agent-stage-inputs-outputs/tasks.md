@@ -291,8 +291,8 @@ With suggestions 3 and 4 also applied, Match's search core (PR-C1) would start i
 - **TDD approach:** read and component tests fail first, including a `/7` history response with the sealed brief and an earlier-version response keeping its existing shape.
 - **Verification:** intake tiers (`pnpm db:intake test`), frontend checks, and a demo video.
 
-- [ ] 8.1 RED: write the history-read and component tests.
-- [ ] 8.2 GREEN: implement them.
+- [x] 8.1 RED: write the history-read and component tests.
+- [x] 8.2 GREEN: implement them.
 - [ ] 8.3 Run the checks, and record the demo video.
 
 ## 9. Multi-lot Research and Images sessions

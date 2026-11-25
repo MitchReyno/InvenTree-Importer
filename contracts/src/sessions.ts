@@ -28,7 +28,7 @@ import {
   statusLine,
 } from './processing.ts'
 import { ContractValidationIssue } from './validation-issues.ts'
-import { SessionBriefPage } from './brief.ts'
+import { SessionBrief, SessionBriefPage } from './brief.ts'
 import {
   EvidenceReadings,
   EvidenceRegion,
@@ -621,10 +621,25 @@ export const SessionHistoryMetadata = object({
   start_fresh: StartFreshEligibility,
 })
 export const SessionHistoryQuery = object({ before: Type.Optional(SessionHistoryCursor) })
+/**
+ * The brief a `/7` attempt's input sealed, every page of it, without what concerns evidence
+ * removed since. It sits in the history's order at the attempt's queue time, before its rows.
+ */
+export const SessionHistoryBrief = object({
+  attempt_id: Id,
+  /** The attempt's queue time, as its header gives it. */
+  at: IsoTime,
+  brief: SessionBrief,
+})
 /** One page of a session's history, newest first, with its metadata from the same snapshot. */
 export const SessionHistory = object({
   session: SessionHistoryMetadata,
   entries: Type.Array(SessionHistoryEntry, { maxItems: MAX_HISTORY_ENTRIES }),
+  /**
+   * The briefs of the `/7` attempts queued within this page, newest first. Absent when there are
+   * none, as for every attempt from an earlier input, which had no brief.
+   */
+  briefs: Type.Optional(Type.Array(SessionHistoryBrief, { minItems: 1 })),
   /** Present when older rows exist. */
   before: Type.Optional(SessionHistoryCursor),
 })
@@ -665,6 +680,7 @@ export const sessionSchemas = {
   SessionReplacement,
   SessionLatestStatus,
   SessionHistory,
+  SessionHistoryBrief,
   SessionHistoryCursor,
   SessionHistoryQuery,
   RegroupMove,
@@ -690,6 +706,7 @@ export const sessionSchemas = {
 }
 export type SessionLatestStatusDto = Static<typeof SessionLatestStatus>
 export type SessionHistoryDto = Static<typeof SessionHistory>
+export type SessionHistoryBriefDto = Static<typeof SessionHistoryBrief>
 export type BatchActivityDto = Static<typeof BatchActivity>
 export type BatchActivityEntryDto = Static<typeof BatchActivityEntry>
 export type SessionHistoryEntryDto = Static<typeof SessionHistoryEntry>

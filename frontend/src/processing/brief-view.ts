@@ -1,0 +1,99 @@
+import type { BriefEntryDto, SessionBriefDto } from '@invimport/contracts'
+
+type Entry<K extends BriefEntryDto['kind']> = Extract<BriefEntryDto, { kind: K }>
+type Observation = Entry<'observation'>['observation']
+
+/** The operator's facts the brief carries apart from corrections, which sit with their reading. */
+export type BriefFact = Entry<'answer' | 'note' | 'setting_note' | 'lot_edit'>
+
+/** An observation as the session was given it, with the operator's correction to it, if any. */
+export type BriefObservationRow = {
+  observation: Observation
+  correction: Entry<'correction'> | null
+}
+
+/** A brief's entries grouped the way the session page shows them. */
+export type BriefView = {
+  title: string
+  batch: Entry<'batch'> | null
+  identities: Entry<'identity'>[]
+  observations: BriefObservationRow[]
+  /** Corrections to observations the brief doesn't list, such as an Examine lead's. */
+  corrections: Entry<'correction'>[]
+  facts: BriefFact[]
+  instructions: Entry<'instruction'>[]
+  asked: Entry<'question'>[]
+  evidence: Entry<'evidence'>[]
+  lots: Entry<'lot'>[]
+  parts: Entry<'part'>[]
+  keepOut: Entry<'keep_out'>[]
+}
+
+function ofKind<K extends BriefEntryDto['kind']>(entries: readonly BriefEntryDto[], kind: K) {
+  return entries.filter((entry): entry is Entry<K> => entry.kind === kind)
+}
+
+/** Examine starts from the batch; Research and Images from what Examine found. */
+function titleOf(brief: SessionBriefDto) {
+  return brief.stage === 'examine' ? 'Started from the batch' : 'Started from Examine’s findings'
+}
+
+export function briefView(brief: SessionBriefDto): BriefView {
+  const { entries } = brief
+  const corrections = ofKind(entries, 'correction')
+  const correctionOf = new Map(corrections.map((entry) => [entry.observation_id, entry]))
+  const observations = ofKind(entries, 'observation').map((entry) => ({
+    observation: entry.observation,
+    correction: correctionOf.get(entry.observation.id) ?? null,
+  }))
+  const listed = new Set(observations.map((row) => row.observation.id))
+  const facts = entries.filter(
+    (entry): entry is BriefFact =>
+      entry.kind === 'answer' ||
+      entry.kind === 'note' ||
+      entry.kind === 'setting_note' ||
+      entry.kind === 'lot_edit',
+  )
+
+  return {
+    title: titleOf(brief),
+    batch: ofKind(entries, 'batch')[0] ?? null,
+    identities: ofKind(entries, 'identity'),
+    observations,
+    corrections: corrections.filter((entry) => !listed.has(entry.observation_id)),
+    facts,
+    instructions: ofKind(entries, 'instruction'),
+    asked: ofKind(entries, 'question'),
+    evidence: ofKind(entries, 'evidence'),
+    lots: ofKind(entries, 'lot'),
+    parts: ofKind(entries, 'part'),
+    keepOut: ofKind(entries, 'keep_out'),
+  }
+}
+
+function plural(count: number, one: string, many = `${one}s`) {
+  return `${count} ${count === 1 ? one : many}`
+}
+
+/** How many of the operator's facts the brief holds: every correction, answer, note and edit. */
+export function factCount(view: BriefView) {
+  const corrections = view.observations.filter((row) => row.correction !== null).length
+  return view.facts.length + corrections + view.corrections.length
+}
+
+/** The brief's one-line summary, naming only what it holds. */
+export function briefSummary(brief: SessionBriefDto) {
+  const view = briefView(brief)
+  const facts = factCount(view)
+  const parts = [
+    view.observations.length > 0 ? plural(view.observations.length, 'observation') : null,
+    facts > 0 ? `${facts} of your facts` : null,
+    view.asked.length > 0 ? `${plural(view.asked.length, 'question')} already asked` : null,
+  ]
+  return [view.title, ...parts.filter((part) => part !== null)].join(' · ')
+}
+
+/** A reading as one line: its transcribed text, or its markings. */
+export function readingText(readings: Observation['readings']) {
+  return readings.text ?? readings.markings.join(' · ')
+}
