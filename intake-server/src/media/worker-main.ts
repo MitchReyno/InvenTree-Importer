@@ -7,7 +7,8 @@ import { runMediaCommand, type MediaCommandOutcome } from './worker.ts'
 
 const OUTCOME_MESSAGES: Record<MediaCommandOutcome, string> = {
   decoded: 'One retained media command processed.\n',
-  deferred: 'The decoder stayed busy, so one media command was deferred; run the worker again.\n',
+  busy: 'No command acquired. The decoder is busy.\n',
+  deferred: 'The decoder refused the claimed command as busy. It was deferred; run the worker again.\n',
   idle: 'No eligible unclaimed media command.\n',
 }
 

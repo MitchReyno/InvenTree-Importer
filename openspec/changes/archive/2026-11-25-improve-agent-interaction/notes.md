@@ -221,6 +221,8 @@ Implementation of BI-019's agent interaction work, delivered PR by PR as the tas
 
 - **2026-11-25T18:55+11:00, task 15 (PR-L), migration renumbered again:** trunk then took `0040` with #281's `0040_agent_slot_turn_child.sql`, so PR-L's migration is now `0041_media_decode_deferral.sql`. Merged trunk at `23c09a53`.
 
+- **2026-11-25T21:43+11:00, archive:** BI-019 is Done: all 12 implementation PRs merged, recorded in #285. The delta specs are synced into eight main specs, and the items still open are listed under "Open at archive" below.
+
 ## Open items
 
 - PR-A follow-up from the merge review: check a popover opened inside a modal near the viewport's edges in a real browser. Its placement and its use inside a modal are tested in jsdom only.
@@ -250,3 +252,13 @@ Implementation of BI-019's agent interaction work, delivered PR by PR as the tas
 2026-11-24T14:15+11:00: Mitch selected file delivery as the default for unset and empty settings. Inline delivery is an explicit option.
 
 The operator requested a separate preview/original choice. Preserve preview as the default. Original delivery includes embedded photo metadata.
+
+## Open at archive
+
+These items remain open when the change is archived on 2026-11-25. None of them blocks BI-019's acceptance.
+
+- The figure sweep's deletions can still wait on a settling render's row and blob locks, as under PR-K, though they hold no batch lock. A settlement slower than the media role's 5 s statement timeout fails that sweep, which stops the consumer until its supervisor restarts it.
+- Pictures PR-K's sweep deleted before #284 merged keep no recipe to render from, so they stay "Picture couldn't be made" even when their photo is restored.
+- `tests/pg/header-work.test.ts` ("rotated target context fences cached connection observations") was the one failure in #284's final-head PG tier, and also fails when run alone on trunk `f7980bd7`.
+- Two failures seen on earlier #284 heads also reproduced on trunk: `tests/pg/media-startup-authority.test.ts`' startup health check, and `tests/process/serial/dev-stack.test.ts` timing out while waiting for the application to restart after its source edit. `dev-stack` passed on #284's final head. [#284](https://github.com/MitchReyno/InvenTree-Importer/pull/284) records the exact heads and outcomes.
+- The earlier open items above remain as listed: the popover-in-modal and long-word wrapping browser checks, the native-session qualification script's type errors, the masthead chip and workflow heading counting differently, and the paged history's query costs.
