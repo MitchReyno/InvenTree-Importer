@@ -6,7 +6,14 @@ import { afterEach, expect, onTestFinished, test, vi } from 'vitest'
 import { setDebugMode } from '#/test/debug-mode'
 import { onlineManager, type QueryClient } from '@tanstack/react-query'
 import { cancelVerified, freshReads } from './queries/fresh-reads'
-import { validate, type CaptureSnapshotDto, type ProcessingSnapshotDto } from '@invimport/contracts'
+import {
+  BUILT_IN_MODEL_CATALOG,
+  validate,
+  type AgentModelCatalogDto,
+  type CaptureSnapshotDto,
+  type ProcessingSnapshotDto,
+} from '@invimport/contracts'
+import { builtinCatalog, CLAUDE_MODELS, modelCatalog, providerCatalog } from '#/test/model-catalog'
 import { ProcessingWorkspace } from './components/processing/ProcessingWorkspace'
 import { ServerStateProvider } from './components/query/ServerStateProvider'
 import { createServerQueryClient } from './queries/client'
@@ -2316,4 +2323,58 @@ test('a confirmed answer whose read fails says it was saved, as the only banner,
     expect(screen.queryByText(/Saved\. Showing the last status/)).not.toBeInTheDocument(),
   )
   expect(screen.queryByText(/Processing status unavailable/)).not.toBeInTheDocument()
+})
+
+function mountStep(view: 'images' | 'research', catalog: AgentModelCatalogDto) {
+  const saved = agentSettings(
+    '1',
+    { provider: 'claude', authentication: 'subscription', model: 'claude-opus-5-5' },
+    { stage_selections: { images: { provider: 'claude', model: 'claude-opus-4-6' } } },
+  )
+  render(
+    <ServerStateProvider scope={scope} client={createServerQueryClient()}>
+      <ApiClientsProvider
+        value={{
+          agents: {
+            sessions: vi.fn(async () => sessionList()),
+            settings: vi.fn(async () => saved),
+            modelCatalog: vi.fn(async () => catalog),
+          },
+        }}
+      >
+        <ProcessingWorkspace
+          batch={batch}
+          client={researchClient('ready')}
+          view={view}
+          navigate={vi.fn()}
+          onDirtyChange={vi.fn()}
+          onSaved={vi.fn().mockResolvedValue(undefined)}
+        />
+      </ApiClientsProvider>
+    </ServerStateProvider>,
+  )
+}
+
+test('a step whose saved model is no longer offered says so in its header, linking to its row', async () => {
+  mountStep('images', modelCatalog())
+  const pill = await screen.findByRole('link', { name: /Not offered: Opus 4\.6/ })
+  expect(pill).toHaveAttribute('href', '#settings/agents/models')
+  cleanup()
+  // Research runs Claude's default model, which the list offers.
+  mountStep('research', modelCatalog())
+  await screen.findByRole('heading', { name: 'Research' })
+  expect(screen.queryByRole('link', { name: /Not offered/ })).not.toBeInTheDocument()
+})
+
+test('no pill while the list is the built-in one, has never been read or is from an earlier sign-in', async () => {
+  for (const claude of [
+    builtinCatalog([...BUILT_IN_MODEL_CATALOG.claude]),
+    providerCatalog(CLAUDE_MODELS, { state: 'stale_sign_in' }),
+  ]) {
+    mountStep('images', modelCatalog({ claude }))
+    await screen.findByRole('heading', { name: 'Images' })
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)))
+    expect(screen.queryByRole('link', { name: /Not offered/ })).not.toBeInTheDocument()
+    cleanup()
+  }
 })

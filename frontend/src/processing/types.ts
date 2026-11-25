@@ -1,4 +1,4 @@
-import type { BatchActivityDto, AgentSettingsDto } from '@invimport/contracts'
+import type { BatchActivityDto, AgentModelCatalogDto, AgentSettingsDto } from '@invimport/contracts'
 import type { SessionListRead } from '#/agents/session-list'
 import type {
   SessionFailureDto,
@@ -61,4 +61,6 @@ export type AgentsRead = {
   pause?: (batchId: string, paused: boolean) => Promise<unknown>
   /** Sends the batch's saved instructions to its sessions. */
   deliverInstructions?: (batchId: string) => Promise<{ sessions: number; woken: number }>
+  /** Each provider's model list, for a step header's warning; absent where this setup has none. */
+  modelCatalog?: () => Promise<AgentModelCatalogDto>
 }

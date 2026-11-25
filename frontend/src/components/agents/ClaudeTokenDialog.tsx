@@ -6,7 +6,7 @@ import { usePersonalClaudeCredential } from './usePersonalClaudeCredential'
 
 type Props = {
   /** The VM confirmed a change, or one may have happened; the card reads its status again. */
-  onChanged: (configured: boolean | undefined, late?: boolean) => void
+  onChanged: (configured: boolean | undefined, late?: boolean) => void | Promise<void>
   onClose: () => void
 }
 

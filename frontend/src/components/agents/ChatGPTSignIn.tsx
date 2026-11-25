@@ -3,8 +3,11 @@ import { Button } from '#/components/ui'
 import { ChatGPTSignInDialog } from './ChatGPTSignInDialog'
 
 type Props = {
-  /** The VM confirmed the ChatGPT account after a sign-in in the dialog. */
-  onConfirmed: () => void
+  /**
+   * The VM confirmed the ChatGPT account after a sign-in in the dialog; the dialog closes once
+   * what it returns settles.
+   */
+  onConfirmed: () => void | Promise<void>
   /** The sign-in may have changed; the card reads its status again. */
   onChanged: () => void
 }
@@ -20,8 +23,7 @@ export function ChatGPTSignIn({ onConfirmed, onChanged }: Props) {
         <ChatGPTSignInDialog
           onChanged={onChanged}
           onConfirmed={() => {
-            setOpen(false)
-            onConfirmed()
+            void Promise.resolve(onConfirmed()).finally(() => setOpen(false))
           }}
           onClose={() => setOpen(false)}
         />

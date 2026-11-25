@@ -1,5 +1,6 @@
 import { vi } from 'vitest'
 import { sessionList } from './agent-sessions'
+import { builtinModelCatalog } from './model-catalog'
 import type {
   AgentSessionListDto,
   AgentSettingsDto,
@@ -90,6 +91,7 @@ export function agentSettingsServer(initial: AgentSettingsDto) {
     pause: vi.fn(),
     pauseAll: vi.fn(async (paused: boolean) => ({ paused, batch_ids: [] })),
     deliverInstructions: vi.fn(),
+    modelCatalog: vi.fn(async () => builtinModelCatalog()),
   }
 
   return {

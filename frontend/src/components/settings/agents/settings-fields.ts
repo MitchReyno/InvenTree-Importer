@@ -16,6 +16,7 @@ export type FieldKey =
   | `providers.${AgentProviderId}.enabled`
   | `providers.${AgentProviderId}.authentication`
   | `providers.${AgentProviderId}.default_model`
+  | `providers.${AgentProviderId}.default_effort`
   | 'default_provider'
   | `stage_selections.${AgentSettingsStage}`
   | 'session_concurrency'
@@ -27,7 +28,7 @@ export type FieldKey =
 
 const PROVIDERS = ['claude', 'codex'] as const satisfies readonly AgentProviderId[]
 
-type ProviderField = 'enabled' | 'authentication' | 'default_model'
+type ProviderField = 'enabled' | 'authentication' | 'default_model' | 'default_effort'
 
 function providerKey(key: FieldKey): [AgentProviderId, ProviderField] | undefined {
   const [group, provider, field] = key.split('.')
@@ -82,7 +83,12 @@ export function withFields(
     const stage = stageKey(key)
     if (provider) {
       const [id, field] = provider
-      next.providers[id] = { ...next.providers[id], [field]: source.providers[id][field] }
+      const copied = { ...next.providers[id], [field]: source.providers[id][field] }
+      // Default effort is absent rather than undefined, as the contract has it.
+      if (copied.default_effort === undefined) {
+        delete copied.default_effort
+      }
+      next.providers[id] = copied
     } else if (stage) {
       const choice = source.stage_selections[stage]
       if (choice) {

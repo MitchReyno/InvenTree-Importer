@@ -119,13 +119,13 @@
   - a demo video of searching by name, choosing an effort, a model lacking the level resetting it, a failed read and a saved model no longer offered, using fixtures.
 - **Risks and decisions:** the Effort select is a native select, per the dropdown guideline.
 
-- [ ] 4.1 Read the shared and frontend code guidelines, `frontend/ARCHITECTURE.md`'s Settings › Agents section and the three boards.
-- [ ] 4.2 RED:
-  - [ ] 4.2.1 the picker: names with IDs, search by either, Claude's collapsed older group (including a list of only 4.x models), "Saved, not offered" first, the API-key "can't use" mark, the exact-ID option unchanged;
-  - [ ] 4.2.2 the states: reading with the saved ID and effort kept, failed with the shown list's time and Try again, the built-in list's mark with Effort only Default, Check again and a confirmed sign-in requesting a refresh, no not-offered warning in Settings or the Processing pill while the list is `stale_sign_in`, including after a failed reread, and both views recovering without a reload when the new list lands; refetching every 1 s for 30 s and then every 30 s while reading or stale, Settings and Processing that start from `current` learning of a stale list and its recovery through the 60 s idle refetch with no focus change or reload, and refetching on window focus before that timer fires; the sign-in dialog confirming only after the API acknowledges the invalidation, with its own view showing the list as stale at once while the catalogue GET is held pending; a hidden tab refetching when shown again;
-  - [ ] 4.2.3 Effort: options in the provider's order with labels, "Default · Low" for Codex and plain "Default" for Claude, disabled "No effort levels", the reset notice and one autosave for the model and effort, a saved unaccepted effort kept with its warning, and the provider card's default pair;
-  - [ ] 4.2.4 the Processing pill showing for a not-offered model, linking to the step row, and hidden for the built-in or unread list.
-- [ ] 4.3 GREEN: the query, the picker groups, `EffortSelect`, the states and the pill; retire `AGENT_MODEL_SUGGESTIONS`, with the server's settings tests showing the unsaved defaults and first-save fallback unchanged.
+- [x] 4.1 Read the shared and frontend code guidelines, `frontend/ARCHITECTURE.md`'s Settings › Agents section and the three boards.
+- [x] 4.2 RED:
+  - [x] 4.2.1 the picker: names with IDs, search by either, Claude's collapsed older group (including a list of only 4.x models), "Saved, not offered" first, the API-key "can't use" mark, the exact-ID option unchanged;
+  - [x] 4.2.2 the states: reading with the saved ID and effort kept, failed with the shown list's time and Try again, the built-in list's mark with Effort only Default, Check again and a confirmed sign-in requesting a refresh, no not-offered warning in Settings or the Processing pill while the list is `stale_sign_in`, including after a failed reread, and both views recovering without a reload when the new list lands; refetching every 1 s for 30 s and then every 30 s while reading or stale, Settings and Processing that start from `current` learning of a stale list and its recovery through the 60 s idle refetch with no focus change or reload, and refetching on window focus before that timer fires; the sign-in dialog confirming only after the API acknowledges the invalidation, with its own view showing the list as stale at once while the catalogue GET is held pending; a hidden tab refetching when shown again;
+  - [x] 4.2.3 Effort: options in the provider's order with labels, "Default · Low" for Codex and plain "Default" for Claude, disabled "No effort levels", the reset notice and one autosave for the model and effort, a saved unaccepted effort kept with its warning, and the provider card's default pair;
+  - [x] 4.2.4 the Processing pill showing for a not-offered model, linking to the step row, and hidden for the built-in or unread list.
+- [x] 4.3 GREEN: the query, the picker groups, `EffortSelect`, the states and the pill; retire `AGENT_MODEL_SUGGESTIONS`, with the server's settings tests showing the unsaved defaults and first-save fallback unchanged.
 - [ ] 4.4 Update `frontend/ARCHITECTURE.md` and the Settings fixture. Run the frontend checks, capture the states and record the demo video.
 
 ## 5. Instructions for each step
@@ -192,7 +192,7 @@
 
 - [x] PR-0: review the plan read-only (`codex exec -m gpt-6.2-sol -s read-only`), fix, publish, CI green, merge. Merged as #278 at `2dd1206d`.
 - [x] PR-A: implement tasks 1 and 2, review the exact head, publish with the pinned-version proof, CI green, merge. Merged as #291 at `fe29f952`.
-- [ ] PR-B: implement task 3, review the exact head, publish, CI green, merge.
+- [x] PR-B: implement task 3, review the exact head, publish, CI green, merge. Merged as #293 at `ed698945`.
 - [ ] PR-C: implement task 4, review the exact head, publish with the captures and the demo, CI green, merge.
 - [ ] PR-D: implement task 5, review the exact head, publish with the demo, CI green, merge.
 - [ ] PR-F: implement task 7 once BI-022's PR-I has merged, review the exact head, publish, CI green, merge.

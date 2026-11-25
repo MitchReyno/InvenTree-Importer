@@ -11,6 +11,7 @@ import { ChatGPTSignIn } from '#/components/agents/ChatGPTSignIn'
 import { PauseAllAgents } from '#/components/agents/PauseAllAgents'
 import { PersonalClaudeCredential } from '#/components/agents/PersonalClaudeCredential'
 import { useProviderStatus } from '#/components/agents/useProviderStatus'
+import { useModelCatalog } from '#/agents/useModelCatalog'
 import { newestRevision } from './newest-revision'
 import { SettingsSection } from './SettingsSection'
 import { SettingsSkeleton } from './SettingsSkeleton'
@@ -67,6 +68,8 @@ export function AgentsSection({
   const scope = useServerScope()
   const poll = useRetainedPollInterval()
   const providerStatus = useProviderStatus(client)
+  // Shared with Processing; a sign-in change marks it stale before the dialog confirms.
+  const catalog = useModelCatalog(client)
   const queryClient = useQueryClient()
   // Says whether this profile's sessions have web access; until it answers, the form stays usable.
   const readiness = useReadiness(true)
@@ -226,18 +229,26 @@ export function AgentsSection({
         <ProvidersAndSteps
           {...form}
           status={providerStatus}
+          catalog={catalog}
           credentials={{
             claude: (
               <PersonalClaudeCredential
-                onChanged={(configured, late) =>
+                onChanged={async (configured, late) => {
+                  await catalog.signInChanged('claude')
                   providerStatus.signInChanged('claude', claudeState(configured), { late })
-                }
+                }}
               />
             ),
             codex: (
               <ChatGPTSignIn
-                onConfirmed={() => providerStatus.signInChanged('codex', 'signed_in')}
-                onChanged={() => providerStatus.signInChanged('codex')}
+                onConfirmed={async () => {
+                  await catalog.signInChanged('codex')
+                  providerStatus.signInChanged('codex', 'signed_in')
+                }}
+                onChanged={() => {
+                  void catalog.signInChanged('codex')
+                  providerStatus.signInChanged('codex')
+                }}
               />
             ),
           }}

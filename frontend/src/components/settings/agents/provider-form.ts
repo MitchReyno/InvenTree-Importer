@@ -58,6 +58,12 @@ export function providerFormValues(settings: AgentSettingsDto): ProviderFormValu
   }
 }
 
+/** A provider's settings with Default effort absent, as the contract has it, not undefined. */
+function withoutDefaultEffortUnset(settings: AgentProviderSettingsDto): AgentProviderSettingsDto {
+  const { default_effort: effort, ...rest } = settings
+  return effort === undefined ? rest : { ...rest, default_effort: effort }
+}
+
 /** The fields this form owns, as they go into a whole settings update. */
 export function providerFormUpdate(values: ProviderFormValues) {
   const stageSelections: AgentSettingsDto['stage_selections'] = {}
@@ -69,7 +75,10 @@ export function providerFormUpdate(values: ProviderFormValues) {
     }
   }
   return {
-    providers: values.providers,
+    providers: {
+      claude: withoutDefaultEffortUnset(values.providers.claude),
+      codex: withoutDefaultEffortUnset(values.providers.codex),
+    },
     default_provider: values.default_provider || null,
     stage_selections: stageSelections,
   }

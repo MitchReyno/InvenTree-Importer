@@ -73,7 +73,7 @@ type Options = {
    * The VM confirmed a change: true when a token is now saved; undefined when it may have. `late`
    * marks an answer to a dialog already closed or rekeyed, which a newer confirmation outranks.
    */
-  onChanged: (configured: boolean | undefined, late?: boolean) => void
+  onChanged: (configured: boolean | undefined, late?: boolean) => void | Promise<void>
   /** Closes the dialog, which drops the key. */
   onClose: () => void
 }
@@ -114,7 +114,7 @@ export function usePersonalClaudeCredential({ onChanged, onClose }: Options) {
       held.current = ''
       if (sent.current) {
         sent.current = false
-        notify.current(undefined)
+        void notify.current(undefined)
       }
     }
   }, [])
@@ -190,7 +190,7 @@ export function usePersonalClaudeCredential({ onChanged, onClose }: Options) {
     setPhase('idle')
     if (changing.current) {
       changing.current = false
-      onChanged(undefined)
+      void onChanged(undefined)
     }
     if (value) {
       pause.current = setTimeout(() => void readStatus(mine), KEY_PAUSE_MS)
@@ -215,15 +215,16 @@ export function usePersonalClaudeCredential({ onChanged, onClose }: Options) {
       const next = await request(action, status.revision, value)
       if (mine !== generation.current) {
         // Closed or rekeyed meanwhile: the change is done now, so the card reads the VM again.
-        notify.current(undefined, true)
+        void notify.current(undefined, true)
         return
       }
       changing.current = false
-      onChanged(next.configured)
+      // Confirmed once the change's effects are recorded, such as the model list marked stale.
+      await onChanged(next.configured)
       onClose()
     } catch (error) {
       if (mine !== generation.current) {
-        notify.current(undefined, true)
+        void notify.current(undefined, true)
         return
       }
       changing.current = false
@@ -231,7 +232,7 @@ export function usePersonalClaudeCredential({ onChanged, onClose }: Options) {
       setStatus(undefined)
       if (!refused(error)) {
         // It may have applied, so the card reads the VM again too.
-        onChanged(undefined)
+        void onChanged(undefined)
         setMessage(UNCONFIRMED)
       } else if (error instanceof CredentialRequestError && error.status === 409) {
         setMessage(TOKEN_CHANGED)

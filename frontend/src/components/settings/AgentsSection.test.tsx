@@ -23,6 +23,7 @@ import { resetRunnerQueue } from '#/components/agents/useChatGPTSignIn'
 import { KEY_PAUSE_MS } from '#/components/agents/usePersonalClaudeCredential'
 import { POLL_LIMIT_MS, POLL_MS } from '#/components/agents/useProviderStatus'
 import { agentSettings, agentSettingsUpdate } from '#/test/agent-settings'
+import { builtinModelCatalog } from '#/test/model-catalog'
 
 // Readiness says whether this profile's sessions have web access; each test sets it.
 const readiness = vi.hoisted(() => {
@@ -88,6 +89,7 @@ function client() {
     providerStatus: vi.fn<(options?: { refresh?: boolean }) => Promise<ProviderStatusDto>>(
       async () => providerStatus(),
     ),
+    modelCatalog: vi.fn(async () => builtinModelCatalog()),
   }
 }
 
@@ -782,7 +784,7 @@ describe('sign-in dialogs update the card', () => {
 const card = (name: string) => screen.getAllByRole('region', { name }).at(-1)!
 
 /** Picks an option in a model picker, by searching for it first. */
-function pick(picker: HTMLElement, option: string, search = option.split(' · ').at(-1)!) {
+function pick(picker: HTMLElement, option: string, search = option.split(' ').at(-1)!) {
   fireEvent.change(picker, { target: { value: search } })
   fireEvent.click(screen.getByRole('option', { name: option }))
 }
@@ -809,7 +811,7 @@ test('each provider card saves its switch, sign-in and default model as they cha
   fireEvent.click(within(codex).getByRole('button', { name: 'API key' }))
   expect(within(codex).getByText('OPENAI_API_KEY')).toBeVisible()
   expect(screen.queryByLabelText('API key')).not.toBeInTheDocument()
-  pick(screen.getByRole('combobox', { name: 'Research' }), 'Codex · gpt-6.1-sol')
+  pick(screen.getByRole('combobox', { name: 'Research' }), 'GPT-6.1-Sol gpt-6.1-sol')
   await autosaved(() =>
     expect(api.saveSettings).toHaveBeenCalledWith(
       agentSettingsUpdate(
@@ -826,7 +828,7 @@ test('each provider card saves its switch, sign-in and default model as they cha
     ),
   )
   expect(api.saveSettings).toHaveBeenCalledTimes(1)
-  pick(within(codex).getByRole('combobox', { name: 'Default model' }), 'gpt-6-luna')
+  pick(within(codex).getByRole('combobox', { name: 'Default model' }), 'GPT-6-Luna gpt-6-luna')
   await autosaved(() =>
     expect(api.saveSettings).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -844,11 +846,11 @@ test('searching a step’s picker and picking Sonnet sets the step to Claude wit
   const api = client()
   api.settings.mockResolvedValue(bothOn)
   await renderAgents(api)
-  pick(screen.getByRole('combobox', { name: 'Research' }), 'Claude · sonnet', 'son')
+  pick(screen.getByRole('combobox', { name: 'Research' }), 'Sonnet 5.5 claude-sonnet-5-5', 'son')
   await autosaved(() =>
     expect(api.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({
-        stage_selections: { research: { provider: 'claude', model: 'sonnet' } },
+        stage_selections: { research: { provider: 'claude', model: 'claude-sonnet-5-5' } },
       }),
     ),
   )
@@ -866,7 +868,7 @@ test('a provider turned on with a default model picked in the same pause saves b
   )
   await renderAgents(api)
   const codex = within(screen.getByRole('group', { name: 'Codex' }))
-  pick(codex.getByRole('combobox', { name: 'Default model' }), 'gpt-6-astra')
+  pick(codex.getByRole('combobox', { name: 'Default model' }), 'GPT-6-Astra gpt-6-astra')
   fireEvent.click(codex.getByRole('switch', { name: 'On' }))
   expect(codex.getByRole('switch', { name: 'On' })).toBeChecked()
   await autosaved(() =>
@@ -900,7 +902,7 @@ test('turning a provider off shows its steps on Default with a note, and saves a
   api.settings.mockResolvedValue(bothOn)
   await renderAgents(api)
   const research = within(screen.getByRole('group', { name: 'Research' }))
-  expect(research.getByText('Codex · gpt-6-luna')).toBeVisible()
+  expect(research.getByText('Codex · GPT-6-Luna')).toBeVisible()
   fireEvent.click(
     within(screen.getByRole('group', { name: 'Codex' })).getByRole('switch', { name: 'On' }),
   )
@@ -980,7 +982,7 @@ test('picking a model holds the navigation guard until its save confirms', async
     within(screen.getByRole('group', { name: 'Claude' })).getByRole('combobox', {
       name: 'Default model',
     }),
-    'opus',
+    'Opus 5.5 claude-opus-5-5',
   )
   expect(dirty).toHaveBeenLastCalledWith(true, expect.any(Function))
   await autosaved(() => expect(dirty).toHaveBeenLastCalledWith(false, undefined))
@@ -1045,7 +1047,7 @@ test('a refresh never mixes into a Providers draft, and saving it is a conflict'
   await renderAgents(api)
   const claude = within(screen.getByRole('group', { name: 'Claude' }))
   const codex = within(screen.getByRole('group', { name: 'Codex' }))
-  pick(codex.getByRole('combobox', { name: 'Default model' }), 'gpt-6-luna')
+  pick(codex.getByRole('combobox', { name: 'Default model' }), 'GPT-6-Luna gpt-6-luna')
   fireEvent.click(screen.getByRole('button', { name: 'Read settings again' }))
   await waitFor(() => expect(api.settings).toHaveBeenCalledTimes(2))
   await new Promise((done) => setTimeout(done, 20))
