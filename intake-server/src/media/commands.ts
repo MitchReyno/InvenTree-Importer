@@ -15,6 +15,18 @@ export async function lockMediaRevision(client: PoolClient, batchId: string) {
   )
 }
 
+/**
+ * Takes the media revision lock only if it is free now, for background work that skips a batch
+ * being edited rather than waiting for it.
+ */
+export async function tryLockMediaRevision(client: PoolClient, batchId: string) {
+  const rows = await client.query<{ locked: boolean }>(
+    `SELECT pg_try_advisory_xact_lock(hashtextextended('bench-media-batch/1:' || $1, 0)) AS locked`,
+    [batchId],
+  )
+  return rows.rows[0]?.locked === true
+}
+
 /** Domain lock order: authorized capture batch, media revision, sorted blob digests, stream. */
 export async function lockMediaBatch(
   client: PoolClient,

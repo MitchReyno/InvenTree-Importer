@@ -15,7 +15,7 @@ import { sealed } from '#/processing/model.ts'
 import { BlobStore, lockBlob, MIN_GC_AGE_MS } from './blob-store.ts'
 import { blobReferenced, retainBlob } from './blob-reference.ts'
 import { prepareMediaTransaction } from './transaction.ts'
-import { lockMediaRevision } from './commands.ts'
+import { tryLockMediaRevision } from './commands.ts'
 import { versionRemovedSql } from './removal.ts'
 import { DecoderDispatcherBusyError } from './dispatcher-client.ts'
 
@@ -196,74 +196,96 @@ const CLAIMABLE = `FROM public.processing_figure_render r
          AND (r.lease_expires_at IS NULL OR r.lease_expires_at<=$4)
          AND NOT ${versionRemovedSql('v')}`
 
-/**
- * Claims the oldest claimable render; a request that has used its attempts and lost its lease
- * settles as failed instead. The batch's media revision lock, which removing a photo holds, is
- * taken before the render row, as the sweep takes them, and the request is checked again under
- * it, so a photo removed before the claim is never rendered. A render claimed first may still
- * finish; the sweep returns it to the queue.
- */
+/** How many queued renders a claim tries, oldest first, before it reports nothing to do. */
+const CLAIM_CANDIDATES = 10
+
 type RenderClaim = { kind: 'claimed'; render: ClaimedRender } | { kind: 'exhausted' } | null
 
+/**
+ * Claims the oldest claimable render; a request that has used its attempts and lost its lease
+ * settles as failed instead. Each candidate's batch media revision lock, which removing or
+ * restoring a photo holds, is taken before its render row, and the request is checked again under
+ * it, so a photo removed before the claim is never rendered. Neither lock is waited for: a batch
+ * being edited, or a render another consumer holds, is skipped for the next candidate. A render
+ * claimed before a removal may still finish; the sweep returns it to the queue.
+ */
 async function claimRender(pool: Pool, binding: CaptureBinding, now: Date): Promise<RenderClaim> {
   return transaction(pool, async (client) => {
     await prepareMediaTransaction(client)
     const scope = [binding.actorId, binding.targetId, binding.targetContextId, now]
-    const next = await client.query<{ id: string; batch_id: string }>(
+    const queued = await client.query<{ id: string; batch_id: string }>(
       `SELECT r.id, r.batch_id ${CLAIMABLE}
        ORDER BY (r.purpose='preview') DESC, r.created_at, r.id
-       LIMIT 1`,
+       LIMIT ${CLAIM_CANDIDATES}`,
       scope,
     )
-    if (!next.rows[0]) {
-      return null
+    for (const option of queued.rows) {
+      const batchFree = await tryLockMediaRevision(client, option.batch_id)
+      if (!batchFree) {
+        continue
+      }
+      const claimed = await claimCandidate(client, binding, [...scope, option.id], now)
+      if (claimed) {
+        return claimed
+      }
     }
-    await lockMediaRevision(client, next.rows[0].batch_id)
-    // Another consumer may have taken it, or the photo been removed, before the lock.
-    const candidates = await client.query<{
-      id: string
-      batch_id: string
-      purpose: 'view' | 'preview'
-      recipe_bytes: Buffer
-      recipe_digest: Buffer
-      marks_bytes: Buffer | null
-      marks_digest: Buffer | null
-      attempts: number
-    }>(
-      `SELECT r.id, r.batch_id, r.purpose, r.recipe_bytes, r.recipe_digest, r.marks_bytes,
-         r.marks_digest, r.attempts
-       ${CLAIMABLE} AND r.id=$5
-       FOR UPDATE OF r SKIP LOCKED`,
-      [...scope, next.rows[0].id],
-    )
-    const candidate = candidates.rows[0]
-    if (!candidate) {
-      return null
-    }
-    if (candidate.attempts >= MAX_RENDER_ATTEMPTS) {
-      await settleFailed(client, candidate.id, candidate.batch_id, binding)
-      return { kind: 'exhausted' }
-    }
-    const owner = randomUUID()
-    await client.query(
-      `UPDATE public.processing_figure_render
-       SET attempts=attempts+1, lease_owner=$2, lease_expires_at=$3
-       WHERE id=$1`,
-      [candidate.id, owner, new Date(now.getTime() + RENDER_LEASE_MS)],
-    )
-    return {
-      kind: 'claimed',
-      render: {
-        id: candidate.id,
-        batch_id: candidate.batch_id,
-        purpose: candidate.purpose,
-        recipe: retainedRecipe(candidate.recipe_bytes, candidate.recipe_digest),
-        marks: retainedMarks(candidate.marks_bytes, candidate.marks_digest),
-        attempts: candidate.attempts + 1,
-        owner,
-      },
-    }
+    return null
   })
+}
+
+/**
+ * Claims one candidate under its batch's lock; null when another consumer holds it or its photo
+ * was removed since it was listed.
+ */
+async function claimCandidate(
+  client: PoolClient,
+  binding: CaptureBinding,
+  parameters: unknown[],
+  now: Date,
+): Promise<RenderClaim> {
+  const candidates = await client.query<{
+    id: string
+    batch_id: string
+    purpose: 'view' | 'preview'
+    recipe_bytes: Buffer
+    recipe_digest: Buffer
+    marks_bytes: Buffer | null
+    marks_digest: Buffer | null
+    attempts: number
+  }>(
+    `SELECT r.id, r.batch_id, r.purpose, r.recipe_bytes, r.recipe_digest, r.marks_bytes,
+       r.marks_digest, r.attempts
+     ${CLAIMABLE} AND r.id=$5
+     FOR UPDATE OF r SKIP LOCKED`,
+    parameters,
+  )
+  const candidate = candidates.rows[0]
+  if (!candidate) {
+    return null
+  }
+  if (candidate.attempts >= MAX_RENDER_ATTEMPTS) {
+    await settleFailed(client, candidate.id, candidate.batch_id, binding)
+    return { kind: 'exhausted' }
+  }
+  const owner = randomUUID()
+  await client.query(
+    `UPDATE public.processing_figure_render
+     SET attempts=attempts+1, lease_owner=$2, lease_expires_at=$3
+     WHERE id=$1`,
+    [candidate.id, owner, new Date(now.getTime() + RENDER_LEASE_MS)],
+  )
+  return {
+    kind: 'claimed',
+    render: {
+      id: candidate.id,
+      batch_id: candidate.batch_id,
+      purpose: candidate.purpose,
+      recipe: retainedRecipe(candidate.recipe_bytes, candidate.recipe_digest),
+      marks: retainedMarks(candidate.marks_bytes, candidate.marks_digest),
+      attempts: candidate.attempts + 1,
+      owner,
+    },
+  }
 }
 
 function retainedRecipe(bytes: Buffer, digest: Buffer): MediaViewRecipeDto {
@@ -521,8 +543,9 @@ const REQUEUE_CANDIDATES = `FROM public.processing_figure_render r
  * spent attempts, and gives back its blobs. The claim skips it while the photo is removed, so it
  * renders again only once the photo is restored. A view already waiting so is left alone.
  *
- * Restore takes the batch's media revision lock, so the views are chosen again under that lock,
- * in batch order: a photo restored while the sweep waited keeps its picture.
+ * Removing and restoring a photo hold its batch's media revision lock, so the views are chosen
+ * again under that lock and a photo restored meanwhile keeps its picture. A batch whose lock is
+ * taken is left for the next sweep rather than waited for.
  */
 async function requeueRemovedViews(client: PoolClient, binding: CaptureBinding) {
   const scope = [binding.actorId, binding.targetId, binding.targetContextId]
@@ -530,8 +553,14 @@ async function requeueRemovedViews(client: PoolClient, binding: CaptureBinding) 
     `SELECT DISTINCT r.batch_id ${REQUEUE_CANDIDATES} ORDER BY r.batch_id`,
     scope,
   )
+  const lockedBatches: string[] = []
   for (const batch of batches.rows) {
-    await lockMediaRevision(client, batch.batch_id)
+    if (await tryLockMediaRevision(client, batch.batch_id)) {
+      lockedBatches.push(batch.batch_id)
+    }
+  }
+  if (!lockedBatches.length) {
+    return []
   }
   const views = await client.query<{
     id: string
@@ -541,7 +570,7 @@ async function requeueRemovedViews(client: PoolClient, binding: CaptureBinding) 
     `SELECT r.id, r.view_digest, r.thumb_digest ${REQUEUE_CANDIDATES}
        AND r.batch_id = ANY($4::uuid[])
      FOR UPDATE OF r`,
-    [...scope, batches.rows.map((batch) => batch.batch_id)],
+    [...scope, lockedBatches],
   )
   if (!views.rowCount) {
     return views.rows

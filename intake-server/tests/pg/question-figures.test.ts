@@ -1707,7 +1707,7 @@ test('a restored photo’s question picture renders again after the sweep cleare
   })
 })
 
-test('a photo restored while the sweep waits for its batch keeps its picture', async () => {
+test('a sweep skips a batch whose photo is being restored, so the restored photo keeps its picture', async () => {
   await withFigureSession(async (setup) => {
     const { fixture, tools, token, lot, photoFigure, media, store, binding } = setup
     await fetched(setup, setup.photo)
@@ -1719,101 +1719,110 @@ test('a photo restored while the sweep waits for its batch keeps its picture', a
       evidence_ids: [setup.photo.evidence],
     })
 
-    // A restore holding the batch's media revision lock, as the restore edit does, and not yet
-    // committed when the sweep starts.
-    const restoring = await fixture.db.pool.connect()
-    let sweeping: Promise<PromiseSettledResult<unknown>> | undefined
-    let committed = false
-    try {
-      await restoring.query('BEGIN')
-      await restoring.query(
-        "SELECT pg_advisory_xact_lock(hashtextextended('bench-media-batch/1:' || $1, 0))",
-        [setup.batchId],
-      )
-      await restoring.query(
-        `INSERT INTO media_evidence_removal(id, batch_id, evidence_id, revision, actor_id, removed)
-         SELECT $1, $2, $3, max(revision) + 1, $4, false FROM media_evidence_removal
-         WHERE batch_id=$2 AND evidence_id=$3`,
-        [randomUUID(), setup.batchId, setup.photo.evidence, fixture.config.actorId],
-      )
-      sweeping = outcomeOf(sweepFigureRenders(media.pool, store, binding))
-      let waiting = false
-      for (let tries = 0; !waiting && tries < 200; tries += 1) {
-        const locks = await fixture.db.pool.query(
-          "SELECT 1 FROM pg_locks WHERE locktype='advisory' AND NOT granted",
-        )
-        waiting = (locks.rowCount ?? 0) > 0
-        if (!waiting) {
-          await new Promise((resolve) => setTimeout(resolve, 25))
-        }
-      }
-      assert.ok(waiting, 'the sweep waits for the restore')
-      await restoring.query('COMMIT')
-      committed = true
-    } finally {
-      if (!committed) {
-        await restoring.query('ROLLBACK').catch(() => undefined)
-      }
-      restoring.release()
-    }
-    const swept = await sweeping!
-    assert.deepEqual(swept, {
-      status: 'fulfilled',
-      value: { deleted: 0, requeued: 0, collected: 0 },
+    const swept = await whileBatchEdited(setup, false, () =>
+      sweepFigureRenders(media.pool, store, binding),
+    )
+    assert.deepEqual(swept, { deleted: 0, requeued: 0, collected: 0 }, 'not waited for')
+    assert.deepEqual(await figureRender(setup, asked.id!, 1), ready)
+    assert.deepEqual(await sweepFigureRenders(media.pool, store, binding), {
+      deleted: 0,
+      requeued: 0,
+      collected: 0,
     })
     assert.deepEqual(await figureRender(setup, asked.id!, 1), ready)
   })
 })
 
-test('a photo removed while a render waits to claim it is not rendered', async () => {
+test('a render is not claimed while its photo’s removal holds the batch, nor once it commits', async () => {
   await withFigureSession(async (setup) => {
-    const { fixture, tools, token, lot, photoFigure, media, store, binding } = setup
+    const { tools, token, lot, photoFigure, media, store, binding } = setup
     await fetched(setup, setup.photo)
     const asked = accepted(await tools.ask(token, figureQuestion(lot, [photoFigure()])))
-
-    // A removal holding the batch's media revision lock, as the remove edit does, and not yet
-    // committed when the consumer looks for work.
-    const removing = await fixture.db.pool.connect()
     const renderer = fakeRenderer()
-    let claiming: Promise<PromiseSettledResult<string>> | undefined
-    let committed = false
-    try {
-      await removing.query('BEGIN')
-      await removing.query(
-        "SELECT pg_advisory_xact_lock(hashtextextended('bench-media-batch/1:' || $1, 0))",
-        [setup.batchId],
-      )
-      await removing.query(
-        `INSERT INTO media_evidence_removal(id, batch_id, evidence_id, revision, actor_id, removed)
-         VALUES($1, $2, $3, 1000, $4, true)`,
-        [randomUUID(), setup.batchId, setup.photo.evidence, fixture.config.actorId],
-      )
-      claiming = outcomeOf(renderFigureStep(media.pool, store, binding, renderer))
-      let waiting = false
-      for (let tries = 0; !waiting && tries < 200; tries += 1) {
-        const locks = await fixture.db.pool.query(
-          "SELECT 1 FROM pg_locks WHERE locktype='advisory' AND NOT granted",
-        )
-        waiting = (locks.rowCount ?? 0) > 0
-        if (!waiting) {
-          await new Promise((resolve) => setTimeout(resolve, 25))
-        }
-      }
-      assert.ok(waiting, 'the claim waits for the removal')
-      await removing.query('COMMIT')
-      committed = true
-    } finally {
-      if (!committed) {
-        await removing.query('ROLLBACK').catch(() => undefined)
-      }
-      removing.release()
-    }
-    assert.deepEqual(await claiming!, { status: 'fulfilled', value: 'idle' })
+
+    const during = await whileBatchEdited(setup, true, () =>
+      renderFigureStep(media.pool, store, binding, renderer),
+    )
+    assert.equal(during, 'idle', 'the batch being edited is skipped, not waited for')
+    assert.equal(await renderFigureStep(media.pool, store, binding, renderer), 'idle')
     assert.equal(renderer.calls.length, 0)
     const waitingView = (await figureRender(setup, asked.id!, 1))!
     assert.deepEqual([waitingView.state, waitingView.attempts], ['queued', 0])
   })
 })
+
+test('a consumer claims the next render while another consumer holds the first in the queue', async () => {
+  await withFigureSession(async (setup) => {
+    const { fixture, tools, token, lot, photoFigure, media, store, binding } = setup
+    await fetched(setup, setup.photo)
+    const asked = accepted(
+      await tools.ask(
+        token,
+        figureQuestion(lot, [
+          photoFigure(),
+          photoFigure({ region: { x: 0, y: 0, width: 100, height: 80 } }),
+        ]),
+      ),
+    )
+    const holding = await fixture.db.pool.connect()
+    let held: string
+    try {
+      await holding.query('BEGIN')
+      // The render a claim would take first, in the claim's own order.
+      const first = await holding.query<{ id: string }>(
+        `SELECT id FROM processing_figure_render WHERE state='queued'
+         ORDER BY (purpose='preview') DESC, created_at, id LIMIT 1 FOR UPDATE`,
+      )
+      held = first.rows[0]!.id
+      assert.equal(await renderFigureStep(media.pool, store, binding, fakeRenderer()), 'rendered')
+    } finally {
+      await holding.query('ROLLBACK').catch(() => undefined)
+      holding.release()
+    }
+    const views = [
+      (await figureRender(setup, asked.id!, 1))!,
+      (await figureRender(setup, asked.id!, 2))!,
+    ]
+    assert.deepEqual(views.map((view) => [view.id === held, view.state]).sort(), [
+      [false, 'ready'],
+      [true, 'queued'],
+    ])
+  })
+})
+/**
+ * Runs `work` while another transaction holds the batch's media revision lock, as a remove or
+ * restore edit does, with its removal row written but not yet committed; then commits it.
+ */
+async function whileBatchEdited<T>(
+  setup: Setup,
+  removed: boolean,
+  work: () => Promise<T>,
+): Promise<T> {
+  const editing = await setup.fixture.db.pool.connect()
+  let committed = false
+  try {
+    await editing.query('BEGIN')
+    await editing.query(
+      "SELECT pg_advisory_xact_lock(hashtextextended('bench-media-batch/1:' || $1, 0))",
+      [setup.batchId],
+    )
+    await editing.query(
+      `INSERT INTO media_evidence_removal(id, batch_id, evidence_id, revision, actor_id, removed)
+       SELECT $1, $2, $3, coalesce(max(revision), 0) + 1000, $4, $5 FROM media_evidence_removal
+       WHERE batch_id=$2 AND evidence_id=$3`,
+      [randomUUID(), setup.batchId, setup.photo.evidence, setup.fixture.config.actorId, removed],
+    )
+    const result = await work()
+    await editing.query('COMMIT')
+    committed = true
+    return result
+  } finally {
+    if (!committed) {
+      await editing.query('ROLLBACK').catch(() => undefined)
+    }
+    editing.release()
+  }
+}
 
 function findById(value: unknown, id: string): Record<string, unknown> | undefined {
   if (!value || typeof value !== 'object') {
