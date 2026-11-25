@@ -1573,3 +1573,44 @@ test('a replacement seals its brief with the questions it supersedes as supersed
     ['superseded'],
   )
 })
+
+test('retiring the groups behind an oversized brief lets it be read and sealed again', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId } = batch
+  const { lot: led, row } = await successorOf(batch, 'led 0603 red', 'research')
+  const groups: string[] = []
+  for (let index = 0; index < 100; index += 1) {
+    const group = `7c3e1d04-92ab-4f6e-b81d-${(0x200 + index).toString(16).padStart(12, '0')}`
+    groups.push(group)
+    await fixture.db.pool.query(
+      'INSERT INTO media_group(id,batch_id,label,actor_id) VALUES($1,$2,$3,$4)',
+      [group, batchId, `Group ${index}`, fixture.identity.actor],
+    )
+    await fixture.db.pool.query(
+      `INSERT INTO capture_instruction(id,batch_id,group_id,version,text,actor_id)
+       VALUES(gen_random_uuid(),$1,$2,1,$3,$4)`,
+      [batchId, group, '\u{1F4C4}'.repeat(8192), fixture.identity.actor],
+    )
+  }
+  await withClients(async (open) => {
+    const session = await open(batch.deps.toolUrl, await running(fixture, row.attempt_id))
+    assert.equal(
+      (await call(session, 'read_lot', { lot_id: led.id })).error,
+      'brief_revision_unavailable',
+    )
+    // The operator ungroups them: their instructions no longer apply.
+    for (const group of groups) {
+      await fixture.db.pool.query(
+        `INSERT INTO media_group_history(id,batch_id,group_id,revision,label,retired,actor_id)
+         VALUES(gen_random_uuid(),$1,$2,1,'Retired',true,$3)`,
+        [batchId, group, fixture.identity.actor],
+      )
+    }
+    const recovered = await call(session, 'read_lot', { lot_id: led.id })
+    assert.equal(recovered.ok, true, JSON.stringify(recovered))
+    assert.equal(ofKind(recovered.brief!.entries, 'instruction').length, 0)
+  })
+  // A new input seals again too.
+  const attemptId = await requeueResearch(fixture, batchId, led.id)
+  assert.equal(stageInput((await sealedInput(fixture, attemptId)).manifest).stage, 'research')
+})

@@ -22,11 +22,12 @@ import type { MediaInputContextDto } from '@invimport/contracts/media'
 import { sha256 } from '#/db/authority.ts'
 import { captureContextNotes } from '#/capture/context-input.ts'
 import { currentInstructions } from '#/agents/instructions.ts'
+import { activeMediaGroups } from '#/media/context.ts'
 import { answerValueText, answeredValues, decodeStoredAnswer } from './answer-summary.ts'
 import { isSessionMessage, retainedQuestionSpec, retainedSessionQuestion } from './retained.ts'
 import { fail, sealed, unseal } from './model.ts'
 import type { ProcessingConfig } from './attempts.ts'
-import { effectiveJobStates, staleOpenQuestion } from './read.ts'
+import { effectiveJobStates, staleOpenQuestion } from './job-state.ts'
 
 /** A lot edit's id carries this many hex digits of its facts' digest: enough to tell states apart. */
 const LOT_EDIT_ID_HEX = 16
@@ -368,7 +369,11 @@ export async function readBriefFacts(
   snapshot: CaptureSnapshotDto,
   scope: BriefScope,
 ): Promise<BriefFacts> {
-  const instructions = await currentInstructions(client, snapshot.id)
+  // A retired group's instruction no longer applies; the batch's own always does.
+  const groups = new Set((await activeMediaGroups(client, snapshot.id)).map((group) => group.id))
+  const instructions = (await currentInstructions(client, snapshot.id)).filter(
+    (instruction) => instruction.groupId === null || groups.has(instruction.groupId),
+  )
   const questions = await readQuestions(client, config, snapshot, scope.supersedingJobId)
   const answers = await readAnswers(client, questions)
   const corrections = await readCorrections(client, snapshot.id)

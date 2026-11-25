@@ -14,19 +14,12 @@ import {
   type ProcessingSnapshotDto,
   type ProcessingStateDto,
   type ProcessingActivityDto,
-  type ProcessingBlockerDto,
 } from '@invimport/contracts'
 import { commands } from '#/db/schema.ts'
 import { captureInTransaction } from '#/capture/repository.ts'
 import type { ProcessingConfig } from './attempts.ts'
-import { loadProcessingAuthority, processingInputIsCurrent } from './authority.ts'
-import { processingDependencyStatus } from './dependencies.ts'
-import {
-  readProcessingMediaScopes,
-  processingMediaFor,
-  type ProcessingMediaAvailability,
-} from './media.ts'
-import { fail, mediaProfileId } from './model.ts'
+import { readProcessingMediaScopes } from './media.ts'
+import { fail } from './model.ts'
 import {
   MAX_JOB_RESULTS,
   MAX_JOBS_PER_BATCH,
@@ -63,135 +56,17 @@ import { pausedAmong } from '#/agents/pause.ts'
 import { answeredQuestionFacts } from './answered-questions.ts'
 import { budgetAnswers } from './answer-summary.ts'
 import { questionFigureStates, type FigureStates } from './question-figures.ts'
-
-const jobColumns = {
-  id: processingJobs.id,
-  batchId: processingJobs.batchId,
-  subjectId: processingJobs.subjectId,
-  stage: processingJobs.stage,
-  revision: processingJobs.revision,
-  state: processingJobs.state,
-  currentAttemptId: processingJobs.currentAttemptId,
-  attemptId: processingAttempts.id,
-  attemptState: processingAttempts.state,
-  commandId: processingAttempts.commandId,
-  attemptNumber: processingAttempts.number,
-  inputBytes: processingInputs.manifestBytes,
-  inputDigest: processingInputs.manifestDigest,
-}
-
-async function selectedJobs(client: PoolClient, batchId: string) {
-  return executeDatabaseQuery(
-    queryDatabase(client)
-      .select(jobColumns)
-      .from(processingJobs)
-      .innerJoin(
-        processingAttempts,
-        and(
-          eq(processingAttempts.id, processingJobs.currentAttemptId),
-          eq(processingAttempts.jobId, processingJobs.id),
-        ),
-      )
-      .innerJoin(processingInputs, eq(processingInputs.id, processingAttempts.inputId))
-      .where(eq(processingJobs.batchId, batchId))
-      .orderBy(processingJobs.subjectId, processingJobs.stage),
-  )
-}
-
-type SelectedJob = Awaited<ReturnType<typeof selectedJobs>>[number]
-
-interface InputCurrency {
-  current: boolean
-  blockedCode?: ProcessingBlockerDto
-}
-
-/** The Examine lead job's media is the whole batch, pinned by its own manifest. */
-const BATCH_SCOPED = { available: true as const, batchScoped: true as const }
-type JobMedia = ProcessingMediaAvailability | typeof BATCH_SCOPED
-
-const lotSubjects = (jobs: readonly SelectedJob[]) =>
-  jobs.flatMap((job) => (job.subjectId === null ? [] : [job.subjectId]))
-
-function jobMedia(
-  scopes: ReadonlyMap<string, ProcessingMediaAvailability>,
-  job: SelectedJob,
-): JobMedia {
-  return job.subjectId === null ? BATCH_SCOPED : processingMediaFor(scopes, job.subjectId)
-}
-
-async function inputCurrency(
-  client: PoolClient,
-  config: ProcessingConfig,
-  job: SelectedJob,
-  capture: CaptureSnapshotDto,
-  media: JobMedia,
-): Promise<InputCurrency> {
-  const input = decodeJobInput(job.inputBytes, job.inputDigest)
-  if (isSessionInput(input)) {
-    // Per-proposal currentness replaces whole-input sealing for sessions (design D5).
-    if (!media.available) {
-      return { current: false, blockedCode: media.blockedCode }
-    }
-    const current = job.currentAttemptId === job.attemptId && !capture.archived
-    const incompatibleQueued =
-      job.attemptState === 'queued' &&
-      input.profile_id !== String(config.profileId ?? mediaProfileId)
-    return incompatibleQueued ? { current, blockedCode: 'worker_version_conflict' } : { current }
-  }
-  if ('batchScoped' in media) {
-    fail('unsupported_processing_stage')
-  }
-  const authority = await loadProcessingAuthority(client, config, job.attemptId)
-  const manifest = authority.manifest
-  const dependencies = await processingDependencyStatus(client, config, authority)
-  if (!media.available) {
-    return { current: false, blockedCode: media.blockedCode }
-  }
-  const current =
-    job.currentAttemptId === job.attemptId &&
-    !capture.archived &&
-    dependencies.current &&
-    (job.attemptState === 'queued' || dependencies.ready) &&
-    processingInputIsCurrent(manifest, capture, media.inputs, config.approvedSourceUrls)
-  const selectedProfile = config.profileId ?? mediaProfileId
-  const incompatibleQueued =
-    job.attemptState === 'queued' && manifest.profile_id !== selectedProfile
-  return incompatibleQueued ? { current, blockedCode: 'worker_version_conflict' } : { current }
-}
-
-function currentJobState(job: SelectedJob, currency: InputCurrency): ProcessingStateDto {
-  return currency.current ? job.state : 'superseded'
-}
-
-/**
- * Whether an open question reads as superseded: its job's input is no longer current, or a later
- * attempt replaced the one that asked it. The Processing read and the session brief share it.
- */
-export function staleOpenQuestion(
-  question: { state: string; attemptId: string },
-  job: { state: ProcessingStateDto; attemptId: string },
-) {
-  return (
-    question.state === 'open' &&
-    (job.state === 'superseded' || question.attemptId !== job.attemptId)
-  )
-}
-
-/** Each job's state as the Processing read shows it, with its current attempt. */
-export async function effectiveJobStates(
-  client: PoolClient,
-  config: ProcessingConfig,
-  capture: CaptureSnapshotDto,
-) {
-  const jobs = await selectedJobs(client, capture.id)
-  const media = await readProcessingMediaScopes(client, config, capture, lotSubjects(jobs))
-  const states = new Map<string, { state: ProcessingStateDto; attemptId: string }>()
-  for (const job of jobs) {
-    const currency = await inputCurrency(client, config, job, capture, jobMedia(media, job))
-    states.set(job.id, { state: currentJobState(job, currency), attemptId: job.attemptId })
-  }
-  return states
-}
+import {
+  currentJobState,
+  inputCurrency,
+  jobColumns,
+  jobMedia,
+  lotSubjects,
+  selectedJobs,
+  staleOpenQuestion,
+  type InputCurrency,
+  type SelectedJob,
+} from './job-state.ts'
 
 async function proposalsForJob(
   client: PoolClient,
