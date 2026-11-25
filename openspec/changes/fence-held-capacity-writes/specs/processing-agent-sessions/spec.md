@@ -54,7 +54,7 @@ Before it writes, in the same transaction, a slot claim, a turn child record, a 
 
 ### Requirement: A new supervisor waits for fenced writes in flight
 
-After taking the supervisor lock and before checking held capacity, a starting worker SHALL wait for fenced writes already past their lock check to finish, so none commits after its check. Past a 30 s bound it SHALL refuse to start with `agent_supervisor_writes_in_flight`. The startup check's decisions SHALL be unchanged.
+After taking the supervisor lock and before checking held capacity, a starting worker SHALL wait for fenced writes already past their lock check to finish, so none commits after its check. Past a 10 s bound it SHALL refuse to start with `agent_supervisor_writes_in_flight`. The startup check's decisions SHALL be unchanged.
 
 #### Scenario: Claim in flight when the lock is lost
 

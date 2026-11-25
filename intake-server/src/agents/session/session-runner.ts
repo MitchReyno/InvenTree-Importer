@@ -148,28 +148,30 @@ export interface SessionRunnerDeps {
 export const SESSION_TURN_DEADLINE_MS = 15 * 60 * 1000
 
 /**
- * How long a settlement the fence refused is retried: a replacement that took the lock and then
- * refused to start releases it within this, inside the worker's 30 s shutdown wait.
+ * How long a settlement the fence refused is retried: longer than a replacement's barrier
+ * (`SUPERVISOR_FENCE_WAIT_MS`), so one that then refuses to start has let the lock go within it,
+ * and inside the worker's 30 s shutdown wait.
  */
 export const SETTLEMENT_FENCE_RETRY_MS = 20_000
 const SETTLEMENT_FENCE_RETRY_INTERVAL_MS = 500
 
 /**
  * Retries a settlement while the fence refuses it; a refusal comes before it changed anything.
- * The first refusal is logged, with the attempt only.
+ * The bound uses a monotonic clock and no retry starts past it. The first refusal is logged,
+ * with the attempt only.
  */
 async function retryFenceRefusal<T>(
   write: () => Promise<T>,
   attemptId: string,
   boundMs: number,
 ): Promise<T> {
-  const until = Date.now() + boundMs
+  const until = performance.now() + boundMs
   let reported = false
   for (;;) {
     try {
       return await write()
     } catch (error) {
-      const retryable = error instanceof SupervisorLockLostError && Date.now() < until
+      const retryable = error instanceof SupervisorLockLostError && performance.now() < until
       if (!retryable) {
         throw error
       }
@@ -180,7 +182,13 @@ async function retryFenceRefusal<T>(
         `${JSON.stringify({ event: 'settlement_fence_refused', attempt_id: attemptId })}\n`,
       )
     }
-    await new Promise((resolve) => setTimeout(resolve, SETTLEMENT_FENCE_RETRY_INTERVAL_MS))
+    const remaining = until - performance.now()
+    await new Promise((resolve) =>
+      setTimeout(resolve, Math.max(0, Math.min(SETTLEMENT_FENCE_RETRY_INTERVAL_MS, remaining))),
+    )
+    if (performance.now() >= until) {
+      throw new SupervisorLockLostError()
+    }
   }
 }
 

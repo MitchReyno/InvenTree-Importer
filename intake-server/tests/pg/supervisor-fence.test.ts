@@ -104,24 +104,11 @@ async function sessionDeps(
   }
 }
 
-/** Resolves once `query` returns a row, or false after `boundMs`. */
-async function waitForRow(fixture: Fixture, query: string, boundMs = 4000) {
-  const until = Date.now() + boundMs
-  while (Date.now() < until) {
-    const rows = await fixture.db.pool.query(query)
-    if (rows.rowCount) {
-      return true
-    }
-    await delay(25)
-  }
-  return false
-}
-
 /** Resolves once `condition` holds, or false after `boundMs`. */
-async function waitFor(condition: () => boolean, boundMs = 4000) {
+async function waitFor(condition: () => boolean | Promise<boolean>, boundMs = 4000) {
   const until = Date.now() + boundMs
   while (Date.now() < until) {
-    if (condition()) {
+    if (await condition()) {
       return true
     }
     await delay(25)
@@ -129,21 +116,56 @@ async function waitFor(condition: () => boolean, boundMs = 4000) {
   return false
 }
 
-const ADVISORY_WAITER = "SELECT 1 FROM pg_locks WHERE locktype='advisory' AND NOT granted"
+type AdvisoryKey = readonly [name: string, seed: number]
 
-/** A connection waiting for an advisory lock, blocked by another that waits for one too. */
-const BARRIER_BEHIND_CLAIM = `
-  SELECT 1
-    FROM pg_locks barrier
-   WHERE barrier.locktype = 'advisory'
-     AND NOT barrier.granted
-     AND EXISTS (
-       SELECT 1
-         FROM pg_locks claim
-        WHERE claim.locktype = 'advisory'
-          AND NOT claim.granted
-          AND claim.pid = ANY(pg_blocking_pids(barrier.pid))
-     )`
+const supervisorKey = (fixture: Fixture): AdvisoryKey => [
+  `agent-supervisor:${fixture.identity.actor}`,
+  7318,
+]
+const slotClaimKey = (fixture: Fixture): AdvisoryKey => [
+  `agent-slots:${fixture.identity.actor}`,
+  7319,
+]
+const fenceKey = (fixture: Fixture): AdvisoryKey => [
+  `agent-supervisor-fence:${fixture.identity.actor}`,
+  7320,
+]
+
+/** Backends holding (or waiting for) one advisory key in this test's own database. */
+async function advisoryPids(fixture: Fixture, [name, seed]: AdvisoryKey, granted: boolean) {
+  const rows = await fixture.db.pool.query<{ pid: number }>(
+    `WITH advisory AS (SELECT hashtextextended($1, $2) AS key)
+     SELECT held.pid
+       FROM pg_locks held
+       CROSS JOIN advisory
+      WHERE held.locktype = 'advisory'
+        AND held.granted = $3
+        AND held.database = (SELECT oid FROM pg_database WHERE datname = current_database())
+        AND held.classid = ((advisory.key >> 32) & 4294967295)::oid
+        AND held.objid = (advisory.key & 4294967295)::oid
+        AND held.objsubid = 1`,
+    [name, seed, granted],
+  )
+  return rows.rows.map((row) => row.pid)
+}
+
+/** Whether the fence's waiting barrier is blocked by the waiting slot claim. */
+async function barrierBehindClaim(fixture: Fixture) {
+  const barriers = await advisoryPids(fixture, fenceKey(fixture), false)
+  const claims = await advisoryPids(fixture, slotClaimKey(fixture), false)
+  if (barriers.length !== 1 || claims.length !== 1) {
+    return false
+  }
+  const blocked = await fixture.db.pool.query<{ blocked: boolean }>(
+    'SELECT $1::int = ANY(pg_blocking_pids($2::int)) AS blocked',
+    [claims[0], barriers[0]],
+  )
+  return blocked.rows[0].blocked
+}
+
+async function barrierQueued(fixture: Fixture) {
+  return (await advisoryPids(fixture, fenceKey(fixture), false)).length === 1
+}
 
 test('a worker that lost its lock claims no slot, and the lock holder still does', async (t) => {
   const { fixture, defer } = await fenceFixture(t)
@@ -305,7 +327,12 @@ test('a new supervisor waits for a claim past its fence, then checks the claimed
   const turn = runSessionTurn(deps, session.attempt, new AbortController().signal).catch(
     (error: unknown) => error,
   )
-  assert.ok(await waitForRow(fixture, ADVISORY_WAITER), 'the claim never waited')
+  assert.ok(
+    await waitFor(
+      async () => (await advisoryPids(fixture, slotClaimKey(fixture), false)).length === 1,
+    ),
+    'the claim never waited',
+  )
   await loseLock(fixture, old)
 
   let checked = false
@@ -314,7 +341,7 @@ test('a new supervisor waits for a claim past its fence, then checks the claimed
   ).finally(() => {
     checked = true
   })
-  const barrierWaited = await waitForRow(fixture, BARRIER_BEHIND_CLAIM)
+  const barrierWaited = await waitFor(() => barrierBehindClaim(fixture))
   const checkedBeforeClaim = checked
   await blocker.query('COMMIT')
   const lock = await replacement
@@ -445,7 +472,6 @@ test('a settlement refused behind a replacement that then refuses to start still
       reached()
       await ended
     })),
-    settlementFenceRetryMs: 15_000,
   }
   defer(() => rm(deps.host.stateRoot, { recursive: true, force: true }))
   const lines: string[] = []
@@ -472,13 +498,13 @@ test('a settlement refused behind a replacement that then refuses to start still
     },
     (error: unknown) => error,
   )
-  assert.ok(await waitForRow(fixture, ADVISORY_WAITER), 'the barrier never queued')
+  assert.ok(await waitFor(() => barrierQueued(fixture)), 'the barrier never queued')
   proceed()
   const refusedEvent = await waitFor(() =>
     lines.some((line) => line.includes('"settlement_fence_refused"')),
   )
-  // Longer than the old pool's 5 s statement timeout with the barrier still queued.
-  await delay(5500)
+  // Longer than the old pool's 5 s statement timeout, inside the barrier's bound.
+  await delay(7000)
   await inFlight.query('COMMIT')
   const started = await replacement
 
@@ -504,12 +530,11 @@ test('a new supervisor whose connection ends at the barrier refuses with lock lo
     },
     (error: unknown) => error,
   )
-  assert.ok(await waitForRow(fixture, ADVISORY_WAITER), 'the barrier never queued')
-  await fixture.db.pool.query(
-    `SELECT pg_terminate_backend(pid, 5000)
-       FROM pg_locks
-      WHERE locktype = 'advisory' AND NOT granted`,
-  )
+  assert.ok(await waitFor(() => barrierQueued(fixture)), 'the barrier never queued')
+  // The replacement is the supervisor lock's holder now; only its connection is ended.
+  const [holder] = await advisoryPids(fixture, supervisorKey(fixture), true)
+  assert.ok(holder, 'the replacement holds no lock')
+  await fixture.db.pool.query('SELECT pg_terminate_backend($1, 5000)', [holder])
   const outcome = await replacement
   await inFlight.query('ROLLBACK')
 

@@ -74,5 +74,5 @@ None.
 
 ## Open decisions and assumptions
 
-- Assumption: a fenced transaction of a worker that lost its lock can only be finishing work it had started; a 30 s barrier bound covers it, and a start refused past it is retried by restarting the worker.
+- Assumption: a fenced transaction of a worker that lost its lock can only be finishing work it had started; a 10 s barrier bound covers it, and a start refused past it is retried by restarting the worker.
 - None open.

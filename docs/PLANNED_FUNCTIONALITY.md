@@ -155,7 +155,7 @@ Agents in the shared VM get provider web search (Claude WebSearch, Codex web sea
 
 #### BI-025 — Fence held capacity writes against supervisor lock loss
 
-A worker that lost its supervisor lock could still commit a slot claim, a turn child record or a `/1` lane claim already in flight on a pooled connection after a replacement had taken the lock and checked held capacity. Each of those writes, and a turn's settlement, now checks inside its own transaction that its worker still holds the lock (settlement: that no other worker does). A new supervisor waits, within 30 s, for such writes already past their check before it checks held capacity.
+A worker that lost its supervisor lock could still commit a slot claim, a turn child record or a `/1` lane claim already in flight on a pooled connection after a replacement had taken the lock and checked held capacity. Each of those writes, and a turn's settlement, now checks inside its own transaction that its worker still holds the lock (settlement: that no other worker does). A new supervisor waits, within 10 s, for such writes already past their check before it checks held capacity.
 
 - Change: `fence-held-capacity-writes`
 - Status: In progress

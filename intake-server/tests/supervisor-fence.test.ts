@@ -1,7 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { SETTLEMENT_FENCE_RETRY_MS } from '#/agents/session/session-runner.ts'
 import {
   fencePermits,
+  SUPERVISOR_FENCE_WAIT_MS,
   type FencedWrite,
   type SupervisorFence,
   type SupervisorHolder,
@@ -73,3 +75,8 @@ for (const [name, holder, write, permitted] of cases) {
     assert.equal(fencePermits(fence, holder, write), permitted)
   })
 }
+
+test('a refused settlement outlasts a replacement that waits its whole barrier and then refuses', () => {
+  // The replacement's refusal on a `host` slot is immediate once its barrier ends.
+  assert.ok(SUPERVISOR_FENCE_WAIT_MS < SETTLEMENT_FENCE_RETRY_MS)
+})

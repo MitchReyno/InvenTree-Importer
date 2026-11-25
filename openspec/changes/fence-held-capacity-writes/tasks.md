@@ -58,10 +58,10 @@
 
 - PR delivery: PR-A.
 - Outcome: a new supervisor waits for fenced writes already past their check before it checks held capacity, within a bound.
-- Scope and approach: `awaitFencedWrites` in `lockAgentSupervisor`, after the lock and identity, with `SUPERVISOR_FENCE_WAIT_MS` (30 s) and a test override; `agent_supervisor_writes_in_flight` in both workers' safe codes.
+- Scope and approach: `awaitFencedWrites` in `lockAgentSupervisor`, after the lock and identity, with `SUPERVISOR_FENCE_WAIT_MS` (10 s) and a test override; `agent_supervisor_writes_in_flight` in both workers' safe codes.
 - Prerequisites: Task 1.
 - Verification: PG tests for the in-flight claim and the bound.
-- Risks: a long-open transaction of a lost worker delays a start by up to 30 s, then refuses.
+- Risks: a long-open transaction of a lost worker delays a start by up to 10 s, then refuses.
 
 - [x] 3.1 RED: PG test: A's claim transaction passes the fence and claims, A loses its lock, B acquires; B's check must decide the claimed slot. It fails today because B's check finishes before A commits. Plus a test that a transaction open past a short bound refuses B with `agent_supervisor_writes_in_flight`.
 - [x] 3.2 GREEN: the barrier and its bound. Both tests pass.
@@ -91,6 +91,6 @@
 
 - [x] 5.1 Docs updated and checked against the code.
 - [ ] 5.2 Checks: `pnpm -s typecheck`, `pnpm -s lint:readability`, `pnpm -s lint:unused`, `pnpm format:check`, fast intake tests, PG tier, process tier, `openspec validate fence-held-capacity-writes --strict`.
-- [ ] 5.3 Independent read-only review rounds on the exact head, findings fixed.
+- [x] 5.3 Independent read-only review rounds on the exact head, findings fixed (round 3 fixes not re-reviewed).
 - [ ] 5.4 PR opened against `interactive-app`.
 - [ ] 5.5 Merged.

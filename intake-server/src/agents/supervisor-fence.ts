@@ -4,8 +4,13 @@ import type { PoolClient } from 'pg'
 export const SUPERVISOR_LOCK_SEED = 7318
 const SUPERVISOR_FENCE_SEED = 7320
 
-/** How long a new supervisor waits for a lost worker's fenced writes before refusing to start. */
-export const SUPERVISOR_FENCE_WAIT_MS = 30_000
+/**
+ * How long a new supervisor waits for a lost worker's fenced writes before refusing to start.
+ * Fenced transactions are short, and their statements are cut at the pools' 5 s. Kept well inside
+ * `SETTLEMENT_FENCE_RETRY_MS`, so a lost worker's refused settlement can still retry after a
+ * replacement that refuses to start has let the lock go.
+ */
+export const SUPERVISOR_FENCE_WAIT_MS = 10_000
 
 /** The barrier's statement timeout outlasts its lock timeout, so a long wait ends as the latter. */
 const BARRIER_STATEMENT_MARGIN_MS = 5_000
@@ -124,8 +129,8 @@ export async function requireSupervisorFence(
   if (!fence) {
     return
   }
-  // Never waits: the fence is unavailable only while a new supervisor's barrier is queued, and
-  // that supervisor already holds the lock, so the write would be refused anyway.
+  // Never waits: the fence is unavailable only while a new supervisor's barrier is queued or held,
+  // and that supervisor already holds the lock, so the write would be refused anyway.
   const shared = await client.query<{ taken: boolean }>(
     'SELECT pg_try_advisory_xact_lock_shared(hashtextextended($1, $2)) AS taken',
     [supervisorFenceName(fence.actorId), SUPERVISOR_FENCE_SEED],

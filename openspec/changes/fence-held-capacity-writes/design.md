@@ -37,7 +37,7 @@ A check inside the write's transaction alone is not enough: a transaction can pa
 2. Read the supervisor lock's current holder from `pg_locks` (advisory, granted, this database, the key's `classid`/`objid`, `objsubid = 1`), joined to `pg_stat_activity` for its backend start time.
 3. Decide (`fencePermits`, a pure function) and refuse with `agent_supervisor_lock_lost` when the write isn't permitted. The transaction rolls back.
 
-**In a new supervisor, after taking the lock and before its check** (`awaitFencedWrites`): a short transaction on the lock's connection that takes `pg_advisory_xact_lock` (exclusive) on the fence key under `lock_timeout` 30 s (`SUPERVISOR_FENCE_WAIT_MS`), then commits. The worker pools' 5 s `statement_timeout` would end the wait first, so the transaction raises its own `statement_timeout` above the lock timeout. It waits for every fenced transaction already holding the shared lock to end. A fenced transaction that asks for the shared lock afterwards finds the new holder in `pg_locks` and is refused. Past the bound the start refuses with `agent_supervisor_writes_in_flight`.
+**In a new supervisor, after taking the lock and before its check** (`awaitFencedWrites`): a short transaction on the lock's connection that takes `pg_advisory_xact_lock` (exclusive) on the fence key under `lock_timeout` 10 s (`SUPERVISOR_FENCE_WAIT_MS`), then commits. Fenced transactions are short and their statements are cut at the pools' 5 s, so 10 s is enough, and it stays inside the settlement retry (D2). The worker pools' 5 s `statement_timeout` would end the wait first, so the transaction raises its own `statement_timeout` above the lock timeout. It waits for every fenced transaction already holding the shared lock to end. A fenced transaction that asks for the shared lock afterwards finds the new holder in `pg_locks` and is refused. Past the bound the start refuses with `agent_supervisor_writes_in_flight`.
 
 Ordering, for a write W of old worker A and replacement B:
 
@@ -70,7 +70,7 @@ Settlement ends ownership. When the lock is lost and no replacement has it yet, 
 
 When another worker holds the lock, settlement is refused. That worker is waiting at its barrier, checking held capacity or running. Once it runs it has passed its check, so it either released the slot (the existing turn and slot guard already makes settlement change nothing) or saw no slot. While it is still at the barrier or checking, it may yet refuse to start, for example on this worker's `host` slot. Refusing keeps a lost worker from changing anything under another supervisor.
 
-A refusal comes before any write, so settlement retries it every 500 ms for up to 20 s (`SETTLEMENT_FENCE_RETRY_MS`, inside the session worker's 30 s shutdown wait), logging `settlement_fence_refused` with the attempt on the first refusal. A replacement that took the lock and then refused to start, for example on this worker's own `host` slot, releases it within that time, and the retried settlement then releases the slot instead of leaving a record no start can confirm. Past the bound the settlement gives up and the slot keeps its record. The retry matches the typed `SupervisorLockLostError`, not a message.
+A refusal comes before any write, so settlement retries it every 500 ms for up to 20 s, on a monotonic clock and starting no retry past the bound (`SETTLEMENT_FENCE_RETRY_MS`, inside the session worker's 30 s shutdown wait), logging `settlement_fence_refused` with the attempt on the first refusal. A replacement that took the lock and then refused to start, for example on this worker's own `host` slot, releases it within that time, and the retried settlement then releases the slot instead of leaving a record no start can confirm. The 20 s exceed a replacement's 10 s barrier plus its immediate refusal on a `host` record, so a replacement that waited its whole barrier still lets the lock go in time. Past the bound the settlement gives up and the slot keeps its record. The retry matches the typed `SupervisorLockLostError`, not a message.
 
 Claims, records and the lane claim require this worker to hold the lock, because they start work outside the worker.
 
@@ -90,8 +90,8 @@ Rejected: putting the fence on `ProcessingConfig`. The config is a static scope 
 
 - **Authority.** Only the lock's holder can claim, record or claim the lane. Settlement needs no other holder. The startup check already runs on the lock's connection and is not fenced again.
 - **Refusal.** A refused write throws `agent_supervisor_lock_lost` inside its transaction, which rolls back. The session stays queued (claim), the slot keeps its previous record and the driver starts nothing (record), the attempt stays queued (lane claim), or the session keeps its state and slot (settlement), for the next start to decide.
-- **Deadlock.** Fenced transactions take the shared fence first. The barrier transaction takes nothing else. PostgreSQL's deadlock detector reorders a shared request queued behind the barrier when needed.
-- **Bounded wait.** The barrier waits at most 30 s. A start refused with `agent_supervisor_writes_in_flight` releases its lock; restarting the worker retries.
+- **Deadlock.** Fenced transactions take the shared fence first and never wait for it: the non-blocking attempt is refused while the barrier is queued or held. The barrier transaction takes nothing else, so no cycle can form through the fence.
+- **Bounded wait.** The barrier waits at most 10 s. A start refused with `agent_supervisor_writes_in_flight` releases its lock; restarting the worker retries.
 - **Cost.** One shared advisory lock and one `pg_locks` read per fenced transaction. Claims retry every `SLOT_WAIT_MS` while waiting for a slot, so the read repeats at that rate.
 - **Logs.** `agent_supervisor_writes_in_flight` joins the safe stop codes of both workers.
 - **Compatibility.** No schema change, so the exact-schema check does not separate this build from the previous one. An older worker's writes take no fence, so a new worker's barrier can't wait for them: stop every old worker of an actor before starting this build, as the deployment guide says for any rollout. The lock still admits one worker at a time.
@@ -120,7 +120,7 @@ Limits: the tests drive two supervisors' connections in one process against real
 
 - No migration. Stop every worker of the previous build before starting this one (`tooling/deployment/README.md`); an old worker's writes are not fenced.
 - Rollback: the previous build, with the race back.
-- A start refused with `agent_supervisor_writes_in_flight` means a transaction of a lost worker stayed open for 30 s. Find it in `pg_stat_activity`; restarting the worker once it ends is enough.
+- A start refused with `agent_supervisor_writes_in_flight` means a transaction of a lost worker stayed open for 10 s. Find it in `pg_stat_activity`; restarting the worker once it ends is enough.
 
 ## Risks and open decisions
 
