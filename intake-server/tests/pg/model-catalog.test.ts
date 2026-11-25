@@ -950,10 +950,11 @@ test("another route's attempts and reads aren't shown as this route's", async (t
       `INSERT INTO agent_model_catalog
           (actor_id,target_id,target_context_id,provider,authentication,models,source,read_in,
             attempt_in,read_at,attempted_at,failure)
-        VALUES ($1,$2,$3,'claude','subscription',$4::jsonb,$5,$6,'vm',$7,now(),'timeout')
+        VALUES ($1,$2,$3,'claude','subscription',$4::jsonb,$5,$6,'vm',$7,$8,'timeout')
         ON CONFLICT (actor_id,target_id,target_context_id,provider,authentication) DO UPDATE SET
           models=excluded.models, source=excluded.source, read_in=excluded.read_in,
-          attempt_in='vm', read_at=excluded.read_at, attempted_at=now(), failure='timeout'`,
+          attempt_in='vm', read_at=excluded.read_at, attempted_at=excluded.attempted_at,
+          failure='timeout'`,
       [
         fixture.config.actorId,
         fixture.config.targetId,
@@ -961,7 +962,9 @@ test("another route's attempts and reads aren't shown as this route's", async (t
         models === null ? null : JSON.stringify(models),
         models === null ? null : 'cli',
         readIn,
-        models === null ? null : new Date(Date.now() - 3600_000),
+        // Both before the worker's clock (22:12), list first, so every later attempt is newer.
+        models === null ? null : new Date('2026-11-25T21:00:00.000Z'),
+        new Date('2026-11-25T21:30:00.000Z'),
       ],
     )
 
@@ -978,6 +981,16 @@ test("another route's attempts and reads aren't shown as this route's", async (t
   assert.equal(answer.claude.state, 'current')
   assert.equal(answer.claude.failure, null)
   assert.deepEqual(answer.claude.models, [sonnet])
+
+  // A VM read still marked as running, with nothing requested, isn't this route's read.
+  await fixture.db.pool.query(
+    `UPDATE agent_model_catalog SET reading_since=$1, reading_in='vm' WHERE provider='claude'`,
+    [new Date('2026-11-25T21:40:00.000Z')],
+  )
+  assert.equal((await readModelCatalog(fixture.api.pool, fixture.config)).claude.state, 'current')
+  await fixture.db.pool.query(
+    `UPDATE agent_model_catalog SET reading_since=NULL, reading_in=NULL WHERE provider='claude'`,
+  )
 
   // A host read starts: it is this route's, and the VM failure stays hidden until it ends.
   const { state, reader } = fakeReader('rev-a', 'host')
@@ -1009,36 +1022,42 @@ test('an observation waiting on the row lock compares with the generation commit
   const key = { provider: 'claude', authentication: 'subscription' } as const
   await observeCatalogGeneration(fixture.runner.pool, fixture.config, key, 'rev-a', time.now())
   const competitor = await fixture.db.pool.connect()
-  await competitor.query('BEGIN')
-  await competitor.query(
-    `UPDATE agent_model_catalog SET latest_generation='rev-x', generation_seq=generation_seq+1
-      WHERE provider='claude'`,
-  )
-  let settled = false
-  const observing = observeCatalogGeneration(
-    fixture.runner.pool,
-    fixture.config,
-    key,
-    'rev-x',
-    time.now(),
-  ).finally(() => {
-    settled = true
-  })
-  // The observer is waiting for the competitor's row lock.
-  for (let i = 0; i < 100; i++) {
-    const waiting = await fixture.api.pool.query(
-      `SELECT count(*)::int AS n FROM pg_locks WHERE NOT granted AND locktype IN ('transactionid','tuple')`,
+  try {
+    await competitor.query('BEGIN')
+    // Locks the row without changing it, so only a row lock can make the observer wait.
+    await competitor.query(`SELECT 1 FROM agent_model_catalog WHERE provider='claude' FOR UPDATE`)
+    const competitorPid = (
+      await competitor.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')
+    ).rows[0].pid
+    const observing = observeCatalogGeneration(
+      fixture.runner.pool,
+      fixture.config,
+      key,
+      'rev-x',
+      time.now(),
     )
-    if (waiting.rows[0].n > 0) {
-      break
+    let blocked = false
+    for (let i = 0; i < 150 && !blocked; i++) {
+      const waiting = await fixture.api.pool.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))`,
+        [competitorPid],
+      )
+      blocked = waiting.rows[0].n > 0
+      if (!blocked) {
+        await new Promise((resolve) => setTimeout(resolve, 20))
+      }
     }
-    await new Promise((resolve) => setTimeout(resolve, 20))
+    assert.ok(blocked, 'the observer waits for the competitor')
+    await competitor.query(
+      `UPDATE agent_model_catalog SET latest_generation='rev-x', generation_seq=generation_seq+1
+        WHERE provider='claude'`,
+    )
+    await competitor.query('COMMIT')
+    // rev-x is what the committed row says, so seeing it again is no sign-in change.
+    assert.equal(await observing, false)
+  } finally {
+    competitor.release()
   }
-  assert.equal(settled, false)
-  await competitor.query('COMMIT')
-  competitor.release()
-  // rev-x is what the committed row says, so seeing it again is no sign-in change.
-  assert.equal(await observing, false)
   const row = await claudeRow(fixture)
   assert.equal(row?.latestGeneration, 'rev-x')
   assert.equal(row?.staleSignIn, false)
@@ -1059,16 +1078,39 @@ test('overlapping admissions of one new CLI version write one refresh request', 
       )
     ).rows[0].refresh_seq
   const before = BigInt(await seq())
-  // The first request's write waits on this lock while the other reports arrive.
   const holder = await fixture.db.pool.connect()
-  await holder.query('BEGIN')
-  await holder.query(`SELECT 1 FROM agent_model_catalog WHERE provider='claude' FOR UPDATE`)
-  const reports = Promise.all(
-    [1, 2, 3].map(() => catalog.cliVersionReported('claude', 'subscription', '2.1.320')),
-  )
-  await new Promise((resolve) => setTimeout(resolve, 300))
-  await holder.query('COMMIT')
-  holder.release()
-  await reports
+  try {
+    await holder.query('BEGIN')
+    await holder.query(`SELECT 1 FROM agent_model_catalog WHERE provider='claude' FOR UPDATE`)
+    const holderPid = (await holder.query<{ pid: number }>('SELECT pg_backend_pid() AS pid'))
+      .rows[0].pid
+    const blockedWrites = async () =>
+      (
+        await fixture.api.pool.query<{ n: number }>(
+          `SELECT count(*)::int AS n FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))`,
+          [holderPid],
+        )
+      ).rows[0].n
+    // The first report's write is held at the row lock before the others arrive.
+    const first = catalog.cliVersionReported('claude', 'subscription', '2.1.320')
+    for (let i = 0; i < 150 && (await blockedWrites()) === 0; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    }
+    assert.equal(await blockedWrites(), 1)
+    const followers = [1, 2].map(() =>
+      catalog.cliVersionReported('claude', 'subscription', '2.1.320'),
+    )
+    // Without coalescing each follower would reach its own write and wait on the lock too.
+    let most = 1
+    for (let i = 0; i < 50; i++) {
+      most = Math.max(most, await blockedWrites())
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    }
+    assert.equal(most, 1)
+    await holder.query('COMMIT')
+    await Promise.all([first, ...followers])
+  } finally {
+    holder.release()
+  }
   assert.equal(BigInt(await seq()) - before, 1n)
 })

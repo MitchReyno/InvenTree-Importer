@@ -12,6 +12,7 @@ import {
 import { CatalogReadError, claudeCliModels, codexModels } from '#/agents/model-catalog/normalise.ts'
 import { hostClaudeApiReader, hostCodexApiReader } from '#/agents/model-catalog/readers.ts'
 import { nativeAgentHost } from '#/agents/environment.ts'
+import { NativeSessionError } from '#/agents/failure-model.ts'
 
 const fakeCli = resolve(import.meta.dirname, 'fixtures/model-catalog-cli.cjs')
 
@@ -121,7 +122,9 @@ test('an environment failure other than a missing key is not read as signed out'
     INTAKE_AGENT_STATE_ROOT: join(root, 'state'),
     PATH: process.env.PATH,
   })
-  const boom = new Error('environment_unreadable')
+  // A typed error with another code, whose message alone would pass for a missing key.
+  const boom = new NativeSessionError('agent_home_unavailable')
+  Object.defineProperty(boom, 'message', { value: 'agent_login_required' })
   host.env = new Proxy(host.env, {
     get(target, name) {
       if (name === 'OPENAI_API_KEY') {
