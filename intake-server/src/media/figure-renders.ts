@@ -188,16 +188,38 @@ export interface ViewRenderInput {
 
 export type RenderView = (input: ViewRenderInput) => Promise<RenderedView>
 
+/** Queued renders in the consumer's scope whose lease is free or expired and whose photo is present. */
+const CLAIMABLE = `FROM public.processing_figure_render r
+       JOIN public.capture_batch b ON b.id=r.batch_id
+       JOIN public.media_version v ON v.batch_id=r.batch_id AND v.id=r.version_id
+       WHERE r.state='queued' AND b.actor_id=$1 AND b.target_id=$2 AND b.target_context_id=$3
+         AND (r.lease_expires_at IS NULL OR r.lease_expires_at<=$4)
+         AND NOT ${versionRemovedSql('v')}`
+
 /**
- * Claims the oldest queued render in the consumer's scope whose lease is free or expired and whose
- * photo isn't removed; a request that has used its attempts and lost its lease settles as failed
- * instead.
+ * Claims the oldest claimable render; a request that has used its attempts and lost its lease
+ * settles as failed instead. The batch's media revision lock, which removing a photo holds, is
+ * taken before the render row, as the sweep takes them, and the request is checked again under
+ * it, so a photo removed before the claim is never rendered. A render claimed first may still
+ * finish; the sweep returns it to the queue.
  */
 type RenderClaim = { kind: 'claimed'; render: ClaimedRender } | { kind: 'exhausted' } | null
 
 async function claimRender(pool: Pool, binding: CaptureBinding, now: Date): Promise<RenderClaim> {
   return transaction(pool, async (client) => {
     await prepareMediaTransaction(client)
+    const scope = [binding.actorId, binding.targetId, binding.targetContextId, now]
+    const next = await client.query<{ id: string; batch_id: string }>(
+      `SELECT r.id, r.batch_id ${CLAIMABLE}
+       ORDER BY (r.purpose='preview') DESC, r.created_at, r.id
+       LIMIT 1`,
+      scope,
+    )
+    if (!next.rows[0]) {
+      return null
+    }
+    await lockMediaRevision(client, next.rows[0].batch_id)
+    // Another consumer may have taken it, or the photo been removed, before the lock.
     const candidates = await client.query<{
       id: string
       batch_id: string
@@ -210,16 +232,9 @@ async function claimRender(pool: Pool, binding: CaptureBinding, now: Date): Prom
     }>(
       `SELECT r.id, r.batch_id, r.purpose, r.recipe_bytes, r.recipe_digest, r.marks_bytes,
          r.marks_digest, r.attempts
-       FROM public.processing_figure_render r
-       JOIN public.capture_batch b ON b.id=r.batch_id
-       JOIN public.media_version v ON v.batch_id=r.batch_id AND v.id=r.version_id
-       WHERE r.state='queued' AND b.actor_id=$1 AND b.target_id=$2 AND b.target_context_id=$3
-         AND (r.lease_expires_at IS NULL OR r.lease_expires_at<=$4)
-         AND NOT ${versionRemovedSql('v')}
-       ORDER BY (r.purpose='preview') DESC, r.created_at, r.id
-       LIMIT 1
+       ${CLAIMABLE} AND r.id=$5
        FOR UPDATE OF r SKIP LOCKED`,
-      [binding.actorId, binding.targetId, binding.targetContextId, now],
+      [...scope, next.rows[0].id],
     )
     const candidate = candidates.rows[0]
     if (!candidate) {

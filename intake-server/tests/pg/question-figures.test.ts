@@ -1765,6 +1765,56 @@ test('a photo restored while the sweep waits for its batch keeps its picture', a
   })
 })
 
+test('a photo removed while a render waits to claim it is not rendered', async () => {
+  await withFigureSession(async (setup) => {
+    const { fixture, tools, token, lot, photoFigure, media, store, binding } = setup
+    await fetched(setup, setup.photo)
+    const asked = accepted(await tools.ask(token, figureQuestion(lot, [photoFigure()])))
+
+    // A removal holding the batch's media revision lock, as the remove edit does, and not yet
+    // committed when the consumer looks for work.
+    const removing = await fixture.db.pool.connect()
+    const renderer = fakeRenderer()
+    let claiming: Promise<PromiseSettledResult<string>> | undefined
+    let committed = false
+    try {
+      await removing.query('BEGIN')
+      await removing.query(
+        "SELECT pg_advisory_xact_lock(hashtextextended('bench-media-batch/1:' || $1, 0))",
+        [setup.batchId],
+      )
+      await removing.query(
+        `INSERT INTO media_evidence_removal(id, batch_id, evidence_id, revision, actor_id, removed)
+         VALUES($1, $2, $3, 1000, $4, true)`,
+        [randomUUID(), setup.batchId, setup.photo.evidence, fixture.config.actorId],
+      )
+      claiming = outcomeOf(renderFigureStep(media.pool, store, binding, renderer))
+      let waiting = false
+      for (let tries = 0; !waiting && tries < 200; tries += 1) {
+        const locks = await fixture.db.pool.query(
+          "SELECT 1 FROM pg_locks WHERE locktype='advisory' AND NOT granted",
+        )
+        waiting = (locks.rowCount ?? 0) > 0
+        if (!waiting) {
+          await new Promise((resolve) => setTimeout(resolve, 25))
+        }
+      }
+      assert.ok(waiting, 'the claim waits for the removal')
+      await removing.query('COMMIT')
+      committed = true
+    } finally {
+      if (!committed) {
+        await removing.query('ROLLBACK').catch(() => undefined)
+      }
+      removing.release()
+    }
+    assert.deepEqual(await claiming!, { status: 'fulfilled', value: 'idle' })
+    assert.equal(renderer.calls.length, 0)
+    const waitingView = (await figureRender(setup, asked.id!, 1))!
+    assert.deepEqual([waitingView.state, waitingView.attempts], ['queued', 0])
+  })
+})
+
 function findById(value: unknown, id: string): Record<string, unknown> | undefined {
   if (!value || typeof value !== 'object') {
     return undefined
