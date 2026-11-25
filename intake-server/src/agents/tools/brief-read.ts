@@ -18,6 +18,7 @@ import {
   briefViewKeepable,
   keepCurrentView,
   keptCurrentView,
+  touchCurrentView,
   pageToken,
   readPageToken,
   sealedBriefPage,
@@ -203,10 +204,14 @@ async function viewPage(
   return pageOf(kept, cursor)
 }
 
-/** A page read, and the current view to keep for its later pages when it started one. */
+/**
+ * A page read, and what it asks of the kept views: the current view it started, to keep, or the
+ * digest of the kept view it continued, to count as read now.
+ */
 export interface BriefRead {
   page: SessionBriefPageDto
   keep: SessionBriefDto | null
+  touch: string | null
 }
 
 /**
@@ -245,6 +250,7 @@ export async function readBriefPage(
         newer: briefDigest(current) === cursor.digest ? null : { revision: current.revision },
       },
       keep: fresh ? current : null,
+      touch: cursor.view === 'current' && !fresh ? cursor.digest : null,
     }
   } catch (error) {
     // A view past the page bound can't be paged; the session reads again later.
@@ -256,15 +262,24 @@ export async function readBriefPage(
 }
 
 /**
- * Keeps a current view for the attempt in its own transaction, serialized per attempt, so two
- * reads at once can't break the bound or fail on each other's insert.
+ * Keeps a view a read started, or counts a continued one as read now, in its own transaction
+ * serialized per attempt, so reads at once can't break the bound or fail on each other's insert,
+ * and the views kept are the ones read most recently.
  */
-export async function keepBriefView(pool: Pool, attemptId: string, brief: SessionBriefDto) {
+export async function retainBriefView(pool: Pool, attemptId: string, read: BriefRead) {
+  if (!read.keep && !read.touch) {
+    return
+  }
   await transaction(pool, async (client) => {
     await client.query(
       "SELECT pg_advisory_xact_lock(hashtext('processing_brief_view'), hashtext($1))",
       [attemptId],
     )
-    await keepCurrentView(client, attemptId, brief)
+    if (read.keep) {
+      await keepCurrentView(client, attemptId, read.keep)
+    }
+    if (read.touch) {
+      await touchCurrentView(client, attemptId, read.touch)
+    }
   })
 }

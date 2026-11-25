@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { mkdtemp, mkdir } from 'node:fs/promises'
+import { mkdtemp, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -38,6 +38,21 @@ async function workerRoot() {
   const root = await mkdtemp(join(tmpdir(), 'stage-briefs-process-'))
   await mkdir(join(root, 'state'), { mode: 0o700 })
   return root
+}
+
+/**
+ * What a test owns, released in reverse: workers stop (and their children are reaped) before
+ * the fixture's database goes and the worker root is removed. Registered as soon as the
+ * fixture exists, so a failure during setup still releases what was acquired.
+ */
+function ownedResources(t: { after: (fn: () => Promise<void>) => void }) {
+  const releases: (() => Promise<void>)[] = []
+  t.after(async () => {
+    for (const release of releases.reverse()) {
+      await release()
+    }
+  })
+  return (release: () => Promise<void>) => releases.push(release)
 }
 
 /** A session worker child for the fixture's actor; `stop` sends SIGTERM and waits for its exit. */
@@ -137,16 +152,18 @@ test(
   'under the switch a worker’s fake sessions start from sealed briefs and read them',
   { timeout: 180000 },
   async (t) => {
+    const own = ownedResources(t)
     const fixture = await processingFixture({ profileId: 'synthetic-session/1' })
+    own(() => fixture.dispose())
     // The in-test API and the worker both run with the test-only switch.
     fixture.config.stageInputs = 'local'
     const capture = await fixture.seedCapture()
     const batchId = capture.batch.id
     await notedPhoto(fixture, batchId, 'Tray', '16 MHz crystal')
-    const worker = await startWorker(fixture, await workerRoot(), true)
-    // Hooks run in order: the worker stops before the fixture's database goes.
-    t.after(() => worker.stop())
-    t.after(() => fixture.dispose())
+    const root = await workerRoot()
+    own(() => rm(root, { recursive: true, force: true }))
+    const worker = await startWorker(fixture, root, true)
+    own(() => worker.stop())
 
     // The worker's sweep starts a `/7` lead, which forms the lot and queues its successors.
     const rows = await worker.until(
@@ -182,21 +199,16 @@ test(
   'a retained /6 lead keeps queueing /6 successors after its worker restarts with the switch on',
   { timeout: 240000 },
   async (t) => {
+    const own = ownedResources(t)
     const fixture = await processingFixture({ profileId: 'synthetic-session/1' })
+    own(() => fixture.dispose())
     const root = await workerRoot()
-    const workers: Awaited<ReturnType<typeof startWorker>>[] = []
-    // Hooks run in order: every worker stops before the fixture's database goes.
-    t.after(async () => {
-      for (const worker of workers) {
-        await worker.stop()
-      }
-    })
-    t.after(() => fixture.dispose())
+    own(() => rm(root, { recursive: true, force: true }))
     const capture = await fixture.seedCapture()
     const batchId = capture.batch.id
     await notedPhoto(fixture, batchId, 'Tray', '16 MHz crystal')
     const before = await startWorker(fixture, root, false)
-    workers.push(before)
+    own(() => before.stop())
     await before.until(
       () => successors(fixture, batchId, '16 mhz crystal'),
       (found) => found.length === 2 && found.every((row) => row.sessionState === 'waiting_input'),
@@ -209,7 +221,7 @@ test(
     fixture.config.stageInputs = 'local'
     await notedPhoto(fixture, batchId, 'Bag', '10k resistor')
     const after = await startWorker(fixture, root, true)
-    workers.push(after)
+    own(() => after.stop())
     const queued = await after.until(
       () => successors(fixture, batchId, '10k resistor'),
       (found) => found.length === 2,

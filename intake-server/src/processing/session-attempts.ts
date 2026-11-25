@@ -17,7 +17,7 @@ import { fail, sealed, type Stage } from './model.ts'
 import { processingAttempts, processingInputs } from './schema.ts'
 import { assembleBrief } from './brief.ts'
 import { briefPages, sealBrief, storeInputPages, type SealedBriefPage } from './brief-pages.ts'
-import { stagePacks, type SessionInputVersion } from './stage-policy.ts'
+import { configuredInputVersion, stagePacks, type SessionInputVersion } from './stage-policy.ts'
 import {
   briefScope,
   stageInputManifest,
@@ -118,7 +118,7 @@ export async function prepareSessionAttempt(
       )
   const manifest =
     inputVersion === 'bench-intake-input/7'
-      ? await sealStageInput(client, snapshot, base, profileId)
+      ? await sealStageInput(client, config, snapshot, base, profileId)
       : { ...sealed(base), pages: [] }
   if (manifest.bytes.length > MAX_PROCESSING_SNAPSHOT_BYTES) {
     fail('processing_input_capacity', 422)
@@ -137,13 +137,15 @@ export async function prepareSessionAttempt(
  */
 async function sealStageInput(
   client: PoolClient,
+  config: ProcessingConfig,
   snapshot: CaptureSnapshotDto,
   base: ProcessingInputV6Dto,
   profileId: SessionProfileId,
 ): Promise<SealedSessionInput> {
   const packs = stagePacks[profileId]
-  // The configured profile has no stage packs, so it can't run this batch's `/7` pipeline.
-  if (!packs) {
+  // Only a configuration that seals `/7` may write one, even for a batch whose lead is `/7`:
+  // without it, the configured route can't run this batch's pipeline.
+  if (!packs || configuredInputVersion(config) !== 'bench-intake-input/7') {
     fail('unsupported_processing_profile', 422)
   }
   const scope = briefScope(base)

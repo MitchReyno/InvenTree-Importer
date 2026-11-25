@@ -182,6 +182,15 @@ export async function keepCurrentView(
   return true
 }
 
+/** Counts a kept view as read now, so it stays among the attempt's most recently read. */
+export async function touchCurrentView(client: PoolClient, attemptId: string, digestHex: string) {
+  await client.query(
+    `UPDATE public.processing_brief_view SET read_at=clock_timestamp()
+     WHERE attempt_id=$1 AND brief_digest=$2`,
+    [attemptId, Buffer.from(digestHex, 'hex')],
+  )
+}
+
 /** A kept current view by its digest, or null when it is no longer kept. */
 export async function keptCurrentView(
   client: PoolClient,

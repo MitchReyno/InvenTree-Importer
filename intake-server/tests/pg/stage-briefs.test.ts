@@ -646,6 +646,24 @@ test('an edit after queueing or between pages never mixes two briefs in one page
     assert.equal(second.brief!.sha256, first.brief!.sha256)
     assert.deepEqual(second.brief!.newer, { revision: edited.revision })
 
+    // The views kept are the ones read most recently: continuing a view keeps it among them.
+    for (let index = 0; index < BRIEF_VIEWS_PER_ATTEMPT - 1; index += 1) {
+      await edit(fixture, batchId, { kind: 'note', subject_id: led.id, text: `Later ${index}.` })
+      assert.equal((await call(session, 'read_lot', { lot_id: led.id })).ok, true)
+    }
+    const third = await call(session, 'read_lot', {
+      lot_id: led.id,
+      page_token: second.brief!.next_page_token,
+    })
+    assert.equal(third.ok, true, JSON.stringify(third))
+    await edit(fixture, batchId, { kind: 'note', subject_id: led.id, text: 'One more view.' })
+    assert.equal((await call(session, 'read_lot', { lot_id: led.id })).ok, true)
+    const fourth = await call(session, 'read_lot', {
+      lot_id: led.id,
+      page_token: first.brief!.next_page_token,
+    })
+    assert.equal(fourth.ok, true, JSON.stringify(fourth))
+
     // Current views are kept within a bound; a token for one no longer kept is refused.
     for (let index = 0; index < BRIEF_VIEWS_PER_ATTEMPT; index += 1) {
       await edit(fixture, batchId, { kind: 'note', subject_id: led.id, text: `Count ${index}.` })
@@ -966,4 +984,54 @@ test("reads at once keep the view bound and don't fail on each other", async (t)
     )
     assert.ok(kept.rowCount! <= BRIEF_VIEWS_PER_ATTEMPT)
   })
+})
+
+test('Start pins the lot’s own identity, not another lot’s that cites its observations', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId, leadAttempt } = batch
+  const led = await batch.lot('led 0603 red')
+  const crystal = await batch.lot('16 mhz crystal')
+  const [ledIdentity] = await batch.identities(led.id)
+  // The lead publishes an identity about the crystal that also cites the LED lot's set.
+  const value = await fixture.db.pool.query<{ value: { sources: unknown[] } }>(
+    "SELECT convert_from(value_bytes,'UTF8')::jsonb AS value FROM processing_proposal WHERE id=$1",
+    [ledIdentity.id],
+  )
+  await withClients(async (open) => {
+    const lead = await open(batch.deps.toolUrl, await running(fixture, leadAttempt))
+    const published = await call(lead, 'propose', {
+      proposal: {
+        schema_version: 'bench-intake-proposal/5',
+        subject_id: crystal.id,
+        summary: 'The crystal, read beside the LED reel.',
+        sources: value.rows[0].value.sources,
+        relies_on: {
+          fields: ['identity'],
+          sources: [
+            ...value.rows[0].value.sources,
+            { kind: 'observation_set', lot_id: led.id, version: led.observation_set_version },
+          ],
+        },
+      },
+    })
+    assert.equal(published.ok, true, JSON.stringify(published))
+  })
+  const attemptId = await requeueResearch(fixture, batchId, led.id)
+  const manifest = stageInput((await sealedInput(fixture, attemptId)).manifest)
+  assert.deepEqual(manifest.pinned_proposal_ids, [ledIdentity.id])
+})
+
+test('without the switch, a /7 lead’s batch seals no new /7 input', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId } = batch
+  const led = await batch.lot('led 0603 red')
+  delete fixture.config.stageInputs
+  const started = await fixture.http(`/batches/${batchId}/processing`, {
+    schema_version: 'bench-intake-processing/1',
+    expected_capture_revision: (await snapshotOf(fixture, batchId)).revision,
+    subject_ids: [led.id],
+    stages: ['research'],
+  })
+  assert.equal(started.status, 422)
+  assert.equal((started.value as { code: string }).code, 'unsupported_processing_profile')
 })

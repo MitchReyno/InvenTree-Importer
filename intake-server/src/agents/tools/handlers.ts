@@ -16,7 +16,6 @@ import {
   type WebPageSourceDto,
   type ProcessingRelianceDto,
   type SessionAskArgsV2Dto,
-  type SessionBriefDto,
   type SessionReadBriefBatchArgsDto,
   type SessionReadLotArgsDto,
   type SessionToolErrorDto,
@@ -58,7 +57,7 @@ import type { BlobStore } from '#/media/blob-store.ts'
 import { sha256 } from '#/db/authority.ts'
 import { capabilityDigest, resolveSessionCapability, type SessionPrincipal } from './capability.ts'
 import { refuse, ToolRefusal } from './refusal.ts'
-import { keepBriefView, readBriefPage, stagePrincipal } from './brief-read.ts'
+import { readBriefPage, retainBriefView, stagePrincipal, type BriefRead } from './brief-read.ts'
 import { agentSessionOutbox, agentSessions } from '#/agents/schema.ts'
 import { appendSessionOutbox, lastStatusAt } from './outbox.ts'
 import sharp from 'sharp'
@@ -727,7 +726,7 @@ async function withBriefRead(
   work: (
     client: PoolClient,
     principal: SessionPrincipal,
-  ) => Promise<{ result: SessionToolOutput['result']; keep: SessionBriefDto | null }>,
+  ) => Promise<{ result: SessionToolOutput['result']; read: BriefRead }>,
 ): Promise<SessionToolOutput> {
   try {
     const read = await transaction(context.pool, async (client) => {
@@ -747,9 +746,7 @@ async function withBriefRead(
       return { ...(await work(client, found)), attemptId: found.attemptId }
     })
     // Kept after the snapshot commits, so the page's token names a view that is kept.
-    if (read.keep) {
-      await keepBriefView(context.pool, read.attemptId, read.keep)
-    }
+    await retainBriefView(context.pool, read.attemptId, read.read)
     return { result: read.result }
   } catch (error) {
     if (!(error instanceof ToolRefusal)) {
@@ -1598,7 +1595,7 @@ export function sessionTools(context: SessionToolContext) {
           const read = await readBriefPage(client, context.config, stage, input)
           return {
             result: await ok(client, principal, { revision: read.page.revision, brief: read.page }),
-            keep: read.keep,
+            read,
           }
         })
       }
@@ -1626,7 +1623,7 @@ export function sessionTools(context: SessionToolContext) {
         const read = await readBriefPage(client, context.config, stage, request)
         return {
           result: await ok(client, principal, { revision: read.page.revision, brief: read.page }),
-          keep: read.keep,
+          read,
         }
       }),
 
