@@ -1,4 +1,6 @@
 import type {
+  BatchActivityDto,
+  ProcessingJobDto,
   SessionHistoryAttemptDto,
   SessionHistoryDto,
   SessionHistoryEntryDto,
@@ -252,7 +254,10 @@ function researchPages(ids: Ids) {
   }
 }
 
-/** Any other session: the lead's three observations in one photo, grouped in the drawer. */
+/**
+ * Any other session. The ATmega Examine session (job 2) recorded three observations in one
+ * photo, grouped in the drawer; the others have only their status line.
+ */
 function otherHistory(ids: Ids, jobId: string): SessionHistoryDto {
   const attemptId = ids.id(20 + Number(jobId.slice(-2)))
 
@@ -310,9 +315,9 @@ function otherHistory(ids: Ids, jobId: string): SessionHistoryDto {
         kind: 'status',
         text: 'Asked about the last letter',
       }),
-      observation(3, 'ATMEGA328P'),
-      observation(2, '2341'),
-      observation(1, 'AU'),
+      ...(jobId === ids.id(2)
+        ? [observation(3, 'ATMEGA328P'), observation(2, '2341'), observation(1, 'AU')]
+        : []),
     ],
   }
 }
@@ -379,5 +384,37 @@ export function fixtureHistory(ids: Ids, examineAnswer: () => Entry | undefined 
     }
     const pages = researchPages(ids)
     return before ? pages.older : pages.newest
+  }
+}
+
+/** The recorded actions the batch activity read sends; status lines become notes instead. */
+const ACTIONS = new Set(['observation', 'lot', 'regroup', 'proposal', 'question', 'answer'])
+
+/**
+ * Processing's recent activity across every session job of the fixture, built the way the server
+ * builds it: each job's recorded actions from its history, newest first and at most six, with the
+ * job's stage, subject and latest status line from the job itself.
+ */
+export function fixtureActivity(
+  read: ReturnType<typeof fixtureHistory>,
+  sessionJobs: () => Promise<readonly ProcessingJobDto[]>,
+) {
+  return async (batchId: string): Promise<BatchActivityDto> => {
+    const jobs = await sessionJobs()
+    const histories = await Promise.all(jobs.map((job) => read(batchId, job.id)))
+    const entries = histories.flatMap((history, index) => {
+      const job = jobs[index]
+      return history.entries
+        .filter((entry) => ACTIONS.has(entry.details.kind))
+        .map((entry) => ({
+          job_id: job.id,
+          stage: job.stage,
+          subject_id: job.subject_id,
+          entry,
+          agent_note: job.latest_status ?? null,
+        }))
+    })
+    entries.sort((a, b) => b.entry.at.localeCompare(a.entry.at))
+    return { entries: entries.slice(0, 6) }
   }
 }

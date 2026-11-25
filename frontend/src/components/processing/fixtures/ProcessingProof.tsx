@@ -15,7 +15,7 @@ import { GlobalStyle } from '#/components/GlobalStyle'
 import { Masthead } from '#/components/masthead/Masthead'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { AgentSessions } from '#/components/agents/AgentSessions'
-import { fixtureHistory } from './session-history'
+import { fixtureActivity, fixtureHistory } from './session-history'
 import { dateCodeFigures, packetLabelFigures, wornSuffixFigures } from './question-figures'
 import { sessionList, sessionRow } from '#/test/agent-sessions'
 import { heyyySessions, HEYYY_LOT, HEYYY_NAMES } from '#/components/agents/fixtures/heyyy'
@@ -603,6 +603,7 @@ export function ProcessingProof() {
   const page = processingLink?.step ?? view.replace('-fixture', '')
   const [answerOutcomes] = useState(createAnswerOutcomes)
   const delivery = useInstructionDelivery(batch.id, async () => ({ sessions: 2, woken: 1 }))
+  const history = fixtureHistory({ batchId, id, lot }, examineAnswerEntry)
   const client = {
     read: async () => {
       await new Promise((settle) => setTimeout(settle, READ_DELAY_MS))
@@ -635,7 +636,15 @@ export function ProcessingProof() {
         command_id: id(96),
       }
     },
-    history: fixtureHistory({ batchId, id, lot }, examineAnswerEntry),
+    history,
+    // Without sessions the batch has no agent activity, as a client without the read shows.
+    ...(sessions
+      ? {
+          batchActivity: fixtureActivity(history, async () =>
+            snapshot(sessions).jobs.filter((job) => job.session_state),
+          ),
+        }
+      : {}),
     chat: async () => {
       throw new Error('fixture commands are disabled')
     },

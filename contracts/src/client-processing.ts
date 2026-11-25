@@ -56,6 +56,17 @@ export function processingClient(
         }),
       ),
 
+    /** The newest recorded actions across the batch's sessions, with each job's latest status. */
+    batchActivity: (id: string, limit?: number) =>
+      successfulData(
+        client.GET('/api/v1/batches/{id}/processing/activity', {
+          params: {
+            path: { id },
+            ...(limit === undefined ? {} : { query: { limit: String(limit) } }),
+          },
+        }),
+      ),
+
     /** The newest page of a session's history, or the page older than `before`. */
     history: (id: string, jobId: string, before?: string) =>
       successfulData(

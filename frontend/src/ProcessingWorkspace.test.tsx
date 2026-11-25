@@ -16,7 +16,14 @@ import { ApiClientsProvider } from './context'
 import { useState, useSyncExternalStore } from 'react'
 import { createDrawerRestore, type DrawerRestoreStore } from './processing/drawer-restore'
 import { agentSettings } from '#/test/agent-settings'
-import { attemptHeader, history as sessionHistory, input } from '#/test/session-history'
+import {
+  H,
+  at,
+  attemptHeader,
+  history as sessionHistory,
+  input,
+  proposal,
+} from '#/test/session-history'
 
 /** A session waiting on the operator, with nothing in its history yet. */
 function waitingHistory() {
@@ -507,6 +514,31 @@ function mountView(
   }
 }
 
+test('Processing’s recent activity comes from the batch activity read, in the app’s words', async () => {
+  const [proposed] = proposal(3, 10, {
+    lotLink: { kind: 'lot', lot_id: H.lot, label: 'GE S2CN1 diodes' },
+  })
+  const batchActivity = vi.fn().mockResolvedValue({
+    entries: [
+      {
+        job_id: H.job,
+        stage: 'research',
+        subject_id: H.lot,
+        entry: proposed,
+        agent_note: { text: 'no public datasheet found', at: at(20) },
+      },
+    ],
+  })
+  mountView({ ...clientFixture(), batchActivity } as ProcessingClient, 'overview')
+
+  const card = await screen.findByRole('region', { name: 'Recent activity' })
+  expect(
+    await within(card).findByText('Research proposed an identity', { exact: false }),
+  ).toBeVisible()
+  expect(within(card).getByText('Agent: no public datasheet found')).toBeVisible()
+  expect(batchActivity).toHaveBeenCalledWith(batchId)
+})
+
 test('the fixture profile shows its jobs and questions by step, and claims no live session', async () => {
   mountView(clientFixture(), 'overview')
   const steps = await screen.findByRole('list', { name: 'Steps' })
@@ -606,7 +638,11 @@ test('the Inventory drawer answers its open question through the question path',
     name: 'Session question: Is Packet A already in InvenTree?',
   })
   expect(form).toHaveTextContent('Is Packet A already in InvenTree?')
-  expect(within(drawer).getByRole('textbox', { name: 'Message this session' })).toBeVisible()
+  expect(within(drawer).getByRole('textbox', { name: 'Message Inventory' })).toBeVisible()
+  // No Agents read lists this session; the header comes from its own history, above the question.
+  const header = within(drawer).getByRole('region', { name: 'Session details' })
+  expect(header).toHaveTextContent('Claude Opus 5.5 · agent VM · web on')
+  expect(header.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
   await user.type(
     within(form).getByRole('textbox', { name: 'Clarification' }),
@@ -1205,7 +1241,7 @@ test('focus the operator moves while the remount’s read is still pending stays
       name: 'Send answer to the session',
     }),
   )
-  const chat = await screen.findByRole('textbox', { name: 'Message this session' })
+  const chat = await screen.findByRole('textbox', { name: 'Message Inventory' })
   chat.focus()
 
   await act(async () => {
@@ -1238,7 +1274,7 @@ test('focus the operator moves while the remount’s read fails stays where they
     }),
   )
   expect(await screen.findByText(/Processing status unavailable/)).toBeInTheDocument()
-  const chat = await screen.findByRole('textbox', { name: 'Message this session' })
+  const chat = await screen.findByRole('textbox', { name: 'Message Inventory' })
   chat.focus()
 
   await act(async () => {

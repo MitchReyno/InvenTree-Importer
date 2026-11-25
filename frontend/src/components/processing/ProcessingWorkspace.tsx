@@ -53,6 +53,9 @@ import { AnsweredQuestion } from './AnsweredQuestion'
 import { ClosedQuestion } from './ClosedQuestion'
 import { ProcessingJobCard } from './ProcessingJobCard'
 import { SessionPanel } from './SessionPanel'
+import { SessionDrawerTop } from './SessionDrawerTop'
+import { RecentActivity } from './RecentActivity'
+import { useBatchActivity } from '#/processing/useBatchActivity'
 import { JobEarlierAttempts } from './JobEarlierAttempts'
 import { SessionPage } from './SessionPage'
 import { QuestionAnswer } from './QuestionAnswer'
@@ -76,29 +79,10 @@ import type { InstructionDelivery } from '#/processing/instruction-delivery'
 import { useApiClients, useServerScope, useRetainedPollInterval } from '#/context'
 import type { CaptureEdit } from '#/capture/types'
 
-const ACTIVITY_LIMIT = 6
-
 /** How a step works, behind the help button beside its page heading. */
 const STEP_HELP: Partial<Record<ProcessingView, string>> = {
   research:
     'Each account researches one lot at a time. A lot waiting for your answer steps aside, so another lot can research meanwhile.',
-}
-
-/** The batch's newest agent status lines, oldest first; the newest is current while it runs. */
-function recentActivity(
-  snapshot: ProcessingSnapshotDto | undefined,
-  subjectLabel: (id: string | null) => string,
-) {
-  const lines = (snapshot?.jobs ?? [])
-    .filter((job) => job.latest_status)
-    .sort((a, b) => a.latest_status!.at.localeCompare(b.latest_status!.at))
-    .slice(-ACTIVITY_LIMIT)
-
-  return lines.map((job, index) => ({
-    text: `${STEP_LABEL[processingStepFor(job.stage)] ?? 'Processing'} · ${subjectLabel(job.subject_id)}: ${job.latest_status!.text}`,
-    at: job.latest_status!.at,
-    current: index === lines.length - 1 && job.session_state === 'running',
-  }))
 }
 
 /** The per-lot steps a lot table pill can focus; Examine runs once for the batch. */
@@ -975,7 +959,15 @@ export function ProcessingWorkspace({
     isAnswered(namedQuestion, confirmedAnswer) &&
     jobs.some((job) => job.id === namedQuestion.job_id)
 
-  const activity = recentActivity(snapshot, subjectLabel)
+  const activityRead = useBatchActivity(client.batchActivity, batch.id)
+  // Without a session read the batch has no session activity to show.
+  const activity = (
+    <RecentActivity
+      batchId={batch.id}
+      entries={client.batchActivity ? activityRead.data?.entries : []}
+      failed={activityRead.isError || activityRead.fetchStatus === 'paused'}
+    />
+  )
   const queue = snapshot && (
     <details>
       <Summary>Queue work for selected saved subjects</Summary>
@@ -1318,6 +1310,7 @@ export function ProcessingWorkspace({
                     }
                   }}
                 >
+                  <SessionDrawerTop batchId={batch.id} job={sessionJob} read={client.history} />
                   {closeBlocked && (
                     <div role="alert">
                       <Banner

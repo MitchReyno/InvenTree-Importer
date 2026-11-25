@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import type { SessionHistoryDto } from '@invimport/contracts'
 import { serverQueryKey } from '#/queries/scope'
 import { useServerScope } from '#/context'
-import type { EarlierAttempt } from '#/agents/session-list'
 import { EarlierAttempts } from '#/components/agents/EarlierAttempts'
 import type { ProcessingClient } from '#/processing/types'
 import { readNewestHistory } from '#/processing/useSessionHistory'
+import { earlierAttemptsOf } from '#/processing/session-history'
 
 type Props = {
   batchId: string
@@ -14,20 +13,6 @@ type Props = {
   /** How many attempts came before the current one, from the Processing read. */
   count: number
   history: NonNullable<ProcessingClient['history']>
-}
-
-/** The history metadata's attempts before the current one, newest first. */
-function earlierFromHistory(history: SessionHistoryDto): EarlierAttempt[] {
-  return history.session.attempts
-    .filter((attempt) => attempt.id !== history.session.current_attempt_id)
-    .map((attempt) => ({
-      id: attempt.id,
-      number: attempt.number,
-      state: attempt.state,
-      sessionState: attempt.session_state,
-      at: attempt.ended?.at ?? attempt.queued_at,
-      failure: attempt.failure,
-    }))
 }
 
 /**
@@ -43,7 +28,7 @@ export function JobEarlierAttempts({ batchId, jobId, count, history }: Props) {
     queryFn: () => readNewestHistory(history, batchId, jobId),
     enabled: opened,
   })
-  const attempts = query.data ? earlierFromHistory(query.data) : undefined
+  const attempts = query.data ? earlierAttemptsOf(query.data.session) : undefined
   let status: 'loading' | 'failed' | undefined
   if (opened && !attempts) {
     status = query.isError ? 'failed' : 'loading'

@@ -19,7 +19,7 @@ import { lockCaptureForEdit } from '#/capture/repository.ts'
 import { acceptEnvelope, claimProcessingCommand } from '#/processing/runner.ts'
 import type { LockCapture } from '#/processing/capture.ts'
 import { MAX_PROCESSING_SNAPSHOT_BYTES } from '#/processing/limits.ts'
-import { openingText } from '#/agents/session/session-runner.ts'
+import { openingText, STATUS_GUIDANCE } from '#/agents/session/session-runner.ts'
 import { ASK_GUIDANCE } from '#/agents/tools/ask-guidance.ts'
 
 type Fixture = Awaited<ReturnType<typeof processingFixture>>
@@ -845,6 +845,10 @@ test('the ask schema has steps, and the tool and opening carry the one-question 
     // Claude and Codex sessions both open with the same instructions.
     const opening = JSON.parse(openingText(a.manifest, 0, false)) as { instructions: string }
     assert.ok(opening.instructions.includes(ASK_GUIDANCE))
+    // Status lines read as plain words about the item, never internal IDs.
+    assert.ok(opening.instructions.includes(STATUS_GUIDANCE))
+    assert.match(STATUS_GUIDANCE, /plain words/)
+    assert.match(STATUS_GUIDANCE, /without internal IDs/)
   })
 })
 
