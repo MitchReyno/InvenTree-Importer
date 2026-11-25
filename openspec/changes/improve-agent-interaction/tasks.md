@@ -410,7 +410,7 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 
 ## Delivery evidence and lifecycle follow-up
 
-- [ ] PR-0: review the plan read-only (`codex exec -m gpt-6.2-sol -s read-only`, round by round), fix findings, publish, CI green, merge.
+- [x] PR-0: review the plan read-only (`codex exec -m gpt-6.2-sol -s read-only`, round by round), fix findings, publish, CI green, merge. Merged as #243 at `a61cbb45`.
 - [x] PR-A: implement task 1, review the exact head, publish with the demo, CI green, merge. Merged as #252 at `17c3d509`.
 - [x] PR-B: implement tasks 2, 3 and 4, review the exact head, publish with the demo, CI green, merge. Merged as #251 at `54477ac3`.
 - [x] PR-D1: implement task 5, review the exact head, publish, CI green, merge. Merged as #257 at `4fcdbd54`.
@@ -422,9 +422,9 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - [x] PR-I: implement task 12, review the exact head, publish, CI green, merge. Merged as #262 at `b383ca91`.
 - [x] PR-J: implement task 13, review the exact head, publish with the demo, CI green, merge. Merged as #269 at `80260c93`.
 - [x] PR-K: implement task 14, review the exact head, publish with the demo, CI green, merge. Merged as #272 at `4a2a3c85`.
-- [ ] PR-L: implement task 15, review the exact head, publish, CI green, merge.
-- [ ] Update BI-019's status as PRs merge. It is Done only after PR-A, PR-B, PR-D1, PR-D2, PR-E, PR-F, PR-G, PR-H, PR-I, PR-J, PR-K and PR-L merge and its acceptance is evidenced.
-- [ ] Mark the design log entries D37 (PR-A), D38 (PR-B), D39 and D41 (PR-E) and D42 (PR-F) Built, with their PRs (D40's page layout was replaced by D41).
+- [x] PR-L: implement task 15, review the exact head, publish, CI green, merge. Merged as #284 at `2a556339`.
+- [x] Update BI-019's status as PRs merge. It is Done only after PR-A, PR-B, PR-D1, PR-D2, PR-E, PR-F, PR-G, PR-H, PR-I, PR-J, PR-K and PR-L merge and its acceptance is evidenced.
+- [x] Mark the design log entries D37 (PR-A), D38 (PR-B), D39 and D41 (PR-E) and D42 (PR-F) Built, with their PRs (D40's page layout was replaced by D41).
 - [ ] Before archiving, run `pnpm openspec:overlap --change improve-agent-interaction`, sync the specs, and record final open items in `notes.md`.
 
 
