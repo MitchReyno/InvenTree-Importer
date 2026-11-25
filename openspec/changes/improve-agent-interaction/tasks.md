@@ -418,7 +418,7 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - [x] PR-E: implement task 7, review the exact head, publish with the demo, CI green, merge. Merged as #263 at `49a87cd0`.
 - [x] PR-F: implement tasks 8 and 9, review the exact head, publish with the demo, CI green, merge. Merged as #258 at `d09984bc`.
 - [x] PR-G: implement task 10, review the exact head, publish with the demo, CI green, merge. Merged as #266 at `75eb9a65`.
-- [ ] PR-H: implement task 11, review the exact head, publish with the demo, CI green, merge.
+- [x] PR-H: implement task 11, review the exact head, publish with the demo, CI green, merge. Merged as #276 at `67eed1d7`.
 - [x] PR-I: implement task 12, review the exact head, publish, CI green, merge. Merged as #262 at `b383ca91`.
 - [x] PR-J: implement task 13, review the exact head, publish with the demo, CI green, merge. Merged as #269 at `80260c93`.
 - [x] PR-K: implement task 14, review the exact head, publish with the demo, CI green, merge. Merged as #272 at `4a2a3c85`.

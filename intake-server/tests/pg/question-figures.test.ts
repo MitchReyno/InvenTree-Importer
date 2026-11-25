@@ -1789,6 +1789,63 @@ test('a consumer claims the next render while another consumer holds the first i
     ])
   })
 })
+test('a batch being edited holds up no other batch’s renders, however many it has queued', async () => {
+  await withFigureSession(async (setup) => {
+    const { fixture, media, store, binding } = setup
+    const photoRecipe = (batch: { version: string; source: { sha256: string } }, x: number) => ({
+      version: 'bench-intake-view/1' as const,
+      source_version_id: batch.version,
+      source_digest: batch.source.sha256,
+      page: 1,
+      page_width: 320,
+      page_height: 240,
+      view: {
+        region: { x, y: 0, width: 32, height: 24 },
+        quarter_turns: 0 as const,
+        straighten_millidegrees: 0,
+      },
+    })
+    // More queued renders in the edited batch than any fixed window of candidates would hold.
+    await transaction(fixture.runner.pool, (client) =>
+      enqueueFigureRenders(
+        client,
+        setup.batchId,
+        Array.from({ length: 12 }, (_, x) => ({ recipe: photoRecipe(setup.photo, x) })),
+      ),
+    )
+    const other = await fixture.seedCapture()
+    const otherPhoto = await seedPages(fixture, store, other.batch.id, {
+      label: 'IMG_5000',
+      mediaType: 'image/png',
+      pages: [await patternedPage(320, 240, 6)],
+    })
+    await transaction(fixture.runner.pool, (client) =>
+      enqueueFigureRenders(client, other.batch.id, [{ recipe: photoRecipe(otherPhoto, 0) }]),
+    )
+
+    const editing = await fixture.db.pool.connect()
+    try {
+      await editing.query('BEGIN')
+      await editing.query(
+        "SELECT pg_advisory_xact_lock(hashtextextended('bench-media-batch/1:' || $1, 0))",
+        [setup.batchId],
+      )
+      assert.equal(await renderFigureStep(media.pool, store, binding, fakeRenderer()), 'rendered')
+    } finally {
+      await editing.query('ROLLBACK').catch(() => undefined)
+      editing.release()
+    }
+    const states = await fixture.db.pool.query<{ batch_id: string; state: string }>(
+      'SELECT batch_id, state FROM processing_figure_render ORDER BY batch_id, state',
+    )
+    const ready = states.rows.filter((row) => row.state === 'ready')
+    assert.deepEqual(
+      ready.map((row) => row.batch_id),
+      [other.batch.id],
+    )
+  })
+})
+
 /**
  * Runs `work` while another transaction holds the batch's media revision lock, as a remove or
  * restore edit does, with its removal row written but not yet committed; then commits it.

@@ -196,35 +196,34 @@ const CLAIMABLE = `FROM public.processing_figure_render r
          AND (r.lease_expires_at IS NULL OR r.lease_expires_at<=$4)
          AND NOT ${versionRemovedSql('v')}`
 
-/** How many queued renders a claim tries, oldest first, before it reports nothing to do. */
-const CLAIM_CANDIDATES = 10
-
 type RenderClaim = { kind: 'claimed'; render: ClaimedRender } | { kind: 'exhausted' } | null
 
 /**
  * Claims the oldest claimable render; a request that has used its attempts and lost its lease
- * settles as failed instead. Each candidate's batch media revision lock, which removing or
- * restoring a photo holds, is taken before its render row, and the request is checked again under
- * it, so a photo removed before the claim is never rendered. Neither lock is waited for: a batch
- * being edited, or a render another consumer holds, is skipped for the next candidate. A render
+ * settles as failed instead. Batches with claimable renders are tried in queue order: each
+ * batch's media revision lock, which removing or restoring a photo holds, is taken before its
+ * render rows and the batch's oldest render is selected under it, so a photo removed before the
+ * claim is never rendered. Neither lock is waited for: a batch being edited is skipped for the
+ * next batch, and a render another consumer holds for the batch's next render. A batch lock taken
+ * for a batch with nothing left to claim is held until this short transaction ends. A render
  * claimed before a removal may still finish; the sweep returns it to the queue.
  */
 async function claimRender(pool: Pool, binding: CaptureBinding, now: Date): Promise<RenderClaim> {
   return transaction(pool, async (client) => {
     await prepareMediaTransaction(client)
     const scope = [binding.actorId, binding.targetId, binding.targetContextId, now]
-    const queued = await client.query<{ id: string; batch_id: string }>(
-      `SELECT r.id, r.batch_id ${CLAIMABLE}
-       ORDER BY (r.purpose='preview') DESC, r.created_at, r.id
-       LIMIT ${CLAIM_CANDIDATES}`,
+    const batches = await client.query<{ batch_id: string }>(
+      `SELECT r.batch_id ${CLAIMABLE}
+       GROUP BY r.batch_id
+       ORDER BY bool_or(r.purpose='preview') DESC, min(r.created_at), r.batch_id`,
       scope,
     )
-    for (const option of queued.rows) {
-      const batchFree = await tryLockMediaRevision(client, option.batch_id)
+    for (const batch of batches.rows) {
+      const batchFree = await tryLockMediaRevision(client, batch.batch_id)
       if (!batchFree) {
         continue
       }
-      const claimed = await claimCandidate(client, binding, [...scope, option.id], now)
+      const claimed = await claimInBatch(client, binding, [...scope, batch.batch_id], now)
       if (claimed) {
         return claimed
       }
@@ -234,10 +233,10 @@ async function claimRender(pool: Pool, binding: CaptureBinding, now: Date): Prom
 }
 
 /**
- * Claims one candidate under its batch's lock; null when another consumer holds it or its photo
- * was removed since it was listed.
+ * Claims the batch's oldest claimable render under its batch lock; null when another consumer
+ * holds every one or its photos were removed since the batch was listed.
  */
-async function claimCandidate(
+async function claimInBatch(
   client: PoolClient,
   binding: CaptureBinding,
   parameters: unknown[],
@@ -255,7 +254,9 @@ async function claimCandidate(
   }>(
     `SELECT r.id, r.batch_id, r.purpose, r.recipe_bytes, r.recipe_digest, r.marks_bytes,
        r.marks_digest, r.attempts
-     ${CLAIMABLE} AND r.id=$5
+     ${CLAIMABLE} AND r.batch_id=$5
+     ORDER BY (r.purpose='preview') DESC, r.created_at, r.id
+     LIMIT 1
      FOR UPDATE OF r SKIP LOCKED`,
     parameters,
   )
