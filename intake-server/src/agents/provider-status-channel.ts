@@ -345,7 +345,9 @@ async function exchange(
 
 /**
  * Answers this scope's signed requests with `read`, given what is left of the request's budget and
- * whether it is Check again, on one held connection that is opened again if it fails. Plain
+ * whether it is Check again, on one held connection that is opened again if it fails. `wakes`
+ * names other channels to listen on with the same connection, each calling its handler on any
+ * notification, since the worker's role has no connection to spare for another listener. Plain
  * requests arriving while a plain read runs share its answer; a Check again always reads anew; each request ID is answered at most
  * once, and its reply isn't sent after its expiry.
  */
@@ -353,7 +355,12 @@ export function serveProviderStatusRequests(
   pool: Pool,
   binding: Binding,
   read: (budgetMs: number, refresh: boolean) => Promise<BridgeProviderStatuses>,
+  wakes: Readonly<Record<string, () => void>> = {},
 ) {
+  // Channel names go into `LISTEN` as identifiers, so only plain names are accepted.
+  if (!Object.keys(wakes).every((channel) => /^[a-z_]{1,63}$/.test(channel))) {
+    throw new Error('invalid_listen_channel')
+  }
   const stopping = new AbortController()
   // Each accepted request ID until it expires, so a replay within its life is refused.
   const live = new Map<string, number>()
@@ -446,6 +453,11 @@ export function serveProviderStatusRequests(
   }
 
   const receive = (message: Notification) => {
+    const wake = Object.hasOwn(wakes, message.channel) ? wakes[message.channel] : undefined
+    if (wake) {
+      wake()
+      return
+    }
     if (message.channel !== STATUS_REQUEST_CHANNEL) {
       return
     }
@@ -471,6 +483,11 @@ export function serveProviderStatusRequests(
         client.on('error', lose)
         client.on('notification', receive)
         await client.query(`LISTEN ${STATUS_REQUEST_CHANNEL}`)
+        for (const channel of Object.keys(wakes)) {
+          await client.query(`LISTEN ${channel}`)
+          // A notification may have been missed while not listening.
+          wakes[channel]()
+        }
         await Promise.race([lost, abortedAt(stopping.signal)])
       } catch {
         // Listen again below.

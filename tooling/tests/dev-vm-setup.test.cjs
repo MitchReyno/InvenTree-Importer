@@ -18,13 +18,14 @@ const REPOSITORY = resolve(__dirname, '../..')
 const GUEST_DIR = '/home/dev/bench-intake-guest'
 const ORIGIN = 'http://127.0.0.1:4330'
 const SERVICES = {
-  claude: ['bench-claude-egress', 'bench-claude-management'],
+  claude: ['bench-claude-egress', 'bench-claude-management', 'bench-claude-catalog'],
   codex: ['bench-codex-egress', 'bench-codex-management'],
 }
 const MANAGEMENT = new Set(['bench-claude-management', 'bench-codex-management'])
 const MOUNTS = {
   'bench-claude-egress': ['egress'],
   'bench-claude-management': ['claude-store', 'guest', 'operator'],
+  'bench-claude-catalog': ['claude-store', 'egress', 'guest'],
   'bench-codex-egress': ['codex-egress'],
   'bench-codex-management': ['codex-egress', 'codex-state', 'guest', 'operator'],
 }

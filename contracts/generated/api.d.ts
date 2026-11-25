@@ -1483,6 +1483,143 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/agents/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description AgentModelCatalog */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AgentModelCatalog"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agents/models/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AgentModelCatalogRefresh"];
+                };
+            };
+            responses: {
+                /** @description AgentModelCatalogRefreshReceipt */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AgentModelCatalogRefreshReceipt"];
+                    };
+                };
+                /** @description ErrorDto */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/agents/pause": {
         parameters: {
             query?: never;
@@ -21998,6 +22135,86 @@ export interface components {
             /** @constant */
             refresh?: "true";
         };
+        AgentCatalogModel: {
+            id: string;
+            name: string;
+            older: boolean;
+            default: boolean;
+            efforts: string[];
+            default_effort: string | null;
+            usable: boolean | null;
+        };
+        AgentProviderCatalog: {
+            state: "current" | "reading" | "failed" | "stale_sign_in" | "never_read";
+            authentication: "api_key" | "subscription";
+            source: "cli" | "api" | null;
+            read_in: "vm" | "host" | null;
+            cli_version: string | null;
+            read_at: string | null;
+            attempted_at: string | null;
+            failure: ("timeout" | "guest_outdated" | "vm_unreachable" | "signed_out" | "malformed" | "unavailable") | null;
+            builtin: boolean;
+            models: {
+                id: string;
+                name: string;
+                older: boolean;
+                default: boolean;
+                efforts: string[];
+                default_effort: string | null;
+                usable: boolean | null;
+            }[];
+        };
+        AgentModelCatalog: {
+            claude: {
+                state: "current" | "reading" | "failed" | "stale_sign_in" | "never_read";
+                authentication: "api_key" | "subscription";
+                source: "cli" | "api" | null;
+                read_in: "vm" | "host" | null;
+                cli_version: string | null;
+                read_at: string | null;
+                attempted_at: string | null;
+                failure: ("timeout" | "guest_outdated" | "vm_unreachable" | "signed_out" | "malformed" | "unavailable") | null;
+                builtin: boolean;
+                models: {
+                    id: string;
+                    name: string;
+                    older: boolean;
+                    default: boolean;
+                    efforts: string[];
+                    default_effort: string | null;
+                    usable: boolean | null;
+                }[];
+            };
+            codex: {
+                state: "current" | "reading" | "failed" | "stale_sign_in" | "never_read";
+                authentication: "api_key" | "subscription";
+                source: "cli" | "api" | null;
+                read_in: "vm" | "host" | null;
+                cli_version: string | null;
+                read_at: string | null;
+                attempted_at: string | null;
+                failure: ("timeout" | "guest_outdated" | "vm_unreachable" | "signed_out" | "malformed" | "unavailable") | null;
+                builtin: boolean;
+                models: {
+                    id: string;
+                    name: string;
+                    older: boolean;
+                    default: boolean;
+                    efforts: string[];
+                    default_effort: string | null;
+                    usable: boolean | null;
+                }[];
+            };
+        };
+        AgentModelCatalogRefresh: {
+            provider: "codex" | "claude";
+            invalidate?: boolean;
+        };
+        AgentModelCatalogRefreshReceipt: {
+            provider: "codex" | "claude";
+            authentication: "api_key" | "subscription";
+            stale_sign_in: boolean;
+        };
         BatchDefaultRecord: {
             /** Format: int64 */
             pk: string;
@@ -41467,6 +41684,11 @@ export type AgentPauseAll = components['schemas']['AgentPauseAll']
 export type InstructionDelivery = components['schemas']['InstructionDelivery']
 export type ProviderStatus = components['schemas']['ProviderStatus']
 export type ProviderStatusQuery = components['schemas']['ProviderStatusQuery']
+export type AgentCatalogModel = components['schemas']['AgentCatalogModel']
+export type AgentProviderCatalog = components['schemas']['AgentProviderCatalog']
+export type AgentModelCatalog = components['schemas']['AgentModelCatalog']
+export type AgentModelCatalogRefresh = components['schemas']['AgentModelCatalogRefresh']
+export type AgentModelCatalogRefreshReceipt = components['schemas']['AgentModelCatalogRefreshReceipt']
 export type BatchDefaultRecord = components['schemas']['BatchDefaultRecord']
 export type BatchDefaults = components['schemas']['BatchDefaults']
 export type BatchDefaultsUpdate = components['schemas']['BatchDefaultsUpdate']

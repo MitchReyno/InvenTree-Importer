@@ -92,18 +92,18 @@
 - **Verification:** contracts tests; intake unit, PG and process tiers with the decoder and probe images; no live provider call.
 - **Risks and decisions:** the pinned versions' reply shapes and where API keys live in the guest are confirmed at 3.1 before code. A mode with no route to its key keeps the built-in list.
 
-- [ ] 3.1 Proof of fit, offline and with no paid call:
-  - [ ] 3.1.1 capture the pinned Claude Code 2.1.319 `initialize` reply with a placeholder token and the network refused, and again through the guest's Anthropic-only egress in a local test VM with no token, to learn whether `models[]` needs the network; keep the reply as a test fixture with any account detail removed;
-  - [ ] 3.1.2 generate Codex 0.166.0's app-server schema and confirm `model/list`'s fields and paging;
-  - [ ] 3.1.3 find where each shared-VM API-key route gets its key (`environment.ts` and the guest's turn environment), and record which modes keep the built-in list;
-  - [ ] 3.1.4 stop and ask Mitch if a pinned version lacks `models[]` effort levels or `model/list`.
-- [ ] 3.2 RED:
-  - [ ] 3.2.1 normalisation: Claude aliases folded into one exact model; `opus[1m]`-style IDs folded or left out; older Claude models marked; Codex hidden models left out with `isDefault` and default effort kept; the API-key `usable` marks; oversized and malformed answers refused;
-  - [ ] 3.2.2 PG: a good read written with `read_at`, `cli_version` and its sign-in generation; a failed read keeping the last list and recording a fixed failure code; an `invalidate` refresh through `request_model_catalog_refresh` under the API role setting `stale_sign_in` and `invalidation_seq` at once, and the API role unable to change anything else on the table; a reply arriving after the guest's sign-in commit but before the invalidation discarded by the pre-publish generation check; on a host profile with no guest connected, an API-key reply discarded when the key's HMAC changed during the read, and a host subscription read stored with no generation and no fence; a delayed reply from the old generation, arriving after the invalidation, discarded and read again; a generation poll finding a new sign-in with no browser request marking the row stale and requesting a read; `stale_sign_in` kept after a failed reread and cleared only by a list published under the current generation; the API answering each state; a refresh request read and cleared; the 12 h and 5 min schedule under a controlled clock; a CLI version change from admission requesting a read; the API's states (`current`, `reading`, `failed`, `never_read` with the built-in list); the API's grants (read and request only);
-  - [ ] 3.2.3 process: the `bench-model-catalog/1` connection through the real relay with a fake guest reader answering, exceeding the frame, timing out (reader reaped) and absent (`guest_outdated`); a status read during a catalogue read still answering within its deadline; a generation-only answer starting no CLI; a Claude token replaced during a read discarding it; a Codex sign-in change waiting for a read under the shared lock;
-  - [ ] 3.2.4 no read sends a user message, and a Claude subscription read never calls a models API.
-- [ ] 3.3 GREEN: the guest reader, the connection, the worker, the table, the schedule and the API.
-- [ ] 3.4 Update `agents/ARCHITECTURE.md` and the deployment README (the guest image refresh). Run the contracts tests and the intake tiers, building the decoder and probe images first.
+- [x] 3.1 Proof of fit, offline and with no paid call:
+  - [x] 3.1.1 capture the pinned Claude Code 2.1.319 `initialize` reply with a placeholder token and the network refused, and again through the guest's Anthropic-only egress in a local test VM with no token, to learn whether `models[]` needs the network; keep the reply as a test fixture with any account detail removed (the first capture answered it; the in-VM read moved to task 6, see `notes.md`);
+  - [x] 3.1.2 generate Codex 0.166.0's app-server schema and confirm `model/list`'s fields and paging;
+  - [x] 3.1.3 find where each shared-VM API-key route gets its key (`environment.ts` and the guest's turn environment), and record which modes keep the built-in list;
+  - [x] 3.1.4 stop and ask Mitch if a pinned version lacks `models[]` effort levels or `model/list`.
+- [x] 3.2 RED:
+  - [x] 3.2.1 normalisation: Claude aliases folded into one exact model; `opus[1m]`-style IDs folded or left out; older Claude models marked; Codex hidden models left out with `isDefault` and default effort kept; the API-key `usable` marks; oversized and malformed answers refused;
+  - [x] 3.2.2 PG: a good read written with `read_at`, `cli_version` and its sign-in generation; a failed read keeping the last list and recording a fixed failure code; an `invalidate` refresh through `request_model_catalog_refresh` under the API role setting `stale_sign_in` and `invalidation_seq` at once, and the API role unable to change anything else on the table; a reply arriving after the guest's sign-in commit but before the invalidation discarded by the pre-publish generation check; on a host profile with no guest connected, an API-key reply discarded when the key's HMAC changed during the read, and a host subscription read stored with no generation and no fence; a delayed reply from the old generation, arriving after the invalidation, discarded and read again; a generation poll finding a new sign-in with no browser request marking the row stale and requesting a read; `stale_sign_in` kept after a failed reread and cleared only by a list published under the current generation; the API answering each state; a refresh request read and cleared; the 12 h and 5 min schedule under a controlled clock; a CLI version change from admission requesting a read; the API's states (`current`, `reading`, `failed`, `never_read` with the built-in list); the API's grants (read and request only);
+  - [x] 3.2.3 process: the `bench-model-catalog/1` connection through the real relay with a fake guest reader answering, exceeding the frame, timing out (reader reaped) and absent (`guest_outdated`); a status read during a catalogue read still answering within its deadline; a generation-only answer starting no CLI; a Claude token replaced during a read discarding it; a Codex sign-in change waiting for a read under the shared lock;
+  - [x] 3.2.4 no read sends a user message, and a Claude subscription read never calls a models API.
+- [x] 3.3 GREEN: the guest reader, the connection, the worker, the table, the schedule and the API.
+- [x] 3.4 Update `agents/ARCHITECTURE.md` and the deployment README (the guest image refresh). Run the contracts tests and the intake tiers, building the decoder and probe images first.
 
 ## 4. Model pickers, Effort and the list's states
 
@@ -191,7 +191,7 @@
 ## Delivery evidence and lifecycle follow-up
 
 - [x] PR-0: review the plan read-only (`codex exec -m gpt-6.2-sol -s read-only`), fix, publish, CI green, merge. Merged as #278 at `2dd1206d`.
-- [ ] PR-A: implement tasks 1 and 2, review the exact head, publish with the pinned-version proof, CI green, merge.
+- [x] PR-A: implement tasks 1 and 2, review the exact head, publish with the pinned-version proof, CI green, merge. Merged as #291 at `fe29f952`.
 - [ ] PR-B: implement task 3, review the exact head, publish, CI green, merge.
 - [ ] PR-C: implement task 4, review the exact head, publish with the captures and the demo, CI green, merge.
 - [ ] PR-D: implement task 5, review the exact head, publish with the demo, CI green, merge.

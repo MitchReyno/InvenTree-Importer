@@ -10,7 +10,7 @@ export { STAGE_TOOL_PROFILE }
 export type SessionInputVersion = 'bench-intake-input/6' | 'bench-intake-input/7'
 
 /**
- * Each stage pack's digest by profile, as migrations `0039` and `0043` store them. A `/7` input
+ * Each stage pack's digest by profile, as migrations `0039` and `0044` store them. A `/7` input
  * seals its stage's, and the claim checks the stored pack against it. Earlier profiles have none.
  */
 export const stagePacks: Partial<Record<SessionProfileId, Record<BriefStageDto, string>>> = {
@@ -27,7 +27,7 @@ export const stagePacks: Partial<Record<SessionProfileId, Record<BriefStageDto, 
 }
 
 /**
- * Each stage guide's digest by profile, as migration `0043` stores it: the SHA-256 of the
+ * Each stage guide's digest by profile, as migration `0044` stores it: the SHA-256 of the
  * canonical ordered list of its sections' names, titles and text digests. `read_guide` serves a
  * guide only while its stored sections still give this digest, so a section added, removed or
  * reordered after the profile was sealed is refused, not served.

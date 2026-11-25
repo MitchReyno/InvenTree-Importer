@@ -5,6 +5,7 @@ import {
   Id,
   schemas,
   validationIssues,
+  type AgentModelCatalogRefreshDto,
   type AgentPauseUpdateDto,
   type AgentSessionQueryDto,
   type AgentSettingsUpdateDto,
@@ -16,6 +17,7 @@ import { readAgentSettings, saveAgentSettings } from './settings.ts'
 import { listAgentSessions } from './session/sessions.ts'
 import { setAllPause, setBatchPause } from './pause.ts'
 import { deliverInstructions } from './instructions.ts'
+import { readModelCatalog, refreshModelCatalog } from './model-catalog/api.ts'
 import {
   readProviderStatus,
   workerStatusSource,
@@ -67,6 +69,24 @@ export function registerAgents(
         },
       },
       (request) => readProviderStatus(pool, config, guestStatus, request.query.refresh === 'true'),
+    )
+    scope.get(
+      '/api/v1/agents/models',
+      { schema: { response: { 200: schemas.AgentModelCatalog } } },
+      () => readModelCatalog(pool, config),
+    )
+    scope.post<{ Body: AgentModelCatalogRefreshDto }>(
+      '/api/v1/agents/models/refresh',
+      {
+        schema: {
+          body: schemas.AgentModelCatalogRefresh,
+          response: { 202: schemas.AgentModelCatalogRefreshReceipt },
+        },
+      },
+      async (request, reply) => {
+        reply.code(202)
+        return refreshModelCatalog(pool, config, request.body)
+      },
     )
     scope.put<{ Body: AgentPauseUpdateDto }>(
       '/api/v1/agents/pause',

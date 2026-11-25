@@ -1510,6 +1510,126 @@
         ]
       }
     },
+    "/api/v1/agents/models": {
+      "get": {
+        "x-intake-client": {
+          "timeoutMs": 10000,
+          "errorMode": "typed"
+        },
+        "responses": {
+          "200": {
+            "description": "AgentModelCatalog",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentModelCatalog"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agents/models/refresh": {
+      "post": {
+        "x-intake-client": {
+          "timeoutMs": 10000,
+          "errorMode": "typed"
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentModelCatalogRefresh"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "AgentModelCatalogRefreshReceipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentModelCatalogRefreshReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/agents/pause": {
       "put": {
         "x-intake-client": {
@@ -99043,6 +99163,799 @@
           "refresh": {
             "const": "true",
             "type": "string"
+          }
+        }
+      },
+      "AgentCatalogModel": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "older",
+          "default",
+          "efforts",
+          "default_effort",
+          "usable"
+        ],
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "maxLength": 80,
+            "type": "string"
+          },
+          "older": {
+            "type": "boolean"
+          },
+          "default": {
+            "type": "boolean"
+          },
+          "efforts": {
+            "maxItems": 12,
+            "type": "array",
+            "items": {
+              "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
+              "type": "string"
+            }
+          },
+          "default_effort": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "usable": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "AgentProviderCatalog": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "state",
+          "authentication",
+          "source",
+          "read_in",
+          "cli_version",
+          "read_at",
+          "attempted_at",
+          "failure",
+          "builtin",
+          "models"
+        ],
+        "properties": {
+          "state": {
+            "anyOf": [
+              {
+                "const": "current",
+                "type": "string"
+              },
+              {
+                "const": "reading",
+                "type": "string"
+              },
+              {
+                "const": "failed",
+                "type": "string"
+              },
+              {
+                "const": "stale_sign_in",
+                "type": "string"
+              },
+              {
+                "const": "never_read",
+                "type": "string"
+              }
+            ]
+          },
+          "authentication": {
+            "anyOf": [
+              {
+                "const": "api_key",
+                "type": "string"
+              },
+              {
+                "const": "subscription",
+                "type": "string"
+              }
+            ]
+          },
+          "source": {
+            "anyOf": [
+              {
+                "const": "cli",
+                "type": "string"
+              },
+              {
+                "const": "api",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "read_in": {
+            "anyOf": [
+              {
+                "const": "vm",
+                "type": "string"
+              },
+              {
+                "const": "host",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cli_version": {
+            "anyOf": [
+              {
+                "pattern": "^\\d{1,4}\\.\\d{1,4}\\.\\d{1,4}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "read_at": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attempted_at": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "failure": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "const": "timeout",
+                    "type": "string"
+                  },
+                  {
+                    "const": "guest_outdated",
+                    "type": "string"
+                  },
+                  {
+                    "const": "vm_unreachable",
+                    "type": "string"
+                  },
+                  {
+                    "const": "signed_out",
+                    "type": "string"
+                  },
+                  {
+                    "const": "malformed",
+                    "type": "string"
+                  },
+                  {
+                    "const": "unavailable",
+                    "type": "string"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "builtin": {
+            "type": "boolean"
+          },
+          "models": {
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "id",
+                "name",
+                "older",
+                "default",
+                "efforts",
+                "default_effort",
+                "usable"
+              ],
+              "properties": {
+                "id": {
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
+                  "type": "string"
+                },
+                "name": {
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "type": "string"
+                },
+                "older": {
+                  "type": "boolean"
+                },
+                "default": {
+                  "type": "boolean"
+                },
+                "efforts": {
+                  "maxItems": 12,
+                  "type": "array",
+                  "items": {
+                    "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
+                    "type": "string"
+                  }
+                },
+                "default_effort": {
+                  "anyOf": [
+                    {
+                      "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "usable": {
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "AgentModelCatalog": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "claude",
+          "codex"
+        ],
+        "properties": {
+          "claude": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "state",
+              "authentication",
+              "source",
+              "read_in",
+              "cli_version",
+              "read_at",
+              "attempted_at",
+              "failure",
+              "builtin",
+              "models"
+            ],
+            "properties": {
+              "state": {
+                "anyOf": [
+                  {
+                    "const": "current",
+                    "type": "string"
+                  },
+                  {
+                    "const": "reading",
+                    "type": "string"
+                  },
+                  {
+                    "const": "failed",
+                    "type": "string"
+                  },
+                  {
+                    "const": "stale_sign_in",
+                    "type": "string"
+                  },
+                  {
+                    "const": "never_read",
+                    "type": "string"
+                  }
+                ]
+              },
+              "authentication": {
+                "anyOf": [
+                  {
+                    "const": "api_key",
+                    "type": "string"
+                  },
+                  {
+                    "const": "subscription",
+                    "type": "string"
+                  }
+                ]
+              },
+              "source": {
+                "anyOf": [
+                  {
+                    "const": "cli",
+                    "type": "string"
+                  },
+                  {
+                    "const": "api",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "read_in": {
+                "anyOf": [
+                  {
+                    "const": "vm",
+                    "type": "string"
+                  },
+                  {
+                    "const": "host",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "cli_version": {
+                "anyOf": [
+                  {
+                    "pattern": "^\\d{1,4}\\.\\d{1,4}\\.\\d{1,4}$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "read_at": {
+                "anyOf": [
+                  {
+                    "maxLength": 40,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "attempted_at": {
+                "anyOf": [
+                  {
+                    "maxLength": 40,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "failure": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "const": "timeout",
+                        "type": "string"
+                      },
+                      {
+                        "const": "guest_outdated",
+                        "type": "string"
+                      },
+                      {
+                        "const": "vm_unreachable",
+                        "type": "string"
+                      },
+                      {
+                        "const": "signed_out",
+                        "type": "string"
+                      },
+                      {
+                        "const": "malformed",
+                        "type": "string"
+                      },
+                      {
+                        "const": "unavailable",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "builtin": {
+                "type": "boolean"
+              },
+              "models": {
+                "maxItems": 200,
+                "type": "array",
+                "items": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "name",
+                    "older",
+                    "default",
+                    "efforts",
+                    "default_effort",
+                    "usable"
+                  ],
+                  "properties": {
+                    "id": {
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "name": {
+                      "minLength": 1,
+                      "maxLength": 80,
+                      "type": "string"
+                    },
+                    "older": {
+                      "type": "boolean"
+                    },
+                    "default": {
+                      "type": "boolean"
+                    },
+                    "efforts": {
+                      "maxItems": 12,
+                      "type": "array",
+                      "items": {
+                        "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
+                        "type": "string"
+                      }
+                    },
+                    "default_effort": {
+                      "anyOf": [
+                        {
+                          "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "usable": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "codex": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "state",
+              "authentication",
+              "source",
+              "read_in",
+              "cli_version",
+              "read_at",
+              "attempted_at",
+              "failure",
+              "builtin",
+              "models"
+            ],
+            "properties": {
+              "state": {
+                "anyOf": [
+                  {
+                    "const": "current",
+                    "type": "string"
+                  },
+                  {
+                    "const": "reading",
+                    "type": "string"
+                  },
+                  {
+                    "const": "failed",
+                    "type": "string"
+                  },
+                  {
+                    "const": "stale_sign_in",
+                    "type": "string"
+                  },
+                  {
+                    "const": "never_read",
+                    "type": "string"
+                  }
+                ]
+              },
+              "authentication": {
+                "anyOf": [
+                  {
+                    "const": "api_key",
+                    "type": "string"
+                  },
+                  {
+                    "const": "subscription",
+                    "type": "string"
+                  }
+                ]
+              },
+              "source": {
+                "anyOf": [
+                  {
+                    "const": "cli",
+                    "type": "string"
+                  },
+                  {
+                    "const": "api",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "read_in": {
+                "anyOf": [
+                  {
+                    "const": "vm",
+                    "type": "string"
+                  },
+                  {
+                    "const": "host",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "cli_version": {
+                "anyOf": [
+                  {
+                    "pattern": "^\\d{1,4}\\.\\d{1,4}\\.\\d{1,4}$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "read_at": {
+                "anyOf": [
+                  {
+                    "maxLength": 40,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "attempted_at": {
+                "anyOf": [
+                  {
+                    "maxLength": 40,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "failure": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "const": "timeout",
+                        "type": "string"
+                      },
+                      {
+                        "const": "guest_outdated",
+                        "type": "string"
+                      },
+                      {
+                        "const": "vm_unreachable",
+                        "type": "string"
+                      },
+                      {
+                        "const": "signed_out",
+                        "type": "string"
+                      },
+                      {
+                        "const": "malformed",
+                        "type": "string"
+                      },
+                      {
+                        "const": "unavailable",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "builtin": {
+                "type": "boolean"
+              },
+              "models": {
+                "maxItems": 200,
+                "type": "array",
+                "items": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "name",
+                    "older",
+                    "default",
+                    "efforts",
+                    "default_effort",
+                    "usable"
+                  ],
+                  "properties": {
+                    "id": {
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "name": {
+                      "minLength": 1,
+                      "maxLength": 80,
+                      "type": "string"
+                    },
+                    "older": {
+                      "type": "boolean"
+                    },
+                    "default": {
+                      "type": "boolean"
+                    },
+                    "efforts": {
+                      "maxItems": 12,
+                      "type": "array",
+                      "items": {
+                        "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
+                        "type": "string"
+                      }
+                    },
+                    "default_effort": {
+                      "anyOf": [
+                        {
+                          "pattern": "^[a-z][a-z0-9_-]{0,31}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "usable": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "AgentModelCatalogRefresh": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "provider"
+        ],
+        "properties": {
+          "provider": {
+            "anyOf": [
+              {
+                "const": "codex",
+                "type": "string"
+              },
+              {
+                "const": "claude",
+                "type": "string"
+              }
+            ]
+          },
+          "invalidate": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AgentModelCatalogRefreshReceipt": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "provider",
+          "authentication",
+          "stale_sign_in"
+        ],
+        "properties": {
+          "provider": {
+            "anyOf": [
+              {
+                "const": "codex",
+                "type": "string"
+              },
+              {
+                "const": "claude",
+                "type": "string"
+              }
+            ]
+          },
+          "authentication": {
+            "anyOf": [
+              {
+                "const": "api_key",
+                "type": "string"
+              },
+              {
+                "const": "subscription",
+                "type": "string"
+              }
+            ]
+          },
+          "stale_sign_in": {
+            "type": "boolean"
           }
         }
       },
