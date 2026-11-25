@@ -438,15 +438,17 @@ export class CodexAccount {
     if (this.busy || this.pending || this.catalogRead) {
       throw new CatalogReadError('unavailable')
     }
-    if (!(await exists(join(this.root, 'account')))) {
-      throw new CatalogReadError('signed_out')
-    }
+    // Registered before anything is awaited, so a sign-in change that starts from here on stops
+    // this read and waits for it rather than racing it for the lock.
     const stop = new AbortController()
 
     const abort = () => stop.abort()
 
     signal.addEventListener('abort', abort, { once: true })
-    const done = this.listModels(AbortSignal.any([signal, stop.signal]))
+    if (signal.aborted) {
+      stop.abort()
+    }
+    const done = this.startModelsRead(stop.signal)
     const read: StatusCheck = {
       stop,
       done: done.then(
@@ -463,6 +465,20 @@ export class CodexAccount {
         this.catalogRead = undefined
       }
     }
+  }
+
+  private async startModelsRead(signal: AbortSignal) {
+    const present = await exists(join(this.root, 'account'))
+    if (signal.aborted) {
+      throw new CatalogReadError('timeout')
+    }
+    if (this.busy || this.pending) {
+      throw new CatalogReadError('unavailable')
+    }
+    if (!present) {
+      throw new CatalogReadError('signed_out')
+    }
+    return this.listModels(signal)
   }
 
   private async listModels(signal: AbortSignal): Promise<GuestCatalogRead> {

@@ -137,3 +137,21 @@ test('the sign-in generation moves before the account does, so an interrupted ch
   assert.ok(atLogout)
   assert.notEqual(atLogout, afterFailedPromotion)
 })
+
+test('a read asked for after its request ended, or racing a sign-in change, starts no app-server', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'codex-catalog-race-'))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  await mkdir(join(root, 'account'))
+  const events: string[] = []
+  const account = new CodexAccount(root, recordingRpc(events))
+  await assert.rejects(account.readModels(AbortSignal.abort()), CatalogReadError)
+  assert.equal(events.length, 0)
+
+  // The disconnect starts while the read is still looking for the account directory.
+  const reading = account.readModels(AbortSignal.timeout(5000))
+  const disconnecting = account.action('disconnect')
+  await assert.rejects(reading, CatalogReadError)
+  await disconnecting
+  assert.ok(!events.includes('shared open'), events.join(', '))
+  assert.ok(events.includes('exclusive account/logout'))
+})

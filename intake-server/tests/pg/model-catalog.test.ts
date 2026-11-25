@@ -125,6 +125,14 @@ function worker(
   })
 }
 
+/** Waits until the fake reader has been asked for its `count`th read. */
+async function readStarted(state: { reads: number }, count: number) {
+  for (let i = 0; i < 250 && state.reads < count; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 20))
+  }
+  assert.equal(state.reads, count)
+}
+
 async function round(catalog: ReturnType<typeof modelCatalogWorker>) {
   await catalog.pass()
   await catalog.idle()
@@ -312,6 +320,7 @@ test('a refresh request is read and cleared, and one made during the read stays'
   let release!: (read: CatalogRead) => void
   state.answers.push(new Promise((resolve) => (release = resolve)))
   await catalog.pass()
+  await readStarted(state, 2)
   // Check again while that read runs: it is answered by a later read, not this one.
   await refreshModelCatalog(fixture.api.pool, fixture.config, { provider: 'claude' })
   release({ generation: 'rev-a', cliVersion: '2.1.319', models: [sonnet] })
@@ -338,6 +347,7 @@ test('a reply read before a guest sign-in change is discarded by the generation 
   state.answers.push(new Promise((resolve) => (release = resolve)))
   await refreshModelCatalog(fixture.api.pool, fixture.config, { provider: 'claude' })
   await catalog.pass()
+  await readStarted(state, 2)
   state.generation = 'rev-b'
   release({ generation: 'rev-a', cliVersion: '2.1.319', models: [sonnet] })
   await catalog.idle()
@@ -361,6 +371,7 @@ test('a delayed reply from before an invalidation is discarded and read again', 
   state.answers.push(new Promise((resolve) => (release = resolve)))
   await refreshModelCatalog(fixture.api.pool, fixture.config, { provider: 'claude' })
   await catalog.pass()
+  await readStarted(state, 2)
   // The dialog confirms a new token; the old generation's reply arrives after.
   state.generation = 'rev-b'
   await refreshModelCatalog(fixture.api.pool, fixture.config, {
@@ -389,6 +400,7 @@ test('an invalidation during a read discards its reply even before the generatio
   state.answers.push(new Promise((resolve) => (release = resolve)))
   await refreshModelCatalog(fixture.api.pool, fixture.config, { provider: 'claude' })
   await catalog.pass()
+  await readStarted(state, 2)
   // The dialog's invalidation lands while the guest still reports the old generation.
   await refreshModelCatalog(fixture.api.pool, fixture.config, {
     provider: 'claude',
@@ -589,4 +601,170 @@ test('the routes answer each provider and accept a refresh through CSRF', async 
   assert.equal((reading.value as { codex: { state: string } }).codex.state, 'reading')
   const refused = await fixture.http('/agents/models/refresh', { provider: 'codex', token: 'x' })
   assert.equal(refused.status, 400)
+})
+
+test('a list read on another route is never served, in either direction, even when the new read fails', async (t) => {
+  for (const [profileId, storedIn] of [
+    ['shared-vm-agent/3', 'host'],
+    ['native-agent/2', 'vm'],
+  ] as const) {
+    const fixture = await processingFixture({ profileId })
+    t.after(() => fixture.dispose())
+    await claudeOnly(fixture)
+    await fixture.db.pool.query(
+      `INSERT INTO agent_model_catalog
+          (actor_id,target_id,target_context_id,provider,authentication,models,source,read_in,read_at)
+        VALUES ($1,$2,$3,'claude','subscription',$4::jsonb,'cli',$5,now())`,
+      [
+        fixture.config.actorId,
+        fixture.config.targetId,
+        fixture.config.targetContextId,
+        JSON.stringify([sonnet]),
+        storedIn,
+      ],
+    )
+    const before = await readModelCatalog(fixture.api.pool, fixture.config)
+    assert.equal(before.claude.builtin, true, profileId)
+    const { state, reader } = fakeReader('rev-a')
+    state.answers.push(new CatalogReadError('timeout'))
+    const catalog = worker(fixture, () => reader)
+    await round(catalog)
+    await catalog.close()
+    const after = await readModelCatalog(fixture.api.pool, fixture.config)
+    assert.equal(after.claude.builtin, true, profileId)
+    assert.deepEqual(after.claude.models, [...BUILT_IN_MODEL_CATALOG.claude])
+  }
+})
+
+test('the generation poll runs while a read of the same provider is still in flight', async (t) => {
+  const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
+  t.after(() => fixture.dispose())
+  await claudeOnly(fixture)
+  const time = clock()
+  const { state, reader } = fakeReader('rev-a')
+  const catalog = worker(fixture, () => reader, time)
+  t.after(() => catalog.close())
+  await round(catalog)
+
+  let release!: (read: CatalogRead) => void
+  state.answers.push(new Promise((resolve) => (release = resolve)))
+  await refreshModelCatalog(fixture.api.pool, fixture.config, { provider: 'claude' })
+  await catalog.pass()
+  await readStarted(state, 2)
+  // The sign-in changes outside the dialogs while that read hangs; the poll still sees it.
+  state.generation = 'rev-b'
+  time.advance(60_000)
+  await catalog.pass()
+  for (let i = 0; i < 100 && !(await claudeRow(fixture))?.staleSignIn; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 20))
+  }
+  assert.equal((await claudeRow(fixture))?.staleSignIn, true)
+  assert.equal((await claudeRow(fixture))?.latestGeneration, 'rev-b')
+  release({ generation: 'rev-a', cliVersion: '2.1.319', models: [sonnet] })
+  await catalog.idle()
+  await round(catalog)
+  const row = await claudeRow(fixture)
+  assert.equal(row?.signInGeneration, 'rev-b')
+  assert.deepEqual(row?.models, [opus])
+})
+
+test('a disabled provider with a stored list is still polled for sign-in changes', async (t) => {
+  const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
+  t.after(() => fixture.dispose())
+  await claudeOnly(fixture)
+  const time = clock()
+  const { state, reader } = fakeReader('rev-a')
+  let enabled = true
+  const catalog = modelCatalogWorker({
+    pool: fixture.runner.pool,
+    scope: fixture.config,
+    reader: () => reader,
+    now: time.now,
+    providers: async () => [{ provider: 'claude', authentication: 'subscription', enabled }],
+  })
+  t.after(() => catalog.close())
+  await round(catalog)
+  enabled = false
+  state.generation = 'rev-b'
+  time.advance(60_000)
+  // The read the poll requests fails, so the list stays marked as from the earlier sign-in.
+  state.answers.push(new CatalogReadError('timeout'))
+  await round(catalog)
+  assert.equal(state.reads, 2)
+  assert.equal(
+    (await readModelCatalog(fixture.api.pool, fixture.config)).claude.state,
+    'stale_sign_in',
+  )
+})
+
+test('repeated admissions of one CLI version request one read, and an API list none', async (t) => {
+  const fixture = await processingFixture({ profileId: 'native-agent/2' })
+  t.after(() => fixture.dispose())
+  await claudeOnly(fixture, 'api_key')
+  const fetcher: typeof fetch = async () =>
+    Response.json({
+      data: [{ id: 'claude-opus-5-5', display_name: 'Claude Opus 5.5' }],
+      has_more: false,
+    })
+  const reader = hostClaudeApiReader(fixture.config.channelSecret, () => 'sk-ant-api-key', fetcher)
+  const subscription = fakeReader('rev-a')
+  const catalog = worker(
+    fixture,
+    (key) => (key.authentication === 'api_key' ? reader : subscription.reader),
+    clock(),
+    [
+      { provider: 'claude', authentication: 'api_key', enabled: true },
+      { provider: 'codex', authentication: 'subscription', enabled: false },
+    ],
+  )
+  t.after(() => catalog.close())
+  await round(catalog)
+  for (let i = 0; i < 3; i++) {
+    await catalog.cliVersionReported('claude', 'api_key', '2.1.319')
+  }
+  assert.equal((await claudeRow(fixture, 'api_key'))?.refreshRequestedAt, null)
+
+  // A CLI list: the first admission of a new version requests one read, the repeats none.
+  const cli = fakeReader('rev-a')
+  const other = worker(fixture, () => cli.reader)
+  t.after(() => other.close())
+  await round(other)
+  await other.cliVersionReported('claude', 'subscription', '2.1.320')
+  await round(other)
+  assert.equal(cli.state.reads, 2)
+  await other.cliVersionReported('claude', 'subscription', '2.1.320')
+  await round(other)
+  assert.equal(cli.state.reads, 2)
+})
+
+test('removing a host API key marks its list stale until a read under a key lands', async (t) => {
+  const fixture = await processingFixture({ profileId: 'native-agent/2' })
+  t.after(() => fixture.dispose())
+  await claudeOnly(fixture, 'api_key')
+  let key: string | undefined = 'sk-ant-api-first'
+  const fetcher: typeof fetch = async () =>
+    Response.json({
+      data: [{ id: 'claude-opus-5-5', display_name: 'Claude Opus 5.5' }],
+      has_more: false,
+    })
+  const reader = hostClaudeApiReader(fixture.config.channelSecret, () => key, fetcher)
+  const time = clock()
+  const catalog = worker(fixture, () => reader, time, [
+    { provider: 'claude', authentication: 'api_key', enabled: true },
+  ])
+  t.after(() => catalog.close())
+  await round(catalog)
+  assert.equal((await readModelCatalog(fixture.api.pool, fixture.config)).claude.state, 'current')
+
+  key = undefined
+  time.advance(60_000)
+  await round(catalog)
+  const removed = await readModelCatalog(fixture.api.pool, fixture.config)
+  assert.equal(removed.claude.state, 'stale_sign_in')
+  assert.equal(removed.claude.models[0].id, 'claude-opus-5-5')
+
+  key = 'sk-ant-api-second'
+  time.advance(60_000)
+  await round(catalog)
+  assert.equal((await readModelCatalog(fixture.api.pool, fixture.config)).claude.state, 'current')
 })

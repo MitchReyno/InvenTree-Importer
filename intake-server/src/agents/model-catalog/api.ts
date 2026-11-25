@@ -74,12 +74,15 @@ export async function readModelCatalog(
 
   const forProvider = (provider: CatalogProvider) => {
     const authentication = settings.providers[provider].authentication
-    // A mode this profile can't read keeps the built-in list, whatever an earlier profile stored.
-    const routed = catalogRoute(config.profileId, authentication) !== undefined
+    // Only a list read where this profile reads serves it: a list an earlier profile stored on
+    // another route belongs to another sign-in, and a mode with no route keeps the built-in list.
+    const route = catalogRoute(config.profileId, authentication)
+    const readIn = route === 'guest' ? 'vm' : route
     const row = rows.find(
       (candidate) => candidate.provider === provider && candidate.authentication === authentication,
     )
-    return providerCatalog(provider, authentication, routed ? row : undefined)
+    const servable = row && (row.models === null || row.readIn === readIn)
+    return providerCatalog(provider, authentication, readIn && servable ? row : undefined)
   }
 
   return { claude: forProvider('claude'), codex: forProvider('codex') }

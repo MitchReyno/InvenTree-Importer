@@ -161,7 +161,7 @@ An attempt sealed with an effort (the agent settings save one per step and per p
 
 ### Model lists from the guest
 
-The session worker reads each signed-in provider's model list in the guest, without a turn, and serves it at `GET /api/v1/agents/models`. The read is served on a private catalogue socket, and the subscription relay carries a connection for it beside the status one, so a read of several seconds never holds a status read.
+The session worker reads each signed-in provider's model list in the guest, without a turn, and serves it at `GET /api/v1/agents/models`. The read is served on a private catalogue socket, and the subscription relay carries two connections for it beside the status one, so a read of several seconds holds neither a status read nor the worker's sign-in check.
 
 - **Claude:** a third container, `bench-claude-catalog`, starts the pinned Claude CLI and sends only its `initialize` request, with the saved token. Like a turn container it has no network, only the Anthropic-only egress socket; it mounts the token store and the egress directory read-only, with the pairing identity, and has a 64 MiB `/tmp`, 512 MiB and 128 processes for the CLI. Offline, the pinned 2.1.319 answers only its built-in aliases, which the worker refuses, so the list needs that egress.
 - **Codex:** the management container runs app-server `model/list` under the shared account lock turns take, through its Codex egress, as its account checks do.

@@ -245,6 +245,8 @@ async function carryStatus(container, socketPath) {
 const status = statusContainer
   ? Promise.all([
       carryStatus(statusContainer, statusSocket).catch(() => {}),
+      // Two, so the worker's sign-in generation check needn't wait for a read in progress.
+      carryStatus(catalogContainer, catalogSocket).catch(() => {}),
       carryStatus(catalogContainer, catalogSocket).catch(() => {}),
     ])
   : undefined

@@ -250,6 +250,17 @@ const MAX_ANTHROPIC_PAGES = 10
 const ANTHROPIC_MODELS = 'https://api.anthropic.com/v1/models'
 const OPENAI_MODELS = 'https://api.openai.com/v1/models'
 
+/**
+ * The generation while no key is configured: a sign-in of its own, so removing a key marks the
+ * list read with it stale.
+ */
+export const NO_API_KEY_GENERATION = 'no-api-key'
+
+function keyGeneration(secret: string, provider: CatalogProvider, keySource: ApiKeySource) {
+  const key = keySource()?.trim()
+  return key ? apiKeyGeneration(secret, provider, key) : NO_API_KEY_GENERATION
+}
+
 function requireKey(keySource: ApiKeySource) {
   const key = keySource()?.trim()
   if (!key) {
@@ -296,7 +307,7 @@ export function hostClaudeApiReader(
         models: claudeApiModels(pages),
       }
     },
-    generation: async () => apiKeyGeneration(secret, 'claude', requireKey(keySource)),
+    generation: async () => keyGeneration(secret, 'claude', keySource),
   }
 }
 
@@ -326,7 +337,7 @@ export function hostCodexApiReader(
         models: codexModels(pages, usable),
       }
     },
-    generation: async () => apiKeyGeneration(secret, 'codex', requireKey(keySource)),
+    generation: async () => keyGeneration(secret, 'codex', keySource),
   }
 }
 

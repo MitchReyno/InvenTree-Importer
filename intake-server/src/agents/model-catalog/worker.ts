@@ -68,6 +68,10 @@ export function modelCatalogWorker(options: CatalogWorkerOptions) {
   const initial = new Set<CatalogProvider>(['claude', 'codex'])
   const lastPoll = new Map<string, number>()
   const running = new Map<CatalogProvider, Promise<void>>()
+  // Generation polls run apart from reads, so a long or failing read never delays one.
+  const polling = new Map<CatalogProvider, Promise<boolean>>()
+  // The CLI version each key's last admission-triggered request was for.
+  const versionRequested = new Map<string, string>()
   let cleared: Promise<void> | undefined
 
   const keyName = (key: CatalogKey) => key.provider + ':' + key.authentication
@@ -137,7 +141,11 @@ export function modelCatalogWorker(options: CatalogWorkerOptions) {
     }
   }
 
-  async function serveProvider(setting: CatalogProviderSetting, rows: CatalogRow[]) {
+  async function serveProvider(
+    setting: CatalogProviderSetting,
+    rows: CatalogRow[],
+    polled: Promise<boolean> | undefined,
+  ) {
     const key = { provider: setting.provider, authentication: setting.authentication }
     const reader = options.reader(key)
     const row = rows.find((candidate) => sameKey(candidate, key))
@@ -148,7 +156,8 @@ export function modelCatalogWorker(options: CatalogWorkerOptions) {
       }
       return
     }
-    const signInChanged = setting.enabled && (await poll(key, reader))
+    // A sign-in change this round's poll found requested a read, which isn't in `rows` yet.
+    const signInChanged = (await polled) === true
     const requested = row?.refreshRequestedAt != null
     const due = setting.enabled ? catalogReadDue(row, now()) : requested
     if (firstRead || signInChanged || due) {
@@ -168,10 +177,11 @@ export function modelCatalogWorker(options: CatalogWorkerOptions) {
     await cleared
     const [settings, rows] = await Promise.all([options.providers(), readCatalogRows(pool, scope)])
     for (const setting of settings) {
+      const polled = startPoll(setting, rows)
       if (running.has(setting.provider)) {
         continue
       }
-      const work = serveProvider(setting, rows)
+      const work = serveProvider(setting, rows, polled)
         .catch(() => {
           process.stderr.write(`${JSON.stringify({ event: 'model_catalog_read_retrying' })}\n`)
         })
@@ -180,7 +190,26 @@ export function modelCatalogWorker(options: CatalogWorkerOptions) {
     }
   }
 
-  /** Requests a read when a turn's admission reports a CLI version other than the stored list's. */
+  /**
+   * Starts a generation poll for a provider whose list the API may serve: an enabled provider, or
+   * a disabled one with a stored list. It runs beside any read of that provider.
+   */
+  function startPoll(setting: CatalogProviderSetting, rows: CatalogRow[]) {
+    const key = { provider: setting.provider, authentication: setting.authentication }
+    const reader = options.reader(key)
+    const stored = rows.some((row) => sameKey(row, key) && row.models !== null)
+    if (!reader || polling.has(setting.provider) || !(setting.enabled || stored)) {
+      return undefined
+    }
+    const polled = poll(key, reader).finally(() => polling.delete(setting.provider))
+    polling.set(setting.provider, polled)
+    return polled
+  }
+
+  /**
+   * Requests a read when a turn's admission reports a CLI version other than the stored list's,
+   * once per version. A list from a models API has no CLI version to compare.
+   */
   async function cliVersionReported(
     provider: CatalogProvider,
     authentication: CatalogAuthentication,
@@ -188,9 +217,12 @@ export function modelCatalogWorker(options: CatalogWorkerOptions) {
   ) {
     const rows = await readCatalogRows(pool, scope)
     const row = rows.find((candidate) => sameKey(candidate, { provider, authentication }))
-    if (!row?.models || row.cliVersion === version) {
+    const name = keyName({ provider, authentication })
+    const unchanged = row?.cliVersion === version || versionRequested.get(name) === version
+    if (!row?.models || row.source === 'api' || unchanged) {
       return
     }
+    versionRequested.set(name, version)
     await pool.query(
       `UPDATE agent_model_catalog SET refresh_requested_at=coalesce(refresh_requested_at,$6),
           refresh_seq=refresh_seq+1
@@ -205,15 +237,15 @@ export function modelCatalogWorker(options: CatalogWorkerOptions) {
     cliVersionReported,
     /** Settles every read in flight; used by tests and shutdown. */
     async idle() {
-      while (running.size) {
-        await Promise.allSettled([...running.values()])
+      while (running.size || polling.size) {
+        await Promise.allSettled([...running.values(), ...polling.values()])
       }
     },
     async close() {
       stopping.abort()
       const bound = new AbortController()
       await Promise.race([
-        Promise.allSettled([...running.values()]),
+        Promise.allSettled([...running.values(), ...polling.values()]),
         delay(HOST_READ_MS, undefined, { signal: bound.signal }).catch(() => undefined),
       ])
       bound.abort()
