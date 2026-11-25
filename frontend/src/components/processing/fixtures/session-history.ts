@@ -253,7 +253,10 @@ function researchPages(ids: Ids) {
   }
 }
 
-/** Any other session: the lead's three observations in one photo, grouped in the drawer. */
+/**
+ * Any other session. The ATmega Examine session (job 2) recorded three observations in one
+ * photo, grouped in the drawer; the others have only their status line.
+ */
 function otherHistory(ids: Ids, jobId: string): SessionHistoryDto {
   const attemptId = ids.id(20 + Number(jobId.slice(-2)))
 
@@ -311,9 +314,9 @@ function otherHistory(ids: Ids, jobId: string): SessionHistoryDto {
         kind: 'status',
         text: 'Asked about the last letter',
       }),
-      observation(3, 'ATMEGA328P'),
-      observation(2, '2341'),
-      observation(1, 'AU'),
+      ...(jobId === ids.id(2)
+        ? [observation(3, 'ATMEGA328P'), observation(2, '2341'), observation(1, 'AU')]
+        : []),
     ],
   }
 }
