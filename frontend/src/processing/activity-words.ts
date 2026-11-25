@@ -62,25 +62,29 @@ function destination(entry: Entry, lotId: string | null): ActivityPart {
 }
 
 /** "Packet B", "Packet B and Packet C" or "Packet B, Packet C and Packet D". */
-function destinations(entry: Entry, moves: readonly Move[]): ActivityPart[] {
-  const lots = [...new Set(moves.map((move) => move.to_lot_id))]
+function destinations(entry: Entry, lotIds: readonly (string | null)[]): ActivityPart[] {
+  const lots = [...new Set(lotIds)]
   return lots.flatMap((lotId, index): ActivityPart[] => {
-    let separator = ''
-    if (index > 0) {
-      separator = index === lots.length - 1 ? ' and ' : ', '
+    if (index === 0) {
+      return [destination(entry, lotId)]
     }
-    return separator ? [separator, destination(entry, lotId)] : [destination(entry, lotId)]
+    const separator = index === lots.length - 1 ? ' and ' : ', '
+    return [separator, destination(entry, lotId)]
   })
+}
+
+/** Where each of these moves went. */
+function movedTo(moves: readonly Move[]) {
+  return moves.map((move) => move.to_lot_id)
 }
 
 /** Every outcome of a regroup, each with all its destinations, most consequential first. */
 function regroupHeadline(entry: Entry, details: RegroupDetails, stepLabel: string) {
   if (!details.moves) {
     // Recorded before moves were kept: the lots it named are where observations went.
-    const into = details.lot_ids.map((lotId) => ({ outcome: 'applied' as const, to_lot_id: lotId }))
     return {
       lead: `${stepLabel} regrouped observations`,
-      parts: [' into ', ...destinations(entry, into as Move[])],
+      parts: [' into ', ...destinations(entry, details.lot_ids)],
     }
   }
 
@@ -95,11 +99,11 @@ function regroupHeadline(entry: Entry, details: RegroupDetails, stepLabel: strin
   if (!first) {
     return { lead: `${stepLabel} regrouped no observations`, parts: [] }
   }
-  const parts: ActivityPart[] = [first.joiner, ...destinations(entry, first.moves)]
+  const parts: ActivityPart[] = [first.joiner, ...destinations(entry, movedTo(first.moves))]
   for (const phrase of more) {
     parts.push(
       `, and ${phrase.verb} ${observations(phrase.moves.length)}${phrase.joiner}`,
-      ...destinations(entry, phrase.moves),
+      ...destinations(entry, movedTo(phrase.moves)),
     )
   }
   return { lead: `${stepLabel} ${first.verb} ${observations(first.moves.length)}`, parts }

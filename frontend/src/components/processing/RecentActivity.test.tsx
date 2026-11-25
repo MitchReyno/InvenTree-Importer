@@ -187,6 +187,15 @@ describe('recent activity', () => {
         ),
         { stage: 'examine', subject_id: null },
       ),
+      item(
+        agent(
+          9,
+          18,
+          { kind: 'regroup', lot_ids: [b.lot_id, c.lot_id] },
+          { links: [{ kind: 'gone', target: 'lot', label: 'Lot retired' }, c] },
+        ),
+        { stage: 'examine', subject_id: null },
+      ),
     ])
     const rows = within(list).getAllByRole('listitem')
 
@@ -200,7 +209,30 @@ describe('recent activity', () => {
     expect(rows[3]).toHaveTextContent(
       'Examine moved 2 observations to a lot no longer in Review and Packet C, and left 1 observation in place in GE S2CN1 diodes',
     )
-    expect(within(rows[3]).getByRole('link', { name: 'Packet C' })).toBeVisible()
+
+    // Every live destination links to its lot in Review, whatever its outcome.
+    const review = (lotId: string) => expect.stringContaining(`/review/lots/${lotId}`)
+
+    expect(within(rows[3]).getByRole('link', { name: 'Packet C' })).toHaveAttribute(
+      'href',
+      review(c.lot_id),
+    )
+    expect(within(rows[3]).getByRole('link', { name: 'GE S2CN1 diodes' })).toHaveAttribute(
+      'href',
+      review(H.lot),
+    )
+    expect(within(rows[1]).getByRole('link', { name: 'Packet C' })).toHaveAttribute(
+      'href',
+      review(c.lot_id),
+    )
+    // A regroup recorded before moves were kept names the lots it went into.
+    expect(rows[4]).toHaveTextContent(
+      'Examine regrouped observations into a lot no longer in Review and Packet C',
+    )
+    expect(within(rows[4]).getByRole('link', { name: 'Packet C' })).toHaveAttribute(
+      'href',
+      review(c.lot_id),
+    )
   })
 
   it('keeps an observation’s place on the map, and leads a whole-batch answer to its question', () => {
