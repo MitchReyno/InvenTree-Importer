@@ -243,7 +243,31 @@ test('a declared page that is not its PNG is malformed even when no crop uses it
   // Image data split over two chunks is still a whole PNG.
   const split = pngFrom([...beforeData, firstData, secondData, end])
   assert.equal((await renderPreview(withPage(split))).state, 'ready')
+  // A palette page with its PLTE before the data is a whole PNG too.
+  const palette = await sharp({
+    create: { width: 50, height: 40, channels: 3, background: '#2050c0' },
+  })
+    .png({ palette: true })
+    .toBuffer()
+  const paletteChunks = pngChunks(palette)
+  assert.ok(paletteChunks.some((chunk) => chunk.type === 'PLTE'))
+  assert.equal((await renderPreview(withPage(palette))).state, 'ready')
+  const plte = paletteChunks.find((chunk) => chunk.type === 'PLTE')!
+  const paletteData = paletteChunks.filter((chunk) => chunk.type === 'IDAT')
+  const paletteAfterData = pngFrom([
+    ...paletteChunks.filter((chunk) => chunk.type !== 'PLTE' && chunk.type !== 'IEND'),
+    plte,
+    paletteChunks.at(-1)!,
+  ])
+  assert.ok(paletteData.length > 0)
+  // One CRC byte flipped on an otherwise whole page.
+  const badCrc = Buffer.from(valid)
+  badCrc[badCrc.length - 13] ^= 0xff
   const cases = [
+    badCrc,
+    paletteAfterData,
+    pngFrom([...beforeData, pngChunk('a123', Buffer.alloc(0)), firstData, secondData, end]),
+    pngFrom([...beforeData, pngChunk('ABCD', Buffer.alloc(0)), firstData, secondData, end]),
     pngFrom([...chunks.slice(0, -1), pngChunk('IEND', Buffer.from('x'))]),
     pngFrom([...chunks.slice(0, -1), header, end]),
     pngFrom([...beforeData, end]),

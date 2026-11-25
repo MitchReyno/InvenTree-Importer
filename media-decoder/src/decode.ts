@@ -188,9 +188,11 @@ export function pngHeaderMatches(bytes: Buffer, width: number, height: number) {
 }
 
 /**
- * Whether a PNG's chunks are whole and in order: IHDR first (13 bytes), one run of IDAT chunks,
- * an empty IEND ending the bytes, each chunk's length fitting and its CRC matching. A truncated,
- * spliced or reordered file fails; a damaged compressed stream with intact CRCs doesn't.
+ * Whether a PNG's chunks are whole and in order: four-letter names, IHDR first (13 bytes), at most
+ * one PLTE before the data, one run of IDAT chunks, no other critical chunk, and an empty IEND
+ * ending the bytes, each chunk's length fitting and its CRC matching. A truncated, spliced or
+ * reordered file fails; a damaged compressed stream with intact CRCs, or a misplaced ancillary
+ * chunk, doesn't.
  */
 export function pngChunksIntact(bytes: Buffer) {
   if (!bytes.subarray(0, 8).equals(PNG_SIGNATURE)) {
@@ -209,6 +211,9 @@ export function pngChunksIntact(bytes: Buffer) {
       return false
     }
     const type = typeAndData.subarray(0, 4).toString('latin1')
+    if (!PNG_CHUNK_NAME.test(type)) {
+      return false
+    }
     if (type === 'IEND') {
       return length === 0 && end === bytes.length && pngChunkOrder(types, bytes.readUInt32BE(8))
     }
@@ -218,17 +223,28 @@ export function pngChunksIntact(bytes: Buffer) {
   return false
 }
 
-/** IHDR of 13 bytes first and only once, and the IDAT chunks present and consecutive. */
+const PNG_CHUNK_NAME = /^[A-Za-z]{4}$/
+/** A chunk whose name starts with a capital letter is critical; these are the only ones a PNG may hold. */
+const PNG_CRITICAL_CHUNKS = new Set(['IHDR', 'PLTE', 'IDAT', 'IEND'])
+
+/** IHDR of 13 bytes first and once, at most one PLTE before the data, and one run of IDAT. */
 function pngChunkOrder(types: string[], headerLength: number) {
   const firstData = types.indexOf('IDAT')
   const lastData = types.lastIndexOf('IDAT')
   const dataRun = types.slice(firstData, lastData + 1)
+  const palettes = types.filter((type) => type === 'PLTE').length
+  const criticalKnown = types.every(
+    (type) => type[0] !== type[0].toUpperCase() || PNG_CRITICAL_CHUNKS.has(type),
+  )
   return (
     types[0] === 'IHDR' &&
     headerLength === 13 &&
     types.lastIndexOf('IHDR') === 0 &&
     firstData > 0 &&
-    dataRun.every((type) => type === 'IDAT')
+    dataRun.every((type) => type === 'IDAT') &&
+    palettes <= 1 &&
+    (palettes === 0 || types.indexOf('PLTE') < firstData) &&
+    criticalKnown
   )
 }
 
