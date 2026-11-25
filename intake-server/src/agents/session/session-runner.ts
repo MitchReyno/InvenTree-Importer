@@ -4,7 +4,7 @@ import type { SessionFailureDto } from '@invimport/contracts'
 import { pinnedIdentityCurrent, successorsCurrent } from '#/processing/stable-identity.ts'
 import { supersedeJobAttempts } from '#/processing/jobs.ts'
 import { join } from 'node:path'
-import { and, eq, inArray, or, sql } from 'drizzle-orm'
+import { and, eq, inArray, notExists, or, sql } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
 import type { ProcessingInputV7Dto, SessionInputDto, SessionStateDto } from '@invimport/contracts'
@@ -28,7 +28,7 @@ import { openingBrief, pageToken } from '#/processing/brief-pages.ts'
 import { fail } from '#/processing/model.ts'
 import { evidenceNotes } from '#/capture/context-input.ts'
 import { decodeMediaInputs } from '#/media/inputs.ts'
-import { agentBatchPauses, agentSessionInbox, agentSessions } from '#/agents/schema.ts'
+import { agentBatchPauses, agentSessionInbox, agentSessions, agentSlots } from '#/agents/schema.ts'
 import { agentEnvironment, privateDirectory, type NativeAgentHost } from '#/agents/environment.ts'
 import { recordSessionProgress } from './sessions.ts'
 import { issueSessionCapability, revokeSessionCapability } from '#/agents/tools/capability.ts'
@@ -41,7 +41,13 @@ import {
 } from '#/agents/tools/inbox.ts'
 import { ASK_GUIDANCE } from '#/agents/tools/ask-guidance.ts'
 import { syntheticTurn } from './synthetic-turn.ts'
-import { claimSessionSlot, releaseSessionSlot } from './slots.ts'
+import {
+  claimSessionSlot,
+  recordSlotTurn,
+  recordTurnChild,
+  releaseSessionSlot,
+  type TurnChild,
+} from './slots.ts'
 import {
   runClaudeSession,
   runCodexSession,
@@ -110,6 +116,11 @@ export interface SessionDriverContext {
   manifest: SessionInputDto
   cwd: string
   signal: AbortSignal
+  /**
+   * Commits what the turn is about to start outside its worker, before starting it, so a restart
+   * can confirm it gone. The runner provides it; a guest-side context has none.
+   */
+  recordChild?: (child: TurnChild) => Promise<void>
 }
 export type SessionDriver = (turn: SessionTurn, context: SessionDriverContext) => Promise<void>
 
@@ -202,38 +213,58 @@ export async function interruptRunningSessions(pool: Pool, config: ProcessingCon
           eq(commands.targetId, config.targetId),
           eq(commands.targetContextId, config.targetContextId),
           inArray(agentSessions.sessionState, ['running', 'cancelling']),
+          // A session still holding a slot is not this sweep's: its turn may still be running.
+          notExists(
+            queryDatabase(pool)
+              .select({ slot: agentSlots.slotIndex })
+              .from(agentSlots)
+              .where(eq(agentSlots.attemptId, agentSessions.attemptId)),
+          ),
         ),
       ),
   )
   const interrupted: string[] = []
   // One transaction each, so a stream lock is only ever taken last.
   for (const session of running) {
-    await transaction(pool, async (client) => {
-      // The fence refused to start while any slot was held, so these slots are already clear.
-      const changed = await setSessionState(
-        client,
-        session.attemptId,
-        session.jobId,
-        'interrupted',
-        ['running', 'cancelling'],
-      )
-      if (changed) {
-        await retainSessionFailure(
-          client,
-          sessionFailure(new NativeSessionError('agent_worker_interrupted'), {
-            attemptId: session.attemptId,
-            lineageId: session.jobId,
-            turn: session.turnCount.toString(),
-            stage: 'turn',
-          }),
-        )
-        await revokeSessionCapability(client, session.attemptId)
-        await publish(client, session.batchId)
-        interrupted.push(session.attemptId)
-      }
-    })
+    // The fence refused to start while any slot was held, so these slots are already clear.
+    if (await transaction(pool, (client) => interruptSession(client, session))) {
+      interrupted.push(session.attemptId)
+    }
   }
   return interrupted
+}
+
+export interface InterruptedSession {
+  attemptId: string
+  jobId: string
+  batchId: string
+  turnCount: bigint
+}
+
+/**
+ * Marks one running or cancelling session interrupted, records why, revokes its capability and
+ * publishes, in the caller's transaction. Returns false when it was in neither state.
+ */
+export async function interruptSession(client: PoolClient, session: InterruptedSession) {
+  const changed = await setSessionState(client, session.attemptId, session.jobId, 'interrupted', [
+    'running',
+    'cancelling',
+  ])
+  if (!changed) {
+    return false
+  }
+  await retainSessionFailure(
+    client,
+    sessionFailure(new NativeSessionError('agent_worker_interrupted'), {
+      attemptId: session.attemptId,
+      lineageId: session.jobId,
+      turn: session.turnCount.toString(),
+      stage: 'turn',
+    }),
+  )
+  await revokeSessionCapability(client, session.attemptId)
+  await publish(client, session.batchId)
+  return true
 }
 
 /** Session states with no turn in flight and no slot held. */
@@ -757,10 +788,25 @@ export async function runSessionTurn(
       if (state !== 'running') {
         throw new Error('session_not_queued')
       }
+      // The turn this claim committed, read under the session row's lock: a duplicate workflow
+      // may have run and requeued the session since `row` was read.
+      const claimedRows = await executeDatabaseQuery(
+        queryDatabase(client)
+          .select({
+            turnCount: agentSessions.turnCount,
+            providerSessionId: agentSessions.nativeSessionId,
+          })
+          .from(agentSessions)
+          .where(eq(agentSessions.attemptId, attemptId)),
+      )
+      const claimedTurn = claimedRows[0].turnCount
+      await recordSlotTurn(client, attemptId, claimedTurn)
       const capability = await issueSessionCapability(client, attemptId)
       await publish(client, row.batchId)
       return {
         ...row,
+        turnCount: claimedTurn - 1n,
+        providerSessionId: claimedRows[0].providerSessionId,
         manifest,
         opening: await openingManifest(client, manifest),
         stagePack,
@@ -907,18 +953,17 @@ export async function runSessionTurn(
   let next: SessionStateDto
   try {
     const cwd = await privateDirectory(join(host.stateRoot, 'sessions', current.jobId))
-    const driver =
-      deps.drivers?.[current.manifest.profile_id] ??
-      (current.manifest.profile_id === 'native-agent/2' && current.manifest.agent
-        ? nativeDriver(host, current.manifest.agent)
-        : (() => {
-            throw new NativeSessionError('agent_input_invalid')
-          })())
+    const turnNumber = current.turnCount + 1n
+
+    const recordChild = (child: TurnChild) => recordTurnChild(pool, attemptId, turnNumber, child)
+
+    const driver = deps.drivers?.[current.manifest.profile_id] ?? builtInDriver(host, current)
     await driver(turn, {
       manifest: current.manifest,
       cwd,
       signal: turnControl.signal,
-      identity: { attemptId, turn: (current.turnCount + 1n).toString(), lineage: current.jobId },
+      identity: { attemptId, turn: turnNumber.toString(), lineage: current.jobId },
+      recordChild,
     })
     next = 'finished'
   } catch (error) {
@@ -986,6 +1031,26 @@ export async function runSessionTurn(
       current.batchId,
     ])
     const locked = await lockProcessingAttempt(client, current.jobId, attemptId)
+    // A worker that lost its lock may settle after a replacement recovered this turn and started
+    // the next one; that turn's state, capability and slot are not this settlement's to change.
+    const sessionNow = await executeDatabaseQuery(
+      queryDatabase(client)
+        .select({ turnCount: agentSessions.turnCount, state: agentSessions.sessionState })
+        .from(agentSessions)
+        .where(eq(agentSessions.attemptId, attemptId))
+        .for('update'),
+    )
+    const settledTurn = current.turnCount + 1n
+    // Nor is a slot a startup check already released for this turn.
+    const ownSlot = await executeDatabaseQuery(
+      queryDatabase(client)
+        .select({ slot: agentSlots.slotIndex })
+        .from(agentSlots)
+        .where(and(eq(agentSlots.attemptId, attemptId), eq(agentSlots.turn, settledTurn))),
+    )
+    if (sessionNow[0]?.turnCount !== settledTurn || !ownSlot.length) {
+      return sessionNow[0]?.state ?? next
+    }
     // A wake's earlier state no longer applies once a turn has run.
     await client.query('DELETE FROM public.agent_session_resume WHERE attempt_id=$1', [attemptId])
     // A cancelled, superseded or replaced attempt leaves input pending for whatever replaces it.
@@ -1017,6 +1082,22 @@ export async function runSessionTurn(
     await publish(client, current.batchId)
     return settled
   })
+}
+
+/** The host's own provider driver; it starts host processes, so it records that first. */
+function builtInDriver(
+  host: NativeAgentHost,
+  current: { manifest: SessionInputDto },
+): SessionDriver {
+  const selection = current.manifest.agent
+  if (current.manifest.profile_id !== 'native-agent/2' || !selection) {
+    throw new NativeSessionError('agent_input_invalid')
+  }
+  const native = nativeDriver(host, selection)
+  return async (turn, context) => {
+    await context.recordChild?.({ kind: 'host' })
+    return native(turn, context)
+  }
 }
 
 export function nativeDriver(

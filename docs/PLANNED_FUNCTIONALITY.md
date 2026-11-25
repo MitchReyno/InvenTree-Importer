@@ -114,9 +114,9 @@ Give each processing agent its own job, the context earlier stages found, and an
 - Research and Images sessions each handle several lots, up to separate configurable caps per stage.
 
 - Change: `agent-stage-inputs-outputs`
-- Status: Planned — plan merged in #245; no implementation PR has started.
+- Status: In progress — plan merged in #245; PR-A (sealed briefs, #275) and PR-E1 (decoder ports, #274) merged.
 - Size: XL — a new input version and typed outputs, an app Match step with its own questions, identity amendments, media decoder ports that extend BI-019's shared view renderer, records and approval effects, and multi-lot sessions with their caps, and a new profile with a live requalification, in eleven PRs after the plan.
-- Prerequisites: [BI-019](#bi-019--agent-interaction-improvements) (`improve-agent-interaction`) PR-B (#251), PR-D1 (#257), PR-E (#263), PR-F (#258), PR-G (#266, for multi-lot session rows) and PR-K (#272, the shared view recipe and decoder operation, before PR-E1), all satisfied. BI-017's web policy and instructions are shipped (satisfied). The live requalification needs Mitch's go-ahead.
+- Prerequisites: [BI-019](#bi-019--agent-interaction-improvements) (`improve-agent-interaction`) PR-B (#251), PR-D1 (#257), PR-E (#263), PR-F (#258), PR-G (#266, for multi-lot session rows) and PR-K (#272, the shared view recipe and decoder operation, before PR-E1), all satisfied. BI-017's web policy and instructions are shipped (satisfied). PR-G2 also waits for [BI-023](#bi-023--exact-agent-models-effort-and-step-instructions) PR-F (step instructions in multi-lot groups), which follows this change's PR-I. The live requalification needs Mitch's go-ahead.
 - OpenSpec: [agent-stage-inputs-outputs](../openspec/changes/agent-stage-inputs-outputs/)
 
 #### BI-023 — Exact agent models, effort and step instructions
@@ -142,6 +142,16 @@ Agents in the shared VM get provider web search (Claude WebSearch, Codex web sea
 ## Fixes
 
 ### High
+
+#### BI-024 — Recover stale agent slots
+
+`pnpm dev` refused to start with `agent_reap_confirmation_required` after a stop mid-turn left a VM turn's slot held, although nothing of the turn was still running. A stopping worker now waits for its turns' reap proofs, and the launcher keeps the relays up until the app has stopped. A starting worker checks each held slot itself and releases only those whose turn is confirmed gone, and `pnpm agents:reap` runs the same check without the app.
+
+- Change: `recover-stale-agent-slots`
+- Status: In progress
+- Size: M — a migration recording each held slot's turn child, the startup check, the shutdown wait, launcher stop order and an operator command.
+- Prerequisites: None.
+- OpenSpec: [recover-stale-agent-slots](../openspec/changes/recover-stale-agent-slots/)
 
 #### BI-018 — Bound agent evidence images and record provider errors
 

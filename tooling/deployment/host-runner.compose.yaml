@@ -10,6 +10,8 @@ services:
     platform: linux/arm64
     pull_policy: never
     command: [node, --import, tsx, src/agents/session/session-worker-main.ts]
+    # A stopping coordinator waits up to 30 s for its VM turns' reap proofs, then for its scheduler.
+    stop_grace_period: 60s
     depends_on:
       provision: {condition: service_completed_successfully}
       api: {condition: service_started}

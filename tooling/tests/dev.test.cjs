@@ -190,3 +190,71 @@ test('a fixed failure code is printed as is, including child names with hyphens'
   assert.equal(failureCode(new Error('-leading hyphen')), 'development_startup_failed')
   assert.equal(failureCode(undefined), 'development_startup_failed')
 })
+
+/** A child whose exit the test controls, recording when it was signalled. */
+function controlledChild(name, events) {
+  let exit
+  const exited = new Promise((resolve) => {
+    exit = resolve
+  })
+  return {
+    name,
+    exited,
+    exit: () => {
+      events.push(`${name} exited`)
+      exit({ code: 0, signal: null })
+    },
+    terminate: (signal = 'SIGTERM') => events.push(`${name} ${signal}`),
+  }
+}
+
+test('the app group exits before the VM group is signalled', async () => {
+  const { stopInOrder } = require('../dev/process.cjs')
+  const events = []
+  const worker = controlledChild('agents', events)
+  const relay = controlledChild('vm-relay-codex', events)
+  const stopping = stopInOrder([[worker], [relay]], (group) => stop(group, 2000))
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  // The worker is still waiting for its reap proof; the relay must not have been touched.
+  assert.deepEqual(events, ['agents SIGTERM'])
+  worker.exit()
+  await new Promise((resolve) => setTimeout(resolve, 20))
+  relay.exit()
+  await stopping
+  assert.deepEqual(events, [
+    'agents SIGTERM',
+    'agents exited',
+    'vm-relay-codex SIGTERM',
+    'vm-relay-codex exited',
+  ])
+})
+
+test('a group that outlives its grace stops the ordered stop before the next group', async () => {
+  const { stopInOrder } = require('../dev/process.cjs')
+  const events = []
+  const worker = controlledChild('agents', events)
+  const relay = controlledChild('vm-relay-claude', events)
+  await assert.rejects(
+    stopInOrder([[worker], [relay]], (group) => stop(group, 30)),
+    {
+      message: 'owned_app_shutdown_unconfirmed',
+    },
+  )
+  // The caller (`finishOwnedRun`) then forces every child down, relays included.
+  assert.deepEqual(events, ['agents SIGTERM'])
+})
+
+test('shutdown then the ordered stop signal a draining child only once', async () => {
+  // Handles the first SIGTERM only, as a worker draining its turns does; a second would kill it.
+  const script =
+    'process.once("SIGTERM",()=>setTimeout(()=>process.exit(0),300));console.log("READY");setInterval(()=>{},1000)'
+  const child = launch('draining', process.execPath, ['-e', script], {}, (output) =>
+    output.includes('READY'),
+  )
+  await child.ready(5000)
+  // `shutdown()` signals at once, then `finishOwnedRun` stops the same child again.
+  child.terminate()
+  await delay(50)
+  await stop([child], 5000)
+  assert.deepEqual(await child.exited, { code: 0, signal: null })
+})
