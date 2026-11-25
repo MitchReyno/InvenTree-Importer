@@ -387,16 +387,18 @@ export function fixtureHistory(ids: Ids, examineAnswer: () => Entry | undefined 
 const ACTIONS = new Set(['observation', 'lot', 'regroup', 'proposal', 'question', 'answer'])
 
 /**
- * Processing's recent activity across the fixture's Examine and Research sessions, built from
- * their histories the way the server builds it: newest actions first, each job's latest status
- * line as the agent's note.
+ * Processing's recent activity across every session job of the fixture, built from their
+ * histories the way the server builds it: newest actions first, at most six, each job's latest
+ * status line as the agent's note.
  */
 export function fixtureActivity(
-  ids: Ids,
-  examineAnswer: () => Entry | undefined = () => undefined,
+  read: ReturnType<typeof fixtureHistory>,
+  sessionJobIds: () => Promise<readonly string[]>,
 ) {
-  return async (): Promise<BatchActivityDto> => {
-    const histories = [examineHistory(ids, examineAnswer()), researchPages(ids).newest]
+  return async (batchId: string): Promise<BatchActivityDto> => {
+    const histories = await Promise.all(
+      (await sessionJobIds()).map((jobId) => read(batchId, jobId)),
+    )
     const entries = histories.flatMap((history) => {
       const latest = history.entries.find((entry) => entry.details.kind === 'status')
       const note = latest ? { text: latest.summary, at: latest.at } : null

@@ -603,6 +603,7 @@ export function ProcessingProof() {
   const page = processingLink?.step ?? view.replace('-fixture', '')
   const [answerOutcomes] = useState(createAnswerOutcomes)
   const delivery = useInstructionDelivery(batch.id, async () => ({ sessions: 2, woken: 1 }))
+  const history = fixtureHistory({ batchId, id, lot }, examineAnswerEntry)
   const client = {
     read: async () => {
       await new Promise((settle) => setTimeout(settle, READ_DELAY_MS))
@@ -635,8 +636,17 @@ export function ProcessingProof() {
         command_id: id(96),
       }
     },
-    history: fixtureHistory({ batchId, id, lot }, examineAnswerEntry),
-    batchActivity: fixtureActivity({ batchId, id, lot }, examineAnswerEntry),
+    history,
+    // Without sessions the batch has no agent activity, as a client without the read shows.
+    ...(sessions
+      ? {
+          batchActivity: fixtureActivity(history, async () =>
+            snapshot(sessions)
+              .jobs.filter((job) => job.session_state)
+              .map((job) => job.id),
+          ),
+        }
+      : {}),
     chat: async () => {
       throw new Error('fixture commands are disabled')
     },
