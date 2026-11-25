@@ -1,9 +1,9 @@
-import { request, type IncomingMessage } from 'node:http'
+import { Agent, request, type IncomingMessage } from 'node:http'
 import { MEDIA_DECODER_HEADER_MAX_BYTES } from '@invimport/contracts/media'
 import { MEDIA_LIMITS } from '@invimport/media-decoder/protocol'
 import { settled } from '#/events/settled.ts'
 
-/** The dispatcher's one decode slot is taken; the request was not run and may be sent again. */
+/** The dispatcher's decoder capacity is occupied; the request was not run and may be sent again. */
 export class DecoderDispatcherBusyError extends Error {
   constructor() {
     super('decoder_dispatch_busy')
@@ -19,8 +19,8 @@ export const DISPATCH_BUSY_WAIT_MS = 20 * MEDIA_LIMITS.wallMilliseconds
 const DISPATCH_BUSY_RETRY_MS = 500
 
 /**
- * Sends one decode to the dispatcher. Its one slot may be taken by another decode, which it
- * answers with 503 before running anything, so the request is sent again until `busyWaitMs`
+ * Sends one decode to the dispatcher. If all slots are taken by other work, the dispatcher
+ * answers with 503 before running anything. The request is sent again until `busyWaitMs`
  * passes and then fails as busy. Undefined waits the default; zero asks once.
  */
 export async function requestDecode(
@@ -43,16 +43,25 @@ export async function requestDecode(
   }
 }
 
-function requestDecodeOnce(socketPath: string, image: string, packet: Buffer): Promise<Buffer> {
+function requestDecodeOnce(
+  socketPath: string,
+  image: string,
+  packet: Buffer,
+  reservation?: { agent: Agent; token: string },
+): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const req = request(
       {
         socketPath,
         path: '/decode',
         method: 'POST',
-        agent: false,
+        agent: reservation?.agent ?? false,
         signal: AbortSignal.timeout(MEDIA_LIMITS.wallMilliseconds + 10000),
-        headers: { 'content-length': packet.length, 'x-decoder-image': image },
+        headers: {
+          'content-length': packet.length,
+          'x-decoder-image': image,
+          ...(reservation ? { 'x-decoder-reservation': reservation.token } : {}),
+        },
       },
       settled(
         async (res: IncomingMessage) => {
@@ -87,4 +96,85 @@ function requestDecodeOnce(socketPath: string, image: string, packet: Buffer): P
     req.on('error', reject)
     req.end(packet)
   })
+}
+
+export type DecoderWork = 'decode' | 'figure' | 'backfill'
+
+/** Own one connection through admission, claim, decode and publication. */
+export async function reserveDispatcher(
+  socketPath: string,
+  image: string,
+  kind: DecoderWork = 'decode',
+) {
+  const agent = new Agent({ keepAlive: true, maxSockets: 1 })
+  try {
+    const token = await new Promise<string | null>((resolve, reject) => {
+      const req = request(
+        {
+          socketPath,
+          agent,
+          method: 'POST',
+          path: '/reserve',
+          signal: AbortSignal.timeout(10000),
+          headers: { 'content-length': 0, 'x-decoder-image': image, 'x-decoder-work': kind },
+        },
+        (res) => {
+          res.on('error', reject)
+          res.resume()
+          res.once('end', () => {
+            const token = res.headers['x-decoder-reservation']
+            if (res.statusCode === 503) {
+              resolve(null)
+            } else if (
+              res.statusCode === 200 &&
+              typeof token === 'string' &&
+              /^[0-9a-f-]{36}$/.test(token)
+            ) {
+              resolve(token)
+            } else {
+              reject(new Error('decoder_reservation_refused'))
+            }
+          })
+        },
+      )
+      req.once('error', reject)
+      req.end()
+    })
+    if (!token) {
+      agent.destroy()
+      return null
+    }
+    await new Promise<void>((resolve, reject) => {
+      const req = request(
+        {
+          socketPath,
+          agent,
+          path: '/activate',
+          method: 'POST',
+          signal: AbortSignal.timeout(10000),
+          headers: {
+            'content-length': 0,
+            'x-decoder-image': image,
+            'x-decoder-reservation': token,
+          },
+        },
+        (res) => {
+          res.once('error', reject)
+          res.resume()
+          res.once('end', () =>
+            res.statusCode === 204 ? resolve() : reject(new Error('decoder_activation_refused')),
+          )
+        },
+      )
+      req.once('error', reject)
+      req.end()
+    })
+    return {
+      run: (packet: Buffer) => requestDecodeOnce(socketPath, image, packet, { agent, token }),
+      release: () => agent.destroy(),
+    }
+  } catch (error) {
+    agent.destroy()
+    throw error
+  }
 }

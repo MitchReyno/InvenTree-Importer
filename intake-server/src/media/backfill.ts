@@ -1,3 +1,4 @@
+import { withDecoderAdmission } from './decoder-admission.ts'
 import { randomUUID } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
 import { sha256 } from '#/db/authority.ts'
@@ -192,9 +193,12 @@ export async function backfillRenditions(
   )
   for (const candidate of candidates.rows) {
     await options.beforeClaim?.()
-    const held = await claim(pool, binding, candidate.id, ownerId, now())
-    if (held) {
-      return run(pool, store, binding, image, held, ownerId, now)
+    const outcome = await withDecoderAdmission(image, 'backfill', null, async () => {
+      const held = await claim(pool, binding, candidate.id, ownerId, now())
+      return held ? run(pool, store, binding, image, held, ownerId, now) : null
+    })
+    if (outcome) {
+      return outcome
     }
   }
   return null
@@ -293,10 +297,7 @@ export async function mediaWorkerStep(
   return outcome ?? 'idle'
 }
 
-/**
- * Whether the worker loop pauses before its next pass. A decode always pauses, as before, because
- * an interrupted decode still reports as decoded; only backfill progress runs straight on.
- */
+/** Drain successful work immediately and pause when idle or after a backfill failure. */
 export function pauseAfter(step: WorkerStep) {
-  return step !== 'completed' && step !== 'skipped_mismatch'
+  return step === 'idle' || step === 'interrupted'
 }

@@ -1,3 +1,4 @@
+import { withDecoderAdmission } from './decoder-admission.ts'
 import { prepareMediaTransaction } from './transaction.ts'
 import { randomUUID } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
@@ -225,6 +226,17 @@ async function publishDecoded(
 
 /** Explicit one-command worker. A claimed interrupted command is never automatically replayed. */
 export async function processMediaCommand(
+  pool: Pool,
+  store: BlobStore,
+  binding: CaptureBinding,
+  image: string,
+) {
+  return withDecoderAdmission(image, 'decode', false, () =>
+    processAdmittedCommand(pool, store, binding, image),
+  )
+}
+
+async function processAdmittedCommand(
   pool: Pool,
   store: BlobStore,
   binding: CaptureBinding,

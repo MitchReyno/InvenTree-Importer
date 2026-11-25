@@ -1,9 +1,9 @@
+import { createDecoderDispatcher } from '#/media/decoder-dispatcher.ts'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { randomBytes, randomUUID } from 'node:crypto'
 import { once } from 'node:events'
-import { createServer, type Server } from 'node:http'
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -26,7 +26,7 @@ import {
 import { database, transaction } from '#/db/database.ts'
 import { BlobStore } from '#/media/blob-store.ts'
 import { readMediaStoreIdentity } from '#/media/store-identity.ts'
-import { launchDecoder } from '#/media/decoder-runner.ts'
+import { launchDecoder } from '#/media/docker-decoder.ts'
 import { grantMedia } from '#/media/grants.ts'
 import { grantProjection } from '#/operations/grants.ts'
 import { grantCapture, grantCaptureRead } from '#/capture/grants.ts'
@@ -40,38 +40,14 @@ const image = process.env.INTAKE_MEDIA_DECODER_IMAGE
 const skip = image ? false : 'Set INTAKE_MEDIA_DECODER_IMAGE to the explicitly built owned image'
 const serverRoot = fileURLToPath(new URL('../../', import.meta.url))
 
-/**
- * A decoder dispatcher on a private socket with `dispatcher-main.ts`'s protocol: one POST /decode
- * for the pinned image, launched by the same `launchDecoder`. The deployed entry listens only on
- * the container's fixed `/run/decoder/worker.sock`, which a host test can't create.
- */
+/** Run the deployed dispatcher protocol against the pinned decoder on a private test socket. */
 async function startDispatcher(pinned: string) {
   const directory = await mkdtemp('/tmp/fr-dispatch-')
   const socket = join(directory, 'worker.sock')
   let launched = 0
-  const server: Server = createServer((req, res) => {
-    void (async () => {
-      if (
-        req.method !== 'POST' ||
-        req.url !== '/decode' ||
-        req.headers['x-decoder-image'] !== pinned
-      ) {
-        res.writeHead(403, { connection: 'close' }).end()
-        return
-      }
-      const chunks: Buffer[] = []
-      for await (const chunk of req) {
-        chunks.push(chunk as Buffer)
-      }
-      launched += 1
-      const output = await launchDecoder(pinned, Buffer.concat(chunks))
-      res.writeHead(200, { 'content-length': output.length }).end(output)
-    })().catch(() => {
-      if (!res.headersSent) {
-        res.writeHead(502)
-      }
-      res.end()
-    })
+  const server = createDecoderDispatcher(pinned, 1, async (image, packet) => {
+    launched++
+    return launchDecoder(image, packet)
   })
   server.listen(socket)
   await once(server, 'listening')

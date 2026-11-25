@@ -30,7 +30,7 @@ async function main() {
     process.stdout.write(
       processed
         ? 'One retained media command processed.\n'
-        : 'No eligible unclaimed media command.\n',
+        : 'No command acquired. The queue is empty or the decoder is busy.\n',
     )
   } finally {
     await db.close()

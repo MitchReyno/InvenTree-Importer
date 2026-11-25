@@ -1,10 +1,8 @@
-import { setTimeout as delay } from 'node:timers/promises'
 import { database } from '#/db/database.ts'
 import { BlobStore } from '#/media/blob-store.ts'
 import { readMediaStoreIdentity } from '#/media/store-identity.ts'
-import { mediaWorkerStep, pauseAfter } from '#/media/backfill.ts'
-import { renderFigureStep, sweepFigureRenders } from '#/media/figure-renders.ts'
-import { isolatedViewRenderer, RENDER_SWEEP_INTERVAL_MS } from '#/media/figure-render-consumer.ts'
+import { drainMedia } from '#/media/drain.ts'
+import { localSlots } from '#/media/local-launcher.ts'
 import { readDevState } from './state.ts'
 
 async function main() {
@@ -26,28 +24,7 @@ async function main() {
       targetId: state.identity.target,
       targetContextId: state.identity.context,
     }
-    // Question figures render here too, through the local launcher, beside decodes and backfill.
-    const render = isolatedViewRenderer(image)
-    let nextSweep = 0
-    while (!stop.signal.aborted) {
-      const step = await mediaWorkerStep(db.pool, store, binding, image)
-      if (step === 'completed' || step === 'skipped_mismatch') {
-        const event = step === 'completed' ? 'renditions_backfilled' : 'renditions_skipped_mismatch'
-        process.stdout.write(JSON.stringify({ event }) + '\n')
-      }
-      if (Date.now() >= nextSweep) {
-        await sweepFigureRenders(db.pool, store, binding)
-        nextSweep = Date.now() + RENDER_SWEEP_INTERVAL_MS
-      }
-      const figure = await renderFigureStep(db.pool, store, binding, render)
-      if (figure !== 'idle') {
-        process.stdout.write(JSON.stringify({ event: 'figure_render', outcome: figure }) + '\n')
-      }
-      if (!pauseAfter(step) || figure !== 'idle') {
-        continue
-      }
-      await delay(500, undefined, { signal: stop.signal }).catch(() => undefined)
-    }
+    await drainMedia(db.pool, store, binding, image, await localSlots(), stop.signal)
   } finally {
     await db.close()
   }

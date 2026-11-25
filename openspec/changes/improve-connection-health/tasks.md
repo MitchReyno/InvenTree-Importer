@@ -32,16 +32,16 @@ T1 establishes server observations. T2 consumes them. T3 delivers media admissio
 - [x] Baseline focus/file picker refresh, mount, offline and stale behavior. RED: make a local-only failure produce the existing erroneous inventory warning in a regression; cover both health legs and debug modes.
 - [x] GREEN: implement the shared browser liveness owner, gated probe coalescing and recovery state table across desktop, phone and Settings. Preserve edit safety, drafts, last-check times, focus and navigation.
 - [x] Exercise nine/ten-second boundaries, delayed response after recovery, sleep/resume, polling-only and stale target results. Verify desktop and phone accessibility including Escape, announcements, 360/390px and 200% zoom. Check old/new client behavior and update frontend architecture.
-- [ ] Run project contract checks, frontend typecheck/lint/tests/build and pnpm test. Attach failing-hop demonstrations and measured load evidence, review exact head, address findings and obtain selected green CI before authorized merge to interactive-app.
+- [x] Run project contract checks, frontend typecheck/lint/tests/build and pnpm test. Attach failing-hop demonstrations and measured load evidence, review exact head, address findings and obtain selected green CI before authorized merge to interactive-app.
 
 - [x] Exercise a cold-start outage through the generated health client, a nine-second liveness response, automatic bootstrap retry, and a recovered target displayed within five seconds of publication with the socket disabled.
 
 ## T3. Admit independent decodes within shared limits
 
-- [ ] Exercise the last-slot race with a competing figure worker and one-shot photo client. Assert against the claim table that a photo denied admission stays eligible. Apply the same check to the direct development launcher before selecting a shared admission implementation.
+- [x] Exercise the last-slot race with a competing figure worker and one-shot photo client. Assert against the claim table that a photo denied admission stays eligible. Apply the same check to the direct development launcher before selecting a shared admission implementation.
 
 - [ ] Baseline dev media loop, one-shot host entry point, deployed dispatcher, per-kind admission and worker completion transactions. RED: two retained versions cannot overlap today; exercise contention with figures, backfill and simultaneous one-shot clients.
-- [ ] GREEN: reserve before claim in dev and host modes, implement one or two bounded slots, supervised draining, bounded input/output memory, fair maintenance and deterministic shutdown. Keep browser uploads ordered, claims durable and the one-command CLI usable.
+- [x] GREEN: reserve before claim in dev and host modes, implement one or two bounded slots, supervised draining, bounded input/output memory, fair maintenance and deterministic shutdown. Keep browser uploads ordered, claims durable and the one-command CLI usable.
 - [ ] Use PostgreSQL and the pinned isolated decoder to check duplicate bytes, concurrent completions in one batch, conditional publication, interrupted ownership, resource exhaustion, old one-slot behavior, refused unauthorised requests and capacity reclamation. Update media launch and deployment documentation.
 
 ## T4. Qualify mixed-load operation and select host defaults
