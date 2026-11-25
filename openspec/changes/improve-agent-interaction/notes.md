@@ -217,7 +217,7 @@ Implementation of BI-019's agent interaction work, delivered PR by PR as the tas
 
 - **2026-11-25T18:23+11:00, task 15 (PR-L), second trunk merge:** merged trunk at `f7980bd7` (#274's decoder ports, #279's connection health and three plan PRs) without conflicts, and rebuilt the decoder and probe images. Review round 12 found two documents made stale by PR-L: `improve-connection-health`'s design still described a busy-only decode as ending `interrupted`, and `agent-model-catalog-and-step-instructions`' proposal gave `0039` to BI-022's #275, which is open with `0039_stage_briefs.sql`. Both now describe PR-L's deferral and the next-free-number rule. Two PG tests, `header-work`'s "rotated target context fences cached connection observations" and `media-startup-authority`'s startup health check, fail alone at concurrency 1 here and identically on trunk `f7980bd7` in a separate worktree.
 
-- **2026-11-25T18:30+11:00, task 15 (PR-L), migration renumbered:** trunk took `0039` with #275's `0039_stage_briefs.sql` before PR-L merged, so PR-L's migration is now `0040_media_decode_deferral.sql`; earlier entries here name it `0039`. Merged trunk at `9bf99640`.
+- **2026-11-25T18:30+11:00, task 15 (PR-L), migration renumbered:** trunk took `0039` with #275's `0039_stage_briefs.sql` before PR-L merged, so PR-L's migration is now `0040_media_decode_deferral.sql`; earlier entries here name it `0039`. `agent-model-catalog-and-step-instructions`' proposal is back to trunk's text, which gives `0039` to #275 and is accurate again. Merged trunk at `9bf99640`.
 
 ## Open items
 
