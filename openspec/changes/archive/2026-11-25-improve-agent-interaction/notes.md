@@ -259,6 +259,6 @@ These items remain open when the change is archived on 2026-11-25. None of them 
 
 - The figure sweep's deletions can still wait on a settling render's row and blob locks, as under PR-K, though they hold no batch lock. A settlement slower than the media role's 5 s statement timeout fails that sweep, which stops the consumer until its supervisor restarts it.
 - Pictures PR-K's sweep deleted before #284 merged keep no recipe to render from, so they stay "Picture couldn't be made" even when their photo is restored.
-- `tests/pg/header-work.test.ts` ("rotated target context fences cached connection observations") failed when run alone on #284's final head and on trunk `f7980bd7`.
+- `tests/pg/header-work.test.ts` ("rotated target context fences cached connection observations") was the one failure in #284's final-head PG tier, and also fails when run alone on trunk `f7980bd7`.
 - Two failures seen on earlier #284 heads also reproduced on trunk: `tests/pg/media-startup-authority.test.ts`' startup health check, and `tests/process/serial/dev-stack.test.ts` timing out while waiting for the application to restart after its source edit. `dev-stack` passed on #284's final head. [#284](https://github.com/MitchReyno/InvenTree-Importer/pull/284) records the exact heads and outcomes.
 - The earlier open items above remain as listed: the popover-in-modal and long-word wrapping browser checks, the native-session qualification script's type errors, the masthead chip and workflow heading counting differently, and the paged history's query costs.
