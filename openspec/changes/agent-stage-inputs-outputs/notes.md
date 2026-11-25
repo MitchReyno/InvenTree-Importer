@@ -56,7 +56,7 @@ The trade-off: an instruction that still applies after ungrouping must be given 
 
 ### Evidence removed after sealing
 
-A sealed brief keeps its bytes, but nothing of evidence removed since reaches the session (`processing/brief-removal.ts`): the opening a first turn is given, sealed pages and kept current views are served without the removed item's evidence, observations and their corrections, evidence notes and keep-out regions, without a pinned identity that cites or relies on any of them (withheld whole; the removal also marks it stale), and with its observations left out of lot entries, as a native prompt staged from an earlier input leaves them out. A page's `sha256` still names the view it belongs to.
+A sealed brief keeps its bytes, but nothing of evidence removed since reaches the session (`processing/brief-removal.ts`): the opening a first turn is given, sealed pages and kept current views are served without the removed item's evidence, observations and their corrections, evidence notes and keep-out regions, without a pinned identity that cites or relies on any of them (withheld whole; the removal also marks it stale), with its observations left out of lot entries and other observations' links to them (`same_item_as`, `supersedes_observation_id`) dropped, and any other entry still naming it left out, as a native prompt staged from an earlier input leaves them out. A page's `sha256` still names the view it belongs to.
 
 ### Contract validators compile on first use
 

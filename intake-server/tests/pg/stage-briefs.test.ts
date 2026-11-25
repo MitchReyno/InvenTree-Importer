@@ -35,6 +35,7 @@ import {
 } from '#/processing/brief-pages.ts'
 import { MAX_PROCESSING_SNAPSHOT_BYTES } from '#/processing/limits.ts'
 import { replaceSession } from '#/processing/session-replacement.ts'
+import { withoutRemovedMedia } from '#/processing/brief-removal.ts'
 import {
   closeWithin,
   openingManifest,
@@ -2197,4 +2198,60 @@ test('evidence removed after sealing reaches neither the opening, a sealed page 
     assert.equal(again.brief!.sha256, kept)
     assert.deepEqual(mentions(again.brief!.entries), [])
   })
+})
+
+test('an Examine brief served after a removal keeps the lot and its other observations, without links to the removed one', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId, leadAttempt } = batch
+  // The lead's brief as a current view would be kept now, with the lots it formed.
+  const { entries } = await currentBrief(
+    fixture,
+    batchId,
+    (await sealedInput(fixture, leadAttempt)).manifest,
+  )
+  const lot = ofKind(entries, 'lot').find((entry) => entry.observation_ids.length > 0)
+  assert.ok(lot, 'the Examine brief has a lot with observations')
+  const gone = ofKind(entries, 'observation').find((entry) =>
+    lot.observation_ids.includes(entry.observation.id),
+  )!
+  const evidence = ofKind(entries, 'evidence').find(
+    (entry) => entry.version_id === gone.observation.evidence_version_id,
+  )!
+  // Another photo's observation of the same item, as an operator would mark it.
+  const other = {
+    kind: 'observation' as const,
+    observation: {
+      ...gone.observation,
+      id: randomUUID(),
+      evidence_version_id: randomUUID(),
+      same_item_as: gone.observation.id,
+    },
+  }
+  const lotEntry = { ...lot, observation_ids: [...lot.observation_ids, other.observation.id] }
+
+  await grantMedia(fixture.db.pool, fixture.api.name, 'api')
+  const revision = await fixture.db.pool.query<{ revision: string }>(
+    'SELECT revision::text FROM media_batch WHERE batch_id=$1',
+    [batchId],
+  )
+  await editMedia(fixture.api.pool, fixture.config, batchId, randomUUID(), {
+    expected_revision: revision.rows[0].revision,
+    change: { kind: 'remove', evidence_ids: [evidence.evidence_id] },
+  })
+
+  const served = await transaction(fixture.runner.pool, (client) =>
+    withoutRemovedMedia(client, batchId, [lotEntry, gone, other, evidence]),
+  )
+  const servedLot = ofKind(served, 'lot')[0]
+  assert.ok(servedLot, 'the lot is still served')
+  assert.equal(servedLot.observation_ids.includes(gone.observation.id), false)
+  assert.ok(servedLot.observation_ids.includes(other.observation.id))
+  const observations = ofKind(served, 'observation')
+  assert.deepEqual(
+    observations.map((entry) => entry.observation.id),
+    [other.observation.id],
+  )
+  assert.equal(observations[0].observation.same_item_as, undefined)
+  assert.equal(ofKind(served, 'evidence').length, 0)
+  assert.equal(JSON.stringify(served).includes(gone.observation.id), false)
 })

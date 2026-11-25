@@ -42,6 +42,25 @@ function namesRemoved(value: unknown, removed: Removed) {
   )
 }
 
+/** An observation without its links to observations on removed evidence. */
+function withoutRemovedLinks(
+  observation: Extract<BriefEntryDto, { kind: 'observation' }>['observation'],
+  removed: Removed,
+) {
+  const { same_item_as: sameItem, ...rest } = observation
+  return {
+    ...rest,
+    ...(sameItem !== undefined && !removed.observations.has(sameItem)
+      ? { same_item_as: sameItem }
+      : {}),
+    supersedes_observation_id:
+      observation.supersedes_observation_id !== null &&
+      removed.observations.has(observation.supersedes_observation_id)
+        ? null
+        : observation.supersedes_observation_id,
+  }
+}
+
 /** The entry as it may still be delivered, or null when it is about removed evidence. */
 function deliverable(entry: BriefEntryDto, removed: Removed): BriefEntryDto | null {
   switch (entry.kind) {
@@ -50,7 +69,9 @@ function deliverable(entry: BriefEntryDto, removed: Removed): BriefEntryDto | nu
         ? null
         : entry
     case 'observation':
-      return removed.versions.has(entry.observation.evidence_version_id) ? null : entry
+      return removed.versions.has(entry.observation.evidence_version_id)
+        ? null
+        : { ...entry, observation: withoutRemovedLinks(entry.observation, removed) }
     case 'keep_out':
       return removed.versions.has(entry.evidence_version_id) ? null : entry
     case 'note':
@@ -102,6 +123,7 @@ export async function withoutRemovedMedia(
   }
   return entries.flatMap((entry) => {
     const kept = deliverable(entry, removed)
-    return kept ? [kept] : []
+    // Whatever still names removed evidence after that isn't delivered at all.
+    return kept && !namesRemoved(kept, removed) ? [kept] : []
   })
 }
