@@ -23,3 +23,5 @@
 2026-11-25T19:10+1100 — Still open from round 3: fencing claims and driver records against supervisor lock loss (finding 2). A claim committed on a pooled connection after the old worker lost its lock can be invisible to a replacement's check. Fencing it needs every claim and record to run on, or check, the lock's connection, which reaches the scheduler's workflow pool; left for a follow-up. No regression tests were added for the duplicate-claim turn number or the in-step shutdown check.
 
 2026-11-25T18:15+1100 — Migration renumbered: `agent-stage-inputs-outputs` merged `0039_stage_briefs.sql` first (#275), so this change's migration is now `0040_agent_slot_turn_child.sql`; it was never applied outside test databases. The trunk merge also kept #275's resume cleanup in session settlement, after this change's guard, so a settlement that no longer owns its turn changes nothing.
+
+2026-11-25T18:46+1100 — The open item on fencing claims and driver records against supervisor lock loss moved to its own change, [`fence-held-capacity-writes`](../fence-held-capacity-writes/) (BI-025), which also fences the `/1` lane claim and settlement.
