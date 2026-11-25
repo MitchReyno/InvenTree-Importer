@@ -34,7 +34,7 @@ const PAIRING_FILES = ['ca.pem', 'cert.pem', 'key.pem']
 const GUEST_SERVICES = {
   claude: {
     script: 'tooling/deployment/bridge/personal-claude.sh',
-    containers: ['bench-claude-egress', 'bench-claude-management'],
+    containers: ['bench-claude-egress', 'bench-claude-management', 'bench-claude-catalog'],
   },
   codex: {
     script: 'tooling/deployment/bridge/personal-codex.sh',
@@ -49,6 +49,8 @@ const SERVICE_MOUNTS = {
   'bench-claude-egress': ['egress'],
   // `guest`: the pairing identity that authenticates the status-only endpoint.
   'bench-claude-management': ['claude-store', 'guest', 'operator'],
+  // The model catalogue: the store it reads, the Anthropic-only egress and the pairing identity.
+  'bench-claude-catalog': ['claude-store', 'egress', 'guest'],
   'bench-codex-egress': ['codex-egress'],
   'bench-codex-management': ['codex-egress', 'codex-state', 'guest', 'operator'],
 }

@@ -39,6 +39,8 @@ shift 3
 if [ "$2" = exec ]; then
   container=$4
   pump=$7
+  # The relay also carries the model catalogue socket, beside the status one.
+  case "$8" in *catalog.sock) exec node -e "$pump" "$STATUS_SOCKETS/$container.catalog.sock" ;; esac
   exec node -e "$pump" "$STATUS_SOCKETS/$container.sock"
 fi
 exec sleep 600
@@ -239,6 +241,8 @@ shift 3
 [ "$1" = sudo ] && shift
 [ "$1" = docker ] || exit 2
 if [ "$2" = exec ]; then
+  # Only the status pumps are counted; the catalogue's has no service here.
+  case "$8" in *catalog.sock) exit 1 ;; esac
   count=$(cat "$STATUS_SOCKETS/count" 2>/dev/null || echo 0)
   count=$((count + 1))
   echo "$count" > "$STATUS_SOCKETS/count"

@@ -29,6 +29,8 @@ import { operatorReviewSchemas } from './operator-review.ts'
 import { researchSchemas } from './research.ts'
 import { agentSchemas } from './agents.ts'
 export * from './agents.ts'
+import { modelCatalogSchemas } from './agent-model-catalog.ts'
+export * from './agent-model-catalog.ts'
 import { batchDefaultsSchemas } from './batch-defaults.ts'
 export * from './batch-defaults.ts'
 import { liveSchemas } from './live.ts'
@@ -202,6 +204,7 @@ export const schemas = {
   ...mediaSchemas,
   ...liveSchemas,
   ...agentSchemas,
+  ...modelCatalogSchemas,
   ...batchDefaultsSchemas,
   ...sessionSchemas,
   ...sessionFailureSchemas,

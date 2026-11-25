@@ -208,6 +208,23 @@ export const clientOperations = new Map<string, ClientOperation>([
     }
   ],
   [
+    "GET /api/v1/agents/models",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "AgentModelCatalog"
+    }
+  ],
+  [
+    "POST /api/v1/agents/models/refresh",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "AgentModelCatalogRefreshReceipt",
+      "requestSchema": "AgentModelCatalogRefresh"
+    }
+  ],
+  [
     "PUT /api/v1/agents/pause",
     {
       "timeoutMs": 10000,
@@ -273,6 +290,14 @@ export const clientOperations = new Map<string, ClientOperation>([
       "timeoutMs": 10000,
       "errorMode": "typed",
       "responseSchema": "BatchActivity"
+    }
+  ],
+  [
+    "GET /api/v1/batches/{id}/processing/{jobId}/attempts/{attemptId}/brief",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "SessionHistoryBrief"
     }
   ],
   [

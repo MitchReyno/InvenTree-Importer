@@ -73,6 +73,8 @@ export async function serveGuestTurn(socket: TLSSocket, options: GuestTurnOption
     codexSubscription: provider === 'codex',
     // This image's credential services answer the read-only provider status.
     providerStatus: true,
+    // And they read each provider's model list on a catalogue connection.
+    modelCatalog: true,
   })
   const packet = await frames.read()
   const probe = 'inspectTerminal' in packet

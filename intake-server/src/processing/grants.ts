@@ -14,7 +14,7 @@ export async function grantProcessing(pool: Pool, role: string, purpose: 'api' |
     agent_session_outbox,agent_session_inbox,agent_session_cursor,agent_session_ack,agent_slot,agent_session_failure,processing_proposal_stale,
     agent_batch_pause,processing_question_replacement,processing_question_figure,processing_figure_render,
     processing_stage_instructions,processing_input_page,processing_brief_view,agent_session_inbox_withdrawal,
-    agent_session_inbox_release,agent_session_resume,processing_question_basis,processing_identity_basis TO ${role};`)
+    agent_session_inbox_release,agent_session_resume,processing_question_basis,processing_identity_basis,agent_model_catalog TO ${role};`)
   if (purpose === 'api') {
     // Operators queue inbox items and mark proposals stale by correction; agents write the outbox.
     await pool.query(
@@ -27,7 +27,9 @@ export async function grantProcessing(pool: Pool, role: string, purpose: 'api' |
         web_public_pages,web_prefer_datasheets,receipts_pruned_through) ON agent_settings TO ${role};
       GRANT UPDATE(enabled,authentication,default_model,default_effort) ON agent_provider_settings TO ${role};
       -- Save receipts: written with each save, pruned by later saves, never rewritten.
-      GRANT SELECT, INSERT, DELETE ON agent_settings_save_receipt TO ${role};`,
+      GRANT SELECT, INSERT, DELETE ON agent_settings_save_receipt TO ${role};
+      -- The model catalogue is the worker's; the API may only request a read.
+      GRANT EXECUTE ON FUNCTION request_model_catalog_refresh(uuid,uuid,uuid,text,text,boolean) TO ${role};`,
     )
   } else {
     await pool.query(
@@ -52,7 +54,9 @@ export async function grantProcessing(pool: Pool, role: string, purpose: 'api' |
       GRANT UPDATE(requested_at) ON processing_figure_render TO ${role};
       GRANT INSERT, UPDATE, DELETE ON agent_slot TO ${role};
       -- A brief's current views, kept per attempt within a bound.
-      GRANT INSERT, DELETE, UPDATE(read_at) ON processing_brief_view TO ${role};`,
+      GRANT INSERT, DELETE, UPDATE(read_at) ON processing_brief_view TO ${role};
+      -- Each provider's model list as this worker reads it.
+      GRANT INSERT, UPDATE ON agent_model_catalog TO ${role};`,
     )
   }
   await pool.query(`GRANT SELECT ON processing_profile,processing_input,processing_job,processing_attempt,

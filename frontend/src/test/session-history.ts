@@ -1,7 +1,10 @@
 import {
   validate,
   type CatalogueProposalDto,
+  type BriefEntryDto,
   type SessionHistoryAttemptDto,
+  type SessionHistoryBriefDto,
+  type SessionHistoryBriefRefDto,
   type SessionHistoryDto,
   type SessionHistoryEntryDto,
   type StartFreshEligibilityDto,
@@ -25,6 +28,10 @@ export const H = {
   failure: 'a0000000-0000-4000-8000-00000000000a',
   inboxItem: 'b0000000-0000-4000-8000-00000000000b',
   instruction: 'c0000000-0000-4000-8000-00000000000c',
+  answer: 'c1000000-0000-4000-8000-00000000000c',
+  note: 'c2000000-0000-4000-8000-00000000000c',
+  actor: 'c3000000-0000-4000-8000-00000000000c',
+  observation2: '71000000-0000-4000-8000-000000000007',
 } as const
 
 /** A minute of 24 November 2026, so entries sort by the minute they name. */
@@ -350,11 +357,13 @@ export function history(
     attempts = [attemptHeader()],
     acked = '100',
     startFresh = { allowed: true },
+    briefs,
   }: {
     before?: string
     attempts?: SessionHistoryAttemptDto[]
     acked?: string
     startFresh?: StartFreshEligibilityDto
+    briefs?: SessionHistoryBriefRefDto[]
   } = {},
 ): SessionHistoryDto {
   // The read lists attempts newest first, as the server does.
@@ -371,8 +380,174 @@ export function history(
       start_fresh: startFresh,
     },
     entries,
+    ...(briefs ? { briefs } : {}),
     ...(before ? { before } : {}),
   }
   validate('SessionHistory', page)
   return page
+}
+
+const REGION = {
+  kind: 'pixels',
+  x: 10,
+  y: 20,
+  width: 300,
+  height: 200,
+  source_width: 4000,
+  source_height: 3000,
+} as const
+
+/** An observation as a brief carries it, with its full readings. */
+export function briefObservation(
+  id: string,
+  markings: string[],
+  extra: { operator_edited?: boolean; visible_count?: number | null } = {},
+): BriefEntryDto {
+  return {
+    kind: 'observation',
+    observation: {
+      id,
+      evidence_version_id: H.version,
+      page: 1,
+      region: REGION,
+      readings: { markings },
+      visible_count: extra.visible_count ?? 1,
+      status: 'active',
+      supersedes_observation_id: null,
+      origin: 'agent',
+      agent_session_id: null,
+      operator_edited: extra.operator_edited ?? false,
+      revision: '4',
+      lot_id: H.lot,
+      suggested_lot_ids: [],
+    },
+  }
+}
+
+/**
+ * What Research started from: Examine's identity, two observations (one corrected), an answer,
+ * a note, the question already asked and the photo it may read.
+ */
+export function researchBriefEntries(): BriefEntryDto[] {
+  const identity = proposal(1, 1)[0]
+  if (identity.details.kind !== 'proposal') {
+    throw new Error('proposal() gives a proposal entry first')
+  }
+  return [
+    {
+      kind: 'batch',
+      batch_id: H.batch,
+      title: 'Spill',
+      defaults: { quantity: { mode: 'unknown' }, location: { mode: 'clear' } },
+      web: { public_pages: true, prefer_datasheets: true },
+    },
+    {
+      kind: 'note',
+      source: 'human',
+      note_id: H.note,
+      subject_id: null,
+      evidence_id: null,
+      group_id: null,
+      text: 'Mouser order 3381-22 plus a loose bench bag',
+      text_sha256: 'b'.repeat(64),
+      actor_id: H.actor,
+      created_at: at(0, 30),
+    },
+    {
+      kind: 'answer',
+      source: 'human',
+      question_id: H.question,
+      answer_id: H.answer,
+      subject_id: H.lot,
+      actor_id: H.actor,
+      answered_at: at(2),
+      steps: [
+        {
+          step_id: 'variant',
+          prompt: 'Which ATmega328P variant is this?',
+          value: 'ATmega328P-AU',
+        },
+      ],
+    },
+    {
+      kind: 'correction',
+      source: 'human',
+      observation_id: H.observation,
+      lot_id: H.lot,
+      before: { markings: ['ATMEGA328P 2338'] },
+      after: { markings: ['ATMEGA328P 2348'] },
+      earlier_known: true,
+      actor_id: H.actor,
+      corrected_at: at(3),
+      revision: '7',
+    },
+    {
+      kind: 'question',
+      question_id: H.question,
+      job_id: H.job,
+      subject_id: H.lot,
+      fields: ['identity'],
+      state: 'answered',
+      title: 'Which ATmega328P variant is this?',
+      steps: [
+        {
+          id: 'variant',
+          prompt: 'Which ATmega328P variant is this?',
+          assumption: 'ATmega328P-AU',
+        },
+      ],
+      answer_id: H.answer,
+    },
+    {
+      kind: 'evidence',
+      evidence_id: H.evidence,
+      version_id: H.version,
+      sha256: 'c'.repeat(64),
+      media_type: 'image/jpeg',
+      label: 'MCU close-up',
+      regions: [{ observation_id: H.observation, page: 1, region: REGION, lot_id: H.lot }],
+    },
+    {
+      kind: 'identity',
+      proposal_id: H.proposal,
+      stale: false,
+      proposal: identity.details.proposal,
+    },
+    briefObservation(H.observation, ['ATMEGA328P 2348'], { operator_edited: true }),
+    briefObservation(H.observation2, ['ATmega328P-AU · qty 10'], { visible_count: null }),
+  ]
+}
+
+/** Where a `/7` attempt's brief sits in a history page. */
+export function briefRef(attempt: string = H.attempt, minute = 1): SessionHistoryBriefRefDto {
+  const { brief } = historyBrief()
+  return { attempt_id: attempt, at: at(minute), stage: brief.stage, sections: brief.sections }
+}
+
+/** One `/7` attempt's brief as its read returns it. */
+export function historyBrief(
+  entries: BriefEntryDto[] = researchBriefEntries(),
+  { attempt = H.attempt, minute = 1 }: { attempt?: string; minute?: number } = {},
+): SessionHistoryBriefDto {
+  return {
+    attempt_id: attempt,
+    at: at(minute),
+    brief: {
+      schema_version: 'bench-intake-brief/1',
+      stage: 'research',
+      lot_id: H.lot,
+      revision: '7',
+      sections: [
+        { name: 'batch', count: 1 },
+        { name: 'human', count: 3 },
+        { name: 'asked', count: 1 },
+        { name: 'evidence', count: 1 },
+        { name: 'match', count: 0 },
+        { name: 'identity', count: 1 },
+        { name: 'observations', count: 2 },
+        { name: 'vocabulary', count: 0 },
+      ],
+      entries,
+    },
+  }
 }

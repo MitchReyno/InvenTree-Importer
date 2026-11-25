@@ -315,6 +315,15 @@ async function main() {
           ],
         },
       },
+      '/api/v1/agents/models': { get: get('AgentModelCatalog', CAPTURE_TIMEOUT_MS) },
+      '/api/v1/agents/models/refresh': {
+        post: post(
+          'AgentModelCatalogRefresh',
+          'AgentModelCatalogRefreshReceipt',
+          '202',
+          CAPTURE_TIMEOUT_MS,
+        ),
+      },
       '/api/v1/agents/pause': {
         put: post('AgentPauseUpdate', 'AgentPauseAll', '200', CAPTURE_TIMEOUT_MS),
       },
@@ -347,6 +356,9 @@ async function main() {
             },
           ],
         },
+      },
+      '/api/v1/batches/{id}/processing/{jobId}/attempts/{attemptId}/brief': {
+        get: get('SessionHistoryBrief', CAPTURE_TIMEOUT_MS),
       },
       '/api/v1/batches/{id}/processing/{jobId}/history': {
         get: {

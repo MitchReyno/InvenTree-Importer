@@ -30,7 +30,14 @@ import {
   statusLine,
 } from './processing.ts'
 import { ContractValidationIssue } from './validation-issues.ts'
-import { BriefAnswerEntry, BriefQuestionEntry, BriefStage, SessionBriefPage } from './brief.ts'
+import {
+  BriefAnswerEntry,
+  BriefQuestionEntry,
+  BriefSections,
+  BriefStage,
+  SessionBrief,
+  SessionBriefPage,
+} from './brief.ts'
 import {
   EvidenceReadings,
   EvidenceRegion,
@@ -803,10 +810,34 @@ export const SessionHistoryMetadata = object({
   start_fresh: StartFreshEligibility,
 })
 export const SessionHistoryQuery = object({ before: Type.Optional(SessionHistoryCursor) })
+/**
+ * Where a `/7` attempt's brief sits in the history: at the attempt's queue time, before every row
+ * at that time, with its stage and its sections' counts as sealed. Its entries are a read of their
+ * own (`SessionHistoryBrief`).
+ */
+export const SessionHistoryBriefRef = object({
+  attempt_id: Id,
+  /** The attempt's queue time, as its header gives it. */
+  at: IsoTime,
+  stage: BriefStage,
+  /** As sealed: entries since removed with their evidence still count. */
+  sections: BriefSections,
+})
+/** The brief a `/7` attempt's input sealed, every page of it, without evidence removed since. */
+export const SessionHistoryBrief = object({
+  attempt_id: Id,
+  at: IsoTime,
+  brief: SessionBrief,
+})
 /** One page of a session's history, newest first, with its metadata from the same snapshot. */
 export const SessionHistory = object({
   session: SessionHistoryMetadata,
   entries: Type.Array(SessionHistoryEntry, { maxItems: MAX_HISTORY_ENTRIES }),
+  /**
+   * Where the briefs of the `/7` attempts queued within this page's span sit, newest first.
+   * Absent when there are none, as for every attempt from an earlier input, which had no brief.
+   */
+  briefs: Type.Optional(Type.Array(SessionHistoryBriefRef, { minItems: 1 })),
   /** Present when older rows exist. */
   before: Type.Optional(SessionHistoryCursor),
 })
@@ -847,6 +878,8 @@ export const sessionSchemas = {
   SessionReplacement,
   SessionLatestStatus,
   SessionHistory,
+  SessionHistoryBrief,
+  SessionHistoryBriefRef,
   SessionHistoryCursor,
   SessionHistoryQuery,
   RegroupMove,
@@ -876,6 +909,8 @@ export const sessionSchemas = {
 }
 export type SessionLatestStatusDto = Static<typeof SessionLatestStatus>
 export type SessionHistoryDto = Static<typeof SessionHistory>
+export type SessionHistoryBriefDto = Static<typeof SessionHistoryBrief>
+export type SessionHistoryBriefRefDto = Static<typeof SessionHistoryBriefRef>
 export type BatchActivityDto = Static<typeof BatchActivity>
 export type BatchActivityEntryDto = Static<typeof BatchActivityEntry>
 export type SessionHistoryEntryDto = Static<typeof SessionHistoryEntry>

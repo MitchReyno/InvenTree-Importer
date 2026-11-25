@@ -12,7 +12,7 @@ import {
 import { commandKey } from '#/api/request.ts'
 import { replaceSession } from './session-replacement.ts'
 import { submitSessionInbox } from '#/agents/tools/inbox.ts'
-import { readSessionHistory } from '#/agents/tools/history.ts'
+import { readSessionBrief, readSessionHistory } from '#/agents/tools/history.ts'
 import { readBatchActivity } from '#/agents/tools/activity.ts'
 import type { LockCapture } from './capture.ts'
 import type { ProcessingConfig } from './attempts.ts'
@@ -131,6 +131,12 @@ export function registerProcessing(
         readSessionHistory(pool, config, id(request), id(request, 'jobId'), {
           before: request.query.before,
         }),
+    )
+    scope.get(
+      '/api/v1/batches/:id/processing/:jobId/attempts/:attemptId/brief',
+      { schema: { response: { 200: schemas.SessionHistoryBrief } } },
+      (request) =>
+        readSessionBrief(pool, config, id(request), id(request, 'jobId'), id(request, 'attemptId')),
     )
     scope.post<{ Body: SessionReplacementDto }>(
       '/api/v1/batches/:id/processing/:jobId/replacement',

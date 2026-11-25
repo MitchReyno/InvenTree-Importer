@@ -42,6 +42,12 @@ import { deliverMissingInstructions } from '#/agents/instructions.ts'
 import { localDatabaseUrl, schedulerDatabaseUrl, schedulerReachable } from './database-urls.ts'
 import { serveProviderStatusRequests } from '#/agents/provider-status-channel.ts'
 import type { BridgeProviderStatuses } from '#/agents/shared-vm/coordinator.ts'
+import { readAgentSettings } from '#/agents/settings.ts'
+import { profileCatalogReaders } from '#/agents/model-catalog/readers.ts'
+import { modelCatalogWorker, type ModelCatalogWorker } from '#/agents/model-catalog/worker.ts'
+
+/** The channel a refresh request notifies; the worker also checks for requests every pass. */
+const MODEL_CATALOG_CHANNEL = 'bench_model_catalog'
 
 /**
  * How long a stopping worker waits for its turns to settle, so a confirmed reap releases its slot.
@@ -143,6 +149,7 @@ async function main() {
   let tools: Awaited<ReturnType<typeof startSessionToolServer>> | undefined
   let bridge: Awaited<ReturnType<typeof startSessionBridge>> | undefined
   let statusRequests: ReturnType<typeof serveProviderStatusRequests> | undefined
+  let catalog: ModelCatalogWorker | undefined
   let launched = false
   const shutdown = new AbortController()
   const examineSkipped = new Map<string, string>()
@@ -182,11 +189,38 @@ async function main() {
       process.stdout.write(heldCapacityChecked(recovered.length))
       return
     }
-    // From the worker's own pool: its role's connection limit leaves no room for another.
+    catalog = modelCatalogWorker({
+      pool: db.pool,
+      scope: config,
+      reader: profileCatalogReaders({
+        profileId: config.profileId,
+        host,
+        secret: config.channelSecret,
+        guest: bridge?.modelCatalog,
+      }),
+      providers: async () => {
+        const settings = await readAgentSettings(db.pool, config)
+        return (['claude', 'codex'] as const).map((provider) => ({
+          provider,
+          authentication: settings.providers[provider].authentication,
+          enabled: settings.providers[provider].enabled,
+        }))
+      },
+    })
+
+    const catalogPass = () => {
+      void catalog?.pass().catch(() => {
+        process.stderr.write(`${JSON.stringify({ event: 'model_catalog_pass_retrying' })}\n`)
+      })
+    }
+
+    // From the worker's own pool: its role's connection limit leaves no room for another, so the
+    // catalogue's refresh notifications share the status listener's connection.
     statusRequests = serveProviderStatusRequests(
       db.pool,
       config,
       bridge?.providerStatus ?? statusNotConfigured,
+      { [MODEL_CATALOG_CHANNEL]: catalogPass },
     )
     // The scheduler takes over recovered work, so it must accept a connection first.
     await schedulerReachable(schedulerUrl)
@@ -212,6 +246,11 @@ async function main() {
       host,
       toolUrl: tools.url,
       fence: lock.fence,
+      onCliVersion: (selection, version) => {
+        void catalog
+          ?.cliVersionReported(selection.provider, selection.authentication, version)
+          .catch(() => undefined)
+      },
       drivers: {
         'synthetic-session/1':
           config.profileId === 'synthetic-session/1' && bridge
@@ -294,6 +333,8 @@ async function main() {
         process.stderr.write(`${JSON.stringify({ event: 'instruction_relay_retrying' })}\n`)
       })
       await wakePendingSessions(db.pool, config, scheduler)
+      // Starts any read that is due and returns; reads run beside the pass, one per provider.
+      catalogPass()
       await delay(500, undefined, { signal: shutdown.signal }).catch(() => undefined)
     }
     if (ownerLost) {
@@ -309,6 +350,8 @@ async function main() {
     await turns.settle(UNCONFIRMED_SETTLE_MS)
     // First, so a stopping worker holds no connection it isn't using.
     await statusRequests?.close()
+    // Before the bridge closes, so a guest read in flight ends by its abort, not a lost peer.
+    await catalog?.close()
     await scheduler?.destroy()
     if (launched) {
       await DBOS.shutdown({ workflowCompletionTimeoutMS: 10000 })
