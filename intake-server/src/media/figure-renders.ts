@@ -12,9 +12,10 @@ import { transaction } from '#/db/database.ts'
 import { captureInTransaction } from '#/capture/repository.ts'
 import type { CaptureBinding } from '#/capture/model.ts'
 import { sealed } from '#/processing/model.ts'
-import { BlobStore, lockBlob, MIN_GC_AGE_MS } from './blob-store.ts'
+import { BlobStore, lockBlob, MIN_GC_AGE_MS, tryLockBlob } from './blob-store.ts'
 import { blobReferenced, retainBlob } from './blob-reference.ts'
 import { prepareMediaTransaction } from './transaction.ts'
+import { tryLockMediaRevision } from './commands.ts'
 import { versionRemovedSql } from './removal.ts'
 import { DecoderDispatcherBusyError } from './dispatcher-client.ts'
 
@@ -187,64 +188,126 @@ export interface ViewRenderInput {
 
 export type RenderView = (input: ViewRenderInput) => Promise<RenderedView>
 
-/**
- * Claims the oldest queued render in the consumer's scope whose lease is free or expired; a
- * request that has used its attempts and lost its lease settles as failed instead.
- */
+/** Queued renders in the consumer's scope whose lease is free or expired and whose photo is present. */
+const CLAIMABLE = `FROM public.processing_figure_render r
+       JOIN public.capture_batch b ON b.id=r.batch_id
+       JOIN public.media_version v ON v.batch_id=r.batch_id AND v.id=r.version_id
+       WHERE r.state='queued' AND b.actor_id=$1 AND b.target_id=$2 AND b.target_context_id=$3
+         AND (r.lease_expires_at IS NULL OR r.lease_expires_at<=$4)
+         AND NOT ${versionRemovedSql('v')}`
+
 type RenderClaim = { kind: 'claimed'; render: ClaimedRender } | { kind: 'exhausted' } | null
 
+interface CandidateRow {
+  id: string
+  batch_id: string
+  purpose: 'view' | 'preview'
+  recipe_bytes: Buffer
+  recipe_digest: Buffer
+  marks_bytes: Buffer | null
+  marks_digest: Buffer | null
+  attempts: number
+}
+
+/**
+ * Claims the first claimable render in queue order that no other consumer holds; a request that
+ * has used its attempts and lost its lease settles as failed instead. Removing or restoring a
+ * photo holds its batch's media revision lock, so the claim takes that lock too and checks the
+ * photo again under it: a photo removed before the claim is never rendered. Choosing a candidate
+ * never waits: a render another consumer holds is skipped, a batch being edited is passed over
+ * for the next render in another batch, and a rejected candidate's locks are released before
+ * the next is tried. Settling an exhausted request as failed appends an event to the batch's
+ * stream, which can wait for another writer. A render claimed before a removal may still
+ * finish; the sweep returns it to the queue.
+ */
 async function claimRender(pool: Pool, binding: CaptureBinding, now: Date): Promise<RenderClaim> {
   return transaction(pool, async (client) => {
     await prepareMediaTransaction(client)
-    const candidates = await client.query<{
-      id: string
-      batch_id: string
-      purpose: 'view' | 'preview'
-      recipe_bytes: Buffer
-      recipe_digest: Buffer
-      marks_bytes: Buffer | null
-      marks_digest: Buffer | null
-      attempts: number
-    }>(
-      `SELECT r.id, r.batch_id, r.purpose, r.recipe_bytes, r.recipe_digest, r.marks_bytes,
-         r.marks_digest, r.attempts
-       FROM public.processing_figure_render r
-       JOIN public.capture_batch b ON b.id=r.batch_id
-       WHERE r.state='queued' AND b.actor_id=$1 AND b.target_id=$2 AND b.target_context_id=$3
-         AND (r.lease_expires_at IS NULL OR r.lease_expires_at<=$4)
-       ORDER BY (r.purpose='preview') DESC, r.created_at, r.id
-       LIMIT 1
-       FOR UPDATE OF r SKIP LOCKED`,
-      [binding.actorId, binding.targetId, binding.targetContextId, now],
-    )
-    const candidate = candidates.rows[0]
-    if (!candidate) {
-      return null
-    }
-    if (candidate.attempts >= MAX_RENDER_ATTEMPTS) {
-      await settleFailed(client, candidate.id, candidate.batch_id, binding)
-      return { kind: 'exhausted' }
-    }
-    const owner = randomUUID()
-    await client.query(
-      `UPDATE public.processing_figure_render
-       SET attempts=attempts+1, lease_owner=$2, lease_expires_at=$3
-       WHERE id=$1`,
-      [candidate.id, owner, new Date(now.getTime() + RENDER_LEASE_MS)],
-    )
-    return {
-      kind: 'claimed',
-      render: {
-        id: candidate.id,
-        batch_id: candidate.batch_id,
-        purpose: candidate.purpose,
-        recipe: retainedRecipe(candidate.recipe_bytes, candidate.recipe_digest),
-        marks: retainedMarks(candidate.marks_bytes, candidate.marks_digest),
-        attempts: candidate.attempts + 1,
-        owner,
-      },
+    const busyBatches: string[] = []
+    const removedRenders: string[] = []
+    // A rejected candidate is rolled back to here, releasing its row and batch locks; the one
+    // savepoint serves every candidate.
+    await client.query('SAVEPOINT render_candidate')
+    for (;;) {
+      const next = await client.query<CandidateRow>(
+        `SELECT r.id, r.batch_id, r.purpose, r.recipe_bytes, r.recipe_digest, r.marks_bytes,
+           r.marks_digest, r.attempts
+         ${CLAIMABLE}
+           AND NOT (r.batch_id = ANY($5::uuid[])) AND NOT (r.id = ANY($6::uuid[]))
+         ORDER BY (r.purpose='preview') DESC, r.created_at, r.id
+         LIMIT 1
+         FOR UPDATE OF r SKIP LOCKED`,
+        [
+          binding.actorId,
+          binding.targetId,
+          binding.targetContextId,
+          now,
+          busyBatches,
+          removedRenders,
+        ],
+      )
+      const candidate = next.rows[0]
+      if (!candidate) {
+        return null
+      }
+      const batchFree = await tryLockMediaRevision(client, candidate.batch_id)
+      if (!batchFree) {
+        busyBatches.push(candidate.batch_id)
+        await client.query('ROLLBACK TO SAVEPOINT render_candidate')
+        continue
+      }
+      // A fresh read under the batch lock sees a removal that committed after the list was read.
+      if (await renderPhotoRemoved(client, candidate.id)) {
+        removedRenders.push(candidate.id)
+        await client.query('ROLLBACK TO SAVEPOINT render_candidate')
+        continue
+      }
+      return leaseCandidate(client, binding, candidate, now)
     }
   })
+}
+
+async function renderPhotoRemoved(client: PoolClient, renderId: string) {
+  const rows = await client.query<{ removed: boolean }>(
+    `SELECT ${versionRemovedSql('v')} AS removed
+     FROM public.processing_figure_render r
+     JOIN public.media_version v ON v.batch_id=r.batch_id AND v.id=r.version_id
+     WHERE r.id=$1`,
+    [renderId],
+  )
+  return rows.rows[0]?.removed !== false
+}
+
+/** Leases a locked candidate, or settles it as failed once its attempts are used up. */
+async function leaseCandidate(
+  client: PoolClient,
+  binding: CaptureBinding,
+  candidate: CandidateRow,
+  now: Date,
+): Promise<RenderClaim> {
+  if (candidate.attempts >= MAX_RENDER_ATTEMPTS) {
+    await settleFailed(client, candidate.id, candidate.batch_id, binding)
+    return { kind: 'exhausted' }
+  }
+  const owner = randomUUID()
+  await client.query(
+    `UPDATE public.processing_figure_render
+     SET attempts=attempts+1, lease_owner=$2, lease_expires_at=$3
+     WHERE id=$1`,
+    [candidate.id, owner, new Date(now.getTime() + RENDER_LEASE_MS)],
+  )
+  return {
+    kind: 'claimed',
+    render: {
+      id: candidate.id,
+      batch_id: candidate.batch_id,
+      purpose: candidate.purpose,
+      recipe: retainedRecipe(candidate.recipe_bytes, candidate.recipe_digest),
+      marks: retainedMarks(candidate.marks_bytes, candidate.marks_digest),
+      attempts: candidate.attempts + 1,
+      owner,
+    },
+  }
 }
 
 function retainedRecipe(bytes: Buffer, digest: Buffer): MediaViewRecipeDto {
@@ -480,13 +543,114 @@ async function releaseBlobs(client: PoolClient, digests: (Buffer | string | null
 
 export interface SweepOutcome {
   deleted: number
+  /** Removed photos' question views returned to the queue for when the photo is restored. */
+  requeued: number
   collected: number
 }
 
+/** SQL true when a stored question shows the view render aliased `r`. */
+const VIEW_REFERENCED = `EXISTS (
+  SELECT 1 FROM public.processing_question_figure f WHERE f.recipe_digest=r.recipe_digest)`
+
+/** Views a question shows of a removed photo that still hold outputs, a lease or spent attempts. */
+const REQUEUE_CANDIDATES = `FROM public.processing_figure_render r
+     JOIN public.capture_batch b ON b.id=r.batch_id
+     JOIN public.media_version v ON v.batch_id=r.batch_id AND v.id=r.version_id
+     WHERE b.actor_id=$1 AND b.target_id=$2 AND b.target_context_id=$3
+       AND r.purpose='view' AND ${VIEW_REFERENCED} AND ${versionRemovedSql('v')}
+       AND (r.state<>'queued' OR r.attempts>0 OR r.lease_owner IS NOT NULL)`
+
+/** A batch's requeue met a blob lock another transaction holds; it is left for the next sweep. */
+class RequeueDeferred extends Error {
+  constructor() {
+    super('figure_requeue_deferred')
+  }
+}
+
 /**
- * Deletes preview renders older than a day, view renders no question references, and every
- * render of a removed version, releasing their blobs; then collects released blobs that are a
- * day old and that nothing else references.
+ * Returns each view a question shows of a removed photo in one batch to the queue, with no
+ * outputs, lease or spent attempts, and gives back its blobs. The claim skips it while the photo
+ * is removed, so it renders again only once the photo is restored. A view already waiting so is
+ * left alone.
+ *
+ * Removing and restoring a photo hold its batch's media revision lock, so the views are chosen
+ * under that lock and a photo restored meanwhile keeps its picture. Nothing waits while the batch
+ * lock is held: a batch being edited or a render being settled is skipped, and a blob lock that
+ * is taken rolls the batch back. Each is left for the next sweep.
+ */
+async function requeueRemovedViews(pool: Pool, binding: CaptureBinding, batchId: string) {
+  try {
+    return await transaction(pool, async (client) => {
+      await prepareMediaTransaction(client)
+      const batchFree = await tryLockMediaRevision(client, batchId)
+      if (!batchFree) {
+        return 0
+      }
+      const views = await client.query<{
+        id: string
+        view_digest: Buffer | null
+        thumb_digest: Buffer | null
+      }>(
+        `SELECT r.id, r.view_digest, r.thumb_digest ${REQUEUE_CANDIDATES} AND r.batch_id=$4
+         FOR UPDATE OF r SKIP LOCKED`,
+        [binding.actorId, binding.targetId, binding.targetContextId, batchId],
+      )
+      if (!views.rowCount) {
+        return 0
+      }
+      await client.query(
+        `UPDATE public.processing_figure_render
+         SET state='queued', attempts=0, lease_owner=NULL, lease_expires_at=NULL,
+           settled_at=NULL, view_digest=NULL, view_width=NULL, view_height=NULL, thumb_digest=NULL
+         WHERE id = ANY($1::uuid[])`,
+        [views.rows.map((view) => view.id)],
+      )
+      const released = await tryReleaseBlobs(
+        client,
+        views.rows.flatMap((view) => [view.view_digest, view.thumb_digest]),
+      )
+      if (!released) {
+        throw new RequeueDeferred()
+      }
+      return views.rows.length
+    })
+  } catch (error) {
+    if (error instanceof RequeueDeferred) {
+      return 0
+    }
+    throw error
+  }
+}
+
+/** As `releaseBlobs`, but false at once, before recording anything, when a blob lock is taken. */
+async function tryReleaseBlobs(client: PoolClient, digests: (Buffer | null)[]) {
+  const released = new Set<string>()
+  for (const digest of digests) {
+    if (digest !== null) {
+      released.add(digest.toString('hex'))
+    }
+  }
+  const sorted = [...released].sort()
+  for (const digest of sorted) {
+    if (!(await tryLockBlob(client, digest))) {
+      return false
+    }
+  }
+  for (const digest of sorted) {
+    await client.query(
+      `INSERT INTO public.processing_figure_blob_release(digest) VALUES($1)
+       ON CONFLICT DO NOTHING`,
+      [Buffer.from(digest, 'hex')],
+    )
+  }
+  return true
+}
+
+/**
+ * Deletes preview renders older than a day, view renders no question references, and a removed
+ * version's previews, releasing their blobs, as one transaction that takes no batch lock; then
+ * returns removed versions' question views to the queue a batch at a time; then collects
+ * released blobs that are a day old and that nothing else references.
  */
 export async function sweepFigureRenders(
   pool: Pool,
@@ -507,11 +671,10 @@ export async function sweepFigureRenders(
        WHERE b.id=r.batch_id AND b.actor_id=$1 AND b.target_id=$2 AND b.target_context_id=$3
          AND (
            (r.purpose='preview' AND r.requested_at < $4)
-           OR (r.purpose='view' AND r.created_at < $4 AND NOT EXISTS (
-             SELECT 1 FROM public.processing_question_figure f WHERE f.recipe_digest=r.recipe_digest))
-           OR EXISTS (
+           OR (r.purpose='view' AND r.created_at < $4 AND NOT ${VIEW_REFERENCED})
+           OR ((r.purpose='preview' OR NOT ${VIEW_REFERENCED}) AND EXISTS (
              SELECT 1 FROM public.media_version v
-             WHERE v.batch_id=r.batch_id AND v.id=r.version_id AND ${versionRemovedSql('v')})
+             WHERE v.batch_id=r.batch_id AND v.id=r.version_id AND ${versionRemovedSql('v')}))
          )
        RETURNING r.view_digest, r.thumb_digest, r.preview_digest`,
       [
@@ -527,6 +690,14 @@ export async function sweepFigureRenders(
     )
     return removed.rowCount ?? 0
   })
+  const batches = await pool.query<{ batch_id: string }>(
+    `SELECT DISTINCT r.batch_id ${REQUEUE_CANDIDATES} ORDER BY r.batch_id`,
+    [binding.actorId, binding.targetId, binding.targetContextId],
+  )
+  let requeued = 0
+  for (const batch of batches.rows) {
+    requeued += await requeueRemovedViews(pool, binding, batch.batch_id)
+  }
   const due = await pool.query<ReleasedBlob>(
     `SELECT encode(digest,'hex') AS digest, released_at::text AS released
      FROM public.processing_figure_blob_release
@@ -539,7 +710,7 @@ export async function sweepFigureRenders(
       collected += 1
     }
   }
-  return { deleted, collected }
+  return { deleted, requeued, collected }
 }
 
 export interface ReleasedBlob {

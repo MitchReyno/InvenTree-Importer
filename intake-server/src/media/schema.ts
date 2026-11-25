@@ -126,6 +126,10 @@ export const mediaDecodeClaims = pgTable('media_decode_claim', {
   ownerId: uuid('owner_id').notNull(),
 })
 
+export const mediaDecodeDeferrals = pgTable('media_decode_deferral', {
+  commandId: uuid('command_id').primaryKey(),
+})
+
 export const mediaCommandBindings = pgTable('media_command_binding', {
   commandId: uuid('command_id').primaryKey(),
   batchId: uuid('batch_id').notNull(),
