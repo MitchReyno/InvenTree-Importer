@@ -18,7 +18,7 @@ import type {
   SessionStateDto,
 } from '@invimport/contracts'
 
-/** What a held slot's turn may have started outside its worker; see migration 0039. */
+/** What a held slot's turn may have started outside its worker; see migration 0040. */
 export type TurnChildKind = 'none' | 'host' | 'vm'
 
 type AgentStageSelectionsDto = AgentSettingsDto['stage_selections']
