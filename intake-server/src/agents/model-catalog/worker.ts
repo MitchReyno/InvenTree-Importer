@@ -222,7 +222,6 @@ export function modelCatalogWorker(options: CatalogWorkerOptions) {
     if (!row?.models || row.source === 'api' || unchanged) {
       return
     }
-    versionRequested.set(name, version)
     await pool.query(
       `UPDATE agent_model_catalog SET refresh_requested_at=coalesce(refresh_requested_at,$6),
           refresh_seq=refresh_seq+1
@@ -230,6 +229,8 @@ export function modelCatalogWorker(options: CatalogWorkerOptions) {
           AND authentication=$5`,
       [scope.actorId, scope.targetId, scope.targetContextId, provider, authentication, now()],
     )
+    // Only once the request is saved, so a failed one is asked again by the next admission.
+    versionRequested.set(name, version)
   }
 
   return {

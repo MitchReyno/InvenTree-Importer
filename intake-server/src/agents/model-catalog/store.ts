@@ -35,6 +35,7 @@ export interface CatalogRow extends CatalogKey {
 export interface ReadStart {
   refreshSeq: string
   invalidationSeq: string
+  generationSeq: string
 }
 
 /** A stored list is read again after this long. */
@@ -124,17 +125,25 @@ export async function beginCatalogRead(
   key: CatalogKey,
   now: Date,
 ): Promise<ReadStart> {
-  const result = await pool.query<{ refresh_seq: string; invalidation_seq: string }>(
+  const result = await pool.query<{
+    refresh_seq: string
+    invalidation_seq: string
+    generation_seq: string
+  }>(
     `INSERT INTO agent_model_catalog AS c
         (actor_id,target_id,target_context_id,provider,authentication,reading_since)
       VALUES ($1,$2,$3,$4,$5,$6)
       ON CONFLICT (actor_id,target_id,target_context_id,provider,authentication)
         DO UPDATE SET reading_since=$6
-      RETURNING c.refresh_seq, c.invalidation_seq`,
+      RETURNING c.refresh_seq, c.invalidation_seq, c.generation_seq`,
     [...keyParams(scope, key), now],
   )
   const row = result.rows[0]
-  return { refreshSeq: row.refresh_seq, invalidationSeq: row.invalidation_seq }
+  return {
+    refreshSeq: row.refresh_seq,
+    invalidationSeq: row.invalidation_seq,
+    generationSeq: row.generation_seq,
+  }
 }
 
 /**
@@ -167,7 +176,8 @@ async function observeGenerationOn(
         stale_sign_in=c.stale_sign_in OR (SELECT changed OR other_sign_in FROM observed),
         refresh_requested_at=CASE WHEN (SELECT changed FROM observed)
           THEN coalesce(c.refresh_requested_at,$7) ELSE c.refresh_requested_at END,
-        refresh_seq=c.refresh_seq + CASE WHEN (SELECT changed FROM observed) THEN 1 ELSE 0 END
+        refresh_seq=c.refresh_seq + CASE WHEN (SELECT changed FROM observed) THEN 1 ELSE 0 END,
+        generation_seq=c.generation_seq + CASE WHEN (SELECT changed FROM observed) THEN 1 ELSE 0 END
       RETURNING (SELECT changed FROM observed) AS changed`,
     [...keyParams(scope, key), generation, now],
   )
@@ -211,11 +221,16 @@ export async function publishCatalogRead(
   now: Date,
 ): Promise<'published' | 'discarded'> {
   return transaction(pool, async (client) => {
-    const locked = await client.query<{ invalidation_seq: string }>(
-      `SELECT invalidation_seq FROM agent_model_catalog WHERE ${KEY_SQL} FOR UPDATE`,
+    const locked = await client.query<{ invalidation_seq: string; generation_seq: string }>(
+      `SELECT invalidation_seq, generation_seq FROM agent_model_catalog WHERE ${KEY_SQL} FOR UPDATE`,
       keyParams(scope, key),
     )
-    if (locked.rows[0]?.invalidation_seq !== started.invalidationSeq) {
+    // An invalidation, or a sign-in change a poll observed, since the read started.
+    const row = locked.rows[0]
+    const signInMoved =
+      row?.invalidation_seq !== started.invalidationSeq ||
+      row?.generation_seq !== started.generationSeq
+    if (signInMoved) {
       return 'discarded'
     }
     if (current !== null) {

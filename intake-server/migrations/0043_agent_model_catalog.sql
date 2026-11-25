@@ -28,6 +28,9 @@ CREATE TABLE agent_model_catalog (
   stale_sign_in boolean NOT NULL DEFAULT false,
   -- Advanced by each invalidation, so a read that started before one can't publish.
   invalidation_seq bigint NOT NULL DEFAULT 0 CHECK (invalidation_seq>=0),
+  -- Advanced whenever the worker observes a different sign-in, so neither can a read that
+  -- started before that observation.
+  generation_seq bigint NOT NULL DEFAULT 0 CHECK (generation_seq>=0),
   PRIMARY KEY (actor_id,target_id,target_context_id,provider,authentication),
   CHECK ((models IS NULL) = (read_at IS NULL)),
   CHECK ((models IS NULL) = (source IS NULL))

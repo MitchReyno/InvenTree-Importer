@@ -141,7 +141,13 @@ async function hostCodexPages(
   signal: AbortSignal,
 ) {
   const cwd = await scratch(host)
-  const env = agentEnvironment(host, catalogSelection('codex', authentication), cwd)
+  let env: NodeJS.ProcessEnv
+  try {
+    env = agentEnvironment(host, catalogSelection('codex', authentication), cwd)
+  } catch {
+    // An API-key mode with no key configured.
+    throw new CatalogReadError('signed_out')
+  }
   try {
     await rejectHostCustomizations(env.CODEX_HOME!)
   } catch {

@@ -148,14 +148,21 @@ test(
   'a catalogue read through the real relay answers while status reads keep their deadline',
   { timeout: 120000 },
   async (t) => {
-    const world = await topology(t, 'answer', 1500)
+    const world = await topology(t, 'answer', 2000)
     // A generation-only answer is the store revision and starts no CLI.
     const generation = await world.bridge.modelCatalog('claude', 'generation')
     assert.deepEqual(generation, { kind: 'generation', generation: world.claude.status().revision })
     assert.deepEqual(await cliLog(world.log), [])
 
+    // Both of the relay's catalogue connections start together; give the second a moment.
+    await delay(1000)
     const reading = world.bridge.modelCatalog('claude', 'read')
     await delay(300)
+    // The relay's second catalogue connection answers a generation check while the read runs.
+    const generationStarted = performance.now()
+    const during = await world.bridge.modelCatalog('claude', 'generation')
+    assert.equal(during.kind, 'generation')
+    assert.ok(performance.now() - generationStarted < 1000)
     const statusStarted = performance.now()
     const status = await world.bridge.providerStatus()
     assert.ok(performance.now() - statusStarted < 1800)

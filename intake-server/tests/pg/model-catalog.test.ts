@@ -15,6 +15,7 @@ import {
   guestReader,
   hostClaudeApiReader,
   hostClaudeSubscriptionReader,
+  hostCodexApiReader,
   type CatalogReader,
   type CatalogRead,
 } from '#/agents/model-catalog/readers.ts'
@@ -626,13 +627,28 @@ test('a list read on another route is never served, in either direction, even wh
     const before = await readModelCatalog(fixture.api.pool, fixture.config)
     assert.equal(before.claude.builtin, true, profileId)
     const { state, reader } = fakeReader('rev-a')
-    state.answers.push(new CatalogReadError('timeout'))
+    let fail!: (error: CatalogReadError) => void
+    state.answers.push(
+      new Promise<CatalogRead>((_resolve, reject) => {
+        fail = reject
+      }),
+    )
     const catalog = worker(fixture, () => reader)
-    await round(catalog)
+    await catalog.pass()
+    await readStarted(state, 1)
+    // This route's read is running: it says so over the built-in list.
+    const reading = await readModelCatalog(fixture.api.pool, fixture.config)
+    assert.equal(reading.claude.state, 'reading', profileId)
+    assert.equal(reading.claude.builtin, true, profileId)
+    fail(new CatalogReadError('timeout'))
+    await catalog.idle()
     await catalog.close()
     const after = await readModelCatalog(fixture.api.pool, fixture.config)
     assert.equal(after.claude.builtin, true, profileId)
     assert.deepEqual(after.claude.models, [...BUILT_IN_MODEL_CATALOG.claude])
+    assert.equal(after.claude.state, 'never_read', profileId)
+    assert.equal(after.claude.failure, 'timeout', profileId)
+    assert.equal(after.claude.read_at, null, profileId)
   }
 })
 
@@ -767,4 +783,125 @@ test('removing a host API key marks its list stale until a read under a key land
   time.advance(60_000)
   await round(catalog)
   assert.equal((await readModelCatalog(fixture.api.pool, fixture.config)).claude.state, 'current')
+})
+
+test('a read that sampled a sign-in before a poll observed another never makes it current', async (t) => {
+  const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
+  t.after(() => fixture.dispose())
+  await claudeOnly(fixture)
+  const time = clock()
+  const { state, reader } = fakeReader('rev-a')
+  const catalog = worker(fixture, () => reader, time)
+  t.after(() => catalog.close())
+  await round(catalog)
+
+  let release!: (read: CatalogRead) => void
+  state.answers.push(new Promise((resolve) => (release = resolve)))
+  await refreshModelCatalog(fixture.api.pool, fixture.config, { provider: 'claude' })
+  await catalog.pass()
+  await readStarted(state, 2)
+  // A poll commits rev-b while the read is out; then the guest reports rev-a again.
+  state.generation = 'rev-b'
+  time.advance(60_000)
+  await catalog.pass()
+  for (let i = 0; i < 100 && (await claudeRow(fixture))?.latestGeneration !== 'rev-b'; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 20))
+  }
+  assert.equal((await claudeRow(fixture))?.staleSignIn, true)
+  state.generation = 'rev-a'
+  release({ generation: 'rev-a', cliVersion: '2.1.319', models: [sonnet] })
+  await catalog.idle()
+  // The held reply was discarded; the list is the one read after the observation.
+  assert.equal(state.reads, 3)
+  assert.deepEqual((await claudeRow(fixture))?.models, [opus])
+})
+
+test('a CLI version whose refresh request failed is asked for again by the next admission', async (t) => {
+  const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
+  t.after(() => fixture.dispose())
+  await claudeOnly(fixture)
+  const { reader } = fakeReader('rev-a')
+  let failNextUpdate = false
+  const pool = new Proxy(fixture.runner.pool, {
+    get(target, property, receiver) {
+      if (property === 'query') {
+        return (text: unknown, ...rest: unknown[]) => {
+          if (
+            failNextUpdate &&
+            typeof text === 'string' &&
+            text.includes('refresh_seq=refresh_seq+1')
+          ) {
+            failNextUpdate = false
+            return Promise.reject(new Error('connection lost'))
+          }
+          return (target.query as (...args: unknown[]) => unknown).call(target, text, ...rest)
+        }
+      }
+      return Reflect.get(target, property, receiver) as unknown
+    },
+  })
+  const catalog = modelCatalogWorker({
+    pool,
+    scope: fixture.config,
+    reader: () => reader,
+    now: clock().now,
+    providers: async () => [{ provider: 'claude', authentication: 'subscription', enabled: true }],
+  })
+  t.after(() => catalog.close())
+  await round(catalog)
+  failNextUpdate = true
+  await assert.rejects(catalog.cliVersionReported('claude', 'subscription', '2.1.320'))
+  assert.equal((await claudeRow(fixture))?.refreshRequestedAt, null)
+  await catalog.cliVersionReported('claude', 'subscription', '2.1.320')
+  assert.ok((await claudeRow(fixture))?.refreshRequestedAt)
+})
+
+test('removing the host OpenAI key marks the Codex list stale until a read under a key lands', async (t) => {
+  const fixture = await processingFixture({ profileId: 'native-agent/2' })
+  t.after(() => fixture.dispose())
+  await saveAgentSettings(
+    fixture.api.pool,
+    fixture.config,
+    singleProvider({
+      expected_revision: '0',
+      selection: { provider: 'codex', authentication: 'api_key', model: 'gpt-6.2-sol' },
+    }),
+  )
+  const root = await mkdtemp(join(tmpdir(), 'catalog-codex-key-'))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  const host = nativeAgentHost({
+    INTAKE_AGENT_STATE_ROOT: join(root, 'state'),
+    INTAKE_CODEX_EXECUTABLE: fakeCli,
+    PATH: process.env.PATH,
+    HOME: root,
+    OPENAI_API_KEY: 'sk-openai-first',
+  })
+  const fetcher: typeof fetch = async () => Response.json({ data: [{ id: 'gpt-6.2-sol' }] })
+  const reader = hostCodexApiReader(
+    host,
+    fixture.config.channelSecret,
+    () => host.env.OPENAI_API_KEY,
+    fetcher,
+  )
+  const time = clock()
+  const catalog = worker(fixture, () => reader, time, [
+    { provider: 'codex', authentication: 'api_key', enabled: true },
+  ])
+  t.after(() => catalog.close())
+  await round(catalog)
+  const read = await readModelCatalog(fixture.api.pool, fixture.config)
+  assert.equal(read.codex.state, 'current')
+  assert.equal(read.codex.models.find((model) => model.id === 'gpt-6.2-sol')?.usable, true)
+
+  host.env = { ...host.env, OPENAI_API_KEY: undefined }
+  time.advance(60_000)
+  await round(catalog)
+  const removed = await readModelCatalog(fixture.api.pool, fixture.config)
+  assert.equal(removed.codex.state, 'stale_sign_in')
+  assert.equal(removed.codex.models.length, 10)
+
+  host.env = { ...host.env, OPENAI_API_KEY: 'sk-openai-second' }
+  time.advance(60_000)
+  await round(catalog)
+  assert.equal((await readModelCatalog(fixture.api.pool, fixture.config)).codex.state, 'current')
 })
