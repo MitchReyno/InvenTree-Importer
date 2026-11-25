@@ -18,7 +18,7 @@ import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { GlobalStyle } from '#/components/GlobalStyle'
 import { ApiClientsProvider, HeaderObservationsProvider } from '#/context'
 import { settingsSection, settingsSubsection } from '#/navigation/app-route'
-import { useHashRoute } from '#/navigation/useHashRoute'
+import { useNavigationGuard } from '#/navigation/useNavigationGuard'
 import { space } from '#/theme/generated/tokens'
 import type { HeaderClient } from '#/header/types'
 import { Settings } from '../Settings'
@@ -240,7 +240,8 @@ export function SettingsProof() {
   const [cache] = useState(batchReads)
   // Syncs the page's fetch with the fake VM while the fixture is shown.
   useEffect(() => installFakeRunner(), [])
-  const route = useHashRoute('settings')
+  // The app's guard follows the hash, so the sub-nav's scrolling replaces the address as in the app.
+  const { route, routeFromScroll, replaceSubsection } = useNavigationGuard()
 
   return (
     <ServerStateProvider scope={scope} client={cache}>
@@ -251,6 +252,8 @@ export function SettingsProof() {
             <Settings
               section={settingsSection(route)}
               subsection={settingsSubsection(route)}
+              routeFromScroll={routeFromScroll}
+              replaceSubsection={replaceSubsection}
               returnTo={`${batchId}/processing/overview`}
               agents={agents}
               onDirtyChange={() => {}}

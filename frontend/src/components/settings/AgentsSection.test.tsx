@@ -147,6 +147,7 @@ function Harness({ api, dirty }: { api: Api; dirty?: (value: boolean) => void })
         returnTo={undefined}
         agents={api as unknown as ReturnType<typeof agentsClient>}
         onDirtyChange={dirty ?? vi.fn()}
+        replaceSubsection={vi.fn()}
       />
     </>
   )

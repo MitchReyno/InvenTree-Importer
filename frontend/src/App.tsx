@@ -51,7 +51,14 @@ import {
 } from './context'
 
 export default function App() {
-  const { route, settingsReturn, navigationBlocked, onDirtyChange } = useNavigationGuard()
+  const {
+    route,
+    routeFromScroll,
+    settingsReturn,
+    navigationBlocked,
+    onDirtyChange,
+    replaceSubsection,
+  } = useNavigationGuard()
   const { enabled: debug } = useDebugMode()
   const bootstrapQuery = useQuery({
     queryKey: ['bootstrap', location.origin],
@@ -192,6 +199,8 @@ export default function App() {
       <Settings
         section={settingsSection(route)}
         subsection={settingsSubsection(route)}
+        routeFromScroll={routeFromScroll}
+        replaceSubsection={replaceSubsection}
         returnTo={settingsReturn}
         agents={agents}
         onDirtyChange={onDirtyChange}

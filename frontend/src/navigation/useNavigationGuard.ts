@@ -33,6 +33,8 @@ export function useNavigationGuard() {
   const [settingsReturn, setSettingsReturn] = useState(() => storedSettingsReturnFor(route))
   const accepted = useRef({ route, settingsReturn })
   const [navigationBlocked, setNavigationBlocked] = useState(false)
+  // Whether the accepted route was written by scrolling, so its page is already in place.
+  const [routeFromScroll, setRouteFromScroll] = useState(false)
   const dirty = useRef(false)
   const protectedUrl = useRef<string | null>(null)
   // Saves what can be saved before leaving, answering whether nothing is left unsaved.
@@ -118,6 +120,7 @@ export function useNavigationGuard() {
       }
       accepted.current = { route: next, settingsReturn: returnTo }
       setRoute(next)
+      setRouteFromScroll(false)
       setSettingsReturn(returnTo)
     }
 
@@ -181,5 +184,32 @@ export function useNavigationGuard() {
       document.removeEventListener('click', guardLink, true)
     }
   }, [])
-  return { route, settingsReturn, navigationBlocked, onDirtyChange }
+
+  /**
+   * Replaces the current Settings › Agents entry with the subsection scrolled to. No history
+   * entry is added, and the entry keeps its state (the Settings return route); a later Back or
+   * link is judged against this subsection, which an unsaved draft now protects.
+   */
+  const replaceSubsection = useCallback((next: string) => {
+    const current = accepted.current.route
+    if (next === current || !withinAgentsPage(current, next)) {
+      return
+    }
+    history.replaceState(history.state, '', `#${next}`)
+    if (dirty.current) {
+      protectedUrl.current = location.href
+    }
+    accepted.current = { ...accepted.current, route: next }
+    setRoute(next)
+    setRouteFromScroll(true)
+  }, [])
+
+  return {
+    route,
+    routeFromScroll,
+    settingsReturn,
+    navigationBlocked,
+    onDirtyChange,
+    replaceSubsection,
+  }
 }

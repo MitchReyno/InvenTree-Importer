@@ -416,15 +416,15 @@
   - a capture at 390 px showing the stacked nav unchanged.
 - **Risks and decisions:** `history.replaceState` fires no `hashchange` or `popstate`, so the guard must be told of the replacement, or a later Back with an unsaved draft would restore the wrong subsection's URL; and the scroll-and-focus Effect must treat a scrolled-to route as already in place, or the page would jump back to the heading. Tests cover both.
 
-- [ ] 16.1 Read the shared and frontend code guidelines, `frontend/ARCHITECTURE.md`'s Settings section and the board. Note every test that asserts `aria-current="location"` or the focus after a subsection link.
-- [ ] 16.2 RED: tests in `Settings.test.tsx` (or a new `useSubsectionInView.test.ts`) with stubbed rectangles:
-  - [ ] 16.2.1 a heading crossing the reading line marks its link current, the address is replaced (history length unchanged) and focus stays put; scrolling back up moves the mark back;
-  - [ ] 16.2.2 before any heading crosses, the first is current; at the end of the page the last is current;
-  - [ ] 16.2.3 a clicked link is current at once, and scroll events before its scroll ends don't mark the subsections in between (with and without `scrollend`);
-  - [ ] 16.2.4 a route written by scrolling doesn't scroll or focus; a route opened by a link or a shared address still scrolls and focuses its heading;
-  - [ ] 16.2.5 through the real `App` and `useNavigationGuard`: after scrolling, `history.state` keeps the Settings return target and Back leaves Settings in one step; with an unsaved text draft, Back keeps the existing save-or-block behaviour and restores the scrolled-to subsection's URL, not the one first opened;
-  - [ ] 16.2.6 below the `stacked` breakpoint no scroll moves the mark.
-- [ ] 16.3 GREEN: implement the hook and the guard's replacement, and wire them into `AgentsSection`.
+- [x] 16.1 Read the shared and frontend code guidelines, `frontend/ARCHITECTURE.md`'s Settings section and the board. Note every test that asserts `aria-current="location"` or the focus after a subsection link.
+- [x] 16.2 RED: tests in `Settings.test.tsx` (or a new `useSubsectionInView.test.ts`) with stubbed rectangles:
+  - [x] 16.2.1 a heading crossing the reading line marks its link current, the address is replaced (history length unchanged) and focus stays put; scrolling back up moves the mark back;
+  - [x] 16.2.2 before any heading crosses, the first is current; at the end of the page the last is current;
+  - [x] 16.2.3 a clicked link is current at once, and scroll events before its scroll ends don't mark the subsections in between (with and without `scrollend`);
+  - [x] 16.2.4 a route written by scrolling doesn't scroll or focus; a route opened by a link or a shared address still scrolls and focuses its heading;
+  - [x] 16.2.5 through the real `App` and `useNavigationGuard`: after scrolling, `history.state` keeps the Settings return target and Back leaves Settings in one step; with an unsaved text draft, Back keeps the existing save-or-block behaviour and restores the scrolled-to subsection's URL, not the one first opened;
+  - [x] 16.2.6 below the `stacked` breakpoint no scroll moves the mark.
+- [x] 16.3 GREEN: implement the hook and the guard's replacement, and wire them into `AgentsSection`.
 - [ ] 16.4 Update `frontend/ARCHITECTURE.md` (Settings navigation). Run the frontend checks, and record the demo video for the PR description.
 
 ## 17. The Settings nav lets the electronics show through

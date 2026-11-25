@@ -47,13 +47,20 @@ type Props = {
   onDirtyChange: (dirty: boolean, beforeLeave?: () => Promise<boolean>) => void
   /** The subsection the route points at; the page scrolls to it and focuses its heading. */
   subsection?: AgentSubsectionId
+  /** Whether the route was written by scrolling, so the page is already at that subsection. */
+  routeFromScroll?: boolean
 }
 
 /**
  * Settings › Agents: every setting that shapes agent behaviour, in subsections. The providers'
  * sign-in status is read here, so it is read each time the section opens.
  */
-export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
+export function AgentsSection({
+  client,
+  onDirtyChange,
+  subsection,
+  routeFromScroll = false,
+}: Props) {
   const scope = useServerScope()
   const poll = useRetainedPollInterval()
   const providerStatus = useProviderStatus(client)
@@ -110,6 +117,11 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
       focused.current = undefined
       return
     }
+    if (routeFromScroll) {
+      // The operator scrolled here; the page is in place and focus stays where it is.
+      focused.current = subsection
+      return
+    }
     // Loading the settings replaces the first subsections' headings; focus follows the new one
     // only when it was lost with the old, never taking it from where the operator moved it.
     const lost = document.activeElement === document.body
@@ -120,7 +132,7 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
     heading?.scrollIntoView?.({ block: 'start' })
     heading?.focus()
     focused.current = subsection
-  }, [subsection, ready])
+  }, [subsection, ready, routeFromScroll])
 
   /**
    * Publishes confirmed settings and answers with what is current. A read that was already
