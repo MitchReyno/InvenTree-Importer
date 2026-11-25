@@ -27,6 +27,7 @@ import { prepareMediaTransaction } from '#/media/transaction.ts'
 import { lockProcessingMediaCurrency } from './media.ts'
 import { lockProcessingAttempt, transitionAttempt, releaseProcessingLane } from './state.ts'
 import { processingDependencyStatus } from './dependencies.ts'
+import { requireSupervisorFence, type SupervisorFence } from '#/agents/supervisor-fence.ts'
 
 export interface ResearchInput {
   payload: ProcessingCommandDto
@@ -48,13 +49,17 @@ export interface RestrictedResearchRunner {
   ): Promise<void>
 }
 
-/** Claims one actor lane and verifies actual retained bytes before returning bounded staged input. */
+/**
+ * Claims one actor lane and verifies actual retained bytes before returning bounded staged input.
+ * The `/1` agent worker passes its supervisor fence, so it claims nothing once it lost its lock.
+ */
 export async function claimProcessingCommand(
   pool: Pool,
   config: ProcessingConfig,
   workflowId: string,
   payload: unknown,
   actualHandlerVersion: string,
+  fence?: SupervisorFence,
 ): Promise<ResearchCommand | null> {
   if (
     ![mediaHandlerVersion, researchHandlerVersion, nativeHandlerVersion].includes(
@@ -65,6 +70,8 @@ export async function claimProcessingCommand(
   }
   return transaction(pool, async (client) => {
     await prepareMediaTransaction(client)
+    // Before any row lock: a `/1` worker that lost its lock claims no lane.
+    await requireSupervisorFence(client, fence, 'ownership')
     const matchingCommands = await executeDatabaseQuery(
       queryDatabase(client)
         .select({ id: commands.id })

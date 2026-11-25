@@ -2,6 +2,7 @@ import type { Pool, PoolClient } from 'pg'
 import type { ProcessingConfig } from '#/processing/attempts.ts'
 import { requireFreeCapacity, type HeldCapacityChecks } from './held-capacity.ts'
 import {
+  awaitFencedWrites,
   readSupervisorFence,
   SUPERVISOR_LOCK_SEED,
   supervisorLockName,
@@ -14,13 +15,20 @@ export interface SupervisorLock {
   fence: SupervisorFence
 }
 
+export interface SupervisorLockOptions {
+  /** Overrides `SUPERVISOR_FENCE_WAIT_MS`, for tests. */
+  fenceWaitMs?: number
+}
+
 /**
- * Takes the actor's supervisor lock, so a second supervisor cannot claim this actor. The returned
- * connection holds it; destroying that connection releases only this lock.
+ * Takes the actor's supervisor lock, so a second supervisor cannot claim this actor, then waits
+ * for a previous holder's fenced writes still in flight. The returned connection holds the lock;
+ * destroying that connection releases only this lock.
  */
 export async function lockAgentSupervisor(
   pool: Pool,
   config: ProcessingConfig,
+  options: SupervisorLockOptions = {},
 ): Promise<SupervisorLock> {
   const owner = await pool.connect()
   try {
@@ -32,6 +40,8 @@ export async function lockAgentSupervisor(
       throw new Error('agent_supervisor_already_running')
     }
     const fence = await readSupervisorFence(owner, config.actorId)
+    // Before anything reads held capacity, so no write of a worker that lost the lock lands after.
+    await awaitFencedWrites(owner, config.actorId, options.fenceWaitMs)
     return { owner, fence }
   } catch (error) {
     owner.release(true)

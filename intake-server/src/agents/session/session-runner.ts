@@ -31,6 +31,7 @@ import { decodeMediaInputs } from '#/media/inputs.ts'
 import { agentBatchPauses, agentSessionInbox, agentSessions, agentSlots } from '#/agents/schema.ts'
 import { agentEnvironment, privateDirectory, type NativeAgentHost } from '#/agents/environment.ts'
 import { recordSessionProgress } from './sessions.ts'
+import { requireSupervisorFence, type SupervisorFence } from '#/agents/supervisor-fence.ts'
 import { issueSessionCapability, revokeSessionCapability } from '#/agents/tools/capability.ts'
 import {
   acknowledgeSessionInbox,
@@ -133,6 +134,8 @@ export interface SessionRunnerDeps {
   drivers?: Partial<Record<SessionInputDto['profile_id'], SessionDriver>>
   /** Overrides the per-turn deadline, for tests. */
   turnDeadlineMs?: number
+  /** The worker's supervisor fence; every worker passes it, tests without a supervisor omit it. */
+  fence?: SupervisorFence
 }
 
 /** A turn longer than this is stopped and reaped; the session fails rather than resuming a stall. */
@@ -622,6 +625,8 @@ export async function runSessionTurn(
 
   const claim = () =>
     transaction(pool, async (client) => {
+      // First, before any row lock: a worker that lost its lock claims nothing.
+      await requireSupervisorFence(client, deps.fence, 'ownership')
       const rows = await executeDatabaseQuery(
         queryDatabase(client)
           .select({
@@ -955,7 +960,8 @@ export async function runSessionTurn(
     const cwd = await privateDirectory(join(host.stateRoot, 'sessions', current.jobId))
     const turnNumber = current.turnCount + 1n
 
-    const recordChild = (child: TurnChild) => recordTurnChild(pool, attemptId, turnNumber, child)
+    const recordChild = (child: TurnChild) =>
+      recordTurnChild(pool, attemptId, turnNumber, child, deps.fence)
 
     const driver = deps.drivers?.[current.manifest.profile_id] ?? builtInDriver(host, current)
     await driver(turn, {
@@ -1025,6 +1031,8 @@ export async function runSessionTurn(
   await watching
 
   return transaction(pool, async (client) => {
+    // A worker that lost its lock settles only while no replacement holds it.
+    await requireSupervisorFence(client, deps.fence, 'settlement')
     // The batch first, as an ungroup takes it, so a withdrawal it commits is seen below and a
     // withdrawn item doesn't requeue the session. Then job and attempt, as everywhere.
     await client.query('SELECT 1 FROM public.capture_batch WHERE id=$1 FOR SHARE', [

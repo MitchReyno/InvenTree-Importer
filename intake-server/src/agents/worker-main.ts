@@ -84,7 +84,15 @@ async function main() {
           throw new Error('agent_worker_stopping')
         }
         return DBOS.runStep(
-          () => executeProcessingCommand(db.pool, config, DBOS.workflowID!, payload, runner),
+          () =>
+            executeProcessingCommand(
+              db.pool,
+              config,
+              DBOS.workflowID!,
+              payload,
+              runner,
+              lock.fence,
+            ),
           { name: 'originalNativeAgent', retriesAllowed: false },
         )
       },
@@ -131,6 +139,7 @@ main().catch((error: unknown) => {
     'local_agent_database_required',
     'database_version_quarantined',
     'agent_supervisor_lock_lost',
+    'agent_supervisor_writes_in_flight',
   ]
   let code =
     error instanceof Error && safeCodes.includes(error.message)

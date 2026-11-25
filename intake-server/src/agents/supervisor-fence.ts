@@ -102,13 +102,17 @@ async function readSupervisorHolder(
  * Run first in a transaction that claims, records or settles held capacity. It takes the fence's
  * shared lock, which a new supervisor's `awaitFencedWrites` waits for, then refuses unless the
  * write is permitted: a write that passes commits before a replacement's check, and one that
- * starts after a replacement took the lock is refused.
+ * starts after a replacement took the lock is refused. A writer with no supervisor (the media and
+ * research workers, and tests that run turns without one) passes no fence and is not fenced.
  */
 export async function requireSupervisorFence(
   client: PoolClient,
-  fence: SupervisorFence,
+  fence: SupervisorFence | undefined,
   write: FencedWrite,
 ) {
+  if (!fence) {
+    return
+  }
   await client.query('SELECT pg_advisory_xact_lock_shared(hashtextextended($1, $2))', [
     supervisorFenceName(fence.actorId),
     SUPERVISOR_FENCE_SEED,

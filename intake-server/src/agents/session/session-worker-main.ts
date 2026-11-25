@@ -211,6 +211,7 @@ async function main() {
       config,
       host,
       toolUrl: tools.url,
+      fence: lock.fence,
       drivers: {
         'synthetic-session/1':
           config.profileId === 'synthetic-session/1' && bridge
@@ -330,6 +331,7 @@ main().catch((error: unknown) => {
     'local_agent_database_required',
     'database_version_quarantined',
     'agent_supervisor_lock_lost',
+    'agent_supervisor_writes_in_flight',
   ]
   let code =
     error instanceof Error && safeCodes.includes(error.message)

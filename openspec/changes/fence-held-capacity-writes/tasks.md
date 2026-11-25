@@ -50,8 +50,8 @@
 - Verification: PG race tests in `tests/pg/supervisor-fence.test.ts`.
 - Risks: a missed call site stays unfenced; the session worker and `/1` worker are the only production callers.
 
-- [ ] 2.1 RED: PG tests with two supervisors' connections: A loses its lock and B acquires, then A's session claim, A's VM record during B's check, and A's `/1` lane claim. Each commits on today's write paths (the claim's driver runs, B refuses with `held_capacity_changed`, the lane is claimed).
-- [ ] 2.2 GREEN: the fenced claim, record and lane claim. The race tests pass, with each write refused as `agent_supervisor_lock_lost` and nothing changed, and the lock holder's writes still commit.
+- [x] 2.1 RED: PG tests with two supervisors' connections: A loses its lock and B acquires, then A's session claim, A's VM record during B's check, and A's `/1` lane claim. Each commits on today's write paths (the claim's driver runs, B refuses with `held_capacity_changed`, the lane is claimed).
+- [x] 2.2 GREEN: the fenced claim, record and lane claim. The race tests pass, with each write refused as `agent_supervisor_lock_lost` and nothing changed, and the lock holder's writes still commit.
 
 ## 3. Barrier before the startup check
 
@@ -62,8 +62,8 @@
 - Verification: PG tests for the in-flight claim and the bound.
 - Risks: a long-open transaction of a lost worker delays a start by up to 30 s, then refuses.
 
-- [ ] 3.1 RED: PG test: A's claim transaction passes the fence and claims, A loses its lock, B acquires; B's check must decide the claimed slot. It fails today because B's check finishes before A commits. Plus a test that a transaction open past a short bound refuses B with `agent_supervisor_writes_in_flight`.
-- [ ] 3.2 GREEN: the barrier and its bound. Both tests pass.
+- [x] 3.1 RED: PG test: A's claim transaction passes the fence and claims, A loses its lock, B acquires; B's check must decide the claimed slot. It fails today because B's check finishes before A commits. Plus a test that a transaction open past a short bound refuses B with `agent_supervisor_writes_in_flight`.
+- [x] 3.2 GREEN: the barrier and its bound. Both tests pass.
 
 ## 4. Fence settlement
 
@@ -74,8 +74,8 @@
 - Verification: PG tests for both cases.
 - Risks: a lost worker's settlement refused under a replacement leaves the slot for the next start; that start already decides it from the record.
 
-- [ ] 4.1 RED: PG test: A's turn settles after A lost its lock while B holds it; the settlement must change nothing. It fails today because settlement releases the slot. Plus the case with no holder, which settles as before.
-- [ ] 4.2 GREEN: the fenced settlement. Both tests pass, and `tests/pg/held-capacity.test.ts` still passes.
+- [x] 4.1 RED: PG test: A's turn settles after A lost its lock while B holds it; the settlement must change nothing. It fails today because settlement releases the slot. Plus the case with no holder, which settles as before.
+- [x] 4.2 GREEN: the fenced settlement. Both tests pass, and `tests/pg/held-capacity.test.ts` still passes.
 
 ## 5. Docs, notes and review
 
