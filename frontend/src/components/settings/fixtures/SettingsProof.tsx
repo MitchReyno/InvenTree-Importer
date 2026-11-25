@@ -241,7 +241,7 @@ export function SettingsProof() {
   // Syncs the page's fetch with the fake VM while the fixture is shown.
   useEffect(() => installFakeRunner(), [])
   // The app's guard follows the hash, so the sub-nav's scrolling replaces the address as in the app.
-  const { route, routeFromScroll, replaceSubsection } = useNavigationGuard()
+  const { route, routeFromScroll, replaceSubsection, reopenSubsection } = useNavigationGuard()
 
   return (
     <ServerStateProvider scope={scope} client={cache}>
@@ -254,6 +254,7 @@ export function SettingsProof() {
               subsection={settingsSubsection(route)}
               routeFromScroll={routeFromScroll}
               replaceSubsection={replaceSubsection}
+              onSubsectionReopened={reopenSubsection}
               returnTo={`${batchId}/processing/overview`}
               agents={agents}
               onDirtyChange={() => {}}

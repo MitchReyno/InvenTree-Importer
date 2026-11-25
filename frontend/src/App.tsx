@@ -58,6 +58,7 @@ export default function App() {
     navigationBlocked,
     onDirtyChange,
     replaceSubsection,
+    reopenSubsection,
   } = useNavigationGuard()
   const { enabled: debug } = useDebugMode()
   const bootstrapQuery = useQuery({
@@ -201,6 +202,7 @@ export default function App() {
         subsection={settingsSubsection(route)}
         routeFromScroll={routeFromScroll}
         replaceSubsection={replaceSubsection}
+        onSubsectionReopened={reopenSubsection}
         returnTo={settingsReturn}
         agents={agents}
         onDirtyChange={onDirtyChange}

@@ -37,8 +37,11 @@ function scrollReading(ids: readonly AgentSubsectionId[]) {
   let frame: number | undefined
   let idle: ReturnType<typeof setTimeout> | undefined
   let paused = false
-  // Set while subscribed. A pause holds without one too: the page can scroll to a heading
-  // before the subscription starts.
+  // When a pause with no scroll since ends, in `Date.now()` ms. A pause holds without a
+  // subscription too, since the page can scroll to a heading before it starts; only a
+  // subscription runs the timer that ends it.
+  let pausedUntil = 0
+  // Set while subscribed.
   let notify: (() => void) | undefined
 
   function publish(next: AgentSubsectionId | undefined) {
@@ -60,9 +63,21 @@ function scrollReading(ids: readonly AgentSubsectionId[]) {
     clearTimeout(idle)
   }
 
-  function waitForIdle() {
+  function armIdleTimer() {
     clearTimeout(idle)
-    idle = setTimeout(resume, SCROLL_IDLE_MS)
+    const remaining = pausedUntil - Date.now()
+    if (remaining <= 0) {
+      resume()
+      return
+    }
+    idle = setTimeout(resume, remaining)
+  }
+
+  function waitForIdle() {
+    pausedUntil = Date.now() + SCROLL_IDLE_MS
+    if (notify) {
+      armIdleTimer()
+    }
   }
 
   function pause() {
@@ -91,6 +106,9 @@ function scrollReading(ids: readonly AgentSubsectionId[]) {
 
     subscribe(listener: () => void) {
       notify = listener
+      if (paused) {
+        armIdleTimer()
+      }
       addEventListener('scroll', handleScroll, { passive: true })
       addEventListener('scrollend', resume)
       addEventListener('hashchange', pause)
@@ -100,8 +118,9 @@ function scrollReading(ids: readonly AgentSubsectionId[]) {
         removeEventListener('scrollend', resume)
         removeEventListener('hashchange', pause)
         removeEventListener('popstate', pause)
-        // A pause still running outlives a resubscription, as under StrictMode; its timer ends it.
+        // A pause still running outlives a resubscription, as under StrictMode, by its deadline.
         cancelFrame()
+        clearTimeout(idle)
         current = undefined
         notify = undefined
       }

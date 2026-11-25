@@ -1,4 +1,4 @@
-import { act, screen, within } from '@testing-library/react'
+import { act, renderHook, screen, within } from '@testing-library/react'
 import { StrictMode } from 'react'
 import type { AgentSettingsDto } from '@invimport/contracts'
 import userEvent from '@testing-library/user-event'
@@ -11,6 +11,8 @@ import { stubPhoneViewport } from '#/test/viewport'
 import { settingsSection, settingsSubsection } from '#/navigation/app-route'
 import { useNavigationGuard } from '#/navigation/useNavigationGuard'
 import { Settings } from '../Settings'
+import { useSubsectionInView } from './useSubsectionInView'
+import { AGENT_SUBSECTIONS } from '#/navigation/app-route'
 import { PAGE_END, stubSubsectionLayout } from '#/test/subsection-layout'
 
 // Agents reads whether sessions have web access; these tests don't depend on it.
@@ -34,8 +36,14 @@ let client: ReturnType<typeof agentsClient>
 
 /** Settings as the app mounts it, with the app's navigation guard. */
 function GuardedSettings() {
-  const { route, settingsReturn, onDirtyChange, replaceSubsection, routeFromScroll } =
-    useNavigationGuard()
+  const {
+    route,
+    settingsReturn,
+    onDirtyChange,
+    replaceSubsection,
+    reopenSubsection,
+    routeFromScroll,
+  } = useNavigationGuard()
 
   return (
     <Settings
@@ -45,6 +53,7 @@ function GuardedSettings() {
       agents={client}
       onDirtyChange={onDirtyChange}
       replaceSubsection={replaceSubsection}
+      onSubsectionReopened={reopenSubsection}
       routeFromScroll={routeFromScroll}
     />
   )
@@ -269,4 +278,65 @@ test('on a bare Agents route the first scroll by hand is followed at once', asyn
 
   expect(currentLink()).toBe('Provider and model per step')
   expect(location.hash).toBe('#settings/agents/models')
+})
+
+test('reopening the subsection scrolled to before the settings load keeps focus on its heading', async () => {
+  const user = userEvent.setup()
+
+  let answer: (value: AgentSettingsDto) => void = () => undefined
+
+  vi.mocked(client.settings).mockImplementation(
+    () => new Promise<AgentSettingsDto>((resolve) => (answer = resolve)),
+  )
+  history.replaceState({ settingsReturnTo: 'agents' }, '', '#settings/agents')
+  render(<GuardedSettings />)
+  layout.scrollPage(1200)
+  expect(location.hash).toBe('#settings/agents/models')
+
+  await user.click(screen.getByRole('link', { name: 'Provider and model per step' }))
+  expect(
+    screen.getByRole('heading', { level: 3, name: 'Provider and model per step' }),
+  ).toHaveFocus()
+  await act(async () =>
+    answer(
+      agentSettings('7', { provider: 'claude', authentication: 'subscription', model: 'sonnet' }),
+    ),
+  )
+  await screen.findByRole('group', { name: /^Claude$/ })
+
+  // The loaded form replaced the heading; focus follows it.
+  expect(
+    screen.getByRole('heading', { level: 3, name: 'Provider and model per step' }),
+  ).toHaveFocus()
+})
+
+test('a pause holds across a new subscription and leaves no timer once unsubscribed', () => {
+  // Animation frames stay with the layout stub.
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+  try {
+    const view = renderHook(({ enabled }) => useSubsectionInView(AGENT_SUBSECTIONS, enabled), {
+      initialProps: { enabled: false },
+      wrapper: StrictMode,
+    })
+    act(() => view.result.current.pause())
+    view.rerender({ enabled: true })
+
+    layout.scrollWithoutFrame(1200)
+    expect(layout.pendingFrames()).toBe(0)
+    act(() => {
+      vi.advanceTimersByTime(200)
+    })
+    layout.scrollWithoutFrame(1300)
+    expect(layout.pendingFrames()).toBe(1)
+    layout.flushFrames()
+    // No headings are rendered here, so the reading is the first subsection.
+    expect(view.result.current.inView).toBe('providers')
+
+    act(() => view.result.current.pause())
+    expect(vi.getTimerCount()).toBe(1)
+    view.unmount()
+    expect(vi.getTimerCount()).toBe(0)
+  } finally {
+    vi.useRealTimers()
+  }
 })

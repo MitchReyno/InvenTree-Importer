@@ -27,6 +27,8 @@ type Props = {
   routeFromScroll?: boolean
   /** Replaces the current history entry's route with the Agents subsection scrolled to. */
   replaceSubsection: (route: string) => void
+  /** The operator opened the subsection the route already names; it no longer comes from scrolling. */
+  onSubsectionReopened?: () => void
   /** The route Settings was opened from; none for a direct load. */
   returnTo: string | undefined
   /** Absent where this setup has no agent settings. */
@@ -67,6 +69,7 @@ export function Settings({
   subsection,
   routeFromScroll = false,
   replaceSubsection,
+  onSubsectionReopened,
   returnTo,
   agents,
   onDirtyChange,
@@ -96,6 +99,7 @@ export function Settings({
       return
     }
     pause()
+    onSubsectionReopened?.()
     scrollToSubsection(subsection)
   }
 
@@ -132,7 +136,9 @@ function SectionContent({
   beforeScroll,
   agents,
   onDirtyChange,
-}: Omit<Props, 'returnTo' | 'replaceSubsection'> & { beforeScroll: () => void }) {
+}: Omit<Props, 'returnTo' | 'replaceSubsection' | 'onSubsectionReopened'> & {
+  beforeScroll: () => void
+}) {
   switch (section) {
     case 'agents':
       return agents ? (

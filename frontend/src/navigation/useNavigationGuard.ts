@@ -210,6 +210,9 @@ export function useNavigationGuard() {
     setRouteFromScroll(true)
   }, [])
 
+  /** The operator opened the subsection the route already names, so it no longer comes from scrolling. */
+  const reopenSubsection = useCallback(() => setRouteFromScroll(false), [])
+
   return {
     route,
     routeFromScroll,
@@ -217,5 +220,6 @@ export function useNavigationGuard() {
     navigationBlocked,
     onDirtyChange,
     replaceSubsection,
+    reopenSubsection,
   }
 }
