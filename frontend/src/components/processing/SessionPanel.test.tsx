@@ -500,9 +500,7 @@ test('the header says where a retried session stands, from its history', async (
 })
 
 test('a first attempt shows no retry line, and a session on this computer says so', async () => {
-  const attempts = [
-    attemptHeader({ runs_on: 'host', profile_id: 'claude-session/2', web: null }),
-  ]
+  const attempts = [attemptHeader({ runs_on: 'host', profile_id: 'claude-session/2', web: null })]
   mount(() => Promise.resolve(history([], { attempts })))
 
   const header = await screen.findByRole('region', { name: 'Session details' })

@@ -335,6 +335,19 @@ async function main() {
       '/api/v1/batches/{id}/processing/{jobId}/cancellation': {
         post: post('ProcessingCancellation', 'ProcessingReceipt', '200', CAPTURE_TIMEOUT_MS),
       },
+      '/api/v1/batches/{id}/processing/activity': {
+        get: {
+          ...get('BatchActivity', CAPTURE_TIMEOUT_MS),
+          parameters: [
+            {
+              name: 'limit',
+              in: 'query',
+              description: 'How many of the newest entries to return.',
+              schema: schemas.BatchActivityQuery.properties.limit,
+            },
+          ],
+        },
+      },
       '/api/v1/batches/{id}/processing/{jobId}/history': {
         get: {
           ...get('SessionHistory', CAPTURE_TIMEOUT_MS),
