@@ -337,6 +337,38 @@ The design is the canvas board FixReloadBanner.
   - Retrying on any error. It would hide real failures.
   - Keeping the red banner with new text. Red and Discard suggest lost work when nothing was edited.
 
+### The sub-nav follows the scroll (task 16, approved 2026-11-25)
+
+The design is the canvas board FixSettingsScrollSync (R1).
+
+**Today, checked at `67eed1d7`:** the current subsection comes only from the hash route. `useHashRoute` reads `location.hash` on `hashchange` (`navigation/useHashRoute.ts`), `settingsSubsection` parses `#settings/agents/<id>` (`navigation/app-route.ts`), and `SettingsNav` marks that link `aria-current="location"`. `AgentsSection`'s Effect on `[subsection, ready]` scrolls the subsection's heading into view and focuses it, with a `focused` ref so a refetch doesn't move focus again. Nothing listens to scrolling. The masthead isn't sticky, and the nav column is `position: sticky` until the `stacked` breakpoint (860 px), where it becomes static above the content.
+
+**Decision:**
+
+- **A scroll position hook** in `components/settings/agents/`, `useSubsectionInView(ids, enabled)`, follows the window's scroll, an external system, through `useSyncExternalStore`, as `components/ui/useMediaQuery.ts` does. Its snapshot is the subsection whose heading top has most recently passed a reading line at 25% of the window's height (`READING_LINE_FRACTION`), measured with `getBoundingClientRect` once per animation frame. Before any heading passes the line it is the first subsection; once the page is scrolled to its end (within 2 px), it is the last, even if that heading never reaches the line.
+- **Click wins:** a link click, or any hash navigation, makes its subsection current at once and pauses the hook until the scroll it started ends (`scrollend`, or 150 ms without a scroll event where `scrollend` isn't supported), so the highlight never steps through the subsections in between.
+- **The address follows** with `history.replaceState`, so no history entry is added and Back still leaves Settings in one step. The scroll-and-focus Effect must not react to an address the hook wrote: the hook marks the subsection it wrote, and the Effect skips that one without scrolling or moving focus. A shared link still opens at its subsection through the existing path.
+- **Stacked layout:** below the `stacked` breakpoint the nav isn't in view while the content scrolls, so the hook is off and the route alone decides, as today.
+- **Accessibility:** the current link keeps `aria-current="location"`. Nothing is announced when it moves, and focus stays where it is.
+- **Rejected:**
+  - An `IntersectionObserver` with a reading-line `rootMargin`. It reports crossings, not order, so the end-of-page rule and scrolling back up need the same position read anyway, and jsdom has no layout for either.
+  - Pushing a history entry per subsection. Back would walk through every subsection scrolled past.
+
+### Settings nav over the electronics (task 17, approved 2026-11-25)
+
+The design is the canvas board FixSettingsNavBacking (R2), with its contrast table.
+
+**Today:** `SettingsNav`'s `Nav` applies `groundBehindOnField` (`components/ui/field.ts`), which under `:root[data-masthead='window']` gives the whole nav column `--masthead-ground` and `radius.sm`. Hover uses `color.surface2`, the current section `color.accentWeak`, and the current subsection `color.surface2`; the subsection list has a 1 px `color.line` left rule.
+
+**Decision:**
+
+- On the whole-window field only, the nav column and idle links have no background. Each link's words sit in a text span with a backing of `--masthead-ground`, 1 px top and bottom, 5 px each side and a 4 px radius, drawn on the span, not the link, so parts show between and around the words. The nav heading gets the same backing as the other text on the field (`onField`).
+- Hover and the current section and subsection keep their full link fill, as today; the span's backing is transparent over them.
+- The subsection list's rule is drawn as a 1 px background line on the list, so it stays visible between backed words.
+- The 44 px touch height, hit area, focus ring and the other masthead styles (in the bar, fading down) are unchanged. `RecordsStage`, the other user of `groundBehindOnField`, keeps it.
+- **Contrast:** the text always sits on a backing or a fill, never on a part, so every state keeps at least 4.5:1 whatever passes behind. The board's table gives the light and dark ratios (idle link 15.0, idle sublink 5.6 light and 7.0 dark, hover 14.0, selected 13.6 light and 11.8 dark; 1.8 without the backing). Task 17 recomputes them from the generated tokens.
+- **Rejected:** a translucent or blurred nav panel. It still hides the parts behind the column and gives no fixed contrast.
+
 ## State, authority and failure behavior
 
 | Case | Outcome |
@@ -350,6 +382,7 @@ The design is the canvas board FixReloadBanner.
 | Typed input during refresh | Kept; the command explains why it is disabled |
 | A live update cancels an awaited read | Nothing shows; the caller waits up to 10 s for the replacing read (task 15) |
 | Saved values can't be read | Amber notice with the time of the values shown and Try now; Discard only with real unsaved changes, naming them (task 15) |
+| Scrolling Settings › Agents by hand | The sub-nav marks the subsection at the reading line; the address is replaced, never pushed (task 16) |
 
 Authority is unchanged: no command is enabled by cached, restored or cache-written data, and every command keeps its own revision checks.
 

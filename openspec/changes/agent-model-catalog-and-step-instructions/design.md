@@ -1,0 +1,164 @@
+# Design assessment
+
+## Context and grounding
+
+The change touches four boundaries, each with an existing pattern to follow:
+
+| Boundary | Today (checked at `67eed1d7`) | Pattern followed |
+| --- | --- | --- |
+| Agent settings | `agent_settings` (with `stage_selections` jsonb and the text settings) and `agent_provider_settings` (`enabled`, `authentication`, `default_model`) in `agents/schema.ts`; `saveAgentSettings` with the revision check and save receipts (`agents/settings.ts`); `checkAgentSettings` applies the model ID check | Add fields beside the existing ones, validated in `checkAgentSettings`, saved through the same receipts |
+| Sealed session input | `prepareSessionAttempt` resolves the selection and seals `agent`, `settings_revision`, `web` and `part_description_style` into `bench-intake-input/6` (`processing/session-input.ts`); `openingText` renders the style as operator guidance outside the profile digest | The Part description style's precedent, for step instructions and effort |
+| Provider sessions | `runClaudeSession` and `runCodexSession` (`agents/session/session-adapters.ts`) take the sealed `selection`; the guest runs the same driver (`agents/shared-vm/native-turn.ts`) after validating the manifest (`guest-turn.ts`) | Pass the sealed effort to the same adapters |
+| Guest reads | Provider status: a status-only endpoint in each guest credential process, a status connection per provider through the relay, the coordinator's read with deadlines, and an API ↔ worker request over `NOTIFY` (`agents/provider-status*.ts`, `agents/shared-vm/credential-status.ts`, `coordinator.ts`) | The same pairing, relay and deadline rules, on a connection of its own, with a table instead of `NOTIFY` for the result |
+
+`agent-stage-inputs-outputs` (BI-022) is being implemented at the same time. Its PR-A (#275) adds `bench-intake-input/7` and a sealed brief with `batch`, `human`, `asked`, `evidence` and `match` sections (`contracts/src/brief.ts` in that PR); operator-sourced entries carry `source: 'human'`. Its stage instruction packs go in an immutable `processing_stage_instructions` table, whose digest the input seals and the claim checks. Nothing in this change edits BI-022's files.
+
+**Complexity:** medium to high. The settings and effort parts are small extensions of existing paths. The catalogue is a new read in the guest, a table and a refresh schedule. The proof of fit against the pinned CLI versions is the main unknown.
+
+## Goals and constraints
+
+- **Goals:** those of the [proposal](proposal.md) and the deltas in `specs/` (app-settings, processing-agent-sessions, shared-vm-execution, processing-workspace).
+- **Constraints:**
+  - Sealed inputs stay immutable, and profile and stage instruction digests are unchanged by anything the operator saves.
+  - The untrusted-data rule holds: operator guidance is data the session follows after the app's own rules, never authority to widen tools or skip validation.
+  - The subscription token is never sent to a models API; no catalogue read sends a user message or starts a paid turn.
+  - Retained `/6` and `/7` inputs without the new fields keep running as they do.
+  - The pinned CLI versions (Claude Code 2.1.319, Codex 0.166.0) are what admission allows; this change doesn't move them.
+
+## Decisions and alternatives
+
+### Settings fields
+
+- **Step effort:** `stage_selections.<stage>` becomes `{provider, model, effort?}`. A step on Default has no entry, as today, and uses the provider's default effort.
+- **Provider default effort:** `agent_provider_settings.default_effort`, nullable. Null is Default.
+- **Step instructions:** `agent_settings.stage_instructions` jsonb, `{examine?, research?, images?}`, each 1–1,000 Unicode code points (the frontend counts code points, as `InstructionsForm` does). An empty box removes the key. Inventory has no entry; a save carrying one is refused.
+- **Effort values:** provider-defined strings, checked only for shape on save (`^[a-z][a-z0-9_-]{0,31}$`), never against the catalogue, which may be stale or unread. The contract names the type `AgentEffort`.
+- **Saving:** effort autosaves with the model it sits beside (the O8 rule for choices); step instructions are text with Save and Discard, one form per step so editing one step's text doesn't hold another's. Both go through `saveAgentSettings`, its revision check and receipts.
+- **Migrations:** PR-A's adds `default_effort` (the `stage_selections` jsonb needs no column change; its shape is checked in `checkAgentSettings`). PR-D's adds `stage_instructions` with its grant. Each takes the next free number when it is written.
+
+### Effort is sealed with the selection and passed to the CLI
+
+- `AgentSelection` gains an optional `effort` (`AgentEffort`). `resolveSelection` returns the step's own effort with its own model, or the provider's `default_effort` with its `default_model`, so the sealed selection is always one consistent pair. Absent means Default.
+- `/6` and `/7` inputs seal it inside `agent`. The `/1` one-turn path (`processing/attempts.ts`, `native-agent/1`) strips it, so `bench-intake-input/4` never carries it.
+- **Claude:** `runClaudeSession` adds `--effort <level>` after `--model` on every fresh and resumed turn when the sealed selection has one.
+- **Codex:** `runCodexSession` adds `effort` to every `turn/start`. `turn/steer` carries none; it continues the turn.
+- **Admission:** the effort changes no tool, permission or MCP configuration, so admission's checks are unchanged; `admissionIdentity` stays as it is.
+- **Proof of fit (task 2.1):** the pinned Claude Code 2.1.319 must accept `--effort` and Codex 0.166.0's `TurnStartParams` must have `effort`, checked offline (`claude --help` from the pinned package; `codex app-server generate-json-schema`). If either lacks it, task 2 stops and asks Mitch; moving a pin is a separate change with its own requalification.
+- **Rejected:** sending effort through Codex `thread/start` config (`-c model_reasoning_effort`). It fixes the effort at thread creation, so a resumed thread couldn't take the sealed value, and `turn/start` is the documented place.
+
+### Where step instructions reach the agent
+
+The coordination with BI-022 follows the two constraints its implementing session asked for on 2026-11-25:
+
+1. **Separate from the stage packs.** Step instructions are operator settings. They are never stored in `processing_stage_instructions`, which holds immutable, profile-owned packs, and never counted in `stage_instructions_sha256` or the profile's instruction digest.
+2. **Sealed with the input, like other input.** They are sealed when the attempt's input is sealed: at queue time for `/6` inputs and `/7` Examine leads, and at claim for a `/7` Research or Images group, whose input BI-022 seals then. A later edit never changes a sealed attempt.
+
+How they appear:
+
+- **`/6` (today's inputs):** an optional `stage_instructions` string (1–1,000 characters) in the manifest, set only for the attempt's own stage. `openingText` adds it as `stage_instructions`, with one sentence in the instructions: it is the operator's guidance for this step, to follow after the app's rules. This is exactly the Part description style's path.
+- **`/7` (BI-022's brief):** a `step_guidance` entry, `{kind: 'step_guidance', source: 'human', stage, text}`, in the brief's `human` section, which BI-022 renders as operator-sourced material weighed above agent findings. It is shown under its own heading, "Operator guidance for this step". The `/7` manifest seals the same text, so the brief and the manifest agree.
+- **Ordering:** the step instructions PR (PR-D) waits for BI-022's PR-A (#275) to merge, then adds the `/6` field and the `/7` brief entry together. While BI-022 keeps `/7` behind its test-only switch (until its PR-G2), production sessions use the `/6` path; the `/7` entry is tested through the synthetic profile, as BI-022 tests its brief. If #275 were abandoned, PR-D would ship the `/6` path alone and the `/7` entry would move to whichever change adds a brief; `notes.md` records it.
+- **How an edit reaches running sessions:** it doesn't. A saved edit applies to attempts sealed after it; running, waiting and queued attempts, and their resumed turns, keep the text they were sealed with. This is what the board draws ("running sessions keep the text they started with") and what every other agent setting does (app-settings "Agent settings section": values apply only to sessions queued after the save).
+- **Rejected: delivering an edit as an `instruction` inbox item**, as BI-022's session suggested. It doesn't fit the code or the approved design:
+  - `instruction` items are bound by migration `0030_instruction_inbox.sql`'s trigger to a saved `capture_instruction` row of the batch, and the opening tells the agent an instruction item is "the operator's saved instruction for the batch, or for one evidence group"; per-step guidance would need a new kind, a source table and new wording.
+  - Settings are global, so one edit would fan out to every live session of that step in every batch, and the wake sweep resumes `waiting_input`, `finished` and `interrupted` sessions for an unread item (`agents/instructions.ts`), restarting finished work across all batches.
+  - The board and the existing settings rule say running sessions keep their settings.
+  - If Mitch later wants edits delivered, a new `step_guidance` inbox kind for sessions of that step in non-ended states, without waking finished ones, is the shape to plan; it is recorded as an open decision.
+- **Rejected:** appending the text to the profile or stage instruction bytes. It would change a digest-verified authority with operator data.
+
+### The model catalogue
+
+**Who reads, and where.** The session worker owns the catalogue, as it owns the guest connection:
+
+| Profile and sign-in | Read | Where |
+| --- | --- | --- |
+| Shared VM, Claude subscription | Pinned Claude CLI, `control_request {subtype: "initialize"}` only, then stdin closed; `models[]` | In the guest, with the credential injection and Anthropic-only egress a turn uses (`environment.ts`), started by the Claude management process |
+| Shared VM, Codex ChatGPT | App-server `initialize`, then `model/list` (all pages), under the shared account lock turns take | In the guest's Codex management process, beside `CodexAccount`'s `account/read` |
+| Claude API key | `GET https://api.anthropic.com/v1/models` with the key (paged) | Where that profile's API-key turns get their key: the host worker for host profiles; the guest's turn environment for shared VM |
+| Codex API key | App-server `model/list` (the version's built-in catalogue), then `GET https://api.openai.com/v1/models` with the key to mark usable IDs | As above |
+| Host profiles (`native-agent/2`) | The same requests, with the host CLI | The session worker on the host |
+
+Task 3.1 confirms, before code, that the pinned 2.1.319 and 0.166.0 return these fields, whether Claude's `initialize` needs the network, and where each API-key route holds its key in the shared VM. A provider mode with no route to its key in the shared VM keeps the built-in list.
+
+**Transport for the shared VM.** A catalogue connection kind of its own, greeting `bench-model-catalog/1`, one per provider, from the guest management process to the coordinator through the relay, with the status connection's pairing identity and relay mechanics. It answers one read at a time within 20 s (`CATALOG_READ_MS`), with a 64 KiB frame limit (`CATALOG_FRAME_BYTES`), and stops and reaps its reader process when the budget runs out or the connection closes. A guest that doesn't greet with it is `guest_outdated`.
+
+- **Rejected:** reading through the status connection. Its 4 KiB frame and 1.8 s deadline are the status read's guarantees; a 20 s catalogue read would hold a connection status reads wait on.
+- **Rejected:** reading during a session's admission, where Claude's `initialize` is already sent. It only covers Claude, only runs when a session runs, and couples a settings read to a turn.
+
+**Storage.** `agent_model_catalog`, one row per scope (actor, target, target context), provider and authentication:
+
+- `models` jsonb, `cli_version`, `source` (`cli` or `api`), `read_at` (the last successful read), and `attempted_at`, `failure` (a fixed code: `timeout`, `guest_outdated`, `vm_unreachable`, `signed_out`, `malformed`, `unavailable`) for the last attempt;
+- `refresh_requested_at`, which the API sets and the worker clears.
+
+A failed read updates only the attempt fields, so the last good list and its `read_at` stay. The worker validates each answer against the contract before writing: at most 200 models, names up to 80 characters, at most 12 effort levels each, and the whole row within 64 KiB.
+
+- **Rejected:** returning the list over `NOTIFY`. Its payload is limited to about 8,000 bytes.
+
+**Normalisation (worker, before storing):**
+
+- Each entry is `{id, name, older, default, efforts, default_effort, usable}`.
+- **Claude CLI:** `id` is `resolvedModel` (else `value`); aliases resolving to the same ID fold into one entry, keeping `displayName` of the exact model; entries whose ID fails the model ID check, such as `opus[1m]`, are left out unless they resolve to a valid ID. `efforts` is `supportedEffortLevels` when `supportsEffort`, else empty. `default_effort` is null (Claude doesn't name it).
+- **Claude API:** `id` and `display_name` without its "Claude " prefix; `efforts` from `capabilities.effort`.
+- **Codex:** `hidden` models are left out; `name` is `displayName`; `default` is `isDefault`; `efforts` from `supportedReasoningEfforts`; `default_effort` from `defaultReasoningEffort`. With an API key, `usable` is whether `/v1/models` lists the ID; otherwise null.
+- **Older:** a Claude model whose major version (parsed from its ID) is below the newest major version in the list. Codex has none.
+
+**When it reads.** The worker reads a provider's row:
+
+- on start, for each enabled provider's current authentication;
+- when `refresh_requested_at` is set: by Check again on a provider card, by a sign-in dialog once it confirms a sign-in, and when Settings switches a provider's authentication and no row exists for it;
+- when a turn's admission reports a CLI version different from the row's `cli_version`;
+- 12 hours after `read_at` (`CATALOG_MAX_AGE_MS`), and 5 minutes after a failed attempt (`CATALOG_RETRY_MS`).
+
+The API writes `refresh_requested_at` and sends `NOTIFY bench_model_catalog` with no payload; the worker listens and also checks each supervisor pass, so a lost notification only delays the read. Reads are one at a time per provider.
+
+**API.** `GET /api/v1/agents/models` returns, for each provider's current authentication, `{state, source, cli_version, read_at, attempted_at, failure, models}`, where `state` is `current`, `reading` (a refresh is requested or running), `failed` (with the last good list) or `never_read`; with `never_read` or no list, `models` is the built-in list, marked `builtin: true`. `POST /api/v1/agents/models/refresh {provider}` requests a read. The read carries no key, token or account.
+
+**Built-in list.** `AGENT_MODEL_SUGGESTIONS` becomes `BUILT_IN_MODEL_CATALOG` in the contracts, with the exact IDs and names the pinned CLIs offered when task 3 is implemented, and no effort levels (Effort offers only Default for it). It is updated when the guest pins move.
+
+### Pickers, Effort and states in Settings
+
+- **`ModelPicker`** reads a `useModelCatalog` query beside `useProviderStatus` (`serverQueryKey(scope, 'model-catalog')`), polling every 1 s while any provider is `reading`, for at most 30 s. Options show the name with the exact ID in mono; search matches either; Claude's older models sit in a collapsed "Older models" group; a saved model not in the list sits first in "Saved, not offered". The exact-ID option and the off-provider rule are unchanged.
+- **Effort** is a styled native select (the dropdown guideline's short fixed list, O11) beside every picker: each step and each provider card's "Default model and effort". Its options come from the chosen model's `efforts`, with labels `low` Low, `medium` Medium, `high` High, `xhigh` Extra high, `max` Max and any other value capitalised. Default names `default_effort` when the list gives one. A model with no levels disables it. Picking a model that lacks the saved level sets Default and shows a one-line notice under the row, saved together in one autosave.
+- **States** follow the board: "Reading <provider>'s models…" inside the list while `reading` with no list; an amber notice inside the list with the time of the shown list and Try again when `failed`; "Built-in list, may be out of date" for the built-in list; the card's line "13 models · read from Claude Code in the agent VM today 09:12", using the shared time format.
+- **Processing:** the step page header shows the "Not offered" pill while the step's saved model isn't in a read list, linking to `#settings/agents/models`. It reads the same catalogue query.
+
+## State, authority and failure behavior
+
+| Case | Outcome |
+| --- | --- |
+| No list ever read, read running | "Reading…"; saved choice shown by ID; typed exact ID still accepted |
+| No list ever read, read failed | Built-in list, marked; Effort only Default |
+| Read failed after a good read | Last good list with its time, amber notice and Try again; no page banner |
+| Guest image older than this change | `guest_outdated`; last stored or built-in list |
+| Saved model not in the read list | Stays selected; "Saved, not offered" group and warning; sessions still try it; Processing pill |
+| Saved effort the model doesn't accept | Stays saved with a warning; sessions send it as saved |
+| Effort Default | Nothing sent; the CLI's default applies |
+| Step instructions edited | New attempts sealed after the save get the new text; sealed attempts keep theirs |
+| Provider turned off | Unchanged: steps fall back to Default and say so; the default provider's model and effort apply |
+
+**Authority:** the catalogue is display data. It never changes a saved setting or decides what a session may run; the provider's own answer does. The catalogue route is read-only for the browser apart from requesting a refresh, which reads nothing secret. Step instructions are operator data inside the sealed input, under the existing untrusted-data rules.
+
+**Secrets:** a catalogue read uses the same credentials a turn uses, in the same place, and stores only model IDs, names and efforts. Failures store a fixed code, never provider text.
+
+## Verification strategy
+
+- **Contracts:** `AgentSelection` with and without `effort`; the settings update with effort and step instructions, including 1,000 and 1,001 code points and an Inventory key refused; the catalogue DTO's limits; `/6` decoding a retained manifest without the new fields.
+- **Intake unit:** `resolveSelection` pairing model and effort; `openingText` with and without step instructions, and the profile digest unchanged; the Claude args and Codex `turn/start` with and without effort, through the real adapters against fake CLIs; catalogue normalisation from recorded reply fixtures of the pinned versions (folding, `[` IDs, hidden, older, API-key marking).
+- **PG tier:** settings save and receipts with the new fields; the catalogue table (failure keeps the last list, refresh requests, the 12 h and 5 min schedule under a controlled clock); sealing at queue time and, for `/7`, at claim; an edit after sealing leaving the attempt unchanged and sending no inbox item.
+- **Process tier:** the catalogue connection through the real relay with a fake guest reader: a good read, an oversized frame, a timeout with the reader reaped, an outdated guest; the worker's start, notify and pass-driven reads.
+- **Frontend:** picker groups, search by name or ID, the older and "Saved, not offered" groups, each state, the Effort select's options, Default naming, the reset notice, the disabled select, the step instruction editor's count, amber, paste cut and Save and Discard, and the Processing pill.
+- **Live (Mitch's go-ahead, task 6):** a catalogue read of each signed-in provider in the real guest, starting no turn, and one short session per provider with a non-default effort, checking the CLI received it.
+
+## Migration, rollout and recovery
+
+- Migrations are additive: nullable columns and a new table, with grants for the API (read, and `refresh_requested_at` update) and the worker (write).
+- The guest image changes in PR-B (the catalogue reader) and in PR-A and PR-D (the manifest it validates gains fields). `pnpm dev` rebuilds a stale runner image; the deployment README names the refresh.
+- Forward-only: a manifest with `effort` or `stage_instructions` is rejected by an older guest or worker, as each earlier `/6` field was. Rolling back past a migration needs the backup taken before it.
+- Without a catalogue read, everything works as today with the built-in list.
+
+## Risks and open decisions
+
+- **Pinned versions may lack a field.** If 2.1.319 or 0.166.0 lacks `--effort`, `turn/start.effort`, `models[]` effort levels or `model/list`, the affected task stops and asks Mitch whether to move the pin, which needs a requalification.
+- **Claude's `initialize` might call the network.** If so, the read runs with the turn's Anthropic-only egress; it is still not a paid request, which task 3.1 confirms.
+- **Open for Mitch, not blocking:** whether a step instruction edit should also reach running sessions as a new inbox kind (rejected for now; see "Where step instructions reach the agent").
+- **Live checks** need Mitch's go-ahead (task 6).

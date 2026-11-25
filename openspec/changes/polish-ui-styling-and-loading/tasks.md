@@ -32,6 +32,8 @@
 | 13. Provider cards, switches, model picker and sign-in dialogs | Frontend behavior | 6, 11, 12 | app-settings "Agent settings section" (modified) scenarios Removing the credential updates the card, Sign-in status before a check, Collapsing clears the card, Editing the key while signing in, Sign-in completes and Check fails; shared-vm-execution "Personal Claude subscription token" and "ChatGPT sign-in for the runner" (modified); "Provider sign-in status is read automatically", "Each provider's status stands alone", "Sign-in failures shown apart from the status", "Agent settings controls match the design", "Subscription sign-in in a dialog", "Closing a sign-in dialog drops its work", "One searchable model picker", "Model picker limits and exact IDs" |
 | 14. Dropdowns follow the guideline | Frontend sweep | 13 | ui-design-system "Searchable picker for records and growing lists", "Short fixed choices follow a guideline" |
 | 15. A replaced read is not a failure | Frontend behavior | 4 and 5 (merged) | live-updates "A replaced read is not a failure", "Unavailable saved values are reported calmly"; "Live unverifiable workspace state" still passes |
+| 16. The Agents sub-nav follows the scroll | Frontend behavior | None (tasks 11 and 13 merged) | app-settings "Agents sub-nav follows the scroll"; "Settings page and navigation" scenarios Agents sub-nav and Old descriptions link still pass |
+| 17. The Settings nav lets the electronics show through | Frontend fix | None | ui-design-system "Settings nav lets the electronics show through"; "Masthead and electronics current in both themes" still passes |
 
 ## PR delivery map
 
@@ -48,6 +50,7 @@
 | PR-I | Every dropdown on the guideline: searchable pickers for records and growing lists, segmented or native for short fixed lists | 14 | A broad but mechanical sweep, reviewed with captures | PR-H merged (the `SearchablePicker` base) | `feat/polish-ui-styling-and-loading-dropdowns`; `feat(polish-ui-styling-and-loading): one dropdown guideline across the app` | Frontend checks; captures of each changed field; demo video; review; CI |
 | PR-D | One state vocabulary and time format, the masthead summary, the Overview's Needs you and lot table, and step page counts | 6, 7 | One coherent "status reads the same everywhere" change; independent of the loading work | PR-0; rebase on PR-A if it merged first | `feat/polish-ui-styling-and-loading-status`; `feat(polish-ui-styling-and-loading): one way to show status and time` | Frontend checks; captures of Overview, step pages, Agents and the masthead; demo video; review; CI |
 | PR-J | Awaited reads wait for the read that replaced a cancelled one, and the batch and Processing report real failures calmly, naming unsaved changes only when there are some | 15 | One small fix to the freshness layer and its two messages, reviewed with the cancel race reproduced | PR-B and PR-C merged (both are); independent of `improve-agent-interaction` PR-J, which fixes the answered question's card | `interactive-app` ← `fix/polish-ui-styling-and-loading-replaced-reads`; `fix(polish-ui-styling-and-loading): a replaced read is not a failure` | Frontend checks with the real `QueryClient` race tests; demo video; review; CI |
+| PR-K | The Settings nav: the Agents sub-nav follows the scroll, and idle links let the electronics show through with only their words backed | 16, 17 | Both change `SettingsNav` and the Settings layout, and are reviewed together with captures | PR-0; independent of the other bundles, all merged | `interactive-app` ← `feat/polish-ui-styling-and-loading-settings-nav`; `feat(polish-ui-styling-and-loading): the settings nav follows the scroll and shows the electronics` | Frontend typecheck, lint, tests and build; captures at 1440 and 390 px in light and dark with the whole-window masthead; demo video; review; CI |
 
 ## 1. Selected rows keep their whole border
 
@@ -399,6 +402,49 @@
 - [x] 15.3 GREEN: implement the helper, the reload state and notice, the labels and Processing's messages.
 - [x] 15.4 Update `frontend/ARCHITECTURE.md` (awaited reads and cancellation). Run the frontend checks, and record the demo video for the PR description.
 
+## 16. The Agents sub-nav follows the scroll
+
+- **PR delivery:** PR-K.
+- **Outcome:** scrolling Settings › Agents by hand moves the sub-nav's current mark to the subsection being read, and the address follows by replacement. A clicked link wins until its scroll ends; the end of the page marks the last subsection; the stacked layout keeps the route's subsection.
+- **Scope and approach:** a `useSubsectionInView` hook in `components/settings/agents/`, `AgentsSection.tsx` (passing the hook's subsection to the nav, and skipping its scroll-and-focus Effect for an address the hook wrote) and `Settings.tsx`; `SettingsNav` is unchanged apart from receiving the subsection. The design is "The sub-nav follows the scroll".
+- **Prerequisites:** none; tasks 11 and 13, which reshaped the section, are merged.
+- **Acceptance:** app-settings "Agents sub-nav follows the scroll", all scenarios; "Settings page and navigation" (Agents sub-nav, Old descriptions link, Direct link) still passes.
+- **TDD approach:** component tests with stubbed heading rectangles, window height and scroll events fail first: today the mark stays on the route's subsection after a scroll.
+- **Verification:**
+  - the frontend typecheck, lint, tests and build;
+  - a demo video scrolling down and back up, clicking a far link and reaching the end of the page, at 1440 px;
+  - a capture at 390 px showing the stacked nav unchanged.
+- **Risks and decisions:** `history.replaceState` fires no `hashchange`, so `useHashRoute` sees the new address only on the next render; the scroll-and-focus Effect must treat that address as already in place, or the page would jump back to the heading. A test covers it.
+
+- [ ] 16.1 Read the shared and frontend code guidelines, `frontend/ARCHITECTURE.md`'s Settings section and the board. Note every test that asserts `aria-current="location"` or the focus after a subsection link.
+- [ ] 16.2 RED: tests in `Settings.test.tsx` (or a new `useSubsectionInView.test.ts`) with stubbed rectangles:
+  - [ ] 16.2.1 a heading crossing the reading line marks its link current, the address is replaced (history length unchanged) and focus stays put; scrolling back up moves the mark back;
+  - [ ] 16.2.2 before any heading crosses, the first is current; at the end of the page the last is current;
+  - [ ] 16.2.3 a clicked link is current at once, and scroll events before its scroll ends don't mark the subsections in between (with and without `scrollend`);
+  - [ ] 16.2.4 an address the hook wrote doesn't scroll or focus; a route opened by a link or a shared address still scrolls and focuses its heading;
+  - [ ] 16.2.5 below the `stacked` breakpoint no scroll moves the mark.
+- [ ] 16.3 GREEN: implement the hook and wire it into `AgentsSection`.
+- [ ] 16.4 Update `frontend/ARCHITECTURE.md` (Settings navigation). Run the frontend checks, and record the demo video for the PR description.
+
+## 17. The Settings nav lets the electronics show through
+
+- **PR delivery:** PR-K.
+- **Outcome:** behind the whole window, the Settings nav has no background; each link's words have a snug masthead-ground backing; hover and the current page keep their fill; contrast stays at or above 4.5:1 in both themes.
+- **Scope and approach:** `components/ui/SettingsNav.tsx` (a text span per link and heading, the backing and the list rule under `onWholeWindow`), and `components/ui/field.ts` only if a shared helper for the word backing is clearer than a local style. `RecordsStage` keeps `groundBehindOnField`. The design is "Settings nav over the electronics".
+- **Prerequisites:** none.
+- **Acceptance:** ui-design-system "Settings nav lets the electronics show through", all scenarios; "Masthead and electronics current in both themes" still passes.
+- **TDD approach:** a `SettingsNav` test reading the generated rules under `[data-masthead='window']` (as task 1's test reads the injected style sheet) fails first: today the nav itself has the ground background and the links' words have none. A contrast test computes each state's ratio from the generated tokens in both themes and fails below 4.5:1.
+- **Verification:**
+  - the frontend typecheck, lint, tests and build;
+  - before and after captures of Settings with the whole-window masthead at 1440 and 390 px, light and dark, plus the In the bar style unchanged;
+  - the contrast table in the PR description.
+- **Risks and decisions:** the parts move behind the column, so the captures are of the running dev app, not a fixture.
+
+- [ ] 17.1 Read the guidelines, `frontend/ARCHITECTURE.md`'s masthead field section and the board with its contrast table.
+- [ ] 17.2 RED: the style-sheet test for the idle, hover and current states on the whole-window field and in the bar, and the token contrast test for every state in both themes.
+- [ ] 17.3 GREEN: implement the transparent nav, the word backing, the list rule and the unchanged states.
+- [ ] 17.4 Capture both themes and styles, put the contrast table in the PR description, and run the frontend checks.
+
 ## Delivery evidence and lifecycle follow-up
 
 - [x] PR-0: review both plans read-only (`codex exec -m gpt-6.2-sol -s read-only`; Mitch's standing rule: at most three rounds, with the last round's fixes noted on the PR; material issues left after round three are fixed and listed on the PR for Mitch), fix, publish, CI green, merge (#247).
@@ -413,7 +459,8 @@
 - [x] PR-H: implement task 13, review the exact head, publish with the demo, CI green, merge. Merged as #267 at `3000b14d`; its real-VM Settings check stays open (see `notes.md`).
 - [x] PR-I: implement task 14, review the exact head, publish with the audit, captures and the demo, CI green, merge. Merged as #270 at `2636a105`.
 - [x] PR-J: implement task 15, review the exact head, publish with the demo, CI green, merge. Merged as #271 at `14c71673`.
-- [ ] Update BI-020 as PRs merge. It is Done only after every implementation PR (PR-A to PR-J) merges and its acceptance is evidenced.
-- [ ] Mark this change's "Fixes: before and after" entries (S5, S7, O1–O5, O7–O11) in the design log as Built, with their PRs.
+- [ ] PR-K: implement tasks 16 and 17, review the exact head, publish with the captures, contrast table and demo, CI green, merge.
+- [ ] Update BI-020 as PRs merge. It is Done only after every implementation PR (PR-A to PR-K) merges and its acceptance is evidenced.
+- [ ] Mark this change's "Fixes: before and after" entries (S5, S7, O1–O5, O7–O11, R1 and R2) in the design log as Built, with their PRs.
 - [ ] Before syncing: re-run strict validation and `pnpm openspec:overlap --change polish-ui-styling-and-loading`. If another change has synced an edit to "Agent settings section" or "Masthead and electronics current in both themes" first, rebase this change's MODIFIED block onto the synced text, in full.
 - [ ] Before archiving, run `pnpm openspec:overlap --change polish-ui-styling-and-loading`, sync the specs and record open items in `notes.md`.

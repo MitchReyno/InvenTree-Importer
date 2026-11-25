@@ -1,6 +1,6 @@
 # Implementation notes
 
-Implementation of the UI polish and calm loading plan, delivered as PR-A to PR-J after the plan PRs (#247, #248). PR-A merged in #250, PR-B in #254, PR-C in #259, PR-D in #255, PR-E in #253, PR-F in #256, PR-G in #264, PR-H in #267 and the follow-up PR-G2 in #268; PR-I is underway and PR-J remains, with PR-G's live VM check and PR-H's real-VM Settings check (see the open items).
+Implementation of the UI polish and calm loading plan, delivered as PR-A to PR-K after the plan PRs (#247, #248). PR-A merged in #250, PR-B in #254, PR-C in #259, PR-D in #255, PR-E in #253, PR-F in #256, PR-G in #264, PR-H in #267, the follow-up PR-G2 in #268, PR-I in #270 and PR-J in #271; PR-K (the Settings nav, planned 2026-11-25) remains, with PR-G's live VM check and PR-H's real-VM Settings check (see the open items).
 
 ## Changes to the plan
 
@@ -15,6 +15,7 @@ Implementation of the UI polish and calm loading plan, delivered as PR-A to PR-J
 - **2026-11-24T10:00+11:00, task 5 (PR-C):** `useFreshRead` gains a `keepPrevious` option (TanStack's `keepPreviousData`), so Records and Processing › Inventory keep showing the previous revision's records while the next revision's key is first read, as `useBatchRecords`' placeholder did. The placeholder never verifies the new key, so record edits wait for its own read.
 - **2026-11-24T10:00+11:00, task 5 (PR-C):** no new snapshot projection was added. The reads moved here are either excluded by the allowlist (the Agents list) or not on it (settings, the batch list, media, records' InvenTree values), so they render cached-first from the in-memory cache only.
 - **2026-11-25T03:04+11:00, task 14 (PR-I):** the converted record fields choose among the batch's observed records, not the catalogue, so they use a new `forms/ChoicePicker` on `SearchablePicker` rather than `SearchableReferencePicker`, which searches the InvenTree catalogue. The design and the task scope now name it. The design system artifact's "Choosing a dropdown" guide is not written by this PR (it lives outside the repository); the component gallery's new "Choosing a dropdown" section and `frontend/ARCHITECTURE.md` carry the guideline with examples meanwhile (see the open items).
+- **2026-11-25T12:00+11:00, planning tasks 16 and 17 (PR-K):** Mitch approved the agent settings proposals R1–R5 (canvas v108). R1 (FixSettingsScrollSync) and R2 (FixSettingsNavBacking) are planned here as tasks 16 and 17 in one PR-K, since both change `SettingsNav`. R3–R5 are planned in a new change, `agent-model-catalog-and-step-instructions` (BI-023). Checked at `67eed1d7`: the sub-nav follows only the hash route, and the whole nav column takes the masthead ground through `groundBehindOnField`.
 
 ## Unexpected challenges
 
