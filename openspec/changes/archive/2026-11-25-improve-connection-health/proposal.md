@@ -6,7 +6,7 @@ During Capture uploads an operator repeatedly sees an inventory outage message. 
 
 ## Change identity and linked items
 
-`improve-connection-health` follows the delivered [BI-002 status signalling uplift](../../../docs/PLANNED_FUNCTIONALITY.md#bi-002--status-signalling-uplift). This is a follow-up, not a reopening of that item.
+`improve-connection-health` follows the delivered [BI-002 status signalling uplift](../../../../docs/PLANNED_FUNCTIONALITY.md#bi-002--status-signalling-uplift). This is a follow-up, not a reopening of that item.
 
 ## Current behavior and evidence
 
