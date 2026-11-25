@@ -1,13 +1,14 @@
 import { prepareMediaTransaction } from './transaction.ts'
 import { randomUUID } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
-import { and, eq, notExists } from 'drizzle-orm'
+import { and, eq, isNotNull, notExists, or } from 'drizzle-orm'
 import { captureBatches } from '#/capture/schema.ts'
 import type { MediaRecipeDto } from '@invimport/contracts'
 import { assertMediaRecipe } from '@invimport/contracts/media'
 import {
   mediaDecodeClaims,
   mediaDecodeCommands,
+  mediaDecodeDeferrals,
   mediaDecodeResults,
   mediaPreviews,
   mediaPreviewRenditions,
@@ -22,7 +23,8 @@ import { type CaptureBinding } from '#/capture/model.ts'
 import { BlobStore, lockBlob } from './blob-store.ts'
 import { lockMediaRevision } from './commands.ts'
 import { retainBlob } from './blob-reference.ts'
-import { decodeIsolated } from './decoder-runner.ts'
+import { decodeIsolated, type DispatchOptions } from './decoder-runner.ts'
+import { DecoderDispatcherBusyError } from './dispatcher-client.ts'
 import { MEDIA_TOOLCHAIN, type DecodedMedia } from '@invimport/media-decoder/protocol'
 import { DECODER_BUILD } from './repository.ts'
 
@@ -38,6 +40,11 @@ interface MediaCommand {
   actor_id: string
 }
 
+/**
+ * Takes the oldest command in the worker's scope that is unclaimed or deferred. A deferred command
+ * keeps its claim, so taking it deletes its deferral instead; a worker whose read was overtaken by
+ * another taking the same command, which its row lock doesn't reveal, takes nothing.
+ */
 async function claimCommand(pool: Pool, binding: CaptureBinding): Promise<MediaCommand | null> {
   return transaction(pool, async (client) => {
     await prepareMediaTransaction(client)
@@ -54,6 +61,7 @@ async function claimCommand(pool: Pool, binding: CaptureBinding): Promise<MediaC
           actor_id: mediaVersions.actorId,
           recipe_bytes: mediaDerivations.recipeBytes,
           recipe_digest: mediaDerivations.recipeDigest,
+          deferral: mediaDecodeDeferrals.commandId,
         })
         .from(mediaDecodeCommands)
         .innerJoin(
@@ -65,17 +73,21 @@ async function claimCommand(pool: Pool, binding: CaptureBinding): Promise<MediaC
         )
         .innerJoin(captureBatches, eq(captureBatches.id, mediaDecodeCommands.batchId))
         .leftJoin(mediaDerivations, eq(mediaDerivations.id, mediaDecodeCommands.derivationId))
+        .leftJoin(mediaDecodeDeferrals, eq(mediaDecodeDeferrals.commandId, mediaDecodeCommands.id))
         .where(
           and(
             eq(mediaDecodeCommands.build, DECODER_BUILD),
             eq(captureBatches.actorId, binding.actorId),
             eq(captureBatches.targetId, binding.targetId),
             eq(captureBatches.targetContextId, binding.targetContextId),
-            notExists(
-              db
-                .select({ commandId: mediaDecodeClaims.commandId })
-                .from(mediaDecodeClaims)
-                .where(eq(mediaDecodeClaims.commandId, mediaDecodeCommands.id)),
+            or(
+              notExists(
+                db
+                  .select({ commandId: mediaDecodeClaims.commandId })
+                  .from(mediaDecodeClaims)
+                  .where(eq(mediaDecodeClaims.commandId, mediaDecodeCommands.id)),
+              ),
+              isNotNull(mediaDecodeDeferrals.commandId),
             ),
           ),
         )
@@ -83,17 +95,39 @@ async function claimCommand(pool: Pool, binding: CaptureBinding): Promise<MediaC
         .limit(1)
         .for('update', { of: mediaDecodeCommands, skipLocked: true }),
     )
-    const command = commands[0]
-    if (!command) {
+    const candidate = commands[0]
+    if (!candidate) {
       return null
     }
-    await executeDatabaseQuery(
-      queryDatabase(client).insert(mediaDecodeClaims).values({
-        commandId: command.id,
-        ownerId: randomUUID(),
-      }),
-    )
+    const { deferral, ...command } = candidate
+    const taken = deferral
+      ? await executeDatabaseQuery(
+          queryDatabase(client)
+            .delete(mediaDecodeDeferrals)
+            .where(eq(mediaDecodeDeferrals.commandId, command.id))
+            .returning({ commandId: mediaDecodeDeferrals.commandId }),
+        )
+      : await executeDatabaseQuery(
+          queryDatabase(client)
+            .insert(mediaDecodeClaims)
+            .values({ commandId: command.id, ownerId: randomUUID() })
+            .onConflictDoNothing()
+            .returning({ commandId: mediaDecodeClaims.commandId }),
+        )
+    if (!taken.length) {
+      return null
+    }
     return command
+  })
+}
+
+/** Gives a claimed command back for a later run: the dispatcher was busy, so nothing ran. */
+async function deferCommand(pool: Pool, command: MediaCommand) {
+  await transaction(pool, async (client) => {
+    await prepareMediaTransaction(client)
+    await executeDatabaseQuery(
+      queryDatabase(client).insert(mediaDecodeDeferrals).values({ commandId: command.id }),
+    )
   })
 }
 
@@ -223,30 +257,57 @@ async function publishDecoded(
   })
 }
 
-/** Explicit one-command worker. A claimed interrupted command is never automatically replayed. */
+export type MediaCommandOutcome = 'decoded' | 'deferred' | 'idle'
+
+/**
+ * Explicit one-command worker. A claimed interrupted command is never automatically replayed. A
+ * decode that found the dispatcher busy for its whole wait ran nothing, so it is deferred, not
+ * interrupted, and a later run takes it again; its version reads queued meanwhile.
+ */
+export async function runMediaCommand(
+  pool: Pool,
+  store: BlobStore,
+  binding: CaptureBinding,
+  image: string,
+  dispatch: DispatchOptions = {},
+): Promise<MediaCommandOutcome> {
+  const command = await claimCommand(pool, binding)
+  if (!command) {
+    return 'idle'
+  }
+  let decoded: DecodedMedia | { state: 'interrupted'; toolchain: string; pages: [] }
+  try {
+    const bytes = await store.read(command.blob_digest.toString('hex'))
+    decoded = await decodeIsolated(
+      image,
+      {
+        version: 'media-decode/1',
+        digest: command.blob_digest.toString('hex'),
+        bytes,
+        recipe: retainedRecipe(command),
+      },
+      dispatch,
+    )
+  } catch (error) {
+    if (error instanceof DecoderDispatcherBusyError) {
+      await deferCommand(pool, command)
+      return 'deferred'
+    }
+    // Unknown infrastructure/library failures do not claim the source is malformed.
+    decoded = { state: 'interrupted', toolchain: MEDIA_TOOLCHAIN, pages: [] }
+  }
+  await publishDecoded(pool, store, binding, command, image, decoded)
+  return 'decoded'
+}
+
+/** Whether a command was taken, decoded or deferred; see `runMediaCommand`. */
 export async function processMediaCommand(
   pool: Pool,
   store: BlobStore,
   binding: CaptureBinding,
   image: string,
+  dispatch: DispatchOptions = {},
 ) {
-  const command = await claimCommand(pool, binding)
-  if (!command) {
-    return false
-  }
-  let decoded: DecodedMedia | { state: 'interrupted'; toolchain: string; pages: [] }
-  try {
-    const bytes = await store.read(command.blob_digest.toString('hex'))
-    decoded = await decodeIsolated(image, {
-      version: 'media-decode/1',
-      digest: command.blob_digest.toString('hex'),
-      bytes,
-      recipe: retainedRecipe(command),
-    })
-  } catch {
-    // Unknown infrastructure/library failures do not claim the source is malformed.
-    decoded = { state: 'interrupted', toolchain: MEDIA_TOOLCHAIN, pages: [] }
-  }
-  await publishDecoded(pool, store, binding, command, image, decoded)
-  return true
+  const outcome = await runMediaCommand(pool, store, binding, image, dispatch)
+  return outcome !== 'idle'
 }
