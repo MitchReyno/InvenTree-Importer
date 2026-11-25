@@ -629,6 +629,29 @@ export const SessionHistory = object({
   before: Type.Optional(SessionHistoryCursor),
 })
 
+/** The most entries one batch activity read returns. */
+export const MAX_BATCH_ACTIVITY = 20
+/** How many entries Processing's recent activity shows. */
+export const BATCH_ACTIVITY_DEFAULT = 6
+/** A query string is text, so the limit is a decimal from 1 to MAX_BATCH_ACTIVITY. */
+export const BatchActivityQuery = object({
+  limit: Type.Optional(Type.String({ pattern: '^(?:[1-9]|1[0-9]|20)$' })),
+})
+/** One recorded action of a batch's sessions, with the job's latest status line as its note. */
+export const BatchActivityEntry = object({
+  job_id: Id,
+  stage: ProcessingStageV2,
+  /** Null for the batch's Examine lead session. */
+  subject_id: Type.Union([Id, Type.Null()]),
+  entry: SessionHistoryEntry,
+  /** The job's current attempt's latest status line; null while it has none, as after Start fresh. */
+  agent_note: Type.Union([SessionLatestStatus, Type.Null()]),
+})
+/** The newest recorded actions across every session job of a batch, newest first. */
+export const BatchActivity = object({
+  entries: Type.Array(BatchActivityEntry, { maxItems: MAX_BATCH_ACTIVITY }),
+})
+
 export const SessionReplacement = object({
   expected_capture_revision: Revision,
   expected_revision: Revision,
@@ -637,6 +660,8 @@ export const SessionReplacement = object({
 export type SessionReplacementDto = Static<typeof SessionReplacement>
 
 export const sessionSchemas = {
+  BatchActivity,
+  BatchActivityQuery,
   SessionReplacement,
   SessionLatestStatus,
   SessionHistory,
@@ -665,6 +690,8 @@ export const sessionSchemas = {
 }
 export type SessionLatestStatusDto = Static<typeof SessionLatestStatus>
 export type SessionHistoryDto = Static<typeof SessionHistory>
+export type BatchActivityDto = Static<typeof BatchActivity>
+export type BatchActivityEntryDto = Static<typeof BatchActivityEntry>
 export type SessionHistoryEntryDto = Static<typeof SessionHistoryEntry>
 export type SessionHistoryDetailsDto = Static<typeof SessionHistoryDetails>
 export type SessionHistoryLinkDto = Static<typeof SessionHistoryLink>

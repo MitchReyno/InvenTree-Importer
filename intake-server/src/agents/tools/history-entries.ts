@@ -33,20 +33,23 @@ export interface HistoryJob {
   currentAttemptId: string
 }
 
-/** One stored row of the page, validated against its stream's contract. */
+/** One stored row of the page, validated against its stream's contract, with its job. */
 export type HistoryRow =
-  | { stream: 'outbox'; item: SessionOutboxItemDto; attemptNumber: number }
+  | { stream: 'outbox'; jobId: string; item: SessionOutboxItemDto; attemptNumber: number }
   | {
       stream: 'inbox'
+      jobId: string
       item: SessionInboxItemDto
       actorId: string | null
       idempotencyKey: string
     }
 
-interface HistoryContext {
-  job: HistoryJob
+/** The batch's jobs whose rows are resolved together, each with its inbox cursor. */
+export interface HistoryContext {
+  batchId: string
+  jobs: ReadonlyMap<string, HistoryJob>
   capture: CaptureSnapshotDto
-  ackedSeq: bigint
+  ackedSeq: ReadonlyMap<string, bigint>
 }
 
 type OutboxOf<K extends SessionOutboxItemDto['kind']> = Extract<SessionOutboxItemDto, { kind: K }>
@@ -202,11 +205,11 @@ async function proposalsOfAttempts(
        JOIN public.processing_message m ON m.id=p.message_id
        JOIN public.agent_session_outbox o
          ON o.session_id=p.attempt_id AND o.kind='proposal' AND o.payload->>'proposal_id'=p.id::text
-      WHERE a.job_id=$1 AND p.attempt_id = ANY($2::uuid[])
+      WHERE a.job_id = ANY($1::uuid[]) AND p.attempt_id = ANY($2::uuid[])
       ORDER BY o.session_id, o.seq`,
-    [context.job.id, [...attemptIds]],
+    [[...context.jobs.keys()], [...attemptIds]],
   )
-  const versions = await batchVersions(client, context.job.batchId)
+  const versions = await batchVersions(client, context.batchId)
   const lots = new Set(context.capture.lots.map((lot) => lot.id))
   const manifests = new Map<string, SessionInputDto>()
   for (const row of rows.rows) {
@@ -225,7 +228,7 @@ async function proposalsOfAttempts(
         valueBytes: row.value_bytes,
         valueDigest: row.value_digest,
       },
-      context.job.subjectId,
+      (context.jobs.get(row.job_id) ?? fail('retained_proposal_binding_invalid')).subjectId,
       manifest,
       lots,
       versions,
@@ -301,7 +304,7 @@ async function notesById(
   const rows = await client.query<{ id: string; evidence_id: string; text: string }>(
     `SELECT id, evidence_id, text FROM public.media_evidence_note
       WHERE batch_id=$1 AND id = ANY($2::uuid[])`,
-    [context.job.batchId, missing],
+    [context.batchId, missing],
   )
   for (const row of rows.rows) {
     notes.set(row.id, {
@@ -353,7 +356,7 @@ async function questionsById(client: PoolClient, context: HistoryContext, ids: S
        JOIN public.processing_input i ON i.id=q.input_id
        JOIN public.processing_message m ON m.id=q.message_id
       WHERE q.batch_id=$1 AND j.batch_id=$1 AND q.id = ANY($2::uuid[])`,
-    [context.job.batchId, [...ids]],
+    [context.batchId, [...ids]],
   )
   const subjects = new Set([
     ...context.capture.lots.map((lot) => lot.id),
@@ -918,16 +921,16 @@ export async function resolveHistoryEntries(
     context,
     lots: new Map(context.capture.lots.map((lot) => [lot.id, lot])),
     parts: new Map(context.capture.parts.map((part) => [part.id, part])),
-    observations: await observationsById(client, context.job.batchId, ids.observations),
-    evidence: await evidenceDirectory(client, context.job.batchId),
+    observations: await observationsById(client, context.batchId, ids.observations),
+    evidence: await evidenceDirectory(client, context.batchId),
     proposals,
     notes: await notesById(client, context, proposals),
     webCitations: firstWebCitations(proposals),
     currentness: proposals.size
-      ? await proposalCurrentnessFacts(client, context.job.batchId, [...proposals.keys()])
+      ? await proposalCurrentnessFacts(client, context.batchId, [...proposals.keys()])
       : new Map(),
     questions: new Map(),
-    instructions: await instructionsSavedAt(client, context.job.batchId, ids.instructions),
+    instructions: await instructionsSavedAt(client, context.batchId, ids.instructions),
   }
   for (const [, fact] of resolved.currentness) {
     for (const questionId of fact.provisionalQuestionIds) {
@@ -956,7 +959,7 @@ export async function resolveHistoryEntries(
     entries.push({
       id: inboxEntryId(row.item),
       at: row.item.created_at,
-      read: BigInt(row.item.seq) <= context.ackedSeq,
+      read: BigInt(row.item.seq) <= (context.ackedSeq.get(row.jobId) ?? 0n),
       ...inboxEntry(resolved, row),
     })
   }

@@ -13,6 +13,7 @@ import { commandKey } from '#/api/request.ts'
 import { replaceSession } from './session-replacement.ts'
 import { submitSessionInbox } from '#/agents/tools/inbox.ts'
 import { readSessionHistory } from '#/agents/tools/history.ts'
+import { readBatchActivity } from '#/agents/tools/activity.ts'
 import type { LockCapture } from './capture.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { processingRepository } from './repository.ts'
@@ -100,6 +101,22 @@ export function registerProcessing(
           id(request, 'questionId'),
           commandKey(request),
           request.body,
+        ),
+    )
+    scope.get<{ Querystring: { limit?: string } }>(
+      '/api/v1/batches/:id/processing/activity',
+      {
+        schema: {
+          querystring: schemas.BatchActivityQuery,
+          response: { 200: schemas.BatchActivity },
+        },
+      },
+      (request) =>
+        readBatchActivity(
+          pool,
+          config,
+          id(request),
+          request.query.limit === undefined ? undefined : Number(request.query.limit),
         ),
     )
     scope.get<{ Querystring: { before?: string } }>(

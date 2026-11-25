@@ -370,6 +370,10 @@ const WEB_OFF =
 const DATASHEETS =
   'Prefer manufacturer datasheets over distributor pages, and take exact values from the datasheet.'
 
+/** Asks for status lines the operator can read; not digest-bound, so new sessions get it. */
+export const STATUS_GUIDANCE =
+  'Write each status line in plain words about the item, such as “Proposed GE S2CN1 diodes as a 1N4148-class switching diode”, without internal IDs such as proposal, observation or attempt identifiers.'
+
 /** The sealed web research lines for a VM tool session; other sessions have no web access. */
 function webGuidance(manifest: SessionInputDto) {
   if (webAccess(manifest.profile_id) !== 'available') {
@@ -465,6 +469,7 @@ export function openingText(
       (manifest.part_description_style ? `${STYLE_GUIDANCE} ` : '') +
       webGuidance(manifest) +
       'Report steps with status, publish proposals with propose, ask questions with ask and keep working. ' +
+      `${STATUS_GUIDANCE} ` +
       `${ASK_GUIDANCE} ` +
       `${INBOX_GUIDANCE} ` +
       CATALOGUE_GUIDANCE,

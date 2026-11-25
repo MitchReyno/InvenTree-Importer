@@ -14,7 +14,7 @@ export type HistoryContext = {
 }
 
 /** A link's text and address in this app, or plain text where it no longer leads anywhere. */
-function linkTarget(link: SessionHistoryLinkDto, context: HistoryContext) {
+export function linkTarget(link: SessionHistoryLinkDto, context: HistoryContext) {
   const { batchId } = context
   switch (link.kind) {
     case 'lot':

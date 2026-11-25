@@ -563,24 +563,11 @@ describe('InstructionField', () => {
     )
   })
 
-  it('shows recent activity as a timeline, or says there is none yet', () => {
-    const { unmount } = overview()
+  it('shows the recent activity it is given in its own card', () => {
+    overview({ activity: <p>Research proposed an identity</p> })
     expect(screen.getByRole('region', { name: 'Recent activity' })).toHaveTextContent(
-      'No agent activity yet.',
+      'Research proposed an identity',
     )
-    unmount()
-    overview({
-      activity: [
-        { text: 'Research · Packet B: Checking the datasheet', at: '2026-11-23T13:07:00Z' },
-        {
-          text: 'Examine · Whole batch: Grouping the reels',
-          at: '2026-11-23T13:09:00Z',
-          current: true,
-        },
-      ],
-    })
-    const timeline = screen.getByRole('list', { name: 'Recent activity' })
-    expect(within(timeline).getAllByRole('listitem')).toHaveLength(2)
   })
 
   it('names when the session started and the slot limit', () => {

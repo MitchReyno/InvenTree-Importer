@@ -1,9 +1,12 @@
-import { useId, useState, type FormEvent } from 'react'
+import { useId, useState, type FormEvent, type KeyboardEvent } from 'react'
 import styled from 'styled-components'
 import { color, radius, space, typeVar } from '#/theme/generated/tokens'
 import { Button } from './Button'
 
 export type ChatMessage = { id: string; who: string; text: string; mine: boolean }
+
+const PLACEHOLDER = 'Ask why, or tell it what to check next'
+const HINT = 'Enter to send · Shift+Enter for a new line'
 
 type SessionChatProps = {
   messages: ChatMessage[]
@@ -28,6 +31,7 @@ export function SessionChat({
   showLog = true,
 }: SessionChatProps) {
   const inputId = useId()
+  const hintId = useId()
   const [draft, setDraft] = useState('')
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -38,6 +42,15 @@ export function SessionChat({
     }
     onSend(text)
     setDraft('')
+  }
+
+  // Enter sends; Shift+Enter, and Enter while an input method is composing, stay in the box.
+  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) {
+      return
+    }
+    event.preventDefault()
+    event.currentTarget.form?.requestSubmit()
   }
 
   return (
@@ -58,9 +71,12 @@ export function SessionChat({
           id={inputId}
           rows={2}
           value={draft}
+          placeholder={PLACEHOLDER}
+          aria-describedby={hintId}
           maxLength={maxLength}
           disabled={disabled}
           onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={handleKeyDown}
         />
         <Button
           type="submit"
@@ -70,6 +86,7 @@ export function SessionChat({
         >
           Send
         </Button>
+        <Hint id={hintId}>{HINT}</Hint>
       </Compose>
       {disabled && <Closed>This session was cancelled, so it can’t take messages.</Closed>}
     </Chat>
@@ -109,13 +126,12 @@ const Who = styled.span`
 
 const Compose = styled.form`
   display: flex;
-  gap: ${space[3]};
+  flex-wrap: wrap;
+  gap: ${space[2]} ${space[3]};
   label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
+    flex-basis: 100%;
+    font-size: ${typeVar.label.size};
+    font-weight: ${typeVar.bodyStrong.weight};
   }
   textarea {
     font: inherit;
@@ -127,6 +143,13 @@ const Compose = styled.form`
     border-radius: ${radius.input};
     background: ${color.surface};
   }
+`
+
+const Hint = styled.p`
+  flex-basis: 100%;
+  margin: 0;
+  font-size: ${typeVar.small.size};
+  color: ${color.muted};
 `
 
 const Closed = styled.p`
