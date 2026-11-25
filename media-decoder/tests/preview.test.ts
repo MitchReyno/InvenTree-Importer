@@ -304,7 +304,21 @@ test('a declared page that is not its PNG is malformed even when no crop uses it
   }
   assert.equal((await renderPreview(withPage(indexed(2)))).state, 'ready')
   const tooManyEntries = indexed(3)
+  const twoPalettes = pngFrom([
+    ...beforeData,
+    pngChunk('PLTE', Buffer.alloc(6)),
+    pngChunk('PLTE', Buffer.alloc(6)),
+    firstData,
+    secondData,
+    end,
+  ])
+  const trailingBytes = Buffer.concat([valid, Buffer.from([0])])
   const cases = [
+    twoPalettes,
+    trailingBytes,
+    // An ancillary chunk ahead of IHDR, and a file that stops cleanly before IEND.
+    pngFrom([pngChunk('tEXt', Buffer.from('a\0b')), ...chunks]),
+    pngFrom(chunks.slice(0, -1)),
     headerWith(9, 5),
     headerWith(8, 7),
     headerWith(10, 1),
