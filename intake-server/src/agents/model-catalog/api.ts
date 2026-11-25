@@ -14,22 +14,25 @@ import { catalogRoute, type CatalogAuthentication, type CatalogProvider } from '
 import { readCatalogRows, requestCatalogRefresh, type CatalogRow } from './store.ts'
 
 /**
- * A row's attempt state without its list, for a list read on another route. Attempts and reads in
- * progress are shown only when they ran on `readIn`; a request is the active route's to answer.
+ * What of a row belongs to the route this profile reads on: the list only when it was read there,
+ * the last attempt only when it ran there, and a read in progress only when it runs there. A
+ * request is the active route's to answer. Another route's parts are left out, as never read.
  */
-function withoutList(row: CatalogRow, readIn: 'vm' | 'host'): CatalogRow {
+function routeView(row: CatalogRow, readIn: 'vm' | 'host'): CatalogRow {
+  const ownList = row.readIn === readIn
   const ownAttempt = row.attemptIn === readIn
+  const ownRead = row.readingIn === readIn
   return {
     ...row,
+    models: ownList ? row.models : null,
+    cliVersion: ownList ? row.cliVersion : null,
+    source: ownList ? row.source : null,
+    readIn: ownList ? row.readIn : null,
+    readAt: ownList ? row.readAt : null,
+    staleSignIn: ownList && row.staleSignIn,
     attemptedAt: ownAttempt ? row.attemptedAt : null,
     failure: ownAttempt ? row.failure : null,
-    readingSince: ownAttempt ? row.readingSince : null,
-    models: null,
-    cliVersion: null,
-    source: null,
-    readIn: null,
-    readAt: null,
-    staleSignIn: false,
+    readingSince: ownRead ? row.readingSince : null,
   }
 }
 
@@ -104,9 +107,7 @@ export async function readModelCatalog(
     if (!readIn || !row) {
       return providerCatalog(provider, authentication, undefined)
     }
-    // The attempt fields describe this route's reads; only the stored list may be another's.
-    const listed = row.models === null || row.readIn === readIn
-    return providerCatalog(provider, authentication, listed ? row : withoutList(row, readIn))
+    return providerCatalog(provider, authentication, routeView(row, readIn))
   }
 
   return { claude: forProvider('claude'), codex: forProvider('codex') }

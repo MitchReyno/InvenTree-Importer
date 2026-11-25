@@ -12,8 +12,10 @@ CREATE TABLE agent_model_catalog (
   cli_version text CHECK (cli_version ~ '^[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4}$'),
   source text CHECK (source IN ('cli','api')),
   read_in text CHECK (read_in IN ('vm','host')),
-  -- Where the last attempt, or the read now running, ran; a list may be from another route.
+  -- Where the last finished attempt ran, and where the read now running runs; after a profile
+  -- change either may be another route's than the list's.
   attempt_in text CHECK (attempt_in IN ('vm','host')),
+  reading_in text CHECK (reading_in IN ('vm','host')),
   read_at timestamptz(3),
   attempted_at timestamptz(3),
   failure text CHECK (failure IN ('timeout','guest_outdated','vm_unreachable','signed_out','malformed','unavailable')),

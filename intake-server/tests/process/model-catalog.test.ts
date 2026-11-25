@@ -51,6 +51,7 @@ async function topology(
   t: TestContext,
   mode: 'answer' | 'hang',
   delayMs = 0,
+  // A gated read holds its reply until the test opens the gate, so it gets a longer budget.
   gated = false,
 ): Promise<Topology> {
   // Short: a Unix socket path is limited to about 100 bytes.
@@ -100,7 +101,7 @@ async function topology(
     port,
     undefined,
     undefined,
-    CATALOG_TIMING,
+    gated ? { ...CATALOG_TIMING, readMs: 15_000 } : CATALOG_TIMING,
   )
   t.after(() => bridge.close())
   startRelay(t, bin, sockets, port)
@@ -159,9 +160,10 @@ test(
     assert.deepEqual(generation, { kind: 'generation', generation: world.claude.status().revision })
     assert.deepEqual(await cliLog(world.log), [])
 
-    // Both of the relay's catalogue connections start together; give the second a moment.
-    await delay(1000)
-    const reading = world.bridge.modelCatalog('claude', 'read')
+    let readSettled = false
+    const reading = world.bridge.modelCatalog('claude', 'read').finally(() => {
+      readSettled = true
+    })
     // The CLI holds its reply until the gate opens, so the read is surely still running.
     for (let i = 0; i < 150; i++) {
       if ((await cliLog(world.log)).some((frame) => 'received' in frame)) {
@@ -170,13 +172,19 @@ test(
       await delay(20)
     }
     assert.ok((await cliLog(world.log)).some((frame) => 'received' in frame))
-    // The relay's second catalogue connection answers a generation check meanwhile.
-    const during = await world.bridge.modelCatalog('claude', 'generation')
+    // The relay's second catalogue connection answers a generation check meanwhile; it may still
+    // be coming up, so a timed-out check is asked again while the gate stays closed.
+    let during = await world.bridge.modelCatalog('claude', 'generation')
+    for (let i = 0; i < 3 && during.kind !== 'generation'; i++) {
+      during = await world.bridge.modelCatalog('claude', 'generation')
+    }
     assert.equal(during.kind, 'generation')
     const statusStarted = performance.now()
     const status = await world.bridge.providerStatus()
     assert.ok(performance.now() - statusStarted < 1800)
     assert.equal(status.claude.state, 'saved')
+    // Both answered while the read was held, so they ran beside it.
+    assert.equal(readSettled, false)
     await writeFile(join(world.root, 'release'), '')
     const answer = await reading
     assert.equal(answer.kind, 'read')

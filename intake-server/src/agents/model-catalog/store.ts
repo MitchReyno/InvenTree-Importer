@@ -22,6 +22,7 @@ export interface CatalogRow extends CatalogKey {
   source: 'cli' | 'api' | null
   readIn: 'vm' | 'host' | null
   attemptIn: 'vm' | 'host' | null
+  readingIn: 'vm' | 'host' | null
   readAt: Date | null
   attemptedAt: Date | null
   failure: AgentCatalogFailure | null
@@ -58,6 +59,7 @@ interface RawRow {
   source: 'cli' | 'api' | null
   read_in: 'vm' | 'host' | null
   attempt_in: 'vm' | 'host' | null
+  reading_in: 'vm' | 'host' | null
   read_at: Date | null
   attempted_at: Date | null
   failure: AgentCatalogFailure | null
@@ -77,6 +79,7 @@ function catalogRow(row: RawRow): CatalogRow {
     source: row.source,
     readIn: row.read_in,
     attemptIn: row.attempt_in,
+    readingIn: row.reading_in,
     readAt: row.read_at,
     attemptedAt: row.attempted_at,
     failure: row.failure,
@@ -94,7 +97,8 @@ export async function readCatalogRows(
   scope: CaptureBinding,
 ): Promise<CatalogRow[]> {
   const result = await connection.query<RawRow>(
-    `SELECT provider, authentication, models, cli_version, source, read_in, attempt_in, read_at,
+    `SELECT provider, authentication, models, cli_version, source, read_in, attempt_in, reading_in,
+        read_at,
         attempted_at,
         failure, refresh_requested_at, reading_since, sign_in_generation, latest_generation,
         stale_sign_in
@@ -136,10 +140,10 @@ export async function beginCatalogRead(
     generation_seq: string
   }>(
     `INSERT INTO agent_model_catalog AS c
-        (actor_id,target_id,target_context_id,provider,authentication,reading_since,attempt_in)
+        (actor_id,target_id,target_context_id,provider,authentication,reading_since,reading_in)
       VALUES ($1,$2,$3,$4,$5,$6,$7)
       ON CONFLICT (actor_id,target_id,target_context_id,provider,authentication)
-        DO UPDATE SET reading_since=$6, attempt_in=$7
+        DO UPDATE SET reading_since=$6, reading_in=$7
       RETURNING c.refresh_seq, c.invalidation_seq, c.generation_seq`,
     [...keyParams(scope, key), now, readIn],
   )
@@ -253,7 +257,7 @@ export async function publishCatalogRead(
     const stored = await client.query(
       `UPDATE agent_model_catalog SET
           models=$7::jsonb, cli_version=$8, source=$9, read_in=$10, read_at=$11, attempted_at=$11,
-          failure=NULL, sign_in_generation=$12, latest_generation=coalesce($12, latest_generation),
+          failure=NULL, attempt_in=$10, reading_in=NULL, sign_in_generation=$12, latest_generation=coalesce($12, latest_generation),
           stale_sign_in=false, reading_since=NULL, ${CLEAR_ANSWERED_REQUEST}
         WHERE ${KEY_SQL} AND invalidation_seq=$13
           AND latest_generation IS NOT DISTINCT FROM coalesce($12, latest_generation)`,
@@ -283,7 +287,8 @@ export async function recordCatalogFailure(
   now: Date,
 ) {
   await pool.query(
-    `UPDATE agent_model_catalog SET attempted_at=$7, failure=$8, reading_since=NULL,
+    `UPDATE agent_model_catalog SET attempted_at=$7, failure=$8, attempt_in=reading_in,
+        reading_since=NULL, reading_in=NULL,
         ${CLEAR_ANSWERED_REQUEST}
       WHERE ${KEY_SQL}`,
     [...keyParams(scope, key), started.refreshSeq, now, failure],
@@ -293,7 +298,8 @@ export async function recordCatalogFailure(
 /** Clears a request no reader can answer, such as an API key with no route in the guest. */
 export async function clearCatalogRequest(pool: Pool, scope: CaptureBinding, key: CatalogKey) {
   await pool.query(
-    `UPDATE agent_model_catalog SET refresh_requested_at=NULL, reading_since=NULL WHERE ${KEY_SQL}`,
+    `UPDATE agent_model_catalog SET refresh_requested_at=NULL, reading_since=NULL, reading_in=NULL
+      WHERE ${KEY_SQL}`,
     keyParams(scope, key),
   )
 }
@@ -301,7 +307,7 @@ export async function clearCatalogRequest(pool: Pool, scope: CaptureBinding, key
 /** A worker that starts holds no read, so a read it never finished no longer reads as running. */
 export async function clearStaleReads(pool: Pool, scope: CaptureBinding) {
   await pool.query(
-    `UPDATE agent_model_catalog SET reading_since=NULL
+    `UPDATE agent_model_catalog SET reading_since=NULL, reading_in=NULL
       WHERE actor_id=$1 AND target_id=$2 AND target_context_id=$3 AND reading_since IS NOT NULL`,
     [scope.actorId, scope.targetId, scope.targetContextId],
   )

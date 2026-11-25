@@ -147,7 +147,7 @@ async function hostCodexPages(
     env = agentEnvironment(host, catalogSelection('codex', authentication), cwd)
   } catch (error) {
     // An API-key mode whose key is no longer configured; anything else is not a sign-in state.
-    if (error instanceof NativeSessionError && error.message === 'agent_login_required') {
+    if (error instanceof NativeSessionError && error.code === 'agent_login_required') {
       throw new CatalogReadError('signed_out')
     }
     throw error

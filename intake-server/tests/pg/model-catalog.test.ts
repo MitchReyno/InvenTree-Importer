@@ -23,6 +23,7 @@ import { modelCatalogWorker, type CatalogProviderSetting } from '#/agents/model-
 import {
   CATALOG_MAX_AGE_MS,
   CATALOG_RETRY_MS,
+  observeCatalogGeneration,
   readCatalogRows,
 } from '#/agents/model-catalog/store.ts'
 import { nativeAgentHost } from '#/agents/environment.ts'
@@ -940,28 +941,107 @@ test("a poll's first observation, landing while the first read is out, fences th
   assert.equal(row?.signInGeneration, 'rev-b')
 })
 
-test("another route's failed attempt isn't shown as this route's", async (t) => {
+test("another route's attempts and reads aren't shown as this route's", async (t) => {
   const fixture = await processingFixture({ profileId: 'native-agent/2' })
   t.after(() => fixture.dispose())
   await claudeOnly(fixture)
-  await fixture.db.pool.query(
-    `INSERT INTO agent_model_catalog
-        (actor_id,target_id,target_context_id,provider,authentication,models,source,read_in,
-          attempt_in,read_at,attempted_at,failure)
-      VALUES ($1,$2,$3,'claude','subscription',$4::jsonb,'cli','vm','vm',now() - interval '1 hour',
-        now(),'timeout')`,
-    [
-      fixture.config.actorId,
-      fixture.config.targetId,
-      fixture.config.targetContextId,
-      JSON.stringify([sonnet]),
-    ],
-  )
-  const answer = await readModelCatalog(fixture.api.pool, fixture.config)
+  const insert = (models: AgentCatalogModelDto[] | null, readIn: string | null) =>
+    fixture.db.pool.query(
+      `INSERT INTO agent_model_catalog
+          (actor_id,target_id,target_context_id,provider,authentication,models,source,read_in,
+            attempt_in,read_at,attempted_at,failure)
+        VALUES ($1,$2,$3,'claude','subscription',$4::jsonb,$5,$6,'vm',$7,now(),'timeout')
+        ON CONFLICT (actor_id,target_id,target_context_id,provider,authentication) DO UPDATE SET
+          models=excluded.models, source=excluded.source, read_in=excluded.read_in,
+          attempt_in='vm', read_at=excluded.read_at, attempted_at=now(), failure='timeout'`,
+      [
+        fixture.config.actorId,
+        fixture.config.targetId,
+        fixture.config.targetContextId,
+        models === null ? null : JSON.stringify(models),
+        models === null ? null : 'cli',
+        readIn,
+        models === null ? null : new Date(Date.now() - 3600_000),
+      ],
+    )
+
+  // A VM attempt that failed before any list was stored.
+  await insert(null, null)
+  let answer = await readModelCatalog(fixture.api.pool, fixture.config)
   assert.equal(answer.claude.state, 'never_read')
   assert.equal(answer.claude.failure, null)
   assert.equal(answer.claude.attempted_at, null)
-  assert.equal(answer.claude.builtin, true)
+
+  // A host list kept from before, with the VM's later failed attempt.
+  await insert([sonnet], 'host')
+  answer = await readModelCatalog(fixture.api.pool, fixture.config)
+  assert.equal(answer.claude.state, 'current')
+  assert.equal(answer.claude.failure, null)
+  assert.deepEqual(answer.claude.models, [sonnet])
+
+  // A host read starts: it is this route's, and the VM failure stays hidden until it ends.
+  const { state, reader } = fakeReader('rev-a', 'host')
+  let fail!: (error: CatalogReadError) => void
+  state.answers.push(
+    new Promise<CatalogRead>((_resolve, reject) => {
+      fail = reject
+    }),
+  )
+  const catalog = worker(fixture, () => reader)
+  t.after(() => catalog.close())
+  await catalog.pass()
+  await readStarted(state, 1)
+  answer = await readModelCatalog(fixture.api.pool, fixture.config)
+  assert.equal(answer.claude.state, 'reading')
+  assert.equal(answer.claude.failure, null)
+  fail(new CatalogReadError('malformed'))
+  await catalog.idle()
+  answer = await readModelCatalog(fixture.api.pool, fixture.config)
+  assert.equal(answer.claude.state, 'failed')
+  assert.equal(answer.claude.failure, 'malformed')
+})
+
+test('an observation waiting on the row lock compares with the generation committed ahead of it', async (t) => {
+  const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
+  t.after(() => fixture.dispose())
+  await claudeOnly(fixture)
+  const time = clock()
+  const key = { provider: 'claude', authentication: 'subscription' } as const
+  await observeCatalogGeneration(fixture.runner.pool, fixture.config, key, 'rev-a', time.now())
+  const competitor = await fixture.db.pool.connect()
+  await competitor.query('BEGIN')
+  await competitor.query(
+    `UPDATE agent_model_catalog SET latest_generation='rev-x', generation_seq=generation_seq+1
+      WHERE provider='claude'`,
+  )
+  let settled = false
+  const observing = observeCatalogGeneration(
+    fixture.runner.pool,
+    fixture.config,
+    key,
+    'rev-x',
+    time.now(),
+  ).finally(() => {
+    settled = true
+  })
+  // The observer is waiting for the competitor's row lock.
+  for (let i = 0; i < 100; i++) {
+    const waiting = await fixture.api.pool.query(
+      `SELECT count(*)::int AS n FROM pg_locks WHERE NOT granted AND locktype IN ('transactionid','tuple')`,
+    )
+    if (waiting.rows[0].n > 0) {
+      break
+    }
+    await new Promise((resolve) => setTimeout(resolve, 20))
+  }
+  assert.equal(settled, false)
+  await competitor.query('COMMIT')
+  competitor.release()
+  // rev-x is what the committed row says, so seeing it again is no sign-in change.
+  assert.equal(await observing, false)
+  const row = await claudeRow(fixture)
+  assert.equal(row?.latestGeneration, 'rev-x')
+  assert.equal(row?.staleSignIn, false)
 })
 
 test('overlapping admissions of one new CLI version write one refresh request', async (t) => {
@@ -969,33 +1049,26 @@ test('overlapping admissions of one new CLI version write one refresh request', 
   t.after(() => fixture.dispose())
   await claudeOnly(fixture)
   const { reader } = fakeReader('rev-a')
-  let requests = 0
-  const pool = new Proxy(fixture.runner.pool, {
-    get(target, property, receiver) {
-      if (property === 'query') {
-        return (text: unknown, ...rest: unknown[]) => {
-          if (typeof text === 'string' && text.includes('refresh_seq=refresh_seq+1')) {
-            requests++
-          }
-          return (target.query as (...args: unknown[]) => unknown).call(target, text, ...rest)
-        }
-      }
-      return Reflect.get(target, property, receiver) as unknown
-    },
-  })
-  const catalog = modelCatalogWorker({
-    pool,
-    scope: fixture.config,
-    reader: () => reader,
-    now: clock().now,
-    providers: async () => [{ provider: 'claude', authentication: 'subscription', enabled: true }],
-  })
+  const catalog = worker(fixture, () => reader)
   t.after(() => catalog.close())
   await round(catalog)
-  await Promise.all([
-    catalog.cliVersionReported('claude', 'subscription', '2.1.320'),
-    catalog.cliVersionReported('claude', 'subscription', '2.1.320'),
-    catalog.cliVersionReported('claude', 'subscription', '2.1.320'),
-  ])
-  assert.equal(requests, 1)
+  const seq = async () =>
+    (
+      await fixture.api.pool.query<{ refresh_seq: string }>(
+        `SELECT refresh_seq FROM agent_model_catalog WHERE provider='claude'`,
+      )
+    ).rows[0].refresh_seq
+  const before = BigInt(await seq())
+  // The first request's write waits on this lock while the other reports arrive.
+  const holder = await fixture.db.pool.connect()
+  await holder.query('BEGIN')
+  await holder.query(`SELECT 1 FROM agent_model_catalog WHERE provider='claude' FOR UPDATE`)
+  const reports = Promise.all(
+    [1, 2, 3].map(() => catalog.cliVersionReported('claude', 'subscription', '2.1.320')),
+  )
+  await new Promise((resolve) => setTimeout(resolve, 300))
+  await holder.query('COMMIT')
+  holder.release()
+  await reports
+  assert.equal(BigInt(await seq()) - before, 1n)
 })

@@ -113,3 +113,23 @@ test('a host OpenAI key gone from the environment reads as signed out', async (t
     (error) => error instanceof CatalogReadError && error.code === 'signed_out',
   )
 })
+
+test('an environment failure other than a missing key is not read as signed out', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'catalog-codex-env-'))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  const host = nativeAgentHost({
+    INTAKE_AGENT_STATE_ROOT: join(root, 'state'),
+    PATH: process.env.PATH,
+  })
+  const boom = new Error('environment_unreadable')
+  host.env = new Proxy(host.env, {
+    get(target, name) {
+      if (name === 'OPENAI_API_KEY') {
+        throw boom
+      }
+      return Reflect.get(target, name) as unknown
+    },
+  })
+  const reader = hostCodexApiReader(host, 'secret', () => 'sk-openai-key')
+  await assert.rejects(reader.read(AbortSignal.timeout(10_000)), (error) => error === boom)
+})
