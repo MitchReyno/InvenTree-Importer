@@ -26,23 +26,6 @@ export function useIntakeConnection() {
   return useContext(Context)
 }
 
-export function IntakeConnectionLabel({ scopeFailed = false }: { scopeFailed?: boolean }) {
-  const state = useIntakeConnection()
-  if (!state) {
-    return scopeFailed ? 'Intake service degraded' : 'Checking Intake…'
-  }
-  if (state.contact === 'checking') {
-    return 'Checking Intake…'
-  }
-  if (state.contact === 'disconnected') {
-    return 'No connection to Intake'
-  }
-  if (state.contact === 'degraded' || state.bootstrapFailed || scopeFailed) {
-    return 'Intake responding, service degraded'
-  }
-  return 'Intake connected'
-}
-
 const readHealth = () => intakeClient(location.origin).health()
 
 export function IntakeConnectionProvider({
@@ -69,7 +52,7 @@ export function IntakeConnectionProvider({
     latest.current = { liveAt, bootstrapFailed, refreshBootstrap }
     wake.current(bootstrapFailed)
   }, [liveAt, bootstrapFailed, refreshBootstrap])
-  useOnForeground(() => wake.current())
+  useOnForeground(() => wake.current(true))
 
   useEffect(() => {
     let stopped = false
@@ -77,6 +60,8 @@ export function IntakeConnectionProvider({
     let timer: ReturnType<typeof setTimeout>
     let httpFailed = false
     let next = 0
+    let lastHttpObservation: number | undefined
+    let confirmNeeded = false
 
     function publish(contact: Contact) {
       setObservation((old) => {
@@ -102,10 +87,12 @@ export function IntakeConnectionProvider({
         timer = setTimeout(() => void check(), quietUntil - Date.now())
         return
       }
-      if (!httpFailed && next > 0 && Date.now() - next > HEALTHY_MS && quietUntil <= Date.now()) {
+      const lastObservedAt = Math.max(latest.current.liveAt, lastHttpObservation ?? 0)
+      if (confirm && !httpFailed && Date.now() - lastObservedAt > HEALTHY_MS) {
         publish('checking')
       }
       if (busy) {
+        confirmNeeded ||= confirm
         return
       }
       if (next > Date.now() && (!confirm || httpFailed)) {
@@ -118,6 +105,7 @@ export function IntakeConnectionProvider({
         if (stopped) {
           return
         }
+        lastHttpObservation = Date.now()
         httpFailed = false
         publish('connected')
         if (latest.current.bootstrapFailed) {
@@ -136,7 +124,12 @@ export function IntakeConnectionProvider({
             httpFailed || latest.current.bootstrapFailed ? 4000 + Math.random() * 500 : HEALTHY_MS
           next = Date.now() + delay
           clearTimeout(timer)
-          timer = setTimeout(() => void check(), delay)
+          if (confirmNeeded) {
+            confirmNeeded = false
+            timer = setTimeout(() => void check(true), 0)
+          } else {
+            timer = setTimeout(() => void check(), delay)
+          }
         }
       }
     }

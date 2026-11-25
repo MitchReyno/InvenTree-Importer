@@ -22,7 +22,8 @@ T1 establishes server observations. T2 consumes them. T3 delivers media admissio
 ## T1. Supply timely, scoped server observations
 
 - [x] Baseline the liveness route, scoped status read, 3-second remote cutoff, 30-second cache, client budgets and socket ticks. Capture synthetic latency, pool wait and current failure classifications.
-- [ ] RED: demonstrate a 9-second protected success labelled offline, no autonomous check without a client, a delayed heartbeat with occupied API pool, and stale results across a credential/context rotation.
+- [x] RED: reproduce a 9-second protected success labelled offline with the original deadline.
+- [ ] Historical RED evidence remains partial for autonomous checks, heartbeat delay under pool pressure and credential/context rotation. Post-change verification covers these cases.
 - [x] GREEN: implement the scheduled target checks, coalesced manual check, cancellation, short recovery cadence, budgeted health pool, schema-compatible snapshots and separate root/auth outcomes. Decouple socket heartbeat from projection without weakening scope closure. Introduce reason and elapsed-time observations.
 - [x] Verify with fake clocks, generated-client checks, actual sockets, saturated PostgreSQL pool and target stub. Cover startup, shutdown, fresh-cache checks, refused token, redirects, root failure, target timeout and local DB failure. Update Intake architecture and endpoint docs.
 

@@ -23,7 +23,8 @@ import {
   processingClient,
 } from '@invimport/contracts/client'
 import { ServerStateProvider } from './components/query/ServerStateProvider'
-import { IntakeConnectionLabel, IntakeConnectionProvider } from './context/IntakeConnection'
+import { IntakeConnectionProvider } from '#/context'
+import { IntakeConnectionLabel } from './components/masthead/IntakeConnectionLabel'
 import { LiveUpdates } from './components/operations/LiveUpdates'
 import { PageDebugPanel } from './components/operations/PageDebugPanel'
 import { RefreshSignal } from './components/operations/RefreshSignal'

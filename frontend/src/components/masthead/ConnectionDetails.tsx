@@ -5,7 +5,7 @@ import { color, space, typeVar } from '#/theme/generated/tokens'
 import { LIVE_UPDATE_FRESH_MS } from '#/components/operations/LiveUpdates'
 import { Button, DebugDetails, EventTime, eventTimeText, KeyValue } from '#/components/ui'
 import { observationFresh, safeTargetNavigation, timestampFresh } from '#/header/observations'
-import { IntakeConnectionLabel } from '#/context/IntakeConnection'
+import { IntakeConnectionLabel } from './IntakeConnectionLabel'
 import { targetStatus } from '#/header/observations'
 import { DevBadge } from './DevBadge'
 import { type UpdateHealth } from '#/context'
@@ -105,8 +105,8 @@ export function ConnectionDetails({
         rows={[
           {
             label: 'Intake server',
-            value: apiUnavailable ? 'Intake status' : 'Intake connected',
-            content: apiUnavailable ? <IntakeConnectionLabel scopeFailed /> : 'Intake connected',
+            value: 'Intake status',
+            content: <IntakeConnectionLabel scopeFailed={apiUnavailable} />,
             state: 'plain' as const,
           },
           {

@@ -1,6 +1,6 @@
 import { skipToken, useQuery } from '@tanstack/react-query'
 import { serverQueryKey } from '#/queries/scope'
-import { useIntakeConnection } from '#/context/IntakeConnection'
+import { useIntakeConnection } from '#/context'
 import { useNow } from '#/browser/useNow'
 import { useOnline } from '#/browser/useOnline'
 import { useServerScope } from '#/context'

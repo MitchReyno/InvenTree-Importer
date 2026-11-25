@@ -110,8 +110,15 @@ export function scopedConnectionStatus(
 
   return Object.assign(read, {
     async check() {
+      const previous = status.latest().target.observed_at
+      const started = epoch
       const result = await fenced(status.check)()
-      if (result.target.state === 'unavailable' && result.target.failure_code !== 'unauthorized') {
+      if (epoch !== started || result.target.observed_at === previous) {
+        return result
+      }
+      if (result.target.state === 'reachable' || result.target.failure_code === 'unauthorized') {
+        schedule(30_000)
+      } else if (result.target.state === 'unavailable') {
         schedule(4000)
       }
       return result

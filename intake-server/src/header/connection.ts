@@ -99,7 +99,6 @@ async function versionResult(read: () => Promise<Response>) {
   })
   const attempt = (async () => {
     const response = await read()
-    responded = true
     if (!response.ok || !response.body) {
       await response.body?.cancel()
       return null
@@ -110,6 +109,7 @@ async function versionResult(read: () => Promise<Response>) {
     }
     const bytes = await readBoundedBody(response.body, VERSION_BODY_MAX_BYTES, DEADLINE_MS)
     const root: unknown = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes))
+    responded = Boolean(root && typeof root === 'object' && !Array.isArray(root))
     const version =
       root && typeof root === 'object' && !Array.isArray(root)
         ? (root as Record<string, unknown>).version

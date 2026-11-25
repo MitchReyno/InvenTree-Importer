@@ -419,3 +419,27 @@ test('successful root contact keeps the protected read failure cause', async () 
   assert.equal(observed.target.root_responded, true)
   assert.equal(observed.target.failure_code, 'timeout')
 })
+
+test('an error page, redirect or malformed API root cannot establish InvenTree contact', async () => {
+  for (const root of [
+    new Response('bad gateway', { status: 502 }),
+    Response.json({}, { status: 404 }),
+    Response.redirect('https://inventory.example.invalid/login'),
+    new Response('<html>login</html>', { headers: { 'content-type': 'text/html' } }),
+    new Response('<html>login</html>', { headers: { 'content-type': 'application/json' } }),
+    Response.json([]),
+  ]) {
+    const read = connectionStatus(
+      binding,
+      'https://inventory.example.invalid',
+      async () => {
+        throw new DOMException('slow protected read', 'TimeoutError')
+      },
+      Date.now,
+      async () => root,
+    )
+    const { target } = await read()
+    assert.equal(target.root_responded, false)
+    assert.equal(target.failure_code, 'timeout')
+  }
+})

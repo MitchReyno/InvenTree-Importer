@@ -9,7 +9,7 @@ import { GlobalStyle } from '#/components/GlobalStyle'
 import { HeaderStatus } from '#/components/masthead/HeaderStatus'
 import { Masthead } from '#/components/masthead/Masthead'
 import type { HeaderClient } from '#/header/types'
-import { IntakeConnectionProvider } from '#/context/IntakeConnection'
+import { IntakeConnectionProvider } from '#/context'
 import { ApiClientsProvider, UpdateHealthContext } from '#/context'
 
 const scope = {

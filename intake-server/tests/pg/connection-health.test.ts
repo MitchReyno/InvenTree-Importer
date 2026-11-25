@@ -98,3 +98,56 @@ test('stopping during the scope fence prevents a late outgoing check', async () 
     await db.dispose()
   }
 })
+
+test('manual recovery restores the healthy cadence and a cached check cannot postpone it', async (t) => {
+  const db = await isolatedDatabase()
+  const identity = await seedAuthority(db.pool)
+  let reachable = false
+  let probes = 0
+  let finished!: () => void
+  const first = new Promise<void>((resolve) => {
+    finished = resolve
+  })
+  const status = scopedConnectionStatus(
+    db.pool,
+    {
+      actorId: identity.actor,
+      targetId: identity.target,
+      targetContextId: identity.context,
+    },
+    'https://inventory.example.invalid',
+    async () => {
+      probes += 1
+      if (!reachable) throw new Error('synthetic offline')
+      return Response.json({})
+    },
+    undefined,
+    undefined,
+    () => finished(),
+  )
+  try {
+    t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+    status.start()
+    t.mock.timers.tick(0)
+    await first
+    reachable = true
+    t.mock.timers.tick(1000)
+    assert.equal((await status.check()).target.state, 'reachable')
+    t.mock.timers.tick(3500)
+    assert.equal((await status.check()).target.state, 'reachable')
+    assert.equal(probes, 2)
+    t.mock.timers.tick(26_499)
+    await status()
+    assert.equal(probes, 2)
+    const next = new Promise<void>((resolve) => {
+      finished = resolve
+    })
+    t.mock.timers.tick(1)
+    await next
+    assert.equal(probes, 3)
+  } finally {
+    status.stop()
+    t.mock.timers.reset()
+    await db.dispose()
+  }
+})

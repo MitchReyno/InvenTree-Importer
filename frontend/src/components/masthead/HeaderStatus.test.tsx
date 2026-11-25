@@ -11,7 +11,7 @@ import { serverQueryKey } from '#/queries/scope'
 import { createServerQueryClient } from '#/queries/client'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { eventTimeText } from '#/components/ui'
-import { IntakeConnectionProvider } from '#/context/IntakeConnection'
+import { IntakeConnectionProvider } from '#/context'
 import { HeaderStatus } from './HeaderStatus'
 import type { HeaderClient } from '#/header/types'
 import { HeaderObservationsProvider, UpdateHealthContext } from '#/context'
@@ -1457,41 +1457,68 @@ test('polling updates the badge within five seconds of a successful recovery wit
   }
 })
 
-test('short outage recovery hides the cached pre-outage check until a newer target observation arrives', async () => {
-  vi.useFakeTimers({ shouldAdvanceTime: true })
-  const api = client()
-  const before = connection()
-  const read = vi.fn(async () => undefined)
+test.each(['poll', 'manual', 'late manual'])(
+  'short outage recovery accepts a newer target observation from a %s check',
+  async (source) => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const api = client()
+    const before = connection()
+    const read = vi.fn(async () => undefined)
 
-  const restoreBootstrap = () => undefined
+    const restoreBootstrap = () => undefined
 
-  api.connection = vi.fn(async () => before)
-  api.checkConnection = vi.fn(async () => before)
-  const view = render(
-    <IntakeConnectionProvider
-      read={read}
-      refreshBootstrap={restoreBootstrap}
-      bootstrapFailed={false}
-    >
-      <HeaderStatus client={api} />
-    </IntakeConnectionProvider>,
-  )
-  try {
-    await screen.findByText('InvenTree unreachable')
-    read.mockRejectedValueOnce(new Error('intake offline'))
-    await act(async () => vi.advanceTimersByTimeAsync(10_100))
-    await screen.findByText('No connection to Intake')
-    await act(async () => vi.advanceTimersByTimeAsync(4500))
-    await screen.findByText('Reading connection…')
-    expect(screen.queryByText('InvenTree unreachable')).toBeNull()
-    const after = connection()
-    after.target.state = 'reachable'
-    after.target.failure_code = null
-    api.checkConnection = vi.fn(async () => after)
-    await act(async () => vi.advanceTimersByTimeAsync(4100))
-    expect(await screen.findByText('inventory.example.test')).toBeVisible()
-  } finally {
-    view.unmount()
-    vi.useRealTimers()
-  }
-})
+    api.connection = vi.fn(async () => before)
+    api.checkConnection = vi.fn(async () => before)
+    const view = render(
+      <IntakeConnectionProvider
+        read={read}
+        refreshBootstrap={restoreBootstrap}
+        bootstrapFailed={false}
+      >
+        <HeaderStatus client={api} />
+      </IntakeConnectionProvider>,
+    )
+    try {
+      await screen.findByText('InvenTree unreachable')
+      let resolveOlder!: (value: ConnectionStatusDto) => void
+      if (source === 'late manual') {
+        vi.mocked(api.checkConnection).mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              resolveOlder = resolve
+            }),
+        )
+        fireEvent.click(screen.getByRole('button', { name: 'Connection status' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Check connection now' }))
+        await screen.findByRole('button', { name: 'Checking…' })
+      }
+      read.mockRejectedValueOnce(new Error('intake offline'))
+      await act(async () => vi.advanceTimersByTimeAsync(10_100))
+      await screen.findAllByText('No connection to Intake')
+      await act(async () => vi.advanceTimersByTimeAsync(4500))
+      await screen.findAllByText('Reading connection…')
+      expect(screen.queryByText('InvenTree unreachable')).toBeNull()
+      const after = connection()
+      after.target.state = 'reachable'
+      after.target.failure_code = null
+      api.checkConnection = vi.fn(async () => after)
+      if (source === 'manual') {
+        fireEvent.click(screen.getByRole('button', { name: 'Connection status' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Check connection now' }))
+      } else {
+        await act(async () => vi.advanceTimersByTimeAsync(4100))
+      }
+      expect((await screen.findAllByText('inventory.example.test'))[0]).toBeVisible()
+      if (source === 'late manual') {
+        await act(async () => {
+          resolveOlder(before)
+        })
+        expect(screen.queryByText('InvenTree unreachable')).toBeNull()
+        expect(screen.getAllByText('inventory.example.test')[0]).toBeVisible()
+      }
+    } finally {
+      view.unmount()
+      vi.useRealTimers()
+    }
+  },
+)
