@@ -15,7 +15,11 @@ import { readProcessingMediaScopes, type ProcessingMediaAvailability } from './m
 import { ProcessingError, type Stage } from './model.ts'
 import { isSessionProfile, type SessionProfileId } from './session-policy.ts'
 import { prepareSessionAttempt } from './session-attempts.ts'
-import { batchInputVersion, configuredInputVersion } from './stage-policy.ts'
+import {
+  batchInputVersion,
+  configuredInputVersion,
+  type SessionInputVersion,
+} from './stage-policy.ts'
 import { decodeSessionInput } from './session-input.ts'
 import { pinnedIdentityCurrent, successorsCurrent } from './stable-identity.ts'
 
@@ -175,24 +179,28 @@ export async function startFreshEligibility(
   const batchIds = [...new Set(replaceable.map((job) => job.batch_id))]
   for (const batchId of batchIds) {
     const batchJobs = replaceable.filter((job) => job.batch_id === batchId)
-    // A `/7` batch under a configuration that can't seal `/7` is refused before any settings
-    // read: no saved setting changes that.
-    const inputVersion = await batchInputVersion(client, config, batchId)
-    if (
-      inputVersion === 'bench-intake-input/7' &&
-      configuredInputVersion(config) !== 'bench-intake-input/7'
-    ) {
-      for (const job of batchJobs) {
-        eligibility.set(job.id, refused('unsupported_processing_profile'))
-      }
-      continue
-    }
     const inputs = await batchInputs(client, config, batchId, batchJobs, context)
-    for (const job of batchJobs) {
+    const inputVersion = await batchInputVersion(client, config, batchId)
+
+    // Settings are read only when a job gets as far as sealing, as replacement reads them.
+    const readSettings = async () => {
       if (profileId !== 'synthetic-session/1' && settings === undefined) {
         settings = await readAgentSettings(client, config, false)
       }
-      const result = await jobEligibility(client, config, profileId, job, inputs, held, settings)
+      return settings
+    }
+
+    for (const job of batchJobs) {
+      const result = await jobEligibility(
+        client,
+        config,
+        profileId,
+        job,
+        inputs,
+        held,
+        inputVersion,
+        readSettings,
+      )
       eligibility.set(job.id, result)
     }
   }
@@ -206,7 +214,8 @@ async function jobEligibility(
   job: CurrentJob,
   inputs: BatchInputs,
   held: ReadonlySet<string>,
-  settings: AgentSettingsDto | undefined,
+  inputVersion: SessionInputVersion,
+  readSettings: () => Promise<AgentSettingsDto | undefined>,
 ): Promise<StartFreshEligibilityDto> {
   if (inputs.snapshot.archived) {
     return refused('batch_archived')
@@ -234,6 +243,15 @@ async function jobEligibility(
   if (!(await pinnedIdentityCurrent(client, pinned))) {
     return refused('identity_waiting')
   }
+  // After replacement's own checks and before any settings read: no saved setting lets a
+  // configuration that can't seal `/7` run a `/7` batch.
+  const incompatible =
+    inputVersion === 'bench-intake-input/7' &&
+    configuredInputVersion(config) !== 'bench-intake-input/7'
+  if (incompatible) {
+    return refused('unsupported_processing_profile')
+  }
+  const settings = await readSettings()
   try {
     await prepareSessionAttempt(
       client,
@@ -245,11 +263,7 @@ async function jobEligibility(
         manifest: media.inputs.bytes.toString('utf8'),
         manifestDigest: media.inputs.digest.toString('hex'),
       },
-      {
-        settings,
-        pinnedProposalIds: pinned,
-        inputVersion: await batchInputVersion(client, config, job.batch_id),
-      },
+      { settings, pinnedProposalIds: pinned, inputVersion },
     )
   } catch (error) {
     if (error instanceof ProcessingError && REFUSALS.has(error.code)) {

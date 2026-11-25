@@ -1,8 +1,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
+import { randomUUID } from 'node:crypto'
 import type {
   BriefEntryDto,
+  MediaEditDto,
+  MediaSnapshotDto,
   CaptureSnapshotDto,
   ProcessingInputV7Dto,
   SessionBriefDto,
@@ -12,7 +15,7 @@ import type {
 import { formedBatch, photoWithNote, type Fixture } from '../support/lot-pipeline.ts'
 import { transaction } from '#/db/database.ts'
 import { captureInTransaction } from '#/capture/repository.ts'
-import { readBatchMediaInputResult } from '#/media/inputs.ts'
+import { editMedia } from '#/media/edit.ts'
 import { startFreshEligibility } from '#/processing/start-fresh-eligibility.ts'
 import { issueSessionCapability, resolveSessionCapability } from '#/agents/tools/capability.ts'
 import { readBriefPage, retainBriefView, stagePrincipal } from '#/agents/tools/brief-read.ts'
@@ -1124,6 +1127,31 @@ test('a current brief past the page bound is refused while earlier views still p
     assert.equal(again.ok, true, JSON.stringify(again))
     assert.deepEqual(again.brief!.entries, kept.brief!.entries)
     assert.ok(again.brief!.newer)
+
+    // The lead republishes the crystal's identity: its unstarted successors would be sealed
+    // past capacity, so the proposal is refused with that cause and nothing is kept.
+    const crystal = await batch.lot('16 mhz crystal')
+    const [identity] = await batch.identities(crystal.id)
+    const value = await fixture.db.pool.query<{ value: Record<string, unknown> }>(
+      "SELECT convert_from(value_bytes,'UTF8')::jsonb AS value FROM processing_proposal WHERE id=$1",
+      [identity.id],
+    )
+    const before = await batch.successors(crystal.id)
+    const proposals = async () =>
+      (
+        await fixture.db.pool.query('SELECT 1 FROM processing_proposal WHERE attempt_id=$1', [
+          batch.leadAttempt,
+        ])
+      ).rowCount
+    const count = await proposals()
+    const lead = await open(batch.deps.toolUrl, await running(fixture, batch.leadAttempt))
+    const refusedProposal = await call(lead, 'propose', { proposal: value.rows[0].value })
+    assert.equal(refusedProposal.error, 'capacity_reached', JSON.stringify(refusedProposal))
+    assert.equal(await proposals(), count)
+    assert.deepEqual(
+      (await batch.successors(crystal.id)).map((item) => item.attempt_id),
+      before.map((item) => item.attempt_id),
+    )
   })
 })
 
@@ -1143,28 +1171,66 @@ test('a profile that can’t run a /7 lead’s pipeline is refused before its pr
   assert.equal((started.value as { code: string }).code, 'unsupported_processing_profile')
 })
 
-test('each evidence note keeps the photo it is about in the current view', async (t) => {
+test('evidence and group notes keep what they are about, in the current view as read', async (t) => {
   const batch = await formedBatch(t, { stageInputs: true })
-  const { fixture, batchId, leadAttempt } = batch
-  const bag = await photoWithNote(fixture, batchId, 'Bag', 'Counted 24 in the bag')
-  const brief = await transaction(fixture.runner.pool, async (client) => {
-    const capture = await captureInTransaction(client, fixture.config, batchId)
-    const manifest = (await sealedInput(fixture, leadAttempt)).manifest
-    const media = await readBatchMediaInputResult(client, fixture.config, batchId)
-    assert.equal(media.kind, 'ready')
-    return assembleBrief(client, capture.snapshot, {
-      ...briefScope(manifest),
-      mediaContext: media.kind === 'ready' ? media.inputs.context : undefined,
-    })
+  const { fixture, batchId } = batch
+  const { lot: led, row } = await successorOf(batch, 'led 0603 red', 'research')
+  const sealed = stageInput((await sealedInput(fixture, row.attempt_id)).manifest)
+  const [tray] = ofKind(inlineEntries(sealed), 'evidence')
+  // The operator groups the tray and gives the group an instruction (its note), and rewrites
+  // the tray's own note.
+  const mediaRevision = async () =>
+    (
+      await fixture.db.pool.query<{ revision: string }>(
+        'SELECT revision::text FROM media_batch WHERE batch_id=$1',
+        [batchId],
+      )
+    ).rows[0].revision
+  const media = async (change: MediaEditDto['change']) =>
+    editMedia(fixture.db.pool, fixture.config, batchId, randomUUID(), {
+      expected_revision: await mediaRevision(),
+      change,
+    }) as Promise<MediaSnapshotDto>
+  const grouped = await media({ kind: 'group', label: 'Shelf' })
+  const group = grouped.groups[0].id
+  await media({ kind: 'move', evidence_id: tray.evidence_id, group_id: group })
+  await fixture.db.pool.query(
+    'INSERT INTO capture_instruction(id,batch_id,group_id,version,text,actor_id) VALUES(gen_random_uuid(),$1,$2,1,$3,$4)',
+    [batchId, group, 'Keep the shelf together', fixture.identity.actor],
+  )
+  await media({
+    kind: 'evidence_note',
+    evidence_id: tray.evidence_id,
+    text: 'Counted 24 on the tray',
   })
-  const notes = ofKind(brief.entries, 'note')
-  const counted = notes.find((note) => note.text === 'Counted 24 in the bag')!
-  assert.equal(counted.evidence_id, bag.evidence)
-  assert.equal(counted.group_id, null)
-  assert.equal(counted.subject_id, null)
-  const tray = notes.find((note) => note.text.includes('16 MHz'))!
-  assert.ok(tray.evidence_id)
-  assert.notEqual(tray.evidence_id, counted.evidence_id)
+
+  await withClients(async (open) => {
+    const session = await open(batch.deps.toolUrl, await running(fixture, row.attempt_id))
+    const current = ofKind(
+      (await allPages(session, led.id, {})).flatMap((page) => page.entries),
+      'note',
+    )
+    const shelf = current.find((note) => note.text === 'Keep the shelf together')!
+    assert.equal(shelf.group_id, group)
+    assert.equal(shelf.evidence_id, null)
+    const counted = current.find((note) => note.text === 'Counted 24 on the tray')!
+    assert.equal(counted.evidence_id, tray.evidence_id)
+    assert.equal(counted.group_id, null)
+    assert.equal(counted.subject_id, null)
+    // The sealed view still has the note the session started from, with its photo.
+    const sealedPages = await allPages(session, led.id, { revision: sealed.brief.revision })
+    const original = ofKind(
+      sealedPages.flatMap((page) => page.entries),
+      'note',
+    )
+    assert.equal(
+      original.some((note) => note.text === 'Keep the shelf together'),
+      false,
+    )
+    const first = original.find((note) => note.text.includes('16 MHz'))!
+    assert.equal(first.evidence_id, tray.evidence_id)
+    assert.ok(sealedPages[0].newer)
+  })
 })
 
 test('long group instructions are entries of their own, and all of them page', async (t) => {
@@ -1209,6 +1275,10 @@ test('a /7 lead under a configuration that can’t seal /7 keeps its identity an
   const [identity] = await batch.identities(led.id)
   delete fixture.config.stageInputs
   fixture.config.profileId = 'native-agent/2'
+  // Provider settings can't be read at all now: both paths must decide before reading them.
+  await fixture.db.pool.query(
+    `REVOKE SELECT ON agent_settings,agent_provider_settings FROM ${fixture.api.name},${fixture.writer.name}`,
+  )
   // The lead publishes its identity again: it stands, and no successor is replaced.
   const value = await fixture.db.pool.query<{ value: Record<string, unknown> }>(
     "SELECT convert_from(value_bytes,'UTF8')::jsonb AS value FROM processing_proposal WHERE id=$1",

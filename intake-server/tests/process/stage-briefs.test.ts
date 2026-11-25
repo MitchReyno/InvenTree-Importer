@@ -45,22 +45,24 @@ async function workerRoot() {
 /**
  * What a test owns, released in reverse: workers stop (and their children are reaped) before
  * the fixture's database goes and the worker root is removed. Registered as soon as the
- * fixture exists, so a failure during setup still releases what was acquired.
+ * fixture exists, so a failure during setup still releases what was acquired; a worker whose
+ * exit can't be confirmed stops the release there.
  */
 function ownedResources(t: { after: (fn: () => Promise<void>) => void }) {
   const releases: (() => Promise<void>)[] = []
   t.after(async () => {
-    // Every release is tried; their failures are reported together.
-    const failures: unknown[] = []
-    for (const release of releases.reverse()) {
+    // A release that fails (a worker whose exit isn't confirmed) keeps everything acquired
+    // before it, such as the database that worker may still use, and the test reports it.
+    const ordered = releases.reverse()
+    for (const [index, release] of ordered.entries()) {
       try {
         await release()
       } catch (error) {
-        failures.push(error)
+        throw new Error(
+          `stage_briefs_cleanup_stopped: ${ordered.length - index - 1} earlier resources kept`,
+          { cause: error },
+        )
       }
-    }
-    if (failures.length) {
-      throw new AggregateError(failures, 'stage_briefs_cleanup_failed')
     }
   })
   return (release: () => Promise<void>) => releases.push(release)

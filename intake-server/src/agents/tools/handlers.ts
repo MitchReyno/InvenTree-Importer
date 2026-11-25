@@ -41,7 +41,7 @@ import {
   type LotFormingResult,
 } from '#/capture/evidence-observations.ts'
 import type { ProcessingConfig } from '#/processing/attempts.ts'
-import { sealed } from '#/processing/model.ts'
+import { ProcessingError, sealed } from '#/processing/model.ts'
 import { MAX_JOB_RESULTS, MAX_PROCESSING_SNAPSHOT_BYTES } from '#/processing/limits.ts'
 import { catalogueSources, deliveredSourceCheck } from '#/processing/provenance.ts'
 import { storableText } from '#/db/storable-text.ts'
@@ -705,6 +705,24 @@ async function refusalOutput(
       pending_inbox: pending,
       ...(error.issues ? { issues: error.issues } : {}),
     },
+  }
+}
+
+/**
+ * Queues a stable identity's successors. A successor input over capacity (its brief past the
+ * page bounds) is refused with its cause, and the whole proposal rolls back with it.
+ */
+async function queueSuccessors(queue: () => Promise<unknown>) {
+  try {
+    await queue()
+  } catch (error) {
+    if (error instanceof ProcessingError && error.code === 'processing_input_capacity') {
+      refuse(
+        'capacity_reached',
+        'The lot’s Research and Images inputs would be over capacity, so this proposal was not published. Tell the operator.',
+      )
+    }
+    throw error
   }
 }
 
@@ -1803,7 +1821,9 @@ export function sessionTools(context: SessionToolContext) {
           })
           // A stable identity from the lead session starts the lot's Research and Images.
           if (writer && principal.subjectId === null) {
-            await onLeadIdentity(client, context.config, capture!.snapshot, proposal, id)
+            await queueSuccessors(() =>
+              onLeadIdentity(client, context.config, capture!.snapshot, proposal, id),
+            )
           }
           await appendEvent(client, streamId, 'processing_changed', { batch_id: principal.batchId })
           return ok(client, principal, { id })
