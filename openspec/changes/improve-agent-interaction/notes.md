@@ -221,6 +221,8 @@ Implementation of BI-019's agent interaction work, delivered PR by PR as the tas
 
 - **2026-11-25T18:55+11:00, task 15 (PR-L), migration renumbered again:** trunk then took `0040` with #281's `0040_agent_slot_turn_child.sql`, so PR-L's migration is now `0041_media_decode_deferral.sql`. Merged trunk at `23c09a53`.
 
+- **2026-11-25T21:43+11:00, archive:** BI-019 is Done: all 12 implementation PRs merged, recorded in #285. `pnpm openspec:overlap --change improve-agent-interaction` reported no sync conflicts with the main specs or other active changes, and warned that `agent-stage-inputs-outputs`, `agent-model-catalog-and-step-instructions`, `fence-held-capacity-writes`, `improve-connection-health`, `polish-ui-styling-and-loading` and `recover-stale-agent-slots` change the same capabilities. None of them has a pending operation on a requirement this change touches, and each still reports no sync conflicts after this sync, so the order doesn't decide any requirement. The delta specs are synced into eight main specs, and the final open items are listed under "Open at archive" below.
+
 ## Open items
 
 - PR-A follow-up from the merge review: check a popover opened inside a modal near the viewport's edges in a real browser. Its placement and its use inside a modal are tested in jsdom only.
@@ -250,3 +252,13 @@ Implementation of BI-019's agent interaction work, delivered PR by PR as the tas
 2026-11-24T14:15+11:00: Mitch selected file delivery as the default for unset and empty settings. Inline delivery is an explicit option.
 
 The operator requested a separate preview/original choice. Preserve preview as the default. Original delivery includes embedded photo metadata.
+
+## Open at archive
+
+These items remain open when the change is archived on 2026-11-25. None of them blocks BI-019's acceptance.
+
+- The figure sweep's deletions can still wait on a settling render's row and blob locks, as under PR-K, though they hold no batch lock. A settlement slower than the media role's 5 s statement timeout fails that sweep, which stops the consumer until its supervisor restarts it.
+- Pictures PR-K's sweep deleted before #284 merged keep no recipe to render from, so they stay "Picture couldn't be made" even when their photo is restored.
+- `tests/pg/header-work.test.ts` ("rotated target context fences cached connection observations") fails when run alone, on trunk `f7980bd7` as well as on #284. `tests/pg/media-startup-authority.test.ts`' startup health check fails the same way on trunk.
+- `tests/process/serial/dev-stack.test.ts` intermittently times out waiting for the application to restart after its source edit, on trunk `67eed1d7` as well as on #284.
+- The earlier open items above remain as listed: the popover-in-modal and long-word wrapping browser checks, the native-session qualification script's type errors, the masthead chip and workflow heading counting differently, and the paged history's query costs.
