@@ -11,6 +11,7 @@ import { type UpdateHealth } from '#/context'
 
 interface Props {
   target?: ConnectionStatusDto['target']
+  disconnected?: boolean
   unavailable: boolean
   apiChecked: number
   now: number
@@ -26,6 +27,7 @@ interface Props {
 /** The InvenTree target pill, a toned dot beside its name, opening the server menu. */
 export function ConnectionStatus({
   target,
+  disconnected,
   unavailable,
   apiChecked,
   now,
@@ -35,7 +37,7 @@ export function ConnectionStatus({
   open,
   onOpenChange,
 }: Props) {
-  const status = targetStatus(target, unavailable, now)
+  const status = targetStatus(target, unavailable, now, disconnected)
 
   return (
     <HeaderDisclosure

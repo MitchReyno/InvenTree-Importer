@@ -55,8 +55,8 @@ export function configureReadTarget(
     }),
     // A one-off transport for the candidate, so a refused token never reaches the holder.
     probeWith: (token) =>
-      inventoryTransport({ ...profile, credential: token }, undefined, { refuseEcho: true }).probe(
-        target,
-      ),
+      inventoryTransport({ ...profile, credential: token }, undefined, {
+        refuseEcho: true,
+      }).verifyCandidate(target),
   }
 }

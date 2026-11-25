@@ -10,6 +10,16 @@ import { bootstrap, type DevConfig } from '#/config.ts'
 import { connectionStatus, type ConnectionStatusReader } from './connection.ts'
 import { fail } from '#/capture/model.ts'
 
+/** Older clients validate a closed response schema. Only callers opting in receive the root observation. */
+function formatObservation(result: ConnectionStatusDto, format: unknown) {
+  if (format === '2') {
+    return result
+  }
+  const target = { ...result.target }
+  delete target.root_responded
+  return { ...result, target }
+}
+
 export function registerHeader(
   app: FastifyInstance,
   config: DevConfig,
@@ -24,13 +34,21 @@ export function registerHeader(
     scope.get(
       '/api/v1/connection-status',
       { schema: { response: { 200: schemas.ConnectionStatus } } },
-      () => (configured ? connection() : unconfigured()),
+      async (request) =>
+        formatObservation(
+          await (configured ? connection() : unconfigured()),
+          request.headers['x-intake-health-format'],
+        ),
     )
     // A command, not a GET flag, so a cache refetch can never force probes.
     scope.post(
       '/api/v1/connection-status/check',
       { schema: { response: { 200: schemas.ConnectionStatus } } },
-      () => (configured ? connection.check() : unconfigured()),
+      async (request) =>
+        formatObservation(
+          await (configured ? connection.check() : unconfigured()),
+          request.headers['x-intake-health-format'],
+        ),
     )
     scope.get<{ Querystring: HeaderWorkQueryDto }>(
       '/api/v1/header-work',

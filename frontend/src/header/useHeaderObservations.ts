@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useIntakeConnection } from '#/context/IntakeConnection'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ConnectionStatusDto, InventoryCredentialDto } from '@invimport/contracts'
 import { freshReads } from '#/queries/fresh-reads'
@@ -27,15 +28,57 @@ export function useHeaderObservations(client: HeaderClient, batchId?: string) {
   const queryClient = useQueryClient()
   const now = useNow(1000)
   const poll = useRetainedPollInterval()
+  const intake = useIntakeConnection()
+  const recoveredAt = intake?.recoveredAt ?? 0
+  const confirmedRecovery = useRef(0)
+  const baseline = useRef<{ recovery: number; observedAt: string | null } | null>(null)
   const connection = useQuery({
     queryKey: serverQueryKey(scope, 'header-connection'),
     queryFn: async () => {
-      const result = await client.connection()
+      if (recoveredAt <= confirmedRecovery.current) {
+        const result = await client.connection()
+        assertHeaderScope(result, scope)
+        return result
+      }
+      // Compare two server timestamps. Browser and target clocks need not agree.
+      if (baseline.current?.recovery !== recoveredAt) {
+        const initial = await client.connection()
+        assertHeaderScope(initial, scope)
+        baseline.current = { recovery: recoveredAt, observedAt: initial.target.observed_at }
+      }
+      const before = baseline.current.observedAt
+      const result = await client.checkConnection()
       assertHeaderScope(result, scope)
+      if (
+        result.target.state !== 'unconfigured' &&
+        (!result.target.observed_at || result.target.observed_at === before)
+      ) {
+        return { ...result, target: unobserved(result.target) }
+      }
+      confirmedRecovery.current = recoveredAt
       return result
     },
-    refetchInterval: HEADER_POLL_MS,
+    enabled: intake?.contact !== 'disconnected',
+    refetchInterval: (query) => {
+      const target = query.state.data?.target
+      if (
+        recoveredAt > confirmedRecovery.current ||
+        query.state.status === 'error' ||
+        !target ||
+        target.state === 'unknown' ||
+        (target.state === 'unavailable' && target.failure_code !== 'unauthorized')
+      ) {
+        return 4000
+      }
+      return HEADER_POLL_MS
+    },
   })
+  const confirm = intake?.confirm
+  useEffect(() => {
+    if (connection.isError) {
+      confirm?.()
+    }
+  }, [confirm, connection.errorUpdatedAt, connection.isError])
   const workKey = serverQueryKey(scope, 'header-work', batchId ?? 'all')
   const work = useQuery({
     queryKey: workKey,
@@ -109,7 +152,9 @@ export function useHeaderObservations(client: HeaderClient, batchId?: string) {
   }
 
   useOnForeground(() => {
-    void connection.refetch()
+    if (intake?.contact !== 'disconnected') {
+      void connection.refetch({ cancelRefetch: false })
+    }
     void work.refetch()
   })
   // A confirmed command's source stands until a read made after it reports one.
@@ -117,5 +162,30 @@ export function useHeaderObservations(client: HeaderClient, batchId?: string) {
   const readSince = confirmed !== undefined && connection.dataUpdatedAt >= confirmed.at
   const credential = (readSince ? reported : undefined) ?? confirmed?.value ?? reported
 
-  return { now, connection, work, check, credential, replaceToken, revertToken }
+  const disconnected = intake?.contact === 'disconnected'
+  const scopedUnavailable =
+    disconnected ||
+    intake?.contact === 'degraded' ||
+    Boolean(intake?.bootstrapFailed) ||
+    connection.isError ||
+    connection.fetchStatus === 'paused'
+  const target =
+    connection.isFetchedAfterMount &&
+    intake?.contact !== 'checking' &&
+    recoveredAt <= confirmedRecovery.current
+      ? connection.data?.target
+      : undefined
+  return {
+    now,
+    disconnected,
+    scopedUnavailable,
+    target,
+    connection,
+    work,
+    check,
+    credential,
+    replaceToken,
+    revertToken,
+    intake,
+  }
 }

@@ -37,8 +37,16 @@ test('a replaced token is used by the running server and again after a restart, 
   }
 
   async function status() {
-    const read = await call('/api/v1/connection-status')
-    return read.json().target as Record<string, unknown>
+    const deadline = Date.now() + 5000
+    do {
+      const read = await call('/api/v1/connection-status')
+      const target = read.json().target as Record<string, unknown>
+      if (target.freshness === 'fresh') {
+        return target
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    } while (Date.now() < deadline)
+    throw new Error('scoped_observation_missing')
   }
 
   try {

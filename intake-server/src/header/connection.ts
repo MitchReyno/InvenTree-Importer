@@ -1,5 +1,5 @@
 import type { ConnectionStatusDto, InventoryCredentialDto } from '@invimport/contracts'
-import { InventoryTransportError } from '#/inventory/transport.ts'
+import { CONNECTION_PROBE_TIMEOUT_MS, InventoryTransportError } from '#/inventory/transport.ts'
 import type { DevConfig } from '#/config.ts'
 import { readBoundedBody } from '#/capture/bounded-body.ts'
 
@@ -9,7 +9,7 @@ const CACHE_MS = 30000
 /** Forced checks are counted on their own, so a background poll never delays one. */
 export const MIN_FORCED_CHECK_INTERVAL_MS = 5000
 const STALE_MS = 60000
-const DEADLINE_MS = 3000
+const DEADLINE_MS = CONNECTION_PROBE_TIMEOUT_MS
 const VERSION_BODY_MAX_BYTES = 16 * 1024
 const VERSION_PATTERN = /^[ -~]{1,64}$/
 
@@ -91,13 +91,15 @@ export async function probeResult(
 }
 
 /** The root's `version` string, or null for anything unreadable; never fails the probe. */
-async function versionResult(read: () => Promise<Response>): Promise<string | null> {
+async function versionResult(read: () => Promise<Response>) {
+  let responded = false
   let timer: ReturnType<typeof setTimeout> | undefined
   const timeout = new Promise<null>((resolve) => {
     timer = setTimeout(() => resolve(null), DEADLINE_MS)
   })
   const attempt = (async () => {
     const response = await read()
+    responded = true
     if (!response.ok || !response.body) {
       await response.body?.cancel()
       return null
@@ -115,11 +117,14 @@ async function versionResult(read: () => Promise<Response>): Promise<string | nu
     return typeof version === 'string' && VERSION_PATTERN.test(version) ? version : null
   })().catch(() => null)
   try {
-    return await Promise.race([attempt, timeout])
+    const version = await Promise.race([attempt, timeout])
+    return { version, responded }
   } finally {
     clearTimeout(timer)
   }
 }
+
+export type TargetProbe = (signal: AbortSignal) => Promise<Response>
 
 export type ConnectionStatusReader = (() => Promise<ConnectionStatusDto>) & {
   /** Probes now, unless a probe is in flight or a forced check ran in the last 5 seconds. */
@@ -129,6 +134,8 @@ export type ConnectionStatusReader = (() => Promise<ConnectionStatusDto>) & {
    * running with the old token can no longer become the observation.
    */
   reset: () => void
+  refresh: () => Promise<ConnectionStatusDto>
+  stop: () => void
   /** Counts resets; an answer begun under another generation describes an older token. */
   generation: () => number
   /** The current answer without probing: the observation, or unobserved after a reset. */
@@ -139,9 +146,9 @@ export type ConnectionStatusReader = (() => Promise<ConnectionStatusDto>) & {
 export function connectionStatus(
   binding: Binding,
   origin: string | undefined,
-  probe?: () => Promise<Response>,
+  probe?: TargetProbe,
   now: () => number = Date.now,
-  version?: () => Promise<Response>,
+  version?: TargetProbe,
   /** Monotonic milliseconds for the forced-check window, so a clock change can't skip it. */
   elapsed: () => number = () => performance.now(),
   /**
@@ -162,6 +169,8 @@ export function connectionStatus(
   let lastForced: number | undefined
   // Counts resets, so a probe started before one can't publish after it.
   let generation = 0
+  let controller: AbortController | undefined
+  let stopped = false
 
   function unconfigured(): ConnectionStatusDto | undefined {
     if (url && probe) {
@@ -181,29 +190,39 @@ export function connectionStatus(
     }
   }
 
-  function probeNow(target: URL, send: () => Promise<Response>) {
+  function probeNow(target: URL, send: TargetProbe) {
+    if (stopped) {
+      return Promise.resolve()
+    }
     if (pending) {
       return pending
     }
     const started = generation
+    const abort = new AbortController()
+    controller = abort
     const source = credential?.state()
     // The probe and the version read send this token, in this same tick.
     const sent = credential?.current()
     const running: Promise<void> = (async () => {
       const [result, read] = await Promise.all([
-        probeResult(send),
-        version ? versionResult(version) : Promise.resolve(null),
+        probeResult(() => send(abort.signal)),
+        version ? versionResult(() => version(abort.signal)) : Promise.resolve(null),
       ])
       if (started !== generation) {
         return
       }
       const at = now()
+      const versionString = read?.version ?? null
       completed = {
         at,
         value: {
           ...result,
+          root_responded: read?.responded,
           // A target that echoes the token back in its version must not get it into a response.
-          version: result.state === 'reachable' && !(sent && read?.includes(sent)) ? read : null,
+          version:
+            result.state === 'reachable' && !(sent && versionString?.includes(sent))
+              ? versionString
+              : null,
           freshness: 'fresh',
           observed_at: new Date(at).toISOString(),
           navigation_url: target.href,
@@ -213,7 +232,9 @@ export function connectionStatus(
         },
       }
     })().finally(() => {
+      abort.abort()
       if (pending === running) {
+        controller = undefined
         pending = undefined
       }
     })
@@ -225,7 +246,7 @@ export function connectionStatus(
    * Probes until an observation stands; a reset mid-probe drops that probe's result. Repeated
    * resets can't hold a request: after one retry it answers unobserved and the next read probes.
    */
-  async function observe(target: URL, send: () => Promise<Response>) {
+  async function observe(target: URL, send: TargetProbe) {
     await probeNow(target, send)
     // A reset during that probe dropped its result; try once more with the current token.
     if (!completed) {
@@ -298,6 +319,7 @@ export function connectionStatus(
   }
 
   function reset() {
+    controller?.abort()
     generation += 1
     completed = undefined
     pending = undefined
@@ -306,7 +328,19 @@ export function connectionStatus(
 
   return Object.assign(read, {
     check,
+    refresh: async () => {
+      const none = unconfigured()
+      if (none) {
+        return none
+      }
+      await probeNow(url!, probe!)
+      return latest()
+    },
     reset,
+    stop() {
+      stopped = true
+      reset()
+    },
     generation: () => generation,
     // Without probing: what a caller holding an older answer should return instead.
     latest: () => unconfigured() ?? latest(),

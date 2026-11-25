@@ -1,5 +1,6 @@
 import { skipToken, useQuery } from '@tanstack/react-query'
 import { serverQueryKey } from '#/queries/scope'
+import { useIntakeConnection } from '#/context/IntakeConnection'
 import { useNow } from '#/browser/useNow'
 import { useOnline } from '#/browser/useOnline'
 import { useServerScope } from '#/context'
@@ -21,8 +22,10 @@ export function useApplicationAvailable(captureUpdatedAt: number, captureFailing
   })
   const now = useNow(CLOCK_MS)
   const online = useOnline()
+  const intake = useIntakeConnection()
   const connectionFailing = connection.status === 'error' || connection.fetchStatus === 'paused'
   const observedAt = Math.max(connection.dataUpdatedAt, captureUpdatedAt)
   const fresh = observedAt > 0 && now - observedAt <= APPLICATION_FRESH_MS
-  return online && !connectionFailing && !captureFailing && fresh
+  const local = intake?.contact !== 'disconnected' && observedAt >= (intake?.recoveredAt ?? 0)
+  return local && online && !connectionFailing && !captureFailing && fresh
 }

@@ -85,6 +85,9 @@ const response = (value: unknown, status = 200) =>
   new Response(JSON.stringify(value), { status, headers: { 'content-type': 'application/json' } })
 
 function headerRead(path: string) {
+  if (path.endsWith('/health')) {
+    return response({ status: 'ok', api_version: 'bench-intake-app/1' })
+  }
   const identity = {
     actor_id: fixture.actor_id,
     target_id: 'a0000000-0000-4000-8000-00000000000a',
@@ -1446,4 +1449,43 @@ test('until bootstrap is read the app shows a page skeleton, not a loading line'
 
   expect(screen.queryByText('Loading…')).not.toBeInTheDocument()
   expect(screen.getByText('Loading')).toHaveAttribute('role', 'status')
+})
+
+test('a cold-start Intake outage recovers through HTTP and retries bootstrap without reloading', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  let available = false
+  let bootstraps = 0
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+    const path = new URL(String(input)).pathname
+    if (path.endsWith('/bootstrap')) {
+      bootstraps += 1
+      if (available) {
+        return response({
+          mode: 'development-key',
+          banner: 'Single-operator development mode — not a verified human session',
+          status: 'setup_required',
+          actor_id: fixture.actor_id,
+          target_id: fixtureScope.targetId,
+          target_context_id: fixture.target_context_id,
+          mutation_enabled: false,
+          permission_gate: 'deferred_T11',
+          csrf_token: null,
+        })
+      }
+    }
+    if (available && path.endsWith('/health')) {
+      return response({ status: 'ok', api_version: 'bench-intake-app/1' })
+    }
+    throw new Error('synthetic Intake outage')
+  })
+  try {
+    render(<App />)
+    expect(await screen.findAllByText(/No connection to Intake/)).not.toHaveLength(0)
+    available = true
+    await act(async () => vi.advanceTimersByTimeAsync(5000))
+    expect(await screen.findByRole('heading', { name: 'Local setup required' })).toBeVisible()
+    expect(bootstraps).toBeGreaterThan(1)
+  } finally {
+    vi.useRealTimers()
+  }
 })

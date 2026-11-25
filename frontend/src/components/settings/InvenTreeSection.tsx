@@ -4,6 +4,7 @@ import { color, space, typeVar } from '#/theme/generated/tokens'
 import { observationFresh, safeTargetNavigation, targetStatus } from '#/header/observations'
 import { useSharedHeaderObservations } from '#/context'
 import { ConnectionDot } from '#/components/masthead/ConnectionDot'
+import { IntakeConnectionLabel } from '#/context/IntakeConnection'
 import { SettingsCard } from './SettingsCard'
 import { SettingsSection } from './SettingsSection'
 import { ApiTokenRow } from './ApiTokenRow'
@@ -21,11 +22,11 @@ export function InvenTreeSection({
   onDirtyChange?: (dirty: boolean) => void
 }) {
   const observations = useSharedHeaderObservations()
-  const connection = observations?.connection
-  const unavailable = connection ? connection.isError || connection.fetchStatus === 'paused' : false
-  const target = connection?.isFetchedAfterMount ? connection.data?.target : undefined
+  const disconnected = observations?.disconnected ?? false
+  const unavailable = observations?.scopedUnavailable ?? false
+  const target = observations?.target
   const now = observations?.now ?? Date.now()
-  const status = targetStatus(target, unavailable, now)
+  const status = targetStatus(target, unavailable, now, disconnected)
   const current =
     !unavailable && target?.freshness === 'fresh' && observationFresh(target.observed_at, now)
   const navigation = safeTargetNavigation(target?.navigation_url)
@@ -41,6 +42,17 @@ export function InvenTreeSection({
             </Status>
             <KeyValue
               rows={[
+                {
+                  label: 'Intake server',
+                  value: 'Intake connection',
+                  content: <IntakeConnectionLabel scopeFailed={unavailable} />,
+                  state: 'plain',
+                },
+                {
+                  label: 'InvenTree server',
+                  value: unavailable ? 'Current status unknown' : status.short,
+                  state: 'plain',
+                },
                 { label: 'Name', value: target?.label ?? 'No configured target', state: 'plain' },
                 {
                   label: 'Last check',
