@@ -582,6 +582,62 @@ test('a lit recipe /2 view is its full-resolution lit crop, sized like the share
   assert.ok(brightness(at(view, 0.25, 0.25)) > brightness(at(unlit, 0.25, 0.25)) + 20)
 })
 
+test('a lit recipe /2 view is lit at full resolution before it is sized, not after', async () => {
+  // One-pixel stripes: gamma on the stripes and then averaging differs from gamma on their average.
+  const [width, height] = [4096, 256]
+  const pixels = Buffer.alloc(width * height * 3)
+  for (let index = 0; index < width * height; index++) {
+    const level = index % 2 === 0 ? 255 : 0
+    pixels.set([level, level, level], index * 3)
+  }
+  const page = await sharp(pixels, { raw: { width, height, channels: 3 } })
+    .png()
+    .toBuffer()
+  const lit = litRecipe({ width, height }, {}, { gamma_thousandths: 500 })
+  const layout = viewLayout(lit)
+  assert.ok(layout.width < width, 'the view is shrunk')
+  const result = await ready({ ...viewInput(page, recipe({ width, height }, {})), recipe: lit })
+  const view = await rgb(result.view.bytes, 'webp')
+
+  const sized = (data: Buffer, info: { width: number; height: number; channels: 3 }) =>
+    sharp(data, { raw: info })
+      .resize({ width: layout.width, height: layout.height, fit: 'fill' })
+      .raw()
+      .toBuffer()
+  const fullCrop = await renderLitCrop({ bytes: page, width, height }, lit)
+  assert.ok(fullCrop.state === 'rendered')
+  const litFirst = {
+    width: layout.width,
+    height: layout.height,
+    data: await sized(fullCrop.image.data, { width, height, channels: 3 }),
+  }
+  const shrunkPage = await sharp(await sized(pixels, { width, height, channels: 3 }), {
+    raw: { width: layout.width, height: layout.height, channels: 3 },
+  })
+    .png()
+    .toBuffer()
+  const shrunkSize = { width: layout.width, height: layout.height }
+  const sizedFirst = await renderLitCrop(
+    { bytes: shrunkPage, ...shrunkSize },
+    litRecipe(shrunkSize, {}, { gamma_thousandths: 500 }),
+  )
+  assert.ok(sizedFirst.state === 'rendered')
+  const sizedFirstRaster = { ...shrunkSize, data: sizedFirst.image.data }
+
+  const litFirstColour = at(litFirst, 0.5, 0.5)
+  const sizedFirstColour = at(sizedFirstRaster, 0.5, 0.5)
+  assert.ok(
+    distance(litFirstColour, sizedFirstColour) > 2 * LOSSY_TOLERANCE,
+    `the two orders differ: ${litFirstColour.join(',')} and ${sizedFirstColour.join(',')}`,
+  )
+  const shown = at(view, 0.5, 0.5)
+  assertColour(shown, litFirstColour, 'lit, then sized')
+  assert.ok(
+    distance(shown, sizedFirstColour) > LOSSY_TOLERANCE,
+    `not sized, then lit: ${shown.join(',')}`,
+  )
+})
+
 test('a lit recipe /2 view whose white balance is refused is malformed', async () => {
   const width = 64
   const height = 64

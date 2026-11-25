@@ -9,7 +9,6 @@ import {
   assertMediaOutputHeader,
   assertMediaPreviewOutputHeader,
   assertMediaViewOutputHeader,
-  MEDIA_PREVIEW_MAX_BYTES,
 } from '@invimport/contracts/media'
 import sharp from 'sharp'
 import { decode } from '../src/decode.ts'
@@ -420,11 +419,14 @@ function previewFrame(pages: Buffer[], headerBytes: number | null) {
   return Buffer.concat([Buffer.from(padded + '\n'), ...pages])
 }
 
+/** The documented budgets, stated here rather than read from the code under test. */
+const PAGE_BUDGET_BYTES = 64 * 1024 * 1024
+
 test('a preview frame may be 64 MiB plus 8 KiB, header and newline included, with pages of 64 MiB together', async () => {
-  const fullPage = await pngOfSize(MEDIA_PREVIEW_MAX_BYTES)
+  const fullPage = await pngOfSize(PAGE_BUDGET_BYTES)
   // An 8,191-byte header, its newline and a 64 MiB page: exactly the frame budget.
   const atLimit = previewFrame([fullPage], 8191)
-  assert.equal(atLimit.length, MEDIA_PREVIEW_MAX_BYTES + 8192)
+  assert.equal(atLimit.length, PAGE_BUDGET_BYTES + 8192)
   const accepted = await runFrame(atLimit)
   assertMediaPreviewOutputHeader(accepted.header)
   assert.equal(accepted.header.state, 'ready')
@@ -432,13 +434,15 @@ test('a preview frame may be 64 MiB plus 8 KiB, header and newline included, wit
   // The same page under an 8,192-byte header is one byte over the frame.
   const overFrame = await spawnDecoder(previewFrame([fullPage], 8192))
   assert.notEqual(overFrame.code, 0)
+  assert.equal(overFrame.output.length, 0)
   assert.match(overFrame.errors, /decoder_input_limit/)
 
   // Two pages one byte over 64 MiB together are refused, though each fits and so does the frame.
-  const half = MEDIA_PREVIEW_MAX_BYTES / 2
+  const half = PAGE_BUDGET_BYTES / 2
   const pages = [await pngOfSize(half + 1), await pngOfSize(half)]
   const overPages = await spawnDecoder(previewFrame(pages, null))
   assert.notEqual(overPages.code, 0)
+  assert.equal(overPages.output.length, 0)
   assert.doesNotMatch(overPages.errors, /decoder_input_limit/)
   assert.match(overPages.errors, /invalid_decode_input/)
 })
