@@ -1,4 +1,5 @@
 import type {
+  BatchActivityDto,
   SessionHistoryAttemptDto,
   SessionHistoryDto,
   SessionHistoryEntryDto,
@@ -379,5 +380,37 @@ export function fixtureHistory(ids: Ids, examineAnswer: () => Entry | undefined 
     }
     const pages = researchPages(ids)
     return before ? pages.older : pages.newest
+  }
+}
+
+/** The recorded actions the batch activity read sends; status lines become notes instead. */
+const ACTIONS = new Set(['observation', 'lot', 'regroup', 'proposal', 'question', 'answer'])
+
+/**
+ * Processing's recent activity across the fixture's Examine and Research sessions, built from
+ * their histories the way the server builds it: newest actions first, each job's latest status
+ * line as the agent's note.
+ */
+export function fixtureActivity(
+  ids: Ids,
+  examineAnswer: () => Entry | undefined = () => undefined,
+) {
+  return async (): Promise<BatchActivityDto> => {
+    const histories = [examineHistory(ids, examineAnswer()), researchPages(ids).newest]
+    const entries = histories.flatMap((history) => {
+      const latest = history.entries.find((entry) => entry.details.kind === 'status')
+      const note = latest ? { text: latest.summary, at: latest.at } : null
+      return history.entries
+        .filter((entry) => ACTIONS.has(entry.details.kind))
+        .map((entry) => ({
+          job_id: history.session.job_id,
+          stage: history.session.stage,
+          subject_id: history.session.subject_id,
+          entry,
+          agent_note: note,
+        }))
+    })
+    entries.sort((a, b) => b.entry.at.localeCompare(a.entry.at))
+    return { entries: entries.slice(0, 6) }
   }
 }

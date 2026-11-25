@@ -15,7 +15,7 @@ import { GlobalStyle } from '#/components/GlobalStyle'
 import { Masthead } from '#/components/masthead/Masthead'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { AgentSessions } from '#/components/agents/AgentSessions'
-import { fixtureHistory } from './session-history'
+import { fixtureActivity, fixtureHistory } from './session-history'
 import { dateCodeFigures, packetLabelFigures, wornSuffixFigures } from './question-figures'
 import { sessionList, sessionRow } from '#/test/agent-sessions'
 import { heyyySessions, HEYYY_LOT, HEYYY_NAMES } from '#/components/agents/fixtures/heyyy'
@@ -636,6 +636,7 @@ export function ProcessingProof() {
       }
     },
     history: fixtureHistory({ batchId, id, lot }, examineAnswerEntry),
+    batchActivity: fixtureActivity({ batchId, id, lot }, examineAnswerEntry),
     chat: async () => {
       throw new Error('fixture commands are disabled')
     },

@@ -403,7 +403,7 @@ With the other three also applied, the waves would be: 1 — PR-A, PR-B, PR-D1, 
 - [x] 11.1 Read the code guidelines and the Fixes page boards.
 - [x] 11.2 RED: header tests, including a drawer opened from Processing for a session absent from the Agents read's first page and filter; activity entry tests, including an Examine observation recorded before any lot linking to Capture, message box tests, the opening-instructions test, and a PG test that the batch activity read returns the newest entries across several jobs, including jobs outside the first Agents page.
 - [x] 11.3 GREEN: implement them.
-- [ ] 11.4 Run the checks, and record the demo video.
+- [x] 11.4 Run the checks, and record the demo video.
 
 ## Delivery evidence and lifecycle follow-up
 
