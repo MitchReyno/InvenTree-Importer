@@ -4,6 +4,7 @@ import { createHmac } from 'node:crypto'
 import { join } from 'node:path'
 import type { AgentCatalogModelDto, AgentSelectionDto } from '@invimport/contracts'
 import { AgentChild } from '#/agents/child.ts'
+import { NativeSessionError } from '#/agents/failure-model.ts'
 import { CODEX_CONFIG, rejectHostCustomizations } from '#/agents/codex.ts'
 import { agentEnvironment, privateDirectory, type NativeAgentHost } from '#/agents/environment.ts'
 import type { BridgeCatalogAnswer } from '#/agents/shared-vm/coordinator.ts'
@@ -144,9 +145,12 @@ async function hostCodexPages(
   let env: NodeJS.ProcessEnv
   try {
     env = agentEnvironment(host, catalogSelection('codex', authentication), cwd)
-  } catch {
-    // An API-key mode with no key configured.
-    throw new CatalogReadError('signed_out')
+  } catch (error) {
+    // An API-key mode whose key is no longer configured; anything else is not a sign-in state.
+    if (error instanceof NativeSessionError && error.message === 'agent_login_required') {
+      throw new CatalogReadError('signed_out')
+    }
+    throw error
   }
   try {
     await rejectHostCustomizations(env.CODEX_HOME!)

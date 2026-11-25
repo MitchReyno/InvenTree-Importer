@@ -21,6 +21,7 @@ export interface CatalogRow extends CatalogKey {
   cliVersion: string | null
   source: 'cli' | 'api' | null
   readIn: 'vm' | 'host' | null
+  attemptIn: 'vm' | 'host' | null
   readAt: Date | null
   attemptedAt: Date | null
   failure: AgentCatalogFailure | null
@@ -56,6 +57,7 @@ interface RawRow {
   cli_version: string | null
   source: 'cli' | 'api' | null
   read_in: 'vm' | 'host' | null
+  attempt_in: 'vm' | 'host' | null
   read_at: Date | null
   attempted_at: Date | null
   failure: AgentCatalogFailure | null
@@ -74,6 +76,7 @@ function catalogRow(row: RawRow): CatalogRow {
     cliVersion: row.cli_version,
     source: row.source,
     readIn: row.read_in,
+    attemptIn: row.attempt_in,
     readAt: row.read_at,
     attemptedAt: row.attempted_at,
     failure: row.failure,
@@ -91,7 +94,8 @@ export async function readCatalogRows(
   scope: CaptureBinding,
 ): Promise<CatalogRow[]> {
   const result = await connection.query<RawRow>(
-    `SELECT provider, authentication, models, cli_version, source, read_in, read_at, attempted_at,
+    `SELECT provider, authentication, models, cli_version, source, read_in, attempt_in, read_at,
+        attempted_at,
         failure, refresh_requested_at, reading_since, sign_in_generation, latest_generation,
         stale_sign_in
       FROM agent_model_catalog
@@ -123,6 +127,7 @@ export async function beginCatalogRead(
   pool: Pool,
   scope: CaptureBinding,
   key: CatalogKey,
+  readIn: CatalogReader['readIn'],
   now: Date,
 ): Promise<ReadStart> {
   const result = await pool.query<{
@@ -131,12 +136,12 @@ export async function beginCatalogRead(
     generation_seq: string
   }>(
     `INSERT INTO agent_model_catalog AS c
-        (actor_id,target_id,target_context_id,provider,authentication,reading_since)
-      VALUES ($1,$2,$3,$4,$5,$6)
+        (actor_id,target_id,target_context_id,provider,authentication,reading_since,attempt_in)
+      VALUES ($1,$2,$3,$4,$5,$6,$7)
       ON CONFLICT (actor_id,target_id,target_context_id,provider,authentication)
-        DO UPDATE SET reading_since=$6
+        DO UPDATE SET reading_since=$6, attempt_in=$7
       RETURNING c.refresh_seq, c.invalidation_seq, c.generation_seq`,
-    [...keyParams(scope, key), now],
+    [...keyParams(scope, key), now, readIn],
   )
   const row = result.rows[0]
   return {
@@ -147,41 +152,47 @@ export async function beginCatalogRead(
 }
 
 /**
- * Records the newest sign-in generation seen for a key. A generation other than the last one
- * observed is a sign-in change: it marks the list stale and requests a read, and the result says
- * so. A stored list read under another sign-in is marked stale too.
+ * Records the newest sign-in generation seen for a key, on the locked row. A generation other than
+ * the last one observed is a sign-in change: it marks the list stale, requests a read, and the
+ * result says so. A stored list read under another sign-in is marked stale too. Any new
+ * generation, the first included, advances `generation_seq`, which a read in flight must match.
  */
 async function observeGenerationOn(
-  connection: Pool | PoolClient,
+  client: PoolClient,
   scope: CaptureBinding,
   key: CatalogKey,
   generation: string,
   now: Date,
 ): Promise<boolean> {
-  const result = await connection.query<{ changed: boolean }>(
-    `WITH prior AS (
-        SELECT latest_generation, sign_in_generation FROM agent_model_catalog WHERE ${KEY_SQL}
-      ), observed AS (
-        SELECT
-          coalesce((SELECT latest_generation IS NOT NULL AND latest_generation<>$6 FROM prior), false)
-            AS changed,
-          coalesce((SELECT sign_in_generation IS NOT NULL AND sign_in_generation<>$6 FROM prior), false)
-            AS other_sign_in
-      )
-      INSERT INTO agent_model_catalog AS c
-        (actor_id,target_id,target_context_id,provider,authentication,latest_generation)
-      VALUES ($1,$2,$3,$4,$5,$6)
-      ON CONFLICT (actor_id,target_id,target_context_id,provider,authentication) DO UPDATE SET
-        latest_generation=$6,
-        stale_sign_in=c.stale_sign_in OR (SELECT changed OR other_sign_in FROM observed),
-        refresh_requested_at=CASE WHEN (SELECT changed FROM observed)
-          THEN coalesce(c.refresh_requested_at,$7) ELSE c.refresh_requested_at END,
-        refresh_seq=c.refresh_seq + CASE WHEN (SELECT changed FROM observed) THEN 1 ELSE 0 END,
-        generation_seq=c.generation_seq + CASE WHEN (SELECT changed FROM observed) THEN 1 ELSE 0 END
-      RETURNING (SELECT changed FROM observed) AS changed`,
-    [...keyParams(scope, key), generation, now],
+  await client.query(
+    `INSERT INTO agent_model_catalog (actor_id,target_id,target_context_id,provider,authentication)
+      VALUES ($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`,
+    keyParams(scope, key),
   )
-  return result.rows[0].changed
+  const prior = await client.query<{
+    latest_generation: string | null
+    sign_in_generation: string | null
+  }>(
+    `SELECT latest_generation, sign_in_generation FROM agent_model_catalog
+      WHERE ${KEY_SQL} FOR UPDATE`,
+    keyParams(scope, key),
+  )
+  const { latest_generation: latest, sign_in_generation: signedIn } = prior.rows[0]
+  const moved = latest !== generation
+  const changed = latest !== null && moved
+  const otherSignIn = signedIn !== null && signedIn !== generation
+  await client.query(
+    `UPDATE agent_model_catalog SET
+        latest_generation=$6,
+        stale_sign_in=stale_sign_in OR $7,
+        refresh_requested_at=CASE WHEN $8 THEN coalesce(refresh_requested_at,$9)
+          ELSE refresh_requested_at END,
+        refresh_seq=refresh_seq + CASE WHEN $8 THEN 1 ELSE 0 END,
+        generation_seq=generation_seq + CASE WHEN $10 THEN 1 ELSE 0 END
+      WHERE ${KEY_SQL}`,
+    [...keyParams(scope, key), generation, changed || otherSignIn, changed, now, moved],
+  )
+  return changed
 }
 
 export function observeCatalogGeneration(
@@ -191,7 +202,7 @@ export function observeCatalogGeneration(
   generation: string,
   now: Date,
 ) {
-  return observeGenerationOn(pool, scope, key, generation, now)
+  return transaction(pool, (client) => observeGenerationOn(client, scope, key, generation, now))
 }
 
 /**

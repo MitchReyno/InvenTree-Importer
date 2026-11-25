@@ -47,7 +47,12 @@ interface Topology {
 }
 
 /** A Claude credential service with its status and catalogue endpoints, a bridge and a relay. */
-async function topology(t: TestContext, mode: 'answer' | 'hang', delayMs = 0): Promise<Topology> {
+async function topology(
+  t: TestContext,
+  mode: 'answer' | 'hang',
+  delayMs = 0,
+  gated = false,
+): Promise<Topology> {
   // Short: a Unix socket path is limited to about 100 bytes.
   const root = await mkdtemp('/tmp/catalog-')
   t.after(() => rm(root, { recursive: true, force: true }))
@@ -63,7 +68,7 @@ async function topology(t: TestContext, mode: 'answer' | 'hang', delayMs = 0): P
   const claudeCli = join(bin, 'claude-fixture')
   await writeFile(
     claudeCli,
-    `#!/bin/sh\nMODEL_CATALOG_LOG='${log}' MODEL_CATALOG_MODE=${mode} MODEL_CATALOG_DELAY_MS=${delayMs} exec node '${fakeCli}' "$@"\n`,
+    `#!/bin/sh\nMODEL_CATALOG_LOG='${log}' MODEL_CATALOG_MODE=${mode} MODEL_CATALOG_DELAY_MS=${delayMs}${gated ? ` MODEL_CATALOG_GATE='${join(root, 'release')}'` : ''} exec node '${fakeCli}' "$@"\n`,
   )
   await chmod(claudeCli, 0o755)
 
@@ -148,7 +153,7 @@ test(
   'a catalogue read through the real relay answers while status reads keep their deadline',
   { timeout: 120000 },
   async (t) => {
-    const world = await topology(t, 'answer', 2000)
+    const world = await topology(t, 'answer', 0, true)
     // A generation-only answer is the store revision and starts no CLI.
     const generation = await world.bridge.modelCatalog('claude', 'generation')
     assert.deepEqual(generation, { kind: 'generation', generation: world.claude.status().revision })
@@ -157,16 +162,22 @@ test(
     // Both of the relay's catalogue connections start together; give the second a moment.
     await delay(1000)
     const reading = world.bridge.modelCatalog('claude', 'read')
-    await delay(300)
-    // The relay's second catalogue connection answers a generation check while the read runs.
-    const generationStarted = performance.now()
+    // The CLI holds its reply until the gate opens, so the read is surely still running.
+    for (let i = 0; i < 150; i++) {
+      if ((await cliLog(world.log)).some((frame) => 'received' in frame)) {
+        break
+      }
+      await delay(20)
+    }
+    assert.ok((await cliLog(world.log)).some((frame) => 'received' in frame))
+    // The relay's second catalogue connection answers a generation check meanwhile.
     const during = await world.bridge.modelCatalog('claude', 'generation')
     assert.equal(during.kind, 'generation')
-    assert.ok(performance.now() - generationStarted < 1000)
     const statusStarted = performance.now()
     const status = await world.bridge.providerStatus()
     assert.ok(performance.now() - statusStarted < 1800)
     assert.equal(status.claude.state, 'saved')
+    await writeFile(join(world.root, 'release'), '')
     const answer = await reading
     assert.equal(answer.kind, 'read')
     assert.ok(answer.kind === 'read')

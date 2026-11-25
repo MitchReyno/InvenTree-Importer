@@ -78,7 +78,7 @@ export function modelCatalogWorker(options: CatalogWorkerOptions) {
 
   async function readKey(key: CatalogKey, reader: CatalogReader) {
     for (let discarded = 0; ; discarded++) {
-      const started = await beginCatalogRead(pool, scope, key, now())
+      const started = await beginCatalogRead(pool, scope, key, reader.readIn, now())
       const signal = AbortSignal.any([stopping.signal, AbortSignal.timeout(HOST_READ_MS)])
       try {
         const read = await reader.read(signal)
@@ -210,7 +210,28 @@ export function modelCatalogWorker(options: CatalogWorkerOptions) {
    * Requests a read when a turn's admission reports a CLI version other than the stored list's,
    * once per version. A list from a models API has no CLI version to compare.
    */
+  /** Requests for a reported version in flight, so overlapping admissions write one. */
+  const versionRequests = new Map<string, Promise<void>>()
+
   async function cliVersionReported(
+    provider: CatalogProvider,
+    authentication: CatalogAuthentication,
+    version: string,
+  ) {
+    const name = keyName({ provider, authentication })
+    const requestName = name + '@' + version
+    const inFlight = versionRequests.get(requestName)
+    if (inFlight) {
+      return inFlight
+    }
+    const request = requestForVersion(provider, authentication, version).finally(() =>
+      versionRequests.delete(requestName),
+    )
+    versionRequests.set(requestName, request)
+    return request
+  }
+
+  async function requestForVersion(
     provider: CatalogProvider,
     authentication: CatalogAuthentication,
     version: string,

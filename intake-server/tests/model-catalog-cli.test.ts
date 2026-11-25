@@ -10,7 +10,8 @@ import {
   readCodexCliModels,
 } from '#/agents/model-catalog/cli-readers.ts'
 import { CatalogReadError, claudeCliModels, codexModels } from '#/agents/model-catalog/normalise.ts'
-import { hostClaudeApiReader } from '#/agents/model-catalog/readers.ts'
+import { hostClaudeApiReader, hostCodexApiReader } from '#/agents/model-catalog/readers.ts'
+import { nativeAgentHost } from '#/agents/environment.ts'
 
 const fakeCli = resolve(import.meta.dirname, 'fixtures/model-catalog-cli.cjs')
 
@@ -87,4 +88,28 @@ test('an oversized models API reply is refused while it streams, and its body ca
   assert.ok(cancelled)
   // About 1 MiB was read: 17 chunks of 64 KiB, not the endless stream.
   assert.ok(pulled <= 20, `pulled ${pulled}`)
+})
+
+test('a host OpenAI key gone from the environment reads as signed out', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'catalog-codex-gone-'))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  const host = nativeAgentHost({
+    INTAKE_AGENT_STATE_ROOT: join(root, 'state'),
+    INTAKE_CODEX_EXECUTABLE: fakeCli,
+    PATH: process.env.PATH,
+    HOME: root,
+  })
+  // The key source still had a key when the read began; the environment a CLI gets has none.
+  const reader = hostCodexApiReader(
+    host,
+    'secret',
+    () => 'sk-openai-key',
+    async () => {
+      throw new Error('no models API call is expected')
+    },
+  )
+  await assert.rejects(
+    reader.read(AbortSignal.timeout(10_000)),
+    (error) => error instanceof CatalogReadError && error.code === 'signed_out',
+  )
 })

@@ -2,7 +2,7 @@
 // Stands in for the pinned Claude CLI and Codex app-server for catalogue reads. It answers from
 // the recorded replies of the pinned versions and logs every frame it receives, so a test can
 // check that no read sent a user message or started a turn.
-const { appendFileSync, readFileSync } = require('node:fs')
+const { appendFileSync, existsSync, readFileSync } = require('node:fs')
 const { join } = require('node:path')
 
 // Beside the CLI's working directory unless named, since a reader passes only an allowlisted
@@ -45,7 +45,7 @@ process.stdin.on('data', (chunk) => {
     if (mode === 'hang') {
       continue
     }
-    setTimeout(() => (codex ? answerCodex(message) : answerClaude(message)), delayMs)
+    answerWhenReleased(() => (codex ? answerCodex(message) : answerClaude(message)))
   }
 })
 process.stdin.on('end', () => {
@@ -55,6 +55,20 @@ process.stdin.on('end', () => {
 })
 if (mode === 'hang') {
   setInterval(() => {}, 1000)
+}
+
+// With a gate, a reply waits for the test to create that file, after any delay.
+const gate = process.env.MODEL_CATALOG_GATE
+
+function answerWhenReleased(answer) {
+  const check = () => {
+    if (!gate || existsSync(gate)) {
+      answer()
+      return
+    }
+    setTimeout(check, 20)
+  }
+  setTimeout(check, delayMs)
 }
 
 function answerClaude(message) {

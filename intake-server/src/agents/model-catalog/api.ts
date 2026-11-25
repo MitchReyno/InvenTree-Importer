@@ -13,10 +13,17 @@ import { readAgentSettings } from '#/agents/settings.ts'
 import { catalogRoute, type CatalogAuthentication, type CatalogProvider } from './readers.ts'
 import { readCatalogRows, requestCatalogRefresh, type CatalogRow } from './store.ts'
 
-/** A row's attempt state without its list, for a list read on another route. */
-function withoutList(row: CatalogRow): CatalogRow {
+/**
+ * A row's attempt state without its list, for a list read on another route. Attempts and reads in
+ * progress are shown only when they ran on `readIn`; a request is the active route's to answer.
+ */
+function withoutList(row: CatalogRow, readIn: 'vm' | 'host'): CatalogRow {
+  const ownAttempt = row.attemptIn === readIn
   return {
     ...row,
+    attemptedAt: ownAttempt ? row.attemptedAt : null,
+    failure: ownAttempt ? row.failure : null,
+    readingSince: ownAttempt ? row.readingSince : null,
     models: null,
     cliVersion: null,
     source: null,
@@ -99,7 +106,7 @@ export async function readModelCatalog(
     }
     // The attempt fields describe this route's reads; only the stored list may be another's.
     const listed = row.models === null || row.readIn === readIn
-    return providerCatalog(provider, authentication, listed ? row : withoutList(row))
+    return providerCatalog(provider, authentication, listed ? row : withoutList(row, readIn))
   }
 
   return { claude: forProvider('claude'), codex: forProvider('codex') }
