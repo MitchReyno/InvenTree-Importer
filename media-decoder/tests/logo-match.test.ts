@@ -35,6 +35,106 @@ async function logoInput(
   }
 }
 
+const { columns: SHEET_COLUMNS, cellWidth: CELL_WIDTH, cellHeight: CELL_HEIGHT } = SHEET_GEOMETRY
+
+interface Grey {
+  data: Buffer
+  info: { width: number; height: number }
+}
+
+async function sheetPixels(bytes: Buffer) {
+  const { data, info } = await sharp(bytes)
+    .removeAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true })
+  return { data, width: info.width }
+}
+
+type Sheet = Awaited<ReturnType<typeof sheetPixels>>
+
+function countIn(
+  sheet: Sheet,
+  tile: number,
+  rows: [number, number],
+  matches: (red: number, green: number, blue: number) => boolean,
+) {
+  let found = 0
+  const left = (tile % SHEET_COLUMNS) * CELL_WIDTH
+  const top = Math.floor(tile / SHEET_COLUMNS) * CELL_HEIGHT
+  for (let y = top + rows[0]; y < top + rows[1]; y++) {
+    for (let x = left + 4; x < left + CELL_WIDTH - 4; x++) {
+      const offset = (y * sheet.width + x) * 3
+      if (matches(sheet.data[offset], sheet.data[offset + 1], sheet.data[offset + 2])) {
+        found++
+      }
+    }
+  }
+  return found
+}
+
+const isMarkInk = (red: number, green: number, blue: number) =>
+  red > 150 && green > 150 && blue > 150
+const isTitleInk = (red: number, green: number, blue: number) =>
+  red > 200 && green > 150 && blue < 80
+const isMakerInk = (red: number, green: number, blue: number) =>
+  red > 150 && Math.abs(red - green) < 20 && Math.abs(red - blue) < 20
+
+/** A tile's mark area, above its title, as greyscale. */
+function tileGrey(sheet: Sheet, tile: number): Grey {
+  const left = (tile % SHEET_COLUMNS) * CELL_WIDTH + 4
+  const top = Math.floor(tile / SHEET_COLUMNS) * CELL_HEIGHT + 4
+  const width = CELL_WIDTH - 8
+  const height = 96
+  const data = Buffer.alloc(width * height)
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const offset = ((top + y) * sheet.width + left + x) * 3
+      data[y * width + x] = Math.round(
+        (sheet.data[offset] + sheet.data[offset + 1] + sheet.data[offset + 2]) / 3,
+      )
+    }
+  }
+  return { data, info: { width, height } }
+}
+
+/** The bright mark's bounds, scaled to 24 × 24 and centred, as a unit vector. */
+function markShape(image: Grey): Float64Array {
+  const { width, height } = image.info
+  let left = width
+  let top = height
+  let right = -1
+  let bottom = -1
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (image.data[y * width + x] > 128) {
+        left = Math.min(left, x)
+        right = Math.max(right, x)
+        top = Math.min(top, y)
+        bottom = Math.max(bottom, y)
+      }
+    }
+  }
+  const side = 24
+  const shape = new Float64Array(side * side)
+  if (right < 0) {
+    return shape
+  }
+  for (let y = 0; y < side; y++) {
+    for (let x = 0; x < side; x++) {
+      const sourceX = left + Math.floor(((x + 0.5) * (right - left + 1)) / side)
+      const sourceY = top + Math.floor(((y + 0.5) * (bottom - top + 1)) / side)
+      shape[y * side + x] = image.data[sourceY * width + sourceX] > 128 ? 1 : 0
+    }
+  }
+  const mean = shape.reduce((sum, value) => sum + value, 0) / shape.length
+  const norm = Math.sqrt(shape.reduce((sum, value) => sum + (value - mean) ** 2, 0)) || 1
+  return shape.map((value) => (value - mean) / norm)
+}
+
+function correlation(left: Float64Array, right: Float64Array) {
+  return left.reduce((sum, value, index) => sum + value * right[index], 0)
+}
+
 test('the bundled logo set is the skill reference set, byte for byte', async () => {
   const bundledIndex = await readFile(new URL('index.json', LOGO_SET_DIRECTORY))
   assert.ok(bundledIndex.equals(await readFile(new URL('index.json', SKILL_DATA))))
@@ -108,37 +208,33 @@ test('candidates carry their maker and the sheet shows the query and each candid
   assert.deepEqual([sheet.width, sheet.height], [columns * cellWidth, rows * cellHeight])
   assert.deepEqual([result.sheet.width, result.sheet.height], [sheet.width, sheet.height])
 
-  // The query tile and the first candidate's each show a light-on-dark mark over their black
-  // tile, and a yellow title below it.
-  const pixels = await sharp(result.sheet.bytes).removeAlpha().raw().toBuffer()
-  const count = (
-    tile: number,
-    rows: [number, number],
-    matches: (red: number, green: number, blue: number) => boolean,
-  ) => {
-    let found = 0
-    const left = (tile % columns) * cellWidth
-    const top = Math.floor(tile / columns) * cellHeight
-    for (let y = top + rows[0]; y < top + rows[1]; y++) {
-      for (let x = left + 4; x < left + cellWidth - 4; x++) {
-        const offset = (y * columns * cellWidth + x) * 3
-        if (matches(pixels[offset], pixels[offset + 1], pixels[offset + 2])) {
-          found++
-        }
-      }
+  // Every occupied tile shows a mark, a yellow title and, for a candidate, its maker in light grey,
+  // and each candidate's mark is its own ranked logo rather than another's.
+  const sheetRaster = await sheetPixels(result.sheet.bytes)
+  for (let tile = 0; tile <= result.candidates.length; tile++) {
+    assert.ok(countIn(sheetRaster, tile, [5, 100], isMarkInk) > 30, `tile ${tile} shows a mark`)
+    assert.ok(countIn(sheetRaster, tile, [100, 118], isTitleInk) > 20, `tile ${tile} has its title`)
+    if (tile > 0) {
+      assert.ok(
+        countIn(sheetRaster, tile, [118, 136], isMakerInk) > 20,
+        `tile ${tile} names its maker`,
+      )
     }
-    return found
   }
-  const markInk = (red: number, green: number, blue: number) =>
-    red > 150 && green > 150 && blue > 150
-  const titleInk = (red: number, green: number, blue: number) =>
-    red > 200 && green > 150 && blue < 80
-  for (const tile of [0, 1]) {
-    assert.ok(count(tile, [5, 100], markInk) > 100, `tile ${tile} shows a mark`)
-    assert.ok(count(tile, [100, 118], titleInk) > 20, `tile ${tile} has its title`)
+  const references = await Promise.all(
+    result.candidates.map(async (candidate) => {
+      const bytes = await readFile(new URL(`logos/${candidate.id}.gif`, LOGO_SET_DIRECTORY))
+      return markShape(
+        await sharp(bytes).removeAlpha().greyscale().raw().toBuffer({ resolveWithObject: true }),
+      )
+    }),
+  )
+  for (const [index, candidate] of result.candidates.entries()) {
+    const shown = markShape(tileGrey(sheetRaster, index + 1))
+    const correlations = references.map((reference) => correlation(shown, reference))
+    const best = correlations.indexOf(Math.max(...correlations))
+    assert.equal(best, index, `tile ${index + 1} shows ${candidate.id}`)
   }
-  // The query's mark, an enlarged and blurred Motorola logo, differs from the reference's own.
-  assert.notEqual(count(0, [5, 100], markInk), count(1, [5, 100], markInk))
 })
 
 test('a blank region has no candidates', async () => {
@@ -198,4 +294,31 @@ test('an elongated mark is matched within a bounded working size', async () => {
   const result = await matchLogo(await logoInput(bytes))
   assert.ok(result.state === 'ready', `state ${result.state}`)
   assert.equal(result.candidates.length, 5, 'the stripes have a shape to compare')
+})
+
+test('a small tilt is straightened by the view before matching', async () => {
+  const fixtures = await parityFixtures()
+  const fixture = fixtures.logos.find((item) => item.degradation === 'etched')!
+  const upright = await fixtureBytes(fixture.query)
+  // Tilted 9° clockwise on black, then straightened by turning the view 9° anticlockwise.
+  const tilted = await sharp(upright).rotate(9, { background: '#000000' }).png().toBuffer()
+  const straightened = await matchLogo(
+    await logoInput(tilted, { straighten_millidegrees: -9000 }, 3),
+  )
+  const leftTilted = await matchLogo(await logoInput(tilted, {}, 3))
+  const reference = await matchLogo(await logoInput(upright, {}, 3))
+  assert.ok(
+    straightened.state === 'ready' && leftTilted.state === 'ready' && reference.state === 'ready',
+  )
+  assert.equal(straightened.candidates[0].id, fixture.id)
+  assert.ok(
+    straightened.candidates[0].score >
+      leftTilted.candidates.find((item) => item.id === fixture.id)!.score,
+    'straightening raises the true maker’s score',
+  )
+  // The query tile shows the mark upright: closer to the upright query's tile than the tilted one is.
+  const uprightShape = markShape(tileGrey(await sheetPixels(reference.sheet.bytes), 0))
+  const straightShape = markShape(tileGrey(await sheetPixels(straightened.sheet.bytes), 0))
+  const tiltedShape = markShape(tileGrey(await sheetPixels(leftTilted.sheet.bytes), 0))
+  assert.ok(correlation(straightShape, uprightShape) > correlation(tiltedShape, uprightShape))
 })

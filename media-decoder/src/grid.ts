@@ -133,13 +133,26 @@ interface Chip {
   bottom: number
 }
 
-/** The chip behind a label whose text starts at (x, y). */
-function chipAround(x: number, y: number, textWidth: number): Chip {
+/**
+ * The chip behind text drawn from (x, y): the glyphs' inked bounds, as grid.py's text box takes
+ * them, at least the font's line, padded. Null when the text draws no ink, such as spaces.
+ */
+function chipFor(context: SKRSContext2D, x: number, y: number, text: string): Chip | null {
+  const metrics = context.measureText(text)
+  const ink = {
+    left: x - metrics.actualBoundingBoxLeft,
+    right: x + metrics.actualBoundingBoxRight,
+    top: y - metrics.actualBoundingBoxAscent,
+    bottom: y + metrics.actualBoundingBoxDescent,
+  }
+  if (!(ink.right > ink.left && ink.bottom > ink.top)) {
+    return null
+  }
   return {
-    left: x - CHIP_PAD_X,
-    top: y - CHIP_PAD_Y,
-    right: x + textWidth + CHIP_PAD_X,
-    bottom: y + LABEL_FONT_PX + CHIP_PAD_Y,
+    left: Math.min(ink.left, x) - CHIP_PAD_X,
+    top: Math.min(ink.top, y) - CHIP_PAD_Y,
+    right: Math.max(ink.right, x + metrics.width) + CHIP_PAD_X,
+    bottom: Math.max(ink.bottom, y + LABEL_FONT_PX) + CHIP_PAD_Y,
   }
 }
 
@@ -170,8 +183,16 @@ interface PlacedLabel {
   bounds: Chip
 }
 
-function placed(context: SKRSContext2D, x: number, y: number, text: string, colour: string) {
-  return { x, y, text, colour, bounds: chipAround(x, y, context.measureText(text).width) }
+/** The label laid out at (x, y), or null when its text draws no ink. */
+function placed(
+  context: SKRSContext2D,
+  x: number,
+  y: number,
+  text: string,
+  colour: string,
+): PlacedLabel | null {
+  const bounds = chipFor(context, x, y, text)
+  return bounds ? { x, y, text, colour, bounds } : null
 }
 
 /** A label on a white chip, so it stays legible on foil, glare and busy backgrounds. */
@@ -238,8 +259,10 @@ function layoutLabels(
   const { region, scale, previewWidth, previewHeight } = plan
   const chips = [...placedChips]
 
-  const fitsFreely = (label: PlacedLabel) =>
-    fitsPreview(label.bounds, plan) && chips.every((other) => !overlaps(label.bounds, other.bounds))
+  const fitsFreely = (label: PlacedLabel | null): label is PlacedLabel =>
+    label !== null &&
+    fitsPreview(label.bounds, plan) &&
+    chips.every((other) => !overlaps(label.bounds, other.bounds))
 
   // Room for the widest label that interval would draw, measured on the labels themselves.
   const xStep = labelStep(plan, (interval) => {
@@ -336,9 +359,9 @@ function namePositions(box: Chip, textWidth: number) {
 }
 
 /**
- * Each box's name, placed where it fits the preview and covers no earlier name; failing that, its
- * number in the request (a key) in the same places; failing that, nothing. Returns the placed
- * chips and, per box, the text drawn.
+ * Each box's name, placed where all its ink fits the preview and covers no earlier name. Failing
+ * that, or when the name draws no ink (spaces, say), its number in the request is placed the same
+ * way as a key; failing that, nothing. Returns the placed chips and, per box, the text drawn.
  */
 function placeBoxNames(
   context: SKRSContext2D,
@@ -353,8 +376,8 @@ function placeBoxNames(
       const width = context.measureText(text).width
       for (const position of namePositions(box.outline, width)) {
         const label = placed(context, position.x, position.y, text, box.colour)
-        const free = chips.every((other) => !overlaps(label.bounds, other.bounds))
-        if (fitsPreview(label.bounds, plan) && free) {
+        const free = label !== null && chips.every((other) => !overlaps(label.bounds, other.bounds))
+        if (label && free && fitsPreview(label.bounds, plan)) {
           chosen = label
           break
         }

@@ -486,3 +486,63 @@ test('a box whose name fits nowhere is keyed by its number', async () => {
     ['the first proposed crop box', '2'],
   )
 })
+
+/** The bounding rows of white chip pixels in the image, or null when there are none. */
+function chipRows(image: Awaited<ReturnType<typeof rgbRaster>>) {
+  let top = -1
+  let bottom = -1
+  for (let y = 0; y < image.height; y++) {
+    for (let x = 0; x < image.width; x++) {
+      const offset = (y * image.width + x) * 3
+      if (
+        image.data[offset] === 255 &&
+        image.data[offset + 1] === 255 &&
+        image.data[offset + 2] === 255
+      ) {
+        top = top < 0 ? y : top
+        bottom = y
+        break
+      }
+    }
+  }
+  return top < 0 ? null : { top, bottom }
+}
+
+async function oneBoxGrid(name: string) {
+  const page = await greyPage(400, 400)
+  // No grid lines fall inside the region, so the box name is the only chip.
+  const result = await renderGrid({
+    version: 'media-grid/1',
+    digest: page.digest,
+    width: page.width,
+    height: page.height,
+    bytes: page.bytes,
+    region: { x: 0, y: 0, width: 200, height: 100 },
+    preview_width: 200,
+    step: 1000,
+    object: null,
+    boxes: [{ name, box: { x: 20, y: 0, width: 150, height: 100 } }],
+  })
+  assert.ok(result.state === 'ready')
+  assert.deepEqual([result.x_labels, result.y_labels], [[], []])
+  return { result, image: await rgbRaster(result.image.bytes) }
+}
+
+test('a box name of spaces draws no ink, so the box is keyed by its number', async () => {
+  const { result, image } = await oneBoxGrid('   ')
+  assert.equal(result.boxes[0].drawn_label, '1')
+  assert.notEqual(chipRows(image), null)
+})
+
+test('a name whose accents rise above the line moves to where all its ink fits', async () => {
+  const plain = await oneBoxGrid('A')
+  // At the box's top-left inner corner, 4 px down, a plain name's chip starts at row 3.
+  assert.equal(plain.result.boxes[0].drawn_label, 'A')
+  assert.equal(chipRows(plain.image)!.top, 3)
+  // Stacked accents rise about 8 px above the text line, past the preview's top edge there.
+  const accented = 'Á̂̃'
+  const { result, image } = await oneBoxGrid(accented)
+  assert.equal(result.boxes[0].drawn_label, accented)
+  const rows = chipRows(image)!
+  assert.ok(rows.top > 3, `the chip moved down from the top edge: rows ${rows.top}-${rows.bottom}`)
+})
