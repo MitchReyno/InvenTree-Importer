@@ -165,7 +165,7 @@ The work is eleven PRs after the plan. Tasks › "Parallel work" sets out exactl
 Open, recorded in the doc's open questions (2.10):
 
 - the light-adjustment bounds;
-- vocabulary paging versus search;
+- vocabulary paging versus search (settled in PR-G1: both, see notes.md);
 - the InvenTree search strategy and normalisation;
 - how long search results are cached and how long a decision stays valid;
 - an auto-accept setting for exact matches.

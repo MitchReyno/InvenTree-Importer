@@ -245,7 +245,7 @@ With suggestions 3 and 4 also applied, Match's search core (PR-C1) would start i
   - all of it reachable only through the test-only fixture switch; no configuration selects the profile yet.
 - **Scope:** migrations for the profile row and its stage packs, `processing/session-policy.ts`, the guides, and the two tools in `agents/tools/`.
 - **Prerequisites:** task 1. The pack wording can be drafted from wave 1, before task 1 merges.
-- **TDD approach:** profile and guide tests fail first: the claim's stage-instructions digest check for `/4`, `read_guide` sections sealed with the profile, and `read_vocabulary` through the lookup interface PR-G1 settles (paging or a search parameter, recorded in `notes.md`).
+- **TDD approach:** profile and guide tests fail first: the claim's stage-instructions digest check for `/4`, `read_guide` sections sealed with the profile, and `read_vocabulary` through the lookup interface PR-G1 settles (settled as both a search parameter and paging, recorded in `notes.md`).
 - **Verification:** intake tiers.
 - **Risks and decisions:** Mitch reviews the instruction wording; later PRs may revise a pack as their output contracts settle. Until PR-G2 activates `/4`, only tests seal it, so a later migration may replace its packs; from activation, a revision is a new profile.
 

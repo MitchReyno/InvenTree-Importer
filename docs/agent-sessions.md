@@ -635,7 +635,7 @@ The skills' deterministic scripts become intake MCP tools, run by the app on the
 ## 2.10 Open questions
 
 - The light-adjustment bounds that keep information-carrying colours intact, such as resistor bands and body colour.
-- How Research references an existing category when the vocabulary is large: paging `read_vocabulary` versus a search parameter.
+- How Research references an existing category when the vocabulary is large: paging `read_vocabulary` versus a search parameter. Settled in PR-G1: `read_vocabulary` takes a kind filter and a search and pages its results (the change's `notes.md`).
 - The InvenTree search strategy and its limits: which endpoints, fuzzy versus exact MPN normalisation, and paging.
 - Whether a search result is cached per batch, and how long a decision stays valid before pass 3.
 - Whether the batch-level "add stock to each exact match" question needs a setting to skip asking for exact matches.

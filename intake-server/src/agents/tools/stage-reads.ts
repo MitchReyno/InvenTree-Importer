@@ -189,6 +189,12 @@ export async function readVocabulary(
     )
   }
   const offset = cursor?.offset ?? 0
+  // A token names the start of a later page of this list; any other offset wasn't issued.
+  if (cursor && (offset % VOCABULARY_PAGE_SIZE !== 0 || offset >= found.length)) {
+    throw new ToolRefusal('validation_failed', 'That page token was not issued for this list.', [
+      { path: '/page_token', rule: 'const', reason: 'Pass a next_page_token as it was returned.' },
+    ])
+  }
   const entries = found.slice(offset, offset + VOCABULARY_PAGE_SIZE)
   const next = offset + VOCABULARY_PAGE_SIZE
   const more = next < found.length

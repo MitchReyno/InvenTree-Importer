@@ -1,10 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { PoolClient } from 'pg'
-import type {
-  AgentSettingsDto,
-  CaptureSnapshotDto,
-  ProcessingInputV6Dto,
-} from '@invimport/contracts'
+import type { AgentSettingsDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { commands, outbox } from '#/db/schema.ts'
 import { agentSessions } from '#/agents/schema.ts'
@@ -29,6 +25,7 @@ import {
   stageInputManifest,
   sessionLeadInputManifest,
   sessionLotInputManifest,
+  type SessionInputFields,
   type SessionInputProfile,
   type SessionLotStage,
 } from './session-input.ts'
@@ -175,7 +172,7 @@ async function sealStageInput(
   client: PoolClient,
   config: ProcessingConfig,
   snapshot: CaptureSnapshotDto,
-  base: ProcessingInputV6Dto,
+  base: SessionInputFields,
   profileId: SessionProfileId,
   supersedingJobId: string | undefined,
 ): Promise<SealedSessionInput> {

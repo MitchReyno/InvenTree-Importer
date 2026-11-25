@@ -3,7 +3,12 @@ import type { processingFixture } from './processing.ts'
 import { processingSubjectScope, sealed } from '#/processing/model.ts'
 import { transaction } from '#/db/database.ts'
 import { resolveMediaInputs } from '#/media/inputs.ts'
-import { sessionLotInputManifest } from '#/processing/session-input.ts'
+import { sessionInputV6, sessionLotInputManifest } from '#/processing/session-input.ts'
+
+/** A lot session's `/6` input, as the fixtures seal it. */
+function lotInputV6(...args: Parameters<typeof sessionLotInputManifest>) {
+  return sessionInputV6(sessionLotInputManifest(...args))
+}
 import type { CaptureBinding } from '#/capture/model.ts'
 
 type ProcessingFixture = Awaited<ReturnType<typeof processingFixture>>
@@ -40,7 +45,7 @@ export async function lotSession(
       capture.batch.id,
       processingSubjectScope(capture.batch, lot.id),
     )
-    const manifest = sessionLotInputManifest(
+    const manifest = lotInputV6(
       capture.batch,
       lot.id,
       stage,
@@ -174,7 +179,7 @@ export async function leadSession(
       capture.batch.id,
       processingSubjectScope(capture.batch, capture.packetA.id),
     )
-    const lot = sessionLotInputManifest(
+    const lot = lotInputV6(
       capture.batch,
       capture.packetA.id,
       'research',
@@ -345,7 +350,7 @@ export async function nextSessionAttempt(
       capture.batch.id,
       processingSubjectScope(capture.batch, lot.id),
     )
-    const manifest = sessionLotInputManifest(
+    const manifest = lotInputV6(
       capture.batch,
       lot.id,
       'research',

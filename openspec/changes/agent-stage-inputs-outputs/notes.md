@@ -100,6 +100,11 @@ Mitch reviewed the draft base instructions, stage packs and guide sections and a
 7. **The Research guide has nine sections**, each under about 1.8 KB: modes, nsn-and-data-books, datasheets, identity-and-specifications, naming-and-notes, vocabulary-and-gaps, logos, logo-look-alikes and same-part.
 8. **The brief's vocabulary section** is filled in this PR, from the same lookup `read_vocabulary` uses.
 
+### Wording after review
+
+- The Examine pack said to pass `base_revision` "on every write", but only `record_observation`, `propose_lot` and `regroup` take it (the strict `propose`, `ask` and `reply` contracts refuse it). The pack now names those three. This is a correction to the approved text, not a change of what it asks for.
+- The base keeps the `/3` web lines for every stage, as approved; the Examine and Images packs limit their stages' web use. Until the web gates admit `/4` (PR-G2), its inputs seal web research off and its opening carries no web line.
+
 ### Guides are sealed as a whole
 
 The guide table's rows can't be changed or deleted, but a row could still be added for a profile. So `processing/stage-policy.ts` records each stage guide's digest (`stageGuides`): the SHA-256 of the canonical ordered list of its sections' names, titles and text digests. `read_guide` serves a guide only while its stored sections give that digest; otherwise the call fails (`tool_failed`) rather than serve a section the profile wasn't sealed with.

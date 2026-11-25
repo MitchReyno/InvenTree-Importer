@@ -577,27 +577,49 @@ test('read_vocabulary lists the batch’s catalogue records by kind and name, in
     const stale = await call(researcher, 'read_vocabulary', { kind: 'category', page_token: token })
     assert.equal(stale.ok, false)
     assert.equal(stale.error, 'stale')
+  })
+})
 
-    // The longest search, in four-byte characters, still gives a token the tool accepts.
-    const search = '\u{1F50C}'.repeat(100)
-    await observe(
-      fixture,
-      batchId,
-      Array.from({ length: 51 }, (_, index) => ({
-        model: 'company',
-        pk: String(500 + index),
-        label: `${search} ${index}`,
-        mapping: { kind: 'company', manufacturer: false, supplier: true },
-      })),
-    )
+/** A token's cursor with another offset, as a session could forge it. */
+function withOffset(token: string, offset: number) {
+  const cursor = JSON.parse(Buffer.from(token, 'base64url').toString('utf8')) as object
+  return Buffer.from(canonicalRecord({ ...cursor, offset }), 'utf8').toString('base64url')
+}
+
+test('vocabulary tokens hold any search and only the offsets they were issued with', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true, profileId: 'shared-vm-agent/4' })
+  const { fixture, deps, batchId } = batch
+  // The longest search, in four-byte characters, within the batch's 100 read observations.
+  const search = '\u{1F50C}'.repeat(100)
+  await observe(
+    fixture,
+    batchId,
+    Array.from({ length: 51 }, (_, index) => ({
+      model: 'company',
+      pk: String(500 + index),
+      label: `${search} ${index}`,
+      mapping: { kind: 'company', manufacturer: false, supplier: true },
+    })),
+  )
+  const { row: research } = await successorOf(batch, 'led 0603 red', 'research')
+  const token = await running(fixture, research.attempt_id)
+  await withClients(async (open) => {
+    const researcher = await open(deps.toolUrl, token)
     const plugs = await call(researcher, 'read_vocabulary', { search })
     assert.equal(plugs.vocabulary!.total, 51)
-    const rest = await call(researcher, 'read_vocabulary', {
-      search,
-      page_token: plugs.vocabulary!.next_page_token!,
-    })
+    const next = plugs.vocabulary!.next_page_token!
+    const rest = await call(researcher, 'read_vocabulary', { search, page_token: next })
     assert.equal(rest.ok, true)
     assert.equal(rest.vocabulary!.entries.length, 1)
+    // An offset the tool didn't issue, inside the list or past it, is refused, not served.
+    for (const offset of [1, 100]) {
+      const forged = await call(researcher, 'read_vocabulary', {
+        search,
+        page_token: withOffset(next, offset),
+      })
+      assert.equal(forged.ok, false, String(offset))
+      assert.equal(forged.error, 'validation_failed', String(offset))
+    }
   })
 })
 

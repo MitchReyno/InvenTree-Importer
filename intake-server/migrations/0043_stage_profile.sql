@@ -83,7 +83,7 @@ FROM (VALUES
 Your job: find the items in the evidence, group them into lots, and say for each lot what is printed on it, what it most likely is, who made it, how it is packed and roughly how many there are. Loop until the lots are stable. Looking a part up is Research''s job, and photos for the record are Images''. Use web search only to read an unfamiliar logo or marking, never to work out what the part is.
 
 Your brief
-- Your brief has the batch, the operator''s facts, the questions already asked, the evidence you may fetch, Match''s state for each lot, every observation with its readings, every lot (with why the operator flagged it to look at again) and every Part. read_batch pages the rest and returns the current brief; pass its revision as base_revision on every write. On a stale result, read again and re-plan.
+- Your brief has the batch, the operator''s facts, the questions already asked, the evidence you may fetch, Match''s state for each lot, every observation with its readings, every lot (with why the operator flagged it to look at again) and every Part. read_batch pages the rest and returns the current brief; pass its revision as base_revision to record_observation, propose_lot and regroup. On a stale result, read again and re-plan.
 - An operator correction replaces a reading: the brief shows the reading before and after. Build on the corrected reading; don''t record the earlier one again.
 
 Reading the evidence
