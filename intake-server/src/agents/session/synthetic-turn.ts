@@ -184,7 +184,7 @@ async function publishStageOutput(
   // A lot input sealed before Match state works in full mode.
   const mode = lot.match?.mode.mode ?? 'full'
   if (mode === 'identify') {
-    await call('propose', {
+    const amended = await call('propose', {
       proposal: {
         schema_version: 'research-identity/1',
         ...base,
@@ -193,6 +193,9 @@ async function publishStageOutput(
         tried: ['Read the delivered note.'],
       },
     })
+    if (!amended.ok) {
+      throw new Error('synthetic_research_refused')
+    }
     return
   }
   const values =

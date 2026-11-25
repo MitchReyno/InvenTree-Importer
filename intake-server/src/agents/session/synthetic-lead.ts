@@ -99,7 +99,8 @@ function examineIdentity(
       text: [readAs.get(id) ?? marking],
     })),
     candidates: [{ description: marking, confidence: 'low', reason: 'Read from the label.' }],
-    ...(estimate.quantity && estimate.basis
+    // A count of nothing isn't an estimate the contract takes.
+    ...(estimate.quantity && /[1-9]/.test(estimate.quantity) && estimate.basis
       ? { quantity: { value: estimate.quantity, basis: estimate.basis } }
       : {}),
   }
@@ -264,12 +265,16 @@ export async function syntheticLeadTurn(
         })),
       ]
       if (stageInput) {
-        await call('propose', {
+        const published = await call('propose', {
           proposal: examineIdentity(lotId, marking, observationIds, readAs, source, lotSources, {
             quantity,
             basis,
           }),
         })
+        // A refused identity fails the turn rather than leaving the lot without one unseen.
+        if (!published.ok) {
+          throw new Error('synthetic_identity_refused')
+        }
         continue
       }
       await call('propose', {

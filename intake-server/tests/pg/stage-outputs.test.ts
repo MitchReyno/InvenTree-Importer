@@ -2732,7 +2732,7 @@ test('a worker without the writer can’t publish a stable /7 identity', async (
   )
 })
 
-test('a /7 identity naming candidates must cite its lot’s set, whatever fields it names', async (t) => {
+test('a /7 identity saying what the item is must cite its lot’s set, whatever fields it names', async (t) => {
   const batch = await formedBatch(t, { stageInputs: true })
   const { fixture, batchId, leadAttempt } = batch
   const session = tools(batch)
@@ -2755,6 +2755,22 @@ test('a /7 identity naming candidates must cite its lot’s set, whatever fields
   )
   assert.equal(corrected.error, 'validation_failed', JSON.stringify(corrected))
   assert.match(String(corrected.message), /observation set/)
+  // An NSN says what the item is too, with no candidates.
+  const byNsn = await result(
+    session.propose(await running(fixture, leadAttempt), {
+      proposal: {
+        schema_version: 'examine-identity/1',
+        subject_id: led.id,
+        summary: 'Red 0603 LEDs, by their stock number.',
+        sources: [note],
+        relies_on: { fields: ['markings'], sources: [note] },
+        markings: [{ observation_id: led.evidence_observation_ids![0], text: ['LED 0603 red'] }],
+        candidates: [],
+        nsn: '5961-01-234-5678',
+      },
+    }),
+  )
+  assert.equal(byNsn.error, 'validation_failed', JSON.stringify(byNsn))
   // Review and the queued Research keep the identity they had.
   const facts = await transaction(fixture.runner.pool, (client) =>
     proposalCurrentnessFacts(client, batchId, pinned),

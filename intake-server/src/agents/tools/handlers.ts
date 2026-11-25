@@ -1307,8 +1307,26 @@ async function requireCurrentReliance(
   }
 }
 
+/** Whether an Examine output says what the item is: anything beyond its markings and estimate. */
+function carriesIdentity(
+  proposal: Extract<RetainedSessionProposalDto, { schema_version: 'examine-identity/1' }>,
+) {
+  return (
+    proposal.candidates.length > 0 ||
+    [
+      proposal.maker,
+      proposal.packaging,
+      proposal.date_code,
+      proposal.condition,
+      proposal.nos_signals,
+      proposal.nsn,
+      proposal.match_notes,
+    ].some((value) => value !== undefined)
+  )
+}
+
 /**
- * A `/7` Examine identity of a lot that names candidates, or relies on `identity`, rests on that
+ * A `/7` Examine identity of a lot that says what the item is, or relies on `identity`, rests on that
  * lot's observation set and relies on `identity`: otherwise it couldn't replace the one its
  * successors were queued on. Markings alone need neither.
  */
@@ -1319,8 +1337,8 @@ function requireOwnObservationSet(
   if (
     principal.manifest.schema_version === 'bench-intake-input/7' &&
     proposal.schema_version === 'examine-identity/1' &&
-    // Candidates are identity values, whatever fields the output says it relies on.
-    (proposal.relies_on.fields.includes('identity') || proposal.candidates.length > 0) &&
+    // Anything but markings (and an estimate) says what the item is, whatever fields it names.
+    (proposal.relies_on.fields.includes('identity') || carriesIdentity(proposal)) &&
     reliedObservationSet(proposal) === null
   ) {
     refuse(
