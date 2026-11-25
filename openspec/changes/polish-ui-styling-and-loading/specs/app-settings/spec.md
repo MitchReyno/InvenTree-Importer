@@ -337,3 +337,37 @@ Models of a provider that is off SHALL show in the picker but not be selectable,
 - **GIVEN** a new Claude model not in the list
 - **WHEN** the operator types its exact ID and chooses "Use “…” with Claude"
 - **THEN** the step uses that ID with Claude, after it passes the model ID check.
+
+### Requirement: Agents sub-nav follows the scroll
+
+While the Settings nav sits beside the content, scrolling Settings › Agents SHALL mark as current the subsection whose heading most recently passed a reading line a quarter of the way down the window, or the first before any has. At the end of the page the last subsection SHALL be current. The address SHALL follow without adding history entries, and focus SHALL stay where it is.
+
+#### Scenario: Scrolling by hand
+
+- **GIVEN** Settings › Agents open at Providers on a 1440 × 900 window
+- **WHEN** the operator scrolls down until the "Provider and model per step" heading passes the reading line
+- **THEN** that link is marked current with `aria-current="location"`, the address becomes `#settings/agents/models` by replacement, focus doesn't move and scrolling back up moves the mark back.
+
+#### Scenario: End of the page
+
+- **GIVEN** a window tall enough that the "Web research" heading never reaches the reading line
+- **WHEN** the operator scrolls to the end of the page
+- **THEN** "Web research" is current.
+
+#### Scenario: A clicked link wins
+
+- **GIVEN** the operator at Providers
+- **WHEN** they activate "Tag suggestions"
+- **THEN** "Tag suggestions" is current at once and stays current while the page scrolls there, without marking the subsections in between.
+
+#### Scenario: Back leaves Settings
+
+- **GIVEN** the operator opened Settings from Review and scrolled through several subsections
+- **WHEN** they use the browser's Back
+- **THEN** they return to Review in one step.
+
+#### Scenario: Stacked nav
+
+- **GIVEN** a 390 px window, where the nav sits above the content
+- **WHEN** the operator scrolls the subsections
+- **THEN** the current subsection stays the one the route named.

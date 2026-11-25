@@ -194,3 +194,25 @@ For a short fixed list, the control SHOULD be chosen case by case and the design
 - **GIVEN** a choice between "Counted" and "Estimated"
 - **WHEN** it renders
 - **THEN** it may be a segmented control or a native select, as its screen suits; the guideline suggests the segmented control.
+
+### Requirement: Settings nav lets the electronics show through
+
+Behind the whole window, the Settings nav and its idle links SHALL have no background, so the parts show around them; each link's words SHALL have a snug backing of the masthead ground. Hover and the current section or subsection SHALL keep their full fill. Nav text SHALL keep at least 4.5:1 contrast in both themes whatever passes behind, and touch targets SHALL be unchanged.
+
+#### Scenario: Idle, hover and current
+
+- **GIVEN** the Behind the whole window style and Settings › Agents open
+- **WHEN** the operator hovers "InvenTree"
+- **THEN** the nav column has no background, idle links show only a backing behind their words, "InvenTree" shows the full hover fill and "Agents" the current fill.
+
+#### Scenario: Dark theme
+
+- **GIVEN** the same style with the theme setting Dark
+- **WHEN** Settings opens
+- **THEN** the word backings use the dark masthead ground, and every nav state keeps at least 4.5:1 contrast.
+
+#### Scenario: Other masthead styles
+
+- **GIVEN** the In the bar style
+- **WHEN** Settings opens
+- **THEN** the nav looks as it does today, on the plain page.

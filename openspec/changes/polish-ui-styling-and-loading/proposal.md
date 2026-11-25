@@ -42,6 +42,8 @@ Mitch found these while using the app on 2026-11-23:
 
 11. **Dropdowns are mixed** (Mitch, 2026-11-23). The app has 46 native select JSX sites across 28 components (excluding tests, fixtures and the generic `TextField` wrapper), including long InvenTree record lists (categories, locations, companies, templates) and lot or group pickers that grow with the batch. Only three fields use the searchable batch-settings picker.
 12. **A false "unsaved edits" alarm follows every tab** (Mitch, 2026-11-24; canvas board FixReloadBanner). After answering a question or saving anything, the batch often shows a red "Saved values still unavailable. Local inputs remain unchanged." with "Discard local edits and load saved values", though nothing was edited and the next read succeeded. A live update cancels the reload's read in flight, and the reload counts the cancellation as a failure. Processing's "The command was saved, but current status is unavailable…" has the same cause.
+13. **The Agents sub-nav doesn't follow the scroll** (Mitch, 2026-11-25; canvas board FixSettingsScrollSync, R1). Settings › Agents marks a subsection current only when its link is clicked or its route opened. Scrolling the page by hand leaves the highlight on a subsection the operator has left.
+14. **The Settings nav hides the electronics** (Mitch, 2026-11-25; canvas board FixSettingsNavBacking, R2). With the masthead behind the whole window, the whole nav column gets a solid block of the masthead ground (`groundBehindOnField`), a blank patch about 230 × 380 px down the left side.
 
 The outcome:
 
@@ -69,6 +71,7 @@ The outcome:
 - **Dropdowns:** records and growing lists use the searchable picker. Short fixed lists follow a soft guideline, chosen case by case: usually a segmented control for two to four short options, and a styled native select otherwise. The guideline is documented in the design system with examples.
 - **Popovers** open at their control. **Explanations** move behind help buttons; developer-only text moves to debug mode.
 - **Replaced reads:** a read a live update cancelled and replaced is not a failure, so nothing shows. A real failure with nothing edited shows an amber notice that clears itself; only real unsaved changes are named, kept and offered for discard.
+- **Settings nav:** the Agents sub-nav marks the subsection being read as the page scrolls, and the address follows it without adding history entries. Behind the whole window, idle nav links have no background, so the electronics show around them; only the words get a snug backing of the masthead ground, and hover and the current page keep their fill.
 
 The session-specific fixes from the same review (S1–S4, S6, S8 and O6: session rows, failure causes, links, the drawer header, the Agents filter, the activity feed and the message box) belong to `improve-agent-interaction`. They use this change's state words and times.
 
@@ -118,6 +121,7 @@ In scope:
   - display-only snapshots of allowlisted reads in session storage;
   - migration of Processing, Review, Changes, Records, Agents, Settings, Batches and the other one-off loading lines to it.
 - Awaited reads that wait for the read replacing a cancelled one, and calm failure notices in the batch and Processing (item 12).
+- The Agents sub-nav following the scroll, and the Settings nav letting the electronics show through (items 13 and 14).
 
 Non-goals:
 
@@ -162,8 +166,8 @@ None.
 - `processing-workspace`: the Overview's Needs you, step bar and lot table ("Processing overview"); step pages count their own step.
 - `header-workflow-status`: the masthead summary names what needs attention.
 - `capture-grouped-evidence`: several photos from a phone in one go; drop or paste files to add evidence.
-- `app-settings`: "Agent settings section" is modified (save as you change, provider status read automatically, dialogs, switches, segmented default provider, model picker). It is written on the synced requirement from `settings-debug-mode` and `simplify-vm-agent-web-and-setup`. Added: the electronics animation switch; saving as you change and text keeping an explicit Save; the read-only status and the separate sign-in failure line; controls matching the design; sign-in dialogs and dropping their work on close; the searchable model picker with its limits and exact IDs.
-- `ui-design-system` (also): the searchable picker for records and growing lists, and short fixed choices following a guideline. "Masthead and electronics current in both themes" is modified so the animation switch can still the current.
+- `app-settings`: "Agent settings section" is modified (save as you change, provider status read automatically, dialogs, switches, segmented default provider, model picker). It is written on the synced requirement from `settings-debug-mode` and `simplify-vm-agent-web-and-setup`. Added: the electronics animation switch; saving as you change and text keeping an explicit Save; the read-only status and the separate sign-in failure line; controls matching the design; sign-in dialogs and dropping their work on close; the searchable model picker with its limits and exact IDs; the Agents sub-nav following the scroll (item 13).
+- `ui-design-system` (also): the searchable picker for records and growing lists, and short fixed choices following a guideline; the Settings nav letting the electronics show through (item 14). "Masthead and electronics current in both themes" is modified so the animation switch can still the current.
 - `shared-vm-execution`: a read-only provider sign-in status the server can read without the management key. It is added as its own requirements. "Personal Claude subscription token" is modified for the "Token saved" wording, and "ChatGPT sign-in for the runner" so closing the dialog completes or cancels a pending login.
 - `live-updates`: commands wait quietly for a current read; cached reads survive a reload within the session; a replaced read is not a failure, and unavailable saved values are reported calmly. "Live unverifiable workspace state" is unchanged.
 
@@ -208,6 +212,8 @@ Decided by Mitch on 2026-11-23:
 - An on/off switch for the electronics animation that keeps the chosen masthead style (added 2026-11-23; canvas v80, Settings › Appearance).
 
 Decided by Mitch on 2026-11-24 (board FixReloadBanner): a cancelled and replaced read waits up to 10 s for its replacement and shows nothing; a real failure is amber, with the time of the values shown; Discard appears only with real unsaved changes and names them; #254's rule that a cancelled read never verifies stays.
+
+Decided by Mitch on 2026-11-25 (boards FixSettingsScrollSync and FixSettingsNavBacking, canvas v108, approved with the other agent settings proposals R3–R5, which `agent-model-catalog-and-step-instructions` plans): the sub-nav follows a reading line a quarter of the way down the window, and the address follows it without history entries; idle Settings nav links on the whole-window field are transparent with a backing on the words only, while hover and the current page keep their fill.
 
 Assumptions:
 
