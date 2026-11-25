@@ -2731,3 +2731,37 @@ test('a worker without the writer can’t publish a stable /7 identity', async (
     true,
   )
 })
+
+test('a /7 identity naming candidates must cite its lot’s set, whatever fields it names', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId, leadAttempt } = batch
+  const session = tools(batch)
+  const led = await batch.lot('led 0603 red')
+  const research = await stageJob(batch, 'led 0603 red', 'research')
+  const pinned = (await inputOf(fixture, research.attemptId)).manifest.pinned_proposal_ids
+  const { note } = citations((await inputOf(fixture, leadAttempt)).manifest)
+  const corrected = await result(
+    session.propose(await running(fixture, leadAttempt), {
+      proposal: {
+        schema_version: 'examine-identity/1',
+        subject_id: led.id,
+        summary: 'Red 0603 LEDs, another part.',
+        sources: [note],
+        relies_on: { fields: ['markings'], sources: [note] },
+        markings: [{ observation_id: led.evidence_observation_ids![0], text: ['LED 0603 red'] }],
+        candidates: [{ description: 'LED 0603 amber', confidence: 'low', reason: 'Read again.' }],
+      },
+    }),
+  )
+  assert.equal(corrected.error, 'validation_failed', JSON.stringify(corrected))
+  assert.match(String(corrected.message), /observation set/)
+  // Review and the queued Research keep the identity they had.
+  const facts = await transaction(fixture.runner.pool, (client) =>
+    proposalCurrentnessFacts(client, batchId, pinned),
+  )
+  assert.equal(facts.get(pinned[0])?.stale, null)
+  assert.deepEqual(
+    (await inputOf(fixture, research.attemptId)).manifest.pinned_proposal_ids,
+    pinned,
+  )
+})

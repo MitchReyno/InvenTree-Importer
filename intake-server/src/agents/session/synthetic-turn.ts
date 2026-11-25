@@ -200,17 +200,17 @@ async function publishStageOutput(
       ? {
           category: {
             choice: 'proposed_new',
-            name: note.text.slice(0, 64).trim() || 'Uncategorised',
+            name: firstCodePoints(note.text, 64).trim() || 'Uncategorised',
             reason: 'No observed category matches the note.',
             sources: [source],
           },
           description: {
-            text: note.text.slice(0, 2048).trim() || 'Synthetic item',
+            text: firstCodePoints(note.text, 2048).trim() || 'Synthetic item',
             sources: [source],
           },
         }
       : {}
-  await call('propose', {
+  const published = await call('propose', {
     proposal: {
       schema_version: 'research/1',
       ...base,
@@ -219,6 +219,15 @@ async function publishStageOutput(
       notes: [{ record: 'part', text: 'Synthetic research from the delivered note.' }],
     },
   })
+  // A refused output fails the turn rather than ending it as if Research had published.
+  if (!published.ok) {
+    throw new Error('synthetic_research_refused')
+  }
+}
+
+/** The text's first `count` code points, so no surrogate pair is split as a UTF-16 cut would. */
+function firstCodePoints(text: string, count: number) {
+  return [...text].slice(0, count).join('')
 }
 
 export async function syntheticTurn(

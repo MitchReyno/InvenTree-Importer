@@ -1308,8 +1308,9 @@ async function requireCurrentReliance(
 }
 
 /**
- * A `/7` Examine identity of a lot rests on that lot's observation set: without it, the identity
- * couldn't replace the one its successors were queued on.
+ * A `/7` Examine identity of a lot that names candidates, or relies on `identity`, rests on that
+ * lot's observation set and relies on `identity`: otherwise it couldn't replace the one its
+ * successors were queued on. Markings alone need neither.
  */
 function requireOwnObservationSet(
   principal: SessionPrincipal,
@@ -1318,7 +1319,8 @@ function requireOwnObservationSet(
   if (
     principal.manifest.schema_version === 'bench-intake-input/7' &&
     proposal.schema_version === 'examine-identity/1' &&
-    proposal.relies_on.fields.includes('identity') &&
+    // Candidates are identity values, whatever fields the output says it relies on.
+    (proposal.relies_on.fields.includes('identity') || proposal.candidates.length > 0) &&
     reliedObservationSet(proposal) === null
   ) {
     refuse(
