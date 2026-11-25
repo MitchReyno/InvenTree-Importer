@@ -243,3 +243,18 @@ test('a group that outlives its grace stops the ordered stop before the next gro
   // The caller (`finishOwnedRun`) then forces every child down, relays included.
   assert.deepEqual(events, ['agents SIGTERM'])
 })
+
+test('shutdown then the ordered stop signal a draining child only once', async () => {
+  // Handles the first SIGTERM only, as a worker draining its turns does; a second would kill it.
+  const script =
+    'process.once("SIGTERM",()=>setTimeout(()=>process.exit(0),300));console.log("READY");setInterval(()=>{},1000)'
+  const child = launch('draining', process.execPath, ['-e', script], {}, (output) =>
+    output.includes('READY'),
+  )
+  await child.ready(5000)
+  // `shutdown()` signals at once, then `finishOwnedRun` stops the same child again.
+  child.terminate()
+  await delay(50)
+  await stop([child], 5000)
+  assert.deepEqual(await child.exited, { code: 0, signal: null })
+})

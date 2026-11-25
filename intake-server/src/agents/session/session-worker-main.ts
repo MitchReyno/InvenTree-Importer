@@ -163,6 +163,8 @@ async function main() {
       confirmVmReaped: bridge?.confirmReaped,
       // Losing the lock ends the checks; the releases run on its connection and fail with it.
       signal: shutdown.signal,
+      // A normal start interrupts each released session with its release; check-only doesn't.
+      interruptReleased: process.env.INTAKE_AGENT_RECOVER_ONLY !== '1',
     }
     const recovered = await requireFreeCapacity(owner, config, capacityChecks)
     // Recover-only mode (`pnpm agents:reap`) stops here; the next start interrupts the sessions.
@@ -252,7 +254,7 @@ async function main() {
       systemDatabasePoolSize: 1,
     })
     for (const signal of ['SIGINT', 'SIGTERM'] as const) {
-      process.once(signal, () => shutdown.abort())
+      process.on(signal, () => shutdown.abort())
     }
     process.stdout.write(
       'Bench Intake session supervisor ready. No session starts until a queued command is claimed.\n',

@@ -221,11 +221,16 @@ test(
   async (t) => {
     const { root, fixture, port, first, command, attemptId } = await runningVmTurn(t)
     first.worker.kill('SIGTERM')
-    // No relay reconnects, so no proof arrives; the worker gives up after its bound.
+    // The relay reconnects and gets the probe, but the guest answers only after the 30 s bound
+    // (and before the bridge would close without one). A late proof must not count.
+    const late = await guestPeer(t, root, port)
+    assert.deepEqual(await late.frames.read(), { inspectTerminal: command, requireReap: true })
+    await delay(30_500)
+    await late.frames.send({ terminalOutcome: 'worker_removed' }).catch(() => undefined)
     const [code] = await first.exited
     assert.equal(code, 0, first.output())
     const kept = await heldSlot(fixture)
-    assert.equal(kept.length, 1)
+    assert.equal(kept.length, 1, first.output())
     assert.equal(kept[0].attempt_id, attemptId)
     assert.equal((await session(fixture)).session_state, 'running')
 

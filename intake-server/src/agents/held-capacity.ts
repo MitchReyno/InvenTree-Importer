@@ -4,7 +4,8 @@ import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { commands } from '#/db/schema.ts'
 import type { ProcessingConfig } from '#/processing/attempts.ts'
 import { processingAttempts, processingLanes } from '#/processing/schema.ts'
-import { agentSlots, type TurnChildKind } from './schema.ts'
+import { agentSessions, agentSlots, type TurnChildKind } from './schema.ts'
+import { interruptSession } from './session/session-runner.ts'
 
 /** How long a starting worker waits for the guest's removal proof for one held VM turn. */
 export const STARTUP_REAP_CHECK_MS = 20_000
@@ -74,6 +75,11 @@ export interface HeldCapacityChecks {
   confirmVmReaped?: (command: string, signal: AbortSignal) => Promise<boolean>
   /** Ends every check early, for example when the worker loses its supervisor lock. */
   signal?: AbortSignal
+  /**
+   * Interrupts each released slot's session in the release's transaction, as a normal start
+   * does; the check-only mode leaves that to the next start.
+   */
+  interruptReleased?: boolean
   /** Overrides `STARTUP_REAP_CHECK_MS`, for tests. */
   reapCheckMs?: number
 }
@@ -130,7 +136,8 @@ async function readHeldCapacity(
 
 /** Asks the guest about a held VM turn within the check's bound; a failed ask confirms nothing. */
 async function vmReapProof(held: HeldCapacity, checks: HeldCapacityChecks): Promise<VmReapProof> {
-  if (held.holds !== 'slot' || held.child !== 'vm' || held.vmCommand === null) {
+  // Another scope's command is never sent to this worker's guest; its slot is kept anyway.
+  if (held.holds !== 'slot' || !held.inScope || held.child !== 'vm' || held.vmCommand === null) {
     return 'unconfirmed'
   }
   if (!checks.confirmVmReaped) {
@@ -154,23 +161,61 @@ async function releaseConfirmedSlot(
   owner: PoolClient,
   config: ProcessingConfig,
   held: Extract<HeldCapacity, { holds: 'slot' }>,
+  interruptReleased: boolean,
 ) {
-  const released = await executeDatabaseQuery(
+  await owner.query('BEGIN')
+  try {
+    // Job, attempt and session before the slot, the order settlement takes them in.
+    if (interruptReleased) {
+      await interruptHeldSession(owner, held.attemptId)
+    }
+    const released = await executeDatabaseQuery(
+      queryDatabase(owner)
+        .update(agentSlots)
+        .set({ attemptId: null, claimedAt: null, turn: null, turnChild: null, vmCommand: null })
+        .where(
+          and(
+            eq(agentSlots.actorId, config.actorId),
+            eq(agentSlots.attemptId, held.attemptId),
+            sql`${agentSlots.turn} IS NOT DISTINCT FROM ${held.turn}::bigint`,
+            sql`${agentSlots.turnChild} IS NOT DISTINCT FROM ${held.child}::text`,
+            sql`${agentSlots.vmCommand} IS NOT DISTINCT FROM ${held.vmCommand}::text`,
+          ),
+        )
+        .returning({ slot: agentSlots.slotIndex }),
+    )
+    if (released.length !== 1) {
+      // The slot changed after its check: neither the release nor the interruption happens.
+      await owner.query('ROLLBACK')
+      return false
+    }
+    await owner.query('COMMIT')
+    return true
+  } catch (error) {
+    await owner.query('ROLLBACK').catch(() => undefined)
+    throw error
+  }
+}
+
+/** Interrupts the session of a released slot's attempt, when it is still running or cancelling. */
+async function interruptHeldSession(owner: PoolClient, attemptId: string) {
+  const sessions = await executeDatabaseQuery(
     queryDatabase(owner)
-      .update(agentSlots)
-      .set({ attemptId: null, claimedAt: null, turn: null, turnChild: null, vmCommand: null })
-      .where(
-        and(
-          eq(agentSlots.actorId, config.actorId),
-          eq(agentSlots.attemptId, held.attemptId),
-          sql`${agentSlots.turn} IS NOT DISTINCT FROM ${held.turn}::bigint`,
-          sql`${agentSlots.turnChild} IS NOT DISTINCT FROM ${held.child}::text`,
-          sql`${agentSlots.vmCommand} IS NOT DISTINCT FROM ${held.vmCommand}::text`,
-        ),
-      )
-      .returning({ slot: agentSlots.slotIndex }),
+      .select({
+        attemptId: agentSessions.attemptId,
+        jobId: processingAttempts.jobId,
+        batchId: processingAttempts.batchId,
+        turnCount: agentSessions.turnCount,
+      })
+      .from(agentSessions)
+      .innerJoin(processingAttempts, eq(processingAttempts.id, agentSessions.attemptId))
+      .where(eq(agentSessions.attemptId, attemptId)),
   )
-  return released.length === 1
+  const session = sessions[0]
+  if (!session) {
+    return false
+  }
+  return interruptSession(owner, session)
 }
 
 /**
@@ -193,7 +238,7 @@ export async function recoverHeldCapacity(
     let reason: HeldCapacityOutcome['reason'] = verdict.reason
     if (verdict.release && item.holds === 'slot') {
       checks.signal?.throwIfAborted()
-      released = await releaseConfirmedSlot(owner, config, item)
+      released = await releaseConfirmedSlot(owner, config, item, checks.interruptReleased ?? false)
       if (!released) {
         reason = 'held_capacity_changed'
       }

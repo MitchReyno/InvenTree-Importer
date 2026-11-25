@@ -197,32 +197,45 @@ export async function interruptRunningSessions(pool: Pool, config: ProcessingCon
   const interrupted: string[] = []
   // One transaction each, so a stream lock is only ever taken last.
   for (const session of running) {
-    await transaction(pool, async (client) => {
-      // The fence refused to start while any slot was held, so these slots are already clear.
-      const changed = await setSessionState(
-        client,
-        session.attemptId,
-        session.jobId,
-        'interrupted',
-        ['running', 'cancelling'],
-      )
-      if (changed) {
-        await retainSessionFailure(
-          client,
-          sessionFailure(new NativeSessionError('agent_worker_interrupted'), {
-            attemptId: session.attemptId,
-            lineageId: session.jobId,
-            turn: session.turnCount.toString(),
-            stage: 'turn',
-          }),
-        )
-        await revokeSessionCapability(client, session.attemptId)
-        await publish(client, session.batchId)
-        interrupted.push(session.attemptId)
-      }
-    })
+    // The fence refused to start while any slot was held, so these slots are already clear.
+    if (await transaction(pool, (client) => interruptSession(client, session))) {
+      interrupted.push(session.attemptId)
+    }
   }
   return interrupted
+}
+
+export interface InterruptedSession {
+  attemptId: string
+  jobId: string
+  batchId: string
+  turnCount: bigint
+}
+
+/**
+ * Marks one running or cancelling session interrupted, records why, revokes its capability and
+ * publishes, in the caller's transaction. Returns false when it was in neither state.
+ */
+export async function interruptSession(client: PoolClient, session: InterruptedSession) {
+  const changed = await setSessionState(client, session.attemptId, session.jobId, 'interrupted', [
+    'running',
+    'cancelling',
+  ])
+  if (!changed) {
+    return false
+  }
+  await retainSessionFailure(
+    client,
+    sessionFailure(new NativeSessionError('agent_worker_interrupted'), {
+      attemptId: session.attemptId,
+      lineageId: session.jobId,
+      turn: session.turnCount.toString(),
+      stage: 'turn',
+    }),
+  )
+  await revokeSessionCapability(client, session.attemptId)
+  await publish(client, session.batchId)
+  return true
 }
 
 /** Session states with no turn in flight and no slot held. */
@@ -780,6 +793,19 @@ export async function runSessionTurn(
   return transaction(pool, async (client) => {
     // Job and attempt first, as everywhere, before the cursor and the session row.
     const locked = await lockProcessingAttempt(client, current.jobId, attemptId)
+    // A worker that lost its lock may settle after a replacement recovered this turn and started
+    // the next one; that turn's state, capability and slot are not this settlement's to change.
+    const sessionNow = await executeDatabaseQuery(
+      queryDatabase(client)
+        .select({ turnCount: agentSessions.turnCount, state: agentSessions.sessionState })
+        .from(agentSessions)
+        .where(eq(agentSessions.attemptId, attemptId))
+        .for('update'),
+    )
+    const settledTurn = current.turnCount + 1n
+    if (sessionNow[0]?.turnCount !== settledTurn) {
+      return sessionNow[0]?.state ?? next
+    }
     // A cancelled, superseded or replaced attempt leaves input pending for whatever replaces it.
     const live =
       locked.attempt.state === 'running' && locked.job.current_attempt_id === locked.attempt.id

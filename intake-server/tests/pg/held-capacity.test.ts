@@ -431,15 +431,99 @@ test('a slot held by another target context is left for its own worker', async (
   t.after(() => fixture.dispose())
   const capture = await fixture.seedCapture()
   const session = await lotSession(fixture, capture, capture.packetA)
+  const vm = await lotSession(fixture, capture, capture.packetB)
   await heldSlot(fixture, 0, session.attempt, 'none')
+  await heldSlot(fixture, 1, vm.attempt, 'vm', '{"command":"another scope"}')
   const otherContext = { ...fixture.config, targetContextId: randomUUID() }
+  let asked = 0
   const outcomes = await asSupervisor(
     fixture,
-    (owner) => recoverHeldCapacity(owner, otherContext),
+    (owner) =>
+      recoverHeldCapacity(owner, otherContext, {
+        confirmVmReaped: async () => {
+          asked++
+          return true
+        },
+      }),
     otherContext,
   )
   assert.deepEqual(outcomes, [
     { holds: 'slot', attemptId: session.attempt, released: false, reason: 'held_by_other_scope' },
+    { holds: 'slot', attemptId: vm.attempt, released: false, reason: 'held_by_other_scope' },
   ])
+  // Its command never reaches this worker's guest.
+  assert.equal(asked, 0)
   assert.ok(await slotOf(fixture, session.attempt))
+})
+
+test('a normal start interrupts each released session even when another slot keeps it from starting', async (t) => {
+  const fixture = await processingFixture()
+  t.after(() => fixture.dispose())
+  const capture = await fixture.seedCapture()
+  const gone = await lotSession(fixture, capture, capture.packetA)
+  const host = await lotSession(fixture, capture, capture.packetB)
+  await heldSlot(fixture, 0, gone.attempt, 'none')
+  await heldSlot(fixture, 1, host.attempt, 'host')
+  await fixture.db.pool.query(
+    "UPDATE agent_session SET capability_sha256=decode(repeat('ab',32),'hex') WHERE attempt_id=ANY($1::uuid[])",
+    [[gone.attempt, host.attempt]],
+  )
+  const { result } = await logged(() =>
+    acquireAgentSupervisor(fixture.runner.pool, fixture.config, { interruptReleased: true }),
+  )
+  assert.ok(result instanceof Error && result.message === 'agent_reap_confirmation_required')
+  assert.equal(await slotOf(fixture, gone.attempt), undefined)
+  assert.equal(await sessionState(fixture, gone.attempt), 'interrupted')
+  assert.ok(await slotOf(fixture, host.attempt))
+  assert.equal(await sessionState(fixture, host.attempt), 'running')
+  const capabilities = await fixture.db.pool.query<{ attempt_id: string }>(
+    'SELECT attempt_id FROM agent_session WHERE capability_sha256 IS NOT NULL',
+  )
+  assert.deepEqual(
+    capabilities.rows.map((row) => row.attempt_id),
+    [host.attempt],
+  )
+})
+
+test('a settlement from a worker that lost the actor leaves the next turn alone', async (t) => {
+  const fixture = await processingFixture()
+  t.after(() => fixture.dispose())
+  const root = await mkdtemp(join(tmpdir(), 'held-capacity-'))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  const capture = await fixture.seedCapture()
+  const session = await lotSession(fixture, capture, capture.packetA, { state: 'queued' })
+  const state = await runSessionTurn(
+    {
+      pool: fixture.runner.pool,
+      config: fixture.config,
+      host: { codexExecutable: 'unused', claudeExecutable: 'unused', stateRoot: root, env: {} },
+      toolUrl: 'http://127.0.0.1:1/unused',
+      drivers: {
+        'synthetic-session/1': async () => {
+          // Meanwhile a replacement worker recovered this turn and claimed the next one.
+          await fixture.db.pool.query(
+            'UPDATE agent_session SET turn_count=turn_count+1 WHERE attempt_id=$1',
+            [session.attempt],
+          )
+          await fixture.db.pool.query(
+            "UPDATE agent_slot SET turn=turn+1,turn_child='none' WHERE attempt_id=$1",
+            [session.attempt],
+          )
+        },
+      },
+    },
+    session.attempt,
+    new AbortController().signal,
+  )
+  assert.equal(state, 'running')
+  assert.deepEqual(await slotOf(fixture, session.attempt), {
+    turn: '2',
+    turn_child: 'none',
+    vm_command: null,
+  })
+  const capability = await fixture.db.pool.query(
+    'SELECT 1 FROM agent_session WHERE attempt_id=$1 AND capability_sha256 IS NOT NULL',
+    [session.attempt],
+  )
+  assert.equal(capability.rowCount, 1)
 })

@@ -14,7 +14,6 @@ import { nativeProfileId, nativeHandlerVersion } from './policy.ts'
 import { nativeAgentRunner } from './runner.ts'
 import { lockAgentSupervisor } from './worker.ts'
 import { heldCapacityChecked, requireFreeCapacity } from './held-capacity.ts'
-import { interruptRunningSessions } from './session/session-runner.ts'
 
 function localDatabaseUrl(value: string | undefined) {
   if (!value) {
@@ -54,13 +53,14 @@ async function main() {
       shutdown.abort()
     })
     // This worker has no VM bridge, so only a turn that started nothing outside it is released.
-    const recovered = await requireFreeCapacity(owner, config, { signal: shutdown.signal })
+    const recovered = await requireFreeCapacity(owner, config, {
+      signal: shutdown.signal,
+      interruptReleased: process.env.INTAKE_AGENT_RECOVER_ONLY !== '1',
+    })
     if (process.env.INTAKE_AGENT_RECOVER_ONLY === '1') {
       process.stdout.write(heldCapacityChecked(recovered.length))
       return
     }
-    // A released slot's session is interrupted here too, as the session worker does at start.
-    await interruptRunningSessions(db.pool, config)
     const store = process.env.INTAKE_BLOB_ROOT
       ? await BlobStore.initialize(
           process.env.INTAKE_BLOB_ROOT,
@@ -98,7 +98,7 @@ async function main() {
       systemDatabasePoolSize: 1,
     })
     for (const signal of ['SIGINT', 'SIGTERM'] as const) {
-      process.once(signal, () => shutdown.abort())
+      process.on(signal, () => shutdown.abort())
     }
     process.stdout.write(
       'Bench Intake native agent supervisor ready. No inference starts until a queued command is claimed.\n',

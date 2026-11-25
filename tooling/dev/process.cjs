@@ -12,6 +12,7 @@ function launch(name, command, args, { group = false, ...options }, ready) {
   let text = ''
   let error
   let closed = false
+  let asked = false
   const exited = new Promise((resolve) => {
     child.once('error', () => {
       error = new Error(`${name}_unavailable`)
@@ -32,10 +33,19 @@ function launch(name, command, args, { group = false, ...options }, ready) {
     child,
     group,
     exited,
-    /** A group is signalled until its output closes, even after the leader has exited. */
+    /**
+     * A group is signalled until its output closes, even after the leader has exited. SIGTERM is
+     * sent once: a second could end a child still draining after it handled the first.
+     */
     terminate(signal = 'SIGTERM') {
       if (closed || !child.pid) {
         return
+      }
+      if (signal === 'SIGTERM') {
+        if (asked) {
+          return
+        }
+        asked = true
       }
       try {
         if (group) {
