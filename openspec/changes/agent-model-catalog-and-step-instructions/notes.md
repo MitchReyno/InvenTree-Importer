@@ -4,8 +4,6 @@ The plan for exact provider models, an effort choice and instructions for each s
 
 ## Changes to the plan
 
-None.
-
 - **2026-11-25T18:30+11:00, planning:** the plan PR's six read-only review rounds (GPT-6.2 Sol) reshaped the catalogue's sign-in handling (a guest-owned generation, a conditional publish and a `stale_sign_in` state), added task 7 / PR-F for multi-lot groups, and moved `sent_effort` to a dispatch report. Round 6's three findings were fixed without a further round; the PR description lists them.
 
 ## Unexpected challenges
