@@ -152,7 +152,8 @@ export function retainedSessionProposal(
   const proposal = value as RetainedSessionProposalDto
   if (
     envelope.kind !== 'proposal' ||
-    canonical(envelope.payload) !== canonical(proposal) ||
+    // Sealed with canonicalRecord, which keeps a typed output's numbers, such as datasheet pages.
+    canonicalRecord(envelope.payload) !== canonicalRecord(proposal) ||
     (subjectId === null ? !batchLots.has(proposal.subject_id) : proposal.subject_id !== subjectId)
   ) {
     fail('retained_proposal_binding_invalid')

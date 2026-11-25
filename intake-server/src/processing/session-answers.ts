@@ -8,6 +8,7 @@ import {
   type ProcessingAnswerV1Dto,
   type ProcessingAnswerV2Dto,
   type CaptureSnapshotDto,
+  type RevisionChangeDto,
   type SessionAskArgsDto,
   type SessionAskArgsV2Dto,
   type SessionAnswerPayloadDto,
@@ -15,9 +16,7 @@ import {
 import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { appendEvent } from '#/db/authority.ts'
 import { appendSessionInbox } from '#/agents/tools/inbox.ts'
-import { changeText, fieldsSuperseded } from './currentness.ts'
-import { answeredValues, answerValueText } from './answer-summary.ts'
-import { storedQuestionView } from './brief.ts'
+import { fieldsSuperseded } from './currentness.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { fail, sealed } from './model.ts'
 import { retainedSessionQuestion } from './retained.ts'
@@ -160,44 +159,47 @@ async function requireInboxPayloadFits(client: PoolClient, payload: SessionAnswe
 }
 
 /**
- * What an answer changed in each field it settles, as a `/7` session is told: a quantity answer
- * changes the lot's quantity from what Capture held before to what it holds now; any other field
- * gains the operator's answer, which the answer's note records.
+ * What an answer changed, as a `/7` session is told (Mitch's decision): the answer itself, step by
+ * step as the operator gave it, and a field change only where it changed Capture: the lot's
+ * quantity a number step set, from what Capture held before to what it holds now. A quantity
+ * answered in words changes no quantity, so it is the answer alone.
  */
 function answeredChanges(
-  ask: SessionAskArgsDto | SessionAskArgsV2Dto,
-  input: ProcessingAnswerDto,
+  delivered: SessionAnswerPayloadDto,
   subjectId: string | null,
   before: CaptureSnapshotDto,
   after: CaptureSnapshotDto,
-) {
-  const view = storedQuestionView(ask, 'assumption' in ask ? ask.assumption : null)
-  const values = answeredValues(view, input).map((value) => value.value)
-  const words = values
-    .filter((value) => value.kind !== 'quantity' && value.kind !== 'number')
-    .map(answerValueText)
+): RevisionChangeDto[] {
+  const steps =
+    'steps' in delivered
+      ? delivered.steps.map((step) => ({ step_id: step.step_id, value: step.value }))
+      : [{ step_id: null, value: delivered.value }]
+  const answer: RevisionChangeDto = {
+    kind: 'answer',
+    question_id: delivered.question_id,
+    answer_id: delivered.answer_id,
+    steps,
+  }
+  const counted = steps.some(
+    (step) => step.value.kind === 'number' || step.value.kind === 'quantity',
+  )
+  if (!counted || !subjectId) {
+    return [answer]
+  }
 
   const quantityOf = (snapshot: CaptureSnapshotDto) =>
     quantityText(snapshot.lots.find((lot) => lot.id === subjectId)?.quantity)
 
-  return ask.fields.map((field) => {
-    if (field === 'quantity' && subjectId) {
-      return {
-        kind: 'field' as const,
-        subject_id: subjectId,
-        field,
-        from: quantityOf(before),
-        to: quantityOf(after),
-      }
-    }
-    return {
-      kind: 'field' as const,
+  return [
+    answer,
+    {
+      kind: 'field',
       subject_id: subjectId,
-      field,
-      from: null,
-      to: words.length ? changeText(words.join('; ')) : null,
-    }
-  })
+      field: 'quantity',
+      from: quantityOf(before),
+      to: quantityOf(after),
+    },
+  ]
 }
 
 /**
@@ -316,8 +318,7 @@ export async function answerSessionQuestion(
     message: `A question was answered: ${plan.title}`,
     key: `answer:${questionId}`,
     except: job.id,
-    changes: answeredChanges(ask, input, subjectId, before.snapshot, after.snapshot),
-    answer: { questionId, answerId },
+    changes: answeredChanges(plan.inboxPayload, subjectId, before.snapshot, after.snapshot),
     context: { origin: { by: 'operator' }, briefRevision: snapshot.revision },
   })
   await capture.publish()

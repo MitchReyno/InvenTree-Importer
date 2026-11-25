@@ -22,7 +22,7 @@ import { decodeSessionInput } from '#/processing/session-input.ts'
 import { retainedSessionProposal, retainedSessionQuestion } from '#/processing/retained.ts'
 import { proposalCurrentnessFacts } from '#/processing/read.ts'
 import { removedEvidenceIds } from '#/media/removal.ts'
-import { proposalCitations } from '#/processing/provenance.ts'
+import { proposalCitations, type ProposalCitation } from '#/processing/provenance.ts'
 
 /** The session job a history page belongs to. */
 export interface HistoryJob {
@@ -612,7 +612,7 @@ function noteLink(resolved: Resolved, noteId: string): SessionHistoryLinkDto {
 }
 
 /** A source's identity, so one cited in several places is linked once. */
-function sourceKey(source: ReturnType<typeof proposalCitations>[number]) {
+function sourceKey(source: ProposalCitation) {
   switch (source.kind) {
     case 'media_version':
       return `media_version ${source.version_id}`

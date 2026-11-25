@@ -121,7 +121,7 @@ export interface BriefFacts {
 }
 
 /** The view of a stored question: a runner's or a `/1` session ask reads as one step. */
-export function storedQuestionView(
+function storedQuestionView(
   question: SessionAskArgsDto | SessionAskArgsV2Dto | { prompt: string; reason: string },
   assumption: string | null,
 ): QuestionView {

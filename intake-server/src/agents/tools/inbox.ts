@@ -3,9 +3,12 @@ import { and, asc, count, desc, eq, gt, sql } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
 import {
   validate,
+  type RevisionChangeDto,
   type SessionInboxItemDto,
   type SessionInboxReceiptDto,
+  type SessionRevisionV2Dto,
 } from '@invimport/contracts'
+import { versionRemovedSql } from '#/media/removal.ts'
 import { canonical } from '@invimport/contracts/json'
 import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
 import { appendEvent } from '#/db/authority.ts'
@@ -223,6 +226,47 @@ export async function releaseInboxItems(client: PoolClient, itemIds: readonly st
   )
 }
 
+/**
+ * An item's payload as it is given now. A `/7` revision naming a reading of an observation whose
+ * evidence the operator has since removed names that evidence's removal instead, as the brief
+ * leaves the reading out; the stored item, and the history, keep what was recorded.
+ */
+export async function deliverablePayload(client: PoolClient, kind: string, payload: unknown) {
+  const revision = payload as Partial<SessionRevisionV2Dto>
+  if (kind !== 'revision' || revision.schema_version !== 'bench-intake-revision/2') {
+    return payload
+  }
+  const read = revision.changes!.flatMap((change) =>
+    change.kind === 'reading' ? [change.observation_id] : [],
+  )
+  if (!read.length) {
+    return payload
+  }
+  const removed = await client.query<{ id: string; evidence_id: string }>(
+    `SELECT o.id, v.evidence_id FROM public.capture_evidence_observation o
+     JOIN public.media_version v ON v.id=o.evidence_version_id
+     WHERE o.id = ANY($1::uuid[]) AND ${versionRemovedSql('v')}`,
+    [read],
+  )
+  if (!removed.rowCount) {
+    return payload
+  }
+  const evidenceOf = new Map(removed.rows.map((row) => [row.id, row.evidence_id]))
+  const told = new Set<string>()
+  const changes = revision.changes!.flatMap((change): RevisionChangeDto[] => {
+    const evidenceId = change.kind === 'reading' ? evidenceOf.get(change.observation_id) : undefined
+    if (evidenceId === undefined) {
+      return [change]
+    }
+    if (told.has(evidenceId)) {
+      return []
+    }
+    told.add(evidenceId)
+    return [{ kind: 'evidence', evidence_id: evidenceId, removed: true }]
+  })
+  return { ...revision, changes }
+}
+
 /** Items after the acknowledged cursor; they stay pending until a later cursor passes them. */
 export async function pendingSessionInbox(client: PoolClient, lineageId: string) {
   const rows = await executeDatabaseQuery(
@@ -316,16 +360,16 @@ export async function readSessionInbox(client: PoolClient, lineageId: string, af
     client,
     rows.map((row) => row.id),
   )
-  const items = rows.map(
-    (row) =>
-      ({
-        id: row.id,
-        seq: row.seq.toString(),
-        kind: row.kind,
-        payload: row.payload,
-        created_at: row.createdAt.toISOString(),
-      }) as SessionInboxItemDto,
-  )
+  const items: SessionInboxItemDto[] = []
+  for (const row of rows) {
+    items.push({
+      id: row.id,
+      seq: row.seq.toString(),
+      kind: row.kind,
+      payload: await deliverablePayload(client, row.kind, row.payload),
+      created_at: row.createdAt.toISOString(),
+    } as SessionInboxItemDto)
+  }
   return { items, advanced }
 }
 

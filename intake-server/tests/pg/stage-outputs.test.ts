@@ -628,14 +628,13 @@ test('each revision sender names its changes, who made them and the brief revisi
   assert.equal(answered.status, 200, JSON.stringify(answered.value))
   const answerRevision = (answered.value as { capture_revision: string }).capture_revision
   const fromAnswer = (await revisions(fixture, images.jobId)).at(-1)!
+  // The answer as the operator gave it; a text answer changes no Capture field.
   assert.deepEqual(fromAnswer.changes, [
     {
-      kind: 'field',
-      subject_id: research.lot.id,
-      field: 'identity',
-      // The answer adds what the operator said; the asker's assumption was never the field's value.
-      from: null,
-      to: printed,
+      kind: 'answer',
+      question_id: asked.id,
+      answer_id: (answered.value as { answer_id: string }).answer_id,
+      steps: [{ step_id: 'freq', value: { kind: 'text', text: printed } }],
     },
     {
       kind: 'proposal',
@@ -876,14 +875,29 @@ test('a publishing /7 ask returns a question already asked unless it brings some
     ],
   })
   assert.equal(answered.status, 200, JSON.stringify(answered.value))
+  // The answer, and the quantity its number step set, from what Capture held to what it holds.
   const toLead = (await revisions(fixture, batch.leadJob)).at(-1)!
-  assert.deepEqual(toLead.changes[0], {
-    kind: 'field',
-    subject_id: research.lot.id,
-    field: 'quantity',
-    from: quantityBefore.mode === 'set' ? quantityBefore.value : quantityBefore.mode,
-    to: '12',
-  })
+  assert.deepEqual(toLead.changes.slice(0, 2), [
+    {
+      kind: 'answer',
+      question_id: first.id,
+      answer_id: (answered.value as { answer_id: string }).answer_id,
+      steps: [
+        { step_id: 'left', value: { kind: 'number', value: '12', basis: 'counted' } },
+        {
+          step_id: 'packing',
+          value: { kind: 'choice', option_id: 'bag', label: 'Loose in a bag' },
+        },
+      ],
+    },
+    {
+      kind: 'field',
+      subject_id: research.lot.id,
+      field: 'quantity',
+      from: quantityBefore.mode === 'set' ? quantityBefore.value : quantityBefore.mode,
+      to: '12',
+    },
+  ])
   const asked = await questionCount()
 
   // Images asks the same: it gets the answered question and its answer, and nothing is stored.
@@ -1258,18 +1272,40 @@ test('an answer too long to carry names the answer, which a later brief still ho
       subject_id: research.lot.id,
       reason: 'The label is hard to read.',
       fields: ['markings', 'identity', 'research', 'images'],
-      steps: [
-        {
-          id: 'label',
-          prompt: 'What does the label say?',
-          assumption: 'Using the reading.',
-          answer: { kind: 'text' },
-        },
-      ],
+      steps: ['front', 'back', 'side', 'base'].map((id) => ({
+        id,
+        prompt: `${id}?`,
+        assumption: 'Using the reading.',
+        answer: { kind: 'text' as const },
+      })),
     }),
   )
   assert.equal(asked.ok, true, JSON.stringify(asked))
-  const words = '𝄞'.repeat(2048)
+  // The answer the asker is given must fit the inbox itself, so its last step is cut until it
+  // just does; the revision's own fields and stale proposals then take it past the bound.
+  const answerSteps = (last: number) =>
+    ['front', 'back', 'side', 'base'].map((step_id, index) => ({
+      step_id,
+      value: { kind: 'text' as const, text: '𝄞'.repeat(index === 3 ? last : 2048) },
+    }))
+  const storedSize = async (last: number) =>
+    (
+      await fixture.db.pool.query<{ bytes: number }>(
+        'SELECT octet_length($1::jsonb::text)::int AS bytes',
+        [
+          JSON.stringify({
+            question_id: asked.id,
+            answer_id: randomUUID(),
+            steps: answerSteps(last),
+          }),
+        ],
+      )
+    ).rows[0].bytes
+  // The answer's note, each step's prompt and text on a line, keeps within 8,192 characters.
+  let last = 1990
+  while ((await storedSize(last)) > 32_768 - 16) {
+    last -= 8
+  }
   const { digest } = await inputOf(fixture, research.attemptId)
   const answered = await fixture.http(`/batches/${batchId}/questions/${asked.id}/answers`, {
     schema_version: 'bench-intake-answer/2',
@@ -1277,7 +1313,7 @@ test('an answer too long to carry names the answer, which a later brief still ho
     expected_capture_revision: (await snapshotOf(fixture, batchId)).revision,
     attempt_id: research.attemptId,
     input_sha256: digest,
-    steps: [{ step_id: 'label', value: { kind: 'text', text: words } }],
+    steps: answerSteps(last),
   })
   assert.equal(answered.status, 200, JSON.stringify(answered.value))
   const receipt = answered.value as { answer_id: string; capture_revision: string }
@@ -1288,16 +1324,10 @@ test('an answer too long to carry names the answer, which a later brief still ho
     question_id: asked.id,
     answer_id: receipt.answer_id,
   })
-  assert.deepEqual(
-    toImages.changes
-      .filter((change) => change.kind === 'field')
-      .map((change) => [change.field, change.from, change.to]),
-    [
-      ['markings', null, null],
-      ['identity', null, null],
-      ['research', null, null],
-      ['images', null, null],
-    ],
+  // A text answer changed no Capture field, so the answer is the only change besides the stale.
+  assert.equal(
+    toImages.changes.filter((change) => change.kind === 'field' || change.kind === 'answer').length,
+    0,
   )
   assert.equal(toImages.brief_revision, receipt.capture_revision)
   // After another edit the session's current brief still holds the whole answer.
@@ -1321,7 +1351,7 @@ test('an answer too long to carry names the answer, which a later brief still ho
     (entry) => entry.kind === 'answer' && entry.answer_id === receipt.answer_id,
   )
   assert.ok(answer && answer.kind === 'answer')
-  assert.equal(answer.steps[0].value, words)
+  assert.equal(answer.steps[3].value, '𝄞'.repeat(last))
 })
 
 test('a revision with more changes than one item holds arrives whole, in ordered parts', async (t) => {
@@ -1395,4 +1425,216 @@ test('a /7 ask may replace only its own open question, and its conflict must be 
     (unstorable.issues ?? []).map((issue) => issue.path),
     ['/conflict'],
   )
+})
+
+test('a quantity answered in words reaches relying sessions as the answer, with no quantity change', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId, leadAttempt, leadJob } = batch
+  const session = tools(batch)
+  const research = await stageJob(batch, '16 mhz crystal', 'research')
+  const { note } = citations((await inputOf(fixture, leadAttempt)).manifest)
+  const relied = await result(
+    session.propose(await running(fixture, leadAttempt), {
+      proposal: {
+        schema_version: 'examine-identity/1',
+        subject_id: research.lot.id,
+        summary: 'A crystal.',
+        sources: [note],
+        relies_on: { fields: ['quantity'], sources: [note] },
+        markings: [{ observation_id: research.lot.evidence_observation_ids![0], text: ['16 MHz'] }],
+        candidates: [],
+      },
+    }),
+  )
+  assert.equal(relied.ok, true, JSON.stringify(relied))
+  const question = syntheticQuestion(research.lot.id)
+  const asked = await result(session.ask(await running(fixture, research.attemptId), question))
+  const { digest } = await inputOf(fixture, research.attemptId)
+  const answered = await fixture.http(`/batches/${batchId}/questions/${asked.id}/answers`, {
+    schema_version: 'bench-intake-answer/2',
+    expected_question_revision: '1',
+    expected_capture_revision: (await snapshotOf(fixture, batchId)).revision,
+    attempt_id: research.attemptId,
+    input_sha256: digest,
+    steps: [
+      { step_id: 'left', value: { kind: 'text', text: 'About a dozen' } },
+      { step_id: 'packing', value: { kind: 'choice', other: 'In a tube' } },
+    ],
+  })
+  assert.equal(answered.status, 200, JSON.stringify(answered.value))
+  const told = (await revisions(fixture, leadJob)).at(-1)!
+  assert.deepEqual(
+    told.changes.filter((change) => change.kind !== 'proposal'),
+    [
+      {
+        kind: 'answer',
+        question_id: asked.id,
+        answer_id: (answered.value as { answer_id: string }).answer_id,
+        steps: [
+          { step_id: 'left', value: { kind: 'text', text: 'About a dozen' } },
+          { step_id: 'packing', value: { kind: 'choice', other: 'In a tube' } },
+        ],
+      },
+    ],
+  )
+})
+
+test('typed outputs read back, refuse unstorable text, and keep removed readings out of delivery', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId, leadAttempt } = batch
+  const session = tools(batch)
+  const research = await stageJob(batch, '16 mhz crystal', 'research')
+  const { manifest } = await inputOf(fixture, research.attemptId)
+  const { note } = citations(manifest)
+  const researcher = await running(fixture, research.attemptId)
+  // A research/1 with numeric datasheet pages is accepted and reads back in both reads.
+  const paged = await result(
+    session.propose(researcher, {
+      proposal: researchOutput(research.lot.id, manifest, {
+        datasheet: { url: 'https://example.com/crystal.pdf', pages: [1, 3], sources: [note] },
+      }),
+    }),
+  )
+  assert.equal(paged.ok, true, JSON.stringify(paged))
+  const processing = await fixture.http(`/batches/${batchId}/processing`)
+  assert.equal(processing.status, 200, JSON.stringify(processing.value))
+  const history = await fixture.http(`/batches/${batchId}/processing/${research.jobId}/history`)
+  assert.equal(history.status, 200, JSON.stringify(history.value))
+
+  // Text PostgreSQL can't store is refused by its path, in an estimate and in a nested value.
+  const nested = await result(
+    session.propose(researcher, {
+      proposal: researchOutput(research.lot.id, manifest, {
+        description: { text: 'Crystal\u0000', sources: [note] },
+      }),
+    }),
+  )
+  assert.deepEqual(
+    (nested.issues ?? []).map((issue) => issue.path),
+    ['/proposal/description/text'],
+  )
+  const lead = await running(fixture, leadAttempt)
+  const leadNote = citations((await inputOf(fixture, leadAttempt)).manifest).note
+  const basis = await result(
+    session.propose(lead, {
+      proposal: {
+        schema_version: 'examine-identity/1',
+        subject_id: research.lot.id,
+        summary: 'A crystal.',
+        sources: [leadNote],
+        relies_on: { fields: ['markings'], sources: [leadNote] },
+        markings: [{ observation_id: research.lot.evidence_observation_ids![0], text: ['16 MHz'] }],
+        candidates: [],
+        quantity: { value: '2', basis: 'Printed \uD800 on the label' },
+      },
+    }),
+  )
+  assert.deepEqual(
+    (basis.issues ?? []).map((issue) => issue.path),
+    ['/proposal/quantity/basis'],
+  )
+
+  // A correction not yet read when its photo is removed is given without the readings.
+  const observation = (await snapshotOf(fixture, batchId)).evidence_observations!.find(
+    (item) => item.id === research.lot.evidence_observation_ids![0],
+  )!
+  await edit(fixture, batchId, {
+    kind: 'observation',
+    observation_id: observation.id,
+    evidence_version_id: observation.evidence_version_id,
+    page: observation.page,
+    region: observation.region,
+    readings: { markings: ['16.000 MHz ECS'] },
+  })
+  await grantMedia(fixture.db.pool, fixture.api.name, 'api')
+  const media = await fixture.db.pool.query<{ revision: string; evidence_id: string }>(
+    `SELECT b.revision::text, v.evidence_id FROM media_batch b
+     JOIN media_version v ON v.batch_id=b.batch_id WHERE b.batch_id=$1 AND v.id=$2`,
+    [batchId, observation.evidence_version_id],
+  )
+  await editMedia(fixture.api.pool, fixture.config, batchId, randomUUID(), {
+    expected_revision: media.rows[0].revision,
+    change: { kind: 'remove', evidence_ids: [media.rows[0].evidence_id] },
+  })
+  const read = await result(
+    session.read_inbox(await running(fixture, research.attemptId), { after_seq: '0' }),
+  )
+  const given = JSON.stringify(read.items)
+  assert.ok(!given.includes('16.000 MHz ECS'), given)
+  assert.ok(given.includes(`"evidence_id":"${media.rows[0].evidence_id}"`), given)
+})
+
+test('a /7 identity can’t rely on one it retires, and what relied on the retired one is told', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId, leadAttempt, leadJob } = batch
+  const session = tools(batch)
+  const led = await batch.lot('led 0603 red')
+  const crystal = await batch.lot('16 mhz crystal')
+  const [earlier] = (
+    await inputOf(fixture, (await stageJob(batch, 'led 0603 red', 'research')).attemptId)
+  ).manifest.pinned_proposal_ids
+  const lead = await running(fixture, leadAttempt)
+  const { note } = citations((await inputOf(fixture, leadAttempt)).manifest)
+  const ledIdentity = (extra: object[]) => ({
+    proposal: {
+      schema_version: 'examine-identity/1',
+      subject_id: led.id,
+      summary: 'Red 0603 LEDs.',
+      sources: [note],
+      relies_on: {
+        fields: ['markings', 'identity'],
+        sources: [
+          note,
+          { kind: 'observation_set', lot_id: led.id, version: led.observation_set_version },
+          ...extra,
+        ],
+      },
+      markings: [{ observation_id: led.evidence_observation_ids![0], text: ['LED 0603 red'] }],
+      candidates: [],
+    },
+  })
+  const onItself = await result(
+    session.propose(lead, ledIdentity([{ kind: 'proposal', proposal_id: earlier }])),
+  )
+  assert.equal(onItself.error, 'validation_failed')
+  assert.deepEqual(
+    (onItself.issues ?? []).map((issue) => issue.path),
+    ['/proposal/relies_on/sources/2'],
+  )
+  // The lead's crystal identity relies on the LED's; republishing the LED's makes it stale too.
+  const dependent = await result(
+    session.propose(lead, {
+      proposal: {
+        schema_version: 'examine-identity/1',
+        subject_id: crystal.id,
+        summary: 'A crystal beside the LEDs.',
+        sources: [note],
+        relies_on: {
+          fields: ['markings'],
+          sources: [note, { kind: 'proposal', proposal_id: earlier }],
+        },
+        markings: [{ observation_id: crystal.evidence_observation_ids![0], text: ['16 MHz'] }],
+        candidates: [],
+      },
+    }),
+  )
+  assert.equal(dependent.ok, true, JSON.stringify(dependent))
+  const republished = await result(session.propose(lead, ledIdentity([])))
+  assert.equal(republished.ok, true, JSON.stringify(republished))
+  const stale = await fixture.db.pool.query<{ proposal_id: string; reason: string }>(
+    'SELECT proposal_id, reason FROM processing_proposal_stale WHERE proposal_id = ANY($1::uuid[]) ORDER BY proposal_id',
+    [[earlier, dependent.id]],
+  )
+  assert.deepEqual(
+    stale.rows.map((row) => row.reason),
+    ['source_superseded', 'source_superseded'],
+  )
+  const told = (await revisions(fixture, leadJob)).at(-1)!
+  assert.ok(
+    told.changes.some(
+      (change) => change.kind === 'proposal' && change.proposal_id === dependent.id,
+    ),
+    JSON.stringify(told.changes),
+  )
+  assert.ok(batchId)
 })

@@ -166,7 +166,13 @@ For `/7` work, a lot SHALL have one current identity: Examine's base merged with
 
 ### Requirement: Revisions carry the change
 
-A revision delivered to a `/7` session SHALL name each change with its previous and new value (a field, a reading, a proposal, or a match decision), who made it (the operator, a session or Match), and the new brief revision.
+A revision delivered to a `/7` session SHALL name each change with its previous and new value (a field, a reading, a proposal, or a match decision), who made it (the operator, a session or Match), and the new brief revision. An answer SHALL be named as an answer change carrying its steps as the operator gave them; a field change SHALL accompany it only where the answer changed Capture.
+
+#### Scenario: Quantity answered in words
+
+- **GIVEN** Research relying on a lot's quantity question asked by Images
+- **WHEN** the operator answers its number step in words instead of a number
+- **THEN** Research receives the answer with that text as its step's value and no quantity change, since the lot's quantity is unchanged.
 
 #### Scenario: Reading corrected by the operator
 

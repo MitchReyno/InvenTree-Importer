@@ -37841,6 +37841,42 @@ export interface components {
                 revision: string;
             } | {
                 /** @constant */
+                kind: "answer";
+                question_id: string;
+                answer_id: string;
+                steps: {
+                    step_id: string | null;
+                    value: ({
+                        /** @constant */
+                        kind: "choice";
+                        option_id: string;
+                        label: string;
+                    } | {
+                        /** @constant */
+                        kind: "choice";
+                        other: string;
+                    } | {
+                        /** @constant */
+                        kind: "number";
+                        value: string;
+                        basis: "counted" | "estimated";
+                    } | {
+                        /** @constant */
+                        kind: "text";
+                        text: string;
+                    }) | ({
+                        /** @constant */
+                        kind: "quantity";
+                        value: string;
+                        basis: "counted" | "estimated";
+                    } | {
+                        /** @constant */
+                        kind: "clarification";
+                        text: string;
+                    });
+                }[];
+            } | {
+                /** @constant */
                 kind: "answer_in_brief";
                 question_id: string;
                 answer_id: string;
@@ -37925,6 +37961,42 @@ export interface components {
             observation_id: string;
             /** Format: int64 */
             revision: string;
+        } | {
+            /** @constant */
+            kind: "answer";
+            question_id: string;
+            answer_id: string;
+            steps: {
+                step_id: string | null;
+                value: ({
+                    /** @constant */
+                    kind: "choice";
+                    option_id: string;
+                    label: string;
+                } | {
+                    /** @constant */
+                    kind: "choice";
+                    other: string;
+                } | {
+                    /** @constant */
+                    kind: "number";
+                    value: string;
+                    basis: "counted" | "estimated";
+                } | {
+                    /** @constant */
+                    kind: "text";
+                    text: string;
+                }) | ({
+                    /** @constant */
+                    kind: "quantity";
+                    value: string;
+                    basis: "counted" | "estimated";
+                } | {
+                    /** @constant */
+                    kind: "clarification";
+                    text: string;
+                });
+            }[];
         } | {
             /** @constant */
             kind: "answer_in_brief";
@@ -38098,6 +38170,42 @@ export interface components {
                         observation_id: string;
                         /** Format: int64 */
                         revision: string;
+                    } | {
+                        /** @constant */
+                        kind: "answer";
+                        question_id: string;
+                        answer_id: string;
+                        steps: {
+                            step_id: string | null;
+                            value: ({
+                                /** @constant */
+                                kind: "choice";
+                                option_id: string;
+                                label: string;
+                            } | {
+                                /** @constant */
+                                kind: "choice";
+                                other: string;
+                            } | {
+                                /** @constant */
+                                kind: "number";
+                                value: string;
+                                basis: "counted" | "estimated";
+                            } | {
+                                /** @constant */
+                                kind: "text";
+                                text: string;
+                            }) | ({
+                                /** @constant */
+                                kind: "quantity";
+                                value: string;
+                                basis: "counted" | "estimated";
+                            } | {
+                                /** @constant */
+                                kind: "clarification";
+                                text: string;
+                            });
+                        }[];
                     } | {
                         /** @constant */
                         kind: "answer_in_brief";
@@ -40284,6 +40392,42 @@ export interface components {
                     observation_id: string;
                     /** Format: int64 */
                     revision: string;
+                } | {
+                    /** @constant */
+                    kind: "answer";
+                    question_id: string;
+                    answer_id: string;
+                    steps: {
+                        step_id: string | null;
+                        value: ({
+                            /** @constant */
+                            kind: "choice";
+                            option_id: string;
+                            label: string;
+                        } | {
+                            /** @constant */
+                            kind: "choice";
+                            other: string;
+                        } | {
+                            /** @constant */
+                            kind: "number";
+                            value: string;
+                            basis: "counted" | "estimated";
+                        } | {
+                            /** @constant */
+                            kind: "text";
+                            text: string;
+                        }) | ({
+                            /** @constant */
+                            kind: "quantity";
+                            value: string;
+                            basis: "counted" | "estimated";
+                        } | {
+                            /** @constant */
+                            kind: "clarification";
+                            text: string;
+                        });
+                    }[];
                 } | {
                     /** @constant */
                     kind: "answer_in_brief";

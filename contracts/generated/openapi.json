@@ -191929,7 +191929,7 @@
                       "anyOf": [
                         {
                           "minLength": 1,
-                          "maxLength": 8300,
+                          "maxLength": 512,
                           "type": "string"
                         },
                         {
@@ -191941,7 +191941,7 @@
                       "anyOf": [
                         {
                           "minLength": 1,
-                          "maxLength": 8300,
+                          "maxLength": 512,
                           "type": "string"
                         },
                         {
@@ -192121,6 +192121,212 @@
                       "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
                       "format": "int64",
                       "type": "string"
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "question_id",
+                    "answer_id",
+                    "steps"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "answer",
+                      "type": "string"
+                    },
+                    "question_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "answer_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "steps": {
+                      "minItems": 1,
+                      "maxItems": 4,
+                      "type": "array",
+                      "items": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "step_id",
+                          "value"
+                        ],
+                        "properties": {
+                          "step_id": {
+                            "anyOf": [
+                              {
+                                "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "value": {
+                            "anyOf": [
+                              {
+                                "anyOf": [
+                                  {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "kind",
+                                      "option_id",
+                                      "label"
+                                    ],
+                                    "properties": {
+                                      "kind": {
+                                        "const": "choice",
+                                        "type": "string"
+                                      },
+                                      "option_id": {
+                                        "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+                                        "type": "string"
+                                      },
+                                      "label": {
+                                        "minLength": 1,
+                                        "maxLength": 80,
+                                        "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
+                                        "type": "string"
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "kind",
+                                      "other"
+                                    ],
+                                    "properties": {
+                                      "kind": {
+                                        "const": "choice",
+                                        "type": "string"
+                                      },
+                                      "other": {
+                                        "minLength": 1,
+                                        "maxLength": 2048,
+                                        "type": "string"
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "kind",
+                                      "value",
+                                      "basis"
+                                    ],
+                                    "properties": {
+                                      "kind": {
+                                        "const": "number",
+                                        "type": "string"
+                                      },
+                                      "value": {
+                                        "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                                        "type": "string"
+                                      },
+                                      "basis": {
+                                        "anyOf": [
+                                          {
+                                            "const": "counted",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "estimated",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "kind",
+                                      "text"
+                                    ],
+                                    "properties": {
+                                      "kind": {
+                                        "const": "text",
+                                        "type": "string"
+                                      },
+                                      "text": {
+                                        "minLength": 1,
+                                        "maxLength": 2048,
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                ]
+                              },
+                              {
+                                "anyOf": [
+                                  {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "kind",
+                                      "value",
+                                      "basis"
+                                    ],
+                                    "properties": {
+                                      "kind": {
+                                        "const": "quantity",
+                                        "type": "string"
+                                      },
+                                      "value": {
+                                        "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                                        "type": "string"
+                                      },
+                                      "basis": {
+                                        "anyOf": [
+                                          {
+                                            "const": "counted",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "estimated",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "kind",
+                                      "text"
+                                    ],
+                                    "properties": {
+                                      "kind": {
+                                        "const": "clarification",
+                                        "type": "string"
+                                      },
+                                      "text": {
+                                        "minLength": 1,
+                                        "maxLength": 2048,
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        }
+                      }
                     }
                   }
                 },
@@ -192485,7 +192691,7 @@
                 "anyOf": [
                   {
                     "minLength": 1,
-                    "maxLength": 8300,
+                    "maxLength": 512,
                     "type": "string"
                   },
                   {
@@ -192497,7 +192703,7 @@
                 "anyOf": [
                   {
                     "minLength": 1,
-                    "maxLength": 8300,
+                    "maxLength": 512,
                     "type": "string"
                   },
                   {
@@ -192677,6 +192883,212 @@
                 "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
                 "format": "int64",
                 "type": "string"
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "kind",
+              "question_id",
+              "answer_id",
+              "steps"
+            ],
+            "properties": {
+              "kind": {
+                "const": "answer",
+                "type": "string"
+              },
+              "question_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "answer_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "steps": {
+                "minItems": 1,
+                "maxItems": 4,
+                "type": "array",
+                "items": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "step_id",
+                    "value"
+                  ],
+                  "properties": {
+                    "step_id": {
+                      "anyOf": [
+                        {
+                          "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "value": {
+                      "anyOf": [
+                        {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "option_id",
+                                "label"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "choice",
+                                  "type": "string"
+                                },
+                                "option_id": {
+                                  "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "minLength": 1,
+                                  "maxLength": 80,
+                                  "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "other"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "choice",
+                                  "type": "string"
+                                },
+                                "other": {
+                                  "minLength": 1,
+                                  "maxLength": 2048,
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "value",
+                                "basis"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "number",
+                                  "type": "string"
+                                },
+                                "value": {
+                                  "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "basis": {
+                                  "anyOf": [
+                                    {
+                                      "const": "counted",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "estimated",
+                                      "type": "string"
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "text"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "text",
+                                  "type": "string"
+                                },
+                                "text": {
+                                  "minLength": 1,
+                                  "maxLength": 2048,
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "value",
+                                "basis"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "quantity",
+                                  "type": "string"
+                                },
+                                "value": {
+                                  "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "basis": {
+                                  "anyOf": [
+                                    {
+                                      "const": "counted",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "estimated",
+                                      "type": "string"
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "text"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "clarification",
+                                  "type": "string"
+                                },
+                                "text": {
+                                  "minLength": 1,
+                                  "maxLength": 2048,
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                }
               }
             }
           },
@@ -193588,7 +194000,7 @@
                                             "anyOf": [
                                               {
                                                 "minLength": 1,
-                                                "maxLength": 8300,
+                                                "maxLength": 512,
                                                 "type": "string"
                                               },
                                               {
@@ -193600,7 +194012,7 @@
                                             "anyOf": [
                                               {
                                                 "minLength": 1,
-                                                "maxLength": 8300,
+                                                "maxLength": 512,
                                                 "type": "string"
                                               },
                                               {
@@ -193780,6 +194192,212 @@
                                             "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
                                             "format": "int64",
                                             "type": "string"
+                                          }
+                                        }
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "type": "object",
+                                        "required": [
+                                          "kind",
+                                          "question_id",
+                                          "answer_id",
+                                          "steps"
+                                        ],
+                                        "properties": {
+                                          "kind": {
+                                            "const": "answer",
+                                            "type": "string"
+                                          },
+                                          "question_id": {
+                                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                            "type": "string"
+                                          },
+                                          "answer_id": {
+                                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                            "type": "string"
+                                          },
+                                          "steps": {
+                                            "minItems": 1,
+                                            "maxItems": 4,
+                                            "type": "array",
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "type": "object",
+                                              "required": [
+                                                "step_id",
+                                                "value"
+                                              ],
+                                              "properties": {
+                                                "step_id": {
+                                                  "anyOf": [
+                                                    {
+                                                      "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+                                                      "type": "string"
+                                                    },
+                                                    {
+                                                      "type": "null"
+                                                    }
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "anyOf": [
+                                                    {
+                                                      "anyOf": [
+                                                        {
+                                                          "additionalProperties": false,
+                                                          "type": "object",
+                                                          "required": [
+                                                            "kind",
+                                                            "option_id",
+                                                            "label"
+                                                          ],
+                                                          "properties": {
+                                                            "kind": {
+                                                              "const": "choice",
+                                                              "type": "string"
+                                                            },
+                                                            "option_id": {
+                                                              "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+                                                              "type": "string"
+                                                            },
+                                                            "label": {
+                                                              "minLength": 1,
+                                                              "maxLength": 80,
+                                                              "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
+                                                              "type": "string"
+                                                            }
+                                                          }
+                                                        },
+                                                        {
+                                                          "additionalProperties": false,
+                                                          "type": "object",
+                                                          "required": [
+                                                            "kind",
+                                                            "other"
+                                                          ],
+                                                          "properties": {
+                                                            "kind": {
+                                                              "const": "choice",
+                                                              "type": "string"
+                                                            },
+                                                            "other": {
+                                                              "minLength": 1,
+                                                              "maxLength": 2048,
+                                                              "type": "string"
+                                                            }
+                                                          }
+                                                        },
+                                                        {
+                                                          "additionalProperties": false,
+                                                          "type": "object",
+                                                          "required": [
+                                                            "kind",
+                                                            "value",
+                                                            "basis"
+                                                          ],
+                                                          "properties": {
+                                                            "kind": {
+                                                              "const": "number",
+                                                              "type": "string"
+                                                            },
+                                                            "value": {
+                                                              "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                                                              "type": "string"
+                                                            },
+                                                            "basis": {
+                                                              "anyOf": [
+                                                                {
+                                                                  "const": "counted",
+                                                                  "type": "string"
+                                                                },
+                                                                {
+                                                                  "const": "estimated",
+                                                                  "type": "string"
+                                                                }
+                                                              ]
+                                                            }
+                                                          }
+                                                        },
+                                                        {
+                                                          "additionalProperties": false,
+                                                          "type": "object",
+                                                          "required": [
+                                                            "kind",
+                                                            "text"
+                                                          ],
+                                                          "properties": {
+                                                            "kind": {
+                                                              "const": "text",
+                                                              "type": "string"
+                                                            },
+                                                            "text": {
+                                                              "minLength": 1,
+                                                              "maxLength": 2048,
+                                                              "type": "string"
+                                                            }
+                                                          }
+                                                        }
+                                                      ]
+                                                    },
+                                                    {
+                                                      "anyOf": [
+                                                        {
+                                                          "additionalProperties": false,
+                                                          "type": "object",
+                                                          "required": [
+                                                            "kind",
+                                                            "value",
+                                                            "basis"
+                                                          ],
+                                                          "properties": {
+                                                            "kind": {
+                                                              "const": "quantity",
+                                                              "type": "string"
+                                                            },
+                                                            "value": {
+                                                              "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                                                              "type": "string"
+                                                            },
+                                                            "basis": {
+                                                              "anyOf": [
+                                                                {
+                                                                  "const": "counted",
+                                                                  "type": "string"
+                                                                },
+                                                                {
+                                                                  "const": "estimated",
+                                                                  "type": "string"
+                                                                }
+                                                              ]
+                                                            }
+                                                          }
+                                                        },
+                                                        {
+                                                          "additionalProperties": false,
+                                                          "type": "object",
+                                                          "required": [
+                                                            "kind",
+                                                            "text"
+                                                          ],
+                                                          "properties": {
+                                                            "kind": {
+                                                              "const": "clarification",
+                                                              "type": "string"
+                                                            },
+                                                            "text": {
+                                                              "minLength": 1,
+                                                              "maxLength": 2048,
+                                                              "type": "string"
+                                                            }
+                                                          }
+                                                        }
+                                                      ]
+                                                    }
+                                                  ]
+                                                }
+                                              }
+                                            }
                                           }
                                         }
                                       },
@@ -206357,7 +206975,7 @@
                                   "anyOf": [
                                     {
                                       "minLength": 1,
-                                      "maxLength": 8300,
+                                      "maxLength": 512,
                                       "type": "string"
                                     },
                                     {
@@ -206369,7 +206987,7 @@
                                   "anyOf": [
                                     {
                                       "minLength": 1,
-                                      "maxLength": 8300,
+                                      "maxLength": 512,
                                       "type": "string"
                                     },
                                     {
@@ -206549,6 +207167,212 @@
                                   "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
                                   "format": "int64",
                                   "type": "string"
+                                }
+                              }
+                            },
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "question_id",
+                                "answer_id",
+                                "steps"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "answer",
+                                  "type": "string"
+                                },
+                                "question_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "answer_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "steps": {
+                                  "minItems": 1,
+                                  "maxItems": 4,
+                                  "type": "array",
+                                  "items": {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "step_id",
+                                      "value"
+                                    ],
+                                    "properties": {
+                                      "step_id": {
+                                        "anyOf": [
+                                          {
+                                            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "value": {
+                                        "anyOf": [
+                                          {
+                                            "anyOf": [
+                                              {
+                                                "additionalProperties": false,
+                                                "type": "object",
+                                                "required": [
+                                                  "kind",
+                                                  "option_id",
+                                                  "label"
+                                                ],
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "choice",
+                                                    "type": "string"
+                                                  },
+                                                  "option_id": {
+                                                    "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+                                                    "type": "string"
+                                                  },
+                                                  "label": {
+                                                    "minLength": 1,
+                                                    "maxLength": 80,
+                                                    "pattern": "[^\\s\\p{C}\\p{Z}\\p{M}]",
+                                                    "type": "string"
+                                                  }
+                                                }
+                                              },
+                                              {
+                                                "additionalProperties": false,
+                                                "type": "object",
+                                                "required": [
+                                                  "kind",
+                                                  "other"
+                                                ],
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "choice",
+                                                    "type": "string"
+                                                  },
+                                                  "other": {
+                                                    "minLength": 1,
+                                                    "maxLength": 2048,
+                                                    "type": "string"
+                                                  }
+                                                }
+                                              },
+                                              {
+                                                "additionalProperties": false,
+                                                "type": "object",
+                                                "required": [
+                                                  "kind",
+                                                  "value",
+                                                  "basis"
+                                                ],
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "number",
+                                                    "type": "string"
+                                                  },
+                                                  "value": {
+                                                    "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                                                    "type": "string"
+                                                  },
+                                                  "basis": {
+                                                    "anyOf": [
+                                                      {
+                                                        "const": "counted",
+                                                        "type": "string"
+                                                      },
+                                                      {
+                                                        "const": "estimated",
+                                                        "type": "string"
+                                                      }
+                                                    ]
+                                                  }
+                                                }
+                                              },
+                                              {
+                                                "additionalProperties": false,
+                                                "type": "object",
+                                                "required": [
+                                                  "kind",
+                                                  "text"
+                                                ],
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "text",
+                                                    "type": "string"
+                                                  },
+                                                  "text": {
+                                                    "minLength": 1,
+                                                    "maxLength": 2048,
+                                                    "type": "string"
+                                                  }
+                                                }
+                                              }
+                                            ]
+                                          },
+                                          {
+                                            "anyOf": [
+                                              {
+                                                "additionalProperties": false,
+                                                "type": "object",
+                                                "required": [
+                                                  "kind",
+                                                  "value",
+                                                  "basis"
+                                                ],
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "quantity",
+                                                    "type": "string"
+                                                  },
+                                                  "value": {
+                                                    "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                                                    "type": "string"
+                                                  },
+                                                  "basis": {
+                                                    "anyOf": [
+                                                      {
+                                                        "const": "counted",
+                                                        "type": "string"
+                                                      },
+                                                      {
+                                                        "const": "estimated",
+                                                        "type": "string"
+                                                      }
+                                                    ]
+                                                  }
+                                                }
+                                              },
+                                              {
+                                                "additionalProperties": false,
+                                                "type": "object",
+                                                "required": [
+                                                  "kind",
+                                                  "text"
+                                                ],
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "clarification",
+                                                    "type": "string"
+                                                  },
+                                                  "text": {
+                                                    "minLength": 1,
+                                                    "maxLength": 2048,
+                                                    "type": "string"
+                                                  }
+                                                }
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  }
                                 }
                               }
                             },

@@ -43,6 +43,7 @@ import {
   lockInboxBatch,
   pendingSessionInbox,
   releaseInboxItems,
+  deliverablePayload,
 } from '#/agents/tools/inbox.ts'
 import { ASK_GUIDANCE } from '#/agents/tools/ask-guidance.ts'
 import { recordPhotoRelease } from '#/agents/tools/photo-release.ts'
@@ -1005,7 +1006,13 @@ export async function runSessionTurn(
           client,
           rows.map((row) => row.id),
         )
-        return rows
+        // Given as read_inbox gives it: no reading of evidence removed since.
+        return Promise.all(
+          rows.map(async (row) => ({
+            ...row,
+            payload: await deliverablePayload(client, row.kind, row.payload),
+          })),
+        )
       })
       if (!next[0]) {
         return undefined

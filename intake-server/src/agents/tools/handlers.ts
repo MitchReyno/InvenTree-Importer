@@ -31,7 +31,7 @@ import {
   queryDatabase,
   transaction,
 } from '#/db/database.ts'
-import { onLeadIdentity } from '#/processing/stable-identity.ts'
+import { earlierIdentities, onLeadIdentity } from '#/processing/stable-identity.ts'
 import { appendEvent } from '#/db/authority.ts'
 import { captureBatches } from '#/capture/schema.ts'
 import { lockCaptureForAgentWrite, lockCaptureForInputSettlement } from '#/capture/repository.ts'
@@ -957,11 +957,45 @@ function publishedProposal(principal: SessionPrincipal, args: unknown): Retained
     return validated<{ proposal: SessionProposalDto }>('SessionProposeArgs', args).proposal
   }
   const { proposal } = validated<SessionStageProposeArgsDto>('SessionStageProposeArgs', args)
+  refuseUnstorableText(proposal, '/proposal')
   const refusal = stageOutputRefusal(principal.manifest, proposal)
   if (refusal) {
     throw refusal
   }
   return proposal
+}
+
+/**
+ * A `/7` identity retires the lot's earlier ones, so it can't rely on one of them: it would be
+ * current while resting on an identity it made stale.
+ */
+async function refuseRelyingOnRetired(
+  client: PoolClient,
+  principal: SessionPrincipal,
+  proposal: RetainedSessionProposalDto,
+  proposalId: string,
+) {
+  const identity =
+    principal.manifest.schema_version === 'bench-intake-input/7' &&
+    proposal.schema_version === 'examine-identity/1' &&
+    proposal.relies_on.fields.includes('identity')
+  if (!identity) {
+    return
+  }
+  const earlier = new Set(
+    await earlierIdentities(client, principal.batchId, proposal.subject_id, proposalId),
+  )
+  const index = proposal.relies_on.sources.findIndex(
+    (source) => source.kind === 'proposal' && earlier.has(source.proposal_id),
+  )
+  if (index >= 0) {
+    const reason = 'Rely on the evidence, not on the identity this one replaces.'
+    throw new ToolRefusal(
+      'validation_failed',
+      `This identity replaces the one it relies on. ${reason}`,
+      [{ path: `/proposal/relies_on/sources/${index}`, rule: 'not_allowed', reason }],
+    )
+  }
 }
 
 async function proposalStale(client: PoolClient, proposalId: string) {
@@ -970,6 +1004,33 @@ async function proposalStale(client: PoolClient, proposalId: string) {
     [proposalId],
   )
   return Boolean(rows.rowCount)
+}
+
+/**
+ * A typed output's text goes into PostgreSQL text and jsonb, which refuse NUL and unpaired
+ * surrogates the schema admits; the first such string is refused by its path.
+ */
+function refuseUnstorableText(value: unknown, path: string): void {
+  if (typeof value === 'string') {
+    if (!storableText(value)) {
+      const reason = 'Text must not hold NUL or unpaired surrogates.'
+      throw new ToolRefusal(
+        'validation_failed',
+        `${path} holds a character that can't be stored.`,
+        [{ path, rule: 'schema', reason }],
+      )
+    }
+    return
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => refuseUnstorableText(item, `${path}/${index}`))
+    return
+  }
+  if (value !== null && typeof value === 'object') {
+    for (const [key, item] of Object.entries(value)) {
+      refuseUnstorableText(item, `${path}/${key}`)
+    }
+  }
 }
 
 /** The quantity estimate a `/7` lead's identity carries, which becomes the lot's estimate. */
@@ -2090,6 +2151,7 @@ export function sessionTools(context: SessionToolContext) {
           // A stable identity from the lead session starts the lot's Research and Images. It
           // takes the media and job locks, so it runs before the estimate publishes to the stream.
           if (onWriter && principal.subjectId === null) {
+            await refuseRelyingOnRetired(client, principal, proposal, id)
             await queueSuccessors(() =>
               onLeadIdentity(client, context.config, capture!.snapshot, proposal, id),
             )

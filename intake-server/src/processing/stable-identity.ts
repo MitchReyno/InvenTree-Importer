@@ -8,7 +8,7 @@ import type {
 import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { captureLots } from '#/capture/schema.ts'
 import { agentSessions } from '#/agents/schema.ts'
-import { notifyRevision, staleChanges, type RevisionContext } from './currentness.ts'
+import { cascadeAll, notifyRevision, staleChanges, type RevisionContext } from './currentness.ts'
 import { prepareMediaTransaction } from '#/media/transaction.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { checkJobCapacity, queueJob } from './jobs.ts'
@@ -175,6 +175,33 @@ export async function onLeadIdentity(
   const retired = stageInput
     ? await retireEarlierIdentities(client, snapshot.id, lotId, proposalId)
     : []
+  const retiredChanges = await staleChanges(client, retired, 'source_superseded')
+  // What was built on them is stale too, by lineage; each is told once, below.
+  const dependents = new Map<string, string[]>()
+  await cascadeAll(client, retired, 'source_superseded', revisedBy, dependents)
+
+  const tellDependents = async () => {
+    for (const [lineage, ids] of [...dependents].sort(([left], [right]) =>
+      left.localeCompare(right),
+    )) {
+      await notifyRevision(
+        client,
+        lineage,
+        `identity:${proposalId}:${lineage}`,
+        {
+          fields: ['identity'],
+          reason: `Examine revised a lot's identity, which what this session published relied on: ${proposal.summary}`,
+          changes: [
+            published,
+            ...retiredChanges,
+            ...(await staleChanges(client, ids, 'source_superseded')),
+          ],
+        },
+        revisedBy,
+      )
+    }
+  }
+
   // One read decides what to queue and is sealed into every successor, so a save landing
   // meanwhile can neither roll back this proposal nor split the successors across revisions.
   const settings = await settingsForSuccessors(client, config)
@@ -183,18 +210,26 @@ export async function onLeadIdentity(
     : [...toQueue]
   if (!queueable.length) {
     // With no provider on, the identity proposal still stands; its successors aren't queued.
+    await tellDependents()
     return 'waiting'
   }
   await checkJobCapacity(client, snapshot.id, [lotId], [...queueable])
   for (const stage of queueable) {
     const releasedJob = released.get(stage)
     if (releasedJob) {
+      // A released session is told once, with what the cascade made stale of its own work.
+      const cascaded = dependents.get(releasedJob) ?? []
+      dependents.delete(releasedJob)
       await releaseSuccessor(
         client,
         releasedJob,
         proposalId,
         proposal.summary,
-        [published, ...(await staleChanges(client, retired, 'source_superseded'))],
+        [
+          published,
+          ...retiredChanges,
+          ...(await staleChanges(client, cascaded, 'source_superseded')),
+        ],
         revisedBy,
       )
     }
@@ -204,6 +239,7 @@ export async function onLeadIdentity(
       inputVersion,
     })
   }
+  await tellDependents()
   return 'queued'
 }
 
@@ -272,6 +308,25 @@ async function retireEarlierIdentities(
   lotId: string,
   proposalId: string,
 ) {
+  const ids = await earlierIdentities(client, batchId, lotId, proposalId)
+  if (ids.length) {
+    await executeDatabaseQuery(
+      queryDatabase(client)
+        .insert(processingProposalStale)
+        .values(ids.map((id) => ({ proposalId: id, reason: 'source_superseded' as const })))
+        .onConflictDoNothing(),
+    )
+  }
+  return ids
+}
+
+/** The lot's current identities from the lead, other than `proposalId`, which a new one retires. */
+export async function earlierIdentities(
+  client: PoolClient,
+  batchId: string,
+  lotId: string,
+  proposalId: string,
+) {
   const earlier = await client.query<{ id: string }>(
     `SELECT p.id FROM public.processing_proposal p
      JOIN public.processing_attempt a ON a.id=p.attempt_id
@@ -282,16 +337,7 @@ async function retireEarlierIdentities(
      ORDER BY p.id`,
     [batchId, lotId, proposalId],
   )
-  const ids = earlier.rows.map((row) => row.id)
-  if (ids.length) {
-    await executeDatabaseQuery(
-      queryDatabase(client)
-        .insert(processingProposalStale)
-        .values(ids.map((id) => ({ proposalId: id, reason: 'source_superseded' as const })))
-        .onConflictDoNothing(),
-    )
-  }
-  return ids
+  return earlier.rows.map((row) => row.id)
 }
 
 /** The attempt that published a proposal. */

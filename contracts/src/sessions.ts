@@ -259,8 +259,8 @@ export const SessionAnswerPayload = Type.Union([
   }),
 ])
 const inboxBase = { id: Id, seq: Revision, created_at: timestamp }
-/** Room for an answer of four steps of 2,048 characters each, joined. */
-const revisionText = Type.String({ minLength: 1, maxLength: 8_300 })
+/** A field's value as a revision names it, such as a lot's quantity. */
+const revisionText = Type.String({ minLength: 1, maxLength: 512 })
 /** One change a `/7` revision names, with its previous and new value. */
 export const RevisionChange = Type.Union([
   /** A lot or Part field the operator or an answer changed. */
@@ -290,6 +290,24 @@ export const RevisionChange = Type.Union([
     kind: Type.Literal('reading_in_brief'),
     observation_id: Id,
     revision: Revision,
+  }),
+  /**
+   * The operator's answer as given, step by step: a choice with its option (or the words of
+   * "Something else"), a number with its basis, or text. A field change accompanies it only where
+   * the answer changed Capture, such as the quantity a number step sets.
+   */
+  object({
+    kind: Type.Literal('answer'),
+    question_id: Id,
+    answer_id: Id,
+    steps: Type.Array(
+      object({
+        /** Null for a one-value answer to an earlier question, which has no steps. */
+        step_id: Type.Union([QuestionStepId, Type.Null()]),
+        value: Type.Union([SessionAnswerStepValue, ProcessingQuestionValue]),
+      }),
+      { minItems: 1, maxItems: 4 },
+    ),
   }),
   /** An answer whose values are too long to carry here: the brief's answer entry holds them. */
   object({ kind: Type.Literal('answer_in_brief'), question_id: Id, answer_id: Id }),

@@ -30,8 +30,6 @@ export interface RevisionNotice {
   fields: readonly ProcessingFieldDto[]
   reason: string
   changes: readonly RevisionChangeDto[]
-  /** The answer behind a revision, named when its values don't fit and are left to the brief. */
-  answer?: { questionId: string; answerId: string }
 }
 
 /** A `revision/2` item names at most this many changes; a revision with more is split. */
@@ -156,7 +154,7 @@ export async function notifyRevision(
   let changes = [...notice.changes]
   const valuesInBrief = jsonbBytes({ ...base, changes }) > MAX_REVISION_PAYLOAD_BYTES
   if (valuesInBrief) {
-    changes = valuesLeftOut(changes, context.briefRevision, notice.answer)
+    changes = valuesLeftOut(changes, context.briefRevision)
   }
   const head = { ...base, ...(valuesInBrief ? { values_in_brief: true as const } : {}) }
   const parts = inParts(head, changes)
@@ -199,9 +197,8 @@ function jsonbBytes(value: object) {
 function valuesLeftOut(
   changes: readonly RevisionChangeDto[],
   correctedAt: string,
-  answer: RevisionNotice['answer'],
 ): RevisionChangeDto[] {
-  const named = changes.map((change): RevisionChangeDto => {
+  return changes.map((change): RevisionChangeDto => {
     if (change.kind === 'reading') {
       return {
         kind: 'reading_in_brief',
@@ -209,18 +206,18 @@ function valuesLeftOut(
         revision: correctedAt,
       }
     }
+    if (change.kind === 'answer') {
+      return {
+        kind: 'answer_in_brief',
+        question_id: change.question_id,
+        answer_id: change.answer_id,
+      }
+    }
     if (change.kind === 'field') {
       return { ...change, from: null, to: null }
     }
     return change
   })
-  if (!answer) {
-    return named
-  }
-  return [
-    { kind: 'answer_in_brief', question_id: answer.questionId, answer_id: answer.answerId },
-    ...named,
-  ]
 }
 
 /**
@@ -277,11 +274,6 @@ export async function staleChanges(
     state: 'stale',
     reason,
   }))
-}
-
-/** Text a field change carries, within the contract's bound: an answer of four full steps fits. */
-export function changeText(text: string) {
-  return [...text].slice(0, 8_300).join('')
 }
 
 /**
@@ -368,8 +360,6 @@ export async function fieldsSuperseded(
     /** The fields' previous and new values, as a `/7` session is told them. */
     changes: readonly RevisionChangeDto[]
     context: RevisionContext
-    /** The answer that changed the fields, if one did. */
-    answer?: RevisionNotice['answer']
   },
 ) {
   if (!(await processingVisible(client))) {
@@ -421,7 +411,6 @@ export async function fieldsSuperseded(
           ...input.changes,
           ...(await staleChanges(client, relied.get(lineage)!, input.reason)),
         ],
-        answer: input.answer,
       },
       input.context,
     )
@@ -597,7 +586,7 @@ async function cascadeStale(
 }
 
 /** Every proposal downstream of newly stale ones, level by level. */
-async function cascadeAll(
+export async function cascadeAll(
   client: PoolClient,
   ids: readonly string[],
   reason: StaleReason,

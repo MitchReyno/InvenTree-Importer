@@ -121,10 +121,11 @@ export function catalogueSources(proposal: Pick<SessionProposalDto, 'catalogue'>
   ]
 }
 
-type Citation = ProcessingSourceDto | WebPageSourceDto
+/** A source a proposal cites: delivered evidence or a note, or an agent-reported web page. */
+export type ProposalCitation = ProcessingSourceDto | WebPageSourceDto
 
 /** Every source a session proposal cites: its top-level sources and those of each value. */
-export function proposalCitations(proposal: RetainedSessionProposalDto): Citation[] {
+export function proposalCitations(proposal: RetainedSessionProposalDto): ProposalCitation[] {
   if (
     proposal.schema_version === 'bench-intake-proposal/5' ||
     proposal.schema_version === 'bench-intake-proposal/6'
@@ -135,7 +136,7 @@ export function proposalCitations(proposal: RetainedSessionProposalDto): Citatio
 }
 
 /** Every source a typed stage output cites, at the top level and in each of its values. */
-function stageOutputSources(proposal: StageProposalDto): Citation[] {
+function stageOutputSources(proposal: StageProposalDto): ProposalCitation[] {
   const fromNotes = (
     proposal.schema_version === 'images/1' ? [] : (proposal.match_notes ?? [])
   ).flatMap((note) => note.sources ?? [])
