@@ -14,7 +14,7 @@ import { grantProjection } from '#/operations/grants.ts'
 import { grantCaptureRead } from '#/capture/grants.ts'
 import { captureRepository } from '#/capture/repository.ts'
 import { mediaRepository } from '#/media/repository.ts'
-import { launchDecoder } from '#/media/decoder-runner.ts'
+import { launchDecoder } from '#/media/docker-decoder.ts'
 import { processMediaCommand } from '#/media/worker.ts'
 import { database } from '#/db/database.ts'
 import { isolatedDatabase, seedAuthority } from '../support/database.ts'
@@ -23,8 +23,6 @@ const image = process.env.INTAKE_MEDIA_DECODER_IMAGE
 const skip = image ? false : 'Explicit decoder image needed for PG/decoder boundary'
 /** A well-formed image reference for cases that never reach a decoder. */
 const unusedImage = `sha256:${'0'.repeat(64)}`
-/** Short enough for a test, long enough for several busy replies. */
-const BUSY_WAIT_MS = 1_200
 
 /**
  * What the stand-in dispatcher answers: `busy` is another decode holding its one slot (503 before
@@ -39,6 +37,13 @@ async function standInDispatcher() {
   const replies: DispatcherMode[] = []
   let mode: DispatcherMode = 'busy'
   const answer = async (req: IncomingMessage, res: ServerResponse) => {
+    if (req.url === '/reserve' || req.url === '/activate') {
+      req.resume()
+      if (req.url === '/reserve')
+        res.writeHead(200, { 'x-decoder-reservation': randomUUID(), 'content-length': 0 }).end()
+      else res.writeHead(204).end()
+      return
+    }
     const current = mode
     replies.push(current)
     if (current === 'busy') {
@@ -121,9 +126,7 @@ async function busyFixture(workers: number, run: (fixture: BusyFixture) => Promi
         await repository.upload(batch.id, randomUUID(), String(revision++), label, bytes)
       },
       work(worker = 0) {
-        return processMediaCommand(pools[worker]!.pool, store, binding, image ?? unusedImage, {
-          busyWaitMs: BUSY_WAIT_MS,
-        })
+        return processMediaCommand(pools[worker]!.pool, store, binding, image ?? unusedImage)
       },
       async version(label: string) {
         const snapshot = await repository.snapshot(batch.id)
@@ -169,7 +172,7 @@ test(
     await busyFixture(1, async ({ dispatcher, upload, work, version, results }) => {
       await upload('IMG_4100')
       assert.equal(await work(), true, 'the worker took the command')
-      assert.ok(dispatcher.replies.length > 1, 'it waited through several busy replies')
+      assert.equal(dispatcher.replies.length, 1, 'one explicit refusal after admission')
       assert.ok(dispatcher.replies.every((reply) => reply === 'busy'))
       assert.equal((await version('IMG_4100')).state, 'queued')
       assert.deepEqual(await results(), [], 'nothing ran, so nothing is recorded as its outcome')
@@ -188,13 +191,9 @@ test(
 test('a decode whose dispatcher fails after a busy reply still ends interrupted for good', async () => {
   await busyFixture(1, async ({ dispatcher, upload, work, version, results }) => {
     await upload('IMG_4101')
-    const failing = work()
-    // Fail once the worker has seen the dispatcher busy.
-    for (let tries = 0; dispatcher.replies.length === 0 && tries < 200; tries += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 10))
-    }
+    assert.equal(await work(), true)
     dispatcher.set('fail')
-    assert.equal(await failing, true)
+    assert.equal(await work(), true)
     assert.equal(dispatcher.replies[0], 'busy')
     assert.equal(dispatcher.replies.at(-1), 'fail')
     assert.equal((await version('IMG_4101')).state, 'interrupted')

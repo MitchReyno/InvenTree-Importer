@@ -206,9 +206,9 @@ test('each rendition integrity guard refuses its own corruption', () => {
   )
 })
 
-test('the worker pauses after every decode and after interruptions; only backfill progress runs on', async () => {
+test('the worker drains prepared photos and backfill, pausing on idle or interrupted maintenance', async () => {
   const { pauseAfter } = await import('#/media/backfill.ts')
-  assert.equal(pauseAfter('decoded'), true)
+  assert.equal(pauseAfter('decoded'), false)
   assert.equal(pauseAfter('interrupted'), true)
   assert.equal(pauseAfter('idle'), true)
   assert.equal(pauseAfter('completed'), false)
