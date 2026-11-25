@@ -1239,8 +1239,8 @@ async function requireDeliveredSources(
 }
 
 /**
- * A `/7` proposal relies only on what is current: no proposal already stale, every observation at
- * the revision it cites (not one the operator has corrected since the session read it), and every
+ * A `/7` proposal relies only on what is current: no proposal already stale, every observation
+ * active and at the revision it cites (not one the operator has corrected since the session read it), and every
  * lot's observation set at the version it cites. Anything else is refused as stale, so the
  * session reads its brief again and cites the current facts. Earlier inputs keep accepting such a
  * proposal, as before.
@@ -1272,16 +1272,17 @@ async function requireCurrentReliance(
   if (stale.rowCount) {
     refuse('stale', 'A relied-on proposal is no longer current; read your brief again and revise.')
   }
+  // A suggestion isn't Capture's yet and may be dismissed, so only an active observation is current.
   const changed = await client.query(
-    `SELECT 1 FROM public.capture_evidence_observation o
-     JOIN unnest($1::uuid[], $2::bigint[]) AS cited(id, revision) ON cited.id=o.id
-     WHERE o.revision <> cited.revision LIMIT 1`,
+    `SELECT 1 FROM unnest($1::uuid[], $2::bigint[]) AS cited(id, revision)
+     LEFT JOIN public.capture_evidence_observation o ON o.id=cited.id
+     WHERE o.id IS NULL OR o.status <> 'active' OR o.revision <> cited.revision LIMIT 1`,
     [observations.map((item) => item.id), observations.map((item) => item.revision)],
   )
   if (changed.rowCount) {
     refuse(
       'stale',
-      'A relied-on observation is not at the revision cited; read your brief again and cite its current revision.',
+      'A relied-on observation is not active at the revision cited; read your brief again and cite its current revision.',
     )
   }
   const moved = await client.query(

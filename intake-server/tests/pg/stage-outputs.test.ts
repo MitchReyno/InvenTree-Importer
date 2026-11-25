@@ -1995,3 +1995,65 @@ test('marking observations as the same item stales what relied on them', async (
     JSON.stringify(told),
   )
 })
+
+test('a /7 proposal can’t rely on a suggested observation, which may be dismissed', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId, leadAttempt } = batch
+  const session = tools(batch)
+  const crystal = await batch.lot('16 mhz crystal')
+  const observation = (await snapshotOf(fixture, batchId)).evidence_observations!.find(
+    (item) => item.id === crystal.evidence_observation_ids![0],
+  )!
+  // The operator edited the observation, so Examine's revision of it is only a suggestion.
+  await edit(fixture, batchId, {
+    kind: 'observation',
+    observation_id: observation.id,
+    evidence_version_id: observation.evidence_version_id,
+    page: observation.page,
+    region: observation.region,
+    readings: { markings: ['16.000 MHz ECS'] },
+  })
+  const lead = await running(fixture, leadAttempt)
+  const suggested = await result(
+    session.record_observation(lead, {
+      base_revision: (await snapshotOf(fixture, batchId)).revision,
+      observation_id: observation.id,
+      evidence_version_id: observation.evidence_version_id,
+      page: observation.page,
+      region: observation.region,
+      readings: { markings: ['16 MHz'] },
+    }),
+  )
+  assert.ok(suggested.ok && suggested.suggested && suggested.id !== observation.id)
+  // Cited at its own revision, so only its status refuses it.
+  const row = await fixture.db.pool.query<{ revision: string; status: string }>(
+    'SELECT revision::text, status FROM capture_evidence_observation WHERE id=$1',
+    [suggested.id],
+  )
+  assert.equal(row.rows[0].status, 'suggested')
+  const leadNote = citations((await inputOf(fixture, leadAttempt)).manifest).note
+  const relying = await result(
+    session.propose(lead, {
+      proposal: {
+        schema_version: 'examine-identity/1',
+        subject_id: crystal.id,
+        summary: 'A crystal.',
+        sources: [leadNote],
+        relies_on: {
+          fields: ['quantity'],
+          sources: [
+            {
+              kind: 'evidence_observation',
+              evidence_observation_id: String(suggested.id),
+              revision: row.rows[0].revision,
+            },
+          ],
+        },
+        markings: [{ observation_id: observation.id, text: ['16.000 MHz ECS'] }],
+        candidates: [],
+      },
+    }),
+  )
+  assert.equal(relying.ok, false)
+  assert.equal(relying.error, 'stale', JSON.stringify(relying))
+})

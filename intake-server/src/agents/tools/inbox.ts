@@ -9,7 +9,7 @@ import {
   type SessionRevisionV2Dto,
 } from '@invimport/contracts'
 import { versionRemovedSql } from '#/media/removal.ts'
-import { canonical } from '@invimport/contracts/json'
+import { canonicalRecord } from '@invimport/contracts/json'
 import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
 import { appendEvent } from '#/db/authority.ts'
 import { captureBatches } from '#/capture/schema.ts'
@@ -116,7 +116,7 @@ export async function appendSessionInbox(
   if (existing[0]) {
     const same =
       existing[0].kind === submission.kind &&
-      canonical(existing[0].payload) === canonical(submission.payload) &&
+      canonicalRecord(existing[0].payload) === canonicalRecord(submission.payload) &&
       existing[0].actorId === submission.actorId
     if (!same) {
       fail('idempotency_conflict', 409)
