@@ -189,10 +189,14 @@ test('a declared page that is not its PNG is malformed even when no crop uses it
     .png()
     .toBuffer()
   assert.equal((await renderPreview(withPage(valid))).state, 'ready')
-  assert.deepEqual(await renderPreview(withPage(unused)), {
-    state: 'malformed',
-    toolchain: MEDIA_TOOLCHAIN,
-  })
+  // Cut through the image data chunk, leaving a header that still names 50 x 40.
+  const truncated = valid.subarray(0, valid.length - 20)
+  for (const bytes of [unused, truncated]) {
+    assert.deepEqual(await renderPreview(withPage(bytes)), {
+      state: 'malformed',
+      toolchain: MEDIA_TOOLCHAIN,
+    })
+  }
 })
 
 test('a crop at the page edge reports the corner guard', async () => {

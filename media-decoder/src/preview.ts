@@ -1,7 +1,7 @@
 import sharp from 'sharp'
 import { createCanvas, ImageData } from '@napi-rs/canvas'
 import { viewLayout, type ViewLayout } from '@invimport/contracts/media'
-import { pngHeaderMatches } from './decode.ts'
+import { pngChunksIntact, pngHeaderMatches } from './decode.ts'
 import {
   checkedPreviewInput,
   MEDIA_LIMITS,
@@ -56,14 +56,13 @@ function checkConsistentPages(pages: PreviewPage[]) {
   }
 }
 
-/** Each crop's page and full-resolution layout, or a mismatch when a recipe doesn't fit its page. */
-async function checkedLayouts(input: PreviewInput): Promise<ViewLayout[]> {
+/** Checks every page, each crop's page and layout, and the crops' combined size. */
+async function checkPreview(input: PreviewInput): Promise<void> {
   checkConsistentPages(input.pages)
   // Every declared page must be its retained PNG, whether or not a crop uses it.
   for (const page of input.pages) {
     await checkPagePng(page)
   }
-  const layouts: ViewLayout[] = []
   let totalPixels = 0
   for (const crop of input.crops) {
     const page = input.pages.at(crop.page)
@@ -87,17 +86,18 @@ async function checkedLayouts(input: PreviewInput): Promise<ViewLayout[]> {
       throw new PreviewMismatchError('view_region_outside_page')
     }
     totalPixels += layout.width * layout.height
-    layouts.push(layout)
   }
   if (totalPixels > MEDIA_LIMITS.totalPixels) {
     throw new PreviewLimitError('preview_pixel_limit')
   }
-  return layouts
 }
 
 async function checkPagePng(page: PreviewPage) {
   if (!pngHeaderMatches(page.bytes, page.width, page.height)) {
     throw new PreviewMismatchError('preview_page_mismatch')
+  }
+  if (!pngChunksIntact(page.bytes)) {
+    throw new PreviewMismatchError('preview_page_truncated')
   }
   // Any library failure from here is not a claim about the bytes, so it propagates.
   const metadata = await sharp(page.bytes, { limitInputPixels: MEDIA_LIMITS.pixels }).metadata()
@@ -193,7 +193,7 @@ async function montage(tiles: MontageTile[]) {
 export async function renderPreview(input: PreviewInput): Promise<PreviewResult> {
   checkedPreviewInput(input)
   try {
-    await checkedLayouts(input)
+    await checkPreview(input)
     const outcomes: PreviewCropOutcome[] = []
     const tiles: MontageTile[] = []
     for (const crop of input.crops) {

@@ -11,6 +11,7 @@ import sharp from 'sharp'
 import { createCanvas } from '@napi-rs/canvas'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
+import zlib from 'node:zlib'
 import {
   checkedInput,
   MEDIA_LIMITS,
@@ -184,6 +185,33 @@ export function pngHeaderMatches(bytes: Buffer, width: number, height: number) {
     bytes.readUInt32BE(16) === width &&
     bytes.readUInt32BE(20) === height
   )
+}
+
+/**
+ * Whether a PNG's chunks are whole: each chunk's length fits, its CRC matches, and IEND ends the
+ * bytes. A truncated or spliced file fails; a damaged compressed stream with intact CRCs doesn't.
+ */
+export function pngChunksIntact(bytes: Buffer) {
+  if (!bytes.subarray(0, 8).equals(PNG_SIGNATURE)) {
+    return false
+  }
+  let offset = 8
+  while (offset + 12 <= bytes.length) {
+    const length = bytes.readUInt32BE(offset)
+    const end = offset + 12 + length
+    if (end > bytes.length) {
+      return false
+    }
+    const typeAndData = bytes.subarray(offset + 4, offset + 8 + length)
+    if (zlib.crc32(typeAndData) !== bytes.readUInt32BE(offset + 8 + length)) {
+      return false
+    }
+    if (typeAndData.subarray(0, 4).toString('latin1') === 'IEND') {
+      return end === bytes.length
+    }
+    offset = end
+  }
+  return false
 }
 
 /**
