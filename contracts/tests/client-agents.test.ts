@@ -85,3 +85,55 @@ test('a save the server cannot confirm is a typed error, apart from a conflict',
     })
   }
 })
+
+const selection = { provider: 'claude', authentication: 'subscription', model: 'claude-opus-5-5' }
+
+test('a selection seals an effort or none, and an effort of the wrong shape is refused', () => {
+  validate('AgentSelection', selection)
+  validate('AgentSelection', { ...selection, effort: 'high' })
+  validate('AgentSelection', { ...selection, effort: 'x_high-2' })
+  validate('AgentSelection', { ...selection, effort: 'a'.repeat(32) })
+  for (const effort of ['', 'High', '2high', 'very high', 'a'.repeat(33), 'high\n', null, 3]) {
+    assert.throws(
+      () => validate('AgentSelection', { ...selection, effort }),
+      { message: 'invalid_contract' },
+      JSON.stringify(effort),
+    )
+  }
+})
+
+test('settings with step and provider efforts round-trip, and a bad effort is refused before sending', async () => {
+  const withEfforts: AgentSettingsUpdateDto = {
+    ...update,
+    providers: {
+      claude: { ...fields.providers.claude, default_effort: 'high' },
+      codex: { ...fields.providers.codex, default_effort: 'low' },
+    },
+    stage_selections: {
+      research: { provider: 'claude', model: 'claude-opus-5-5', effort: 'max' },
+      images: { provider: 'claude', model: 'claude-sonnet-5' },
+    },
+  }
+  const { expected_revision: _revision, save_id: _saveId, ...saved } = withEfforts
+  const { sent, client } = clientAnswering(() => json({ ...saved, revision: '5' }))
+  assert.deepEqual(await client.saveSettings(withEfforts), { ...saved, revision: '5' })
+  assert.deepEqual(sent, [withEfforts])
+  const badStep = {
+    ...withEfforts,
+    stage_selections: { research: { provider: 'claude', model: 'claude-opus-5-5', effort: 'Max' } },
+  }
+  const badProvider = {
+    ...withEfforts,
+    providers: {
+      ...withEfforts.providers,
+      codex: { ...fields.providers.codex, default_effort: '' },
+    },
+  }
+  for (const body of [badStep, badProvider]) {
+    const refused = clientAnswering(() => json({ ...saved, revision: '5' }))
+    await assert.rejects(refused.client.saveSettings(body as AgentSettingsUpdateDto), {
+      message: 'invalid_contract',
+    })
+    assert.deepEqual(refused.sent, [])
+  }
+})

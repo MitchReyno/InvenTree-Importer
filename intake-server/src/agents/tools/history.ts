@@ -141,6 +141,7 @@ async function historyAttempts(client: PoolClient, job: HistoryJob) {
     session_state: SessionStateDto | null
     queued_at: Date
     actual_model: string | null
+    sent_effort: string | null
     input_id: string
     manifest_bytes: Buffer
     manifest_digest: Buffer
@@ -150,7 +151,7 @@ async function historyAttempts(client: PoolClient, job: HistoryJob) {
     last_activity_at: Date | null
   }>(
     `SELECT a.id, a.number::text, a.state, a.profile_id, s.session_state, s.queued_at,
-            s.actual_model, i.id AS input_id, i.manifest_bytes, i.manifest_digest,
+            s.actual_model, s.sent_effort, i.id AS input_id, i.manifest_bytes, i.manifest_digest,
             latest.state AS last_state, latest.created_at AS last_state_at,
             (SELECT t.state FROM public.processing_transition t
               WHERE t.attempt_id=a.id AND t.state<>'superseded'
@@ -204,6 +205,7 @@ async function historyAttempts(client: PoolClient, job: HistoryJob) {
       runs_on: runsOn(row.profile_id),
       selection: manifest.agent,
       actual_model: row.actual_model,
+      ...(row.sent_effort === null ? {} : { sent_effort: row.sent_effort }),
       web: sealedWeb(row.profile_id, manifest),
       ...(failure ? { failure } : {}),
     }

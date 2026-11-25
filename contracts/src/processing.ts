@@ -2,7 +2,7 @@ import { Type, type Static, type TProperties } from '@sinclair/typebox'
 import { CursorSequence, Digest, Id, IsoTime, Quantity, Revision } from './scalars.ts'
 import { CaptureDefaults, CaptureSnapshot } from './capture.ts'
 import { captureTags } from './capture-primitives.ts'
-import { AgentSelection } from './agent-selection.ts'
+import { AgentSelection, OneTurnAgentSelection } from './agent-selection.ts'
 import { ResearchReceiptSource } from './research.ts'
 import { mappedReference } from './effects.ts'
 import { valueEvidence } from './value-evidence.ts'
@@ -107,7 +107,7 @@ export const ProcessingInputV4 = object({
   profile_id: Type.Literal('native-agent/1'),
   instruction_version: Type.Literal('native-agent/1'),
   tool_profile_version: Type.Literal('native-no-tools/1'),
-  agent: AgentSelection,
+  agent: OneTurnAgentSelection,
   settings_revision: Revision,
 })
 /**

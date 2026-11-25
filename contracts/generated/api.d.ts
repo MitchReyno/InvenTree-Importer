@@ -7380,6 +7380,7 @@ export interface components {
                     provider: "codex" | "claude";
                     authentication: "api_key" | "subscription";
                     model: string;
+                    effort?: string;
                 } | null;
                 actual_model: string | null;
                 progress: "queued" | "starting" | "responding" | "settled";
@@ -8552,6 +8553,7 @@ export interface components {
                 provider: "codex" | "claude";
                 authentication: "api_key" | "subscription";
                 model: string;
+                effort?: string;
             };
             /** Format: int64 */
             settings_revision: string;
@@ -8669,6 +8671,7 @@ export interface components {
                 provider: "codex" | "claude";
                 authentication: "api_key" | "subscription";
                 model: string;
+                effort?: string;
             };
             /** Format: int64 */
             settings_revision: string;
@@ -9043,6 +9046,7 @@ export interface components {
                 provider: "codex" | "claude";
                 authentication: "api_key" | "subscription";
                 model: string;
+                effort?: string;
             };
             /** Format: int64 */
             settings_revision: string;
@@ -9160,6 +9164,7 @@ export interface components {
                 provider: "codex" | "claude";
                 authentication: "api_key" | "subscription";
                 model: string;
+                effort?: string;
             };
             /** Format: int64 */
             settings_revision: string;
@@ -9534,6 +9539,7 @@ export interface components {
                 provider: "codex" | "claude";
                 authentication: "api_key" | "subscription";
                 model: string;
+                effort?: string;
             };
             /** Format: int64 */
             settings_revision: string;
@@ -9651,6 +9657,7 @@ export interface components {
                 provider: "codex" | "claude";
                 authentication: "api_key" | "subscription";
                 model: string;
+                effort?: string;
             };
             /** Format: int64 */
             settings_revision: string;
@@ -10025,6 +10032,7 @@ export interface components {
                 provider: "codex" | "claude";
                 authentication: "api_key" | "subscription";
                 model: string;
+                effort?: string;
             };
             /** Format: int64 */
             settings_revision: string;
@@ -10142,6 +10150,7 @@ export interface components {
                 provider: "codex" | "claude";
                 authentication: "api_key" | "subscription";
                 model: string;
+                effort?: string;
             };
             /** Format: int64 */
             settings_revision: string;
@@ -21605,10 +21614,12 @@ export interface components {
                 reason: string;
             } | null;
         };
+        AgentEffort: string;
         AgentSelection: {
             provider: "codex" | "claude";
             authentication: "api_key" | "subscription";
             model: string;
+            effort?: string;
         };
         AgentSettings: {
             /** Format: int64 */
@@ -21618,11 +21629,13 @@ export interface components {
                     enabled: boolean;
                     authentication: "api_key" | "subscription";
                     default_model: string;
+                    default_effort?: string;
                 };
                 codex: {
                     enabled: boolean;
                     authentication: "api_key" | "subscription";
                     default_model: string;
+                    default_effort?: string;
                 };
             };
             default_provider: ("codex" | "claude") | null;
@@ -21630,18 +21643,22 @@ export interface components {
                 examine?: {
                     provider: "codex" | "claude";
                     model: string;
+                    effort?: string;
                 };
                 research?: {
                     provider: "codex" | "claude";
                     model: string;
+                    effort?: string;
                 };
                 images?: {
                     provider: "codex" | "claude";
                     model: string;
+                    effort?: string;
                 };
                 inventory?: {
                     provider: "codex" | "claude";
                     model: string;
+                    effort?: string;
                 };
             };
             session_concurrency: number;
@@ -21662,11 +21679,13 @@ export interface components {
                     enabled: boolean;
                     authentication: "api_key" | "subscription";
                     default_model: string;
+                    default_effort?: string;
                 };
                 codex: {
                     enabled: boolean;
                     authentication: "api_key" | "subscription";
                     default_model: string;
+                    default_effort?: string;
                 };
             };
             default_provider: ("codex" | "claude") | null;
@@ -21674,18 +21693,22 @@ export interface components {
                 examine?: {
                     provider: "codex" | "claude";
                     model: string;
+                    effort?: string;
                 };
                 research?: {
                     provider: "codex" | "claude";
                     model: string;
+                    effort?: string;
                 };
                 images?: {
                     provider: "codex" | "claude";
                     model: string;
+                    effort?: string;
                 };
                 inventory?: {
                     provider: "codex" | "claude";
                     model: string;
+                    effort?: string;
                 };
             };
             session_concurrency: number;
@@ -21712,11 +21735,13 @@ export interface components {
                     enabled: boolean;
                     authentication: "api_key" | "subscription";
                     default_model: string;
+                    default_effort?: string;
                 };
                 codex: {
                     enabled: boolean;
                     authentication: "api_key" | "subscription";
                     default_model: string;
+                    default_effort?: string;
                 };
             };
             default_provider: ("codex" | "claude") | null;
@@ -21724,18 +21749,22 @@ export interface components {
                 examine?: {
                     provider: "codex" | "claude";
                     model: string;
+                    effort?: string;
                 };
                 research?: {
                     provider: "codex" | "claude";
                     model: string;
+                    effort?: string;
                 };
                 images?: {
                     provider: "codex" | "claude";
                     model: string;
+                    effort?: string;
                 };
                 inventory?: {
                     provider: "codex" | "claude";
                     model: string;
+                    effort?: string;
                 };
             };
             session_concurrency: number;
@@ -21757,10 +21786,12 @@ export interface components {
             enabled: boolean;
             authentication: "api_key" | "subscription";
             default_model: string;
+            default_effort?: string;
         };
         AgentStageSelection: {
             provider: "codex" | "claude";
             model: string;
+            effort?: string;
         };
         AgentSessionList: {
             sessions: {
@@ -21776,6 +21807,7 @@ export interface components {
                     provider: "codex" | "claude";
                     authentication: "api_key" | "subscription";
                     model: string;
+                    effort?: string;
                 } | null;
                 settings_revision: string | null;
                 queued_at: string;
@@ -24347,8 +24379,10 @@ export interface components {
                         provider: "codex" | "claude";
                         authentication: "api_key" | "subscription";
                         model: string;
+                        effort?: string;
                     } | null;
                     actual_model: string | null;
+                    sent_effort?: string;
                     web: {
                         public_pages: boolean;
                         prefer_datasheets: boolean;
@@ -38407,6 +38441,7 @@ export type LiveSubscribe = components['schemas']['LiveSubscribe']
 export type LiveFrame = components['schemas']['LiveFrame']
 export type Readiness = components['schemas']['Readiness']
 export type NativeAgentResult = components['schemas']['NativeAgentResult']
+export type AgentEffort = components['schemas']['AgentEffort']
 export type AgentSelection = components['schemas']['AgentSelection']
 export type AgentSettings = components['schemas']['AgentSettings']
 export type AgentSettingsUpdate = components['schemas']['AgentSettingsUpdate']
