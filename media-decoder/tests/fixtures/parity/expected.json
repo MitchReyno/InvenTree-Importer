@@ -367,5 +367,20 @@
       "tall",
       "turned-270"
     ]
-  }
+  },
+  "source": "truth-source.png",
+  "truths": [
+    {
+      "crop": "straight-7",
+      "degrees": -7.0,
+      "truth": "truth-straight-7.png",
+      "script": "truth-crop-straight-7.png"
+    },
+    {
+      "crop": "straight-neg-3.5",
+      "degrees": -86.5,
+      "truth": "truth-straight-neg-3.5.png",
+      "script": "truth-crop-straight-neg-3.5.png"
+    }
+  ]
 }

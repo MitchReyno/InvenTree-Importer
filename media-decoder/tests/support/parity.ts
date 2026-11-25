@@ -45,6 +45,20 @@ export interface ParityFixtures {
   grids: GridFixture[]
   logos: LogoFixture[]
   montage: MontageFixture
+  /** The bench scene rendered upright with exact geometry, for the truths below. */
+  source: string
+  truths: TruthFixture[]
+}
+
+/**
+ * A straightened crop's ground truth: the scene rendered directly onto the crop's output grid,
+ * and crop.py's crop of the same rendered source.
+ */
+export interface TruthFixture {
+  crop: string
+  degrees: number
+  truth: string
+  script: string
 }
 
 export async function parityFixtures(): Promise<ParityFixtures> {

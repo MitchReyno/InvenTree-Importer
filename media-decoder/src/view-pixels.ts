@@ -85,10 +85,17 @@ export async function viewPixels(
   layout: ViewLayout,
 ): Promise<RawRgb> {
   const neighbourhood = await windowNeighbourhood(page, samplingWindow(layout))
-  const cut = await sampleRotatedWindow(neighbourhood.source, neighbourhood.window, {
-    width: Math.max(1, Math.round(layout.windowWidth)),
-    height: Math.max(1, Math.round(layout.windowHeight)),
-  })
+  // The window is cut at page resolution, about 1:1, which lbb is made for; any shrinking to the
+  // view's size happens in the filtered resize below.
+  const cut = await sampleRotatedWindow(
+    neighbourhood.source,
+    neighbourhood.window,
+    {
+      width: Math.max(1, Math.round(layout.windowWidth)),
+      height: Math.max(1, Math.round(layout.windowHeight)),
+    },
+    'lbb',
+  )
   const turned = await sharp(cut.data, { raw: cut.info })
     .rotate(quarterTurns * 90)
     .raw()

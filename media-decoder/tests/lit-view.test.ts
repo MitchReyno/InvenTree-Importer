@@ -19,13 +19,20 @@ import {
 } from './support/parity.ts'
 
 /**
- * Pillow's rotation uses a cubic with a = -1 and libvips, which renders every view, Catmull-Rom
- * (a = -0.5), so on a noisy photo a straightened crop matches the script's only closely. Measured
- * here: a mean of 0.8-1.2 levels with 1-6% of values over four levels apart. The same geometry off
- * by half a pixel measures over 2.5 levels and 14%, so these bounds still catch geometry errors.
+ * Straightened crops are judged against ground truth: the scene rendered directly onto the crop's
+ * grid. A crop must come within these bounds of it, and at least as close as crop.py's. Measured
+ * with lbb: means of 0.31 and 0.72 levels, against crop.py's 1.13 and 1.44.
  */
-const STRAIGHTENED_MEAN_LEVELS = 1.5
-const STRAIGHTENED_FAR_SHARE = 0.08
+const TRUTH_MEAN_LEVELS = 1
+const TRUTH_FAR_SHARE = 0.06
+/**
+ * crop.py resamples with a different kernel, so against it a straightened crop only has to be
+ * free of gross geometry errors; a crop closer to the truth than crop.py's mustn't fail here.
+ * Measured with lbb: up to 1.8 levels and 10%; geometry shifted half a pixel on both axes
+ * measures 4.7-7.1 levels and 24-32%.
+ */
+const SCRIPT_SANITY_MEAN_LEVELS = 3
+const SCRIPT_SANITY_FAR_SHARE = 0.2
 /** The renderer's hue guard holds white balance to this; resistor bands must stay within it. */
 const MAX_BAND_HUE_SHIFT_DEGREES = 5
 /** Luminance adjustments keep every saturated pixel's hue within the same 5° the guard allows. */
@@ -158,7 +165,7 @@ test('crops and quarter turns match the script pixel for pixel', async () => {
   }
 })
 
-test('straightened crops match the script within interpolation tolerance', async () => {
+test('straightened crops are free of gross geometry errors against the script', async () => {
   const original = await benchPhoto()
   for (const fixture of await cropFixtures((item) => item.straighten !== 0)) {
     const recipe = recipeForCrop(fixture, original)
@@ -166,10 +173,31 @@ test('straightened crops match the script within interpolation tolerance', async
     const actual = await rgbRaster((await derived(original, recipe)).bytes)
     const expected = await rgbRaster(await fixtureBytes(fixture.output))
     const measured = difference(actual, expected)
-    assert.ok(measured.mean <= STRAIGHTENED_MEAN_LEVELS, `${fixture.name} mean ${measured.mean}`)
+    assert.ok(measured.mean <= SCRIPT_SANITY_MEAN_LEVELS, `${fixture.name} mean ${measured.mean}`)
     assert.ok(
-      measured.farShare <= STRAIGHTENED_FAR_SHARE,
+      measured.farShare <= SCRIPT_SANITY_FAR_SHARE,
       `${fixture.name} far share ${measured.farShare}`,
+    )
+  }
+})
+
+test('straightened crops land within bounds of the ground truth, at least as close as crop.py', async () => {
+  const fixtures = await parityFixtures()
+  const bytes = await fixtureBytes(fixtures.source)
+  const source: Original = { bytes, digest: sha(bytes), width: 480, height: 360 }
+  assert.equal(fixtures.truths.length, 2)
+  for (const truth of fixtures.truths) {
+    const [crop] = await cropFixtures((item) => item.name === truth.crop)
+    const ours = await rgbRaster((await derived(source, recipeForCrop(crop, source))).bytes)
+    const expected = await rgbRaster(await fixtureBytes(truth.truth))
+    const script = await rgbRaster(await fixtureBytes(truth.script))
+    const measured = difference(ours, expected)
+    const scripted = difference(script, expected)
+    assert.ok(measured.mean <= TRUTH_MEAN_LEVELS, `${truth.crop} mean ${measured.mean}`)
+    assert.ok(measured.farShare <= TRUTH_FAR_SHARE, `${truth.crop} far share ${measured.farShare}`)
+    assert.ok(
+      measured.mean <= scripted.mean,
+      `${truth.crop}: ${measured.mean} is no further from the truth than crop.py's ${scripted.mean}`,
     )
   }
 })

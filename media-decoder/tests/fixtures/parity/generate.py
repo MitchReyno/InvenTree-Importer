@@ -4,10 +4,12 @@
         python -I media-decoder/tests/fixtures/parity/generate.py
 
 Run from the repository root. It draws a synthetic bench photo, crops it with
-component-photo-crops/crop.py, overlays grids with image-grid-overlay/grid.py
-and ranks degraded logos with chip-logo-identification/match.py, then writes
-the inputs, the script outputs and expected.json next to this file. The
-TypeScript ports are tested against these outputs.
+component-photo-crops/crop.py, overlays grids with image-grid-overlay/grid.py,
+lays out montages with montage.py and ranks degraded logos with
+chip-logo-identification/match.py. It also renders the scene with exact geometry
+as ground truth for straightened crops. It writes the inputs, the script outputs,
+the truths and expected.json next to this file; the TypeScript ports are tested
+against them.
 """
 
 from __future__ import annotations
@@ -339,6 +341,141 @@ def montage_fixture(photo: Path) -> dict:
     return {"output": target.name, "whole_photo_first": True, "crops": MONTAGE_CROPS}
 
 
+# Ground truth for straightened crops. The bench scene is drawn again with exact geometry at 8x
+# supersampling, blurred as the photo is (0.8 px, in floating point), printed with the photo's own
+# seed-22 noise as one-pixel cells on the subject, and averaged down. The source is that scene
+# upright; each truth is the same scene turned directly onto a straightened crop's output grid,
+# so no resampling stands between the scene and the truth.
+SUPERSAMPLE = 8
+BLUR_SIGMA_PX = 0.8
+TRUTH_MARGIN_PX = 4
+SCENE_TEXT = [
+    (312 + column * 16, top)
+    for row, top in enumerate((78, 98, 118))
+    for column in range(6 - row)
+]
+BANDS = [
+    (190, (110, 60, 20)),
+    (214, (25, 25, 25)),
+    (238, (200, 30, 30)),
+    (280, (190, 150, 50)),
+]
+# The decoder's straightened fixtures, as angles of the output grid against the scene: 7 degrees
+# straightening, and -3.5 degrees after a quarter turn.
+TRUTHS = [
+    {"crop": "straight-7", "degrees": -7.0},
+    {"crop": "straight-neg-3.5", "degrees": -86.5},
+]
+
+
+def inside(sx, sy, x0, y0, x1, y1):
+    return (sx >= x0) & (sx < x1) & (sy >= y0) & (sy < y1)
+
+
+def scene_colour(sx: np.ndarray, sy: np.ndarray) -> np.ndarray:
+    """The bench scene at continuous scene points, drawn in the generator's order."""
+    width, height = PHOTO_SIZE
+    u = np.clip((sx - 0.5) / (width - 1), 0, 1)
+    v = np.clip((sy - 0.5) / (height - 1), 0, 1)
+    out = np.stack(
+        [150 + 30 * u + 10 * v, 142 + 20 * u + 12 * v, 130 + 10 * u + 8 * v], axis=-1
+    ).astype(np.float32)
+
+    def paint(mask, colour):
+        out[mask] = colour
+
+    paint(inside(sx, sy, 30, 250, 131, 331), (150, 142, 130))
+    paint((sx - 90.5) ** 2 + (sy - 90.5) ** 2 <= 40.5**2, (40, 80, 200))
+    paint(inside(sx, sy, 300, 60, 421, 141), (38, 38, 40))
+    for left, top in SCENE_TEXT:
+        paint(inside(sx, sy, left, top, left + 11, top + 9), (225, 225, 215))
+    paint(inside(sx, sy, 120, 198, 361, 202), (170, 170, 175))
+    body = inside(sx, sy, 170, 182, 311, 219)
+    radius = 12
+    for cx, cy in ((182, 194), (299, 194), (182, 207), (299, 207)):
+        corner = ((sx < 182) if cx == 182 else (sx >= 299)) & (
+            (sy < 194) if cy == 194 else (sy >= 207)
+        )
+        body &= ~corner | ((sx - cx) ** 2 + (sy - cy) ** 2 <= radius**2)
+    paint(body, (206, 184, 140))
+    for left, colour in BANDS:
+        paint(inside(sx, sy, left, 182, left + 13, 219), colour)
+    paint(inside(sx, sy, 380, 230, 441, 301), (40, 160, 60))
+    return out
+
+
+def gaussian_blur(image: np.ndarray, sigma: float) -> np.ndarray:
+    """A separable Gaussian in float32, edges repeated, so flat colours keep their level."""
+    radius = int(np.ceil(3 * sigma))
+    taps = np.exp(-0.5 * (np.arange(-radius, radius + 1) / sigma) ** 2)
+    taps = (taps / taps.sum()).astype(np.float32)
+    for axis in (0, 1):
+        padded = np.pad(
+            image,
+            [(radius, radius) if a == axis else (0, 0) for a in range(3)],
+            mode="edge",
+        )
+        blurred = np.zeros_like(image)
+        size = image.shape[axis]
+        for index, weight in enumerate(taps):
+            window = [slice(None)] * 3
+            window[axis] = slice(index, index + size)
+            blurred += weight * padded[tuple(window)]
+        image = blurred
+    return image
+
+
+def render(width: int, height: int, to_scene, noise: np.ndarray) -> Image.Image:
+    """Output pixels (with a margin) mapped to the scene, supersampled, blurred, grained, boxed down."""
+    margin = TRUTH_MARGIN_PX
+    full_w, full_h = width + 2 * margin, height + 2 * margin
+    xs = (np.arange(full_w * SUPERSAMPLE) + 0.5) / SUPERSAMPLE - margin
+    ys = (np.arange(full_h * SUPERSAMPLE) + 0.5) / SUPERSAMPLE - margin
+    gx, gy = np.meshgrid(xs, ys)
+    sx, sy = to_scene(gx, gy)
+    fine = scene_colour(sx, sy)
+    fine = gaussian_blur(fine, BLUR_SIGMA_PX * SUPERSAMPLE)
+    photo_w, photo_h = PHOTO_SIZE
+    cx, cy = np.floor(sx).astype(int), np.floor(sy).astype(int)
+    on_photo = (cx >= 0) & (cy >= 0) & (cx < photo_w) & (cy < photo_h)
+    fine[on_photo] += noise[cy[on_photo], cx[on_photo]]
+    boxed = fine.reshape(full_h, SUPERSAMPLE, full_w, SUPERSAMPLE, 3).mean(axis=(1, 3))
+    boxed = boxed[margin : margin + height, margin : margin + width]
+    return Image.fromarray(np.clip(np.round(boxed), 0, 255).astype("uint8"))
+
+
+def truth_fixtures() -> list[dict]:
+    noise = np.random.default_rng(22).normal(0, 4, (PHOTO_SIZE[1], PHOTO_SIZE[0], 3))
+    noise = noise.astype(np.float32)
+    source = HERE / "truth-source.png"
+    render(*PHOTO_SIZE, lambda x, y: (x, y), noise).save(source)
+    out = []
+    for truth in TRUTHS:
+        spec = next(item for item in CROPS if item["name"] == truth["crop"])
+        x0, y0, x1, y1 = spec["region"]
+        width, height = x1 - x0, y1 - y0
+        if spec["quarter_turns"] % 2:
+            width, height = height, width
+        centre_x, centre_y = (x0 + x1) / 2, (y0 + y1) / 2
+        theta = np.radians(truth["degrees"])
+        cos, sin = np.cos(theta), np.sin(theta)
+
+        def to_scene(x, y, w=width, h=height, cx=centre_x, cy=centre_y, c=cos, s=sin):
+            dx, dy = x - w / 2, y - h / 2
+            return cx + c * dx - s * dy, cy + s * dx + c * dy
+
+        target = HERE / f"truth-{truth['crop']}.png"
+        render(width, height, to_scene, noise).save(target)
+        script = HERE / f"truth-crop-{truth['crop']}.png"
+        arguments = [str(CROP), str(source), str(script), *map(str, spec["region"])]
+        arguments += ["--exact", "--nosquare", "--straighten", str(spec["straighten"])]
+        if spec["quarter_turns"]:
+            arguments += ["--rotate", str(spec["quarter_turns"] * 90)]
+        run(arguments)
+        out.append({**truth, "truth": target.name, "script": script.name})
+    return out
+
+
 def main() -> None:
     photo = HERE / "bench-photo.png"
     bench_photo().save(photo)
@@ -348,6 +485,8 @@ def main() -> None:
         "grids": grid_fixtures(photo),
         "logos": logo_fixtures(),
         "montage": montage_fixture(photo),
+        "source": "truth-source.png",
+        "truths": truth_fixtures(),
     }
     (HERE / "expected.json").write_text(json.dumps(expected, indent=2) + "\n")
 
