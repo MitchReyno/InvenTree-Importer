@@ -103,7 +103,7 @@ export function briefRefSummary(ref: SessionHistoryBriefRefDto) {
 export function readingText(readings: Observation['readings']) {
   const markings = readings.markings.join(' · ')
   if (readings.text === undefined) {
-    return markings
+    return markings || 'no markings or text'
   }
   const text = `read as “${readings.text}”`
   return markings ? `${markings} · ${text}` : text

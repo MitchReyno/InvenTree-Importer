@@ -50,6 +50,7 @@ describe('a brief as the session page shows it', () => {
     expect(readingText({ markings: ['ABC'], text: '123' })).toBe('ABC · read as “123”')
     expect(readingText({ markings: ['ABC', '123'] })).toBe('ABC · 123')
     expect(readingText({ markings: [], text: '123' })).toBe('read as “123”')
+    expect(readingText({ markings: [] })).toBe('no markings or text')
   })
 
   it('says what quantity a lot edit left', () => {

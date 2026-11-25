@@ -22,6 +22,7 @@ function mount(load: BriefLoader) {
   render(
     <ServerStateProvider scope={scope} client={cache}>
       <BriefCard reference={briefRef()} context={context} load={load} />
+      <button type="button">Elsewhere</button>
     </ServerStateProvider>,
   )
   const card = screen.getByRole('group', { name: /^Brief at start/ })
@@ -32,31 +33,43 @@ function mount(load: BriefLoader) {
 
 test('live updates neither cancel nor read an opened brief again', async () => {
   const user = userEvent.setup()
-  const load = vi.fn<BriefLoader>().mockResolvedValue(historyBrief())
+  const read = deferred<SessionHistoryBriefDto>()
+  const load = vi.fn<BriefLoader>().mockReturnValue(read.promise)
   const { cache, card, summary } = mount(load)
   await user.click(summary)
-  await within(card).findByRole('heading', { name: 'Observations' })
+  expect(within(card).getByRole('status')).toHaveTextContent('Reading the brief…')
 
-  await act(() => cache.invalidateQueries({ queryKey: serverQueryKey(scope) }))
+  // What a live hint does to the scope's reads, while the brief's read is in flight.
+  await act(async () => {
+    await cache.cancelQueries({ queryKey: serverQueryKey(scope) })
+    await cache.invalidateQueries({ queryKey: serverQueryKey(scope) })
+  })
+  await act(async () => read.resolve(historyBrief()))
+  await within(card).findByRole('heading', { name: 'Observations' })
   expect(load).toHaveBeenCalledTimes(1)
 })
 
-test('opening it again reads it again, keeping the copy it has if that read fails', async () => {
+test('opening it again shows only what that opening reads, never the earlier copy', async () => {
   const user = userEvent.setup()
+  const again = deferred<SessionHistoryBriefDto>()
   const load = vi
     .fn<BriefLoader>()
     .mockResolvedValueOnce(historyBrief())
-    .mockRejectedValue(new Error('down'))
+    .mockReturnValueOnce(again.promise)
   const { card, summary } = mount(load)
   await user.click(summary)
   await within(card).findByRole('heading', { name: 'Observations' })
   await user.click(summary)
   await user.click(summary)
 
-  expect(
-    await within(card).findByText('Couldn’t read this brief again; showing the copy read earlier.'),
-  ).toBeVisible()
-  expect(within(card).getByRole('heading', { name: 'Observations' })).toBeVisible()
+  // The photo behind the observations was removed meanwhile; the earlier copy isn't shown.
+  expect(within(card).getByRole('status')).toHaveTextContent('Reading the brief…')
+  expect(within(card).queryByRole('heading', { name: 'Observations' })).toBeNull()
+  await act(async () => again.reject(new Error('down')))
+  expect(await within(card).findByRole('alert')).toHaveTextContent(
+    'The brief this attempt started from couldn’t be read.',
+  )
+  expect(within(card).queryByRole('heading', { name: 'Observations' })).toBeNull()
   expect(load).toHaveBeenCalledTimes(2)
 })
 
@@ -74,9 +87,10 @@ test('a slow retry keeps its button, and focus stays where the operator moved it
   retry.focus()
   await user.keyboard('{Enter}')
   expect(within(card).getByRole('button', { name: 'Trying again…' })).toHaveFocus()
-  // The operator moves on before the read lands; it doesn't pull focus back.
-  summary.focus()
+  // The operator moves on before the read lands; it doesn't pull focus to the brief.
+  const elsewhere = screen.getByRole('button', { name: 'Elsewhere' })
+  elsewhere.focus()
   await act(async () => slow.resolve(historyBrief()))
   await within(card).findByRole('heading', { name: 'Observations' })
-  expect(summary).toHaveFocus()
+  expect(elsewhere).toHaveFocus()
 })

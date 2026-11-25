@@ -29,7 +29,9 @@ function briefQueryKey(scope: ServerScope, batchId: string, jobId: string, attem
 /**
  * The brief a `/7` attempt started from, as the first item after its divider. Collapsed, it
  * summarises the brief from the counts it was sealed with, which the history page carries;
- * its entries are read only when the operator opens it, and read again each time they do.
+ * its entries are read only when the operator opens it, and read again each time they do. Live
+ * updates don't re-read an open brief; evidence removed while it is open shows gone when it is
+ * next opened.
  */
 export function BriefCard({
   reference,
@@ -44,6 +46,9 @@ export function BriefCard({
   const { batchId, jobId } = context
   const summaryId = briefSummaryId(reference.attempt_id)
   const [open, setOpen] = useState(false)
+  // When the card was last opened: only a copy read since then is shown, so evidence removed
+  // while it was closed never shows from an earlier read.
+  const [openedAt, setOpenedAt] = useState(0)
   // Set while the operator's retry is in flight, so its button stays where their focus is.
   const [retrying, setRetrying] = useState(false)
   const retryButton = useRef<HTMLButtonElement>(null)
@@ -54,7 +59,11 @@ export function BriefCard({
   })
 
   function toggled(event: SyntheticEvent<HTMLDetailsElement>) {
-    setOpen(event.currentTarget.open)
+    const opened = event.currentTarget.open
+    if (opened) {
+      setOpenedAt(Date.now())
+    }
+    setOpen(opened)
   }
 
   async function retry() {
@@ -68,6 +77,8 @@ export function BriefCard({
     }
   }
 
+  const readSinceOpened = query.data !== undefined && query.dataUpdatedAt >= openedAt
+
   return (
     <Card id={`brief:${reference.attempt_id}`} aria-labelledby={summaryId} onToggle={toggled}>
       <summary id={summaryId}>
@@ -78,7 +89,8 @@ export function BriefCard({
       </summary>
       {open && (
         <BriefBody
-          query={query}
+          brief={readSinceOpened ? query.data : undefined}
+          failed={query.isError}
           retrying={retrying}
           retry={() => void retry()}
           retryButton={retryButton}

@@ -1,40 +1,30 @@
 import type { RefObject } from 'react'
 import styled from 'styled-components'
-import type { UseQueryResult } from '@tanstack/react-query'
 import type { SessionHistoryBriefDto } from '@invimport/contracts'
-import { Button, Small } from '#/components/ui'
+import { Button } from '#/components/ui'
 import { color, space } from '#/theme/generated/tokens'
 import { BriefContent } from './BriefContent'
 
-/**
- * An opened brief: its entries once read, a failed read with its retry, or the read under way.
- * A failed read again keeps the copy read earlier and says so.
- */
+/** An opened brief: its entries once read, a failed read with its retry, or the read under way. */
 export function BriefBody({
-  query,
+  brief,
+  failed,
   retrying,
   retry,
   retryButton,
 }: {
-  query: UseQueryResult<SessionHistoryBriefDto>
+  /** The brief as read since the card was opened; never a copy from an earlier opening. */
+  brief: SessionHistoryBriefDto | undefined
+  failed: boolean
   /** The operator's retry is in flight; its button stays so their focus isn't lost. */
   retrying: boolean
   retry: () => void
   retryButton: RefObject<HTMLButtonElement | null>
 }) {
-  if (query.data) {
-    return (
-      <>
-        {query.isRefetchError && (
-          <Note role="status">
-            <Small>Couldn’t read this brief again; showing the copy read earlier.</Small>
-          </Note>
-        )}
-        <BriefContent item={query.data} />
-      </>
-    )
+  if (brief) {
+    return <BriefContent item={brief} />
   }
-  if (query.isError || retrying) {
+  if (failed || retrying) {
     return (
       <Note role="alert">
         The brief this attempt started from couldn’t be read.{' '}
