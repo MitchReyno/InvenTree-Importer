@@ -384,6 +384,28 @@ describe('providers', () => {
     ).toBeVisible()
   })
 
+  test("a save keeps the efforts of steps and cards it didn't change", async () => {
+    const withEfforts = agentSettings('7', claude, {
+      providers: {
+        claude: { ...bothOn.providers.claude, default_effort: 'high' },
+        codex: { ...bothOn.providers.codex, default_effort: 'low' },
+      },
+      stage_selections: {
+        research: { provider: 'codex', model: 'gpt-6-luna', effort: 'max' },
+        images: { provider: 'claude', model: 'opus', effort: 'medium' },
+      },
+    })
+    const { server } = await renderAgents(withEfforts)
+    pick(stepPicker('Examine'), 'Codex · gpt-6-luna')
+    await wait(600)
+    expect(server.sent()).toHaveLength(1)
+    expect(server.sent()[0].providers).toEqual(withEfforts.providers)
+    expect(server.sent()[0].stage_selections).toEqual({
+      ...withEfforts.stage_selections,
+      examine: { provider: 'codex', model: 'gpt-6-luna' },
+    })
+  })
+
   test('the last provider on is refused at its switch and nothing is sent', async () => {
     const { server, dirty } = await renderAgents()
     fireEvent.click(providerSwitch('Claude'))

@@ -14,7 +14,7 @@ import {
 import { processingFixture } from '../support/processing.ts'
 import { lotSession } from '../support/sessions.ts'
 import { startSessionToolServer } from '#/agents/tools/server.ts'
-import { runSessionTurn } from '#/agents/session/session-runner.ts'
+import { runSessionTurn, syntheticSessionDriver } from '#/agents/session/session-runner.ts'
 import { readAgentSettings, saveAgentSettings } from '#/agents/settings.ts'
 import { transaction } from '#/db/database.ts'
 import { reserveProcessingMedia } from '#/processing/media.ts'
@@ -74,6 +74,7 @@ async function queueLotAttempt(
   capture: Awaited<ReturnType<Fixture['seedCapture']>>,
   lotId: string,
   stage: 'research' | 'images',
+  profileId: 'native-agent/2' | 'synthetic-session/1' = 'native-agent/2',
 ) {
   return transaction(fixture.api.pool, async (client) => {
     const media = await reserveProcessingMedia(client, fixture.config, capture.batch, [lotId])
@@ -81,7 +82,7 @@ async function queueLotAttempt(
     const attempt = await createSessionAttempt(
       client,
       fixture.config,
-      'native-agent/2',
+      profileId,
       capture.batch,
       { id: jobId, subject_id: lotId, stage },
       '1',
@@ -284,14 +285,15 @@ async function runSealedTurn(agent: AgentSelectionDto | null, mode = 'normal') {
           env: { PATH: process.env.PATH, OPENAI_API_KEY: 'test-key' },
         },
         toolUrl: server.url,
+        drivers: { 'synthetic-session/1': syntheticSessionDriver },
       },
       session.attempt,
       AbortSignal.timeout(30_000),
     )
-    const row = await fixture.db.pool.query<{ sent_effort: string | null }>(
-      'SELECT sent_effort FROM agent_session WHERE attempt_id=$1',
-      [session.attempt],
-    )
+    const row = await fixture.db.pool.query<{
+      sent_effort: string | null
+      actual_model: string | null
+    }>('SELECT sent_effort,actual_model FROM agent_session WHERE attempt_id=$1', [session.attempt])
     const history = (
       await fixture.http(`/batches/${capture.batch.id}/processing/${session.job}/history`)
     ).value as SessionHistoryDto
@@ -302,6 +304,7 @@ async function runSealedTurn(agent: AgentSelectionDto | null, mode = 'normal') {
     return {
       outcome,
       sentEffort: row.rows[0].sent_effort,
+      actualModel: row.rows[0].actual_model,
       read: history.session.attempts.find((attempt) => attempt.id === session.attempt),
       events,
     }
@@ -337,10 +340,41 @@ test('a session on Default records no effort', async () => {
   assert.equal(run.read && 'sent_effort' in run.read, false)
 })
 
-test('a synthetic session records no effort', async () => {
+test('a synthetic attempt seals no selection, so no effort, whatever the settings say', async () => {
+  const fixture = await processingFixture({ profileId: 'synthetic-session/1' })
+  try {
+    await saveAgentSettings(fixture.api.pool, fixture.config, withEfforts('0'))
+    const capture = await fixture.seedCapture()
+    const attempt = await queueLotAttempt(
+      fixture,
+      capture,
+      capture.packetA.id,
+      'research',
+      'synthetic-session/1',
+    )
+    const input = await sealedInput(fixture, attempt.inputId)
+    assert.equal(input.agent, null)
+  } finally {
+    await fixture.dispose()
+  }
+})
+
+test('a synthetic session runs its turn and records no effort', async () => {
   const run = await runSealedTurn(null)
+  assert.notEqual(run.outcome, 'failed')
+  assert.equal(run.actualModel, 'synthetic', 'the turn started')
   assert.equal(run.sentEffort, null)
   assert.equal(run.read && 'sent_effort' in run.read, false)
+})
+
+test("an effort the model refuses is recorded as sent, and the provider's refusal fails the turn", async () => {
+  const run = await runSealedTurn(
+    { provider: 'codex', authentication: 'api_key', model: 'gpt-6.2-sol', effort: 'ultra' },
+    'refuse-effort',
+  )
+  assert.equal(run.outcome, 'failed')
+  assert.equal(run.events.filter((event) => event.event === 'turn-start').length, 1)
+  assert.equal(run.sentEffort, 'ultra')
 })
 
 test('a Codex turn that fails between its start and turn/start records no effort', async () => {

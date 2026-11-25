@@ -194,3 +194,20 @@ test('a Codex turn that fails after its start is reported never sends turn/start
   assert.ok(!(await h.events()).some((event) => event.event === 'turn-start'))
   assert.deepEqual(reported.order, ['started'])
 })
+
+test("an effort the model refuses is still sent as saved, and the provider's refusal ends the turn", async (t) => {
+  const h = await harness(t)
+  await h.useMode('refuse-effort')
+  const { turn, reported } = sessionTurn(h)
+  await assert.rejects(
+    runCodexSession(h.host, codex('ultra'), turn, h.cwd, h.env, signal()),
+    /agent_request_refused/,
+  )
+  const starts = (await h.events()).filter((event) => event.event === 'turn-start')
+  // Sent once, as saved: no retry without it or with another level.
+  assert.deepEqual(
+    starts.map((event) => event.effort),
+    ['ultra'],
+  )
+  assert.deepEqual(reported.efforts, ['ultra'])
+})

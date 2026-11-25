@@ -255,6 +255,11 @@ if (args[0] === 'app-server') {
       if (mode === 'server-request') send({ id: 9000, method: 'item/tool/requestUserInput', params: {} })
       turnId = `fake-turn-${Date.now()}`
       log({ event: 'turn-start', keys: Object.keys(frame.params).sort(), effort: frame.params.effort })
+      // A model that doesn't accept the effort it was sent refuses the turn.
+      if (mode === 'refuse-effort' && frame.params.effort !== undefined) {
+        send({ id: frame.id, error: { code: -32602, message: 'unsupported reasoning effort' } })
+        return
+      }
       log({ event: 'opening', text: frame.params.input[0].text })
       reply({ turn: { id: turnId } })
       if (mode === 'command-item' || mode === 'wrapped-call') {
