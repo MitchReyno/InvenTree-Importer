@@ -154,14 +154,26 @@ function continuedCursor(input: SessionReadVocabularyArgsDto) {
   return cursor
 }
 
-function matches(entry: BriefVocabularyEntryDto, input: SessionReadVocabularyArgsDto) {
-  if (input.kind !== undefined && entry.reference.model !== input.kind) {
+/**
+ * The search as a literal pattern matched under Unicode case folding, so a capital sigma finds a
+ * final one, which comparing lowercased strings would miss.
+ */
+function searchPattern(search: string | undefined) {
+  if (search === undefined) {
+    return null
+  }
+  return new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'iu')
+}
+
+function matches(
+  entry: BriefVocabularyEntryDto,
+  kind: SessionReadVocabularyArgsDto['kind'],
+  search: RegExp | null,
+) {
+  if (kind !== undefined && entry.reference.model !== kind) {
     return false
   }
-  if (input.search === undefined) {
-    return true
-  }
-  return entry.label.toLowerCase().includes(input.search.toLowerCase())
+  return search === null || search.test(entry.label)
 }
 
 /**
@@ -178,8 +190,9 @@ export async function readVocabulary(
 ) {
   const cursor = continuedCursor(input)
   const capture = await captureInTransaction(client, config, batchId)
+  const search = searchPattern(input.search)
   const found = catalogueVocabulary(capture.snapshot.observations, config.targetContextId).filter(
-    (entry) => matches(entry, input),
+    (entry) => matches(entry, input.kind, search),
   )
   const list = listDigest(found)
   if (cursor && cursor.list !== list) {

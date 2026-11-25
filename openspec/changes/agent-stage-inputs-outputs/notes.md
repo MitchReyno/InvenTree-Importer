@@ -104,6 +104,8 @@ Mitch reviewed the draft base instructions, stage packs and guide sections and a
 
 - The Examine pack said to pass `base_revision` "on every write", but only `record_observation`, `propose_lot` and `regroup` take it (the strict `propose`, `ask` and `reply` contracts refuse it). The pack now names those three. This is a correction to the approved text, not a change of what it asks for.
 - The Research guide's vocabulary section said a record missing from the vocabulary was missing from the inventory. The vocabulary is only what the batch has looked up, so it now says to report such a gap as not in the batch's vocabulary, and to check the vocabulary's templates before naming a new one.
+- The Research pack's `config_gaps` line now says the same as the guide: a gap is what the batch's vocabulary doesn't hold, not what the inventory lacks.
+- The base's no-repeat rule now says a question covering the same lot and any of the same fields, as the spec's overlapping fields, not only the same fields.
 - The base keeps the `/3` web lines for every stage, as approved; the Examine and Images packs limit their stages' web use. Until the web gates admit `/4` (PR-G2), its inputs seal web research off and its opening carries no web line.
 
 ### Guides are sealed as a whole
@@ -112,7 +114,7 @@ The guide table's rows can't be changed or deleted, but a row could still be add
 
 ### `read_vocabulary`'s lookup interface
 
-- **Both a filter and paging.** `read_vocabulary({ kind?, search?, page_token? })`. `kind` is category, parameter_template, category_parameter or company; `search` (1–100 characters) keeps entries whose label contains it, regardless of case. Results come 50 to a page (`VOCABULARY_PAGE_SIZE`), ordered by kind, label and observation, with the total and a `next_page_token` while more remain.
+- **Both a filter and paging.** `read_vocabulary({ kind?, search?, page_token? })`. `kind` is category, parameter_template, category_parameter or company; `search` (1–100 characters) keeps entries whose label contains it as literal text under Unicode case folding, so a capital sigma finds a final one. Results come 50 to a page (`VOCABULARY_PAGE_SIZE`), ordered by kind, label and observation, with the total and a `next_page_token` while more remain.
 - **Tokens** are the cursor as canonical JSON in base64url: a digest of the kind and search, a digest of the matching list (its observations in order) and the offset. Digests keep a token within the 512-character token bound whatever the search. A token continues only the kind and search it came with; any other call with it is a correctable `validation_failed`. When the matching records change between pages, the token is refused as `stale` and the session reads again from the first page, so no entry is repeated or skipped. Tokens aren't bound to the attempt: the read is of the session's own batch and writes nothing.
 - **Current, not sealed.** The brief's vocabulary section is the list as sealed; `read_vocabulary` reads it again from the batch now, through the capture snapshot, with the same projection (`processing/vocabulary.ts`). Observations from an earlier target context are left out, since a proposal can't cite them.
 

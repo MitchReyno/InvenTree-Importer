@@ -640,10 +640,24 @@ test('vocabulary tokens hold any search and only the offsets they were issued wi
       mapping: { kind: 'company', manufacturer: false, supplier: true },
     })),
   )
+  await observe(fixture, batchId, [
+    { model: 'category', pk: '77', label: 'ΟΣ cores', mapping: { kind: 'category' } },
+  ])
   const { row: research } = await successorOf(batch, 'led 0603 red', 'research')
   const token = await running(fixture, research.attempt_id)
   await withClients(async (open) => {
     const researcher = await open(deps.toolUrl, token)
+    // Searches fold case as Unicode does: a capital sigma and a final one find each other.
+    for (const sigma of ['Σ', 'σ', 'ς', 'οσ c']) {
+      const found = await call(researcher, 'read_vocabulary', { search: sigma })
+      assert.deepEqual(
+        found.vocabulary!.entries.map((entry) => entry.label),
+        ['ΟΣ cores'],
+        sigma,
+      )
+    }
+    // A search is literal text, not a pattern.
+    assert.equal((await call(researcher, 'read_vocabulary', { search: '.*' })).vocabulary!.total, 0)
     const plugs = await call(researcher, 'read_vocabulary', { search })
     assert.equal(plugs.vocabulary!.total, 51)
     const next = plugs.vocabulary!.next_page_token!

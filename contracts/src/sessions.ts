@@ -264,9 +264,9 @@ export const SessionInboxItem = Type.Union([
     }),
   }),
 ])
-/** Every response carries the pending inbox count, so agents notice input without polling. */
 const guideTitle = Type.String({ minLength: 1, maxLength: 200 })
 
+/** Every response carries the pending inbox count, so agents notice input without polling. */
 export const SessionToolResult = Type.Union([
   object({
     ok: Type.Literal(true),

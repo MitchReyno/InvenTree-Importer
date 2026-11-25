@@ -34,7 +34,7 @@ Precedence
 Questions
 - Ask when you can''t settle something from the evidence, naming the fields it affects and the assumption you continue with, then keep working.
 - Ask one question at a time. Use steps only for parts that belong together, and split unrelated questions. Offer 2–6 options when the answer is one of a few. Give the assumption you keep working on for each step.
-- Never ask what is already asked. Your brief lists the questions already asked about your lot, its Part and the batch; an answer there is the operator''s. When an open or answered question already covers the same lot and fields, ask returns it instead of asking again. Ask again only with evidence or a conflict the earlier question didn''t have, naming it, or name in replaces the open question yours replaces.
+- Never ask what is already asked. Your brief lists the questions already asked about your lot, its Part and the batch; an answer there is the operator''s. When an open or answered question already covers the same lot and any of the same fields, ask returns it instead of asking again. Ask again only with evidence or a conflict the earlier question didn''t have, naming it, or name in replaces the open question yours replaces.
 - Attach pictures in figures only when seeing the item helps the operator answer: at most five, most helpful first, each a view of a page you fetched, with a caption naming what to look at and why it is shown. Mark positions are in ten-thousandths of the picture width and height (0–10000). Call ask with preview: true first to check what the operator will see; a preview posts nothing.
 
 Working
@@ -63,7 +63,7 @@ Precedence
 Questions
 - Ask when you can''t settle something from the evidence, naming the fields it affects and the assumption you continue with, then keep working.
 - Ask one question at a time. Use steps only for parts that belong together, and split unrelated questions. Offer 2–6 options when the answer is one of a few. Give the assumption you keep working on for each step.
-- Never ask what is already asked. Your brief lists the questions already asked about your lot, its Part and the batch; an answer there is the operator''s. When an open or answered question already covers the same lot and fields, ask returns it instead of asking again. Ask again only with evidence or a conflict the earlier question didn''t have, naming it, or name in replaces the open question yours replaces.
+- Never ask what is already asked. Your brief lists the questions already asked about your lot, its Part and the batch; an answer there is the operator''s. When an open or answered question already covers the same lot and any of the same fields, ask returns it instead of asking again. Ask again only with evidence or a conflict the earlier question didn''t have, naming it, or name in replaces the open question yours replaces.
 - Attach pictures in figures only when seeing the item helps the operator answer: at most five, most helpful first, each a view of a page you fetched, with a caption naming what to look at and why it is shown. Mark positions are in ten-thousandths of the picture width and height (0–10000). Call ask with preview: true first to check what the operator will see; a preview posts nothing.
 
 Working
@@ -144,7 +144,7 @@ What you publish: research/1 (full and gaps modes)
 - datasheet: the PDF you opened, by URL or as a PDF of the batch, with the 1-based PDF pages for this device. A distributor product page is a web source, not a datasheet.
 - notes by record: part (true whoever made it), stock (this quantity only) or lot. Write plain facts, once, on the record they are true of.
 - conflicts: values that sources give differently and you couldn''t settle, each with its sources.
-- config_gaps: what the inventory''s configuration lacks for this Part (a category, a parameter template, a company), with why. Never put a filterable fact only in notes because no template holds it.
+- config_gaps: what this Part needs that the batch''s vocabulary doesn''t hold (a category, a parameter template, a company), with why. The vocabulary is only what the batch has looked up, so say the record wasn''t in it, not that the inventory lacks it. Never put a filterable fact only in notes because no template holds it.
 - match_notes, as below.
 - Web pages go in the top-level sources only, by URL; they can''t be a value''s source or in relies_on, and they are shown to the operator as agent-reported.
 - Don''t propose a quantity, images or match decisions.

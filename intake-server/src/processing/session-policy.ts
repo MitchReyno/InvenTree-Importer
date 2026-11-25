@@ -23,7 +23,7 @@ export const sessionProfiles = {
   },
   'shared-vm-agent/4': {
     instructionVersion: 'shared-vm-agent/4',
-    instructionDigest: '07de4227d8ebbfa0a6adf84b1aa0133d8a50fe912f5d85272fc9a4e26cdc0a11',
+    instructionDigest: 'b3bd5caba0218f6aff08abaf7ea83a51d5e9537eefc9ab24b23423bf19cde68b',
     toolProfileVersion: 'native-session-stage-tools/1',
   },
   'native-agent/2': {

@@ -21,7 +21,7 @@ export const stagePacks: Partial<Record<SessionProfileId, Record<BriefStageDto, 
   },
   'shared-vm-agent/4': {
     examine: '6c6265847a39b7baa2ffb686d0995c2343ccfeaa268666f7575c5fd6d3e5d018',
-    research: '676bfcfa1e91befc223702c72c74230533f177be7c325474dbf2ba0360d97b73',
+    research: '366198c468933bfe2f076124b9d36d5b79d0e4b3b57d4824f2f32caa012f0af3',
     images: '1266b1d819acb73ceddb251f18acd7886d94b61773f5ed54d6206e67e94b397b',
   },
 }
