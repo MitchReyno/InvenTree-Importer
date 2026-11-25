@@ -10,6 +10,15 @@ import { renderView } from './view.ts'
 
 const MAX_HEADER_BYTES = 8192
 
+/** The header as UTF-8, refused rather than repaired when its bytes aren't valid UTF-8. */
+function headerText(bytes: Buffer) {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  } catch {
+    throw new Error('invalid_decoder_header')
+  }
+}
+
 /** Container-only bounded header plus raw bytes. No credentials, paths or HTTP clients. */
 let length = 0
 const chunks: Buffer[] = []
@@ -27,7 +36,7 @@ const headerEnd = protocol.indexOf(10)
 if (headerEnd < 0 || headerEnd > MAX_HEADER_BYTES) {
   throw new Error('invalid_decoder_header')
 }
-const value = strictJson(protocol.subarray(0, headerEnd).toString('utf8'))
+const value = strictJson(headerText(protocol.subarray(0, headerEnd)))
 assertMediaDecoderInputHeader(value)
 
 const digest = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex')

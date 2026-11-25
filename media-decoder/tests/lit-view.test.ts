@@ -22,7 +22,7 @@ import {
  * Straightened crops are judged against ground truth: the scene rendered directly onto the crop's
  * grid. A crop must come within these bounds of it, and at least as close as crop.py's. Measured
  * with bicubic at 7° and -3.5°: means of 0.64 and 0.74 levels and far shares of 0.00% and 0.03%,
- * against crop.py's means of 1.13 and 1.44.
+ * against crop.py's means of 1.12 and 1.44.
  */
 const TRUTH_MEAN_LEVELS = 1
 const TRUTH_FAR_SHARE = 0.06

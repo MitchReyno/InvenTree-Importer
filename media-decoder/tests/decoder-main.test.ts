@@ -14,17 +14,27 @@ import { fixtureBytes, NO_LIGHT, parityFixtures, recipeForCrop, sha } from './su
 
 const DECODER_MAIN = fileURLToPath(new URL('../src/decoder-main.ts', import.meta.url))
 
-/** Runs the container entry point on one framed request: a header line, then the bytes. */
-async function runDecoder(header: unknown, bytes: Buffer) {
+/** Runs the container entry point on raw stdin bytes. */
+async function spawnDecoder(input: Buffer) {
   const child = spawn(process.execPath, [DECODER_MAIN], { stdio: ['pipe', 'pipe', 'pipe'] })
   const output: Buffer[] = []
   const errors: Buffer[] = []
   child.stdout.on('data', (chunk: Buffer) => output.push(chunk))
   child.stderr.on('data', (chunk: Buffer) => errors.push(chunk))
-  child.stdin.end(Buffer.concat([Buffer.from(JSON.stringify(header) + '\n'), bytes]))
+  child.stdin.end(input)
   const code = await new Promise<number | null>((resolve) => child.once('close', resolve))
-  assert.equal(code, 0, Buffer.concat(errors).toString('utf8'))
-  const result = Buffer.concat(output)
+  return {
+    code,
+    output: Buffer.concat(output),
+    errors: Buffer.concat(errors).toString('utf8'),
+  }
+}
+
+/** Runs the container entry point on one framed request: a header line, then the bytes. */
+async function runDecoder(header: unknown, bytes: Buffer) {
+  const headerLine = Buffer.from(JSON.stringify(header) + '\n')
+  const { code, output: result, errors } = await spawnDecoder(Buffer.concat([headerLine, bytes]))
+  assert.equal(code, 0, errors)
   const headerEnd = result.indexOf(10)
   return {
     header: JSON.parse(result.subarray(0, headerEnd).toString('utf8')) as Record<string, unknown>,
@@ -186,4 +196,32 @@ test('a failed operation writes its header alone', async () => {
   assertMediaGridOutputHeader(header)
   assert.equal(header.state, 'malformed')
   assert.equal(body.length, 0)
+})
+
+test('a header that is not valid UTF-8 is refused, not repaired', async () => {
+  const { page } = await benchPage()
+  const gridHeader = (name: string) => ({
+    version: 'media-grid/1',
+    digest: sha(page.bytes),
+    width: page.width,
+    height: page.height,
+    region: null,
+    preview_width: 400,
+    step: null,
+    object: null,
+    boxes: [{ name, box: { x: 160, y: 172, width: 160, height: 56 } }],
+  })
+  const accented = await runDecoder(gridHeader('résistor'), page.bytes)
+  assertMediaGridOutputHeader(accented.header)
+  assert.ok(accented.header.state === 'ready')
+
+  // The same request with the name's two UTF-8 bytes for é replaced by the invalid pair C3 28.
+  const valid = Buffer.from(JSON.stringify(gridHeader('résistor')) + '\n')
+  const at = valid.indexOf(Buffer.from('é'))
+  const invalid = Buffer.from(valid)
+  invalid[at + 1] = 0x28
+  const refused = await spawnDecoder(Buffer.concat([invalid, page.bytes]))
+  assert.notEqual(refused.code, 0)
+  assert.match(refused.errors, /invalid_decoder_header/)
+  assert.equal(refused.output.length, 0)
 })
