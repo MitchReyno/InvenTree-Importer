@@ -219,3 +219,32 @@ test('WebSocket connection and input bounds reject excess peers without any targ
     await fixture.dispose()
   }
 })
+
+test('a subscribed socket sends its heartbeat while the next projection is waiting on PostgreSQL', async () => {
+  const fixture = await manualFixture()
+  const lock = await fixture.db.pool.connect()
+  let socket: WebSocket | undefined
+  try {
+    const peer = await connect(fixture)
+    socket = peer.socket
+    peer.subscribe(null)
+    await until(
+      async () => peer.frames,
+      (frames) => frames.some((frame) => frame.type === 'ready'),
+    )
+    // Hold the next projection across the ten-second heartbeat, within its statement deadline.
+    await new Promise((resolve) => setTimeout(resolve, 8000))
+    await lock.query('BEGIN')
+    await lock.query('LOCK TABLE public.capture_batch IN ACCESS EXCLUSIVE MODE')
+    const heartbeat = await until(
+      async () => peer.frames,
+      (frames) => frames.some((frame) => frame.type === 'heartbeat'),
+    )
+    assert.ok(heartbeat.some((frame) => frame.type === 'heartbeat'))
+  } finally {
+    await lock.query('ROLLBACK')
+    lock.release()
+    socket?.terminate()
+    await fixture.dispose()
+  }
+})

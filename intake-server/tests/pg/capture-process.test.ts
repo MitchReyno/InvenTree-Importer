@@ -67,7 +67,10 @@ test('actual capture web process restart retains two same-Part lots and rotates 
     assert.deepEqual(saved, before)
     assert.equal(saved.lots.length, 2)
     assert.notEqual(saved.lots[0].contribution_key, saved.lots[1].contribution_key)
-    assert.deepEqual(h.requests, [{ method: 'GET', path: '/api/part/93/' }])
+    const captureReads = h.requests.filter(
+      ({ method, path }) => method !== 'GET' || !['/api/', '/api/part/?limit=1'].includes(path),
+    )
+    assert.deepEqual(captureReads, [{ method: 'GET', path: '/api/part/93/' }])
     const denied = await fetch(h.origin + '/api/v1/batches/' + batchId + '/edits', {
       method: 'POST',
       headers: {

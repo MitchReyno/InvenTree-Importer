@@ -60,10 +60,9 @@ function HeaderStatusView({
   const health = useUpdateHealth()
   const phone = useMediaQuery(media.compact)
   const [open, setOpen] = useState<Panel | null>(null)
-  const connectionUnavailable =
-    bootstrapUnavailable || connection.isError || connection.fetchStatus === 'paused'
+  const { disconnected, target } = observations
+  const connectionUnavailable = bootstrapUnavailable || observations.scopedUnavailable
   const workUnavailable = bootstrapUnavailable || work.isError || work.fetchStatus === 'paused'
-  const target = connection.isFetchedAfterMount ? connection.data?.target : undefined
   const navigation = safeTargetNavigation(target?.navigation_url)
   const inventreeLink = navigation ? (
     <Button
@@ -101,7 +100,7 @@ function HeaderStatusView({
         {activity}
         <PhoneMenu
           announce={variant === 'bar'}
-          status={targetStatus(target, connectionUnavailable, now)}
+          status={targetStatus(target, connectionUnavailable, now, disconnected)}
           server={
             <ConnectionDetails
               target={target}
@@ -125,6 +124,7 @@ function HeaderStatusView({
       {activity}
       <ConnectionStatus
         target={target}
+        disconnected={disconnected}
         unavailable={connectionUnavailable}
         apiChecked={apiChecked}
         now={now}

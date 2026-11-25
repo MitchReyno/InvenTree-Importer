@@ -5,6 +5,8 @@ import { color, space, typeVar } from '#/theme/generated/tokens'
 import { LIVE_UPDATE_FRESH_MS } from '#/components/operations/LiveUpdates'
 import { Button, DebugDetails, EventTime, eventTimeText, KeyValue } from '#/components/ui'
 import { observationFresh, safeTargetNavigation, timestampFresh } from '#/header/observations'
+import { IntakeConnectionLabel } from './IntakeConnectionLabel'
+import { targetStatus } from '#/header/observations'
 import { DevBadge } from './DevBadge'
 import { type UpdateHealth } from '#/context'
 
@@ -101,6 +103,19 @@ export function ConnectionDetails({
     <Body>
       <KeyValue
         rows={[
+          {
+            label: 'Intake server',
+            value: 'Intake status',
+            content: <IntakeConnectionLabel scopeFailed={apiUnavailable} />,
+            state: 'plain' as const,
+          },
+          {
+            label: 'InvenTree server',
+            value: apiUnavailable
+              ? 'Current status unknown'
+              : targetStatus(target, false, now).short,
+            state: 'plain' as const,
+          },
           { label: 'Host', value: host, state: 'plain' as const },
           ...(target?.version
             ? [{ label: 'Version', value: `InvenTree ${target.version}`, state: 'plain' as const }]

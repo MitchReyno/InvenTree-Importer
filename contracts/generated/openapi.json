@@ -8,7 +8,7 @@
     "/api/v1/health": {
       "get": {
         "x-intake-client": {
-          "timeoutMs": 5000,
+          "timeoutMs": 10000,
           "errorMode": "setup"
         },
         "responses": {
@@ -913,7 +913,7 @@
     "/api/v1/connection-status/check": {
       "post": {
         "x-intake-client": {
-          "timeoutMs": 10000,
+          "timeoutMs": 20000,
           "errorMode": "typed"
         },
         "responses": {
@@ -18964,6 +18964,9 @@
                     "type": "null"
                   }
                 ]
+              },
+              "root_responded": {
+                "type": "boolean"
               },
               "failure_code": {
                 "anyOf": [

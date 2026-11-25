@@ -57,7 +57,7 @@ export function registerLive(app: FastifyInstance, pool: Pool, config: DevConfig
         let batchId: string | null = null
         let cursors: LiveCursorDto[] = []
         let truncated = false
-        let lastHeartbeat = Date.now()
+        let heartbeat: NodeJS.Timeout | undefined
         let interval: NodeJS.Timeout | undefined
         const authDeadline = setTimeout(() => socket.close(1008, 'subscription_required'), 5000)
         const lifetime = setTimeout(() => socket.close(1012, 'refresh_connection'), MAX_LIFETIME_MS)
@@ -95,15 +95,16 @@ export function registerLive(app: FastifyInstance, pool: Pool, config: DevConfig
             }
             cursors = state.heads.map(({ stream_id, sequence }) => ({ stream_id, sequence }))
             truncated = state.truncated
-            if (Date.now() - lastHeartbeat >= HEARTBEAT_MS) {
-              if (!alive) {
-                socket.terminate()
-                return
-              }
-              alive = false
-              socket.ping()
-              send({ type: 'heartbeat', protocol: LIVE_PROTOCOL })
-              lastHeartbeat = Date.now()
+            if (initial) {
+              heartbeat = setInterval(() => {
+                if (!alive || socket.readyState !== socket.OPEN) {
+                  socket.terminate()
+                  return
+                }
+                alive = false
+                socket.ping()
+                send({ type: 'heartbeat', protocol: LIVE_PROTOCOL })
+              }, HEARTBEAT_MS)
             }
           } catch {
             socket.close(1012, 'projection_unavailable')
@@ -157,6 +158,7 @@ export function registerLive(app: FastifyInstance, pool: Pool, config: DevConfig
         const cleanup = () => {
           clearTimeout(authDeadline)
           clearTimeout(lifetime)
+          clearInterval(heartbeat)
           clearInterval(interval)
           sockets.delete(socket)
         }

@@ -73,9 +73,13 @@ export function targetStatus(
   target: ConnectionStatusDto['target'] | undefined,
   unavailable: boolean,
   now: number,
+  disconnected = false,
 ): TargetStatus {
+  if (disconnected) {
+    return { summary: 'No connection to Intake', tone: 'bad', short: 'Intake offline' }
+  }
   if (unavailable) {
-    return UNAVAILABLE
+    return { summary: 'Intake service degraded', tone: 'warn', short: 'Degraded' }
   }
   if (!target) {
     return { summary: 'Reading connection…', tone: 'muted', short: 'Reading…' }
@@ -103,6 +107,17 @@ export function targetStatus(
   }
   if (target.state === 'unavailable' && target.failure_code === 'unauthorized') {
     return { summary: 'InvenTree refused the token', tone: 'bad', short: 'Refused' }
+  }
+  if (
+    target.state === 'unavailable' &&
+    (target.root_responded ||
+      ['http_error', 'unexpected_response', 'redirect_refused'].includes(target.failure_code ?? ''))
+  ) {
+    return {
+      summary: 'InvenTree responded; inventory read unavailable',
+      tone: 'warn',
+      short: 'Read failed',
+    }
   }
   if (target.state === 'unavailable') {
     return UNAVAILABLE
