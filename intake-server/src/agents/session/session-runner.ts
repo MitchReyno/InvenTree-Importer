@@ -1087,7 +1087,7 @@ export async function runSessionTurn(
 /** The host's own provider driver; it starts host processes, so it records that first. */
 function builtInDriver(
   host: NativeAgentHost,
-  current: { manifest: ProcessingInputV6Dto },
+  current: { manifest: SessionInputDto },
 ): SessionDriver {
   const selection = current.manifest.agent
   if (current.manifest.profile_id !== 'native-agent/2' || !selection) {
