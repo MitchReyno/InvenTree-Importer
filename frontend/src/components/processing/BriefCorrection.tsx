@@ -1,5 +1,5 @@
 import type { BriefEntryDto } from '@invimport/contracts'
-import { EventTime } from '#/components/ui'
+import { EventTime, VisuallyHidden } from '#/components/ui'
 import { readingText } from '#/processing/brief-view'
 import { BriefMuted, BriefRow, Reading, Was, Yours } from './brief-styles'
 
@@ -15,11 +15,13 @@ export function BriefCorrection({ correction }: { correction: Correction }) {
       <span>
         {correction.before ? (
           <>
-            <Was>{readingText(correction.before)}</Was> →{' '}
+            <VisuallyHidden>Previous reading: </VisuallyHidden>
+            <Was>{readingText(correction.before)}</Was> <span aria-hidden="true">→</span>{' '}
           </>
         ) : (
-          <BriefMuted>Earlier reading not kept → </BriefMuted>
+          <BriefMuted>Earlier reading not kept · </BriefMuted>
         )}
+        <VisuallyHidden>Corrected to: </VisuallyHidden>
         <Reading>{readingText(correction.after)}</Reading>
       </span>
       <Yours>

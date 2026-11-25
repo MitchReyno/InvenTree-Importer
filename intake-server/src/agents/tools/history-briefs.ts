@@ -11,9 +11,13 @@ export interface AttemptBrief {
   brief: SealedBriefDto
 }
 
-/** The bounds of one history page in its total order, as times of its rows. */
+/**
+ * The bounds of one history page, as the times of the rows at its edges. Rows page by their full
+ * position (time, stream, attempt, sequence); a brief needs only the time, since it sorts before
+ * every row at its own.
+ */
 export interface PageSpan {
-  /** The cursor's time: the page holds rows strictly older than it. Absent for the newest page. */
+  /** The time of the cursor's row, the oldest of the newer page. Absent for the newest page. */
   before?: string
   /** The time of the page's oldest row while older rows remain on further pages. */
   oldest?: string

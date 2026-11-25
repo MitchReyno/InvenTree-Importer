@@ -76,10 +76,13 @@ function plural(count: number, one: string, many = `${one}s`) {
   return `${count} ${count === 1 ? one : many}`
 }
 
-/** How many of the operator's facts the brief holds: every correction, answer, note and edit. */
+/**
+ * How many of the operator's facts the brief holds: every correction, answer, note, edit and
+ * saved instruction, as "Your facts" and the observations list them.
+ */
 export function factCount(view: BriefView) {
   const corrections = view.observations.reduce((sum, row) => sum + row.corrections.length, 0)
-  return view.facts.length + corrections + view.corrections.length
+  return view.facts.length + view.instructions.length + corrections + view.corrections.length
 }
 
 /** The brief's one-line summary, naming only what it holds. */
@@ -94,11 +97,35 @@ export function briefSummary(brief: SessionBriefDto) {
   return [view.title, ...parts.filter((part) => part !== null)].join(' · ')
 }
 
-/** A reading as one line: its markings, then its transcribed text where it has one. */
+/**
+ * A reading as one line: its markings, then what was read as text, labelled, so moving words
+ * between the two reads as a change.
+ */
 export function readingText(readings: Observation['readings']) {
-  const parts =
-    readings.text === undefined ? readings.markings : [...readings.markings, readings.text]
-  return parts.join(' · ')
+  const markings = readings.markings.join(' · ')
+  if (readings.text === undefined) {
+    return markings
+  }
+  const text = `read as “${readings.text}”`
+  return markings ? `${markings} · ${text}` : text
+}
+
+type LotEdit = Entry<'lot_edit'>
+
+/** A lot edit's quantity as the operator left it. */
+export function quantityWords(quantity: LotEdit['quantity']) {
+  switch (quantity.mode) {
+    case 'set':
+      return `quantity ${quantity.value}`
+    case 'inherit':
+      return 'quantity from the batch'
+    case 'unknown':
+      return 'quantity unknown'
+    case 'clear':
+      return 'quantity cleared'
+    case 'unset':
+      return 'quantity not set'
+  }
 }
 
 /** Each fact's own identity, so a list keeps its rows across reads. */

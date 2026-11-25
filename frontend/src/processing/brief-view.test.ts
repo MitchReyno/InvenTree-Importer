@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { BriefEntryDto } from '@invimport/contracts'
 import { briefObservation, H, historyBrief, researchBriefEntries } from '#/test/session-history'
-import { briefSummary, briefView, factCount, readingText } from './brief-view'
+import { briefSummary, briefView, factCount, quantityWords, readingText } from './brief-view'
 
 function correction(revision: string, before: string[], after: string[]): BriefEntryDto {
   return {
@@ -45,11 +45,30 @@ describe('a brief as the session page shows it', () => {
     expect(view.corrections).toHaveLength(1)
   })
 
-  it('reads a reading as its markings and its text, so neither change is hidden', () => {
-    expect(readingText({ markings: ['ECS', '16.000'], text: '“16.000 ECS 2348”' })).toBe(
-      'ECS · 16.000 · “16.000 ECS 2348”',
+  it('reads a reading as its markings and its labelled text, so moving words between them shows', () => {
+    expect(readingText({ markings: ['ABC'], text: '123' })).toBe('ABC · read as “123”')
+    expect(readingText({ markings: ['ABC', '123'] })).toBe('ABC · 123')
+    expect(readingText({ markings: [], text: '123' })).toBe('read as “123”')
+  })
+
+  it('counts saved instructions among your facts', () => {
+    const instruction: BriefEntryDto = {
+      kind: 'instruction',
+      instruction_id: H.instruction,
+      group_id: null,
+      text: 'Prefer the maker’s datasheet',
+    }
+    const view = briefView(historyBrief([instruction]).brief)
+
+    expect(factCount(view)).toBe(1)
+    expect(briefSummary(historyBrief([instruction]).brief)).toBe(
+      'Started from Examine’s findings · 1 of your facts',
     )
-    expect(readingText({ markings: ['ECS'] })).toBe('ECS')
+  })
+
+  it('says what quantity a lot edit left', () => {
+    expect(quantityWords({ mode: 'set', value: '480' })).toBe('quantity 480')
+    expect(quantityWords({ mode: 'inherit' })).toBe('quantity from the batch')
   })
 
   it('names what an Examine lead started from, and leaves out what it doesn’t hold', () => {

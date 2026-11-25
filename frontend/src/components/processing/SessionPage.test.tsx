@@ -187,7 +187,9 @@ test('a /7 session opens on the brief it started from, collapsed, with your corr
   const corrections = within(observations).getByRole('list', { name: 'Your corrections' })
   const earlier = within(corrections).getByText('ATMEGA328P 2338')
   expect(earlier.tagName).toBe('DEL')
-  expect(corrections).toHaveTextContent('ATMEGA328P 2338 → ATMEGA328P 2348')
+  expect(corrections).toHaveTextContent(
+    'Previous reading: ATMEGA328P 2338 → Corrected to: ATMEGA328P 2348',
+  )
   expect(within(corrections).getByText(/Your correction/)).toBeVisible()
   expect(corrections.closest('li')).toHaveTextContent('MCU close-up, page 1 · 1 visible')
   // Your facts: the answer and the note, each marked as yours.

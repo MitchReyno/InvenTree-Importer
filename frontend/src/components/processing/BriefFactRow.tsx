@@ -1,5 +1,5 @@
 import { EventTime } from '#/components/ui'
-import type { BriefFact, BriefView } from '#/processing/brief-view'
+import { quantityWords, type BriefFact, type BriefView } from '#/processing/brief-view'
 import { BriefMuted, BriefRow, Yours } from './brief-styles'
 
 type Note = Extract<BriefFact, { kind: 'note' }>
@@ -76,7 +76,7 @@ export function BriefFactRow({
       return (
         <BriefRow>
           <span>
-            <Yours>Lot edit</Yours> {fact.label}
+            <Yours>Lot edit</Yours> {fact.label} · {quantityWords(fact.quantity)}
             {fact.excluded && ' · left out of the batch'}
           </span>
         </BriefRow>
