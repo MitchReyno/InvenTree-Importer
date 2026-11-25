@@ -220,10 +220,11 @@ test('a brief that can’t be read says so in its place and leaves the conversat
   const failed = await within(list).findByRole('alert')
   expect(failed).toHaveTextContent('The brief this attempt started from couldn’t be loaded.')
   expect(within(list).getByText('Reading the brief')).toBeVisible()
-  await user.click(within(failed).getByRole('button', { name: 'Try again' }))
-  expect(
-    await within(list).findByRole('group', { name: /Started from Examine’s findings/ }),
-  ).toBeInTheDocument()
+  // Retrying from the keyboard moves focus to the brief once it is read.
+  within(failed).getByRole('button', { name: 'Try again' }).focus()
+  await user.keyboard('{Enter}')
+  const brief = await within(list).findByRole('group', { name: /Started from Examine’s findings/ })
+  await waitFor(() => expect(brief.querySelector('summary')).toHaveFocus())
 })
 
 test('a session from an earlier input, which had no brief, opens as before', async () => {

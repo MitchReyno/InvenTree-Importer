@@ -1,8 +1,10 @@
+import { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import { useQuery } from '@tanstack/react-query'
 import type { SessionHistoryBriefDto, SessionHistoryBriefRefDto } from '@invimport/contracts'
-import { Button } from '#/components/ui'
+import { Button, Small } from '#/components/ui'
 import { useServerScope } from '#/context'
+import { briefSummaryId } from '#/processing/brief-view'
 import { serverQueryKey } from '#/queries/scope'
 import { color, radius, space } from '#/theme/generated/tokens'
 import { BriefDetails } from './BriefDetails'
@@ -16,8 +18,8 @@ export type BriefLoader = (
 
 /**
  * The brief a `/7` attempt started from, as the first item after its divider. The history says
- * where it sits; the brief is read on its own, once, since a sealed brief doesn't change, so a
- * brief that can't be read leaves the rest of the conversation as it is.
+ * where it sits; the brief is read on its own when the card mounts, and not on the history's
+ * polls, so a brief that can't be read leaves the rest of the conversation as it is.
  */
 export function BriefCard({
   reference,
@@ -36,14 +38,40 @@ export function BriefCard({
     staleTime: Infinity,
   })
 
+  // Set by the operator's retry: the button they used goes away once the brief is read.
+  const [focusOnRead, setFocusOnRead] = useState(false)
+  const read = query.data !== undefined
+  // Moves DOM focus to the brief's summary once a retried read has rendered it.
+  useEffect(() => {
+    if (!focusOnRead || !read) {
+      return
+    }
+    document.getElementById(briefSummaryId(reference.attempt_id))?.focus()
+    setFocusOnRead(false)
+  }, [focusOnRead, read, reference.attempt_id])
+
+  function retry() {
+    setFocusOnRead(true)
+    void query.refetch()
+  }
+
   if (query.data) {
-    return <BriefDetails item={query.data} />
+    return (
+      <>
+        {query.isRefetchError && (
+          <Small role="status">
+            Couldn’t read this brief again; showing the copy read earlier.
+          </Small>
+        )}
+        <BriefDetails item={query.data} />
+      </>
+    )
   }
   if (query.isError) {
     return (
       <Placeholder role="alert">
         The brief this attempt started from couldn’t be loaded.{' '}
-        <Button size="sm" onClick={() => void query.refetch()}>
+        <Button size="sm" onClick={retry}>
           Try again
         </Button>
       </Placeholder>

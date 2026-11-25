@@ -153,3 +153,8 @@ export function regionWords(region: Region) {
   }
   return `${region.width}×${region.height} px at ${region.x}, ${region.y}`
 }
+
+/** The id of a brief's summary, the control that opens it. */
+export function briefSummaryId(attemptId: string) {
+  return `brief-summary:${attemptId}`
+}

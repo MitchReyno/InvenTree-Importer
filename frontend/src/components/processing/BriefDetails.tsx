@@ -1,8 +1,7 @@
-import { useId } from 'react'
 import styled from 'styled-components'
 import type { BriefEntryDto, SessionHistoryBriefDto } from '@invimport/contracts'
 import { EventTime } from '#/components/ui'
-import { briefSummary, briefView } from '#/processing/brief-view'
+import { briefSummary, briefSummaryId, briefView } from '#/processing/brief-view'
 import { color, radius, space, typeVar } from '#/theme/generated/tokens'
 import { BriefAsked } from './BriefAsked'
 import { BriefFacts } from './BriefFacts'
@@ -30,7 +29,7 @@ function evidenceText(entry: Evidence) {
  * as theirs, the questions already asked and the evidence the session may read.
  */
 export function BriefDetails({ item }: { item: SessionHistoryBriefDto }) {
-  const summaryId = useId()
+  const summaryId = briefSummaryId(item.attempt_id)
   const { brief } = item
   const view = briefView(brief)
 
