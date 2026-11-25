@@ -64,7 +64,7 @@ Before a provider's first read lands, its picker SHALL show "Reading <provider>'
 
 - **GIVEN** Codex signed in just now and no list stored
 - **WHEN** a Codex picker opens
-- **THEN** it says "Reading Codex's models…", shows the saved model by its ID with its saved effort, and still accepts a typed exact ID.
+- **THEN** it says "Reading Codex's models…", shows the saved model by its ID, Effort keeps its saved value and waits for the list, and a typed exact ID is still accepted.
 
 #### Scenario: Read failed
 
