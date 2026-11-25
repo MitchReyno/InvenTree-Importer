@@ -215,6 +215,8 @@ Implementation of BI-019's agent interaction work, delivered PR by PR as the tas
 
 - **2026-11-25T17:37+11:00, task 15 (PR-L), a reload timeout that trunk shares:** `tests/process/serial/dev-stack.test.ts` timed out waiting for the application to restart after its source edit, also when run alone at concurrency 1; the processing child didn't report ready within the reload window. The same test failed at the same step on trunk `67eed1d7` in a separate worktree, so the flake predates PR-L. The design gained a locking note and the task scope names the two try-lock helpers.
 
+- **2026-11-25T18:23+11:00, task 15 (PR-L), second trunk merge:** merged trunk at `f7980bd7` (#274's decoder ports, #279's connection health and three plan PRs) without conflicts, and rebuilt the decoder and probe images. Review round 12 found two documents made stale by PR-L: `improve-connection-health`'s design still described a busy-only decode as ending `interrupted`, and `agent-model-catalog-and-step-instructions`' proposal gave `0039` to BI-022's #275, which is open with `0039_stage_briefs.sql`. Both now describe PR-L's deferral and the next-free-number rule. Two PG tests, `header-work`'s "rotated target context fences cached connection observations" and `media-startup-authority`'s startup health check, fail alone at concurrency 1 here and identically on trunk `f7980bd7` in a separate worktree.
+
 ## Open items
 
 - PR-A follow-up from the merge review: check a popover opened inside a modal near the viewport's edges in a real browser. Its placement and its use inside a modal are tested in jsdom only.
@@ -226,6 +228,7 @@ Implementation of BI-019's agent interaction work, delivered PR by PR as the tas
 - PR-K follow-ups:
   - Closed by PR-L (task 15): a restored photo's question views render again, except views PR-K's sweep had already deleted, which keep no recipe and still read as failed.
   - Closed by PR-L (task 15): a decode that found the dispatcher busy for its whole wait is deferred and taken again by the next worker run.
+  - On trunk `f7980bd7`, `tests/pg/header-work.test.ts` ("rotated target context fences cached connection observations") and `tests/pg/media-startup-authority.test.ts` ("actual main reopens its bound store…") fail when run alone; neither touches PR-L's code.
   - `tests/process/serial/dev-stack.test.ts` intermittently times out waiting for the application to restart after its source edit, on trunk as well as on PR-L.
   - The figure sweep's deletions still wait for a settling render's row and blob locks, as under PR-K, though they hold no batch lock. A settlement slower than the media role's 5 s statement timeout fails that sweep, which stops the consumer until its supervisor restarts it.
 - Follow-ups from PR-D2:

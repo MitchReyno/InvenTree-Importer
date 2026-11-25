@@ -88,7 +88,7 @@ None.
 - **Guest VM:** a catalogue read in each provider's management service, reached over a catalogue connection of its own beside the status connection. The guest validates the sealed input, so the guest image ships with the contract change, as every `/6` field has.
 - **Frontend:** `ModelPicker`, `StepModels`, `ProviderCard`, a new Effort select and step instruction editor in Settings › Agents, a catalogue query, and the Processing step header.
 - **Coordination with BI-022 (`agent-stage-inputs-outputs`):** its PR-A (#275, "give every session a sealed brief") is in review. This change doesn't edit BI-022's change files. The step instructions PR waits for #275 to merge and then adds the guidance both to the `/6` opening and to the `/7` brief of the attempts #275 seals; BI-022's later provider-backed `/7` profile and multi-lot groups carry the same field from the settings they seal (see the design, "Where step instructions reach the agent").
-- **Migrations:** each PR that needs one takes the next free number when it is written (BI-022's #275 takes `0039`).
+- **Migrations:** each PR that needs one takes the next free number on its merge base when it merges. BI-019's PR-L takes `0039` (`media_decode_deferral`), so whichever of PR-L and BI-022's #275 merges second renumbers its migration.
 - **Live checks:** reading the catalogue against the real providers, and a real session run with an effort, need Mitch's go-ahead (task 6).
 
 ## Open decisions and assumptions
