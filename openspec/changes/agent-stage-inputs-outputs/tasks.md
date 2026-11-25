@@ -251,7 +251,7 @@ With suggestions 3 and 4 also applied, Match's search core (PR-C1) would start i
 
 - [x] 7.1 Draft the base and stage packs from the skills, including BI-019's guidance on attaching pictures to questions (the packs are digest-bound, unlike BI-019's `ASK_GUIDANCE`); get Mitch's review of the wording.
 - [x] 7.2 RED: write the profile, stage-instructions and guide tests.
-- [ ] 7.3 GREEN: write the migrations, policy entry, guides, `read_guide` and `read_vocabulary`.
+- [x] 7.3 GREEN: write the migrations, policy entry, guides, `read_guide` and `read_vocabulary`.
 - [ ] 7.4 Run the tiers.
 
 ## 11. Activation, cutover and live requalification

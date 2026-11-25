@@ -56,7 +56,14 @@ const RESEARCH_GUIDE = [
   'logo-look-alikes',
   'same-part',
 ]
-const IMAGES_GUIDE = ['what-to-crop', 'bounds', 'framing', 'upright-and-straighten', 'light', 'review']
+const IMAGES_GUIDE = [
+  'what-to-crop',
+  'bounds',
+  'framing',
+  'upright-and-straighten',
+  'light',
+  'review',
+]
 /** About 1.8 KB, as Mitch asked; the guard leaves room for a few characters of drift. */
 const GUIDE_SECTION_MAX_BYTES = 1900
 
@@ -462,8 +469,14 @@ test('read_vocabulary lists the batch’s catalogue records by kind and name, in
   const leadToken = await running(fixture, leadAttempt)
   await withClients(async (open) => {
     const researcher = await open(deps.toolUrl, researchToken)
-    assert.equal((await toolNames(await open(deps.toolUrl, imagesToken))).includes('read_vocabulary'), false)
-    assert.equal((await toolNames(await open(deps.toolUrl, leadToken))).includes('read_vocabulary'), false)
+    assert.equal(
+      (await toolNames(await open(deps.toolUrl, imagesToken))).includes('read_vocabulary'),
+      false,
+    )
+    assert.equal(
+      (await toolNames(await open(deps.toolUrl, leadToken))).includes('read_vocabulary'),
+      false,
+    )
 
     const all = await call(researcher, 'read_vocabulary', {})
     assert.equal(all.ok, true)
@@ -493,10 +506,11 @@ test('read_vocabulary lists the batch’s catalogue records by kind and name, in
       supplier: false,
     })
     const diodes = await call(researcher, 'read_vocabulary', { search: 'DIOD' })
-    assert.deepEqual(
-      diodes.vocabulary!.entries.map((entry) => entry.label).sort(),
-      ['Diodes', 'Diodes Incorporated', 'Diodes: Forward Voltage'],
-    )
+    assert.deepEqual(diodes.vocabulary!.entries.map((entry) => entry.label).sort(), [
+      'Diodes',
+      'Diodes Incorporated',
+      'Diodes: Forward Voltage',
+    ])
 
     // More than a page continues with its token, under the same filter only.
     await observe(
@@ -514,7 +528,10 @@ test('read_vocabulary lists the batch’s catalogue records by kind and name, in
     assert.equal(first.vocabulary!.entries.length, 50)
     const token = first.vocabulary!.next_page_token!
     assert.ok(token)
-    const second = await call(researcher, 'read_vocabulary', { kind: 'category', page_token: token })
+    const second = await call(researcher, 'read_vocabulary', {
+      kind: 'category',
+      page_token: token,
+    })
     assert.equal(second.vocabulary!.entries.length, 11)
     assert.equal(second.vocabulary!.next_page_token, undefined)
     const labels = [...first.vocabulary!.entries, ...second.vocabulary!.entries].map(
@@ -546,10 +563,12 @@ test('a Research brief carries the vocabulary; Examine and Images briefs have no
   const researchBrief = await brief(research.attempt_id)
   const vocabulary = researchBrief.entries.filter((entry) => entry.kind === 'vocabulary')
   assert.equal(researchBrief.sections.find((section) => section.name === 'vocabulary')!.count, 4)
-  assert.deepEqual(
-    vocabulary.map((entry) => (entry as { label: string }).label).sort(),
-    ['Diodes', 'Diodes Incorporated', 'Diodes: Forward Voltage', 'Forward Voltage'],
-  )
+  assert.deepEqual(vocabulary.map((entry) => (entry as { label: string }).label).sort(), [
+    'Diodes',
+    'Diodes Incorporated',
+    'Diodes: Forward Voltage',
+    'Forward Voltage',
+  ])
   for (const attemptId of [leadAttempt, images.attempt_id]) {
     const other = await brief(attemptId)
     assert.equal(

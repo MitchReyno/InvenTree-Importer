@@ -214,7 +214,11 @@ test('a vocabulary entry cites a catalogue observation the brief can reference',
     entries: [entry],
   })
   const { mapping: _mapping, ...unmapped } = entry
-  validate('BriefPage', { schema_version: 'bench-intake-brief-page/1', index: 1, entries: [unmapped] })
+  validate('BriefPage', {
+    schema_version: 'bench-intake-brief-page/1',
+    index: 1,
+    entries: [unmapped],
+  })
   // A Part or a location is not vocabulary.
   for (const model of ['part', 'location']) {
     assert.throws(() =>

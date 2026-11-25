@@ -75,17 +75,31 @@ export const LEAD_SESSION_TOOLS = [
   'record_observation',
   'regroup',
 ]
+/** A `/7` session also reads its stage's guide. */
+export const STAGE_LEAD_SESSION_TOOLS = [...LEAD_SESSION_TOOLS, 'read_guide']
 /** A `/7` Research or Images session also reads its lot's brief. */
-export const STAGE_LOT_SESSION_TOOLS = [...SESSION_TOOLS, 'read_lot']
+export const STAGE_LOT_SESSION_TOOLS = [...SESSION_TOOLS, 'read_guide', 'read_lot']
+/** A `/7` Research session also looks up the catalogue vocabulary. */
+export const STAGE_RESEARCH_SESSION_TOOLS = [...STAGE_LOT_SESSION_TOOLS, 'read_vocabulary']
 
 /** The intake tools a session is offered, from its sealed input. */
 export function sessionToolNames(manifest: SessionInputDto) {
-  if (manifest.stage === 'examine') {
-    return LEAD_SESSION_TOOLS
+  if (manifest.schema_version !== 'bench-intake-input/7') {
+    return manifest.stage === 'examine' ? LEAD_SESSION_TOOLS : SESSION_TOOLS
   }
-  return manifest.schema_version === 'bench-intake-input/7'
-    ? STAGE_LOT_SESSION_TOOLS
-    : SESSION_TOOLS
+  if (manifest.stage === 'examine') {
+    return STAGE_LEAD_SESSION_TOOLS
+  }
+  return manifest.stage === 'research' ? STAGE_RESEARCH_SESSION_TOOLS : STAGE_LOT_SESSION_TOOLS
+}
+
+/** Profiles that run on a paired VM deployment, whose turns only that deployment drains. */
+function vmProfile(profileId: string | undefined) {
+  return (
+    profileId === 'shared-vm-agent/1' ||
+    profileId === 'shared-vm-agent/3' ||
+    profileId === 'shared-vm-agent/4'
+  )
 }
 
 const LEAD_INSTRUCTIONS = [
@@ -521,7 +535,15 @@ const CATALOGUE_GUIDANCE =
 const BRIEF_GUIDANCE =
   'Your brief is in brief: the batch, the human-provided facts (source "human"; weigh them first), the questions already asked, the evidence you may fetch with the regions earlier stages read, and your stage’s sections. When brief.rest is set, call the tool it names with its arguments, then pass each page’s next_page_token the same way for the next page; read_lot always takes your lot_id. Without page_token or revision the tool returns the current brief and its revision. A page whose newer is set comes from an older brief.'
 
-/** The opening of a `/7` session: its sealed brief within its budget, and where the rest is. */
+/** Profiles whose stage packs carry the lead's instructions, the ask and catalogue guidance. */
+function packCarriesRules(manifest: ProcessingInputV7Dto) {
+  return manifest.profile_id === 'shared-vm-agent/4'
+}
+
+/**
+ * The opening of a `/7` session: its sealed brief within its budget, and where the rest is. Rules
+ * a profile's sealed packs already carry are left out, so the agent reads one version of them.
+ */
 function stageOpeningText(manifest: ProcessingInputV7Dto, pending: number, attemptId: string) {
   const tool = manifest.stage === 'examine' ? 'read_batch' : 'read_lot'
   const brief = openingBrief(manifest.brief, (page, shown, total) => ({
@@ -542,16 +564,23 @@ function stageOpeningText(manifest: ProcessingInputV7Dto, pending: number, attem
     ...(manifest.part_description_style
       ? { part_description_style: manifest.part_description_style }
       : {}),
-    instructions:
-      (manifest.stage === 'examine' ? `${LEAD_INSTRUCTIONS} ` : '') +
-      `${BRIEF_GUIDANCE} ` +
-      (manifest.part_description_style ? `${STYLE_GUIDANCE} ` : '') +
-      webGuidance(manifest) +
-      'Report steps with status, publish proposals with propose, ask questions with ask and keep working. ' +
-      `${ASK_GUIDANCE} ` +
-      `${INBOX_GUIDANCE} ` +
-      CATALOGUE_GUIDANCE,
+    instructions: stageInstructions(manifest),
   })
+}
+
+function stageInstructions(manifest: ProcessingInputV7Dto) {
+  const sealedRules = packCarriesRules(manifest)
+  const lead = manifest.stage === 'examine' && !sealedRules
+  return (
+    (lead ? `${LEAD_INSTRUCTIONS} ` : '') +
+    `${BRIEF_GUIDANCE} ` +
+    (manifest.part_description_style ? `${STYLE_GUIDANCE} ` : '') +
+    webGuidance(manifest) +
+    'Report steps with status, publish proposals with propose, ask questions with ask and keep working. ' +
+    (sealedRules
+      ? `${STATUS_GUIDANCE} ${INBOX_GUIDANCE}`
+      : `${ASK_GUIDANCE} ${INBOX_GUIDANCE} ${CATALOGUE_GUIDANCE}`)
+  )
 }
 
 /** Exported for tests. A `/7` opening needs the attempt, which its page tokens name. */
@@ -806,10 +835,7 @@ export async function runSessionTurn(
       // Drain a sealed VM turn on its paired deployment. A VM worker must also leave
       // pre-existing host turns for their original worker.
       if (
-        (manifest.profile_id === 'shared-vm-agent/3' ||
-          manifest.profile_id === 'shared-vm-agent/1' ||
-          config.profileId === 'shared-vm-agent/3' ||
-          config.profileId === 'shared-vm-agent/1') &&
+        (vmProfile(manifest.profile_id) || vmProfile(config.profileId)) &&
         manifest.profile_id !== config.profileId
       ) {
         return 'waiting' as const

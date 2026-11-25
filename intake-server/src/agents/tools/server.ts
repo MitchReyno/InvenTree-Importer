@@ -27,6 +27,16 @@ const TOOLS = {
     description:
       'Read the brief of a lot this session serves, one page at a time. Pass page_token to continue a sequence, revision for the brief you started from, or neither for the current brief and its revision. A page whose newer is set comes from an older brief.',
   },
+  read_guide: {
+    schema: 'SessionReadGuideArgs',
+    description:
+      'Read your stage’s guide: long reference material behind your instructions. Call it with no section to list the sections and their titles, or name a section to read it. Every session of the profile reads the same text.',
+  },
+  read_vocabulary: {
+    schema: 'SessionReadVocabularyArgs',
+    description:
+      'Research sessions only. Look up the catalogue records this batch has observed (categories, parameter templates, category mappings and companies), each with the reference a proposal cites. Filter by kind, or by a search matched against labels regardless of case. Results come 50 to a page; pass next_page_token with the same kind and search for the next.',
+  },
   record_observation: {
     schema: 'RecordObservationArgs',
     description:
@@ -81,15 +91,26 @@ const STAGE_READ_BATCH = {
 const LEAD_ONLY = new Set(['read_batch', 'record_observation', 'propose_lot', 'regroup'])
 /** Tools only a `/7` Research or Images session has. */
 const STAGE_LOT_ONLY = new Set(['read_lot'])
+/** Tools every `/7` session has, and only `/7` sessions. */
+const STAGE_ONLY = new Set(['read_guide'])
+/** Tools only a `/7` Research session has. */
+const STAGE_RESEARCH_ONLY = new Set(['read_vocabulary'])
 
 /** Whether a principal is offered a tool: its sealed input and stage decide. */
 function offered(name: string, principal: SessionPrincipal) {
   const lead = (principal.stage as string) === 'examine'
+  const stageInput = principal.manifest.schema_version === 'bench-intake-input/7'
   if (LEAD_ONLY.has(name)) {
     return lead
   }
   if (STAGE_LOT_ONLY.has(name)) {
-    return !lead && principal.manifest.schema_version === 'bench-intake-input/7'
+    return !lead && stageInput
+  }
+  if (STAGE_ONLY.has(name)) {
+    return stageInput
+  }
+  if (STAGE_RESEARCH_ONLY.has(name)) {
+    return stageInput && principal.manifest.stage === 'research'
   }
   return true
 }
@@ -170,8 +191,8 @@ export async function startSessionToolServer(options: SessionToolServerOptions) 
     }
     res.setHeader(evidenceFormatHeader, 'current')
     const server = new McpServer({ name: 'intake', version: '1' })
-    // Lot-forming tools exist only for the batch's Examine lead session, and read_lot only for
-    // stage sessions; handlers check again.
+    // Lot-forming tools exist only for the batch's Examine lead session, and the brief, guide and
+    // vocabulary reads only for stage sessions; handlers check again.
     for (const [name, tool] of Object.entries(TOOLS)) {
       if (!offered(name, principal)) {
         continue

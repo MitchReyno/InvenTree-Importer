@@ -10,8 +10,8 @@ export { STAGE_TOOL_PROFILE }
 export type SessionInputVersion = 'bench-intake-input/6' | 'bench-intake-input/7'
 
 /**
- * Each stage pack's digest by profile, as migration `0039` stores it. A `/7` input seals its
- * stage's, and the claim checks the stored pack against it. Earlier profiles have none.
+ * Each stage pack's digest by profile, as migrations `0039` and `0043` store them. A `/7` input
+ * seals its stage's, and the claim checks the stored pack against it. Earlier profiles have none.
  */
 export const stagePacks: Partial<Record<SessionProfileId, Record<BriefStageDto, string>>> = {
   'synthetic-session/1': {
@@ -19,6 +19,16 @@ export const stagePacks: Partial<Record<SessionProfileId, Record<BriefStageDto, 
     research: 'b1c4f826f3cbc86ccd900365f6a72a570db98ded905ef2ec53a971b60547bec9',
     images: 'e4cfa08e54a09b24d895529b36493784e55bff9865fe9b4ec3cfc5caad2b4580',
   },
+  'shared-vm-agent/4': {
+    examine: '9427272cfc1759207247eb6cc799a94d95d7c8754302ed85ae0040497944be4a',
+    research: '676bfcfa1e91befc223702c72c74230533f177be7c325474dbf2ba0360d97b73',
+    images: '1266b1d819acb73ceddb251f18acd7886d94b61773f5ed54d6206e67e94b397b',
+  },
+}
+
+/** Profiles that run only the `/7` pipeline; they never seal a `/6` input. */
+export function stageOnlyProfile(profileId: string) {
+  return profileId === 'shared-vm-agent/4'
 }
 
 /**
@@ -33,12 +43,15 @@ export function expectedToolProfile(profileId: SessionProfileId, version: Sessio
 
 /**
  * The version a batch with no lead follows: `/7` only under the test-only switch, for
- * `synthetic-session/1` on its local route. Every other configuration keeps `/6`.
+ * `synthetic-session/1` on its local route or the stage profile `shared-vm-agent/4`, which
+ * configuration can't select yet. Every other configuration keeps `/6`.
  */
 export function configuredInputVersion(
   config: Pick<ProcessingConfig, 'profileId' | 'stageInputs'>,
 ): SessionInputVersion {
-  return config.profileId === 'synthetic-session/1' && config.stageInputs === 'local'
+  const stageProfile =
+    config.profileId === 'synthetic-session/1' || config.profileId === 'shared-vm-agent/4'
+  return stageProfile && config.stageInputs === 'local'
     ? 'bench-intake-input/7'
     : 'bench-intake-input/6'
 }

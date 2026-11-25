@@ -100,6 +100,24 @@ Mitch reviewed the draft base instructions, stage packs and guide sections and a
 7. **The Research guide has nine sections**, each under about 1.8 KB: modes, nsn-and-data-books, datasheets, identity-and-specifications, naming-and-notes, vocabulary-and-gaps, logos, logo-look-alikes and same-part.
 8. **The brief's vocabulary section** is filled in this PR, from the same lookup `read_vocabulary` uses.
 
+### `read_vocabulary`'s lookup interface
+
+- **Both a filter and paging.** `read_vocabulary({ kind?, search?, page_token? })`. `kind` is category, parameter_template, category_parameter or company; `search` (1–100 characters) keeps entries whose label contains it, regardless of case. Results come 50 to a page (`VOCABULARY_PAGE_SIZE`), ordered by kind, label and observation, with the total and a `next_page_token` while more remain.
+- **Tokens** are the cursor (kind, search, offset) as canonical JSON in base64url. A token continues only the kind and search it came with; any other call with it is a correctable `validation_failed`. Tokens aren't bound to the attempt: the read is of the session's own batch and writes nothing.
+- **Current, not sealed.** The brief's vocabulary section is the list as sealed; `read_vocabulary` reads it again from the batch now, through the capture snapshot, with the same projection (`processing/vocabulary.ts`). Observations from an earlier target context are left out, since a proposal can't cite them.
+
+### How `/4` is reached before activation
+
+- `configuredInputVersion` seals `/7` for `shared-vm-agent/4` when `ProcessingConfig.stageInputs` is `local`, as for `synthetic-session/1`. Configuration can't select `/4` (`INTAKE_PROCESSING_PROFILE` refuses it, with or without the switch), so only tests reach it.
+- `/4` is stage-only: sealing a `/6` input for it is refused as `unsupported_processing_profile`, and its `/6` fields are checked only as part of the `/7` input.
+- `webAccess()` stays `/3`-only until PR-G2 changes the web-policy gates together, so `/4` inputs seal web research off. The packs and base keep the web lines; they apply once activation turns the gates on.
+- Tests run `/4` sessions with the synthetic driver (`formedBatch` takes the profile). Admission, pairing and the VM path stay PR-G2's.
+
+### Open items
+
+- **Full-catalogue vocabulary.** The vocabulary is the batch's observed catalogue records (at most 100 read observations), not InvenTree's whole catalogue. Reading the full catalogue needs an InvenTree reader in the API process, since the session worker has none; until then Research mostly proposes new categories and reports gaps.
+- **The session page doesn't list vocabulary entries.** The brief on the session page (PR-H) shows the entries it knows; a Research brief's vocabulary entries are left out of the opened card, and its collapsed line doesn't count them.
+
 ## Task 5 (PR-E1) status
 
 Merged in #274. Task 5 (PR-E1) adds recipe `/2` and the decoder operations behind `inspect_region`, `preview_images` and `match_logo`; nothing outside tests calls them yet. Task 1 (PR-A) is recorded above.

@@ -19,11 +19,17 @@ import {
   type RetainedMediaDescriptor,
 } from './model.ts'
 import { sessionProfiles, type SessionProfileId } from './session-policy.ts'
+import { stageOnlyProfile } from './stage-policy.ts'
 
 /** The profile, selection and sealed settings a session input records. */
 export type SessionInputProfile =
   | {
-      id: 'native-agent/2' | 'shared-vm-agent/1' | 'shared-vm-agent/2' | 'shared-vm-agent/3'
+      id:
+        | 'native-agent/2'
+        | 'shared-vm-agent/1'
+        | 'shared-vm-agent/2'
+        | 'shared-vm-agent/3'
+        | 'shared-vm-agent/4'
       agent: AgentSelectionDto
       settingsRevision: string
       /** Sealed with the attempt, so a later save can't change what a queued session reads. */
@@ -76,8 +82,18 @@ export function sessionLotInputManifest(
     ...(profile.id !== 'synthetic-session/1' && profile.web ? { web: { ...profile.web } } : {}),
     pinned_proposal_ids: [...pinnedProposalIds].sort(),
   }
-  validate('ProcessingInputV6', manifest)
+  validateSessionBase(manifest)
   return manifest as ProcessingInputV6Dto
+}
+
+/**
+ * Checks a session's `/6` fields. A stage-only profile has no `/6` input: its fields are the base
+ * of a `/7` input, which `stageInputManifest` checks whole.
+ */
+function validateSessionBase(manifest: { profile_id: string }) {
+  if (!stageOnlyProfile(manifest.profile_id)) {
+    validate('ProcessingInputV6', manifest)
+  }
 }
 
 /** Whether a decoded input is a session's (`/6` or `/7`) rather than an earlier runner's. */
@@ -220,6 +236,6 @@ export function sessionLeadInputManifest(
     ...(profile.id !== 'synthetic-session/1' && profile.web ? { web: { ...profile.web } } : {}),
     pinned_proposal_ids: [],
   }
-  validate('ProcessingInputV6', manifest)
+  validateSessionBase(manifest)
   return manifest as ProcessingInputV6Dto
 }

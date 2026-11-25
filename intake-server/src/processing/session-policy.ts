@@ -1,6 +1,7 @@
 /**
  * Session profiles share one handler; each has its own instruction digest and tool profile.
- * Only `shared-vm-agent/3` has the web tool surface.
+ * Only `shared-vm-agent/3` has the web tool surface. `shared-vm-agent/4` is the stage profile: it
+ * seals only `/7` inputs, and no configuration selects it yet.
  */
 export const sessionHandlerVersion = 'processing/5'
 export const sessionCommandQueue = 'bench-sessions'
@@ -19,6 +20,11 @@ export const sessionProfiles = {
     instructionVersion: 'shared-vm-agent/3',
     instructionDigest: '047abcc81e994911bb12d8856a84fee863e8c553c79c252f49acafda6329b9f2',
     toolProfileVersion: 'native-session-web-tools/1',
+  },
+  'shared-vm-agent/4': {
+    instructionVersion: 'shared-vm-agent/4',
+    instructionDigest: '07de4227d8ebbfa0a6adf84b1aa0133d8a50fe912f5d85272fc9a4e26cdc0a11',
+    toolProfileVersion: 'native-session-stage-tools/1',
   },
   'native-agent/2': {
     instructionVersion: 'native-agent/2',
