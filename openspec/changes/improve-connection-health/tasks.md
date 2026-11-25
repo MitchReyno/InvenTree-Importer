@@ -23,7 +23,7 @@ T1 establishes server observations. T2 consumes them. T3 delivers media admissio
 
 - [x] Baseline the liveness route, scoped status read, 3-second remote cutoff, 30-second cache, client budgets and socket ticks. Capture synthetic latency, pool wait and current failure classifications.
 - [x] RED: reproduce a 9-second protected success labelled offline with the original deadline.
-- [ ] Historical RED evidence remains partial for autonomous checks, heartbeat delay under pool pressure and credential/context rotation. Post-change verification covers these cases.
+- [x] Historical comparison: reproduce absent autonomous checks and a missed heartbeat while the projection waits on PostgreSQL. Verify the existing credential and context rotation fences in the previous implementation and preserve them in the new one.
 - [x] GREEN: implement the scheduled target checks, coalesced manual check, cancellation, short recovery cadence, budgeted health pool, schema-compatible snapshots and separate root/auth outcomes. Decouple socket heartbeat from projection without weakening scope closure. Introduce reason and elapsed-time observations.
 - [x] Verify with fake clocks, generated-client checks, actual sockets, saturated PostgreSQL pool and target stub. Cover startup, shutdown, fresh-cache checks, refused token, redirects, root failure, target timeout and local DB failure. Update Intake architecture and endpoint docs.
 
@@ -40,14 +40,15 @@ T1 establishes server observations. T2 consumes them. T3 delivers media admissio
 
 - [x] Exercise the last-slot race with a competing figure worker and one-shot photo client. Assert against the claim table that a photo denied admission stays eligible. Apply the same check to the direct development launcher before selecting a shared admission implementation.
 
-- [ ] Baseline dev media loop, one-shot host entry point, deployed dispatcher, per-kind admission and worker completion transactions. RED: two retained versions cannot overlap today; exercise contention with figures, backfill and simultaneous one-shot clients.
+- [x] Baseline dev media loop, one-shot host entry point, deployed dispatcher, per-kind admission and worker completion transactions. RED: two retained versions cannot overlap today; exercise contention with figures, backfill and simultaneous one-shot clients.
 - [x] GREEN: reserve before claim in dev and host modes, implement one or two bounded slots, supervised draining, bounded input/output memory, fair maintenance and deterministic shutdown. Keep browser uploads ordered, claims durable and the one-command CLI usable.
-- [ ] Use PostgreSQL and the pinned isolated decoder to check duplicate bytes, concurrent completions in one batch, conditional publication, interrupted ownership, resource exhaustion, old one-slot behavior, refused unauthorised requests and capacity reclamation. Update media launch and deployment documentation.
+- [x] Use PostgreSQL and the pinned isolated decoder to check duplicate bytes, concurrent completions in one batch, conditional publication, interrupted ownership, resource exhaustion, old one-slot behavior, refused unauthorised requests and capacity reclamation. Update media launch and deployment documentation.
 
 ## T4. Qualify mixed-load operation and select host defaults
 
-- [ ] Compare the original four-ordinary pool and the three-ordinary, one-health allocation at one decoder slot. Record pool waits, queue depth, ordinary-read p95 and role headroom separately from the decoder-slot comparison.
+- [x] Compare the original four-ordinary pool and the three-ordinary, one-health allocation at one decoder slot. Record pool waits, queue depth, ordinary-read p95 and role headroom separately from the decoder-slot comparison.
 
-- [ ] Run the design's reproducible one-versus-two-slot workload. Use measured comparison in place of a test-first cycle for tuning. Record environment and resource ceilings before each series. Separate upload time, queue delay, decode and publication time.
-- [ ] Verify coverage and exact output for all retained versions, interactive p95, local heartbeat p95, target timeouts and recovery times. Include a saturated and a recovering run. Document the qualified profile or retain one slot when evidence is insufficient.
-- [ ] Verify startup, rolling upgrade, drain and downgrade in a disposable deployment, and run pnpm test plus affected deployment and frontend checks. Attach benchmark distributions, resource peaks and limits to the PR. Obtain independent exact-head review, resolve findings, wait for selected green CI and merge only when authorized.
+- [x] Run the design's reproducible one-versus-two-slot workload. Use measured comparison in place of a test-first cycle for tuning. Record environment and resource ceilings before each series. Separate upload time, queue delay, decode and publication time.
+- [x] Verify coverage and exact output for all retained versions, interactive p95, local heartbeat p95, target timeouts and recovery times. Include a saturated and a recovering run. Document the qualified profile or retain one slot when evidence is insufficient.
+- [x] Verify startup, rolling upgrade, drain and downgrade in a disposable deployment, and run pnpm test plus affected deployment and frontend checks. Record benchmark distributions, resource peaks and limits on the PR.
+- [ ] Merge the independently reviewed implementation into interactive-app after selected green CI and operator approval.

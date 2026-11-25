@@ -20,4 +20,4 @@ The user approved a third capability delta for the two fixed active-credential h
 
 ## Open items
 
-Implementation and qualification are tracked in tasks.md.
+The qualified MacBookPro18,3 configuration uses two slots. Raspberry Pi 5 and unqualified installations retain one. Per-host configuration and rollout are documented in the deployment guide. The remaining approval and merge are tracked in tasks.md.
