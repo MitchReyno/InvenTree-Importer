@@ -1391,6 +1391,8 @@ test('with an unsaved draft, a refused Back keeps the subsection scrolled to', a
 
     layout.scrollPage(1200)
     expect(location.hash).toBe('#settings/agents/models')
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    layout.scrollIntoView.mockClear()
 
     await act(async () => {
       history.back()
@@ -1398,6 +1400,9 @@ test('with an unsaved draft, a refused Back keeps the subsection scrolled to', a
     })
     expect(await screen.findByText(/Your unsaved input is preserved/)).toBeVisible()
     expect(location.hash).toBe('#settings/agents/models')
+    // The refused Back leaves the page and focus where they were.
+    expect(layout.scrollIntoView).not.toHaveBeenCalled()
+    expect(document.activeElement).toBe(document.body)
     expect(screen.getByRole('textbox', { name: 'Instructions for every new batch' })).toHaveValue(
       'Mine',
     )

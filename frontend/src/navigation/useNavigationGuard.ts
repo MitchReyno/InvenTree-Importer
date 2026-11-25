@@ -118,9 +118,13 @@ export function useNavigationGuard() {
       if (returnTo !== undefined && stored === undefined) {
         storeSettingsReturn(returnTo)
       }
+      // The same route again (the restored entry after a refused Back) keeps how it was written.
+      const moved = next !== accepted.current.route
       accepted.current = { route: next, settingsReturn: returnTo }
       setRoute(next)
-      setRouteFromScroll(false)
+      if (moved) {
+        setRouteFromScroll(false)
+      }
       setSettingsReturn(returnTo)
     }
 

@@ -460,7 +460,7 @@
 - [x] PR-H: implement task 13, review the exact head, publish with the demo, CI green, merge. Merged as #267 at `3000b14d`; its real-VM Settings check stays open (see `notes.md`).
 - [x] PR-I: implement task 14, review the exact head, publish with the audit, captures and the demo, CI green, merge. Merged as #270 at `2636a105`.
 - [x] PR-J: implement task 15, review the exact head, publish with the demo, CI green, merge. Merged as #271 at `14c71673`.
-- [ ] PR-K: implement tasks 16 and 17, review the exact head, publish with the captures, contrast table and demo, CI green, merge.
+- [ ] PR-K: implement tasks 16 and 17, review the exact head, publish with the captures, contrast table and demo, CI green, merge. The running-app captures of task 17.4 follow after merge (see `notes.md`).
 - [ ] Update BI-020 as PRs merge. It is Done only after every implementation PR (PR-A to PR-K) merges and its acceptance is evidenced.
 - [ ] Mark this change's "Fixes: before and after" entries (S5, S7, O1–O5, O7–O11, R1 and R2) in the design log as Built, with their PRs.
 - [ ] Before syncing: re-run strict validation and `pnpm openspec:overlap --change polish-ui-styling-and-loading`. If another change has synced an edit to "Agent settings section" or "Masthead and electronics current in both themes" first, rebase this change's MODIFIED block onto the synced text, in full.

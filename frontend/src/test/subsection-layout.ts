@@ -46,6 +46,7 @@ function restoreProperty(target: object, name: string, original: PropertyDescrip
  */
 export function stubSubsectionLayout() {
   let frames: FrameRequestCallback[] = []
+  const cancelled = new Set<FrameRequestCallback>()
   const scrollIntoView = vi.fn()
   const original = {
     requestAnimationFrame: window.requestAnimationFrame,
@@ -58,7 +59,10 @@ export function stubSubsectionLayout() {
 
   window.requestAnimationFrame = (frame: FrameRequestCallback) => frames.push(frame)
   window.cancelAnimationFrame = (handle: number) => {
-    frames[handle - 1] = () => undefined
+    const frame = frames[handle - 1]
+    if (frame) {
+      cancelled.add(frame)
+    }
   }
   Object.defineProperty(window, 'innerHeight', { configurable: true, value: WINDOW_HEIGHT })
   Object.defineProperty(document.documentElement, 'scrollHeight', {
@@ -79,8 +83,11 @@ export function stubSubsectionLayout() {
     const pending = frames
     frames = []
     for (const frame of pending) {
-      frame(performance.now())
+      if (!cancelled.has(frame)) {
+        frame(performance.now())
+      }
     }
+    cancelled.clear()
   }
 
   /** Scrolls the window to `y`, as any scroll does, without running the frame it asks for. */
@@ -92,6 +99,11 @@ export function stubSubsectionLayout() {
   return {
     scrollIntoView,
     scrollWithoutFrame,
+
+    /** How many requested animation frames are still waiting to run. */
+    pendingFrames() {
+      return frames.filter((frame) => !cancelled.has(frame)).length
+    },
 
     /** Runs the animation frames requested so far. */
     flushFrames() {

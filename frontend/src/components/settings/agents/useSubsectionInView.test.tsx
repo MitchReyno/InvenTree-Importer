@@ -251,8 +251,22 @@ test('under StrictMode the scroll is followed once, and leaving drops a pending 
   expect(location.hash).toBe('#settings/agents/models')
 
   act(() => layout.scrollWithoutFrame(2400))
+  expect(layout.pendingFrames()).toBe(1)
   view.unmount()
-  layout.flushFrames()
+  expect(layout.pendingFrames()).toBe(0)
+  layout.scrollWithoutFrame(2600)
+  expect(layout.pendingFrames()).toBe(0)
 
+  expect(location.hash).toBe('#settings/agents/models')
+})
+
+test('on a bare Agents route the first scroll by hand is followed at once', async () => {
+  history.replaceState({ settingsReturnTo: 'agents' }, '', '#settings/agents')
+  render(<GuardedSettings />)
+  await screen.findByRole('group', { name: /^Claude$/ })
+
+  layout.scrollPage(1200)
+
+  expect(currentLink()).toBe('Provider and model per step')
   expect(location.hash).toBe('#settings/agents/models')
 })

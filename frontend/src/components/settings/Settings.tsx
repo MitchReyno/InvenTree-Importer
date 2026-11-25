@@ -181,4 +181,8 @@ const NavColumn = styled.div`
 const Content = styled.div`
   flex: 999 1 560px;
   min-width: 0;
+  /* Stacked, the content takes its own row, so the nav sits above it wherever scrolling stops following. */
+  ${media.stacked} {
+    flex-basis: 100%;
+  }
 `

@@ -27,17 +27,18 @@ function subsectionAtReadingLine(ids: readonly AgentSubsectionId[]) {
 }
 
 /**
- * Follows the window's scroll position. Only scrolling by hand forms a reading: opening the page,
- * every hash navigation (a link, Back, a typed address) and every scroll the page makes to a
- * subsection (`pause`) hold it until the scroll they start ends, so the route decides meanwhile
- * and the scroll never steps through the sections between.
+ * Follows the window's scroll position. Only scrolling by hand forms a reading: every hash
+ * navigation (a link, Back, a typed address) and every scroll the page makes to a subsection
+ * (`pause`) hold it until the scroll they start ends, so the route decides meanwhile and the
+ * scroll never steps through the sections between.
  */
 function scrollReading(ids: readonly AgentSubsectionId[]) {
   let current: AgentSubsectionId | undefined
   let frame: number | undefined
   let idle: ReturnType<typeof setTimeout> | undefined
   let paused = false
-  // Set while subscribed; a pause outside a subscription has nothing to hold.
+  // Set while subscribed. A pause holds without one too: the page can scroll to a heading
+  // before the subscription starts.
   let notify: (() => void) | undefined
 
   function publish(next: AgentSubsectionId | undefined) {
@@ -65,9 +66,6 @@ function scrollReading(ids: readonly AgentSubsectionId[]) {
   }
 
   function pause() {
-    if (!notify) {
-      return
-    }
     paused = true
     cancelFrame()
     waitForIdle()
@@ -93,7 +91,6 @@ function scrollReading(ids: readonly AgentSubsectionId[]) {
 
     subscribe(listener: () => void) {
       notify = listener
-      pause()
       addEventListener('scroll', handleScroll, { passive: true })
       addEventListener('scrollend', resume)
       addEventListener('hashchange', pause)
@@ -103,9 +100,8 @@ function scrollReading(ids: readonly AgentSubsectionId[]) {
         removeEventListener('scrollend', resume)
         removeEventListener('hashchange', pause)
         removeEventListener('popstate', pause)
+        // A pause still running outlives a resubscription, as under StrictMode; its timer ends it.
         cancelFrame()
-        clearTimeout(idle)
-        paused = false
         current = undefined
         notify = undefined
       }
