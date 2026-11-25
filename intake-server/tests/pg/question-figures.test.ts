@@ -2183,13 +2183,14 @@ test('a sweep’s deletion waiting on a blob holds no batch lock, so a media edi
     const collector = await media.pool.connect()
     let sweeping: Promise<PromiseSettledResult<SweepOutcome>> | undefined
     let editing: Promise<PromiseSettledResult<unknown>> | undefined
-    const deadline = timeout(5_000, 'deadline' as const)
+    let deadline: ReturnType<typeof timeout<'deadline'>> | undefined
     let edited: PromiseSettledResult<unknown> | 'deadline' | undefined
     try {
       await collector.query('BEGIN')
       await lockBlob(collector, previewDigest.rows[0]!.digest)
       sweeping = outcomeOf(sweepFigureRenders(media.pool, store, binding))
       await untilBlockedBy(setup, await backendPid(collector), 'the sweep’s deletion')
+      deadline = timeout(5_000, 'deadline' as const)
       editing = outcomeOf(
         mediaEditor(fixture.api.pool, fixture.config, setup.batchId).applied({
           kind: 'remove',
@@ -2199,7 +2200,7 @@ test('a sweep’s deletion waiting on a blob holds no batch lock, so a media edi
       edited = await Promise.race([editing, deadline.done])
       await collector.query('COMMIT')
     } finally {
-      deadline.cancel()
+      deadline?.cancel()
       await collector.query('ROLLBACK').catch(() => undefined)
       collector.release()
       await editing

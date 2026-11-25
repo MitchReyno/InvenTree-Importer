@@ -211,6 +211,8 @@ Implementation of BI-019's agent interaction work, delivered PR by PR as the tas
 
 - **2026-11-25T16:43+11:00, task 15 (PR-L), review round 7 fixes:** Mitch lifted the round cap for this PR. The claim now sets one savepoint before its loop and rolls back to it for each rejected candidate, instead of stacking a savepoint per candidate. A new test pauses the claim on a render whose photo is then removed, lets it reach another batch's exhausted render and wait on that batch's stream, and checks that both the rejected render's row and its batch lock are free. The paused-claim tests wait for the pause against the claim finishing and a deadline, check the paused render's ID, and open the gate and drain the claim in `finally`; the deletion-wait test clears its timer and drains the edit and the sweep before teardown. Each new test fails with its fix removed.
 
+- **2026-11-25T16:46+11:00, task 15 (PR-L), review round 8 fix:** the deletion-wait test's five-second deadline now starts once the sweep is seen blocked, just before the edit, so its setup can't use up the time the edit is given.
+
 ## Open items
 
 - PR-A follow-up from the merge review: check a popover opened inside a modal near the viewport's edges in a real browser. Its placement and its use inside a modal are tested in jsdom only.
