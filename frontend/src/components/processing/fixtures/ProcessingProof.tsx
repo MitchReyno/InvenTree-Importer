@@ -640,9 +640,11 @@ export function ProcessingProof() {
     // Without sessions the batch has no agent activity, as a client without the read shows.
     ...(sessions
       ? {
+          // Only the Examine lead and the LM358 Research session have histories of their own;
+          // the other jobs' drawers share a placeholder with no recorded actions of theirs.
           batchActivity: fixtureActivity(history, async () =>
             snapshot(sessions)
-              .jobs.filter((job) => job.session_state)
+              .jobs.filter((job) => job.id === id(5) || job.id === id(3))
               .map((job) => job.id),
           ),
         }
