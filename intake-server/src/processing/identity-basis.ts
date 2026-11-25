@@ -1,15 +1,18 @@
 import type { PoolClient } from 'pg'
+import { versionRemovedSql } from '#/media/removal.ts'
 
 /**
- * The lot's active members as Capture holds them now, in the shape a basis keeps: each one's
- * revision and same-item mark, ordered by id.
+ * The lot's members as Capture shows them now, in the shape a basis keeps: each active one not
+ * on removed evidence, with its revision and same-item mark, ordered by id.
  */
 const membersOf = (lot: string) => `COALESCE((
   SELECT jsonb_agg(jsonb_build_object('id',o.id,'revision',o.revision::text,'same_item_as',o.same_item_as)
                    ORDER BY o.id)
   FROM public.capture_lot_evidence_observation m
   JOIN public.capture_evidence_observation o ON o.id=m.evidence_observation_id
-  WHERE m.lot_id=${lot} AND m.status='active' AND o.status='active'), '[]'::jsonb)`
+  JOIN public.media_version v ON v.id=o.evidence_version_id
+  WHERE m.lot_id=${lot} AND m.status='active' AND o.status='active'
+    AND NOT ${versionRemovedSql('v')}), '[]'::jsonb)`
 
 /** Keeps the lot as a stable `/7` identity saw it, for the claim and Review gate to compare. */
 export async function recordIdentityBasis(

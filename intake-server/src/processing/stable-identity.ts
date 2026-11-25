@@ -436,6 +436,13 @@ export async function claimPinnedIdentity(client: PoolClient, pinned: readonly s
   if (!broken.length) {
     return false
   }
+  // One repair per batch at a time, so claims staling related identities never wait on each other.
+  await client.query(
+    `SELECT pg_advisory_xact_lock(hashtextextended('identity-basis:' || a.batch_id::text, 0))
+     FROM public.processing_proposal p JOIN public.processing_attempt a ON a.id=p.attempt_id
+     WHERE p.id=$1`,
+    [broken[0]],
+  )
   const written = await client.query<{ id: string }>(
     `INSERT INTO public.processing_proposal_stale(proposal_id,reason)
      SELECT unnest($1::uuid[]),'source_superseded' ON CONFLICT DO NOTHING RETURNING proposal_id AS id`,

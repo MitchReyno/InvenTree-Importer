@@ -720,7 +720,7 @@ export async function evidenceRemoved(
      JOIN public.processing_job j ON j.id=a.job_id
      WHERE j.batch_id=$1 AND p.relies_on IS NOT NULL
        AND NOT EXISTS (SELECT 1 FROM public.processing_proposal_stale s WHERE s.proposal_id=p.id)
-       AND EXISTS (
+       AND (EXISTS (
          SELECT 1 FROM (
            SELECT jsonb_array_elements(p.relies_on->'sources') AS source
            UNION ALL
@@ -738,6 +738,11 @@ export async function evidenceRemoved(
             OR (cited.source->>'kind'='evidence_observation'
                 AND cited.source->>'evidence_observation_id' = ANY($3::text[]))
             OR (cited.source->>'kind'='note' AND cited.source->>'note_id' = ANY($4::text[])))
+       -- A stable identity kept its lot as it was; removing a member's evidence changes that lot.
+       OR EXISTS (
+         SELECT 1 FROM public.processing_identity_basis b
+         CROSS JOIN LATERAL jsonb_array_elements(b.members) member
+         WHERE b.proposal_id=p.id AND member->>'id' = ANY($3::text[])))
      ORDER BY p.id`,
     [input.batchId, versions, observations, notes],
   )

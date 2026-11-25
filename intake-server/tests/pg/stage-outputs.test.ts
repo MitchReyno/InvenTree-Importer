@@ -2466,6 +2466,12 @@ test('a successor pinned to an identity resting on a broken one doesn’t start'
     proposalCurrentnessFacts(client, batchId, [String(onLed.id)]),
   )
   assert.equal(facts.get(String(onLed.id))?.stale, 'source_superseded')
+  // The crystal's Images, claimed, doesn't start from it.
+  const images = await stageJob(batch, '16 mhz crystal', 'images')
+  assert.equal(
+    await runSessionTurn(batch.deps, images.attemptId, new AbortController().signal),
+    'cancelled',
+  )
   // Publishing on the crystal's identity is refused, and its Research doesn't start.
   const researcher = await running(fixture, research.attemptId)
   const refused = await result(
@@ -2474,4 +2480,70 @@ test('a successor pinned to an identity resting on a broken one doesn’t start'
     }),
   )
   assert.equal(refused.error, 'stale', JSON.stringify(refused))
+})
+
+test('removing a photo of a member no identity cites still stales the identity of its lot', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, deps, batchId, leadJob, leadAttempt } = batch
+  // A later photo of the same reel joins the LED lot, so it has two observations.
+  await photoWithNote(fixture, batchId, 'Reel', 'LED 0603 red')
+  await triggerExamine(fixture.writer.pool, fixture.config, { quietMs: 0 })
+  await transaction(fixture.runner.pool, (client) => queueSessionResume(client, leadJob))
+  assert.equal(await runSessionTurn(deps, leadAttempt, new AbortController().signal), 'finished')
+  const led = await batch.lot('led 0603 red')
+  const [first, second] = led.evidence_observation_ids!
+  const session = tools(batch)
+  const lead = await running(fixture, leadAttempt)
+  const { note } = citations((await inputOf(fixture, leadAttempt)).manifest)
+  // An identity citing the lot's set, marking and citing only the first observation.
+  const identity = await result(
+    session.propose(lead, {
+      proposal: {
+        schema_version: 'examine-identity/1',
+        subject_id: led.id,
+        summary: 'Red 0603 LEDs.',
+        sources: [note],
+        relies_on: {
+          fields: ['markings', 'identity'],
+          sources: [
+            note,
+            { kind: 'observation_set', lot_id: led.id, version: led.observation_set_version },
+          ],
+        },
+        markings: [{ observation_id: first, text: ['LED 0603 red'] }],
+        candidates: [],
+      },
+    }),
+  )
+  assert.equal(identity.ok, true, JSON.stringify(identity))
+  const research = await stageJob(batch, 'led 0603 red', 'research')
+  assert.deepEqual((await inputOf(fixture, research.attemptId)).manifest.pinned_proposal_ids, [
+    identity.id,
+  ])
+  const reelVersion = (await snapshotOf(fixture, batchId)).evidence_observations!.find(
+    (item) => item.id === second,
+  )!.evidence_version_id
+  await grantMedia(fixture.db.pool, fixture.api.name, 'api')
+  const media = await fixture.db.pool.query<{ revision: string; evidence_id: string }>(
+    `SELECT b.revision::text, v.evidence_id FROM media_batch b
+     JOIN media_version v ON v.batch_id=b.batch_id WHERE b.batch_id=$1 AND v.id=$2`,
+    [batchId, reelVersion],
+  )
+  await editMedia(fixture.api.pool, fixture.config, batchId, randomUUID(), {
+    expected_revision: media.rows[0].revision,
+    change: { kind: 'remove', evidence_ids: [media.rows[0].evidence_id] },
+  })
+  const stale = await fixture.db.pool.query<{ reason: string }>(
+    'SELECT reason FROM processing_proposal_stale WHERE proposal_id=$1',
+    [identity.id],
+  )
+  assert.equal(stale.rows[0]?.reason, 'evidence_removed')
+  const facts = await transaction(fixture.runner.pool, (client) =>
+    proposalCurrentnessFacts(client, batchId, [String(identity.id)]),
+  )
+  assert.equal(facts.get(String(identity.id))?.stale, 'evidence_removed')
+  assert.equal(
+    await runSessionTurn(deps, research.attemptId, new AbortController().signal),
+    'cancelled',
+  )
 })
