@@ -86,7 +86,10 @@ export function sessionLotInputManifest(
 }
 
 type WithoutProfile<T> = T extends unknown
-  ? Omit<T, 'profile_id' | 'instruction_version' | 'tool_profile_version'>
+  ? Omit<
+      T,
+      'profile_id' | 'instruction_version' | 'tool_profile_version' | 'agent' | 'settings_revision'
+    >
   : never
 
 /**
@@ -97,6 +100,8 @@ export type StageOnlyInputFields = WithoutProfile<ProcessingInputV6Dto> & {
   profile_id: 'shared-vm-agent/4'
   instruction_version: 'shared-vm-agent/4'
   tool_profile_version: typeof STAGE_TOOL_PROFILE
+  agent: AgentSelectionDto
+  settings_revision: string
 }
 
 /** What the input builders return: a checked `/6` input, or a stage-only profile's base. */

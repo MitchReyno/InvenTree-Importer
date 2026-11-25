@@ -364,8 +364,8 @@ Never write "per the user"; the operator''s facts are already marked as theirs.'
   ('shared-vm-agent/4','research','vocabulary-and-gaps',6,'the catalogue vocabulary and configuration gaps','- The vocabulary lists the inventory''s categories, parameter templates, the templates each category maps and the companies this batch has looked up, each with the reference to cite. Your brief carries it as sealed; read_vocabulary looks it up again, by kind and name.
 - Use these names exactly: a parameter is Power Rating, not Wattage. Choose an existing category over a new one; cite its reference.
 - A parameter with a template but no mapping to the chosen category can still be proposed; the operator decides.
-- When nothing fits, propose_new with why, and list the gap in config_gaps: a missing category, a missing parameter template, a company not in the inventory. Ask what someone would search, filter or substitute this part by: if the inventory can''t store it, that is a gap, not a note.
-- Before naming a new parameter, check every category''s templates: reusing an existing template beats a near-duplicate.
+- The vocabulary holds only what this batch has looked up, so a record it lacks may still exist in InvenTree. When nothing in it fits, propose_new with why, and list the gap in config_gaps (a category, a parameter template, a company), saying it wasn''t in the batch''s vocabulary rather than that the inventory lacks it. Ask what someone would search, filter or substitute this part by: if no template you can see stores it, that is a gap, not a note.
+- Before naming a new parameter, check every template in the vocabulary: reusing an existing template beats a near-duplicate.
 - Keep it proportionate: trivia such as lead finish or marking colour belongs in notes.'),
   ('shared-vm-agent/4','research','logos',7,'identifying a maker''s mark','The maker''s mark is often the only thing naming the manufacturer, and the hardest part of a marking to read. A wrong maker propagates into the Part, the manufacturer part and every search after it, so identify it from evidence, not resemblance.
 

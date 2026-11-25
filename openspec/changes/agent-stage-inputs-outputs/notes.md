@@ -103,6 +103,7 @@ Mitch reviewed the draft base instructions, stage packs and guide sections and a
 ### Wording after review
 
 - The Examine pack said to pass `base_revision` "on every write", but only `record_observation`, `propose_lot` and `regroup` take it (the strict `propose`, `ask` and `reply` contracts refuse it). The pack now names those three. This is a correction to the approved text, not a change of what it asks for.
+- The Research guide's vocabulary section said a record missing from the vocabulary was missing from the inventory. The vocabulary is only what the batch has looked up, so it now says to report such a gap as not in the batch's vocabulary, and to check the vocabulary's templates before naming a new one.
 - The base keeps the `/3` web lines for every stage, as approved; the Examine and Images packs limit their stages' web use. Until the web gates admit `/4` (PR-G2), its inputs seal web research off and its opening carries no web line.
 
 ### Guides are sealed as a whole

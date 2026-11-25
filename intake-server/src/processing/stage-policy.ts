@@ -40,7 +40,7 @@ export const stageGuides: Partial<Record<SessionProfileId, Record<BriefStageDto,
   },
   'shared-vm-agent/4': {
     examine: '5415ca40d3bc45efa9c7a6dc20b69ce6de0be0bda30298f4eb3ba0175e2ea87e',
-    research: '7cf6726a143ff395aef761314abfb8258eb6a0bf138fb6da4ae85f159e9137e4',
+    research: '6d25c09c1973f22087114a1e6f7edb6a6218de7e6149d27993658ed5d0288bee',
     images: 'b41231f10a0f1b358d27f26746a46ce6aab0ee37a466c0ce8e82ced8446d6031',
   },
 }

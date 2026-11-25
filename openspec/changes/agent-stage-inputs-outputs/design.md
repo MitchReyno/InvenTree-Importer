@@ -193,9 +193,9 @@ The complexity is high. The change touches every session's input and output, add
 
 - **Search quality decides Match's value.** MPN normalisation and alias search need tuning on real data. The early passes and pass 3 limit the cost of a miss.
 - **Instruction quality decides the stages' value.** The live requalification is a sample, not a guarantee.
+- **Settled:** vocabulary lookup, in PR-G1: `read_vocabulary` takes a kind filter and a search and pages its results ([notes.md](notes.md)).
 - **Open questions** (doc 2.10):
   - the light bounds;
-  - vocabulary paging (settled in PR-G1: a kind filter, a search and paging, see notes.md);
   - the search strategy;
   - caching and how long a decision stays valid;
   - an auto-accept setting;

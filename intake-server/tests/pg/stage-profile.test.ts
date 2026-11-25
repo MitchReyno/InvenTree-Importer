@@ -11,6 +11,10 @@ import { transaction } from '#/db/database.ts'
 import { captureInTransaction } from '#/capture/repository.ts'
 import { issueSessionCapability } from '#/agents/tools/capability.ts'
 import { triggerExamine } from '#/processing/examine-trigger.ts'
+import { prepareSessionAttempt } from '#/processing/session-attempts.ts'
+import { lockBatchMediaInputs } from '#/media/locked-inputs.ts'
+import { saveAgentSettings } from '#/agents/settings.ts'
+import { singleProvider } from '../support/agent-settings.ts'
 import { assembleBrief } from '#/processing/brief.ts'
 import { briefScope, decodeSessionInput } from '#/processing/session-input.ts'
 import { sessionProfiles } from '#/processing/session-policy.ts'
@@ -369,14 +373,49 @@ test('a /4 session seals its stage pack under the switch, and the claim checks i
 test('without the switch a /4 configuration seals no session input', async (t) => {
   const fixture = await processingFixture({ profileId: 'shared-vm-agent/4' })
   t.after(() => fixture.dispose())
+  // A provider is on, so the trigger reaches sealing and the profile's own refusal decides.
+  const settings = await fixture.http('/agent-settings')
+  await saveAgentSettings(
+    fixture.api.pool,
+    fixture.config,
+    singleProvider({
+      expected_revision: (settings.value as { revision: string }).revision,
+      selection: { provider: 'claude', authentication: 'api_key', model: 'claude-sonnet-5-5' },
+    }),
+  )
   const capture = await fixture.seedCapture()
   await photoWithNote(fixture, capture.batch.id, 'Tray', 'LED 0603 red')
-  const result = await triggerExamine(fixture.writer.pool, fixture.config, { quietMs: 0 })
-  assert.deepEqual(result.created, [])
-  const jobs = await fixture.db.pool.query('SELECT 1 FROM processing_job WHERE batch_id=$1', [
-    capture.batch.id,
-  ])
-  assert.equal(jobs.rowCount, 0)
+  const jobs = async () =>
+    (
+      await fixture.db.pool.query('SELECT 1 FROM processing_job WHERE batch_id=$1', [
+        capture.batch.id,
+      ])
+    ).rowCount
+  const refused = await triggerExamine(fixture.writer.pool, fixture.config, { quietMs: 0 })
+  assert.deepEqual(refused.created, [])
+  assert.deepEqual(refused.failed, [capture.batch.id])
+  assert.equal(await jobs(), 0)
+  await assert.rejects(
+    transaction(fixture.writer.pool, async (client) => {
+      const snapshot = (await captureInTransaction(client, fixture.config, capture.batch.id))
+        .snapshot
+      const media = await lockBatchMediaInputs(client, fixture.config, capture.batch.id)
+      return prepareSessionAttempt(
+        client,
+        fixture.config,
+        'shared-vm-agent/4',
+        snapshot,
+        { id: randomUUID(), subject_id: null, stage: 'examine' },
+        media,
+      )
+    }),
+    /unsupported_processing_profile/,
+  )
+  // The same batch gets its lead once the test-only switch is on.
+  fixture.config.stageInputs = 'local'
+  const created = await triggerExamine(fixture.writer.pool, fixture.config, { quietMs: 0 })
+  assert.equal(created.created.length, 1)
+  assert.equal(await jobs(), 1)
 })
 
 test('a /4 opening leaves the sealed rules to its packs; synthetic /7 keeps them', async (t) => {
