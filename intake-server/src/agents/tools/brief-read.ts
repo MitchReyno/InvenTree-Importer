@@ -13,6 +13,7 @@ import { removedVersionIds } from '#/media/removal.ts'
 import { activeMediaGroups } from '#/media/context.ts'
 import type { ProcessingConfig } from '#/processing/attempts.ts'
 import { assembleBrief, type BriefVersion } from '#/processing/brief.ts'
+import { withoutRemovedMedia } from '#/processing/brief-removal.ts'
 import {
   briefDigest,
   briefPages,
@@ -267,13 +268,14 @@ export async function readBriefPage(
     if (fresh && !briefViewKeepable(current)) {
       refuse('brief_revision_unavailable', UNAVAILABLE)
     }
-    const { header, pageCount, entries, view } = await viewPage(
-      client,
-      principal,
-      cursor,
-      current,
-      fresh,
-    )
+    const {
+      header,
+      pageCount,
+      entries: viewed,
+      view,
+    } = await viewPage(client, principal, cursor, current, fresh)
+    // A sealed page or a kept view may hold evidence removed since; it isn't served.
+    const entries = await withoutRemovedMedia(client, principal.batchId, viewed)
     return {
       page: {
         view: cursor.view,

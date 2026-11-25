@@ -20,6 +20,7 @@ import {
   processingQuestions,
 } from '#/processing/schema.ts'
 import { lockProcessingAttempt, transitionAttempt } from '#/processing/state.ts'
+import { withoutRemovedMedia } from '#/processing/brief-removal.ts'
 import { decodeSessionInput } from '#/processing/session-input.ts'
 import { webAccess } from '#/processing/session-policy.ts'
 import { expectedToolProfile } from '#/processing/stage-policy.ts'
@@ -557,6 +558,24 @@ async function withdrawnOnly(client: PoolClient, lineageId: string) {
   return rows.rows[0]?.withdrawn === true
 }
 
+/**
+ * The input the opening is rendered from: for `/7`, its sealed brief's inline pages without
+ * evidence removed since sealing, which never reaches a session. The sealed bytes are unchanged.
+ */
+export async function openingManifest(client: PoolClient, manifest: SessionInputDto) {
+  if (manifest.schema_version !== 'bench-intake-input/7') {
+    return manifest
+  }
+  const pages = await Promise.all(
+    manifest.brief.pages.map(async (page) =>
+      page.entries
+        ? { ...page, entries: await withoutRemovedMedia(client, manifest.batch_id, page.entries) }
+        : page,
+    ),
+  )
+  return { ...manifest, brief: { ...manifest.brief, pages } }
+}
+
 /** A claim that put its session back without a turn, with the state it settled in. */
 function isIdleClaim(claimed: unknown): claimed is readonly ['idle', SessionStateDto] {
   return Array.isArray(claimed)
@@ -743,6 +762,7 @@ export async function runSessionTurn(
       return {
         ...row,
         manifest,
+        opening: await openingManifest(client, manifest),
         stagePack,
         capability,
         pending: await pendingSessionInbox(client, row.jobId),
@@ -805,7 +825,7 @@ export async function runSessionTurn(
       current.stagePack === null
         ? current.instructions.toString('utf8')
         : `${current.instructions.toString('utf8')}\n\n${current.stagePack}`,
-    text: openingText(current.manifest, current.pending, resumed, attemptId),
+    text: openingText(current.opening, current.pending, resumed, attemptId),
     resume: current.providerSessionId ?? undefined,
     toolUrl: deps.toolUrl,
     capability: current.capability,

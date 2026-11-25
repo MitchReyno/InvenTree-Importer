@@ -36,6 +36,7 @@ import { MAX_PROCESSING_SNAPSHOT_BYTES } from '#/processing/limits.ts'
 import { replaceSession } from '#/processing/session-replacement.ts'
 import {
   closeWithin,
+  openingManifest,
   openingText,
   queueSessionResume,
   runSessionTurn,
@@ -2122,4 +2123,46 @@ test('a lineage’s first /7 attempt doesn’t inherit a /6 attempt’s pending 
     'Count every reel',
     'Count every reel',
   ])
+})
+
+test('evidence removed after sealing reaches neither the opening nor a sealed page', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, deps, batchId } = batch
+  const { lot, row } = await successorOf(batch, 'led 0603 red', 'research')
+  const sealed = stageInput((await sealedInput(fixture, row.attempt_id)).manifest)
+  const shown = ofKind(inlineEntries(sealed), 'evidence')[0]
+  assert.ok(shown, 'the sealed brief lists the lot’s evidence')
+  const mentions = (text: string) =>
+    text.includes(shown.evidence_id) || text.includes(shown.version_id)
+  assert.ok(mentions(JSON.stringify(inlineEntries(sealed))))
+
+  await grantMedia(fixture.db.pool, fixture.api.name, 'api')
+  const revision = await fixture.db.pool.query<{ revision: string }>(
+    'SELECT revision::text FROM media_batch WHERE batch_id=$1',
+    [batchId],
+  )
+  await editMedia(fixture.api.pool, fixture.config, batchId, randomUUID(), {
+    expected_revision: revision.rows[0].revision,
+    change: { kind: 'remove', evidence_ids: [shown.evidence_id] },
+  })
+
+  // The opening a first turn is given leaves it out (a claim renders it from this input).
+  const manifest = (await sealedInput(fixture, row.attempt_id)).manifest
+  const opening = openingText(
+    await transaction(fixture.runner.pool, (client) => openingManifest(client, manifest)),
+    0,
+    false,
+    row.attempt_id,
+  )
+  assert.ok(opening.includes('"brief"'))
+  assert.equal(mentions(opening), false)
+
+  // So do the sealed brief's pages, read by revision.
+  const token = await running(fixture, row.attempt_id)
+  await withClients(async (open) => {
+    const session = await open(deps.toolUrl, token)
+    const pages = await allPages(session, lot.id, { revision: sealed.brief.revision })
+    assert.ok(pages.every((page) => page.view === 'sealed'))
+    assert.equal(mentions(JSON.stringify(pages.flatMap((page) => page.entries))), false)
+  })
 })
