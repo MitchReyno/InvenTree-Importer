@@ -834,6 +834,10 @@ export async function observationCorrected(
     [input.batchId, input.observationId],
   )
   const ids = relying.rows.map((row) => row.id)
+  // A join is news only to what relied on the observation unassigned; the lot's set tells the rest.
+  if (input.joined && !ids.length) {
+    return { stale: [] as string[], notified: [] as string[] }
+  }
   if (ids.length) {
     await client.query(
       `INSERT INTO public.processing_proposal_stale(proposal_id,reason)
@@ -921,7 +925,8 @@ export async function observationCorrected(
     await notifyRevision(
       client,
       lineage,
-      `reading:${input.observationId}:${input.revision}:${lineage}`,
+      // A join is told apart from a correction made in the same edit.
+      `${input.joined ? 'joined' : 'reading'}:${input.observationId}:${input.revision}:${lineage}`,
       {
         fields: ['markings', 'identity'],
         reason: correctionReason(origin, lineage === lead),

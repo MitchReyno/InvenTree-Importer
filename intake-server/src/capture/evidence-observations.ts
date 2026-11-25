@@ -369,19 +369,31 @@ async function bumpObservationSet(
     origin: { by: 'operator' } | { by: 'session'; attemptId: string }
   },
 ) {
-  await executeDatabaseQuery(
+  const [lot] = await executeDatabaseQuery(
     queryDatabase(client)
       .update(captureLots)
       .set({
         observationSetVersion: sql`${captureLots.observationSetVersion}+1`,
         changedRevision: revision,
       })
-      .where(eq(captureLots.id, lotId)),
+      .where(eq(captureLots.id, lotId))
+      .returning({ batchId: captureLots.batchId }),
   )
   // Loaded on use: Processing depends on capture, so capture must not import it eagerly.
-  const { observationAdded, observationRemoved, lotRegroupedNotices } =
+  const { observationAdded, observationCorrected, observationRemoved, lotRegroupedNotices } =
     await import('#/processing/currentness.ts')
   const context = { origin: change.origin, briefRevision: revision.toString() }
+  // An observation that belonged to no lot now says which it shows, so what relied on it
+  // unassigned is stale, whoever moved it; one leaving a lot is told through that lot.
+  if (change.added && change.other === null && lot) {
+    await observationCorrected(client, {
+      batchId: lot.batchId,
+      observationId: change.added,
+      joined: lotId,
+      revision: revision.toString(),
+      origin: change.origin,
+    })
+  }
   // Proposals citing a removed observation are stale for that reason, before the regroup.
   if (change.removed) {
     await observationRemoved(client, lotId, change.removed, change.other, context)
@@ -946,17 +958,6 @@ async function moveByOperator(
   }
   if (to) {
     await requireLiveLot(client, batchId, to)
-    if (!from) {
-      // Joining a lot advances the observation's revision, so what relied on it unassigned is
-      // stale, as leaving one is through the lot it left.
-      const { observationCorrected } = await import('#/processing/currentness.ts')
-      await observationCorrected(client, {
-        batchId,
-        observationId,
-        joined: to,
-        revision: revision.toString(),
-      })
-    }
     await executeDatabaseQuery(
       db
         .insert(captureLotEvidenceObservations)
@@ -1109,12 +1110,21 @@ async function sameItemChanged(
       revision: revision.toString(),
     })
   }
-  if (targetId) {
-    const first = changed[0]
+  // The groups' roots, before and after, count their items differently now too.
+  const markedIds = new Set(changed.map((mark) => mark.id))
+  const roots = new Map<string, (typeof changed)[number]>()
+  for (const mark of changed) {
+    for (const root of [mark.before, mark.after, targetId ?? null]) {
+      if (root !== null && !markedIds.has(root) && !roots.has(root)) {
+        roots.set(root, mark)
+      }
+    }
+  }
+  for (const [root, mark] of roots) {
     await observationCorrected(client, {
       batchId,
-      observationId: targetId,
-      sameItem: { observationId: first.id, before: first.before, after: first.after },
+      observationId: root,
+      sameItem: { observationId: mark.id, before: mark.before, after: mark.after },
       revision: revision.toString(),
     })
   }

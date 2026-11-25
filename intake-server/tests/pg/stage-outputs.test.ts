@@ -2020,6 +2020,39 @@ test('marking observations as the same item stales what relied on them', async (
     ),
     JSON.stringify(told),
   )
+  // An identity resting on the group's root counts its items once; clearing the mark makes it
+  // count them twice, so it is stale too.
+  const session = tools(batch)
+  const lead = await running(fixture, leadAttempt)
+  const { note } = citations((await inputOf(fixture, leadAttempt)).manifest)
+  const rootRevision = await fixture.db.pool.query<{ revision: string }>(
+    'SELECT revision::text FROM capture_evidence_observation WHERE id=$1',
+    [first],
+  )
+  const onRoot = await result(
+    session.propose(lead, {
+      proposal: {
+        schema_version: 'examine-identity/1',
+        subject_id: led.id,
+        summary: 'One reel of red LEDs, seen twice.',
+        sources: [note],
+        relies_on: {
+          fields: ['markings'],
+          sources: [
+            note,
+            {
+              kind: 'evidence_observation',
+              evidence_observation_id: first,
+              revision: rootRevision.rows[0].revision,
+            },
+          ],
+        },
+        markings: [{ observation_id: first, text: ['LED 0603 red'] }],
+        candidates: [],
+      },
+    }),
+  )
+  assert.equal(onRoot.ok, true, JSON.stringify(onRoot))
   // Marked the other way and then the reel's photo removed, the mark isn't given with the
   // observation it points at; the removal is.
   await edit(fixture, batchId, {
@@ -2027,6 +2060,11 @@ test('marking observations as the same item stales what relied on them', async (
     observation_id: second,
     same_as: null,
   })
+  const rootStale = await fixture.db.pool.query(
+    'SELECT 1 FROM processing_proposal_stale WHERE proposal_id=$1',
+    [onRoot.id],
+  )
+  assert.equal(rootStale.rowCount, 1)
   await edit(fixture, batchId, {
     kind: 'observation_same_item',
     observation_id: first,
@@ -2197,6 +2235,123 @@ test('an unassigned observation joining a lot stales what relied on it', async (
   // The LED's queued successors can't start on an identity resting on the observation as it was.
   assert.equal(
     await transaction(fixture.runner.pool, (client) => pinnedIdentityCurrent(client, pinned)),
+    false,
+  )
+  // A correction and a first assignment in one save hold together.
+  const knownNow = new Set(
+    (await snapshotOf(fixture, batchId)).evidence_observations!.map((o) => o.id),
+  )
+  await edit(fixture, batchId, {
+    kind: 'observation',
+    evidence_version_id: sample.evidence_version_id,
+    page: sample.page,
+    region: sample.region,
+    readings: { markings: ['LED'] },
+  })
+  const another = (await snapshotOf(fixture, batchId)).evidence_observations!.find(
+    (item) => !knownNow.has(item.id),
+  )!
+  // The lead relies on it while it belongs to no lot.
+  const anotherRevision = await fixture.db.pool.query<{ revision: string }>(
+    'SELECT revision::text FROM capture_evidence_observation WHERE id=$1',
+    [another.id],
+  )
+  const onAnother = await result(
+    session.propose(lead, {
+      proposal: {
+        schema_version: 'examine-identity/1',
+        subject_id: led.id,
+        summary: 'Red 0603 LEDs, and one read loose.',
+        sources: [note],
+        relies_on: {
+          fields: ['markings'],
+          sources: [
+            note,
+            {
+              kind: 'evidence_observation',
+              evidence_observation_id: another.id,
+              revision: anotherRevision.rows[0].revision,
+            },
+          ],
+        },
+        markings: [{ observation_id: led.evidence_observation_ids![0], text: ['LED 0603 red'] }],
+        candidates: [],
+      },
+    }),
+  )
+  assert.equal(onAnother.ok, true, JSON.stringify(onAnother))
+  await edit(fixture, batchId, {
+    kind: 'observation',
+    observation_id: another.id,
+    evidence_version_id: sample.evidence_version_id,
+    page: sample.page,
+    region: sample.region,
+    readings: { markings: ['LED 0603 red'] },
+    lot_id: crystal.id,
+  })
+  // The correction stales what relied on it, so the join has nothing more to tell.
+  const told = (await revisions(fixture, batch.leadJob)).flatMap((item) => item.changes ?? [])
+  assert.ok(
+    told.some((change) => change.kind === 'reading' && change.observation_id === another.id),
+    JSON.stringify(told),
+  )
+  assert.ok(
+    told.some((change) => change.kind === 'proposal' && change.proposal_id === onAnother.id),
+  )
+
+  // The lead session forming a lot from an observation it read loose stales what relied on it.
+  const agentRead = await result(
+    session.record_observation(lead, {
+      base_revision: (await snapshotOf(fixture, batchId)).revision,
+      evidence_version_id: sample.evidence_version_id,
+      page: sample.page,
+      region: sample.region,
+      readings: { markings: ['LED 0603 red, loose'] },
+    }),
+  )
+  assert.equal(agentRead.ok, true, JSON.stringify(agentRead))
+  const agentRevision = await fixture.db.pool.query<{ revision: string }>(
+    'SELECT revision::text FROM capture_evidence_observation WHERE id=$1',
+    [agentRead.id],
+  )
+  const ledNow = (await snapshotOf(fixture, batchId)).lots.find((lot) => lot.id === led.id)!
+  const onLoose = await result(
+    session.propose(lead, {
+      proposal: {
+        schema_version: 'examine-identity/1',
+        subject_id: led.id,
+        summary: 'Red 0603 LEDs, with the loose one.',
+        sources: [note],
+        relies_on: {
+          fields: ['markings', 'identity'],
+          sources: [
+            note,
+            { kind: 'observation_set', lot_id: led.id, version: ledNow.observation_set_version },
+            {
+              kind: 'evidence_observation',
+              evidence_observation_id: String(agentRead.id),
+              revision: agentRevision.rows[0].revision,
+            },
+          ],
+        },
+        markings: [{ observation_id: led.evidence_observation_ids![0], text: ['LED 0603 red'] }],
+        candidates: [],
+      },
+    }),
+  )
+  assert.equal(onLoose.ok, true, JSON.stringify(onLoose))
+  const formed = await result(
+    session.propose_lot(lead, {
+      base_revision: (await snapshotOf(fixture, batchId)).revision,
+      label: 'loose led',
+      observation_ids: [String(agentRead.id)],
+    }),
+  )
+  assert.equal(formed.ok, true, JSON.stringify(formed))
+  assert.equal(
+    await transaction(fixture.runner.pool, (client) =>
+      pinnedIdentityCurrent(client, [String(onLoose.id)]),
+    ),
     false,
   )
 })
