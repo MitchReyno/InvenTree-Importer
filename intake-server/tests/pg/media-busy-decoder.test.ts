@@ -23,8 +23,6 @@ const image = process.env.INTAKE_MEDIA_DECODER_IMAGE
 const skip = image ? false : 'Explicit decoder image needed for PG/decoder boundary'
 /** A well-formed image reference for cases that never reach a decoder. */
 const unusedImage = `sha256:${'0'.repeat(64)}`
-/** Short enough for a test, long enough for several busy replies. */
-const BUSY_WAIT_MS = 1_200
 
 /**
  * What the stand-in dispatcher answers: `busy` is another decode holding its one slot (503 before
@@ -128,9 +126,7 @@ async function busyFixture(workers: number, run: (fixture: BusyFixture) => Promi
         await repository.upload(batch.id, randomUUID(), String(revision++), label, bytes)
       },
       work(worker = 0) {
-        return processMediaCommand(pools[worker]!.pool, store, binding, image ?? unusedImage, {
-          busyWaitMs: BUSY_WAIT_MS,
-        })
+        return processMediaCommand(pools[worker]!.pool, store, binding, image ?? unusedImage)
       },
       async version(label: string) {
         const snapshot = await repository.snapshot(batch.id)
