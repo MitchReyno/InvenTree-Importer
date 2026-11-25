@@ -205,7 +205,8 @@ function threadReply(id) {
   const apiKey = args.some((arg) => arg.includes('model_provider="bench_openai"'))
   return {
     thread: { id },
-    model: 'fake-codex-model',
+    // `invalid-model` names a model the session record refuses, so recording the start fails.
+    model: mode === 'invalid-model' ? 'not a model' : 'fake-codex-model',
     approvalPolicy: 'never',
     sandbox: { type: mode === 'loose-policy' ? 'workspaceWrite' : 'readOnly' },
     modelProvider: apiKey ? 'bench_openai' : 'openai',
@@ -222,6 +223,7 @@ if (args[0] === 'app-server') {
     const reply = (result) => send({ id: frame.id, result })
     if (frame.method === 'initialize') reply({ userAgent: mode === 'unknown-version' ? 'bench_intake/0.166.1' : 'bench_intake/0.166.0 (test)' })
     if (frame.method === 'thread/start') {
+      log({ event: 'thread-start', keys: Object.keys(frame.params).sort() })
       threadId = `fake-thread-${Date.now()}`
       persist(threadId)
       reply(threadReply(threadId))
@@ -252,6 +254,12 @@ if (args[0] === 'app-server') {
     if (frame.method === 'turn/start') {
       if (mode === 'server-request') send({ id: 9000, method: 'item/tool/requestUserInput', params: {} })
       turnId = `fake-turn-${Date.now()}`
+      log({ event: 'turn-start', keys: Object.keys(frame.params).sort(), effort: frame.params.effort })
+      // A model that doesn't accept the effort it was sent refuses the turn.
+      if (mode === 'refuse-effort' && frame.params.effort !== undefined) {
+        send({ id: frame.id, error: { code: -32602, message: 'unsupported reasoning effort' } })
+        return
+      }
       log({ event: 'opening', text: frame.params.input[0].text })
       reply({ turn: { id: turnId } })
       if (mode === 'command-item' || mode === 'wrapped-call') {
@@ -285,6 +293,7 @@ if (args[0] === 'app-server') {
         return
       }
       reply({ turnId })
+      log({ event: 'steer', keys: Object.keys(frame.params).sort() })
       deliveries.push(frame.params.input[0].text)
     }
   })
@@ -348,6 +357,8 @@ if (args[0] === 'app-server') {
     })
     if (mode === 'deferred-call') send({type:'assistant',message:{content:[{type:'tool_use',name:'advisor',input:{}}]}})
     log({ event: 'opening', text })
+    const flag = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined)
+    log({ event: 'claude-args', model: flag('--model'), effort: flag('--effort'), resume })
     // Claude echoes each tool result, an image included, as one stream-json line.
     if (mode === 'image-echo' || mode === 'guest-image-echo') {
       for (let n = 0; n < 2; n++) {

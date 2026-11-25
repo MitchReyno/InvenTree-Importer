@@ -69,6 +69,9 @@ export async function nativeTurn(
         onStarted: async (details) => {
           await request({ provider: details })
         },
+        onEffortSent: async (effort) => {
+          await request({ sentEffort: effort })
+        },
         onCliVersion: (value) => {
           version = value
         },

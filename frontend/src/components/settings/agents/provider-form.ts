@@ -1,5 +1,6 @@
 import {
   AGENT_SETTINGS_STAGES,
+  type AgentEffortDto,
   type AgentProviderId,
   type AgentProviderSettingsDto,
   type AgentSettingsDto,
@@ -27,8 +28,11 @@ export function validModel(value: string, enabled: boolean) {
   return value.length <= 128 && storable(value) && (!enabled || MODEL_ID.test(value))
 }
 
-/** A step's choice in the form: '' is Default. */
-export type StepChoice = { provider: AgentProviderId | ''; model: string }
+/**
+ * A step's choice in the form: '' is Default. A saved effort is kept as it is until the step's
+ * choice is replaced; absent is Default.
+ */
+export type StepChoice = { provider: AgentProviderId | ''; model: string; effort?: AgentEffortDto }
 
 export type ProviderFormValues = {
   providers: Record<AgentProviderId, AgentProviderSettingsDto>
@@ -58,9 +62,10 @@ export function providerFormValues(settings: AgentSettingsDto): ProviderFormValu
 export function providerFormUpdate(values: ProviderFormValues) {
   const stageSelections: AgentSettingsDto['stage_selections'] = {}
   for (const stage of AGENT_SETTINGS_STAGES) {
-    const { provider, model } = values.stages[stage]
+    const { provider, model, effort } = values.stages[stage]
     if (provider) {
-      stageSelections[stage] = { provider, model }
+      stageSelections[stage] =
+        effort === undefined ? { provider, model } : { provider, model, effort }
     }
   }
   return {

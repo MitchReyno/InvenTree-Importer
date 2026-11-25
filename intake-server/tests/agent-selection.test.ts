@@ -80,3 +80,68 @@ test('steps without their own choice, such as the older reading stage, use the d
     model: 'gpt-6.1-sol',
   })
 })
+
+/** Claude's card at High and Codex's at Medium; each step's own choice carries its own effort. */
+const withEfforts = (overrides: Parameters<typeof settings>[0] = {}) => {
+  const base = settings(overrides)
+  return {
+    ...base,
+    providers: {
+      claude: { ...base.providers.claude, default_effort: 'high' },
+      codex: { ...base.providers.codex, default_effort: 'medium' },
+    },
+  }
+}
+
+test("a step's own model is sealed with the step's own effort, never the card's", () => {
+  const research = resolveSelection(
+    withEfforts({
+      stage_selections: { research: { provider: 'codex', model: 'gpt-6-luna', effort: 'max' } },
+    }),
+    'research',
+  )
+  assert.deepEqual(research, {
+    provider: 'codex',
+    authentication: 'api_key',
+    model: 'gpt-6-luna',
+    effort: 'max',
+  })
+  // A step choice on Default effort seals none, though its provider's card names one.
+  const images = resolveSelection(
+    withEfforts({ stage_selections: { images: { provider: 'codex', model: 'gpt-6-luna' } } }),
+    'images',
+  )
+  assert.deepEqual(images, { provider: 'codex', authentication: 'api_key', model: 'gpt-6-luna' })
+})
+
+test("a step on Default is sealed with the default provider's model and effort", () => {
+  const resolved = resolveSelection(withEfforts({ default_provider: 'codex' }), 'images')
+  assert.deepEqual(resolved, {
+    provider: 'codex',
+    authentication: 'api_key',
+    model: 'gpt-6.1-sol',
+    effort: 'medium',
+  })
+  // A card on Default effort seals none.
+  assert.deepEqual(resolveSelection(settings(), 'images'), {
+    provider: 'claude',
+    authentication: 'subscription',
+    model: 'sonnet',
+  })
+})
+
+test("a step whose provider is off falls back to the default provider's pair", () => {
+  const resolved = resolveSelection(
+    withEfforts({
+      codexOn: false,
+      stage_selections: { examine: { provider: 'codex', model: 'gpt-6-luna', effort: 'low' } },
+    }),
+    'examine',
+  )
+  assert.deepEqual(resolved, {
+    provider: 'claude',
+    authentication: 'subscription',
+    model: 'sonnet',
+    effort: 'high',
+  })
+})

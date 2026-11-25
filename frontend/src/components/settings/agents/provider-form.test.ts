@@ -27,6 +27,25 @@ test('the form round-trips saved providers, the default and step choices', () =>
   })
 })
 
+test('the form round-trips each step and card effort', () => {
+  const withEfforts = {
+    ...both,
+    providers: {
+      claude: { ...both.providers.claude, default_effort: 'high' },
+      codex: both.providers.codex,
+    },
+    stage_selections: {
+      research: { provider: 'codex' as const, model: 'gpt-6-luna', effort: 'xhigh' },
+      images: { provider: 'claude' as const, model: 'sonnet' },
+    },
+  }
+  expect(providerFormUpdate(providerFormValues(withEfforts))).toEqual({
+    providers: withEfforts.providers,
+    default_provider: 'claude',
+    stage_selections: withEfforts.stage_selections,
+  })
+})
+
 test('turning a provider off resets its steps and moves the default to the other provider', () => {
   const { values, reset } = turnOff(providerFormValues(both), 'codex')
   expect(reset).toEqual(['research'])

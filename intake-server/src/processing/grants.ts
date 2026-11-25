@@ -25,13 +25,13 @@ export async function grantProcessing(pool: Pool, role: string, purpose: 'api' |
       GRANT UPDATE(revision,provider,authentication,model,session_concurrency,default_provider,
         stage_selections,new_batch_instructions,part_description_style,auto_tags_default,
         web_public_pages,web_prefer_datasheets,receipts_pruned_through) ON agent_settings TO ${role};
-      GRANT UPDATE(enabled,authentication,default_model) ON agent_provider_settings TO ${role};
+      GRANT UPDATE(enabled,authentication,default_model,default_effort) ON agent_provider_settings TO ${role};
       -- Save receipts: written with each save, pruned by later saves, never rewritten.
       GRANT SELECT, INSERT, DELETE ON agent_settings_save_receipt TO ${role};`,
     )
   } else {
     await pool.query(
-      `GRANT UPDATE(started_at,finished_at,native_session_id,actual_model,progress,
+      `GRANT UPDATE(started_at,finished_at,native_session_id,actual_model,sent_effort,progress,
         session_state,session_lineage_id,capability_sha256,turn_count,queued_since) ON agent_session TO ${role};
       GRANT INSERT ON agent_session_failure,agent_session_outbox,processing_proposal_stale TO ${role};
       -- Without actor_id the runner can write system notices only, never operator chat or answers.
