@@ -36,13 +36,19 @@ Each agent step in "Provider and model per step" (Examine, Research and Images) 
 
 ### Requirement: Models listed from each provider
 
-Each model picker SHALL list the exact models the provider offers for its current sign-in, read from that provider and kept with the time and CLI version of the read, each shown by its name with the exact ID beside it and found by either. Aliases SHALL be folded into the model they stand for, and hidden models left out. Claude models older than its newest major version SHALL sit in a collapsed "Older models" group.
+Each model picker SHALL list the exact models the provider offers for its current sign-in, read from that provider and kept with the time and CLI version of the read, each shown by its name with the exact ID beside it and found by either. Aliases SHALL be folded into the model they stand for, and hidden models left out. Claude models of major version 4 or lower, or below Claude's newest listed major version, SHALL sit in a collapsed "Older models" group.
 
 #### Scenario: Claude's models by name
 
 - **GIVEN** Claude signed in with a subscription and a catalogue read at 09:12
 - **WHEN** the operator opens Research's picker and types "son"
 - **THEN** Claude lists "Sonnet 5.5" with `claude-sonnet-5-5` and "Sonnet 5" with `claude-sonnet-5`, the collapsed Older models group holds "Sonnet 4.6", and the card says "13 models · read from Claude Code in the agent VM today 09:12".
+
+#### Scenario: Only older models listed
+
+- **GIVEN** a Claude list holding only 4.x models
+- **WHEN** a Claude picker opens
+- **THEN** they all sit in the collapsed Older models group.
 
 #### Scenario: Codex with an API key
 
@@ -58,7 +64,7 @@ Each model picker SHALL list the exact models the provider offers for its curren
 
 ### Requirement: Model list states
 
-Before a provider's first read lands, its picker SHALL show "Reading <provider>'s models…" and keep the saved choice by its ID. A failed read SHALL keep the last list with its time, an amber notice inside the list and "Try again". With no read ever stored, the picker SHALL show the app's built-in list marked "Built-in list, may be out of date", with Effort limited to Default. "Check again" on a provider card SHALL read the list again.
+Before a provider's first read lands, or the first read after a sign-in change, its picker SHALL show "Reading <provider>'s models…" and keep the saved choice by its ID. A failed read SHALL keep the last list with its time, an amber notice inside the list and "Try again". With no read ever stored, the picker SHALL show the app's built-in list marked "Built-in list, may be out of date", with Effort limited to Default. "Check again" on a provider card SHALL read the list again.
 
 #### Scenario: First read
 
@@ -71,6 +77,12 @@ Before a provider's first read lands, its picker SHALL show "Reading <provider>'
 - **GIVEN** Claude's list read yesterday at 16:40 and today's read failed
 - **WHEN** a Claude picker opens
 - **THEN** it lists yesterday's models with "Couldn't read Claude's models just now. Showing the list from yesterday 16:40." and Try again, and no page banner shows.
+
+#### Scenario: After a sign-in change
+
+- **GIVEN** Claude's list read under one token, and the operator saves a new token
+- **WHEN** a Claude picker opens before a read under the new token lands
+- **THEN** it says "Reading Claude's models…" over the earlier list with its time, shows no "Not offered" warning, and a read started under the old token is never shown as current.
 
 #### Scenario: Never read
 

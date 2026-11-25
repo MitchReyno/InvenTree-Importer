@@ -39,7 +39,7 @@ The change touches four boundaries, each with an existing pattern to follow:
 ### Effort is sealed with the selection and passed to the CLI
 
 - `AgentSelection` gains an optional `effort` (`AgentEffort`). `resolveSelection` returns the step's own effort with its own model, or the provider's `default_effort` with its `default_model`, so the sealed selection is always one consistent pair. Absent means Default.
-- `/6` and `/7` inputs seal it inside `agent`. The `/1` one-turn path (`processing/attempts.ts`, `native-agent/1`) strips it, so `bench-intake-input/4` never carries it.
+- `/6` inputs seal it inside `agent`. #275's `/7` seals `agent: null` (synthetic only), so it carries no effort; BI-022's provider-backed `/7` profile seals an `AgentSelection`, so it carries the effort with no further work here. The `/1` one-turn path (`processing/attempts.ts`, `native-agent/1`) strips it, so `bench-intake-input/4` never carries it.
 - **Claude:** `runClaudeSession` adds `--effort <level>` after `--model` on every fresh and resumed turn when the sealed selection has one.
 - **Codex:** `runCodexSession` adds `effort` to every `turn/start`. `turn/steer` carries none; it continues the turn.
 - **Admission:** the effort changes no tool, permission or MCP configuration, so admission's checks are unchanged; `admissionIdentity` stays as it is.
@@ -51,13 +51,14 @@ The change touches four boundaries, each with an existing pattern to follow:
 The coordination with BI-022 follows the two constraints its implementing session asked for on 2026-11-25:
 
 1. **Separate from the stage packs.** Step instructions are operator settings. They are never stored in `processing_stage_instructions`, which holds immutable, profile-owned packs, and never counted in `stage_instructions_sha256` or the profile's instruction digest.
-2. **Sealed with the input, like other input.** They are sealed when the attempt's input is sealed: at queue time for `/6` inputs and `/7` Examine leads, and at claim for a `/7` Research or Images group, whose input BI-022 seals then. A later edit never changes a sealed attempt.
+2. **Sealed with the input, like other input.** They are sealed from the same settings snapshot, and at the same moment, as the attempt's model selection and `settings_revision`: at queue time for every input this change writes, so the existing rule holds that a save reaches only sessions queued after it. A later edit never changes a sealed attempt.
 
 How they appear:
 
 - **`/6` (today's inputs):** an optional `stage_instructions` string (1–1,000 characters) in the manifest, set only for the attempt's own stage. `openingText` adds it as `stage_instructions`, with one sentence in the instructions: it is the operator's guidance for this step, to follow after the app's rules. This is exactly the Part description style's path.
 - **`/7` (BI-022's brief):** a `step_guidance` entry, `{kind: 'step_guidance', source: 'human', stage, text}`, in the brief's `human` section, which BI-022 renders as operator-sourced material weighed above agent findings. It is shown under its own heading, "Operator guidance for this step". The `/7` manifest seals the same text, so the brief and the manifest agree.
-- **Ordering:** the step instructions PR (PR-D) waits for BI-022's PR-A (#275) to merge, then adds the `/6` field and the `/7` brief entry together. While BI-022 keeps `/7` behind its test-only switch (until its PR-G2), production sessions use the `/6` path; the `/7` entry is tested through the synthetic profile, as BI-022 tests its brief. If #275 were abandoned, PR-D would ship the `/6` path alone and the `/7` entry would move to whichever change adds a brief; `notes.md` records it.
+- **Ordering:** the step instructions PR (PR-D) waits for BI-022's PR-A (#275) to merge, then adds the `/6` field and the `/7` brief entry together, for the attempts #275 seals: the Examine lead and single-lot attempts, through `processing/session-attempts.ts`. #275's `/7` exists only for `synthetic-session/1`, with `agent` and `settings_revision` null, so PR-D seals the text into `/7` from the settings read at the same queueing, and tests it through that profile, as BI-022 tests its brief. While BI-022 keeps `/7` behind its test-only switch (until its PR-G2), production sessions use the `/6` path.
+- **Later BI-022 work:** its provider-backed `/7` profile (PR-G1/G2) and multi-lot groups (PR-I) seal the selection and settings themselves. Those PRs carry `step_guidance` from the same settings snapshot they seal the selection from, using the entry and builder PR-D adds; for a group, each lot keeps the snapshot it was queued with, as BI-022 decides for the selection. This is BI-022's integration, recorded here and in `notes.md` and agreed with its implementing session; this change doesn't plan their tasks. If #275 were abandoned, PR-D ships the `/6` path alone and the `/7` entry moves to whichever change adds a brief.
 - **How an edit reaches running sessions:** it doesn't. A saved edit applies to attempts sealed after it; running, waiting and queued attempts, and their resumed turns, keep the text they were sealed with. This is what the board draws ("running sessions keep the text they started with") and what every other agent setting does (app-settings "Agent settings section": values apply only to sessions queued after the save).
 - **Rejected: delivering an edit as an `instruction` inbox item**, as BI-022's session suggested. It doesn't fit the code or the approved design:
   - `instruction` items are bound by migration `0030_instruction_inbox.sql`'s trigger to a saved `capture_instruction` row of the batch, and the opening tells the agent an instruction item is "the operator's saved instruction for the batch, or for one evidence group"; per-step guidance would need a new kind, a source table and new wording.
@@ -88,9 +89,16 @@ Task 3.1 confirms, before code, that the pinned 2.1.319 and 0.166.0 return these
 **Storage.** `agent_model_catalog`, one row per scope (actor, target, target context), provider and authentication:
 
 - `models` jsonb, `cli_version`, `source` (`cli` or `api`), `read_at` (the last successful read), and `attempted_at`, `failure` (a fixed code: `timeout`, `guest_outdated`, `vm_unreachable`, `signed_out`, `malformed`, `unavailable`) for the last attempt;
-- `refresh_requested_at`, which the API sets and the worker clears.
+- `refresh_requested_at`, which the API sets and the worker clears, and `invalidated_at` and `sign_in_generation` (see "Sign-in changes").
 
-A failed read updates only the attempt fields, so the last good list and its `read_at` stay. The worker validates each answer against the contract before writing: at most 200 models, names up to 80 characters, at most 12 effort levels each, and the whole row within 64 KiB.
+A failed read updates only the attempt fields, so the last good list and its `read_at` stay.
+
+**Sign-in changes.** A list belongs to the sign-in it was read under, not only the mode:
+
+- Every reader returns a non-secret `sign_in_generation`: Claude's credential store revision, a digest of the Codex account ID from `account/read`, or, for an API key, an HMAC of the key under a worker-held key, never the key. The row stores it with the list.
+- A confirmed sign-in, a saved or removed token, or a switch of authentication sets `invalidated_at` with the refresh request. While `invalidated_at` is after `read_at`, the API answers `reading` over the earlier list, marked as from an earlier sign-in, and the frontend shows no "Not offered" or "Not accepted" warning from it.
+- **In-flight fence:** a read records when it started; the worker writes its result only if it started after the row's `invalidated_at`, otherwise it discards it and reads again. A read whose generation differs from the stored one (a sign-in changed outside the app) replaces the list as a new sign-in.
+- **Rejected:** keying rows by account. It would keep lists for accounts no longer signed in, and the generation already tells the worker when a list stopped applying. The worker validates each answer against the contract before writing: at most 200 models, names up to 80 characters, at most 12 effort levels each, and the whole row within 64 KiB.
 
 - **Rejected:** returning the list over `NOTIFY`. Its payload is limited to about 8,000 bytes.
 
@@ -100,12 +108,12 @@ A failed read updates only the attempt fields, so the last good list and its `re
 - **Claude CLI:** `id` is `resolvedModel` (else `value`); aliases resolving to the same ID fold into one entry, keeping `displayName` of the exact model; entries whose ID fails the model ID check, such as `opus[1m]`, are left out unless they resolve to a valid ID. `efforts` is `supportedEffortLevels` when `supportsEffort`, else empty. `default_effort` is null (Claude doesn't name it).
 - **Claude API:** `id` and `display_name` without its "Claude " prefix; `efforts` from `capabilities.effort`.
 - **Codex:** `hidden` models are left out; `name` is `displayName`; `default` is `isDefault`; `efforts` from `supportedReasoningEfforts`; `default_effort` from `defaultReasoningEffort`. With an API key, `usable` is whether `/v1/models` lists the ID; otherwise null.
-- **Older:** a Claude model whose major version (parsed from its ID) is below the newest major version in the list. Codex has none.
+- **Older:** a Claude model whose major version (parsed from its ID) is 4 or lower, as approved, or below the newest major version in the list. Codex has none.
 
 **When it reads.** The worker reads a provider's row:
 
 - on start, for each enabled provider's current authentication;
-- when `refresh_requested_at` is set: by Check again on a provider card, by a sign-in dialog once it confirms a sign-in, and when Settings switches a provider's authentication and no row exists for it;
+- when `refresh_requested_at` is set: by Check again on a provider card; with `invalidated_at` by a sign-in dialog once it confirms a sign-in or a token's save or removal, and by a switch of a provider's authentication;
 - when a turn's admission reports a CLI version different from the row's `cli_version`;
 - 12 hours after `read_at` (`CATALOG_MAX_AGE_MS`), and 5 minutes after a failed attempt (`CATALOG_RETRY_MS`).
 
@@ -113,7 +121,7 @@ The API writes `refresh_requested_at` and sends `NOTIFY bench_model_catalog` wit
 
 **API.** `GET /api/v1/agents/models` returns, for each provider's current authentication, `{state, source, cli_version, read_at, attempted_at, failure, models}`, where `state` is `current`, `reading` (a refresh is requested or running), `failed` (with the last good list) or `never_read`; with `never_read` or no list, `models` is the built-in list, marked `builtin: true`. `POST /api/v1/agents/models/refresh {provider}` requests a read. The read carries no key, token or account.
 
-**Built-in list.** `AGENT_MODEL_SUGGESTIONS` becomes `BUILT_IN_MODEL_CATALOG` in the contracts, with the exact IDs and names the pinned CLIs offered when task 3 is implemented, and no effort levels (Effort offers only Default for it). It is updated when the guest pins move.
+**Built-in list.** `BUILT_IN_MODEL_CATALOG` is added to the contracts in PR-B and replaces `AGENT_MODEL_SUGGESTIONS`, which PR-C removes with its last reader, `ModelPicker`. The list holds the exact IDs and names the pinned CLIs offered when task 3 is implemented, and no effort levels (Effort offers only Default for it). It is updated when the guest pins move.
 
 ### Pickers, Effort and states in Settings
 
@@ -129,6 +137,7 @@ The API writes `refresh_requested_at` and sends `NOTIFY bench_model_catalog` wit
 | No list ever read, read running | "Reading…"; saved choice shown by ID; typed exact ID still accepted |
 | No list ever read, read failed | Built-in list, marked; Effort only Default |
 | Read failed after a good read | Last good list with its time, amber notice and Try again; no page banner |
+| Sign-in changed, new read not in yet | "Reading…" over the earlier list; no not-offered warnings; an earlier read can't publish |
 | Guest image older than this change | `guest_outdated`; last stored or built-in list |
 | Saved model not in the read list | Stays selected; "Saved, not offered" group and warning; sessions still try it; Processing pill |
 | Saved effort the model doesn't accept | Stays saved with a warning; sessions send it as saved |
@@ -144,7 +153,7 @@ The API writes `refresh_requested_at` and sends `NOTIFY bench_model_catalog` wit
 
 - **Contracts:** `AgentSelection` with and without `effort`; the settings update with effort and step instructions, including 1,000 and 1,001 code points and an Inventory key refused; the catalogue DTO's limits; `/6` decoding a retained manifest without the new fields.
 - **Intake unit:** `resolveSelection` pairing model and effort; `openingText` with and without step instructions, and the profile digest unchanged; the Claude args and Codex `turn/start` with and without effort, through the real adapters against fake CLIs; catalogue normalisation from recorded reply fixtures of the pinned versions (folding, `[` IDs, hidden, older, API-key marking).
-- **PG tier:** settings save and receipts with the new fields; the catalogue table (failure keeps the last list, refresh requests, the 12 h and 5 min schedule under a controlled clock); sealing at queue time and, for `/7`, at claim; an edit after sealing leaving the attempt unchanged and sending no inbox item.
+- **PG tier:** settings save and receipts with the new fields; the catalogue table (failure keeps the last list, refresh requests, sign-in invalidation and the in-flight fence, the 12 h and 5 min schedule under a controlled clock); sealing at queue time for `/6` and for the `/7` attempts #275 seals; an edit after sealing leaving the attempt unchanged and sending no inbox item.
 - **Process tier:** the catalogue connection through the real relay with a fake guest reader: a good read, an oversized frame, a timeout with the reader reaped, an outdated guest; the worker's start, notify and pass-driven reads.
 - **Frontend:** picker groups, search by name or ID, the older and "Saved, not offered" groups, each state, the Effort select's options, Default naming, the reset notice, the disabled select, the step instruction editor's count, amber, paste cut and Save and Discard, and the Processing pill.
 - **Live (Mitch's go-ahead, task 6):** a catalogue read of each signed-in provider in the real guest, starting no turn, and one short session per provider with a non-default effort, checking the CLI received it.

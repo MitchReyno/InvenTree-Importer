@@ -31,7 +31,7 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | PR-0 | This plan, BI-023, and tasks 16 and 17 in `polish-ui-styling-and-loading` | Planning | Review the plan before code | None; first | `interactive-app` ← `docs/agent-settings-plan`; `docs(agent-model-catalog-and-step-instructions): plan exact models, effort and step instructions` | `openspec validate --strict` for both changes; `pnpm openspec:overlap`; `pnpm lint:markdown`; read-only review; CI |
 | PR-A | Effort saved per step and per provider, resolved and sealed with the model, and passed to Claude and Codex | 1, 2 | One data path from the setting to the CLI, reviewed with its adapter tests; useful on its own through the API | PR-0 | `interactive-app` ← `feat/agent-model-catalog-and-step-instructions-effort`; `feat(agent-model-catalog-and-step-instructions): seal and send the chosen effort` | Contracts tests; intake unit, PG and process tiers; the pinned-version proof in the PR description; review; CI |
-| PR-B | The catalogue reader in the guest and on the host, its connection, table, schedule and API, with the built-in fallback | 3 | Server and VM work, reviewed on its own with the process tier, as the provider status was | PR-A (the `AgentEffort` type) | `interactive-app` ← `feat/agent-model-catalog-and-step-instructions-catalog`; `feat(agent-model-catalog-and-step-instructions): read each provider's models` | Contracts tests; intake unit, PG and process tiers with the decoder and probe images; review; CI |
+| PR-B | The catalogue reader in the guest and on the host, its connection, table, schedule and API, with the built-in fallback | 3 | Server and VM work, reviewed on its own with the process tier, as the provider status was | PR-A (the `AgentEffort` type) | `interactive-app` ← `feat/agent-model-catalog-and-step-instructions-catalog`; `feat(agent-model-catalog-and-step-instructions): read each provider's models` | Contracts tests; frontend typecheck (the contracts it imports); intake unit, PG and process tiers with the decoder and probe images; review; CI |
 | PR-C | The pickers listing the catalogue, the Effort select beside each, the list's states, and the Processing pill | 4 | The UI over PR-A and PR-B, reviewed with captures | PR-A and PR-B merged | `interactive-app` ← `feat/agent-model-catalog-and-step-instructions-pickers`; `feat(agent-model-catalog-and-step-instructions): exact models and effort in agent settings` | Frontend typecheck, lint, tests and build; captures at 1440 and 390 px; demo video; review; CI |
 | PR-D | Instructions for each step: the setting, the sealed `/6` field and `/7` brief entry, and the editor | 5 | One end-to-end feature, after BI-022's brief exists so both input versions land together | PR-A merged; BI-022 PR-A (#275) merged; rebase on PR-C if it merged first (both edit `StepModels`) | `interactive-app` ← `feat/agent-model-catalog-and-step-instructions-step-instructions`; `feat(agent-model-catalog-and-step-instructions): instructions for each step` | Contracts tests; intake unit, PG and process tiers; frontend checks; demo video; review; CI |
 | PR-E | The live checks recorded in `notes.md`, with the evidence on the PR | 6 | A docs-only record of a check that needs Mitch's go-ahead, kept apart so it doesn't hold the code PRs | PR-A, PR-B and PR-C merged; Mitch's go-ahead | `interactive-app` ← `docs/agent-model-catalog-and-step-instructions-live-check`; `docs(agent-model-catalog-and-step-instructions): record the live model and effort check` | `pnpm lint:markdown`; evidence attached; review; CI |
@@ -41,7 +41,7 @@
 ## 1. Effort in the settings and the selection
 
 - **PR delivery:** PR-A.
-- **Outcome:** the agent settings save an effort per step and a default effort per provider; `resolveSelection` returns the model and its effort as one pair; `/6` and `/7` inputs seal it in `agent`, and the `/1` path never does.
+- **Outcome:** the agent settings save an effort per step and a default effort per provider; `resolveSelection` returns the model and its effort as one pair; `/6` inputs seal it in `agent`, and the `/1` path never does. (`/7` seals `agent: null` until BI-022's provider-backed profile, which carries it in `AgentSelection`.)
 - **Scope and approach:** `contracts/src/agent-selection.ts` (`AgentEffort`, optional `effort`), `contracts/src/agents.ts` (`AgentStageSelection.effort`, `AgentProviderSettings.default_effort`), `agents/settings.ts` (`checkAgentSettings`, read and save), `agents/schema.ts` and a migration for `default_effort`, `agents/resolve-selection.ts`, `processing/session-attempts.ts` and `processing/attempts.ts` (strip it for `/1`). The design is "Settings fields" and "Effort is sealed with the selection".
 - **Prerequisites:** none.
 - **Acceptance:** "Sessions run at the sealed effort" (A step on Default; sealing); the saved values behind "Effort beside every model picker".
@@ -78,11 +78,11 @@
 - **PR delivery:** PR-B.
 - **Outcome:** the session worker reads each enabled provider's models for its current sign-in, on the host or in the guest, without a turn; stores them in `agent_model_catalog` with their read time and CLI version; refreshes on start, on request, on a CLI version change and every 12 hours; and serves them, or the built-in list, at `GET /api/v1/agents/models`, with `POST /api/v1/agents/models/refresh`.
 - **Scope and approach:**
-  - **Contracts:** the catalogue DTO and limits, the two routes, `BUILT_IN_MODEL_CATALOG` replacing `AGENT_MODEL_SUGGESTIONS`.
+  - **Contracts:** the catalogue DTO and limits, the two routes, and `BUILT_IN_MODEL_CATALOG`. `AGENT_MODEL_SUGGESTIONS` stays for `ModelPicker` until task 4 removes it.
   - **Guest:** a catalogue reader in each provider's management process (Claude: the pinned CLI's `initialize`; Codex: `model/list` under the shared account lock; API keys: the models APIs), served on a `bench-model-catalog/1` connection through the relay.
   - **Coordinator and relay:** the connection kind, its 20 s budget and 64 KiB frame, and `guest_outdated`.
-  - **Worker:** the reader for host profiles, normalisation, the table writes, the schedule, the `NOTIFY` listener and the supervisor-pass check, and the admission-reported CLI version trigger.
-  - **API:** the read and refresh routes, with grants.
+  - **Worker:** the reader for host profiles, normalisation, the table writes with the sign-in generation and the in-flight fence, the schedule, the `NOTIFY` listener and the supervisor-pass check, and the admission-reported CLI version trigger.
+  - **API:** the read and refresh routes (a refresh may carry the sign-in invalidation), with grants.
   - The design is "The model catalogue".
 - **Prerequisites:** task 1 (`AgentEffort`).
 - **Acceptance:** shared-vm-execution "Model lists read without a provider turn", all scenarios; the API states behind app-settings "Models listed from each provider" and "Model list states".
@@ -97,7 +97,7 @@
   - [ ] 3.1.4 stop and ask Mitch if a pinned version lacks `models[]` effort levels or `model/list`.
 - [ ] 3.2 RED:
   - [ ] 3.2.1 normalisation: Claude aliases folded into one exact model; `opus[1m]`-style IDs folded or left out; older Claude models marked; Codex hidden models left out with `isDefault` and default effort kept; the API-key `usable` marks; oversized and malformed answers refused;
-  - [ ] 3.2.2 PG: a good read written with `read_at` and `cli_version`; a failed read keeping the last list and recording a fixed failure code; a refresh request read and cleared; the 12 h and 5 min schedule under a controlled clock; a CLI version change from admission requesting a read; the API's states (`current`, `reading`, `failed`, `never_read` with the built-in list); the API's grants (read and request only);
+  - [ ] 3.2.2 PG: a good read written with `read_at`, `cli_version` and its sign-in generation; a failed read keeping the last list and recording a fixed failure code; a sign-in invalidation answering `reading` over the earlier list; a read started before the invalidation discarded and read again; a read under a different generation replacing the list; a refresh request read and cleared; the 12 h and 5 min schedule under a controlled clock; a CLI version change from admission requesting a read; the API's states (`current`, `reading`, `failed`, `never_read` with the built-in list); the API's grants (read and request only);
   - [ ] 3.2.3 process: the `bench-model-catalog/1` connection through the real relay with a fake guest reader answering, exceeding the frame, timing out (reader reaped) and absent (`guest_outdated`); a status read during a catalogue read still answering within its deadline;
   - [ ] 3.2.4 no read sends a user message, and a Claude subscription read never calls a models API.
 - [ ] 3.3 GREEN: the guest reader, the connection, the worker, the table, the schedule and the API.
@@ -107,7 +107,7 @@
 
 - **PR delivery:** PR-C.
 - **Outcome:** every model picker in Settings › Agents lists the catalogue by name and exact ID, with the older and "Saved, not offered" groups; an Effort select sits beside each; the list shows its reading, failed, built-in and not-offered states; Processing's step header shows the "Not offered" pill.
-- **Scope and approach:** `components/settings/agents/` (`ModelPicker`, `StepModels`, `ProviderCard`, `ProvidersAndSteps`, `provider-form.ts`, `settings-fields.ts`), a new `EffortSelect` and `useModelCatalog` query, the sign-in dialogs requesting a refresh once they confirm a sign-in, Check again requesting one, the Processing step header, and the Settings fixture. The design is "Pickers, Effort and states in Settings".
+- **Scope and approach:** `components/settings/agents/` (`ModelPicker`, `StepModels`, `ProviderCard`, `ProvidersAndSteps`, `provider-form.ts`, `settings-fields.ts`), a new `EffortSelect` and `useModelCatalog` query, removing `AGENT_MODEL_SUGGESTIONS` from the contracts with its last reader, the sign-in dialogs requesting a refresh once they confirm a sign-in, Check again requesting one, the Processing step header, and the Settings fixture. The design is "Pickers, Effort and states in Settings".
 - **Prerequisites:** tasks 1 and 3 merged.
 - **Acceptance:** app-settings "Models listed from each provider", "Model list states", "A saved model no longer offered", "Effort beside every model picker"; processing-workspace "Step header warns of a model no longer offered"; polish's "One searchable model picker" and "Model picker limits and exact IDs" still pass.
 - **TDD approach:** component tests over fixture catalogues for each scenario fail first; the existing `ModelPicker` tests are updated from the suggestion list to a fixture catalogue.
@@ -119,8 +119,8 @@
 
 - [ ] 4.1 Read the shared and frontend code guidelines, `frontend/ARCHITECTURE.md`'s Settings › Agents section and the three boards.
 - [ ] 4.2 RED:
-  - [ ] 4.2.1 the picker: names with IDs, search by either, Claude's collapsed older group, "Saved, not offered" first, the API-key "can't use" mark, the exact-ID option unchanged;
-  - [ ] 4.2.2 the states: reading with the saved ID and effort kept, failed with the shown list's time and Try again, the built-in list's mark with Effort only Default, Check again and a confirmed sign-in requesting a refresh, polling stopping after 30 s;
+  - [ ] 4.2.1 the picker: names with IDs, search by either, Claude's collapsed older group (including a list of only 4.x models), "Saved, not offered" first, the API-key "can't use" mark, the exact-ID option unchanged;
+  - [ ] 4.2.2 the states: reading with the saved ID and effort kept, failed with the shown list's time and Try again, the built-in list's mark with Effort only Default, Check again and a confirmed sign-in requesting a refresh, no not-offered warning while a sign-in change is being read, polling stopping after 30 s;
   - [ ] 4.2.3 Effort: options in the provider's order with labels, "Default · Low" for Codex and plain "Default" for Claude, disabled "No effort levels", the reset notice and one autosave for the model and effort, a saved unaccepted effort kept with its warning, and the provider card's default pair;
   - [ ] 4.2.4 the Processing pill showing for a not-offered model, linking to the step row, and hidden for the built-in or unread list.
 - [ ] 4.3 GREEN: the query, the picker groups, `EffortSelect`, the states and the pill.
@@ -131,8 +131,8 @@
 - **PR delivery:** PR-D.
 - **Outcome:** Examine, Research and Images each have optional instructions of up to 1,000 characters, saved with Save and Discard; each attempt of a step seals its step's text and gets it as operator guidance, in the `/6` opening and in the `/7` brief's operator-sourced material; edits reach attempts sealed after them only.
 - **Scope and approach:**
-  - **Contracts:** `stage_instructions` in the settings; the optional `stage_instructions` in `/6`; a `step_guidance` entry in BI-022's brief `human` section and the `/7` manifest field, added in this change's own files and in the brief contract once #275 has merged.
-  - **Intake server:** the column and migration, `checkAgentSettings` (1,000 code points; Examine, Research and Images only), sealing in `prepareSessionAttempt` and BI-022's brief builder and group claim, `openingText`, and the brief's rendering under "Operator guidance for this step".
+  - **Contracts:** `stage_instructions` in the settings; the optional `stage_instructions` in `/6`; a `step_guidance` entry in the brief's `human` section and the `/7` manifest field, in the brief contract once #275 has merged.
+  - **Intake server:** the column and migration, `checkAgentSettings` (1,000 code points; Examine, Research and Images only), sealing at queue time in `prepareSessionAttempt` for `/6` and for the `/7` lead and single-lot attempts #275 seals, `openingText`, and the brief builder's rendering under "Operator guidance for this step". Multi-lot groups and the provider-backed `/7` profile are BI-022's later PRs (design: "Later BI-022 work").
   - **Guest:** the manifest field it validates.
   - **Frontend:** a `StepInstructions` editor per step row in `StepModels`, a text form per step on the existing save queue, the count with amber from 900, the paste cut and its message.
   - The design is "Where step instructions reach the agent".
@@ -148,7 +148,7 @@
 - [ ] 5.1 Read the guidelines, BI-022's merged brief code and design, and the board. Confirm #275 has merged.
 - [ ] 5.2 RED:
   - [ ] 5.2.1 contracts: settings with 1,000 and 1,001 code points, an Inventory key refused, empty removed; a `/6` manifest with and without the field; the brief's `step_guidance` entry;
-  - [ ] 5.2.2 PG: a Research attempt seals Research's text only; Examine and Images seal none; an edit after sealing leaves the attempt, its resume and its inbox unchanged; the next attempt seals the new text; a `/7` group sealed at claim gets the text saved before the claim; profile and stage pack digests unchanged;
+  - [ ] 5.2.2 PG: a Research attempt seals Research's text only; Examine and Images seal none; an edit after sealing leaves the attempt, its resume and its inbox unchanged; the next attempt seals the new text; a `/7` synthetic lead and single-lot attempt seal the text saved before they were queued, and one queued with A keeps A after B is saved; profile and stage pack digests unchanged;
   - [ ] 5.2.3 the opening renders the guidance after the app's rules, and the `/7` brief renders it under "Operator guidance for this step" in the `human` section; a retained input without it renders as before;
   - [ ] 5.2.4 the editor: the quiet button, focus on open, the count and amber from 900, typing stopping at 1,000, the paste cut with its announced message, Save and Discard per step, clearing removes.
 - [ ] 5.3 GREEN: the setting, sealing, rendering and editor.

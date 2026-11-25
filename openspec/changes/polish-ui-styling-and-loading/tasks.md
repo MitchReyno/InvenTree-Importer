@@ -406,7 +406,7 @@
 
 - **PR delivery:** PR-K.
 - **Outcome:** scrolling Settings › Agents by hand moves the sub-nav's current mark to the subsection being read, and the address follows by replacement. A clicked link wins until its scroll ends; the end of the page marks the last subsection; the stacked layout keeps the route's subsection.
-- **Scope and approach:** a `useSubsectionInView` hook in `components/settings/agents/`, `AgentsSection.tsx` (passing the hook's subsection to the nav, and skipping its scroll-and-focus Effect for an address the hook wrote) and `Settings.tsx`; `SettingsNav` is unchanged apart from receiving the subsection. The design is "The sub-nav follows the scroll".
+- **Scope and approach:** a `useSubsectionInView` hook in `components/settings/agents/`; `navigation/useNavigationGuard.ts` (`replaceSubsection`, updating the accepted route and protected URL and keeping `history.state`), passed through `App.tsx` and `Settings.tsx`; `AgentsSection.tsx` (passing the hook's subsection to the nav, and skipping its scroll-and-focus Effect for a route written by scrolling). `SettingsNav` is unchanged apart from receiving the subsection. The design is "The sub-nav follows the scroll".
 - **Prerequisites:** none; tasks 11 and 13, which reshaped the section, are merged.
 - **Acceptance:** app-settings "Agents sub-nav follows the scroll", all scenarios; "Settings page and navigation" (Agents sub-nav, Old descriptions link, Direct link) still passes.
 - **TDD approach:** component tests with stubbed heading rectangles, window height and scroll events fail first: today the mark stays on the route's subsection after a scroll.
@@ -414,16 +414,17 @@
   - the frontend typecheck, lint, tests and build;
   - a demo video scrolling down and back up, clicking a far link and reaching the end of the page, at 1440 px;
   - a capture at 390 px showing the stacked nav unchanged.
-- **Risks and decisions:** `history.replaceState` fires no `hashchange`, so `useHashRoute` sees the new address only on the next render; the scroll-and-focus Effect must treat that address as already in place, or the page would jump back to the heading. A test covers it.
+- **Risks and decisions:** `history.replaceState` fires no `hashchange` or `popstate`, so the guard must be told of the replacement, or a later Back with an unsaved draft would restore the wrong subsection's URL; and the scroll-and-focus Effect must treat a scrolled-to route as already in place, or the page would jump back to the heading. Tests cover both.
 
 - [ ] 16.1 Read the shared and frontend code guidelines, `frontend/ARCHITECTURE.md`'s Settings section and the board. Note every test that asserts `aria-current="location"` or the focus after a subsection link.
 - [ ] 16.2 RED: tests in `Settings.test.tsx` (or a new `useSubsectionInView.test.ts`) with stubbed rectangles:
   - [ ] 16.2.1 a heading crossing the reading line marks its link current, the address is replaced (history length unchanged) and focus stays put; scrolling back up moves the mark back;
   - [ ] 16.2.2 before any heading crosses, the first is current; at the end of the page the last is current;
   - [ ] 16.2.3 a clicked link is current at once, and scroll events before its scroll ends don't mark the subsections in between (with and without `scrollend`);
-  - [ ] 16.2.4 an address the hook wrote doesn't scroll or focus; a route opened by a link or a shared address still scrolls and focuses its heading;
-  - [ ] 16.2.5 below the `stacked` breakpoint no scroll moves the mark.
-- [ ] 16.3 GREEN: implement the hook and wire it into `AgentsSection`.
+  - [ ] 16.2.4 a route written by scrolling doesn't scroll or focus; a route opened by a link or a shared address still scrolls and focuses its heading;
+  - [ ] 16.2.5 through the real `App` and `useNavigationGuard`: after scrolling, `history.state` keeps the Settings return target and Back leaves Settings in one step; with an unsaved text draft, Back keeps the existing save-or-block behaviour and restores the scrolled-to subsection's URL, not the one first opened;
+  - [ ] 16.2.6 below the `stacked` breakpoint no scroll moves the mark.
+- [ ] 16.3 GREEN: implement the hook and the guard's replacement, and wire them into `AgentsSection`.
 - [ ] 16.4 Update `frontend/ARCHITECTURE.md` (Settings navigation). Run the frontend checks, and record the demo video for the PR description.
 
 ## 17. The Settings nav lets the electronics show through
