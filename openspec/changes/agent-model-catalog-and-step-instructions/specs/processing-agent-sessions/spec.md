@@ -2,7 +2,7 @@
 
 ### Requirement: Step instructions sealed into each attempt
 
-Each attempt of a step SHALL seal that step's saved instructions in its input when the input is sealed, and the session SHALL receive them as operator guidance for its step, after the app's own instructions, never as part of the profile or stage instruction bytes or their digests. A later save SHALL NOT change what a sealed attempt received; it SHALL reach that step's attempts sealed after it.
+Each attempt of a step SHALL seal that step's saved instructions in its input when the input is sealed, and the session SHALL receive them as operator guidance for its step, after the app's own instructions, never as part of the profile or stage instruction bytes or their digests. The text SHALL be the one saved when the attempt's work was queued, for a multi-lot group each lot's; a later save SHALL reach only work queued after it. A lot queued before its text was captured SHALL get none.
 
 #### Scenario: Instructions reach a new Research session
 
@@ -20,7 +20,7 @@ Each attempt of a step SHALL seal that step's saved instructions in its input wh
 
 - **GIVEN** a Research attempt sealed with text A, running or waiting for a slot
 - **WHEN** the operator saves text B
-- **THEN** that attempt and its resumed turns keep A, no inbox item is sent for the edit, and the next Research attempt sealed after the save receives B.
+- **THEN** that attempt and its resumed turns keep A, no inbox item is sent for the edit, and the next Research work queued after the save receives B.
 
 #### Scenario: A brief from the stage inputs change
 
@@ -42,7 +42,7 @@ Each attempt of a step SHALL seal that step's saved instructions in its input wh
 
 ### Requirement: Sessions run at the sealed effort
 
-An attempt whose input seals a provider selection SHALL seal its step's effort with its model: the step's own pair, or the provider's default pair when the step uses the provider's default model. With an effort, a Claude turn SHALL pass `--effort <level>` and a Codex turn SHALL send it as `effort` on each `turn/start`. With none, nothing SHALL be sent. A later save SHALL NOT change a sealed attempt. Inputs that seal no selection SHALL carry no effort.
+A provider session's attempt (`bench-intake-input/6` or later) SHALL seal its step's effort with its model: the step's own pair, or the provider's default pair when the step uses the provider's default model. With an effort, a Claude turn SHALL pass `--effort <level>` and a Codex turn SHALL send it as `effort` on each `turn/start`. With none, nothing SHALL be sent. A later save SHALL NOT change a sealed attempt. Inputs that seal no selection, and the one-turn `/4` input, SHALL carry no effort.
 
 #### Scenario: Claude at High
 
@@ -67,6 +67,12 @@ An attempt whose input seals a provider selection SHALL seal its step's effort w
 - **GIVEN** a `synthetic-session/1` attempt, whose input seals no provider selection
 - **WHEN** it is sealed and runs
 - **THEN** it carries and sends no effort.
+
+#### Scenario: One-turn runner
+
+- **GIVEN** a `native-agent/1` attempt, whose `/4` input seals a selection, and an effort saved for its step
+- **WHEN** it is sealed and runs
+- **THEN** its input carries no effort and the CLI gets none.
 
 #### Scenario: Unaccepted effort is still sent
 

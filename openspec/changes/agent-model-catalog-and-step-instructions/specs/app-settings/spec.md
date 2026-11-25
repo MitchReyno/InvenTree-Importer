@@ -64,7 +64,7 @@ Each model picker SHALL list the exact models the provider offers for its curren
 
 ### Requirement: Model list states
 
-Before a provider's first read lands, or the first read after a sign-in change, its picker SHALL show "Reading <provider>'s models…" and keep the saved choice by its ID. A failed read SHALL keep the last list with its time, an amber notice inside the list and "Try again". With no read ever stored, the picker SHALL show the app's built-in list marked "Built-in list, may be out of date", with Effort limited to Default. "Check again" on a provider card SHALL read the list again.
+Before a provider's first read lands, its picker SHALL show "Reading <provider>'s models…" and keep the saved choice by its ID. A failed read SHALL keep the last list with its time, an amber note in the list and "Try again". After a sign-in change, until a list read under it lands, the earlier list SHALL be marked as from an earlier sign-in and raise no warnings. With no read stored, the built-in list SHALL show, marked "Built-in list, may be out of date", with Effort only Default.
 
 #### Scenario: First read
 
@@ -80,9 +80,21 @@ Before a provider's first read lands, or the first read after a sign-in change, 
 
 #### Scenario: After a sign-in change
 
-- **GIVEN** Claude's list read under one token, and a new token saved, whether or not the browser that saved it asks for a new list
-- **WHEN** a Claude picker opens before a read under the new token lands, or after that read failed
-- **THEN** it marks the earlier list as from an earlier sign-in with its time, shows no "Not offered" or "Not accepted" warning, and a read started under the old token is never shown as current.
+- **GIVEN** Claude's list read under one token, and a new token saved in the app's dialog
+- **WHEN** a Claude picker or a Processing step page is open, or opens, before a read under the new token lands, or after that read failed
+- **THEN** it marks the earlier list as from an earlier sign-in with its time, shows no "Not offered" or "Not accepted" warning, a reply read under the old token is never stored as current, and the views update without a reload once the new list lands.
+
+#### Scenario: Sign-in changed outside the app
+
+- **GIVEN** the Codex sign-in changed in the guest without the app's dialog
+- **WHEN** 60 seconds pass
+- **THEN** Codex's list is marked as from an earlier sign-in, and a new read is requested.
+
+#### Scenario: Check again
+
+- **GIVEN** Claude's list read this morning
+- **WHEN** the operator chooses Check again on the Claude card
+- **THEN** Claude's list is read again and the card's read time updates when it lands.
 
 #### Scenario: Never read
 
