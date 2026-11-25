@@ -1173,10 +1173,11 @@ async function requireDeliveredSources(
 }
 
 /**
- * A `/7` proposal relies only on what is still current: no proposal already stale, and no
- * observation changed since the revision it cites, such as a reading the operator corrected
- * after the session read it. It is refused as stale, so the session reads its brief again and
- * cites the current facts. Earlier inputs keep accepting such a proposal, as before.
+ * A `/7` proposal relies only on what is current: no proposal already stale, every observation at
+ * the revision it cites (not one the operator has corrected since the session read it), and every
+ * lot's observation set at the version it cites. Anything else is refused as stale, so the
+ * session reads its brief again and cites the current facts. Earlier inputs keep accepting such a
+ * proposal, as before.
  */
 async function requireCurrentReliance(
   client: PoolClient,
@@ -1188,11 +1189,14 @@ async function requireCurrentReliance(
   }
   const proposals: string[] = []
   const observations: { id: string; revision: string }[] = []
+  const sets: { lot: string; version: string }[] = []
   for (const source of proposal.relies_on.sources) {
     if (source.kind === 'proposal') {
       proposals.push(source.proposal_id)
     } else if (source.kind === 'evidence_observation') {
       observations.push({ id: source.evidence_observation_id, revision: source.revision })
+    } else if (source.kind === 'observation_set') {
+      sets.push({ lot: source.lot_id, version: source.version })
     }
   }
   const stale = await client.query(
@@ -1205,13 +1209,25 @@ async function requireCurrentReliance(
   const changed = await client.query(
     `SELECT 1 FROM public.capture_evidence_observation o
      JOIN unnest($1::uuid[], $2::bigint[]) AS cited(id, revision) ON cited.id=o.id
-     WHERE o.revision > cited.revision LIMIT 1`,
+     WHERE o.revision <> cited.revision LIMIT 1`,
     [observations.map((item) => item.id), observations.map((item) => item.revision)],
   )
   if (changed.rowCount) {
     refuse(
       'stale',
-      'A relied-on observation changed after the revision cited; read your brief again and cite its current revision.',
+      'A relied-on observation is not at the revision cited; read your brief again and cite its current revision.',
+    )
+  }
+  const moved = await client.query(
+    `SELECT 1 FROM public.capture_lot l
+     JOIN unnest($1::uuid[], $2::bigint[]) AS cited(lot, version) ON cited.lot=l.id
+     WHERE l.observation_set_version <> cited.version LIMIT 1`,
+    [sets.map((item) => item.lot), sets.map((item) => item.version)],
+  )
+  if (moved.rowCount) {
+    refuse(
+      'stale',
+      'A relied-on lot’s observations are not at the version cited; read your brief again and cite its current observation set.',
     )
   }
 }
@@ -1282,14 +1298,17 @@ async function requireReplaceable(
   principal: SessionPrincipal,
   questionId: string,
 ) {
-  const rows = await client.query<{ state: string; replaced: boolean }>(
-    `SELECT q.state, EXISTS (
+  const rows = await client.query<{ state: string; replaced: boolean; attempt_id: string }>(
+    `SELECT q.state, q.attempt_id, EXISTS (
          SELECT 1 FROM public.processing_question_replacement r WHERE r.question_id=q.id
        ) AS replaced
        FROM public.processing_question q WHERE q.id=$1 AND q.job_id=$2 FOR UPDATE OF q`,
     [questionId, principal.jobId],
   )
   const found = rows.rows[0]
+  // A `/7` replacement skips the duplicate check, so what it replaces must be open: asked by this
+  // attempt, not by one a restart or Start fresh superseded.
+  const stageInput = principal.manifest.schema_version === 'bench-intake-input/7'
   let reason: string | null = null
   if (!found) {
     reason = 'Name an earlier question of this session.'
@@ -1297,6 +1316,8 @@ async function requireReplaceable(
     reason = 'That question is already answered; ask a new question instead.'
   } else if (found.replaced) {
     reason = 'That question was already replaced.'
+  } else if (stageInput && (found.state !== 'open' || found.attempt_id !== principal.attemptId)) {
+    reason = 'That question is no longer open; ask without replaces.'
   }
   if (reason) {
     throw new ToolRefusal('validation_failed', reason, [
@@ -1321,6 +1342,17 @@ function askOf(
     conflict,
     ...ask
   } = validated<SessionStageAskArgsDto>('SessionStageAskArgs', args)
+  // Kept in a text column, which refuses NUL and unpaired surrogates.
+  if (conflict !== undefined && !storableText(conflict)) {
+    const reason = "The conflict holds a character that can't be stored. Remove it and retry."
+    throw new ToolRefusal('validation_failed', reason, [
+      {
+        path: '/conflict',
+        rule: 'schema',
+        reason: 'Text must not hold NUL or unpaired surrogates.',
+      },
+    ])
+  }
   return {
     ask,
     basis: { evidence: newEvidence ?? [], conflict: conflict ?? null },

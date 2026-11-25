@@ -330,6 +330,12 @@ export const SessionRevisionV2 = object({
   source: RevisionSource,
   /** The brief revision the changes are visible at; read_lot or read_batch returns it. */
   brief_revision: Revision,
+  /**
+   * Set when the values were too long to carry: each change still names what changed, but a
+   * field's `from` and `to` are null and a correction is `reading_in_brief`. The brief at
+   * `brief_revision` holds them.
+   */
+  values_in_brief: Type.Optional(Type.Literal(true)),
 })
 export const SessionInboxItem = Type.Union([
   object({ ...inboxBase, kind: Type.Literal('answer'), payload: SessionAnswerPayload }),

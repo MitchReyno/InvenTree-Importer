@@ -611,7 +611,9 @@ test('a proposal links its lot, sources, first web reads and every open question
       [randomUUID(), batchId, photo.evidence, capture.packetA.id, fixture.identity.actor],
     )
     const session = await lotSession(fixture, capture, capture.packetA)
-    const call = tools(fixture, new Map([[session.job, new Map([[photo.version, new Set([1])]])]]))
+    // Delivered media is by job, then version, then the pages each attempt was shown.
+    const delivered = new Map([[photo.version, new Map([[session.attempt, new Set([1])]])]])
+    const call = tools(fixture, new Map([[session.job, delivered]]))
     const token = await issue(fixture, session.attempt)
     const leadToken = await issue(fixture, lead.attempt)
     const source = noteSource(session.manifest, capture.packetA.id)

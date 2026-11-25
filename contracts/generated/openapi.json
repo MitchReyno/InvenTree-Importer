@@ -192375,6 +192375,10 @@
             "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
             "format": "int64",
             "type": "string"
+          },
+          "values_in_brief": {
+            "const": true,
+            "type": "boolean"
           }
         }
       },
@@ -193964,6 +193968,10 @@
                                   "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
                                   "format": "int64",
                                   "type": "string"
+                                },
+                                "values_in_brief": {
+                                  "const": true,
+                                  "type": "boolean"
                                 }
                               }
                             }
@@ -206686,6 +206694,10 @@
                         "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
                         "format": "int64",
                         "type": "string"
+                      },
+                      "values_in_brief": {
+                        "const": true,
+                        "type": "boolean"
                       }
                     }
                   }

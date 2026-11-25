@@ -83,6 +83,7 @@ function examineIdentity(
   lotId: string,
   marking: string,
   observationIds: readonly string[],
+  readAs: ReadonlyMap<string, string>,
   source: Record<string, unknown>,
   lotSources: readonly Record<string, unknown>[],
   estimate: { quantity?: string; basis?: string },
@@ -93,7 +94,10 @@ function examineIdentity(
     summary: `Identity from the label: ${marking}.`,
     sources: [source],
     relies_on: { fields: ['markings', 'identity'], sources: [source, ...lotSources] },
-    markings: observationIds.map((id) => ({ observation_id: id, text: [marking] })),
+    markings: observationIds.map((id) => ({
+      observation_id: id,
+      text: [readAs.get(id) ?? marking],
+    })),
     candidates: [{ description: marking, confidence: 'low', reason: 'Read from the label.' }],
     ...(estimate.quantity && estimate.basis
       ? { quantity: { value: estimate.quantity, basis: estimate.basis } }
@@ -146,6 +150,8 @@ export async function syntheticLeadTurn(
 
   const seen = new Map<string, { observationIds: string[]; photos: number; quantity?: string }>()
   const observedAt = new Map<string, string>()
+  // Each observation's marking as it was read; the lowercased key only groups them.
+  const readAs = new Map<string, string>()
   for (const item of evidence) {
     const fetched = await call('fetch_evidence', {
       evidence_id: item.evidenceId,
@@ -186,6 +192,7 @@ export async function syntheticLeadTurn(
       const key = keyOf(entry.marking)
       const group = seen.get(key) ?? { observationIds: [], photos: 0 }
       group.observationIds.push(String(recorded.id))
+      readAs.set(String(recorded.id), entry.marking)
       observedAt.set(String(recorded.id), memory.revision)
       group.photos += 1
       // The same items seen again are one count, never a sum.
@@ -258,7 +265,7 @@ export async function syntheticLeadTurn(
       ]
       if (stageInput) {
         await call('propose', {
-          proposal: examineIdentity(lotId, marking, observationIds, source, lotSources, {
+          proposal: examineIdentity(lotId, marking, observationIds, readAs, source, lotSources, {
             quantity,
             basis,
           }),

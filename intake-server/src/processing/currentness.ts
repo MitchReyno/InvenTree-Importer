@@ -10,7 +10,11 @@ import { appendSessionInbox } from '#/agents/tools/inbox.ts'
 
 /** Why a proposal stopped being current; mirrors `processing_proposal_stale.reason`. */
 export type StaleReason =
-  'answer_received' | 'operator_correction' | 'evidence_removed' | 'lot_regrouped'
+  | 'answer_received'
+  | 'operator_correction'
+  | 'evidence_removed'
+  | 'lot_regrouped'
+  | 'source_superseded'
 
 /** Who made a change, and the brief revision a `/7` session sees it at. */
 export interface RevisionContext {
@@ -154,36 +158,49 @@ export async function notifyRevision(
     lineageId,
     idempotencyKey,
     'revision',
-    withinInboxLimit(payload, context.briefRevision),
+    await withinInboxLimit(client, payload, context.briefRevision),
   )
 }
 
-/** The inbox keeps a revision of at most 32 KiB (migration `0030`), with room for its framing. */
-const MAX_REVISION_PAYLOAD_BYTES = 30_000
+/** The inbox keeps a revision of at most this many bytes, as PostgreSQL stores it (`0030`). */
+const MAX_REVISION_PAYLOAD_BYTES = 32_768
+
+async function storedBytes(client: PoolClient, payload: object) {
+  const measured = await client.query<{ bytes: number }>(
+    'SELECT octet_length($1::jsonb::text)::int AS bytes',
+    [JSON.stringify(payload)],
+  )
+  return measured.rows[0].bytes
+}
 
 /**
- * Readings can be long enough that a revision naming them would pass the inbox's bound; such a
- * revision names each correction by its revision instead, and the brief holds the readings.
+ * A revision whose values would pass the inbox's bound points to the brief instead (Mitch's
+ * decision): each change still names what changed, without the values before and after, which
+ * the session reads from its brief at the revision's brief revision.
  */
-function withinInboxLimit<T extends { changes: readonly RevisionChangeDto[] }>(
+async function withinInboxLimit<T extends { changes: readonly RevisionChangeDto[] }>(
+  client: PoolClient,
   payload: T,
   /** A correction is visible from its own revision, the one the revision names. */
   correctedAt: string,
-): T {
-  if (Buffer.byteLength(JSON.stringify(payload), 'utf8') <= MAX_REVISION_PAYLOAD_BYTES) {
+): Promise<T> {
+  if ((await storedBytes(client, payload)) <= MAX_REVISION_PAYLOAD_BYTES) {
     return payload
   }
   const changes = payload.changes.map((change): RevisionChangeDto => {
-    if (change.kind !== 'reading') {
-      return change
+    if (change.kind === 'reading') {
+      return {
+        kind: 'reading_in_brief',
+        observation_id: change.observation_id,
+        revision: correctedAt,
+      }
     }
-    return {
-      kind: 'reading_in_brief',
-      observation_id: change.observation_id,
-      revision: correctedAt,
+    if (change.kind === 'field') {
+      return { ...change, from: null, to: null }
     }
+    return change
   })
-  return { ...payload, changes }
+  return { ...payload, changes, values_in_brief: true }
 }
 
 /** Each proposal's published kind; a runner proposal of `/1` names none. */
@@ -201,7 +218,7 @@ async function proposalKinds(client: PoolClient, ids: readonly string[]) {
 }
 
 /** Changes naming each proposal that just went stale, for one session. */
-async function staleChanges(
+export async function staleChanges(
   client: PoolClient,
   ids: readonly string[],
   reason: StaleReason,
@@ -648,8 +665,9 @@ export async function evidenceRemoved(
     [input.batchId, [...input.evidenceIds]],
   )
   const { versions, observations, notes } = cited.rows[0]
-  // A session proposal cites in its value, including every catalogue value's sources, and relies
-  // through `relies_on`; any of them counts.
+  // A session proposal cites in its value (every value's sources, and a research/1 datasheet's
+  // retained version, as `proposalCitations` lists them) and relies through `relies_on`; any of
+  // them counts.
   const affected = await client.query<{ id: string; lineage: string }>(
     `SELECT p.id, j.id AS lineage FROM public.processing_proposal p
      JOIN public.processing_attempt a ON a.id=p.attempt_id
@@ -661,6 +679,9 @@ export async function evidenceRemoved(
            SELECT jsonb_array_elements(p.relies_on->'sources') AS source
            UNION ALL
            SELECT jsonb_path_query(convert_from(p.value_bytes,'UTF8')::jsonb, 'lax $.**.sources[*]')
+           UNION ALL
+           -- research/1 names a retained datasheet PDF outside any sources list.
+           SELECT jsonb_path_query(convert_from(p.value_bytes,'UTF8')::jsonb, 'lax $.datasheet.version')
          ) cited
          WHERE (cited.source->>'kind'='media_version'
                 AND cited.source->>'version_id' = ANY($2::text[]))

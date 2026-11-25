@@ -173,3 +173,13 @@ A revision delivered to a `/7` session SHALL name each change with its previous 
 - **GIVEN** Research and Images relying on an observation
 - **WHEN** the operator corrects its reading
 - **THEN** both receive one item naming the observation, the old and new reading and the operator as its source, and their relying proposals are stale.
+
+### Requirement: Long revisions point to the brief
+
+When a revision's values would make its item larger than the session inbox holds, the item SHALL still name its source, the new brief revision and which fields, readings and proposals changed, and SHALL leave out their previous and new values, which the session reads from its brief at that revision.
+
+#### Scenario: Answer too long to carry
+
+- **GIVEN** Research and Images relying on a lot's identity
+- **WHEN** the operator answers a question about it with text whose values, with the stale proposals, would pass the inbox's bound
+- **THEN** each session receives one item that names the answered fields and the stale proposals, the operator and the new brief revision, without the values, and the session reads the answer from its brief.

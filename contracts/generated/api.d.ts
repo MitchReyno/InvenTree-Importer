@@ -37880,6 +37880,8 @@ export interface components {
             };
             /** Format: int64 */
             brief_revision: string;
+            /** @constant */
+            values_in_brief?: true;
         };
         RevisionChange: {
             /** @constant */
@@ -38123,6 +38125,8 @@ export interface components {
                     };
                     /** Format: int64 */
                     brief_revision: string;
+                    /** @constant */
+                    values_in_brief?: true;
                 };
             })[];
             pages?: {
@@ -40298,6 +40302,8 @@ export interface components {
                 };
                 /** Format: int64 */
                 brief_revision: string;
+                /** @constant */
+                values_in_brief?: true;
             };
         };
         SessionInboxSubmission: {

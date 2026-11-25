@@ -1,15 +1,24 @@
 import type { PoolClient } from 'pg'
-import { and, eq, inArray } from 'drizzle-orm'
-import type { CaptureSnapshotDto, RetainedSessionProposalDto } from '@invimport/contracts'
+import { and, eq, inArray, notExists } from 'drizzle-orm'
+import type {
+  CaptureSnapshotDto,
+  RetainedSessionProposalDto,
+  RevisionChangeDto,
+} from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { captureLots } from '#/capture/schema.ts'
 import { agentSessions } from '#/agents/schema.ts'
-import { notifyRevision } from './currentness.ts'
+import { notifyRevision, staleChanges, type RevisionContext } from './currentness.ts'
 import { prepareMediaTransaction } from '#/media/transaction.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { checkJobCapacity, queueJob } from './jobs.ts'
 import { reserveProcessingMedia, reservedMediaFor } from './media.ts'
-import { processingAttempts, processingJobs, processingProposalStale } from './schema.ts'
+import {
+  processingAttempts,
+  processingJobs,
+  processingProposals,
+  processingProposalStale,
+} from './schema.ts'
 import { SUCCESSOR_STAGES } from './supersede.ts'
 import { isSessionProfile } from './session-policy.ts'
 import { batchInputVersion, configuredInputVersion } from './stage-policy.ts'
@@ -92,7 +101,22 @@ export async function onLeadIdentity(
     await reserveProcessingMedia(client, config, snapshot, [lotId]),
     lotId,
   )
+  // Successors follow the lead's sealed version, so a retained `/6` lead never queues `/7` ones.
+  const inputVersion = await batchInputVersion(client, config, snapshot.id)
+  const stageInput = inputVersion === 'bench-intake-input/7'
   const toQueue: (typeof SUCCESSOR_STAGES)[number][] = []
+  /** `/7` successors that have run: their work rests on the old identity, so they start again. */
+  const released = new Map<(typeof SUCCESSOR_STAGES)[number], string>()
+  const revisedBy = {
+    origin: { by: 'session' as const, attemptId: await proposalAttempt(client, proposalId) },
+    briefRevision: snapshot.revision,
+  }
+  const published = {
+    kind: 'proposal' as const,
+    proposal_id: proposalId,
+    proposal_kind: proposal.schema_version,
+    state: 'published' as const,
+  }
   for (const stage of SUCCESSOR_STAGES) {
     const jobs = await executeDatabaseQuery(
       queryDatabase(client)
@@ -114,10 +138,15 @@ export async function onLeadIdentity(
         .for('update', { of: processingJobs }),
     )
     const job = jobs[0]
-    // A successor that has not started yet is replaced, pinned to this identity; one that has
-    // run gets the revision as a notice instead.
+    // A successor that has not started yet is replaced, pinned to this identity. One that has run
+    // gets the revision as a notice instead, except under `/7`, where it starts again.
     const unstarted = job?.attemptState === 'queued' && (job.turnCount ?? 0n) === 0n
-    if (job && !unstarted && !(ENDED_STATES as readonly string[]).includes(job.attemptState)) {
+    const live =
+      job && !unstarted && !(ENDED_STATES as readonly string[]).includes(job.attemptState)
+    if (live && stageInput) {
+      released.set(stage, job.id)
+      toQueue.push(stage)
+    } else if (live) {
       await notifyRevision(
         client,
         job.id,
@@ -125,19 +154,9 @@ export async function onLeadIdentity(
         {
           fields: ['identity'],
           reason: `The lot's identity was revised: ${proposal.summary}`,
-          changes: [
-            {
-              kind: 'proposal',
-              proposal_id: proposalId,
-              proposal_kind: proposal.schema_version,
-              state: 'published',
-            },
-          ],
+          changes: [published],
         },
-        {
-          origin: { by: 'session', attemptId: await proposalAttempt(client, proposalId) },
-          briefRevision: snapshot.revision,
-        },
+        revisedBy,
       )
     } else {
       toQueue.push(stage)
@@ -146,14 +165,9 @@ export async function onLeadIdentity(
   if (!toQueue.length) {
     return 'revised'
   }
-  // Successors follow the lead's sealed version, so a retained `/6` lead never queues `/7` ones.
   // A `/7` lead under a configuration that doesn't seal `/7` can't queue its successors; the
   // identity stands, as it does with no provider on. Checked before any settings read.
-  const inputVersion = await batchInputVersion(client, config, snapshot.id)
-  if (
-    inputVersion === 'bench-intake-input/7' &&
-    configuredInputVersion(config) !== 'bench-intake-input/7'
-  ) {
+  if (stageInput && configuredInputVersion(config) !== 'bench-intake-input/7') {
     return 'waiting'
   }
   // One read decides what to queue and is sealed into every successor, so a save landing
@@ -168,6 +182,17 @@ export async function onLeadIdentity(
   }
   await checkJobCapacity(client, snapshot.id, [lotId], [...queueable])
   for (const stage of queueable) {
+    const releasedJob = released.get(stage)
+    if (releasedJob) {
+      await releaseSuccessor(
+        client,
+        releasedJob,
+        proposalId,
+        proposal.summary,
+        published,
+        revisedBy,
+      )
+    }
     await queueJob(client, config, snapshot, lotId, stage, [], media, [proposalId], {
       lockSettings: false,
       settings,
@@ -175,6 +200,60 @@ export async function onLeadIdentity(
     })
   }
   return 'queued'
+}
+
+/**
+ * A `/7` successor that has run, on a lot whose identity Examine republished: what it published
+ * rests on the old identity, so its current proposals are stale (`source_superseded`), and it
+ * is told so in a revision before it is queued again from the new identity, whose new attempt
+ * reads that revision from the lineage's inbox. A lot in a group of several is released from
+ * it instead once groups exist.
+ */
+async function releaseSuccessor(
+  client: PoolClient,
+  jobId: string,
+  proposalId: string,
+  summary: string,
+  published: RevisionChangeDto,
+  context: RevisionContext,
+) {
+  const stale = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ id: processingProposals.id })
+      .from(processingProposals)
+      .innerJoin(processingAttempts, eq(processingAttempts.id, processingProposals.attemptId))
+      .where(
+        and(
+          eq(processingAttempts.jobId, jobId),
+          notExists(
+            queryDatabase(client)
+              .select({ id: processingProposalStale.proposalId })
+              .from(processingProposalStale)
+              .where(eq(processingProposalStale.proposalId, processingProposals.id)),
+          ),
+        ),
+      ),
+  )
+  const ids = stale.map((row) => row.id).sort()
+  if (ids.length) {
+    await executeDatabaseQuery(
+      queryDatabase(client)
+        .insert(processingProposalStale)
+        .values(ids.map((id) => ({ proposalId: id, reason: 'source_superseded' as const })))
+        .onConflictDoNothing(),
+    )
+  }
+  await notifyRevision(
+    client,
+    jobId,
+    `identity:${proposalId}`,
+    {
+      fields: ['identity'],
+      reason: `Examine revised the lot's identity: ${summary} What this session published for the lot rests on the earlier identity, so it starts again from the new one.`,
+      changes: [published, ...(await staleChanges(client, ids, 'source_superseded'))],
+    },
+    context,
+  )
 }
 
 /** The attempt that published a proposal. */

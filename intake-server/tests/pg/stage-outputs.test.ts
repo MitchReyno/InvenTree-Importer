@@ -21,6 +21,7 @@ import { sha256 } from '#/db/authority.ts'
 import { triggerExamine } from '#/processing/examine-trigger.ts'
 import { recordPhotoRelease } from '#/agents/tools/photo-release.ts'
 import { pendingSessionInbox } from '#/agents/tools/inbox.ts'
+import { notifyRevision } from '#/processing/currentness.ts'
 import { sessionTools, type SessionToolOutput } from '#/agents/tools/handlers.ts'
 import { queueSessionResume, runSessionTurn } from '#/agents/session/session-runner.ts'
 import { lockBlob } from '#/media/blob-store.ts'
@@ -350,11 +351,30 @@ test('a /7 lead forms a lot without a count, and its identity’s estimate reach
       quantity: { value: quantity, basis: 'Printed on the reel.' },
     },
   })
-  // An identity relying on another observation set than the lot's is stale at once, and its
-  // estimate isn't kept.
+  // An identity relying on another observation set than the lot's is refused as stale, and its
+  // estimate isn't kept; nor is one relying on an observation at another revision.
   const otherSet = (BigInt(reelLot.observation_set_version!) + 5n).toString()
   const stale = await result(session.propose(lead, reelIdentity(otherSet, '40')))
-  assert.equal(stale.ok, true, JSON.stringify(stale))
+  assert.equal(stale.error, 'stale', JSON.stringify(stale))
+  const future = await result(
+    session.propose(lead, {
+      proposal: {
+        ...reelIdentity(reelLot.observation_set_version!, '40').proposal,
+        relies_on: {
+          fields: ['markings'],
+          sources: [
+            note,
+            {
+              kind: 'evidence_observation',
+              evidence_observation_id: String(recorded.id),
+              revision: (BigInt(String(recorded.revision)) + 1n).toString(),
+            },
+          ],
+        },
+      },
+    }),
+  )
+  assert.equal(future.error, 'stale', JSON.stringify(future))
   assert.equal(
     (await snapshotOf(fixture, batchId)).lots.find((item) => item.id === reel)!.estimated_quantity,
     undefined,
@@ -562,7 +582,7 @@ test('each revision sender names its changes, who made them and the brief revisi
   const operator = { kind: 'operator', actor_id: fixture.config.actorId }
 
   // An answer: the asker gets the answer; the identity's owner and Images, pinned to it, are told
-  // what was assumed and what was answered.
+  // what was answered.
   const researcher = await running(fixture, research.attemptId)
   const asked = await result(
     session.ask(researcher, {
@@ -598,7 +618,8 @@ test('each revision sender names its changes, who made them and the brief revisi
       kind: 'field',
       subject_id: research.lot.id,
       field: 'identity',
-      from: 'Treating it as 16 MHz.',
+      // The answer adds what the operator said; the asker's assumption was never the field's value.
+      from: null,
       to: '16.000 MHz',
     },
     {
@@ -613,7 +634,17 @@ test('each revision sender names its changes, who made them and the brief revisi
   assert.equal(fromAnswer.brief_revision, answerRevision)
   assert.equal((await revisions(fixture, leadJob)).at(-1)!.source.kind, 'operator')
 
-  // A republished identity reaches a successor that has run, from the Examine session.
+  // A republished identity releases a successor that has run: what it published is stale, it is
+  // told why, and it is queued again from the new identity.
+  const ledInput = (await inputOf(fixture, led.attemptId)).manifest
+  const ledResearch = await result(
+    session.propose(await running(fixture, led.attemptId), {
+      proposal: researchOutput(led.lot.id, ledInput, {
+        description: { text: 'Red LEDs.', sources: [citations(ledInput).note] },
+      }),
+    }),
+  )
+  assert.equal(ledResearch.ok, true, JSON.stringify(ledResearch))
   await fixture.db.pool.query('UPDATE agent_session SET turn_count=1 WHERE attempt_id=$1', [
     led.attemptId,
   ])
@@ -654,7 +685,40 @@ test('each revision sender names its changes, who made them and the brief revisi
       proposal_kind: 'examine-identity/1',
       state: 'published',
     },
+    {
+      kind: 'proposal',
+      proposal_id: ledResearch.id,
+      proposal_kind: 'research/1',
+      state: 'stale',
+      reason: 'source_superseded',
+    },
   ])
+  const requeued = await stageJob(batch, 'led 0603 red', 'research')
+  assert.equal(requeued.jobId, led.jobId)
+  assert.notEqual(requeued.attemptId, led.attemptId)
+  const old = await fixture.db.pool.query<{ state: string }>(
+    'SELECT state FROM processing_attempt WHERE id=$1',
+    [led.attemptId],
+  )
+  assert.equal(old.rows[0].state, 'superseded')
+  const requeuedInput = (await inputOf(fixture, requeued.attemptId)).manifest
+  assert.deepEqual(requeuedInput.pinned_proposal_ids, [identity.id])
+  // The new attempt reads the revision from the lineage's inbox and publishes on the new identity.
+  const fresh = await running(fixture, requeued.attemptId)
+  const inbox = await result(session.read_inbox(fresh, { after_seq: '0' }))
+  assert.ok(
+    (inbox.items ?? []).some(
+      (item) => item.kind === 'revision' && 'schema_version' in item.payload,
+    ),
+  )
+  const onNew = await result(
+    session.propose(fresh, {
+      proposal: researchOutput(led.lot.id, requeuedInput, {
+        description: { text: 'Red 0603 LEDs.', sources: [citations(requeuedInput).note] },
+      }),
+    }),
+  )
+  assert.equal(onNew.ok, true, JSON.stringify(onNew))
   assert.deepEqual(republished.source, {
     kind: 'session',
     stage: 'examine',
@@ -741,6 +805,27 @@ test('a publishing /7 ask returns a question already asked unless it brings some
       ).rows[0].count,
     )
 
+  // The lead relies on the crystal's quantity, so a quantity answer tells it the captured value
+  // before and after.
+  const leadNote = citations((await inputOf(fixture, batch.leadAttempt)).manifest).note
+  const leadCount = await result(
+    session.propose(await running(fixture, batch.leadAttempt), {
+      proposal: {
+        schema_version: 'examine-identity/1',
+        subject_id: research.lot.id,
+        summary: 'A crystal, counted from the label.',
+        sources: [leadNote],
+        relies_on: { fields: ['quantity'], sources: [leadNote] },
+        markings: [{ observation_id: research.lot.evidence_observation_ids![0], text: ['16 MHz'] }],
+        candidates: [],
+      },
+    }),
+  )
+  assert.equal(leadCount.ok, true, JSON.stringify(leadCount))
+  const quantityBefore = (await snapshotOf(fixture, batchId)).lots.find(
+    (lot) => lot.id === research.lot.id,
+  )!.quantity
+
   // Research asks about the crystal's quantity, and the operator answers.
   const question = syntheticQuestion(research.lot.id)
   const first = await result(session.ask(researcher, question))
@@ -758,6 +843,14 @@ test('a publishing /7 ask returns a question already asked unless it brings some
     ],
   })
   assert.equal(answered.status, 200, JSON.stringify(answered.value))
+  const toLead = (await revisions(fixture, batch.leadJob)).at(-1)!
+  assert.deepEqual(toLead.changes[0], {
+    kind: 'field',
+    subject_id: research.lot.id,
+    field: 'quantity',
+    from: quantityBefore.mode === 'set' ? quantityBefore.value : quantityBefore.mode,
+    to: '12',
+  })
   const asked = await questionCount()
 
   // Images asks the same: it gets the answered question and its answer, and nothing is stored.
@@ -1044,5 +1137,116 @@ test('the synthetic /7 drivers hand over, release and cite the photo, and publis
   assert.deepEqual(
     questions.rows.map((row) => row.job_id),
     [research.jobId],
+  )
+})
+
+test('a revision too long for the inbox names what changed and points to the brief', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId, leadJob } = batch
+  const research = await stageJob(batch, '16 mhz crystal', 'research')
+  const observation = (await snapshotOf(fixture, batchId)).evidence_observations!.find(
+    (item) => item.id === research.lot.evidence_observation_ids![0],
+  )!
+  // The longest readings a correction may hold: 32 markings of 256 four-byte characters.
+  const long = {
+    markings: Array.from({ length: 32 }, (_, index) => `${index % 10}${'𝄞'.repeat(255)}`),
+  }
+  const corrected = await edit(fixture, batchId, {
+    kind: 'observation',
+    observation_id: observation.id,
+    evidence_version_id: observation.evidence_version_id,
+    page: observation.page,
+    region: observation.region,
+    readings: long,
+  })
+  const [toLead] = await revisions(fixture, leadJob)
+  assert.equal(toLead.values_in_brief, true)
+  assert.deepEqual(toLead.changes[0], {
+    kind: 'reading_in_brief',
+    observation_id: observation.id,
+    revision: corrected.revision,
+  })
+  assert.deepEqual(toLead.source, { kind: 'operator', actor_id: fixture.config.actorId })
+  assert.equal(toLead.brief_revision, corrected.revision)
+
+  // An answer's long values, with many stale proposals, are left out the same way.
+  const [identityId] = (await inputOf(fixture, research.attemptId)).manifest.pinned_proposal_ids
+  const words = '\u0001'.repeat(512)
+  await transaction(fixture.runner.pool, (client) =>
+    notifyRevision(
+      client,
+      research.jobId,
+      'long-answer',
+      {
+        fields: ['markings', 'identity', 'research', 'images'],
+        reason: 'A question was answered: what is printed?',
+        changes: [
+          ...(['markings', 'identity', 'research', 'images'] as const).map((field) => ({
+            kind: 'field' as const,
+            subject_id: research.lot.id,
+            field,
+            from: words,
+            to: words,
+          })),
+          ...Array.from({ length: 60 }, () => ({
+            kind: 'proposal' as const,
+            proposal_id: identityId,
+            proposal_kind: 'examine-identity/1',
+            state: 'stale' as const,
+            reason: 'answer_received' as const,
+          })),
+        ],
+      },
+      { origin: { by: 'operator' }, briefRevision: corrected.revision },
+    ),
+  )
+  const answer = (await revisions(fixture, research.jobId)).at(-1)!
+  assert.equal(answer.values_in_brief, true)
+  assert.deepEqual(
+    answer.changes
+      .slice(0, 4)
+      .map((change) => change.kind === 'field' && [change.field, change.from, change.to]),
+    [
+      ['markings', null, null],
+      ['identity', null, null],
+      ['research', null, null],
+      ['images', null, null],
+    ],
+  )
+  assert.equal(answer.changes.length, 64)
+})
+
+test('a /7 ask may replace only its own open question, and its conflict must be storable', async (t) => {
+  const batch = await formedBatch(t, { stageInputs: true })
+  const { fixture, batchId } = batch
+  const session = tools(batch)
+  const research = await stageJob(batch, '16 mhz crystal', 'research')
+  const question = syntheticQuestion(research.lot.id)
+  const first = await result(session.ask(await running(fixture, research.attemptId), question))
+  assert.equal(first.ok, true, JSON.stringify(first))
+  // A Start fresh or restart's new attempt supersedes the open question; it can't be replaced.
+  const { manifest } = await inputOf(fixture, research.attemptId)
+  const next = await requeueLot(
+    fixture,
+    batchId,
+    research.lot.id,
+    'research',
+    { outcome: null, mode: { stage: 'research', mode: 'full' } },
+    [...manifest.pinned_proposal_ids],
+  )
+  const fresh = await running(fixture, next)
+  const replacing = await result(session.ask(fresh, { ...question, replaces: first.id }))
+  assert.equal(replacing.error, 'validation_failed')
+  assert.deepEqual(
+    (replacing.issues ?? []).map((issue) => issue.path),
+    ['/replaces'],
+  )
+  const unstorable = await result(
+    session.ask(fresh, { ...question, conflict: 'label\u0000weight' }),
+  )
+  assert.equal(unstorable.error, 'validation_failed')
+  assert.deepEqual(
+    (unstorable.issues ?? []).map((issue) => issue.path),
+    ['/conflict'],
   )
 })

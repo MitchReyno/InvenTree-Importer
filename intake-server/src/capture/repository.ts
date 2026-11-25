@@ -1332,7 +1332,7 @@ export async function lockCaptureForOperatorCommand(
 type LotQuantity = CaptureSnapshotDto['lots'][number]['quantity']
 
 /** A lot quantity as a revision names it: its value when set, otherwise its mode. */
-function quantityText(quantity: LotQuantity | undefined) {
+export function quantityText(quantity: LotQuantity | undefined) {
   if (!quantity) {
     return null
   }

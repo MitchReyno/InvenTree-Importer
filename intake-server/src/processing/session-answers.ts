@@ -7,6 +7,7 @@ import {
   type ProcessingAnswerDto,
   type ProcessingAnswerV1Dto,
   type ProcessingAnswerV2Dto,
+  type CaptureSnapshotDto,
   type SessionAskArgsDto,
   type SessionAskArgsV2Dto,
   type SessionAnswerPayloadDto,
@@ -29,6 +30,7 @@ import {
   processingQuestions,
 } from './schema.ts'
 import { captureSubjects } from '#/capture/schema.ts'
+import { captureInTransaction, quantityText } from '#/capture/repository.ts'
 import { lockProcessingAttempt } from './state.ts'
 
 interface LockedCapture {
@@ -158,24 +160,44 @@ async function requireInboxPayloadFits(client: PoolClient, payload: SessionAnswe
 }
 
 /**
- * What an answer changed in each field it settles, as a `/7` session is told: the assumption the
- * asker worked on, and the operator's answer.
+ * What an answer changed in each field it settles, as a `/7` session is told: a quantity answer
+ * changes the lot's quantity from what Capture held before to what it holds now; any other field
+ * gains the operator's answer, which the answer's note records.
  */
 function answeredChanges(
   ask: SessionAskArgsDto | SessionAskArgsV2Dto,
   input: ProcessingAnswerDto,
   subjectId: string | null,
+  before: CaptureSnapshotDto,
+  after: CaptureSnapshotDto,
 ) {
   const view = storedQuestionView(ask, 'assumption' in ask ? ask.assumption : null)
-  const assumed = view.steps.flatMap((step) => (step.assumption ? [step.assumption] : []))
-  const answered = answeredValues(view, input).map((value) => answerValueText(value.value))
-  return ask.fields.map((field) => ({
-    kind: 'field' as const,
-    subject_id: subjectId,
-    field,
-    from: assumed.length ? changeText(assumed.join('; ')) : null,
-    to: answered.length ? changeText(answered.join('; ')) : null,
-  }))
+  const values = answeredValues(view, input).map((value) => value.value)
+  const words = values
+    .filter((value) => value.kind !== 'quantity' && value.kind !== 'number')
+    .map(answerValueText)
+
+  const quantityOf = (snapshot: CaptureSnapshotDto) =>
+    quantityText(snapshot.lots.find((lot) => lot.id === subjectId)?.quantity)
+
+  return ask.fields.map((field) => {
+    if (field === 'quantity' && subjectId) {
+      return {
+        kind: 'field' as const,
+        subject_id: subjectId,
+        field,
+        from: quantityOf(before),
+        to: quantityOf(after),
+      }
+    }
+    return {
+      kind: 'field' as const,
+      subject_id: subjectId,
+      field,
+      from: null,
+      to: words.length ? changeText(words.join('; ')) : null,
+    }
+  })
 }
 
 /**
@@ -248,7 +270,9 @@ export async function answerSessionQuestion(
   if (plan.checkPayload) {
     await requireInboxPayloadFits(client, plan.inboxPayload)
   }
+  const before = await captureInTransaction(client, config, batchId)
   const snapshot = await capture.applyInOrder(plan.edits(input.expected_capture_revision))
+  const after = await captureInTransaction(client, config, batchId)
   const value = sealed({ ...input, question_id: questionId })
   await executeDatabaseQuery(
     queryDatabase(client)
@@ -292,7 +316,7 @@ export async function answerSessionQuestion(
     message: `A question was answered: ${plan.title}`,
     key: `answer:${questionId}`,
     except: job.id,
-    changes: answeredChanges(ask, input, subjectId),
+    changes: answeredChanges(ask, input, subjectId, before.snapshot, after.snapshot),
     context: { origin: { by: 'operator' }, briefRevision: snapshot.revision },
   })
   await capture.publish()

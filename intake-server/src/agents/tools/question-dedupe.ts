@@ -65,10 +65,7 @@ function covers(earlier: Covered | undefined, basis: QuestionBasis) {
 function overlaps(question: StoredQuestion, ask: SessionAskArgsV2Dto) {
   const live = question.state === 'open' || question.state === 'answered'
   const sameSubject = question.subjectId === ask.subject_id
-  const replaced = question.id === ask.replaces
-  return (
-    live && sameSubject && !replaced && question.fields.some((field) => ask.fields.includes(field))
-  )
+  return live && sameSubject && question.fields.some((field) => ask.fields.includes(field))
 }
 
 /**
